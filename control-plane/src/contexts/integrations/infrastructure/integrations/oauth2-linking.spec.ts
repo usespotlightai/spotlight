@@ -1,10 +1,16 @@
 import { createHash } from 'node:crypto';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import {
+  scopedTo,
+  unscoped,
+} from '@identity/application/ports/workspace-outbound-scope.fake-spec';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
-import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
 import type { OAuth2LinkInput } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -16,19 +22,17 @@ import { operationsContaining } from '@integrations/integrations.documents.fake-
 import { discoveringNothing } from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import {
-  scopedTo,
-  unscoped,
-} from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const expressions = new CelExpressionEngine();
 
 const TEAM = TeamId.of('team_1');
+
+const SLACK_KEY = IntegrationKey.of('slack');
 const BASE = 'https://app.example';
 
 const SLACK = `
@@ -75,15 +79,14 @@ const linking = (
     over.clients ?? '{"slack":{"id":"c-1","secret":"s-1"}}',
   );
   const allowedWhileRegistering: boolean[] = [];
-  const clients: OAuth2ClientsPort = {
-    ...configured,
-    clientFor: async (...args) => {
-      allowedWhileRegistering.push(
-        OutboundScope.allows('slack.com'),
-        OutboundScope.allows('elsewhere.example'),
-      );
-      return configured.clientFor(...args);
-    },
+  const discovery = discoveringNothing();
+  const discovering = discovery.endpoints.bind(discovery);
+  discovery.endpoints = async (oauth2) => {
+    allowedWhileRegistering.push(
+      OutboundScope.allows('slack.com'),
+      OutboundScope.allows('elsewhere.example'),
+    );
+    return discovering(oauth2);
   };
   const exchanged = 'exchanged' in over ? over.exchanged : TOKENS;
   const allowedWhileExchanging: boolean[] = [];
@@ -105,11 +108,11 @@ const linking = (
     },
   };
 
-  const it = new OAuth2Linking(
+  const linked = new OAuth2Linking(
     { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
     new IntegrationReader(expressions, operationsContaining()),
-    discoveringNothing(),
-    clients,
+    discovery,
+    configured,
     { exchange } as unknown as OAuth2Exchange,
     {
       find: async () =>
@@ -131,6 +134,24 @@ const linking = (
     over.hosts ?? unscoped,
   );
 
+  const registered = (integration: string): Promise<OAuth2Client | null> =>
+    configured.existingFor(TEAM, IntegrationKey.of(integration), null);
+  const it = {
+    authorized: linked.authorized.bind(linked),
+    landingFor: linked.landingFor.bind(linked),
+    begin: async (input: OAuth2LinkInput) => {
+      const registration = await linked.registrationFor(
+        input.teamId,
+        input.integration,
+      );
+      const client = registration
+        ? await registered(input.integration.value)
+        : null;
+
+      return client ? linked.begin(input, client) : null;
+    },
+  };
+
   return { it, exchange, allowedWhileExchanging, allowedWhileRegistering };
 };
 
@@ -145,13 +166,15 @@ const signed = (integration = 'slack', by = 'user_1', nonce = 'n-1') =>
   }).token;
 
 const linkInput = (over: Partial<OAuth2LinkInput> = {}): OAuth2LinkInput => ({
-  teamId: 'team_1',
-  integration: 'slack',
-  by: 'user_1',
+  teamId: TEAM,
+  integration: IntegrationKey.of('slack'),
+  by: UserId.of('user_1'),
   owner: 'team',
   returnTo: null,
   ...over,
 });
+
+const viewerOf = (id: string | null) => (id === null ? null : UserId.of(id));
 
 const returned = (
   over: {
@@ -163,7 +186,7 @@ const returned = (
   state: over.state ?? signed(),
   code: 'the-code',
   nonce: 'nonce' in over ? (over.nonce ?? null) : 'n-1',
-  viewerId: 'viewerId' in over ? (over.viewerId ?? null) : 'user_1',
+  viewerId: viewerOf('viewerId' in over ? (over.viewerId ?? null) : 'user_1'),
 });
 
 describe('OAuth2Linking', () => {
@@ -203,7 +226,9 @@ describe('OAuth2Linking', () => {
   it('will not begin for an integration that the team does not connect this way', async () => {
     const { it } = linking();
 
-    expect(await it.begin(linkInput({ integration: 'linear' }))).toBeNull();
+    expect(
+      await it.begin(linkInput({ integration: IntegrationKey.of('linear') })),
+    ).toBeNull();
   });
 
   it('turns a returning code into tokens, with who signed it', async () => {
@@ -212,9 +237,9 @@ describe('OAuth2Linking', () => {
     const authorized = await it.authorized(returned());
 
     expect(exchange).toHaveBeenCalledOnce();
-    expect(authorized?.teamId).toBe('team_1');
-    expect(authorized?.integration).toBe('slack');
-    expect(authorized?.by).toBe('user_1');
+    expect(authorized?.teamId.value).toBe('team_1');
+    expect(authorized?.integration.value).toBe('slack');
+    expect(authorized?.by.value).toBe('user_1');
     expect(authorized?.owner).toBe('person');
     expect(authorized?.returnTo).toBe('/w/acme/inbox/task_1');
     expect(authorized?.tokens.accessToken.value).toBe('xoxb-1');
@@ -230,13 +255,16 @@ describe('OAuth2Linking', () => {
     expect(allowedWhileExchanging).toEqual([true, false]);
   });
 
-  it('begins, discovering and registering the app, within the outbound scope of the team’s workspace', async () => {
+  it('reads how to register the app within the outbound scope of the team’s workspace', async () => {
     const { it, allowedWhileRegistering } = linking({
       hosts: scopedTo('slack.com'),
     });
 
     expect(await it.begin(linkInput())).not.toBeNull();
-    expect(allowedWhileRegistering).toEqual([true, false]);
+    expect(new Set(allowedWhileRegistering)).toEqual(new Set([true, false]));
+    expect(allowedWhileRegistering).toEqual(
+      allowedWhileRegistering.map((_, at) => at % 2 === 0),
+    );
   });
 
   it('calls nothing for a team it cannot find', async () => {
@@ -302,7 +330,7 @@ describe('OAuth2Linking', () => {
   it('sends the browser back to where the link began', async () => {
     const { it } = linking();
 
-    expect(await it.landingFor('team_1', 'slack', null)).toBe(
+    expect(await it.landingFor(TEAM, SLACK_KEY, null)).toBe(
       'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
     );
   });
@@ -310,9 +338,9 @@ describe('OAuth2Linking', () => {
   it('lands back on the inbox item that asked for the connection', async () => {
     const { it } = linking();
 
-    expect(
-      await it.landingFor('team_1', 'slack', '/w/acme/inbox/task_1:0'),
-    ).toBe('https://app.example/w/acme/inbox/task_1:0?connected=slack');
+    expect(await it.landingFor(TEAM, SLACK_KEY, '/w/acme/inbox/task_1:0')).toBe(
+      'https://app.example/w/acme/inbox/task_1:0?connected=slack',
+    );
   });
 
   it('never lands anywhere outside the app', async () => {
@@ -326,7 +354,7 @@ describe('OAuth2Linking', () => {
       '/w/acme/inbox?next=https://evil.example',
       '/w/acme/runs',
     ]) {
-      expect(await it.landingFor('team_1', 'slack', returnTo)).toBe(
+      expect(await it.landingFor(TEAM, SLACK_KEY, returnTo)).toBe(
         'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
       );
     }
@@ -389,7 +417,10 @@ describe('OAuth2Linking', () => {
     );
 
     const plain = new URL((await it.begin(linkInput()))?.url ?? '');
-    const named = new URL((await withResource.begin(linkInput()))?.url ?? '');
+    const named = new URL(
+      (await withResource.begin(linkInput(), { id: 'c-1', secret: 's-1' }))
+        ?.url ?? '',
+    );
 
     expect(plain.searchParams.has('resource')).toBe(false);
     expect(named.searchParams.get('resource')).toBe('https://mcp.slack.com/');

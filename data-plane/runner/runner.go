@@ -157,6 +157,15 @@ func (r runner) supervise(ctx context.Context, assigned protocol.Assignment, del
 	log.Info("supervising the sandbox")
 
 	archives := r.openSandbox(ctx, assigned, log)
+	if warm := assigned.Work.Warm; assigned.StartsSandboxOnly() && warm != nil {
+		if err := r.sandbox.Warm(ctx, *warm, session.WarmOptions{
+			Mirrors: os.Getenv("SPOTLIGHT_MIRRORS"), AgentUser: r.agentUser, ProxyEnv: r.proxyEnv, Log: log,
+		}); err != nil {
+			log.Error("could not warm the sandbox, so it drains", "line", warm.Line, "error", err)
+			return
+		}
+		log.Info("the sandbox is warm", "line", warm.Line)
+	}
 	if err := os.WriteFile(workspaceOpenPath, nil, 0o644); err != nil {
 		log.Warn("could not tell editors that the workspace is open; they wait for it", "error", err)
 	}
@@ -313,18 +322,19 @@ func (r runner) execute(ctx context.Context, client *control.Client, run protoco
 	}
 
 	err := r.sandbox.Execute(running, run, session.Options{
-		Workspace:    r.cfg.Workspace,
-		Journal:      journal,
-		Log:          r.log,
-		AgentUser:    r.agentUser,
-		Author:       r.cfg.Author,
-		Mirrors:      os.Getenv("SPOTLIGHT_MIRRORS"),
-		ControlPlane: r.cfg.URL,
-		Token:        client.Token(),
-		Transport:    r.transport,
-		ProxyEnv:     r.proxyEnv,
-		Enforced:     r.enforced(),
-		Unready:      r.unready,
+		Workspace:      r.cfg.Workspace,
+		Journal:        journal,
+		Log:            r.log,
+		AgentUser:      r.agentUser,
+		Author:         r.cfg.Author,
+		Mirrors:        os.Getenv("SPOTLIGHT_MIRRORS"),
+		ControlPlane:   r.cfg.URL,
+		Token:          client.Token(),
+		Transport:      r.transport,
+		ProxyEnv:       r.proxyEnv,
+		Enforced:       r.enforced(),
+		Unready:        r.unready,
+		BackgroundWait: r.cfg.BackgroundWait,
 	})
 	if err == nil {
 		return

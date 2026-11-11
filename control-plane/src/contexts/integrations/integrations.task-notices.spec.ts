@@ -1,3 +1,4 @@
+import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type {
@@ -7,12 +8,14 @@ import type {
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
+import { NotifyTask } from '@integrations/application/services/notify-task.service';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
+import { WebInboxLinks } from '@integrations/infrastructure/links/web-inbox-links';
 import {
   HttpOutbound,
   type OutboundResult,
@@ -31,13 +34,26 @@ import {
   callAuthFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
-import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
+import type { TaskLinksPort } from '@work/application/ports/task-links.port';
 import { describe, expect, it, vi } from 'vitest';
+
+const taskLinks: TaskLinksPort = {
+  taskPage: (slug, teamId, taskId) =>
+    `https://app.example/w/${slug}/team/${teamId}/tasks/${taskId}`,
+  conversationPage: (slug, conversationId) =>
+    `https://app.example/w/${slug}/inbox/${conversationId}`,
+  chatPage: (slug, teamId, chatId) =>
+    `https://app.example/w/${slug}/team/${teamId}/agent/${chatId}`,
+};
+
+const taskNotices = (...args: ConstructorParameters<typeof NotifyTask>) =>
+  new TaskNotices(new NotifyTask(...args));
 
 const expressions = new CelExpressionEngine();
 
@@ -113,6 +129,7 @@ const asked = (
   teamId: 'team_1',
   title: 'Drain the queue',
   pullRequest: null,
+  pullRequests: [],
   line: 'delivery',
   station: 'Triage',
   stationKey: 'triage',
@@ -143,7 +160,7 @@ const notifying = (
     ) => reply,
   );
 
-  const notifier = new TaskNotices(
+  const notifier = taskNotices(
     {
       ofTeam: vi.fn(async () => [defined(file)]),
     } as unknown as DefinedIntegrationsPort,
@@ -151,7 +168,7 @@ const notifying = (
     callAuthFor(injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
-      'https://app.example',
+      taskLinks,
     ),
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
@@ -252,7 +269,7 @@ describe('TaskNotices', () => {
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
     await credentials.injectedFor('https://slack.com/api/chat.postMessage', [
-      'SLACK_BOT_TOKEN',
+      SecretName.of('SLACK_BOT_TOKEN'),
     ]);
 
     expect(forSpotlight).toHaveBeenCalledWith({
@@ -270,7 +287,7 @@ describe('TaskNotices', () => {
     expect(run).toHaveBeenCalledTimes(1);
 
     run.mockClear();
-    await notifier.notify(opened, 'task.moved');
+    await notifier.notify(opened, 'task.failed');
     expect(run).not.toHaveBeenCalled();
   });
 });
@@ -459,7 +476,7 @@ const uploading = (
   const sleep = vi.fn(async () => {});
   const warn = vi.fn();
 
-  const notifier = new TaskNotices(
+  const notifier = taskNotices(
     {
       ofTeam: vi.fn(async () => [defined(file)]),
     } as unknown as DefinedIntegrationsPort,
@@ -479,7 +496,7 @@ const uploading = (
     callAuth,
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
-      'https://app.example',
+      taskLinks,
     ),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
@@ -549,7 +566,7 @@ describe('TaskNotices uploads', () => {
     });
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({ error: { status: 500, output: '"OK"' } }),
-      'A service answered a task’s word with an error',
+      'A service answered a task notice with an error',
     );
   });
 
@@ -570,7 +587,7 @@ describe('TaskNotices uploads', () => {
           output: expect.stringContaining('invalid_blocks'),
         }),
       }),
-      'A service answered a task’s word with an error',
+      'A service answered a task notice with an error',
     );
   });
 
@@ -601,7 +618,7 @@ describe('TaskNotices uploads', () => {
   it('sends a file with the connection, and refreshes the connection once where it is refused', async () => {
     const unauthorized = vi.fn(async () => AccessToken.of('at-new'));
     const connected: CallAuth = {
-      workspace: async () => 'ws_1',
+      workspace: async () => WorkspaceId.of('ws_1'),
       connection: {
         token: AccessToken.of('at-old'),
         owner: ConnectionOwner.person(UserId.of('ada')),
@@ -736,7 +753,7 @@ connection:
             'the check of the file shot.png was refused: {"ok":false,"error":"forbidden"}',
         },
       }),
-      'A service answered a task’s word with an error',
+      'A service answered a task notice with an error',
     );
   });
 
@@ -764,7 +781,7 @@ connection:
             'the file shot.png was not ready after 3 attempts: {"ok":true,"file":{}}',
         },
       }),
-      'A service answered a task’s word with an error',
+      'A service answered a task notice with an error',
     );
   });
 

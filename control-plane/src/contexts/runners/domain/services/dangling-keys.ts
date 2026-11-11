@@ -3,7 +3,7 @@ export interface CredentialSourceKeys {
   readonly pools: readonly string[];
 }
 
-export interface DeclaredRunners {
+export interface RunnerKeys {
   readonly trusts: readonly string[];
   readonly pools: readonly string[];
 }
@@ -14,7 +14,7 @@ export interface DanglingKeys {
 }
 
 export const danglingKeysBetween = (
-  declared: DeclaredRunners,
+  declared: RunnerKeys,
   existing: CredentialSourceKeys,
 ): DanglingKeys => ({
   unknownTrusts: declared.trusts.filter(

@@ -1,4 +1,4 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { TrialableRunsPort } from '@replays/application/ports/trialable-runs.port';
 import {
   ReflectionNoticeWording,
   UnreflectedStallWording,
@@ -10,7 +10,7 @@ import {
 } from '@replays/domain/services/reflection-notice';
 
 export class SearchFindings {
-  constructor(private readonly work: WorkPort) {}
+  constructor(private readonly trialableRuns: TrialableRunsPort) {}
 
   async findingsOf(search: Search): Promise<readonly string[]> {
     const notice = this.newestNoticeOf(search);
@@ -63,7 +63,7 @@ export class SearchFindings {
   ): Promise<ReadonlyMap<string, string | null>> {
     return new Map(
       (
-        await this.work.runSummaries(
+        await this.trialableRuns.runSummaries(
           search.workspaceId,
           notice.fixes.map((each) => each.originalRunId),
         )

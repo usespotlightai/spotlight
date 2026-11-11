@@ -1,23 +1,20 @@
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
+import type { BuiltInToolUse } from '@work/application/ports/built-in-tool-uses.port';
 import type {
   ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
+import type { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
 import {
   BUILT_IN_TOOLS,
   builtInTool,
-} from '@work/domain/services/built-in-tools';
-import type { Tool } from '@work/domain/value-objects/tool.vo';
-import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
-
-export const BUILT_IN_TOOL_USES = Symbol('BUILT_IN_TOOL_USES');
-
-export interface BuiltInToolUse<C extends ToolContext = ToolContext> {
-  readonly tool: Tool;
-  call(context: C, inputs: ToolInputs): Promise<unknown>;
-}
+} from '@work/domain/value-objects/built-in-tools';
 
 export class BuiltInTools {
-  constructor(private readonly uses: readonly BuiltInToolUse[]) {
+  constructor(
+    private readonly uses: readonly BuiltInToolUse[],
+    private readonly extensions: ChatToolExtensions,
+  ) {
     for (const each of BUILT_IN_TOOLS) {
       if (!uses.some((use) => use.tool.equals(each.declared.tool))) {
         throw new Error(
@@ -31,6 +28,10 @@ export class BuiltInTools {
     const built = builtInTool(tool);
     const use = this.uses.find((each) => each.tool.equals(tool));
 
+    if (!built && context.kind === 'chat') {
+      return this.extensions.resolve(tool, context);
+    }
+
     return built && use && built.worksOn === context.kind
       ? {
           declared: built.declared,
@@ -38,7 +39,10 @@ export class BuiltInTools {
           missing: null,
           personRule: null,
           defaultFor: () => undefined,
-          call: (inputs) => use.call(context, inputs),
+          call: async (inputs) => ({
+            outcome: 'answered',
+            output: await use.call(context, inputs),
+          }),
         }
       : null;
   }

@@ -6,9 +6,9 @@ import type {
 import type { SpecReaderPort } from '@integrations/application/ports/spec-reader.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
-import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { SpecDocumentRepository } from '@integrations/domain/repositories/spec-document.repository';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -38,7 +38,7 @@ export class IntegrationSpecs {
     current: SpecFetchResult | null;
     refreshingSpec?: boolean;
   }): Promise<IntegrationWithSpec> {
-    const first = this.compiler.compile(input.definition);
+    const first = this.compiler.compile(input.definition, null);
 
     if (!first.ok || !first.spec) {
       return { compiled: first, reading: null };
@@ -76,7 +76,7 @@ export class IntegrationSpecs {
   }): Promise<SpecForDefinition> {
     const stored = await this.storedFor(input.current, input.spec);
 
-    if (input.current && stored && !input.current.problem) {
+    if (stored && input.current?.spareReadingFor(input.spec)) {
       return {
         reading: input.current.withSkipped(stored.skipped),
         specOperations: { hash: stored.hash, operations: stored.operations },
@@ -90,9 +90,9 @@ export class IntegrationSpecs {
     current: SpecFetchResult | null,
     spec: ApiSpec,
   ): Promise<SpecDocument | null> {
-    return current?.isOf(spec) && current.hash
-      ? this.documents.withHash(current.hash)
-      : null;
+    const kept = current?.documentKeptFor(spec) ?? null;
+
+    return kept ? this.documents.withHash(kept) : null;
   }
 
   private async read(input: {
@@ -108,26 +108,24 @@ export class IntegrationSpecs {
     const readAt = this.clock.now();
 
     if (read.kind === 'unread') {
-      const stored = await this.storedFor(input.current, input.spec);
+      const stored = input.current
+        ? await this.storedFor(input.current, input.spec)
+        : null;
 
-      return input.current && stored
-        ? {
-            reading: input.current
-              .stillAfter(read.problem)
-              .withSkipped(stored.skipped),
-            specOperations: {
-              hash: stored.hash,
-              operations: stored.operations,
-            },
-          }
-        : {
-            reading: SpecFetchResult.failed({
-              spec: input.spec,
-              readAt,
-              problem: read.problem,
-            }),
-            specOperations: null,
-          };
+      return {
+        reading: SpecFetchResult.unread({
+          spec: input.spec,
+          readAt,
+          problem: read.problem,
+          kept:
+            input.current && stored
+              ? { earlier: input.current, skipped: stored.skipped }
+              : null,
+        }),
+        specOperations: stored
+          ? { hash: stored.hash, operations: stored.operations }
+          : null,
+      };
     }
 
     const document =

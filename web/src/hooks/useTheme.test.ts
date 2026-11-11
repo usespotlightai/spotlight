@@ -35,6 +35,26 @@ afterEach(() => {
 });
 
 describe('useTheme', () => {
+  it('tells the desktop app the chosen theme, so that its window follows', () => {
+    const setTheme = vi.fn();
+    Object.assign(window, {
+      spotlightDesktop: {
+        platform: 'darwin',
+        setBadge() {},
+        show() {},
+        authorize() {},
+        setTheme,
+      },
+    });
+    const { result } = renderHook(() => useTheme());
+
+    act(() => result.current.setTheme('dark'));
+
+    expect(setTheme).toHaveBeenCalledWith('dark');
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+    Reflect.deleteProperty(window, 'spotlightDesktop');
+  });
+
   it('defaults to system', () => {
     const { result } = renderHook(useTheme);
 
@@ -92,18 +112,27 @@ describe('useTheme', () => {
   });
 });
 
-describe('index.html', () => {
-  it('reads the same storage key as the hook', () => {
-    const html = readFileSync('index.html', 'utf8');
+describe('theme.js', () => {
+  const script = () => readFileSync('public/theme.js', 'utf8');
 
-    expect(html).toContain(`localStorage.getItem('${THEME_STORAGE_KEY}')`);
+  it('reads the same storage key as the hook', () => {
+    expect(script()).toContain(`localStorage.getItem('${THEME_STORAGE_KEY}')`);
   });
 
-  describe('inline script', () => {
+  it('loads before the app from index.html', () => {
+    const html = readFileSync('index.html', 'utf8');
+
+    expect(html.indexOf('<script src="/theme.js"></script>')).toBeGreaterThan(
+      -1,
+    );
+    expect(html.indexOf('/theme.js')).toBeLessThan(
+      html.indexOf('/src/main.tsx'),
+    );
+  });
+
+  describe('script', () => {
     const runScript = () => {
-      const html = readFileSync('index.html', 'utf8');
-      const start = html.indexOf('<script>') + '<script>'.length;
-      new Function(html.slice(start, html.indexOf('</script>', start)))();
+      new Function(script())();
     };
 
     it('does not override a stored light theme on OS change', () => {

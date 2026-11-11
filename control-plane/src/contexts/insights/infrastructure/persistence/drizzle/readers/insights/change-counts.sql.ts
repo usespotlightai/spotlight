@@ -12,7 +12,7 @@ import {
 import { rateOfScore } from '@insights/infrastructure/persistence/drizzle/readers/insights/judge-rate.sql';
 import {
   type GroupColumns,
-  groupCountsOf,
+  groupCountsOfRow,
   inEndOrder,
   iso,
   measuredColumns,
@@ -58,8 +58,8 @@ const shownMarkers = (team: TeamInPeriod): SQL => {
     facts as (
       select ${runFact}.* from ${runFact}
       where ${onTeam(team)}
-        and ${runFact.beganAt} >= ${iso(lookback.from)}::timestamp
-        and ${runFact.beganAt} < ${iso(lookback.to)}::timestamp
+        and ${runFact.beganAt} >= ${iso(lookback.from)}::timestamptz
+        and ${runFact.beganAt} < ${iso(lookback.to)}::timestamptz
     ),
     markers as (${configMarkers(team, lookback)}),
     placed as (
@@ -77,8 +77,8 @@ const shownMarkers = (team: TeamInPeriod): SQL => {
     ),
     shown as (
       select * from placed
-      where placed.began_at >= ${iso(current.from)}::timestamp
-        and placed.began_at < ${iso(current.to)}::timestamp
+      where placed.began_at >= ${iso(current.from)}::timestamptz
+        and placed.began_at < ${iso(current.to)}::timestamptz
     )`;
 };
 
@@ -188,7 +188,10 @@ export const changeCountsIn = async (
   const rubrics = await rubricsIn(db, team);
   const keyOf = (marker: string, side: Side) => JSON.stringify([marker, side]);
   const sidesBy = new Map(
-    sides.map((each) => [keyOf(each.marker, each.side), groupCountsOf(each)]),
+    sides.map((each) => [
+      keyOf(each.marker, each.side),
+      groupCountsOfRow(each),
+    ]),
   );
   const judgedBy = new Map<string, RubricRates[]>();
 

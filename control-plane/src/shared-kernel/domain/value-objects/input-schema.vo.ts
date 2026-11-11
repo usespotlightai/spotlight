@@ -5,7 +5,7 @@ import {
   type JsonValue,
   owns,
   sameJson,
-} from '@shared-kernel/domain/services/json-value';
+} from '@shared-kernel/domain/json-value';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const INPUT_TYPES = [

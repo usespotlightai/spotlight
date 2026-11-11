@@ -8,7 +8,6 @@ import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import {
-  team,
   workspaceInvite,
   workspaceInviteTeam,
 } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
@@ -26,7 +25,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, inArray, isNull, type SQL, sql } from 'drizzle-orm';
+import { and, desc, eq, type SQL, sql } from 'drizzle-orm';
 
 type Row = typeof workspaceInvite.$inferSelect;
 
@@ -50,7 +49,9 @@ export class DrizzleWorkspaceInviteRepository
 
   private async inserted(added: WorkspaceInvite): Promise<void> {
     try {
-      await this.context.db.insert(workspaceInvite).values(this.written(added));
+      await this.context.db
+        .insert(workspaceInvite)
+        .values({ ...this.written(added), version: added.version });
     } catch (error) {
       if (
         violates(error, UNIQUE_VIOLATION, 'workspace_invite_workspace_email')
@@ -105,15 +106,40 @@ export class DrizzleWorkspaceInviteRepository
       return;
     }
 
-    await this.context.db.insert(workspaceInviteTeam).select(
-      this.context.db
-        .select({
-          inviteId: sql<string>`${invite.id.value}::text`.as('invite_id'),
-          teamId: team.id,
-        })
-        .from(team)
-        .where(inArray(team.id, teams)),
-    );
+    await this.context.db
+      .insert(workspaceInviteTeam)
+      .values(teams.map((teamId) => ({ inviteId: invite.id.value, teamId })));
+  }
+
+  async remove(removed: WorkspaceInvite): Promise<void> {
+    await this.context.inTransaction(async () => {
+      const deleted = await this.context.db
+        .delete(workspaceInvite)
+        .where(
+          and(
+            eq(workspaceInvite.id, removed.id.value),
+            eq(workspaceInvite.version, removed.version),
+          ),
+        )
+        .returning({ id: workspaceInvite.id });
+
+      if (deleted.length === 0) {
+        throw new InviteVersionConflictError(removed.id.value);
+      }
+
+      await this.events.dispatch(removed.pullEvents());
+    });
+  }
+
+  async ofWorkspace(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly WorkspaceInvite[]> {
+    const rows = await this.context.db
+      .select()
+      .from(workspaceInvite)
+      .where(eq(workspaceInvite.workspaceId, workspaceId.value));
+
+    return Promise.all(rows.map((row) => this.withTeams(row)));
   }
 
   async find(id: InviteId): Promise<WorkspaceInvite | null> {
@@ -124,7 +150,7 @@ export class DrizzleWorkspaceInviteRepository
     return this.first(eq(workspaceInvite.tokenHash, hash.value));
   }
 
-  async notEndedTo(
+  async latestTo(
     workspaceId: WorkspaceId,
     email: EmailAddress,
   ): Promise<WorkspaceInvite | null> {
@@ -132,8 +158,6 @@ export class DrizzleWorkspaceInviteRepository
       and(
         eq(workspaceInvite.workspaceId, workspaceId.value),
         sql`lower(${workspaceInvite.email}) = ${email.value}`,
-        isNull(workspaceInvite.acceptedAt),
-        isNull(workspaceInvite.revokedAt),
       ),
     );
   }
@@ -148,17 +172,17 @@ export class DrizzleWorkspaceInviteRepository
       .orderBy(desc(workspaceInvite.invitedAt))
       .limit(1);
 
-    if (!found) {
-      return null;
-    }
+    return found ? this.withTeams(found) : null;
+  }
 
+  private async withTeams(row: Row): Promise<WorkspaceInvite> {
     const joining = await this.context.db
       .select({ teamId: workspaceInviteTeam.teamId })
       .from(workspaceInviteTeam)
-      .where(eq(workspaceInviteTeam.inviteId, found.id));
+      .where(eq(workspaceInviteTeam.inviteId, row.id));
 
     return this.rehydrated(
-      found,
+      row,
       joining.map((each) => TeamId.of(each.teamId)),
     );
   }
@@ -170,13 +194,13 @@ export class DrizzleWorkspaceInviteRepository
       email: invite.email.value,
       role: invite.spec.role.value,
       tokenHash: invite.tokenHash.value,
-      invitedBy: invite.invitedBy?.value ?? null,
+      invitedById: invite.invitedBy?.value ?? null,
       invitedAt: invite.invitedAt,
       expiresAt: invite.expiresAt,
       acceptedAt: invite.acceptedAt,
-      acceptedBy: invite.acceptedBy?.value ?? null,
+      acceptedById: invite.acceptedBy?.value ?? null,
       revokedAt: invite.revokedAt,
-    };
+    } satisfies typeof workspaceInvite.$inferInsert;
   }
 
   private rehydrated(row: Row, teams: readonly TeamId[]): WorkspaceInvite {
@@ -186,11 +210,11 @@ export class DrizzleWorkspaceInviteRepository
       email: EmailAddress.of(row.email),
       spec: InviteSpec.of(WorkspaceRole.of(row.role), teams),
       tokenHash: TokenHash.of(row.tokenHash),
-      invitedBy: row.invitedBy ? UserId.of(row.invitedBy) : null,
+      invitedBy: row.invitedById ? UserId.of(row.invitedById) : null,
       invitedAt: row.invitedAt,
       expiresAt: row.expiresAt,
       acceptedAt: row.acceptedAt,
-      acceptedBy: row.acceptedBy ? UserId.of(row.acceptedBy) : null,
+      acceptedBy: row.acceptedById ? UserId.of(row.acceptedById) : null,
       revokedAt: row.revokedAt,
       version: row.version,
     });

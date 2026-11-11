@@ -32,6 +32,8 @@ const shared = {
     alias: {
       '@platform': resolve(__dirname, 'src/platform'),
       '@shared-kernel': resolve(__dirname, 'src/shared-kernel'),
+      '@lines': resolve(__dirname, 'src/contexts/lines'),
+      '@runs': resolve(__dirname, 'src/contexts/runs'),
       '@work': resolve(__dirname, 'src/contexts/work'),
       '@runners': resolve(__dirname, 'src/contexts/runners'),
       '@change-review': resolve(__dirname, 'src/contexts/change-review'),
@@ -44,6 +46,7 @@ const shared = {
       '@identity': resolve(__dirname, 'src/contexts/identity'),
       '@secrets': resolve(__dirname, 'src/contexts/secrets'),
       '@catalog': resolve(__dirname, 'src/contexts/catalog'),
+      '@notifications': resolve(__dirname, 'src/contexts/notifications'),
       '@': resolve(__dirname, 'src'),
     },
   },
@@ -58,7 +61,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/**/*.spec.ts'],
+          include: ['src/**/*.spec.ts', 'test/architecture/**/*.spec.ts'],
           restoreMocks: true,
         },
       },

@@ -19,7 +19,7 @@ import {
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
 
-const declarationOf = (declared: WorkspaceRunners) => ({
+const workspaceRunnersOf = (declared: WorkspaceRunners) => ({
   trusts: declared.trusts.map((each) => each.value),
   pools: declared.pools.map((each) => each.value),
 });
@@ -40,7 +40,7 @@ export class DrizzleWorkspaceRunnersRepository
         await this.context.db.insert(workspaceRunners).values({
           id: added.id.value,
           workspaceId: added.workspaceId.value,
-          ...declarationOf(added),
+          ...workspaceRunnersOf(added),
           version: added.version,
         });
       } catch (error) {
@@ -68,7 +68,7 @@ export class DrizzleWorkspaceRunnersRepository
             .returning({ id: workspaceRunners.id })
         : await this.context.db
             .update(workspaceRunners)
-            .set({ ...declarationOf(saved), version: saved.version + 1 })
+            .set({ ...workspaceRunnersOf(saved), version: saved.version + 1 })
             .where(matching)
             .returning({ id: workspaceRunners.id });
 
@@ -84,7 +84,7 @@ export class DrizzleWorkspaceRunnersRepository
     return this.first(eq(workspaceRunners.id, id.value));
   }
 
-  declaredIn(workspaceId: WorkspaceId): Promise<WorkspaceRunners | null> {
+  ofWorkspace(workspaceId: WorkspaceId): Promise<WorkspaceRunners | null> {
     return this.first(eq(workspaceRunners.workspaceId, workspaceId.value));
   }
 

@@ -12,6 +12,7 @@ const task = {
   description: '## Steps\n\nReproduce, then fix.',
   attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
+  pullRequests: [],
 };
 
 const worked = vi.fn((): unknown[] => []);
@@ -24,8 +25,10 @@ const refetch = vi.fn();
 const stacked = vi.fn((): unknown => ({ latest: null }));
 
 vi.mock('@/hooks/api/useTasks', () => ({
-  useTasks: () => ({
-    data: listed(),
+  useTask: (_teamId: string, taskId: string) => ({
+    data: (listed() as { id: string }[] | undefined)?.find(
+      (each) => each.id === taskId,
+    ),
     isPending: listed() === undefined,
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
@@ -77,7 +80,10 @@ vi.mock('@/hooks/api/useTaskChangeStack', () => ({
   useTaskChangeStack: () => ({ data: stacked() }),
 }));
 vi.mock('@/hooks/api/useTaskJournal', () => ({
-  useTaskJournal: () => ({ data: journalled() }),
+  useTaskJournal: () => ({
+    data: journalled(),
+    demand: { runs: [], want: () => {} },
+  }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({

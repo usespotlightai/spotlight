@@ -193,7 +193,20 @@ export const splitHunk = (
 };
 
 export class Diff {
-  private constructor(readonly files: readonly DiffFile[]) {}
+  readonly #filesByHunk: ReadonlyMap<string, DiffFile>;
+
+  private constructor(readonly files: readonly DiffFile[]) {
+    const indexed = new Map<string, DiffFile>();
+
+    for (const file of files) {
+      for (const hunk of file.hunks) {
+        if (!indexed.has(hunk.id)) {
+          indexed.set(hunk.id, file);
+        }
+      }
+    }
+    this.#filesByHunk = indexed;
+  }
 
   static readable(text: string): string {
     if (text.length > MAX_DIFF_LENGTH) {
@@ -253,12 +266,12 @@ export class Diff {
     return this.files.flatMap((file) => file.hunks);
   }
 
-  fileOf(hunkId: string): DiffFile | null {
-    return (
-      this.files.find((file) =>
-        file.hunks.some((hunk) => hunk.id === hunkId),
-      ) ?? null
-    );
+  fileOf(hunkId: HunkId): DiffFile | null {
+    return this.#filesByHunk.get(hunkId) ?? null;
+  }
+
+  pathsOf(hunkIds: readonly HunkId[]): Set<string> {
+    return new Set(hunkIds.flatMap((id) => this.fileOf(id)?.path ?? []));
   }
 
   equals(other: Diff): boolean {

@@ -373,2075 +373,6 @@ export type LineResourceListResponseDto = {
   items: Array<LineResourceResponseDto>;
 };
 
-export type EnqueueRunRequestDto = {
-  /**
-   * The harness to work this run. Only runners that have it may take it.
-   */
-  harness: string;
-  /**
-   * Sent to the runner unchanged: checkouts, briefing, handover and resume. The command is filled in from the harness, so it is not sent here.
-   */
-  spec: {
-    [key: string]: unknown;
-  };
-};
-
-export type EnqueuedRunResponseDto = {
-  id: string;
-  harness: string;
-  state: string;
-};
-
-export type HarnessProbeResponseDto = {
-  id: string;
-  /**
-   * What to look for on the runner’s PATH.
-   */
-  executable: string;
-  /**
-   * What to run to list this harness’s models, argv-style. Empty where the CLI cannot enumerate them.
-   */
-  discovery: Array<string>;
-  /**
-   * What to run to learn which release of this harness is installed, argv-style; the first version-shaped word it prints is the release.
-   */
-  versionProbe: Array<string>;
-};
-
-export type ClaimedRunResponseDto = {
-  id: string;
-  /**
-   * The harness the run needs, so a host can tell whether the image it pulled still contains it
-   */
-  harness: string;
-  /**
-   * Which attempt of the run this is, so what the runner reports for it is not taken for a later one
-   */
-  attempt: number;
-  /**
-   * What the runner lays out and starts, as the runner reads it
-   */
-  spec: {
-    [key: string]: unknown;
-  };
-};
-
-export type ClaimedCheckStepResponseDto = {
-  /**
-   * The whole change, or the layer this step covers
-   */
-  id: string;
-  /**
-   * What to apply on the base before running
-   */
-  patch: string;
-  /**
-   * Whether a failure here leaves the later steps unrun
-   */
-  stopsOnFailure: boolean;
-  /**
-   * Whether the checkout must be made ready again once this step applies, because it installs something the step before it did not
-   */
-  runsSetup: boolean;
-};
-
-export type ClaimedCheckResponseDto = {
-  stackId: string;
-  /**
-   * It checks a replay’s change a second time; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found
-   */
-  recheck: boolean;
-  runId: string;
-  /**
-   * Which checkout to check
-   */
-  repository: {
-    [key: string]: unknown;
-  } | null;
-  /**
-   * The commit to check out
-   */
-  base: {
-    [key: string]: unknown;
-  } | null;
-  /**
-   * What makes the checkout ready before the check runs
-   */
-  setup: {
-    [key: string]: unknown;
-  } | null;
-  command: string;
-  steps: Array<ClaimedCheckStepResponseDto>;
-};
-
-export type ClaimedWorkResponseDto = {
-  /**
-   * `sandbox` is only for a host claim: start a sandbox with no run in it
-   */
-  kind: 'run' | 'check' | 'sandbox';
-  run: ClaimedRunResponseDto | null;
-  check: ClaimedCheckResponseDto | null;
-};
-
-export type RunAttachmentResponseDto = {
-  id: string;
-  /**
-   * Where in the workspace to put it
-   */
-  path: string;
-};
-
-export type PendingMessageResponseDto = {
-  position: number;
-  body: string;
-  /**
-   * Files to lay out before the words are sent
-   */
-  attachments: Array<RunAttachmentResponseDto>;
-};
-
-export type GrantAttachmentUploadRequestDto = {
-  name: string;
-  /**
-   * Left out where the browser could not tell
-   */
-  contentType?: string;
-  /**
-   * In bytes, at most 25 MB
-   */
-  size: number;
-};
-
-export type AttachmentUploadResponseDto = {
-  /**
-   * What to attach it by, once it is uploaded
-   */
-  id: string;
-  /**
-   * Where to PUT the bytes. Good for a few minutes.
-   */
-  url: string;
-  /**
-   * Sent with the bytes, exactly as given
-   */
-  headers: {
-    [key: string]: string;
-  };
-};
-
-export type StepLocationResponseDto = {
-  path: string;
-  line: number | null;
-};
-
-export type StepChangeResponseDto = {
-  path: string | null;
-  /**
-   * The file before the agent changed it
-   */
-  before: string;
-  /**
-   * The file as the agent left it
-   */
-  after: string;
-};
-
-export type JournalStepResponseDto = {
-  kind: 'message' | 'thought' | 'tool' | 'planned' | 'hook';
-  text: string;
-  status: string | null;
-  /**
-   * What sort of tool it was: execute, read, edit, …
-   */
-  tool: string | null;
-  /**
-   * What the tool answered with, as much of it as is worth reading
-   */
-  detail: string | null;
-  /**
-   * How long it took, in ms
-   */
-  ms: number;
-  /**
-   * When it began, for laying the run out against a clock
-   */
-  startedAt: string;
-  locations: Array<StepLocationResponseDto>;
-  /**
-   * The input of the call, as it was sent
-   */
-  input: string | null;
-  /**
-   * The output of the call, unread
-   */
-  output: string | null;
-  change: StepChangeResponseDto | null;
-};
-
-export type SpanAttributeResponseDto = {
-  name: string;
-  value: string;
-};
-
-export type RunSpanResponseDto = {
-  id: string;
-  parentId: string | null;
-  name: string;
-  startedAt: string;
-  ms: number;
-  failed: boolean;
-  attributes: Array<SpanAttributeResponseDto>;
-};
-
-export type TraceConnectionResponseDto = {
-  host: string;
-  port: number;
-  /**
-   * blocked: egress stopped it. failed: egress could not open it. injected: egress injected a secret into the request
-   */
-  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
-  /**
-   * The status the host answered an injected request with
-   */
-  status: number | null;
-  /**
-   * Why egress blocked the connection or could not open it
-   */
-  reason: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
-  /**
-   * The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error
-   */
-  error: 'blocked' | 'failed' | 'auth-failed' | 'server-error' | null;
-  /**
-   * How many times the same error occurred in this row. The row starts at the first time
-   */
-  count: number;
-};
-
-export type TraceNodeResponseDto = {
-  id: string;
-  kind: 'run' | 'phase' | 'step' | 'span' | 'connection';
-  name: string;
-  startedAt: string;
-  /**
-   * How long it took, in ms
-   */
-  ms: number;
-  /**
-   * The agent working, the overhead around it, or an error
-   */
-  category: 'agent' | 'overhead' | 'failed';
-  cost: number | null;
-  currency: string | null;
-  step: JournalStepResponseDto | null;
-  span: RunSpanResponseDto | null;
-  /**
-   * On a connection row: a connection of the run with an error, as a shared egress recorded it
-   */
-  connection: TraceConnectionResponseDto | null;
-  /**
-   * On a run row: what the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check
-   */
-  egressEnforcement: 'enforced' | 'not-enforced' | null;
-  children: Array<TraceNodeResponseDto>;
-};
-
-export type TaskTraceResponseDto = {
-  startedAt: string | null;
-  /**
-   * First run to last, in ms
-   */
-  ms: number;
-  /**
-   * How many rows it draws
-   */
-  rows: number;
-  errors: number;
-  roots: Array<TraceNodeResponseDto>;
-};
-
-export type HistoryPlaceResponseDto = {
-  key: string;
-  name: string;
-};
-
-export type ProfileViewResponseDto = {
-  key: string;
-  /**
-   * The permissions, MCP servers and native settings it contained
-   */
-  settings: {
-    [key: string]: unknown;
-  };
-};
-
-export type RepositoryViewResponseDto = {
-  name: string;
-  setup: string | null;
-};
-
-export type SkillViewResponseDto = {
-  key: string;
-  /**
-   * The SHA-256 of the skill's files
-   */
-  hash: string;
-};
-
-export type JudgeViewResponseDto = {
-  /**
-   * The SHA-256 of the judge's rubric
-   */
-  rubricHash: string;
-  /**
-   * The share of runs judged
-   */
-  sample: number;
-  /**
-   * How often the judge must agree with people
-   */
-  minAgreement: number;
-};
-
-export type StationConfigResponseDto = {
-  prompt: string | null;
-  harness: string;
-  model: string | null;
-  effort: string | null;
-  profile: ProfileViewResponseDto | null;
-  image: string | null;
-  repositories: Array<RepositoryViewResponseDto>;
-  skills: Array<SkillViewResponseDto>;
-  tools: Array<string>;
-  decisions: boolean;
-  memories: boolean;
-  judge: JudgeViewResponseDto | null;
-};
-
-export type HistoryConfigResponseDto = {
-  /**
-   * The SHA-256 naming this station config
-   */
-  fingerprint: string;
-  config: StationConfigResponseDto;
-};
-
-export type RunUsageResponseDto = {
-  ms: number | null;
-  steps: number;
-  errors: number;
-  contextTokens: number | null;
-  cost: number | null;
-  currency: string | null;
-};
-
-export type TaskHumanActionResponseDto = {
-  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'approved' | 'dismissed' | 'sent-back';
-  at: string;
-};
-
-export type RunOutcomeResponseDto = {
-  ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
-  failure: string | null;
-  /**
-   * How many runs this station has taken on the task, this one included
-   */
-  visit: number;
-  usage: RunUsageResponseDto | null;
-  checks: 'passed' | 'failed' | 'skipped' | null;
-  firstHumanAction: TaskHumanActionResponseDto | null;
-  pullRequestState: 'open' | 'merged' | 'closed' | null;
-};
-
-export type FileChangeResponseDto = {
-  path: string;
-  before: string;
-  after: string;
-  /**
-   * The file was too large to send whole; before and after are empty
-   */
-  omitted: boolean;
-};
-
-export type HistoryRunResponseDto = {
-  runId: string;
-  taskId: string;
-  title: string;
-  fingerprint: string | null;
-  state: string;
-  attempt: number;
-  harness: string;
-  startedAt: string;
-  endedAt: string;
-  outcome: RunOutcomeResponseDto | null;
-  changes: Array<FileChangeResponseDto>;
-  trace: TaskTraceResponseDto;
-};
-
-export type HistoryCandidateRunResponseDto = {
-  /**
-   * The replay run of the candidate
-   */
-  runId: string;
-  /**
-   * The task run it replayed
-   */
-  original: string;
-  /**
-   * Which copy of the task run it is, from 1
-   */
-  repeat: number;
-  taskId: string;
-  title: string;
-  fingerprint: string | null;
-  state: string;
-  attempt: number;
-  harness: string;
-  startedAt: string;
-  endedAt: string;
-  /**
-   * What the replay cost; a replay run has no outcome of its own, so the response shows its cost beside the run
-   */
-  usage: RunUsageResponseDto | null;
-  changes: Array<FileChangeResponseDto>;
-  trace: TaskTraceResponseDto;
-  /**
-   * Whether the replay succeeded; null while it is unscored
-   */
-  succeeded: boolean | null;
-  reasons: Array<string>;
-  verdict: string | null;
-  /**
-   * What the judge says a failing replay should do differently, never its reasons
-   */
-  guidance: string | null;
-};
-
-export type HistoryCandidateResponseDto = {
-  candidateName: string;
-  /**
-   * The SHA-256 naming the candidate’s config
-   */
-  fingerprint: string;
-  /**
-   * Why the search proposed the candidate
-   */
-  hypothesis: string;
-  /**
-   * The candidate’s station block, in the shape that the line resource uses for a station
-   */
-  block: {
-    [key: string]: unknown;
-  };
-  runs: Array<HistoryCandidateRunResponseDto>;
-};
-
-export type RunnerHistoryResponseDto = {
-  line: HistoryPlaceResponseDto;
-  station: HistoryPlaceResponseDto;
-  configs: Array<HistoryConfigResponseDto>;
-  runs: Array<HistoryRunResponseDto>;
-  /**
-   * For a search run, the candidates it proposed and their replay runs; empty for any other run
-   */
-  candidates: Array<HistoryCandidateResponseDto>;
-  /**
-   * For a search run, the station block it started from; null for any other run
-   */
-  seedBlock: {
-    [key: string]: unknown;
-  } | null;
-};
-
-export type AckMessagesRequestDto = {
-  /**
-   * The agent got all the messages up to and including this note
-   */
-  upTo: number;
-};
-
-export type RenewLeaseResponseDto = {
-  /**
-   * Whether a person has requested that the runner stop this run
-   */
-  stop: boolean;
-};
-
-export type RenewCheckLeaseResponseDto = {
-  /**
-   * Whether the runner should stop checking: the check was deleted with its task, ended, or waited too long to be recorded
-   */
-  stop: boolean;
-};
-
-export type RecordRunImageRequestDto = {
-  /**
-   * The image the sandbox started from, named by its digest
-   */
-  image: string;
-};
-
-export type StartedCheckoutRequestDto = {
-  /**
-   * The checkout, by its path in the workspace, as the run received it
-   */
-  path: string;
-  /**
-   * The commit HEAD was at once the workspace was restored and the checkout prepared, as its full SHA
-   */
-  commit: string;
-};
-
-export type RecordStartingPointRequestDto = {
-  /**
-   * The attempt of the run assigned to the runner, as the claim named it
-   */
-  attempt: number;
-  /**
-   * The workspace archive the run restored, or null where it started afresh
-   */
-  archiveId: string | null;
-  checkouts: Array<StartedCheckoutRequestDto>;
-};
-
-export type RunEventRequestDto = {
-  /**
-   * Assigned by the runner, gapless
-   */
-  seq: number;
-  type: string;
-  at: string;
-  message?: string;
-  /**
-   * One session update as the agent reported it, JSON, base64
-   */
-  data?: string;
-};
-
-export type AppendRunEventsRequestDto = {
-  events: Array<RunEventRequestDto>;
-};
-
-export type ToolActingAsResponseDto = {
-  /**
-   * Whose connection the call used: the team’s, or the person’s who started the task
-   */
-  actsAs: 'team' | 'requester';
-  /**
-   * The person whose connection it was, where it was a person’s
-   */
-  personId: string | null;
-  /**
-   * The account name on the service of whoever the call acted as, where the service gives it
-   */
-  linkedAccount: string | null;
-};
-
-export type ToolAnswerResponseDto = {
-  /**
-   * What the tool answered, shaped as the tool shapes it
-   */
-  output: string | number | boolean | {
-    [key: string]: unknown;
-  } | Array<unknown> | null;
-  /**
-   * Whose connection the call acted with, where its integration requires a connection
-   */
-  actingAs: ToolActingAsResponseDto | null;
-};
-
-export type AskPermissionRequestDto = {
-  /**
-   * The harness session asking, so the run that takes the task up again after the answer carries on in it
-   */
-  sessionId?: string;
-  /**
-   * The ACP tool kind the harness sent, as in read, edit or execute
-   */
-  kind?: string;
-  /**
-   * What the harness said it wants to do
-   */
-  title?: string;
-  /**
-   * The tool call’s raw input, as the harness sent it
-   */
-  input?: {
-    [key: string]: unknown;
-  };
-};
-
-export type PermissionAnswerResponseDto = {
-  /**
-   * allow or reject answers the harness now; pending means a person was asked in their inbox, so the run should end its turn and release the task
-   */
-  decision: 'allow' | 'reject' | 'pending';
-};
-
-export type ReplyToReviewCommentRequestDto = {
-  /**
-   * Which review comment, as the briefing named it
-   */
-  handle: string;
-  body: string;
-  /**
-   * Resolve the thread as well as replying to it
-   */
-  resolve?: boolean;
-};
-
-export type HandoverDto = {
-  /**
-   * The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task at its current station. Anything this line does not know is treated as a question for a person.
-   */
-  next: string;
-  /**
-   * What the next station, or the person, should know
-   */
-  note?: string;
-  /**
-   * Files the run uploaded for the note, by the ids its uploads were granted
-   */
-  attachments?: Array<string>;
-};
-
-export type CompleteRunRequestDto = {
-  exitCode: number;
-  failed: boolean;
-  /**
-   * With failed: it failed before the agent was handed the run, while the runner made its workspace ready
-   */
-  setupFailed?: boolean;
-  /**
-   * With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease expired
-   */
-  timedOut?: boolean;
-  message?: string;
-  handover?: HandoverDto;
-  /**
-   * What the harness called this conversation. Reported rather than remembered by the runner, because the next run may fall to another one.
-   */
-  sessionId?: string;
-  /**
-   * A person stopped the run rather than the agent finishing it.
-   */
-  stopped?: boolean;
-};
-
-export type StoredArchiveResponseDto = {
-  id: string;
-  /**
-   * Where to GET the archive, for a quarter of an hour
-   */
-  url: string;
-  size: number;
-  sha256: string;
-};
-
-export type GrantWorkspaceArchiveRequestDto = {
-  /**
-   * The archive’s size in bytes, as it will be uploaded
-   */
-  size: number;
-  /**
-   * The archive’s SHA-256, as 64 hexadecimal digits
-   */
-  sha256: string;
-};
-
-export type ArchiveGrantResponseDto = {
-  id: string;
-  /**
-   * Where to PUT the archive, for a quarter of an hour; the upload must carry every header given
-   */
-  url: string;
-  headers: {
-    [key: string]: string;
-  };
-};
-
-export type PoolQueueResponseDto = {
-  /**
-   * Runs and checks waiting that this pool could take, for an autoscaler to start runners for
-   */
-  pending: number;
-  /**
-   * The pool’s runners that are active now: with a lease on a run or check, or started and yet to claim
-   */
-  running: number;
-  /**
-   * How many more runs the pool may take at once under maxRuns, or null for no limit
-   */
-  capacity: number | null;
-  /**
-   * Of what is pending, how many name each of the pool’s labels in their placement
-   */
-  labels: {
-    [key: string]: number;
-  };
-};
-
-export type HostReleaseResponseDto = {
-  /**
-   * The published release this control plane runs; a host on another release updates to it, unless the operator turned that off. Null when the control plane runs a staging build or does not know its release
-   */
-  release: string | null;
-  /**
-   * The oldest host release this control plane gives work to; an older host gets no work until it updates
-   */
-  minimum: string;
-};
-
-export type RunnerReleaseResponseDto = {
-  /**
-   * The oldest runner release this control plane works with; a host cannot use an image whose runner is older
-   */
-  minimum: string;
-};
-
-export type HostRequirementsResponseDto = {
-  host: HostReleaseResponseDto;
-  runner: RunnerReleaseResponseDto;
-  /**
-   * What a host looks for in each runner image
-   */
-  harnesses: Array<HarnessProbeResponseDto>;
-  /**
-   * The images this workspace’s lines name; a host serves those its allow-list allows, beside its default
-   */
-  images: Array<string>;
-};
-
-export type ClaimHostWorkRequestDto = {
-  /**
-   * The host claiming, as it names itself in its heartbeat
-   */
-  host: string;
-  /**
-   * The runner image this claim will run in, one the host reported that it supports; what it contains and whether it is the default come from that report
-   */
-  image: string;
-  /**
-   * A live sandbox of this host that has no run in it. The claim then takes only a queued run of the task or chat whose workspace that sandbox keeps, and delivers it into that sandbox. The sandbox already holds a capacity slot.
-   */
-  sandbox?: string;
-};
-
-export type HostClaimResponseDto = {
-  /**
-   * The one-run runner Spotlight started for this work. Null for a sandbox with no run.
-   */
-  runnerId: string | null;
-  /**
-   * The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential. Null for a sandbox with no run.
-   */
-  token: string | null;
-  /**
-   * The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox. Null for a sandbox with no run: its egress starts with no secrets.
-   */
-  egressToken: string | null;
-  /**
-   * The sandbox Spotlight started for a run; the host labels its container with it and reports it in each heartbeat. Null for a check.
-   */
-  sandboxId: string | null;
-  /**
-   * The credential of a new sandbox, for its own calls only: restore and archive its workspace. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check.
-   */
-  sandboxToken: string | null;
-  /**
-   * Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its workspace archives. Empty for a run: its egress reads them with the run’s secrets.
-   */
-  allowedHosts: Array<string>;
-  /**
-   * The run goes into the live sandbox the claim named, not into a new one. The host delivers its assignment into that container.
-   */
-  reused: boolean;
-  work: ClaimedWorkResponseDto;
-};
-
-export type ClaimHostCallRequestDto = {
-  /**
-   * The host claiming, as it names itself in its heartbeat
-   */
-  host: string;
-};
-
-export type HostCallResponseDto = {
-  /**
-   * The call, to answer by once it has been sent
-   */
-  id: string;
-  /**
-   * The method to send with
-   */
-  method: string;
-  /**
-   * Where to send it, from inside the host’s network
-   */
-  url: string;
-  /**
-   * Sent with the body, exactly as given
-   */
-  headers: {
-    [key: string]: string;
-  };
-  /**
-   * The body to send, base64
-   */
-  body: string;
-  /**
-   * How long to wait for an answer, in milliseconds
-   */
-  timeoutMs: number;
-  /**
-   * Given only when the call names secrets. Egress redeems the secrets with it once, sealed to a key that it makes for this call alone
-   */
-  secretsToken?: string;
-};
-
-export type RecordHostCallResponseRequestDto = {
-  /**
-   * The host that records the response, the one that claimed the call
-   */
-  host: string;
-  /**
-   * The HTTP status of the response, or 0 when no response came
-   */
-  status: number;
-  /**
-   * The headers of the response
-   */
-  headers?: {
-    [key: string]: string;
-  };
-  /**
-   * The body of the response, base64, at most 256 KiB
-   */
-  body?: string;
-  /**
-   * How long the call took to get a response, in milliseconds
-   */
-  ms: number;
-  /**
-   * Why no response came, when the status is 0
-   */
-  error?: string;
-};
-
-export type RedeemCallSecretsRequestDto = {
-  /**
-   * The host that claimed the call
-   */
-  host: string;
-  /**
-   * The secrets token that the claim gave
-   */
-  token: string;
-  /**
-   * The X25519 public key to seal the values to, 32 bytes in base64
-   */
-  recipient: string;
-};
-
-export type ExternalSecretRefResponseDto = {
-  kind: 'aws-secrets-manager';
-  secretId: string;
-  field: string | null;
-};
-
-export type FetchedSecretResponseDto = {
-  secret: string;
-  /**
-   * The one host that egress injects it for
-   */
-  host: string;
-  /**
-   * Whether egress injects it in a request header or in a query parameter
-   */
-  location: 'header' | 'query';
-  /**
-   * The header or query parameter that contains its stand-in
-   */
-  name: string;
-  prefix: string;
-  /**
-   * The value, sealed to the recipient for this run; null when egress reads it in its own network
-   */
-  sealed: string | null;
-  /**
-   * Where egress reads the value with its host’s own identity; null when Spotlight sealed it
-   */
-  externalRef: ExternalSecretRefResponseDto | null;
-};
-
-export type DeniedSecretResponseDto = {
-  secret: string;
-  reason: string;
-};
-
-export type SpotlightApiResponseDto = {
-  /**
-   * A read and plan token for this run alone, sealed to the recipient; egress injects it for the control plane as a bearer token
-   */
-  sealed: string;
-};
-
-export type EgressSecretsResponseDto = {
-  /**
-   * The run the sealed values are bound to; null when the sandbox checks a change stack and gets no secrets
-   */
-  runId: string | null;
-  /**
-   * Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the host allows
-   */
-  extraAllowedHosts: Array<string>;
-  /**
-   * The hosts the secrets are bound to. Egress decrypts only these hosts, and also the control plane host when spotlightApi is set
-   */
-  bound: Array<string>;
-  secrets: Array<FetchedSecretResponseDto>;
-  /**
-   * The secrets of the run that egress does not get, and why
-   */
-  denied: Array<DeniedSecretResponseDto>;
-  /**
-   * Where the run uses Spotlight’s own API, the token that it uses
-   */
-  spotlightApi: SpotlightApiResponseDto | null;
-};
-
-export type FetchRunSecretsRequestDto = {
-  /**
-   * The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it
-   */
-  recipient: string;
-  /**
-   * The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out
-   */
-  proxyCredential?: string;
-};
-
-export type AuthorizeRunnerRequestDto = {
-  /**
-   * The run proxy credential a runner presented to the egress
-   */
-  proxyCredential: string;
-};
-
-export type EgressAuthorizationResponseDto = {
-  runnerId: string;
-  workspaceId: string;
-  /**
-   * The host of the control plane URL the runner was handed. Before the runner has a run, egress allows it to connect only to this host
-   */
-  controlPlaneHost: string;
-  /**
-   * The port of the control plane URL the runner was handed. Egress allows a sandbox to connect to the control plane host only on this port
-   */
-  controlPlanePort: number;
-  /**
-   * Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the egress allows
-   */
-  extraAllowedHosts: Array<string>;
-};
-
-export type CheckActiveRunsRequestDto = {
-  /**
-   * The run proxy credentials whose runs the egress serves now
-   */
-  proxyCredentials: Array<string>;
-};
-
-export type EgressActiveRunsResponseDto = {
-  /**
-   * The proxy credentials whose runner still leases its work, or has no work yet. Egress evicts the secrets of every other run
-   */
-  active: Array<string>;
-};
-
-export type EgressConnectionRequestDto = {
-  proxyCredential: string;
-  host: string;
-  port: number;
-  /**
-   * Bytes from the sandbox to the host
-   */
-  bytesOut: number;
-  /**
-   * Bytes from the host to the sandbox
-   */
-  bytesIn: number;
-  /**
-   * How long the connection was open
-   */
-  ms: number;
-  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
-  /**
-   * The status the host answered an injected request with. Egress cannot read the status of a passthrough connection
-   */
-  status?: number;
-  /**
-   * Why egress blocked the connection or could not open it. Spotlight drops a record whose reason does not fit its outcome
-   */
-  reason?: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable';
-  at: string;
-};
-
-export type RecordEgressConnectionsRequestDto = {
-  records: Array<EgressConnectionRequestDto>;
-};
-
-export type LeasedRunResponseDto = {
-  id: string;
-  state: string;
-  /**
-   * What the run is for: a task at a station, an agent chat, a replay, a search, or only the spec it was queued with
-   */
-  kind: 'task' | 'chat' | 'replay' | 'search' | 'spec';
-  /**
-   * The team the run is for; null where it is for none
-   */
-  teamId: string | null;
-  /**
-   * Whether the caller reads the run’s team, and so may see its title and open it; false where the run is for no team
-   */
-  readable: boolean;
-  /**
-   * The task’s or chat’s title; null for a replay, a search or a run queued with only a spec, or where the caller cannot read the run’s team
-   */
-  title: string | null;
-};
-
-export type RunnerActivityResponseDto = {
-  runnerId: string;
-  /**
-   * The run the runner is working on
-   */
-  currentRun: LeasedRunResponseDto;
-};
-
-export type HarnessModelResponseDto = {
-  id: string;
-  name: string;
-};
-
-export type HarnessResponseDto = {
-  id: string;
-  name: string;
-  models: Array<HarnessModelResponseDto>;
-  /**
-   * Which model a station runs on where it names none of its own
-   */
-  defaultModel: string;
-  /**
-   * The effort levels this harness offers. Empty where it takes none.
-   */
-  efforts: Array<string>;
-};
-
-export type AttachmentResponseDto = {
-  id: string;
-  name: string;
-  contentType: string;
-  /**
-   * In bytes
-   */
-  size: number;
-};
-
-export type InboxStationResponseDto = {
-  name: string;
-  color: string;
-  position: number;
-};
-
-export type InboxFailureResponseDto = {
-  /**
-   * Where the failure came from: the run, or the hook that failed
-   */
-  source: string;
-  /**
-   * What kind of failure it was
-   */
-  code: string;
-  /**
-   * How many times it happened while this was open, rather than asking again each time
-   */
-  occurrences: number;
-};
-
-export type InboxRequestResponseDto = {
-  /**
-   * The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
-   */
-  form: 'memories' | 'grade' | 'alert';
-  /**
-   * What it is about: for memories, the run that proposed them; for grade, the run to grade
-   */
-  about: string;
-};
-
-export type InboxAuthorResponseDto = {
-  id: string;
-  name: string;
-  image: string | null;
-};
-
-export type InboxApprovalInputResponseDto = {
-  name: string;
-  value: string;
-};
-
-export type InboxApprovalAskedOfResponseDto = {
-  id: string;
-  name: string;
-};
-
-export type InboxApprovalResponseDto = {
-  /**
-   * Whether a tool call or a harness asking permission waits on a person
-   */
-  kind: 'tool-call' | 'harness-permission';
-  /**
-   * The tool, or the harness and the kind of action it asked about, as in claude-code execute
-   */
-  name: string;
-  /**
-   * Why it cannot go ahead until a person says so
-   */
-  because: string;
-  /**
-   * What it would go ahead with, exactly as it is now
-   */
-  inputs: Array<InboxApprovalInputResponseDto>;
-  status: 'pending' | 'approved' | 'dismissed';
-  /**
-   * What it was approved to run with instead, where the person changed it
-   */
-  edited: Array<InboxApprovalInputResponseDto> | null;
-  /**
-   * What the agent said it wants to do, completing “Spotlight would like to …”; absent where it said nothing, as a harness asking permission never does
-   */
-  intent: string | null;
-  /**
-   * The one person who can approve it, where it asks first because of their own rule for their connection; anyone can still dismiss it
-   */
-  askedOf: InboxApprovalAskedOfResponseDto | null;
-};
-
-export type InboxConnectionResponseDto = {
-  integration: string;
-  integrationName: string;
-  /**
-   * The person asked to connect, whose connection the tool acts with
-   */
-  personId: string;
-  personName: string;
-  /**
-   * Whether they have connected since
-   */
-  met: boolean;
-};
-
-export type NoteResponseDto = {
-  position: number;
-  kind: 'asked' | 'passed' | 'answered' | 'message' | 'reopened';
-  /**
-   * What it shows, which is not what it did
-   */
-  form: 'words' | 'setup' | 'resolved' | 'approval' | 'failure' | 'connection';
-  /**
-   * Who wrote it: the station, a person, or the world outside it
-   */
-  voice: 'station' | 'person' | 'world';
-  station: string;
-  stationColor: string;
-  /**
-   * Its place in the line, from zero
-   */
-  stationPosition: number;
-  /**
-   * The run that wrote it, whose journal it came from
-   */
-  runId: string | null;
-  body: string;
-  /**
-   * The files handed over with it
-   */
-  attachments: Array<AttachmentResponseDto>;
-  at: string;
-  /**
-   * Absent where the station wrote it rather than a person
-   */
-  author: InboxAuthorResponseDto | null;
-  /**
-   * The other people who wrote it with the author in a shared draft
-   */
-  coAuthors: Array<InboxAuthorResponseDto>;
-  /**
-   * The integration it came from, where the world outside wrote it
-   */
-  source: string | null;
-  /**
-   * The station the task moves to when the run in progress ends, where it arrived during that run
-   */
-  deferredTo: string | null;
-  /**
-   * The tool call this asks a person to approve, where it is one
-   */
-  approval: InboxApprovalResponseDto | null;
-  /**
-   * The failure it reports, where it reports one
-   */
-  failure: InboxFailureResponseDto | null;
-  /**
-   * The connection this asks a person to make, where a tool acts as them and they have not connected
-   */
-  connection: InboxConnectionResponseDto | null;
-};
-
-export type InboxItemResponseDto = {
-  /**
-   * A task’s conversation or an inbox request on the task
-   */
-  kind: 'task';
-  /**
-   * One conversation a person was asked to own
-   */
-  id: string;
-  taskId: string;
-  teamId: string;
-  title: string;
-  description: string | null;
-  /**
-   * The files the task was created with
-   */
-  attachments: Array<AttachmentResponseDto>;
-  station: string;
-  stationColor: string;
-  /**
-   * Its place in the line, from zero
-   */
-  stationPosition: number;
-  /**
-   * How many stations the line has
-   */
-  stationCount: number;
-  /**
-   * The station where it was created. It keeps this station when it moves
-   */
-  originStation: InboxStationResponseDto;
-  /**
-   * Where the task is now, which is where it ended up
-   */
-  currentStation: InboxStationResponseDto;
-  createdAt: string;
-  askedAt: string;
-  /**
-   * True once it is resolved, and is no longer yours to answer
-   */
-  resolved: boolean;
-  /**
-   * What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
-   */
-  progress: 'queued' | 'in-progress' | 'stopping' | null;
-  /**
-   * The run working it now, whose steps can be watched as they land
-   */
-  runId: string | null;
-  /**
-   * Something was asked here that they have not seen yet
-   */
-  unread: boolean;
-  /**
-   * The briefing of the station that opened this conversation
-   */
-  briefing: string | null;
-  /**
-   * The failure this conversation is about, where it is about one
-   */
-  failure: InboxFailureResponseDto | null;
-  /**
-   * The inbox request of this item, where it is not a conversation. It never blocks the task
-   */
-  inboxRequest: InboxRequestResponseDto | null;
-  notes: Array<NoteResponseDto>;
-};
-
-export type NoticeExternalLinkResponseDto = {
-  url: string;
-  label: string;
-};
-
-export type InboxNoticeResponseDto = {
-  /**
-   * Word put to one person about their team’s work, outside any task
-   */
-  kind: 'notice';
-  id: string;
-  teamId: string;
-  /**
-   * ended when work the person started has ended and they may want to act on how; advice when it carries on but suggests something they could fix
-   */
-  form: 'ended' | 'advice';
-  headline: string;
-  /**
-   * What happened, then what it suggests, one point each
-   */
-  points: Array<string>;
-  /**
-   * Where to look, as a path within its team
-   */
-  link: string;
-  /**
-   * What to call the link, naming where it leads
-   */
-  linkLabel: string;
-  /**
-   * Where to act outside Spotlight, such as the pull request to review; the main action when present
-   */
-  externalLink: NoticeExternalLinkResponseDto | null;
-  askedAt: string;
-  /**
-   * Not seen yet
-   */
-  unread: boolean;
-  /**
-   * True once its person resolved it
-   */
-  resolved: boolean;
-};
-
-export type InboxRunResponseDto = {
-  /**
-   * A run on a task the person owns, working with nothing to ask them yet
-   */
-  kind: 'run';
-  /**
-   * The run
-   */
-  id: string;
-  taskId: string;
-  teamId: string;
-  title: string;
-  /**
-   * The station the run works at
-   */
-  station: string;
-  stationColor: string;
-  /**
-   * Its place in the line, from zero
-   */
-  stationPosition: number;
-  /**
-   * How many stations the line has
-   */
-  stationCount: number;
-  /**
-   * Queued until a runner takes it, then in progress, and stopping once someone asked it to stop
-   */
-  progress: 'queued' | 'in-progress' | 'stopping';
-  /**
-   * When the run was queued
-   */
-  askedAt: string;
-  /**
-   * Never unread
-   */
-  unread: false;
-  /**
-   * Never resolved
-   */
-  resolved: false;
-};
-
-export type AnswerInboxItemInputRequestDto = {
-  name: string;
-  value: string;
-};
-
-export type AnswerInboxItemRequestDto = {
-  /**
-   * What the person writes back. It joins the task’s trail. May be empty where files are attached.
-   */
-  body: string;
-  /**
-   * Uploads to attach, by the id each was granted
-   */
-  attachments?: Array<string>;
-  /**
-   * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Rejected anywhere else.
-   */
-  approve?: boolean;
-  /**
-   * With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it was called with; a harness asking permission takes no changes.
-   */
-  inputs?: Array<AnswerInboxItemInputRequestDto>;
-  /**
-   * The other people who wrote the shared draft with the sender, by user id
-   */
-  coAuthors?: Array<string>;
-  /**
-   * The generation of the shared draft this sends. A second send of the same generation is refused, so the draft goes only once
-   */
-  draftGeneration?: number | null;
-};
-
-export type RunMarksResponseDto = {
-  startedAt: string | null;
-  /**
-   * When the workspace was handed to the agent
-   */
-  readyAt: string | null;
-  firstAgentUpdateAt: string | null;
-  lastAgentUpdateAt: string | null;
-  /**
-   * When the runner stopped the agent because the run was asked to stop
-   */
-  agentStoppedAt: string | null;
-  endedAt: string | null;
-};
-
-export type RunSpentResponseDto = {
-  /**
-   * Tokens in context
-   */
-  used: number;
-  /**
-   * How large the context is
-   */
-  size: number;
-  cost: number | null;
-  currency: string | null;
-};
-
-export type RunJournalResponseDto = {
-  runId: string;
-  attempt: number;
-  steps: Array<JournalStepResponseDto>;
-  /**
-   * Empty for a harness that reports nothing of itself
-   */
-  spans: Array<RunSpanResponseDto>;
-  /**
-   * How long the agent was active, in ms
-   */
-  ms: number | null;
-  marks: RunMarksResponseDto;
-  spent: RunSpentResponseDto | null;
-};
-
-export type TaskReviewResponseDto = {
-  /**
-   * The inbox conversation waiting on a person
-   */
-  conversationId: string;
-};
-
-export type TaskPersonResponseDto = {
-  id: string;
-  name: string;
-  image: string | null;
-};
-
-export type TaskNoteResponseDto = {
-  position: number;
-  station: string;
-  body: string;
-};
-
-export type TaskResponseDto = {
-  id: string;
-  stationId: string;
-  /**
-   * How many times it has moved; a move names the revision it was based on
-   */
-  revision: number;
-  title: string;
-  /**
-   * Markdown
-   */
-  description: string | null;
-  /**
-   * The files it was created with
-   */
-  attachments: Array<AttachmentResponseDto>;
-  createdAt: string;
-  /**
-   * What its current run is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null without a run at work.
-   */
-  progress: 'queued' | 'in-progress' | 'stopping' | null;
-  /**
-   * Where an open question is answered, or null for none
-   */
-  awaitingReview: TaskReviewResponseDto | null;
-  /**
-   * The pull request this task ended in, once one is open
-   */
-  pullRequest: string | null;
-  /**
-   * The person who created it. The task comes back to this person
-   */
-  createdBy: TaskPersonResponseDto | null;
-  /**
-   * The team member who owns the work, or nobody where unclaimed
-   */
-  assignee: TaskPersonResponseDto | null;
-  /**
-   * The last note on this task, and the station where it was written
-   */
-  note: TaskNoteResponseDto | null;
-};
-
-export type RunStationResponseDto = {
-  id: string;
-  name: string;
-  color: string;
-  position: number;
-  /**
-   * How many stations the line has
-   */
-  count: number;
-};
-
-export type RunReviewResponseDto = {
-  state: 'pending' | 'answered';
-  /**
-   * The inbox conversation it opened
-   */
-  conversationId: string;
-};
-
-export type TeamRunResponseDto = {
-  id: string;
-  state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
-  attempt: number;
-  exitCode: number | null;
-  startedAt: string;
-  updatedAt: string;
-  harness: string;
-  /**
-   * The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it
-   */
-  image: string | null;
-  /**
-   * Where it ran, which the task may since have left
-   */
-  station: RunStationResponseDto | null;
-  /**
-   * Set where it put the task to a person
-   */
-  review: RunReviewResponseDto | null;
-  /**
-   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
-   */
-  progress: 'queued' | 'in-progress' | 'stopping' | null;
-  taskId: string | null;
-  taskTitle: string | null;
-  /**
-   * What was requested, shown before a run has written a note
-   */
-  taskDescription: string | null;
-};
-
-export type ConfigChangeResponseDto = {
-  part: 'prompt' | 'harness' | 'model' | 'effort' | 'profile' | 'image' | 'repository' | 'skill' | 'tool' | 'decisions' | 'memories' | 'judge';
-  /**
-   * The repository, skill or tool changed, where the part has several, or the judge setting changed
-   */
-  name: string | null;
-  kind: 'added' | 'removed' | 'changed';
-  was: string | null;
-  now: string | null;
-};
-
-export type ConfigChangedSinceResponseDto = {
-  /**
-   * The station’s previous run, which ran another config
-   */
-  runId: string;
-  taskId: string;
-  fingerprint: string;
-  changes: Array<ConfigChangeResponseDto>;
-};
-
-export type RunConfigResponseDto = {
-  /**
-   * The SHA-256 naming the station config the run ran with
-   */
-  fingerprint: string | null;
-  config: StationConfigResponseDto | null;
-  changedSince: ConfigChangedSinceResponseDto | null;
-};
-
-export type RunConnectionResponseDto = {
-  host: string;
-  port: number;
-  /**
-   * Bytes from the sandbox to the host
-   */
-  bytesOut: number;
-  /**
-   * Bytes from the host to the sandbox
-   */
-  bytesIn: number;
-  /**
-   * How long the connection was open
-   */
-  ms: number;
-  /**
-   * passthrough: egress did not decrypt it. injected: egress decrypted it to inject a secret. blocked: egress stopped it. failed: egress could not open it
-   */
-  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
-  /**
-   * The status the host answered an injected request with. null for a passthrough connection, because egress cannot read it
-   */
-  status: number | null;
-  /**
-   * Why egress blocked the connection or could not open it
-   */
-  reason: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
-  /**
-   * The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error
-   */
-  error: 'blocked' | 'failed' | 'auth-failed' | 'server-error' | null;
-  at: string;
-};
-
-export type RunNetworkResponseDto = {
-  runId: string;
-  attempt: number;
-  /**
-   * What the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check, for example on a host. The sandbox itself makes this report, so a compromised sandbox can report enforced
-   */
-  egressEnforcement: 'enforced' | 'not-enforced' | null;
-  /**
-   * The connections a shared egress recorded for this attempt
-   */
-  connections: Array<RunConnectionResponseDto>;
-};
-
-export type LatestRunResponseDto = {
-  id: string;
-  state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
-  /**
-   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
-   */
-  progress: 'queued' | 'in-progress' | 'stopping' | null;
-};
-
-export type RunSpendResponseDto = {
-  cost: number | null;
-  currency: string | null;
-  /**
-   * Fresh input tokens; null where the harness did not report them
-   */
-  inputTokens: number | null;
-  /**
-   * Output tokens; null where the harness did not report them
-   */
-  outputTokens: number | null;
-  /**
-   * Input tokens read from the prompt cache; null where the harness did not report them
-   */
-  cacheReadTokens: number | null;
-  /**
-   * Input tokens written to the prompt cache; null where the harness did not report them
-   */
-  cacheWriteTokens: number | null;
-};
-
-export type RunNotesResponseDto = {
-  runId: string;
-  taskId: string;
-  title: string;
-  description: string | null;
-  /**
-   * The files the task was created with
-   */
-  attachments: Array<AttachmentResponseDto>;
-  station: RunStationResponseDto | null;
-  createdAt: string;
-  /**
-   * The briefing of the run, word for word
-   */
-  briefing: string;
-  /**
-   * What the run of the task at this station is doing now: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. A paused run is under way again once a person answered it.
-   */
-  progress: 'queued' | 'in-progress' | 'stopping' | null;
-  /**
-   * The newest run of the task at this station
-   */
-  latestRun: LatestRunResponseDto;
-  notes: Array<NoteResponseDto>;
-  /**
-   * What the run spent, once it has ended and its usage is recorded
-   */
-  spend: RunSpendResponseDto | null;
-};
-
-export type SendMessageRequestDto = {
-  /**
-   * Goes to the agent when its current turn ends. May be empty where files are attached.
-   */
-  body: string;
-  /**
-   * Uploads to attach, by the id each was granted
-   */
-  attachments?: Array<string>;
-  /**
-   * The other people who wrote the shared draft with the sender, by user id
-   */
-  coAuthors?: Array<string>;
-  /**
-   * The generation of the shared draft this sends. A second send of the same generation is refused, so the draft goes only once
-   */
-  draftGeneration?: number | null;
-};
-
-export type TaskRunResponseDto = {
-  id: string;
-  state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
-  attempt: number;
-  exitCode: number | null;
-  startedAt: string;
-  updatedAt: string;
-  harness: string;
-  /**
-   * The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it
-   */
-  image: string | null;
-  /**
-   * Where it ran, which the task may since have left
-   */
-  station: RunStationResponseDto | null;
-  /**
-   * Set where it put the task to a person
-   */
-  review: RunReviewResponseDto | null;
-  /**
-   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
-   */
-  progress: 'queued' | 'in-progress' | 'stopping' | null;
-};
-
-export type AddTaskRequestDto = {
-  title: string;
-  /**
-   * Markdown. Left out or blank for a task with no description.
-   */
-  description?: string | null;
-  /**
-   * Uploads to attach, by the id each was granted
-   */
-  attachments?: Array<string>;
-};
-
-export type MoveTaskRequestDto = {
-  /**
-   * The station to move the task to, on the same line
-   */
-  stationId: string;
-  /**
-   * The revision the move was based on; a task that has moved since is not moved again
-   */
-  revision: number;
-  /**
-   * The task it was dropped after. Left out for the top of the station.
-   */
-  afterTaskId?: string | null;
-};
-
-export type AssignTaskRequestDto = {
-  /**
-   * The team member to assign it to, or null to leave it unclaimed
-   */
-  assigneeId: string | null;
-};
-
-export type ChatTargetStationResponseDto = {
-  lineId: string;
-  lineKey: string;
-  lineName: string;
-  stationId: string;
-  stationKey: string;
-  stationName: string;
-};
-
-export type ChatSetupResponseDto = {
-  repository: string;
-  folder: string;
-  /**
-   * The pull request the chat opened with the configuration
-   */
-  pullRequest: string | null;
-};
-
-export type ChatSummaryResponseDto = {
-  id: string;
-  title: string;
-  harness: string;
-  model: string | null;
-  effort: string | null;
-  repositories: Array<string>;
-  /**
-   * The station that the chat must improve, if any
-   */
-  targetStation: ChatTargetStationResponseDto | null;
-  /**
-   * Where the chat sets up the team’s configuration as code, for a setup chat
-   */
-  setup: ChatSetupResponseDto | null;
-  createdAt: string;
-  updatedAt: string;
-  /**
-   * What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.
-   */
-  progress: 'queued' | 'in-progress' | 'stopping' | null;
-};
-
-export type ChatSetupRequestDto = {
-  /**
-   * The repository the team’s configuration lives in
-   */
-  repository: string;
-  /**
-   * The folder in it, from the repository root
-   */
-  folder: string;
-};
-
-export type StartChatRequestDto = {
-  /**
-   * The harness to talk to
-   */
-  harness: string;
-  /**
-   * The harness’s default where left out
-   */
-  model?: string | null;
-  /**
-   * The harness’s default where left out
-   */
-  effort?: string | null;
-  /**
-   * Checked out for the agent to read
-   */
-  repositories?: Array<string>;
-  /**
-   * What opens the chat. May be empty where files are attached or traces shared.
-   */
-  body: string;
-  /**
-   * Uploads to attach, by the id each was granted
-   */
-  attachments?: Array<string>;
-  /**
-   * Tasks whose traces to share with the agent, by task id
-   */
-  traces?: Array<string>;
-  /**
-   * The id of the station that the chat must improve. The agent gets an instruction to study the recent runs of the station
-   */
-  targetStation?: string;
-  /**
-   * Makes this the team’s setup chat: the agent surveys the team’s tools and opens a pull request with its configuration as code there
-   */
-  setup?: ChatSetupRequestDto;
-};
-
-export type ChatTraceResponseDto = {
-  taskId: string;
-  title: string;
-};
-
-export type ChatProposalResponseDto = {
-  lineId: string;
-  lineName: string | null;
-  stationId: string;
-  stationName: string | null;
-  stationColor: string | null;
-  /**
-   * The position of the station on its line, from 0
-   */
-  stationPosition: number | null;
-  /**
-   * How many stations its line has
-   */
-  stationCount: number | null;
-  title: string;
-  description: string | null;
-  state: 'open' | 'accepted' | 'created' | 'dismissed';
-  /**
-   * The task it became, once created
-   */
-  taskId: string | null;
-};
-
-export type ChatMessageResponseDto = {
-  position: number;
-  kind: 'message' | 'proposed';
-  body: string;
-  at: string;
-  author: InboxAuthorResponseDto | null;
-  /**
-   * The run that proposed it
-   */
-  runId: string | null;
-  attachments: Array<AttachmentResponseDto>;
-  /**
-   * Traces shared with the agent
-   */
-  traces: Array<ChatTraceResponseDto>;
-  proposal: ChatProposalResponseDto | null;
-};
-
-export type ChatResponseDto = {
-  id: string;
-  title: string;
-  harness: string;
-  model: string | null;
-  effort: string | null;
-  repositories: Array<string>;
-  /**
-   * The station that the chat must improve, if any
-   */
-  targetStation: ChatTargetStationResponseDto | null;
-  /**
-   * Where the chat sets up the team’s configuration as code, for a setup chat
-   */
-  setup: ChatSetupResponseDto | null;
-  createdAt: string;
-  updatedAt: string;
-  /**
-   * What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.
-   */
-  progress: 'queued' | 'in-progress' | 'stopping' | null;
-  /**
-   * The run answering now
-   */
-  runId: string | null;
-  messages: Array<ChatMessageResponseDto>;
-};
-
-export type SendChatMessageRequestDto = {
-  /**
-   * May be empty where files are attached or traces shared.
-   */
-  body: string;
-  /**
-   * Uploads to attach, by the id each was granted
-   */
-  attachments?: Array<string>;
-  /**
-   * Tasks whose traces to share with the agent, by task id
-   */
-  traces?: Array<string>;
-  /**
-   * The model the agent answers this and later messages with; null for the harness default, left out to keep the chat’s
-   */
-  model?: string | null;
-  /**
-   * The effort the agent answers this and later messages with; null for the harness default, left out to keep the chat’s
-   */
-  effort?: string | null;
-};
-
-export type ConnectEditorRequestDto = {
-  /**
-   * The task whose sandbox to open. Name a task or a chat.
-   */
-  task?: string;
-  /**
-   * The chat whose sandbox to open. Name a task or a chat.
-   */
-  chat?: string;
-  /**
-   * The workspace the task or chat must be in
-   */
-  workspace?: string;
-};
-
-export type EditorConnectionResponseDto = {
-  sandboxId: string;
-  /**
-   * The editor lease to name when the socket opens; it expires two minutes after it is held unless a socket renews it
-   */
-  holder: string;
-};
-
-export type SetupStepResponseDto = {
-  /**
-   * Which step this is
-   */
-  key: 'github' | 'harness' | 'configuration';
-  title: string;
-  description: string;
-  done: boolean;
-};
-
-export type SetupCiResponseDto = {
-  /**
-   * The default branch, whose pushes may apply
-   */
-  defaultBranch: string;
-  /**
-   * Whether the default branch has branch protection or a ruleset that requires a pull request review
-   */
-  defaultBranchProtected: boolean;
-  /**
-   * Whether Spotlight wrote the GitHub Actions variables, or the GitHub App may not write variables
-   */
-  variables: 'written' | 'not-permitted';
-};
-
-export type SetupChatResponseDto = {
-  /**
-   * The team’s setup chat, when the caller started it. Chats are seen only by whoever started them
-   */
-  id: string | null;
-  /**
-   * The repository that holds the configuration
-   */
-  repository: string;
-  /**
-   * The pull request it opened with the configuration
-   */
-  pullRequest: string | null;
-  /**
-   * The GitHub Actions trusts that the setup created for the repository. Pull requests plan, and pushes to the default branch apply
-   */
-  ci: SetupCiResponseDto | null;
-  /**
-   * Who started it, empty when they have left the workspace
-   */
-  startedBy: string;
-};
-
-export type OnboardingResponseDto = {
-  /**
-   * Whether Spotlight has created the first lines and opened the setup task of the team. The value is failed after Spotlight stopped its attempts.
-   */
-  provisioning: 'pending' | 'done' | 'failed';
-  /**
-   * The list itself, in the order it is worked through
-   */
-  steps: Array<SetupStepResponseDto>;
-  /**
-   * Whether a setup chat can start: the GitHub App is installed and a host runs sandboxes
-   */
-  canSetUp: boolean;
-  /**
-   * Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts
-   */
-  viewerIsAdmin: boolean;
-  /**
-   * The chat setting up the team’s configuration as code, the one with a pull request first
-   */
-  setupChat: SetupChatResponseDto | null;
-};
-
 export type WorkspaceResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
@@ -2718,9 +649,9 @@ export type WorkspaceResponseDto = {
    */
   role: 'owner' | 'admin' | 'member';
   /**
-   * Whether Spotlight has created the first team of the workspace. The value is failed after Spotlight stopped its attempts.
+   * Whether Spotlight has created the first team of the workspace.
    */
-  setupStatus: 'pending' | 'done' | 'failed';
+  setupStatus: 'pending' | 'done';
 };
 
 export type TeamReferenceResponseDto = {
@@ -2779,7 +710,10 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'oidc-trust' | 'runner-trust' | 'runner-pool' | 'egress' | 'workspace-runners' | 'replay' | 'replay-search' | 'replay-check' | 'config-pull-request' | 'terraform-state';
+  /**
+   * The kind of resource changed, as the resource API names it: line, skill, secret, runner-pool and so on
+   */
+  resource: string;
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -2985,6 +919,743 @@ export type AddUserEmailRequestDto = {
   email: string;
 };
 
+export type CatalogToolResponseDto = {
+  /**
+   * What a station enables it by; it carries the version, so an upgrade shows as a change to the station
+   */
+  id: string;
+  name: string;
+  /**
+   * The newest version the constraint accepts
+   */
+  version: string;
+  /**
+   * The constraint it was resolved against
+   */
+  constraint: string;
+  /**
+   * The lowest plan that includes the item
+   */
+  plan: 'free' | 'team' | 'enterprise';
+  description: string;
+};
+
+export type CatalogSkillResponseDto = {
+  /**
+   * What a station enables it by; it carries the version, so an upgrade shows as a change to the station
+   */
+  id: string;
+  name: string;
+  /**
+   * The newest version the constraint accepts
+   */
+  version: string;
+  /**
+   * The constraint it was resolved against
+   */
+  constraint: string;
+  /**
+   * The lowest plan that includes the item
+   */
+  plan: 'free' | 'team' | 'enterprise';
+  description: string;
+  /**
+   * The catalog tools that the skill uses, enabled wherever the skill is; its files never leave Spotlight except into a run
+   */
+  tools: Array<string>;
+};
+
+export type EnqueueRunRequestDto = {
+  /**
+   * The harness to work this run. Only runners that have it may take it.
+   */
+  harness: string;
+  /**
+   * Sent to the runner unchanged: checkouts, briefing, handover and resume. The command is filled in from the harness, so it is not sent here.
+   */
+  spec: {
+    [key: string]: unknown;
+  };
+};
+
+export type EnqueuedRunResponseDto = {
+  id: string;
+  harness: string;
+  state: string;
+};
+
+export type HarnessProbeResponseDto = {
+  id: string;
+  /**
+   * What to look for on the runner’s PATH.
+   */
+  executable: string;
+  /**
+   * What to run to list this harness’s models, argv-style. Empty where the CLI cannot enumerate them.
+   */
+  discovery: Array<string>;
+  /**
+   * What to run to learn which release of this harness is installed, argv-style; the first version-shaped word it prints is the release.
+   */
+  versionProbe: Array<string>;
+};
+
+export type ClaimedRunResponseDto = {
+  id: string;
+  /**
+   * The harness the run needs, so a host can tell whether the image it pulled still contains it
+   */
+  harness: string;
+  /**
+   * Which attempt of the run this is, so what the runner reports for it is not taken for a later one
+   */
+  attempt: number;
+  /**
+   * What the runner lays out and starts, as the runner reads it
+   */
+  spec: {
+    [key: string]: unknown;
+  };
+};
+
+export type ClaimedCheckStepResponseDto = {
+  /**
+   * The whole change, or the layer this step covers
+   */
+  id: string;
+  /**
+   * What to apply on the base before running
+   */
+  patch: string;
+  /**
+   * Whether a failure here leaves the later steps unrun
+   */
+  stopsOnFailure: boolean;
+  /**
+   * Whether the checkout must be made ready again once this step applies, because it installs something the step before it did not
+   */
+  runsSetup: boolean;
+};
+
+export type ClaimedCheckResponseDto = {
+  stackId: string;
+  /**
+   * It is a repeat check; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found
+   */
+  recheck: boolean;
+  runId: string;
+  /**
+   * Which checkout to check
+   */
+  repository: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * The commit to check out
+   */
+  base: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * What makes the checkout ready before the check runs
+   */
+  setup: {
+    [key: string]: unknown;
+  } | null;
+  command: string;
+  steps: Array<ClaimedCheckStepResponseDto>;
+};
+
+export type WarmCheckoutResponseDto = {
+  /**
+   * The repository’s name: the host clones it from its mirror at the default branch into this folder of the workspace
+   */
+  path: string;
+  /**
+   * The setup command to run in the clone once it is checked out. Absent when the repository has no setup
+   */
+  setup?: string;
+};
+
+export type WarmSandboxResponseDto = {
+  /**
+   * The line the warm sandbox is kept for
+   */
+  line: string;
+  checkouts: Array<WarmCheckoutResponseDto>;
+};
+
+export type ClaimedWorkResponseDto = {
+  /**
+   * `sandbox` is only for a host claim: start a sandbox with no run in it
+   */
+  kind: 'run' | 'check' | 'sandbox';
+  run: ClaimedRunResponseDto | null;
+  check: ClaimedCheckResponseDto | null;
+  /**
+   * Only for a `sandbox` that is warm: clone and set up these repositories before a task’s first run is claimed into it
+   */
+  warm?: WarmSandboxResponseDto;
+};
+
+export type RenewLeaseResponseDto = {
+  /**
+   * Whether a person has requested that the runner stop this run
+   */
+  stop: boolean;
+};
+
+export type RenewCheckLeaseResponseDto = {
+  /**
+   * Whether the runner should stop checking: the check was deleted, ended, or waited too long to be recorded
+   */
+  stop: boolean;
+};
+
+export type RecordRunImageRequestDto = {
+  /**
+   * The image the sandbox started from, named by its digest
+   */
+  image: string;
+};
+
+export type StartedCheckoutRequestDto = {
+  /**
+   * The checkout, by its path in the working copy, as the run received it
+   */
+  path: string;
+  /**
+   * The commit HEAD was at once the working copy was restored and the checkout prepared, as its full SHA
+   */
+  commit: string;
+};
+
+export type RecordStartingPointRequestDto = {
+  /**
+   * The attempt of the run assigned to the runner, as the claim named it
+   */
+  attempt: number;
+  /**
+   * The working copy archive the run restored, or null where it started afresh
+   */
+  archiveId: string | null;
+  checkouts: Array<StartedCheckoutRequestDto>;
+};
+
+export type RunEventRequestDto = {
+  /**
+   * Assigned by the runner, gapless
+   */
+  seq: number;
+  type: string;
+  at: string;
+  message?: string;
+  /**
+   * One session update as the agent reported it, JSON, base64
+   */
+  data?: string;
+};
+
+export type AppendRunEventsRequestDto = {
+  events: Array<RunEventRequestDto>;
+};
+
+export type HandoverDto = {
+  /**
+   * Where the run hands its work on, as one of the hand-over options its spec names. The requester of the run reads it.
+   */
+  next: string;
+  /**
+   * What whoever takes the hand-over should know
+   */
+  note?: string;
+  /**
+   * Files the run uploaded for the note, by the ids its uploads were granted
+   */
+  attachments?: Array<string>;
+};
+
+export type CompleteRunRequestDto = {
+  exitCode: number;
+  failed: boolean;
+  /**
+   * With failed: it failed before the agent was handed the run, while the runner made its working copy ready
+   */
+  setupFailed?: boolean;
+  /**
+   * With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as after its lease expired
+   */
+  timedOut?: boolean;
+  message?: string;
+  handover?: HandoverDto;
+  /**
+   * What the harness called this conversation. Reported rather than remembered by the runner, because the next run may fall to another one.
+   */
+  sessionId?: string;
+  /**
+   * A person stopped the run rather than the agent finishing it.
+   */
+  stopped?: boolean;
+};
+
+export type RunConnectionResponseDto = {
+  host: string;
+  port: number;
+  /**
+   * Bytes from the sandbox to the host
+   */
+  bytesOut: number;
+  /**
+   * Bytes from the host to the sandbox
+   */
+  bytesIn: number;
+  /**
+   * How long the connection was open
+   */
+  ms: number;
+  /**
+   * passthrough: egress did not decrypt it. injected: egress decrypted it to inject a secret. blocked: egress stopped it. failed: egress could not open it
+   */
+  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
+  /**
+   * The status the host answered an injected request with. null for a passthrough connection, because egress cannot read it
+   */
+  status: number | null;
+  /**
+   * Why egress blocked the connection or could not open it
+   */
+  reason: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
+  /**
+   * The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error
+   */
+  error: 'blocked' | 'failed' | 'auth-failed' | 'server-error' | null;
+  at: string;
+};
+
+export type RunNetworkResponseDto = {
+  runId: string;
+  attempt: number;
+  /**
+   * What the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check, for example on a host. The sandbox itself makes this report, so a compromised sandbox can report enforced
+   */
+  egressEnforcement: 'enforced' | 'not-enforced' | null;
+  /**
+   * The connections a shared egress recorded for this attempt
+   */
+  connections: Array<RunConnectionResponseDto>;
+};
+
+export type StoredArchiveResponseDto = {
+  id: string;
+  /**
+   * Where to GET the archive, for a quarter of an hour
+   */
+  url: string;
+  size: number;
+  sha256: string;
+};
+
+export type GrantWorkingCopyArchiveRequestDto = {
+  /**
+   * The archive’s size in bytes, as it will be uploaded
+   */
+  size: number;
+  /**
+   * The archive’s SHA-256, as 64 hexadecimal digits
+   */
+  sha256: string;
+};
+
+export type ArchiveGrantResponseDto = {
+  id: string;
+  /**
+   * Where to PUT the archive, for a quarter of an hour; the upload must carry every header given
+   */
+  url: string;
+  headers: {
+    [key: string]: string;
+  };
+};
+
+export type PoolQueueResponseDto = {
+  /**
+   * Runs and checks waiting that this pool could take, for an autoscaler to start runners for
+   */
+  pending: number;
+  /**
+   * The pool’s runners that are active now: with a lease on a run or check, or started and yet to claim
+   */
+  running: number;
+  /**
+   * How many more runs the pool may take at once under maxRuns, or null for no limit
+   */
+  capacity: number | null;
+  /**
+   * Of what is pending, how many name each of the pool’s labels in their placement
+   */
+  labels: {
+    [key: string]: number;
+  };
+};
+
+export type HostReleaseResponseDto = {
+  /**
+   * The published release this control plane runs; a host on another release updates to it, unless the operator turned that off. Null when the control plane runs a staging build or does not know its release
+   */
+  release: string | null;
+  /**
+   * The oldest host release this control plane gives work to; an older host gets no work until it updates
+   */
+  minimum: string;
+};
+
+export type RunnerReleaseResponseDto = {
+  /**
+   * The oldest runner release this control plane works with; a host cannot use an image whose runner is older
+   */
+  minimum: string;
+};
+
+export type HostRequirementsResponseDto = {
+  host: HostReleaseResponseDto;
+  runner: RunnerReleaseResponseDto;
+  /**
+   * What a host looks for in each runner image
+   */
+  harnesses: Array<HarnessProbeResponseDto>;
+  /**
+   * The images this workspace’s lines name; a host serves those its allow-list allows, beside its default
+   */
+  images: Array<string>;
+};
+
+export type ClaimHostWorkRequestDto = {
+  /**
+   * The host claiming, as it names itself in its heartbeat
+   */
+  host: string;
+  /**
+   * The runner image this claim will run in, one the host reported that it supports; what it contains and whether it is the default come from that report
+   */
+  image: string;
+  /**
+   * A live sandbox of this host that has no run in it. The claim then takes only a queued run of the working copy key that sandbox keeps, and delivers it into that sandbox. The sandbox already holds a capacity slot.
+   */
+  sandbox?: string;
+};
+
+export type HostClaimResponseDto = {
+  /**
+   * The one-run runner Spotlight started for this work. Null for a sandbox with no run.
+   */
+  runnerId: string | null;
+  /**
+   * The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential. Null for a sandbox with no run.
+   */
+  token: string | null;
+  /**
+   * The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox. Null for a sandbox with no run: its egress starts with no secrets.
+   */
+  egressToken: string | null;
+  /**
+   * The sandbox Spotlight started for a run; the host labels its container with it and reports it in each heartbeat. Null for a check.
+   */
+  sandboxId: string | null;
+  /**
+   * The credential of a new sandbox, for its own calls only: restore and archive its working copy. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check.
+   */
+  sandboxToken: string | null;
+  /**
+   * Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its working copy archives. Empty for a run: its egress reads them with the run’s secrets.
+   */
+  allowedHosts: Array<string>;
+  /**
+   * The run goes into the live sandbox the claim named, not into a new one. The host delivers its assignment into that container.
+   */
+  reused: boolean;
+  work: ClaimedWorkResponseDto;
+};
+
+export type ClaimHostCallRequestDto = {
+  /**
+   * The host claiming, as it names itself in its heartbeat
+   */
+  host: string;
+};
+
+export type HostCallResponseDto = {
+  /**
+   * The call, to answer by once it has been sent
+   */
+  id: string;
+  /**
+   * The method to send with
+   */
+  method: string;
+  /**
+   * Where to send it, from inside the host’s network
+   */
+  url: string;
+  /**
+   * Sent with the body, exactly as given
+   */
+  headers: {
+    [key: string]: string;
+  };
+  /**
+   * The body to send, base64
+   */
+  body: string;
+  /**
+   * How long to wait for an answer, in milliseconds
+   */
+  timeoutMs: number;
+  /**
+   * Given only when the call names secrets. Egress redeems the secrets with it once, sealed to a key that it makes for this call alone
+   */
+  secretsToken?: string;
+};
+
+export type RecordHostCallResponseRequestDto = {
+  /**
+   * The host that records the response, the one that claimed the call
+   */
+  host: string;
+  /**
+   * The HTTP status of the response, or 0 when no response came
+   */
+  status: number;
+  /**
+   * The headers of the response
+   */
+  headers?: {
+    [key: string]: string;
+  };
+  /**
+   * The body of the response, base64, at most 256 KiB
+   */
+  body?: string;
+  /**
+   * How long the call took to get a response, in milliseconds
+   */
+  ms: number;
+  /**
+   * Why no response came, when the status is 0
+   */
+  error?: string;
+};
+
+export type RedeemCallSecretsRequestDto = {
+  /**
+   * The host that claimed the call
+   */
+  host: string;
+  /**
+   * The secrets token that the claim gave
+   */
+  token: string;
+  /**
+   * The X25519 public key to seal the values to, 32 bytes in base64
+   */
+  recipient: string;
+};
+
+export type ExternalSecretRefResponseDto = {
+  kind: 'aws-secrets-manager';
+  secretId: string;
+  field: string | null;
+};
+
+export type FetchedSecretResponseDto = {
+  secret: string;
+  /**
+   * The one host that egress injects it for
+   */
+  host: string;
+  /**
+   * Whether egress injects it in a request header or in a query parameter
+   */
+  location: 'header' | 'query';
+  /**
+   * The header or query parameter that contains its stand-in
+   */
+  name: string;
+  prefix: string;
+  /**
+   * The value, sealed to the recipient for this run; null when egress reads it in its own network
+   */
+  sealed: string | null;
+  /**
+   * Where egress reads the value with its host’s own identity; null when Spotlight sealed it
+   */
+  externalRef: ExternalSecretRefResponseDto | null;
+};
+
+export type DeniedSecretResponseDto = {
+  secret: string;
+  reason: string;
+};
+
+export type SpotlightApiResponseDto = {
+  /**
+   * A read and plan token for this run alone, sealed to the recipient; egress injects it for the control plane as a bearer token
+   */
+  sealed: string;
+};
+
+export type EgressSecretsResponseDto = {
+  /**
+   * The run the sealed values are bound to; null when the sandbox checks a change stack and gets no secrets
+   */
+  runId: string | null;
+  /**
+   * Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the host allows
+   */
+  extraAllowedHosts: Array<string>;
+  /**
+   * The hosts the secrets are bound to. Egress decrypts only these hosts, and also the control plane host when spotlightApi is set
+   */
+  bound: Array<string>;
+  secrets: Array<FetchedSecretResponseDto>;
+  /**
+   * The secrets of the run that egress does not get, and why
+   */
+  denied: Array<DeniedSecretResponseDto>;
+  /**
+   * Where the run uses Spotlight’s own API, the token that it uses
+   */
+  spotlightApi: SpotlightApiResponseDto | null;
+};
+
+export type FetchRunSecretsRequestDto = {
+  /**
+   * The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it
+   */
+  recipient: string;
+  /**
+   * The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out
+   */
+  proxyCredential?: string;
+};
+
+export type AuthorizeRunnerRequestDto = {
+  /**
+   * The run proxy credential a runner presented to the egress
+   */
+  proxyCredential: string;
+};
+
+export type EgressAuthorizationResponseDto = {
+  runnerId: string;
+  workspaceId: string;
+  /**
+   * The host of the control plane URL the runner was handed. Before the runner has a run, egress allows it to connect only to this host
+   */
+  controlPlaneHost: string;
+  /**
+   * The port of the control plane URL the runner was handed. Egress allows a sandbox to connect to the control plane host only on this port
+   */
+  controlPlanePort: number;
+  /**
+   * Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the egress allows
+   */
+  extraAllowedHosts: Array<string>;
+};
+
+export type CheckActiveRunsRequestDto = {
+  /**
+   * The run proxy credentials whose runs the egress serves now
+   */
+  proxyCredentials: Array<string>;
+};
+
+export type EgressActiveRunsResponseDto = {
+  /**
+   * The proxy credentials whose runner still leases its work, or has no work yet. Egress evicts the secrets of every other run
+   */
+  active: Array<string>;
+};
+
+export type EgressConnectionRequestDto = {
+  proxyCredential: string;
+  host: string;
+  port: number;
+  /**
+   * Bytes from the sandbox to the host
+   */
+  bytesOut: number;
+  /**
+   * Bytes from the host to the sandbox
+   */
+  bytesIn: number;
+  /**
+   * How long the connection was open
+   */
+  ms: number;
+  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
+  /**
+   * The status the host answered an injected request with. Egress cannot read the status of a passthrough connection
+   */
+  status?: number;
+  /**
+   * Why egress blocked the connection or could not open it. Spotlight drops a record whose reason does not fit its outcome
+   */
+  reason?: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable';
+  at: string;
+};
+
+export type RecordEgressConnectionsRequestDto = {
+  records: Array<EgressConnectionRequestDto>;
+};
+
+export type LeasedRunResponseDto = {
+  id: string;
+  state: string;
+  /**
+   * The kind of work the run is for, as the requester that ordered it names it, for example task, chat or spec
+   */
+  kind: string;
+  /**
+   * The team the run is for; null where it is for none
+   */
+  teamId: string | null;
+  /**
+   * Whether the caller reads the run’s team, and so may see its title and open it; false where the run is for no team
+   */
+  readable: boolean;
+  /**
+   * The title the run’s requester gives it; null where the requester gives none, or where the caller cannot read the run’s team
+   */
+  title: string | null;
+};
+
+export type RunnerActivityResponseDto = {
+  runnerId: string;
+  /**
+   * The run the runner is working on
+   */
+  currentRun: LeasedRunResponseDto;
+};
+
+export type HarnessModelResponseDto = {
+  id: string;
+  name: string;
+};
+
+export type HarnessResponseDto = {
+  id: string;
+  name: string;
+  models: Array<HarnessModelResponseDto>;
+  /**
+   * Which model a run uses where its order names none of its own
+   */
+  defaultModel: string;
+  /**
+   * The effort levels this harness offers. Empty where it takes none.
+   */
+  efforts: Array<string>;
+};
+
 export type SecretSourceResponseDto = {
   /**
    * Where the value lives: stored by Spotlight, or read from AWS Secrets Manager when it is used
@@ -3064,77 +1735,6 @@ export type SecretResourceListResponseDto = {
    * Every one there is, each as a read returns it, in address order
    */
   items: Array<SecretResourceResponseDto>;
-};
-
-export type CatalogToolResponseDto = {
-  /**
-   * What a station enables it by; it carries the version, so an upgrade shows as a change to the station
-   */
-  id: string;
-  name: string;
-  /**
-   * The newest version the constraint accepts
-   */
-  version: string;
-  /**
-   * The constraint it was resolved against
-   */
-  constraint: string;
-  /**
-   * The lowest plan that includes the item
-   */
-  plan: 'free' | 'team' | 'enterprise';
-  description: string;
-};
-
-export type CatalogSkillResponseDto = {
-  /**
-   * What a station enables it by; it carries the version, so an upgrade shows as a change to the station
-   */
-  id: string;
-  name: string;
-  /**
-   * The newest version the constraint accepts
-   */
-  version: string;
-  /**
-   * The constraint it was resolved against
-   */
-  constraint: string;
-  /**
-   * The lowest plan that includes the item
-   */
-  plan: 'free' | 'team' | 'enterprise';
-  description: string;
-  /**
-   * The catalog tools that the skill uses, enabled wherever the skill is; its files never leave Spotlight except into a run
-   */
-  tools: Array<string>;
-};
-
-export type RepositoryResponseDto = {
-  /**
-   * Named the way GitHub names it, owner and all
-   */
-  fullName: string;
-};
-
-export type GitHubConnectionStatusResponseDto = {
-  /**
-   * Whether the App is installed for this workspace
-   */
-  connected: boolean;
-  /**
-   * Where to install the App, or null where GitHub would not say
-   */
-  installUrl: string | null;
-};
-
-export type ConnectGitHubRequestDto = {
-  /**
-   * The installation GitHub named when it sent you back
-   */
-  installationId: string;
 };
 
 export type HostHeartbeatRequestDto = {
@@ -3496,55 +2096,1576 @@ export type WorkspaceRunnersResourceListResponseDto = {
   items: Array<WorkspaceRunnersResourceResponseDto>;
 };
 
-export type ApiSpecViewResponseDto = {
+export type RunAttachmentResponseDto = {
+  id: string;
   /**
-   * The kind of API spec that its tools are generated from: an OpenAPI document, a GraphQL schema or an MCP server
-   */
-  kind: 'openapi' | 'graphql' | 'mcp';
-  /**
-   * How many tools were generated from it
-   */
-  tools: number;
-  /**
-   * When Spotlight last fetched the spec
-   */
-  readAt: string;
-  /**
-   * Why it could not be read when it was last requested. The tools from the last good read stay available
-   */
-  problem: string | null;
-};
-
-export type IntegrationViewResponseDto = {
-  /**
-   * The name of the integration, as in slack
-   */
-  integration: string;
-  name: string;
-  /**
-   * Where the integration is defined
+   * Where in the working copy to put it
    */
   path: string;
+};
+
+export type PendingMessageResponseDto = {
+  position: number;
+  body: string;
   /**
-   * Whether the team is connected to the integration. The integration needs no connection, is disconnected, or is connected.
+   * Files to lay out before the words are sent
    */
-  connectionStatus: 'not-required' | 'disconnected' | 'connected';
+  attachments: Array<RunAttachmentResponseDto>;
+};
+
+export type GrantAttachmentUploadRequestDto = {
+  name: string;
   /**
-   * Whose connection its tools act with: the team’s, or that of the person who started the task
+   * Left out where the browser could not tell
+   */
+  contentType?: string;
+  /**
+   * In bytes, at most 25 MB
+   */
+  size: number;
+};
+
+export type AttachmentUploadResponseDto = {
+  /**
+   * What to attach it by, once it is uploaded
+   */
+  id: string;
+  /**
+   * Where to PUT the bytes. Good for a few minutes.
+   */
+  url: string;
+  /**
+   * Sent with the bytes, exactly as given
+   */
+  headers: {
+    [key: string]: string;
+  };
+};
+
+export type StepLocationResponseDto = {
+  path: string;
+  line: number | null;
+};
+
+export type StepChangeResponseDto = {
+  path: string | null;
+  /**
+   * The file before the agent changed it
+   */
+  before: string;
+  /**
+   * The file as the agent left it
+   */
+  after: string;
+};
+
+export type JournalStepResponseDto = {
+  kind: 'message' | 'thought' | 'tool' | 'planned' | 'hook' | 'subagent' | 'waited' | 'lost' | 'reminded';
+  text: string;
+  status: string | null;
+  /**
+   * What sort of tool it was: execute, read, edit, …
+   */
+  tool: string | null;
+  /**
+   * What the tool answered with, as much of it as is worth reading
+   */
+  detail: string | null;
+  /**
+   * How long it took, in ms
+   */
+  ms: number;
+  /**
+   * When it began, for laying the run out against a clock
+   */
+  startedAt: string;
+  locations: Array<StepLocationResponseDto>;
+  /**
+   * The input of the call, as it was sent
+   */
+  input: string | null;
+  /**
+   * The output of the call, unread
+   */
+  output: string | null;
+  change: StepChangeResponseDto | null;
+};
+
+export type SpanAttributeResponseDto = {
+  name: string;
+  value: string;
+};
+
+export type RunSpanResponseDto = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  startedAt: string;
+  ms: number;
+  failed: boolean;
+  attributes: Array<SpanAttributeResponseDto>;
+};
+
+export type TraceConnectionResponseDto = {
+  host: string;
+  port: number;
+  /**
+   * blocked: egress stopped it. failed: egress could not open it. injected: egress injected a secret into the request
+   */
+  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
+  /**
+   * The status the host answered an injected request with
+   */
+  status: number | null;
+  /**
+   * Why egress blocked the connection or could not open it
+   */
+  reason: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
+  /**
+   * The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error
+   */
+  error: 'blocked' | 'failed' | 'auth-failed' | 'server-error' | null;
+  /**
+   * How many times the same error occurred in this row. The row starts at the first time
+   */
+  count: number;
+};
+
+export type TraceNodeResponseDto = {
+  id: string;
+  kind: 'run' | 'phase' | 'step' | 'span' | 'connection';
+  name: string;
+  startedAt: string;
+  /**
+   * How long it took, in ms
+   */
+  ms: number;
+  /**
+   * The agent working, the overhead around it, or an error
+   */
+  category: 'agent' | 'overhead' | 'failed';
+  cost: number | null;
+  currency: string | null;
+  step: JournalStepResponseDto | null;
+  span: RunSpanResponseDto | null;
+  /**
+   * On a connection row: a connection of the run with an error, as a shared egress recorded it
+   */
+  connection: TraceConnectionResponseDto | null;
+  /**
+   * On a run row: what the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check
+   */
+  egressEnforcement: 'enforced' | 'not-enforced' | null;
+  children: Array<TraceNodeResponseDto>;
+};
+
+export type TaskTraceResponseDto = {
+  startedAt: string | null;
+  /**
+   * First run to last, in ms
+   */
+  ms: number;
+  /**
+   * How many rows it draws
+   */
+  rows: number;
+  errors: number;
+  roots: Array<TraceNodeResponseDto>;
+};
+
+export type HistoryPlaceResponseDto = {
+  key: string;
+  name: string;
+};
+
+export type ProfileViewResponseDto = {
+  key: string;
+  /**
+   * The permissions, MCP servers and native settings it contained
+   */
+  settings: {
+    [key: string]: unknown;
+  };
+};
+
+export type RepositoryViewResponseDto = {
+  name: string;
+  setup: string | null;
+};
+
+export type SkillViewResponseDto = {
+  key: string;
+  /**
+   * The SHA-256 of the skill's files
+   */
+  hash: string;
+};
+
+export type JudgeViewResponseDto = {
+  /**
+   * The SHA-256 of the judge's rubric
+   */
+  rubricHash: string;
+  /**
+   * The share of runs judged
+   */
+  sample: number;
+  /**
+   * How often the judge must agree with people
+   */
+  minAgreement: number;
+};
+
+export type StationConfigResponseDto = {
+  prompt: string | null;
+  harness: string;
+  model: string | null;
+  effort: string | null;
+  profile: ProfileViewResponseDto | null;
+  image: string | null;
+  repositories: Array<RepositoryViewResponseDto>;
+  skills: Array<SkillViewResponseDto>;
+  tools: Array<string>;
+  decisions: boolean;
+  memories: boolean;
+  judge: JudgeViewResponseDto | null;
+};
+
+export type HistoryConfigResponseDto = {
+  /**
+   * The SHA-256 naming this station config
+   */
+  fingerprint: string;
+  config: StationConfigResponseDto;
+};
+
+export type RunUsageResponseDto = {
+  ms: number | null;
+  steps: number;
+  errors: number;
+  contextTokens: number | null;
+  cost: number | null;
+  currency: string | null;
+};
+
+export type TaskHumanActionResponseDto = {
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'approved' | 'dismissed' | 'sent-back';
+  at: string;
+};
+
+export type RunOutcomeResponseDto = {
+  ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
+  failure: string | null;
+  /**
+   * How many runs this station has taken on the task, this one included
+   */
+  visit: number;
+  usage: RunUsageResponseDto | null;
+  checks: 'passed' | 'failed' | 'skipped' | null;
+  firstHumanAction: TaskHumanActionResponseDto | null;
+  pullRequestState: 'open' | 'merged' | 'closed' | null;
+};
+
+export type FileChangeResponseDto = {
+  path: string;
+  before: string;
+  after: string;
+  /**
+   * The file was too large to send whole; before and after are empty
+   */
+  omitted: boolean;
+};
+
+export type HistoryRunResponseDto = {
+  runId: string;
+  taskId: string;
+  title: string;
+  fingerprint: string | null;
+  state: string;
+  attempt: number;
+  harness: string;
+  startedAt: string;
+  endedAt: string;
+  outcome: RunOutcomeResponseDto | null;
+  changes: Array<FileChangeResponseDto>;
+  trace: TaskTraceResponseDto;
+};
+
+export type RunnerHistoryResponseDto = {
+  line: HistoryPlaceResponseDto;
+  station: HistoryPlaceResponseDto;
+  configs: Array<HistoryConfigResponseDto>;
+  runs: Array<HistoryRunResponseDto>;
+};
+
+export type AckMessagesRequestDto = {
+  /**
+   * The agent got all the messages up to and including this note
+   */
+  upTo: number;
+};
+
+export type ToolActingAsResponseDto = {
+  /**
+   * Whose connection the call used: the team’s, or the person’s who started the task
    */
   actsAs: 'team' | 'requester';
   /**
-   * The account name of the team on the service once connected, where the service gives one
+   * The person whose connection it was, where it was a person’s
+   */
+  personId: string | null;
+  /**
+   * The account name on the service of whoever the call acted as, where the service gives it
    */
   linkedAccount: string | null;
-  /**
-   * The API spec that its tools are generated from, as last read. Null where it names none
-   */
-  spec: ApiSpecViewResponseDto | null;
 };
 
-export type ConfigurationResponseDto = {
-  integrations: Array<IntegrationViewResponseDto>;
+export type ToolAnswerResponseDto = {
+  /**
+   * What the tool answered, shaped as the tool shapes it
+   */
+  output: string | number | boolean | {
+    [key: string]: unknown;
+  } | Array<unknown> | null;
+  /**
+   * Whose connection the call acted with, where its integration requires a connection
+   */
+  actingAs: ToolActingAsResponseDto | null;
+};
+
+export type AskPermissionRequestDto = {
+  /**
+   * The harness session asking, so the run that takes the task up again after the answer carries on in it
+   */
+  sessionId?: string;
+  /**
+   * The ACP tool kind the harness sent, as in read, edit or execute
+   */
+  kind?: string;
+  /**
+   * What the harness said it wants to do
+   */
+  title?: string;
+  /**
+   * The tool call’s raw input, as the harness sent it
+   */
+  input?: {
+    [key: string]: unknown;
+  };
+};
+
+export type PermissionAnswerResponseDto = {
+  /**
+   * allow or reject answers the harness now; pending means a person was asked in their inbox, so the run should end its turn and release the task
+   */
+  decision: 'allow' | 'reject' | 'pending';
+};
+
+export type ReplyToReviewCommentRequestDto = {
+  /**
+   * Which review comment, as the briefing named it
+   */
+  handle: string;
+  body: string;
+  /**
+   * Resolve the thread as well as replying to it
+   */
+  resolve?: boolean;
+};
+
+export type InboxChatResponseDto = {
+  /**
+   * An agent chat the person started
+   */
+  kind: 'chat';
+  id: string;
+  teamId: string;
+  title: string;
+  /**
+   * How far the run on the chat has come; null when none runs
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * How many task proposals still wait for the person
+   */
+  openProposals: number;
+  /**
+   * When the newest message arrived
+   */
+  askedAt: string;
+  /**
+   * The agent proposed a task the person has not seen yet
+   */
+  unread: boolean;
+  /**
+   * True once the chat is resolved and nothing runs on it
+   */
+  resolved: boolean;
+  /**
+   * The inbox section that shows it: running while a run works, open until the person or an accepted proposal resolves it
+   */
+  section: 'open' | 'running' | 'resolved';
+  /**
+   * True when the person can open it again: once it is resolved
+   */
+  reopenable: boolean;
+};
+
+export type AttachmentResponseDto = {
+  id: string;
+  name: string;
+  contentType: string;
+  /**
+   * In bytes
+   */
+  size: number;
+};
+
+export type InboxStationResponseDto = {
+  name: string;
+  color: string;
+  position: number;
+};
+
+export type InboxFailureResponseDto = {
+  /**
+   * Where the failure came from: the run, or the hook that failed
+   */
+  source: string;
+  /**
+   * What kind of failure it was
+   */
+  code: string;
+  /**
+   * How many times it happened while this was open, rather than asking again each time
+   */
+  occurrences: number;
+};
+
+export type InboxRequestResponseDto = {
+  /**
+   * The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
+   */
+  form: 'memories' | 'grade' | 'alert';
+  /**
+   * What it is about: for memories, the run that proposed them; for grade, the run to grade
+   */
+  about: string;
+};
+
+export type InboxAuthorResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
+export type InboxApprovalInputResponseDto = {
+  name: string;
+  value: string;
+};
+
+export type InboxApprovalAskedOfResponseDto = {
+  id: string;
+  name: string;
+};
+
+export type InboxApprovalResponseDto = {
+  /**
+   * Whether a tool call or a harness asking permission waits on a person
+   */
+  kind: 'tool-call' | 'harness-permission';
+  /**
+   * The tool, or the harness and the kind of action it asked about, as in claude-code execute
+   */
+  name: string;
+  /**
+   * Why it cannot go ahead until a person says so
+   */
+  because: string;
+  /**
+   * What it would go ahead with, exactly as it is now
+   */
+  inputs: Array<InboxApprovalInputResponseDto>;
+  status: 'pending' | 'approved' | 'dismissed';
+  /**
+   * What it was approved to run with instead, where the person changed it
+   */
+  edited: Array<InboxApprovalInputResponseDto> | null;
+  /**
+   * What the agent said it wants to do, completing “Spotlight would like to …”; absent where it said nothing, as a harness asking permission never does
+   */
+  intent: string | null;
+  /**
+   * The one person who can approve it, where it asks first because of their own rule for their connection; anyone can still dismiss it
+   */
+  askedOf: InboxApprovalAskedOfResponseDto | null;
+};
+
+export type InboxConnectionResponseDto = {
+  integration: string;
+  integrationName: string;
+  /**
+   * The person asked to connect, whose connection the tool acts with
+   */
+  personId: string;
+  personName: string;
+  /**
+   * Whether they have connected since
+   */
+  met: boolean;
+};
+
+export type NoteResponseDto = {
+  position: number;
+  kind: 'asked' | 'passed' | 'answered' | 'message' | 'reopened';
+  /**
+   * What it shows, which is not what it did
+   */
+  form: 'words' | 'setup' | 'resolved' | 'approval' | 'decision' | 'failure' | 'connection';
+  /**
+   * Who wrote it: the station, a person, or the world outside it
+   */
+  voice: 'station' | 'person' | 'world';
+  station: string;
+  stationColor: string;
+  /**
+   * Its place in the line, from zero
+   */
+  stationPosition: number;
+  /**
+   * The run that wrote it, whose journal it came from
+   */
+  runId: string | null;
+  body: string;
+  /**
+   * The files handed over with it
+   */
+  attachments: Array<AttachmentResponseDto>;
+  at: string;
+  /**
+   * Absent where the station wrote it rather than a person
+   */
+  author: InboxAuthorResponseDto | null;
+  /**
+   * The other people who wrote it with the author in a shared draft
+   */
+  coAuthors: Array<InboxAuthorResponseDto>;
+  /**
+   * The integration it came from, where the world outside wrote it
+   */
+  source: string | null;
+  /**
+   * The station the task moves to when the run in progress ends, where it arrived during that run
+   */
+  deferredTo: string | null;
+  /**
+   * The tool call this asks a person to approve, where it is one
+   */
+  approval: InboxApprovalResponseDto | null;
+  /**
+   * The failure it reports, where it reports one
+   */
+  failure: InboxFailureResponseDto | null;
+  /**
+   * The connection this asks a person to make, where a tool acts as them and they have not connected
+   */
+  connection: InboxConnectionResponseDto | null;
+};
+
+export type InboxItemResponseDto = {
+  /**
+   * A task’s conversation or an inbox request on the task
+   */
+  kind: 'task';
+  /**
+   * One conversation a person was asked to own
+   */
+  id: string;
+  taskId: string;
+  teamId: string;
+  title: string;
+  description: string | null;
+  /**
+   * The files the task was created with
+   */
+  attachments: Array<AttachmentResponseDto>;
+  station: string;
+  stationColor: string;
+  /**
+   * Its place in the line, from zero
+   */
+  stationPosition: number;
+  /**
+   * How many stations the line has
+   */
+  stationCount: number;
+  /**
+   * The station where it was created. It keeps this station when it moves
+   */
+  originStation: InboxStationResponseDto;
+  /**
+   * Where the task is now, which is where it ended up
+   */
+  currentStation: InboxStationResponseDto;
+  createdAt: string;
+  askedAt: string;
+  /**
+   * True once it is resolved, and is no longer yours to answer
+   */
+  resolved: boolean;
+  /**
+   * The inbox section that shows it: open, running or resolved. An unread item is always open
+   */
+  section: 'open' | 'running' | 'resolved';
+  /**
+   * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
+   */
+  reopenable: boolean;
+  /**
+   * What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * The run working it now, whose steps can be watched as they land
+   */
+  runId: string | null;
+  /**
+   * Something was asked here that they have not seen yet
+   */
+  unread: boolean;
+  /**
+   * The briefing of the station that opened this conversation
+   */
+  briefing: string | null;
+  /**
+   * The failure this conversation is about, where it is about one
+   */
+  failure: InboxFailureResponseDto | null;
+  /**
+   * The inbox request of this item, where it is not a conversation. It never blocks the task
+   */
+  inboxRequest: InboxRequestResponseDto | null;
+  /**
+   * The newest note of the conversation
+   */
+  lastNote: NoteResponseDto | null;
+};
+
+export type NoticeExternalLinkResponseDto = {
+  url: string;
+  label: string;
+};
+
+export type InboxNoticeResponseDto = {
+  /**
+   * Word put to one person about their team’s work, outside any task
+   */
+  kind: 'notice';
+  id: string;
+  teamId: string;
+  /**
+   * ended when work the person started has ended and they may want to act on how; advice when it carries on but suggests something they could fix
+   */
+  form: 'ended' | 'advice';
+  headline: string;
+  /**
+   * What happened, then what it suggests, one point each
+   */
+  points: Array<string>;
+  /**
+   * Where to look, as a path within its team
+   */
+  link: string;
+  /**
+   * What to call the link, naming where it leads
+   */
+  linkLabel: string;
+  /**
+   * Where to act outside Spotlight, such as the pull request to review; the main action when present
+   */
+  externalLink: NoticeExternalLinkResponseDto | null;
+  askedAt: string;
+  /**
+   * Not seen yet
+   */
+  unread: boolean;
+  /**
+   * True once its person resolved it
+   */
+  resolved: boolean;
+  /**
+   * The inbox section that shows it: open until a person resolves it
+   */
+  section: 'open' | 'running' | 'resolved';
+  /**
+   * True when the person can open it again: once it is resolved
+   */
+  reopenable: boolean;
+};
+
+export type InboxRunResponseDto = {
+  /**
+   * A run on a task the person owns, working with nothing to ask them yet
+   */
+  kind: 'run';
+  /**
+   * The run
+   */
+  id: string;
+  taskId: string;
+  teamId: string;
+  title: string;
+  /**
+   * The station the run works at
+   */
+  station: string;
+  stationColor: string;
+  /**
+   * Its place in the line, from zero
+   */
+  stationPosition: number;
+  /**
+   * How many stations the line has
+   */
+  stationCount: number;
+  /**
+   * Queued until a runner takes it, then in progress, and stopping once someone asked it to stop
+   */
+  progress: 'queued' | 'in-progress' | 'stopping';
+  /**
+   * When the run was queued
+   */
+  askedAt: string;
+  /**
+   * Never unread
+   */
+  unread: false;
+  /**
+   * Never resolved
+   */
+  resolved: false;
+  /**
+   * The inbox section that shows it: running
+   */
+  section: 'open' | 'running' | 'resolved';
+  /**
+   * Never reopenable
+   */
+  reopenable: false;
+};
+
+export type InboxItemViewResponseDto = {
+  /**
+   * A task’s conversation or an inbox request on the task
+   */
+  kind: 'task';
+  /**
+   * One conversation a person was asked to own
+   */
+  id: string;
+  taskId: string;
+  teamId: string;
+  title: string;
+  description: string | null;
+  /**
+   * The files the task was created with
+   */
+  attachments: Array<AttachmentResponseDto>;
+  station: string;
+  stationColor: string;
+  /**
+   * Its place in the line, from zero
+   */
+  stationPosition: number;
+  /**
+   * How many stations the line has
+   */
+  stationCount: number;
+  /**
+   * The station where it was created. It keeps this station when it moves
+   */
+  originStation: InboxStationResponseDto;
+  /**
+   * Where the task is now, which is where it ended up
+   */
+  currentStation: InboxStationResponseDto;
+  createdAt: string;
+  askedAt: string;
+  /**
+   * True once it is resolved, and is no longer yours to answer
+   */
+  resolved: boolean;
+  /**
+   * The inbox section that shows it: open, running or resolved. An unread item is always open
+   */
+  section: 'open' | 'running' | 'resolved';
+  /**
+   * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
+   */
+  reopenable: boolean;
+  /**
+   * What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * The run working it now, whose steps can be watched as they land
+   */
+  runId: string | null;
+  /**
+   * Something was asked here that they have not seen yet
+   */
+  unread: boolean;
+  /**
+   * The briefing of the station that opened this conversation
+   */
+  briefing: string | null;
+  /**
+   * The failure this conversation is about, where it is about one
+   */
+  failure: InboxFailureResponseDto | null;
+  /**
+   * The inbox request of this item, where it is not a conversation. It never blocks the task
+   */
+  inboxRequest: InboxRequestResponseDto | null;
+  /**
+   * The newest note of the conversation
+   */
+  lastNote: NoteResponseDto | null;
+  /**
+   * Every note of the conversation, oldest first
+   */
+  notes: Array<NoteResponseDto>;
+};
+
+export type AnswerInboxItemInputRequestDto = {
+  name: string;
+  value: string;
+};
+
+export type AnswerInboxItemRequestDto = {
+  /**
+   * What the person writes back. It joins the task’s trail. May be empty where files are attached.
+   */
+  body: string;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
+  /**
+   * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Rejected anywhere else.
+   */
+  approve?: boolean;
+  /**
+   * With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it was called with; a harness asking permission takes no changes.
+   */
+  inputs?: Array<AnswerInboxItemInputRequestDto>;
+  /**
+   * The other people who wrote the shared draft with the sender, by user id
+   */
+  coAuthors?: Array<string>;
+  /**
+   * The generation of the shared draft this sends. A second send of the same generation is refused, so the draft goes only once
+   */
+  draftGeneration?: number | null;
+};
+
+export type JournalledRunResponseDto = {
+  runId: string;
+  createdAt: string;
+};
+
+export type RunMarksResponseDto = {
+  startedAt: string | null;
+  /**
+   * When the workspace was handed to the agent
+   */
+  readyAt: string | null;
+  firstAgentUpdateAt: string | null;
+  lastAgentUpdateAt: string | null;
+  /**
+   * When the runner stopped the agent because the run was asked to stop
+   */
+  agentStoppedAt: string | null;
+  endedAt: string | null;
+};
+
+export type RunSpentResponseDto = {
+  /**
+   * Tokens in context
+   */
+  used: number;
+  /**
+   * How large the context is
+   */
+  size: number;
+  cost: number | null;
+  currency: string | null;
+};
+
+export type RunJournalResponseDto = {
+  runId: string;
+  attempt: number;
+  steps: Array<JournalStepResponseDto>;
+  /**
+   * Empty for a harness that reports nothing of itself
+   */
+  spans: Array<RunSpanResponseDto>;
+  /**
+   * How long the agent was active, in ms
+   */
+  ms: number | null;
+  marks: RunMarksResponseDto;
+  spent: RunSpentResponseDto | null;
+};
+
+export type TaskReviewResponseDto = {
+  /**
+   * The inbox conversation waiting on a person
+   */
+  conversationId: string;
+};
+
+export type TaskPersonResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
+export type TaskNoteResponseDto = {
+  position: number;
+  station: string;
+  body: string;
+};
+
+export type TaskResponseDto = {
+  id: string;
+  stationId: string;
+  /**
+   * How many times it has moved; a move names the revision it was based on
+   */
+  revision: number;
+  title: string;
+  /**
+   * Markdown
+   */
+  description: string | null;
+  /**
+   * The files it was created with
+   */
+  attachments: Array<AttachmentResponseDto>;
+  createdAt: string;
+  /**
+   * What its current run is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null without a run at work.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Where an open question is answered, or null for none
+   */
+  awaitingReview: TaskReviewResponseDto | null;
+  /**
+   * The pull requests this task ended in, one for each repository, the first opened first
+   */
+  pullRequests: Array<string>;
+  /**
+   * The person who created it. The task comes back to this person
+   */
+  createdBy: TaskPersonResponseDto | null;
+  /**
+   * The team member who owns the work, or nobody where unclaimed
+   */
+  assignee: TaskPersonResponseDto | null;
+  /**
+   * The last note on this task, and the station where it was written
+   */
+  note: TaskNoteResponseDto | null;
+};
+
+export type TaskPageResponseDto = {
+  items: Array<TaskResponseDto>;
+  /**
+   * Pass as `before` to read the next page; null on the last
+   */
+  next: string | null;
+};
+
+export type RunStationResponseDto = {
+  id: string;
+  name: string;
+  color: string;
+  position: number;
+  /**
+   * How many stations the line has
+   */
+  count: number;
+};
+
+export type RunReviewResponseDto = {
+  state: 'pending' | 'answered';
+  /**
+   * The inbox conversation it opened
+   */
+  conversationId: string;
+};
+
+export type TeamRunResponseDto = {
+  id: string;
+  state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
+  attempt: number;
+  exitCode: number | null;
+  startedAt: string;
+  updatedAt: string;
+  harness: string;
+  /**
+   * The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it
+   */
+  image: string | null;
+  /**
+   * Where it ran, which the task may since have left
+   */
+  station: RunStationResponseDto | null;
+  /**
+   * Set where it put the task to a person
+   */
+  review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  taskId: string | null;
+  taskTitle: string | null;
+  /**
+   * What was requested, shown before a run has written a note
+   */
+  taskDescription: string | null;
+};
+
+export type TeamRunPageResponseDto = {
+  items: Array<TeamRunResponseDto>;
+  /**
+   * Pass as `before` to read the next page; null on the last
+   */
+  next: string | null;
+};
+
+export type ConfigChangeResponseDto = {
+  part: 'prompt' | 'harness' | 'model' | 'effort' | 'profile' | 'image' | 'repository' | 'skill' | 'tool' | 'decisions' | 'memories' | 'judge';
+  /**
+   * The repository, skill or tool changed, where the part has several, or the judge setting changed
+   */
+  name: string | null;
+  kind: 'added' | 'removed' | 'changed';
+  was: string | null;
+  now: string | null;
+};
+
+export type ConfigChangedSinceResponseDto = {
+  /**
+   * The station’s previous run, which ran another config
+   */
+  runId: string;
+  taskId: string;
+  fingerprint: string;
+  changes: Array<ConfigChangeResponseDto>;
+};
+
+export type RunConfigResponseDto = {
+  /**
+   * The SHA-256 naming the station config the run ran with
+   */
+  fingerprint: string | null;
+  config: StationConfigResponseDto | null;
+  changedSince: ConfigChangedSinceResponseDto | null;
+};
+
+export type LatestRunResponseDto = {
+  id: string;
+  state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
+  /**
+   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+};
+
+export type RunSpendResponseDto = {
+  cost: number | null;
+  currency: string | null;
+  /**
+   * Fresh input tokens; null where the harness did not report them
+   */
+  inputTokens: number | null;
+  /**
+   * Output tokens; null where the harness did not report them
+   */
+  outputTokens: number | null;
+  /**
+   * Input tokens read from the prompt cache; null where the harness did not report them
+   */
+  cacheReadTokens: number | null;
+  /**
+   * Input tokens written to the prompt cache; null where the harness did not report them
+   */
+  cacheWriteTokens: number | null;
+};
+
+export type RunNotesResponseDto = {
+  runId: string;
+  taskId: string;
+  title: string;
+  description: string | null;
+  /**
+   * The files the task was created with
+   */
+  attachments: Array<AttachmentResponseDto>;
+  station: RunStationResponseDto | null;
+  createdAt: string;
+  /**
+   * The briefing of the run, word for word
+   */
+  briefing: string;
+  /**
+   * What the run of the task at this station is doing now: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. A paused run is under way again once a person answered it.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * The newest run of the task at this station
+   */
+  latestRun: LatestRunResponseDto;
+  notes: Array<NoteResponseDto>;
+  /**
+   * What the run spent, once it has ended and its usage is recorded
+   */
+  spend: RunSpendResponseDto | null;
+};
+
+export type SendMessageRequestDto = {
+  /**
+   * Goes to the agent when its current turn ends. May be empty where files are attached.
+   */
+  body: string;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
+  /**
+   * The other people who wrote the shared draft with the sender, by user id
+   */
+  coAuthors?: Array<string>;
+  /**
+   * The generation of the shared draft this sends. A second send of the same generation is refused, so the draft goes only once
+   */
+  draftGeneration?: number | null;
+};
+
+export type TaskRunResponseDto = {
+  id: string;
+  state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
+  attempt: number;
+  exitCode: number | null;
+  startedAt: string;
+  updatedAt: string;
+  harness: string;
+  /**
+   * The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it
+   */
+  image: string | null;
+  /**
+   * Where it ran, which the task may since have left
+   */
+  station: RunStationResponseDto | null;
+  /**
+   * Set where it put the task to a person
+   */
+  review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+};
+
+export type AddTaskRequestDto = {
+  title: string;
+  /**
+   * Markdown. Left out or blank for a task with no description.
+   */
+  description?: string | null;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
+};
+
+export type MoveTaskRequestDto = {
+  /**
+   * The station to move the task to, on the same line
+   */
+  stationId: string;
+  /**
+   * The revision the move was based on; a task that has moved since is not moved again
+   */
+  revision: number;
+  /**
+   * The task it was dropped after. Left out for the top of the station.
+   */
+  afterTaskId?: string | null;
+};
+
+export type AssignTaskRequestDto = {
+  /**
+   * The team member to assign it to, or null to leave it unclaimed
+   */
+  assigneeId: string | null;
+};
+
+export type ChatTargetStationResponseDto = {
+  lineId: string;
+  lineKey: string;
+  lineName: string;
+  stationId: string;
+  stationKey: string;
+  stationName: string;
+};
+
+export type ChatSetupResponseDto = {
+  repository: string;
+  folder: string;
+  /**
+   * The pull request the chat opened with the configuration
+   */
+  pullRequest: string | null;
+};
+
+export type ChatSummaryResponseDto = {
+  id: string;
+  title: string;
+  harness: string;
+  model: string | null;
+  effort: string | null;
+  repositories: Array<string>;
+  /**
+   * The station that the chat must improve, if any
+   */
+  targetStation: ChatTargetStationResponseDto | null;
+  /**
+   * Where the chat sets up the team’s configuration as code, for a setup chat
+   */
+  setup: ChatSetupResponseDto | null;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+};
+
+export type ChatSummaryPageResponseDto = {
+  items: Array<ChatSummaryResponseDto>;
+  /**
+   * Pass as `before` to read the next page; null on the last
+   */
+  next: string | null;
+};
+
+export type ChatSetupRequestDto = {
+  /**
+   * The repository the team’s configuration lives in
+   */
+  repository: string;
+  /**
+   * The folder in it, from the repository root
+   */
+  folder: string;
+};
+
+export type StartChatRequestDto = {
+  /**
+   * The harness to talk to
+   */
+  harness: string;
+  /**
+   * The harness’s default where left out
+   */
+  model?: string | null;
+  /**
+   * The harness’s default where left out
+   */
+  effort?: string | null;
+  /**
+   * Checked out for the agent to read
+   */
+  repositories?: Array<string>;
+  /**
+   * What opens the chat. May be empty where files are attached or traces shared.
+   */
+  body: string;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
+  /**
+   * Tasks whose traces to share with the agent, by task id
+   */
+  traces?: Array<string>;
+  /**
+   * The id of the station that the chat must improve. The agent gets an instruction to study the recent runs of the station
+   */
+  targetStation?: string;
+  /**
+   * Makes this the team’s setup chat: the agent surveys the team’s tools and opens a pull request with its configuration as code there
+   */
+  setup?: ChatSetupRequestDto;
+};
+
+export type ChatTraceResponseDto = {
+  taskId: string;
+  title: string;
+};
+
+export type ChatProposalResponseDto = {
+  lineId: string;
+  lineName: string | null;
+  stationId: string;
+  stationName: string | null;
+  stationColor: string | null;
+  /**
+   * The position of the station on its line, from 0
+   */
+  stationPosition: number | null;
+  /**
+   * How many stations its line has
+   */
+  stationCount: number | null;
+  title: string;
+  description: string | null;
+  state: 'open' | 'accepted' | 'created' | 'dismissed';
+  /**
+   * The task it became, once created
+   */
+  taskId: string | null;
+};
+
+export type ChatMessageResponseDto = {
+  position: number;
+  kind: 'message' | 'proposed';
+  body: string;
+  at: string;
+  author: InboxAuthorResponseDto | null;
+  /**
+   * The run that proposed it
+   */
+  runId: string | null;
+  /**
+   * The run that took up this message
+   */
+  takenUpBy: string | null;
+  attachments: Array<AttachmentResponseDto>;
+  /**
+   * Traces shared with the agent
+   */
+  traces: Array<ChatTraceResponseDto>;
+  proposal: ChatProposalResponseDto | null;
+};
+
+export type ChatResponseDto = {
+  id: string;
+  title: string;
+  harness: string;
+  model: string | null;
+  effort: string | null;
+  repositories: Array<string>;
+  /**
+   * The station that the chat must improve, if any
+   */
+  targetStation: ChatTargetStationResponseDto | null;
+  /**
+   * Where the chat sets up the team’s configuration as code, for a setup chat
+   */
+  setup: ChatSetupResponseDto | null;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * The run answering now
+   */
+  runId: string | null;
+  messages: Array<ChatMessageResponseDto>;
+};
+
+export type SendChatMessageRequestDto = {
+  /**
+   * May be empty where files are attached or traces shared.
+   */
+  body: string;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
+  /**
+   * Tasks whose traces to share with the agent, by task id
+   */
+  traces?: Array<string>;
+  /**
+   * The model the agent answers this and later messages with; null for the harness default, left out to keep the chat’s
+   */
+  model?: string | null;
+  /**
+   * The effort the agent answers this and later messages with; null for the harness default, left out to keep the chat’s
+   */
+  effort?: string | null;
+};
+
+export type ConnectEditorRequestDto = {
+  /**
+   * The task whose sandbox to open. Name a task or a chat.
+   */
+  task?: string;
+  /**
+   * The chat whose sandbox to open. Name a task or a chat.
+   */
+  chat?: string;
+  /**
+   * The workspace the task or chat must be in
+   */
+  workspace?: string;
+};
+
+export type EditorConnectionResponseDto = {
+  sandboxId: string;
+  /**
+   * The editor lease to name when the socket opens; it expires two minutes after it is held unless a socket renews it
+   */
+  holder: string;
+};
+
+export type SetupStepResponseDto = {
+  /**
+   * Which step this is
+   */
+  key: 'github' | 'harness' | 'configuration';
+  title: string;
+  description: string;
+  done: boolean;
+};
+
+export type SetupCiResponseDto = {
+  /**
+   * The default branch, whose pushes may apply
+   */
+  defaultBranch: string;
+  /**
+   * Whether the default branch has branch protection or a ruleset that requires a pull request review
+   */
+  defaultBranchProtected: boolean;
+  /**
+   * Whether Spotlight wrote the GitHub Actions variables, or the GitHub App may not write variables
+   */
+  variables: 'written' | 'not-permitted';
+};
+
+export type SetupChatResponseDto = {
+  /**
+   * The team’s setup chat, when the caller started it. Chats are seen only by whoever started them
+   */
+  id: string | null;
+  /**
+   * The repository that holds the configuration
+   */
+  repository: string;
+  /**
+   * The pull request it opened with the configuration
+   */
+  pullRequest: string | null;
+  /**
+   * The GitHub Actions trusts that the setup created for the repository. Pull requests plan, and pushes to the default branch apply
+   */
+  ci: SetupCiResponseDto | null;
+  /**
+   * Who started it, empty when they have left the workspace
+   */
+  startedBy: string;
+};
+
+export type OnboardingResponseDto = {
+  /**
+   * Whether Spotlight has created the first lines and opened the setup task of a team made at sign-up. A team made otherwise is done at once.
+   */
+  provisioning: 'pending' | 'done';
+  /**
+   * The list itself, in the order it is worked through
+   */
+  steps: Array<SetupStepResponseDto>;
+  /**
+   * Whether a setup chat can start: the GitHub App is installed and a host runs sandboxes
+   */
+  canSetUp: boolean;
+  /**
+   * Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts
+   */
+  viewerIsAdmin: boolean;
+  /**
+   * The chat setting up the team’s configuration as code, the one with a pull request first
+   */
+  setupChat: SetupChatResponseDto | null;
+};
+
+export type RepositoryResponseDto = {
+  /**
+   * Named the way GitHub names it, owner and all
+   */
+  fullName: string;
+};
+
+export type GitHubConnectionStatusResponseDto = {
+  /**
+   * Whether the App is installed for this workspace
+   */
+  connected: boolean;
+  /**
+   * Where to install the App, or null where GitHub would not say
+   */
+  installUrl: string | null;
+};
+
+export type ConnectGitHubRequestDto = {
+  /**
+   * The installation GitHub named when it sent you back
+   */
+  installationId: string;
+};
+
+export type PushKeyResponseDto = {
+  /**
+   * The VAPID public key to subscribe with, base64url. Null when this Spotlight sends no Web Push.
+   */
+  publicKey: string | null;
+};
+
+export type PushSubscriptionKeysRequestDto = {
+  /**
+   * The public key of the browser, base64url
+   */
+  p256dh: string;
+  /**
+   * The authentication secret of the browser, base64url
+   */
+  auth: string;
+};
+
+export type PushSubscriptionRequestDto = {
+  /**
+   * The push service address the browser gave
+   */
+  endpoint: string;
+  keys: PushSubscriptionKeysRequestDto;
+};
+
+export type PushUnsubscriptionRequestDto = {
+  /**
+   * The push service address to stop sending to
+   */
+  endpoint: string;
 };
 
 export type TeamSkillResponseDto = {
@@ -3761,9 +3882,13 @@ export type QuestionAnswerResponseDto = {
    */
   feedback: string | null;
   /**
-   * The answer that Spotlight expected
+   * The answer that Spotlight expected; null while the answer is outdated, so it is shown only once the reviewer answers the question as it is asked now
    */
-  expected: string;
+  expected: string | null;
+  /**
+   * True when the reviewer answered the question while it expected another answer; the reply and verdict are then the earlier ones, and feedback and expected are null
+   */
+  outdated: boolean;
 };
 
 export type LayerQuestionResponseDto = {
@@ -3779,6 +3904,17 @@ export type LayerQuestionResponseDto = {
   answered: QuestionAnswerResponseDto | null;
 };
 
+export type LayerRevisionResponseDto = {
+  /**
+   * How the layer compares with the previous stack: unchanged, modified or added
+   */
+  status: 'unchanged' | 'modified' | 'added';
+  /**
+   * The layer it follows in the previous stack; null when the layer is added
+   */
+  previous: string | null;
+};
+
 export type StackLayerResponseDto = {
   id: string;
   title: string;
@@ -3792,6 +3928,10 @@ export type StackLayerResponseDto = {
    * Questions that test whether the reviewer understood the layer; empty for incidental changes
    */
   questions: Array<LayerQuestionResponseDto>;
+  /**
+   * How the layer compares with the previous stack; null when the stack follows no previous stack
+   */
+  revision: LayerRevisionResponseDto | null;
 };
 
 export type StackCohortResponseDto = {
@@ -3800,6 +3940,15 @@ export type StackCohortResponseDto = {
   title: string;
   intent: string;
   layers: Array<StackLayerResponseDto>;
+};
+
+export type RemovedLayerResponseDto = {
+  /**
+   * The layer in the previous stack
+   */
+  previous: string;
+  cohort: string;
+  title: string;
 };
 
 export type CheckedStepResponseDto = {
@@ -3833,6 +3982,10 @@ export type ChangeStackResponseDto = {
   failure: string | null;
   files: Array<DiffFileResponseDto>;
   cohorts: Array<StackCohortResponseDto>;
+  /**
+   * Layers of the previous stack that this stack no longer has
+   */
+  removed: Array<RemovedLayerResponseDto>;
   /**
    * What the check ran and what each step printed
    */
@@ -3918,7 +4071,7 @@ export type DecisionResponseDto = {
    */
   alternatives: Array<string>;
   /**
-   * The changed files it covers, from the workspace root
+   * The changed files it covers, from the working copy root
    */
   paths: Array<string>;
   /**
@@ -3942,9 +4095,9 @@ export type TaskDecisionsResponseDto = {
   generating: boolean;
   status: 'proposed' | 'merged';
   /**
-   * The merge that contains the decisions, after the pull request merges
+   * One merge for each repository whose pull request merged, oldest first
    */
-  merge: DecisionMergeResponseDto | null;
+  merges: Array<DecisionMergeResponseDto>;
   /**
    * Deviations and limitations first
    */
@@ -4007,7 +4160,7 @@ export type SkippedCheckRequestDto = {
   /**
    * Why the runner could not check the stack at all
    */
-  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'workspace-failed' | 'out-of-time' | 'no-image';
+  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'working-copy-failed' | 'out-of-time' | 'no-image';
   /**
    * What it printed while trying, where that helps
    */
@@ -4037,6 +4190,10 @@ export type RecordChangeStackCheckRequestDto = {
 
 export type ReviewCommentResponseDto = {
   id: string;
+  /**
+   * The repository the file is in; none when it was not named
+   */
+  repository: string | null;
   path: string;
   /**
    * Which side of the change its lines are on; none on the whole file
@@ -4084,6 +4241,10 @@ export type ReviewCommentResponseDto = {
 
 export type ReviewResponseDto = {
   id: string;
+  /**
+   * The repository it reviews; none when it was not named
+   */
+  repository: string | null;
   authorName: string;
   viewerIsAuthor: boolean;
   /**
@@ -4108,6 +4269,10 @@ export type CodeReviewResponseDto = {
 
 export type DraftReviewCommentRequestDto = {
   body: string;
+  /**
+   * The repository the file is in, as the run checked it out; its comments go to that repository’s pull request
+   */
+  repository?: string;
   path?: string;
   /**
    * The side of the change the lines are on; none on the whole file
@@ -4138,6 +4303,10 @@ export type EditReviewCommentRequestDto = {
 export type SubmitReviewRequestDto = {
   verdict: 'comment' | 'approve' | 'request-changes';
   body?: string;
+  /**
+   * The repository the review is on; it takes that repository’s drafts and goes to its pull request
+   */
+  repository?: string;
 };
 
 export type ConnectIntegrationRequestDto = {
@@ -4377,6 +4546,57 @@ export type HappeningResponseDto = {
   integration: string;
   label: string;
   summary: string;
+};
+
+export type ApiSpecViewResponseDto = {
+  /**
+   * The kind of API spec that its tools are generated from: an OpenAPI document, a GraphQL schema or an MCP server
+   */
+  kind: 'openapi' | 'graphql' | 'mcp';
+  /**
+   * How many tools were generated from it
+   */
+  tools: number;
+  /**
+   * When Spotlight last fetched the spec
+   */
+  readAt: string;
+  /**
+   * Why it could not be read when it was last requested. The tools from the last good read stay available
+   */
+  problem: string | null;
+};
+
+export type IntegrationViewResponseDto = {
+  /**
+   * The name of the integration, as in slack
+   */
+  integration: string;
+  name: string;
+  /**
+   * Where the integration is defined
+   */
+  path: string;
+  /**
+   * Whether the team is connected to the integration. The integration needs no connection, is disconnected, or is connected.
+   */
+  connectionStatus: 'not-required' | 'disconnected' | 'connected';
+  /**
+   * Whose connection its tools act with: the team’s, or that of the person who started the task
+   */
+  actsAs: 'team' | 'requester';
+  /**
+   * The account name of the team on the service once connected, where the service gives one
+   */
+  linkedAccount: string | null;
+  /**
+   * The API spec that its tools are generated from, as last read. Null where it names none
+   */
+  spec: ApiSpecViewResponseDto | null;
+};
+
+export type ConfigurationResponseDto = {
+  integrations: Array<IntegrationViewResponseDto>;
 };
 
 export type HookMatchDto = {
@@ -4858,7 +5078,7 @@ export type RunMemoriesResponseDto = {
    */
   omitted: Array<TeamMemoryResponseDto>;
   /**
-   * What the run looked up with spotlight recall, or read from the memory folder in its workspace
+   * What the run looked up with spotlight recall, or read from the memory folder in its working copy
    */
   recalled: Array<TeamMemoryResponseDto>;
   /**
@@ -4886,7 +5106,7 @@ export type RememberRequestDto = {
    */
   scope?: 'team' | 'line' | 'station';
   /**
-   * Paths it is about, relative to the run’s workspace, each starting with the checkout folder
+   * Paths it is about, relative to the run’s working copy, each starting with the checkout folder
    */
   paths?: Array<string>;
   /**
@@ -4897,7 +5117,7 @@ export type RememberRequestDto = {
 
 export type MemoryFileResponseDto = {
   /**
-   * Where to write it, relative to the run’s workspace
+   * Where to write it, relative to the run’s working copy
    */
   path: string;
   body: string;
@@ -5161,23 +5381,31 @@ export type JudgeCalibrationResponseDto = {
   /**
    * How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s
    */
-  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
   /**
    * Runs of the current rubric with both a judge score and people’s
    */
   pairs: number;
+  /**
+   * Runs with both a judge score and people’s that agreement needs before it counts
+   */
+  minPairs: number;
   minAgreement: number | null;
   /**
    * Why the judge’s scores are hidden, where they are
    */
   hiddenReason: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-min-agreement' | null;
+  /**
+   * Whether the judge’s scores are hidden for a reason other than too few runs with both scores
+   */
+  failing: boolean;
 };
 
 export type AgreementReadingsResponseDto = {
   /**
-   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa
+   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa
    */
-  kappa: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | null;
+  kappa: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | null;
   /**
    * How strong Pearson’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one
    */
@@ -5200,13 +5428,37 @@ export type ClaimAgreementResponseDto = {
   observed: number | null;
   kappa: number | null;
   /**
-   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa
+   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa
    */
-  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | null;
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | null;
+  /**
+   * Whether the claim’s kappa is below the minimum agreement
+   */
+  belowMinimum: boolean;
 };
 
 export type AgreementResponseDto = {
   pairs: number;
+  /**
+   * Whether enough runs have both scores for the figures below to count
+   */
+  measured: boolean;
+  /**
+   * How far the pairs are towards the minimum that agreement needs, from 0 to 1
+   */
+  pairsProgress: number;
+  /**
+   * Scores where the judge and people agree: runs, or claim marks for a judge of claims
+   */
+  agreed: number;
+  /**
+   * Scores compared: runs, or claim marks for a judge of claims
+   */
+  compared: number;
+  /**
+   * Whether the headline measure, kappa or Spearman’s, is below the minimum agreement
+   */
+  belowMinimum: boolean;
   /**
    * The share of pairs where the judge and people gave the same score
    */
@@ -5284,7 +5536,18 @@ export type RubricVersionResponseDto = {
    * How often each score was given, in the confusion’s order
    */
   distribution: Array<ScoreCountResponseDto>;
+  /**
+   * Daily means of the judge’s and people’s scores, the judge’s included while its scores are hidden on runs
+   */
   trend: Array<TrendPointResponseDto>;
+  /**
+   * Whether enough runs have both scores, over more than one day, to draw the trend
+   */
+  trendShown: boolean;
+  /**
+   * Runs with both scores that the trend needs
+   */
+  trendMinPairs: number;
   firstAt: string;
   lastAt: string;
 };
@@ -6467,16 +6730,24 @@ export type StationJudgeCalibrationResponseDto = {
   /**
    * How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s
    */
-  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
   /**
    * Runs of the current rubric with both a judge score and people’s
    */
   pairs: number;
+  /**
+   * Runs with both a judge score and people’s that agreement needs before it counts
+   */
+  minPairs: number;
   minAgreement: number | null;
   /**
    * Why the judge’s scores are hidden, where they are
    */
   hiddenReason: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-min-agreement' | null;
+  /**
+   * Whether the judge’s scores are hidden for a reason other than too few runs with both scores
+   */
+  failing: boolean;
   lineId: string;
   stationId: string;
 };
@@ -6607,19 +6878,6 @@ export type FlaggedMemoryResponseDto = {
   at: string;
 };
 
-export type MemoryBenchmarkResponseDto = {
-  ranAt: string;
-  /**
-   * Share of the benchmark’s cases solved with memories
-   */
-  withMemories: number;
-  /**
-   * Share of the benchmark’s cases solved without them
-   */
-  withoutMemories: number;
-  cases: number;
-};
-
 export type InsightsMemoryResponseDto = {
   period: InsightsPeriodResponseDto;
   /**
@@ -6658,10 +6916,6 @@ export type InsightsMemoryResponseDto = {
    * Each measure over the runs without memories against the runs with them, and whether runs with memories did better
    */
   verdicts: Array<MeasureVerdictResponseDto>;
-  /**
-   * The latest memory benchmark run for the team, if any
-   */
-  benchmark: MemoryBenchmarkResponseDto | null;
 };
 
 export type AlertRuleResponseDto = {
@@ -7673,6 +7927,113 @@ export type FailureCauseRecordedResponseDto = {
   replayRunId: string;
 };
 
+export type SearchViewConfigResponseDto = {
+  /**
+   * The SHA-256 naming this station config
+   */
+  fingerprint: string;
+  /**
+   * The station config, in the shape the station history uses for a config
+   */
+  config: {
+    [key: string]: unknown;
+  };
+};
+
+export type SearchViewUsageResponseDto = {
+  ms: number | null;
+  steps: number;
+  errors: number;
+  contextTokens: number | null;
+  cost: number | null;
+  currency: string | null;
+};
+
+export type SearchViewRunResponseDto = {
+  /**
+   * The replay run of the candidate
+   */
+  runId: string;
+  /**
+   * The task run it replayed
+   */
+  original: string;
+  /**
+   * Which copy of the task run it is, from 1
+   */
+  repeat: number;
+  taskId: string;
+  title: string;
+  fingerprint: string | null;
+  state: string;
+  attempt: number;
+  harness: string;
+  startedAt: string;
+  endedAt: string;
+  /**
+   * What the replay cost; a replay run has no outcome of its own, so the response shows its cost beside the run
+   */
+  usage: SearchViewUsageResponseDto | null;
+  /**
+   * The files the run changed, as the history of the station lists them
+   */
+  changes: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * The trace of the run, as the history of the station shows it
+   */
+  trace: {
+    [key: string]: unknown;
+  };
+  /**
+   * Whether the replay succeeded; null while it is unscored
+   */
+  succeeded: boolean | null;
+  reasons: Array<string>;
+  verdict: string | null;
+  /**
+   * What the judge says a failing replay should do differently, never its reasons
+   */
+  guidance: string | null;
+};
+
+export type SearchViewCandidateResponseDto = {
+  candidateName: string;
+  /**
+   * The SHA-256 naming the candidate’s config
+   */
+  fingerprint: string;
+  /**
+   * Why the search proposed the candidate
+   */
+  hypothesis: string;
+  /**
+   * The candidate’s station block, in the shape that the line resource uses for a station
+   */
+  block: {
+    [key: string]: unknown;
+  };
+  runs: Array<SearchViewRunResponseDto>;
+};
+
+export type SearchViewResponseDto = {
+  /**
+   * The station configs of the candidates and their replay runs, for the configs the history does not list
+   */
+  configs: Array<SearchViewConfigResponseDto>;
+  /**
+   * The candidates the search proposed and their replay runs
+   */
+  candidates: Array<SearchViewCandidateResponseDto>;
+  /**
+   * The station block the search started from
+   */
+  seedBlock: {
+    [key: string]: unknown;
+  } | null;
+};
+
 export type ReplayedPeriodResponseDto = {
   name: '7d' | '30d' | '90d';
   /**
@@ -8357,7 +8718,7 @@ export type CreateLineErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the line: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the line; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -8418,7 +8779,7 @@ export type DeleteLineErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the line: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the line; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -8526,7 +8887,7 @@ export type UpdateLineErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the line: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the line; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -8653,2131 +9014,6 @@ export type ListLinesResponses = {
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
 
-export type EnqueueRunData = {
-  body: EnqueueRunRequestDto;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/runs';
-};
-
-export type EnqueueRunErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-};
-
-export type EnqueueRunResponses = {
-  201: EnqueuedRunResponseDto;
-};
-
-export type EnqueueRunResponse = EnqueueRunResponses[keyof EnqueueRunResponses];
-
-export type StreamRunData = {
-  body?: never;
-  headers: {
-    'last-event-id': string;
-  };
-  path: {
-    runId: string;
-  };
-  query: {
-    from: string;
-  };
-  url: '/runs/{runId}/stream';
-};
-
-export type StreamRunErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
-};
-
-export type StreamRunResponses = {
-  /**
-   * Server-sent events, one per journal entry
-   */
-  200: unknown;
-};
-
-export type ListHarnessProbesData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/runners/harnesses';
-};
-
-export type ListHarnessProbesErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-};
-
-export type ListHarnessProbesResponses = {
-  200: Array<HarnessProbeResponseDto>;
-};
-
-export type ListHarnessProbesResponse = ListHarnessProbesResponses[keyof ListHarnessProbesResponses];
-
-export type ClaimRunData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/runners/claim';
-};
-
-export type ClaimRunErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-};
-
-export type ClaimRunResponses = {
-  200: ClaimedWorkResponseDto;
-  /**
-   * Nothing queued for this pool
-   */
-  204: void;
-};
-
-export type ClaimRunResponse = ClaimRunResponses[keyof ClaimRunResponses];
-
-export type PendingMessagesData = {
-  body?: never;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/messages';
-};
-
-export type PendingMessagesErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * No such run leased by this runner
-   */
-  404: unknown;
-};
-
-export type PendingMessagesResponses = {
-  200: Array<PendingMessageResponseDto>;
-};
-
-export type PendingMessagesResponse = PendingMessagesResponses[keyof PendingMessagesResponses];
-
-export type ReadRunAttachmentData = {
-  body?: never;
-  path: {
-    runId: string;
-    attachmentId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/attachments/{attachmentId}';
-};
-
-export type ReadRunAttachmentErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * No such file, or not this runner’s run to read it for
-   */
-  404: unknown;
-};
-
-export type ReadRunAttachmentResponses = {
-  /**
-   * The file, byte for byte
-   */
-  200: unknown;
-};
-
-export type GrantRunAttachmentUploadData = {
-  body: GrantAttachmentUploadRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/attachments';
-};
-
-export type GrantRunAttachmentUploadErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * No such run, or not this runner’s run to attach to
-   */
-  404: unknown;
-  /**
-   * Too large to attach, or nowhere to store it
-   */
-  422: unknown;
-};
-
-export type GrantRunAttachmentUploadResponses = {
-  201: AttachmentUploadResponseDto;
-};
-
-export type GrantRunAttachmentUploadResponse = GrantRunAttachmentUploadResponses[keyof GrantRunAttachmentUploadResponses];
-
-export type ReadRunTraceData = {
-  body?: never;
-  path: {
-    runId: string;
-    taskId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/trace/{taskId}';
-};
-
-export type ReadRunTraceErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * No such run or task, or not this run’s team to read
-   */
-  404: unknown;
-};
-
-export type ReadRunTraceResponses = {
-  200: TaskTraceResponseDto;
-};
-
-export type ReadRunTraceResponse = ReadRunTraceResponses[keyof ReadRunTraceResponses];
-
-export type ReadRunHistoryData = {
-  body?: never;
-  path: {
-    runId: string;
-  };
-  query: {
-    last?: number;
-    since?: string;
-    outcome?: string;
-    fingerprint?: string;
-    line?: string;
-    station: string;
-  };
-  url: '/runs/{runId}/history';
-};
-
-export type ReadRunHistoryErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * No such run, or no such station in its team
-   */
-  404: unknown;
-  /**
-   * Several of the team’s lines have a station by that key
-   */
-  409: unknown;
-};
-
-export type ReadRunHistoryResponses = {
-  200: RunnerHistoryResponseDto;
-};
-
-export type ReadRunHistoryResponse = ReadRunHistoryResponses[keyof ReadRunHistoryResponses];
-
-export type AckMessagesData = {
-  body: AckMessagesRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/messages/ack';
-};
-
-export type AckMessagesErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * The run is not leased by this runner
-   */
-  409: unknown;
-};
-
-export type AckMessagesResponses = {
-  204: void;
-};
-
-export type AckMessagesResponse = AckMessagesResponses[keyof AckMessagesResponses];
-
-export type RenewLeaseData = {
-  body?: never;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/lease';
-};
-
-export type RenewLeaseErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * The run is no longer leased by this runner: it ended, was suspended, or its task cancelled it. The runner releases its sandbox.
-   */
-  404: unknown;
-  /**
-   * The run kept changing while its lease was renewed; renew again on the next heartbeat.
-   */
-  409: unknown;
-};
-
-export type RenewLeaseResponses = {
-  200: RenewLeaseResponseDto;
-};
-
-export type RenewLeaseResponse = RenewLeaseResponses[keyof RenewLeaseResponses];
-
-export type RenewCheckLeaseData = {
-  body?: never;
-  path: {
-    runId: string;
-    stackId: string;
-  };
-  query?: {
-    /**
-     * true when the check is the recheck of a replay’s change, as its claim said
-     */
-    recheck?: boolean;
-  };
-  url: '/runs/{runId}/change-stack-checks/{stackId}/lease';
-};
-
-export type RenewCheckLeaseErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * No such runner, or the check this runner leases is of another run
-   */
-  404: unknown;
-  /**
-   * The check kept moving on while it was renewed
-   */
-  409: unknown;
-};
-
-export type RenewCheckLeaseResponses = {
-  200: RenewCheckLeaseResponseDto;
-};
-
-export type RenewCheckLeaseResponse = RenewCheckLeaseResponses[keyof RenewCheckLeaseResponses];
-
-export type RecordRunImageData = {
-  body: RecordRunImageRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/image';
-};
-
-export type RecordRunImageErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * The run is not leased by this runner
-   */
-  409: unknown;
-};
-
-export type RecordRunImageResponses = {
-  204: void;
-};
-
-export type RecordRunImageResponse = RecordRunImageResponses[keyof RecordRunImageResponses];
-
-export type RecordStartingPointData = {
-  body: RecordStartingPointRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/starting-point';
-};
-
-export type RecordStartingPointErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * No such run
-   */
-  404: unknown;
-  /**
-   * The run is not leased by this runner on that attempt, works no task, or already started from somewhere else
-   */
-  409: unknown;
-  /**
-   * An archive the run could not have restored, a commit that is not a full SHA, or checkouts that are not the run’s own
-   */
-  422: unknown;
-};
-
-export type RecordStartingPointResponses = {
-  204: void;
-};
-
-export type RecordStartingPointResponse = RecordStartingPointResponses[keyof RecordStartingPointResponses];
-
-export type AppendRunEventsData = {
-  body: AppendRunEventsRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/events';
-};
-
-export type AppendRunEventsErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * The run is not leased by this runner
-   */
-  409: unknown;
-};
-
-export type AppendRunEventsResponses = {
-  204: void;
-};
-
-export type AppendRunEventsResponse = AppendRunEventsResponses[keyof AppendRunEventsResponses];
-
-export type UseToolData = {
-  body: {
-    [key: string]: unknown;
-  };
-  path: {
-    runId: string;
-    tool: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/tools/{tool}';
-};
-
-export type UseToolErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * This tool is not enabled for the run
-   */
-  403: unknown;
-  /**
-   * No such run, station or tool for this runner
-   */
-  404: unknown;
-  /**
-   * The run works no task to use it on
-   */
-  409: unknown;
-  /**
-   * What the agent handed the tool is not what it takes
-   */
-  422: unknown;
-  /**
-   * The integration the tool calls answered with an error
-   */
-  502: unknown;
-};
-
-export type UseToolResponses = {
-  200: ToolAnswerResponseDto;
-};
-
-export type UseToolResponse = UseToolResponses[keyof UseToolResponses];
-
-export type AskPermissionData = {
-  body: AskPermissionRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/permissions';
-};
-
-export type AskPermissionErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * The run is not leased by this runner
-   */
-  409: unknown;
-};
-
-export type AskPermissionResponses = {
-  200: PermissionAnswerResponseDto;
-};
-
-export type AskPermissionResponse = AskPermissionResponses[keyof AskPermissionResponses];
-
-export type ReplyToReviewCommentData = {
-  body: ReplyToReviewCommentRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/review-comment-replies';
-};
-
-export type ReplyToReviewCommentErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-};
-
-export type ReplyToReviewCommentResponses = {
-  204: void;
-};
-
-export type ReplyToReviewCommentResponse = ReplyToReviewCommentResponses[keyof ReplyToReviewCommentResponses];
-
-export type CompleteRunData = {
-  body: CompleteRunRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/completion';
-};
-
-export type CompleteRunErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-};
-
-export type CompleteRunResponses = {
-  /**
-   * Turn reported
-   */
-  204: void;
-};
-
-export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
-
-export type ReadWorkspaceArchiveData = {
-  body?: never;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/workspace-archive';
-};
-
-export type ReadWorkspaceArchiveErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * Not this runner’s run
-   */
-  404: unknown;
-};
-
-export type ReadWorkspaceArchiveResponses = {
-  200: StoredArchiveResponseDto;
-  /**
-   * Nothing to restore: the run starts its work afresh
-   */
-  204: void;
-};
-
-export type ReadWorkspaceArchiveResponse = ReadWorkspaceArchiveResponses[keyof ReadWorkspaceArchiveResponses];
-
-export type GrantWorkspaceArchiveData = {
-  body: GrantWorkspaceArchiveRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/workspace-archive';
-};
-
-export type GrantWorkspaceArchiveErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * Not this runner’s run
-   */
-  404: unknown;
-  /**
-   * Too large, not a SHA-256, work that does not carry on, or nowhere to store it
-   */
-  422: unknown;
-};
-
-export type GrantWorkspaceArchiveResponses = {
-  201: ArchiveGrantResponseDto;
-};
-
-export type GrantWorkspaceArchiveResponse = GrantWorkspaceArchiveResponses[keyof GrantWorkspaceArchiveResponses];
-
-export type CompleteWorkspaceArchiveData = {
-  body?: never;
-  path: {
-    runId: string;
-    archiveId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/workspace-archive/{archiveId}/complete';
-};
-
-export type CompleteWorkspaceArchiveErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * Not this runner’s run, or not an archive granted to it
-   */
-  404: unknown;
-  /**
-   * Not uploaded, or uploaded other than as granted
-   */
-  409: unknown;
-};
-
-export type CompleteWorkspaceArchiveResponses = {
-  204: void;
-};
-
-export type CompleteWorkspaceArchiveResponse = CompleteWorkspaceArchiveResponses[keyof CompleteWorkspaceArchiveResponses];
-
-export type ReadSandboxArchiveData = {
-  body?: never;
-  path: {
-    sandboxId: string;
-  };
-  query?: never;
-  url: '/sandboxes/{sandboxId}/workspace-archive';
-};
-
-export type ReadSandboxArchiveErrors = {
-  /**
-   * Missing, wrong or no longer valid sandbox token, or not this sandbox
-   */
-  404: unknown;
-};
-
-export type ReadSandboxArchiveResponses = {
-  200: StoredArchiveResponseDto;
-  /**
-   * Nothing to restore: the sandbox starts with an empty workspace
-   */
-  204: void;
-};
-
-export type ReadSandboxArchiveResponse = ReadSandboxArchiveResponses[keyof ReadSandboxArchiveResponses];
-
-export type GrantSandboxArchiveData = {
-  body: GrantWorkspaceArchiveRequestDto;
-  path: {
-    sandboxId: string;
-  };
-  query?: never;
-  url: '/sandboxes/{sandboxId}/workspace-archive';
-};
-
-export type GrantSandboxArchiveErrors = {
-  /**
-   * Missing, wrong or no longer valid sandbox token, or not this sandbox
-   */
-  404: unknown;
-  /**
-   * Too large, not a SHA-256, a sandbox of no task or chat, or nowhere to store it
-   */
-  422: unknown;
-};
-
-export type GrantSandboxArchiveResponses = {
-  201: ArchiveGrantResponseDto;
-};
-
-export type GrantSandboxArchiveResponse = GrantSandboxArchiveResponses[keyof GrantSandboxArchiveResponses];
-
-export type CompleteSandboxArchiveData = {
-  body?: never;
-  path: {
-    sandboxId: string;
-    archiveId: string;
-  };
-  query?: never;
-  url: '/sandboxes/{sandboxId}/workspace-archive/{archiveId}/complete';
-};
-
-export type CompleteSandboxArchiveErrors = {
-  /**
-   * Missing, wrong or no longer valid sandbox token, or not this sandbox
-   */
-  404: unknown;
-  /**
-   * Not uploaded, or uploaded other than as granted
-   */
-  409: unknown;
-};
-
-export type CompleteSandboxArchiveResponses = {
-  204: void;
-};
-
-export type CompleteSandboxArchiveResponse = CompleteSandboxArchiveResponses[keyof CompleteSandboxArchiveResponses];
-
-export type PoolQueueData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/pools/{id}/queue';
-};
-
-export type PoolQueueErrors = {
-  /**
-   * Missing, rotated or unknown pool token
-   */
-  401: unknown;
-};
-
-export type PoolQueueResponses = {
-  200: PoolQueueResponseDto;
-};
-
-export type PoolQueueResponse = PoolQueueResponses[keyof PoolQueueResponses];
-
-export type HostRequirementsData = {
-  body?: never;
-  headers?: {
-    /**
-     * The runner trust to claim through; the bearer is then the workload’s token
-     */
-    'Spotlight-Trust'?: string;
-  };
-  path?: never;
-  query?: never;
-  url: '/hosts/requirements';
-};
-
-export type HostRequirementsErrors = {
-  /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not match
-   */
-  401: unknown;
-};
-
-export type HostRequirementsResponses = {
-  200: HostRequirementsResponseDto;
-};
-
-export type HostRequirementsResponse = HostRequirementsResponses[keyof HostRequirementsResponses];
-
-export type ClaimHostWorkData = {
-  body: ClaimHostWorkRequestDto;
-  headers?: {
-    /**
-     * The runner trust to claim through; the bearer is then the workload’s token
-     */
-    'Spotlight-Trust'?: string;
-  };
-  path?: never;
-  query?: never;
-  url: '/hosts/claim';
-};
-
-export type ClaimHostWorkErrors = {
-  /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not match
-   */
-  401: unknown;
-  /**
-   * The host has not reported through this pool or trust (`host-unreported`), is on a release older than the host minimum (`host-outdated`), or has not reported that it supports the image it claims for (`image-unreported`)
-   */
-  409: unknown;
-};
-
-export type ClaimHostWorkResponses = {
-  200: HostClaimResponseDto;
-  /**
-   * Nothing waits for this pool or trust yet, or the pool is at maxRuns
-   */
-  204: void;
-};
-
-export type ClaimHostWorkResponse = ClaimHostWorkResponses[keyof ClaimHostWorkResponses];
-
-export type ClaimHostCallData = {
-  body: ClaimHostCallRequestDto;
-  headers?: {
-    /**
-     * The runner trust to claim through; the bearer is then the workload’s token
-     */
-    'Spotlight-Trust'?: string;
-  };
-  path?: never;
-  query?: never;
-  url: '/hosts/calls/claim';
-};
-
-export type ClaimHostCallErrors = {
-  /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not match
-   */
-  401: unknown;
-  /**
-   * The host has not reported through this pool or trust (`host-unreported`)
-   */
-  409: unknown;
-};
-
-export type ClaimHostCallResponses = {
-  200: HostCallResponseDto;
-  /**
-   * No call waits for this pool’s or trust’s workspace
-   */
-  204: void;
-};
-
-export type ClaimHostCallResponse = ClaimHostCallResponses[keyof ClaimHostCallResponses];
-
-export type RecordHostCallResponseData = {
-  body: RecordHostCallResponseRequestDto;
-  headers?: {
-    /**
-     * The runner trust to claim through; the bearer is then the workload’s token
-     */
-    'Spotlight-Trust'?: string;
-  };
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/hosts/calls/{id}/response';
-};
-
-export type RecordHostCallResponseErrors = {
-  /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not match
-   */
-  401: unknown;
-  /**
-   * No such call waits for this pool’s or trust’s workspace
-   */
-  404: unknown;
-  /**
-   * The call already has a response, expired before it got a response, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)
-   */
-  409: unknown;
-};
-
-export type RecordHostCallResponseResponses = {
-  /**
-   * Spotlight recorded the response
-   */
-  204: void;
-};
-
-export type RecordHostCallResponseResponse = RecordHostCallResponseResponses[keyof RecordHostCallResponseResponses];
-
-export type RedeemCallSecretsData = {
-  body: RedeemCallSecretsRequestDto;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/hosts/calls/{id}/secrets';
-};
-
-export type RedeemCallSecretsErrors = {
-  /**
-   * The token does not redeem the secrets of this call, or there is no such call. Use the secretsToken that the claim gave
-   */
-  401: unknown;
-  /**
-   * The secrets were redeemed already, another host claimed the call, or the call has a response
-   */
-  409: unknown;
-  /**
-   * The call expired, or Spotlight stopped waiting for it
-   */
-  410: unknown;
-  /**
-   * The recipient is not an X25519 public key
-   */
-  422: unknown;
-};
-
-export type RedeemCallSecretsResponses = {
-  200: EgressSecretsResponseDto;
-};
-
-export type RedeemCallSecretsResponse = RedeemCallSecretsResponses[keyof RedeemCallSecretsResponses];
-
-export type FetchRunSecretsData = {
-  body: FetchRunSecretsRequestDto;
-  path?: never;
-  query?: never;
-  url: '/egress/secrets';
-};
-
-export type FetchRunSecretsErrors = {
-  /**
-   * Missing or unknown egress token, or its runner no longer has a lease on work
-   */
-  401: unknown;
-  /**
-   * The runner of this proxy credential has no lease on a run yet. Please fetch the secrets again after it claims one
-   */
-  409: unknown;
-  /**
-   * The recipient is not an X25519 public key
-   */
-  422: unknown;
-};
-
-export type FetchRunSecretsResponses = {
-  200: EgressSecretsResponseDto;
-};
-
-export type FetchRunSecretsResponse = FetchRunSecretsResponses[keyof FetchRunSecretsResponses];
-
-export type AuthorizeRunnerData = {
-  body: AuthorizeRunnerRequestDto;
-  path?: never;
-  query?: never;
-  url: '/egress/authorize';
-};
-
-export type AuthorizeRunnerErrors = {
-  /**
-   * Missing or unknown egress token, or its runner no longer has a lease on work
-   */
-  401: unknown;
-};
-
-export type AuthorizeRunnerResponses = {
-  200: EgressAuthorizationResponseDto;
-};
-
-export type AuthorizeRunnerResponse = AuthorizeRunnerResponses[keyof AuthorizeRunnerResponses];
-
-export type CheckActiveRunsData = {
-  body: CheckActiveRunsRequestDto;
-  path?: never;
-  query?: never;
-  url: '/egress/active-runs';
-};
-
-export type CheckActiveRunsErrors = {
-  /**
-   * Missing or unknown egress token, or its runner no longer has a lease on work
-   */
-  401: unknown;
-  /**
-   * The request has more than 500 proxy credentials
-   */
-  422: unknown;
-};
-
-export type CheckActiveRunsResponses = {
-  200: EgressActiveRunsResponseDto;
-};
-
-export type CheckActiveRunsResponse = CheckActiveRunsResponses[keyof CheckActiveRunsResponses];
-
-export type RecordEgressConnectionsData = {
-  body: RecordEgressConnectionsRequestDto;
-  path?: never;
-  query?: never;
-  url: '/egress/connections';
-};
-
-export type RecordEgressConnectionsErrors = {
-  /**
-   * Missing or unknown egress token, or its runner no longer has a lease on work
-   */
-  401: unknown;
-  /**
-   * The request has more than 2000 records
-   */
-  422: unknown;
-};
-
-export type RecordEgressConnectionsResponses = {
-  /**
-   * Spotlight accepted the records
-   */
-  204: void;
-};
-
-export type RecordEgressConnectionsResponse = RecordEgressConnectionsResponses[keyof RecordEgressConnectionsResponses];
-
-export type ListRunnerActivityData = {
-  body?: never;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/runner-activity';
-};
-
-export type ListRunnerActivityErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-};
-
-export type ListRunnerActivityResponses = {
-  200: Array<RunnerActivityResponseDto>;
-};
-
-export type ListRunnerActivityResponse = ListRunnerActivityResponses[keyof ListRunnerActivityResponses];
-
-export type ListHarnessesData = {
-  body?: never;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/harnesses';
-};
-
-export type ListHarnessesErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-};
-
-export type ListHarnessesResponses = {
-  200: Array<HarnessResponseDto>;
-};
-
-export type ListHarnessesResponse = ListHarnessesResponses[keyof ListHarnessesResponses];
-
-export type ListInboxData = {
-  body?: never;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox';
-};
-
-export type ListInboxErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-};
-
-export type ListInboxResponses = {
-  200: Array<InboxItemResponseDto | InboxNoticeResponseDto | InboxRunResponseDto>;
-};
-
-export type ListInboxResponse = ListInboxResponses[keyof ListInboxResponses];
-
-export type AnswerInboxItemData = {
-  body: AnswerInboxItemRequestDto;
-  path: {
-    itemId: string;
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/{itemId}/answer';
-};
-
-export type AnswerInboxItemErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such conversation for this caller
-   */
-  404: unknown;
-  /**
-   * Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with
-   */
-  409: unknown;
-};
-
-export type AnswerInboxItemResponses = {
-  /**
-   * The answer was recorded
-   */
-  204: void;
-};
-
-export type AnswerInboxItemResponse = AnswerInboxItemResponses[keyof AnswerInboxItemResponses];
-
-export type MarkInboxItemReadData = {
-  body?: never;
-  path: {
-    itemId: string;
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/{itemId}/read';
-};
-
-export type MarkInboxItemReadErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such conversation for this caller
-   */
-  404: unknown;
-};
-
-export type MarkInboxItemReadResponses = {
-  /**
-   * It is no longer unread
-   */
-  204: void;
-};
-
-export type MarkInboxItemReadResponse = MarkInboxItemReadResponses[keyof MarkInboxItemReadResponses];
-
-export type ResolveInboxItemData = {
-  body?: never;
-  path: {
-    itemId: string;
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/{itemId}/resolve';
-};
-
-export type ResolveInboxItemErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such conversation for this caller
-   */
-  404: unknown;
-  /**
-   * The conversation is already closed
-   */
-  409: unknown;
-};
-
-export type ResolveInboxItemResponses = {
-  /**
-   * It is resolved
-   */
-  204: void;
-};
-
-export type ResolveInboxItemResponse = ResolveInboxItemResponses[keyof ResolveInboxItemResponses];
-
-export type ResolveInboxRequestData = {
-  body?: never;
-  path: {
-    requestId: string;
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/requests/{requestId}/resolve';
-};
-
-export type ResolveInboxRequestErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such inbox request for this caller
-   */
-  404: unknown;
-};
-
-export type ResolveInboxRequestResponses = {
-  /**
-   * It is resolved
-   */
-  204: void;
-};
-
-export type ResolveInboxRequestResponse = ResolveInboxRequestResponses[keyof ResolveInboxRequestResponses];
-
-export type ReopenInboxItemData = {
-  body?: never;
-  path: {
-    itemId: string;
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/{itemId}/reopen';
-};
-
-export type ReopenInboxItemErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such conversation for this caller
-   */
-  404: unknown;
-  /**
-   * The conversation is not the last one, or a person did not resolve it
-   */
-  409: unknown;
-};
-
-export type ReopenInboxItemResponses = {
-  /**
-   * It is open again
-   */
-  204: void;
-};
-
-export type ReopenInboxItemResponse = ReopenInboxItemResponses[keyof ReopenInboxItemResponses];
-
-export type ReopenInboxRequestData = {
-  body?: never;
-  path: {
-    requestId: string;
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/requests/{requestId}/reopen';
-};
-
-export type ReopenInboxRequestErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such inbox request for this caller
-   */
-  404: unknown;
-};
-
-export type ReopenInboxRequestResponses = {
-  /**
-   * It is open again
-   */
-  204: void;
-};
-
-export type ReopenInboxRequestResponse = ReopenInboxRequestResponses[keyof ReopenInboxRequestResponses];
-
-export type MarkInboxRequestReadData = {
-  body?: never;
-  path: {
-    requestId: string;
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/requests/{requestId}/read';
-};
-
-export type MarkInboxRequestReadErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such inbox request for this caller
-   */
-  404: unknown;
-};
-
-export type MarkInboxRequestReadResponses = {
-  /**
-   * It is no longer unread
-   */
-  204: void;
-};
-
-export type MarkInboxRequestReadResponse = MarkInboxRequestReadResponses[keyof MarkInboxRequestReadResponses];
-
-export type ResolveInboxNoticeData = {
-  body?: never;
-  path: {
-    slug: string;
-    noticeId: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/notices/{noticeId}/resolve';
-};
-
-export type ResolveInboxNoticeErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such notice for this caller
-   */
-  404: unknown;
-};
-
-export type ResolveInboxNoticeResponses = {
-  /**
-   * It is resolved
-   */
-  204: void;
-};
-
-export type ResolveInboxNoticeResponse = ResolveInboxNoticeResponses[keyof ResolveInboxNoticeResponses];
-
-export type ReopenInboxNoticeData = {
-  body?: never;
-  path: {
-    slug: string;
-    noticeId: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/notices/{noticeId}/reopen';
-};
-
-export type ReopenInboxNoticeErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such notice for this caller
-   */
-  404: unknown;
-};
-
-export type ReopenInboxNoticeResponses = {
-  /**
-   * It is open again
-   */
-  204: void;
-};
-
-export type ReopenInboxNoticeResponse = ReopenInboxNoticeResponses[keyof ReopenInboxNoticeResponses];
-
-export type ReadTaskJournalData = {
-  body?: never;
-  path: {
-    taskId: string;
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal';
-};
-
-export type ReadTaskJournalErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such task for this caller
-   */
-  404: unknown;
-};
-
-export type ReadTaskJournalResponses = {
-  200: Array<RunJournalResponseDto>;
-};
-
-export type ReadTaskJournalResponse = ReadTaskJournalResponses[keyof ReadTaskJournalResponses];
-
-export type GrantAttachmentUploadData = {
-  body: GrantAttachmentUploadRequestDto;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/attachments';
-};
-
-export type GrantAttachmentUploadErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-  /**
-   * Too large to attach, or nowhere to store it
-   */
-  422: unknown;
-};
-
-export type GrantAttachmentUploadResponses = {
-  201: AttachmentUploadResponseDto;
-};
-
-export type GrantAttachmentUploadResponse = GrantAttachmentUploadResponses[keyof GrantAttachmentUploadResponses];
-
-export type ReadAttachmentData = {
-  body?: never;
-  path: {
-    slug: string;
-    attachmentId: string;
-  };
-  query?: {
-    /**
-     * Saved rather than shown, where set
-     */
-    download?: unknown;
-  };
-  url: '/workspaces/{slug}/attachments/{attachmentId}';
-};
-
-export type ReadAttachmentErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such file for this caller
-   */
-  404: unknown;
-};
-
-export type ListTasksData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/tasks';
-};
-
-export type ListTasksErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team for this caller
-   */
-  404: unknown;
-};
-
-export type ListTasksResponses = {
-  200: Array<TaskResponseDto>;
-};
-
-export type ListTasksResponse = ListTasksResponses[keyof ListTasksResponses];
-
-export type ListTeamRunsData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/runs';
-};
-
-export type ListTeamRunsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-};
-
-export type ListTeamRunsResponses = {
-  200: Array<TeamRunResponseDto>;
-};
-
-export type ListTeamRunsResponse = ListTeamRunsResponses[keyof ListTeamRunsResponses];
-
-export type ReadRunConfigData = {
-  body?: never;
-  path: {
-    teamId: string;
-    runId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/runs/{runId}/config';
-};
-
-export type ReadRunConfigErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
-};
-
-export type ReadRunConfigResponses = {
-  200: RunConfigResponseDto;
-};
-
-export type ReadRunConfigResponse = ReadRunConfigResponses[keyof ReadRunConfigResponses];
-
-export type ReadRunNetworkData = {
-  body?: never;
-  path: {
-    runId: string;
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/runs/{runId}/network';
-};
-
-export type ReadRunNetworkErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
-};
-
-export type ReadRunNetworkResponses = {
-  200: RunNetworkResponseDto;
-};
-
-export type ReadRunNetworkResponse = ReadRunNetworkResponses[keyof ReadRunNetworkResponses];
-
-export type ReadRunNotesData = {
-  body?: never;
-  path: {
-    runId: string;
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/runs/{runId}/notes';
-};
-
-export type ReadRunNotesErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
-};
-
-export type ReadRunNotesResponses = {
-  200: RunNotesResponseDto;
-};
-
-export type ReadRunNotesResponse = ReadRunNotesResponses[keyof ReadRunNotesResponses];
-
-export type SendMessageData = {
-  body: SendMessageRequestDto;
-  path: {
-    runId: string;
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/runs/{runId}/messages';
-};
-
-export type SendMessageErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
-  /**
-   * The task has moved on from that station
-   */
-  409: unknown;
-};
-
-export type SendMessageResponses = {
-  /**
-   * It joined the task’s trail, and starts the station again if the task was idle there
-   */
-  204: void;
-};
-
-export type SendMessageResponse = SendMessageResponses[keyof SendMessageResponses];
-
-export type StopRunData = {
-  body?: never;
-  path: {
-    runId: string;
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/runs/{runId}/stop';
-};
-
-export type StopRunErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
-  /**
-   * The run is no longer in progress
-   */
-  409: unknown;
-};
-
-export type StopRunResponses = {
-  /**
-   * The run received a stop request
-   */
-  204: void;
-};
-
-export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
-
-export type ListTaskRunsData = {
-  body?: never;
-  path: {
-    taskId: string;
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/tasks/{taskId}/runs';
-};
-
-export type ListTaskRunsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-};
-
-export type ListTaskRunsResponses = {
-  200: Array<TaskRunResponseDto>;
-};
-
-export type ListTaskRunsResponse = ListTaskRunsResponses[keyof ListTaskRunsResponses];
-
-export type ReadTaskTraceData = {
-  body?: never;
-  path: {
-    taskId: string;
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/tasks/{taskId}/trace';
-};
-
-export type ReadTaskTraceErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such task, or not the viewer's
-   */
-  404: unknown;
-};
-
-export type ReadTaskTraceResponses = {
-  200: TaskTraceResponseDto;
-};
-
-export type ReadTaskTraceResponse = ReadTaskTraceResponses[keyof ReadTaskTraceResponses];
-
-export type DeleteTaskData = {
-  body?: never;
-  path: {
-    teamId: string;
-    taskId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/tasks/{taskId}';
-};
-
-export type DeleteTaskErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such task for this caller
-   */
-  404: unknown;
-};
-
-export type DeleteTaskResponses = {
-  /**
-   * The task is gone
-   */
-  204: void;
-};
-
-export type DeleteTaskResponse = DeleteTaskResponses[keyof DeleteTaskResponses];
-
-export type AddTaskData = {
-  body: AddTaskRequestDto;
-  path: {
-    teamId: string;
-    lineId: string;
-    stationId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/tasks';
-};
-
-export type AddTaskErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such station for this caller
-   */
-  404: unknown;
-  /**
-   * Invalid title or description
-   */
-  422: unknown;
-};
-
-export type AddTaskResponses = {
-  201: TaskResponseDto;
-};
-
-export type AddTaskResponse = AddTaskResponses[keyof AddTaskResponses];
-
-export type MoveTaskData = {
-  body: MoveTaskRequestDto;
-  path: {
-    teamId: string;
-    lineId: string;
-    taskId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/lines/{lineId}/tasks/{taskId}/move';
-};
-
-export type MoveTaskErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such task or station for this caller
-   */
-  404: unknown;
-  /**
-   * A person may only start a task from the backlog, park it back there, or close it
-   */
-  422: unknown;
-};
-
-export type MoveTaskResponses = {
-  200: TaskResponseDto;
-};
-
-export type MoveTaskResponse = MoveTaskResponses[keyof MoveTaskResponses];
-
-export type AssignTaskData = {
-  body: AssignTaskRequestDto;
-  path: {
-    teamId: string;
-    taskId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/tasks/{taskId}/assignee';
-};
-
-export type AssignTaskErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such task for this caller
-   */
-  404: unknown;
-};
-
-export type AssignTaskResponses = {
-  200: TaskResponseDto;
-};
-
-export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
-
-export type ListChatsData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/chats';
-};
-
-export type ListChatsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team for this caller
-   */
-  404: unknown;
-};
-
-export type ListChatsResponses = {
-  200: Array<ChatSummaryResponseDto>;
-};
-
-export type ListChatsResponse = ListChatsResponses[keyof ListChatsResponses];
-
-export type StartChatData = {
-  body: StartChatRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/chats';
-};
-
-export type StartChatErrors = {
-  /**
-   * A model or effort that is not text, or a setup without a repository and a folder
-   */
-  400: unknown;
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team for this caller
-   */
-  404: unknown;
-  /**
-   * An unknown harness, model, effort or repository, or a setup the GitHub App cannot access or no host can run
-   */
-  422: unknown;
-};
-
-export type StartChatResponses = {
-  201: ChatResponseDto;
-};
-
-export type StartChatResponse = StartChatResponses[keyof StartChatResponses];
-
-export type ReadChatData = {
-  body?: never;
-  path: {
-    teamId: string;
-    chatId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/chats/{chatId}';
-};
-
-export type ReadChatErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such chat for this caller
-   */
-  404: unknown;
-};
-
-export type ReadChatResponses = {
-  200: ChatResponseDto;
-};
-
-export type ReadChatResponse = ReadChatResponses[keyof ReadChatResponses];
-
-export type ReadChatJournalData = {
-  body?: never;
-  path: {
-    teamId: string;
-    chatId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/chats/{chatId}/journal';
-};
-
-export type ReadChatJournalErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such chat for this caller
-   */
-  404: unknown;
-};
-
-export type ReadChatJournalResponses = {
-  200: Array<RunJournalResponseDto>;
-};
-
-export type ReadChatJournalResponse = ReadChatJournalResponses[keyof ReadChatJournalResponses];
-
-export type SendChatMessageData = {
-  body: SendChatMessageRequestDto;
-  path: {
-    teamId: string;
-    chatId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/chats/{chatId}/messages';
-};
-
-export type SendChatMessageErrors = {
-  /**
-   * A model or effort that is not text
-   */
-  400: unknown;
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such chat for this caller
-   */
-  404: unknown;
-  /**
-   * An unknown model or effort
-   */
-  422: unknown;
-};
-
-export type SendChatMessageResponses = {
-  /**
-   * The agent gets the message
-   */
-  204: void;
-};
-
-export type SendChatMessageResponse = SendChatMessageResponses[keyof SendChatMessageResponses];
-
-export type StopChatData = {
-  body?: never;
-  path: {
-    teamId: string;
-    chatId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/chats/{chatId}/stop';
-};
-
-export type StopChatErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such chat for this caller
-   */
-  404: unknown;
-  /**
-   * The agent is not answering
-   */
-  409: unknown;
-};
-
-export type StopChatResponses = {
-  /**
-   * The agent received a stop request
-   */
-  204: void;
-};
-
-export type StopChatResponse = StopChatResponses[keyof StopChatResponses];
-
-export type AcceptProposalData = {
-  body?: never;
-  path: {
-    teamId: string;
-    chatId: string;
-    position: number;
-  };
-  query?: never;
-  url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/acceptance';
-};
-
-export type AcceptProposalErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such chat for this caller
-   */
-  404: unknown;
-  /**
-   * The proposal is already decided
-   */
-  409: unknown;
-};
-
-export type AcceptProposalResponses = {
-  /**
-   * The task is being created
-   */
-  204: void;
-};
-
-export type AcceptProposalResponse = AcceptProposalResponses[keyof AcceptProposalResponses];
-
-export type DismissProposalData = {
-  body?: never;
-  path: {
-    teamId: string;
-    chatId: string;
-    position: number;
-  };
-  query?: never;
-  url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/dismissal';
-};
-
-export type DismissProposalErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such chat for this caller
-   */
-  404: unknown;
-  /**
-   * The proposal is already decided
-   */
-  409: unknown;
-};
-
-export type DismissProposalResponses = {
-  /**
-   * The proposal was dismissed
-   */
-  204: void;
-};
-
-export type DismissProposalResponse = DismissProposalResponses[keyof DismissProposalResponses];
-
-export type ConnectEditorData = {
-  body: ConnectEditorRequestDto;
-  path?: never;
-  query?: never;
-  url: '/editor-connections';
-};
-
-export type ConnectEditorErrors = {
-  /**
-   * No task and no chat, or both
-   */
-  400: unknown;
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such task or chat that the caller may open in an editor
-   */
-  404: unknown;
-};
-
-export type ConnectEditorResponses = {
-  201: EditorConnectionResponseDto;
-};
-
-export type ConnectEditorResponse = ConnectEditorResponses[keyof ConnectEditorResponses];
-
-export type ReadOnboardingData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/onboarding';
-};
-
-export type ReadOnboardingErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team for this caller
-   */
-  404: unknown;
-};
-
-export type ReadOnboardingResponses = {
-  200: OnboardingResponseDto;
-};
-
-export type ReadOnboardingResponse = ReadOnboardingResponses[keyof ReadOnboardingResponses];
-
 export type ImportWorkspaceData = {
   body?: never;
   headers?: {
@@ -10900,7 +9136,7 @@ export type CreateWorkspaceErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the workspace; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -10961,7 +9197,7 @@ export type DeleteWorkspaceErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the workspace; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -11071,7 +9307,7 @@ export type UpdateWorkspaceErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the workspace; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -11184,7 +9420,7 @@ export type CreateTeamErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the team: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the team; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -11245,7 +9481,7 @@ export type DeleteTeamErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the team: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the team; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -11354,7 +9590,7 @@ export type UpdateTeamErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the team: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the team; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -11519,7 +9755,7 @@ export type CreateWorkspaceTokenErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace-token: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the workspace-token; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -11582,7 +9818,7 @@ export type DeleteWorkspaceTokenErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace-token: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the workspace-token; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -11693,7 +9929,7 @@ export type UpdateWorkspaceTokenErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace-token: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the workspace-token; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -11864,7 +10100,7 @@ export type CreateOidcTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the oidc-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the oidc-trust; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -11925,7 +10161,7 @@ export type DeleteOidcTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the oidc-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the oidc-trust; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -12042,7 +10278,7 @@ export type UpdateOidcTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the oidc-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the oidc-trust; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -12752,6 +10988,972 @@ export type VerifyMyEmailResponses = {
 
 export type VerifyMyEmailResponse = VerifyMyEmailResponses[keyof VerifyMyEmailResponses];
 
+export type ReadCatalogToolData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * Its name in the catalog
+     */
+    name: unknown;
+    /**
+     * The versions you accept, as Terraform writes a constraint; Spotlight returns the newest version that matches
+     */
+    version: unknown;
+  };
+  url: '/v1/resources/workspaces/{workspaceId}/catalog/tools';
+};
+
+export type ReadCatalogToolErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * The workspace’s plan does not include the catalog-tool; the detail names the plan that it requires
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such catalog-tool, or no workspace here that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * What is wrong with the query, field by field
+   */
+  422: ProblemResponseDto;
+};
+
+export type ReadCatalogToolError = ReadCatalogToolErrors[keyof ReadCatalogToolErrors];
+
+export type ReadCatalogToolResponses = {
+  /**
+   * The catalog-tool it resolves to
+   */
+  200: CatalogToolResponseDto;
+};
+
+export type ReadCatalogToolResponse = ReadCatalogToolResponses[keyof ReadCatalogToolResponses];
+
+export type ReadCatalogSkillData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * Its name in the catalog
+     */
+    name: unknown;
+    /**
+     * The versions you accept, as Terraform writes a constraint; Spotlight returns the newest version that matches
+     */
+    version: unknown;
+  };
+  url: '/v1/resources/workspaces/{workspaceId}/catalog/skills';
+};
+
+export type ReadCatalogSkillErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * The workspace’s plan does not include the catalog-skill; the detail names the plan that it requires
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such catalog-skill, or no workspace here that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * What is wrong with the query, field by field
+   */
+  422: ProblemResponseDto;
+};
+
+export type ReadCatalogSkillError = ReadCatalogSkillErrors[keyof ReadCatalogSkillErrors];
+
+export type ReadCatalogSkillResponses = {
+  /**
+   * The catalog-skill it resolves to
+   */
+  200: CatalogSkillResponseDto;
+};
+
+export type ReadCatalogSkillResponse = ReadCatalogSkillResponses[keyof ReadCatalogSkillResponses];
+
+export type EnqueueRunData = {
+  body: EnqueueRunRequestDto;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/runs';
+};
+
+export type EnqueueRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type EnqueueRunResponses = {
+  201: EnqueuedRunResponseDto;
+};
+
+export type EnqueueRunResponse = EnqueueRunResponses[keyof EnqueueRunResponses];
+
+export type ListHarnessProbesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/runners/harnesses';
+};
+
+export type ListHarnessProbesErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+};
+
+export type ListHarnessProbesResponses = {
+  200: Array<HarnessProbeResponseDto>;
+};
+
+export type ListHarnessProbesResponse = ListHarnessProbesResponses[keyof ListHarnessProbesResponses];
+
+export type ClaimRunData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/runners/claim';
+};
+
+export type ClaimRunErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+};
+
+export type ClaimRunResponses = {
+  200: ClaimedWorkResponseDto;
+  /**
+   * Nothing queued for this pool
+   */
+  204: void;
+};
+
+export type ClaimRunResponse = ClaimRunResponses[keyof ClaimRunResponses];
+
+export type RenewLeaseData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/lease';
+};
+
+export type RenewLeaseErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * The run is no longer leased by this runner: it ended, was suspended, or its requester cancelled it. The runner releases its sandbox.
+   */
+  404: unknown;
+  /**
+   * The run kept changing while its lease was renewed; renew again on the next heartbeat.
+   */
+  409: unknown;
+};
+
+export type RenewLeaseResponses = {
+  200: RenewLeaseResponseDto;
+};
+
+export type RenewLeaseResponse = RenewLeaseResponses[keyof RenewLeaseResponses];
+
+export type RenewCheckLeaseData = {
+  body?: never;
+  path: {
+    runId: string;
+    stackId: string;
+  };
+  query?: {
+    /**
+     * true when the check is a repeat check, as its claim said
+     */
+    recheck?: boolean;
+  };
+  url: '/runs/{runId}/change-stack-checks/{stackId}/lease';
+};
+
+export type RenewCheckLeaseErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such runner, or the check this runner leases is of another run
+   */
+  404: unknown;
+  /**
+   * The check kept moving on while it was renewed
+   */
+  409: unknown;
+};
+
+export type RenewCheckLeaseResponses = {
+  200: RenewCheckLeaseResponseDto;
+};
+
+export type RenewCheckLeaseResponse = RenewCheckLeaseResponses[keyof RenewCheckLeaseResponses];
+
+export type RecordRunImageData = {
+  body: RecordRunImageRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/image';
+};
+
+export type RecordRunImageErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * The run is not leased by this runner
+   */
+  409: unknown;
+};
+
+export type RecordRunImageResponses = {
+  204: void;
+};
+
+export type RecordRunImageResponse = RecordRunImageResponses[keyof RecordRunImageResponses];
+
+export type RecordStartingPointData = {
+  body: RecordStartingPointRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/starting-point';
+};
+
+export type RecordStartingPointErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run
+   */
+  404: unknown;
+  /**
+   * The run is not leased by this runner on that attempt, its spec asks for no starting point, or it already started from somewhere else
+   */
+  409: unknown;
+  /**
+   * An archive the run could not have restored, a commit that is not a full SHA, or checkouts that are not the run’s own
+   */
+  422: unknown;
+};
+
+export type RecordStartingPointResponses = {
+  204: void;
+};
+
+export type RecordStartingPointResponse = RecordStartingPointResponses[keyof RecordStartingPointResponses];
+
+export type AppendRunEventsData = {
+  body: AppendRunEventsRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/events';
+};
+
+export type AppendRunEventsErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * The run is not leased by this runner
+   */
+  409: unknown;
+};
+
+export type AppendRunEventsResponses = {
+  204: void;
+};
+
+export type AppendRunEventsResponse = AppendRunEventsResponses[keyof AppendRunEventsResponses];
+
+export type CompleteRunData = {
+  body: CompleteRunRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/completion';
+};
+
+export type CompleteRunErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+};
+
+export type CompleteRunResponses = {
+  /**
+   * Turn reported
+   */
+  204: void;
+};
+
+export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
+
+export type ReadRunNetworkData = {
+  body?: never;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/network';
+};
+
+export type ReadRunNetworkErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run of this team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadRunNetworkResponses = {
+  200: RunNetworkResponseDto;
+};
+
+export type ReadRunNetworkResponse = ReadRunNetworkResponses[keyof ReadRunNetworkResponses];
+
+export type ReadTeamlessRunNetworkData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/network';
+};
+
+export type ReadTeamlessRunNetworkErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run of no team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTeamlessRunNetworkResponses = {
+  200: RunNetworkResponseDto;
+};
+
+export type ReadTeamlessRunNetworkResponse = ReadTeamlessRunNetworkResponses[keyof ReadTeamlessRunNetworkResponses];
+
+export type StreamRunData = {
+  body?: never;
+  headers: {
+    'last-event-id': string;
+  };
+  path: {
+    runId: string;
+  };
+  query: {
+    from: string;
+  };
+  url: '/runs/{runId}/stream';
+};
+
+export type StreamRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type StreamRunResponses = {
+  /**
+   * Server-sent events, one per journal entry
+   */
+  200: unknown;
+};
+
+export type ReadWorkingCopyArchiveData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/working-copy-archive';
+};
+
+export type ReadWorkingCopyArchiveErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * Not this runner’s run
+   */
+  404: unknown;
+};
+
+export type ReadWorkingCopyArchiveResponses = {
+  200: StoredArchiveResponseDto;
+  /**
+   * Nothing to restore: the run starts its work afresh
+   */
+  204: void;
+};
+
+export type ReadWorkingCopyArchiveResponse = ReadWorkingCopyArchiveResponses[keyof ReadWorkingCopyArchiveResponses];
+
+export type GrantWorkingCopyArchiveData = {
+  body: GrantWorkingCopyArchiveRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/working-copy-archive';
+};
+
+export type GrantWorkingCopyArchiveErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * Not this runner’s run
+   */
+  404: unknown;
+  /**
+   * Too large, not a SHA-256, work that does not carry on, or nowhere to store it
+   */
+  422: unknown;
+};
+
+export type GrantWorkingCopyArchiveResponses = {
+  201: ArchiveGrantResponseDto;
+};
+
+export type GrantWorkingCopyArchiveResponse = GrantWorkingCopyArchiveResponses[keyof GrantWorkingCopyArchiveResponses];
+
+export type CompleteWorkingCopyArchiveData = {
+  body?: never;
+  path: {
+    runId: string;
+    archiveId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/working-copy-archive/{archiveId}/complete';
+};
+
+export type CompleteWorkingCopyArchiveErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * Not this runner’s run, or not an archive granted to it
+   */
+  404: unknown;
+  /**
+   * Not uploaded, or uploaded other than as granted
+   */
+  409: unknown;
+};
+
+export type CompleteWorkingCopyArchiveResponses = {
+  204: void;
+};
+
+export type CompleteWorkingCopyArchiveResponse = CompleteWorkingCopyArchiveResponses[keyof CompleteWorkingCopyArchiveResponses];
+
+export type ReadSandboxArchiveData = {
+  body?: never;
+  path: {
+    sandboxId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/working-copy-archive';
+};
+
+export type ReadSandboxArchiveErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+};
+
+export type ReadSandboxArchiveResponses = {
+  200: StoredArchiveResponseDto;
+  /**
+   * Nothing to restore: the sandbox starts with an empty working copy
+   */
+  204: void;
+};
+
+export type ReadSandboxArchiveResponse = ReadSandboxArchiveResponses[keyof ReadSandboxArchiveResponses];
+
+export type GrantSandboxArchiveData = {
+  body: GrantWorkingCopyArchiveRequestDto;
+  path: {
+    sandboxId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/working-copy-archive';
+};
+
+export type GrantSandboxArchiveErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+  /**
+   * Too large, not a SHA-256, a sandbox with no working copy key, or nowhere to store it
+   */
+  422: unknown;
+};
+
+export type GrantSandboxArchiveResponses = {
+  201: ArchiveGrantResponseDto;
+};
+
+export type GrantSandboxArchiveResponse = GrantSandboxArchiveResponses[keyof GrantSandboxArchiveResponses];
+
+export type CompleteSandboxArchiveData = {
+  body?: never;
+  path: {
+    sandboxId: string;
+    archiveId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/working-copy-archive/{archiveId}/complete';
+};
+
+export type CompleteSandboxArchiveErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+  /**
+   * Not uploaded, or uploaded other than as granted
+   */
+  409: unknown;
+};
+
+export type CompleteSandboxArchiveResponses = {
+  204: void;
+};
+
+export type CompleteSandboxArchiveResponse = CompleteSandboxArchiveResponses[keyof CompleteSandboxArchiveResponses];
+
+export type PoolQueueData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/pools/{id}/queue';
+};
+
+export type PoolQueueErrors = {
+  /**
+   * Missing, rotated or unknown pool token
+   */
+  401: unknown;
+};
+
+export type PoolQueueResponses = {
+  200: PoolQueueResponseDto;
+};
+
+export type PoolQueueResponse = PoolQueueResponses[keyof PoolQueueResponses];
+
+export type HostRequirementsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path?: never;
+  query?: never;
+  url: '/hosts/requirements';
+};
+
+export type HostRequirementsErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
+   */
+  401: unknown;
+};
+
+export type HostRequirementsResponses = {
+  200: HostRequirementsResponseDto;
+};
+
+export type HostRequirementsResponse = HostRequirementsResponses[keyof HostRequirementsResponses];
+
+export type ClaimHostWorkData = {
+  body: ClaimHostWorkRequestDto;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path?: never;
+  query?: never;
+  url: '/hosts/claim';
+};
+
+export type ClaimHostWorkErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
+   */
+  401: unknown;
+  /**
+   * The host has not reported through this pool or trust (`host-unreported`), is on a release older than the host minimum (`host-outdated`), or has not reported that it supports the image it claims for (`image-unreported`)
+   */
+  409: unknown;
+};
+
+export type ClaimHostWorkResponses = {
+  200: HostClaimResponseDto;
+  /**
+   * Nothing waits for this pool or trust yet, or the pool is at maxRuns
+   */
+  204: void;
+};
+
+export type ClaimHostWorkResponse = ClaimHostWorkResponses[keyof ClaimHostWorkResponses];
+
+export type ClaimHostCallData = {
+  body: ClaimHostCallRequestDto;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path?: never;
+  query?: never;
+  url: '/hosts/calls/claim';
+};
+
+export type ClaimHostCallErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
+   */
+  401: unknown;
+  /**
+   * The host has not reported through this pool or trust (`host-unreported`)
+   */
+  409: unknown;
+};
+
+export type ClaimHostCallResponses = {
+  200: HostCallResponseDto;
+  /**
+   * No call waits for this pool’s or trust’s workspace
+   */
+  204: void;
+};
+
+export type ClaimHostCallResponse = ClaimHostCallResponses[keyof ClaimHostCallResponses];
+
+export type RecordHostCallResponseData = {
+  body: RecordHostCallResponseRequestDto;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/hosts/calls/{id}/response';
+};
+
+export type RecordHostCallResponseErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
+   */
+  401: unknown;
+  /**
+   * No such call waits for this pool’s or trust’s workspace
+   */
+  404: unknown;
+  /**
+   * The call already has a response, expired before it got a response, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)
+   */
+  409: unknown;
+};
+
+export type RecordHostCallResponseResponses = {
+  /**
+   * Spotlight recorded the response
+   */
+  204: void;
+};
+
+export type RecordHostCallResponseResponse = RecordHostCallResponseResponses[keyof RecordHostCallResponseResponses];
+
+export type RedeemCallSecretsData = {
+  body: RedeemCallSecretsRequestDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/hosts/calls/{id}/secrets';
+};
+
+export type RedeemCallSecretsErrors = {
+  /**
+   * The token does not redeem the secrets of this call, or there is no such call. Use the secretsToken that the claim gave
+   */
+  401: unknown;
+  /**
+   * The secrets were redeemed already, another host claimed the call, or the call has a response
+   */
+  409: unknown;
+  /**
+   * The call expired, or Spotlight stopped waiting for it
+   */
+  410: unknown;
+  /**
+   * The recipient is not an X25519 public key
+   */
+  422: unknown;
+};
+
+export type RedeemCallSecretsResponses = {
+  200: EgressSecretsResponseDto;
+};
+
+export type RedeemCallSecretsResponse = RedeemCallSecretsResponses[keyof RedeemCallSecretsResponses];
+
+export type FetchRunSecretsData = {
+  body: FetchRunSecretsRequestDto;
+  path?: never;
+  query?: never;
+  url: '/egress/secrets';
+};
+
+export type FetchRunSecretsErrors = {
+  /**
+   * Missing or unknown egress token, or its runner no longer has a lease on work
+   */
+  401: unknown;
+  /**
+   * The runner of this proxy credential has no lease on a run yet. Please fetch the secrets again after it claims one
+   */
+  409: unknown;
+  /**
+   * The recipient is not an X25519 public key
+   */
+  422: unknown;
+};
+
+export type FetchRunSecretsResponses = {
+  200: EgressSecretsResponseDto;
+};
+
+export type FetchRunSecretsResponse = FetchRunSecretsResponses[keyof FetchRunSecretsResponses];
+
+export type AuthorizeRunnerData = {
+  body: AuthorizeRunnerRequestDto;
+  path?: never;
+  query?: never;
+  url: '/egress/authorize';
+};
+
+export type AuthorizeRunnerErrors = {
+  /**
+   * Missing or unknown egress token, or its runner no longer has a lease on work
+   */
+  401: unknown;
+};
+
+export type AuthorizeRunnerResponses = {
+  200: EgressAuthorizationResponseDto;
+};
+
+export type AuthorizeRunnerResponse = AuthorizeRunnerResponses[keyof AuthorizeRunnerResponses];
+
+export type CheckActiveRunsData = {
+  body: CheckActiveRunsRequestDto;
+  path?: never;
+  query?: never;
+  url: '/egress/active-runs';
+};
+
+export type CheckActiveRunsErrors = {
+  /**
+   * Missing or unknown egress token, or its runner no longer has a lease on work
+   */
+  401: unknown;
+  /**
+   * The request has more than 500 proxy credentials
+   */
+  422: unknown;
+};
+
+export type CheckActiveRunsResponses = {
+  200: EgressActiveRunsResponseDto;
+};
+
+export type CheckActiveRunsResponse = CheckActiveRunsResponses[keyof CheckActiveRunsResponses];
+
+export type RecordEgressConnectionsData = {
+  body: RecordEgressConnectionsRequestDto;
+  path?: never;
+  query?: never;
+  url: '/egress/connections';
+};
+
+export type RecordEgressConnectionsErrors = {
+  /**
+   * Missing or unknown egress token, or its runner no longer has a lease on work
+   */
+  401: unknown;
+  /**
+   * The request has more than 2000 records
+   */
+  422: unknown;
+};
+
+export type RecordEgressConnectionsResponses = {
+  /**
+   * Spotlight accepted the records
+   */
+  204: void;
+};
+
+export type RecordEgressConnectionsResponse = RecordEgressConnectionsResponses[keyof RecordEgressConnectionsResponses];
+
+export type ListRunnerActivityData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/runner-activity';
+};
+
+export type ListRunnerActivityErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListRunnerActivityResponses = {
+  200: Array<RunnerActivityResponseDto>;
+};
+
+export type ListRunnerActivityResponse = ListRunnerActivityResponses[keyof ListRunnerActivityResponses];
+
+export type ListHarnessesData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/harnesses';
+};
+
+export type ListHarnessesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListHarnessesResponses = {
+  200: Array<HarnessResponseDto>;
+};
+
+export type ListHarnessesResponse = ListHarnessesResponses[keyof ListHarnessesResponses];
+
 export type ListSecretsData = {
   body?: never;
   headers?: {
@@ -12854,7 +12056,7 @@ export type CreateSecretErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the secret: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the secret; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -12915,7 +12117,7 @@ export type DeleteSecretErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the secret: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the secret; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -13045,7 +12247,7 @@ export type UpdateSecretErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the secret: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the secret; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -13126,219 +12328,6 @@ export type ImportSecretResponses = {
 };
 
 export type ImportSecretResponse = ImportSecretResponses[keyof ImportSecretResponses];
-
-export type ReadCatalogToolData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    workspaceId: string;
-  };
-  query: {
-    /**
-     * Its name in the catalog
-     */
-    name: unknown;
-    /**
-     * The versions you accept, as Terraform writes a constraint; Spotlight returns the newest version that matches
-     */
-    version: unknown;
-  };
-  url: '/v1/resources/workspaces/{workspaceId}/catalog/tools';
-};
-
-export type ReadCatalogToolErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * The workspace’s plan does not include the catalog-tool; the detail names the plan that it requires
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such catalog-tool, or no workspace here that you may see
-   */
-  404: ProblemResponseDto;
-  /**
-   * What is wrong with the query, field by field
-   */
-  422: ProblemResponseDto;
-};
-
-export type ReadCatalogToolError = ReadCatalogToolErrors[keyof ReadCatalogToolErrors];
-
-export type ReadCatalogToolResponses = {
-  /**
-   * The catalog-tool it resolves to
-   */
-  200: CatalogToolResponseDto;
-};
-
-export type ReadCatalogToolResponse = ReadCatalogToolResponses[keyof ReadCatalogToolResponses];
-
-export type ReadCatalogSkillData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    workspaceId: string;
-  };
-  query: {
-    /**
-     * Its name in the catalog
-     */
-    name: unknown;
-    /**
-     * The versions you accept, as Terraform writes a constraint; Spotlight returns the newest version that matches
-     */
-    version: unknown;
-  };
-  url: '/v1/resources/workspaces/{workspaceId}/catalog/skills';
-};
-
-export type ReadCatalogSkillErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * The workspace’s plan does not include the catalog-skill; the detail names the plan that it requires
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such catalog-skill, or no workspace here that you may see
-   */
-  404: ProblemResponseDto;
-  /**
-   * What is wrong with the query, field by field
-   */
-  422: ProblemResponseDto;
-};
-
-export type ReadCatalogSkillError = ReadCatalogSkillErrors[keyof ReadCatalogSkillErrors];
-
-export type ReadCatalogSkillResponses = {
-  /**
-   * The catalog-skill it resolves to
-   */
-  200: CatalogSkillResponseDto;
-};
-
-export type ReadCatalogSkillResponse = ReadCatalogSkillResponses[keyof ReadCatalogSkillResponses];
-
-export type ListRepositoriesData = {
-  body?: never;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/repositories';
-};
-
-export type ListRepositoriesErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-};
-
-export type ListRepositoriesResponses = {
-  200: Array<RepositoryResponseDto>;
-};
-
-export type ListRepositoriesResponse = ListRepositoriesResponses[keyof ListRepositoriesResponses];
-
-export type ReadGitHubData = {
-  body?: never;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/github';
-};
-
-export type ReadGitHubErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-};
-
-export type ReadGitHubResponses = {
-  200: GitHubConnectionStatusResponseDto;
-};
-
-export type ReadGitHubResponse = ReadGitHubResponses[keyof ReadGitHubResponses];
-
-export type ConnectGitHubData = {
-  body: ConnectGitHubRequestDto;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/github';
-};
-
-export type ConnectGitHubErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * Not an owner or admin, or not an admin of the installation
-   */
-  403: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-  /**
-   * The installation is already connected to another workspace
-   */
-  409: unknown;
-};
-
-export type ConnectGitHubResponses = {
-  /**
-   * Connected
-   */
-  204: void;
-};
-
-export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
 export type DeregisterHostData = {
   body?: never;
@@ -13567,7 +12556,7 @@ export type CreateRunnerTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the runner-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the runner-trust; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -13628,7 +12617,7 @@ export type DeleteRunnerTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the runner-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the runner-trust; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -13740,7 +12729,7 @@ export type UpdateRunnerTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the runner-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the runner-trust; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -13937,7 +12926,7 @@ export type CreateRunnerPoolErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the runner-pool: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the runner-pool; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -14000,7 +12989,7 @@ export type DeleteRunnerPoolErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the runner-pool: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the runner-pool; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -14143,7 +13132,7 @@ export type UpdateRunnerPoolErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the runner-pool: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the runner-pool; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -14317,7 +13306,7 @@ export type CreateEgressErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the egress: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the egress; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -14380,7 +13369,7 @@ export type DeleteEgressErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the egress: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the egress; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -14500,7 +13489,7 @@ export type UpdateEgressErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the egress: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the egress; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -14664,7 +13653,7 @@ export type CreateWorkspaceRunnersErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace-runners: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the workspace-runners; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -14725,7 +13714,7 @@ export type DeleteWorkspaceRunnersErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace-runners: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the workspace-runners; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -14835,7 +13824,7 @@ export type UpdateWorkspaceRunnersErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace-runners: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the workspace-runners; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -14917,16 +13906,1699 @@ export type ImportWorkspaceRunnersResponses = {
 
 export type ImportWorkspaceRunnersResponse = ImportWorkspaceRunnersResponses[keyof ImportWorkspaceRunnersResponses];
 
-export type ReadConfigurationData = {
+export type PendingMessagesData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/messages';
+};
+
+export type PendingMessagesErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run leased by this runner
+   */
+  404: unknown;
+};
+
+export type PendingMessagesResponses = {
+  200: Array<PendingMessageResponseDto>;
+};
+
+export type PendingMessagesResponse = PendingMessagesResponses[keyof PendingMessagesResponses];
+
+export type ReadRunAttachmentData = {
+  body?: never;
+  path: {
+    runId: string;
+    attachmentId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/attachments/{attachmentId}';
+};
+
+export type ReadRunAttachmentErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such file, or not this runner’s run to read it for
+   */
+  404: unknown;
+};
+
+export type ReadRunAttachmentResponses = {
+  /**
+   * The file, byte for byte
+   */
+  200: unknown;
+};
+
+export type GrantRunAttachmentUploadData = {
+  body: GrantAttachmentUploadRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/attachments';
+};
+
+export type GrantRunAttachmentUploadErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run, or not this runner’s run to attach to
+   */
+  404: unknown;
+  /**
+   * Too large to attach, or nowhere to store it
+   */
+  422: unknown;
+};
+
+export type GrantRunAttachmentUploadResponses = {
+  201: AttachmentUploadResponseDto;
+};
+
+export type GrantRunAttachmentUploadResponse = GrantRunAttachmentUploadResponses[keyof GrantRunAttachmentUploadResponses];
+
+export type ReadRunTraceData = {
+  body?: never;
+  path: {
+    runId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/trace/{taskId}';
+};
+
+export type ReadRunTraceErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run or task, or not this run’s team to read
+   */
+  404: unknown;
+};
+
+export type ReadRunTraceResponses = {
+  200: TaskTraceResponseDto;
+};
+
+export type ReadRunTraceResponse = ReadRunTraceResponses[keyof ReadRunTraceResponses];
+
+export type ReadRunHistoryData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query: {
+    last?: number;
+    since?: string;
+    outcome?: string;
+    fingerprint?: string;
+    line?: string;
+    station: string;
+  };
+  url: '/runs/{runId}/history';
+};
+
+export type ReadRunHistoryErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run, or no such station in its team
+   */
+  404: unknown;
+  /**
+   * Several of the team’s lines have a station by that key
+   */
+  409: unknown;
+};
+
+export type ReadRunHistoryResponses = {
+  200: RunnerHistoryResponseDto;
+};
+
+export type ReadRunHistoryResponse = ReadRunHistoryResponses[keyof ReadRunHistoryResponses];
+
+export type AckMessagesData = {
+  body: AckMessagesRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/messages/ack';
+};
+
+export type AckMessagesErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * The run is not leased by this runner
+   */
+  409: unknown;
+};
+
+export type AckMessagesResponses = {
+  204: void;
+};
+
+export type AckMessagesResponse = AckMessagesResponses[keyof AckMessagesResponses];
+
+export type UseToolData = {
+  body: {
+    [key: string]: unknown;
+  };
+  path: {
+    runId: string;
+    tool: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/tools/{tool}';
+};
+
+export type UseToolErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * This tool is not enabled for the run
+   */
+  403: unknown;
+  /**
+   * No such run, station or tool for this runner
+   */
+  404: unknown;
+  /**
+   * The run works no task to use it on
+   */
+  409: unknown;
+  /**
+   * What the agent handed the tool is not what it takes
+   */
+  422: unknown;
+  /**
+   * The integration the tool calls answered with an error
+   */
+  502: unknown;
+};
+
+export type UseToolResponses = {
+  200: ToolAnswerResponseDto;
+};
+
+export type UseToolResponse = UseToolResponses[keyof UseToolResponses];
+
+export type AskPermissionData = {
+  body: AskPermissionRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/permissions';
+};
+
+export type AskPermissionErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * The run is not leased by this runner
+   */
+  409: unknown;
+};
+
+export type AskPermissionResponses = {
+  200: PermissionAnswerResponseDto;
+};
+
+export type AskPermissionResponse = AskPermissionResponses[keyof AskPermissionResponses];
+
+export type ReplyToReviewCommentData = {
+  body: ReplyToReviewCommentRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/review-comment-replies';
+};
+
+export type ReplyToReviewCommentErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+};
+
+export type ReplyToReviewCommentResponses = {
+  204: void;
+};
+
+export type ReplyToReviewCommentResponse = ReplyToReviewCommentResponses[keyof ReplyToReviewCommentResponses];
+
+export type ListInboxData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: {
+    /**
+     * The `next` cursor of the page before
+     */
+    before?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+    /**
+     * `open` (the default) or `resolved`
+     */
+    state?: 'open' | 'resolved';
+  };
+  url: '/workspaces/{slug}/inbox';
+};
+
+export type ListInboxErrors = {
+  /**
+   * A page limit that is not a whole number above 0
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
+};
+
+export type ListInboxResponses = {
+  200: {
+    items: Array<InboxItemResponseDto | InboxNoticeResponseDto | InboxRunResponseDto | InboxChatResponseDto>;
+    /**
+     * Pass as `before` to read the next page; null on the last
+     */
+    next: string | null;
+  };
+};
+
+export type ListInboxResponse = ListInboxResponses[keyof ListInboxResponses];
+
+export type ReadInboxItemData = {
+  body?: never;
+  path: {
+    slug: string;
+    itemId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}';
+};
+
+export type ReadInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such inbox item for this caller
+   */
+  404: unknown;
+};
+
+export type ReadInboxItemResponses = {
+  200: InboxItemViewResponseDto;
+};
+
+export type ReadInboxItemResponse = ReadInboxItemResponses[keyof ReadInboxItemResponses];
+
+export type ReadInboxNoticeData = {
+  body?: never;
+  path: {
+    slug: string;
+    noticeId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}';
+};
+
+export type ReadInboxNoticeErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such notice for this caller
+   */
+  404: unknown;
+};
+
+export type ReadInboxNoticeResponses = {
+  200: InboxNoticeResponseDto;
+};
+
+export type ReadInboxNoticeResponse = ReadInboxNoticeResponses[keyof ReadInboxNoticeResponses];
+
+export type AnswerInboxItemData = {
+  body: AnswerInboxItemRequestDto;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/answer';
+};
+
+export type AnswerInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
+  /**
+   * Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with
+   */
+  409: unknown;
+};
+
+export type AnswerInboxItemResponses = {
+  /**
+   * The answer was recorded
+   */
+  204: void;
+};
+
+export type AnswerInboxItemResponse = AnswerInboxItemResponses[keyof AnswerInboxItemResponses];
+
+export type MarkInboxItemReadData = {
+  body?: never;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/read';
+};
+
+export type MarkInboxItemReadErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
+};
+
+export type MarkInboxItemReadResponses = {
+  /**
+   * It is no longer unread
+   */
+  204: void;
+};
+
+export type MarkInboxItemReadResponse = MarkInboxItemReadResponses[keyof MarkInboxItemReadResponses];
+
+export type ResolveInboxItemData = {
+  body?: never;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/resolve';
+};
+
+export type ResolveInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
+  /**
+   * The conversation is already closed
+   */
+  409: unknown;
+};
+
+export type ResolveInboxItemResponses = {
+  /**
+   * It is resolved
+   */
+  204: void;
+};
+
+export type ResolveInboxItemResponse = ResolveInboxItemResponses[keyof ResolveInboxItemResponses];
+
+export type ResolveInboxRequestData = {
+  body?: never;
+  path: {
+    requestId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/requests/{requestId}/resolve';
+};
+
+export type ResolveInboxRequestErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such inbox request for this caller
+   */
+  404: unknown;
+};
+
+export type ResolveInboxRequestResponses = {
+  /**
+   * It is resolved
+   */
+  204: void;
+};
+
+export type ResolveInboxRequestResponse = ResolveInboxRequestResponses[keyof ResolveInboxRequestResponses];
+
+export type ReopenInboxItemData = {
+  body?: never;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/reopen';
+};
+
+export type ReopenInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
+  /**
+   * The conversation is not the last one, or a person did not resolve it
+   */
+  409: unknown;
+};
+
+export type ReopenInboxItemResponses = {
+  /**
+   * It is open again
+   */
+  204: void;
+};
+
+export type ReopenInboxItemResponse = ReopenInboxItemResponses[keyof ReopenInboxItemResponses];
+
+export type ReopenInboxRequestData = {
+  body?: never;
+  path: {
+    requestId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/requests/{requestId}/reopen';
+};
+
+export type ReopenInboxRequestErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such inbox request for this caller
+   */
+  404: unknown;
+};
+
+export type ReopenInboxRequestResponses = {
+  /**
+   * It is open again
+   */
+  204: void;
+};
+
+export type ReopenInboxRequestResponse = ReopenInboxRequestResponses[keyof ReopenInboxRequestResponses];
+
+export type MarkInboxRequestReadData = {
+  body?: never;
+  path: {
+    requestId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/requests/{requestId}/read';
+};
+
+export type MarkInboxRequestReadErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such inbox request for this caller
+   */
+  404: unknown;
+};
+
+export type MarkInboxRequestReadResponses = {
+  /**
+   * It is no longer unread
+   */
+  204: void;
+};
+
+export type MarkInboxRequestReadResponse = MarkInboxRequestReadResponses[keyof MarkInboxRequestReadResponses];
+
+export type ResolveInboxNoticeData = {
+  body?: never;
+  path: {
+    slug: string;
+    noticeId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}/resolve';
+};
+
+export type ResolveInboxNoticeErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such notice for this caller
+   */
+  404: unknown;
+};
+
+export type ResolveInboxNoticeResponses = {
+  /**
+   * It is resolved
+   */
+  204: void;
+};
+
+export type ResolveInboxNoticeResponse = ResolveInboxNoticeResponses[keyof ResolveInboxNoticeResponses];
+
+export type ReopenInboxNoticeData = {
+  body?: never;
+  path: {
+    slug: string;
+    noticeId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}/reopen';
+};
+
+export type ReopenInboxNoticeErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such notice for this caller
+   */
+  404: unknown;
+};
+
+export type ReopenInboxNoticeResponses = {
+  /**
+   * It is open again
+   */
+  204: void;
+};
+
+export type ReopenInboxNoticeResponse = ReopenInboxNoticeResponses[keyof ReopenInboxNoticeResponses];
+
+export type ResolveInboxChatData = {
+  body?: never;
+  path: {
+    chatId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/chats/{chatId}/resolve';
+};
+
+export type ResolveInboxChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ResolveInboxChatResponses = {
+  /**
+   * It is resolved
+   */
+  204: void;
+};
+
+export type ResolveInboxChatResponse = ResolveInboxChatResponses[keyof ResolveInboxChatResponses];
+
+export type ReopenInboxChatData = {
+  body?: never;
+  path: {
+    chatId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/chats/{chatId}/reopen';
+};
+
+export type ReopenInboxChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ReopenInboxChatResponses = {
+  /**
+   * It is open again
+   */
+  204: void;
+};
+
+export type ReopenInboxChatResponse = ReopenInboxChatResponses[keyof ReopenInboxChatResponses];
+
+export type MarkInboxChatReadData = {
+  body?: never;
+  path: {
+    chatId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/chats/{chatId}/read';
+};
+
+export type MarkInboxChatReadErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type MarkInboxChatReadResponses = {
+  /**
+   * It is no longer unread
+   */
+  204: void;
+};
+
+export type MarkInboxChatReadResponse = MarkInboxChatReadResponses[keyof MarkInboxChatReadResponses];
+
+export type ListTaskJournalRunsData = {
+  body?: never;
+  path: {
+    taskId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal';
+};
+
+export type ListTaskJournalRunsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ListTaskJournalRunsResponses = {
+  200: Array<JournalledRunResponseDto>;
+};
+
+export type ListTaskJournalRunsResponse = ListTaskJournalRunsResponses[keyof ListTaskJournalRunsResponses];
+
+export type ReadTaskJournalData = {
+  body?: never;
+  path: {
+    taskId: string;
+    runId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal/{runId}';
+};
+
+export type ReadTaskJournalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTaskJournalResponses = {
+  200: Array<RunJournalResponseDto>;
+};
+
+export type ReadTaskJournalResponse = ReadTaskJournalResponses[keyof ReadTaskJournalResponses];
+
+export type GrantAttachmentUploadData = {
+  body: GrantAttachmentUploadRequestDto;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/attachments';
+};
+
+export type GrantAttachmentUploadErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+  /**
+   * Too large to attach, or nowhere to store it
+   */
+  422: unknown;
+};
+
+export type GrantAttachmentUploadResponses = {
+  201: AttachmentUploadResponseDto;
+};
+
+export type GrantAttachmentUploadResponse = GrantAttachmentUploadResponses[keyof GrantAttachmentUploadResponses];
+
+export type ReadAttachmentData = {
+  body?: never;
+  path: {
+    slug: string;
+    attachmentId: string;
+  };
+  query?: {
+    /**
+     * Saved rather than shown, where set
+     */
+    download?: unknown;
+  };
+  url: '/workspaces/{slug}/attachments/{attachmentId}';
+};
+
+export type ReadAttachmentErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such file for this caller
+   */
+  404: unknown;
+};
+
+export type ListTasksData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * The `next` cursor of the page before
+     */
+    before?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+    /**
+     * Only the tasks on this line
+     */
+    lineId?: string;
+    /**
+     * `board` (the default) gives every task not at a completed station, in one page; `completed-station` gives a page of the tasks at completed stations
+     */
+    state?: 'board' | 'completed-station';
+  };
+  url: '/teams/{teamId}/tasks';
+};
+
+export type ListTasksErrors = {
+  /**
+   * A page limit that is not a whole number above 0
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
+};
+
+export type ListTasksResponses = {
+  200: TaskPageResponseDto;
+};
+
+export type ListTasksResponse = ListTasksResponses[keyof ListTasksResponses];
+
+export type DeleteTaskData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}';
+};
+
+export type DeleteTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type DeleteTaskResponses = {
+  /**
+   * The task is gone
+   */
+  204: void;
+};
+
+export type DeleteTaskResponse = DeleteTaskResponses[keyof DeleteTaskResponses];
+
+export type ReadTaskData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}';
+};
+
+export type ReadTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type ReadTaskResponse = ReadTaskResponses[keyof ReadTaskResponses];
+
+export type ListTeamRunsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * The `next` cursor of the page before
+     */
+    before?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+  };
+  url: '/teams/{teamId}/runs';
+};
+
+export type ListTeamRunsErrors = {
+  /**
+   * A page limit that is not a whole number above 0
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
+};
+
+export type ListTeamRunsResponses = {
+  200: TeamRunPageResponseDto;
+};
+
+export type ListTeamRunsResponse = ListTeamRunsResponses[keyof ListTeamRunsResponses];
+
+export type ReadTeamRunData = {
+  body?: never;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}';
+};
+
+export type ReadTeamRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTeamRunResponses = {
+  200: TeamRunResponseDto;
+};
+
+export type ReadTeamRunResponse = ReadTeamRunResponses[keyof ReadTeamRunResponses];
+
+export type ReadRunConfigData = {
+  body?: never;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/config';
+};
+
+export type ReadRunConfigErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type ReadRunConfigResponses = {
+  200: RunConfigResponseDto;
+};
+
+export type ReadRunConfigResponse = ReadRunConfigResponses[keyof ReadRunConfigResponses];
+
+export type ReadRunNotesData = {
+  body?: never;
+  path: {
+    runId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/notes';
+};
+
+export type ReadRunNotesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type ReadRunNotesResponses = {
+  200: RunNotesResponseDto;
+};
+
+export type ReadRunNotesResponse = ReadRunNotesResponses[keyof ReadRunNotesResponses];
+
+export type SendMessageData = {
+  body: SendMessageRequestDto;
+  path: {
+    runId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/messages';
+};
+
+export type SendMessageErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+  /**
+   * The task has moved on from that station
+   */
+  409: unknown;
+};
+
+export type SendMessageResponses = {
+  /**
+   * It joined the task’s trail, and starts the station again if the task was idle there
+   */
+  204: void;
+};
+
+export type SendMessageResponse = SendMessageResponses[keyof SendMessageResponses];
+
+export type StopRunData = {
+  body?: never;
+  path: {
+    runId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/stop';
+};
+
+export type StopRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+  /**
+   * The run is no longer in progress
+   */
+  409: unknown;
+};
+
+export type StopRunResponses = {
+  /**
+   * The run received a stop request
+   */
+  204: void;
+};
+
+export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
+
+export type ListTaskRunsData = {
+  body?: never;
+  path: {
+    taskId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/runs';
+};
+
+export type ListTaskRunsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListTaskRunsResponses = {
+  200: Array<TaskRunResponseDto>;
+};
+
+export type ListTaskRunsResponse = ListTaskRunsResponses[keyof ListTaskRunsResponses];
+
+export type ReadTaskTraceData = {
+  body?: never;
+  path: {
+    taskId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/trace';
+};
+
+export type ReadTaskTraceErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task, or not the viewer's
+   */
+  404: unknown;
+};
+
+export type ReadTaskTraceResponses = {
+  200: TaskTraceResponseDto;
+};
+
+export type ReadTaskTraceResponse = ReadTaskTraceResponses[keyof ReadTaskTraceResponses];
+
+export type AddTaskData = {
+  body: AddTaskRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/tasks';
+};
+
+export type AddTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such station for this caller
+   */
+  404: unknown;
+  /**
+   * Invalid title or description
+   */
+  422: unknown;
+};
+
+export type AddTaskResponses = {
+  201: TaskResponseDto;
+};
+
+export type AddTaskResponse = AddTaskResponses[keyof AddTaskResponses];
+
+export type MoveTaskData = {
+  body: MoveTaskRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/tasks/{taskId}/move';
+};
+
+export type MoveTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task or station for this caller
+   */
+  404: unknown;
+  /**
+   * A person may only start a task from the backlog, park it back there, or close it
+   */
+  422: unknown;
+};
+
+export type MoveTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type MoveTaskResponse = MoveTaskResponses[keyof MoveTaskResponses];
+
+export type AssignTaskData = {
+  body: AssignTaskRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/assignee';
+};
+
+export type AssignTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type AssignTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
+
+export type ListChatsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * The `next` cursor of the page before
+     */
+    before?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+  };
+  url: '/teams/{teamId}/chats';
+};
+
+export type ListChatsErrors = {
+  /**
+   * A page limit that is not a whole number above 0
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
+};
+
+export type ListChatsResponses = {
+  200: ChatSummaryPageResponseDto;
+};
+
+export type ListChatsResponse = ListChatsResponses[keyof ListChatsResponses];
+
+export type StartChatData = {
+  body: StartChatRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats';
+};
+
+export type StartChatErrors = {
+  /**
+   * A model or effort that is not text, or a setup without a repository and a folder
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * An unknown harness, model, effort or repository, or a setup the GitHub App cannot access or no host can run
+   */
+  422: unknown;
+};
+
+export type StartChatResponses = {
+  201: ChatResponseDto;
+};
+
+export type StartChatResponse = StartChatResponses[keyof StartChatResponses];
+
+export type ReadChatData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}';
+};
+
+export type ReadChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ReadChatResponses = {
+  200: ChatResponseDto;
+};
+
+export type ReadChatResponse = ReadChatResponses[keyof ReadChatResponses];
+
+export type ListChatJournalRunsData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/journal';
+};
+
+export type ListChatJournalRunsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ListChatJournalRunsResponses = {
+  200: Array<JournalledRunResponseDto>;
+};
+
+export type ListChatJournalRunsResponse = ListChatJournalRunsResponses[keyof ListChatJournalRunsResponses];
+
+export type ReadChatJournalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/journal/{runId}';
+};
+
+export type ReadChatJournalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ReadChatJournalResponses = {
+  200: Array<RunJournalResponseDto>;
+};
+
+export type ReadChatJournalResponse = ReadChatJournalResponses[keyof ReadChatJournalResponses];
+
+export type SendChatMessageData = {
+  body: SendChatMessageRequestDto;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/messages';
+};
+
+export type SendChatMessageErrors = {
+  /**
+   * A model or effort that is not text
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * An unknown model or effort
+   */
+  422: unknown;
+};
+
+export type SendChatMessageResponses = {
+  /**
+   * The agent gets the message
+   */
+  204: void;
+};
+
+export type SendChatMessageResponse = SendChatMessageResponses[keyof SendChatMessageResponses];
+
+export type StopChatData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/stop';
+};
+
+export type StopChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * The agent is not answering
+   */
+  409: unknown;
+};
+
+export type StopChatResponses = {
+  /**
+   * The agent received a stop request
+   */
+  204: void;
+};
+
+export type StopChatResponse = StopChatResponses[keyof StopChatResponses];
+
+export type AcceptProposalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+    position: number;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/acceptance';
+};
+
+export type AcceptProposalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * The proposal is already decided
+   */
+  409: unknown;
+};
+
+export type AcceptProposalResponses = {
+  /**
+   * The task is being created
+   */
+  204: void;
+};
+
+export type AcceptProposalResponse = AcceptProposalResponses[keyof AcceptProposalResponses];
+
+export type DismissProposalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+    position: number;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/dismissal';
+};
+
+export type DismissProposalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * The proposal is already decided
+   */
+  409: unknown;
+};
+
+export type DismissProposalResponses = {
+  /**
+   * The proposal was dismissed
+   */
+  204: void;
+};
+
+export type DismissProposalResponse = DismissProposalResponses[keyof DismissProposalResponses];
+
+export type ConnectEditorData = {
+  body: ConnectEditorRequestDto;
+  path?: never;
+  query?: never;
+  url: '/editor-connections';
+};
+
+export type ConnectEditorErrors = {
+  /**
+   * No task and no chat, or both
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task or chat that the caller may open in an editor
+   */
+  404: unknown;
+};
+
+export type ConnectEditorResponses = {
+  201: EditorConnectionResponseDto;
+};
+
+export type ConnectEditorResponse = ConnectEditorResponses[keyof ConnectEditorResponses];
+
+export type ReadOnboardingData = {
   body?: never;
   path: {
     teamId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/configuration';
+  url: '/teams/{teamId}/configuration/onboarding';
 };
 
-export type ReadConfigurationErrors = {
+export type ReadOnboardingErrors = {
   /**
    * No valid session
    */
@@ -14937,11 +15609,199 @@ export type ReadConfigurationErrors = {
   404: unknown;
 };
 
-export type ReadConfigurationResponses = {
-  200: ConfigurationResponseDto;
+export type ReadOnboardingResponses = {
+  200: OnboardingResponseDto;
 };
 
-export type ReadConfigurationResponse = ReadConfigurationResponses[keyof ReadConfigurationResponses];
+export type ReadOnboardingResponse = ReadOnboardingResponses[keyof ReadOnboardingResponses];
+
+export type ListRepositoriesData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/repositories';
+};
+
+export type ListRepositoriesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListRepositoriesResponses = {
+  200: Array<RepositoryResponseDto>;
+};
+
+export type ListRepositoriesResponse = ListRepositoriesResponses[keyof ListRepositoriesResponses];
+
+export type ReadGitHubData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/github';
+};
+
+export type ReadGitHubErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ReadGitHubResponses = {
+  200: GitHubConnectionStatusResponseDto;
+};
+
+export type ReadGitHubResponse = ReadGitHubResponses[keyof ReadGitHubResponses];
+
+export type ConnectGitHubData = {
+  body: ConnectGitHubRequestDto;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/github';
+};
+
+export type ConnectGitHubErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not an owner or admin, or not an admin of the installation
+   */
+  403: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+  /**
+   * The installation is already connected to another workspace
+   */
+  409: unknown;
+};
+
+export type ConnectGitHubResponses = {
+  /**
+   * Connected
+   */
+  204: void;
+};
+
+export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
+
+export type GetPushKeyData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/me/notifications/push-key';
+};
+
+export type GetPushKeyErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type GetPushKeyResponses = {
+  200: PushKeyResponseDto;
+};
+
+export type GetPushKeyResponse = GetPushKeyResponses[keyof GetPushKeyResponses];
+
+export type UnsubscribeFromPushData = {
+  body: PushUnsubscriptionRequestDto;
+  path?: never;
+  query?: never;
+  url: '/me/push-subscriptions';
+};
+
+export type UnsubscribeFromPushErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such push address of yours
+   */
+  404: unknown;
+  /**
+   * The address is not HTTPS on a known push service
+   */
+  422: unknown;
+};
+
+export type UnsubscribeFromPushResponses = {
+  /**
+   * This browser gets no more Web Push
+   */
+  204: void;
+};
+
+export type UnsubscribeFromPushResponse = UnsubscribeFromPushResponses[keyof UnsubscribeFromPushResponses];
+
+export type SubscribeToPushData = {
+  body: PushSubscriptionRequestDto;
+  path?: never;
+  query?: never;
+  url: '/me/push-subscriptions';
+};
+
+export type SubscribeToPushErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The address is not HTTPS on a known push service, or the keys are not valid
+   */
+  422: unknown;
+};
+
+export type SubscribeToPushResponses = {
+  /**
+   * This browser gets Web Push
+   */
+  204: void;
+};
+
+export type SubscribeToPushResponse = SubscribeToPushResponses[keyof SubscribeToPushResponses];
+
+export type WatchLiveData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/me/live';
+};
+
+export type WatchLiveErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type WatchLiveResponses = {
+  /**
+   * Server-sent events
+   */
+  200: unknown;
+};
 
 export type ListTeamSkillsData = {
   body?: never;
@@ -15007,7 +15867,7 @@ export type CreateSkillErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the skill: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the skill; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -15068,7 +15928,7 @@ export type DeleteSkillErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the skill: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the skill; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -15179,7 +16039,7 @@ export type UpdateSkillErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the skill: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the skill; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -15360,7 +16220,7 @@ export type CreateHarnessProfileErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the harness-profile: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the harness-profile; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -15421,7 +16281,7 @@ export type DeleteHarnessProfileErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the harness-profile: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the harness-profile; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -15548,7 +16408,7 @@ export type UpdateHarnessProfileErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the harness-profile: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the harness-profile; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -15809,6 +16669,10 @@ export type AnswerStackQuestionErrors = {
    */
   401: unknown;
   /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
    * No such change stack or question for this caller
    */
   404: unknown;
@@ -15895,6 +16759,10 @@ export type DisputeDecisionErrors = {
    */
   401: unknown;
   /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
    * No such decision for this caller
    */
   404: unknown;
@@ -15969,7 +16837,7 @@ export type GenerateChangeStackErrors = {
    */
   404: unknown;
   /**
-   * The run is a search, which changes no repository
+   * The run has no checkouts, so it changes no repository
    */
   409: unknown;
 };
@@ -15988,7 +16856,7 @@ export type RecordChangeStackCheckData = {
   };
   query?: {
     /**
-     * true when the check is the recheck of a replay’s change, as its claim said
+     * true when the check is the recheck of a trial’s change, as its claim said
      */
     recheck?: boolean;
   };
@@ -16055,6 +16923,10 @@ export type SubmitReviewData = {
 
 export type SubmitReviewErrors = {
   /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
    * A comment or request for changes that says nothing
    */
   422: unknown;
@@ -16077,6 +16949,10 @@ export type DraftReviewCommentData = {
 };
 
 export type DraftReviewCommentErrors = {
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
   /**
    * No such run or comment for this caller
    */
@@ -16106,7 +16982,7 @@ export type DeleteReviewCommentData = {
 
 export type DeleteReviewCommentErrors = {
   /**
-   * Someone else wrote it
+   * Someone else wrote it, or the caller is not a member of the team, nor a workspace admin
    */
   403: unknown;
 };
@@ -16130,7 +17006,7 @@ export type EditReviewCommentData = {
 
 export type EditReviewCommentErrors = {
   /**
-   * Someone else wrote it
+   * Someone else wrote it, or the caller is not a member of the team, nor a workspace admin
    */
   403: unknown;
 };
@@ -16298,7 +17174,7 @@ export type CreateIntegrationErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the integration: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the integration; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -16359,7 +17235,7 @@ export type DeleteIntegrationErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the integration: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the integration; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -16467,7 +17343,7 @@ export type UpdateIntegrationErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the integration: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the integration; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -16703,6 +17579,32 @@ export type ListHappeningsResponses = {
 
 export type ListHappeningsResponse = ListHappeningsResponses[keyof ListHappeningsResponses];
 
+export type ReadConfigurationData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration';
+};
+
+export type ReadConfigurationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadConfigurationResponses = {
+  200: ConfigurationResponseDto;
+};
+
+export type ReadConfigurationResponse = ReadConfigurationResponses[keyof ReadConfigurationResponses];
+
 export type CreateHookData = {
   body: HookDefinitionRequestDtoWritable;
   headers: {
@@ -16736,7 +17638,7 @@ export type CreateHookErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the hook: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the hook; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -16797,7 +17699,7 @@ export type DeleteHookErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the hook: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the hook; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -16903,7 +17805,7 @@ export type UpdateHookErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the hook: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the hook; the detail says why
    */
   403: ProblemResponseDto;
   /**
@@ -17486,7 +18388,7 @@ export type RememberErrors = {
    */
   404: unknown;
   /**
-   * The run is a replay or a search, which remembers nothing for the team
+   * The run is isolated from the team or set at a past time, and remembers nothing for the team
    */
   409: unknown;
   /**
@@ -18451,6 +19353,34 @@ export type RecordFailureCauseResponses = {
 };
 
 export type RecordFailureCauseResponse = RecordFailureCauseResponses[keyof RecordFailureCauseResponses];
+
+export type ReadSearchViewData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/search-view';
+};
+
+export type ReadSearchViewErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * This run is no longer the active run of the search, or it is not a search run that this runner leases
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadSearchViewError = ReadSearchViewErrors[keyof ReadSearchViewErrors];
+
+export type ReadSearchViewResponses = {
+  200: SearchViewResponseDto;
+};
+
+export type ReadSearchViewResponse = ReadSearchViewResponses[keyof ReadSearchViewResponses];
 
 export type ReadReplayedCandidatesData = {
   body?: never;

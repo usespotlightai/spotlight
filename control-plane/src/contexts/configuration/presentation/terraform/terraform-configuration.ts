@@ -2,12 +2,35 @@ import type {
   ExportableConfigurationDto,
   ExportableResourceDto,
 } from '@configuration/application/dto/exportable-configuration.dto';
+import type { SecretReferenceAt } from '@configuration/application/dto/secret-reference-at.dto';
 import type {
   HookConfigMatch,
   HookConfigStep,
 } from '@configuration/application/ports/hook-configs.port';
-import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
-import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
+import {
+  IMPORTS_FILE,
+  judgeRubricFileOf,
+  terraformNameOf as nameOf,
+  stationFileOf,
+  TERRAFORM_FILE,
+  TERRAFORM_PROVIDER,
+  terraformAttributeOf,
+  terraformFileOf,
+  terraformTypeOf,
+  VARIABLES_FILE,
+} from '@configuration/application/rendering/terraform-layout';
+import type {
+  LineDefinitionAlert,
+  LineDefinitionJudge,
+  LineDefinitionReaction,
+  LineDefinitionReplayCheck,
+  LineDefinitionRepository,
+  LineDefinitionReviews,
+  LineDefinitionSearch,
+  LineDefinitionSource,
+  LineDefinitionStation,
+  LineDefinitionStationSearch,
+} from '@lines/application/contracts/line-definition.contract';
 import {
   attribute,
   block,
@@ -22,20 +45,11 @@ import {
   inCodePointOrder,
   inCodePointOrderOf,
 } from '@platform/ordering/code-point-order';
+import { PLATFORM_EGRESS } from '@runners/application/ports/runner-configuration.port';
 import type { FieldSegment } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { isToolName } from '@shared-kernel/domain/value-objects/identifier-shapes';
-import type {
-  LineDefinitionAlert,
-  LineDefinitionJudge,
-  LineDefinitionReaction,
-  LineDefinitionReplayCheck,
-  LineDefinitionRepository,
-  LineDefinitionReviews,
-  LineDefinitionSearch,
-  LineDefinitionSource,
-  LineDefinitionStation,
-  LineDefinitionStationSearch,
-} from '@work/application/contracts/line-definition.contract';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
 export interface TerraformFile {
   readonly path: string;
@@ -71,17 +85,9 @@ interface ModuleIndex {
   readonly secrets: ReadonlySet<string>;
 }
 
-const PROVIDER = 'spotlight';
-
 const PROVIDER_SOURCE = 'usespotlightai/spotlight';
 
 const PROVIDER_VERSION = '0.1.0-rc.4';
-
-const TERRAFORM = 'terraform.tf';
-
-const IMPORTS = 'imports.tf';
-
-const VARIABLES = 'variables.tf';
 
 const GITIGNORE = {
   path: '.gitignore',
@@ -114,8 +120,6 @@ const PLACE: Readonly<Record<ExportableResourceDto['kind'], number>> = {
   'harness-profile': 12,
 };
 
-const PLATFORM_EGRESS = 'spotlight';
-
 const teamOf = (resource: ExportableResourceDto): string => {
   if (resource.kind === 'team') {
     return resource.key;
@@ -133,33 +137,6 @@ const inModuleOrder = (
   inCodePointOrder(teamOf(one), teamOf(other)) ||
   PLACE[one.kind] - PLACE[other.kind] ||
   inCodePointOrder(one.address, other.address);
-
-const fileOf = (resource: ExportableResourceDto): string => {
-  switch (resource.kind) {
-    case 'workspace':
-    case 'oidc-trust':
-      return 'workspace.tf';
-    case 'secret':
-      return 'secrets.tf';
-    case 'runner-trust':
-    case 'egress':
-    case 'runner-pool':
-    case 'workspace-runners':
-      return 'runners.tf';
-    case 'team':
-      return `team-${resource.key}.tf`;
-    case 'line':
-      return `line-${resource.teamKey}-${resource.key}.tf`;
-    case 'integration':
-      return `integration-${resource.teamKey}-${resource.integration}.tf`;
-    case 'skill':
-      return `skills-${resource.teamKey}.tf`;
-    case 'hook':
-      return `hooks-${resource.teamKey}.tf`;
-    case 'harness-profile':
-      return `profiles-${resource.teamKey}.tf`;
-  }
-};
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -189,14 +166,8 @@ const hclOf = (value: unknown): HclValue => {
     : null;
 };
 
-const nameOf = (...keys: readonly string[]): string => {
-  const joined = keys.join('_');
-
-  return /^[A-Za-z_]/.test(joined) ? joined : `_${joined}`;
-};
-
 const typeOf = (kind: ExportableResourceDto['kind']): string =>
-  `${PROVIDER}_${kind.replaceAll('-', '_')}`;
+  terraformTypeOf(kind);
 
 const referenceTo = (
   kind: ExportableResourceDto['kind'],
@@ -274,7 +245,7 @@ const References = (moduleIndex: ModuleIndex) => ({
   },
 
   tool(teamKey: string, tool: string): HclValue {
-    const named = isToolName(tool) ? ToolName.of(tool) : null;
+    const named = isToolName(tool) ? Tool.of(tool) : null;
     const integration = named?.integration;
 
     return named &&
@@ -292,7 +263,7 @@ const References = (moduleIndex: ModuleIndex) => ({
   },
 
   toolIndex(teamKey: string, tool: string): HclValue {
-    const named = isToolName(tool) ? ToolName.of(tool) : null;
+    const named = isToolName(tool) ? Tool.of(tool) : null;
     const integration = named?.integration;
 
     return named &&
@@ -328,7 +299,7 @@ const References = (moduleIndex: ModuleIndex) => ({
   secret(name: string): HclExpression | null {
     return moduleIndex.secrets.has(name)
       ? HclExpression.template(
-          'secret.',
+          SecretName.REFERENCE_PREFIX,
           referenceTo('secret', secretNameOf(name), 'name'),
         )
       : null;
@@ -352,7 +323,7 @@ const withImportBlock = (
   body: readonly HclItem[],
   more: Partial<Pick<Rendered, 'variables' | 'files'>> = {},
 ): Rendered => ({
-  file: fileOf(resource),
+  file: terraformFileOf(resource),
   variables: more.variables ?? [],
   imports: [
     block(
@@ -398,7 +369,7 @@ const line = (
   const { definition } = resource;
 
   const judge = (stationKey: string, set: LineDefinitionJudge): HclBlock => {
-    const path = `judges/${resource.teamKey}/${resource.key}/${stationKey}.md`;
+    const path = judgeRubricFileOf(resource.teamKey, resource.key, stationKey);
 
     if (set.rubric !== undefined) {
       files.push({ path, content: set.rubric });
@@ -414,9 +385,9 @@ const line = (
         ...(set.claims === undefined
           ? []
           : [attribute('claims', HclLines.of(set.claims))]),
-        ...present('pass_threshold', set.passThreshold),
+        ...present(terraformAttributeOf('passThreshold'), set.passThreshold),
         attribute('sample', set.sample),
-        attribute('min_agreement', set.minAgreement),
+        attribute(terraformAttributeOf('minAgreement'), set.minAgreement),
       ],
     );
   };
@@ -465,7 +436,7 @@ const line = (
     );
 
   const station = (each: LineDefinitionStation): HclBlock => {
-    const path = `prompts/${resource.teamKey}/${resource.key}/${each.key}.md`;
+    const path = stationFileOf(resource.teamKey, resource.key, each.key);
 
     if (each.prompt !== undefined) {
       files.push({ path, content: each.prompt });
@@ -508,7 +479,7 @@ const line = (
           'skills',
           each.skills.map((skill) => refer.skill(resource.teamKey, skill)),
         ),
-        attribute('passes_to', each.passesTo),
+        attribute(terraformAttributeOf('passesTo'), each.passesTo),
         attribute('ends', each.ends),
         ...(each.judge ? [judge(each.key, each.judge)] : []),
         ...each.alerts.map(alert),
@@ -603,6 +574,7 @@ const line = (
       attribute('name', definition.name),
       ...present('role', definition.role),
       ...present('runners', definition.runners),
+      ...present('warm_sandboxes', definition.warmSandboxes || undefined),
       ...definition.repositories.map(repository),
       ...definition.stations.map(station),
       ...definition.reactions.map(reaction),
@@ -787,7 +759,7 @@ const hookStep = (
         ? {}
         : { headers: hclOf(request.headers) }),
       ...(request.body === undefined ? {} : { body: hclOf(request.body) }),
-      ...(request.from === 'spotlight' ? {} : { from: request.from }),
+      ...(request.from === null ? {} : { from: request.from }),
     },
   };
 };
@@ -1085,7 +1057,7 @@ const PROVIDERS = block(
       'required_providers',
       [],
       [
-        attribute(PROVIDER, {
+        attribute(TERRAFORM_PROVIDER, {
           source: PROVIDER_SOURCE,
           version: PROVIDER_VERSION,
         }),
@@ -1105,9 +1077,9 @@ export const workspaceTerraform = (
   const paths = [...new Set(all.map((each) => each.file))];
 
   return [
-    { path: TERRAFORM, content: formatHcl([PROVIDERS]) },
+    { path: TERRAFORM_FILE, content: formatHcl([PROVIDERS]) },
     {
-      path: IMPORTS,
+      path: IMPORTS_FILE,
       content: formatHcl(all.flatMap((each) => each.imports)),
     },
     ...paths.map((path) => ({
@@ -1117,7 +1089,7 @@ export const workspaceTerraform = (
       ),
     })),
     ...(variables.length > 0
-      ? [{ path: VARIABLES, content: formatHcl(variables) }]
+      ? [{ path: VARIABLES_FILE, content: formatHcl(variables) }]
       : []),
     GITIGNORE,
     ...all.flatMap((each) => each.files),

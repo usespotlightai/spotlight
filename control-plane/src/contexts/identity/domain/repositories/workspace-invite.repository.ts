@@ -9,11 +9,15 @@ export interface WorkspaceInviteRepository {
 
   save(invite: WorkspaceInvite): Promise<void>;
 
+  remove(invite: WorkspaceInvite): Promise<void>;
+
   find(id: InviteId): Promise<WorkspaceInvite | null>;
+
+  ofWorkspace(workspaceId: WorkspaceId): Promise<readonly WorkspaceInvite[]>;
 
   withToken(hash: TokenHash): Promise<WorkspaceInvite | null>;
 
-  notEndedTo(
+  latestTo(
     workspaceId: WorkspaceId,
     email: EmailAddress,
   ): Promise<WorkspaceInvite | null>;

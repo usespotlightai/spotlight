@@ -1,4 +1,4 @@
-import type { CheckedStepDto } from '@change-review/application/dto/change-stack-check.dto';
+import type { CheckedStepDto } from '@change-review/application/dto/change-stack.dto';
 
 export class RecordChangeStackCheckCommand {
   constructor(

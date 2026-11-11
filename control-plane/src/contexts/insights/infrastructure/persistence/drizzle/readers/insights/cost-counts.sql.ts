@@ -63,10 +63,10 @@ const runsIn = (team: TeamInPeriod, window: Window, matching: SQL): SQL => sql`
   where ${onTeam(team)} and ${endedIn(window.from, window.to)} and ${matching}`;
 
 const sharesOf = sql`
-  select repository.value #>> '{}' as key, repository.position, priced.cost / jsonb_array_length(priced.repositories) as amount
+  select repository.value #>> '{}' as key, repository.position, priced.cost::float8 / jsonb_array_length(priced.repositories) as amount
   from jsonb_array_elements(priced.repositories) with ordinality as repository(value, position)
   union all
-  select null, 1, priced.cost
+  select null, 1, priced.cost::float8
   where jsonb_array_length(priced.repositories) = 0`;
 
 const firstAt = (offset: SQL): SQL =>
@@ -96,13 +96,13 @@ const sharesIn = async (
 ): Promise<readonly CostShareCount[]> => {
   const result = await db.execute<ShareRow>(sql`
     with priced as (${runsIn(team, team.period.current, priced)})
-    select 'harness' as part, priced.harness as key, sum(priced.cost order by priced.place) as amount, count(*)::int as runs, ${firstAt(sql`0`)} as first
+    select 'harness' as part, priced.harness as key, sum(priced.cost::float8 order by priced.place) as amount, count(*)::int as runs, ${firstAt(sql`0`)} as first
     from priced group by priced.harness
     union all
-    select 'model', priced.model, sum(priced.cost order by priced.place), count(*)::int, ${firstAt(sql`0`)}
+    select 'model', priced.model, sum(priced.cost::float8 order by priced.place), count(*)::int, ${firstAt(sql`0`)}
     from priced group by priced.model
     union all
-    select 'station', priced.station_id, sum(priced.cost order by priced.place), count(*)::int, ${firstAt(sql`1`)}
+    select 'station', priced.station_id, sum(priced.cost::float8 order by priced.place), count(*)::int, ${firstAt(sql`1`)}
     from priced group by priced.station_id
     union all
     select 'repository', share.key, sum(share.amount order by priced.place, share.position), count(*)::int, ${firstAt(sql`1 + share.position`)}
@@ -125,7 +125,7 @@ const linksIn = async (
 ): Promise<readonly CostLinkCount[]> => {
   const result = await db.execute<LinkRow>(sql`
     with priced as (${runsIn(team, team.period.current, priced)})
-    select 'model' as source_kind, priced.model as source_key, 'station' as target_kind, priced.station_id as target_key, sum(priced.cost order by priced.place) as amount, ${firstAt(sql`0`)} as first
+    select 'model' as source_kind, priced.model as source_key, 'station' as target_kind, priced.station_id as target_key, sum(priced.cost::float8 order by priced.place) as amount, ${firstAt(sql`0`)} as first
     from priced group by priced.model, priced.station_id
     union all
     select 'station', priced.station_id, 'repository', share.key, sum(share.amount order by priced.place, share.position), ${firstAt(sql`share.position`)}

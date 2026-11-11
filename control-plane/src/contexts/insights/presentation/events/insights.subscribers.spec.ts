@@ -1,19 +1,16 @@
+import { StationAlertStatesInMemory } from '@insights/alerts.fake-spec';
+import { chatsInMemory } from '@insights/application/ports/chats.fake-spec';
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
-import { pendingReviewsInMemory } from '@insights/application/ports/pending-reviews.fake-spec';
-import { stationConfigPullRequestsInMemory } from '@insights/application/ports/station-config-pull-requests.fake-spec';
 import type { EndedRun } from '@insights/application/ports/work.port';
 import { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
-import { RecordConfigPullRequest } from '@insights/application/services/record-config-pull-request.service';
 import { RecordHumanAction } from '@insights/application/services/record-human-action.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
-import { RecordPullRequestClosing } from '@insights/application/services/record-pull-request-closing.service';
-import { RecordPullRequestOpening } from '@insights/application/services/record-pull-request-opening.service';
-import { RecordPullRequestReview } from '@insights/application/services/record-pull-request-review.service';
 import { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
 import { RecordRunEnding } from '@insights/application/services/record-run-ending.service';
 import { RecordRunMemories } from '@insights/application/services/record-run-memories.service';
@@ -24,54 +21,48 @@ import { RecordTaskFailure } from '@insights/application/services/record-task-fa
 import { RecordTaskHumanAction } from '@insights/application/services/record-task-human-action.service';
 import { RequestJudging } from '@insights/application/services/request-judging.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
-import { StationAlertStatesInMemory } from '@insights/domain/alerts.fake-spec';
+import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import { RunJudged } from '@insights/domain/events/run-judged.event';
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
+import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
+import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import {
-  ChatRecordsInMemory,
   TaskFailuresInMemory,
   TaskHumanActionsInMemory,
-} from '@insights/domain/insights.fake-spec';
+} from '@insights/insights.fake-spec';
 import {
-  ChangeJudgingsInMemory,
   JudgingsInMemory,
   judgeScore,
   queuedJudging,
   RUBRIC_VERSION,
   reasonOf,
   ScoresInMemory,
-  SideBySideJudgingsInMemory,
-} from '@insights/domain/judging.fake-spec';
+} from '@insights/judging.fake-spec';
+import { insightsSubscribers } from '@insights/presentation/events/insights.subscribers';
 import {
   PullRequestRecordsInMemory,
   TaskChangeShapesInMemory,
-} from '@insights/domain/pull-requests.fake-spec';
+} from '@insights/pull-requests.fake-spec';
 import {
   endedRecord,
   FIRST_CONFIG,
   inTransaction,
   RunRecordsInMemory,
   SET_UP,
-  TaskPullRequestsInMemory,
-} from '@insights/domain/runs.fake-spec';
-import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
-import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
-import { insightsSubscribers } from '@insights/presentation/events/insights.subscribers';
+  StationFactsInMemory,
+} from '@insights/runs.fake-spec';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import { CHANGE_STACK_READY } from '@shared-kernel/application/integration-events/change-stack-ready.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
-import { CONFIG_PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/config-pull-request-opened.integration-event';
+import { DISPATCH_ENDED } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import { DISPATCH_SUPERSEDED } from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
 import { LINE_CHANGED } from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import { MEMORIES_USED } from '@shared-kernel/application/integration-events/memories-used.integration-event';
-import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
 import { PULL_REQUEST_PURGED } from '@shared-kernel/application/integration-events/pull-request-purged.integration-event';
 import { PULL_REQUEST_REVIEW_TAKEN } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
-import { PULL_REQUEST_REVIEWED } from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
 import { PULL_REQUEST_UPDATED } from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
-import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-ended.integration-event';
-import { RUN_SUPERSEDED } from '@shared-kernel/application/integration-events/run-superseded.integration-event';
 import { RUN_USAGE_RECORDED } from '@shared-kernel/application/integration-events/run-usage-recorded.integration-event';
 import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
 import { TASK_ASKED } from '@shared-kernel/application/integration-events/task-asked.integration-event';
@@ -82,23 +73,24 @@ import { TASK_PASSED } from '@shared-kernel/application/integration-events/task-
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
-
-const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const PULL = 'https://github.com/acme/api/pull/3';
 
 const ENDED: EndedRun = {
-  runId: 'run_1',
-  workspaceId: 'ws_1',
-  teamId: 'team_1',
-  lineId: 'line_1',
-  stationId: 'station_1',
-  taskId: 'task_1',
+  runId: RunId.of('run_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
+  taskId: TaskId.of('task_1'),
   fingerprint: FIRST_CONFIG,
   visit: 1,
   ...SET_UP,
@@ -108,11 +100,12 @@ const ENDED: EndedRun = {
 const WORK = {
   unfinishedRuns: async () => [],
   traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
-  endedRun: async (runId: string) => (runId === ENDED.runId ? ENDED : null),
+  taskRunOf: async (runId: RunId) =>
+    runId.equals(ENDED.runId)
+      ? { runId, taskId: ENDED.taskId, teamId: ENDED.teamId }
+      : null,
+  endedRun: async (runId: RunId) => (runId.equals(ENDED.runId) ? ENDED : null),
   configsInOrder: async () => [],
-  teamRepositories: async () => ['acme/api'],
-  teamSkillKeys: async () => [],
-  alertsAt: async () => null,
 };
 
 const CLOCK = {
@@ -125,62 +118,56 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   const alertStates = new StationAlertStatesInMemory();
   const alerted: string[] = [];
   let alertsNow = alerts;
-  const work = { ...WORK, alertsAt: async () => alertsNow };
-  const taskPullRequests = new TaskPullRequestsInMemory();
+  const lines = {
+    teamRepositories: async () => [],
+    alertsAt: async () => alertsNow,
+  };
   const judgings = new JudgingsInMemory();
   const scores = new ScoresInMemory();
   const humanActions = new TaskHumanActionsInMemory();
   const failures = new TaskFailuresInMemory();
-  const chats = new ChatRecordsInMemory();
+  const chats = chatsInMemory();
   const pullRequests = new PullRequestRecordsInMemory();
   const shapes = new TaskChangeShapesInMemory();
-  const reviews = pendingReviewsInMemory();
-  const configPullRequests = stationConfigPullRequestsInMemory();
   const deletions = deletionsInMemory();
   const asked: string[] = [];
   let next = 0;
   const subscribers = insightsSubscribers({
-    ending: new RecordRunEnding(WORK, records, deletions, inTransaction, {
-      debug: () => {},
-      info: () => {},
-      warn: () => {},
-      error: () => {},
-    }),
-    superseding: new RecordSupersededRun(records, deletions, inTransaction, {
-      now: () => RECEIVED_AT,
-      sleep: async () => {},
-    }),
-    checking: new RecordChangeChecks(records, deletions, inTransaction, {
-      now: () => RECEIVED_AT,
-      sleep: async () => {},
-    }),
-    acting: new RecordHumanAction(WORK, records, deletions, inTransaction),
-    opening: new RecordPullRequestOpening(
-      taskPullRequests,
-      reviews,
-      deletions,
+    ending: new RecordRunEnding(
+      WORK,
+      records,
+      new FactRecorder(deletions),
       inTransaction,
-      CLOCK,
     ),
-    closing: new RecordPullRequestClosing(taskPullRequests, inTransaction),
+    superseding: new RecordSupersededRun(
+      records,
+      new FactRecorder(deletions),
+      inTransaction,
+    ),
+    checking: new RecordChangeChecks(
+      records,
+      new FactRecorder(deletions),
+      inTransaction,
+    ),
+    acting: new RecordHumanAction(
+      WORK,
+      records,
+      new FactRecorder(deletions),
+      inTransaction,
+    ),
     deleting: new DeleteInsights(
       {
         records,
-        taskPullRequests,
         judgings,
-        changeJudgings: new ChangeJudgingsInMemory(),
-        sideBySideJudgings: new SideBySideJudgingsInMemory(),
         scores,
-        taskHumanActions: humanActions,
+        humanActions,
         failures,
-        chats,
-        pullRequests,
         shapes,
+        pullRequests,
         alertStates,
-        reviews,
-        configPullRequests,
-        deletions,
+        chats,
       },
+      deletions,
       inTransaction,
     ),
     judging: new RequestJudging(
@@ -188,10 +175,12 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       {
         hasTask: async () => true,
         of: async () => null,
+      },
+      {
         judgesOnTeam: async () => new Map(),
         judgeAt: async () => ({
-          teamId: 'team_1',
-          lineId: 'line_1',
+          teamId: TeamId.of('team_1'),
+          lineId: LineId.of('line_1'),
           rubric: 'Did the run retry uploads?',
           rubricVersion: RUBRIC_VERSION,
           claims: [],
@@ -202,24 +191,29 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       },
       {
         available: true,
-        model: 'some/model',
         judge: async () => ({
+          model: 'some/model',
           verdict: { value: true, reasons: [] },
           guidance: null,
           usage: null,
         }),
       },
       judgings,
-      deletions,
+      new FactRecorder(deletions),
       inTransaction,
       CLOCK,
     ),
-    scoring: new RecordJudgeScore(judgings, scores, inTransaction, {
-      generate: () => {
-        next += 1;
-        return `score_${next}`;
+    scoring: new RecordJudgeScore(
+      scores,
+      new FactRecorder(deletions),
+      inTransaction,
+      {
+        generate: () => {
+          next += 1;
+          return `score_${next}`;
+        },
       },
-    }),
+    ),
     grading: new GradeInboxRequests({
       ask: async (taskId, runId) => {
         asked.push(`ask ${taskId.value} ${runId.value}`);
@@ -231,30 +225,49 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     recordingUsage: new RecordRunUsageSummary(
       WORK,
       records,
-      deletions,
+      new FactRecorder(deletions),
       inTransaction,
     ),
-    remembering: new RecordRunMemories(WORK, records, deletions, inTransaction),
-    passing: new RecordStationPass(records, deletions, inTransaction),
-    reviewing: new RecordPullRequestReview(
-      taskPullRequests,
-      reviews,
-      deletions,
+    remembering: new RecordRunMemories(
+      WORK,
+      records,
+      new FactRecorder(deletions),
       inTransaction,
-      CLOCK,
     ),
-    failing: new RecordTaskFailure(failures, deletions, inTransaction),
+    passing: new RecordStationPass(
+      records,
+      new FactRecorder(deletions),
+      inTransaction,
+    ),
+    failing: new RecordTaskFailure(
+      failures,
+      new FactRecorder(deletions),
+      inTransaction,
+    ),
     recordingHumanActions: new RecordTaskHumanAction(
       humanActions,
-      deletions,
+      new FactRecorder(deletions),
       inTransaction,
     ),
     chatting: new RecordChat(chats, deletions, inTransaction),
-    recording: new RecordPullRequests(pullRequests, deletions, inTransaction),
-    shaping: new RecordChangeShape(WORK, shapes, deletions, inTransaction),
+    recording: new RecordPullRequests(
+      pullRequests,
+      new FactRecorder(deletions),
+      inTransaction,
+    ),
+    shaping: new RecordChangeShape(
+      WORK,
+      shapes,
+      new FactRecorder(deletions),
+      inTransaction,
+    ),
     watching: new WatchStations(
-      work,
-      { records, taskPullRequests, alertStates, deletions },
+      lines,
+      {
+        facts: new StationFactsInMemory(records, { pullRequests }),
+        alertStates,
+      },
+      new FactRecorder(deletions),
       inTransaction,
       {
         generate: () => {
@@ -275,11 +288,6 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       },
       alertStates,
     ),
-    openingConfigPullRequests: new RecordConfigPullRequest(
-      configPullRequests,
-      deletions,
-      inTransaction,
-    ),
   });
 
   const deliver = async (name: string, event: Record<string, unknown>) => {
@@ -294,7 +302,10 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
 
   return {
     records,
-    taskPullRequests,
+    taskPullRequest: async (taskId: string) =>
+      PullRequestRecord.taskFactOf(
+        await pullRequests.ownedBy([TaskId.of(taskId)]),
+      ),
     judgings,
     scores,
     humanActions,
@@ -303,8 +314,6 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     pullRequests,
     shapes,
     alertStates,
-    reviews,
-    configPullRequests,
     asked,
     alerted,
     alertsNow: (next: readonly AlertRule[] | null) => {
@@ -317,7 +326,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
 };
 
 const runEnded = (change: Record<string, unknown> = {}) => ({
-  kind: RUN_ENDED,
+  kind: DISPATCH_ENDED,
   runId: 'run_1',
   workspaceId: 'ws_1',
   taskId: 'task_1',
@@ -325,6 +334,35 @@ const runEnded = (change: Record<string, unknown> = {}) => ({
   outcome: 'completed',
   failure: null,
   stopped: false,
+  ...change,
+});
+
+const recordedEvent = (change: Record<string, unknown> = {}) => ({
+  kind: PULL_REQUEST_UPDATED,
+  workspaceId: 'ws_1',
+  pullRequest: PULL,
+  repository: 'acme/api',
+  number: 3,
+  title: 'Retry failed uploads',
+  author: 'ada',
+  authorIsBot: false,
+  branch: null,
+  additions: 1,
+  deletions: 1,
+  changedFiles: 1,
+  openedAt: '2026-09-30T08:00:00.000Z',
+  state: 'open',
+  closedAt: null,
+  updatedAt: '2026-09-30T08:30:00.000Z',
+  readyForReviewAt: '2026-09-30T08:00:00.000Z',
+  draftPeriods: [],
+  reviews: [],
+  reviewComments: 0,
+  botComments: [],
+  threads: [],
+  isRevert: false,
+  revertedBy: null,
+  version: 1,
   ...change,
 });
 
@@ -345,7 +383,9 @@ describe('insightsSubscribers', () => {
 
     await subscriber.deliver('insights.record-ended-run', runEnded());
 
-    expect((await subscriber.record())?.ending).toBe('completed');
+    expect((await subscriber.record())?.factWith(null, null)?.ending).toBe(
+      'completed',
+    );
   });
 
   it('records a run a person stopped as stopped', async () => {
@@ -356,7 +396,9 @@ describe('insightsSubscribers', () => {
       runEnded({ stopped: true }),
     );
 
-    expect((await subscriber.record())?.ending).toBe('stopped');
+    expect((await subscriber.record())?.factWith(null, null)?.ending).toBe(
+      'stopped',
+    );
   });
 
   it('records nothing for a run at no station', async () => {
@@ -407,7 +449,7 @@ describe('insightsSubscribers', () => {
       server: null,
     });
     await subscriber.deliver('insights.record-superseded-run', {
-      kind: RUN_SUPERSEDED,
+      kind: DISPATCH_SUPERSEDED,
       runId: 'run_1',
       workspaceId: 'ws_1',
       taskId: 'task_1',
@@ -417,13 +459,13 @@ describe('insightsSubscribers', () => {
     const record = await subscriber.record();
     expect(record?.checks).toBe('passed');
     expect(record?.firstHumanAction?.kind).toBe('sent-back');
-    expect(record?.ending).toBe('superseded');
+    expect(record?.factWith(null, null)?.ending).toBe('superseded');
   });
 
   it('follows the task’s pull request from opened to merged', async () => {
     const subscriber = subscribed();
 
-    await subscriber.deliver('insights.record-opened-pull-request', {
+    await subscriber.deliver('insights.record-pull-request-owner', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -431,19 +473,17 @@ describe('insightsSubscribers', () => {
       url: PULL,
       at: '2026-09-30T10:30:00.000Z',
     });
-    await subscriber.deliver('insights.record-closed-pull-request', {
-      kind: PULL_REQUEST_CLOSED,
-      workspaceId: 'ws_1',
-      pullRequest: PULL,
-      repository: 'acme/api',
-      closedAt: '2026-09-30T12:00:00.000Z',
-      merged: true,
-      mergeCommit: 'abc123',
-    });
+    await subscriber.deliver(
+      'insights.record-seen-pull-request',
+      recordedEvent({
+        state: 'merged',
+        closedAt: '2026-09-30T12:00:00.000Z',
+        updatedAt: '2026-09-30T12:00:00.000Z',
+        version: 2,
+      }),
+    );
 
-    expect(
-      (await subscriber.taskPullRequests.forTask(TaskId.of('task_1')))?.state,
-    ).toBe('merged');
+    expect((await subscriber.taskPullRequest('task_1'))?.state).toBe('merged');
   });
 
   it('keeps what a run cost and where it passed its task, received before or after it ended', async () => {
@@ -453,7 +493,14 @@ describe('insightsSubscribers', () => {
       kind: RUN_USAGE_RECORDED,
       runId: 'run_1',
       workspaceId: 'ws_1',
-      taskId: 'task_1',
+      requester: {
+        owner: 'work',
+        kind: 'task',
+        id: 'task_1',
+        token: '0',
+        team: 'team_1',
+      },
+      listed: true,
       ms: 60_000,
       steps: 12,
       errors: 1,
@@ -462,6 +509,8 @@ describe('insightsSubscribers', () => {
       contextWindow: 200_000,
       cost: 0.42,
       currency: 'USD',
+      spentCosts: [{ amount: 0.42, currency: 'USD' }],
+      unpricedCalls: 0,
       inputTokens: 1_200,
       outputTokens: 900,
       cacheReadTokens: 80_000,
@@ -496,12 +545,12 @@ describe('insightsSubscribers', () => {
       cacheRead: 80_000,
       cacheWrite: null,
     });
-    expect(record?.passed?.to).toBe('station_2');
+    expect(record?.passed?.to.value).toBe('station_2');
     expect(record?.end?.agentConfig.harness).toBe('claude-code');
-    expect(record?.tools?.callsTo('linear')?.latency).toEqual(
-      LatencyHistogram.timing([300, 900]),
-    );
-    expect(record?.tools?.read('grafana')).toBe(true);
+    expect(
+      record?.tools?.servers.find((each) => each.server === 'linear')?.latency,
+    ).toEqual(LatencyHistogram.timing([300, 900]));
+    expect(record?.tools?.skillsRead.includes('grafana')).toBe(true);
   });
 
   it('keeps no cost for a run that worked no task', async () => {
@@ -509,9 +558,16 @@ describe('insightsSubscribers', () => {
 
     await subscriber.deliver('insights.record-run-usage', {
       kind: RUN_USAGE_RECORDED,
-      runId: 'run_1',
+      runId: 'run_chat',
       workspaceId: 'ws_1',
-      taskId: null,
+      requester: {
+        owner: 'work',
+        kind: 'chat',
+        id: 'chat_1',
+        token: null,
+        team: 'team_1',
+      },
+      listed: true,
       ms: 60_000,
       steps: 12,
       errors: 1,
@@ -520,6 +576,8 @@ describe('insightsSubscribers', () => {
       contextWindow: null,
       cost: 0.42,
       currency: 'USD',
+      spentCosts: [{ amount: 0.42, currency: 'USD' }],
+      unpricedCalls: 0,
       inputTokens: null,
       outputTokens: null,
       cacheReadTokens: null,
@@ -574,7 +632,7 @@ describe('insightsSubscribers', () => {
 
   it('dates a pull request’s first review by a person, never a bot’s', async () => {
     const subscriber = subscribed();
-    await subscriber.deliver('insights.record-opened-pull-request', {
+    await subscriber.deliver('insights.record-pull-request-owner', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -582,25 +640,29 @@ describe('insightsSubscribers', () => {
       url: PULL,
       at: '2026-09-30T10:30:00.000Z',
     });
-    const reviewed = (byBot: boolean, submittedAt: string) =>
-      subscriber.deliver('insights.record-first-review', {
-        kind: PULL_REQUEST_REVIEWED,
-        workspaceId: 'ws_1',
-        pullRequest: PULL,
-        state: 'commented',
-        login: byBot ? 'spotlight[bot]' : 'ada',
-        byBot,
-        submittedAt,
-      });
+    const reviewed = (id: number, byBot: boolean, submittedAt: string) => ({
+      id,
+      state: 'commented',
+      login: byBot ? 'spotlight[bot]' : 'ada',
+      byBot,
+      submittedAt,
+      dismissed: false,
+    });
 
-    await reviewed(true, '2026-09-30T10:40:00.000Z');
-    await reviewed(false, '2026-09-30T11:00:00.000Z');
-    await reviewed(false, '2026-09-30T12:00:00.000Z');
+    await subscriber.deliver(
+      'insights.record-seen-pull-request',
+      recordedEvent({
+        reviews: [
+          reviewed(1, true, '2026-09-30T10:40:00.000Z'),
+          reviewed(2, false, '2026-09-30T11:00:00.000Z'),
+          reviewed(3, false, '2026-09-30T12:00:00.000Z'),
+        ],
+      }),
+    );
 
-    expect(
-      (await subscriber.taskPullRequests.forTask(TaskId.of('task_1')))
-        ?.firstReviewAt,
-    ).toEqual(new Date('2026-09-30T11:00:00.000Z'));
+    expect((await subscriber.taskPullRequest('task_1'))?.firstReviewAt).toEqual(
+      new Date('2026-09-30T11:00:00.000Z'),
+    );
   });
 
   it('keeps every task failure received, once each', async () => {
@@ -672,14 +734,12 @@ describe('insightsSubscribers', () => {
 
     const humanActions = await subscriber.humanActions.of(TaskId.of('task_1'));
     expect(humanActions?.opening?.by?.value).toBe('user_ada');
-    expect(humanActions?.waits()).toEqual([
-      {
-        stationId: 'station_1',
-        askedAt: new Date('2026-09-30T10:10:00.000Z'),
-        answeredAt: new Date('2026-09-30T10:20:00.000Z'),
-        answeredBy: 'user_bob',
-      },
-    ]);
+    expect(
+      humanActions?.asks.map((each) => [each.stationId.value, each.at]),
+    ).toEqual([['station_1', new Date('2026-09-30T10:10:00.000Z')]]);
+    expect(
+      humanActions?.actions.map((each) => [each.by.value, each.at]),
+    ).toEqual([['user_bob', new Date('2026-09-30T10:20:00.000Z')]]);
   });
 
   it('keeps who started a chat, once', async () => {
@@ -697,61 +757,6 @@ describe('insightsSubscribers', () => {
     await subscriber.deliver('insights.record-started-chat', started);
 
     expect(subscriber.chats.stored.size).toBe(1);
-  });
-
-  it('keeps the config pull requests Spotlight opened, each once, until their team is deleted and after none received late', async () => {
-    const subscriber = subscribed();
-    const opened = (id: string, teamId = 'team_1') => ({
-      kind: CONFIG_PULL_REQUEST_OPENED,
-      configPullRequestId: id,
-      workspaceId: 'ws_1',
-      teamId,
-      stationId: 'station_1',
-      fingerprint: FIRST_CONFIG,
-      url: `https://github.com/acme/platform/pull/${id}`,
-      at: '2026-09-30T09:00:00.000Z',
-    });
-
-    await subscriber.deliver(
-      'insights.record-opened-config-pull-request',
-      opened('1'),
-    );
-    await subscriber.deliver(
-      'insights.record-opened-config-pull-request',
-      opened('1'),
-    );
-    await subscriber.deliver(
-      'insights.record-opened-config-pull-request',
-      opened('2', 'team_2'),
-    );
-
-    expect([...subscriber.configPullRequests.stored.keys()]).toEqual([
-      '1',
-      '2',
-    ]);
-
-    await subscriber.deliver(
-      'insights.delete-config-pull-requests-of-deleted-team',
-      {
-        kind: TEAM_DELETED,
-        workspaceId: 'ws_1',
-        teamId: 'team_1',
-        key: 'core',
-      },
-    );
-    await subscriber.deliver(
-      'insights.record-opened-config-pull-request',
-      opened('3'),
-    );
-
-    expect([...subscriber.configPullRequests.stored.keys()]).toEqual(['2']);
-
-    await subscriber.deliver(
-      'insights.delete-config-pull-requests-of-deleted-workspace',
-      { kind: WORKSPACE_DELETED, workspaceId: 'ws_1', slug: 'acme' },
-    );
-
-    expect(subscriber.configPullRequests.stored.size).toBe(0);
   });
 
   it('deletes the human actions and failures of a deleted task, and the chats of a deleted workspace', async () => {
@@ -811,7 +816,7 @@ describe('insightsSubscribers', () => {
   it('deletes the runs and pull request of a deleted task', async () => {
     const subscriber = subscribed();
     await subscriber.deliver('insights.record-ended-run', runEnded());
-    await subscriber.deliver('insights.record-opened-pull-request', {
+    await subscriber.deliver('insights.record-pull-request-owner', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -827,12 +832,12 @@ describe('insightsSubscribers', () => {
 
     await subscriber.deliver('insights.delete-runs-of-deleted-task', deleted);
     await subscriber.deliver(
-      'insights.delete-task-pull-request-of-deleted-task',
+      'insights.delete-pull-requests-of-deleted-task',
       deleted,
     );
 
     expect(await subscriber.record()).toBeNull();
-    expect(subscriber.taskPullRequests.stored.size).toBe(0);
+    expect(await subscriber.taskPullRequest('task_1')).toBeNull();
   });
 
   it('deletes the runs of a deleted team', async () => {
@@ -849,19 +854,25 @@ describe('insightsSubscribers', () => {
     expect(await subscriber.record()).toBeNull();
   });
 
-  it('dates a pull request’s first review even when the review is received before the opening', async () => {
+  it('dates a pull request’s first review even when GitHub’s word is received before the opening', async () => {
     const subscriber = subscribed();
-    await subscriber.deliver('insights.record-first-review', {
-      kind: PULL_REQUEST_REVIEWED,
-      workspaceId: 'ws_1',
-      pullRequest: PULL,
-      state: 'approved',
-      login: 'ada',
-      byBot: false,
-      submittedAt: '2026-09-30T11:00:00.000Z',
-    });
+    await subscriber.deliver(
+      'insights.record-seen-pull-request',
+      recordedEvent({
+        reviews: [
+          {
+            id: 1,
+            state: 'approved',
+            login: 'ada',
+            byBot: false,
+            submittedAt: '2026-09-30T11:00:00.000Z',
+            dismissed: false,
+          },
+        ],
+      }),
+    );
 
-    await subscriber.deliver('insights.record-opened-pull-request', {
+    await subscriber.deliver('insights.record-pull-request-owner', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -870,11 +881,9 @@ describe('insightsSubscribers', () => {
       at: '2026-09-30T10:30:00.000Z',
     });
 
-    expect(
-      (await subscriber.taskPullRequests.forTask(TaskId.of('task_1')))
-        ?.firstReviewAt,
-    ).toEqual(new Date('2026-09-30T11:00:00.000Z'));
-    expect(subscriber.reviews.stored.size).toBe(0);
+    expect((await subscriber.taskPullRequest('task_1'))?.firstReviewAt).toEqual(
+      new Date('2026-09-30T11:00:00.000Z'),
+    );
   });
 
   it('deletes the failures and pull requests of a deleted team', async () => {
@@ -891,7 +900,7 @@ describe('insightsSubscribers', () => {
       occurrences: 1,
       at: '2026-09-30T10:00:00.000Z',
     });
-    await subscriber.deliver('insights.record-opened-pull-request', {
+    await subscriber.deliver('insights.record-pull-request-owner', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -911,12 +920,12 @@ describe('insightsSubscribers', () => {
       deletedTeam,
     );
     await subscriber.deliver(
-      'insights.delete-task-pull-requests-of-deleted-team',
+      'insights.delete-pull-requests-of-deleted-team',
       deletedTeam,
     );
 
     expect(subscriber.failures.stored.size).toBe(0);
-    expect(subscriber.taskPullRequests.stored.size).toBe(0);
+    expect(await subscriber.taskPullRequest('task_1')).toBeNull();
   });
 
   it('records nothing more of a task received after it was deleted, whichever deletion came first', async () => {
@@ -932,7 +941,14 @@ describe('insightsSubscribers', () => {
       kind: RUN_USAGE_RECORDED,
       runId: 'run_1',
       workspaceId: 'ws_1',
-      taskId: 'task_1',
+      requester: {
+        owner: 'work',
+        kind: 'task',
+        id: 'task_1',
+        token: '0',
+        team: 'team_1',
+      },
+      listed: true,
       ms: 60_000,
       steps: 12,
       errors: 1,
@@ -941,6 +957,8 @@ describe('insightsSubscribers', () => {
       contextWindow: null,
       cost: 0.42,
       currency: 'USD',
+      spentCosts: [{ amount: 0.42, currency: 'USD' }],
+      unpricedCalls: 0,
       inputTokens: null,
       outputTokens: null,
       cacheReadTokens: null,
@@ -965,7 +983,7 @@ describe('insightsSubscribers', () => {
       passed: true,
     });
     await subscriber.deliver('insights.record-superseded-run', {
-      kind: RUN_SUPERSEDED,
+      kind: DISPATCH_SUPERSEDED,
       runId: 'run_4',
       workspaceId: 'ws_1',
       taskId: 'task_1',
@@ -1001,7 +1019,7 @@ describe('insightsSubscribers', () => {
       occurrences: 1,
       at: '2026-09-30T10:00:00.000Z',
     });
-    await subscriber.deliver('insights.record-opened-pull-request', {
+    await subscriber.deliver('insights.record-pull-request-owner', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -1013,7 +1031,7 @@ describe('insightsSubscribers', () => {
     expect(subscriber.records.stored.size).toBe(0);
     expect(subscriber.humanActions.stored.size).toBe(0);
     expect(subscriber.failures.stored.size).toBe(0);
-    expect(subscriber.taskPullRequests.stored.size).toBe(0);
+    expect(subscriber.pullRequests.stored.size).toBe(0);
   });
 
   it('records nothing more of a team received after it was deleted, and lets go of what it received before it knew the team', async () => {
@@ -1070,6 +1088,64 @@ describe('insightsSubscribers', () => {
     expect(subscriber.failures.stored.size).toBe(0);
   });
 
+  it('records no later ask or act of a task whose team was deleted, whichever came first', async () => {
+    const opened = {
+      kind: TASK_OPENED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_0',
+      by: 'user_ada',
+      at: '2026-09-30T09:00:00.000Z',
+    };
+    const teamDeleted = {
+      kind: TEAM_DELETED,
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      key: 'core',
+    };
+    const asked = {
+      kind: TASK_ASKED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      at: '2026-09-30T10:10:00.000Z',
+    };
+    const acted = {
+      kind: TASK_ACTED_ON,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      action: 'answered',
+      by: 'user_bob',
+      afterRunId: null,
+      at: '2026-09-30T10:20:00.000Z',
+      tool: null,
+      server: null,
+    };
+    const openedFirst = subscribed();
+    const deletedFirst = subscribed();
+
+    await openedFirst.deliver('insights.record-task-opening', opened);
+    await openedFirst.deliver(
+      'insights.delete-human-actions-of-deleted-team',
+      teamDeleted,
+    );
+    await openedFirst.deliver('insights.record-inbox-ask', asked);
+    await openedFirst.deliver('insights.record-task-human-action', acted);
+    await deletedFirst.deliver(
+      'insights.delete-human-actions-of-deleted-team',
+      teamDeleted,
+    );
+    await deletedFirst.deliver('insights.record-inbox-ask', asked);
+    await deletedFirst.deliver('insights.record-task-opening', opened);
+    await deletedFirst.deliver('insights.record-task-human-action', acted);
+
+    expect(openedFirst.humanActions.stored.size).toBe(0);
+    expect(deletedFirst.humanActions.stored.size).toBe(0);
+  });
+
   it('records nothing more of a workspace received after it was deleted', async () => {
     const subscriber = subscribed();
     await subscriber.deliver('insights.delete-chats-of-deleted-workspace', {
@@ -1097,26 +1173,21 @@ describe('insightsSubscribers', () => {
       by: 'user_ada',
       at: '2026-09-30T09:00:00.000Z',
     });
-    await subscriber.deliver('insights.record-first-review', {
-      kind: PULL_REQUEST_REVIEWED,
-      workspaceId: 'ws_1',
-      pullRequest: PULL,
-      state: 'approved',
-      login: 'ada',
-      byBot: false,
-      submittedAt: '2026-09-30T11:00:00.000Z',
-    });
+    await subscriber.deliver(
+      'insights.record-seen-pull-request',
+      recordedEvent(),
+    );
 
     expect(subscriber.records.stored.size).toBe(0);
     expect(subscriber.chats.stored.size).toBe(0);
     expect(subscriber.humanActions.stored.size).toBe(0);
-    expect(subscriber.reviews.stored.size).toBe(0);
+    expect(subscriber.pullRequests.stored.size).toBe(0);
   });
 
   it('deletes everything of a deleted workspace', async () => {
     const subscriber = subscribed();
     await subscriber.deliver('insights.record-ended-run', runEnded());
-    await subscriber.deliver('insights.record-opened-pull-request', {
+    await subscriber.deliver('insights.record-pull-request-owner', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -1135,12 +1206,12 @@ describe('insightsSubscribers', () => {
       deletedWorkspace,
     );
     await subscriber.deliver(
-      'insights.delete-task-pull-requests-of-deleted-workspace',
+      'insights.delete-pull-requests-of-deleted-workspace',
       deletedWorkspace,
     );
 
     expect(subscriber.records.stored.size).toBe(0);
-    expect(subscriber.taskPullRequests.stored.size).toBe(0);
+    expect(subscriber.pullRequests.stored.size).toBe(0);
   });
 
   it('requests a judge’s verdict on a run that ended at a judged station', async () => {
@@ -1213,14 +1284,11 @@ describe('insightsSubscribers', () => {
   it('records no score for a verdict received after its task was deleted', async () => {
     const subscriber = subscribed();
     await subscriber.deliver('insights.judge-ended-run', runEnded());
-    await subscriber.deliver(
-      'insights.delete-judgings-and-scores-of-deleted-task',
-      {
-        kind: TASK_DELETED,
-        taskId: 'task_1',
-        workspaceId: 'ws_1',
-      },
-    );
+    await subscriber.deliver('insights.delete-judgings-of-deleted-task', {
+      kind: TASK_DELETED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+    });
 
     await subscriber.deliver(
       'insights.record-judge-score',
@@ -1257,60 +1325,29 @@ describe('insightsSubscribers', () => {
     expect(subscriber.asked).toEqual(['resolve task_1 run_1']);
   });
 
-  it('deletes the judgings and scores of a deleted task together', async () => {
+  it('deletes the judgings and the scores of a deleted task, each in its own reaction', async () => {
     const subscriber = subscribed();
     await subscriber.deliver('insights.judge-ended-run', runEnded());
     await subscriber.scores.add(
       judgeScore('run_1', ScoreScale.yesNo(), 1, { taskId: 'task_1' }),
     );
+    const deleted = {
+      kind: TASK_DELETED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+    };
 
     await subscriber.deliver(
-      'insights.delete-judgings-and-scores-of-deleted-task',
-      {
-        kind: TASK_DELETED,
-        taskId: 'task_1',
-        workspaceId: 'ws_1',
-      },
+      'insights.delete-judgings-of-deleted-task',
+      deleted,
     );
+    await subscriber.deliver('insights.delete-scores-of-deleted-task', deleted);
 
     expect(subscriber.judgings.stored.size).toBe(0);
     expect(subscriber.scores.stored.size).toBe(0);
   });
 
   describe('every pull request in the team’s repositories', () => {
-    const recordedEvent = (change: Record<string, unknown> = {}) => ({
-      kind: PULL_REQUEST_UPDATED,
-      workspaceId: 'ws_1',
-      pullRequest: PULL,
-      repository: 'acme/api',
-      number: 3,
-      title: 'Retry failed uploads',
-      author: 'ada',
-      authorIsBot: false,
-      branch: null,
-      additions: 1,
-      deletions: 1,
-      changedFiles: 1,
-      openedAt: '2026-09-30T08:00:00.000Z',
-      state: 'open',
-      closedAt: null,
-      updatedAt: '2026-09-30T08:30:00.000Z',
-      readyForReviewAt: '2026-09-30T08:00:00.000Z',
-      draftPeriods: [],
-      firstReviewAt: null,
-      firstUnblockingReviewAt: null,
-      firstApprovedAt: null,
-      humanReviewedAt: [],
-      reviews: 0,
-      reviewRounds: 0,
-      reviewComments: 0,
-      botActivity: [],
-      isRevert: false,
-      revertedBy: null,
-      version: 1,
-      ...change,
-    });
-
     const recordOf = (subscriber: ReturnType<typeof subscribed>) =>
       subscriber.pullRequests.at(
         WorkspaceId.of('ws_1'),
@@ -1330,17 +1367,23 @@ describe('insightsSubscribers', () => {
       expect(record?.owner).toBeNull();
     });
 
-    it('records when it was ready for review, reviewed, approved, and what bots did on it', async () => {
+    it('records when it was ready for review, reviewed, approved, and what bots did on it, from what GitHub saw', async () => {
       const subscriber = subscribed();
-      const botActivity = [
-        {
-          login: 'coderabbitai[bot]',
-          reviews: 1,
-          comments: 4,
-          threads: 2,
-          resolvedThreads: 1,
-        },
-      ];
+      const bot = 'coderabbitai[bot]';
+      const review = (
+        id: number,
+        state: string,
+        submittedAt: string,
+        over: Record<string, unknown> = {},
+      ) => ({
+        id,
+        state,
+        login: 'grace',
+        byBot: false,
+        submittedAt,
+        dismissed: false,
+        ...over,
+      });
 
       await subscriber.deliver(
         'insights.record-seen-pull-request',
@@ -1353,13 +1396,63 @@ describe('insightsSubscribers', () => {
             },
             { from: '2026-09-30T11:00:00.000Z', to: null },
           ],
-          firstUnblockingReviewAt: '2026-09-30T09:10:00.000Z',
-          firstApprovedAt: '2026-09-30T10:00:00.000Z',
-          humanReviewedAt: [
-            '2026-09-30T09:30:00.000Z',
-            '2026-09-30T10:00:00.000Z',
+          reviews: [
+            review(1, 'commented', '2026-09-30T09:10:00.000Z', {
+              login: bot,
+              byBot: true,
+            }),
+            review(2, 'changes-requested', '2026-09-30T09:30:00.000Z'),
+            review(3, 'approved', '2026-09-30T10:00:00.000Z'),
+            review(4, 'approved', '2026-09-30T09:40:00.000Z', {
+              dismissed: true,
+            }),
           ],
-          botActivity,
+          botComments: [
+            {
+              id: 10,
+              on: 'line',
+              login: bot,
+              opensThread: true,
+              deleted: false,
+            },
+            {
+              id: 11,
+              on: 'line',
+              login: bot,
+              opensThread: false,
+              deleted: false,
+            },
+            {
+              id: 12,
+              on: 'conversation',
+              login: bot,
+              opensThread: false,
+              deleted: false,
+            },
+            {
+              id: 13,
+              on: 'line',
+              login: bot,
+              opensThread: true,
+              deleted: true,
+            },
+          ],
+          threads: [
+            {
+              id: 'PRRT_1',
+              firstCommentId: 10,
+              login: bot,
+              byBot: true,
+              resolved: true,
+            },
+            {
+              id: 'PRRT_2',
+              firstCommentId: null,
+              login: bot,
+              byBot: true,
+              resolved: false,
+            },
+          ],
         }),
       );
 
@@ -1372,13 +1465,24 @@ describe('insightsSubscribers', () => {
           },
           { from: new Date('2026-09-30T11:00:00.000Z'), to: null },
         ],
+        firstReviewAt: new Date('2026-09-30T09:30:00.000Z'),
         firstUnblockingReviewAt: new Date('2026-09-30T09:10:00.000Z'),
         firstApprovedAt: new Date('2026-09-30T10:00:00.000Z'),
         humanReviewedAt: [
           new Date('2026-09-30T09:30:00.000Z'),
           new Date('2026-09-30T10:00:00.000Z'),
         ],
-        botActivity,
+        reviews: 2,
+        reviewRounds: 2,
+        botActivity: [
+          {
+            login: bot,
+            reviews: 1,
+            comments: 3,
+            threads: 2,
+            resolvedThreads: 1,
+          },
+        ],
       });
     });
 
@@ -1429,12 +1533,16 @@ describe('insightsSubscribers', () => {
         kind: PULL_REQUEST_REVIEW_TAKEN,
         taskId: 'task_9',
         workspaceId: 'ws_1',
+        teamId: 'team_1',
         url: PULL,
       });
 
       expect(
-        (await recordOf(subscriber))?.reviewTasks.map((each) => each.value),
-      ).toEqual(['task_9']);
+        (await recordOf(subscriber))?.reviewTasks.map((each) => ({
+          taskId: each.taskId.value,
+          teamId: each.teamId.value,
+        })),
+      ).toEqual([{ taskId: 'task_9', teamId: 'team_1' }]);
     });
 
     const CLOSED_AT = '2026-03-01T08:00:00.000Z';
@@ -1463,7 +1571,7 @@ describe('insightsSubscribers', () => {
       at: '2026-09-30T08:00:00.000Z',
     });
 
-    it('deletes people’s pull request once GitHub purges it, and never takes it back from a late word', async () => {
+    it('keeps only a tombstone of people’s pull request once GitHub purges it, and never takes it back from a late word', async () => {
       const subscriber = subscribed();
 
       await subscriber.deliver(
@@ -1479,7 +1587,8 @@ describe('insightsSubscribers', () => {
         closedEvent({ version: 3 }),
       );
 
-      expect(await recordOf(subscriber)).toBeNull();
+      expect((await recordOf(subscriber))?.isTombstone).toBe(true);
+      expect((await recordOf(subscriber))?.seen).toBeNull();
     });
 
     it('turns away a late word GitHub said no later than it purged it, even one saying it is open', async () => {
@@ -1498,7 +1607,7 @@ describe('insightsSubscribers', () => {
         recordedEvent({ updatedAt: CLOSED_AT, version: 9 }),
       );
 
-      expect(await recordOf(subscriber)).toBeNull();
+      expect((await recordOf(subscriber))?.seen).toBeNull();
     });
 
     it('takes a purged pull request back once GitHub changes it later, at any version', async () => {
@@ -1558,7 +1667,7 @@ describe('insightsSubscribers', () => {
       expect((await recordOf(subscriber))?.seen?.title).toBe('Reopened');
     });
 
-    it('lets go of a deleted task’s pull request GitHub already purged', async () => {
+    it('keeps only a tombstone of a deleted task’s pull request GitHub already purged', async () => {
       const subscriber = subscribed();
 
       await subscriber.deliver(
@@ -1582,7 +1691,7 @@ describe('insightsSubscribers', () => {
         },
       );
 
-      expect(await recordOf(subscriber)).toBeNull();
+      expect((await recordOf(subscriber))?.isTombstone).toBe(true);
     });
 
     it('keeps what GitHub said of a deleted team’s pull request, as nobody’s', async () => {
@@ -1610,7 +1719,7 @@ describe('insightsSubscribers', () => {
       expect(record?.seen?.number).toBe(3);
     });
 
-    it('lets go of a deleted team’s pull request GitHub already purged', async () => {
+    it('keeps only a tombstone of a deleted team’s pull request GitHub already purged', async () => {
       const subscriber = subscribed();
 
       await subscriber.deliver(
@@ -1634,7 +1743,7 @@ describe('insightsSubscribers', () => {
         },
       );
 
-      expect(await recordOf(subscriber)).toBeNull();
+      expect((await recordOf(subscriber))?.isTombstone).toBe(true);
     });
 
     it('leaves another team’s pull request alone when a team is deleted', async () => {
@@ -1923,9 +2032,9 @@ describe('insightsSubscribers', () => {
       await watched(subscriber, 'run_1');
 
       expect(
-        (await subscriber.alertStates.of('station_1'))?.firings.map(
-          (each) => each.taskId.value,
-        ),
+        (
+          await subscriber.alertStates.of(StationId.of('station_1'))
+        )?.firings.map((each) => each.taskId.value),
       ).toEqual([]);
     });
   });

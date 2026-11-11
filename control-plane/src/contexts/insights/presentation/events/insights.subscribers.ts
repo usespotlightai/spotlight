@@ -4,12 +4,8 @@ import type { GradeInboxRequests } from '@insights/application/services/grade-in
 import type { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import type { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import type { RecordChat } from '@insights/application/services/record-chat.service';
-import type { RecordConfigPullRequest } from '@insights/application/services/record-config-pull-request.service';
 import type { RecordHumanAction } from '@insights/application/services/record-human-action.service';
 import type { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
-import type { RecordPullRequestClosing } from '@insights/application/services/record-pull-request-closing.service';
-import type { RecordPullRequestOpening } from '@insights/application/services/record-pull-request-opening.service';
-import type { RecordPullRequestReview } from '@insights/application/services/record-pull-request-review.service';
 import type { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
 import type { RecordRunEnding } from '@insights/application/services/record-run-ending.service';
 import type { RecordRunMemories } from '@insights/application/services/record-run-memories.service';
@@ -20,15 +16,17 @@ import type { RecordTaskFailure } from '@insights/application/services/record-ta
 import type { RecordTaskHumanAction } from '@insights/application/services/record-task-human-action.service';
 import type { RequestJudging } from '@insights/application/services/request-judging.service';
 import type { WatchStations } from '@insights/application/services/watch-stations.service';
+import type { PullRequestRecordClosed } from '@insights/domain/events/pull-request-record-closed.event';
 import type { RunJudged } from '@insights/domain/events/run-judged.event';
+import type { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import type { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
-import type { RunRecordEnriched } from '@insights/domain/events/run-record-enriched.event';
 import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import type { StationAlertFired } from '@insights/domain/events/station-alert-fired.event';
 import type { StationAlertReopened } from '@insights/domain/events/station-alert-reopened.event';
 import type { StationAlertResolved } from '@insights/domain/events/station-alert-resolved.event';
-import type { TaskPullRequestClosed } from '@insights/domain/events/task-pull-request-closed.event';
-import { isMemoryVia } from '@insights/domain/value-objects/run-memories.vo';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { observedPullRequestOf } from '@insights/presentation/events/github-pull-request.translation';
+import { runEndedOf } from '@insights/presentation/events/run-ended.translation';
 import {
   CHANGE_CHECKED,
   type ChangeCheckedIntegrationEvent,
@@ -42,9 +40,13 @@ import {
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import {
-  CONFIG_PULL_REQUEST_OPENED,
-  type ConfigPullRequestOpenedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/config-pull-request-opened.integration-event';
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import {
+  DISPATCH_SUPERSEDED,
+  type DispatchSupersededIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
 import {
   LINE_CHANGED,
   type LineChangedIntegrationEvent,
@@ -53,10 +55,6 @@ import {
   MEMORIES_USED,
   type MemoriesUsedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/memories-used.integration-event';
-import {
-  PULL_REQUEST_CLOSED,
-  type PullRequestClosedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
@@ -70,21 +68,9 @@ import {
   type PullRequestReviewTakenIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
 import {
-  PULL_REQUEST_REVIEWED,
-  type PullRequestReviewedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
-import {
   PULL_REQUEST_UPDATED,
   type PullRequestUpdatedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
-import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
-import {
-  RUN_SUPERSEDED,
-  type RunSupersededIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-superseded.integration-event';
 import {
   RUN_USAGE_RECORDED,
   type RunUsageRecordedIntegrationEvent,
@@ -136,8 +122,6 @@ export interface InsightsHandlers {
   readonly superseding: RecordSupersededRun;
   readonly checking: RecordChangeChecks;
   readonly acting: RecordHumanAction;
-  readonly opening: RecordPullRequestOpening;
-  readonly closing: RecordPullRequestClosing;
   readonly deleting: DeleteInsights;
   readonly judging: RequestJudging;
   readonly scoring: RecordJudgeScore;
@@ -145,7 +129,6 @@ export interface InsightsHandlers {
   readonly recordingUsage: RecordRunUsageSummary;
   readonly remembering: RecordRunMemories;
   readonly passing: RecordStationPass;
-  readonly reviewing: RecordPullRequestReview;
   readonly failing: RecordTaskFailure;
   readonly recordingHumanActions: RecordTaskHumanAction;
   readonly chatting: RecordChat;
@@ -153,61 +136,115 @@ export interface InsightsHandlers {
   readonly shaping: RecordChangeShape;
   readonly watching: WatchStations;
   readonly alerting: AlertInbox;
-  readonly openingConfigPullRequests: RecordConfigPullRequest;
 }
 
-const dateOf = (at: string | null): Date | null => (at ? new Date(at) : null);
+type DeletedEvent =
+  | TaskDeletedIntegrationEvent
+  | TeamDeletedIntegrationEvent
+  | WorkspaceDeletedIntegrationEvent;
 
-const seenOf = (event: PullRequestUpdatedIntegrationEvent) => ({
-  repository: event.repository,
-  number: event.number,
-  title: event.title,
-  author: event.author,
-  authorIsBot: event.authorIsBot,
-  branch: event.branch,
-  additions: event.additions,
-  deletions: event.deletions,
-  changedFiles: event.changedFiles,
-  openedAt: new Date(event.openedAt),
-  state: event.state,
-  closedAt: dateOf(event.closedAt),
-  updatedAt: new Date(event.updatedAt),
-  readyForReviewAt: dateOf(event.readyForReviewAt),
-  draftPeriods: event.draftPeriods.map((each) => ({
-    from: new Date(each.from),
-    to: dateOf(each.to),
-  })),
-  firstReviewAt: dateOf(event.firstReviewAt),
-  firstUnblockingReviewAt: dateOf(event.firstUnblockingReviewAt),
-  firstApprovedAt: dateOf(event.firstApprovedAt),
-  humanReviewedAt: event.humanReviewedAt.map((each) => new Date(each)),
-  reviews: event.reviews,
-  reviewRounds: event.reviewRounds,
-  reviewComments: event.reviewComments,
-  botActivity: event.botActivity,
-  isRevert: event.isRevert,
-  revertedBy: event.revertedBy,
-  version: event.version,
-});
+type ScopeKind = DeletionScope['kind'];
+
+const DELETED: Record<ScopeKind, string> = {
+  task: TASK_DELETED,
+  team: TEAM_DELETED,
+  workspace: WORKSPACE_DELETED,
+};
+
+const scopeOf = (event: DeletedEvent): DeletionScope => {
+  const workspaceId = WorkspaceId.of(event.workspaceId);
+
+  switch (event.kind) {
+    case TASK_DELETED:
+      return DeletionScope.ofTask(workspaceId, TaskId.of(event.taskId));
+    case TEAM_DELETED:
+      return DeletionScope.ofTeam(workspaceId, TeamId.of(event.teamId));
+    case WORKSPACE_DELETED:
+      return DeletionScope.ofWorkspace(workspaceId);
+  }
+};
+
+const EVERY_SCOPE: readonly ScopeKind[] = ['task', 'team', 'workspace'];
+
+const ERASED: readonly {
+  readonly name: string;
+  readonly scopes: readonly ScopeKind[];
+  readonly erase: (
+    deleting: DeleteInsights,
+    scope: DeletionScope,
+  ) => Promise<void>;
+}[] = [
+  {
+    name: 'runs',
+    scopes: EVERY_SCOPE,
+    erase: (deleting, scope) => deleting.runRecords(scope),
+  },
+  {
+    name: 'judgings',
+    scopes: EVERY_SCOPE,
+    erase: (deleting, scope) => deleting.judgings(scope),
+  },
+  {
+    name: 'scores',
+    scopes: EVERY_SCOPE,
+    erase: (deleting, scope) => deleting.scores(scope),
+  },
+  {
+    name: 'human-actions',
+    scopes: EVERY_SCOPE,
+    erase: (deleting, scope) => deleting.humanActions(scope),
+  },
+  {
+    name: 'failures',
+    scopes: EVERY_SCOPE,
+    erase: (deleting, scope) => deleting.failures(scope),
+  },
+  {
+    name: 'change-shapes',
+    scopes: EVERY_SCOPE,
+    erase: (deleting, scope) => deleting.changeShapes(scope),
+  },
+  {
+    name: 'pull-requests',
+    scopes: EVERY_SCOPE,
+    erase: (deleting, scope) => deleting.pullRequests(scope),
+  },
+  {
+    name: 'alerts',
+    scopes: EVERY_SCOPE,
+    erase: (deleting, scope) => deleting.alertStates(scope),
+  },
+  {
+    name: 'chats',
+    scopes: ['team', 'workspace'],
+    erase: (deleting, scope) => deleting.chats(scope),
+  },
+];
+
+const deletionSubscriber = (
+  scope: ScopeKind,
+  name: string,
+  erase: (scope: DeletionScope) => Promise<void>,
+): DomainEventSubscriber =>
+  subscribing<DeletedEvent>(
+    `insights.delete-${name}-of-deleted-${scope}`,
+    [DELETED[scope]],
+    (event) => erase(scopeOf(event)),
+    { callsOut: true },
+  );
 
 export const insightsSubscribers = (
   handlers: InsightsHandlers,
 ): readonly DomainEventSubscriber[] => [
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'insights.record-ended-run',
-    [RUN_ENDED],
-    (event) =>
-      event.taskId && event.stationId
-        ? handlers.ending.ended(event)
-        : Promise.resolve(),
+    [DISPATCH_ENDED],
+    (event) => handlers.ending.ended(runEndedOf(event)),
   ),
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'insights.judge-ended-run',
-    [RUN_ENDED],
-    (event) =>
-      event.taskId && event.stationId
-        ? handlers.judging.runEnded(event)
-        : Promise.resolve(),
+    [DISPATCH_ENDED],
+    (event) => handlers.judging.runEnded(runEndedOf(event)),
   ),
   subscribing<RunJudged>(
     'insights.record-judge-score',
@@ -224,15 +261,16 @@ export const insightsSubscribers = (
     ['run-record.ended'],
     (event) => handlers.watching.runEnded(event),
   ),
-  subscribing<RunRecordEnriched>(
-    'insights.watch-station-after-enriched-run',
-    ['run-record.enriched'],
-    (event) => handlers.watching.runEnriched(event),
+  subscribing<RunOutcomeChanged>(
+    'insights.watch-station-after-run-outcome-changed',
+    ['run-record.outcome-changed'],
+    (event) => handlers.watching.outcomeChanged(event),
   ),
-  subscribing<TaskPullRequestClosed>(
+  subscribing<PullRequestRecordClosed>(
     'insights.watch-stations-after-closed-pull-request',
-    ['task-pull-request.closed'],
+    ['pull-request-record.closed'],
     (event) => handlers.watching.pullRequestClosed(event),
+    { callsOut: true },
   ),
   subscribing<StationAlertFired | StationAlertResolved | StationAlertReopened>(
     'insights.follow-station-alert-inbox-request',
@@ -243,79 +281,45 @@ export const insightsSubscribers = (
     'insights.watch-stations-after-line-changed',
     [LINE_CHANGED],
     (event) => handlers.watching.lineChanged(event),
+    { callsOut: true },
   ),
-  subscribing<RunSupersededIntegrationEvent>(
+  subscribing<DispatchSupersededIntegrationEvent>(
     'insights.record-superseded-run',
-    [RUN_SUPERSEDED],
+    [DISPATCH_SUPERSEDED],
     (event) =>
-      event.taskId
-        ? handlers.superseding.superseded(
-            RunId.of(event.runId),
-            WorkspaceId.of(event.workspaceId),
-            TaskId.of(event.taskId),
-          )
-        : Promise.resolve(),
+      handlers.superseding.superseded(
+        RunId.of(event.runId),
+        WorkspaceId.of(event.workspaceId),
+        event.taskId ? TaskId.of(event.taskId) : null,
+        new Date(event.at),
+      ),
   ),
   subscribing<ChangeCheckedIntegrationEvent>(
     'insights.record-checked-change',
     [CHANGE_CHECKED],
     (event) =>
-      event.taskId
-        ? handlers.checking.checked(
-            RunId.of(event.runId),
-            WorkspaceId.of(event.workspaceId),
-            TaskId.of(event.taskId),
-            event.passed,
-          )
-        : Promise.resolve(),
+      handlers.checking.checked(
+        RunId.of(event.runId),
+        WorkspaceId.of(event.workspaceId),
+        event.taskId ? TaskId.of(event.taskId) : null,
+        event.passed,
+        new Date(event.at),
+      ),
   ),
   subscribing<TaskActedOnIntegrationEvent>(
     'insights.record-first-human-action',
     [TASK_ACTED_ON],
     (event) => handlers.acting.acted(event),
   ),
-  subscribing<PullRequestOpenedIntegrationEvent>(
-    'insights.record-opened-pull-request',
-    [PULL_REQUEST_OPENED],
-    (event) =>
-      handlers.opening.opened({
-        taskId: TaskId.of(event.taskId),
-        workspaceId: WorkspaceId.of(event.workspaceId),
-        teamId: TeamId.of(event.teamId),
-        pullRequest: PullRequestUrl.of(event.url),
-        at: new Date(event.at),
-      }),
-  ),
-  subscribing<PullRequestReviewedIntegrationEvent>(
-    'insights.record-first-review',
-    [PULL_REQUEST_REVIEWED],
-    (event) =>
-      handlers.reviewing.reviewed({
-        workspaceId: WorkspaceId.of(event.workspaceId),
-        pullRequest: PullRequestUrl.of(event.pullRequest),
-        byBot: event.byBot,
-        at: event.submittedAt ? new Date(event.submittedAt) : null,
-      }),
-  ),
   subscribing<RunUsageRecordedIntegrationEvent>(
     'insights.record-run-usage',
     [RUN_USAGE_RECORDED],
-    (event) =>
-      event.taskId
-        ? handlers.recordingUsage.usageRecorded(event)
-        : Promise.resolve(),
+    (event) => handlers.recordingUsage.usageRecorded(event),
   ),
   subscribing<MemoriesUsedIntegrationEvent>(
     'insights.record-run-memories',
     [MEMORIES_USED],
-    (event) =>
-      event.taskId && isMemoryVia(event.via)
-        ? handlers.remembering.used({
-            ...event,
-            taskId: event.taskId,
-            via: event.via,
-          })
-        : Promise.resolve(),
+    (event) => handlers.remembering.used(event),
   ),
   subscribing<TaskPassedIntegrationEvent>(
     'insights.record-passed-run',
@@ -347,17 +351,6 @@ export const insightsSubscribers = (
     [CHAT_STARTED],
     (event) => handlers.chatting.started(event),
   ),
-  subscribing<PullRequestClosedIntegrationEvent>(
-    'insights.record-closed-pull-request',
-    [PULL_REQUEST_CLOSED],
-    (event) =>
-      handlers.closing.closed({
-        workspaceId: WorkspaceId.of(event.workspaceId),
-        pullRequest: PullRequestUrl.of(event.pullRequest),
-        merged: event.merged,
-        at: event.closedAt ? new Date(event.closedAt) : null,
-      }),
-  ),
   subscribing<PullRequestUpdatedIntegrationEvent>(
     'insights.record-seen-pull-request',
     [PULL_REQUEST_UPDATED],
@@ -365,7 +358,7 @@ export const insightsSubscribers = (
       handlers.recording.seen({
         workspaceId: WorkspaceId.of(event.workspaceId),
         pullRequest: PullRequestUrl.of(event.pullRequest),
-        seen: seenOf(event),
+        observed: observedPullRequestOf(event),
       }),
   ),
   subscribing<PullRequestPurgedIntegrationEvent>(
@@ -387,6 +380,7 @@ export const insightsSubscribers = (
         pullRequest: PullRequestUrl.of(event.url),
         taskId: TaskId.of(event.taskId),
         teamId: TeamId.of(event.teamId),
+        at: new Date(event.at),
       }),
   ),
   subscribing<PullRequestReviewTakenIntegrationEvent>(
@@ -397,245 +391,29 @@ export const insightsSubscribers = (
         workspaceId: WorkspaceId.of(event.workspaceId),
         pullRequest: PullRequestUrl.of(event.url),
         taskId: TaskId.of(event.taskId),
+        teamId: TeamId.of(event.teamId),
       }),
   ),
   subscribing<ChangeStackReadyIntegrationEvent>(
     'insights.record-change-shape',
     [CHANGE_STACK_READY],
     (event) =>
-      event.taskId
-        ? handlers.shaping.shaped({
-            runId: event.runId,
-            taskId: event.taskId,
-            workspaceId: event.workspaceId,
-            shape: {
-              changeTitles: event.changeTitles,
-              changeIntents: event.changeIntents,
-              at: new Date(event.at),
-            },
-          })
-        : Promise.resolve(),
-  ),
-  subscribing<ConfigPullRequestOpenedIntegrationEvent>(
-    'insights.record-opened-config-pull-request',
-    [CONFIG_PULL_REQUEST_OPENED],
-    (event) =>
-      handlers.openingConfigPullRequests.opened({
-        configPullRequestId: event.configPullRequestId,
-        workspaceId: WorkspaceId.of(event.workspaceId),
-        teamId: TeamId.of(event.teamId),
-        stationId: event.stationId,
-        fingerprint: event.fingerprint,
-        url: PullRequestUrl.of(event.url),
-        openedAt: new Date(event.at),
+      handlers.shaping.shaped({
+        runId: event.runId,
+        taskId: event.taskId,
+        workspaceId: event.workspaceId,
+        shape: {
+          changeTitles: event.changeTitles,
+          changeIntents: event.changeIntents,
+          at: new Date(event.at),
+        },
       }),
   ),
-  subscribing<TeamDeletedIntegrationEvent>(
-    'insights.delete-config-pull-requests-of-deleted-team',
-    [TEAM_DELETED],
-    (event) =>
-      handlers.deleting.configPullRequestsOfTeam(
-        WorkspaceId.of(event.workspaceId),
-        TeamId.of(event.teamId),
+  ...ERASED.flatMap(({ name, scopes, erase }) =>
+    scopes.map((scope) =>
+      deletionSubscriber(scope, name, (deleted) =>
+        erase(handlers.deleting, deleted),
       ),
-  ),
-  subscribing<WorkspaceDeletedIntegrationEvent>(
-    'insights.delete-config-pull-requests-of-deleted-workspace',
-    [WORKSPACE_DELETED],
-    (event) =>
-      handlers.deleting.configPullRequestsOfWorkspace(
-        WorkspaceId.of(event.workspaceId),
-      ),
-  ),
-  subscribing<TaskDeletedIntegrationEvent>(
-    'insights.delete-pull-requests-of-deleted-task',
-    [TASK_DELETED],
-    (event) =>
-      handlers.deleting.pullRequestsOfTask(
-        WorkspaceId.of(event.workspaceId),
-        TaskId.of(event.taskId),
-      ),
-  ),
-  subscribing<TeamDeletedIntegrationEvent>(
-    'insights.delete-pull-requests-of-deleted-team',
-    [TEAM_DELETED],
-    (event) =>
-      handlers.deleting.pullRequestsOfTeam(
-        WorkspaceId.of(event.workspaceId),
-        TeamId.of(event.teamId),
-      ),
-  ),
-  subscribing<WorkspaceDeletedIntegrationEvent>(
-    'insights.delete-pull-requests-of-deleted-workspace',
-    [WORKSPACE_DELETED],
-    (event) =>
-      handlers.deleting.pullRequestsOfWorkspace(
-        WorkspaceId.of(event.workspaceId),
-      ),
-  ),
-  subscribing<TaskDeletedIntegrationEvent>(
-    'insights.delete-runs-of-deleted-task',
-    [TASK_DELETED],
-    (event) =>
-      handlers.deleting.runsOfTask(
-        WorkspaceId.of(event.workspaceId),
-        TaskId.of(event.taskId),
-      ),
-  ),
-  subscribing<TaskDeletedIntegrationEvent>(
-    'insights.delete-task-pull-request-of-deleted-task',
-    [TASK_DELETED],
-    (event) =>
-      handlers.deleting.taskPullRequestOfTask(
-        WorkspaceId.of(event.workspaceId),
-        TaskId.of(event.taskId),
-      ),
-  ),
-  subscribing<TaskDeletedIntegrationEvent>(
-    'insights.delete-judgings-and-scores-of-deleted-task',
-    [TASK_DELETED],
-    (event) =>
-      handlers.deleting.judgingsAndScoresOfTask(
-        WorkspaceId.of(event.workspaceId),
-        TaskId.of(event.taskId),
-      ),
-  ),
-  subscribing<TaskDeletedIntegrationEvent>(
-    'insights.delete-human-actions-of-deleted-task',
-    [TASK_DELETED],
-    (event) =>
-      handlers.deleting.humanActionsOfTask(
-        WorkspaceId.of(event.workspaceId),
-        TaskId.of(event.taskId),
-      ),
-  ),
-  subscribing<TaskDeletedIntegrationEvent>(
-    'insights.delete-failures-of-deleted-task',
-    [TASK_DELETED],
-    (event) =>
-      handlers.deleting.failuresOfTask(
-        WorkspaceId.of(event.workspaceId),
-        TaskId.of(event.taskId),
-      ),
-  ),
-  subscribing<TaskDeletedIntegrationEvent>(
-    'insights.delete-alerts-of-deleted-task',
-    [TASK_DELETED],
-    (event) =>
-      handlers.deleting.alertsOfTask(
-        WorkspaceId.of(event.workspaceId),
-        TaskId.of(event.taskId),
-      ),
-  ),
-  subscribing<TeamDeletedIntegrationEvent>(
-    'insights.delete-alerts-of-deleted-team',
-    [TEAM_DELETED],
-    (event) =>
-      handlers.deleting.alertsOfTeam(
-        WorkspaceId.of(event.workspaceId),
-        TeamId.of(event.teamId),
-      ),
-  ),
-  subscribing<TeamDeletedIntegrationEvent>(
-    'insights.delete-human-actions-of-deleted-team',
-    [TEAM_DELETED],
-    (event) =>
-      handlers.deleting.humanActionsOfTeam(
-        WorkspaceId.of(event.workspaceId),
-        TeamId.of(event.teamId),
-      ),
-  ),
-  subscribing<TeamDeletedIntegrationEvent>(
-    'insights.delete-chats-of-deleted-team',
-    [TEAM_DELETED],
-    (event) =>
-      handlers.deleting.chatsOfTeam(
-        WorkspaceId.of(event.workspaceId),
-        TeamId.of(event.teamId),
-      ),
-  ),
-  subscribing<TeamDeletedIntegrationEvent>(
-    'insights.delete-judgings-and-scores-of-deleted-team',
-    [TEAM_DELETED],
-    (event) =>
-      handlers.deleting.judgingsAndScoresOfTeam(
-        WorkspaceId.of(event.workspaceId),
-        TeamId.of(event.teamId),
-      ),
-  ),
-  subscribing<TeamDeletedIntegrationEvent>(
-    'insights.delete-failures-of-deleted-team',
-    [TEAM_DELETED],
-    (event) =>
-      handlers.deleting.failuresOfTeam(
-        WorkspaceId.of(event.workspaceId),
-        TeamId.of(event.teamId),
-      ),
-  ),
-  subscribing<TeamDeletedIntegrationEvent>(
-    'insights.delete-task-pull-requests-of-deleted-team',
-    [TEAM_DELETED],
-    (event) =>
-      handlers.deleting.taskPullRequestsOfTeam(
-        WorkspaceId.of(event.workspaceId),
-        TeamId.of(event.teamId),
-      ),
-  ),
-  subscribing<TeamDeletedIntegrationEvent>(
-    'insights.delete-runs-of-deleted-team',
-    [TEAM_DELETED],
-    (event) =>
-      handlers.deleting.runsOfTeam(
-        WorkspaceId.of(event.workspaceId),
-        TeamId.of(event.teamId),
-      ),
-  ),
-  subscribing<WorkspaceDeletedIntegrationEvent>(
-    'insights.delete-runs-of-deleted-workspace',
-    [WORKSPACE_DELETED],
-    (event) =>
-      handlers.deleting.runsOfWorkspace(WorkspaceId.of(event.workspaceId)),
-  ),
-  subscribing<WorkspaceDeletedIntegrationEvent>(
-    'insights.delete-task-pull-requests-of-deleted-workspace',
-    [WORKSPACE_DELETED],
-    (event) =>
-      handlers.deleting.taskPullRequestsOfWorkspace(
-        WorkspaceId.of(event.workspaceId),
-      ),
-  ),
-  subscribing<WorkspaceDeletedIntegrationEvent>(
-    'insights.delete-judgings-and-scores-of-deleted-workspace',
-    [WORKSPACE_DELETED],
-    (event) =>
-      handlers.deleting.judgingsAndScoresOfWorkspace(
-        WorkspaceId.of(event.workspaceId),
-      ),
-  ),
-  subscribing<WorkspaceDeletedIntegrationEvent>(
-    'insights.delete-human-actions-of-deleted-workspace',
-    [WORKSPACE_DELETED],
-    (event) =>
-      handlers.deleting.humanActionsOfWorkspace(
-        WorkspaceId.of(event.workspaceId),
-      ),
-  ),
-  subscribing<WorkspaceDeletedIntegrationEvent>(
-    'insights.delete-failures-of-deleted-workspace',
-    [WORKSPACE_DELETED],
-    (event) =>
-      handlers.deleting.failuresOfWorkspace(WorkspaceId.of(event.workspaceId)),
-  ),
-  subscribing<WorkspaceDeletedIntegrationEvent>(
-    'insights.delete-chats-of-deleted-workspace',
-    [WORKSPACE_DELETED],
-    (event) =>
-      handlers.deleting.chatsOfWorkspace(WorkspaceId.of(event.workspaceId)),
-  ),
-  subscribing<WorkspaceDeletedIntegrationEvent>(
-    'insights.delete-alerts-of-deleted-workspace',
-    [WORKSPACE_DELETED],
-    (event) =>
-      handlers.deleting.alertsOfWorkspace(WorkspaceId.of(event.workspaceId)),
+    ),
   ),
 ];

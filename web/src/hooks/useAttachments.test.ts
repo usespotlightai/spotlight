@@ -71,8 +71,8 @@ describe('useAttachments', () => {
     act(() => result.current.add([picture, text()]));
 
     const [shot, notes] = result.current.attachments;
-    expect(shot?.image).toBe(picture);
-    expect(notes?.image).toBeNull();
+    expect(shot?.imageSource).toEqual({ blob: picture });
+    expect(notes?.imageSource).toBeNull();
 
     act(() => result.current.remove(shot?.key ?? ''));
 

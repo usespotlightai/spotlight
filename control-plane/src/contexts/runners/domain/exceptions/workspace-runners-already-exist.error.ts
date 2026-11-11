@@ -1,4 +1,6 @@
-export class WorkspaceRunnersAlreadyExistError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class WorkspaceRunnersAlreadyExistError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(workspaceId: string) {

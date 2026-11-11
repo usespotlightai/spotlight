@@ -5,7 +5,6 @@ import type { Judging } from '@insights/domain/aggregates/judging.aggregate';
 import { JudgingVersionConflictError } from '@insights/domain/exceptions/judging-version-conflict.error';
 import type { JudgingRepository } from '@insights/domain/repositories/judging.repository';
 import { JudgeEvidence } from '@insights/domain/services/judge-evidence';
-import { JudgingFailure } from '@insights/domain/value-objects/judging-failure.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -13,6 +12,7 @@ import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-j
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { JobLoop } from '@shared-kernel/application/services/job-loop';
+import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const MAX_JUDGED_AT_ONCE = 4;
@@ -67,7 +67,7 @@ export class WorkJudgings implements PendingJobsPort {
   }
 
   private async judged(judging: Judging): Promise<Judging> {
-    const run = await this.evidence.of(judging.runId.value);
+    const run = await this.evidence.of(judging.runId);
 
     if (!run) {
       return judging.failed(JudgingFailure.of('no-evidence', this.clock.now()));
@@ -86,7 +86,7 @@ export class WorkJudgings implements PendingJobsPort {
     }
 
     try {
-      const { verdict } = await this.judge.judge({
+      const { verdict, model } = await this.judge.judge({
         rubric: judging.rubric.text,
         claims: judging.rubric.criteria.claims,
         scale: judging.rubric.scale.kind,
@@ -98,12 +98,13 @@ export class WorkJudgings implements PendingJobsPort {
         hunksLeftOut: evidence.hunksLeftOut,
         reference: null,
         guidanceRequested: false,
+        replayed: false,
       });
 
       return judging.recordVerdict({
         verdict,
         evidence,
-        model: this.judge.model,
+        model,
         now: this.clock.now(),
       });
     } catch (error) {

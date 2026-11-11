@@ -1,4 +1,10 @@
+import {
+  isServerError,
+  isThrottling,
+} from '@integrations/domain/services/call-transience';
 import { DELIVERING } from '@integrations/domain/services/delivery-retry';
+import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
 export const HOOK_FAILURES = {
@@ -6,8 +12,9 @@ export const HOOK_FAILURES = {
   timeout: DELIVERING,
   throttled: DELIVERING,
   'server-error': DELIVERING,
-  'tool-failed': DELIVERING,
-  errored: DELIVERING,
+  unavailable: DELIVERING,
+  'tool-failed': Retry.never(),
+  errored: Retry.never(),
   rejected: Retry.never(),
   'not-allowed': Retry.never(),
   unwritable: Retry.never(),
@@ -20,6 +27,20 @@ export type HookFailureCode = keyof typeof HOOK_FAILURES;
 
 const MAX_REASON = 1_000;
 
+export const outboundLimitReason = (perSecond: number): string =>
+  `this workspace sends more than ${perSecond} requests each second to other services`;
+
+export type CallFailureFact =
+  | {
+      readonly kind: 'upstream';
+      readonly status: number | null;
+      readonly transient: boolean;
+      readonly reason: string;
+    }
+  | { readonly kind: 'blocked'; readonly reason: string }
+  | { readonly kind: 'over-outbound-limit'; readonly perSecond: number }
+  | { readonly kind: 'unknown'; readonly reason: string };
+
 export class HookFailure {
   private constructor(
     readonly code: HookFailureCode,
@@ -31,11 +52,103 @@ export class HookFailure {
   }
 
   static answered(status: number, reason: string): HookFailure {
-    if (status === 408 || status === 425 || status === 429) {
+    if (isThrottling(status)) {
       return HookFailure.of('throttled', reason);
     }
 
-    return HookFailure.of(status >= 500 ? 'server-error' : 'rejected', reason);
+    return HookFailure.of(
+      isServerError(status) ? 'server-error' : 'rejected',
+      reason,
+    );
+  }
+
+  static notStartedWithin(timeoutSeconds: number): HookFailure {
+    return HookFailure.of(
+      'timeout',
+      `did not start within the hook's ${timeoutSeconds} seconds`,
+    );
+  }
+
+  static tookLongerThan(timeoutSeconds: number): HookFailure {
+    return HookFailure.of(
+      'timeout',
+      `took longer than the hook's ${timeoutSeconds} seconds`,
+    );
+  }
+
+  static unwritable(reason: string): HookFailure {
+    return HookFailure.of('unwritable', `could not be written: ${reason}`);
+  }
+
+  static overOutboundLimit(perSecond: number): HookFailure {
+    return HookFailure.of('throttled', outboundLimitReason(perSecond));
+  }
+
+  static refusedByPolicy(reason: string): HookFailure {
+    return HookFailure.of('not-allowed', reason);
+  }
+
+  static withoutSigningSecret(): HookFailure {
+    return HookFailure.of(
+      'not-allowed',
+      'has no secret to sign with. Spotlight sent nothing. Please set a new secret for the hook with a higher secretVersion',
+    );
+  }
+
+  static withoutTokenKey(): HookFailure {
+    return HookFailure.of(
+      'not-allowed',
+      'needs a key to sign its OIDC token. This deployment has none',
+    );
+  }
+
+  static hostsUnread(reason: string): HookFailure {
+    return HookFailure.of(
+      'unavailable',
+      `Spotlight could not read the workspace's allowed hosts: ${reason}`,
+    );
+  }
+
+  static unavailable(reason: string): HookFailure {
+    return HookFailure.of('unavailable', reason);
+  }
+
+  static noLongerAStep(): HookFailure {
+    return HookFailure.of('broken', 'is no longer a step of the hook');
+  }
+
+  static ofBrokenHook(): HookFailure {
+    return HookFailure.of(
+      'broken',
+      'belongs to a hook that no longer reads as it was written',
+    );
+  }
+
+  static callFailed(fact: CallFailureFact): HookFailure {
+    if (fact.kind === 'blocked') {
+      return HookFailure.of('not-allowed', fact.reason);
+    }
+
+    if (fact.kind === 'over-outbound-limit') {
+      return HookFailure.overOutboundLimit(fact.perSecond);
+    }
+
+    if (fact.kind === 'unknown') {
+      return HookFailure.of('tool-failed', fact.reason);
+    }
+
+    if (fact.status !== null) {
+      return HookFailure.answered(fact.status, fact.reason);
+    }
+
+    return HookFailure.of(
+      fact.transient ? 'unreachable' : 'tool-failed',
+      fact.reason,
+    );
+  }
+
+  static errored(reason: string): HookFailure {
+    return HookFailure.of('errored', reason);
   }
 
   get retry(): Retry {
@@ -44,6 +157,13 @@ export class HookFailure {
 
   nextAttemptAfter(attempts: number, now: Date): Date | null {
     return this.retry.nextAttemptAt(attempts, now);
+  }
+
+  atStep(hook: HookKey, step: HookStepName): HookFailure {
+    return HookFailure.of(
+      this.code,
+      `Hook ${hook.value} failed at step ${step.value}. Reason: ${this.reason}`,
+    );
   }
 
   superseded(): HookFailure {

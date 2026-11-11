@@ -1,4 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import { CreateLineCommand } from '@lines/application/commands/create-line.command';
+import { UpdateLineCommand } from '@lines/application/commands/update-line.command';
+import type { Line } from '@lines/domain/aggregates/line.aggregate';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@lines/domain/services/built-in-lines';
+import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -11,16 +19,8 @@ import {
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { CreateLineCommand } from '@work/application/commands/create-line.command';
-import { UpdateLineCommand } from '@work/application/commands/update-line.command';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '@/app.module';

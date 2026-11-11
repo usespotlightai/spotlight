@@ -3,16 +3,18 @@ import type {
   DefinedIntegration,
   DefinedIntegrationsPort,
 } from '@integrations/application/ports/defined-integrations.port';
-import type { IntegrationCursorsPort } from '@integrations/application/ports/integration-cursors.port';
+import type { DeliveryReactionsPort } from '@integrations/application/ports/delivery-reactions.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
-import type { Integration } from '@integrations/domain/entities/integration.entity';
+import type { PollCursor } from '@integrations/domain/aggregates/poll-cursor.aggregate';
+import { PollCursorVersionConflictError } from '@integrations/domain/exceptions/poll-cursor-version-conflict.error';
+import type { PollCursorRepository } from '@integrations/domain/repositories/poll-cursor.repository';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { Poll } from '@integrations/domain/value-objects/poll.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
 
 const SKIPPED_FOR_MS = 10 * 60_000;
 
@@ -24,8 +26,8 @@ export class ProcessDuePolls {
     private readonly runtime: IntegrationRuntimePort,
     private readonly teams: TeamDirectoryPort,
     private readonly callAuthResolver: CallAuthResolver,
-    private readonly cursors: IntegrationCursorsPort,
-    private readonly reactions: HappeningReactionsPort,
+    private readonly cursors: PollCursorRepository,
+    private readonly reactions: DeliveryReactionsPort,
     private readonly clock: ClockPort,
     private readonly log: LoggerPort,
   ) {}
@@ -58,9 +60,9 @@ export class ProcessDuePolls {
     now: Date,
   ): Promise<void> {
     const integrationKey = integration.key.value;
-    const state = await this.cursors.read(teamId, integrationKey);
+    const cursor = await this.cursors.of(teamId, integration.key);
 
-    if (!poll.isDue(state.ranAt, now)) {
+    if (!cursor.isDue(poll, now)) {
       return;
     }
 
@@ -80,7 +82,9 @@ export class ProcessDuePolls {
       return;
     }
 
-    if (!(await this.cursors.claimTurn(teamId, integrationKey, state, now))) {
+    const held = await this.claimed(cursor, poll, now);
+
+    if (!held) {
       return;
     }
 
@@ -88,7 +92,7 @@ export class ProcessDuePolls {
       const polled = await this.runtime.poll(
         definitions,
         integration,
-        state.cursor,
+        held.cursor,
         await this.callAuthResolver.of(teamId, integration),
       );
 
@@ -104,32 +108,66 @@ export class ProcessDuePolls {
         return;
       }
 
-      await this.reactions.react(
+      const failure = await this.reactions.react(
         team.workspaceId,
         teamId,
         polled.happenings,
-        polled.cursor === null
-          ? null
-          : `poll:${integrationKey}:${teamId.value}:${state.cursor ?? ''}`,
+        held.happeningsKeyFor(polled.cursor),
       );
 
-      if (
-        !(await this.cursors.advance(
-          teamId,
-          integrationKey,
-          polled.cursor,
-          now,
-        ))
-      ) {
+      if (failure) {
         this.log.warn(
-          { team: teamId.value, integration: integrationKey },
-          'A later poll got the turn before this one stored its cursor',
+          {
+            team: teamId.value,
+            integration: integrationKey,
+            transient: failure.transient,
+            error: failure.reason,
+          },
+          'Work could not react to what a poll found',
         );
+        return;
       }
+
+      await this.advanced(held, polled.cursor);
     } catch (error) {
       this.log.warn(
         { err: error, team: teamId.value, integration: integrationKey },
         'Polling a service',
+      );
+    }
+  }
+
+  private async claimed(
+    cursor: PollCursor,
+    poll: Poll,
+    now: Date,
+  ): Promise<PollCursor | null> {
+    try {
+      await this.cursors.save(cursor.claimed(poll, now));
+    } catch (error) {
+      if (error instanceof PollCursorVersionConflictError) {
+        return null;
+      }
+
+      throw error;
+    }
+
+    const held = await this.cursors.of(cursor.teamId, cursor.integration);
+
+    return held.polledAt?.getTime() === now.getTime() ? held : null;
+  }
+
+  private async advanced(held: PollCursor, to: string | null): Promise<void> {
+    try {
+      await this.cursors.save(held.advancedTo(to));
+    } catch (error) {
+      if (!(error instanceof PollCursorVersionConflictError)) {
+        throw error;
+      }
+
+      this.log.warn(
+        { team: held.teamId.value, integration: held.integration.value },
+        'A later poll got the turn before this one stored its cursor',
       );
     }
   }

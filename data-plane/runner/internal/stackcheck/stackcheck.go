@@ -127,7 +127,7 @@ func (o Options) perform(ctx context.Context, check protocol.StackCheck) protoco
 	space, err := workspace.Open(o.Dir)
 	if err != nil {
 		o.Log.Warn("could not open a workspace to check a stack", "stack", check.StackID, "error", err)
-		return skipped(protocol.SkipWorkspaceFailed, err.Error())
+		return skipped(protocol.SkipWorkingCopyFailed, err.Error())
 	}
 
 	tree := filepath.Join(space.Dir, check.Repository)
@@ -138,7 +138,7 @@ func (o Options) perform(ctx context.Context, check protocol.StackCheck) protoco
 	if o.RunAs != nil {
 		if err := space.ChownAll(o.RunAs.UID, o.RunAs.GID); err != nil {
 			o.Log.Warn("could not hand over the copy a check runs in", "error", err)
-			return skipped(protocol.SkipWorkspaceFailed, err.Error())
+			return skipped(protocol.SkipWorkingCopyFailed, err.Error())
 		}
 	}
 

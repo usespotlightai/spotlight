@@ -1,7 +1,6 @@
 import { periodOf } from '@insights/application/dto/insights.dto';
 import type { InsightsMemoryDto } from '@insights/application/dto/insights-memory.dto';
 import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
-import type { MemoryBenchmarkPort } from '@insights/application/ports/memory-benchmark.port';
 import type { MemoryUsePort } from '@insights/application/ports/memory-use.port';
 import type { PeoplePort } from '@insights/application/ports/people.port';
 import type { ReadInsightsMemoryQuery } from '@insights/application/queries/read-insights-memory.query';
@@ -20,7 +19,6 @@ export class ReadInsightsMemoryHandler
     private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly memory: MemoryUsePort,
-    private readonly benchmark: MemoryBenchmarkPort,
     private readonly people: PeoplePort,
   ) {}
 
@@ -42,7 +40,6 @@ export class ReadInsightsMemoryHandler
       const names = await this.people.namesOf(
         use.flagged.flatMap((each) => (each.by ? [each.by] : [])),
       );
-      const benchmark = await this.benchmark.latestFor(access.teamId.value);
 
       return {
         period: periodOf(period),
@@ -59,9 +56,6 @@ export class ReadInsightsMemoryHandler
         withMemories: compared.withMemories,
         withoutMemories: compared.withoutMemories,
         verdicts: compared.verdicts,
-        benchmark: benchmark
-          ? { ...benchmark, ranAt: benchmark.ranAt.toISOString() }
-          : null,
       };
     } catch (error) {
       rethrowAsApplicationError(error);

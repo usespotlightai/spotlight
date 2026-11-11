@@ -1,34 +1,35 @@
-import type { DeletionsPort } from '@insights/application/ports/deletions.port';
-import type { WorkPort } from '@insights/application/ports/work.port';
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import type { LineSettingsPort } from '@insights/application/ports/line-settings.port';
+import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
+import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import {
   type RuleReading,
   StationAlertState,
   type WatchedStation,
 } from '@insights/domain/aggregates/station-alert-state.aggregate';
+import type { PullRequestRecordClosed } from '@insights/domain/events/pull-request-record-closed.event';
+import type { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import type { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
-import type { RunRecordEnriched } from '@insights/domain/events/run-record-enriched.event';
-import type { TaskPullRequestClosed } from '@insights/domain/events/task-pull-request-closed.event';
-import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
 import type { StationAlertStateRepository } from '@insights/domain/repositories/station-alert-state.repository';
-import type { TaskPullRequestRepository } from '@insights/domain/repositories/task-pull-request.repository';
-import { readingOf } from '@insights/domain/services/station-measures';
+import {
+  readingOf,
+  runsToReadFor,
+} from '@insights/domain/services/station-measures';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
+import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const UNMEASURED_SLACK = 4;
-
-export interface WatchRepositories {
-  readonly records: RunRecordRepository;
-  readonly taskPullRequests: TaskPullRequestRepository;
+export interface WatchSources {
+  readonly facts: StationFactsPort;
   readonly alertStates: StationAlertStateRepository;
-  readonly deletions: DeletionsPort;
 }
 
 export interface LineChanged {
@@ -38,20 +39,17 @@ export interface LineChanged {
   readonly stationIds: readonly string[];
 }
 
-const endedAt = (record: RunRecord): number =>
-  record.end?.endedAt.getTime() ?? 0;
+const endedAt = (fact: RunFact): number => fact.end.endedAt.getTime();
 
-const newestAtEachStation = (
-  records: readonly RunRecord[],
-): readonly RunRecord[] => {
-  const newest = new Map<string, RunRecord>();
+const newestAtEachStation = (facts: readonly RunFact[]): readonly RunFact[] => {
+  const newest = new Map<string, RunFact>();
 
-  for (const record of records) {
-    const stationId = record.end?.location.stationId;
-    const known = stationId ? newest.get(stationId) : undefined;
+  for (const fact of facts) {
+    const stationId = fact.end.location.stationId.value;
+    const known = newest.get(stationId);
 
-    if (stationId && (!known || endedAt(record) > endedAt(known))) {
-      newest.set(stationId, record);
+    if (!known || endedAt(fact) > endedAt(known)) {
+      newest.set(stationId, fact);
     }
   }
 
@@ -70,8 +68,9 @@ const stationAt = (
 
 export class WatchStations {
   constructor(
-    private readonly work: WorkPort,
-    private readonly repositories: WatchRepositories,
+    private readonly lines: LineSettingsPort,
+    private readonly sources: WatchSources,
+    private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -81,17 +80,15 @@ export class WatchStations {
     return this.watch(stationAt(event.workspaceId, event.location));
   }
 
-  runEnriched(event: RunRecordEnriched): Promise<void> {
+  outcomeChanged(event: RunOutcomeChanged): Promise<void> {
     return this.watch(stationAt(event.workspaceId, event.location));
   }
 
-  async pullRequestClosed(event: TaskPullRequestClosed): Promise<void> {
-    const records = await this.repositories.records.ofTasks([event.taskId]);
+  async pullRequestClosed(event: PullRequestRecordClosed): Promise<void> {
+    const facts = await this.sources.facts.ofTasks([event.taskId]);
 
-    for (const record of newestAtEachStation(records)) {
-      if (record.end) {
-        await this.watch(stationAt(event.workspaceId, record.end.location));
-      }
+    for (const fact of newestAtEachStation(facts)) {
+      await this.watch(stationAt(event.workspaceId, fact.end.location));
     }
   }
 
@@ -100,53 +97,45 @@ export class WatchStations {
       await this.watch({
         workspaceId: WorkspaceId.of(event.workspaceId),
         teamId: TeamId.of(event.teamId),
-        lineId: event.lineId,
-        stationId,
+        lineId: LineId.of(event.lineId),
+        stationId: StationId.of(stationId),
       });
     }
   }
 
   private async watch(station: WatchedStation): Promise<void> {
     const { workspaceId, teamId } = station;
-    const rules = (await this.work.alertsAt(station.stationId)) ?? [];
+    const rules = (await this.lines.alertsAt(station.stationId)) ?? [];
 
     await this.transaction.inTransaction(async () => {
-      await this.repositories.deletions.lockDeletion(workspaceId, null, teamId);
-
       if (
-        await this.repositories.deletions.isDeleted(workspaceId, null, teamId)
+        !(await this.recorder.admits(FactOwner.of(workspaceId, { teamId })))
       ) {
         return;
       }
 
-      const existing = await this.repositories.alertStates.of(
-        station.stationId,
-      );
+      const existing = await this.sources.alertStates.of(station.stationId);
 
       if (!existing && rules.length === 0) {
         return;
       }
 
-      const max = Math.max(0, ...rules.map((each) => each.runsNeeded));
-      const records =
-        max === 0
+      const last = runsToReadFor(rules);
+      const facts =
+        last === 0
           ? []
-          : await this.repositories.records.lastAtStation({
+          : await this.sources.facts.lastEndedAt({
               workspaceId,
               teamId,
               lineId: station.lineId,
               stationId: station.stationId,
-              last: max * UNMEASURED_SLACK,
+              last,
             });
-      const taskPullRequests =
-        await this.repositories.taskPullRequests.forTasks(
-          records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
-        );
       const readings = await this.notDeleted(
         station,
         rules.map((rule) => ({
           rule,
-          reading: readingOf(rule, records, taskPullRequests),
+          reading: readingOf(rule, facts),
         })),
       );
       const alertState = existing ?? StationAlertState.start(station);
@@ -159,8 +148,8 @@ export class WatchStations {
       }
 
       await (existing
-        ? this.repositories.alertStates.save(checked)
-        : this.repositories.alertStates.add(checked));
+        ? this.sources.alertStates.save(checked)
+        : this.sources.alertStates.add(checked));
     });
   }
 
@@ -178,21 +167,12 @@ export class WatchStations {
     const deleted = new Set<string>();
 
     for (const task of tasks) {
-      const taskId = TaskId.of(task);
+      const owner = FactOwner.of(station.workspaceId, {
+        teamId: station.teamId,
+        taskId: TaskId.of(task),
+      });
 
-      await this.repositories.deletions.lockDeletion(
-        station.workspaceId,
-        taskId,
-        station.teamId,
-      );
-
-      if (
-        await this.repositories.deletions.isDeleted(
-          station.workspaceId,
-          taskId,
-          station.teamId,
-        )
-      ) {
+      if (!(await this.recorder.admits(owner))) {
         deleted.add(task);
       }
     }

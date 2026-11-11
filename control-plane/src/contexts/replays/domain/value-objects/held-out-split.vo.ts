@@ -29,14 +29,6 @@ const heldOutOf = (tasks: number): number => Math.ceil(HELD_OUT_RATE * tasks);
 const splits = (tasks: number): boolean =>
   heldOutOf(tasks) >= MIN_HELD_OUT && tasks - heldOutOf(tasks) >= MIN_SEARCHED;
 
-const heldOutCountOf = (tasks: number): number => {
-  if (!splits(tasks)) {
-    throw new SearchSetTooSmallError(tasks, heldOutOf(tasks));
-  }
-
-  return heldOutOf(tasks);
-};
-
 const fewestTasks = (): number => {
   let tasks = 1;
 
@@ -49,25 +41,51 @@ const fewestTasks = (): number => {
 
 export const FEWEST_SEARCH_TASKS = fewestTasks();
 
+export type SplitRefusal = 'too-small' | 'no-fresh';
+
+interface SplitInput {
+  readonly searchId: SearchId;
+  readonly entries: readonly ReplaySetEntry[];
+  readonly hash: (text: string) => string;
+  readonly excluding?: readonly TaskId[];
+}
+
 export class HeldOutSplit {
   private constructor(
     readonly searched: readonly SplitEntry[],
     readonly heldOut: readonly SplitEntry[],
   ) {}
 
-  static drawn(input: {
-    searchId: SearchId;
-    entries: readonly ReplaySetEntry[];
-    hash: (text: string) => string;
-    excluding?: readonly TaskId[];
-  }): HeldOutSplit {
+  static drawn(input: SplitInput): HeldOutSplit {
+    const split = HeldOutSplit.tryDraw(input);
+
+    if (split === 'too-small') {
+      const tasks = tasksOf(input.entries).length;
+
+      throw new SearchSetTooSmallError(tasks, heldOutOf(tasks));
+    }
+    if (split === 'no-fresh') {
+      throw new NoFreshHeldOutError(
+        HeldOutSplit.freshOf(input).length,
+        heldOutOf(tasksOf(input.entries).length),
+      );
+    }
+
+    return split;
+  }
+
+  static tryDraw(input: SplitInput): HeldOutSplit | SplitRefusal {
     const tasks = tasksOf(input.entries);
-    const heldOutCount = heldOutCountOf(tasks.length);
-    const excluded = new Set((input.excluding ?? []).map((each) => each.value));
-    const fresh = tasks.filter((each) => !excluded.has(each));
+
+    if (!splits(tasks.length)) {
+      return 'too-small';
+    }
+
+    const heldOutCount = heldOutOf(tasks.length);
+    const fresh = HeldOutSplit.freshOf(input);
 
     if (fresh.length < heldOutCount) {
-      throw new NoFreshHeldOutError(fresh.length, heldOutCount);
+      return 'no-fresh';
     }
 
     const heldOutTasks = new Set(
@@ -92,6 +110,12 @@ export class HeldOutSplit {
       entries.filter((each) => !heldOutTasks.has(each.taskId.value)),
       entries.filter((each) => heldOutTasks.has(each.taskId.value)),
     );
+  }
+
+  private static freshOf(input: SplitInput): readonly string[] {
+    const excluded = new Set((input.excluding ?? []).map((each) => each.value));
+
+    return tasksOf(input.entries).filter((each) => !excluded.has(each));
   }
 
   static rehydrate(input: {

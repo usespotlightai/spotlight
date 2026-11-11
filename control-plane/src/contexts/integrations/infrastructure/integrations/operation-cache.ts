@@ -1,13 +1,16 @@
-import type { SpecDocumentRepository } from '@integrations/domain/repositories/spec-document.repository';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
+
+export interface SpecOperationReader {
+  operation(hash: ContentHash, name: string): Promise<SpecOperation | null>;
+}
 
 const MAX_ENTRIES = 2000;
 
 export class OperationCache {
   readonly #entries = new Map<string, SpecOperation>();
 
-  constructor(private readonly documents: SpecDocumentRepository) {}
+  constructor(private readonly operations: SpecOperationReader) {}
 
   async of(hash: ContentHash, name: string): Promise<SpecOperation | null> {
     const key = `${hash.value}:${name}`;
@@ -20,7 +23,7 @@ export class OperationCache {
       return cached;
     }
 
-    const found = await this.documents.operation(hash, name);
+    const found = await this.operations.operation(hash, name);
 
     if (found) {
       this.#entries.set(key, found);

@@ -4,16 +4,21 @@ import { HarnessProfileDeleted } from '@configuration/domain/events/harness-prof
 import { HarnessProfileUpdated } from '@configuration/domain/events/harness-profile-updated.event';
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
+import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
+import { HarnessCompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
-import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -44,6 +49,12 @@ const stored = (version = 3) =>
 
 const BY = changeActorIn();
 
+const harnessesFinding = (compatibility: HarnessCompatibility) => ({
+  compatibilityOf: () => compatibility,
+});
+
+const COMPATIBLE = harnessesFinding(HarnessCompatibility.of([]));
+
 const CAREFUL = {
   resource: 'harness-profile' as const,
   id: 'profile_1',
@@ -51,7 +62,11 @@ const CAREFUL = {
 };
 
 const NAMED = StationUses.of([
-  { name: 'careful', by: 'delivery/implementation' },
+  {
+    used: ProfileKey.of('careful'),
+    line: LineKey.of('delivery'),
+    station: StationKey.of('implementation'),
+  },
 ]);
 
 describe('HarnessProfile', () => {
@@ -62,6 +77,7 @@ describe('HarnessProfile', () => {
       teamId: TEAM,
       by: BY,
       existingSecrets: [],
+      harnesses: COMPATIBLE,
     });
 
     expect(created.isNew).toBe(true);
@@ -86,6 +102,7 @@ describe('HarnessProfile', () => {
       parsed('careful', ['execute(git push *)']),
       BY,
       [],
+      COMPATIBLE,
     );
 
     expect(updated.settings.permissions.ask).toEqual(['execute(git push *)']);
@@ -100,7 +117,7 @@ describe('HarnessProfile', () => {
   });
 
   it('keeps its key for its whole life', () => {
-    expect(() => stored().update(parsed('bold'), BY, [])).toThrow(
+    expect(() => stored().update(parsed('bold'), BY, [], COMPATIBLE)).toThrow(
       ImmutableFieldError,
     );
   });
@@ -114,7 +131,13 @@ describe('HarnessProfile', () => {
 
   it('is deleted when no station names it, and cannot change after', () => {
     const deleted = stored().delete(
-      StationUses.of([{ name: 'bold', by: 'delivery/implementation' }]),
+      StationUses.of([
+        {
+          used: ProfileKey.of('bold'),
+          line: LineKey.of('delivery'),
+          station: StationKey.of('implementation'),
+        },
+      ]),
       BY,
     );
 
@@ -127,7 +150,7 @@ describe('HarnessProfile', () => {
         ConfigurationChange.deleted(CAREFUL, BY),
       ),
     ]);
-    expect(() => deleted.update(parsed(), BY, [])).toThrow(
+    expect(() => deleted.update(parsed(), BY, [], COMPATIBLE)).toThrow(
       InconsistentStateError,
     );
   });
@@ -171,15 +194,38 @@ describe('HarnessProfile', () => {
         teamId: TEAM,
         by: BY,
         existingSecrets: [],
+        harnesses: COMPATIBLE,
       }),
     ).toThrow(MissingSecretsError);
-    expect(() => stored().update(referring, BY, [])).toThrow(
+    expect(() => stored().update(referring, BY, [], COMPATIBLE)).toThrow(
       MissingSecretsError,
     );
     expect(
       stored()
-        .update(referring, BY, existing)
+        .update(referring, BY, existing, COMPATIBLE)
         .settings.uses(existing[0] as SecretName),
     ).toBe(true);
+  });
+
+  it('is neither created nor changed while no harness can apply it as written', () => {
+    const incompatible = harnessesFinding(
+      HarnessCompatibility.of([
+        { at: FieldPath.of(['native', 'gone']), reason: 'names no harness' },
+      ]),
+    );
+
+    expect(() =>
+      HarnessProfile.create({
+        ...parsed(),
+        id: ID,
+        teamId: TEAM,
+        by: BY,
+        existingSecrets: [],
+        harnesses: incompatible,
+      }),
+    ).toThrow(IncompatibleHarnessProfileError);
+    expect(() => stored().update(parsed(), BY, [], incompatible)).toThrow(
+      IncompatibleHarnessProfileError,
+    );
   });
 });

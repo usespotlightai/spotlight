@@ -48,7 +48,7 @@ export function ExpandableStep({ step, live, focused }: ExpandableStepProps) {
         {head}
       </button>
 
-      <Collapsible open={open} appear={false}>
+      <Collapsible open={open} appear={false} lazy>
         <StepBody shown={shown} command={step.text} />
       </Collapsible>
     </>

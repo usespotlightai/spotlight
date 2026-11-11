@@ -1,29 +1,28 @@
 import { createHash } from 'node:crypto';
-import { CAUSE_HEADER } from '@integrations/application/ports/hook-firing-history.port';
+import { OutboundHostsUnreadError } from '@identity/application/errors/outbound-hosts-unread.error';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type {
-  HookEventInstance,
-  ListeningHook,
-  StepOutcome,
-  StepResult,
-  WaitMode,
-} from '@integrations/application/ports/hook-runtime.port';
+  HookRequest,
+  HookRequestsPort,
+} from '@integrations/application/ports/hook-requests.port';
+import type { StepResult } from '@integrations/application/ports/hook-runtime.port';
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import type { HookTokensPort } from '@integrations/application/ports/hook-tokens.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
-import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
-import type { HookSigningIR } from '@integrations/infrastructure/hooks/hook.compile';
+import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
-import { API_PREFIX, HOOK_CALLBACKS } from '@platform/http/routes';
+import { CAUSE_HEADER } from '@platform/http/cause-header';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
-import { OutboundHostsUnreadError } from '@shared-kernel/application/errors/outbound-hosts-unread.error';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import type {
   NetworkCallsPort,
   NetworkRequest,
   NetworkResponse,
-} from '@work/application/ports/network-calls.port';
+} from '@runs/application/ports/network-calls.port';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -31,19 +30,7 @@ const NETWORK_TIMEOUT_MS = 2 * 60 * 1000;
 
 const MAX_STORED_BYTES = 16 * 1024;
 
-export interface HookRequest {
-  readonly hook: ListeningHook;
-  readonly instance: HookEventInstance;
-  readonly step: string;
-  readonly url: string;
-  readonly headers: Readonly<Record<string, string>>;
-  readonly body: string;
-  readonly fromNetwork: boolean;
-  readonly signing: HookSigningIR | null;
-  readonly deadline: Date;
-  readonly waitMode: WaitMode;
-  readonly resuming: StepOutcome | null;
-}
+const NO_HOST_ANSWERED = 'no host of the workspace answered in time';
 
 interface Answered {
   readonly reply: HookReply;
@@ -51,7 +38,7 @@ interface Answered {
 }
 
 export interface HookRequestSettings {
-  readonly publicUrl: string;
+  readonly callbackUrl: string;
   readonly policy: OutboundPolicy;
 }
 
@@ -142,53 +129,42 @@ const fromResponse = (response: NetworkResponse): Answered =>
         error: response.error,
       };
 
-export class HookRequests {
+export class HookRequests implements HookRequestsPort {
   private readonly policy: OutboundPolicy;
 
   constructor(
     private readonly settings: HookRequestSettings,
     private readonly secrets: HookSigningSecretsPort,
     private readonly tokens: HookTokensPort,
-    private readonly callbacks: HookCallbackTokens,
     private readonly network: NetworkCallsPort,
     private readonly limits: OutboundLimitsPort,
     private readonly scope: WorkspaceOutboundScopePort,
+    private readonly clock: ClockPort,
     private readonly fetch: Fetch = settings.policy.fetch,
   ) {
     this.policy = settings.policy;
   }
 
-  async sent(request: HookRequest, now: Date): Promise<StepResult> {
+  async sent(
+    request: HookRequest,
+    callback: string,
+    now: Date,
+  ): Promise<StepResult> {
     const started = now;
+    const workspace = request.instance.task.workspaceId.value;
 
-    if (request.resuming?.status === 'waiting') {
-      return this.resumed(request, request.resuming, started);
-    }
-
-    if (
-      !request.fromNetwork &&
-      !(await this.limits.take(request.instance.task.workspaceId))
-    ) {
+    if (!request.fromNetwork && !(await this.limits.take(workspace))) {
       return this.notSent(
         request,
-        HookFailure.of(
-          'throttled',
-          `this workspace sends more than ${this.limits.perSecond} requests each second to other services`,
-        ),
+        HookFailure.overOutboundLimit(this.limits.perSecond),
         started,
       );
     }
 
-    let headers: Record<string, string>;
+    const headers = await this.headers(request, callback, started);
 
-    try {
-      headers = await this.headers(request, started);
-    } catch (error) {
-      return this.notSent(
-        request,
-        HookFailure.of('not-allowed', described(error)),
-        started,
-      );
+    if (headers instanceof HookFailure) {
+      return this.notSent(request, headers, started);
     }
 
     if (request.fromNetwork) {
@@ -196,7 +172,7 @@ export class HookRequests {
     }
 
     try {
-      return await this.scope.within(request.instance.task.workspaceId, () =>
+      return await this.scope.within(WorkspaceId.of(workspace), () =>
         this.sentFromHere(request, headers, started),
       );
     } catch (error) {
@@ -206,10 +182,7 @@ export class HookRequests {
 
       return this.notSent(
         request,
-        HookFailure.of(
-          'errored',
-          `Spotlight could not read the workspace's allowed hosts: ${error.because}`,
-        ),
+        HookFailure.hostsUnread(error.because),
         started,
       );
     }
@@ -223,9 +196,13 @@ export class HookRequests {
     try {
       this.policy.allow(request.url);
     } catch (error) {
+      if (!(error instanceof EgressBlockedError)) {
+        throw error;
+      }
+
       return this.notSent(
         request,
-        HookFailure.of('not-allowed', described(error)),
+        HookFailure.refusedByPolicy(error.message),
         started,
       );
     }
@@ -254,46 +231,38 @@ export class HookRequests {
       answered = UNANSWERED(described(error));
     }
 
-    return this.resultOf(request, headers, answered, started, new Date());
+    return this.resultOf(request, headers, answered, started, this.clock.now());
   }
 
   private async headers(
     request: HookRequest,
+    callback: string,
     at: Date,
-  ): Promise<Record<string, string>> {
+  ): Promise<Record<string, string> | HookFailure> {
+    const { hook, instance } = request;
     const id = messageId(
-      request.hook.id,
-      request.instance.occurrence,
-      request.step,
+      hook.id.value,
+      instance.occurrence.value,
+      request.step.value,
     );
     const timestamp = Math.floor(at.getTime() / 1000);
-    const callback = await this.callbacks.issued({
-      workspaceId: request.instance.task.workspaceId,
-      taskId: request.instance.task.taskId,
-      hook: request.hook.key,
-      firing: request.instance.firing,
-    });
     const signed: Record<string, string> = {
       ...request.headers,
       'content-type': 'application/json',
       'user-agent': 'Spotlight-Hooks/1',
       'webhook-id': id,
       'webhook-timestamp': String(timestamp),
-      'spotlight-hook': request.hook.key,
-      'spotlight-callback-url': `${this.settings.publicUrl}/${API_PREFIX}/${HOOK_CALLBACKS}`,
+      'spotlight-hook': hook.key.value,
+      'spotlight-callback-url': this.settings.callbackUrl,
       'spotlight-callback-token': callback,
-      ...(request.instance.firing
-        ? { [CAUSE_HEADER]: request.instance.firing }
-        : {}),
+      ...(instance.firing ? { [CAUSE_HEADER]: instance.firing.value } : {}),
     };
 
     if (request.signing?.kind === 'hmac') {
-      const secret = await this.secrets.signingSecretOf(request.hook.id);
+      const secret = await this.secrets.signingSecretOf(hook.id);
 
       if (!secret) {
-        throw new Error(
-          'has no secret to sign with. Spotlight sent nothing. Please set a new secret for the hook with a higher secretVersion',
-        );
+        return HookFailure.withoutSigningSecret();
       }
 
       signed['webhook-signature'] = signatureOf(
@@ -305,10 +274,14 @@ export class HookRequests {
     }
 
     if (request.signing?.kind === 'oidc') {
+      if (!this.tokens.signs) {
+        return HookFailure.withoutTokenKey();
+      }
+
       signed.authorization = `Bearer ${await this.tokens.signed({
         audience: request.signing.audience,
-        subject: `hook:${request.instance.task.workspaceId}/${request.hook.teamId}/${request.hook.key}`,
-        occurrence: request.instance.occurrence,
+        subject: `hook:${instance.task.workspaceId.value}/${hook.teamId.value}/${hook.key.value}`,
+        occurrence: instance.occurrence.value,
         message: id,
         bodyDigest: createHash('sha256')
           .update(request.body)
@@ -343,7 +316,7 @@ export class HookRequests {
       secrets: [],
     };
     const call = await this.network.queue(
-      request.instance.task.workspaceId,
+      request.instance.task.workspaceId.value,
       networkRequest,
       timeout,
     );
@@ -354,7 +327,7 @@ export class HookRequests {
           name: request.step,
           status: 'waiting',
           call,
-          until: timeout.toISOString(),
+          until: timeout,
         },
         denyReason: null,
         trace: null,
@@ -363,47 +336,43 @@ export class HookRequests {
 
     const state = await this.network.answered(call, timeout);
 
-    return state.kind === 'answered'
-      ? this.resultOf(
-          request,
-          headers,
-          fromResponse(state.response),
-          started,
-          new Date(),
-        )
-      : this.resultOf(
-          request,
-          headers,
-          UNANSWERED('no host of the workspace answered in time'),
-          started,
-          new Date(),
-        );
-  }
-
-  private async resumed(
-    request: HookRequest,
-    waiting: Extract<StepOutcome, { status: 'waiting' }>,
-    now: Date,
-  ): Promise<StepResult> {
-    const state = await this.network.stateOf(waiting.call);
-
-    if (state.kind === 'waiting' && new Date(waiting.until) > now) {
-      return { outcome: waiting, denyReason: null, trace: null };
-    }
-
-    const answered: Answered =
+    return this.resultOf(
+      request,
+      headers,
       state.kind === 'answered'
         ? fromResponse(state.response)
-        : UNANSWERED('no host of the workspace answered in time');
-    const ms = state.kind === 'answered' ? state.response.ms : 0;
+        : UNANSWERED(NO_HOST_ANSWERED),
+      started,
+      this.clock.now(),
+    );
+  }
+
+  async resumed(
+    request: HookRequest,
+    waiting: WaitingHookStep,
+    now: Date,
+  ): Promise<StepResult | null> {
+    const state = await this.network.stateOf(waiting.call);
+
+    if (state.kind === 'waiting') {
+      return null;
+    }
+
+    if (state.kind !== 'answered') {
+      return this.unanswered(request, now);
+    }
 
     return this.resultOf(
       request,
       {},
-      answered,
-      new Date(now.getTime() - ms),
+      fromResponse(state.response),
+      new Date(now.getTime() - state.response.ms),
       now,
     );
+  }
+
+  unanswered(request: HookRequest, now: Date): StepResult {
+    return this.resultOf(request, {}, UNANSWERED(NO_HOST_ANSWERED), now, now);
   }
 
   private resultOf(
@@ -440,8 +409,8 @@ export class HookRequests {
             },
       denyReason: reply.denyReason,
       trace: {
-        hook: request.hook.key,
-        step: request.step,
+        hook: request.hook.key.value,
+        step: request.step.value,
         kind: 'request',
         target: request.url,
         request: { headers: shown, body: storedBody(request.body) },
@@ -469,8 +438,8 @@ export class HookRequests {
       },
       denyReason: null,
       trace: {
-        hook: request.hook.key,
-        step: request.step,
+        hook: request.hook.key.value,
+        step: request.step.value,
         kind: 'request',
         target: request.url,
         request: { body: storedBody(request.body) },

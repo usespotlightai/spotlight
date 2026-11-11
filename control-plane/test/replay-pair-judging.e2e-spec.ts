@@ -14,50 +14,57 @@ import {
   type SideBySideJudgePort,
   type SideBySideJudgeRequest,
 } from '@insights/application/ports/side-by-side-judge.port';
-import { DeleteInsights } from '@insights/application/services/delete-insights.service';
-import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
-import { WorkSideBySideJudgings } from '@insights/application/services/work-side-by-side-judgings.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { DeleteSideBySideJudgings } from '@replays/application/services/delete-side-by-side-judgings.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
+import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
+import { WorkSideBySideJudgings } from '@replays/application/services/work-side-by-side-judgings.service';
 import {
   pairTallyOf,
   taskComparisons,
   totalsOf,
 } from '@replays/domain/services/replay-results';
+import type { JournalEntry } from '@runs/application/ports/run-journal.port';
+import {
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
+import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
-import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
-import type { JournalEntry } from '@work/application/ports/run-journal.port';
-import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
-import { plannedCandidate, replayOf, startedReplay } from './support/replays';
+import {
+  plannedCandidate,
+  replayOf,
+  startedReplay,
+  writtenStation,
+} from './support/replays';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-pairing-${randomUUID().slice(0, 8)}`;
@@ -81,11 +88,12 @@ const PREFERRED: Readonly<Record<string, 'win' | 'loss' | 'tie'>> = {
 
 const attachmentStore = {
   received: async () => [],
+  stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -138,7 +146,6 @@ const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
   available: true,
-  model: 'stub/judge',
   judge: async (request) => {
     requests.push(request);
     const fast = request.hunks.some((each) =>
@@ -147,12 +154,8 @@ const judge: JudgePort = {
     const cited = request.hunks.slice(0, 1).map((each) => each.id);
 
     return {
+      model: 'stub/judge',
       guidance: null,
-      usage: {
-        inputTokens: 2_000,
-        outputTokens: 50,
-        cost: { amount: 0.01, currency: 'USD' },
-      },
       verdict: {
         claims: request.claims.map((claim, index) => ({
           index,
@@ -168,7 +171,6 @@ const pairRequests: SideBySideJudgeRequest[] = [];
 
 const pairJudge: SideBySideJudgePort = {
   available: true,
-  model: 'stub/pair-judge',
   judgePair: async (request) => {
     pairRequests.push(request);
     const fastIsA = request.a.hunks.some((each) =>
@@ -183,11 +185,7 @@ const pairJudge: SideBySideJudgePort = {
           : ('B' as const);
 
     return {
-      usage: {
-        inputTokens: 3_000,
-        outputTokens: 60,
-        cost: { amount: 0.02, currency: 'USD' },
-      },
+      model: 'stub/pair-judge',
       verdict: {
         preferred,
         reasons: [
@@ -296,24 +294,12 @@ const anOriginal = async (title: string): Promise<Original> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
-  });
-  await db.insert(schema.workspaceArchive).values({
-    id: archiveId,
-    workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
-    grantedToRunId: randomUUID(),
-    size: 1_024,
-    sha256: 'a'.repeat(64),
-    grantedAt: at,
-    completedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: BUILD,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -329,23 +315,41 @@ const anOriginal = async (title: string): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
-    briefedTask: BriefedTask.of({
-      stationId: StationId.of(BUILD),
-      title,
-      description: 'It stalls on restart.',
-      reviewing: null,
-      attachments: [],
-      notes: [],
-      openReviewComments: [],
-    }).parts,
-    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
+  });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId,
+      stationId: BUILD,
+      briefedTask: BriefedTask.of({
+        stationId: StationId.of(BUILD),
+        title,
+        description: 'It stalls on restart.',
+        reviewing: null,
+        attachments: [],
+        notes: [],
+        openReviewComments: [],
+      }).parts,
+      endedAt: at,
+    }),
+  );
+  await db.insert(schema.workingCopyArchive).values({
+    id: archiveId,
+    workspaceId: team.workspaceId.value,
+    workingCopyKey: `work/task-${taskId}`,
+    grantedToRunId: runId,
+    size: 1_024,
+    sha256: 'a'.repeat(64),
+    grantedAt: at,
+    completedAt: at,
   });
   await new DrizzleRunJournal(new DrizzleContext(db)).append(
     RunAttempt.of(RunId.of(runId), 1),
@@ -353,29 +357,45 @@ const anOriginal = async (title: string): Promise<Original> => {
       (each): JournalEntry => ({ ...each, at: new Date(each.at) }),
     ),
   );
-  await app
-    .get(DrizzleRunRecordRepository)
-    .add(
-      RunRecord.empty(
-        RunId.of(runId),
-        team.workspaceId,
-        TaskId.of(taskId),
-      ).recordAction(HumanAction.of('accepted', at)),
-    );
+  await app.get(DrizzleRunRecordRepository).add(
+    RunRecord.empty(RunId.of(runId), team.workspaceId, TaskId.of(taskId))
+      .recordEnd(
+        RunEnd.of({
+          location: RunLocation.of({
+            teamId: team.teamId,
+            lineId: LineId.of(DELIVERY),
+            stationId: StationId.of(BUILD),
+            taskId: TaskId.of(taskId),
+          }),
+          fingerprint: null,
+          agentConfig: RunAgentConfig.of({
+            harness: 'claude-code',
+            model: null,
+            effort: null,
+            profileKey: null,
+            repositories: [],
+            skills: [],
+          }),
+          queuedAt: null,
+          startedAt: null,
+          endedAt: at,
+          ending: 'completed',
+          failure: null,
+          visit: 1,
+          asked: false,
+        }),
+      )
+      .recordAction(HumanAction.of('accepted', at)),
+  );
 
   return { taskId, runId };
 };
 
-const proposed = async (prompt: string): Promise<string> => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, BUILD);
-
-  return plannedCandidate(app, DELIVERY, 'build', {
-    ...live?.station,
+const proposed = async (prompt: string): Promise<string> =>
+  plannedCandidate(app, DELIVERY, 'build', {
+    ...(await writtenStation(app, DELIVERY, 'build')),
     prompt,
   });
-};
 
 interface Claimed {
   readonly token: string;
@@ -438,7 +458,7 @@ const processed = async () => {
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
@@ -468,9 +488,10 @@ beforeAll(async () => {
     repository: Repository.of('acme/api').value,
     setup: 'npm ci',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -479,6 +500,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -498,6 +520,7 @@ beforeAll(async () => {
     },
     {
       id: SHIP,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'ship',
       name: 'Ship',
@@ -507,6 +530,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',
@@ -683,7 +707,8 @@ describe('a replay at a station whose judge goes by claims', () => {
     }, 120_000);
 
     const replay = await replayOf(app, id);
-    const comparison = taskComparisons(replay, await replayOf(app, baselineId));
+    const baseline = await replayOf(app, baselineId);
+    const comparison = taskComparisons(replay.outcome(), baseline.outcome());
     const titled = new Map(
       originals.map((each, at) => [
         each.runId,
@@ -691,9 +716,13 @@ describe('a replay at a station whose judge goes by claims', () => {
       ]),
     );
 
-    expect(totalsOf(replay).successRate).toBe(1);
+    expect(totalsOf(replay.outcome()).successRate).toBe(1);
     expect(replay.pairwiseReferenceId?.value).toBe(baselineId);
-    expect(pairTallyOf(replay)).toEqual({ wins: 1, losses: 1, ties: 1 });
+    expect(pairTallyOf(replay.outcome())).toEqual({
+      wins: 1,
+      losses: 1,
+      ties: 1,
+    });
     expect(
       Object.fromEntries(
         comparison.map((each) => [titled.get(each.original), each.pair]),
@@ -705,8 +734,12 @@ describe('a replay at a station whose judge goes by claims', () => {
     });
 
     for (const row of comparison) {
-      const [mine] = row.candidate;
-      const [theirs] = row.baseline;
+      const mine = replay.entries.find(
+        (each) => each.original.value === row.original,
+      );
+      const theirs = baseline.entries.find(
+        (each) => each.original.value === row.original,
+      );
 
       expect(mine?.verdict).toMatchObject({
         scale: 'claims',
@@ -727,7 +760,6 @@ describe('a replay at a station whose judge goes by claims', () => {
       });
       expect(mine?.pairing?.verdict?.outcome).toBe(row.pair);
       expect(mine?.pairing?.otherRunId.value).toBe(theirs?.run?.value);
-      expect(mine?.pairingSpent?.spends[0]?.amount).toBe(0.04);
       expect(theirs?.pairing).toBeNull();
     }
 
@@ -757,9 +789,7 @@ describe('a replay at a station whose judge goes by claims', () => {
         .where(inArray(schema.sideBySideJudging.runId, runs)),
     ).toHaveLength(3);
 
-    await app
-      .get(DeleteInsights)
-      .judgingsAndScoresOfTeam(team.workspaceId, team.teamId);
+    await app.get(DeleteSideBySideJudgings).ofTeam(team.teamId);
     expect(
       await db
         .select()

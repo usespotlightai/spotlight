@@ -3,7 +3,7 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import {
   ConfigurationChange,
-  type ConfiguredResource,
+  type ResourceType,
 } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -22,7 +22,7 @@ export const changeActorIn = (
   );
 
 export const changed = (
-  resource: ConfiguredResource,
+  resource: ResourceType,
   id: string,
   key: string,
 ): ConfigurationChange =>

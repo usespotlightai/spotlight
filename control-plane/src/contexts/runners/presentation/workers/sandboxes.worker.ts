@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import type { Sandboxes } from '@runners/application/services/sandboxes.service';
+import type { SandboxUpkeepPort } from '@runners/application/ports/sandbox-upkeep.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
@@ -12,7 +12,7 @@ export class SandboxesWorker implements OnModuleDestroy {
   #stopped = false;
 
   constructor(
-    private readonly sandboxes: Sandboxes,
+    private readonly sandboxes: SandboxUpkeepPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -37,7 +37,7 @@ export class SandboxesWorker implements OnModuleDestroy {
     try {
       await this.sandboxes.drainIdle(this.clock.now());
     } catch (error) {
-      this.logger.error({ err: error }, this.sandboxes.name);
+      this.logger.error({ err: error }, 'Draining idle sandboxes');
     }
   }
 }

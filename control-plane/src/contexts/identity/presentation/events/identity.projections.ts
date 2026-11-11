@@ -1,6 +1,8 @@
 import type { ConfigurationAuditPort } from '@identity/application/ports/configuration-audit.port';
 import type { OidcTrustUsagePort } from '@identity/application/ports/oidc-trust-usage.port';
+import type { SignupSurveysPort } from '@identity/application/ports/signup-surveys.port';
 import type { OidcTrustDeleted } from '@identity/domain/events/oidc-trust-deleted.event';
+import type { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import type { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
 import {
   type EventProjection,
@@ -12,12 +14,16 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 const issuedToken = (event: DomainEvent): event is WorkspaceTokenIssued =>
   event.kind === 'workspace-token.issued';
 
+const createdWorkspace = (event: DomainEvent): event is WorkspaceCreated =>
+  event.kind === 'workspace.created';
+
 const deletedOidcTrust = (event: DomainEvent): event is OidcTrustDeleted =>
   event.kind === 'oidc-trust.deleted';
 
 export const identityProjections = (
   audit: ConfigurationAuditPort,
   usage: OidcTrustUsagePort,
+  surveys: SignupSurveysPort,
 ): readonly EventProjection[] => [
   projecting(
     'identity.audit-configuration-changes',
@@ -35,5 +41,14 @@ export const identityProjections = (
   }),
   projecting('identity.forget-oidc-trust-usage', deletedOidcTrust, (event) =>
     usage.forget(event.trustId),
+  ),
+  projecting(
+    'identity.record-signup-survey',
+    createdWorkspace,
+    async (event) => {
+      if (event.survey) {
+        await surveys.record(event.workspaceId, event.owner, event.survey);
+      }
+    },
   ),
 ];

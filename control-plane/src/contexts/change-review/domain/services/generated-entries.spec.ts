@@ -10,6 +10,7 @@ import type { ProposedCohort } from '@change-review/domain/value-objects/stack-c
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -64,7 +65,7 @@ const COHORTS: ProposedCohort[] = [
       dependsOn: [],
       hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
       notes: hunks.map((hunk) => ({
-        path: DIFF.fileOf(hunk)?.path ?? hunk,
+        path: DIFF.fileOf(HunkId.of(hunk))?.path ?? hunk,
         note: 'Why it changes',
       })),
       questions: [],
@@ -100,8 +101,9 @@ const ready = () =>
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
-    replay: false,
-    isSearch: false,
+    teamOfRun: TeamId.of('team_1'),
+    trial: false,
+    checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,

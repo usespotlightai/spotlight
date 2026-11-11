@@ -1,12 +1,14 @@
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { SECRET_SOURCE_KINDS } from '@secrets/domain/value-objects/secret-source.vo';
 import {
   boolean,
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   primaryKey,
   text,
-  timestamp,
   unique,
 } from 'drizzle-orm/pg-core';
 
@@ -17,20 +19,22 @@ export interface SecretBindingRow {
   readonly prefix: string;
 }
 
+export const secretSource = pgEnum('secret_source', SECRET_SOURCE_KINDS);
+
 export const secret = pgTable(
   'secret',
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     name: text('name').notNull(),
-    source: text('source').notNull(),
+    source: secretSource('source').notNull(),
     sourceSecretId: text('source_secret_id'),
     sourceField: text('source_field'),
     bindings: jsonb('bindings').$type<SecretBindingRow[]>().notNull(),
     valueVersion: integer('value_version'),
-    rotatedAt: timestamp('rotated_at').notNull(),
-    version: integer('version').notNull().default(1),
-    updatedAt: timestamp('updated_at')
+    rotatedAt: timestamptz('rotated_at').notNull(),
+    version: integer('version').notNull().default(0),
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
@@ -43,14 +47,14 @@ export const secretValue = pgTable('secret_value', {
     .primaryKey()
     .references(() => secret.id, { onDelete: 'cascade' }),
   ciphertext: text('ciphertext').notNull(),
-  storedAt: timestamp('stored_at').defaultNow().notNull(),
+  storedAt: timestamptz('stored_at').defaultNow().notNull(),
 });
 
 export const secretDataKey = pgTable('secret_data_key', {
   workspaceId: text('workspace_id').primaryKey(),
   keyId: text('key_id').notNull(),
   wrapped: text('wrapped').notNull(),
-  issuedAt: timestamp('issued_at').defaultNow().notNull(),
+  issuedAt: timestamptz('issued_at').defaultNow().notNull(),
 });
 
 export const runGrants = pgTable(
@@ -62,8 +66,8 @@ export const runGrants = pgTable(
     recipient: text('recipient'),
     fetchedByEgressId: text('fetched_by_egress_id'),
     leaseLost: boolean('lease_lost').notNull().default(false),
-    endedAt: timestamp('ended_at'),
-    version: integer('version').notNull().default(1),
+    endedAt: timestamptz('ended_at'),
+    version: integer('version').notNull().default(0),
   },
   (table) => [
     index('run_grants_workspace_idx').on(table.workspaceId),

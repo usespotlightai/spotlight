@@ -1,12 +1,14 @@
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
 import type { WorkPort } from '@insights/application/ports/work.port';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RecordRunMemories } from '@insights/application/services/record-run-memories.service';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import {
   endOf,
   inTransaction,
   RunRecordsInMemory,
   WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
+} from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -20,7 +22,7 @@ const recording = () => {
   const service = new RecordRunMemories(
     { endedRun: async () => null } as unknown as WorkPort,
     records,
-    deletions,
+    new FactRecorder(deletions),
     inTransaction,
   );
   const received = (via: 'briefed' | 'recalled', memories: readonly string[]) =>
@@ -71,7 +73,7 @@ describe('RecordRunMemories', () => {
     const { records, deletions, received } = recording();
 
     await received('briefed', ['mem_1']);
-    await deletions.deleteTask(WORKSPACE, TASK);
+    await deletions.markDeleted(DeletionScope.ofTask(WORKSPACE, TASK));
     await received('recalled', ['mem_2']);
 
     expect(await records.of(RUN)).toBeNull();
@@ -81,7 +83,7 @@ describe('RecordRunMemories', () => {
   it('keeps nothing for a workspace that was deleted', async () => {
     const { records, deletions, received } = recording();
 
-    await deletions.deleteWorkspace(WORKSPACE);
+    await deletions.markDeleted(DeletionScope.ofWorkspace(WORKSPACE));
     await received('briefed', ['mem_1']);
 
     expect(await records.of(RUN)).toBeNull();

@@ -1,11 +1,14 @@
 import {
   PullRequest,
+  type PullRequestComment,
   type PullRequestSnapshot,
-  type WebhookComment,
-  type WebhookReview,
 } from '@github/domain/aggregates/pull-request.aggregate';
+import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import type { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
-import type { PullRequestThread } from '@github/domain/value-objects/bot-activity.vo';
+import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
+import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
+import { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
+import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -45,38 +48,41 @@ const at = (hour: number) =>
 
 const review = (
   id: number,
-  state: WebhookReview['state'],
+  state: PullRequestReview['state'],
   hour: number,
   byBot = false,
   login = byBot ? 'coderabbitai[bot]' : 'grace',
-): WebhookReview => ({ id, state, login, byBot, at: at(hour) });
+): PullRequestReview =>
+  PullRequestReview.of({ id, state, login, byBot, at: at(hour) });
 
 const comment = (
   id: number,
-  action: WebhookComment['action'],
-  over: Partial<WebhookComment> = {},
-): WebhookComment => ({
+  action: PullRequestComment['action'],
+  over: Partial<PullRequestComment> = {},
+): PullRequestComment => ({
   id,
   on: 'line',
   action,
   login: over.byBot ? 'coderabbitai[bot]' : 'grace',
   inReplyToId: null,
   byBot: false,
+  details: null,
   ...over,
 });
 
 const thread = (
   id: string,
   resolved: boolean,
-  over: Partial<PullRequestThread> = {},
-): PullRequestThread => ({
-  id,
-  firstCommentId: null,
-  login: 'coderabbitai[bot]',
-  byBot: true,
-  resolved,
-  ...over,
-});
+  over: Partial<Parameters<typeof PullRequestThread.of>[0]> = {},
+): PullRequestThread =>
+  PullRequestThread.of({
+    id,
+    firstCommentId: null,
+    login: 'coderabbitai[bot]',
+    byBot: true,
+    resolved,
+    ...over,
+  });
 
 const stored = (pullRequest: PullRequest) =>
   PullRequest.rehydrate({
@@ -104,7 +110,9 @@ const stored = (pullRequest: PullRequest) =>
     botComments: pullRequest.botComments,
     threads: pullRequest.threads,
     revertedBy: pullRequest.revertedBy,
-    version: pullRequest.version + 1,
+    version: pullRequest.isStored
+      ? pullRequest.version + 1
+      : pullRequest.version,
   });
 
 const received = (over: Partial<PullRequestSnapshot> = {}) => {
@@ -135,16 +143,16 @@ const updated = (pullRequest: PullRequest) =>
 describe('PullRequest', () => {
   it('records what it received about a pull request, whether or not a task owns it', () => {
     expect(updated(received())).toMatchObject({
-      pullRequest: URL_7.value,
-      repository: 'acme/api',
+      pullRequest: URL_7,
+      repository: Repository.of('acme/api'),
       number: 7,
       author: 'ada',
       additions: 40,
       state: 'open',
-      reviewRounds: 0,
+      reviews: [],
       reviewComments: 0,
       isRevert: false,
-      version: 1,
+      version: 0,
     });
   });
 
@@ -156,9 +164,15 @@ describe('PullRequest', () => {
     const events = changed.pullEvents();
 
     expect(events.map((each) => each.kind)).toEqual(['pull-request.updated']);
-    expect((events[0] as PullRequestUpdated).updated).toMatchObject({
-      reviews: 2,
-      version: 2,
+    expect(
+      (
+        events.find(
+          (each) => each.kind === 'pull-request.updated',
+        ) as PullRequestUpdated
+      ).updated,
+    ).toMatchObject({
+      reviews: [review(1, 'commented', 9), review(2, 'approved', 10)],
+      version: 1,
     });
   });
 
@@ -242,47 +256,21 @@ describe('PullRequest', () => {
     ).toBe('closed');
   });
 
-  describe('review rounds', () => {
-    it('counts no round before anyone reviews', () => {
-      expect(opened().reviewRounds).toBe(0);
-    });
-
-    it('counts each approval or request for changes by a person as a round', () => {
-      const reviewed = opened()
-        .recordReview(review(1, 'changes-requested', 9))
-        .recordReview(review(2, 'commented', 10))
-        .recordReview(review(3, 'approved', 11));
-
-      expect(reviewed.reviewRounds).toBe(2);
-    });
-
-    it('counts comments after the last verdict as a round still open', () => {
-      const reviewed = opened()
-        .recordReview(review(1, 'changes-requested', 9))
-        .recordReview(review(2, 'commented', 10));
-
-      expect(reviewed.reviewRounds).toBe(2);
-    });
-
-    it('counts comments with no verdict as one round', () => {
-      const reviewed = opened()
-        .recordReview(review(1, 'commented', 9))
-        .recordReview(review(2, 'commented', 10));
-
-      expect(reviewed.reviewRounds).toBe(1);
-    });
-
-    it('leaves out what bots said, and takes each review once', () => {
+  describe('reviews', () => {
+    it('keeps each review once, by people and bots alike, in the order they arrived', () => {
       const reviewed = opened()
         .recordReview(review(1, 'approved', 9, true))
         .recordReview(review(2, 'approved', 10))
         .recordReview(review(2, 'approved', 10));
 
-      expect(reviewed.reviewRounds).toBe(1);
-      expect(reviewed.firstReviewAt).toEqual(at(10));
+      expect(reviewed.reviews).toEqual([
+        review(1, 'approved', 9, true),
+        review(2, 'approved', 10),
+      ]);
+      expect(updated(reviewed)?.reviews).toEqual(reviewed.reviews);
     });
 
-    it('leaves out a dismissed review, whichever arrives first', () => {
+    it('says which reviews were dismissed, whichever arrives first', () => {
       const dismissedAfter = opened()
         .recordReview(review(1, 'changes-requested', 9))
         .recordReview(review(2, 'approved', 10))
@@ -291,23 +279,15 @@ describe('PullRequest', () => {
         review(1, 'changes-requested', 9),
       );
 
-      expect(dismissedAfter.reviewRounds).toBe(1);
-      expect(dismissedAfter.firstReviewAt).toEqual(at(10));
-      expect(updated(dismissedAfter)).toMatchObject({ reviews: 1 });
-      expect(dismissedBefore.reviewRounds).toBe(0);
-      expect(dismissedBefore.firstReviewAt).toBeNull();
+      expect(updated(dismissedAfter)).toMatchObject({ dismissedReviews: [1] });
       expect(updated(dismissedBefore)).toMatchObject({
-        reviews: 0,
-        firstUnblockingReviewAt: at(9),
+        reviews: [review(1, 'changes-requested', 9)],
+        dismissedReviews: [1],
       });
     });
 
-    it('takes the earliest review by a person as the first, however late it arrives', () => {
-      const reviewed = opened()
-        .recordReview(review(1, 'approved', 11))
-        .recordReview(review(2, 'commented', 9));
-
-      expect(reviewed.firstReviewAt).toEqual(at(9));
+    it('says nothing new when a review it does not know is dismissed', () => {
+      expect(opened().dismissReview(1).hasEvents).toBe(false);
     });
   });
 
@@ -518,57 +498,16 @@ describe('PullRequest', () => {
     });
   });
 
-  describe('review times', () => {
-    it('is first unblocked by the earliest review of anyone but its author, bots and dismissed reviews included', () => {
-      const reviewed = opened()
-        .recordReview(review(1, 'commented', 8, false, 'ada'))
-        .recordReview(review(2, 'commented', 9, true))
-        .recordReview(review(3, 'approved', 10))
-        .dismissReview(2);
-
-      expect(updated(reviewed)).toMatchObject({
-        firstUnblockingReviewAt: at(9),
-        firstReviewAt: at(8),
-      });
-    });
-
-    it('is not unblocked by its author reviewing it', () => {
-      expect(
-        opened().recordReview(review(1, 'commented', 9, false, 'ada'))
-          .firstUnblockingReviewAt,
-      ).toBeNull();
-    });
-
-    it('was first approved at the earliest approval that is still valid', () => {
-      const reviewed = opened()
-        .recordReview(review(1, 'approved', 9))
-        .recordReview(review(2, 'changes-requested', 10))
-        .recordReview(review(3, 'approved', 11, true))
-        .recordReview(review(4, 'approved', 12))
-        .dismissReview(1);
-
-      expect(reviewed.firstApprovedAt).toEqual(at(11));
-      expect(opened().firstApprovedAt).toBeNull();
-    });
-
-    it('says when each person reviewed it, in order, leaving out bots and dismissed reviews', () => {
-      const reviewed = opened()
-        .recordReview(review(1, 'approved', 12))
-        .recordReview(review(2, 'commented', 9))
-        .recordReview(review(3, 'commented', 10, true))
-        .recordReview(review(4, 'changes-requested', 11))
-        .dismissReview(4);
-
-      expect(updated(reviewed)).toMatchObject({
-        humanReviewedAt: [at(9), at(12)],
-      });
-    });
-  });
-
   describe('bot activity', () => {
     const bot = { byBot: true } as const;
+    const botComment = (
+      id: number,
+      on: 'line' | 'conversation',
+      opensThread: boolean,
+      login = 'coderabbitai[bot]',
+    ) => BotComment.of({ id, on, login, opensThread, deleted: false });
 
-    it('counts what each bot did on it, by login', () => {
+    it('keeps each comment a bot made, and whether it opened a thread', () => {
       const busy = opened()
         .recordReview(review(1, 'commented', 9, true))
         .recordReview(review(2, 'approved', 10, true, 'renovate[bot]'))
@@ -580,26 +519,16 @@ describe('PullRequest', () => {
           comment(13, 'created', { ...bot, login: 'renovate[bot]' }),
         );
 
-      expect(updated(busy)?.botActivity).toEqual([
-        {
-          login: 'coderabbitai[bot]',
-          reviews: 1,
-          comments: 3,
-          threads: 1,
-          resolvedThreads: 0,
-        },
-        {
-          login: 'renovate[bot]',
-          reviews: 1,
-          comments: 1,
-          threads: 1,
-          resolvedThreads: 0,
-        },
+      expect(updated(busy)?.botComments).toEqual([
+        botComment(10, 'line', true),
+        botComment(11, 'line', false),
+        botComment(12, 'conversation', false),
+        botComment(13, 'line', true, 'renovate[bot]'),
       ]);
       expect(busy.comments).toEqual([]);
     });
 
-    it('counts a bot comment once, and stops counting a deleted one however late its creation arrives', () => {
+    it('keeps a bot comment once, and keeps it deleted however late its creation arrives', () => {
       const commented = stored(
         opened()
           .recordComment(comment(10, 'created', bot))
@@ -609,16 +538,22 @@ describe('PullRequest', () => {
             comment(10, 'created', { ...bot, on: 'conversation' }),
           ),
       );
-      const deleted = stored(
-        commented.recordComment(comment(10, 'deleted', bot)),
-      );
+      const deleting = commented.recordComment(comment(10, 'deleted', bot));
+      const deleted = stored(deleting);
       const deletedFirst = stored(
         opened().recordComment(comment(11, 'deleted', bot)),
       );
 
-      expect(updated(commented)?.botActivity).toBeUndefined();
       expect(commented.botComments).toHaveLength(2);
-      expect(updated(deleted)?.botActivity).toBeUndefined();
+      expect(updated(deleting)?.botComments).toContainEqual(
+        BotComment.of({
+          id: 10,
+          on: 'line',
+          login: 'coderabbitai[bot]',
+          opensThread: true,
+          deleted: true,
+        }),
+      );
       expect(deleted.botComments.filter((each) => !each.deleted)).toHaveLength(
         1,
       );
@@ -629,7 +564,7 @@ describe('PullRequest', () => {
       );
     });
 
-    it('counts the threads a bot opened and how many of them are resolved now', () => {
+    it('keeps the threads a bot opened and whether each is resolved now', () => {
       const threaded = opened()
         .recordComment(comment(10, 'created', bot))
         .resolveThread(thread('PRRT_1', true, { firstCommentId: 10 }))
@@ -637,14 +572,10 @@ describe('PullRequest', () => {
         .resolveThread(thread('PRRT_2', false))
         .resolveThread(thread('PRRT_3', true));
 
-      expect(updated(threaded)?.botActivity).toEqual([
-        {
-          login: 'coderabbitai[bot]',
-          reviews: 0,
-          comments: 1,
-          threads: 3,
-          resolvedThreads: 2,
-        },
+      expect(updated(threaded)?.threads).toEqual([
+        thread('PRRT_1', true, { firstCommentId: 10 }),
+        thread('PRRT_2', false),
+        thread('PRRT_3', true),
       ]);
     });
 
@@ -685,7 +616,7 @@ describe('PullRequest', () => {
       expect(merged.pullEvents()).toContainEqual(
         expect.objectContaining({
           kind: 'pull-request.revert-merged',
-          pullRequest: 'https://github.com/acme/api/pull/9',
+          pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/9'),
           reverts: { kind: 'number', number: 7 },
         }),
       );
@@ -703,7 +634,7 @@ describe('PullRequest', () => {
       const reverted = merged.recordRevert(by);
 
       expect(reverted.revertedBy).toEqual(by);
-      expect(updated(reverted)).toMatchObject({ revertedBy: by.value });
+      expect(updated(reverted)).toMatchObject({ revertedBy: by });
       expect(stored(reverted).recordRevert(by).hasEvents).toBe(false);
     });
 
@@ -780,10 +711,104 @@ describe('PullRequest', () => {
       expect(purged.pullEvents()).toEqual([
         expect.objectContaining({
           kind: 'pull-request.purged',
-          pullRequest: URL_7.value,
+          pullRequest: URL_7,
           updatedAt: new Date('2026-09-22T09:00:00Z'),
         }),
       ]);
+    });
+  });
+
+  describe('what it says happened on GitHub', () => {
+    const DETAILS = {
+      url: 'https://github.com/acme/api/pull/7#discussion_r1',
+      path: 'src/a.ts',
+      subject: 'file' as const,
+      body: 'Why not a constant?',
+      writtenAt: at(1),
+    };
+
+    it('says it was closed, and how, each time GitHub says so', () => {
+      const closing = {
+        repository: Repository.of('acme/api'),
+        gitHubId: 707,
+        merge: { commit: 'c'.repeat(40) },
+        closedAt: at(2),
+      };
+      const closed = opened().closedBy(closing);
+      const said = closed.pullEvents();
+
+      expect(said).toEqual([
+        new PullRequestClosed(
+          WORKSPACE,
+          closed.url,
+          Repository.of('acme/api'),
+          707,
+          { commit: 'c'.repeat(40) },
+          at(2),
+        ),
+      ]);
+      expect(kinds(stored(closed).closedBy(closing))).toEqual([
+        'pull-request.closed',
+      ]);
+    });
+
+    it('says it was reopened', () => {
+      expect(
+        kinds(
+          opened().reopenedBy({
+            repository: Repository.of('acme/api'),
+            gitHubId: 707,
+            reopenedAt: at(3),
+          }),
+        ),
+      ).toEqual(['pull-request.reopened']);
+    });
+
+    it('takes a review once, however often GitHub sends it', () => {
+      const reviewed = opened().recordReview(review(1, 'approved', 1));
+
+      expect(kinds(reviewed)).toEqual(['pull-request.updated']);
+      const again = stored(reviewed);
+      expect(again.recordReview(review(1, 'approved', 1))).toBe(again);
+    });
+
+    it('says a review comment was received, once for its creation and again for each edit', () => {
+      const created = opened().recordComment(
+        comment(1, 'created', { details: DETAILS }),
+      );
+
+      const said = created.pullEvents();
+
+      expect(said[said.length - 1]).toEqual(
+        new ReviewCommentReceived(WORKSPACE, 'created', created.url, {
+          id: 1,
+          inReplyToId: null,
+          login: 'grace',
+          ...DETAILS,
+        }),
+      );
+      expect(
+        kinds(
+          stored(created).recordComment(
+            comment(1, 'created', { details: DETAILS }),
+          ),
+        ),
+      ).toEqual([]);
+      expect(
+        kinds(
+          stored(created).recordComment(
+            comment(1, 'edited', { details: DETAILS }),
+          ),
+        ),
+      ).toEqual(['pull-request.review-comment-received']);
+    });
+
+    it('says nothing for a conversation comment', () => {
+      expect(
+        kinds(
+          opened().recordComment(comment(1, 'created', { on: 'conversation' })),
+        ),
+      ).toEqual([]);
     });
   });
 });

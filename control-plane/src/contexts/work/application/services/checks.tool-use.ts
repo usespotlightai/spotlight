@@ -1,16 +1,16 @@
 import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
+import type { BuiltInToolUse } from '@work/application/ports/built-in-tool-uses.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
-import type { BuiltInToolUse } from '@work/application/services/built-in-tools.service';
+import type { TaskLookupReaderPort } from '@work/application/ports/task-lookup-reader.port';
 import { NoPullRequestError } from '@work/domain/exceptions/no-pull-request.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { CHECKS } from '@work/domain/services/built-in-tools';
+import { CHECKS } from '@work/domain/value-objects/built-in-tools';
 
 export class ChecksToolUse implements BuiltInToolUse<TaskToolContext> {
   readonly tool = CHECKS;
 
   constructor(
-    private readonly tasks: TaskRepository,
+    private readonly tasks: TaskLookupReaderPort,
     private readonly checkRuns: CheckRunsPort,
   ) {}
 
@@ -21,12 +21,40 @@ export class ChecksToolUse implements BuiltInToolUse<TaskToolContext> {
       throw new UnknownTaskError(taskId.value);
     }
 
-    if (!task.pullRequest) {
+    const first = task.pullRequestLink?.url;
+
+    if (!first) {
       throw new NoPullRequestError(taskId.value);
     }
 
-    const checks = await this.checkRuns.failedOn(workspaceId, task.pullRequest);
+    const pullRequests = [first, ...task.laterPullRequests];
+    const read = await Promise.allSettled(
+      pullRequests.map(async (pullRequest) => ({
+        pullRequest: pullRequest.value,
+        ...(await this.checkRuns.failedOn(workspaceId, pullRequest)),
+      })),
+    );
+    const [firstRead] = read;
 
-    return { pullRequest: task.pullRequest.value, ...checks };
+    if (
+      firstRead?.status === 'rejected' &&
+      read.every((each) => each.status === 'rejected')
+    ) {
+      throw firstRead.reason;
+    }
+
+    return {
+      pullRequests: read.map((each, at) =>
+        each.status === 'fulfilled'
+          ? each.value
+          : {
+              pullRequest: pullRequests[at]?.value,
+              error:
+                each.reason instanceof Error
+                  ? each.reason.message
+                  : String(each.reason),
+            },
+      ),
+    };
   }
 }

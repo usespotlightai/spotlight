@@ -1,6 +1,7 @@
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { describe, expect, it } from 'vitest';
 
 const declared = (tool: string, providedBy: string | null = null) =>
@@ -16,9 +17,17 @@ describe('enabledIntegrations', () => {
         declared('catalog.web-search@1.1.0', 'the Spotlight catalog'),
       ]),
     ).toEqual([
-      { name: 'Linear', tools: 2 },
-      { name: 'Petstore', tools: 1 },
-      { name: 'the Spotlight catalog', tools: 1 },
+      { integration: IntegrationName.of('linear'), name: 'Linear', tools: 2 },
+      {
+        integration: IntegrationName.of('petstore'),
+        name: 'Petstore',
+        tools: 1,
+      },
+      {
+        integration: IntegrationName.of('catalog'),
+        name: 'the Spotlight catalog',
+        tools: 1,
+      },
     ]);
   });
 
@@ -28,7 +37,7 @@ describe('enabledIntegrations', () => {
 
   it('names an integration by its key where nothing names it', () => {
     expect(enabledIntegrations([declared('grafana.search')])).toEqual([
-      { name: 'grafana', tools: 1 },
+      { integration: IntegrationName.of('grafana'), name: 'grafana', tools: 1 },
     ]);
   });
 });

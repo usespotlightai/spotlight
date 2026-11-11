@@ -1,7 +1,8 @@
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export interface AdministeredWorkspace {
   readonly workspace: Workspace;
@@ -13,11 +14,12 @@ export class WorkspaceAdministration {
 
   async administeredBy(
     slug: string,
-    viewerId: string,
+    principal: PersonPrincipal,
   ): Promise<AdministeredWorkspace | null> {
-    const by = UserId.of(viewerId);
     const workspace = await this.workspaces.findBySlug(WorkspaceSlug.of(slug));
 
-    return workspace?.administeredBy(by) ? { workspace, by } : null;
+    return workspace?.permissionsFor(principal).isAdmin
+      ? { workspace, by: principal.userId }
+      : null;
   }
 }

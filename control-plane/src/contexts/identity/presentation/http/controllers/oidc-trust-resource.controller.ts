@@ -9,6 +9,7 @@ import {
   ListOidcTrustResourcesQuery,
   ReadOidcTrustQuery,
 } from '@identity/application/queries/oidc-trust.queries';
+import { TOKEN_SCOPES } from '@identity/domain/value-objects/token-scope.vo';
 import { OidcTrustResourceResponseDto } from '@identity/presentation/http/dto/oidc-trust-resource.response.dto';
 import { Body, Param, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
@@ -33,7 +34,6 @@ import type {
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { TOKEN_SCOPES } from '@shared-kernel/domain/value-objects/token-scope.vo';
 
 const KIND = 'oidc-trust';
 

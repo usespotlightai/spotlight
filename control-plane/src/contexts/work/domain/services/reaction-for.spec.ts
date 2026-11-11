@@ -1,30 +1,33 @@
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import type { HappeningPayload } from '@work/domain/value-objects/happening-payload';
+import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
 import {
-  Happening,
-  type HappeningPayload,
-} from '@work/domain/value-objects/happening.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -43,17 +46,17 @@ const at = (
   position: number,
   kind: 'backlog' | 'work' | 'completed' = 'work',
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     harness: kind === 'work' ? HarnessId.of('dev') : undefined,
     kind,
   });
 
-const LINE = Line.rehydrate({
+const LINE = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
@@ -94,6 +97,12 @@ const taskAt = (stationId: string) =>
     newId: () => 'task_1',
   });
 
+const landedAt = (stationId: string) =>
+  Task.rehydrate({
+    ...taskAt('station_1'),
+    stationId: StationId.of(stationId),
+  });
+
 const payloadOf = (
   happening: Happening,
   summary: string,
@@ -122,13 +131,56 @@ const handed = (stationId: string) => taskAt(stationId).assignRun(RUN, LINE);
 
 const paused = (stationId: string) =>
   handed(stationId).putToAPerson(RUN, {
-    station: StationName.of('Implementation'),
+    line: null,
     body: TaskNoteBody.of('Which queue should I drain?'),
     at: NOW,
     voice: Voice.station(RUN),
   });
 
+const API = PullRequestUrl.of('https://github.com/acme/api/pull/7');
+const DOCS = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
+
+const openedTwo = () =>
+  Task.rehydrate({
+    ...taskAt('station_1'),
+    pullRequestLink: PullRequestLink.opened(API),
+    laterPullRequests: [LaterPullRequest.of(DOCS, NOW)],
+  });
+
+const mergedOf = (url: PullRequestUrl): HappeningPayload => ({
+  ...merged,
+  closedPullRequest: url,
+});
+
 describe('ReactionFor.happened', () => {
+  it('keeps a task with another pull request still open where it is, with a note', () => {
+    const outcome = reaction(
+      openedTwo().pullRequestClosed(API, NOW),
+      mergedOf(API),
+    );
+
+    expect(outcome.kind).toBe('stays');
+  });
+
+  it('moves a task once the last of its pull requests merges after another closed unmerged', () => {
+    const outcome = reaction(
+      openedTwo().pullRequestClosed(API, NOW).pullRequestClosed(DOCS, NOW),
+      mergedOf(DOCS),
+    );
+
+    expect(outcome.kind).toBe('moves');
+  });
+
+  it('moves a task once the last of its pull requests merges', () => {
+    const outcome = reaction(
+      openedTwo().pullRequestClosed(API, NOW).pullRequestClosed(DOCS, NOW),
+      mergedOf(DOCS),
+    );
+
+    expect(outcome.kind).toBe('moves');
+    expect(destination(outcome)).toEqual(StationId.of('station_3'));
+  });
+
   it('moves a task with no current run to the station the rule names', () => {
     const outcome = reaction(taskAt('station_1'), commented);
 
@@ -152,9 +204,7 @@ describe('ReactionFor.happened', () => {
 
     expect(outcome.kind).toBe('deferredMove');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
-    expect(outcome).toMatchObject({
-      station: StationName.of('Implementation'),
-    });
+    expect(outcome.kind !== 'nothing' && outcome.line.id).toEqual(LINE.id);
   });
 
   it('notes only what arrived while a run was in progress on the task', () => {
@@ -179,7 +229,7 @@ describe('ReactionFor.happened', () => {
     const outcome = reaction(handed('station_2'), merged);
 
     expect(outcome.kind).toBe('interrupts');
-    expect(outcome).toMatchObject({ station: StationName.of('Code Review') });
+    expect(outcome.kind !== 'nothing' && outcome.line.id).toEqual(LINE.id);
     expect(outcome.kind === 'interrupts' && outcome.body.value).toBe(
       'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
     );
@@ -225,7 +275,7 @@ describe('ReactionFor.happened', () => {
 
   it('says the station was working where the task awaits only a tool approval', () => {
     const asking = handed('station_2').putToAPerson(RUN, {
-      station: StationName.of('Code Review'),
+      line: null,
       body: TaskNoteBody.of('Approve linear.comment?'),
       at: NOW,
       voice: Voice.station(RUN),
@@ -235,7 +285,7 @@ describe('ReactionFor.happened', () => {
           ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
         ),
         StationId.of('station_2'),
-        'It posts publicly.',
+        ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
         null,
       ),
     });
@@ -248,7 +298,7 @@ describe('ReactionFor.happened', () => {
   });
 
   it('names no station of the line when the task a merge interrupts is on none of it', () => {
-    const elsewhere = Line.rehydrate({
+    const elsewhere = lineMapOf({
       id: LineId.of('line_9'),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
@@ -284,6 +334,6 @@ describe('ReactionFor.happened', () => {
   });
 
   it('says nothing to a task that has landed at the end of the line', () => {
-    expect(reaction(taskAt('station_3'), merged).kind).toBe('nothing');
+    expect(reaction(landedAt('station_3'), merged).kind).toBe('nothing');
   });
 });

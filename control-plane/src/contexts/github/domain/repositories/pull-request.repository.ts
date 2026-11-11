@@ -4,22 +4,17 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface PullRequestRepository {
-  at(
-    workspaceId: WorkspaceId,
-    url: PullRequestUrl,
-  ): Promise<PullRequest | null>;
-
   numbered(
     workspaceId: WorkspaceId,
     repository: Repository,
     number: number,
   ): Promise<PullRequest | null>;
 
-  lastMergedTitled(
+  titled(
     workspaceId: WorkspaceId,
     repository: Repository,
     title: string,
-  ): Promise<PullRequest | null>;
+  ): Promise<readonly PullRequest[]>;
 
   lastUpdatedBefore(
     before: Date,
@@ -48,6 +43,4 @@ export interface PullRequestRepository {
   save(pullRequest: PullRequest): Promise<void>;
 
   remove(pullRequest: PullRequest): Promise<void>;
-
-  removeForWorkspace(workspaceId: WorkspaceId): Promise<void>;
 }

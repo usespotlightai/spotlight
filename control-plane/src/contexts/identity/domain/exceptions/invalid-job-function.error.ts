@@ -1,6 +1,7 @@
 import { JOB_FUNCTIONS } from '@identity/domain/value-objects/job-function.vo';
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 
-export class InvalidJobFunctionError extends Error {
+export class InvalidJobFunctionError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(raw: string) {

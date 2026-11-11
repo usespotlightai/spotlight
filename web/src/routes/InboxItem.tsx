@@ -5,24 +5,26 @@ import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton
 import { InboxRequestPage } from '@/components/features/inbox/InboxRequestPage';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
-import { useInbox } from '@/hooks/api/useInbox';
+import { useInboxItem } from '@/hooks/api/useInbox';
 import { useInboxItemRefresh } from '@/hooks/api/useInboxItemRefresh';
 import { useMarkReadOnView } from '@/hooks/api/useMarkReadOnView';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useClearedParam } from '@/hooks/useClearedParam';
 import { useInboxItemTrail } from '@/hooks/useInboxItemTrail';
-import { taskItemOf } from '@/lib/inbox';
+import { notFound } from '@/lib/error';
+import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, loading } from '@/lib/query';
 import { useTrail } from '@/lib/trail';
 
 export function InboxItem() {
   const { slug, itemId } = useParams();
   useClearedParam('connected');
-  const inbox = useInbox(slug);
-  const item = taskItemOf(inbox.data, itemId);
+  const found = useInboxItem(slug, itemId);
+  const item = found.data;
   const journal = useTaskJournal(
     slug,
     item?.inboxRequest ? undefined : item?.taskId,
+    [item?.runId],
   );
 
   useInboxItemRefresh(slug, item);
@@ -30,17 +32,17 @@ export function InboxItem() {
 
   const { trail } = useTrail(useInboxItemTrail(slug, item));
 
-  if (loading(inbox) || (item && !item.inboxRequest && loading(journal))) {
+  if (loading(found) || (item && !item.inboxRequest && loading(journal))) {
     return <InboxItemSkeleton />;
   }
 
-  if (failed(inbox)) {
+  if (failed(found) && !notFound(found.error)) {
     return (
       <PageNotice>
         <CouldNotLoad
-          what="The inbox"
-          retrying={inbox.isFetching}
-          onRetry={() => void inbox.refetch()}
+          what="The message"
+          retrying={found.isFetching}
+          onRetry={() => void found.refetch()}
         />
       </PageNotice>
     );
@@ -62,11 +64,13 @@ export function InboxItem() {
   }
 
   return (
-    <InboxItemConversation
-      slug={slug}
-      item={item}
-      worked={journal.data ?? []}
-      trail={trail}
-    />
+    <JournalDemandContext value={journal.demand}>
+      <InboxItemConversation
+        slug={slug}
+        item={item}
+        worked={journal.data ?? []}
+        trail={trail}
+      />
+    </JournalDemandContext>
   );
 }

@@ -1,10 +1,7 @@
 import type {
   FlaggedMemoryResponseDto,
   InsightsMemoryResponseDto,
-  MemoryBenchmarkResponseDto,
 } from '@/lib/api';
-import { daysAgo } from '@/mocks/clock';
-import { PLATFORM_ID } from '@/mocks/world';
 import type { HistoryRun } from '@/mocks/world/insights-history';
 import {
   type PeriodName,
@@ -50,21 +47,6 @@ const flaggedOf = (memory: MemoryRecord): FlaggedMemoryResponseDto | null =>
         at: memory.retirement.at,
       }
     : null;
-
-const benchmarkOf = (teamId: string): MemoryBenchmarkResponseDto =>
-  teamId === PLATFORM_ID
-    ? {
-        ranAt: daysAgo(3),
-        withMemories: 0.74,
-        withoutMemories: 0.61,
-        cases: 40,
-      }
-    : {
-        ranAt: daysAgo(6),
-        withMemories: 0.68,
-        withoutMemories: 0.6,
-        cases: 25,
-      };
 
 export const memoryOf = (
   teamId: string,
@@ -113,6 +95,5 @@ export const memoryOf = (
     withMemories: tallyOf(withMemories),
     withoutMemories: tallyOf(withoutMemories),
     verdicts: verdictsOf(withoutMemories, withMemories),
-    benchmark: memories.length > 0 ? benchmarkOf(teamId) : null,
   };
 };

@@ -9,6 +9,7 @@ import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles'
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useSession } from '@/hooks/api/useSession';
 import { useInAppLinks } from '@/hooks/useInAppLinks';
+import { useJournalSight } from '@/hooks/useJournalSight';
 import {
   ARRIVING,
   type ConversationItem,
@@ -40,6 +41,7 @@ export function InboxNote({
   arrived = false,
 }: InboxNoteProps) {
   const { data: session } = useSession();
+  const sight = useJournalSight();
   const written = useRef<HTMLDivElement>(null);
   const arriving = arrived ? ARRIVING : undefined;
   useInAppLinks(written);
@@ -50,6 +52,7 @@ export function InboxNote({
 
   return (
     <li
+      ref={sight(note.runId ? [note.runId] : [])}
       data-note={note.position}
       className={cn('flex flex-col gap-1.5', arriving)}
     >

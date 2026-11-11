@@ -1,7 +1,4 @@
-import type {
-  ReplayedStation,
-  ReplaySet,
-} from '@replays/domain/aggregates/replay-set.aggregate';
+import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
 import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
 import {
@@ -11,6 +8,7 @@ import {
 import type { CheckResult } from '@replays/domain/services/replay-check-result';
 import type { BaselineStatus } from '@replays/domain/value-objects/baseline-status';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -20,6 +18,7 @@ import {
 } from '@replays/domain/value-objects/replay-repeats';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import type { SetEntriesDigest } from '@replays/domain/value-objects/set-entries-digest.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -33,7 +32,7 @@ interface State {
   readonly station: ReplayedStation;
   readonly stationKey: string;
   readonly setId: ReplaySetId;
-  readonly setEntries: string;
+  readonly setEntries: SetEntriesDigest;
   readonly attempt: number;
   readonly candidateId: CandidateId;
   readonly replayId: ReplayId;
@@ -47,6 +46,7 @@ interface State {
   readonly scoringPinnedToLive: readonly ScoringField[];
   readonly baseline: BaselineStatus;
   readonly createdAt: Date;
+  readonly version: number;
 }
 
 const REUSABLE: readonly CheckResult[] = ['running', 'passed', 'failed'];
@@ -63,10 +63,10 @@ export class ReplayCheck extends EventRecorder {
   }
 
   static start(
-    input: Omit<State, 'baseline'> & { by: ChangeActor },
+    input: Omit<State, 'baseline' | 'version'> & { by: ChangeActor },
   ): ReplayCheck {
     const { by, ...rest } = input;
-    const state: State = { ...rest, baseline: 'awaiting' };
+    const state: State = { ...rest, baseline: 'awaiting', version: 0 };
 
     if (state.candidateHashes.runsAs(state.liveHashes)) {
       throw new InvalidReplayCheckError(
@@ -82,7 +82,7 @@ export class ReplayCheck extends EventRecorder {
       );
     }
 
-    const started = ReplayCheck.rehydrate(state);
+    const started = new ReplayCheck(ReplayCheck.ordered(state));
 
     started.record(
       new ReplayCheckStarted(
@@ -102,11 +102,29 @@ export class ReplayCheck extends EventRecorder {
     return started;
   }
 
+  static nextAttemptAfter(
+    earlier: readonly ReplayCheck[],
+    change: CheckedChange,
+  ): number {
+    return (
+      Math.max(
+        0,
+        ...earlier
+          .filter((each) => each.change.equals(change))
+          .map((each) => each.attempt),
+      ) + 1
+    );
+  }
+
   static rehydrate(state: State): ReplayCheck {
-    return new ReplayCheck({
+    return new ReplayCheck(ReplayCheck.ordered(state));
+  }
+
+  private static ordered(state: State): State {
+    return {
       ...state,
       scoringPinnedToLive: inScoringOrder(state.scoringPinnedToLive),
-    });
+    };
   }
 
   get id(): ReplayCheckId {
@@ -133,7 +151,7 @@ export class ReplayCheck extends EventRecorder {
     return this.state.setId;
   }
 
-  get setEntries(): string {
+  get setEntries(): SetEntriesDigest {
     return this.state.setEntries;
   }
 
@@ -161,6 +179,10 @@ export class ReplayCheck extends EventRecorder {
     return this.state.candidateFingerprint;
   }
 
+  get change(): CheckedChange {
+    return CheckedChange.of(this.state.candidateHashes, this.state.liveHashes);
+  }
+
   get liveHashes(): StationHashes {
     return this.state.liveHashes;
   }
@@ -185,12 +207,20 @@ export class ReplayCheck extends EventRecorder {
     return this.state.createdAt;
   }
 
+  get version(): number {
+    return this.state.version;
+  }
+
   get baseline(): BaselineStatus {
     return this.state.baseline;
   }
 
   get awaitsBaseline(): boolean {
     return this.state.baseline === 'awaiting';
+  }
+
+  measuresAgainst(live: StationHashes | null): boolean {
+    return live?.scoresAs(this.state.liveHashes) ?? false;
   }
 
   recordBaseline(): ReplayCheck {
@@ -202,20 +232,20 @@ export class ReplayCheck extends EventRecorder {
   }
 
   private withBaseline(baseline: BaselineStatus): ReplayCheck {
-    return this.state.baseline === 'awaiting'
-      ? new ReplayCheck({ ...this.state, baseline }, this.isDeleted)
-      : this;
+    return this.state.baseline === 'awaiting' ? this.with({ baseline }) : this;
   }
 
   reusableFor(
-    set: ReplaySet,
-    setEntries: string,
+    change: CheckedChange,
+    setId: ReplaySetId,
+    setEntries: SetEntriesDigest,
     threshold: ReplayThreshold,
     repeats: number,
     result: CheckResult,
   ): boolean {
     return (
-      set.id.equals(this.state.setId) &&
+      change.equals(this.change) &&
+      setId.equals(this.state.setId) &&
       setEntries === this.state.setEntries &&
       threshold.equals(this.state.threshold) &&
       repeats === this.state.repeats &&
@@ -224,6 +254,18 @@ export class ReplayCheck extends EventRecorder {
   }
 
   delete(): ReplayCheck {
-    return new ReplayCheck(this.state, true);
+    return this.copied(this.state, true);
+  }
+
+  private with(part: Partial<State>): ReplayCheck {
+    return this.copied({ ...this.state, ...part }, this.isDeleted);
+  }
+
+  private copied(state: State, isDeleted: boolean): ReplayCheck {
+    const next = new ReplayCheck(state, isDeleted);
+
+    next.inheritEvents(this);
+
+    return next;
   }
 }

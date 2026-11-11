@@ -1,8 +1,18 @@
+import type { ChangeStackGeneratorPort } from '@change-review/application/ports/change-stack-generator.port';
 import {
   type CohortLayering,
   combined,
+  layerCohort,
   layeredInRounds,
 } from '@change-review/application/services/cohort-layering';
+import type { DiffFacts } from '@change-review/domain/services/diff-facts';
+import { Diff } from '@change-review/domain/value-objects/diff.vo';
+import type { StackCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import {
+  CohortId,
+  HunkId,
+  LayerId,
+} from '@change-review/domain/value-objects/stack-ids';
 import { describe, expect, it } from 'vitest';
 
 const CALL = {
@@ -14,6 +24,7 @@ const CALL = {
 const layered = (title: string): CohortLayering => ({
   outcome: 'layered',
   cohort: { kind: 'change', title, intent: title, layers: [] },
+  proposed: { kind: 'change', title, intent: title, layers: [] },
   usage: [CALL],
 });
 
@@ -114,5 +125,94 @@ describe('combined', () => {
         { outcome: 'broken', problems: [shape], usage: [] },
       ]),
     ).toMatchObject({ outcome: 'broken', problems: [shape] });
+  });
+});
+
+describe('layerCohort', () => {
+  const hunk = (id: string) => ({
+    path: `src/${id}.ts`,
+    previousPath: null,
+    status: 'modified' as const,
+    binary: false,
+    hunks: [
+      {
+        id: HunkId.of(id),
+        oldStart: 1,
+        oldLines: 1,
+        newStart: 1,
+        newLines: 1,
+        patch: `@@ -1 +1 @@\n-a\n+${id}`,
+      },
+    ],
+  });
+  const DIFF = Diff.of([hunk('h1'), hunk('h2')]);
+  const FACTS: DiffFacts = {
+    hunks: [],
+    links: [
+      {
+        kind: 'moves',
+        from: HunkId.of('h2'),
+        to: HunkId.of('h1'),
+        because: ['src/h1.ts → src/h2.ts'],
+      },
+    ],
+    imports: [],
+  };
+  const layerOf = (id: string) => ({
+    title: `Change ${id}`,
+    summary: 'Moves code',
+    dependsOn: [],
+    hunks: [{ hunk: HunkId.of(id) }],
+    notes: [{ path: `src/${id}.ts`, note: 'Why' }],
+    questions: [],
+  });
+  const generator: ChangeStackGeneratorPort = {
+    available: true,
+    generate: async () => {
+      throw new Error('not used');
+    },
+    outline: async () => {
+      throw new Error('not used');
+    },
+    layers: async () => ({
+      layers: [layerOf('h1'), layerOf('h2')],
+      usage: null,
+    }),
+  };
+  const twoLayers: StackCohort = {
+    id: CohortId.at(1),
+    kind: 'change',
+    title: 'Moves',
+    intent: 'Moves code',
+    joinedBecause: null,
+    layers: ['h1', 'h2'].map((id, l) => ({
+      ...layerOf(id),
+      id: LayerId.in(CohortId.at(1), l + 1),
+      dependsOn: [],
+      questions: [],
+      revision: null,
+    })),
+  };
+  const layering = (redrafting?: StackCohort) =>
+    layerCohort(generator, {
+      diff: DIFF,
+      facts: FACTS,
+      repository: null,
+      cohort: {
+        kind: 'change',
+        title: 'Moves',
+        intent: 'Moves code',
+        joinedBecause: null,
+        hunks: [HunkId.of('h1'), HunkId.of('h2')],
+      },
+      redrafting,
+    });
+
+  it('puts moved code together only within the layers the cohort had before', async () => {
+    const free = await layering();
+    const held = await layering(twoLayers);
+
+    expect(free.outcome === 'layered' && free.cohort.layers).toHaveLength(1);
+    expect(held.outcome).toBe('broken');
   });
 });

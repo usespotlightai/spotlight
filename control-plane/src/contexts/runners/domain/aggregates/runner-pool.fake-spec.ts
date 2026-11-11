@@ -17,18 +17,20 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
+import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
 
-export const POOL_ID = RunnerPoolId.of('pool_1');
+export const POOL_ID = PoolId.of('pool_1');
 
 export const TRUST_ID = RunnerTrustId.of('trust_1');
 
@@ -48,7 +50,7 @@ export const secretOf = (character: string): ProvisionSecret =>
 
 export const aPullPool = (
   input: {
-    id?: RunnerPoolId;
+    id?: PoolId;
     maxRuns?: number;
     labels?: string[];
     tokenVersion?: number;
@@ -120,12 +122,14 @@ export const aRunner = (
     running?: RunningImage | null;
     claimWithinMs?: number;
     proxyCredentialHash?: TokenHash | null;
+    enters?: string;
   } = {},
 ): Runner =>
   Runner.start({
     id: RunnerId.of(input.id ?? 'pooled_1'),
     through: input.through ?? aPullPool(),
     host: input.host === null ? null : HostId.of(input.host ?? HOST_ID.value),
+    enters: input.enters ? SandboxId.of(input.enters) : null,
     tokenHash: hashOf('b'),
     egressTokenHash: input.host === null ? null : hashOf('e'),
     proxyCredentialHash: input.proxyCredentialHash ?? null,
@@ -162,12 +166,19 @@ export const aHostReport = (
     ],
   });
 
+export const aSandboxReport = (
+  sandboxes: string[] = [],
+  stopping = false,
+): SandboxReport => SandboxReport.of({ sandboxes, stopping });
+
 export const aHost = (
   input: {
     through?: RunnerPool | RunnerTrust;
     id?: HostId;
     at?: Date;
     release?: string;
+    sandboxes?: string[];
+    stopping?: boolean;
   } = {},
 ): RunnerHost => {
   const through = input.through ?? aPullPool();
@@ -178,6 +189,7 @@ export const aHost = (
     source: CredentialSource.ofId(through.id),
     bootId: BootId.of('boot_1'),
     report: aHostReport([], input.release),
+    sandboxes: aSandboxReport(input.sandboxes, input.stopping),
     at: input.at ?? STARTED_AT,
   });
 };
@@ -204,6 +216,7 @@ export const storedHosts = (...known: RunnerHost[]) => {
           source: host.source,
           bootId: host.bootId,
           report: host.report,
+          sandboxes: host.sandboxes,
           firstHeartbeatAt: host.firstHeartbeatAt,
           onlineSince: host.onlineSince,
           lastHeartbeatAt: host.lastHeartbeatAt,
@@ -217,23 +230,15 @@ export const storedHosts = (...known: RunnerHost[]) => {
       }
       stored.delete(host.id.value);
     }),
-    removeStaleBefore: vi.fn(async (cutoff: Date) => {
-      let removed = 0;
-      for (const [id, host] of stored) {
-        if (host.lastHeartbeatAt <= cutoff) {
-          stored.delete(id);
-          removed++;
-        }
-      }
-      return removed;
-    }),
-    removeThrough: vi.fn(async (source: CredentialSource) => {
-      for (const [id, host] of stored) {
-        if (host.hasSource(source)) {
-          stored.delete(id);
-        }
-      }
-    }),
+    silentSince: vi.fn(async (cutoff: Date) =>
+      [...stored.values()].filter((host) => host.lastHeartbeatAt <= cutoff),
+    ),
+    servingThrough: vi.fn(async (source: CredentialSource) =>
+      [...stored.values()].filter((host) => host.hasSource(source)),
+    ),
+    inWorkspace: vi.fn(async (workspaceId: WorkspaceId) =>
+      [...stored.values()].filter((host) => host.belongsTo(workspaceId)),
+    ),
   } satisfies RunnerHostRepository;
 
   return { stored, hosts };

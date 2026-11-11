@@ -11,6 +11,7 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { httpExceptionOf } from '@platform/http/filters/application-error.filter';
 import { loggablePath } from '@platform/http/loggable-path';
 import { noteRefusal } from '@platform/http/refusal';
+import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import {
   type Problem,
   ProblemException,
@@ -65,11 +66,12 @@ export class ProblemFilter implements ExceptionFilter {
     private readonly adapterHost: HttpAdapterHost,
     @Inject(LOGGER) private readonly logger: LoggerPort,
     @Inject(ERROR_REPORTS) private readonly reports: ErrorReportsPort,
+    private readonly forbiddenActs: ForbiddenActs,
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
-    const problem = problemOf(exception);
+    const problem = this.explained(exception, problemOf(exception));
 
     if (problem.status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       if (!(exception instanceof ApplicationError)) {
@@ -110,5 +112,15 @@ export class ProblemFilter implements ExceptionFilter {
     }
 
     adapter.reply(response, problem, problem.status);
+  }
+
+  private explained(exception: unknown, problem: Problem): Problem {
+    const forbidden =
+      exception instanceof ProblemException ? exception.forbiddenRequest : null;
+    const text = forbidden
+      ? this.forbiddenActs.textOf(forbidden.act, forbidden.kind)
+      : null;
+
+    return text ? { ...problem, title: text[0], detail: text[1] } : problem;
   }
 }

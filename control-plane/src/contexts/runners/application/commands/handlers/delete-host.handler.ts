@@ -28,12 +28,12 @@ export class DeleteHostHandler
         return null;
       }
 
-      if (!permissions.managesRunners) {
+      if (!permissions.scopes.has('runners')) {
         return forbiddenTo('runners');
       }
 
       await deregisterHost(this.hosts, id, (current) =>
-        current.workspaceId.equals(known.workspaceId),
+        current.belongsTo(known.workspaceId),
       );
 
       return { outcome: 'deleted' };

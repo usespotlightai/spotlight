@@ -1,22 +1,21 @@
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 export const RUN_CHANGE_CHECKS = Symbol('RUN_CHANGE_CHECKS');
 
-const CHANGE_CHECK_STATUSES = [
-  'generating',
-  'not-generated',
-  'unchecked',
-  'checking',
-  'passed',
-  'failed',
-  'skipped',
-] as const;
-
-export type ChangeCheckStatus = (typeof CHANGE_CHECK_STATUSES)[number];
+type CheckedChangeStatus =
+  | 'generating'
+  | 'not-generated'
+  | 'unchecked'
+  | 'checking'
+  | 'passed'
+  | 'failed'
+  | 'skipped';
 
 export interface CheckedChange {
   readonly repository: string | null;
-  readonly status: ChangeCheckStatus;
+  readonly status: CheckedChangeStatus;
   readonly skip: string | null;
-  readonly failedAt: readonly string[];
+  readonly failedWhole: boolean;
+  readonly failedLayers: readonly string[];
   readonly usage: {
     readonly costs: readonly {
       readonly amount: number;
@@ -27,7 +26,7 @@ export interface CheckedChange {
 }
 
 export interface RunChangeChecksPort {
-  ofRun(runId: string): Promise<readonly CheckedChange[]>;
+  ofRun(runId: RunId): Promise<readonly CheckedChange[]>;
 
-  rechecksOfRun(runId: string): Promise<readonly CheckedChange[]>;
+  rechecksOfRun(runId: RunId): Promise<readonly CheckedChange[]>;
 }

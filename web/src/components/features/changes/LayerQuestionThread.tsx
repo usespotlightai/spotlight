@@ -34,6 +34,7 @@ export function LayerQuestionThread({
   const me = useMe();
   const answering = useAnswerStackQuestion();
   const { answered } = question;
+  const current = answered && !answered.outdated ? answered : null;
 
   const answer = (reply: string | null) => {
     if (reviewing) {
@@ -81,20 +82,33 @@ export function LayerQuestionThread({
           </ThreadEntry>
         )}
 
-        {answered && (
+        {answered?.outdated && (
           <ThreadEntry
             first={false}
             avatar={<Logo className="size-5 rounded" aria-hidden />}
             author="Spotlight"
-            meta={<QuestionVerdict verdict={answered.verdict} />}
+            meta={<Pill className="px-1.5 py-0">Changed</Pill>}
           >
-            {answered.feedback && (
+            <p className="text-muted-foreground text-sm leading-5">
+              The code changed after you answered. Please answer again.
+            </p>
+          </ThreadEntry>
+        )}
+
+        {current && (
+          <ThreadEntry
+            first={false}
+            avatar={<Logo className="size-5 rounded" aria-hidden />}
+            author="Spotlight"
+            meta={<QuestionVerdict verdict={current.verdict} />}
+          >
+            {current.feedback && (
               <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-5">
-                {answered.feedback}
+                {current.feedback}
               </p>
             )}
             <p className="whitespace-pre-wrap break-words text-muted-foreground text-sm leading-5">
-              Expected answer: {answered.expected}
+              Expected answer: {current.expected}
             </p>
             <CitedPlaces
               places={citedBy(stack, question)}
@@ -104,10 +118,12 @@ export function LayerQuestionThread({
         )}
       </ol>
 
-      {!answered && (
+      {!current && (
         <Composer
+          key={answered ? 'again' : 'first'}
           label={`Answer “${question.question}”`}
           placeholder="Your answer…"
+          initial={answered?.reply ?? ''}
           submitLabel="Check"
           max={MAX_REPLY}
           avatar={<ReviewerAvatar />}
@@ -128,7 +144,7 @@ export function LayerQuestionThread({
         />
       )}
 
-      {answering.isError && !answered && (
+      {answering.isError && !current && (
         <p role="alert" className="text-destructive text-xs leading-5">
           Sorry, the answer couldn’t be checked. Please try again.
         </p>

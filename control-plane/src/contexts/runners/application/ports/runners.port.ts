@@ -1,4 +1,5 @@
 import type { CredentialSourceRef } from '@runners/application/ports/runner-authenticator.port';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 export const RUNNERS = Symbol('RUNNERS');
@@ -29,8 +30,8 @@ export interface ProvisionRequest {
   readonly poolId: string;
   readonly runnerId: RunnerId;
   readonly work: LeasedWork;
-  readonly runId: string;
-  readonly taskId: string | null;
+  readonly runId: RunId;
+  readonly tags: Readonly<Record<string, string>>;
   readonly labels: readonly string[];
   readonly image: string | null;
   readonly needsEgress: boolean;

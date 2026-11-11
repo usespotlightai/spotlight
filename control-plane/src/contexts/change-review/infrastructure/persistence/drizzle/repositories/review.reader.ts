@@ -3,6 +3,7 @@ import type {
   ReviewReaderPort,
   ReviewView,
 } from '@change-review/application/ports/review-reader.port';
+import { isListedReview } from '@change-review/domain/aggregates/review.aggregate';
 import {
   review,
   reviewComment,
@@ -10,20 +11,17 @@ import {
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { and, asc, eq, ne, or } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleReviewReader implements ReviewReaderPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  async commentsVisibleTo(
-    taskId: TaskId,
-    viewer: UserId,
-  ): Promise<ReviewCommentView[]> {
+  async commentsOf(taskId: TaskId): Promise<ReviewCommentView[]> {
     return this.context.db
       .select({
         id: reviewComment.id,
+        repository: reviewComment.repository,
         path: reviewComment.path,
         side: reviewComment.side,
         line: reviewComment.line,
@@ -39,25 +37,19 @@ export class DrizzleReviewReader implements ReviewReaderPort {
         url: reviewComment.githubUrl,
         createdAt: reviewComment.createdAt,
         editedAt: reviewComment.editedAt,
+        failureCode: reviewComment.failureCode,
+        failureDetail: reviewComment.failureDetail,
       })
       .from(reviewComment)
-      .where(
-        and(
-          eq(reviewComment.taskId, taskId.value),
-          ne(reviewComment.state, 'deleted'),
-          or(
-            ne(reviewComment.state, 'draft'),
-            eq(reviewComment.authorId, viewer.value),
-          ),
-        ),
-      )
+      .where(eq(reviewComment.taskId, taskId.value))
       .orderBy(asc(reviewComment.createdAt));
   }
 
   async reviewsOf(taskId: TaskId): Promise<ReviewView[]> {
-    return this.context.db
+    const rows = await this.context.db
       .select({
         id: review.id,
+        repository: review.repository,
         authorId: review.authorId,
         authorRunId: review.authorRunId,
         authorName: review.authorName,
@@ -65,11 +57,13 @@ export class DrizzleReviewReader implements ReviewReaderPort {
         body: review.body,
         state: review.state,
         submittedAt: review.submittedAt,
+        failureCode: review.failureCode,
+        failureDetail: review.failureDetail,
       })
       .from(review)
-      .where(
-        and(eq(review.taskId, taskId.value), ne(review.state, 'discarded')),
-      )
+      .where(eq(review.taskId, taskId.value))
       .orderBy(asc(review.submittedAt));
+
+    return rows.filter((each) => isListedReview(each.state));
   }
 }

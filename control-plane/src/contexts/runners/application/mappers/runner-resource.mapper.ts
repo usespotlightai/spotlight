@@ -73,12 +73,12 @@ export const RunnerResourceMapper = {
       key: pool.key.value,
       labels: pool.labels.values,
       maxRuns: pool.maxRuns?.value ?? null,
-      tokenVersion: access.mode === 'pull' ? access.tokenVersion : null,
+      tokenVersion: access.mode === 'pull' ? access.tokenVersion.value : null,
       provision:
         access.mode === 'push'
           ? {
               url: access.url.value,
-              secretVersion: access.secretVersion,
+              secretVersion: access.secretVersion.value,
               egress: access.egress?.value ?? null,
               egressTraffic: access.egressTraffic.value,
             }
@@ -108,7 +108,7 @@ export const RunnerResourceMapper = {
       workspaceId: egress.workspaceId,
       key: egress.key.value,
       url: egress.url.value,
-      tokenVersion: egress.tokenVersion,
+      tokenVersion: egress.tokenVersion.value,
     };
   },
 
@@ -125,7 +125,7 @@ export const RunnerResourceMapper = {
     };
   },
 
-  configuredDeclaration(
+  configuredWorkspaceRunners(
     declared: WorkspaceRunners,
     slug: string,
   ): WorkspaceRunnersView {

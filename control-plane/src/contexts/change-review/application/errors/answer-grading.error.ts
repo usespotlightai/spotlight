@@ -1,4 +1,6 @@
-export class AnswerGradingError extends Error {
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+
+export class AnswerGradingError extends ApplicationError {
   readonly kind = 'upstream-error' as const;
 
   constructor() {

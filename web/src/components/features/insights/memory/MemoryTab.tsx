@@ -49,7 +49,6 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
             label={tile.label}
             value={tile.value}
             detail={tile.detail}
-            tooltip={tile.tooltip}
           />
         ))}
       </InsightsTiles>

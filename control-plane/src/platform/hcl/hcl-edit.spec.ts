@@ -90,14 +90,14 @@ const SKILLS: HclReferenceRule = {
   type: 'spotlight_skill',
   attribute: 'key',
   storedAt: 'key',
-  tool: false,
+  suffixed: false,
 };
 
 const TOOLS: HclReferenceRule = {
   type: 'spotlight_integration',
   attribute: 'integration',
   storedAt: 'definition.integration',
-  tool: true,
+  suffixed: true,
 };
 
 const BUILD = {
@@ -144,13 +144,22 @@ const fieldsOf = (
     }),
   );
 
+const ownedBy = (key: string): HclBlockEdit['owner'] => ({
+  noun: 'team',
+  attribute: 'team_id',
+  type: 'spotlight_team',
+  key,
+  label: key,
+  labelOf: (owned) => `${key}_${owned}`,
+});
+
 const editOf = (
   desired: Readonly<Record<string, HclField['expected']>>,
   more: Partial<HclBlockEdit> = {},
   files: Readonly<Record<string, string>> = FILES,
 ): HclBlockEdit => ({
   file: { path: 'teams/core/lines.tf', content: LINES },
-  owner: { attribute: 'team_id', type: 'spotlight_team', key: 'core' },
+  owner: ownedBy('core'),
   resource: { type: 'spotlight_line', key: 'delivery' },
   block: { type: 'station', key: 'build' },
   fields: fieldsOf(BUILD, desired),
@@ -545,11 +554,7 @@ describe('editedHclBlock', () => {
           { model: 'opus' },
           {
             file: { path: 'teams/core/lines.tf', content: growth },
-            owner: {
-              attribute: 'team_id',
-              type: 'spotlight_team',
-              key: 'design',
-            },
+            owner: ownedBy('design'),
           },
         ),
       ),

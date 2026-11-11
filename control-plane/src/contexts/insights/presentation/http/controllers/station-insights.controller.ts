@@ -12,8 +12,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 
 const lastOf = (raw: unknown): number | null => {
   const value = typeof raw === 'string' ? Number(raw) : Number.NaN;

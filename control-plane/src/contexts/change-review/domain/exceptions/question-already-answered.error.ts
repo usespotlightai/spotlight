@@ -1,4 +1,6 @@
-export class QuestionAlreadyAnsweredError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class QuestionAlreadyAnsweredError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor() {

@@ -1,4 +1,6 @@
-export class ExpressionError extends Error {
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+
+export class ExpressionError extends ApplicationError {
   readonly kind = 'invalid' as const;
 
   constructor(source: string, reason: string) {
@@ -7,7 +9,7 @@ export class ExpressionError extends Error {
   }
 }
 
-export class ExpressionFailedError extends Error {
+export class ExpressionFailedError extends ApplicationError {
   readonly kind = 'invalid' as const;
 
   constructor(

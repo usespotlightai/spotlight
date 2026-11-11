@@ -12,6 +12,11 @@ export interface ConfigFileChange {
   readonly content: string;
 }
 
+export interface ConfigFileContent {
+  readonly path: string;
+  readonly content: string;
+}
+
 export interface ConfigCommit {
   readonly branch: string;
   readonly base: string;
@@ -29,7 +34,7 @@ export interface ConfigPullRequestOpening {
 export interface OpenedConfigPullRequest {
   readonly url: string;
   readonly number: number;
-  readonly gitHubId: number;
+  readonly hostId: number;
   readonly repository: string;
 }
 
@@ -53,12 +58,12 @@ export interface ConfigRepositoryPort {
     commit?: string,
   ): Promise<ConfigFile | null>;
 
-  filesIn(
+  filesUnder(
     workspaceId: WorkspaceId,
     repository: Repository,
     directory: string,
     commit: string,
-  ): Promise<readonly string[]>;
+  ): Promise<readonly ConfigFileContent[]>;
 
   committed(
     workspaceId: WorkspaceId,

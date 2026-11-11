@@ -44,7 +44,7 @@ export class UpdateSecretHandler
         return null;
       }
 
-      if (!permissions.managesSecrets) {
+      if (!permissions.scopes.has('secrets')) {
         return forbiddenTo('secrets');
       }
 
@@ -62,7 +62,9 @@ export class UpdateSecretHandler
         this.clock.now(),
       );
 
-      await this.transaction.inTransaction(() => this.secrets.save(updated));
+      if (updated !== existing) {
+        await this.transaction.inTransaction(() => this.secrets.save(updated));
+      }
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {

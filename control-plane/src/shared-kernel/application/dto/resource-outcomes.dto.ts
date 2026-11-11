@@ -1,12 +1,11 @@
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import type { Permission } from '@shared-kernel/domain/value-objects/permission';
 
 export interface Invalid {
   readonly outcome: 'invalid';
   readonly problems: readonly ConfigurationProblem[];
 }
 
-export type ForbiddenAct = Exclude<Permission, 'read'>;
+export type ForbiddenAct = string;
 
 export interface Forbidden {
   readonly outcome: 'forbidden';

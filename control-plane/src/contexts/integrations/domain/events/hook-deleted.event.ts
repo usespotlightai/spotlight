@@ -5,7 +5,7 @@ import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/co
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class HookDeleted implements ConfigurationChanged {
-  readonly kind = 'integrations.hook-deleted';
+  readonly kind = 'hook.deleted';
 
   constructor(
     readonly id: HookDefinitionId,

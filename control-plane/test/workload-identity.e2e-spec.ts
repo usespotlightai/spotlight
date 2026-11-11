@@ -20,6 +20,7 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { requestedBySpec } from './support/runs';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -100,6 +101,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     const id = randomUUID();
 
     await db.insert(schema.run).values({
+      ...requestedBySpec(id),
       id,
       workspaceId,
       harness: 'dev',
@@ -110,7 +112,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        resume: { key: 'task:station' },
+        resume: {},
       },
     });
 

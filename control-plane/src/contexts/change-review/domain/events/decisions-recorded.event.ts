@@ -4,7 +4,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export class DecisionsRecorded implements DomainEvent {
-  readonly kind = 'decisions.recorded';
+  readonly kind = 'decision-set.recorded';
 
   constructor(
     readonly setId: DecisionSetId,

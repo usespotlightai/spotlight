@@ -36,6 +36,7 @@ export function NewReviewComment({ spot, open }: NewReviewCommentProps) {
             {
               teamId: reviewing.teamId,
               runId: reviewing.runId,
+              repository: reviewing.repository,
               body,
               on: spot,
             },

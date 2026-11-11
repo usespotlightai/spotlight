@@ -1,7 +1,7 @@
 import {
   HOOK_ON_FAILURES,
   Hook,
-} from '@integrations/domain/entities/hook.entity';
+} from '@integrations/domain/value-objects/hook.vo';
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HookMatchDto,

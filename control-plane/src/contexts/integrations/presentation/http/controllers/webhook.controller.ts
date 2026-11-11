@@ -1,5 +1,8 @@
-import { AcceptDeliveryCommand } from '@integrations/application/commands/accept-delivery.command';
-import { WebhookGuard } from '@integrations/presentation/http/guards/webhook.guard';
+import {
+  AcceptDeliveryCommand,
+  type DeliveryAddress,
+} from '@integrations/application/commands/accept-delivery.command';
+import type { DeliveryReceipt } from '@integrations/application/dto/delivery-receipt.dto';
 import {
   Body,
   Controller,
@@ -9,17 +12,18 @@ import {
   Post,
   Req,
   Res,
-  UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
+import { CAUSE_HEADER } from '@platform/http/cause-header';
+import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
-import { TEAM_DELIVERIES, WEBHOOKS } from '@platform/http/routes';
+
+type DeliveryHeaders = Record<string, string | string[] | undefined>;
 
 interface Delivering {
   readonly rawBody?: Uint8Array;
-  readonly deliveredTo?: { workspaceId: string; teamId: string };
-  readonly answered?: string | null;
 }
 
 interface Answerable {
@@ -27,27 +31,35 @@ interface Answerable {
   send(body?: string): void;
 }
 
+const causeIn = (headers: DeliveryHeaders): string | null => {
+  const named = headers[CAUSE_HEADER];
+  const cause = Array.isArray(named) ? named[0] : named;
+
+  return cause?.trim() || null;
+};
+
 @ApiTags('webhooks')
-@Controller(WEBHOOKS)
+@Controller('webhooks')
 export class WebhookController {
   constructor(private readonly commandBus: CommandBus) {}
 
   // Keep this route before `:integration`. If not, `w` matches as an integration name.
-  @Post(TEAM_DELIVERIES)
+  @AcceptsLargeBody()
+  @Post('w/:slug/t/:teamKey/:integration')
   @AllowAnonymous()
-  @UseGuards(WebhookGuard)
   @ApiExcludeEndpoint()
   async deliveredToTeam(
-    @Param('integration') integration: string,
+    @Param('slug') slug: string,
     @Param('teamKey') teamKey: string,
-    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('integration') integration: string,
+    @Headers() headers: DeliveryHeaders,
     @Body() body: unknown,
     @Req() request: Delivering,
     @Res() response: Answerable,
   ): Promise<void> {
     await this.take(
       integration,
-      { ...(request.deliveredTo ?? { workspaceId: '', teamId: '' }), teamKey },
+      { slug, teamKey },
       headers,
       body,
       request,
@@ -55,53 +67,45 @@ export class WebhookController {
     );
   }
 
+  @AcceptsLargeBody()
   @Post(':integration')
   @AllowAnonymous()
-  @UseGuards(WebhookGuard)
   @ApiExcludeEndpoint()
   async delivered(
     @Param('integration') integration: string,
-    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Headers() headers: DeliveryHeaders,
     @Body() body: unknown,
     @Req() request: Delivering,
     @Res() response: Answerable,
   ): Promise<void> {
-    await this.take(
-      integration,
-      { workspaceId: '', teamId: '', teamKey: '' },
-      headers,
-      body,
-      request,
-      response,
-    );
+    await this.take(integration, null, headers, body, request, response);
   }
 
   private async take(
     integration: string,
-    at: { workspaceId: string; teamId: string; teamKey: string },
-    headers: Record<string, string | string[] | undefined>,
+    addressedTo: DeliveryAddress | null,
+    headers: DeliveryHeaders,
     body: unknown,
     request: Delivering,
     response: Answerable,
   ): Promise<void> {
-    if (request.answered != null) {
-      response.status(HttpStatus.OK).send(request.answered);
-      return;
-    }
-
-    await this.commandBus.execute(
+    const receipt: DeliveryReceipt = await this.commandBus.execute(
       new AcceptDeliveryCommand(
         integration,
-        at.workspaceId,
-        at.teamId,
-        at.teamKey,
-        {
-          headers,
-          body,
-          raw: request.rawBody ?? null,
-        },
+        addressedTo,
+        { headers, body, raw: request.rawBody ?? null },
+        causeIn(headers),
       ),
     );
+
+    if (receipt.kind === 'refused') {
+      throw new UnauthorizedException();
+    }
+
+    if (receipt.kind === 'answered') {
+      response.status(HttpStatus.OK).send(receipt.body);
+      return;
+    }
 
     response.status(HttpStatus.NO_CONTENT).send();
   }

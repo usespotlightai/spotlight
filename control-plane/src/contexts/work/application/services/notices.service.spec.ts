@@ -1,4 +1,3 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -7,8 +6,10 @@ import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.
 import type { NoticeOf } from '@work/application/ports/notices.port';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import type { Notice } from '@work/domain/aggregates/notice.aggregate';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
+import type { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
@@ -30,7 +31,7 @@ class InMemoryNotices implements NoticeRepository {
     teamId: TeamId,
     addressee: UserId | null,
     form: string,
-    subject: string,
+    subject: NoticeSubject,
   ) =>
     [...this.stored.values()].find(
       (each) =>
@@ -39,15 +40,14 @@ class InMemoryNotices implements NoticeRepository {
           ? each.addressee === addressee
           : each.addressee.equals(addressee)) &&
         each.form === form &&
-        each.subject === subject,
+        each.subject.equals(subject),
     ) ?? null;
 
-  deleteForTeam = async (teamId: TeamId) => {
-    for (const [id, each] of this.stored) {
-      if (each.teamId.equals(teamId)) {
-        this.stored.delete(id);
-      }
-    }
+  ofTeam = async (teamId: TeamId) =>
+    [...this.stored.values()].filter((each) => each.teamId.equals(teamId));
+
+  remove = async (notice: Notice) => {
+    this.stored.delete(notice.id.value);
   };
 }
 
@@ -55,18 +55,9 @@ let next = 0;
 
 const members = new Set<string>();
 
-const access = {
-  onTeam: async (teamId: string, viewer: UserId) =>
-    members.has(`${teamId}:${viewer.value}`)
-      ? {
-          workspaceId: WorkspaceId.of('ws_1'),
-          slug: 'acme',
-          viewer,
-          isAdmin: false,
-          teamId: TeamId.of(teamId),
-        }
-      : null,
-} as unknown as WorkspaceAccessPort;
+const access = workAccessSeeing((teamId: TeamId, viewer: UserId) =>
+  members.has(`${teamId.value}:${viewer.value}`),
+);
 
 const noticesOver = (memory: InMemoryNotices) =>
   new Notices(
@@ -120,12 +111,6 @@ describe('Notices', () => {
     });
 
     expect(memory.stored.size).toBe(2);
-  });
-
-  it('rejects a form it does not know', async () => {
-    await expect(
-      noticesOver(new InMemoryNotices()).create({ ...STALLED, form: 'gossip' }),
-    ).rejects.toThrow('Notice form must be one of');
   });
 
   it('deletes the notices of a deleted team, and only those', async () => {

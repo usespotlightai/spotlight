@@ -5,8 +5,11 @@ import type {
   RunContext,
   TouchedContext,
 } from '@memory/domain/value-objects/run-context';
-import { distinct } from '@shared-kernel/domain/services/distinct';
+import { distinct } from '@shared-kernel/domain/distinct';
+import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const MAX_PATHS = 20;
@@ -14,21 +17,21 @@ const MAX_PATHS = 20;
 export class MemoryScope {
   private constructor(
     readonly teamId: TeamId,
-    readonly lineId: string | null,
-    readonly stationId: string | null,
+    readonly lineId: LineId | null,
+    readonly stationId: StationId | null,
     readonly repository: Repository | null,
     readonly paths: readonly MemoryPath[],
   ) {}
 
   static of(input: {
     teamId: TeamId;
-    lineId?: string | null;
-    stationId?: string | null;
+    lineId?: LineId | null;
+    stationId?: StationId | null;
     repository?: Repository | null;
     paths?: readonly MemoryPath[];
   }): MemoryScope {
-    const lineId = input.lineId?.trim() || null;
-    const stationId = input.stationId?.trim() || null;
+    const lineId = input.lineId ?? null;
+    const stationId = input.stationId ?? null;
     const repository = input.repository ?? null;
     const paths = distinct(input.paths ?? []);
 
@@ -52,11 +55,14 @@ export class MemoryScope {
       return false;
     }
 
-    if (this.lineId && this.lineId !== runContext.lineId) {
+    if (this.lineId && !sameOrBothNone(this.lineId, runContext.lineId)) {
       return false;
     }
 
-    if (this.stationId && this.stationId !== runContext.stationId) {
+    if (
+      this.stationId &&
+      !sameOrBothNone(this.stationId, runContext.stationId)
+    ) {
       return false;
     }
 
@@ -102,8 +108,8 @@ export class MemoryScope {
   equals(other: MemoryScope): boolean {
     return (
       this.teamId.equals(other.teamId) &&
-      this.lineId === other.lineId &&
-      this.stationId === other.stationId &&
+      sameOrBothNone(this.lineId, other.lineId) &&
+      sameOrBothNone(this.stationId, other.stationId) &&
       (this.repository === null
         ? other.repository === null
         : other.repository !== null &&

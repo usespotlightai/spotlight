@@ -189,6 +189,19 @@ describe('Conversation', () => {
     ).toBeTruthy();
   });
 
+  it('shows what the station said in an older turn', () => {
+    showing([
+      note(0, AT),
+      { ...note(1, LATER), voice: 'person', body: 'Go ahead' },
+      note(2, LATER),
+    ]);
+
+    expect(screen.getAllByLabelText('What Backlog said')).toHaveLength(2);
+    expect(
+      screen.queryByRole('button', { name: /note 0/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it('lets only the notes that come later arrive, not the ones it opened with', () => {
     const conversation = (notes: Note[]) => (
       <MemoryRouter>

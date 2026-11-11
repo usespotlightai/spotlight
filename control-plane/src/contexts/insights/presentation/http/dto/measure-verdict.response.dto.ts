@@ -1,5 +1,5 @@
+import type { MeasureVerdictDto } from '@insights/application/dto/read-model.dto';
 import {
-  type MeasureVerdict,
   MIN_MEASURED_RUNS,
   VERDICTS,
 } from '@insights/domain/services/change-verdict';
@@ -66,7 +66,7 @@ export class MeasureVerdictResponseDto {
   })
   readonly change: DeltaResponseDto | null;
 
-  constructor(verdict: MeasureVerdict) {
+  constructor(verdict: MeasureVerdictDto) {
     this.measure = verdict.measure;
     this.before = verdict.before;
     this.after = verdict.after;

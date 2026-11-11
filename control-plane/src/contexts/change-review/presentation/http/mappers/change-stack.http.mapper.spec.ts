@@ -59,12 +59,21 @@ describe('ChangeStackHttpMapper', () => {
                         reply: null,
                         verdict: 'missed',
                         feedback: null,
-                        expected: 'The address the admin typed.',
+                        expected: null,
+                        outdated: true,
                       },
                     },
                   ],
+                  revision: { status: 'modified', previous: 'c1.l2' },
                 },
               ],
+            },
+          ],
+          removed: [
+            {
+              previous: 'c1.l2',
+              cohort: 'Invitations',
+              title: 'Add invite emails',
             },
           ],
           check: null,
@@ -90,11 +99,16 @@ describe('ChangeStackHttpMapper', () => {
             reply: null,
             verdict: 'missed',
             feedback: null,
-            expected: 'The address the admin typed.',
+            expected: null,
+            outdated: true,
           },
         },
       ],
+      revision: { status: 'modified', previous: 'c1.l2' },
     });
+    expect(JSON.parse(JSON.stringify(response.stacks[0]?.removed))).toEqual([
+      { previous: 'c1.l2', cohort: 'Invitations', title: 'Add invite emails' },
+    ]);
   });
 
   it('maps what the check ran and what each step printed', () => {
@@ -115,10 +129,12 @@ describe('ChangeStackHttpMapper', () => {
           completedAt: null,
           files: [],
           cohorts: [],
+          removed: [],
           check: {
             command: 'npm test',
             status: 'checked',
-            reason: null,
+            skip: null,
+            wholeFailed: true,
             whole: step,
             layers: [step],
           },
@@ -129,7 +145,8 @@ describe('ChangeStackHttpMapper', () => {
     expect(JSON.parse(JSON.stringify(response.stacks[0]?.check))).toEqual({
       command: 'npm test',
       status: 'checked',
-      reason: null,
+      reason:
+        'The finished change fails the check. Spotlight didn’t check its layers one by one.',
       whole: step,
       layers: [step],
     });

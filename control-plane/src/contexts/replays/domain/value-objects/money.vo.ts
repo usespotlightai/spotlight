@@ -58,6 +58,14 @@ export class Money {
     return new Money(this.micros + other.micros, this.currency);
   }
 
+  leftUnder(ceiling: Money): Money {
+    if (!this.sameCurrencyAs(ceiling)) {
+      throw new InvalidMoneyError('can only be compared in one currency');
+    }
+
+    return new Money(Math.max(0, ceiling.micros - this.micros), this.currency);
+  }
+
   scaled(parts: number, of: number): Money {
     if (
       !Number.isInteger(parts) ||

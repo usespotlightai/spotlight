@@ -4,6 +4,7 @@ import type { SecretNamesPort } from '@configuration/application/ports/secret-na
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import type { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
+import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
@@ -41,8 +42,8 @@ export class UpdateHarnessProfileHandler
       const existing = await this.profiles.withId(id);
       loaded = existing;
       const permissions = existing
-        ? await this.access.permissionsOnTeam(
-            existing.teamId.value,
+        ? await this.access.permissionsInWorkspaceOfTeam(
+            existing.teamId,
             command.actor.principal,
           )
         : null;
@@ -57,7 +58,7 @@ export class UpdateHarnessProfileHandler
 
       existing.assertVersion(command.expectedVersion);
 
-      const compiled = this.compiler.compile(command.definition);
+      const compiled = this.compiler.parse(command.definition);
 
       if (!compiled.ok) {
         return { outcome: 'invalid', problems: compiled.problems };
@@ -69,6 +70,7 @@ export class UpdateHarnessProfileHandler
             compiled,
             ChangeActor.of(command.actor, permissions.workspaceId),
             await this.secrets.ofTeam(existing.teamId),
+            this.compiler,
           ),
         ),
       );
@@ -81,6 +83,16 @@ export class UpdateHarnessProfileHandler
         return current
           ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
+      }
+
+      if (error instanceof IncompatibleHarnessProfileError) {
+        return {
+          outcome: 'invalid',
+          problems: HarnessProfileProblems.incompatible(
+            error.key,
+            error.incompatibilities,
+          ),
+        };
       }
 
       if (error instanceof MissingSecretsError) {

@@ -10,9 +10,9 @@ export const defined = (
   generated: { hash: string; tools: readonly string[] } | null = null,
 ): DefinedIntegration => {
   const definition = parseYaml(text);
-  const compiled = compileIntegration(definition, expressions);
+  const compiled = compileIntegration(definition, expressions, null);
   const handWritten = compiled.ok
-    ? compiled.readable.integration.tools.map((each) => each.tool)
+    ? compiled.readable.integration.writtenTools.map((each) => each.tool.value)
     : [];
 
   return {

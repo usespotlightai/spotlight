@@ -1,0 +1,214 @@
+import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
+import type {
+  RunTurnsPort,
+  TurnFacts,
+  TurnsCursor,
+} from '@runs/application/ports/run-turns.port';
+import type { RunsPort } from '@runs/application/ports/runs.port';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type {
+  DueRetake,
+  TurnRetakesPort,
+} from '@work/application/ports/turn-retakes.port';
+import type { TakeTurn } from '@work/application/services/take-turn.service';
+import { WorkRequesters } from '@work/application/services/work-requesters';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
+import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { checkoutsOf } from '@work/domain/services/task-checkouts';
+import { TurnWait } from '@work/domain/services/turn-wait';
+
+const MINUTE_MS = 60_000;
+
+const PAGE = 100;
+
+export const STUCK_TURNS_METRIC = 'spotlight.turns.stuck';
+
+export class Turns {
+  constructor(
+    private readonly turns: RunTurnsPort,
+    private readonly retakes: TurnRetakesPort,
+    private readonly facts: RunFactsPort,
+    private readonly runs: RunsPort,
+    private readonly dispatches: DispatchRepository,
+    private readonly tasks: TaskRepository,
+    private readonly lines: LineMapsPort,
+    private readonly taking: TakeTurn,
+    private readonly clock: ClockPort,
+    private readonly ids: IdGeneratorPort,
+    private readonly telemetry: TelemetryPort,
+    private readonly logger: LoggerPort,
+  ) {}
+
+  async retakePending(): Promise<void> {
+    const now = this.clock.now();
+
+    for await (const turn of this.olderThan(
+      'pending',
+      TurnWait.firstRetakeAfter(now),
+    )) {
+      const checkedAt = await this.retakes.checkedAt(
+        turn.runId,
+        turn.suspendedAt,
+      );
+      const check = TurnWait.checkOf(turn.suspendedAt, checkedAt, now);
+
+      if (
+        (check.retakes || check.givesUp) &&
+        (await this.retakes.claim({
+          runId: turn.runId,
+          suspendedAt: turn.suspendedAt,
+          attempt: turn.attempt,
+          from: checkedAt,
+          to: now,
+          retakes: check.retakes,
+        })) &&
+        check.givesUp
+      ) {
+        this.telemetry.count(STUCK_TURNS_METRIC);
+        this.logger.error(
+          { runId: turn.runId.value, suspendedAt: turn.suspendedAt },
+          'A run has waited a day for Spotlight to decide its turn; an operator must look at it',
+        );
+      }
+    }
+
+    await this.performDueRetakes();
+  }
+
+  async resumeAnswered(): Promise<void> {
+    const now = this.clock.now();
+    const answered = await this.tasks.withTurnAnsweredBetween(
+      TurnWait.answeredResumeUntil(now),
+      new Date(now.getTime() - TurnWait.ANSWER_GRACE_MS),
+    );
+    const facts = new Map(
+      (
+        await this.facts.of(
+          answered.flatMap((task) =>
+            task.currentRunId ? [task.currentRunId] : [],
+          ),
+        )
+      ).map((each) => [each.runId.value, each]),
+    );
+
+    for (const task of answered) {
+      const run = task.currentRunId ? facts.get(task.currentRunId.value) : null;
+
+      if (run?.turn !== 'kept' || !task.takesUp(run.runId)) {
+        continue;
+      }
+
+      const line = await this.lines.findByStation(task.stationId);
+
+      await this.runs.resume(
+        run.runId,
+        run.attempt,
+        'answered',
+        RunCheckoutsMapper.toRun(line ? checkoutsOf(task, line) : []),
+      );
+    }
+  }
+
+  async cancelAbandoned(): Promise<void> {
+    for await (const turn of this.olderThan(
+      'kept',
+      new Date(this.clock.now().getTime() - TurnWait.ABANDONED_AFTER_MS),
+    )) {
+      const subject = (await this.dispatches.find(turn.runId))?.subject;
+      const task =
+        subject?.kind === 'task' ? await this.tasks.find(subject.taskId) : null;
+
+      if (!task?.hasCurrentRun(turn.runId)) {
+        await this.runs.cancel(
+          turn.runId,
+          'Task moved on before a runner claimed the run.',
+        );
+      }
+    }
+  }
+
+  async forgetOldRetakes(): Promise<void> {
+    await this.retakes.forgetSuspendedBefore(
+      TurnWait.retakesKeptAfter(this.clock.now()),
+    );
+  }
+
+  private async performDueRetakes(): Promise<void> {
+    for (let performed = 0; performed < PAGE; performed += 1) {
+      const leasedAt = this.clock.now();
+      const retake = await this.retakes.leaseNextDue({
+        token: this.ids.generate(),
+        now: leasedAt,
+        leasedUntil: TurnWait.retakeLeasedUntil(leasedAt),
+        maxTries: TurnWait.RETAKE_TRIES,
+      });
+
+      if (!retake) {
+        return;
+      }
+
+      if (await this.retaken(retake)) {
+        await this.retakes.retaken(retake);
+      } else {
+        await this.retakes.retakeFailed(
+          retake,
+          TurnWait.retakeRetryAt(this.clock.now(), retake.tries),
+        );
+      }
+    }
+  }
+
+  private async retaken(retake: DueRetake): Promise<boolean> {
+    try {
+      await this.taking.take(retake.runId, retake.attempt);
+      return true;
+    } catch (error) {
+      if (TurnWait.retakesExhausted(retake.tries)) {
+        this.logger.error(
+          { err: error, runId: retake.runId.value, tries: retake.tries },
+          'The turn of a run could not be decided again after every try; an operator must look at it',
+        );
+      } else {
+        this.logger.warn(
+          { err: error, runId: retake.runId.value },
+          'The turn of a run could not be decided again; it is tried later',
+        );
+      }
+      return false;
+    }
+  }
+
+  private async *olderThan(
+    state: 'pending' | 'kept',
+    before: Date,
+  ): AsyncGenerator<TurnFacts> {
+    let after: TurnsCursor | null = null;
+
+    for (;;) {
+      const page = await this.turns.olderThan(
+        WorkRequesters.owner,
+        state,
+        before,
+        after,
+        PAGE,
+      );
+
+      yield* page;
+
+      const last = page[page.length - 1];
+
+      if (!last || page.length < PAGE) {
+        return;
+      }
+
+      after = { suspendedAt: last.suspendedAt, runId: last.runId };
+    }
+  }
+}
+
+export const TURNS_EVERY_MS = MINUTE_MS;

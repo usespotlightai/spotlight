@@ -3,6 +3,7 @@ import type { IntegrationResourceDto } from '@integrations/application/dto/integ
 import type { IntegrationResourcesPort } from '@integrations/application/ports/integration-resources.port';
 import type { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
 import type { IntegrationViews } from '@integrations/application/services/integration-views.service';
+import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -20,12 +21,14 @@ export class ReadIntegrationHandler
     query: ReadIntegrationQuery,
   ): Promise<IntegrationResourceDto | null> {
     try {
-      const record = await this.resources.withId(query.integrationId);
+      const record = await this.resources.withId(
+        IntegrationDefinitionId.of(query.integrationId),
+      );
 
       if (
         !record ||
-        !(await this.access.permissionsOnTeam(
-          record.teamId.value,
+        !(await this.access.permissionsInWorkspaceOfTeam(
+          record.teamId,
           query.principal,
         ))
       ) {

@@ -1,17 +1,15 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import {
-  RunSpecContract,
-  TRACE_PARENT_VAR,
-} from '@work/application/contracts/run-spec.contract';
+import { RunSpecPartsMapper } from '@work/application/mappers/run-spec-parts.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { ControlPlaneReleasePort } from '@work/application/ports/control-plane-release.port';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { SavepointPort } from '@work/application/ports/savepoint.port';
 import {
   type BriefedMemory,
   type MemoryFolder,
@@ -21,40 +19,44 @@ import {
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
-import type { ChatDispatching } from '@work/application/services/chat-dispatch';
+import type {
+  ChatToolExtensions,
+  OfferedChatTool,
+} from '@work/application/services/chat-tool-extensions.service';
+import {
+  type OrderedRun,
+  runOrderOf,
+} from '@work/application/services/ordered-run';
 import { chatWords } from '@work/application/services/remembering-words';
-import type { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { builtInToolsForChat } from '@work/domain/services/built-in-tools';
+import { WorkRequesters } from '@work/application/services/work-requesters';
+import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import {
   chatPlacement,
   chatSetupOf,
 } from '@work/domain/services/chat-placement';
-import { CHAT_PRIORITY } from '@work/domain/services/chat-priority';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import { builtInToolsForChat } from '@work/domain/value-objects/built-in-tools';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
-import {
-  REMOTE_VIA_GIT_PROXY,
-  RunSpec,
-} from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+
+export interface ChatDispatching {
+  takenUp(chat: Chat): Promise<Chat>;
+}
 
 export class DispatchChat implements ChatDispatching {
   constructor(
-    private readonly runs: RunRepository,
     private readonly ids: IdGeneratorPort,
     private readonly launch: HarnessLaunchPort,
     private readonly tracing: TraceParentPort,
     private readonly teams: TeamDirectoryPort,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly clock: ClockPort,
     private readonly memories: TeamMemoriesPort,
     private readonly logger: LoggerPort,
     private readonly savepoint: SavepointPort,
     private readonly spotlightUrl: string,
     private readonly controlPlane: ControlPlaneReleasePort,
+    private readonly extensions: ChatToolExtensions,
   ) {}
 
   async takenUp(chat: Chat): Promise<Chat> {
@@ -68,11 +70,11 @@ export class DispatchChat implements ChatDispatching {
       : chat;
   }
 
-  async enqueue(
+  async ordered(
     chat: Chat,
     runId: RunId,
     handed: readonly MessagePosition[],
-  ): Promise<boolean> {
+  ): Promise<OrderedRun | null> {
     const command = this.launch.commandFor(chat.harness, {
       model: chat.model,
       effort: chat.effort,
@@ -80,7 +82,7 @@ export class DispatchChat implements ChatDispatching {
 
     if (!command) {
       this.notDispatched(chat, runId, 'harness-has-no-command');
-      return false;
+      return null;
     }
 
     const resume = chat.resume();
@@ -91,10 +93,10 @@ export class DispatchChat implements ChatDispatching {
 
     if (!placement) {
       this.notDispatched(chat, runId, 'no-placement');
-      return false;
+      return null;
     }
 
-    const memories = resume.sessionId
+    const memories = resume.session
       ? NOTHING_REMEMBERED
       : await this.savepoint
           .inSavepoint(() =>
@@ -114,55 +116,76 @@ export class DispatchChat implements ChatDispatching {
             );
             return NOTHING_REMEMBERED;
           });
-    const briefing = resume.sessionId
+    const offered = await this.extensions.offeredTo(chat);
+    const briefing = resume.session
       ? ChatBriefing.followUp(chat, handed)
-      : await this.briefed(chat, memories.briefed, memories.folder);
+      : await this.briefed(chat, memories.briefed, memories.folder, offered);
 
-    const queued = Run.enqueue({
+    const order = runOrderOf({
       id,
       workspaceId: chat.workspaceId,
       harness: chat.harness,
-      priority: CHAT_PRIORITY,
-      subject: RunSubject.chat(chat.id),
+      priority: RunPriority.chat,
+      requester: WorkRequesters.chat(chat.id, chat.teamId),
+      policy: WorkRequesters.chatPolicy,
+      workingCopy: WorkRequesters.chatWorkingCopy(chat.id),
+      apiGrant: chat.setup
+        ? {
+            actingFor: chat.startedBy.value,
+            scopes: [...Chat.RUN_API_GRANT.scopes],
+            lifetimeMs: Chat.RUN_API_GRANT.lifetimeMs,
+          }
+        : null,
+      tags: {},
+      line: null,
       placement,
-      briefedWith: BriefedMemories.of({
-        briefed: memories.briefed,
-        omitted: memories.omitted,
-      }),
-      spec: RunSpec.of({
+      refusals: [],
+      spec: {
         checkouts: chat.repositories.map((repository) => {
           const setup = chatSetupOf(repository, lines);
 
-          return {
-            remote: REMOTE_VIA_GIT_PROXY,
+          return RunSpecPartsMapper.proxiedCheckout({
             path: repository.name,
-            ...(setup ? { setup: setup.value } : {}),
-          };
+            branch: null,
+            ref: null,
+            diffOf: null,
+            setup,
+          });
         }),
-        command: command.started({
-          [TRACE_PARENT_VAR]: this.tracing.forChat(chat.id, id),
-        }),
+        command: RunSpecPartsMapper.traced(
+          command,
+          this.tracing.forChat(chat.id, id),
+        ),
         briefing,
         handover: { options: [], noteLimit: 0 },
-        resume: RunSpecContract.resumeOf(resume),
-        manifest: builtInToolsForChat({
-          settingUp: chat.setup !== null,
-          improving: chat.targetStation !== null,
-        }).map((each) => toolManifestOf(each.declared)),
+        resume: RunSpecPartsMapper.resume(resume),
+        manifest: [
+          ...builtInToolsForChat({ settingUp: chat.setup !== null }).map(
+            (each) => each.declared,
+          ),
+          ...offered.map((each) => each.declared),
+        ].map(toolManifestOf),
         attachments: Attached.shapes(chat.sharedAttachments),
         ...(chat.setup ? { spotlightApi: true } : {}),
-      }),
+      },
     });
 
-    await this.runs.add(queued);
-
-    return true;
+    return {
+      order,
+      briefedTask: null,
+      briefedMemories: BriefedMemories.of({
+        briefed: memories.briefed,
+        omitted: memories.omitted,
+      }),
+      configuredAs: null,
+    };
   }
 
   private async briefed(
     chat: Chat,
     memories: readonly BriefedMemory[],
     memoryFolder: MemoryFolder | null,
+    offered: readonly OfferedChatTool[],
   ): Promise<string> {
     const team = await this.teams.find(chat.teamId);
     const lines = await this.lines.ofTeam(chat.teamId);
@@ -175,6 +198,7 @@ export class DispatchChat implements ChatDispatching {
       memoryFolder,
       spotlightUrl: this.spotlightUrl,
       release: Release.published(this.controlPlane.release),
+      extensions: offered.flatMap((each) => each.briefing ?? []),
     });
   }
 

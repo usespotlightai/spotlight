@@ -1,8 +1,8 @@
-import type { Line } from '@work/domain/aggregates/line.aggregate';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { Station } from '@work/domain/entities/station.entity';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
-import type { HappeningPayload } from '@work/domain/value-objects/happening.vo';
+import type { HappeningPayload } from '@work/domain/value-objects/happening-payload';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
@@ -10,13 +10,13 @@ import type {
   ReviewRequest,
   ReviewRequestReceived,
 } from '@work/domain/value-objects/review-request.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 
 interface OutcomeNote {
-  readonly station: StationName;
+  readonly line: LineMap;
   readonly body: TaskNoteBody;
   readonly anchor: Anchor | null;
 }
@@ -37,7 +37,7 @@ export interface Opening {
 }
 
 export interface OpenedOn {
-  readonly line: Line;
+  readonly line: LineMap;
   readonly opening: Opening;
 }
 
@@ -55,10 +55,13 @@ const spotlights = (
   branchTask !== null ||
   (pullRequestTask !== null && !pullRequestTask.reviewing);
 
+export const movedTo = (outcome: Outcome): StationId | null =>
+  outcome.kind === 'moves' ? outcome.to.id : null;
+
 export const ReactionFor = {
   happened(input: {
     task: Task;
-    line: Line;
+    line: LineMap;
     payload: HappeningPayload;
     anchor: Anchor | null;
   }): Outcome {
@@ -73,12 +76,11 @@ export const ReactionFor = {
     const here = input.line.stationAt(input.task.stationId);
 
     const note = (
-      station: StationName,
       body = TaskNoteBody.receivedHappening(
         input.payload.summary,
         input.anchor,
       ),
-    ): OutcomeNote => ({ station, body, anchor: input.anchor });
+    ): OutcomeNote => ({ line: input.line, body, anchor: input.anchor });
 
     if (rule) {
       const destination = input.line.stationAt(rule.to);
@@ -87,18 +89,22 @@ export const ReactionFor = {
         return { kind: 'nothing' };
       }
 
-      if (!destination.id.equals(input.task.stationId)) {
-        const station = here?.name ?? StationName.unknown();
+      if (
+        input.payload.closedPullRequest &&
+        input.task.openPullRequests.length > 0
+      ) {
+        return { kind: 'stays', ...note() };
+      }
 
+      if (!destination.id.equals(input.task.stationId)) {
         if (input.task.movableByHappeningTo(input.line, destination.id)) {
-          return { kind: 'moves', to: destination, ...note(station) };
+          return { kind: 'moves', to: destination, ...note() };
         }
 
         return input.line.completed.id.equals(destination.id)
           ? {
               kind: 'interrupts',
               ...note(
-                station,
                 TaskNoteBody.interrupted(
                   input.payload.summary,
                   here?.name ?? null,
@@ -108,7 +114,7 @@ export const ReactionFor = {
           : {
               kind: 'deferredMove',
               to: destination,
-              ...note(station),
+              ...note(),
             };
       }
     }
@@ -117,22 +123,22 @@ export const ReactionFor = {
     if (here && pending && input.payload.answers && input.anchor) {
       return {
         kind: 'answers',
-        to: NotePosition.of(pending.from),
-        ...note(here.name),
+        to: pending.from,
+        ...note(),
       };
     }
 
     return rule && here && !(input.payload.answers && !input.anchor)
-      ? { kind: 'stays', ...note(here.name) }
+      ? { kind: 'stays', ...note() }
       : { kind: 'nothing' };
   },
 
   openingOn(input: {
-    lines: readonly Line[];
+    lines: readonly LineMap[];
     opens: OpensWith;
   }): OpenedOn | null {
     const ordered = [...input.lines].sort((one, other) =>
-      one.key.value.localeCompare(other.key.value),
+      one.key.compare(other.key),
     );
 
     for (const line of ordered) {
@@ -148,7 +154,7 @@ export const ReactionFor = {
 
   // pullRequestTask has the mark of the pull request. reviewTask has the mark of a review of the pull request.
   reviewRequested(input: {
-    lines: readonly Line[];
+    lines: readonly LineMap[];
     opens: OpensWith;
     request: ReviewRequest;
     anchor: Anchor | null;
@@ -160,7 +166,7 @@ export const ReactionFor = {
       lines: input.lines,
       opens: input.opens,
       request: {
-        ...input.request,
+        ...input.request.parts,
         anchor: input.anchor,
         ours: spotlights(
           input.request,
@@ -180,19 +186,17 @@ export const ReactionFor = {
   },
 
   reviewOn(input: {
-    lines: readonly Line[];
+    lines: readonly LineMap[];
     opens: OpensWith;
     request: ReviewRequestReceived;
   }): OpenedOn | null {
     const repository = input.request.pullRequest.repository;
-    const named = (line: Line): number =>
+    const named = (line: LineMap): number =>
       repository && line.names(repository) ? 0 : 1;
     const ordered = input.lines
       .filter((line) => line.takesReview(input.request))
       .sort(
-        (one, other) =>
-          named(one) - named(other) ||
-          one.key.value.localeCompare(other.key.value),
+        (one, other) => named(one) - named(other) || one.key.compare(other.key),
       );
 
     for (const line of ordered) {
@@ -206,7 +210,7 @@ export const ReactionFor = {
     return null;
   },
 
-  opening(input: { line: Line; opens: OpensWith }): Opening | null {
+  opening(input: { line: LineMap; opens: OpensWith }): Opening | null {
     if (!input.line.role?.equals(input.opens.lineRole)) {
       return null;
     }

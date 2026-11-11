@@ -1,5 +1,6 @@
 import type {
   ChangeStackResponseDto,
+  JournalledRunResponseDto,
   JournalStepResponseDto,
   NoteResponseDto,
   QuestionAnswerResponseDto,
@@ -630,6 +631,7 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
           state: 'ready',
           failure: null,
           check: null,
+          removed: [],
           files: changes.map((change, place) =>
             file(
               change.path ?? '',
@@ -650,6 +652,7 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
                 hunks: [{ hunk: `${runId}_h${place + 1}` }],
                 notes: [],
                 questions: [],
+                revision: null,
               })),
             },
           ],
@@ -681,6 +684,7 @@ export const answerStackQuestion = (
       ? 'You are right that it takes long. You missed that writes to invoices wait for it.'
       : null,
     expected: EXPECTED[questionId] ?? 'The answer that the hunks show.',
+    outdated: false,
   };
 
   stackAnswers()[`${stackId}/${questionId}`] = answer;
@@ -805,10 +809,23 @@ const journalOf = (run: TaskRunResponseDto): RunJournalResponseDto => {
   };
 };
 
-export const journalsOfTask = (taskId: string): RunJournalResponseDto[] =>
+const journalledRunsOf = (taskId: string): TaskRunResponseDto[] =>
   [...runsOfAnyTask(taskId)]
     .sort((one, other) => one.startedAt.localeCompare(other.startedAt))
-    .filter((run) => run.state !== 'queued')
+    .filter((run) => run.state !== 'queued');
+
+export const journalRunsOfTask = (taskId: string): JournalledRunResponseDto[] =>
+  journalledRunsOf(taskId).map((run) => ({
+    runId: run.id,
+    createdAt: run.startedAt,
+  }));
+
+export const journalOfTaskRun = (
+  taskId: string,
+  runId: string,
+): RunJournalResponseDto[] =>
+  journalledRunsOf(taskId)
+    .filter((run) => run.id === runId)
     .map(journalOf);
 
 export type StoryNote = Omit<NoteResponseDto, 'position'>;

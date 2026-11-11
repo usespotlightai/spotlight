@@ -1,4 +1,6 @@
-export const RUN_USAGE_RECORDED = 'work.run-usage-recorded.v1';
+import type { RunRequesterPublished } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+
+export const RUN_USAGE_RECORDED = 'runs.run-usage-recorded.v1';
 
 type ServerCallsPublished = {
   readonly server: string;
@@ -12,7 +14,8 @@ export type RunUsageRecordedIntegrationEvent = {
   readonly kind: typeof RUN_USAGE_RECORDED;
   readonly runId: string;
   readonly workspaceId: string;
-  readonly taskId: string | null;
+  readonly requester: RunRequesterPublished;
+  readonly listed: boolean;
   readonly ms: number | null;
   readonly steps: number;
   readonly errors: number;
@@ -21,6 +24,11 @@ export type RunUsageRecordedIntegrationEvent = {
   readonly contextWindow: number | null;
   readonly cost: number | null;
   readonly currency: string | null;
+  readonly spentCosts: readonly {
+    readonly amount: number;
+    readonly currency: string;
+  }[];
+  readonly unpricedCalls: number;
   readonly inputTokens: number | null;
   readonly outputTokens: number | null;
   readonly cacheReadTokens: number | null;

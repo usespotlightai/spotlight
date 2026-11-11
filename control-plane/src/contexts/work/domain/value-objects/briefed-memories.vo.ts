@@ -41,7 +41,7 @@ export class BriefedMemories {
       new Set(all.map((each) => each.id)).size !== all.length
     ) {
       throw new InconsistentStateError(
-        'run',
+        'dispatch',
         'was briefed with a memory it cannot name, or the same one twice or both briefed and omitted',
       );
     }

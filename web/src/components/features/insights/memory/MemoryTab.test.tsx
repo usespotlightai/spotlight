@@ -83,7 +83,6 @@ const MEMORY = {
       verdict: 'insufficient',
     },
   ],
-  benchmark: null,
 } as unknown as InsightsMemory;
 
 const showing = () =>
@@ -168,6 +167,6 @@ describe('memory in Insights', () => {
       '/w/acme/team/team_1/memory?memory=memory_1',
     );
     expect(flagged).toHaveTextContent('Ada Lovelace');
-    expect(screen.getByText('No benchmark yet')).toBeInTheDocument();
+    expect(screen.queryByText('No benchmark yet')).not.toBeInTheDocument();
   });
 });

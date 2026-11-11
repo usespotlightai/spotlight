@@ -1,8 +1,8 @@
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ToolDeclaration } from '@work/application/contracts/tools.contract';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import { Tool } from '@work/domain/value-objects/tool.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const TEAM = TeamId.of('team_1');
@@ -20,7 +20,7 @@ describe('TeamIntegrations', () => {
     const provided = vi.fn(async () => [LINEAR]);
     const service = new TeamIntegrations({ provided: provided });
 
-    const tools = await service.provided({ teamId: TEAM } as Line, [
+    const tools = await service.provided({ teamId: TEAM } as LineMap, [
       Tool.of('linear.comment'),
       Tool.of('pull-request'),
     ]);
@@ -37,7 +37,7 @@ describe('TeamIntegrations', () => {
       provided: vi.fn(async () => [{ ...LINEAR, inferredOutput }]),
     });
 
-    const [tool] = await service.provided({ teamId: TEAM } as Line, [
+    const [tool] = await service.provided({ teamId: TEAM } as LineMap, [
       Tool.of('linear.comment'),
     ]);
 
@@ -49,7 +49,7 @@ describe('TeamIntegrations', () => {
     const service = new TeamIntegrations({ provided: provided });
 
     expect(
-      await service.provided({ teamId: TEAM } as Line, [
+      await service.provided({ teamId: TEAM } as LineMap, [
         Tool.of('pull-request'),
       ]),
     ).toEqual([]);

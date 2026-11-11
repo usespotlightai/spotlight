@@ -1,3 +1,4 @@
+import type { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
 import type { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
 import type { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
 
@@ -6,7 +7,7 @@ export class StateVersion {
     readonly id: StateVersionId,
     readonly number: number,
     readonly snapshot: StateSnapshot,
-    readonly writtenBy: string,
+    readonly writtenBy: PrincipalRef,
     readonly writtenAt: Date,
   ) {}
 
@@ -14,7 +15,7 @@ export class StateVersion {
     id: StateVersionId;
     number: number;
     snapshot: StateSnapshot;
-    writtenBy: string;
+    writtenBy: PrincipalRef;
     writtenAt: Date;
   }): StateVersion {
     return new StateVersion(

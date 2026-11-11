@@ -1,13 +1,15 @@
 import type { StackProblem } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { DiffFacts } from '@change-review/domain/services/diff-facts';
+import type { PreviousStack } from '@change-review/domain/services/previous-stack';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
-import type { StackPart } from '@change-review/domain/services/stack-outline';
+import type { StackPart } from '@change-review/domain/services/stack-part';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
+  DraftedCohort,
+  DraftedLayer,
+  DraftedOutline,
   OutlinedCohort,
-  ProposedCohort,
-  ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
@@ -19,10 +21,11 @@ export interface ChangeStackGenerationRequest {
   readonly facts: DiffFacts;
   readonly problems: readonly StackProblem[];
   readonly redraft?: RedraftRequest | null;
+  readonly previous?: PreviousStack | null;
 }
 
 export interface GeneratedChangeStack {
-  readonly cohorts: readonly ProposedCohort[];
+  readonly cohorts: readonly DraftedCohort[];
   readonly usage: ModelCall | null;
 }
 
@@ -32,15 +35,16 @@ export interface CohortLayersRequest {
   readonly cohort: OutlinedCohort;
   readonly problems: readonly StackProblem[];
   readonly redraft?: RedraftRequest | null;
+  readonly previous?: PreviousStack | null;
 }
 
 export interface GeneratedOutline {
-  readonly cohorts: readonly OutlinedCohort[];
+  readonly cohorts: readonly DraftedOutline[];
   readonly usage: ModelCall | null;
 }
 
 export interface GeneratedLayers {
-  readonly layers: readonly ProposedLayer[];
+  readonly layers: readonly DraftedLayer[];
   readonly usage: ModelCall | null;
 }
 

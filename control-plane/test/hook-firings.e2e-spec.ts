@@ -9,11 +9,24 @@ import {
   HOOK_FIRINGS,
   type HookFiringRepository,
 } from '@integrations/domain/repositories/hook-firing.repository';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
+import { Hook } from '@integrations/domain/value-objects/hook.vo';
+import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq } from 'drizzle-orm';
 import {
   afterAll,
@@ -26,6 +39,24 @@ import {
 } from 'vitest';
 import { openApp } from './support/app';
 import * as schema from './support/schema';
+
+const HOOK = Hook.of({
+  key: HookKey.of('audit'),
+  event: HookEvent.of('task.opened'),
+  match: HookMatch.anything(HookEvent.of('task.opened')),
+  steps: [
+    {
+      name: HookStepName.of('tell'),
+      kind: 'request',
+      url: new URL('https://audit.example.com'),
+      headers: [],
+      fromNetwork: true,
+    },
+  ],
+  signing: 'hmac',
+  failure: 'continue',
+  timeoutSeconds: 10,
+});
 
 const OPENED = {
   kind: 'event' as const,
@@ -46,17 +77,17 @@ describe('hook firings, stored in the database (e2e)', () => {
 
   const firing = (occurrence: string, firedAt: Date = NOW): HookFiring =>
     HookFiring.fire({
-      id: randomUUID(),
-      hookId,
-      workspaceId: 'workspace_1',
-      teamId: 'team_1',
-      taskId: 'task_1',
-      runId: null,
-      stationKey: 'triage',
+      id: HookFiringId.of(randomUUID()),
+      hookId: HookDefinitionId.of(hookId),
+      workspaceId: WorkspaceId.of('workspace_1'),
+      teamId: TeamId.of('team_1'),
+      taskId: TaskId.of('task_1'),
+      run: null,
+      stationKey: StationKey.of('triage'),
       on: 'task.opened',
-      occurrence,
+      occurrence: HookOccurrenceKey.of(occurrence),
       firedAt,
-      event: {},
+      event: HookEventFacts.of({ on: 'task.opened' }),
       matched: true,
       cause: CausalChain.none().append(OPENED),
       link: {
@@ -66,8 +97,22 @@ describe('hook firings, stored in the database (e2e)', () => {
       },
     });
 
+  const claimNext = async (now: Date): Promise<HookFiring | null> => {
+    const [next] = (await firings.claimCandidates(now, 20)).filter(
+      (candidate) => candidate.isClaimableAt(now),
+    );
+
+    if (!next) {
+      return null;
+    }
+
+    await firings.save(next.claimed(now));
+
+    return firings.withId(next.id);
+  };
+
   const claimed = async (now: Date = NOW): Promise<HookFiring> => {
-    const next = await firings.claimNext(now);
+    const next = await claimNext(now);
 
     if (!next) {
       throw new Error('nothing was due');
@@ -76,11 +121,11 @@ describe('hook firings, stored in the database (e2e)', () => {
     return next;
   };
 
-  const stateOf = async (id: string) => {
+  const stateOf = async (id: HookFiringId) => {
     const [row] = await db
       .select()
       .from(schema.hookFiring)
-      .where(eq(schema.hookFiring.id, id));
+      .where(eq(schema.hookFiring.id, id.value));
 
     return row?.state;
   };
@@ -106,10 +151,14 @@ describe('hook firings, stored in the database (e2e)', () => {
       on: 'task.opened',
       definition: {},
       tools: [],
+      blocks: false,
     });
   });
 
   afterEach(async () => {
+    await db
+      .delete(schema.hookFiring)
+      .where(eq(schema.hookFiring.hookId, hookId));
     await db
       .delete(schema.hookDefinition)
       .where(eq(schema.hookDefinition.id, hookId));
@@ -126,7 +175,7 @@ describe('hook firings, stored in the database (e2e)', () => {
     const later = at(11 * 60);
     const second = await claimed(later);
 
-    expect(first.id).toBe(second.id);
+    expect(first.id).toEqual(second.id);
 
     await expect(firings.save(first.worked(later))).rejects.toBeInstanceOf(
       HookFiringVersionConflictError,
@@ -150,7 +199,7 @@ describe('hook firings, stored in the database (e2e)', () => {
     await firings.save(finished.worked(NOW));
 
     const old = (await firings.finishedBefore(at(1), 1_000)).filter(
-      (each) => each.hookId === hookId,
+      (each) => each.hookId.value === hookId,
     );
 
     expect(old.map((each) => each.id)).toEqual([finished.id]);
@@ -177,10 +226,12 @@ describe('hook firings, stored in the database (e2e)', () => {
     expect(next.link.key).toBe(`hook:${hookId}:${OPENED.key}`);
     await expect(
       history
-        .chainOf('workspace_1', fired.id)
+        .chainOf(WorkspaceId.of('workspace_1'), fired.id)
         .then((chain) => chain?.description),
     ).resolves.toBe(`${OPENED.description} → the hook opened`);
-    await expect(history.chainOf('workspace_2', fired.id)).resolves.toBeNull();
+    await expect(
+      history.chainOf(WorkspaceId.of('workspace_2'), fired.id),
+    ).resolves.toBeNull();
   });
 
   it('counts the earlier firings of a hook for the same change in the last ten minutes, never later ones', async () => {
@@ -194,10 +245,10 @@ describe('hook firings, stored in the database (e2e)', () => {
     const second = await claimed();
     const third = await claimed();
 
-    expect(oldest.occurrence).toBe('occurrence_6a');
-    expect(second.occurrence).toBe('occurrence_7');
-    await expect(history.recentRepeats(third)).resolves.toBe(2);
-    await expect(history.recentRepeats(first)).resolves.toBe(0);
+    expect(oldest.occurrence.value).toBe('occurrence_6a');
+    expect(second.occurrence.value).toBe('occurrence_7');
+    await expect(history.recentRepeats(third.repeatsOf)).resolves.toBe(2);
+    await expect(history.recentRepeats(first.repeatsOf)).resolves.toBe(0);
   });
 
   it('stores what kind of failure ended a firing, and a superseded one apart from a failed one', async () => {
@@ -236,9 +287,19 @@ describe('hook firings, stored in the database (e2e)', () => {
     await firings.add(firing('occurrence_11'));
     const working = await claimed();
 
-    await firings.save(working.waitUntil(at(2)));
+    const waiting = {
+      name: HookStepName.of('tell'),
+      status: 'waiting' as const,
+      call: 'call_1',
+      until: at(120),
+    };
 
-    await expect(firings.claimNext(at(1))).resolves.toBeNull();
-    await expect(claimed(at(2))).resolves.toMatchObject({ id: working.id });
+    await firings.save(working.stepTaken(HOOK, waiting, NOW));
+
+    await expect(claimNext(at(1))).resolves.toBeNull();
+    await expect(claimed(at(2))).resolves.toMatchObject({
+      id: working.id,
+      steps: [waiting],
+    });
   });
 });

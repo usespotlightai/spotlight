@@ -37,7 +37,7 @@ export class CreateWorkspaceRunnersCommand {
 
 export class UpdateWorkspaceRunnersCommand {
   constructor(
-    readonly declarationId: string,
+    readonly workspaceRunnersId: string,
     readonly actor: Actor,
     readonly expectedVersion: number,
     readonly definition: unknown,
@@ -46,7 +46,7 @@ export class UpdateWorkspaceRunnersCommand {
 
 export class DeleteWorkspaceRunnersCommand {
   constructor(
-    readonly declarationId: string,
+    readonly workspaceRunnersId: string,
     readonly actor: Actor,
     readonly expectedVersion: number,
   ) {}

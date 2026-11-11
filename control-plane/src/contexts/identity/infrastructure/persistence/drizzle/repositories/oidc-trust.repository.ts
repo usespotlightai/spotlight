@@ -4,8 +4,10 @@ import { OidcTrustAlreadyExistsError } from '@identity/domain/exceptions/oidc-tr
 import { OidcTrustVersionConflictError } from '@identity/domain/exceptions/oidc-trust-version-conflict.error';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { oidcTrust } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Inject, Injectable } from '@nestjs/common';
@@ -20,11 +22,9 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 type Row = typeof oidcTrust.$inferSelect;
 
@@ -42,15 +42,15 @@ const toTrust = (row: Row): OidcTrust =>
     scopes: TokenScopes.named(row.scopes),
     lifetime: TokenLifetime.ofMinutes(row.lifetimeMinutes),
     description: OidcTrustDescription.of(row.description),
-    createdBy: UserId.of(row.createdBy),
+    createdBy: UserId.of(row.createdById),
     createdAt: row.createdAt,
     version: row.version,
     grantVersion: row.grantVersion,
   });
 
 const specOf = (trust: OidcTrust) => ({
-  issuer: trust.workload.issuer,
-  audience: trust.workload.audience,
+  issuer: trust.workload.issuer.value,
+  audience: trust.workload.audience.value,
   subject: trust.workload.subject.value,
   claims: { ...trust.workload.claims },
   scopes: trust.scopes.all.map((each) => each.value),
@@ -75,7 +75,7 @@ export class DrizzleOidcTrustRepository implements OidcTrustRepository {
           workspaceId: added.workspaceId.value,
           key: added.key.value,
           ...specOf(added),
-          createdBy: added.createdBy.value,
+          createdById: added.createdBy.value,
           createdAt: added.createdAt,
           version: added.version,
         });
@@ -158,5 +158,15 @@ export class DrizzleOidcTrustRepository implements OidcTrustRepository {
       .limit(1);
 
     return found ? toTrust(found) : null;
+  }
+
+  async ofWorkspace(workspaceId: WorkspaceId): Promise<readonly OidcTrust[]> {
+    const rows = await this.context.db
+      .select()
+      .from(oidcTrust)
+      .where(eq(oidcTrust.workspaceId, workspaceId.value))
+      .orderBy(asc(oidcTrust.key));
+
+    return rows.map(toTrust);
   }
 }

@@ -10,7 +10,7 @@ const setUp = (input: { held?: boolean[] } = {}) => {
   const sandboxes = {
     open: vi.fn(async () => ({ id: 'sandbox_1', state: 'starting' as const })),
     holdForEditor: vi.fn(async () =>
-      (held.shift() ?? true) ? ('starting' as const) : null,
+      (held.shift() ?? true) ? { open: true, ready: false } : null,
     ),
   };
   let next = 0;

@@ -1,42 +1,22 @@
 import type {
   FlaggedMemoryResponseDto,
   InsightsMemoryResponseDto,
-  MemoryBenchmarkResponseDto,
 } from '@/lib/api';
-import { formatCount, formatShare } from '@/lib/insights';
-import { formatDay } from '@/lib/judge';
+import { formatCount } from '@/lib/insights';
 import { FIGURE, type NestedHeading } from '@/lib/nested-table';
 
 export type InsightsMemory = InsightsMemoryResponseDto;
 export type FlaggedMemory = FlaggedMemoryResponseDto;
-type MemoryBenchmark = MemoryBenchmarkResponseDto;
 
 export type MemoryTile = {
   readonly id: string;
   readonly label: string;
   readonly value: string;
   readonly detail: string;
-  readonly tooltip?: string;
 };
 
 const runs = (count: number): string =>
   `${formatCount(count)} ${count === 1 ? 'run' : 'runs'}`;
-
-const benchmarkTile = (benchmark: MemoryBenchmark | null): MemoryTile =>
-  benchmark
-    ? {
-        id: 'benchmark',
-        label: 'Solved with memories',
-        value: formatShare(benchmark.withMemories),
-        detail: `${formatShare(benchmark.withoutMemories)} without them, ${formatDay(benchmark.ranAt.slice(0, 10))}`,
-        tooltip: `A benchmark of ${formatCount(benchmark.cases)} cases, run on ${formatDay(benchmark.ranAt.slice(0, 10))}, solved with the team’s memories and without them.`,
-      }
-    : {
-        id: 'benchmark',
-        label: 'Solved with memories',
-        value: '–',
-        detail: 'No benchmark yet',
-      };
 
 export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
   {
@@ -57,7 +37,6 @@ export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
     value: formatCount(memory.memoriesRecalled),
     detail: `Read in ${runs(memory.runsRecalled)}`,
   },
-  benchmarkTile(memory.benchmark),
 ];
 
 export const usedNoMemory = (memory: InsightsMemory): boolean =>

@@ -1,11 +1,9 @@
 import type {
   ListedRun,
-  RunsListed,
-} from '@insights/application/ports/insights-reader.port';
-import type {
   RunListing,
+  RunsListed,
   TeamWindow,
-} from '@insights/domain/repositories/run-record.repository';
+} from '@insights/application/ports/insights-reader.port';
 import type {
   Narrowing,
   RunFilter,
@@ -106,8 +104,7 @@ const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
     filter.failedAfter === null
       ? undefined
       : and(
-          sql`${runFact.ending}::text = 'failed'`,
-          isNull(runFact.supersededAt),
+          eq(runFact.ending, 'failed'),
           containing(sql`${runFact.tools}->'servers'`, [
             { server: filter.failedAfter, lastCallFailed: true },
           ]),
@@ -137,9 +134,7 @@ const filtered = (window: TeamWindow, filter: RunFilter): SQL | undefined =>
     filter.stationId === null
       ? undefined
       : eq(runFact.stationId, filter.stationId),
-    filter.outcome === null
-      ? undefined
-      : sql`${runFact.ending}::text = ${filter.outcome}`,
+    filter.outcome === null ? undefined : eq(runFact.ending, filter.outcome),
     filter.harness === null ? undefined : eq(runFact.harness, filter.harness),
     modelWhere(filter.model),
     repositoryWhere(filter.repository),
@@ -158,7 +153,7 @@ const filtered = (window: TeamWindow, filter: RunFilter): SQL | undefined =>
       : sql`${runFact.firstHumanAction}::text = ${filter.humanAction}`,
     filter.personId === null
       ? undefined
-      : eq(runFact.openedBy, filter.personId),
+      : eq(runFact.openedById, filter.personId),
     filter.pullRequestState === null
       ? undefined
       : sql`${runFact.pullRequestState}::text = ${filter.pullRequestState}`,
@@ -181,7 +176,7 @@ const listedOf = (row: FactRow): ListedRun => ({
   effort: row.effort,
   profileKey: row.profileKey,
   repositories: row.repositories,
-  openedBy: row.openedBy,
+  openedBy: row.openedById,
   queuedAt: row.queuedAt,
   startedAt: row.startedAt,
   endedAt: row.endedAt,
@@ -201,10 +196,7 @@ const listedOf = (row: FactRow): ListedRun => ({
       }
     : null,
   errors: row.usageRecorded ? row.errors : null,
-  ending:
-    row.supersededAt === null || row.ending === 'cancelled'
-      ? row.ending
-      : 'superseded',
+  ending: row.ending,
   failure: row.failure,
   checks: row.checks,
   firstHumanAction:

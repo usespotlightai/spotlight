@@ -1,4 +1,5 @@
-import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
+import type { HarnessIncompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
+import type { SecretReference } from '@configuration/domain/value-objects/secret-reference.vo';
 import type { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -19,15 +20,29 @@ export const HarnessProfileProblems = {
     });
   },
 
+  incompatible(
+    key: string,
+    incompatibilities: readonly HarnessIncompatibility[],
+  ): ConfigurationProblem[] {
+    return incompatibilities.map((each) =>
+      ConfigurationProblem.of({
+        path: profileAt(key),
+        at: each.at,
+        reason: each.reason,
+        severity: 'error',
+      }),
+    );
+  },
+
   missing(
     key: string,
-    missing: readonly SecretReferenceAt[],
+    missing: readonly SecretReference[],
   ): ConfigurationProblem[] {
     return missing.map((reference) =>
       ConfigurationProblem.of({
         path: profileAt(key),
         at: reference.path,
-        reason: `uses secret ${reference.name} that the workspace does not have`,
+        reason: `uses secret ${reference.name.value} that the workspace does not have`,
       }),
     );
   },

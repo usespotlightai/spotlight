@@ -1,4 +1,5 @@
 import type { DeliveryWorkPort } from '@integrations/application/ports/delivery-work.port';
+import type { InboundDeliveryRetention } from '@integrations/application/services/inbound-delivery-retention.service';
 import { DeliveryWorker } from '@integrations/presentation/workers/delivery-worker';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { describe, expect, it, vi } from 'vitest';
@@ -16,7 +17,11 @@ const ticking = (processDue: () => Promise<number>) => {
   const logger = { error: vi.fn() } as unknown as LoggerPort;
   const work = { processDue: vi.fn(processDue) } as unknown as DeliveryWorkPort;
 
-  return { worker: new DeliveryWorker(work, logger), work, logger };
+  const retention = {
+    purgeFinished: vi.fn(async () => 0),
+  } as unknown as InboundDeliveryRetention;
+
+  return { worker: new DeliveryWorker(work, retention, logger), work, logger };
 };
 
 describe('DeliveryWorker', () => {

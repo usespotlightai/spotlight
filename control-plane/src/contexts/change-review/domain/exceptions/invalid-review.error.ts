@@ -1,4 +1,6 @@
-export class InvalidReviewError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidReviewError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(reason: string) {

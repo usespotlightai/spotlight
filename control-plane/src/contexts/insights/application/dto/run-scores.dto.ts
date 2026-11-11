@@ -1,4 +1,4 @@
-import type { JudgeCalibration } from '@insights/domain/services/judge-calibration';
+import type { JudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
 import type { CitationKind } from '@insights/domain/value-objects/citation.vo';
 import type { ScoreKind } from '@insights/domain/value-objects/score-scale.vo';
 
@@ -58,6 +58,6 @@ export interface RunScoresDto {
   readonly claims: readonly (string | null)[];
   readonly judged: boolean;
   readonly judge: JudgeScoreDto | null;
-  readonly calibration: JudgeCalibration;
+  readonly calibration: JudgeCalibrationDto;
   readonly grades: readonly GradeDto[];
 }

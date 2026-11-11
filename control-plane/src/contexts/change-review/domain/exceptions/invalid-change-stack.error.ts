@@ -1,6 +1,9 @@
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
 const STACK_PROBLEM_CODES = [
   'shape',
   'uses',
+  'removes',
   'tests',
   'moves',
   'migration',
@@ -20,7 +23,7 @@ export const shapeProblem = (message: string): StackProblem => ({
   message,
 });
 
-export class InvalidChangeStackError extends Error {
+export class InvalidChangeStackError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(readonly problems: readonly StackProblem[]) {

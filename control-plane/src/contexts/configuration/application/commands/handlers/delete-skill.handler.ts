@@ -30,8 +30,8 @@ export class DeleteSkillHandler
     try {
       const existing = await this.definitions.withId(id);
       const permissions = existing
-        ? await this.access.permissionsOnTeam(
-            existing.teamId.value,
+        ? await this.access.permissionsInWorkspaceOfTeam(
+            existing.teamId,
             command.actor.principal,
           )
         : null;
@@ -46,10 +46,7 @@ export class DeleteSkillHandler
 
       existing.assertVersion(command.expectedVersion);
 
-      const references = await this.stationReferences.onTeam(
-        existing.teamId,
-        'skill',
-      );
+      const references = await this.stationReferences.skillsOn(existing.teamId);
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(

@@ -21,8 +21,6 @@ export type ReviewActor =
     }
   | { readonly kind: 'spotlight' };
 
-export const SPOTLIGHT_ACTOR: ReviewActor = { kind: 'spotlight' };
-
 export interface OnPullRequest {
   readonly workspaceId: WorkspaceId;
   readonly pullRequest: PullRequestUrl;
@@ -42,6 +40,7 @@ export interface LineComment extends FileComment {
 
 export interface SubmittedReview {
   readonly githubId: number;
+  readonly postedAs: ReviewEvent;
   readonly comments: readonly (OnGitHub | null)[];
 }
 

@@ -1,3 +1,7 @@
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { SANDBOX_STATES } from '@runners/domain/aggregates/sandbox.aggregate';
+import { RUNNER_WORK_KINDS } from '@runners/domain/value-objects/runner-work.vo';
+import { TOKEN_HOLDER_KINDS } from '@runners/domain/value-objects/token-holder.vo';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -5,9 +9,10 @@ import {
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
+  primaryKey,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -24,6 +29,10 @@ export interface HostImageRecord {
   readonly unavailableReason?: string;
 }
 
+export const runnerWorkKind = pgEnum('runner_work_kind', RUNNER_WORK_KINDS);
+export const sandboxState = pgEnum('sandbox_state', SANDBOX_STATES);
+export const tokenHolderKind = pgEnum('token_holder_kind', TOKEN_HOLDER_KINDS);
+
 export const runnerTrust = pgTable(
   'runner_trust',
   {
@@ -35,7 +44,7 @@ export const runnerTrust = pgTable(
     audience: text('audience').notNull(),
     labels: jsonb('labels').$type<string[]>().notNull().default([]),
     version: integer('version').notNull().default(0),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex('runner_trust_workspace_key_idx').on(
@@ -75,7 +84,7 @@ export const runnerPool = pgTable(
     provisionEgress: text('provision_egress'),
     provisionEgressTraffic: text('provision_egress_traffic'),
     version: integer('version').notNull().default(0),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex('runner_pool_workspace_key_idx').on(
@@ -94,12 +103,6 @@ export const runnerPool = pgTable(
   ],
 );
 
-export const poolToken = pgTable('pool_token', {
-  tokenHash: text('token_hash').primaryKey(),
-  poolId: text('pool_id').notNull(),
-  usedAt: timestamp('used_at').defaultNow().notNull(),
-});
-
 export const egress = pgTable(
   'egress',
   {
@@ -110,7 +113,7 @@ export const egress = pgTable(
     tokenHash: text('token_hash').notNull(),
     tokenVersion: integer('token_version'),
     version: integer('version').notNull().default(0),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex('egress_workspace_key_idx').on(table.workspaceId, table.key),
@@ -118,11 +121,16 @@ export const egress = pgTable(
   ],
 );
 
-export const egressToken = pgTable('egress_token', {
-  tokenHash: text('token_hash').primaryKey(),
-  egressId: text('egress_id').notNull(),
-  usedAt: timestamp('used_at').defaultNow().notNull(),
-});
+export const usedToken = pgTable(
+  'used_token',
+  {
+    holderKind: tokenHolderKind('holder_kind').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    holderId: text('holder_id').notNull(),
+    usedAt: timestamptz('used_at').defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.holderKind, table.tokenHash] })],
+);
 
 export const runner = pgTable(
   'runner',
@@ -132,6 +140,7 @@ export const runner = pgTable(
     poolId: text('pool_id'),
     trustId: text('trust_id'),
     hostId: text('host_id'),
+    entersSandboxId: text('enters_sandbox_id'),
     labels: jsonb('labels').$type<string[]>().notNull().default([]),
     tokenHash: text('token_hash').notNull(),
     egressTokenHash: text('egress_token_hash'),
@@ -147,12 +156,12 @@ export const runner = pgTable(
       .default({}),
     image: text('image'),
     isDefault: boolean('is_default').notNull().default(false),
-    workKind: text('work_kind'),
+    workKind: runnerWorkKind('work_kind'),
     workId: text('work_id'),
-    claimBy: timestamp('claim_by').notNull(),
-    startedAt: timestamp('started_at').notNull(),
-    lastHeartbeatAt: timestamp('last_heartbeat_at'),
-    endedAt: timestamp('ended_at'),
+    claimBy: timestamptz('claim_by').notNull(),
+    startedAt: timestamptz('started_at').notNull(),
+    lastHeartbeatAt: timestamptz('last_heartbeat_at'),
+    endedAt: timestamptz('ended_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -194,13 +203,16 @@ export const runnerHost = pgTable(
     capacity: integer('capacity').notNull(),
     running: jsonb('running').$type<string[]>().notNull().default([]),
     images: jsonb('images').$type<HostImageRecord[]>().notNull().default([]),
+    sandboxes: jsonb('sandboxes').$type<string[]>().notNull().default([]),
+    stopping: boolean('stopping').notNull().default(false),
     bootId: text('boot_id').notNull(),
-    firstHeartbeatAt: timestamp('first_heartbeat_at').notNull(),
-    onlineSince: timestamp('online_since').notNull(),
-    lastHeartbeatAt: timestamp('last_heartbeat_at').notNull(),
+    firstHeartbeatAt: timestamptz('first_heartbeat_at').notNull(),
+    onlineSince: timestamptz('online_since').notNull(),
+    lastHeartbeatAt: timestamptz('last_heartbeat_at').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check('runner_host_capacity_positive', sql`${table.capacity} > 0`),
     index('runner_host_workspace_idx').on(table.workspaceId),
     index('runner_host_pool_idx').on(table.poolId),
     index('runner_host_trust_idx').on(table.trustId),
@@ -218,6 +230,17 @@ export interface SandboxLeaseRecord {
   readonly renewedAt: string;
 }
 
+export interface SandboxWarmRecord {
+  readonly lineId: string;
+  readonly labelGroups: readonly (readonly string[])[];
+  readonly image: string | null;
+  readonly checkouts: readonly {
+    readonly path: string;
+    readonly setup: string | null;
+  }[];
+  readonly fingerprint: string;
+}
+
 export const sandbox = pgTable(
   'sandbox',
   {
@@ -225,38 +248,53 @@ export const sandbox = pgTable(
     workspaceId: text('workspace_id').notNull(),
     key: text('key'),
     hostId: text('host_id'),
+    poolId: text('pool_id'),
+    trustId: text('trust_id'),
     tokenHash: text('token_hash'),
-    state: text('state').notNull(),
+    state: sandboxState('state').notNull(),
     leases: jsonb('leases').$type<SandboxLeaseRecord[]>().notNull().default([]),
-    idleSince: timestamp('idle_since'),
-    startedAt: timestamp('started_at').notNull(),
-    goneAt: timestamp('gone_at'),
+    idleSince: timestamptz('idle_since'),
+    startedAt: timestamptz('started_at').notNull(),
+    goneAt: timestamptz('gone_at'),
+    warm: jsonb('warm').$type<SandboxWarmRecord>(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
     uniqueIndex('sandbox_open_key_idx')
       .on(table.workspaceId, table.key)
-      .where(
-        sql`${table.key} is not null and ${table.state} in ('starting', 'ready')`,
-      ),
+      .where(sql`${table.key} is not null and ${table.state} = 'open'`),
     index('sandbox_host_live_idx')
       .on(table.hostId)
       .where(sql`${table.state} <> 'gone'`),
     index('sandbox_idle_idx')
       .on(table.idleSince)
-      .where(sql`${table.state} in ('starting', 'ready')`),
+      .where(sql`${table.state} = 'open'`),
+    index('sandbox_pool_idle_idx')
+      .on(table.poolId)
+      .where(sql`${table.state} <> 'gone' and ${table.idleSince} is not null`),
     index('sandbox_gone_idx').on(table.goneAt),
     uniqueIndex('sandbox_token_hash_idx').on(table.tokenHash),
     index('sandbox_requested_idx')
       .on(table.workspaceId, table.startedAt)
-      .where(sql`${table.hostId} is null and ${table.state} = 'starting'`),
+      .where(sql`${table.hostId} is null and ${table.state} = 'open'`),
     check(
       'sandbox_host_has_token',
       sql`(${table.hostId} is null) = (${table.tokenHash} is null)`,
     ),
     check(
+      'sandbox_host_has_one_credential_source',
+      sql`(${table.hostId} is null) = (${table.poolId} is null and ${table.trustId} is null) and (${table.poolId} is null or ${table.trustId} is null)`,
+    ),
+    check(
       'sandbox_gone_at_matches_state',
       sql`(${table.state} = 'gone') = (${table.goneAt} is not null)`,
+    ),
+    index('sandbox_warm_idx')
+      .on(table.workspaceId, table.state)
+      .where(sql`${table.warm} is not null`),
+    check(
+      'sandbox_warm_has_no_key',
+      sql`${table.warm} is null or ${table.key} is null`,
     ),
   ],
 );

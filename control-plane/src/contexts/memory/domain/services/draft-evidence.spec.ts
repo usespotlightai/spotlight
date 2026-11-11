@@ -7,8 +7,10 @@ import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo'
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -36,10 +38,17 @@ const approved = (id: string, scope: MemoryScope, at = NOW) => {
 };
 
 const KNOWN = [
-  approved('memory_old', MemoryScope.of({ teamId: TEAM, lineId: 'line_1' })),
+  approved(
+    'memory_old',
+    MemoryScope.of({ teamId: TEAM, lineId: LineId.of('line_1') }),
+  ),
   approved(
     'memory_other_station',
-    MemoryScope.of({ teamId: TEAM, lineId: 'line_1', stationId: 'station_9' }),
+    MemoryScope.of({
+      teamId: TEAM,
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of('station_9'),
+    }),
   ),
   approved('memory_retired', MemoryScope.of({ teamId: TEAM })).retire({
     by: UserId.of('user_1'),
@@ -54,8 +63,8 @@ const evidence = (fromOutside = false) =>
     runId: RunId.of('run_1'),
     runContext: {
       teamId: TEAM,
-      lineId: 'line_1',
-      stationId: 'station_1',
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of('station_1'),
       repositories: [API, WEB],
     },
     steps: [
@@ -132,14 +141,17 @@ describe('DraftEvidence', () => {
     it('keeps a line’s memory to the run’s line', () => {
       const { scope } = proposalOf(remembered({ scope: 'line' }));
 
-      expect(scope.lineId).toBe('line_1');
+      expect(scope.lineId?.value).toBe('line_1');
       expect(scope.stationId).toBeNull();
     });
 
     it('keeps a station’s memory to the run’s line and station', () => {
       const { scope } = proposalOf(remembered({ scope: 'station' }));
 
-      expect([scope.lineId, scope.stationId]).toEqual(['line_1', 'station_1']);
+      expect([scope.lineId?.value, scope.stationId?.value]).toEqual([
+        'line_1',
+        'station_1',
+      ]);
     });
 
     it('rejects a scope it does not know', () => {
@@ -264,8 +276,8 @@ describe('DraftEvidence', () => {
         runId: RunId.of('run_1'),
         runContext: {
           teamId: TEAM,
-          lineId: 'line_1',
-          stationId: 'station_1',
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
           repositories: [API],
         },
         steps: [],
@@ -298,8 +310,8 @@ describe('DraftEvidence', () => {
         runId: RunId.of('run_1'),
         runContext: {
           teamId: TEAM,
-          lineId: 'line_1',
-          stationId: 'station_1',
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
           repositories: [API],
         },
         steps: Array.from({ length: input.steps ?? 0 }, (_, index) => ({

@@ -1,27 +1,13 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
+import { type GroupCounts } from '@insights/domain/services/change-verdict';
 import {
-  type GroupCounts,
-  groupCountsOf,
-} from '@insights/domain/services/change-verdict';
-import {
-  type JudgedRun,
   type JudgeRate,
-  judgedByRun,
   judgeRateFrom,
   type RubricRates,
-  rubricsOf,
 } from '@insights/domain/services/judge-rates';
-import { byText, rateOf } from '@insights/domain/services/measures';
+import { rateOf } from '@insights/domain/services/measures';
 import { paretoFrontier } from '@insights/domain/services/pareto';
-import { type RunSize, sizeOf } from '@insights/domain/services/run-size';
 import { type RunTally, tallyOf } from '@insights/domain/services/run-tally';
-import {
-  endedWithin,
-  type StationLocation,
-  stationsOf,
-} from '@insights/domain/services/team-history';
-import type { Window } from '@insights/domain/value-objects/insights-period.vo';
+import type { StationLocation } from '@insights/domain/services/station-ranking';
 
 export const OUTCOME_MEASURES = [
   'accepted',
@@ -76,19 +62,6 @@ const keyOf = (agentConfig: AgentConfig): string =>
     agentConfig.profileKey,
   ]);
 
-const agentConfigOf = (record: RunRecord): AgentConfig | null => {
-  const agentConfig = record.end?.agentConfig;
-
-  return agentConfig
-    ? {
-        harness: agentConfig.harness,
-        model: agentConfig.model,
-        effort: agentConfig.effort,
-        profileKey: agentConfig.profileKey,
-      }
-    : null;
-};
-
 export interface AgentConfigCounts extends AgentConfig {
   readonly counts: GroupCounts;
   readonly answered: number;
@@ -99,69 +72,6 @@ export interface AgentConfigComparisonCounts {
   readonly stations: readonly StationLocation[];
   readonly agentConfigs: readonly AgentConfigCounts[];
 }
-
-const nullsFirst = (one: string | null, other: string | null): number =>
-  one === null || other === null
-    ? Number(other === null) - Number(one === null)
-    : byText(one, other);
-
-const inAgentConfigOrder = (one: AgentConfig, other: AgentConfig): number =>
-  byText(one.harness, other.harness) ||
-  nullsFirst(one.model, other.model) ||
-  nullsFirst(one.effort, other.effort) ||
-  nullsFirst(one.profileKey, other.profileKey);
-
-export const agentConfigRunsWithin = (
-  records: readonly RunRecord[],
-  window: Window,
-  stationId: string | null,
-  size: RunSize | null,
-): readonly RunRecord[] =>
-  endedWithin(records, window).filter(
-    (each) =>
-      (stationId === null || each.end?.location.stationId === stationId) &&
-      (size === null || sizeOf(each) === size),
-  );
-
-export const agentConfigCountsOf = (
-  records: readonly RunRecord[],
-  taskPullRequests: readonly TaskPullRequest[],
-  judged: readonly JudgedRun[],
-): AgentConfigComparisonCounts => {
-  const groups = new Map<
-    string,
-    { agentConfig: AgentConfig; records: RunRecord[] }
-  >();
-  const byRun = judgedByRun(judged);
-
-  for (const record of records.filter((each) => each.ran)) {
-    const agentConfig = agentConfigOf(record);
-
-    if (agentConfig) {
-      const key = keyOf(agentConfig);
-      const group = groups.get(key) ?? { agentConfig, records: [] };
-
-      group.records.push(record);
-      groups.set(key, group);
-    }
-  }
-
-  return {
-    stations: stationsOf(records),
-    agentConfigs: [...groups.values()]
-      .map(
-        (group): AgentConfigCounts => ({
-          ...group.agentConfig,
-          counts: groupCountsOf(group.records, taskPullRequests),
-          answered: group.records.filter(
-            (each) => each.firstHumanAction !== null || each.passed !== null,
-          ).length,
-          rubrics: rubricsOf(group.records, byRun),
-        }),
-      )
-      .sort(inAgentConfigOrder),
-  };
-};
 
 const outcomesOf = (
   tally: RunTally,

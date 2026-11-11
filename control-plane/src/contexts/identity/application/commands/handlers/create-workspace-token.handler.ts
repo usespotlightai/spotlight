@@ -8,6 +8,7 @@ import { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import { WorkspaceTokenAlreadyIssuedError } from '@identity/domain/exceptions/workspace-token-already-issued.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import {
   forbiddenTo,
   type ResourceCreated,
@@ -27,7 +28,6 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 const rejected = (created: ResourceCreated): WorkspaceTokenCreatedDto => ({
   created,

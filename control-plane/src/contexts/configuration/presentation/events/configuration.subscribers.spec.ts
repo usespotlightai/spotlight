@@ -1,6 +1,7 @@
 import type { DeleteTeamProfiles } from '@configuration/application/services/delete-team-profiles.service';
 import type { DeleteTeamSkills } from '@configuration/application/services/delete-team-skills.service';
 import type { DeleteWorkspaceStates } from '@configuration/application/services/delete-workspace-states.service';
+import type { PruneStateBodies } from '@configuration/application/services/prune-state-bodies.service';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -13,6 +14,7 @@ describe('configuration learning that a team is deleted', () => {
       deleting as unknown as DeleteTeamSkills,
       { deleteForTeam: vi.fn() } as unknown as DeleteTeamProfiles,
       { deleteForWorkspace: vi.fn() } as unknown as DeleteWorkspaceStates,
+      { onWritten: vi.fn() } as unknown as PruneStateBodies,
     ).find(
       (each) => each.name === 'configuration.delete-skills-of-deleted-team',
     );
@@ -38,6 +40,7 @@ describe('configuration learning that a workspace is deleted', () => {
       { deleteForTeam: vi.fn() } as unknown as DeleteTeamSkills,
       { deleteForTeam: vi.fn() } as unknown as DeleteTeamProfiles,
       deleting as unknown as DeleteWorkspaceStates,
+      { onWritten: vi.fn() } as unknown as PruneStateBodies,
     ).find(
       (each) =>
         each.name ===

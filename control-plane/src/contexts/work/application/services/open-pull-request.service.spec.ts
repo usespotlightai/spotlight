@@ -2,9 +2,15 @@ import { NoGitHubInstallationError } from '@github/application/errors/no-github-
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -12,26 +18,24 @@ import type {
   BeforeHookEvent,
   HookDecision,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  repositoryOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
+import type { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -43,36 +47,36 @@ const NOW = new Date('2026-08-31T09:00:00.000Z');
 const RUN = RunId.of('run_1');
 
 const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
     stations: [
-      Station.of({
+      stationOf({
         id: StationId.of('station_0'),
         key: StationKey.of('inbox'),
         name: StationName.of('Inbox'),
         position: 0,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'backlog',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 1,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'work',
         harness: HarnessId.of('dev'),
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_completed'),
         key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 2,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'completed',
       }),
     ],
@@ -93,21 +97,22 @@ const task = () => {
   return added;
 };
 
-const lineWorking = (repositories: readonly string[]): Line => {
+const lineWorking = (repositories: readonly string[]): LineMap => {
   const repositoriesOfLine = LineRepositories.of(
-    repositories.map((each) => LineRepositoryConfig.of(Repository.of(each))),
+    repositories.map((each) => repositoryOf(Repository.of(each))),
+    null,
   );
 
   return {
-    opening: (name: string | null) => repositoriesOfLine.opening(name),
-  } as unknown as Line;
+    opening: (name: RepositoryName | null) => repositoriesOfLine.opening(name),
+  } as unknown as LineMap;
 };
 
 const requested = (
   repository: string | null = null,
   body: string | null = '',
 ) => ({
-  title: 'Fix the queue',
+  title: PullRequestTitle.of('Fix the queue'),
   body,
   repository,
 });
@@ -152,7 +157,8 @@ const opening = (
   } as unknown as PullRequestPort;
   const tasks = {
     find: async () => stored,
-    findByMarks: async () => over.markedTask ?? null,
+    findByCorrelation: async () => (over.markedTask ? [over.markedTask] : []),
+    holdingMark: async () => [],
     save: async (each: Task) => {
       saved.push(each);
     },
@@ -160,7 +166,7 @@ const opening = (
   const line = lineWorking(over.repositories ?? ['acme/widgets']);
   const service = new OpenPullRequest(
     tasks,
-    { findByStation: async () => line } as unknown as LineRepository,
+    { findByStation: async () => line } as unknown as LineMapsPort,
     pullRequests,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     {
@@ -280,32 +286,15 @@ describe('OpenPullRequest', () => {
     );
   });
 
-  it('takes the pull request from a task that wore it before', async () => {
-    const before = Task.add({
-      line: delivery(),
-      at: StationId.of('station_1'),
-      title: TaskTitle.of('An older attempt'),
-      rank: TaskRank.between(null, null),
-      now: NOW,
-      newId: () => 'task_0',
-    })
-      .assignRun(RunId.of('run_0'), delivery())
-      .recordPullRequest(
-        RunId.of('run_0'),
-        PullRequestUrl.of('https://github.com/acme/widgets/pull/7'),
-        NOW,
-        delivery(),
-      );
-    before.pullEvents();
-    const { open, saved } = opening({ markedTask: before });
+  it('marks the task with its pull request and leaves an older holder to the release reaction', async () => {
+    const { open, saved } = opening();
 
     await open(task());
 
-    expect(saved.map((each) => each.id.value)).toEqual(['task_0', 'task_1']);
-    expect(saved[0]?.marks).toEqual([]);
-    expect(saved[0]?.pullEvents().map((each) => each.kind)).toEqual([
-      'task.mark-reassigned',
-    ]);
+    expect(saved.map((each) => each.id.value)).toEqual(['task_1']);
+    expect(saved[0]?.pullEvents().map((each) => each.kind)).toContain(
+      'task.marked',
+    );
   });
 
   it('edits the one already open rather than opening another', async () => {
@@ -334,6 +323,74 @@ describe('OpenPullRequest', () => {
     expect(saved).toEqual([]);
   });
 
+  it('opens one in another repository the line works, beside the one already open', async () => {
+    const already = task().recordPullRequest(
+      RUN,
+      PullRequestUrl.of('https://github.com/acme/api/pull/1'),
+      NOW,
+      delivery(),
+    );
+    const { open, opened, edited, saved } = opening({
+      repositories: ['acme/api', 'acme/widgets'],
+    });
+
+    const answered = await open(already, requested('widgets'));
+
+    expect(answered.url).toBe('https://github.com/acme/widgets/pull/7');
+    expect(edited).toEqual([]);
+    expect(opened[0]?.repository).toEqual(Repository.of('acme/widgets'));
+    expect(saved[0]?.pullRequests.map((each) => each.value)).toEqual([
+      'https://github.com/acme/api/pull/1',
+      'https://github.com/acme/widgets/pull/7',
+    ]);
+  });
+
+  it('edits the one in the repository the agent names', async () => {
+    const both = task()
+      .recordPullRequest(
+        RUN,
+        PullRequestUrl.of('https://github.com/acme/api/pull/1'),
+        NOW,
+        delivery(),
+      )
+      .recordPullRequest(
+        RUN,
+        PullRequestUrl.of('https://github.com/acme/web/pull/2'),
+        NOW,
+        delivery(),
+      );
+    const { open, opened, edited } = opening({
+      repositories: ['acme/api', 'acme/web'],
+    });
+
+    const answered = await open(both, requested('web', 'what changed'));
+
+    expect(answered.url).toBe('https://github.com/acme/web/pull/2');
+    expect(edited.map((each) => each.pullRequest.value)).toEqual([
+      'https://github.com/acme/web/pull/2',
+    ]);
+    expect(opened).toEqual([]);
+  });
+
+  it('edits the first where the agent names no repository and several are worked', async () => {
+    const already = task().recordPullRequest(
+      RUN,
+      PullRequestUrl.of('https://github.com/acme/api/pull/1'),
+      NOW,
+      delivery(),
+    );
+    const { open, opened, edited } = opening({
+      repositories: ['acme/api', 'acme/web'],
+    });
+
+    await open(already);
+
+    expect(edited.map((each) => each.pullRequest.value)).toEqual([
+      'https://github.com/acme/api/pull/1',
+    ]);
+    expect(opened).toEqual([]);
+  });
+
   it('keeps the body of the one already open where the agent hands over none', async () => {
     const already = task().recordPullRequest(
       RUN,
@@ -360,7 +417,7 @@ describe('OpenPullRequest', () => {
     const { open, saved } = opening({
       meanwhile: (task) =>
         task.addMessage({
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('One more thing.'),
           at: NOW,
           voice: Voice.world(),

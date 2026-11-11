@@ -1,10 +1,10 @@
+import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
 import { GenerationError } from '@change-review/application/errors/generation.error';
 import type {
   ChangeStackGenerationRequest,
   ChangeStackGeneratorPort,
   CohortLayersRequest,
 } from '@change-review/application/ports/change-stack-generator.port';
-import type { CodeReadingPort } from '@change-review/application/ports/code-reading.port';
 import type {
   DiffReaderPort,
   DiffSource,
@@ -14,14 +14,10 @@ import { GenerateChangeStack } from '@change-review/application/services/generat
 import { RedraftChangeStack } from '@change-review/application/services/redraft-change-stack.service';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { ChangeStacksUnavailableError } from '@change-review/domain/exceptions/change-stacks-unavailable.error';
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
-import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
+import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/no-stack-without-checkouts.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
-import {
-  NO_INDEX,
-  type SymbolIndex,
-} from '@change-review/domain/services/symbol-index';
+import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
   Diff,
@@ -34,11 +30,17 @@ import type {
   ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
+import {
+  NO_INDEX,
+  type SymbolIndex,
+} from '@change-review/domain/value-objects/symbol-index.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -97,7 +99,7 @@ const READER: DiffReaderPort = {
   },
 };
 
-const READING: CodeReadingPort = {
+const READING: CodeReading = {
   classOf: (path) => (path === 'package-lock.json' ? 'lockfile' : 'source'),
   reads: (path) => path.endsWith('.ts'),
   definitionsIn: (_, added) =>
@@ -171,8 +173,10 @@ const LARGE_INPUT = {
 const RUN = {
   id: RunId.of('run-1'),
   taskId: null,
-  isReplay: false,
-  isSearch: false,
+  teamOfRun: TeamId.of('team_1'),
+  trial: false,
+  isolated: false,
+  checkouts: 1,
   workspaceId: WorkspaceId.of('workspace-1'),
 };
 
@@ -213,6 +217,8 @@ const generating = (
     outlines?: (readonly OutlinedCohort[] | Error)[];
     layers?: (request: CohortLayersRequest) => readonly ProposedLayer[] | Error;
     index?: SymbolIndexerPort['index'];
+    logger?: LoggerPort;
+    ids?: () => string;
   } = {},
 ) => {
   const saved: ChangeStack[] = [];
@@ -240,8 +246,16 @@ const generating = (
     find: async (id) =>
       [...saved].reverse().find((each) => each.id.equals(id)) ?? null,
     nextDueJob: async () => null,
-    removeForTask: async () => undefined,
     ofRun: async () => [],
+    ofTask: async (taskId) => [
+      ...new Map(
+        saved
+          .filter((each) => each.taskId?.equals(taskId))
+          .map((each) => [each.id.value, each]),
+      ).values(),
+    ],
+    ofTeam: async () => [],
+    remove: async () => undefined,
   };
 
   const generator: ChangeStackGeneratorPort = {
@@ -281,12 +295,12 @@ const generating = (
     READER,
     READING,
     { index: over.index ?? (async () => NO_INDEX) },
-    { generate: () => 'stack-1' },
+    { generate: over.ids ?? (() => 'stack-1') },
     {
       now: () => new Date('2026-09-16T10:00:00Z'),
       sleep: async () => undefined,
     },
-    QUIET,
+    over.logger ?? QUIET,
   );
 
   const generated = async (
@@ -311,15 +325,15 @@ const generating = (
 };
 
 describe('GenerateChangeStack', () => {
-  it('generates no stack for a search run, storing nothing and calling no model', async () => {
+  it('generates no stack for a run without checkouts, storing nothing and calling no model', async () => {
     const { service, saved, requests } = generating();
 
     await expect(
       service.begin(
-        { ...RUN, isSearch: true },
+        { ...RUN, checkouts: 0 },
         { diff: DIFF, repository: 'web', base: null, request: null },
       ),
-    ).rejects.toThrow(NoStackForSearchesError);
+    ).rejects.toThrow(NoStackWithoutCheckoutsError);
     expect(saved).toEqual([]);
     expect(requests).toEqual([]);
   });
@@ -337,17 +351,14 @@ describe('GenerateChangeStack', () => {
     expect(stack.state).toBe('generating');
     expect(stack.diff.hunks).toHaveLength(2);
     expect(requests).toEqual([]);
-    expect(dispatched.map((each) => each.kind)).toEqual([
-      'change-stack.generation-started',
-    ]);
+    expect(dispatched).toEqual([]);
 
     await service.generated(stack).then((ready) => stacks.save(ready));
 
     expect(saved.map((each) => each.state)).toEqual(['generating', 'ready']);
     expect(dispatched.map((each) => each.kind)).toEqual([
-      'change-stack.generation-started',
       'change-stack.completed',
-      'change-stack.ready',
+      'change-stack.became-ready',
     ]);
     expect(saved[1]?.cohorts[0]?.layers[0]?.hunks).toHaveLength(2);
   });
@@ -388,9 +399,7 @@ describe('GenerateChangeStack', () => {
     });
 
     expect(saved[saved.length - 1]?.state).toBe('failed');
-    expect(saved[saved.length - 1]?.failure).toBe(
-      'The generated stack did not assign every hunk in order.',
-    );
+    expect(saved[saved.length - 1]?.failure).toBe('broke-rules');
     expect(saved[saved.length - 1]?.usage.calls).toBe(2);
   });
 
@@ -461,7 +470,7 @@ describe('GenerateChangeStack', () => {
     const left = await service.generated(stack);
 
     expect(left.state).toBe('failed');
-    expect(left.failure).toBe('The change is too large for one change stack.');
+    expect(left.failure).toBe('too-large');
     expect(left.hasPendingJob).toBe(false);
     expect(left.usage).toMatchObject({ calls: 1, outputTokens: 65_536 });
   });
@@ -581,9 +590,7 @@ describe('GenerateChangeStack', () => {
       const left = await service.generated(stack);
 
       expect(left.state).toBe('failed');
-      expect(left.failure).toBe(
-        'The change is too large for one change stack.',
-      );
+      expect(left.failure).toBe('too-large');
     });
 
     it('leaves the generation to be retried where a cohort’s layers get no answer', async () => {
@@ -613,9 +620,7 @@ describe('GenerateChangeStack', () => {
       const left = await service.generated(stack);
 
       expect(left.state).toBe('failed');
-      expect(left.failure).toBe(
-        'The generated stack did not assign every hunk in order.',
-      );
+      expect(left.failure).toBe('broke-rules');
     });
   });
 
@@ -840,7 +845,8 @@ describe('RedraftChangeStack', () => {
       stackId: ready.id,
       runId: ready.runId,
       taskId: null,
-      replay: false,
+      teamId: TeamId.of('team_1'),
+      trial: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
       entries: ready.entries(),
@@ -942,7 +948,8 @@ describe('RedraftChangeStack', () => {
       stackId: ready.id,
       runId: ready.runId,
       taskId: null,
-      replay: false,
+      teamId: TeamId.of('team_1'),
+      trial: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
       entries: ready.entries(),
@@ -1011,5 +1018,206 @@ describe('RedraftChangeStack', () => {
     expect(left.redrafting).toBe(false);
     expect(left.hasPendingJob).toBe(false);
     expect(left.cohorts[0]?.layers).toHaveLength(2);
+  });
+});
+
+describe('the problems a broken stack is settled with', () => {
+  const MOVED = ['moved one', 'moved two', 'moved three'];
+  const loggedProblems = () => {
+    const logged: string[][] = [];
+    const logger: LoggerPort = {
+      ...QUIET,
+      warn: (fields) => {
+        const problems = (fields as { problems?: string[] }).problems;
+        if (problems) {
+          logged.push(problems);
+        }
+      },
+    };
+    return { logged, logger };
+  };
+  const layersOf = (
+    { part }: CohortLayersRequest,
+    sizes: number[],
+  ): ProposedLayer[] => {
+    let at = 0;
+
+    return sizes.map((size, l) => {
+      const files =
+        l === sizes.length - 1
+          ? part.diff.files.slice(at)
+          : part.diff.files.slice(at, at + size);
+      at += size;
+
+      return {
+        title: `Layer ${l + 1}`,
+        summary: `Layer ${l + 1} of the cohort`,
+        dependsOn: [],
+        hunks: files.flatMap((file) =>
+          file.hunks.map((hunk) => ({ hunk: hunk.id })),
+        ),
+        notes: files.map((file) => ({
+          path: file.path,
+          note: 'Why it changes',
+        })),
+        questions: [],
+      };
+    });
+  };
+
+  it('names the moved code the model left apart in a redraft that joins layers', async () => {
+    const text = written(
+      ...Array.from({ length: 45 }, (_, at) =>
+        changed(`f${at + 1}.ts`, ['before'], [`line ${at + 1}`]),
+      ),
+      changed('f46.ts', MOVED, ['line 46']),
+      changed('f47.ts', ['before'], MOVED),
+      ...Array.from({ length: 43 }, (_, at) =>
+        changed(`f${at + 48}.ts`, ['before'], [`line ${at + 48}`]),
+      ),
+    );
+    const generated = generating({
+      outlines: [HALVES],
+      layers: (request) =>
+        layersOf(request, request.redraft ? [1, 1] : [2, 1, 1]),
+    });
+    await generated.generated({
+      diff: text,
+      repository: null,
+      base: null,
+      request: CheckRequest.of('npx tsc --noEmit', null),
+    });
+
+    const ready = generated.saved[generated.saved.length - 1] as ChangeStack;
+    const check = StackCheck.begin({
+      stackId: ready.id,
+      runId: ready.runId,
+      taskId: null,
+      teamId: TeamId.of('team_1'),
+      trial: false,
+      workspaceId: ready.workspaceId,
+      request: CheckRequest.of('npx tsc --noEmit', null),
+      entries: ready.entries(),
+      now: new Date('2026-09-16T10:00:00Z'),
+    })
+      .claimedFor(
+        RunnerId.of('checker_1'),
+        RunnerOffer.none(),
+        new Date('2026-09-16T10:00:00Z'),
+      )
+      .recordResult(
+        RunnerId.of('checker_1'),
+        { steps: ready.checkSteps(ready.entries()), layers: ready.layers() },
+        [
+          { step: WHOLE_STEP, passed: true, output: '', durationMs: 1 },
+          {
+            step: LayerId.of('c2.l1'),
+            passed: false,
+            output: 'f46.ts(1,1): error TS2304',
+            durationMs: 1,
+          },
+        ],
+        new Date('2026-09-16T10:00:00Z'),
+      );
+    const { logged, logger } = loggedProblems();
+
+    await new RedraftChangeStack(
+      generated.stacks,
+      generated.generator,
+      {
+        now: () => new Date('2026-09-16T10:05:00Z'),
+        sleep: async () => undefined,
+      },
+      logger,
+    ).redrafted(ready.requestRedraft(), check);
+
+    expect(ready.layers()).toHaveLength(6);
+    expect(logged[logged.length - 1]).toEqual([
+      'h47 is code moved from h46, so they belong in the same layer',
+      'joins layers, leaving 5 where there were 6',
+    ]);
+  });
+});
+describe('for a task that had a stack before', () => {
+  const TASK_RUN = {
+    ...RUN,
+    taskId: TaskId.of('task-1'),
+    teamOfRun: null,
+  };
+  const CHANGED = written(
+    changed('schema.ts', ['before'], ['invitation table']),
+    changed('api.ts', ['before'], ['POST /invitations, 409 for members']),
+    changed('docs.ts', [], ['How to invite']),
+  );
+  const CHANGED_PATHS = ['schema.ts', 'api.ts', 'docs.ts'];
+  const counted = () => {
+    let made = 0;
+    return () => {
+      made += 1;
+      return `stack-${made}`;
+    };
+  };
+  const twice = async (
+    second: string,
+    answers: (readonly ProposedCohort[])[],
+  ) => {
+    const generation = generating({ ids: counted(), answers });
+    const input = { repository: 'web', base: null, request: null };
+
+    const first = await generation.service.begin(TASK_RUN, {
+      ...input,
+      diff: DIFF,
+    });
+    await generation.stacks.save(await generation.service.generated(first));
+    const next = await generation.service.begin(TASK_RUN, {
+      ...input,
+      diff: second,
+    });
+    const done = await generation.service.generated(next);
+
+    return { ...generation, next, done };
+  };
+
+  it('reuses the earlier stack without a model call when the diff is the same', async () => {
+    const { next, done, requests } = await twice(DIFF, [
+      [cohort(['h1', 'h2'])],
+    ]);
+
+    expect(next.previous?.value).toBe('stack-1');
+    expect(requests).toHaveLength(1);
+    expect(done.state).toBe('ready');
+    expect(done.cohorts[0]?.layers[0]?.revision).toEqual({
+      status: 'unchanged',
+      previous: 'c1.l1',
+    });
+  });
+
+  it('tells the model what the earlier stack kept and which hunks changed', async () => {
+    const { done, requests } = await twice(CHANGED, [
+      [cohort(['h1', 'h2'])],
+      [cohort(['h1', 'h2', 'h3'], CHANGED_PATHS)],
+    ]);
+
+    expect(requests[1]?.previous).toMatchObject({
+      stackId: { value: 'stack-1' },
+      addedHunks: ['h2', 'h3'],
+      diffUnchanged: false,
+    });
+    expect(done.cohorts[0]?.layers[0]?.revision).toEqual({
+      status: 'modified',
+      previous: 'c1.l1',
+    });
+  });
+
+  it('follows no earlier stack for a team’s run', async () => {
+    const team = generating({ ids: counted() });
+    const input = { diff: DIFF, repository: 'web', base: null, request: null };
+
+    await team.stacks.save(
+      await team.service.generated(await team.service.begin(RUN, input)),
+    );
+    const stack = await team.service.begin(RUN, input);
+
+    expect(stack.previous).toBeNull();
   });
 });

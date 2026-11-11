@@ -4,9 +4,11 @@ import { Controller, Get } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 
 @ApiTags('hooks')
 @AllowAnonymous()
+@InAudience('public')
 @Controller('.well-known')
 export class HookIssuerController {
   constructor(private readonly queryBus: QueryBus) {}

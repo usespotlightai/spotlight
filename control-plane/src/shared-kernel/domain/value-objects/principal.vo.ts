@@ -1,8 +1,5 @@
-import type { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
-import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 export class PersonPrincipal {
   readonly kind = 'person' as const;
@@ -18,35 +15,29 @@ export class PersonPrincipal {
   }
 }
 
+export interface TokenGrant {
+  readonly tokenKey: string;
+}
+
 export class TokenPrincipal {
   readonly kind = 'token' as const;
 
   private constructor(
-    readonly tokenId: WorkspaceTokenId,
+    readonly grant: TokenGrant,
     readonly workspaceId: WorkspaceId,
-    readonly scopes: TokenScopes,
     readonly userId: UserId,
-    readonly issuedByTrustId: OidcTrustId | null,
   ) {}
 
   static of(input: {
-    tokenId: WorkspaceTokenId;
+    grant: TokenGrant;
     workspaceId: WorkspaceId;
-    scopes: TokenScopes;
     issuedBy: UserId;
-    issuedByTrustId?: OidcTrustId | null;
   }): TokenPrincipal {
-    return new TokenPrincipal(
-      input.tokenId,
-      input.workspaceId,
-      input.scopes,
-      input.issuedBy,
-      input.issuedByTrustId ?? null,
-    );
+    return new TokenPrincipal(input.grant, input.workspaceId, input.issuedBy);
   }
 
   toString(): string {
-    return `token:${this.tokenId.value}`;
+    return `token:${this.grant.tokenKey}`;
   }
 }
 

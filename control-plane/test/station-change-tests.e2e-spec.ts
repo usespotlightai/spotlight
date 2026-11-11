@@ -2,23 +2,19 @@ import { randomUUID } from 'node:crypto';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { TEST_STATION_CHANGE } from '@work/domain/services/built-in-tools';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
@@ -26,6 +22,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { dueNow, policyAt, scheduleOf } from './support/auto-searches';
 import { eventually } from './support/eventually';
+import { writtenStation } from './support/replays';
 import * as schema from './support/schema';
 import {
   anOriginal,
@@ -67,6 +64,7 @@ const STATIONS: Readonly<Record<string, { key: string; name: string }>> = {
 const improving = async (stationId: string | null): Promise<ChatId> => {
   const station = stationId ? STATIONS[stationId] : undefined;
   const chat = Chat.start({
+    lines: [],
     workspaceId: team.workspaceId,
     teamId: team.teamId,
     startedBy: team.owner,
@@ -102,6 +100,8 @@ interface Answer {
   readonly next: string;
 }
 
+const TEST_STATION_CHANGE = Tool.of('test-station-change');
+
 const tested = async (
   chatId: ChatId,
   inputs: Record<string, string>,
@@ -119,7 +119,15 @@ const tested = async (
     throw new Error('a chat has no test-station-change tool');
   }
 
-  return (await tool.call(ToolInputs.of(inputs))) as Answer;
+  const result = await tool.call(ToolInputs.of(inputs));
+
+  if (result.outcome !== 'answered') {
+    throw new Error(
+      `the test-station-change tool failed: ${result.failure.reason}`,
+    );
+  }
+
+  return result.output as Answer;
 };
 
 const change = async (name: string, prompt = 'Build it, in order.\n') => ({
@@ -129,10 +137,7 @@ const change = async (name: string, prompt = 'Build it, in order.\n') => ({
 });
 
 const polishChange = async (name: string) => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, POLISH);
-  const block = live?.station ?? {};
+  const block = await writtenStation(app, DELIVERY, 'polish');
 
   return {
     name,
@@ -177,7 +182,7 @@ const proposalReplayOf = async (searchId: string) =>
 const freshRequests = async (stationId: string): Promise<void> => {
   await db
     .update(schema.stationSearchSchedule)
-    .set({ requestDay: null, requestCount: 0 })
+    .set({ requestDay: null, requests: [] })
     .where(eq(schema.stationSearchSchedule.stationId, stationId));
 };
 
@@ -223,7 +228,7 @@ describe('the improve-station chat testing its change', () => {
 
     expect(schedule?.lastStartedAt).toBeNull();
     expect(schedule?.searchedTasks.length).toBeGreaterThan(0);
-    expect(schedule?.requestCount).toBe(1);
+    expect(schedule?.requests).toHaveLength(1);
 
     const id = search?.id as string;
     const seed = search?.seedReplay.replayId as string;
@@ -308,6 +313,17 @@ describe('the improve-station chat testing its change', () => {
       'finished',
     );
     await proposalReplayOf(id);
+    await drained(() => ({ score: 1, cost: 0.1 }));
+    await eventually(async () => {
+      await app.get(AdvanceSearches).processDue();
+      await judged();
+      const row = await searchRow(id);
+
+      return (
+        row?.state === 'finished' ||
+        (row?.state === 'holding-out' && row.heldOut.length > 0)
+      );
+    }, WITHIN);
     await drained(() => ({ score: 1, cost: 0.1 }));
     await eventually(async () => {
       await app.get(AdvanceSearches).processDue();

@@ -1,6 +1,5 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
-import { MemoryRetired } from '@memory/domain/events/memory-retired.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -9,8 +8,10 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -45,7 +46,7 @@ const created = (
       notes: [2],
     }),
     source: 'person',
-    supersedes: change.supersedes ?? null,
+    supersedes: change.supersedes?.asPredecessor ?? null,
     approval: MemoryDecision.of({ by: UserId.of('user_ada'), at: NOW }),
   });
 
@@ -80,21 +81,44 @@ describe('Memory', () => {
     const api = Repository.of('acme/api');
     const runContext = {
       teamId: TEAM,
-      lineId: 'line_1',
-      stationId: 'station_1',
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of('station_1'),
       repositories: [api],
     };
     const atLine = created({
-      scope: MemoryScope.of({ teamId: TEAM, lineId: 'line_1' }),
+      scope: MemoryScope.of({ teamId: TEAM, lineId: LineId.of('line_1') }),
     });
 
-    expect(atLine.appliesAt(runContext)).toBe(true);
-    expect(atLine.appliesAt({ ...runContext, lineId: 'line_2' })).toBe(false);
+    expect(atLine.appliesAt(runContext, null)).toBe(true);
+    expect(
+      atLine.appliesAt({ ...runContext, lineId: LineId.of('line_2') }, null),
+    ).toBe(false);
     expect(
       atLine
         .retire({ by: UserId.of('user_bea'), reason: 'Gone.', at: LATER })
-        .appliesAt(runContext),
+        .appliesAt(runContext, null),
     ).toBe(false);
+  });
+
+  it('applies as of a moment only between its approval and its retirement', () => {
+    const runContext = {
+      teamId: TEAM,
+      lineId: null,
+      stationId: null,
+      repositories: [],
+    };
+    const retired = created().retire({
+      by: UserId.of('user_bea'),
+      reason: 'Gone.',
+      at: LATER,
+    });
+    const before = new Date(NOW.getTime() - 1);
+    const between = new Date(NOW.getTime() + 1);
+
+    expect(retired.appliesAt(runContext, before)).toBe(false);
+    expect(retired.appliesAt(runContext, between)).toBe(true);
+    expect(retired.appliesAt(runContext, LATER)).toBe(false);
+    expect(retired.appliesAt(runContext, null)).toBe(false);
   });
 
   it('retires when a newer memory supersedes it, and says by which', () => {
@@ -106,7 +130,6 @@ describe('Memory', () => {
     expect(retired.status).toBe('retired');
     expect(retired.retirement?.supersededBy?.equals(OLD)).toBe(true);
     expect(retired.retirement?.at).toEqual(LATER);
-    expect(retired.pullEvents()).toEqual([new MemoryRetired(NEW, OLD)]);
   });
 
   it('retires once', () => {

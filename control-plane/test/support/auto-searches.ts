@@ -1,7 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { autoSearched } from './app';
+import { eventually } from './eventually';
 import * as schema from './schema';
 
 export interface SearchPolicyTerms {
@@ -97,6 +98,48 @@ export const activeSearchAt = async ({ db, stationId }: SearchedStation) => {
   return row;
 };
 
+const SEARCH_RUN_SUBSCRIBERS = [
+  'replays.dispatch-search-iteration',
+  'replays.cancel-ended-search',
+];
+
+export const searchRunsSettled = async (
+  db: DrizzleDatabase,
+  searchId: string,
+): Promise<boolean> => {
+  const deliveries = await db
+    .select({ deliveredAt: schema.eventDelivery.deliveredAt })
+    .from(schema.eventDelivery)
+    .innerJoin(
+      schema.eventOutbox,
+      eq(schema.eventOutbox.id, schema.eventDelivery.eventId),
+    )
+    .where(
+      and(
+        inArray(schema.eventDelivery.subscriber, SEARCH_RUN_SUBSCRIBERS),
+        sql`${schema.eventOutbox.payload} -> 'searchId' ->> 'value' = ${searchId}`,
+      ),
+    );
+
+  if (deliveries.some((each) => each.deliveredAt === null)) {
+    return false;
+  }
+
+  const queued = await db
+    .select({ id: schema.run.id })
+    .from(schema.run)
+    .where(
+      and(
+        eq(schema.run.requesterOwner, 'replays'),
+        eq(schema.run.requesterKind, 'search'),
+        eq(schema.run.requesterId, searchId),
+        eq(schema.run.state, 'queued'),
+      ),
+    );
+
+  return queued.length === 0;
+};
+
 export const searchStarted = async (
   at: SearchedStation,
   terms: SearchPolicyTerms,
@@ -113,5 +156,18 @@ export const searchStarted = async (
     );
   }
 
-  return { id: started.id, seedReplayId: started.seedReplay.replayId };
+  const seedReplayId = started.seedReplay.replayId;
+
+  await eventually(
+    async () =>
+      (
+        await at.db
+          .select({ id: schema.replay.id })
+          .from(schema.replay)
+          .where(eq(schema.replay.id, seedReplayId))
+      ).length > 0,
+    60_000,
+  );
+
+  return { id: started.id, seedReplayId };
 };

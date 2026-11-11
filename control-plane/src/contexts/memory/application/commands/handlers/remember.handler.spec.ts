@@ -1,16 +1,18 @@
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RememberCommand } from '@memory/application/commands/remember.command';
-import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
+import { ReadProposedMemoryHandler } from '@memory/application/queries/handlers/read-proposed-memory.handler';
+import { ReadProposedMemoryQuery } from '@memory/application/queries/read-proposed-memory.query';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
-import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -27,11 +29,12 @@ const LEASED: LeasedRun = {
   workspaceId: WORKSPACE,
   teamId: TEAM,
   taskId: TASK,
-  lineId: 'line_1',
-  stationId: 'station_1',
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
   repositories: [],
-  replaysFrom: null,
-  isSearch: false,
+  asOf: null,
+  isolated: false,
+  trial: false,
 };
 
 const remembering = (run: LeasedRun | null = LEASED) => {
@@ -61,15 +64,7 @@ const remembering = (run: LeasedRun | null = LEASED) => {
   } as unknown as WorkPort;
 
   const handler = new RememberHandler(
-    new RunnerMemoryLoader(
-      work,
-      new RecordMemoryUses(
-        { record: async () => {} } as unknown as MemoryUsesPort,
-        { dispatch: async () => {} },
-        { inTransaction: (work) => work() },
-        { now: () => NOW, sleep: async () => {} },
-      ),
-    ),
+    new RunnerMemoryLoader(work),
     work,
     {
       forTask: async () => null,
@@ -78,7 +73,6 @@ const remembering = (run: LeasedRun | null = LEASED) => {
       },
     } as unknown as MemoryDraftRepository,
     {} as MemoryRepository,
-    new MemoryReviews(work, { find: async () => null } as never),
     { inTransaction: <T>(each: () => Promise<T>) => each() },
     {
       generate: () => {
@@ -89,8 +83,20 @@ const remembering = (run: LeasedRun | null = LEASED) => {
     { now: () => NOW, sleep: async () => undefined },
   );
 
+  const reading = new ReadProposedMemoryHandler(
+    new RunnerMemoryLoader(work),
+    {
+      forTask: async () => added[added.length - 1] ?? null,
+    } as unknown as MemoryDraftRepository,
+    new MemoryReviews(work, { find: async () => null } as never),
+  );
+
   return {
     added,
+    proposedAs: (memoryId: string) =>
+      reading.execute(
+        new ReadProposedMemoryQuery('run_1', 'runner_1', memoryId),
+      ),
     remember: (body = 'Uploads retry in the request.') =>
       handler.execute(
         new RememberCommand('run_1', 'runner_1', {
@@ -106,9 +112,9 @@ const remembering = (run: LeasedRun | null = LEASED) => {
 
 describe('RememberHandler', () => {
   it('opens the task’s draft with what the run proposed to remember, which cites its step', async () => {
-    const { added, remember } = remembering();
+    const { added, remember, proposedAs } = remembering();
 
-    const proposed = await remember();
+    const proposed = await proposedAs(await remember());
 
     expect(proposed).toMatchObject({
       proposedBy: 'agent',

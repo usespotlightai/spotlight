@@ -1,49 +1,50 @@
 import type { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
-import {
-  CAUSE_HEADER,
-  type HookFiringHistoryPort,
-} from '@integrations/application/ports/hook-firing-history.port';
-import type { WebhookHeaders } from '@integrations/application/ports/webhook-provider.port';
+import type { CausationPort } from '@integrations/application/ports/causation.port';
+import type { DeliveryReactionsPort } from '@integrations/application/ports/delivery-reactions.port';
+import type { DeliveryReaderPort } from '@integrations/application/ports/delivery-reader.port';
+import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import type { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
+import { CauseLinks } from '@integrations/domain/services/cause-links';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
+import type { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
-import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
-
-const causeIn = (headers: WebhookHeaders): string | null => {
-  const named = headers[CAUSE_HEADER];
-  const cause = Array.isArray(named) ? named[0] : named;
-
-  return cause?.trim() || null;
-};
 
 export class ReadDeliveryHandler
-  implements CommandHandlerPort<ReadDeliveryCommand, void>
+  implements CommandHandlerPort<ReadDeliveryCommand, DeliveryFailure | null>
 {
   constructor(
     private readonly providers: ProviderForDelivery,
-    private readonly reactions: HappeningReactionsPort,
+    private readonly reader: DeliveryReaderPort,
+    private readonly reactions: DeliveryReactionsPort,
     private readonly history: HookFiringHistoryPort,
     private readonly causation: CausationPort,
     private readonly logger: LoggerPort,
   ) {}
 
-  async execute(command: ReadDeliveryCommand): Promise<void> {
+  async execute(command: ReadDeliveryCommand): Promise<DeliveryFailure | null> {
     try {
+      return await this.read(command);
+    } catch (error) {
+      rethrowAsApplicationError(error);
+    }
+  }
+
+  private async read(
+    command: ReadDeliveryCommand,
+  ): Promise<DeliveryFailure | null> {
+    {
       const stored = command.delivered;
       const provider = await this.providers.find({
         integration: stored.integration,
-        workspaceId: stored.workspaceId,
-        teamId: stored.teamId,
-        teamKey: stored.teamKey,
+        to: stored.to,
       });
 
       if (!provider) {
         this.ignored(stored, 'no-provider');
-        return;
+        return null;
       }
 
       const delivered = {
@@ -52,39 +53,47 @@ export class ReadDeliveryHandler
         raw: null,
       };
 
-      const news = (await provider.read(delivered)).filter(
-        (each) => !each.ourOwn,
-      );
+      const unreceived = await this.reader.receive(provider, delivered);
+
+      if (unreceived) {
+        return unreceived;
+      }
+
+      const reading = await this.reader.read(provider, delivered);
+
+      if (reading.kind === 'failed') {
+        return reading.failure;
+      }
+
+      const news = reading.happenings.filter((each) => !each.ourOwn);
 
       if (news.length === 0) {
         this.ignored(stored, 'nothing-new');
-        return;
+        return null;
       }
 
       const workspaceId = await provider.routes(delivered);
 
       if (!workspaceId) {
         this.ignored(stored, 'no-workspace');
-        return;
+        return null;
       }
 
-      const cause = causeIn(stored.headers);
+      const cause = stored.causeFiringId;
       const fired = cause
-        ? await this.history.chainOf(workspaceId.value, cause)
+        ? await this.history.chainOf(workspaceId, cause)
         : null;
 
-      await this.causation.runWith(
+      return this.causation.runWith(
         this.deliveryChain(fired, stored.integration),
         () =>
           this.reactions.react(
             workspaceId,
-            stored.teamId ? TeamId.of(stored.teamId) : null,
+            stored.to?.teamId ?? null,
             news,
-            `delivery:${stored.integration}:${stored.teamId}:${stored.id}`,
+            stored.receivedAs,
           ),
       );
-    } catch (error) {
-      rethrowAsApplicationError(error);
     }
   }
 
@@ -94,10 +103,10 @@ export class ReadDeliveryHandler
   ): void {
     this.logger.info(
       {
-        deliveryId: stored.id,
-        integration: stored.integration,
-        workspaceId: stored.workspaceId,
-        teamId: stored.teamId,
+        deliveryId: stored.id.value,
+        integration: stored.integration.value,
+        workspaceId: stored.to?.workspaceId.value,
+        teamId: stored.to?.teamId.value,
         reason,
       },
       'Ignored a delivery',
@@ -106,14 +115,10 @@ export class ReadDeliveryHandler
 
   private deliveryChain(
     fired: CausalChain | null,
-    integration: string,
+    integration: IntegrationKey,
   ): CausalChain {
     return fired
-      ? fired.append({
-          kind: 'delivery',
-          key: `delivery:${integration}`,
-          description: `a delivery from ${integration}`,
-        })
+      ? fired.append(CauseLinks.delivery(integration))
       : CausalChain.none();
   }
 }

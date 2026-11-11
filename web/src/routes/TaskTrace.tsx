@@ -13,7 +13,7 @@ import {
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
-import { useTasks } from '@/hooks/api/useTasks';
+import { useTask } from '@/hooks/api/useTasks';
 import { useTaskTrace } from '@/hooks/api/useTaskTrace';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { failed, loading } from '@/lib/query';
@@ -25,10 +25,10 @@ import { cn } from '@/lib/utils';
 export function TaskTrace() {
   const { slug, teamId, taskId } = useParams();
   const { data: workspace } = useWorkspace(slug);
-  const tasks = useTasks(teamId);
+  const found = useTask(teamId, taskId);
   const trace = useTaskTrace(teamId, taskId);
 
-  const task = tasks.data?.find((candidate) => candidate.id === taskId);
+  const task = found.data;
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   const base: BreadcrumbSegment[] =
@@ -56,7 +56,7 @@ export function TaskTrace() {
     return null;
   }
 
-  const title = loading(tasks) ? (
+  const title = loading(found) ? (
     <TrailSkeleton known={trail.slice(0, -2)} />
   ) : (
     <Breadcrumbs segments={trail} />

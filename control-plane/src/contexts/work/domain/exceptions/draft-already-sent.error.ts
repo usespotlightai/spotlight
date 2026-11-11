@@ -1,4 +1,6 @@
-export class DraftAlreadySentError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class DraftAlreadySentError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(taskId: string) {

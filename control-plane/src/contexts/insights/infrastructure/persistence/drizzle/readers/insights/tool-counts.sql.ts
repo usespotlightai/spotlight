@@ -53,7 +53,7 @@ const ranIn = (team: TeamInPeriod): SQL => {
   return sql`
     select
       ${runFact}.*,
-      to_char(date_trunc('week', ${runFact.endedAt}), 'YYYY-MM-DD') as week
+      to_char(date_trunc('week', ${runFact.endedAt} at time zone 'UTC'), 'YYYY-MM-DD') as week
     from ${runFact}
     where ${onTeam(team)} and ${endedIn(current.from, current.to)} and ${ran}`;
 };
@@ -127,7 +127,6 @@ const serversIn = async (
         (call.value->>'failed')::bigint as failed,
         call.value->'latency' as latency,
         ran.ending = 'failed'
-          and ran.superseded_at is null
           and (call.value->>'lastCallFailed')::boolean as failing
       from ran
       cross join lateral jsonb_array_elements(

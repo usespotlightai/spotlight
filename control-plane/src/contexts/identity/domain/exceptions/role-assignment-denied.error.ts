@@ -1,4 +1,5 @@
 import type { RoleAssignmentDenial } from '@identity/domain/services/role-assignment';
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 
 const MESSAGES: Record<Exclude<RoleAssignmentDenial, 'last-owner'>, string> = {
   'not-a-member': 'This person is not a member of this workspace.',
@@ -8,7 +9,7 @@ const MESSAGES: Record<Exclude<RoleAssignmentDenial, 'last-owner'>, string> = {
   'above-your-rank': 'You cannot assign a role above your own.',
 };
 
-export class RoleAssignmentDeniedError extends Error {
+export class RoleAssignmentDeniedError extends DomainError {
   readonly kind = 'not-allowed' as const;
 
   constructor(readonly denial: Exclude<RoleAssignmentDenial, 'last-owner'>) {

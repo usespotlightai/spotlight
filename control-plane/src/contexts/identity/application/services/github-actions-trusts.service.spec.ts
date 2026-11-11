@@ -1,22 +1,22 @@
-import { TrustKeyTakenError } from '@identity/application/errors/trust-key-taken.error';
 import { TrustsNeedAnAdminError } from '@identity/application/errors/trusts-need-an-admin.error';
-import { UnsafeBranchNameError } from '@identity/application/errors/unsafe-branch-name.error';
-import { UnsupportedSubjectPrefixError } from '@identity/application/errors/unsupported-subject-prefix.error';
 import type {
   WorkspaceAccessPort,
   WorkspacePermissions,
 } from '@identity/application/ports/workspace-access.port';
 import { GitHubActionsTrusts } from '@identity/application/services/github-actions-trusts.service';
 import type { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
+import { TrustKeyTakenError } from '@identity/domain/exceptions/trust-key-taken.error';
+import { UnsafeBranchNameError } from '@identity/domain/exceptions/unsafe-branch-name.error';
+import { UnsupportedSubjectPrefixError } from '@identity/domain/exceptions/unsupported-subject-prefix.error';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -34,15 +34,13 @@ const WANTED = {
 
 const IMMUTABLE_PREFIX = 'repo:acme@7/platform@101';
 
-const permissions = (managesOidcTrusts: boolean): WorkspacePermissions => ({
+const permissions = (allowed: boolean): WorkspacePermissions => ({
   workspaceId: WorkspaceId.of('ws_1'),
   slug: 'acme',
   plans: true,
-  configures: managesOidcTrusts,
-  managesSecrets: managesOidcTrusts,
-  managesRunners: managesOidcTrusts,
-  managesOidcTrusts,
-  isAdmin: managesOidcTrusts,
+  configures: allowed,
+  scopes: new Set(allowed ? (['trusts'] as const) : []),
+  isAdmin: allowed,
 });
 
 const kept = () => {

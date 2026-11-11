@@ -1,4 +1,6 @@
-export class TeamOutsideWorkspaceError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class TeamOutsideWorkspaceError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(teamId: string) {

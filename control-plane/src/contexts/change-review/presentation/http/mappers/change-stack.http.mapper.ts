@@ -5,6 +5,7 @@ import type {
   RunChangeStacksDto,
   StackCheckDto,
 } from '@change-review/application/dto/change-stack.dto';
+import { checkReasonText } from '@change-review/application/rendering/check-reason.text';
 import {
   ChangeStackResponseDto,
   CheckedStepResponseDto,
@@ -12,13 +13,16 @@ import {
   DiffHunkResponseDto,
   FileNoteResponseDto,
   LayerQuestionResponseDto,
+  LayerRevisionResponseDto,
   QuestionAnswerResponseDto,
+  RemovedLayerResponseDto,
   RunChangeStacksResponseDto,
   StackCheckResponseDto,
   StackCohortResponseDto,
   StackHunkResponseDto,
   StackLayerResponseDto,
 } from '@change-review/presentation/http/dto/change-stack.response.dto';
+import { changeStackFailureText } from '@change-review/presentation/http/mappers/change-stack-failure.text';
 
 const stepOf = (step: CheckedStepDto): CheckedStepResponseDto =>
   new CheckedStepResponseDto(
@@ -35,13 +39,14 @@ const answerOf = (answer: QuestionAnswerDto): QuestionAnswerResponseDto =>
     answer.verdict,
     answer.feedback,
     answer.expected,
+    answer.outdated,
   );
 
 const checkOf = (check: StackCheckDto): StackCheckResponseDto =>
   new StackCheckResponseDto(
     check.command,
     check.status,
-    check.reason,
+    checkReasonText(check),
     check.whole && stepOf(check.whole),
     check.layers.map(stepOf),
   );
@@ -51,7 +56,7 @@ const toStack = (stack: ChangeStackDto): ChangeStackResponseDto =>
     stack.id,
     stack.repository,
     stack.state,
-    stack.failure,
+    changeStackFailureText(stack.failure),
     stack.files.map(
       (file) =>
         new DiffFileResponseDto(
@@ -100,9 +105,18 @@ const toStack = (stack: ChangeStackDto): ChangeStackResponseDto =>
                       each.answered && answerOf(each.answered),
                     ),
                 ),
+                layer.revision &&
+                  new LayerRevisionResponseDto(
+                    layer.revision.status,
+                    layer.revision.previous,
+                  ),
               ),
           ),
         ),
+    ),
+    stack.removed.map(
+      (each) =>
+        new RemovedLayerResponseDto(each.previous, each.cohort, each.title),
     ),
     stack.check && checkOf(stack.check),
   );

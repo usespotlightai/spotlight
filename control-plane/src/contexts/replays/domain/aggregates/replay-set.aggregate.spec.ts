@@ -1,8 +1,9 @@
 import {
-  KEPT_SET_SIZE,
+  REPLAY_SET_SIZE,
   type Replayable,
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
+import { ReplaySetCreated } from '@replays/domain/events/replay-set-created.event';
 import { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
 import { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
 import { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
@@ -14,8 +15,12 @@ import { ReplaySetStationGoneError } from '@replays/domain/exceptions/replay-set
 import { UnknownReplaySetEntryError } from '@replays/domain/exceptions/unknown-replay-set-entry.error';
 import { UnreplayableEntryError } from '@replays/domain/exceptions/unreplayable-entry.error';
 import { aSet, NOW, STATION } from '@replays/domain/replays.fake-spec';
+import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -38,8 +43,14 @@ const adding = (...runs: Replayable[]) => ({
   remove: [],
 });
 
+const IN_USE = SetUsers.of({
+  searches: [{ isActive: true }],
+  replays: [],
+  checks: [],
+});
+
 describe('ReplaySet', () => {
-  it('is kept empty at its station until its first refresh', () => {
+  it('is kept empty at its station until its first refresh, and records that it was created', () => {
     const set = ReplaySet.create({
       id: ReplaySetId.of('set_1'),
       station: STATION,
@@ -49,7 +60,47 @@ describe('ReplaySet', () => {
     expect(set.entries).toEqual([]);
     expect(set.refreshedAt).toBeNull();
     expect(set.lastRefresh).toBeNull();
-    expect(set.pullEvents()).toEqual([]);
+    expect(set.pullEvents()).toEqual([
+      new ReplaySetCreated(set.id, STATION.workspaceId),
+    ]);
+  });
+
+  it('refuses to load a stored set that holds a task twice or more runs than it keeps', () => {
+    const set = aSet(2);
+    const stored = {
+      id: set.id,
+      station: set.station,
+      createdAt: NOW,
+      refreshedAt: NOW,
+      lastRefresh: null,
+      stationGoneAt: null,
+      version: 1,
+    };
+    const entryOf = (run: string, task: string) =>
+      ReplaySetEntry.of({
+        runId: RunId.of(run),
+        taskId: TaskId.of(task),
+        endedAt: NOW,
+        addedAt: NOW,
+      });
+
+    expect(() =>
+      ReplaySet.rehydrate({
+        ...stored,
+        entries: [entryOf('run_1', 'task_1'), entryOf('run_2', 'task_1')],
+      }),
+    ).toThrow(InconsistentStateError);
+    expect(() =>
+      ReplaySet.rehydrate({
+        ...stored,
+        entries: Array.from({ length: REPLAY_SET_SIZE + 1 }, (_, at) =>
+          entryOf(`run_${at}`, `task_${at}`),
+        ),
+      }),
+    ).toThrow(InconsistentStateError);
+    expect(
+      ReplaySet.rehydrate({ ...stored, entries: set.entries }).entries,
+    ).toHaveLength(2);
   });
 
   describe('refreshed', () => {
@@ -60,7 +111,7 @@ describe('ReplaySet', () => {
       const refreshed = set.refresh(
         { add: [replayable('run_1')], remove: [RunId.of('original_0')] },
         LATER,
-        false,
+        SetUsers.none(),
       );
 
       expect(refreshed.runs.map((each) => each.value)).toEqual([
@@ -86,7 +137,7 @@ describe('ReplaySet', () => {
       set.pullEvents();
       const before = set.lastRefresh;
 
-      const refreshed = set.refresh(adding(), LATER, false);
+      const refreshed = set.refresh(adding(), LATER, SetUsers.none());
 
       expect(refreshed.refreshedAt).toEqual(LATER);
       expect(refreshed.lastRefresh).toBe(before);
@@ -96,21 +147,25 @@ describe('ReplaySet', () => {
 
     it('is refused while a search, a replay or a check uses it', () => {
       expect(() =>
-        aSet(1).refresh(adding(replayable('run_1')), LATER, true),
+        aSet(1).refresh(adding(replayable('run_1')), LATER, IN_USE),
       ).toThrow(ReplaySetInUseError);
     });
 
     it('is refused once its station is gone', () => {
       expect(() =>
-        aSet(1).stationLeft(NOW).refresh(adding(), LATER, false),
+        aSet(1).stationLeft(NOW).refresh(adding(), LATER, SetUsers.none()),
       ).toThrow(ReplaySetStationGoneError);
     });
 
     it('rejects a run or a task it contains already', () => {
-      const set = aSet().refresh(adding(replayable('run_1')), NOW, false);
+      const set = aSet().refresh(
+        adding(replayable('run_1')),
+        NOW,
+        SetUsers.none(),
+      );
 
       expect(() =>
-        set.refresh(adding(replayable('run_1')), LATER, false),
+        set.refresh(adding(replayable('run_1')), LATER, SetUsers.none()),
       ).toThrow(ReplaySetEntryTakenError);
       expect(() =>
         set.refresh(
@@ -119,20 +174,24 @@ describe('ReplaySet', () => {
             taskId: TaskId.of('task_of_run_1'),
           }),
           LATER,
-          false,
+          SetUsers.none(),
         ),
       ).toThrow(ReplaySetEntryTakenError);
       expect(() =>
         aSet().refresh(
           adding(replayable('run_1'), replayable('run_1')),
           LATER,
-          false,
+          SetUsers.none(),
         ),
       ).toThrow(ReplaySetEntryTakenError);
     });
 
     it('takes a newer run of a task whose older run it lets go in the same refresh', () => {
-      const set = aSet().refresh(adding(replayable('run_1')), NOW, false);
+      const set = aSet().refresh(
+        adding(replayable('run_1')),
+        NOW,
+        SetUsers.none(),
+      );
 
       const refreshed = set.refresh(
         {
@@ -140,24 +199,28 @@ describe('ReplaySet', () => {
           remove: [RunId.of('run_1')],
         },
         LATER,
-        false,
+        SetUsers.none(),
       );
 
       expect(refreshed.runs.map((each) => each.value)).toEqual(['run_2']);
     });
 
-    it(`contains at most ${KEPT_SET_SIZE} runs`, () => {
-      const full = aSet(KEPT_SET_SIZE);
+    it(`contains at most ${REPLAY_SET_SIZE} runs`, () => {
+      const full = aSet(REPLAY_SET_SIZE);
 
-      expect(full.entries).toHaveLength(KEPT_SET_SIZE);
+      expect(full.entries).toHaveLength(REPLAY_SET_SIZE);
       expect(() =>
-        full.refresh(adding(replayable('one_more')), LATER, false),
+        full.refresh(adding(replayable('one_more')), LATER, SetUsers.none()),
       ).toThrow(ReplaySetFullError);
     });
 
     it('rejects a run of another station', () => {
       expect(() =>
-        aSet().refresh(adding(replayable('run_1', 'station_ship')), NOW, false),
+        aSet().refresh(
+          adding(replayable('run_1', StationId.of('station_ship'))),
+          NOW,
+          SetUsers.none(),
+        ),
       ).toThrow(ReplaySetEntryElsewhereError);
     });
 
@@ -170,7 +233,7 @@ describe('ReplaySet', () => {
             reason: 'It never reported a starting point.',
           }),
           NOW,
-          false,
+          SetUsers.none(),
         );
         expect.unreachable();
       } catch (error) {
@@ -186,14 +249,18 @@ describe('ReplaySet', () => {
         aSet().refresh(
           adding({ ...replayable('run_1'), taskId: null }),
           NOW,
-          false,
+          SetUsers.none(),
         ),
       ).toThrow(UnreplayableEntryError);
     });
 
     it('rejects removing a run it never contained', () => {
       expect(() =>
-        aSet(1).refresh({ add: [], remove: [RunId.of('run_9')] }, LATER, false),
+        aSet(1).refresh(
+          { add: [], remove: [RunId.of('run_9')] },
+          LATER,
+          SetUsers.none(),
+        ),
       ).toThrow(UnknownReplaySetEntryError);
     });
   });
@@ -226,18 +293,5 @@ describe('ReplaySet', () => {
 
   it('names itself as the holder of the archives its runs started from', () => {
     expect(aSet().holder).toBe('replay-set:set_1');
-  });
-
-  it('is marked as searched, so a writer with an older copy moves on', () => {
-    const set = aSet(2);
-    set.pullEvents();
-    const searched = set.recordSearch();
-
-    expect(searched).not.toBe(set);
-    expect(searched.runs).toEqual(set.runs);
-    expect(searched.pullEvents()).toEqual([]);
-    expect(() => set.stationLeft(NOW).recordSearch()).toThrow(
-      ReplaySetStationGoneError,
-    );
   });
 });

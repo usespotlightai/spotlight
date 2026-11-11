@@ -1,8 +1,8 @@
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ToolDeclaration } from '@work/application/contracts/tools.contract';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 
 export const ToolDeclarationMapper = {
   toDeclared(declaration: ToolDeclaration): DeclaredTool {

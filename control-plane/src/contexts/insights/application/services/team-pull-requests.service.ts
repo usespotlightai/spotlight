@@ -4,7 +4,7 @@ import type {
   PullRequestsQuery,
   TeamInPeriod,
 } from '@insights/application/ports/insights-reader.port';
-import type { WorkPort } from '@insights/application/ports/work.port';
+import type { LineSettingsPort } from '@insights/application/ports/line-settings.port';
 import type {
   TeamScope,
   TeamScopes,
@@ -36,7 +36,7 @@ const teamOf = (scope: TeamScope): TeamInPeriod => ({
 export class TeamPullRequests {
   constructor(
     private readonly scopes: TeamScopes,
-    private readonly work: WorkPort,
+    private readonly lines: LineSettingsPort,
     private readonly reader: InsightsReaderPort,
   ) {}
 
@@ -98,7 +98,7 @@ export class TeamPullRequests {
 
     return {
       ...scope,
-      repositories: await this.work.teamRepositories(scope.access.teamId.value),
+      repositories: await this.lines.teamRepositories(scope.access.teamId),
     };
   }
 }

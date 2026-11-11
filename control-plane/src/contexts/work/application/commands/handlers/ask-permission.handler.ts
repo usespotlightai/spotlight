@@ -1,3 +1,4 @@
+import type { HarnessToolNamesPort } from '@runs/application/ports/harness-tool-names.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
@@ -5,9 +6,9 @@ import type {
   PermissionAnswer,
   PermissionAnswerDto,
 } from '@work/application/dto/permission-answer.dto';
-import type { HarnessToolNamesPort } from '@work/application/ports/harness-tool-names.port';
 import type { PermissionCleared } from '@work/application/services/run-work';
 import type { RunWorks } from '@work/application/services/run-works.service';
+import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 
@@ -42,7 +43,7 @@ export class AskPermissionHandler
           kind: command.asked.kind,
           title: command.asked.title,
           input: command.asked.input,
-          tool: this.toolNames.toolFor(command.asked.title, command.asked.kind),
+          tool: this.calledTool(command.asked.title, command.asked.kind),
         }),
         command.asked.sessionId
           ? HarnessSession.of(command.asked.sessionId)
@@ -53,5 +54,11 @@ export class AskPermissionHandler
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private calledTool(title: string, kind: string): CalledTool | null {
+    const named = this.toolNames.toolFor(title, kind);
+
+    return named ? CalledTool.of(named) : null;
   }
 }

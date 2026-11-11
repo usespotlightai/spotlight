@@ -5,6 +5,10 @@ import type {
 } from '@work/application/ports/run-reader.port';
 import { ReadRunConfigHandler } from '@work/application/queries/handlers/read-run-config.handler';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
+import {
+  inWorkspace,
+  runAccessWhere,
+} from '@work/application/services/run-access.fake-spec';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -34,14 +38,16 @@ const configured = (
 });
 
 const reading = (found: RunConfigSummary | null) =>
-  new ReadRunConfigHandler({
-    listForTask: vi.fn(),
-    listForTeam: vi.fn(),
-    notesFor: vi.fn(),
-    configFor: vi.fn().mockResolvedValue(found),
-  } satisfies RunReaderPort).execute(
-    new ReadRunConfigQuery('team_1', 'run_2', 'user_1'),
-  );
+  new ReadRunConfigHandler(
+    {
+      listForTask: vi.fn(),
+      listForTeam: vi.fn(),
+      findForTeam: vi.fn(),
+      notesFor: vi.fn(),
+      configFor: vi.fn().mockResolvedValue(found && inWorkspace(found)),
+    } satisfies RunReaderPort,
+    runAccessWhere(true),
+  ).execute(new ReadRunConfigQuery('team_1', 'run_2', 'user_1'));
 
 describe('ReadRunConfigHandler', () => {
   it('finds nothing for a run the viewer cannot see', async () => {

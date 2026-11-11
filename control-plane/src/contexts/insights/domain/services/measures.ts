@@ -69,9 +69,6 @@ export const byPercentile = <T>(
   p95: of('p95'),
 });
 
-export const known = (values: readonly (number | null)[]): number[] =>
-  values.flatMap((each) => (each === null ? [] : [each]));
-
 export const percentilesOf = (values: readonly number[]): Percentiles => ({
   p50: medianOf(values),
   p75: percentileOf(values, 75),
@@ -113,6 +110,3 @@ export const spendingOf = (spends: readonly (Money | null)[]): Spending => {
 
 export const between = (from: Date, to: Date): number =>
   to.getTime() - from.getTime();
-
-export const byText = (one: string, other: string): number =>
-  one < other ? -1 : one > other ? 1 : 0;

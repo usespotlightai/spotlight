@@ -1,10 +1,14 @@
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
+import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
-const ENDPOINT = 'https://mcp.example/register';
-const CALLBACK = 'https://app.example/api/integrations/oauth/callback';
+const ENDPOINT = OAuth2Endpoint.of('https://mcp.example/register');
+const CALLBACK = OAuth2Endpoint.of(
+  'https://app.example/api/integrations/oauth/callback',
+);
 
 const registering = (reply: Response) => {
   const fetch = vi.fn(async () => reply);
@@ -26,12 +30,14 @@ describe('OAuth2Registrar', () => {
     );
 
     expect(await registrar.register(ENDPOINT, CALLBACK)).toEqual({
-      clientId: 'c-1',
+      clientId: OAuth2ClientId.of('c-1'),
       clientSecret: 's-1',
       secretExpiresAt: new Date(1_800_000_000_000),
     });
     const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(JSON.parse(String(init.body)).redirect_uris).toEqual([CALLBACK]);
+    expect(JSON.parse(String(init.body)).redirect_uris).toEqual([
+      CALLBACK.value,
+    ]);
     expect(init.redirect).toBe('manual');
   });
 
@@ -51,7 +57,10 @@ describe('OAuth2Registrar', () => {
     const { fetch, registrar } = registering(Response.json({}));
 
     await expect(
-      registrar.register('https://elsewhere.example/register', CALLBACK),
+      registrar.register(
+        OAuth2Endpoint.of('https://elsewhere.example/register'),
+        CALLBACK,
+      ),
     ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(fetch).not.toHaveBeenCalled();
   });

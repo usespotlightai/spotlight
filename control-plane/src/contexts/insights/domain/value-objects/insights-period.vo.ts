@@ -33,9 +33,6 @@ const daysBefore = (at: Date, days: number): Date =>
 
 export const dayOf = (at: Date): string => at.toISOString().slice(0, 10);
 
-export const longestLookbackFrom = (now: Date): Date =>
-  daysBefore(startOfNextDay(now), 2 * Math.max(...Object.values(DAYS)));
-
 export const within = (window: Window, at: Date | null): boolean =>
   at !== null &&
   at.getTime() >= window.from.getTime() &&

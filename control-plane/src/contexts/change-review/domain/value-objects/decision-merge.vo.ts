@@ -1,12 +1,12 @@
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
+import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-
-const SHA = /^[0-9a-f]{40}$/;
 
 export class DecisionMerge {
   private constructor(
     readonly repository: Repository,
-    readonly commit: string,
+    readonly commit: CommitSha,
     readonly at: Date,
   ) {}
 
@@ -15,9 +15,9 @@ export class DecisionMerge {
     commit: string;
     at: Date;
   }): DecisionMerge {
-    const commit = input.commit.trim().toLowerCase();
+    const commit = CommitSha.parsed(input.commit);
 
-    if (!SHA.test(commit)) {
+    if (!commit) {
       throw new InvalidDecisionError(
         'merge must be a full 40-character commit hash',
       );
@@ -31,6 +31,15 @@ export class DecisionMerge {
     commit: string;
     at: Date;
   }): DecisionMerge {
-    return new DecisionMerge(input.repository, input.commit, input.at);
+    const commit = CommitSha.parsed(input.commit);
+
+    if (!commit) {
+      throw new InconsistentStateError(
+        'decision set',
+        `was merged at ${input.commit}, which is not a commit hash`,
+      );
+    }
+
+    return new DecisionMerge(input.repository, commit, input.at);
   }
 }

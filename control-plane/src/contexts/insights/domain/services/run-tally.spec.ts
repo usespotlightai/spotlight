@@ -1,10 +1,5 @@
-import { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
-import {
-  costedRecord,
-  endedRecord,
-  TEAM,
-  WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
+import type { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
+import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import {
   runTally,
   tallyCountedOf,
@@ -14,27 +9,26 @@ import {
 } from '@insights/domain/services/run-tally';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
-import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { taskPullRequestOf } from '@insights/insights.fake-spec';
+import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const AT = new Date('2026-09-30T12:00:00.000Z');
-const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/1');
 
 const merged = (taskId: string) =>
-  TaskPullRequest.open({
-    taskId: TaskId.of(taskId),
-    workspaceId: WORKSPACE,
-    teamId: TEAM,
-    pullRequest: PULL,
-    at: AT,
-  }).close({ pullRequest: PULL, merged: true, at: AT });
+  taskPullRequestOf(taskId, { openedAt: AT, closedAt: AT, merged: true });
+
+const tallyWith = (
+  records: readonly RunRecord[],
+  pullRequests: readonly PullRequestRecord[],
+) => runTally(factsWith(records, pullRequests));
 
 describe('runTally', () => {
   it('counts how the runs ended and what people did next, never counting an answered approval as accepting or sending back', () => {
-    const tally = runTally(
+    const tally = tallyWith(
       [
         endedRecord('run_1', { ending: 'failed', failure: 'exited' })
           .recordCheck('failed', RECEIVED_AT)
@@ -67,13 +61,17 @@ describe('runTally', () => {
   });
 
   it('counts the runs that passed their task to another station', () => {
-    const tally = runTally(
+    const tally = tallyWith(
       [
-        endedRecord('run_1').passTo(StationPass.of('station_2', AT)),
-        endedRecord('run_2').passTo(StationPass.of('station_3', AT)),
+        endedRecord('run_1').passTo(
+          StationPass.of(StationId.of('station_2'), AT),
+        ),
+        endedRecord('run_2').passTo(
+          StationPass.of(StationId.of('station_3'), AT),
+        ),
         endedRecord('run_3'),
         endedRecord('run_4', { ending: 'cancelled' }).passTo(
-          StationPass.of('station_2', AT),
+          StationPass.of(StationId.of('station_2'), AT),
         ),
       ],
       [],
@@ -83,7 +81,7 @@ describe('runTally', () => {
   });
 
   it('counts cancelled runs apart, and leaves them out of everything else', () => {
-    const tally = runTally(
+    const tally = tallyWith(
       [
         costedRecord('run_1', { ending: 'cancelled', ms: 1, amount: 9 })
           .supersededByItsTask(RECEIVED_AT)
@@ -105,7 +103,7 @@ describe('runTally', () => {
   });
 
   it('counts each task whose pull request merged once, however many runs it needed', () => {
-    const tally = runTally(
+    const tally = tallyWith(
       [
         endedRecord('run_1', { taskId: 'task_1' }),
         endedRecord('run_2', { taskId: 'task_1' }),
@@ -118,7 +116,7 @@ describe('runTally', () => {
   });
 
   it('adds up what the runs cost in one currency, and takes their median time', () => {
-    const tally = runTally(
+    const tally = tallyWith(
       [
         costedRecord('run_1', { amount: 0.5, ms: 10_000 }),
         costedRecord('run_2', { amount: 1.25, ms: 30_000 }),
@@ -135,7 +133,7 @@ describe('runTally', () => {
   });
 
   it('gives no total for runs that cost different currencies, saying they are mixed rather than unpriced', () => {
-    const tally = runTally(
+    const tally = tallyWith(
       [
         costedRecord('run_1', { currency: 'USD' }),
         costedRecord('run_2', { currency: 'EUR' }),
@@ -149,7 +147,7 @@ describe('runTally', () => {
   });
 
   it('takes the middle of an even number of times as their mean', () => {
-    const tally = runTally(
+    const tally = tallyWith(
       [
         costedRecord('run_1', { ms: 10_000 }),
         costedRecord('run_2', { ms: 20_000 }),
@@ -161,7 +159,7 @@ describe('runTally', () => {
   });
 
   it('takes the time nine in ten runs stayed within as the ninetieth percentile', () => {
-    const tally = runTally(
+    const tally = tallyWith(
       Array.from({ length: 10 }, (_, at) =>
         costedRecord(`run_${at}`, { ms: (at + 1) * 1_000 }),
       ),
@@ -173,7 +171,7 @@ describe('runTally', () => {
   });
 
   it('tallies nothing without runs', () => {
-    expect(runTally([], [])).toEqual({
+    expect(tallyWith([], [])).toEqual({
       runs: 0,
       cancelled: 0,
       failed: 0,
@@ -196,7 +194,7 @@ describe('runTally', () => {
 
 describe('tallyDeltasOf', () => {
   const tallied = (failures: number, others: number) =>
-    runTally(
+    tallyWith(
       [
         ...Array.from({ length: failures }, (_, index) =>
           endedRecord(`failed_${index}`, { ending: 'failed' }),
@@ -230,11 +228,11 @@ describe('tallyDeltasOf', () => {
 
 describe('tallySeenOf', () => {
   it('sees a count above zero in either period, and none that stayed at zero in both', () => {
-    const now = runTally(
+    const now = tallyWith(
       [endedRecord('run_1').recordAction(HumanAction.of('accepted', AT))],
       [],
     );
-    const before = runTally(
+    const before = tallyWith(
       [endedRecord('run_2').recordAction(HumanAction.of('sent-back', AT))],
       [],
     );
@@ -249,7 +247,7 @@ describe('tallySeenOf', () => {
 
 describe('tallyRatesOf', () => {
   it('shares checks passed among runs checked, and acceptances and merges among runs', () => {
-    const tally = runTally(
+    const tally = tallyWith(
       [
         endedRecord('run_1', { taskId: 'task_1' })
           .recordCheck('passed', AT)
@@ -269,7 +267,7 @@ describe('tallyRatesOf', () => {
   });
 
   it('has no shares where nothing ran or nothing was checked', () => {
-    expect(tallyRatesOf(runTally([], []))).toEqual({
+    expect(tallyRatesOf(tallyWith([], []))).toEqual({
       checksPassed: null,
       accepted: null,
       merged: null,
@@ -281,7 +279,7 @@ describe('tallyCountedOf', () => {
   it('marks the counts above zero', () => {
     expect(
       tallyCountedOf(
-        runTally(
+        tallyWith(
           [
             endedRecord('run_1', { ending: 'failed' }),
             endedRecord('run_2').recordAction(HumanAction.of('sent-back', AT)),

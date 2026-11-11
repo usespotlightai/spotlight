@@ -1,4 +1,8 @@
+import { SkillMainFileMissingError } from '@configuration/domain/exceptions/skill-main-file-missing.error';
+import type { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+
+export const SKILL_MAIN_FILE = 'SKILL.md';
 
 export const skillFileProblem = (path: string): string | null => {
   if (path.length === 0) {
@@ -35,6 +39,12 @@ export class SkillFiles {
         Object.entries(files).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
       ),
     );
+  }
+
+  guardMainFileOf(skill: DefinedSkillKey): void {
+    if (!this.byPath.has(SKILL_MAIN_FILE)) {
+      throw new SkillMainFileMissingError(skill.value, SKILL_MAIN_FILE);
+    }
   }
 
   get entries(): readonly { readonly path: string; readonly text: string }[] {

@@ -1,14 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type {
-  HistoryCandidateDto,
-  HistoryCandidateRunDto,
+  FileChangeDto,
   HistoryOutcome,
   HistoryRunDto,
   HistoryUsage,
   RunnerHistoryDto,
 } from '@work/application/dto/runner-history.dto';
-import type { VisibleBlock } from '@work/application/ports/search-visibility.port';
-import type { FileChange } from '@work/application/read-models/file-changes-of';
 import { StationConfigResponseDto } from '@work/presentation/http/dto/station-config.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 
@@ -159,7 +156,7 @@ export class FileChangeResponseDto {
   })
   readonly omitted: boolean;
 
-  constructor(from: FileChange) {
+  constructor(from: FileChangeDto) {
     this.path = from.path;
     this.before = from.before;
     this.after = from.after;
@@ -222,142 +219,6 @@ export class HistoryRunResponseDto {
   }
 }
 
-export class HistoryCandidateRunResponseDto {
-  @ApiProperty({ description: 'The replay run of the candidate' })
-  readonly runId: string;
-
-  @ApiProperty({ description: 'The task run it replayed' })
-  readonly original: string;
-
-  @ApiProperty({
-    example: 1,
-    description: 'Which copy of the task run it is, from 1',
-  })
-  readonly repeat: number;
-
-  @ApiProperty()
-  readonly taskId: string;
-
-  @ApiProperty()
-  readonly title: string;
-
-  @ApiProperty({ nullable: true, type: String })
-  readonly fingerprint: string | null;
-
-  @ApiProperty({ example: 'completed' })
-  readonly state: string;
-
-  @ApiProperty()
-  readonly attempt: number;
-
-  @ApiProperty({ example: 'claude-code' })
-  readonly harness: string;
-
-  @ApiProperty()
-  readonly startedAt: string;
-
-  @ApiProperty()
-  readonly endedAt: string;
-
-  @ApiProperty({
-    nullable: true,
-    type: () => RunUsageResponseDto,
-    description:
-      'What the replay cost; a replay run has no outcome of its own, so the response shows its cost beside the run',
-  })
-  readonly usage: RunUsageResponseDto | null;
-
-  @ApiProperty({ type: () => [FileChangeResponseDto] })
-  readonly changes: FileChangeResponseDto[];
-
-  @ApiProperty({ type: () => TaskTraceResponseDto })
-  readonly trace: TaskTraceResponseDto;
-
-  @ApiProperty({
-    nullable: true,
-    type: Boolean,
-    description: 'Whether the replay succeeded; null while it is unscored',
-  })
-  readonly succeeded: boolean | null;
-
-  @ApiProperty({ type: [String] })
-  readonly reasons: string[];
-
-  @ApiProperty({ nullable: true, type: String, example: 'pass' })
-  readonly verdict: string | null;
-
-  @ApiProperty({
-    nullable: true,
-    type: String,
-    description:
-      'What the judge says a failing replay should do differently, never its reasons',
-    example: 'Give up on an upload that keeps failing instead of looping.',
-  })
-  readonly guidance: string | null;
-
-  constructor(from: HistoryCandidateRunDto, trace: TaskTraceResponseDto) {
-    this.runId = from.runId;
-    this.original = from.original;
-    this.repeat = from.repeat;
-    this.taskId = from.taskId;
-    this.title = from.title;
-    this.fingerprint = from.fingerprint;
-    this.state = from.state;
-    this.attempt = from.attempt;
-    this.harness = from.harness;
-    this.startedAt = from.startedAt;
-    this.endedAt = from.endedAt;
-    this.usage = from.usage ? new RunUsageResponseDto(from.usage) : null;
-    this.changes = from.changes.map((each) => new FileChangeResponseDto(each));
-    this.trace = trace;
-    this.succeeded = from.succeeded;
-    this.reasons = [...from.reasons];
-    this.verdict = from.verdict;
-    this.guidance = from.guidance;
-  }
-}
-
-export class HistoryCandidateResponseDto {
-  @ApiProperty({ example: 'oldest-first' })
-  readonly candidateName: string;
-
-  @ApiProperty({ description: 'The SHA-256 naming the candidate’s config' })
-  readonly fingerprint: string;
-
-  @ApiProperty({ description: 'Why the search proposed the candidate' })
-  readonly hypothesis: string;
-
-  @ApiProperty({
-    type: 'object',
-    additionalProperties: true,
-    description:
-      'The candidate’s station block, in the shape that the line resource uses for a station',
-    example: {
-      key: 'build',
-      name: 'Build',
-      kind: 'work',
-      harness: 'claude-code',
-      prompt: 'Build it, then drain the queue.',
-      passesTo: ['ship'],
-    },
-  })
-  readonly block: VisibleBlock;
-
-  @ApiProperty({ type: () => [HistoryCandidateRunResponseDto] })
-  readonly runs: HistoryCandidateRunResponseDto[];
-
-  constructor(
-    from: HistoryCandidateDto,
-    runs: HistoryCandidateRunResponseDto[],
-  ) {
-    this.candidateName = from.candidateName;
-    this.fingerprint = from.fingerprint;
-    this.hypothesis = from.hypothesis;
-    this.block = from.block;
-    this.runs = runs;
-  }
-}
-
 export class RunnerHistoryResponseDto {
   @ApiProperty({ type: () => HistoryPlaceResponseDto })
   readonly line: HistoryPlaceResponseDto;
@@ -371,42 +232,12 @@ export class RunnerHistoryResponseDto {
   @ApiProperty({ type: () => [HistoryRunResponseDto] })
   readonly runs: HistoryRunResponseDto[];
 
-  @ApiProperty({
-    type: () => [HistoryCandidateResponseDto],
-    description:
-      'For a search run, the candidates it proposed and their replay runs; empty for any other run',
-  })
-  readonly candidates: HistoryCandidateResponseDto[];
-
-  @ApiProperty({
-    type: 'object',
-    additionalProperties: true,
-    nullable: true,
-    description:
-      'For a search run, the station block it started from; null for any other run',
-    example: {
-      key: 'build',
-      name: 'Build',
-      kind: 'work',
-      harness: 'claude-code',
-      prompt: 'Build it, then drain the queue.',
-      passesTo: ['ship'],
-    },
-  })
-  readonly seedBlock: VisibleBlock | null;
-
-  constructor(
-    from: RunnerHistoryDto,
-    runs: HistoryRunResponseDto[],
-    candidates: HistoryCandidateResponseDto[],
-  ) {
+  constructor(from: RunnerHistoryDto, runs: HistoryRunResponseDto[]) {
     this.line = new HistoryPlaceResponseDto(from.line);
     this.station = new HistoryPlaceResponseDto(from.station);
     this.configs = from.configs.map(
       (each) => new HistoryConfigResponseDto(each),
     );
     this.runs = runs;
-    this.candidates = candidates;
-    this.seedBlock = from.seedBlock;
   }
 }

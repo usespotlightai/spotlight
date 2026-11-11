@@ -1,7 +1,8 @@
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
-import type { RunState } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/progress';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
+import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
 
 export const STATION_RUN_READER = Symbol('STATION_RUN_READER');
 
@@ -13,7 +14,7 @@ export interface EndedRunRow {
   readonly stationId: string;
   readonly taskId: string;
   readonly fingerprint: string | null;
-  readonly earlier: readonly RunState[];
+  readonly earlier: readonly TaskRunState[];
   readonly harness: string;
   readonly config: StationConfigParts | null;
   readonly reviewing: string | null;
@@ -30,8 +31,7 @@ export interface UnfinishedRunRow {
   readonly openedBy: string | null;
   readonly harness: string;
   readonly config: StationConfigParts | null;
-  readonly state: RunState;
-  readonly stopRequested: boolean;
+  readonly progress: Progress | null;
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
 }
@@ -62,20 +62,11 @@ export interface StationRunRow {
   readonly taskId: string;
   readonly title: string;
   readonly fingerprint: string | null;
-  readonly state: RunState;
+  readonly state: TaskRunState;
   readonly attempt: number;
   readonly harness: string;
   readonly startedAt: Date;
   readonly endedAt: Date;
-}
-
-export interface StationAlertRowShape {
-  readonly measure: string;
-  readonly risesBy: number | null;
-  readonly above: number | null;
-  readonly fallsBy: number | null;
-  readonly below: number | null;
-  readonly over: number;
 }
 
 interface TracedStationRow {
@@ -109,8 +100,6 @@ export interface StationRunReaderPort {
   endedRun(runId: string): Promise<EndedRunRow | null>;
 
   unfinishedOfTeam(teamId: TeamId): Promise<readonly UnfinishedRunRow[]>;
-
-  alertsAt(stationId: string): Promise<readonly StationAlertRowShape[] | null>;
 
   configsNamed(fingerprints: readonly string[]): Promise<readonly RanConfig[]>;
 

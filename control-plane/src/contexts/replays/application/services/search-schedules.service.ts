@@ -1,25 +1,24 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import type { ConfigPullRequestClosed } from '@replays/domain/events/config-pull-request-closed.event';
 import type { ConfigPullRequestMerged } from '@replays/domain/events/config-pull-request-merged.event';
 import type { ConfigPullRequestReopened } from '@replays/domain/events/config-pull-request-reopened.event';
-import { StationSearchScheduleDeletionRequested } from '@replays/domain/events/station-search-schedule-deletion-requested.event';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class SearchSchedules {
   constructor(
     private readonly schedules: StationSearchScheduleRepository,
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
 
-  alerted(stationId: string): Promise<void> {
+  alerted(stationId: StationId): Promise<void> {
     return this.transaction.inTransaction(async () => {
       const schedule = await this.schedules.locked(stationId);
 
@@ -69,11 +68,11 @@ export class SearchSchedules {
     });
   }
 
-  async lineChanged(lineId: string): Promise<void> {
+  async lineChanged(lineId: LineId): Promise<void> {
     const now = this.clock.now();
 
     for (const each of await this.schedules.ofLine(lineId)) {
-      const live = await this.work.live(lineId, each.stationId);
+      const live = await this.configs.live(lineId, each.stationId);
 
       await this.transaction.inTransaction(async () => {
         const locked = await this.schedules.locked(each.stationId);
@@ -100,21 +99,15 @@ export class SearchSchedules {
     }
   }
 
-  async deleteForTeam(
-    teamId: TeamId,
-    workspaceId: WorkspaceId,
-  ): Promise<readonly DomainEvent[]> {
-    return (await this.schedules.ofTeam(teamId)).map(
-      (each) =>
-        new StationSearchScheduleDeletionRequested(each.stationId, workspaceId),
-    );
+  async ofTeam(teamId: TeamId): Promise<void> {
+    for (const schedule of await this.schedules.ofTeam(teamId)) {
+      await this.transaction.inTransaction(() =>
+        this.schedules.save(schedule.delete()),
+      );
+    }
   }
 
-  delete(stationId: string): Promise<void> {
-    return this.deleted(stationId);
-  }
-
-  private deleted(stationId: string): Promise<void> {
+  private deleted(stationId: StationId): Promise<void> {
     return this.transaction.inTransaction(async () => {
       const locked = await this.schedules.locked(stationId);
 

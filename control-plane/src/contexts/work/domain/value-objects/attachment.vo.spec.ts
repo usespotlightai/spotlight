@@ -1,3 +1,4 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import {
   Attachment,
@@ -71,17 +72,38 @@ describe('Attachment', () => {
     expect(file().equals(file({ id: 'file_2' }))).toBe(false);
   });
 
-  it('reads back what was stored, whatever today\u2019s rules say', () => {
+  it('reads back what was stored under the rules it was made with', () => {
     const stored = Attachment.rehydrate({
       id: 'file_1',
-      name: '.hidden name',
-      contentType: 'application/x-made-up',
-      size: MAX_ATTACHMENT_BYTES * 2,
+      name: 'trace.png',
+      contentType: 'image/png',
+      size: 10,
     });
 
-    expect(stored.name).toBe('.hidden name');
-    expect(stored.contentType).toBe('application/x-made-up');
-    expect(stored.size).toBe(MAX_ATTACHMENT_BYTES * 2);
+    expect([stored.name, stored.contentType, stored.size]).toEqual([
+      'trace.png',
+      'image/png',
+      10,
+    ]);
+  });
+
+  it('refuses a stored attachment that breaks those rules', () => {
+    expect(() =>
+      Attachment.rehydrate({
+        id: 'file_1',
+        name: '.hidden name',
+        contentType: 'image/png',
+        size: 10,
+      }),
+    ).toThrow(InconsistentStateError);
+    expect(() =>
+      Attachment.rehydrate({
+        id: 'file_1',
+        name: 'trace.png',
+        contentType: 'image/png',
+        size: MAX_ATTACHMENT_BYTES * 2,
+      }),
+    ).toThrow(InconsistentStateError);
   });
 
   it('says whether a size may be stored at all', () => {

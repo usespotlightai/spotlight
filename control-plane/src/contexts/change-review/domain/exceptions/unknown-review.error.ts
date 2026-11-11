@@ -1,6 +1,7 @@
 import { capitalised } from '@shared-kernel/domain/capitalised';
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 
-export class UnknownReviewError extends Error {
+export class UnknownReviewError extends DomainError {
   readonly kind = 'not-found' as const;
 
   constructor(what: string) {

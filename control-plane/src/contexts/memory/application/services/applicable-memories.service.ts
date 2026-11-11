@@ -17,7 +17,7 @@ export class ApplicableMemories {
     asOf: Date | null = null,
   ): Promise<Memory[]> {
     const applying = (await this.memories.mayApplyAt(runContext, asOf)).filter(
-      (each) => each.appliesAt(runContext),
+      (each) => each.appliesAt(runContext, asOf),
     );
 
     return this.current(applying, asOf);
@@ -33,9 +33,7 @@ export class ApplicableMemories {
       await this.memories.findAll(
         await this.relevance.recall(teamId, words, max, asOf),
       )
-    ).filter((each) =>
-      asOf ? each.activeOn(teamId, asOf) : each.isActiveOn(teamId),
-    );
+    ).filter((each) => each.activeOn(teamId, asOf));
 
     return this.current(found, asOf);
   }

@@ -14,10 +14,11 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { EGRESS_TOKEN_HEADER } from '@runners/presentation/http/controllers/egress-resource.controller';
+import { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
 import {
   DrizzleRunConnections,
   MAX_ERRORS_PER_RUN,
-} from '@work/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
+} from '@runs/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -30,7 +31,8 @@ import {
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { deleteRunnersOf } from './support/runners';
+import { deleteRunnersOf, deleteRunsOf } from './support/runners';
+import { requestedBySpec } from './support/runs';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -146,6 +148,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     const id = randomUUID();
 
     await db.insert(schema.run).values({
+      ...requestedBySpec(id),
       id,
       workspaceId,
       harness: 'dev',
@@ -155,7 +158,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        resume: { key: `task:${id}` },
+        resume: {},
         injectedSecrets,
       },
     });
@@ -231,7 +234,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     await db
       .delete(schema.configurationChange)
       .where(eq(schema.configurationChange.workspaceId, workspaceId));
-    await db.delete(schema.run).where(eq(schema.run.workspaceId, workspaceId));
+    await deleteRunsOf(db, workspaceId);
     await db
       .delete(schema.secret)
       .where(eq(schema.secret.workspaceId, workspaceId));
@@ -360,7 +363,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }).expect(204);
 
     const network = await http()
-      .get(`/api/teams/${workspaceId}/runs/${runId}/network`)
+      .get(`/api/runs/${runId}/network`)
       .set(TEST_USER_HEADER, owner)
       .expect(200);
 
@@ -426,7 +429,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }).expect(204);
 
     const network = await http()
-      .get(`/api/teams/${workspaceId}/runs/${runId}/network`)
+      .get(`/api/runs/${runId}/network`)
       .set(TEST_USER_HEADER, owner)
       .expect(200);
 
@@ -447,20 +450,27 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       runId: string,
       second: number,
       part: Partial<typeof schema.runConnection.$inferInsert>,
-    ) => ({
-      runId,
-      attempt: 1,
-      host: 'example.com',
-      port: 443,
-      bytesOut: 0,
-      bytesIn: 0,
-      ms: 1,
-      outcome: 'passthrough',
-      status: null,
-      reason: null,
-      at: at(second),
-      ...part,
-    });
+    ) => {
+      const parts = {
+        host: 'example.com',
+        port: 443,
+        bytesOut: 0,
+        bytesIn: 0,
+        ms: 1,
+        outcome: 'passthrough',
+        status: null,
+        reason: null,
+        at: at(second),
+        ...part,
+      };
+
+      return {
+        runId,
+        attempt: 1,
+        ...parts,
+        error: RunConnection.of(parts).error,
+      };
+    };
 
     await db.insert(schema.runConnection).values([
       ...Array.from({ length: MAX_ERRORS_PER_RUN + 1 }, (_, each) =>
@@ -530,7 +540,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         .map((each) => each.connection.host),
     ).toEqual(
       all
-        .filter((each) => each.connection.isError)
+        .filter((each) => each.connection.error !== null)
         .map((each) => each.connection.host),
     );
     expect(

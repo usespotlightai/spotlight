@@ -1,5 +1,9 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
 import {
+  INBOX_SECTIONS,
+  type InboxSection,
+} from '@work/application/read-models/inbox-section';
+import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
@@ -10,16 +14,19 @@ import {
 } from '@work/domain/value-objects/approval-subject.vo';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
-import type { Progress } from '@work/domain/value-objects/run-state';
-import { VOICES } from '@work/domain/value-objects/voice.vo';
+import type { Progress } from '@work/domain/value-objects/progress';
+import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
 
 export const NOTE_KINDS = TASK_NOTE_KINDS;
 export const NOTE_FORMS = TASK_NOTE_FORMS;
-export const NOTE_VOICES = VOICES;
+export const NOTE_VOICES = VOICE_KINDS;
 export const INBOX_APPROVAL_STATUSES = APPROVAL_STATUSES;
 export const APPROVAL_SUBJECTS = APPROVAL_SUBJECT_KINDS;
 export const INBOX_REQUEST_DTO_FORMS = INBOX_REQUEST_FORMS;
 export const INBOX_NOTICE_FORMS = NOTICE_FORMS;
+export const INBOX_DTO_SECTIONS = INBOX_SECTIONS;
+
+export type InboxDtoSection = InboxSection;
 
 interface InboxApprovalInputDto {
   readonly name: string;
@@ -67,7 +74,7 @@ export interface NoteDto {
   readonly kind: string;
   readonly form: string;
   readonly voice: string;
-  readonly station: string;
+  readonly station: string | null;
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly runId: string | null;
@@ -84,7 +91,7 @@ export interface NoteDto {
 }
 
 interface InboxStationDto {
-  readonly name: string;
+  readonly name: string | null;
   readonly color: string;
   readonly position: number;
 }
@@ -97,7 +104,7 @@ export interface InboxItemDto {
   readonly title: string;
   readonly description: string | null;
   readonly attachments: readonly AttachmentDto[];
-  readonly station: string;
+  readonly station: string | null;
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly stationCount: number;
@@ -106,12 +113,18 @@ export interface InboxItemDto {
   readonly createdAt: string;
   readonly askedAt: string;
   readonly resolved: boolean;
+  readonly section: InboxSection;
+  readonly reopenable: boolean;
   readonly progress: Progress | null;
   readonly runId: string | null;
   readonly unread: boolean;
   readonly briefing: string | null;
   readonly failure: InboxFailureDto | null;
   readonly inboxRequest: InboxRequestDto | null;
+  readonly lastNote: NoteDto | null;
+}
+
+export interface InboxItemViewDto extends InboxItemDto {
   readonly notes: readonly NoteDto[];
 }
 
@@ -133,6 +146,8 @@ export interface InboxNoticeDto {
   readonly askedAt: string;
   readonly unread: boolean;
   readonly resolved: boolean;
+  readonly section: InboxSection;
+  readonly reopenable: boolean;
 }
 
 export interface InboxRunDto {
@@ -149,6 +164,26 @@ export interface InboxRunDto {
   readonly askedAt: string;
   readonly unread: false;
   readonly resolved: false;
+  readonly section: InboxSection;
+  readonly reopenable: false;
 }
 
-export type InboxEntryDto = InboxItemDto | InboxNoticeDto | InboxRunDto;
+export interface InboxChatDto {
+  readonly kind: 'chat';
+  readonly id: string;
+  readonly teamId: string;
+  readonly title: string;
+  readonly progress: Progress | null;
+  readonly openProposals: number;
+  readonly askedAt: string;
+  readonly unread: boolean;
+  readonly resolved: boolean;
+  readonly section: InboxSection;
+  readonly reopenable: boolean;
+}
+
+export type InboxEntryDto =
+  | InboxItemDto
+  | InboxNoticeDto
+  | InboxRunDto
+  | InboxChatDto;

@@ -7,11 +7,10 @@ import { NoticeSkeleton } from '@/components/features/inbox/notices/NoticeSkelet
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
-import { useInbox } from '@/hooks/api/useInbox';
+import { useInboxNotice } from '@/hooks/api/useInbox';
 import { useResolveInboxNotice } from '@/hooks/api/useResolveInboxNotice';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { notFound } from '@/lib/error';
-import { noticeOf } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -20,8 +19,8 @@ const RESOLVE_AFTER_MS = 3000;
 
 export function InboxNotice() {
   const { slug, noticeId } = useParams();
-  const inbox = useInbox(slug);
-  const notice = noticeOf(inbox.data, noticeId);
+  const found = useInboxNotice(slug, noticeId);
+  const notice = found.data;
   const { data: workspace } = useWorkspace(slug);
   const resolve = useResolveInboxNotice();
   const pending = notice && !notice.resolved ? notice.id : null;
@@ -52,17 +51,17 @@ export function InboxNotice() {
   ];
   const { trail, forward } = useTrail(base);
 
-  if (loading(inbox)) {
+  if (loading(found)) {
     return <NoticeSkeleton />;
   }
 
-  if (failed(inbox)) {
+  if (failed(found) && !notFound(found.error)) {
     return (
       <PageNotice>
         <CouldNotLoad
-          what="The inbox"
-          retrying={inbox.isFetching}
-          onRetry={() => void inbox.refetch()}
+          what="The notice"
+          retrying={found.isFetching}
+          onRetry={() => void found.refetch()}
         />
       </PageNotice>
     );

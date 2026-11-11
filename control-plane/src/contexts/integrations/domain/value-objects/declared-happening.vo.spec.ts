@@ -1,7 +1,7 @@
+import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
-import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { describe, expect, it } from 'vitest';
 
 const COMPLETED = HappeningName.of('linear.issue.completed');
@@ -33,8 +33,10 @@ describe('DeclaredHappening', () => {
   });
 
   it('rejects one nobody could read in a note', () => {
-    expect(() => declaring({ summary: '  ' })).toThrow(InvalidIdentifierError);
-    expect(() => declaring({ label: '' })).toThrow(InvalidIdentifierError);
+    expect(() => declaring({ summary: '  ' })).toThrow(
+      InvalidIntegrationPartError,
+    );
+    expect(() => declaring({ label: '' })).toThrow(InvalidIntegrationPartError);
   });
 
   it('rejects one that could never find a task', () => {

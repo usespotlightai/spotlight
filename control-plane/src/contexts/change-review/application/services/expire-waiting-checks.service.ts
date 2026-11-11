@@ -18,17 +18,17 @@ export class ExpireWaitingChecks implements PendingJobsPort {
   async processDue(): Promise<void> {
     const now = this.clock.now();
 
-    for (const check of await this.checks.withExpiredWait(now, MAX_AT_ONCE)) {
-      if (!check.waitExpiredAt(now)) {
-        continue;
-      }
+    const expired = (await this.checks.waiting())
+      .filter((each) => each.waitExpiredAt(now))
+      .slice(0, MAX_AT_ONCE);
 
+    for (const check of expired) {
       try {
         await this.checks.save(check.expireWait(now));
       } catch (error) {
         if (!(error instanceof StackCheckVersionConflictError)) {
           this.logger.error(
-            { err: error, stack: check.stackId.value },
+            { err: error, check: check.id.toString() },
             this.name,
           );
         }

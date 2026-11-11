@@ -1,18 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import type { INestApplication } from '@nestjs/common';
-import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
+import { Line } from '@lines/domain/aggregates/line.aggregate';
+import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
 import {
   BUILT_IN_LINES,
   type LineOpening,
-} from '@work/domain/services/built-in-lines';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
+} from '@lines/domain/services/built-in-lines';
+import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
+import type { INestApplication } from '@nestjs/common';
+import { EventDelivery } from '@platform/events/event-delivery';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -129,6 +131,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
   const putTaskAt = async (lineId: string, key: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
+    await app.get(EventDelivery).drain(2_000);
     const [station] = await db
       .select({ id: schema.station.id, workspaceId: schema.line.workspaceId })
       .from(schema.station)
@@ -169,7 +172,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
     expect(made.body).toMatchObject({
       key: DELIVERY.key,
-      definition: { key: DELIVERY.key, name: DELIVERY.name },
+      definition: { key: DELIVERY.key, name: DELIVERY.name, warmSandboxes: 0 },
     });
     expect(Object.keys(station).sort()).toEqual(
       expect.arrayContaining([
@@ -410,6 +413,56 @@ describe('a line, created through the resource API (e2e)', () => {
 
       expect(rejected.status).toBe(422);
       expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
+    }
+  });
+
+  it('stores how many warm sandboxes a line keeps, 0 where it names none', async () => {
+    const plain = await create(DELIVERY);
+    const unset = await served(app)
+      .get(fixture.item(plain.body.id))
+      .set(TEST_USER_HEADER, fixture.admin);
+    const made = await change(plain.body.id, plain.body.version, {
+      ...DELIVERY,
+      warmSandboxes: 3,
+    });
+    const read = await served(app)
+      .get(fixture.item(made.body.id))
+      .set(TEST_USER_HEADER, fixture.admin);
+    const changed = await change(made.body.id, made.body.version, {
+      ...DELIVERY,
+      warmSandboxes: 5,
+    });
+    const cleared = await change(
+      changed.body.id,
+      changed.body.version,
+      DELIVERY,
+    );
+    const fresh = await create({
+      ...DELIVERY,
+      key: 'warm',
+      role: undefined,
+      warmSandboxes: 2,
+    });
+
+    expect(plain.status).toBe(201);
+    expect(plain.body.definition.warmSandboxes).toBe(0);
+    expect(unset.body.definition.warmSandboxes).toBe(0);
+    expect(made.status).toBe(200);
+    expect(fresh.status).toBe(201);
+    expect(fresh.body.definition.warmSandboxes).toBe(2);
+    expect(read.body.definition.warmSandboxes).toBe(3);
+    expect(changed.body.definition.warmSandboxes).toBe(5);
+    expect(cleared.body.definition.warmSandboxes).toBe(0);
+  });
+
+  it('rejects warm sandboxes outside 0 to 5 at its field', async () => {
+    for (const warmSandboxes of [6, -1]) {
+      const rejected = await create({ ...DELIVERY, warmSandboxes });
+
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([
+        expect.objectContaining({ path: 'warmSandboxes' }),
+      ]);
     }
   });
 
@@ -716,6 +769,7 @@ describe('a line, created through the resource API (e2e)', () => {
         workspaceId: WorkspaceId.of(teamId),
         teamId: TeamId.of(teamId),
         line: { ...opening, key: LineKey.of(key) },
+        harness: HarnessId.of('claude-code'),
         newId: () => `${teamId}-${key}-${++next}`,
       });
 

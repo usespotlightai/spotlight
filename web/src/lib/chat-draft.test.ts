@@ -9,6 +9,7 @@ import {
   parseDrafts,
   prefillSignature,
   pruneDrafts,
+  restoredAttachments,
   UPLOAD_MAX_AGE_MS,
   validSettings,
 } from '@/lib/chat-draft';
@@ -125,7 +126,6 @@ describe('expiredUploads', () => {
       size: 1,
       image: false,
       uploadedAt,
-      thumbnail: null,
     });
     const { kept, expired } = expiredUploads(
       [attachment('new', NOW), attachment('old', NOW - UPLOAD_MAX_AGE_MS - 1)],
@@ -134,6 +134,34 @@ describe('expiredUploads', () => {
 
     expect(kept.map((each) => each.key)).toEqual(['new']);
     expect(expired.map((each) => each.key)).toEqual(['old']);
+  });
+});
+
+describe('restoredAttachments', () => {
+  it('draws a restored image from its upload, and nothing for other files', () => {
+    const [shot, notes] = restoredAttachments('acme', [
+      {
+        key: 'k1',
+        id: 'a1',
+        name: 'shot.png',
+        size: 1,
+        image: true,
+        uploadedAt: NOW,
+      },
+      {
+        key: 'k2',
+        id: 'a2',
+        name: 'notes.txt',
+        size: 1,
+        image: false,
+        uploadedAt: NOW,
+      },
+    ]);
+
+    expect(shot?.imageSource).toEqual({
+      url: '/api/workspaces/acme/attachments/a1',
+    });
+    expect(notes?.imageSource).toBeNull();
   });
 });
 

@@ -19,7 +19,7 @@ export class SearchNotices implements SearchNoticesPort {
       addressee: notice.addressee,
       form: 'ended',
       subject: `replay-search ${notice.searchId.value} ${notice.about}`,
-      link: `lines/${notice.lineId}/stations/${notice.stationId}`,
+      link: `lines/${notice.lineId.value}/stations/${notice.stationId.value}`,
       linkLabel: OPENS_STATION,
       externalLink:
         notice.pullRequest &&
@@ -37,8 +37,8 @@ export class SearchNotices implements SearchNoticesPort {
       teamId: notice.teamId,
       addressee: null,
       form: 'advice',
-      subject: `station-search ${notice.stationId} ${notice.about}`,
-      link: `lines/${notice.lineId}/stations/${notice.stationId}`,
+      subject: `station-search ${notice.stationId.value} ${notice.about}`,
+      link: `lines/${notice.lineId.value}/stations/${notice.stationId.value}`,
       linkLabel: OPENS_STATION,
       externalLink: null,
       headline: notice.headline,

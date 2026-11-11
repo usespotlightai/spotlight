@@ -15,6 +15,7 @@ import {
   ReviewCommentResponseDto,
   ReviewResponseDto,
 } from '@change-review/presentation/http/dto/review.response.dto';
+import { deliveryFailureText } from '@change-review/presentation/http/mappers/delivery-failure.text';
 import {
   Body,
   Controller,
@@ -38,8 +39,8 @@ import {
   ApiTags,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 
 @ApiTags('reviews')
 @ApiParam({ name: 'teamId', type: String })
@@ -70,8 +71,20 @@ export class ReviewController {
 
     return new CodeReviewResponseDto(
       found.pullRequest,
-      found.comments.map((each) => new ReviewCommentResponseDto(each)),
-      found.reviews.map((each) => new ReviewResponseDto(each)),
+      found.comments.map(
+        (each) =>
+          new ReviewCommentResponseDto({
+            ...each,
+            failure: deliveryFailureText(each.failure),
+          }),
+      ),
+      found.reviews.map(
+        (each) =>
+          new ReviewResponseDto({
+            ...each,
+            failure: deliveryFailureText(each.failure),
+          }),
+      ),
     );
   }
 
@@ -82,6 +95,10 @@ export class ReviewController {
       'Draft a comment on lines or a whole file, or reply to a comment; a reply goes to GitHub straight away',
   })
   @ApiCreatedResponse({ type: CreatedIdResponseDto })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   @ApiNotFoundResponse({
     description: 'No such run or comment for this caller',
   })
@@ -95,25 +112,14 @@ export class ReviewController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CreatedIdResponseDto> {
     const id = await this.commandBus.execute<DraftReviewCommentCommand, string>(
-      new DraftReviewCommentCommand(
-        teamId,
-        runId,
-        user.id,
-        body.body ?? '',
-        body.replyTo
-          ? { replyTo: body.replyTo }
-          : body.line === undefined
-            ? { file: body.path ?? '' }
-            : {
-                path: body.path ?? '',
-                side: body.side ?? '',
-                line: Number(body.line),
-                startLine:
-                  body.startLine === undefined || body.startLine === null
-                    ? null
-                    : Number(body.startLine),
-              },
-      ),
+      new DraftReviewCommentCommand(teamId, runId, user.id, body.body ?? '', {
+        replyTo: body.replyTo ?? null,
+        repository: body.repository ?? null,
+        path: body.path ?? '',
+        side: body.side ?? null,
+        line: body.line ?? null,
+        startLine: body.startLine ?? null,
+      }),
     );
 
     return new CreatedIdResponseDto(id);
@@ -127,7 +133,10 @@ export class ReviewController {
   })
   @ApiParam({ name: 'commentId', type: String })
   @ApiNoContentResponse()
-  @ApiForbiddenResponse({ description: 'Someone else wrote it' })
+  @ApiForbiddenResponse({
+    description:
+      'Someone else wrote it, or the caller is not a member of the team, nor a workspace admin',
+  })
   async edit(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,
@@ -154,7 +163,10 @@ export class ReviewController {
   })
   @ApiParam({ name: 'commentId', type: String })
   @ApiNoContentResponse()
-  @ApiForbiddenResponse({ description: 'Someone else wrote it' })
+  @ApiForbiddenResponse({
+    description:
+      'Someone else wrote it, or the caller is not a member of the team, nor a workspace admin',
+  })
   async delete(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,
@@ -173,6 +185,10 @@ export class ReviewController {
       'Submit your drafts as a review; it posts to the pull request, once the task has one',
   })
   @ApiCreatedResponse({ type: CreatedIdResponseDto })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   @ApiUnprocessableEntityResponse({
     description: 'A comment or request for changes that says nothing',
   })
@@ -189,6 +205,7 @@ export class ReviewController {
         user.id,
         body.verdict ?? '',
         body.body ?? '',
+        body.repository ?? null,
       ),
     );
 

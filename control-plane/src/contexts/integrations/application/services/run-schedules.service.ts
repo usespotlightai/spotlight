@@ -2,10 +2,12 @@ import type {
   DefinedIntegration,
   DefinedIntegrationsPort,
 } from '@integrations/application/ports/defined-integrations.port';
-import type { IntegrationCursorsPort } from '@integrations/application/ports/integration-cursors.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
-import type { Integration } from '@integrations/domain/entities/integration.entity';
+import { ScheduleCursorVersionConflictError } from '@integrations/domain/exceptions/schedule-cursor-version-conflict.error';
+import type { ScheduleCursorRepository } from '@integrations/domain/repositories/schedule-cursor.repository';
+import type { CronCalendar } from '@integrations/domain/services/cron-calendar';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { Schedule } from '@integrations/domain/value-objects/schedule.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -16,7 +18,8 @@ export class RunSchedules {
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
     private readonly callAuthResolver: CallAuthResolver,
-    private readonly cursors: IntegrationCursorsPort,
+    private readonly cursors: ScheduleCursorRepository,
+    private readonly calendar: CronCalendar,
     private readonly clock: ClockPort,
     private readonly log: LoggerPort,
   ) {}
@@ -48,16 +51,21 @@ export class RunSchedules {
     schedule: Schedule,
     now: Date,
   ): Promise<void> {
-    const key = `${integration.key.value}:schedule`;
-    const state = await this.cursors.read(teamId, key);
-    const turn = schedule.turn(state.ranAt, now);
+    const cursor = await this.cursors.of(teamId, integration.key);
+    const turn = cursor.turn(schedule, now, this.calendar);
 
     if (turn === 'waits') {
       return;
     }
 
-    if (!(await this.cursors.claimTurn(teamId, key, state, now))) {
-      return;
+    try {
+      await this.cursors.save(cursor.claimed(schedule, now, this.calendar));
+    } catch (error) {
+      if (error instanceof ScheduleCursorVersionConflictError) {
+        return;
+      }
+
+      throw error;
     }
 
     if (turn === 'starts') {
@@ -83,7 +91,7 @@ export class RunSchedules {
       }
     } catch (error) {
       this.log.warn(
-        { err: error, team: teamId.value, integration: key },
+        { err: error, team: teamId.value, integration: integration.key.value },
         'Running a schedule',
       );
     }

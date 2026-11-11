@@ -1,6 +1,6 @@
 import type { IssuedTokenDto } from '@identity/application/dto/issued-token.dto';
+import { TOKEN_SCOPES } from '@identity/domain/value-objects/token-scope.vo';
 import { ApiProperty } from '@nestjs/swagger';
-import { TOKEN_SCOPES } from '@shared-kernel/domain/value-objects/token-scope.vo';
 
 export class IssuedTokenResponseDto {
   @ApiProperty({

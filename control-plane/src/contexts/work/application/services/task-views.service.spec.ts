@@ -1,73 +1,81 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
+import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
+import { TaskNotesFromHooks } from '@work/application/services/task-notes-from-hooks.service';
 import { TaskViews } from '@work/application/services/task-views.service';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
+import {
+  lineMapOf,
+  repositoryOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
 const PULL = 'https://github.com/acme/api/pull/7';
 
-const DELIVERY = Line.rehydrate({
+const DELIVERY = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
   key: LineKey.of('delivery'),
   name: LineName.of('Delivery'),
   repositories: [
-    LineRepositoryConfig.of(Repository.of('acme/api')),
-    LineRepositoryConfig.of(Repository.of('acme/web')),
+    repositoryOf(Repository.of('acme/api')),
+    repositoryOf(Repository.of('acme/web')),
   ],
   stations: [
-    Station.of({
+    stationOf({
       id: StationId.of('station_0'),
       key: StationKey.of('backlog'),
       name: StationName.of('Backlog'),
       position: 0,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       kind: 'backlog',
     }),
-    Station.of({
+    stationOf({
       id: StationId.of('station_1'),
       key: StationKey.of('implementation'),
       name: StationName.of('Implementation'),
       position: 1,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       harness: HarnessId.of('dev'),
     }),
-    Station.of({
+    stationOf({
       id: StationId.of('station_2'),
       key: StationKey.of('completed'),
       name: StationName.of('Completed'),
       position: 2,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       kind: 'completed',
     }),
   ],
@@ -98,17 +106,22 @@ const dispatch: TaskDispatching = {
 };
 
 const viewing = (
-  over: { task?: Task | null; slug?: string | null; clashes?: number } = {},
+  over: {
+    task?: Task | null;
+    slug?: string | null;
+    clashes?: number;
+    ambient?: readonly Mark[];
+  } = {},
 ) => {
   let current = over.task === undefined ? working() : over.task;
   let clashes = over.clashes ?? 0;
   const searched: CorrelationKeys[] = [];
   const tasks = {
     find: vi.fn(async () => current),
-    findByMarks: vi.fn(
+    findByCorrelation: vi.fn(
       async (_workspace: WorkspaceId, correlationKeys: CorrelationKeys) => {
         searched.push(correlationKeys);
-        return current;
+        return current ? [current] : [];
       },
     ),
     save: vi.fn(async (task: Task) => {
@@ -126,16 +139,25 @@ const viewing = (
     current: () => current,
     views: new TaskViews(
       tasks as unknown as TaskRepository,
-      { findByStation: async () => DELIVERY } as unknown as LineRepository,
+      { findByStation: async () => DELIVERY } as unknown as LineMapsPort,
       {
         slugOf: async () => (over.slug === undefined ? 'acme' : over.slug),
       } as unknown as WorkspaceReaderPort,
+      new WebTaskLinks('https://spotlight.acme.dev/'),
+      { find: async () => null } as unknown as DispatchRepository,
+      new IntegrationTaskViews(
+        { findByStation: async () => DELIVERY } as unknown as LineMapsPort,
+        { ambientOf: async () => over.ambient ?? [] },
+      ),
+    ),
+    hooks: new TaskNotesFromHooks(
+      tasks as unknown as TaskRepository,
+      { findByStation: async () => DELIVERY } as unknown as LineMapsPort,
       processedEventsInMemory(),
       { placementsAt: async () => [] },
       dispatch,
       { inTransaction: (work) => work() },
       { now: () => NOW, sleep: async () => {} },
-      'https://spotlight.acme.dev/',
     ),
   };
 };
@@ -156,7 +178,36 @@ describe('TaskViews', () => {
       marks: { 'git.pull-request': PULL },
       repositories: ['acme/api', 'acme/web'],
       pullRequest: PULL,
+      pullRequests: [PULL],
       runId: 'run_9',
+    });
+  });
+
+  it('shows hooks the marks of the chat that proposed the task, under its own marks', async () => {
+    const proposed = Task.add({
+      line: DELIVERY,
+      at: StationId.of('station_1'),
+      title: TaskTitle.of('Fix the queue'),
+      rank: TaskRank.of('i'),
+      createdBy: UserId.of('user_1'),
+      proposedIn: ProposalOrigin.of({
+        chatId: ChatId.of('chat_1'),
+        position: MessagePosition.of(0),
+      }),
+      now: NOW,
+      newId: () => 'task_1',
+    }).markedBy(Mark.of('slack.thread', 'own'), NOW);
+    const { views } = viewing({
+      task: proposed,
+      ambient: [
+        Mark.of('slack.channel', 'C1'),
+        Mark.of('slack.thread', 'from-chat'),
+      ],
+    });
+
+    expect((await views.of('task_1', null))?.marks).toEqual({
+      'slack.channel': 'C1',
+      'slack.thread': 'own',
     });
   });
 
@@ -169,9 +220,14 @@ describe('TaskViews', () => {
       createdBy: UserId.of('user_1'),
       now: NOW,
       newId: () => 'task_1',
-    }).reviews(PullRequestUrl.of('https://github.com/acme/web/pull/9'), {
-      outside: false,
-    });
+    }).reviews(
+      PullRequestUrl.of('https://github.com/acme/web/pull/9'),
+      {
+        outside: false,
+      },
+      DELIVERY,
+      new Date(0),
+    );
     const { views } = viewing({ task: reviewing });
 
     expect((await views.of('task_1', null))?.repositories).toEqual([
@@ -210,10 +266,10 @@ describe('TaskViews', () => {
 
   describe('noting', () => {
     it('adds what a hook says to the task, in Spotlight’s voice', async () => {
-      const { views, current } = viewing();
+      const { hooks, current } = viewing();
 
       expect(
-        await views.noted('task_1', 'Audit logged.', 'core/audit', null),
+        await hooks.noted('task_1', 'Audit logged.', 'core/audit', null),
       ).toBe(true);
 
       const notes = current()?.notes ?? [];
@@ -222,22 +278,22 @@ describe('TaskViews', () => {
         'From the hook core/audit:\n\nAudit logged.',
       );
       expect(noted?.voice.isStation).toBe(true);
-      expect(noted?.station.value).toBe('Implementation');
+      expect(noted?.station?.value).toBe('Implementation');
     });
 
     it('answers no question put to a person, and hands the agent nothing to resume on', async () => {
       const asking = working().askedAbout(
         {
-          station: StationName.of('Implementation'),
+          line: null,
           body: TaskNoteBody.of('Which queue should drain first?'),
           at: NOW,
           voice: Voice.station(RUN),
         },
         RUN,
       );
-      const { views, current } = viewing({ task: asking });
+      const { hooks, current } = viewing({ task: asking });
 
-      await views.noted(
+      await hooks.noted(
         'task_1',
         'Answer: the billing queue.',
         'core/audit',
@@ -254,36 +310,36 @@ describe('TaskViews', () => {
     });
 
     it('reads the task again when it changed meanwhile', async () => {
-      const { views, tasks } = viewing({ clashes: 1 });
+      const { hooks, tasks } = viewing({ clashes: 1 });
 
       expect(
-        await views.noted('task_1', 'Audit logged.', 'core/audit', null),
+        await hooks.noted('task_1', 'Audit logged.', 'core/audit', null),
       ).toBe(true);
       expect(tasks.find).toHaveBeenCalledTimes(2);
     });
 
     it('notes nothing on a task that is gone', async () => {
-      const { views } = viewing({ task: null });
+      const { hooks } = viewing({ task: null });
 
       expect(
-        await views.noted('task_1', 'Audit logged.', 'core/audit', null),
+        await hooks.noted('task_1', 'Audit logged.', 'core/audit', null),
       ).toBe(false);
     });
 
     it('notes once however often a note is retried under one idempotency key', async () => {
-      const { views, current } = viewing();
+      const { hooks, current } = viewing();
 
-      await views.noted('task_1', 'Audit logged.', 'core/audit', 'note-1');
-      await views.noted('task_1', 'Audit logged.', 'core/audit', 'note-1');
+      await hooks.noted('task_1', 'Audit logged.', 'core/audit', 'note-1');
+      await hooks.noted('task_1', 'Audit logged.', 'core/audit', 'note-1');
 
       expect(current()?.notes).toHaveLength(1);
     });
 
     it('rejects an empty note', async () => {
-      const { views } = viewing();
+      const { hooks } = viewing();
 
       await expect(
-        views.noted('task_1', '  ', 'core/audit', null),
+        hooks.noted('task_1', '  ', 'core/audit', null),
       ).rejects.toThrow(InvalidTaskNoteError);
     });
   });
@@ -305,16 +361,16 @@ describe('TaskViews', () => {
         DELIVERY,
         StationId.of('station_0'),
         {
-          station: StationName.of('Implementation'),
+          line: null,
           body: TaskNoteBody.of('Changes were requested on the pull request.'),
           at: NOW,
           voice: Voice.world(),
         },
       );
       deferred.pullEvents();
-      const { views, current } = viewing({ task: deferred });
+      const { hooks, current } = viewing({ task: deferred });
 
-      await expect(views.failed(LOOPED)).resolves.toBe('reported');
+      await expect(hooks.failed(LOOPED)).resolves.toBe('reported');
 
       const moved = current() as Task;
       expect(moved.stationId).toEqual(StationId.of('station_0'));
@@ -335,9 +391,9 @@ describe('TaskViews', () => {
     });
 
     it('asks a person about the task, naming the hook and what it said', async () => {
-      const { views, current } = viewing();
+      const { hooks, current } = viewing();
 
-      await expect(views.failed(LOOPED)).resolves.toBe('reported');
+      await expect(hooks.failed(LOOPED)).resolves.toBe('reported');
 
       const asked = current();
       expect(asked?.awaitingReview).toBe(true);
@@ -351,59 +407,59 @@ describe('TaskViews', () => {
     });
 
     it('counts the same failure of another firing again rather than asking twice', async () => {
-      const { views, current } = viewing();
+      const { hooks, current } = viewing();
 
-      await views.failed(LOOPED);
-      await views.failed({ ...LOOPED, receivedAs: 'loop:firing_2' });
+      await hooks.failed(LOOPED);
+      await hooks.failed({ ...LOOPED, receivedAs: 'loop:firing_2' });
 
       expect(current()?.notes).toHaveLength(1);
       expect(current()?.notes[0]?.failure?.occurrences).toBe(2);
     });
 
     it('stays reported when told again for one firing after the task moved on', async () => {
-      const { views, current, tasks } = viewing();
+      const { hooks, current, tasks } = viewing();
 
-      await views.failed(LOOPED);
+      await hooks.failed(LOOPED);
       const failed = current() as Task;
       tasks.find.mockResolvedValue(
         failed.react(DELIVERY, StationId.of('station_0'), TaskRank.of('i'), {
-          station: StationName.of('Implementation'),
+          line: null,
           body: TaskNoteBody.of('Back to the backlog.'),
           at: NOW,
           voice: Voice.station(),
         }),
       );
 
-      await expect(views.failed(LOOPED)).resolves.toBe('reported');
+      await expect(hooks.failed(LOOPED)).resolves.toBe('reported');
     });
 
     it('counts a failure reported twice for one firing once', async () => {
-      const { views, current } = viewing();
+      const { hooks, current } = viewing();
 
-      await views.failed(LOOPED);
-      await expect(views.failed(LOOPED)).resolves.toBe('reported');
+      await hooks.failed(LOOPED);
+      await expect(hooks.failed(LOOPED)).resolves.toBe('reported');
 
       expect(current()?.notes[0]?.failure?.occurrences).toBe(1);
     });
 
     it('knows whether a task has moved on from where a hook fired', async () => {
-      const { views } = viewing();
+      const { hooks } = viewing();
       const gone = viewing({ task: null });
 
-      await expect(views.movedOn('task_1', 'implementation')).resolves.toBe(
+      await expect(hooks.movedOn('task_1', 'implementation')).resolves.toBe(
         false,
       );
-      await expect(views.movedOn('task_1', 'completed')).resolves.toBe(true);
+      await expect(hooks.movedOn('task_1', 'completed')).resolves.toBe(true);
       await expect(
-        gone.views.movedOn('task_1', 'implementation'),
+        gone.hooks.movedOn('task_1', 'implementation'),
       ).resolves.toBe(true);
     });
 
     it('supersedes a failure on a task that has moved on from where the hook fired', async () => {
-      const { views, tasks } = viewing();
+      const { hooks, tasks } = viewing();
 
       await expect(
-        views.failed({ ...LOOPED, stationKey: 'review' }),
+        hooks.failed({ ...LOOPED, stationKey: 'review' }),
       ).resolves.toBe('superseded');
       expect(tasks.save).not.toHaveBeenCalled();
     });
@@ -414,25 +470,25 @@ describe('TaskViews', () => {
         StationId.of('station_2'),
         TaskRank.of('i'),
         {
-          station: StationName.of('Implementation'),
+          line: null,
           body: TaskNoteBody.of('Done.'),
           at: NOW,
           voice: Voice.station(),
         },
         { mover: UserId.of('user_1') },
       );
-      const { views, tasks } = viewing({ task: finished });
+      const { hooks, tasks } = viewing({ task: finished });
 
       await expect(
-        views.failed({ ...LOOPED, stationKey: 'completed' }),
+        hooks.failed({ ...LOOPED, stationKey: 'completed' }),
       ).resolves.toBe('superseded');
       expect(tasks.save).not.toHaveBeenCalled();
     });
 
     it('tells of no failure on a task that is gone', async () => {
-      const { views } = viewing({ task: null });
+      const { hooks } = viewing({ task: null });
 
-      await expect(views.failed(LOOPED)).resolves.toBe('gone');
+      await expect(hooks.failed(LOOPED)).resolves.toBe('gone');
     });
   });
 });

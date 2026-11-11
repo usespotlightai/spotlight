@@ -1,23 +1,27 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { patchInboxEntry } from '@/hooks/api/inboxEntryPatch';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import {
+  reopenInboxChat,
   reopenInboxItem,
   reopenInboxNotice,
   reopenInboxRequest,
 } from '@/lib/api';
-import {
-  entryKey,
-  type InboxEntry,
-  type InboxItem,
-  type InboxNotice,
-} from '@/lib/inbox';
+import type { ResolvableEntry } from '@/lib/inbox';
 
 type ReopenInboxEntryInput = {
   slug: string;
-  entry: InboxItem | InboxNotice;
+  entry: ResolvableEntry;
 };
 
 const reopening = ({ slug, entry }: ReopenInboxEntryInput) => {
+  if (entry.kind === 'chat') {
+    return reopenInboxChat({
+      path: { slug, chatId: entry.id },
+      throwOnError: true,
+    });
+  }
+
   if (entry.kind === 'notice') {
     return reopenInboxNotice({
       path: { slug, noticeId: entry.id },
@@ -44,34 +48,15 @@ export function useReopenInboxEntry() {
       await reopening(input);
     },
 
-    onMutate: ({ slug, entry }) => {
-      const key = inboxKeys.forWorkspace(slug);
-      const previous = queryClient.getQueryData<InboxEntry[]>(key);
+    onMutate: ({ slug, entry }) => ({
+      rollback: patchInboxEntry(queryClient, slug, entry, {
+        resolved: false,
+        section: 'open',
+        reopenable: false,
+      }),
+    }),
 
-      if (previous) {
-        queryClient.setQueryData(
-          key,
-          previous.map((each) =>
-            entryKey(each) === entryKey(entry)
-              ? { ...each, resolved: false }
-              : each,
-          ),
-        );
-      }
-
-      void queryClient.cancelQueries({ queryKey: key });
-
-      return { previous };
-    },
-
-    onError: (_error, { slug }, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(
-          inboxKeys.forWorkspace(slug),
-          context.previous,
-        );
-      }
-    },
+    onError: (_error, _input, context) => context?.rollback(),
 
     onSettled: (_reopened, _error, { slug }) =>
       queryClient.invalidateQueries({

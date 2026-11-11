@@ -5,24 +5,21 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import {
-  LIVE_SANDBOX_STATES,
-  OPEN_SANDBOX_STATES,
   SANDBOX_STATES,
   Sandbox,
 } from '@runners/domain/aggregates/sandbox.aggregate';
+import { SandboxKeyTakenError } from '@runners/domain/exceptions/sandbox-key-taken.error';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
-import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
+import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
+import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
+import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import {
-  SANDBOX_LEASE_KINDS,
-  SandboxLease,
-} from '@runners/domain/value-objects/sandbox-lease.vo';
-import {
-  runnerHost,
   type SandboxLeaseRecord,
+  type SandboxWarmRecord,
   sandbox,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
@@ -30,21 +27,14 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  and,
-  count,
-  eq,
-  gt,
-  inArray,
-  isNotNull,
-  isNull,
-  lte,
-  ne,
-  or,
-  sql,
-} from 'drizzle-orm';
+import { and, eq, gte, isNotNull, isNull, lte, ne, sql } from 'drizzle-orm';
 
 type Row = typeof sandbox.$inferSelect;
 
@@ -61,18 +51,48 @@ const stateOf = (row: Row) => {
   return state;
 };
 
-const leaseOf = (record: SandboxLeaseRecord): SandboxLease => {
-  const kind = SANDBOX_LEASE_KINDS.find((each) => each === record.kind);
+const leaseOf = (record: SandboxLeaseRecord): SandboxLease =>
+  SandboxLease.of(
+    LeaseHolder.of(record.kind, record.holder),
+    new Date(record.renewedAt),
+  );
 
-  if (!kind) {
-    throw new InconsistentStateError(
-      'sandbox',
-      `has a lease of an unknown kind (${record.kind})`,
-    );
+const sourceOf = (row: Row): CredentialSource | null => {
+  if (row.poolId !== null) {
+    return CredentialSource.of('pool', row.poolId);
   }
 
-  return SandboxLease.of(kind, record.holder, new Date(record.renewedAt));
+  return row.trustId === null
+    ? null
+    : CredentialSource.of('trust', row.trustId);
 };
+
+const warmOf = (record: SandboxWarmRecord | null): WarmPart | null =>
+  record
+    ? WarmPart.of({
+        lineId: LineId.of(record.lineId),
+        placement: RunnerPlacement.ofLabelGroups(
+          record.labelGroups,
+          record.image === null ? null : RunnerImage.of(record.image),
+        ),
+        checkouts: record.checkouts,
+        fingerprint: record.fingerprint,
+      })
+    : null;
+
+const warmRecordOf = (warm: WarmPart | null): SandboxWarmRecord | null =>
+  warm
+    ? {
+        lineId: warm.lineId.value,
+        labelGroups: warm.placement.labelGroups,
+        image: warm.image?.value ?? null,
+        checkouts: warm.checkouts.map((each) => ({
+          path: each.path,
+          setup: each.setup,
+        })),
+        fingerprint: warm.fingerprint,
+      }
+    : null;
 
 const toSandbox = (row: Row): Sandbox =>
   Sandbox.rehydrate({
@@ -80,29 +100,35 @@ const toSandbox = (row: Row): Sandbox =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     key: row.key === null ? null : SandboxKey.of(row.key),
     hostId: row.hostId === null ? null : HostId.of(row.hostId),
+    source: sourceOf(row),
     tokenHash: row.tokenHash === null ? null : TokenHash.of(row.tokenHash),
     state: stateOf(row),
     leases: row.leases.map(leaseOf),
     idleSince: row.idleSince,
     startedAt: row.startedAt,
     goneAt: row.goneAt,
+    warm: warmOf(row.warm),
     version: row.version,
   });
 
 const columnsOf = (saved: Sandbox) => ({
+  key: saved.key?.value ?? null,
   hostId: saved.hostId?.value ?? null,
+  poolId: saved.source?.poolId?.value ?? null,
+  trustId: saved.source?.trustId?.value ?? null,
   tokenHash: saved.tokenHash?.value ?? null,
   startedAt: saved.startedAt,
   state: saved.current,
   leases: saved.leases.map(
     (each): SandboxLeaseRecord => ({
-      kind: each.kind,
-      holder: each.holder,
+      kind: each.holder.kind,
+      holder: each.holder.id,
       renewedAt: each.renewedAt.toISOString(),
     }),
   ),
   idleSince: saved.idleSince,
   goneAt: saved.goneAt,
+  warm: warmRecordOf(saved.warm),
 });
 
 @Injectable()
@@ -119,7 +145,6 @@ export class DrizzleSandboxRepository implements SandboxRepository {
         await this.context.db.insert(sandbox).values({
           id: added.id.value,
           workspaceId: added.workspaceId.value,
-          key: added.key?.value ?? null,
           ...columnsOf(added),
           version: added.version,
         });
@@ -140,16 +165,26 @@ export class DrizzleSandboxRepository implements SandboxRepository {
 
   async save(saved: Sandbox): Promise<void> {
     await this.context.inTransaction(async () => {
-      const written = await this.context.db
-        .update(sandbox)
-        .set({ ...columnsOf(saved), version: saved.version + 1 })
-        .where(
-          and(
-            eq(sandbox.id, saved.id.value),
-            eq(sandbox.version, saved.version),
-          ),
+      const written = await this.context
+        .inSavepoint(() =>
+          this.context.db
+            .update(sandbox)
+            .set({ ...columnsOf(saved), version: saved.version + 1 })
+            .where(
+              and(
+                eq(sandbox.id, saved.id.value),
+                eq(sandbox.version, saved.version),
+              ),
+            )
+            .returning({ id: sandbox.id }),
         )
-        .returning({ id: sandbox.id });
+        .catch((error: unknown) => {
+          if (violates(error, UNIQUE_VIOLATION, 'sandbox_open_key_idx')) {
+            throw new SandboxKeyTakenError(saved.id.value);
+          }
+
+          throw error;
+        });
 
       if (written.length === 0) {
         throw new SandboxVersionConflictError(saved.id.value);
@@ -180,7 +215,7 @@ export class DrizzleSandboxRepository implements SandboxRepository {
         and(
           eq(sandbox.workspaceId, workspaceId.value),
           eq(sandbox.key, key.value),
-          inArray(sandbox.state, [...OPEN_SANDBOX_STATES]),
+          eq(sandbox.state, 'open'),
         ),
       )
       .limit(1);
@@ -209,7 +244,8 @@ export class DrizzleSandboxRepository implements SandboxRepository {
         and(
           eq(sandbox.workspaceId, workspaceId.value),
           isNull(sandbox.hostId),
-          eq(sandbox.state, 'starting'),
+          isNotNull(sandbox.key),
+          eq(sandbox.state, 'open'),
         ),
       )
       .orderBy(sandbox.startedAt, sandbox.id)
@@ -227,50 +263,69 @@ export class DrizzleSandboxRepository implements SandboxRepository {
     return rows.map(toSandbox);
   }
 
-  async liveKeysIn(
-    workspaceId: WorkspaceId,
-    heardSince: Date,
-  ): Promise<readonly SandboxKey[]> {
+  async liveIn(workspaceId: WorkspaceId): Promise<readonly Sandbox[]> {
     const rows = await this.context.db
-      .select({ key: sandbox.key })
+      .select()
       .from(sandbox)
-      .innerJoin(runnerHost, eq(runnerHost.id, sandbox.hostId))
       .where(
         and(
           eq(sandbox.workspaceId, workspaceId.value),
           ne(sandbox.state, 'gone'),
-          isNotNull(sandbox.key),
-          gt(runnerHost.lastHeartbeatAt, heardSince),
         ),
       );
 
-    return rows.flatMap((row) => (row.key ? [SandboxKey.of(row.key)] : []));
+    return rows.map(toSandbox);
   }
 
-  async idleInPool(poolId: RunnerPoolId): Promise<number> {
-    const [row] = await this.context.db
-      .select({ idle: count() })
+  async openWarm(): Promise<readonly Sandbox[]> {
+    const rows = await this.context.db
+      .select()
       .from(sandbox)
-      .innerJoin(runnerHost, eq(runnerHost.id, sandbox.hostId))
+      .where(and(isNotNull(sandbox.warm), eq(sandbox.state, 'open')))
+      .orderBy(sandbox.startedAt, sandbox.id);
+
+    return rows.map(toSandbox);
+  }
+
+  async openWarmIn(workspaceId: WorkspaceId): Promise<readonly Sandbox[]> {
+    const rows = await this.context.db
+      .select()
+      .from(sandbox)
       .where(
         and(
-          eq(runnerHost.poolId, poolId.value),
-          ne(sandbox.state, 'gone'),
-          isNotNull(sandbox.idleSince),
+          eq(sandbox.workspaceId, workspaceId.value),
+          isNotNull(sandbox.warm),
+          eq(sandbox.state, 'open'),
+        ),
+      )
+      .orderBy(sandbox.startedAt, sandbox.id);
+
+    return rows.map(toSandbox);
+  }
+
+  async lostWarmSince(cutoff: Date): Promise<readonly Sandbox[]> {
+    const rows = await this.context.db
+      .select()
+      .from(sandbox)
+      .where(
+        and(
+          isNotNull(sandbox.warm),
+          eq(sandbox.state, 'gone'),
+          gte(sandbox.goneAt, cutoff),
         ),
       );
 
-    return row?.idle ?? 0;
+    return rows.map(toSandbox);
   }
 
-  async holdingRun(runId: string): Promise<readonly Sandbox[]> {
+  async holdingRun(runId: RunId): Promise<readonly Sandbox[]> {
     const rows = await this.context.db
       .select()
       .from(sandbox)
       .where(
         and(
           ne(sandbox.state, 'gone'),
-          sql`${sandbox.leases} @> ${JSON.stringify([{ kind: 'run', holder: runId }])}::jsonb`,
+          sql`${sandbox.leases} @> ${JSON.stringify([{ kind: 'run', holder: runId.value }])}::jsonb`,
         ),
       );
 
@@ -283,7 +338,7 @@ export class DrizzleSandboxRepository implements SandboxRepository {
       .from(sandbox)
       .where(
         and(
-          inArray(sandbox.state, [...OPEN_SANDBOX_STATES]),
+          eq(sandbox.state, 'open'),
           isNotNull(sandbox.idleSince),
           lte(sandbox.idleSince, cutoff),
         ),
@@ -292,31 +347,32 @@ export class DrizzleSandboxRepository implements SandboxRepository {
     return rows.map(toSandbox);
   }
 
-  async liveOnHostsSilentSince(cutoff: Date): Promise<readonly Sandbox[]> {
+  async goneBefore(cutoff: Date): Promise<readonly Sandbox[]> {
     const rows = await this.context.db
-      .select({ sandbox })
+      .select()
       .from(sandbox)
-      .leftJoin(runnerHost, eq(runnerHost.id, sandbox.hostId))
-      .where(
-        and(
-          inArray(sandbox.state, [...LIVE_SANDBOX_STATES]),
-          isNotNull(sandbox.hostId),
-          or(
-            sql`${runnerHost.id} is null`,
-            lte(runnerHost.lastHeartbeatAt, cutoff),
-          ),
-        ),
-      );
+      .where(and(eq(sandbox.state, 'gone'), lte(sandbox.goneAt, cutoff)));
 
-    return rows.map((row) => toSandbox(row.sandbox));
+    return rows.map(toSandbox);
   }
 
-  async removeGoneBefore(cutoff: Date): Promise<number> {
-    const removed = await this.context.db
-      .delete(sandbox)
-      .where(and(eq(sandbox.state, 'gone'), lte(sandbox.goneAt, cutoff)))
-      .returning({ id: sandbox.id });
+  async remove(removed: Sandbox): Promise<void> {
+    await this.context.inTransaction(async () => {
+      const gone = await this.context.db
+        .delete(sandbox)
+        .where(
+          and(
+            eq(sandbox.id, removed.id.value),
+            eq(sandbox.version, removed.version),
+          ),
+        )
+        .returning({ id: sandbox.id });
 
-    return removed.length;
+      if (gone.length === 0) {
+        throw new SandboxVersionConflictError(removed.id.value);
+      }
+
+      await this.events.dispatch(removed.pullEvents());
+    });
   }
 }

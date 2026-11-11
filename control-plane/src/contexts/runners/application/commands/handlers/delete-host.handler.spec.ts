@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from 'vitest';
 const forgetting = (
   permissions: Partial<WorkspacePermissions> | null = {
     slug: 'acme',
-    managesRunners: true,
+    scopes: new Set(['runners'] as const),
   },
 ) => {
   const host = aHost();
@@ -62,7 +62,7 @@ describe('DeleteHostHandler', () => {
   it('refuses someone who does not manage runners', async () => {
     const { forget, hosts } = forgetting({
       slug: 'acme',
-      managesRunners: false,
+      scopes: new Set(),
     });
 
     await expect(forget()).resolves.toEqual({
@@ -75,7 +75,7 @@ describe('DeleteHostHandler', () => {
   it('finds no host of another workspace', async () => {
     const { forget, hosts } = forgetting({
       slug: 'other',
-      managesRunners: true,
+      scopes: new Set(['runners'] as const),
     });
 
     await expect(forget()).resolves.toBeNull();

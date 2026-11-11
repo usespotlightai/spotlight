@@ -2,8 +2,10 @@ import {
   CopyObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  PutObjectCommand,
   type S3Client,
 } from '@aws-sdk/client-s3';
+import { KeyOverlay } from '@platform/storage/key-overlay';
 import type { S3Clients } from '@platform/storage/s3-clients';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -11,6 +13,18 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: vi.fn(
+    async (
+      _client: unknown,
+      command: {
+        input: { Key?: string; ResponseContentDisposition?: string };
+      },
+    ) =>
+      `signed ${command.input.Key} ${command.input.ResponseContentDisposition}`,
+  ),
+}));
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const FILE = Attachment.of({
@@ -31,9 +45,17 @@ const headOutput = () => ({
   Metadata: { name: encodeURIComponent('queue.png'), uploader: 'run_1' },
 });
 
-type Command = HeadObjectCommand | CopyObjectCommand | DeleteObjectCommand;
+type Command =
+  | HeadObjectCommand
+  | CopyObjectCommand
+  | DeleteObjectCommand
+  | PutObjectCommand;
 
-const bucketWith = (keys: readonly string[], failing: Error[] = []) => {
+const bucketWith = (
+  keys: readonly string[],
+  failing: Error[] = [],
+  prefix?: string,
+) => {
   const send = vi.fn(async (command: Command) => {
     if (command instanceof HeadObjectCommand) {
       if (keys.includes(command.input.Key ?? '')) {
@@ -62,7 +84,8 @@ const bucketWith = (keys: readonly string[], failing: Error[] = []) => {
       bucket: 'files',
       store,
       signer: store,
-      runners: store,
+      machineSigner: store,
+      keys: KeyOverlay.of(prefix),
     } satisfies S3Clients),
   };
 };
@@ -135,6 +158,35 @@ describe('S3AttachmentStore', () => {
       await expect(
         store.received(WORKSPACE, [AttachmentId.of('file_1')]),
       ).rejects.toThrow('was never uploaded');
+    });
+  });
+
+  describe('link', () => {
+    it('signs the stored file to show an image inline', async () => {
+      const { store } = bucketWith([STORED]);
+
+      expect(await store.link(WORKSPACE, FILE, 'shown')).toBe(
+        `signed ${STORED} inline; filename*=UTF-8''queue.png`,
+      );
+    });
+  });
+
+  describe('linkPending', () => {
+    it('signs a pending upload with the name and type it was uploaded with', async () => {
+      const { store } = bucketWith([PENDING]);
+
+      expect(
+        await store.linkPending(WORKSPACE, AttachmentId.of('file_1'), 'saved'),
+      ).toBe(`signed ${PENDING} attachment; filename*=UTF-8''queue.png`);
+    });
+
+    it('links nothing when no upload is pending under the workspace', async () => {
+      const { send, store } = bucketWith([STORED]);
+
+      expect(
+        await store.linkPending(WORKSPACE, AttachmentId.of('file_1'), 'shown'),
+      ).toBeNull();
+      expect(sent(send)).toEqual([['HeadObjectCommand', PENDING]]);
     });
   });
 
@@ -232,6 +284,88 @@ describe('S3AttachmentStore', () => {
       await store.taken(WORKSPACE, []);
 
       expect(send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('under a key prefix', () => {
+    const PREVIEW = 'previews/feat-x';
+    const OWN_STORED = `${PREVIEW}/${STORED}`;
+    const OWN_PENDING = `${PREVIEW}/${PENDING}`;
+
+    it('reads its own copy first, then the shared one', async () => {
+      const { send, store } = bucketWith([STORED], [], PREVIEW);
+
+      await expect(
+        store.received(WORKSPACE, [AttachmentId.of('file_1')]),
+      ).resolves.toEqual([FILE]);
+
+      expect(sent(send)).toEqual([
+        ['HeadObjectCommand', OWN_STORED],
+        ['HeadObjectCommand', STORED],
+      ]);
+    });
+
+    it('signs the shared file when it has no copy of its own', async () => {
+      const { store } = bucketWith([STORED], [], PREVIEW);
+
+      expect(await store.link(WORKSPACE, FILE, 'shown')).toBe(
+        `signed ${STORED} inline; filename*=UTF-8''queue.png`,
+      );
+    });
+
+    it('writes uploads and saved files under its prefix', async () => {
+      const { send, store } = bucketWith([], [], PREVIEW);
+
+      expect((await store.grant(WORKSPACE, RunId.of('run_1'), FILE)).url).toBe(
+        `signed ${OWN_PENDING} undefined`,
+      );
+      await store.save(WORKSPACE, FILE, new Uint8Array([1]));
+
+      expect(sent(send)).toEqual([['PutObjectCommand', OWN_STORED]]);
+    });
+
+    it('copies a shared file into its prefix', async () => {
+      const { send, store } = bucketWith([STORED], [], PREVIEW);
+
+      await store.copy(
+        WORKSPACE,
+        FILE,
+        FILE.copiedAs(AttachmentId.of('file_2')),
+      );
+
+      const [copy] = send.mock.calls[send.mock.calls.length - 1] as [
+        CopyObjectCommand,
+      ];
+      expect(copy.input).toMatchObject({
+        CopySource: `files/${STORED}`,
+        Key: `${PREVIEW}/workspaces/ws_1/attachments/file_2`,
+      });
+    });
+
+    it('takes a shared pending upload into its prefix and leaves the shared one', async () => {
+      const { send, store } = bucketWith([PENDING], [], PREVIEW);
+
+      await store.taken(WORKSPACE, [FILE]);
+
+      expect(sent(send)).toEqual([
+        ['HeadObjectCommand', OWN_STORED],
+        ['HeadObjectCommand', STORED],
+        ['HeadObjectCommand', OWN_PENDING],
+        ['HeadObjectCommand', PENDING],
+        ['CopyObjectCommand', OWN_STORED],
+      ]);
+    });
+
+    it('drops its own pending upload once it is taken', async () => {
+      const { send, store } = bucketWith([OWN_PENDING], [], PREVIEW);
+
+      await store.taken(WORKSPACE, [FILE]);
+
+      const calls = sent(send);
+      expect(calls[calls.length - 1]).toEqual([
+        'DeleteObjectCommand',
+        OWN_PENDING,
+      ]);
     });
   });
 });

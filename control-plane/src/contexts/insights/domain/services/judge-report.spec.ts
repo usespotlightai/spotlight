@@ -1,10 +1,3 @@
-import {
-  judgeScore,
-  NEXT_RUBRIC_VERSION,
-  personGrade,
-  RUBRIC_VERSION,
-} from '@insights/domain/judging.fake-spec';
-import { endedRecord } from '@insights/domain/runs.fake-spec';
 import { MIN_PAIRS } from '@insights/domain/services/judge-calibration';
 import {
   calibrationIn,
@@ -12,6 +5,13 @@ import {
 } from '@insights/domain/services/judge-report';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import {
+  judgeScore,
+  NEXT_RUBRIC_VERSION,
+  personGrade,
+  RUBRIC_VERSION,
+} from '@insights/judging.fake-spec';
+import { endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const YES_NO = ScoreScale.yesNo();
@@ -41,9 +41,8 @@ const reportOf = (count: number, agreeing: number) => {
   return judgeReportOf({
     judged: judgedRuns.map((each) => each.score),
     grades: [],
-    records,
-    covering: records,
-    taskPullRequests: [],
+    facts: factsWith(records),
+    covering: factsWith(records),
   });
 };
 
@@ -67,13 +66,12 @@ describe('judgeReportOf', () => {
     const report = judgeReportOf({
       judged: [judgeScore('run_1', YES_NO, 1)],
       grades: [personGrade('run_1', YES_NO, 0)],
-      records: [
+      facts: factsWith([
         endedRecord('run_1', { taskId: 'task_run_1' }).recordAction(
           HumanAction.of('accepted', AT),
         ),
-      ],
+      ]),
       covering: [],
-      taskPullRequests: [],
     });
 
     expect(report.versions[0]?.agreement.confusion.cells).toEqual([
@@ -94,9 +92,8 @@ describe('judgeReportOf', () => {
         }),
       ],
       grades: [],
-      records: [],
+      facts: [],
       covering: [],
-      taskPullRequests: [],
     });
 
     expect(report.versions.map((each) => each.rubricVersion)).toEqual([

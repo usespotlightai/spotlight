@@ -1,12 +1,21 @@
 import { randomUUID } from 'node:crypto';
+import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
+import {
+  LINE_RESOURCES,
+  type LineResourcesPort,
+} from '@lines/application/ports/line-resources.port';
 import type { INestApplication } from '@nestjs/common';
+import {
+  LINES as REPLAYS_LINES,
+  type LinesPort as ReplaysLinesPort,
+} from '@replays/application/ports/lines.port';
 import {
   PEOPLE,
   type PeoplePort,
 } from '@replays/application/ports/people.port';
-import { WORK, type WorkPort } from '@replays/application/ports/work.port';
-import { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
-import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
+import { LiveCandidates } from '@replays/application/services/live-candidates.service';
+import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
+import { StationConfigs } from '@replays/application/services/station-configs.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import {
@@ -28,6 +37,7 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
 let planned = 0;
 
@@ -37,12 +47,16 @@ export const plannedCandidate = async (
   stationKey: string,
   block: Record<string, unknown>,
 ): Promise<string> => {
-  const work = app.get<WorkPort>(WORK);
-  const station = await work.keyed(lineId, stationKey);
+  const station = await app
+    .get<ReplaysLinesPort>(REPLAYS_LINES)
+    .keyed(LineId.of(lineId), stationKey);
   const teamKey =
     station && (await app.get<PeoplePort>(PEOPLE).teamKey(station.teamId));
   const validated =
-    station && (await work.validate(lineId, station.stationId, block));
+    station &&
+    (await app
+      .get(StationConfigs)
+      .validate(LineId.of(lineId), station.stationId, block));
   const address =
     station && teamKey
       ? StationPath.of(teamKey, station.lineKey, station.key)
@@ -89,11 +103,11 @@ export const startedReplay = async (
 ): Promise<StartedReplay> => {
   const sets = app.get(DrizzleReplaySetRepository);
   const replays = app.get(DrizzleReplayRepository);
-  const snapshots = app.get(LiveSnapshots);
+  const snapshots = app.get(LiveCandidates);
   const repeats = terms.repeats ?? 1;
   const ceiling = Money.ceiling(terms.amount, 'USD');
 
-  await app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(setId));
+  await app.get(RefreshReplaySets).refreshBefore(ReplaySetId.of(setId));
 
   const seen = await sets.find(ReplaySetId.of(setId));
 
@@ -107,7 +121,15 @@ export const startedReplay = async (
       : await app
           .get(DrizzleCandidateRepository)
           .find(CandidateId.of(terms.candidate));
-  const scoring = await snapshots.scoringOf(seen);
+  const config = await app
+    .get(StationConfigs)
+    .live(seen.station.lineId, seen.station.stationId);
+
+  if (!config) {
+    throw new Error(`Station of replay set ${setId} is not live.`);
+  }
+
+  const scoring = config.hashes.scoring;
   const wantedBefore = needsBaseline(
     seen,
     await replays.ofSet(seen.id),
@@ -132,14 +154,14 @@ export const startedReplay = async (
       const asBaseline = needed && !requested;
       const wanting =
         requested && needed && live
-          ? { id: baselineId, candidate: live, repeats, ceiling }
+          ? { id: baselineId, candidate: live.asReplayed, repeats, ceiling }
           : null;
 
       await replays.add(
         Replay.start({
           id,
-          set,
-          candidate: requested ?? (live as Candidate),
+          set: set.snapshot,
+          candidate: (requested ?? (live as Candidate)).asReplayed,
           baseline: asBaseline,
           ceiling,
           repeats,
@@ -178,4 +200,20 @@ export const replayOf = async (
   }
 
   return found;
+};
+
+export const writtenStation = async (
+  app: INestApplication,
+  lineId: string,
+  key: string,
+): Promise<LineDefinitionStation> => {
+  const station = (
+    await app.get<LineResourcesPort>(LINE_RESOURCES).withId(LineId.of(lineId))
+  )?.definition.stations.find((each) => each.key === key);
+
+  if (!station) {
+    throw new Error(`Line ${lineId} defines no station ${key}.`);
+  }
+
+  return station;
 };

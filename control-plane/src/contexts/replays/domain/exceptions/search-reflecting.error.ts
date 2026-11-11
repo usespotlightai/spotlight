@@ -1,4 +1,6 @@
-export class SearchReflectingError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class SearchReflectingError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor() {

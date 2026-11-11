@@ -2,6 +2,10 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 import { isDottedName } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 
+export const PULL_REQUEST_MARK_KIND = 'git.pull-request';
+
+export const REVIEW_MARK_KIND = 'github.review';
+
 export class Mark {
   private constructor(
     readonly kind: string,
@@ -27,11 +31,11 @@ export class Mark {
   }
 
   static pullRequest(url: PullRequestUrl): Mark {
-    return Mark.of('git.pull-request', url.value);
+    return Mark.of(PULL_REQUEST_MARK_KIND, url.value);
   }
 
   static review(url: PullRequestUrl): Mark {
-    return Mark.of('github.review', url.value);
+    return Mark.of(REVIEW_MARK_KIND, url.value);
   }
 
   equals(other: Mark): boolean {

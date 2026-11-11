@@ -1,16 +1,14 @@
-import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.error';
-import { JudgeCriteria } from '@insights/domain/value-objects/judge-criteria.vo';
-import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import { InvalidRubricError } from '@insights/domain/exceptions/invalid-rubric.error';
+import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import { InvalidJudgeCriteriaError } from '@shared-kernel/domain/exceptions/invalid-judge-criteria.error';
+import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo';
-
-const VERSION = /^[0-9a-f]{64}$/;
-
-export const isRubricVersion = (raw: string): boolean => VERSION.test(raw);
 
 export class Rubric {
   private constructor(
     readonly criteria: JudgeCriteria,
-    readonly version: string,
+    readonly version: RubricVersion,
   ) {}
 
   static of(input: {
@@ -25,13 +23,13 @@ export class Rubric {
       passThreshold: input.passThreshold,
     });
 
-    if (!isRubricVersion(input.version)) {
-      throw InvalidScoreError.ofJudging(
-        'rubric hash must be 64 hex characters',
-      );
+    const version = RubricVersion.readable(input.version);
+
+    if (!version) {
+      throw new InvalidRubricError('version must be 64 hex characters');
     }
 
-    return new Rubric(criteria, input.version);
+    return new Rubric(criteria, version);
   }
 
   static readable(input: {
@@ -43,7 +41,10 @@ export class Rubric {
     try {
       return Rubric.of(input);
     } catch (error) {
-      if (error instanceof InvalidScoreError) {
+      if (
+        error instanceof InvalidRubricError ||
+        error instanceof InvalidJudgeCriteriaError
+      ) {
         return null;
       }
       throw error;
@@ -67,6 +68,6 @@ export class Rubric {
   }
 
   get scale(): ScoreScale {
-    return this.criteria.scale;
+    return ScoreScale.of(this.criteria.scale.kind);
   }
 }

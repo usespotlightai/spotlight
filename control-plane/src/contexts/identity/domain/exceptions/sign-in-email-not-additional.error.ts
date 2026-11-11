@@ -1,4 +1,6 @@
-export class SignInEmailNotAdditionalError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class SignInEmailNotAdditionalError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(email: string) {

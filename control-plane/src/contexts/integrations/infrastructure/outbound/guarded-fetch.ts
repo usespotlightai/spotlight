@@ -1,4 +1,4 @@
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import {
   type Dressed,
   followed,
@@ -6,10 +6,11 @@ import {
 } from '@integrations/infrastructure/outbound/followed-redirects';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import {
-  InjectedSecrets,
   type InjectionRequest,
-} from '@secrets/application/contracts/injected-secrets.contract';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+  redactInjected,
+} from '@integrations/infrastructure/outbound/secret-injection';
+import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -51,7 +52,7 @@ export const guardedFetch =
 
           if (injectedNow.isEmpty) {
             return {
-              url: injected.redact(request.url.href),
+              url: redactInjected(injected, request.url.href),
               headers: request.headers,
             };
           }
@@ -71,7 +72,10 @@ export const guardedFetch =
 
       throw new UpstreamError(
         `reaching ${new URL(url.toString()).host}`,
-        injected.redact(error instanceof Error ? error.message : String(error)),
+        redactInjected(
+          injected,
+          error instanceof Error ? error.message : String(error),
+        ),
       );
     }
   };

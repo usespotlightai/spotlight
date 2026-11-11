@@ -47,14 +47,9 @@ interface CountsRow extends Record<string, unknown> {
 }
 
 export const mergedIn = (window: Window): SQL =>
-  sql`state = 'merged' and ${atIn(sql`closed_at`, window)}`;
+  sql`merged_at is not null and ${atIn(sql`merged_at`, window)}`;
 
-export const roundBucket = sql`case
-  when review_rounds >= 3 then '3+'
-  when review_rounds = 2 then '2'
-  when review_rounds = 1 then '1'
-  else '0'
-end`;
+export const roundBucket = sql`rounds`;
 
 const firstSpellings = (pullRequests: SQL): SQL => sql`
   select
@@ -64,12 +59,12 @@ const firstSpellings = (pullRequests: SQL): SQL => sql`
   from ${pullRequests}
   group by repository_key`;
 
-export const toMergeMs = sql`(${msOf(sql`closed_at`)} - ${msOf(sql`opened_at`)})`;
+export const toMergeMs = sql`(${msOf(sql`merged_at`)} - ${msOf(sql`opened_at`)})`;
 
 const measured = sql`json_build_object(
   'merged', count(*)::int,
   'toMerge', ${spreadOver(toMergeMs, sql`true`)},
-  'inReview', ${spreadOver(sql`(${msOf(sql`closed_at`)} - ${msOf(sql`first_review_at`)})`, sql`true`)},
+  'reviewedToClose', ${spreadOver(sql`(${msOf(sql`closed_at`)} - ${msOf(sql`first_review_at`)})`, sql`true`)},
   'rounds', coalesce(sum(review_rounds), 0)::int,
   'comments', coalesce(sum(review_comments), 0)::int,
   'reverted', (count(*) filter (where reverted))::int
@@ -105,7 +100,7 @@ export const pullRequestCountsIn = async (
         from (
           select
             repository_key,
-            to_char(date_trunc('week', closed_at), 'YYYY-MM-DD') as week,
+            to_char(date_trunc('week', merged_at at time zone 'UTC'), 'YYYY-MM-DD') as week,
             made_by,
             count(*)::int as merged
           from merged

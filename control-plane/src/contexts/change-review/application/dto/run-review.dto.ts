@@ -1,3 +1,5 @@
+import type { DeliveryFailureCode } from '@change-review/domain/value-objects/delivery-failure.vo';
+
 export const REVIEW_COMMENT_STATE_NAMES = [
   'draft',
   'sending',
@@ -13,8 +15,14 @@ export const REVIEW_VERDICT_NAMES = [
   'request-changes',
 ] as const;
 
+export interface DeliveryFailureDto {
+  readonly code: DeliveryFailureCode;
+  readonly detail: string | null;
+}
+
 export interface ReviewCommentDto {
   readonly id: string;
+  readonly repository: string | null;
   readonly path: string;
   readonly side: (typeof REVIEW_SIDE_NAMES)[number] | null;
   readonly line: number | null;
@@ -27,7 +35,7 @@ export interface ReviewCommentDto {
   readonly isAgentAuthored: boolean;
   readonly replyTo: string | null;
   readonly state: (typeof REVIEW_COMMENT_STATE_NAMES)[number];
-  readonly failure: string | null;
+  readonly failure: DeliveryFailureDto | null;
   readonly url: string | null;
   readonly createdAt: string;
   readonly editedAt: string | null;
@@ -35,13 +43,14 @@ export interface ReviewCommentDto {
 
 export interface ReviewDto {
   readonly id: string;
+  readonly repository: string | null;
   readonly authorName: string;
   readonly viewerIsAuthor: boolean;
   readonly isAgentAuthored: boolean;
   readonly verdict: (typeof REVIEW_VERDICT_NAMES)[number];
   readonly body: string;
   readonly state: (typeof REVIEW_COMMENT_STATE_NAMES)[number];
-  readonly failure: string | null;
+  readonly failure: DeliveryFailureDto | null;
   readonly submittedAt: string;
 }
 

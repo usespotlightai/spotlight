@@ -1,8 +1,6 @@
 import type { EditMemoryCommand } from '@memory/application/commands/edit-memory.command';
-import type { TeamMemoryDetailDto } from '@memory/application/dto/team-memory.dto';
 import type { MemoryAccess } from '@memory/application/services/memory-access.service';
 import type { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
-import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -12,24 +10,25 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class EditMemoryHandler
-  implements CommandHandlerPort<EditMemoryCommand, TeamMemoryDetailDto>
+  implements CommandHandlerPort<EditMemoryCommand, string>
 {
   constructor(
     private readonly access: MemoryAccess,
     private readonly loader: TeamMemoryLoader,
     private readonly memories: MemoryRepository,
-    private readonly views: TeamMemoryViews,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
 
-  async execute(command: EditMemoryCommand): Promise<TeamMemoryDetailDto> {
+  async execute(command: EditMemoryCommand): Promise<string> {
     try {
       const access = await this.access.forTeam(
-        command.teamId,
-        command.viewerId,
+        TeamId.of(command.teamId),
+        UserId.of(command.viewerId),
       );
       const layout = await this.loader.layoutOf(access);
       const old = await this.loader.memory(access, command.memoryId);
@@ -44,7 +43,7 @@ export class EditMemoryHandler
 
       await this.memories.add(successor);
 
-      return await this.views.detail(successor);
+      return successor.id.value;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

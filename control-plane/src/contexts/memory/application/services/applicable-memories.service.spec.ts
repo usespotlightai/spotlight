@@ -9,6 +9,8 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { RecallWords } from '@memory/domain/value-objects/recall-words.vo';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -21,8 +23,8 @@ const BY = MemoryDecision.of({ by: UserId.of('user_1'), at: AT });
 
 const RUN_CONTEXT: RunContext = {
   teamId: TEAM,
-  lineId: 'line_1',
-  stationId: 'station_1',
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
   repositories: [],
 };
 
@@ -38,7 +40,7 @@ const approved = (
     body: MemoryBody.of(`Memory ${id}.`),
     scope: MemoryScope.of({
       teamId: scope.teamId ?? TEAM,
-      lineId: scope.lineId ?? null,
+      lineId: scope.lineId ? LineId.of(scope.lineId) : null,
     }),
     provenance: null,
     by: BY,
@@ -50,7 +52,10 @@ const correcting = (old: Memory, id: number, lineId: string | null = null) =>
     handle: MemoryHandle.of(id),
     kind: old.kind,
     body: MemoryBody.of(`Memory ${id}.`),
-    scope: MemoryScope.of({ teamId: old.scope.teamId, lineId }),
+    scope: MemoryScope.of({
+      teamId: old.scope.teamId,
+      lineId: lineId ? LineId.of(lineId) : null,
+    }),
     by: BY,
   });
 
@@ -108,6 +113,37 @@ describe('ApplicableMemories', () => {
       successors: [correcting(old, 3, 'line_other')],
     });
 
+    expect(handles(await memories.at(RUN_CONTEXT))).toEqual(['M-2']);
+  });
+
+  it('applies to a replay what was active when the run it replays started', async () => {
+    const later = (hours: number) =>
+      new Date(AT.getTime() + hours * 60 * 60_000);
+    const old = approved(1);
+    const correction = old.correct({
+      id: MemoryId.of('memory_2'),
+      handle: MemoryHandle.of(2),
+      kind: old.kind,
+      body: MemoryBody.of('Memory 2.'),
+      scope: old.scope,
+      by: MemoryDecision.of({ by: UserId.of('user_1'), at: later(2) }),
+    });
+    const superseded = old.supersedeWith(correction.id, later(2));
+    const retired = approved(3).retire({
+      by: UserId.of('user_1'),
+      reason: 'Stale.',
+      at: later(2),
+    });
+    const { memories } = applicable({
+      mayApply: [superseded, correction, retired],
+      successors: [correction],
+    });
+
+    expect(handles(await memories.at(RUN_CONTEXT, later(1)))).toEqual([
+      'M-1',
+      'M-3',
+    ]);
+    expect(handles(await memories.at(RUN_CONTEXT, later(3)))).toEqual(['M-2']);
     expect(handles(await memories.at(RUN_CONTEXT))).toEqual(['M-2']);
   });
 

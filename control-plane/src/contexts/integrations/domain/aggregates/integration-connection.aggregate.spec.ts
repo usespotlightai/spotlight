@@ -4,8 +4,10 @@ import { RefreshClaimedError } from '@integrations/domain/exceptions/refresh-cla
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
+import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -38,15 +40,16 @@ const rehydrated = (
     integration: SLACK,
     owner: ConnectionOwner.team(),
     accessToken: AccessToken.of('xoxb-old'),
-    refreshToken: AccessToken.maybe(
+    refreshToken: RefreshToken.maybe(
       'refreshToken' in over ? over.refreshToken : 'xoxe-old',
     ),
     expiresAt: over.expiresAt ?? null,
-    scopes: ['chat:write'],
+    scopes: [OAuthScope.of('chat:write')],
     linkedAccount: 'Acme',
     refreshFailedAt: over.refreshFailedAt ?? null,
     refreshClaim: null,
     version: 3,
+    connectedAt: new Date('2026-09-01T00:00:00.000Z'),
   });
 
 describe('IntegrationConnection', () => {
@@ -57,10 +60,11 @@ describe('IntegrationConnection', () => {
       integration: SLACK,
       owner: ConnectionOwner.team(),
       tokens: tokens(),
+      at: new Date('2026-09-01T00:00:00.000Z'),
     });
 
     expect(connection.pullEvents().map((each) => each.kind)).toEqual([
-      'integrations.integration-connected',
+      'integration.connected',
     ]);
     expect(connection.accessToken.value).toBe('xoxb-1');
     expect(connection.linkedAccount).toBe('Acme');
@@ -138,18 +142,15 @@ describe('IntegrationConnection', () => {
     expect(rehydrated().refreshedWith(tokens()).pullEvents()).toEqual([]);
   });
 
-  it('remembers a failed refresh, says so once, and stops trying', () => {
+  it('remembers a failed refresh, and stops trying', () => {
     const expiring = rehydrated({
       expiresAt: new Date('2026-09-07T10:01:00.000Z'),
     });
     const failed = expiring.refreshFailed(NOW);
 
-    expect(failed.pullEvents().map((each) => each.kind)).toEqual([
-      'integrations.connection-refresh-failed',
-    ]);
     expect(failed.refreshFailedAt).toEqual(NOW);
     expect(failed.needsRefresh(NOW)).toBe(false);
-    expect(failed.refreshFailed(NOW).pullEvents()).toEqual([]);
+    expect(failed.refreshFailed(NOW).refreshFailedAt).toEqual(NOW);
   });
 
   it('cannot be read back without a version', () => {
@@ -167,6 +168,7 @@ describe('IntegrationConnection', () => {
         refreshFailedAt: null,
         refreshClaim: null,
         version: 0,
+        connectedAt: new Date('2026-09-01T00:00:00.000Z'),
       }),
     ).toThrow();
   });
@@ -178,6 +180,7 @@ describe('IntegrationConnection', () => {
       integration: SLACK,
       owner: ConnectionOwner.person(UserId.of('user_1')),
       tokens: tokens(),
+      at: new Date('2026-09-01T00:00:00.000Z'),
     }).pullEvents() as IntegrationConnected[];
 
     expect(connected?.owner.personId?.value).toBe('user_1');
@@ -192,22 +195,21 @@ describe('IntegrationConnection', () => {
       integration: SLACK,
       owner: ConnectionOwner.person(UserId.of('user_1')),
       tokens: tokens(),
+      at: new Date('2026-09-01T00:00:00.000Z'),
     });
 
     expect(team.equals(alice)).toBe(false);
   });
 
   it('is claimed for refresh by one caller until the lease runs out', () => {
-    const claimed = rehydrated().claimRefresh(NOW, 30_000);
+    const claimed = rehydrated().claimRefresh(NOW);
 
     expect(claimed.isClaimedAt(NOW)).toBe(true);
-    expect(() => claimed.claimRefresh(NOW, 30_000)).toThrow(
-      RefreshClaimedError,
-    );
+    expect(() => claimed.claimRefresh(NOW)).toThrow(RefreshClaimedError);
     expect(claimed.isClaimedAt(new Date(NOW.getTime() + 30_000))).toBe(false);
     expect(
       claimed
-        .claimRefresh(new Date(NOW.getTime() + 30_000), 30_000)
+        .claimRefresh(new Date(NOW.getTime() + 30_000))
         .isClaimedAt(new Date(NOW.getTime() + 30_001)),
     ).toBe(true);
   });
@@ -217,17 +219,17 @@ describe('IntegrationConnection', () => {
       expiresAt: new Date('2026-09-07T10:04:00.000Z'),
     });
 
-    expect(near.claimRefresh(NOW, 30_000).needsRefresh(NOW)).toBe(false);
+    expect(near.claimRefresh(NOW).needsRefresh(NOW)).toBe(false);
   });
 
   it('cannot be claimed without a refresh token', () => {
     expect(() =>
-      rehydrated({ refreshToken: null }).claimRefresh(NOW, 30_000),
+      rehydrated({ refreshToken: null }).claimRefresh(NOW),
     ).toThrow();
   });
 
   it('drops the claim once refreshed, failed or released', () => {
-    const claimed = rehydrated().claimRefresh(NOW, 30_000);
+    const claimed = rehydrated().claimRefresh(NOW);
 
     expect(claimed.refreshedWith(tokens()).isClaimedAt(NOW)).toBe(false);
     expect(claimed.refreshFailed(NOW).isClaimedAt(NOW)).toBe(false);
@@ -250,13 +252,31 @@ describe('IntegrationConnection', () => {
     expect(rehydrated().refreshFailed(NOW).usable).toBe(false);
   });
 
-  it('announces it was disconnected', () => {
+  it('takes new tokens when connected again, clearing a failed refresh and a claim, and says so', () => {
+    const at = new Date('2026-09-08T10:00:00.000Z');
+    const reconnected = rehydrated({ refreshFailedAt: NOW }).reconnectedWith(
+      tokens({ accessToken: 'xoxb-new' }),
+      at,
+    );
+
+    expect(reconnected.accessToken.value).toBe('xoxb-new');
+    expect(reconnected.usable).toBe(true);
+    expect(reconnected.refreshClaim).toBeNull();
+    expect(reconnected.connectedAt).toEqual(at);
+    expect(reconnected.version).toBe(3);
+    expect(reconnected.pullEvents().map((each) => each.kind)).toEqual([
+      'integration.connected',
+    ]);
     expect(
-      rehydrated()
-        .disconnect()
-        .pullEvents()
-        .map((each) => each.kind),
-    ).toEqual(['integrations.integration-disconnected']);
+      rehydrated().claimRefresh(NOW).reconnectedWith(tokens(), at).refreshClaim,
+    ).toBeNull();
+  });
+
+  it('applies a refresh only to the refresh token it was made from', () => {
+    expect(rehydrated().refreshesWith(RefreshToken.of('xoxe-old'))).toBe(true);
+    expect(rehydrated().refreshesWith(RefreshToken.of('xoxe-other'))).toBe(
+      false,
+    );
   });
 
   it('cannot be read back claimed without a refresh token', () => {
@@ -274,6 +294,7 @@ describe('IntegrationConnection', () => {
         refreshFailedAt: null,
         refreshClaim: RefreshClaim.until(NOW),
         version: 1,
+        connectedAt: new Date('2026-09-01T00:00:00.000Z'),
       }),
     ).toThrow();
   });

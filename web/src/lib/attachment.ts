@@ -5,11 +5,13 @@ export type Attachment = AttachmentResponseDto;
 
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
+export type ImageSource = { readonly blob: Blob } | { readonly url: string };
+
 export type PendingAttachment = {
   readonly key: string;
   readonly name: string;
   readonly size: number;
-  readonly image: File | null;
+  readonly imageSource: ImageSource | null;
 } & (
   | { readonly state: 'uploading' }
   | {
@@ -24,12 +26,20 @@ export type PendingAttachment = {
 export const attachmentPath = (slug: string, attachmentId: string): string =>
   `/api/workspaces/${slug}/attachments/${encodeURIComponent(attachmentId)}`;
 
-export const storedImageId = (
+export type ImageAttachment = PendingAttachment & {
+  readonly imageSource: ImageSource;
+};
+
+export const hasImage = (
   attachment: PendingAttachment,
-): string | undefined =>
-  attachment.state === 'ready' && attachment.restored
-    ? attachment.id
-    : undefined;
+): attachment is ImageAttachment => attachment.imageSource !== null;
+
+export const uploadedImage = (
+  slug: string,
+  attachmentId: string,
+  image: boolean,
+): ImageSource | null =>
+  image ? { url: attachmentPath(slug, attachmentId) } : null;
 
 export const downloadPath = (slug: string, attachmentId: string): string =>
   `${attachmentPath(slug, attachmentId)}?download=1`;

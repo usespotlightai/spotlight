@@ -4,8 +4,7 @@ import { HarnessProfileAlreadyExistsError } from '@configuration/domain/exceptio
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
-import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
-import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
+import { storedProfileOf } from '@configuration/infrastructure/persistence/drizzle/harness-profile-rows';
 import { harnessProfile } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -32,8 +31,7 @@ const rehydrated = (row: Row): HarnessProfile =>
   HarnessProfile.rehydrate({
     id: HarnessProfileId.of(row.id),
     teamId: TeamId.of(row.teamId),
-    key: ProfileKey.of(row.key),
-    settings: ProfileSettings.fromRaw(row),
+    ...storedProfileOf(row),
     version: row.version,
   });
 

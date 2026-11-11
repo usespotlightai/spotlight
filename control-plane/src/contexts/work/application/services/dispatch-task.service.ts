@@ -1,13 +1,14 @@
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
+import type { SavepointPort } from '@work/application/ports/savepoint.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
 import {
@@ -16,39 +17,41 @@ import {
 } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import {
+  type OrderedRun,
+  runOrderOf,
+} from '@work/application/services/ordered-run';
 import { taskWords } from '@work/application/services/remembering-words';
-import type { StationCatalog } from '@work/application/services/station-catalog.service';
+import type { RunCatalog } from '@work/application/services/run-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import type { StationSkills } from '@work/application/services/station-skills.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import type { TouchedFiles } from '@work/application/services/touched-files';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { describedTools } from '@work/domain/services/enabled-for-run';
-import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { orderFor, taskOrderedAt } from '@work/domain/services/run-order';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+
+export interface TaskDispatching {
+  runIdFor(input: { task: Task; line: LineMap }): Promise<RunId | null>;
+}
 
 export class DispatchTask implements TaskDispatching {
   private readonly ordering: StationOrdering;
 
   constructor(
-    private readonly runs: RunRepository,
     private readonly ids: IdGeneratorPort,
-    private readonly harnesses: HarnessCatalog,
+    private readonly harnesses: HarnessCataloguePort,
     private readonly launch: HarnessLaunchPort,
     private readonly tracing: TraceParentPort,
     builtInSkills: BuiltInSkillsPort,
     private readonly teamSkills: StationSkills,
     private readonly integrations: TeamIntegrations,
     private readonly decisions: TaskDecisionsPort,
-    catalog: StationCatalog,
+    catalog: RunCatalog,
     profiles: StationProfilesPort,
     private readonly memories: TeamMemoriesPort,
     private readonly touched: TouchedFiles,
@@ -72,14 +75,14 @@ export class DispatchTask implements TaskDispatching {
     line,
   }: {
     task: Task;
-    line: Line;
+    line: LineMap;
   }): Promise<RunId | null> {
     const station = line.stationAt(task.stationId);
     const ready = station ? await this.teamSkills.readyAt(line, station) : [];
     const order = orderFor({
       task,
       line,
-      harnesses: this.harnesses,
+      harnesses: this.harnesses.current(),
       ready: ready.map(ReadySkillMapper.toReady),
       profiles: await this.ordering.profilesAt(line, station ?? null),
     });
@@ -91,7 +94,7 @@ export class DispatchTask implements TaskDispatching {
 
     const prepared = this.ordering.prepared(order);
 
-    if (!prepared || !this.launch.skillsFor(order.harness.id)) {
+    if (!prepared || !this.launch.skillsFor(order.harness)) {
       this.notDispatched(task, line, 'harness-not-prepared');
       return null;
     }
@@ -99,20 +102,20 @@ export class DispatchTask implements TaskDispatching {
     return RunIdOf.of(this.ids.generate());
   }
 
-  async enqueue({
+  async ordered({
     task,
     line,
     runId,
   }: {
     task: Task;
-    line: Line;
+    line: LineMap;
     runId: RunId;
-  }): Promise<boolean> {
+  }): Promise<OrderedRun | null> {
     const found = await this.ordering.ordered(line, taskOrderedAt(task, line));
 
     if (!found) {
       this.notDispatched(task, line, 'station-has-no-order', runId);
-      return false;
+      return null;
     }
 
     const provided = await this.integrations.provided(
@@ -163,43 +166,44 @@ export class DispatchTask implements TaskDispatching {
     );
     const catalog = order.enabled.pinned.map((each) => each.value);
 
-    const queued = Run.enqueue({
-      id,
-      workspaceId: task.workspaceId,
-      harness: order.harness.id,
-      priority: order.priority,
-      subject: RunSubject.task(task.id, order.stationId, task.revision),
-      placement: order.placement,
-      briefedWith: BriefedMemories.of({
+    return {
+      order: runOrderOf({
+        id,
+        workspaceId: task.workspaceId,
+        harness: order.harness,
+        priority: order.priority,
+        requester: WorkRequesters.task(task.id, task.revision, line.teamId),
+        policy: WorkRequesters.taskPolicy,
+        workingCopy: WorkRequesters.taskWorkingCopy(task.id),
+        apiGrant: null,
+        tags: { taskId: task.id.value },
+        line: line.id,
+        placement: order.placement,
+        spec: {
+          ...this.ordering.laid(ordered, {
+            briefing,
+            naming: this.tracing.for(task.id, id),
+            attachments: briefed.allAttachments,
+          }),
+          manifest: described.map(toolManifestOf),
+          ...(catalog.length > 0 ? { catalog } : {}),
+          startingPoint: true,
+          ...(injected.length > 0 ? { injectedSecrets: injected } : {}),
+        },
+        refusals: order.refusals,
+      }),
+      briefedTask: briefed,
+      briefedMemories: BriefedMemories.of({
         briefed: memories.briefed,
         omitted: memories.omitted,
       }),
-      briefedTask: briefed,
       configuredAs: this.ordering.configuredAs(ordered, line),
-      spec: RunSpec.of({
-        ...this.ordering.laid(ordered, {
-          briefing,
-          naming: this.tracing.for(task.id, id),
-          attachments: briefed.allAttachments,
-        }),
-        manifest: described.map(toolManifestOf),
-        ...(catalog.length > 0 ? { catalog } : {}),
-        startingPoint: true,
-        ...(injected.length > 0 ? { injectedSecrets: injected } : {}),
-      }),
-    });
-
-    await this.runs.add(
-      order.refusal ? queued.refused(order.refusal) : queued,
-      { briefed },
-    );
-
-    return true;
+    };
   }
 
   private notDispatched(
     task: Task,
-    line: Line,
+    line: LineMap,
     reason: string,
     runId?: RunId,
   ): void {

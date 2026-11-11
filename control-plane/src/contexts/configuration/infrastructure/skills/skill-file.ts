@@ -1,24 +1,21 @@
 import type {
+  ReadSkillFolder,
   SkillFile,
-  SkillFolder,
   SkillOrigin,
-} from '@configuration/application/ports/skill-reader.port';
+} from '@configuration/application/ports/skill-folders.port';
+import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
+import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import {
   Skill,
   type SkillSecret,
-} from '@configuration/domain/entities/skill.entity';
-import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
-import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
+} from '@configuration/domain/value-objects/skill.vo';
+import { SKILL_MAIN_FILE } from '@configuration/domain/value-objects/skill-files.vo';
 import { splitFrontmatter } from '@platform/markdown/frontmatter';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-import {
-  SKILL_FILE,
-  SKILL_FOLDER_LIMITS,
-} from '@work/application/contracts/run-spec.contract';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { parse as parseYaml } from 'yaml';
 
-const toolsIn = (key: SkillKey, raw: unknown): ToolName[] => {
+const toolsIn = (key: DefinedSkillKey, raw: unknown): Tool[] => {
   if (raw === undefined || raw === null) {
     return [];
   }
@@ -32,7 +29,7 @@ const toolsIn = (key: SkillKey, raw: unknown): ToolName[] => {
 
   return raw.map((each) => {
     try {
-      return ToolName.of(String(each));
+      return Tool.of(String(each));
     } catch {
       throw new InvalidSkillError(
         key.value,
@@ -42,7 +39,7 @@ const toolsIn = (key: SkillKey, raw: unknown): ToolName[] => {
   });
 };
 
-const secretsIn = (key: SkillKey, raw: unknown): SkillSecret[] => {
+const secretsIn = (key: DefinedSkillKey, raw: unknown): SkillSecret[] => {
   if (raw === undefined || raw === null) {
     return [];
   }
@@ -70,7 +67,7 @@ const secretsIn = (key: SkillKey, raw: unknown): SkillSecret[] => {
 };
 
 const readSkill = (
-  key: SkillKey,
+  key: DefinedSkillKey,
   text: string,
   origin: SkillOrigin,
   files: readonly SkillFile[],
@@ -80,7 +77,7 @@ const readSkill = (
   if (!matched) {
     throw new InvalidSkillError(
       key.value,
-      `needs a name and description between --- lines at the top of ${SKILL_FILE}`,
+      `needs a name and description between --- lines at the top of ${SKILL_MAIN_FILE}`,
     );
   }
 
@@ -106,7 +103,6 @@ const readSkill = (
     folder: {
       files: files.length,
       characters: files.reduce((sum, each) => sum + each.text.length, 0),
-      limits: SKILL_FOLDER_LIMITS,
     },
     description: typeof description === 'string' ? description : '',
     instructions: matched.body,
@@ -121,12 +117,15 @@ export const readSkillFolder = (
   folder: string,
   files: readonly SkillFile[],
   origin: SkillOrigin,
-): SkillFolder => {
-  const key = SkillKey.of(folder);
-  const main = files.find((each) => each.path === SKILL_FILE);
+): ReadSkillFolder => {
+  const key = DefinedSkillKey.of(folder);
+  const main = files.find((each) => each.path === SKILL_MAIN_FILE);
 
   if (!main) {
-    throw new InvalidSkillError(folder, `has no ${SKILL_FILE} in ${folder}`);
+    throw new InvalidSkillError(
+      folder,
+      `has no ${SKILL_MAIN_FILE} in ${folder}`,
+    );
   }
 
   return { skill: readSkill(key, main.text, origin, files), files };

@@ -1,6 +1,3 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { Score } from '@insights/domain/aggregates/score.aggregate';
-import type { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
 import {
   type HumanLabel,
   humanLabelOf,
@@ -20,6 +17,8 @@ import {
   type JudgeCalibration,
   unreadableRubricCalibration,
 } from '@insights/domain/services/judge-calibration';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
+import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 
 export interface RubricReport {
@@ -44,9 +43,8 @@ export interface CurrentJudge {
 }
 
 interface Labelling {
-  readonly records: ReadonlyMap<string, RunRecord>;
-  readonly taskPullRequests: ReadonlyMap<string, TaskPullRequest>;
-  readonly grades: ReadonlyMap<string, readonly Score[]>;
+  readonly facts: ReadonlyMap<string, RunFact>;
+  readonly grades: ReadonlyMap<string, readonly Scored[]>;
 }
 
 const humanFor = (
@@ -55,16 +53,10 @@ const humanFor = (
   rubricVersion: string | null,
   labelling: Labelling,
 ): HumanLabel | null => {
-  const record = labelling.records.get(runId) ?? null;
-  const taskId = record?.taskId?.value;
-
   return humanLabelOf({
     scale,
     rubricVersion,
-    record,
-    taskPullRequest: taskId
-      ? (labelling.taskPullRequests.get(taskId) ?? null)
-      : null,
+    fact: labelling.facts.get(runId) ?? null,
     grades: labelling.grades.get(runId) ?? [],
   });
 };
@@ -79,10 +71,10 @@ const labelFor = (
 
 const reportOf = (
   rubricVersion: string,
-  judged: readonly Score[],
+  judged: readonly Scored[],
   labelling: Labelling,
 ): RubricReport => {
-  const scale = (judged[0] as Score).scale;
+  const scale = (judged[0] as Scored).scale;
   const humans = judged.map((score) => ({
     score,
     label: humanFor(score.runId.value, scale, rubricVersion, labelling),
@@ -135,17 +127,13 @@ const grouped = <T>(
 };
 
 export const judgeReportOf = (input: {
-  judged: readonly Score[];
-  grades: readonly Score[];
-  records: readonly RunRecord[];
-  covering: readonly RunRecord[];
-  taskPullRequests: readonly TaskPullRequest[];
+  judged: readonly Scored[];
+  grades: readonly Scored[];
+  facts: readonly RunFact[];
+  covering: readonly RunFact[];
 }): JudgeReport => {
   const labelling: Labelling = {
-    records: new Map(input.records.map((each) => [each.runId.value, each])),
-    taskPullRequests: new Map(
-      input.taskPullRequests.map((each) => [each.taskId.value, each]),
-    ),
+    facts: new Map(input.facts.map((each) => [each.runId.value, each])),
     grades: grouped(
       input.grades.filter((each) => !each.fromJudge),
       (each) => each.runId.value,
@@ -166,15 +154,15 @@ export const judgeReportOf = (input: {
     coverage: coverageOf(
       input.covering
         .filter((each) => each.ran)
-        .map((record) => {
-          const judged = judgedRuns.get(record.runId.value) ?? [];
+        .map((fact) => {
+          const judged = judgedRuns.get(fact.runId.value) ?? [];
           const scale = judged[0]?.scale ?? ScoreScale.yesNo();
 
           return {
             judged: judged.length > 0,
             labelled:
               labelFor(
-                record.runId.value,
+                fact.runId.value,
                 scale,
                 judged[0]?.rubricVersion ?? null,
                 labelling,

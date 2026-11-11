@@ -7,10 +7,12 @@ import { OpenSandboxCommand } from '@runners/application/commands/sandbox.comman
 import type { OpenedSandbox } from '@runners/application/ports/sandboxes.port';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
-import { eq, inArray } from 'drizzle-orm';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
+import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
+import { WarmSandboxKeeping } from '@work/application/services/warm-sandbox-keeping.service';
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import {
   afterAll,
   afterEach,
@@ -23,7 +25,13 @@ import {
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import {
+  requestedByChat,
+  requestedByReplay,
+  requestedByTask,
+} from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { seatTeam } from './support/team';
 
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -32,7 +40,7 @@ const HOST = 'host-sandboxes-1';
 
 const SHA256 = 'd'.repeat(64);
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -46,6 +54,20 @@ const archiveStore: WorkspaceArchiveStorePort = {
 const tokenOf = (seed: string): string =>
   `${seed.repeat(8)}${randomUUID().replaceAll('-', '')}`;
 
+const requestedFor = (key: string) => {
+  const name = key.slice(key.indexOf('/') + 1);
+
+  if (key.startsWith('work/task-')) {
+    return requestedByTask(name.slice('task-'.length));
+  }
+
+  if (key.startsWith('work/chat-')) {
+    return requestedByChat(name.slice('chat-'.length));
+  }
+
+  return requestedByReplay(name.slice('replay-'.length));
+};
+
 describe('sandboxes (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
@@ -57,7 +79,12 @@ describe('sandboxes (e2e)', () => {
   const http = () => served(app);
 
   const queue = async (
-    input: { key?: string; chatId?: string | null; harness?: string } = {},
+    input: {
+      key?: string;
+      chatId?: string | null;
+      harness?: string;
+      line?: string;
+    } = {},
   ) => {
     const id = randomUUID();
 
@@ -66,12 +93,13 @@ describe('sandboxes (e2e)', () => {
       workspaceId,
       harness: input.harness ?? 'dev',
       state: 'queued',
-      chatId: input.chatId ?? null,
+      lineId: input.line ?? null,
+      ...requestedFor(input.key ?? `work/task-${id}`),
       spec: {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        resume: { key: input.key ?? `task-${id}` },
+        resume: {},
       },
     });
 
@@ -143,24 +171,26 @@ describe('sandboxes (e2e)', () => {
   const archive = (sandboxId: string, sandboxToken: string) => ({
     read: () =>
       http()
-        .get(`/api/sandboxes/${sandboxId}/workspace-archive`)
+        .get(`/api/sandboxes/${sandboxId}/working-copy-archive`)
         .set('Authorization', `Bearer ${sandboxToken}`),
     grant: () =>
       http()
-        .post(`/api/sandboxes/${sandboxId}/workspace-archive`)
+        .post(`/api/sandboxes/${sandboxId}/working-copy-archive`)
         .set('Authorization', `Bearer ${sandboxToken}`)
         .send({ size: 2_048, sha256: SHA256 }),
     complete: (archiveId: string) =>
       http()
         .post(
-          `/api/sandboxes/${sandboxId}/workspace-archive/${archiveId}/complete`,
+          `/api/sandboxes/${sandboxId}/working-copy-archive/${archiveId}/complete`,
         )
         .set('Authorization', `Bearer ${sandboxToken}`),
   });
 
   beforeAll(async () => {
     app = await openApp((module) =>
-      module.overrideProvider(WORKSPACE_ARCHIVE_STORE).useValue(archiveStore),
+      module
+        .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
+        .useValue(archiveStore),
     );
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });
@@ -196,16 +226,16 @@ describe('sandboxes (e2e)', () => {
   });
 
   it('starts a sandbox for each claimed run, held by the run, under its resume key', async () => {
-    const runId = await queue({ key: 'task-task_1' });
+    const runId = await queue({ key: 'work/task-task_1' });
 
     const claimed = await claim().expect(200);
 
     expect(claimed.body.sandboxId).toEqual(expect.any(String));
     expect(await sandboxRow(claimed.body.sandboxId)).toMatchObject({
       workspaceId,
-      key: 'task-task_1',
+      key: 'work/task-task_1',
       hostId: HOST,
-      state: 'starting',
+      state: 'open',
       leases: [{ kind: 'run', holder: runId, renewedAt: expect.any(String) }],
       idleSince: null,
     });
@@ -219,7 +249,7 @@ describe('sandboxes (e2e)', () => {
     await expect(
       heartbeat([sandboxId, 'sandbox-unknown']).expect(200),
     ).resolves.toMatchObject({ body: { drain: ['sandbox-unknown'] } });
-    expect((await sandboxRow(sandboxId))?.state).toBe('ready');
+    expect((await sandboxRow(sandboxId))?.state).toBe('open');
 
     await complete(runId, claimed.body.token);
     const released = await eventually(async () => {
@@ -241,15 +271,17 @@ describe('sandboxes (e2e)', () => {
 
     await heartbeat([]).expect(200);
 
-    expect(await sandboxRow(sandboxId)).toMatchObject({
-      state: 'gone',
-      goneAt: expect.any(Date),
-    });
+    expect(
+      await eventually(async () => {
+        const row = await sandboxRow(sandboxId);
+        return row?.state === 'gone' ? row : null;
+      }),
+    ).toMatchObject({ state: 'gone', goneAt: expect.any(Date) });
   });
 
   it('runs the next run of a key in its ready sandbox, claimed only by that sandbox’s host for it', async () => {
-    const sandboxId = await idleAndReady('task-task_3');
-    const next = await queue({ key: 'task-task_3' });
+    const sandboxId = await idleAndReady('work/task-task_3');
+    const next = await queue({ key: 'work/task-task_3' });
 
     await claim().expect(204);
     const reused = await claim(sandboxId).expect(200);
@@ -260,15 +292,15 @@ describe('sandboxes (e2e)', () => {
       work: { kind: 'run', run: { id: next } },
     });
     expect(await sandboxRow(sandboxId)).toMatchObject({
-      state: 'ready',
+      state: 'open',
       leases: [{ kind: 'run', holder: next, renewedAt: expect.any(String) }],
       idleSince: null,
     });
   });
 
   it('takes nothing into a sandbox for a run of another key, nor into a sandbox with a run in it', async () => {
-    const sandboxId = await idleAndReady('task-task_4');
-    await queue({ key: 'task-task_5' });
+    const sandboxId = await idleAndReady('work/task-task_4');
+    await queue({ key: 'work/task-task_5' });
 
     await claim(sandboxId).expect(204);
 
@@ -277,21 +309,59 @@ describe('sandboxes (e2e)', () => {
 
     const busy = other.body.sandboxId as string;
     await heartbeat([sandboxId, busy]).expect(200);
-    await queue({ key: 'task-task_5' });
+    await queue({ key: 'work/task-task_5' });
     await claim(busy).expect(204);
   });
 
+  it('counts an idle sandbox and the claim that waits in it as one run against maxRuns', async () => {
+    await db
+      .update(schema.runnerPool)
+      .set({ maxRuns: 2 })
+      .where(eq(schema.runnerPool.workspaceId, workspaceId));
+    const sandboxId = await idleAndReady('work/task-task_8');
+    await heartbeat([sandboxId]).expect(200);
+
+    let answered = false;
+    const waiting = claim(sandboxId)
+      .expect(204)
+      .then(() => {
+        answered = true;
+      });
+    await eventually(async () => {
+      const [row] = await db
+        .select({ id: schema.runner.id })
+        .from(schema.runner)
+        .where(
+          and(
+            eq(schema.runner.entersSandboxId, sandboxId),
+            isNull(schema.runner.endedAt),
+          ),
+        );
+
+      return row ?? null;
+    });
+    const runId = await queue({ key: 'work/task-task_9' });
+
+    const other = await claim().expect(200);
+
+    expect(other.body).toMatchObject({ work: { run: { id: runId } } });
+    expect(answered).toBe(false);
+    await waiting;
+  });
+
   it('starts a fresh sandbox for the next run of a key once its draining sandbox is gone', async () => {
-    const sandboxId = await idleAndReady('task-task_6');
+    const sandboxId = await idleAndReady('work/task-task_6');
     await db
       .update(schema.sandbox)
       .set({ state: 'draining' })
       .where(eq(schema.sandbox.id, sandboxId));
-    const next = await queue({ key: 'task-task_6' });
+    const next = await queue({ key: 'work/task-task_6' });
 
     await claim().expect(204);
     await heartbeat([]).expect(200);
-    expect((await sandboxRow(sandboxId))?.state).toBe('gone');
+    await eventually(async () =>
+      (await sandboxRow(sandboxId))?.state === 'gone' ? true : null,
+    );
 
     const fresh = await claim().expect(200);
 
@@ -303,34 +373,42 @@ describe('sandboxes (e2e)', () => {
   });
 
   it('leaves the next run of a key to its sandbox while that sandbox starts', async () => {
-    const first = await queue({ key: 'task-task_2' });
+    const first = await queue({ key: 'work/task-task_2' });
     const earlier = await claim().expect(200);
     await complete(first, earlier.body.token);
-    await queue({ key: 'task-task_2' });
+    await queue({ key: 'work/task-task_2' });
 
     await claim().expect(204);
 
-    expect((await sandboxRow(earlier.body.sandboxId))?.state).toBe('starting');
+    expect((await sandboxRow(earlier.body.sandboxId))?.state).toBe('open');
   });
 
   it('hands out no second run of a chat while an earlier run of it holds its lease', async () => {
     const chatId = randomUUID();
-    await queue({ key: `chat-${chatId}`, chatId });
+    await db.insert(schema.chat).values({
+      id: chatId,
+      workspaceId,
+      teamId: 'team_1',
+      startedById: 'user_1',
+      title: 'Plan the queue',
+      harness: 'dev',
+    });
+    await queue({ key: `work/chat-${chatId}`, chatId });
     await claim().expect(200);
-    await queue({ key: `chat-${chatId}`, chatId });
+    await queue({ key: `work/chat-${chatId}`, chatId });
 
     await claim().expect(204);
   });
   describe('a sandbox with no run', () => {
     it('is requested on no host, started by the next host claim with a token of its own, and then takes the runs of its key', async () => {
-      const opened = await open('task-task_7');
+      const opened = await open('work/task-task_7');
       expect(opened.state).toBe('starting');
       expect(await sandboxRow(opened.id)).toMatchObject({
         hostId: null,
         tokenHash: null,
         leases: [],
       });
-      await expect(open('task-task_7')).resolves.toEqual(opened);
+      await expect(open('work/task-task_7')).resolves.toEqual(opened);
 
       const started = await claim().expect(200);
 
@@ -345,13 +423,13 @@ describe('sandboxes (e2e)', () => {
       });
       expect(await sandboxRow(opened.id)).toMatchObject({
         hostId: HOST,
-        state: 'starting',
+        state: 'open',
         tokenHash: expect.any(String),
         idleSince: expect.any(Date),
       });
 
       await heartbeat([opened.id]).expect(200);
-      const next = await queue({ key: 'task-task_7' });
+      const next = await queue({ key: 'work/task-task_7' });
       await claim().expect(204);
 
       const into = await claim(opened.id).expect(200);
@@ -364,8 +442,8 @@ describe('sandboxes (e2e)', () => {
     });
 
     it('starts before a queued run of another key', async () => {
-      const waiting = await queue({ key: 'replay-run_waiting' });
-      const opened = await open('task-task_13');
+      const waiting = await queue({ key: 'replays/replay-run_waiting' });
+      const opened = await open('work/task-task_13');
 
       const started = await claim().expect(200);
 
@@ -381,8 +459,8 @@ describe('sandboxes (e2e)', () => {
     });
 
     it('is the sandbox a queued run of its key starts in', async () => {
-      const opened = await open('task-task_8');
-      const runId = await queue({ key: 'task-task_8' });
+      const opened = await open('work/task-task_8');
+      const runId = await queue({ key: 'work/task-task_8' });
 
       const claimed = await claim().expect(200);
 
@@ -400,7 +478,7 @@ describe('sandboxes (e2e)', () => {
   });
 
   it('drains a replay’s sandbox as soon as its run ends, with no grace', async () => {
-    const runId = await queue({ key: 'replay-run_ended' });
+    const runId = await queue({ key: 'replays/replay-run_ended' });
     const claimed = await claim().expect(200);
     const sandboxId: string = claimed.body.sandboxId;
     await heartbeat([sandboxId]).expect(200);
@@ -416,7 +494,7 @@ describe('sandboxes (e2e)', () => {
   });
 
   it('keeps a replay’s sandbox for the retry when its run’s lease expires', async () => {
-    const runId = await queue({ key: 'replay-run_retried' });
+    const runId = await queue({ key: 'replays/replay-run_retried' });
     const claimed = await claim().expect(200);
     const sandboxId: string = claimed.body.sandboxId;
     await heartbeat([sandboxId]).expect(200);
@@ -425,18 +503,19 @@ describe('sandboxes (e2e)', () => {
       .update(schema.run)
       .set({ leaseExpiresAt: new Date(Date.now() - 1_000) })
       .where(eq(schema.run.id, runId));
+    await app.get(RunLeasesWorker).tick();
     await claim().expect(204);
 
     const released = await eventually(async () => {
       const row = await sandboxRow(sandboxId);
       return row?.idleSince ? row : null;
     });
-    expect(released).toMatchObject({ state: 'ready', leases: [] });
+    expect(released).toMatchObject({ state: 'open', leases: [] });
   });
 
   it('drains a ready sandbox whose image lacks the harness of the next run of its key, and the run starts afresh', async () => {
-    const sandboxId = await idleAndReady('task-task_9');
-    const next = await queue({ key: 'task-task_9', harness: 'other' });
+    const sandboxId = await idleAndReady('work/task-task_9');
+    const next = await queue({ key: 'work/task-task_9', harness: 'other' });
 
     await claim(sandboxId).expect(204);
 
@@ -454,9 +533,9 @@ describe('sandboxes (e2e)', () => {
     ).toBe('queued');
   });
 
-  describe('the sandbox’s own workspace archive', () => {
+  describe('the sandbox’s own working copy archive', () => {
     it('restores the newest archive of its key and archives with the sandbox token alone', async () => {
-      const runId = await queue({ key: 'task-task_10' });
+      const runId = await queue({ key: 'work/task-task_10' });
       const claimed = await claim().expect(200);
       const sandboxId: string = claimed.body.sandboxId;
       const own = archive(sandboxId, claimed.body.sandboxToken);
@@ -477,18 +556,17 @@ describe('sandboxes (e2e)', () => {
       });
       const [stored] = await db
         .select()
-        .from(schema.workspaceArchive)
-        .where(eq(schema.workspaceArchive.id, granted.body.id));
+        .from(schema.workingCopyArchive)
+        .where(eq(schema.workingCopyArchive.id, granted.body.id));
       expect(stored).toMatchObject({
-        resumeKey: 'task-task_10',
-        taskId: 'task_10',
+        workingCopyKey: 'work/task-task_10',
         grantedToRunId: null,
         grantedToSandboxId: sandboxId,
       });
     });
 
     it('answers a wrong token, a run token, or another sandbox with not found', async () => {
-      await queue({ key: 'task-task_11' });
+      await queue({ key: 'work/task-task_11' });
       const claimed = await claim().expect(200);
       const sandboxId: string = claimed.body.sandboxId;
 
@@ -500,7 +578,7 @@ describe('sandboxes (e2e)', () => {
     });
 
     it('stops answering once the sandbox is gone', async () => {
-      await queue({ key: 'task-task_12' });
+      await queue({ key: 'work/task-task_12' });
       const claimed = await claim().expect(200);
       await db
         .update(schema.sandbox)
@@ -510,6 +588,203 @@ describe('sandboxes (e2e)', () => {
       await archive(claimed.body.sandboxId, claimed.body.sandboxToken)
         .read()
         .expect(404);
+    });
+  });
+
+  describe('a warm sandbox', () => {
+    let lineId: string;
+
+    const keep = () => app.get(WarmSandboxKeeping).keep();
+
+    const warmRows = () =>
+      db
+        .select()
+        .from(schema.sandbox)
+        .where(
+          and(
+            eq(schema.sandbox.workspaceId, workspaceId),
+            isNotNull(schema.sandbox.warm),
+          ),
+        );
+
+    const keepsWarm = (count: number) =>
+      db
+        .update(schema.line)
+        .set({ warmSandboxes: count })
+        .where(eq(schema.line.id, lineId));
+
+    const startedWarm = async () => {
+      await keep();
+      const started = await claim().expect(200);
+      const sandboxId: string = started.body.sandboxId;
+      await heartbeat([sandboxId]).expect(200);
+
+      return { started, sandboxId };
+    };
+
+    beforeEach(async () => {
+      lineId = randomUUID();
+      await db.insert(schema.line).values({
+        id: lineId,
+        workspaceId,
+        teamId: workspaceId,
+        key: 'delivery',
+        name: 'Delivery',
+        warmSandboxes: 1,
+      });
+      await insertStations(db, [
+        {
+          id: randomUUID(),
+          workspaceId,
+          lineId,
+          key: 'backlog',
+          name: 'Backlog',
+          position: 0,
+          kind: 'backlog',
+        },
+        {
+          id: randomUUID(),
+          workspaceId,
+          lineId,
+          key: 'completed',
+          name: 'Completed',
+          position: 1,
+          kind: 'completed',
+        },
+      ]);
+      await db.insert(schema.lineRepository).values({
+        lineId,
+        repository: 'acme/widgets',
+        setup: 'npm ci',
+      });
+    });
+
+    it('is requested for a line that keeps one, on no host and with no key', async () => {
+      await keep();
+      await keep();
+
+      const rows = await warmRows();
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        key: null,
+        hostId: null,
+        state: 'open',
+        leases: [],
+        warm: {
+          lineId,
+          checkouts: [{ path: 'widgets', setup: 'npm ci' }],
+        },
+      });
+    });
+
+    it('takes no slot of maxRuns while no host started it', async () => {
+      await db
+        .update(schema.runnerPool)
+        .set({ maxRuns: 1 })
+        .where(eq(schema.runnerPool.workspaceId, workspaceId));
+      await keep();
+      const runId = await queue();
+
+      const claimed = await claim().expect(200);
+
+      expect(claimed.body).toMatchObject({ work: { run: { id: runId } } });
+    });
+
+    it('is started by a host claim with the repositories to clone, and a task’s first run on its line is claimed into it', async () => {
+      const { started, sandboxId } = await startedWarm();
+
+      expect(started.body).toMatchObject({
+        runnerId: null,
+        token: null,
+        sandboxToken: expect.any(String),
+        reused: false,
+        work: {
+          kind: 'sandbox',
+          run: null,
+          check: null,
+          warm: {
+            line: lineId,
+            checkouts: [{ path: 'widgets', setup: 'npm ci' }],
+          },
+        },
+      });
+
+      const first = await queue({ key: 'work/task-warm_1', line: lineId });
+      await claim().expect(204);
+
+      const into = await claim(sandboxId).expect(200);
+
+      expect(into.body).toMatchObject({
+        sandboxId,
+        sandboxToken: null,
+        reused: true,
+        work: { kind: 'run', run: { id: first } },
+      });
+      expect(await sandboxRow(sandboxId)).toMatchObject({
+        key: 'work/task-warm_1',
+        warm: null,
+        leases: [{ kind: 'run', holder: first, renewedAt: expect.any(String) }],
+      });
+    });
+
+    it('takes no later run of a task, nor a run of another line, and a host starts those afresh', async () => {
+      const { sandboxId } = await startedWarm();
+      const archivedAt = new Date();
+      await db.insert(schema.workingCopyArchive).values({
+        id: randomUUID(),
+        workspaceId,
+        workingCopyKey: 'work/task-warm_2',
+        grantedToSandboxId: 'sandbox-earlier',
+        size: 1_024,
+        sha256: SHA256,
+        grantedAt: archivedAt,
+        completedAt: archivedAt,
+      });
+      const later = await queue({ key: 'work/task-warm_2', line: lineId });
+
+      await claim(sandboxId).expect(204);
+
+      const fresh = await claim().expect(200);
+      expect(fresh.body).toMatchObject({
+        reused: false,
+        work: { kind: 'run', run: { id: later } },
+      });
+      expect(fresh.body.sandboxId).not.toBe(sandboxId);
+
+      await queue({ key: 'work/task-warm_3', line: randomUUID() });
+      await claim(sandboxId).expect(204);
+      expect((await sandboxRow(sandboxId))?.key).toBeNull();
+    });
+
+    it('takes no run of another task once a first run adopted it', async () => {
+      const { sandboxId } = await startedWarm();
+      const first = await queue({ key: 'work/task-warm_4', line: lineId });
+      const into = await claim(sandboxId).expect(200);
+      await complete(first, into.body.token);
+      await eventually(async () =>
+        (await sandboxRow(sandboxId))?.idleSince ? true : null,
+      );
+
+      await queue({ key: 'work/task-warm_5', line: lineId });
+
+      await claim(sandboxId).expect(204);
+      expect((await sandboxRow(sandboxId))?.key).toBe('work/task-warm_4');
+    });
+
+    it('drains once its line keeps none', async () => {
+      const { sandboxId } = await startedWarm();
+
+      await keepsWarm(0);
+      await keep();
+
+      expect(await sandboxRow(sandboxId)).toMatchObject({
+        state: 'draining',
+        warm: null,
+      });
+      await expect(heartbeat([sandboxId]).expect(200)).resolves.toMatchObject({
+        body: { drain: [sandboxId] },
+      });
     });
   });
 });

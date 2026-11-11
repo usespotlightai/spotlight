@@ -1,22 +1,24 @@
 import { PullRequestsNotPurgedError } from '@github/application/errors/pull-requests-not-purged.error';
 import {
   PullRequest,
+  type PullRequestClosing,
+  type PullRequestComment,
+  type PullRequestReopening,
   type PullRequestSnapshot,
-  type WebhookComment,
-  type WebhookReview,
 } from '@github/domain/aggregates/pull-request.aggregate';
 import type { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
 import { PullRequestVersionConflictError } from '@github/domain/exceptions/pull-request-version-conflict.error';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
 import { retentionCutoff } from '@github/domain/services/pull-request-retention';
-import type { PullRequestThread } from '@github/domain/value-objects/bot-activity.vo';
+import { lastMergedOf } from '@github/domain/services/revert-convention';
 import type { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
+import type { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
+import type { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const ATTEMPTS = 3;
@@ -61,7 +63,7 @@ export class PullRequestSync {
     from: DeliveryOrigin,
     pullRequest: string,
     snapshot: PullRequestSnapshot | null,
-    review: WebhookReview,
+    review: PullRequestReview,
   ): Promise<void> {
     const url = urlOf(pullRequest);
 
@@ -91,13 +93,39 @@ export class PullRequestSync {
     from: DeliveryOrigin,
     pullRequest: string,
     snapshot: PullRequestSnapshot | null,
-    comment: WebhookComment,
+    comment: PullRequestComment,
   ): Promise<void> {
     const url = urlOf(pullRequest);
 
     if (url) {
       await this.changing(from, url, snapshot, (known) =>
         known.recordComment(comment),
+      );
+    }
+  }
+
+  async closed(
+    from: DeliveryOrigin,
+    pullRequest: string,
+    closing: PullRequestClosing,
+  ): Promise<void> {
+    const url = urlOf(pullRequest);
+
+    if (url) {
+      await this.changing(from, url, null, (known) => known.closedBy(closing));
+    }
+  }
+
+  async reopened(
+    from: DeliveryOrigin,
+    pullRequest: string,
+    reopening: PullRequestReopening,
+  ): Promise<void> {
+    const url = urlOf(pullRequest);
+
+    if (url) {
+      await this.changing(from, url, null, (known) =>
+        known.reopenedBy(reopening),
       );
     }
   }
@@ -118,13 +146,8 @@ export class PullRequestSync {
   }
 
   async revertMerged(event: PullRequestRevertMerged): Promise<void> {
-    const revert = urlOf(event.pullRequest);
-
-    if (!revert) {
-      return;
-    }
-
-    const repository = Repository.of(event.repository);
+    const revert = event.pullRequest;
+    const repository = event.repository;
 
     await this.retrying(() =>
       this.transaction.inTransaction(async () => {
@@ -135,10 +158,12 @@ export class PullRequestSync {
                 repository,
                 event.reverts.number,
               )
-            : await this.pullRequests.lastMergedTitled(
-                event.workspaceId,
-                repository,
-                event.reverts.title,
+            : lastMergedOf(
+                await this.pullRequests.titled(
+                  event.workspaceId,
+                  repository,
+                  event.reverts.title,
+                ),
               );
 
         if (!target) {
@@ -214,19 +239,6 @@ export class PullRequestSync {
     }
 
     return purged;
-  }
-
-  async workspaceDeleted(workspaceId: WorkspaceId): Promise<void> {
-    await this.transaction.inTransaction(async () => {
-      const connection = await this.connections.of(workspaceId);
-
-      if (connection.installation) {
-        await this.connections.save(
-          connection.disconnectFrom(connection.installation),
-        );
-      }
-    });
-    await this.pullRequests.removeForWorkspace(workspaceId);
   }
 
   private async purging(

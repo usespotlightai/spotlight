@@ -1,8 +1,8 @@
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
 const BODY = {

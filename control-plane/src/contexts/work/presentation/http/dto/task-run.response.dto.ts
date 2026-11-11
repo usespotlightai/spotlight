@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import {
   REVIEW_STATE_NAMES,
@@ -6,6 +6,7 @@ import {
 } from '@work/application/dto/task-run.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
+import { pageResponseOf } from '@work/presentation/http/paging';
 
 export class RunStationResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
@@ -222,39 +223,6 @@ export class RunNotesResponseDto {
   }
 }
 
-export class SendMessageRequestDto {
-  @ApiProperty({
-    example: 'Cap the retries at 500 while you are in there.',
-    description:
-      'Goes to the agent when its current turn ends. May be empty where files are attached.',
-  })
-  readonly body!: string;
-
-  @ApiPropertyOptional({
-    type: String,
-    isArray: true,
-    description: 'Uploads to attach, by the id each was granted',
-  })
-  readonly attachments?: string[];
-
-  @ApiPropertyOptional({
-    type: String,
-    isArray: true,
-    description:
-      'The other people who wrote the shared draft with the sender, by user id',
-  })
-  readonly coAuthors?: string[];
-
-  @ApiPropertyOptional({
-    type: Number,
-    nullable: true,
-    example: 0,
-    description:
-      'The generation of the shared draft this sends. A second send of the same generation is refused, so the draft goes only once',
-  })
-  readonly draftGeneration?: number | null;
-}
-
 export class TaskRunResponseDto {
   @ApiProperty({ example: '4e1e84a2-0c39-406d-bbbb-559f29e450be' })
   readonly id: string;
@@ -376,3 +344,5 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
     this.taskDescription = taskDescription;
   }
 }
+
+export const TeamRunPageResponseDto = pageResponseOf(TeamRunResponseDto);

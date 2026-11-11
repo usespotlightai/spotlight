@@ -26,8 +26,8 @@ describe('Diff', () => {
     const diff = Diff.of([file('a.ts', 'h1'), file('b.ts', 'h2', 'h3')]);
 
     expect(diff.hunks.map((hunk) => hunk.id)).toEqual(['h1', 'h2', 'h3']);
-    expect(diff.fileOf('h3')?.path).toBe('b.ts');
-    expect(diff.fileOf('h99')).toBeNull();
+    expect(diff.fileOf(HunkId.of('h3'))?.path).toBe('b.ts');
+    expect(diff.fileOf(HunkId.of('h99'))).toBeNull();
   });
 
   it('rejects no files, a file with nothing to place, and a hunk named twice', () => {

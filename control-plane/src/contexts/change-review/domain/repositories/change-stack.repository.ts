@@ -2,6 +2,7 @@ import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface ChangeStackRepository {
   add(stack: ChangeStack): Promise<void>;
@@ -14,5 +15,9 @@ export interface ChangeStackRepository {
 
   nextDueJob(now: Date): Promise<ChangeStack | null>;
 
-  removeForTask(taskId: TaskId): Promise<void>;
+  ofTask(taskId: TaskId): Promise<readonly ChangeStack[]>;
+
+  ofTeam(teamId: TeamId): Promise<readonly ChangeStack[]>;
+
+  remove(stack: ChangeStack): Promise<void>;
 }

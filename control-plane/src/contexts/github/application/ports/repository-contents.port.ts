@@ -8,7 +8,7 @@ export interface RepositoryFileDto {
   readonly defaultBranch: string;
 }
 
-interface CommittedFile {
+export interface RepositoryFileContent {
   readonly path: string;
   readonly content: string;
 }
@@ -18,7 +18,7 @@ export interface RepositoryCommit {
   readonly base: string;
   readonly replacing: string | null;
   readonly message: string;
-  readonly files: readonly CommittedFile[];
+  readonly files: readonly RepositoryFileContent[];
 }
 
 export const REPOSITORY_CONTENTS = Symbol('REPOSITORY_CONTENTS');
@@ -31,12 +31,12 @@ export interface RepositoryContentsPort {
     ref?: string,
   ): Promise<RepositoryFileDto | null>;
 
-  filesIn(
+  filesUnder(
     workspaceId: WorkspaceId,
     repository: Repository,
     directory: string,
     ref: string,
-  ): Promise<readonly string[]>;
+  ): Promise<readonly RepositoryFileContent[]>;
 
   committed(
     workspaceId: WorkspaceId,

@@ -1,10 +1,10 @@
 import type { AddUserEmailCommand } from '@identity/application/commands/add-user-email.command';
 import type { UserEmailDto } from '@identity/application/dto/user-email.dto';
 import { userEmailDtoFrom } from '@identity/application/mappers/user-email.mapper';
+import type { VerificationSendsPort } from '@identity/application/ports/verification-sends.port';
 import type { VerificationSending } from '@identity/application/services/verification-sending.service';
 import { UserEmail } from '@identity/domain/aggregates/user-email.aggregate';
 import type { UserEmailRepository } from '@identity/domain/repositories/user-email.repository';
-import type { VerificationSendRepository } from '@identity/domain/repositories/verification-send.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { UserEmailId } from '@identity/domain/value-objects/user-email-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -21,7 +21,7 @@ export class AddUserEmailHandler
 {
   constructor(
     private readonly emails: UserEmailRepository,
-    private readonly sends: VerificationSendRepository,
+    private readonly sends: VerificationSendsPort,
     private readonly sending: VerificationSending,
     private readonly tokens: TokenIssuer,
     private readonly ids: IdGeneratorPort,
@@ -39,11 +39,11 @@ export class AddUserEmailHandler
       const now = this.clock.now();
 
       const written = await this.transaction.inTransaction(async () => {
-        const existing = await this.emails.ofUserByAddress(userId, email);
-        const sentInLastHour = await this.sends.countOfUserSince(
+        const sentInLastHour = await this.sends.lockAndCountSince(
           userId,
           UserEmail.sendsCountedSince(now),
         );
+        const existing = await this.emails.ofUserByAddress(userId, email);
 
         const next = existing
           ? existing.resend(tokenHash, now, sentInLastHour)

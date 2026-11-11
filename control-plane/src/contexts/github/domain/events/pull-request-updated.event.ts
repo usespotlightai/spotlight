@@ -1,13 +1,16 @@
-import type { BotActivity } from '@github/domain/value-objects/bot-activity.vo';
+import type { BotComment } from '@github/domain/value-objects/bot-comment.vo';
 import type { DraftPeriod } from '@github/domain/value-objects/draft-period.vo';
+import type { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
+import type { PullRequestState } from '@github/domain/value-objects/pull-request-state.vo';
+import type { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export type UpdatedState = 'open' | 'merged' | 'closed';
-
 export interface UpdatedPullRequest {
-  readonly pullRequest: string;
-  readonly repository: string;
+  readonly pullRequest: PullRequestUrl;
+  readonly repository: Repository;
   readonly number: number;
   readonly title: string;
   readonly author: string | null;
@@ -17,21 +20,18 @@ export interface UpdatedPullRequest {
   readonly deletions: number | null;
   readonly changedFiles: number | null;
   readonly openedAt: Date;
-  readonly state: UpdatedState;
+  readonly state: PullRequestState;
   readonly closedAt: Date | null;
   readonly updatedAt: Date;
   readonly readyForReviewAt: Date | null;
   readonly draftPeriods: readonly DraftPeriod[];
-  readonly firstReviewAt: Date | null;
-  readonly firstUnblockingReviewAt: Date | null;
-  readonly firstApprovedAt: Date | null;
-  readonly humanReviewedAt: readonly Date[];
-  readonly reviews: number;
-  readonly reviewRounds: number;
+  readonly reviews: readonly PullRequestReview[];
+  readonly dismissedReviews: readonly number[];
   readonly reviewComments: number;
-  readonly botActivity: readonly BotActivity[];
+  readonly botComments: readonly BotComment[];
+  readonly threads: readonly PullRequestThread[];
   readonly isRevert: boolean;
-  readonly revertedBy: string | null;
+  readonly revertedBy: PullRequestUrl | null;
   readonly version: number;
 }
 

@@ -1,15 +1,14 @@
 import { AcceptInviteCommand } from '@identity/application/commands/accept-invite.command';
-import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
 import { ResendInviteCommand } from '@identity/application/commands/resend-invite.command';
 import { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
 import type {
-  InviteOutcomesDto,
   InvitePreviewDto,
   JoinedWorkspaceDto,
   WorkspaceInviteDto,
 } from '@identity/application/dto/invite.dto';
 import { ListWorkspaceInvitesQuery } from '@identity/application/queries/list-workspace-invites.query';
 import { ReadInviteQuery } from '@identity/application/queries/read-invite.query';
+import { WorkspaceInviting } from '@identity/application/services/workspace-inviting.service';
 import { InviteToWorkspaceRequestDto } from '@identity/presentation/http/dto/invite.request.dto';
 import {
   InviteOutcomesResponseDto,
@@ -41,9 +40,11 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
+import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
 
 const listed = (raw: unknown): string[] =>
   Array.isArray(raw) ? raw.map(String) : [];
@@ -55,6 +56,7 @@ export class WorkspaceInviteController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
+    private readonly inviting: WorkspaceInviting,
   ) {}
 
   @Get()
@@ -106,24 +108,19 @@ export class WorkspaceInviteController {
     @Body() body: InviteToWorkspaceRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<InviteOutcomesResponseDto> {
-    const invited = await this.commandBus.execute<
-      InviteToWorkspaceCommand,
-      InviteOutcomesDto | null
-    >(
-      new InviteToWorkspaceCommand(
-        slug,
-        listed(body.emails),
-        String(body.role ?? ''),
-        listed(body.teamIds),
-        user.id,
-      ),
-    );
+    const outcomes = await this.inviting.invite({
+      slug,
+      emails: listed(body.emails),
+      role: String(body.role ?? ''),
+      teamIds: listed(body.teamIds),
+      viewerId: user.id,
+    });
 
-    if (!invited) {
+    if (!outcomes) {
       throw new NotFoundException();
     }
 
-    return invited;
+    return { outcomes };
   }
 
   @Post(':inviteId/resend')
@@ -182,6 +179,7 @@ export class WorkspaceInviteController {
 }
 
 @ApiTags('invites')
+@InAudience('web')
 @Controller('invites')
 export class InviteController {
   constructor(
@@ -191,6 +189,7 @@ export class InviteController {
 
   @Get(':token')
   @AllowAnonymous()
+  @RateLimited({ name: 'invite-preview', max: 30, windowSeconds: 60 })
   @ApiOperation({
     operationId: 'readInvite',
     summary: 'Read the preview of an invitation',

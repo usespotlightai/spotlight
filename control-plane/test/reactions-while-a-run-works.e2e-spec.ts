@@ -1,52 +1,52 @@
 import { randomUUID } from 'node:crypto';
+import { Line } from '@lines/domain/aggregates/line.aggregate';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
+import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import type { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { CompleteRunCommand } from '@runs/application/commands/runner.commands';
+import { claimer } from '@runs/domain/aggregates/run.fake-spec';
+import { ClaimOrder } from '@runs/domain/services/claim-order';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
+import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
+import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
+import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { CompleteRunCommand } from '@work/application/commands/runner.commands';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import {
   HAPPENING_REACTIONS,
   type HappeningReactionsPort,
 } from '@work/application/ports/happening-reactions.port';
 import {
-  LEASED_RUN_READER,
-  type LeasedRunReaderPort,
-} from '@work/application/ports/leased-run-reader.port';
-import {
   TASK_NOTES_FROM_HOOKS,
   type TaskNotesFromHooksPort,
 } from '@work/application/ports/task-notes-from-hooks.port';
-import { Line } from '@work/domain/aggregates/line.aggregate';
+import { RunWorks } from '@work/application/services/run-works.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { Handover } from '@work/domain/value-objects/handover.vo';
-import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
-import { LineRole } from '@work/domain/value-objects/line-role.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
-import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { mapOf, projectStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const RUNNER = RunnerId.of('runner_reactions');
@@ -57,7 +57,7 @@ const DEFERRED_MOVE_TO_CODE_REVIEW = `This arrived while a run was in progress o
 let app: INestApplication;
 let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof createTeam>>;
-let line: Line;
+let line: LineMap;
 let tasks: DrizzleTaskRepository;
 let runs: DrizzleRunRepository;
 
@@ -157,20 +157,26 @@ const merged = (task: Task) =>
   happens(task, 'github.pull_request.merged', 'The pull request was merged.');
 
 const claimed = async (runId: RunId) => {
-  await runs.save((await runOf(runId)).claim(RUNNER, new Date()));
+  await runs.save(
+    (await runOf(runId)).claim(
+      claimer(RUNNER, team.workspaceId.value),
+      new Date(),
+    ),
+  );
 };
 
 const endedPassingTo = async (runId: RunId, next: string) => {
-  await runs.save(
-    (await runOf(runId)).complete(
-      RUNNER,
-      RunOutcome.of({ exitCode: 0, failed: false }),
-      HandoverReport.of({
-        handover: Handover.of({ next, note: 'Uploads retry now.' }),
-        session: null,
-      }),
-    ),
+  await app.get(CommandBus).execute(
+    new CompleteRunCommand(runId.value, RUNNER.value, 0, false, undefined, {
+      next,
+      note: 'Uploads retry now.',
+    }),
   );
+  await eventually(async () => {
+    const run = await runOf(runId);
+
+    return run.hasEnded || run.turn?.state === 'kept';
+  });
 };
 
 const pausedAsking = async (runId: RunId) => {
@@ -188,6 +194,7 @@ const pausedAsking = async (runId: RunId) => {
       ),
     );
   expect((await runOf(runId)).state).toBe('suspended');
+  await eventually(async () => (await runOf(runId)).turn?.state === 'kept');
 };
 
 const answered = (task: Task, from: number, body: string, approve?: boolean) =>
@@ -204,7 +211,7 @@ const approvalRequested = async (task: Task, runId: RunId) => {
     ),
     ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
     {
-      station: StationName.of('Implementation'),
+      line: null,
       body: TaskNoteBody.of('Approve linear.comment?'),
       at: new Date(),
       voice: Voice.station(runId),
@@ -218,13 +225,15 @@ const approvalRequested = async (task: Task, runId: RunId) => {
 };
 
 const awaitingProvision = async () =>
-  (
+  ClaimOrder.provisionable(
     await runs.awaitingProvision(team.workspaceId, new Date(), {
       skip: 0,
       max: 1_000,
       withSecrets: false,
       avoiding: [],
-    })
+    }),
+    new Date(),
+    false,
   ).map((each) => each.id.value);
 
 const atStation = (task: Task, station: string) =>
@@ -248,14 +257,20 @@ beforeAll(async () => {
     throw new Error('Spotlight ships no delivery line');
   }
 
-  line = Line.create({
+  const created = Line.create({
     by: changeActorIn(),
     workspaceId: team.workspaceId,
     teamId: team.teamId,
     line: opening,
+    harness: HarnessId.of('claude-code'),
     newId: () => randomUUID(),
-  }).runsOn(HarnessId.of('claude-code'), null);
-  await app.get(DrizzleLineRepository).add(line);
+  });
+  await app.get(DrizzleLineRepository).add(created);
+  await projectStations(
+    db,
+    created.stations.map((each) => each.id.value),
+  );
+  line = mapOf(created);
 }, 60_000);
 
 afterAll(async () => {
@@ -287,8 +302,8 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
     await changesRequested(task);
 
     const pending = await app
-      .get<LeasedRunReaderPort>(LEASED_RUN_READER)
-      .pendingFor(runId, RUNNER);
+      .get(RunWorks)
+      .pendingFor(runId.value, RUNNER.value);
     expect(pending?.map((each) => each.body)).toEqual([
       DEFERRED_MOVE_TO_CODE_REVIEW,
     ]);
@@ -569,7 +584,12 @@ describe('a reply to an interrupted working run (e2e)', () => {
     expect(await awaitingProvision()).not.toContain(next.value);
 
     await runs.save(
-      (await runOf(runId)).complete(RUNNER, RunOutcome.stopped(0)),
+      (await runOf(runId)).complete(
+        RUNNER,
+        RunOutcome.stopped(ExitCode.of(0)),
+        HandoverReport.none(),
+        new Date(),
+      ),
     );
 
     expect(await awaitingProvision()).toContain(next.value);

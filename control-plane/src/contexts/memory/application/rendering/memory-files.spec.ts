@@ -7,8 +7,10 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -38,8 +40,8 @@ const replacing = Memory.create({
   body: MemoryBody.of('Uploads retry in the request,\nnot from a queue.'),
   scope: MemoryScope.of({
     teamId: TEAM,
-    lineId: 'line_1',
-    stationId: 'station_1',
+    lineId: LineId.of('line_1'),
+    stationId: StationId.of('station_1'),
     repository: Repository.of('acme/api'),
     paths: [MemoryPath.of('src/uploads')],
   }),
@@ -50,7 +52,7 @@ const replacing = Memory.create({
     notes: [],
   }),
   source: 'run',
-  supersedes: old,
+  supersedes: old.asPredecessor,
   approval: MemoryDecision.of({ by: ADA, at: AT }),
 });
 
@@ -59,9 +61,9 @@ describe('memory files', () => {
     const [file] = memoryFilesOf([replacing], {
       lines: [
         {
-          id: 'line_1',
+          id: LineId.of('line_1'),
           name: 'Delivery',
-          stations: [{ id: 'station_1', name: 'Build' }],
+          stations: [{ id: StationId.of('station_1'), name: 'Build' }],
           repositories: [],
         },
       ],

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { SESSION_READER } from '@identity/application/ports/session-reader.port';
 import type { AppAuth } from '@identity/infrastructure/auth/auth';
 import { CLI_CLIENT_ID } from '@identity/infrastructure/auth/auth';
 import { AUTH } from '@identity/infrastructure/auth/auth.constants';
@@ -6,7 +7,6 @@ import { BetterAuthSessionReader } from '@identity/infrastructure/auth/better-au
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { SESSION_READER } from '@shared-kernel/application/ports/session.port';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served } from './support/app';

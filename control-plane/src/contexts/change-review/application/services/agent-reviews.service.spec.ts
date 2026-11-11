@@ -3,6 +3,7 @@ import type {
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { AgentReviews } from '@change-review/application/services/agent-reviews.service';
+import { SubmitReview } from '@change-review/application/services/submit-review.service';
 import type { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
@@ -39,26 +40,33 @@ const reviewing = (
     workspaceId: WORKSPACE,
     teamId: null,
     pullRequest: pullRequest ? PullRequestUrl.of(pullRequest) : null,
+    pullRequests: [pullRequest ? PullRequestUrl.of(pullRequest) : null].filter(
+      (each) => each !== null,
+    ),
     reviewing: reviewsIt,
     currentRunId: null,
   };
 
+  const commentRepository = {
+    add: async (comment: ReviewComment) =>
+      void comments.set(comment.id.value, comment),
+    save: async (comment: ReviewComment) =>
+      void comments.set(comment.id.value, comment),
+    draftsOn: async () =>
+      [...comments.values()].filter((each) => each.state === 'draft'),
+  } as unknown as ReviewCommentRepository;
   const agent = new AgentReviews(
     { task: async () => task } as unknown as WorkPort,
-    {
-      add: async (comment: ReviewComment) =>
-        void comments.set(comment.id.value, comment),
-      save: async (comment: ReviewComment) =>
-        void comments.set(comment.id.value, comment),
-      draftsBy: async (_task: TaskId, author: ReviewAuthor) =>
-        [...comments.values()].filter(
-          (each) => each.state === 'draft' && author.isSameAs(each.author),
-        ),
-    } as unknown as ReviewCommentRepository,
-    {
-      add: async (review: Review) => void reviews.push(review),
-    } as unknown as ReviewRepository,
-    { inTransaction: (work) => work() },
+    commentRepository,
+    new SubmitReview(
+      commentRepository,
+      {
+        add: async (review: Review) => void reviews.push(review),
+      } as unknown as ReviewRepository,
+      { inTransaction: (work) => work() },
+      { generate: () => `id_${++ids}` },
+      { now: () => NOW, sleep: async () => {} },
+    ),
     { generate: () => `id_${++ids}` },
     { now: () => NOW, sleep: async () => {} },
   );
@@ -93,7 +101,7 @@ describe('AgentReviews', () => {
     expect(left?.author.userId).toBeNull();
     expect(left?.author.runId?.equals(RUN)).toBe(true);
     expect(left?.author.name.value).toBe('Spotlight');
-    expect(left?.isAgentAuthored).toBe(true);
+    expect(left?.author.kind).toBe('agent');
   });
 
   it('submits the run’s own drafts as one review, and nobody else’s', async () => {
@@ -121,7 +129,7 @@ describe('AgentReviews', () => {
     expect(reviews[0]?.author.runId?.equals(RUN)).toBe(true);
     expect(reviews[0]?.author.name.value).toBe('Spotlight');
     expect(reviews[0]?.comments.map((each) => each.value)).toEqual([left]);
-    expect(comments.get(left)?.state).toBe('submitted');
+    expect(comments.get(left)?.state).toBe('sending');
     expect(comments.get('comment_ada')?.state).toBe('draft');
   });
 

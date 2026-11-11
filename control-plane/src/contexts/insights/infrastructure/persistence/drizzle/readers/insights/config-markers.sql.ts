@@ -38,7 +38,7 @@ export const configMarkers = (team: TeamInPeriod, began: Window): SQL => {
     ) as previous
     where ${onTeam(team)}
       and ${configRun(runFact)}
-      and ${runFact.beganAt} >= ${iso(began.from)}::timestamp
-      and ${runFact.beganAt} < ${iso(began.to)}::timestamp
+      and ${runFact.beganAt} >= ${iso(began.from)}::timestamptz
+      and ${runFact.beganAt} < ${iso(began.to)}::timestamptz
       and previous.fingerprint <> ${runFact.fingerprint}`;
 };

@@ -13,7 +13,7 @@ import {
   sending,
 } from '@github/infrastructure/github/github.rest';
 import { Inject, Injectable } from '@nestjs/common';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 

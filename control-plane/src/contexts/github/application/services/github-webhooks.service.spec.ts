@@ -1,4 +1,7 @@
-import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
+import type {
+  CheckRunsPort,
+  FailedCheckDto,
+} from '@github/application/ports/check-runs.port';
 import type {
   ParsedDelivery,
   WebhookEvent,
@@ -6,14 +9,10 @@ import type {
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
-import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
-import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
-import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
-import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
+import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -48,7 +47,7 @@ const MERGED: WebhookEvent = {
     label: null,
     details: null,
     reviewComment: null,
-    byBot: false,
+    ignoredAsBot: false,
     checkSuite: null,
     failedChecks: [],
   },
@@ -63,13 +62,22 @@ const CLOSED: WebhookEvent = {
   closedAt: null,
 };
 
+const BUILD_FAILED: FailedCheckDto = {
+  name: 'web / build',
+  conclusion: 'failure',
+  url: 'https://github.com/acme/api/actions/runs/1/job/11',
+  step: 'Build',
+  summary: null,
+  log: 'src/app.ts(3,1): error TS2322',
+};
+
 const hooks = (
   parsed: ParsedDelivery,
   over: {
     connected?: boolean;
     signs?: boolean;
-    dispatch?: () => Promise<void>;
-    failedInSuite?: () => Promise<readonly string[]>;
+    closed?: () => Promise<void>;
+    failedInSuite?: () => Promise<readonly FailedCheckDto[]>;
   } = {},
 ) => {
   const connected = over.connected ?? true;
@@ -89,9 +97,6 @@ const hooks = (
     ),
     save: vi.fn(async (_: GitHubConnection) => {}),
   } satisfies GitHubConnectionRepository;
-  const events = {
-    dispatch: vi.fn(over.dispatch ?? (async (_: readonly DomainEvent[]) => {})),
-  };
   const signature = { signs: vi.fn(() => over.signs ?? true) };
   const logger = {
     info: vi.fn(),
@@ -100,7 +105,7 @@ const hooks = (
   } as unknown as LoggerPort;
   const checkRuns = {
     failedOn: vi.fn(),
-    failedInSuite: vi.fn(over.failedInSuite ?? (async () => ['web / build'])),
+    failedInSuite: vi.fn(over.failedInSuite ?? (async () => [BUILD_FAILED])),
   } satisfies CheckRunsPort;
   const sync = {
     updateDetails: vi.fn(async () => {}),
@@ -108,6 +113,8 @@ const hooks = (
     reviewDismissed: vi.fn(async () => {}),
     commented: vi.fn(async () => {}),
     threadResolved: vi.fn(async () => {}),
+    closed: vi.fn(over.closed ?? (async () => {})),
+    reopened: vi.fn(async () => {}),
     uninstalled: vi.fn(async () => 0),
   };
 
@@ -120,14 +127,12 @@ const hooks = (
       },
       signature,
       connections,
-      events,
       sync as unknown as PullRequestSync,
       logger,
       checkRuns,
     ),
     checkRuns,
     connections,
-    events,
     sync,
     signature,
     logger,
@@ -204,7 +209,7 @@ describe('GitHubWebhooks', () => {
       },
     };
 
-    it('asks GitHub which checks of the suite failed', async () => {
+    it('asks GitHub which checks of the suite failed, at which step, and how their logs end', async () => {
       const { service, checkRuns } = hooks({
         installation: '158876513',
         events: [FAILED],
@@ -212,7 +217,14 @@ describe('GitHubWebhooks', () => {
 
       const [read] = await service.activityIn(DELIVERY);
 
-      expect(read?.failedChecks).toEqual(['web / build']);
+      expect(read?.failedChecks).toEqual([
+        {
+          name: 'web / build',
+          step: 'Build',
+          summary: null,
+          log: 'src/app.ts(3,1): error TS2322',
+        },
+      ]);
       expect(checkRuns.failedInSuite).toHaveBeenCalledWith(
         WORKSPACE,
         Repository.of('acme/api'),
@@ -313,8 +325,8 @@ describe('GitHubWebhooks', () => {
       expect(connections.save).not.toHaveBeenCalled();
     });
 
-    it('says a review comment was received in the workspace', async () => {
-      const { service, events } = hooks({
+    it('records a review comment with what it says, for the pull request to say it was received', async () => {
+      const { service, sync } = hooks({
         installation: '42',
         events: [
           {
@@ -329,19 +341,26 @@ describe('GitHubWebhooks', () => {
 
       await service.receive(DELIVERY);
 
-      expect(events.dispatch).toHaveBeenCalledWith([
-        new ReviewCommentReceived(
-          WORKSPACE,
-          'created',
-          'https://github.com/acme/api/pull/7',
-          COMMENT,
-        ),
-      ]);
+      const { id, inReplyToId, login, byBot, ...details } = COMMENT;
+      expect(sync.commented).toHaveBeenCalledWith(
+        { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
+        'https://github.com/acme/api/pull/7',
+        null,
+        {
+          id,
+          on: 'line',
+          action: 'created',
+          login,
+          inReplyToId,
+          byBot,
+          details,
+        },
+      );
     });
 
-    it('says a pull request closed in the workspace', async () => {
+    it('records that a pull request closed, for the pull request to say so', async () => {
       const closedAt = new Date('2026-09-21T09:30:00Z');
-      const { service, events } = hooks({
+      const { service, sync } = hooks({
         installation: '42',
         events: [
           {
@@ -357,21 +376,21 @@ describe('GitHubWebhooks', () => {
 
       await service.receive(DELIVERY);
 
-      expect(events.dispatch).toHaveBeenCalledWith([
-        new PullRequestClosed(
-          WORKSPACE,
-          'https://github.com/acme/api/pull/7',
-          'acme/api',
-          707,
-          { commit: 'c'.repeat(40) },
+      expect(sync.closed).toHaveBeenCalledWith(
+        { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
+        'https://github.com/acme/api/pull/7',
+        {
+          repository: Repository.of('acme/api'),
+          gitHubId: 707,
+          merge: { commit: 'c'.repeat(40) },
           closedAt,
-        ),
-      ]);
+        },
+      );
     });
 
-    it('says a pull request reopened in the workspace', async () => {
+    it('records that a pull request reopened, for the pull request to say so', async () => {
       const reopenedAt = new Date('2026-09-22T09:30:00Z');
-      const { service, events } = hooks({
+      const { service, sync } = hooks({
         installation: '42',
         events: [
           {
@@ -386,47 +405,11 @@ describe('GitHubWebhooks', () => {
 
       await service.receive(DELIVERY);
 
-      expect(events.dispatch).toHaveBeenCalledWith([
-        new PullRequestReopened(
-          WORKSPACE,
-          'https://github.com/acme/api/pull/7',
-          'acme/api',
-          707,
-          reopenedAt,
-        ),
-      ]);
-    });
-
-    it('says a pull request was reviewed in the workspace', async () => {
-      const submittedAt = new Date('2026-09-21T09:30:00Z');
-      const { service, events } = hooks({
-        installation: '42',
-        events: [
-          {
-            kind: 'pull-request-reviewed',
-            pullRequest: 'https://github.com/acme/api/pull/7',
-            id: 900,
-            snapshot: null,
-            state: 'changes-requested',
-            login: 'ada',
-            byBot: false,
-            submittedAt,
-          },
-        ],
-      });
-
-      await service.receive(DELIVERY);
-
-      expect(events.dispatch).toHaveBeenCalledWith([
-        new PullRequestReviewed(
-          WORKSPACE,
-          'https://github.com/acme/api/pull/7',
-          'changes-requested',
-          'ada',
-          false,
-          submittedAt,
-        ),
-      ]);
+      expect(sync.reopened).toHaveBeenCalledWith(
+        { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
+        'https://github.com/acme/api/pull/7',
+        { repository: Repository.of('acme/api'), gitHubId: 707, reopenedAt },
+      );
     });
 
     it('records every pull request it receives, whether or not a task owns it', async () => {
@@ -522,6 +505,16 @@ describe('GitHubWebhooks', () => {
           login: 'octocat',
           inReplyToId: 200,
           byBot: false,
+          details: {
+            url: COMMENT.url,
+            path: COMMENT.path,
+            subject: 'line',
+            side: 'new',
+            line: 12,
+            startLine: 9,
+            body: COMMENT.body,
+            writtenAt: COMMENT.writtenAt,
+          },
         },
       );
     });
@@ -552,18 +545,19 @@ describe('GitHubWebhooks', () => {
           login: 'coderabbitai[bot]',
           inReplyToId: null,
           byBot: true,
+          details: null,
         },
       );
     });
 
     it('records a review thread resolved on the pull request it is on', async () => {
-      const thread = {
+      const thread = PullRequestThread.of({
         id: 'PRRT_1',
         firstCommentId: 300,
         login: 'coderabbitai[bot]',
         byBot: true,
         resolved: true,
-      };
+      });
       const { service, sync } = hooks({
         installation: '42',
         events: [
@@ -586,8 +580,8 @@ describe('GitHubWebhooks', () => {
       );
     });
 
-    it('says nothing of a delivery through an installation that no workspace connected', async () => {
-      const { service, events } = hooks(
+    it('records nothing of a delivery through an installation that no workspace connected', async () => {
+      const { service, sync } = hooks(
         {
           installation: '42',
           events: [CLOSED],
@@ -597,11 +591,11 @@ describe('GitHubWebhooks', () => {
 
       await service.receive(DELIVERY);
 
-      expect(events.dispatch).not.toHaveBeenCalled();
+      expect(sync.closed).not.toHaveBeenCalled();
     });
 
-    it('says nothing where the delivery came through no installation', async () => {
-      const { service, events, connections } = hooks({
+    it('records nothing where the delivery came through no installation', async () => {
+      const { service, sync, connections } = hooks({
         installation: null,
         events: [CLOSED],
       });
@@ -609,11 +603,11 @@ describe('GitHubWebhooks', () => {
       await service.receive(DELIVERY);
 
       expect(connections.connectedWorkspaceOf).not.toHaveBeenCalled();
-      expect(events.dispatch).not.toHaveBeenCalled();
+      expect(sync.closed).not.toHaveBeenCalled();
     });
 
     it('leaves pull request activity to whoever reads it', async () => {
-      const { service, connections, events } = hooks({
+      const { service, connections, sync } = hooks({
         installation: '42',
         events: [MERGED],
       });
@@ -621,17 +615,17 @@ describe('GitHubWebhooks', () => {
       await service.receive(DELIVERY);
 
       expect(connections.connectedWorkspaceOf).not.toHaveBeenCalled();
-      expect(events.dispatch).not.toHaveBeenCalled();
+      expect(sync.closed).not.toHaveBeenCalled();
     });
 
     it('fails the delivery when attending goes wrong, so it is tried again', async () => {
-      const { service, events, logger } = hooks(
+      const { service, sync, logger } = hooks(
         {
           installation: '42',
           events: [CLOSED],
         },
         {
-          dispatch: async () => {
+          closed: async () => {
             throw new Error('the outbox is down');
           },
         },
@@ -640,7 +634,7 @@ describe('GitHubWebhooks', () => {
       await expect(service.receive(DELIVERY)).rejects.toThrow(
         'the outbox is down',
       );
-      expect(events.dispatch).toHaveBeenCalled();
+      expect(sync.closed).toHaveBeenCalled();
       expect(logger.error).toHaveBeenCalled();
     });
 

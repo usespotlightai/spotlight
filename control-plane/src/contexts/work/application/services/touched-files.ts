@@ -1,13 +1,15 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TouchedFile } from '@work/application/ports/team-memories.port';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { filesChangedIn } from '@work/domain/services/files-changed-in';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
-import { filesChangedIn } from '@work/domain/services/workspace-path';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 const MAX_WAIT_MS = 5_000;
 
@@ -23,12 +25,17 @@ export class TouchedFiles {
     private readonly pullRequests: PullRequestPort,
     private readonly logger: LoggerPort,
     private readonly clock: ClockPort,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
-  async onTask(task: Task, line: Line): Promise<readonly TouchedFile[]> {
+  async onTask(task: Task, line: LineMap): Promise<readonly TouchedFile[]> {
     const repositories = repositoriesForTask(task, line);
     const earlier = await this.earlierRuns(task, repositories);
-    const pulled = await this.pullRequestFiles(task);
+    const pulled = (
+      await Promise.all(
+        task.pullRequests.map((each) => this.pullRequestFiles(task, each)),
+      )
+    ).flat();
 
     return distinctFiles([...earlier, ...pulled]);
   }
@@ -38,15 +45,17 @@ export class TouchedFiles {
     repositories: readonly Repository[],
   ): Promise<TouchedFile[]> {
     return (await this.journals.changesOfTask(task.id)).flatMap((changes) =>
-      filesChangedIn(changes, repositories),
+      filesChangedIn(this.readings.workingCopyPathsIn(changes), repositories),
     );
   }
 
-  private async pullRequestFiles(task: Task): Promise<TouchedFile[]> {
-    const url = task.pullRequest;
-    const repository = url?.repository;
+  private async pullRequestFiles(
+    task: Task,
+    url: PullRequestUrl,
+  ): Promise<TouchedFile[]> {
+    const repository = url.repository;
 
-    if (!url || !repository) {
+    if (!repository) {
       return [];
     }
 
@@ -65,7 +74,7 @@ export class TouchedFiles {
       return paths.map((path) => ({ repository, path }));
     } catch (error) {
       this.logger.warn(
-        { err: error, taskId: task.id.value },
+        { err: error, taskId: task.id.value, pullRequest: url.value },
         'Briefing without the pull request’s files, which GitHub did not send',
       );
       return [];

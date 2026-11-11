@@ -1,11 +1,5 @@
-import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import {
-  customType,
-  integer,
-  pgTable,
-  text,
-  timestamp,
-} from 'drizzle-orm/pg-core';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { customType, pgTable, text } from 'drizzle-orm/pg-core';
 
 const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
   dataType: () => 'bytea',
@@ -13,11 +7,8 @@ const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
   fromDriver: (value) => new Uint8Array(value),
 });
 
-export const taskDraft = pgTable('task_draft', {
-  taskId: text('task_id')
-    .primaryKey()
-    .references(() => task.id, { onDelete: 'cascade' }),
-  state: bytea('state'),
-  generation: integer('generation').notNull().default(0),
-  updatedAt: timestamp('updated_at').notNull(),
+export const taskDraftState = pgTable('task_draft_state', {
+  taskId: text('task_id').primaryKey(),
+  state: bytea('state').notNull(),
+  updatedAt: timestamptz('updated_at').notNull(),
 });

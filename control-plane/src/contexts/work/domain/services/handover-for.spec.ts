@@ -1,24 +1,23 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import {
-  Station,
-  type StationInput,
-} from '@work/domain/entities/station.entity';
 import { HandoverFor } from '@work/domain/services/handover-for';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  routesOf,
+  type StationSpec,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
+import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { describe, expect, it } from 'vitest';
 
 const station = (
@@ -26,18 +25,18 @@ const station = (
   key: string,
   name: string,
   position: number,
-  over: Partial<StationInput> = {},
+  over: Partial<StationSpec> = {},
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(key),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     ...over,
   });
 
-const LINE = Line.rehydrate({
+const LINE = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
@@ -47,11 +46,11 @@ const LINE = Line.rehydrate({
     station('station_0', 'backlog', 'Backlog', 0, { kind: 'backlog' }),
     station('station_1', 'triage', 'Triage', 1, {
       harness: HarnessId.of('dev'),
-      routes: StationRoutes.of({ stations: [StationId.of('station_2')] }),
+      routes: routesOf({ stations: [StationId.of('station_2')] }),
     }),
     station('station_2', 'spec', 'Spec', 2, {
       harness: HarnessId.of('dev'),
-      routes: StationRoutes.of({
+      routes: routesOf({
         stations: [StationId.of('station_1')],
         ends: true,
       }),
@@ -97,8 +96,14 @@ describe('HandoverFor.resolve, with files the run attached', () => {
 
   it('has no files on a note the run did not write', () => {
     expect(
-      HandoverFor.outcome(RunOutcome.of({ exitCode: 1, failed: true }))
-        .attachments,
+      HandoverFor.outcome(
+        RunResult.of({
+          exitCode: 1,
+          failure: 'exited',
+          message: null,
+          stopped: false,
+        }),
+      ).attachments,
     ).toEqual([]);
     expect(HandoverFor.stopped().attachments).toEqual([]);
   });
@@ -220,7 +225,12 @@ describe('HandoverFor.after', () => {
   it('hands a stopped run back to a person, whatever it handed over', () => {
     expect(
       HandoverFor.after({
-        outcome: RunOutcome.stopped(0),
+        outcome: RunResult.of({
+          exitCode: 0,
+          failure: null,
+          message: null,
+          stopped: true,
+        }),
         handover,
         line: LINE,
         currentStation,
@@ -231,7 +241,12 @@ describe('HandoverFor.after', () => {
   it('follows the handover of a run that did not fail', () => {
     expect(
       HandoverFor.after({
-        outcome: RunOutcome.of({ exitCode: 0, failed: false }),
+        outcome: RunResult.of({
+          exitCode: 0,
+          failure: null,
+          message: null,
+          stopped: false,
+        }),
         handover,
         line: LINE,
         currentStation,
@@ -240,8 +255,18 @@ describe('HandoverFor.after', () => {
   });
 
   it('reads the outcome of a run that failed or handed over nothing', () => {
-    const failed = RunOutcome.of({ exitCode: 1, failed: true });
-    const silent = RunOutcome.of({ exitCode: 0, failed: false });
+    const failed = RunResult.of({
+      exitCode: 1,
+      failure: 'exited',
+      message: null,
+      stopped: false,
+    });
+    const silent = RunResult.of({
+      exitCode: 0,
+      failure: null,
+      message: null,
+      stopped: false,
+    });
 
     expect(
       HandoverFor.after({
@@ -262,7 +287,12 @@ describe('HandoverFor.after', () => {
   });
 
   it('takes the last words of a run that names no next step as its note', () => {
-    const silent = RunOutcome.of({ exitCode: 0, failed: false });
+    const silent = RunResult.of({
+      exitCode: 0,
+      failure: null,
+      message: null,
+      stopped: false,
+    });
     const resolved = HandoverFor.after({
       outcome: silent,
       handover: null,
@@ -277,8 +307,15 @@ describe('HandoverFor.after', () => {
 
   it('says the run named no next step when it left no words either', () => {
     expect(
-      HandoverFor.outcome(RunOutcome.of({ exitCode: 0, failed: false }), '  ')
-        .body.value,
+      HandoverFor.outcome(
+        RunResult.of({
+          exitCode: 0,
+          failure: null,
+          message: null,
+          stopped: false,
+        }),
+        '  ',
+      ).body.value,
     ).toBe('The run finished without saying where the task should go next.');
   });
 });

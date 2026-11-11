@@ -1,5 +1,6 @@
 import type { InsightsPort } from '@replays/application/ports/insights.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -13,7 +14,6 @@ import {
 } from '@replays/domain/services/oracle-answer';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayState } from '@replays/domain/value-objects/replay-state';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -21,14 +21,13 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const VALID_STATES: readonly ReplayState[] = ['queued', 'running', 'finished'];
-
 export class StartOracleReplay {
   constructor(
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
+    private readonly replayRuns: ReplayRunDispatching,
     private readonly insights: InsightsPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -43,12 +42,7 @@ export class StartOracleReplay {
     const baseline = await this.replays.find(event.replayId);
     const live = baseline && (await this.candidates.find(baseline.candidateId));
 
-    if (
-      !baseline ||
-      !live?.isLive ||
-      baseline.runSubset !== null ||
-      (baseline.searchId !== null && !baseline.calibration)
-    ) {
+    if (!baseline || !live?.isLive || !baseline.isOracleReference) {
       return;
     }
 
@@ -68,49 +62,66 @@ export class StartOracleReplay {
       at: this.clock.now(),
     });
 
-    await this.transaction.inTransaction(async () => {
-      const locked = await this.sets.locked(set.id);
-      const against = await this.replays.find(baseline.id);
-      const answers = locked
-        ? answered.filter((each) => locked.includes(each.run))
-        : [];
+    await this.transaction.inTransaction(() => this.candidates.add(oracle));
 
-      if (
-        !locked ||
-        !against ||
-        locked.isAtGoneStation ||
-        answers.length === 0 ||
-        (await this.hasOracle(locked, live.fingerprint)) ||
-        !(await this.stillLive(baseline, live.fingerprint))
-      ) {
-        return;
+    let started = false;
+
+    try {
+      started = await this.transaction.inTransaction(async () => {
+        const locked = await this.sets.locked(set.id);
+        const against = await this.replays.find(baseline.id);
+        const answers = locked
+          ? answered.filter((each) => locked.includes(each.run))
+          : [];
+
+        if (
+          !locked ||
+          !against ||
+          locked.isAtGoneStation ||
+          answers.length === 0 ||
+          (await this.hasOracle(locked, live.fingerprint)) ||
+          !(await this.stillLive(baseline, live.fingerprint))
+        ) {
+          return false;
+        }
+
+        await this.replays.add(
+          Replay.start({
+            id: ReplayId.of(this.ids.generate()),
+            set: locked.snapshot,
+            candidate: oracle.asReplayed,
+            baseline: false,
+            ceiling: baseline.ceiling,
+            repeats: baseline.repeats,
+            oracle: {
+              answers,
+              against: against.asOracleReference,
+              live: live.asReplayed,
+            },
+            ...(baseline.unpricedRate
+              ? { unpricedRate: baseline.unpricedRate }
+              : {}),
+            at: oracle.createdAt,
+            by: ChangeActor.spotlight(locked.workspaceId),
+          }),
+        );
+
+        return true;
+      });
+    } finally {
+      if (!started) {
+        await this.transaction.inTransaction(() =>
+          this.candidates.save(oracle.delete()),
+        );
       }
-
-      await this.candidates.add(oracle);
-      await this.replays.add(
-        Replay.start({
-          id: ReplayId.of(this.ids.generate()),
-          set: locked,
-          candidate: oracle,
-          baseline: false,
-          ceiling: baseline.ceiling,
-          repeats: baseline.repeats,
-          oracle: { answers, against, live },
-          ...(baseline.unpricedRate
-            ? { unpricedRate: baseline.unpricedRate }
-            : {}),
-          at: oracle.createdAt,
-          by: ChangeActor.spotlight(locked.workspaceId),
-        }),
-      );
-    });
+    }
   }
 
   private async stillLive(
     baseline: Replay,
     fingerprint: StationFingerprint,
   ): Promise<boolean> {
-    const current = await this.work.live(
+    const current = await this.configs.live(
       baseline.station.lineId,
       baseline.station.stationId,
     );
@@ -131,7 +142,7 @@ export class StartOracleReplay {
 
       return answer ? [{ run, answer }] : [];
     });
-    const answerable = await this.work.answerable(queries);
+    const answerable = await this.replayRuns.answerable(queries);
 
     return queries.filter((each) =>
       answerable.some((run) => run.equals(each.run)),
@@ -142,15 +153,15 @@ export class StartOracleReplay {
     set: ReplaySet,
     fingerprint: StationFingerprint,
   ): Promise<boolean> {
-    const valid = (await this.replays.ofSet(set.id)).filter((each) =>
-      VALID_STATES.includes(each.current),
+    const valid = (await this.replays.ofSet(set.id)).filter(
+      (each) => !each.endedEarly,
     );
-    const configs = await this.candidates.findMany(
+    const candidates = await this.candidates.findMany(
       valid.map((each) => each.candidateId),
     );
 
-    return configs.some(
-      (each) => each.isOracle && each.basedOn.equals(fingerprint),
+    return candidates.some(
+      (each) => each.isOracle && !each.isStaleAgainst(fingerprint),
     );
   }
 }

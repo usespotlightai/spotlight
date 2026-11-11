@@ -14,7 +14,7 @@ import (
 )
 
 type SandboxArchives interface {
-	WorkspaceArchive(ctx context.Context) (*protocol.StoredArchive, error)
+	WorkingCopyArchive(ctx context.Context) (*protocol.StoredArchive, error)
 	GrantArchive(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error)
 	CompleteArchive(ctx context.Context, archiveID string) error
 }
@@ -34,7 +34,7 @@ func (s *Sandbox) Open(ctx context.Context, opts SandboxOptions) error {
 	}
 	s.space = space
 
-	stored, err := opts.Archives.WorkspaceArchive(ctx)
+	stored, err := opts.Archives.WorkingCopyArchive(ctx)
 	if err != nil {
 		opts.Log.Warn("could not read the workspace to restore; the first run tries again", "error", err)
 		return nil

@@ -2,6 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { ExportableResourceDto } from '@configuration/application/dto/exportable-configuration.dto';
 import { CONFIGURATION } from '@configuration/presentation/terraform/exportable-configuration.fake-spec';
 import { workspaceTerraform } from '@configuration/presentation/terraform/terraform-configuration';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import { blockOf } from '@platform/hcl/hcl-block.fake-spec';
 import {
@@ -10,10 +14,6 @@ import {
 } from '@platform/hcl/terraform-cli.fake-spec';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,

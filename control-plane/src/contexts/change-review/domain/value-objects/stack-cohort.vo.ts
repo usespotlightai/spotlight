@@ -13,6 +13,8 @@ export const needsFileNotes = (kind: CohortKind): boolean => kind === 'change';
 
 export const MAX_QUESTIONS = 2;
 
+export const MAX_PROSE = 2_000;
+
 export const asksQuestions = (kind: CohortKind): boolean => kind === 'change';
 
 interface StackHunk {
@@ -39,6 +41,23 @@ export interface LayerDependency {
   readonly because: readonly string[];
 }
 
+const LAYER_REVISION_STATUSES = ['unchanged', 'modified', 'added'] as const;
+
+export type LayerRevisionStatus = (typeof LAYER_REVISION_STATUSES)[number];
+
+export type LayerRevision =
+  | { readonly status: 'added' }
+  | {
+      readonly status: Exclude<LayerRevisionStatus, 'added'>;
+      readonly previous: LayerId;
+    };
+
+export interface RemovedLayer {
+  readonly previous: LayerId;
+  readonly cohort: string;
+  readonly title: string;
+}
+
 interface StackLayer {
   readonly id: LayerId;
   readonly title: string;
@@ -47,6 +66,7 @@ interface StackLayer {
   readonly hunks: readonly StackHunk[];
   readonly notes: readonly FileNote[];
   readonly questions: readonly LayerQuestion[];
+  readonly revision: LayerRevision | null;
 }
 
 export interface StackCohort {
@@ -84,4 +104,22 @@ export interface OutlinedCohort {
   readonly intent: string;
   readonly joinedBecause: string | null;
   readonly hunks: readonly HunkId[];
+}
+
+export interface DraftedLayer
+  extends Omit<ProposedLayer, 'hunks' | 'questions'> {
+  readonly hunks: readonly { readonly hunk: string }[];
+  readonly questions: readonly {
+    readonly question: string;
+    readonly answer: string;
+    readonly hunks: readonly string[];
+  }[];
+}
+
+export interface DraftedCohort extends Omit<ProposedCohort, 'layers'> {
+  readonly layers: readonly DraftedLayer[];
+}
+
+export interface DraftedOutline extends Omit<OutlinedCohort, 'hunks'> {
+  readonly hunks: readonly string[];
 }

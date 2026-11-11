@@ -1,8 +1,11 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
+import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
@@ -20,6 +23,13 @@ export interface Decided {
   readonly reason: string;
 }
 
+const sameDecision = (a: Decided | null, b: Decided | null): boolean =>
+  a === null || b === null
+    ? a === b
+    : a.by.equals(b.by) &&
+      a.at.getTime() === b.at.getTime() &&
+      a.reason === b.reason;
+
 export class Approval {
   private constructor(
     readonly subject: ApprovalSubject,
@@ -36,20 +46,19 @@ export class Approval {
   static request(
     subject: ApprovalSubject,
     at: StationId,
-    because: string,
+    needed: ApprovalNeeded,
     intent: ApprovalIntent | null,
-    askedOf: UserId | null = null,
   ): Approval {
     return new Approval(
       subject,
       at,
-      because,
+      needed.because,
       'pending',
       null,
       false,
       null,
       intent,
-      askedOf,
+      needed.askedOf,
     );
   }
 
@@ -64,6 +73,27 @@ export class Approval {
     intent: ApprovalIntent | null;
     askedOf: UserId | null;
   }): Approval {
+    if ((input.status === 'pending') !== (input.decided === null)) {
+      throw new InconsistentStateError(
+        'approval',
+        `is ${input.status} ${input.decided ? 'with' : 'without'} a decision`,
+      );
+    }
+
+    if (input.edited && input.status !== 'approved') {
+      throw new InconsistentStateError(
+        'approval',
+        `carries edits while ${input.status}`,
+      );
+    }
+
+    if (input.spent && input.status !== 'approved') {
+      throw new InconsistentStateError(
+        'approval',
+        `was spent while ${input.status}`,
+      );
+    }
+
     return new Approval(
       input.subject,
       input.at,
@@ -205,6 +235,20 @@ export class Approval {
       this.edited,
       this.intent,
       this.askedOf,
+    );
+  }
+
+  equals(other: Approval): boolean {
+    return (
+      this.subject.equals(other.subject) &&
+      this.at.equals(other.at) &&
+      this.because === other.because &&
+      this.status === other.status &&
+      sameDecision(this.decided, other.decided) &&
+      this.spent === other.spent &&
+      sameOrBothNone(this.edited, other.edited) &&
+      sameOrBothNone(this.intent, other.intent) &&
+      sameOrBothNone(this.askedOf, other.askedOf)
     );
   }
 }

@@ -3,22 +3,20 @@ import type { RunEvidence } from '@insights/application/ports/evidence.port';
 import type { JudgeRequest } from '@insights/application/ports/judge.port';
 import { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import type { RunJudged } from '@insights/domain/events/run-judged.event';
-import {
-  JudgingsInMemory,
-  queuedJudging,
-} from '@insights/domain/judging.fake-spec';
-import { inTransaction } from '@insights/domain/runs.fake-spec';
 import type { Verdict } from '@insights/domain/services/grounded-verdict';
+import { JudgingsInMemory, queuedJudging } from '@insights/judging.fake-spec';
+import { inTransaction } from '@insights/runs.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-30T10:05:00.000Z');
 
 const EVIDENCE: RunEvidence = {
-  runId: 'run_1',
-  taskId: 'task_1',
+  runId: RunId.of('run_1'),
+  taskId: TaskId.of('task_1'),
   title: 'Retry uploads',
   description: 'They fail on a flaky network.',
   steps: [
@@ -60,18 +58,15 @@ const working = async (
     {
       hasTask: async () => true,
       of: async () => evidence,
-      judgesOnTeam: async () => new Map(),
-      judgeAt: async () => null,
     },
     {
       available: true,
-      model: 'some/model',
       judge: async (request) => {
         requests.push(request);
         return {
+          model: 'some/model',
           verdict: await answer(request),
           guidance: null,
-          usage: null,
         };
       },
     },
@@ -104,6 +99,7 @@ describe('WorkJudgings', () => {
     expect(requests[0]?.rubric).toBe('Did the run retry uploads?');
     expect(requests[0]?.scale).toBe('yes-no');
     expect(requests[0]?.guidanceRequested).toBe(false);
+    expect(requests[0]?.replayed).toBe(false);
     expect(requests[0]?.steps.map((each) => each.index)).toEqual([2]);
     expect(requests[0]?.hunks.map((each) => each.id)).toEqual([
       'api/src/uploads.ts#1',
@@ -126,7 +122,7 @@ describe('WorkJudgings', () => {
 
   it('retries later when the request to the provider fails', async () => {
     const { judging } = await working(async () => {
-      throw new JudgingError('request-failed', 'no credits', null);
+      throw new JudgingError('request-failed', 'no credits');
     });
 
     expect(judging?.hasPendingJob).toBe(true);

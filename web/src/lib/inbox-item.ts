@@ -1,4 +1,4 @@
-import type { ConversationItem, InboxItem } from '@/lib/inbox';
+import type { ConversationItem, InboxItem, InboxItemView } from '@/lib/inbox';
 
 export const stationOf = (item: InboxItem): ConversationItem['station'] => ({
   name: item.station,
@@ -7,5 +7,5 @@ export const stationOf = (item: InboxItem): ConversationItem['station'] => ({
   count: item.stationCount,
 });
 
-export const carriesItsOwn = (item: InboxItem): boolean =>
+export const carriesItsOwn = (item: InboxItemView): boolean =>
   item.notes[0]?.form === 'setup';

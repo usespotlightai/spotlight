@@ -8,7 +8,10 @@ import type {
   AlertRule,
   FinalReading,
 } from '@insights/domain/value-objects/alert-rule.vo';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -16,8 +19,8 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface WatchedStation {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly lineId: string;
-  readonly stationId: string;
+  readonly lineId: LineId;
+  readonly stationId: StationId;
 }
 
 export interface RuleReading {
@@ -38,6 +41,8 @@ const firstOfEach = (readings: readonly RuleReading[]): RuleReading[] => {
 };
 
 export class StationAlertState extends EventRecorder {
+  private deleted = false;
+
   private constructor(
     readonly station: WatchedStation,
     readonly firings: readonly AlertFiring[],
@@ -89,7 +94,8 @@ export class StationAlertState extends EventRecorder {
       .filter((each) => !each.open && each.rule.equals(rule))
       .sort(
         (a, b) =>
-          (b.resolvedAt?.getTime() ?? 0) - (a.resolvedAt?.getTime() ?? 0),
+          (b.resolvedAt?.getTime() ?? 0) - (a.resolvedAt?.getTime() ?? 0) ||
+          b.id.value.localeCompare(a.id.value),
       );
 
     return last?.cooling ? last : undefined;
@@ -221,7 +227,11 @@ export class StationAlertState extends EventRecorder {
     return next;
   }
 
-  withoutTask(taskId: TaskId): StationAlertState {
+  erasing(scope: DeletionScope): StationAlertState | null {
+    return scope.kind === 'task' ? this.withoutTask(scope.taskId) : null;
+  }
+
+  private withoutTask(taskId: TaskId): StationAlertState {
     const removed = this.firings.filter((each) => each.taskId.equals(taskId));
 
     if (removed.length === 0) {
@@ -240,5 +250,22 @@ export class StationAlertState extends EventRecorder {
     next.inheritEvents(this);
 
     return next;
+  }
+
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
+
+  delete(): StationAlertState {
+    const deleted = new StationAlertState(
+      this.station,
+      this.firings,
+      this.version,
+      this.touched,
+      this.dropped,
+    );
+    deleted.inheritEvents(this);
+    deleted.deleted = true;
+    return deleted;
   }
 }

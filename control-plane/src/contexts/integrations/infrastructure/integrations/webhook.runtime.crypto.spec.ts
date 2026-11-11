@@ -1,4 +1,5 @@
 import { generateKeyPairSync, type KeyObject, sign } from 'node:crypto';
+import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import {
   compileIntegration,
   type ReadableIntegration,
@@ -12,7 +13,6 @@ import {
   signingFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -54,7 +54,7 @@ const runtimeOf = (
     readable,
     WORKSPACE,
     signingFor(),
-    () => NOW * 1000,
+    { now: () => new Date(NOW * 1000), sleep: async () => {} },
     jwks,
     {} as HttpOutbound,
     credentialsFor(),

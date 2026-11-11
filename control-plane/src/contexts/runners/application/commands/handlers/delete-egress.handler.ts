@@ -41,7 +41,7 @@ export class DeleteEgressHandler
         return null;
       }
 
-      if (!permissions.managesRunners) {
+      if (!permissions.scopes.has('runners')) {
         return forbiddenTo('runners');
       }
 

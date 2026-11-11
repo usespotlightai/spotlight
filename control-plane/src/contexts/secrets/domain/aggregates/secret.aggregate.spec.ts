@@ -4,14 +4,16 @@ import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
+import type { InjectedSecret } from '@secrets/domain/value-objects/secret-binding.vo';
 import { SecretChangeDetail } from '@secrets/domain/value-objects/secret-change-detail.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
-import { BY, definition, NOW } from '@secrets/secrets.fakes.fake-spec';
+import { BY, definition, NOW } from '@secrets/testing/secrets.fakes.fake-spec';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -66,12 +68,27 @@ const recorded = (secret: Secret) =>
     each.recordedDetail,
   ]);
 
+const revealedOf = (injected: InjectedSecret) => ({
+  location: injected.location,
+  name: injected.name,
+  value: injected.revealedValue(),
+  bare: injected.revealedBare(),
+});
+
+const pendingOf = (secret: Secret): string | null =>
+  secret.valueChange({
+    store: (value) => value.revealed(),
+    delete: () => 'delete',
+    keep: () => null,
+  });
+
 describe('Secret', () => {
   describe('set', () => {
     it('stores the value it was given, and records who created it, its value version and hosts', () => {
       const secret = set();
 
-      expect(secret.valueToStore?.revealed()).toBe('lin_api_1');
+      expect([secret.version, secret.isNew]).toEqual([0, true]);
+      expect(pendingOf(secret)).toBe('lin_api_1');
       expect(changes(secret)).toEqual([
         ConfigurationChange.created(
           LINEAR,
@@ -105,7 +122,7 @@ describe('Secret', () => {
       expect(() => set({ source: AWS })).toThrow(
         /cannot be set on a secret read from AWS Secrets Manager/,
       );
-      expect(set({ source: AWS, value: null }).valueToStore).toBeNull();
+      expect(pendingOf(set({ source: AWS, value: null }))).toBeNull();
     });
 
     it('carries its value in no event', () => {
@@ -114,17 +131,40 @@ describe('Secret', () => {
   });
 
   describe('updated', () => {
-    it('keeps its old value while valueWoVersion does not change, whatever value is sent', () => {
-      const updated = stored().update(
+    it('stays as it was, with nothing recorded, when the definition does not change, whatever value is sent', () => {
+      const existing = stored();
+      const updated = existing.update(
         definition({ value: 'lin_api_ignored' }),
         BY,
         LATER,
       );
 
-      expect(updated.valueToStore).toBeNull();
+      expect(updated).toBe(existing);
+      expect(pendingOf(updated)).toBeNull();
+      expect(updated.rotatedAt).toEqual(NOW);
+      expect(recorded(updated)).toEqual([]);
+    });
+
+    it('keeps its old value while valueWoVersion does not change, when it is bound again', () => {
+      const updated = stored().update(
+        definition({
+          value: 'lin_api_ignored',
+          bindings: [{ host: 'api.linear.app', prefix: 'Token ' }],
+        }),
+        BY,
+        LATER,
+      );
+
+      expect(pendingOf(updated)).toBeNull();
       expect(updated.rotatedAt).toEqual(NOW);
       expect(recorded(updated)).toEqual([
-        ['secret', 'LINEAR_API_KEY', 'updated', BY, {}],
+        [
+          'secret',
+          'LINEAR_API_KEY',
+          'updated',
+          BY,
+          { targets: ['api.linear.app'] },
+        ],
       ]);
     });
 
@@ -135,8 +175,8 @@ describe('Secret', () => {
         LATER,
       );
 
-      expect(rotated.valueToStore?.revealed()).toBe('lin_api_2');
-      expect(rotated.valueVersion).toBe(2);
+      expect(pendingOf(rotated)).toBe('lin_api_2');
+      expect(rotated.valueVersion?.value).toBe(2);
       expect(rotated.rotatedAt).toEqual(LATER);
       expect(recorded(rotated)).toEqual([
         ['secret', 'LINEAR_API_KEY', 'updated', BY, { valueVersion: 2 }],
@@ -178,8 +218,7 @@ describe('Secret', () => {
         LATER,
       );
 
-      expect(moved.deletesValue).toBe(true);
-      expect(moved.valueToStore).toBeNull();
+      expect(pendingOf(moved)).toBe('delete');
     });
 
     it('needs a value once Spotlight is to store it again', () => {
@@ -211,7 +250,7 @@ describe('Secret', () => {
       const deleted = stored().delete(SecretUses.none(), BY);
 
       expect(deleted.isDeleted).toBe(true);
-      expect(deleted.deletesValue).toBe(true);
+      expect(pendingOf(deleted)).toBe('delete');
       expect(changes(deleted)).toEqual([
         ConfigurationChange.deleted(LINEAR, BY),
       ]);
@@ -227,19 +266,28 @@ describe('Secret', () => {
 
     it('is not deleted while an integration still uses it', () => {
       expect(() =>
-        stored().delete(SecretUses.of(['integration core/linear']), BY),
+        stored().delete(
+          SecretUses.of([{ kind: 'integration', key: 'core/linear' }]),
+          BY,
+        ),
       ).toThrow(SecretInUseError);
     });
 
     it('is deleted with its workspace, whatever still names it', () => {
       const spotlight = ChangeActor.spotlight(WORKSPACE);
-      const deleted = stored().cascadeDelete(spotlight);
+      const deleted = stored().deleteWithWorkspace(WORKSPACE);
 
       expect(deleted.isDeleted).toBe(true);
-      expect(deleted.deletesValue).toBe(true);
+      expect(pendingOf(deleted)).toBe('delete');
       expect(changes(deleted)).toEqual([
         ConfigurationChange.deleted(LINEAR, spotlight),
       ]);
+    });
+
+    it('is not deleted with a workspace it is not in', () => {
+      expect(() =>
+        stored().deleteWithWorkspace(WorkspaceId.of('ws_2')),
+      ).toThrow(InconsistentStateError);
     });
   });
 
@@ -247,23 +295,29 @@ describe('Secret', () => {
     const value = SecretValue.of('lin_api_1');
 
     it('is injected in its header, after its prefix, for a host it is bound to', () => {
-      expect(
-        stored().injectedFor('https://api.linear.app/graphql?x=1', value),
-      ).toEqual({
+      const injected = stored().injectedFor(
+        'https://api.linear.app/graphql?x=1',
+        value,
+      );
+
+      expect(revealedOf(injected)).toEqual({
         location: 'header',
         name: 'authorization',
         value: 'Bearer lin_api_1',
         bare: 'lin_api_1',
       });
+      expect(JSON.stringify(injected)).not.toContain('lin_api_1');
     });
 
     it('is injected in its query parameter when bound to one', () => {
       expect(
-        stored({
-          bindings: [
-            { host: 'api.linear.app', location: 'query', name: 'key' },
-          ],
-        }).injectedFor('https://api.linear.app/graphql', value),
+        revealedOf(
+          stored({
+            bindings: [
+              { host: 'api.linear.app', location: 'query', name: 'key' },
+            ],
+          }).injectedFor('https://api.linear.app/graphql', value),
+        ),
       ).toEqual({
         location: 'query',
         name: 'key',
@@ -308,10 +362,12 @@ describe('Secret', () => {
         bindings: [{ host: 'api.linear.app' }, { host: 'uploads.linear.app' }],
       }).grantTo(RunId.of('run_1'));
 
-      expect(grants.map((each) => [each.runId.value, each.host])).toEqual([
-        ['run_1', 'api.linear.app'],
-        ['run_1', 'uploads.linear.app'],
-      ]);
+      expect(grants.map((each) => [each.runId.value, each.host.value])).toEqual(
+        [
+          ['run_1', 'api.linear.app'],
+          ['run_1', 'uploads.linear.app'],
+        ],
+      );
     });
 
     it('makes the grant a run needs to inject it for an address', () => {
@@ -320,7 +376,7 @@ describe('Secret', () => {
         'https://api.linear.app/graphql',
       );
 
-      expect([grant.runId.value, grant.host]).toEqual([
+      expect([grant.runId.value, grant.host.value]).toEqual([
         'run_1',
         'api.linear.app',
       ]);
@@ -345,7 +401,7 @@ describe('Secret', () => {
       const [, uploads] = secret.grantTo(RunId.of('run_1'));
 
       expect(uploads && secret.bindingFor(uploads)).toMatchObject({
-        host: 'uploads.linear.app',
+        host: { value: 'uploads.linear.app' },
         target: { location: 'header', name: 'x-api-key' },
         prefix: '',
       });

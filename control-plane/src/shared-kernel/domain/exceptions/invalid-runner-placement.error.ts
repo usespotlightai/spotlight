@@ -1,4 +1,6 @@
-export class InvalidRunnerPlacementError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidRunnerPlacementError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(readonly because: string) {

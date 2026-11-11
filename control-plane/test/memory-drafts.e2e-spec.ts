@@ -1,5 +1,6 @@
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
+import { MemoryDraftAlreadyOpenError } from '@memory/domain/exceptions/memory-draft-already-open.error';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import { recentRejectionsAt } from '@memory/domain/services/recent-rejections';
@@ -11,8 +12,10 @@ import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence
 import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -29,8 +32,8 @@ const API = Repository.of('acme/api');
 
 const STATION_CONTEXT: StationContext = {
   teamId: TEAM,
-  lineId: 'line_1',
-  stationId: 'station_1',
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
   repositories: [API],
 };
 
@@ -126,10 +129,10 @@ describe('storing a task’s memory draft', () => {
     expect(proposal?.kind).toBe('correction');
     expect(proposal?.source).toBe('run');
     expect(proposal?.scope.teamId.equals(TEAM)).toBe(true);
-    expect([proposal?.scope.lineId, proposal?.scope.stationId]).toEqual([
-      'line_1',
-      'station_1',
-    ]);
+    expect([
+      proposal?.scope.lineId?.value,
+      proposal?.scope.stationId?.value,
+    ]).toEqual(['line_1', 'station_1']);
     expect(proposal?.scope.repository?.equals(API)).toBe(true);
     expect(proposal?.scope.paths.map((each) => each.value)).toEqual([
       'src/uploads.ts',
@@ -185,6 +188,21 @@ describe('storing a task’s memory draft', () => {
     expect(read.failure?.at).toEqual(LATER);
   });
 
+  it('refuses a second draft for a task that already has one', async () => {
+    const draft = newDraft();
+    await drafts.add(draft);
+
+    await expect(
+      drafts.add(
+        MemoryDraft.create({
+          id: MemoryDraftId.of(`${draft.id.value}_again`),
+          taskId: draft.taskId,
+          workspaceId: draft.workspaceId,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(MemoryDraftAlreadyOpenError);
+  });
+
   it('does not write over a draft that changed since it was read', async () => {
     const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
@@ -222,7 +240,7 @@ describe('storing a task’s memory draft', () => {
     await drafts.add(draft);
     await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
 
-    await drafts.removeForTask(draft.taskId);
+    await drafts.save((await stored(draft)).delete());
 
     expect(await drafts.forTask(draft.taskId)).toBeNull();
     const [{ n }] = (
@@ -247,11 +265,12 @@ describe('reading what the team already knows', () => {
   ) =>
     database.db.execute(sql`
       insert into memory (id, handle, workspace_id, kind, body, team_id, line_id, station_id, repository, paths,
-        task_id, run_id, steps, notes, source, status, approved_by, approved_at)
+        task_id, run_id, steps, notes, source, status, approved_by_id, approved_at, retired_at, retired_by_id)
       values (${id}, nextval('memory_handle_seq'), 'ws_1', 'preference', ${`Memory ${id}`}, ${scope.team ?? 'team_1'},
         ${scope.line ?? null}, ${scope.station ?? null}, ${scope.repository ?? null}, '[]'::jsonb,
         'task_1', 'run_1', '[]'::jsonb, '[2]'::jsonb, 'person',
-        ${scope.status ?? 'active'}, 'user_ada', ${NOW.toISOString()})
+        ${scope.status ?? 'active'}, 'user_ada', ${NOW.toISOString()},
+        ${scope.status === 'retired' ? NOW.toISOString() : null}, ${scope.status === 'retired' ? 'user_ada' : null})
     `);
 
   it('reads the active memories that apply to this station, and none that do not', async () => {
@@ -272,7 +291,7 @@ describe('reading what the team already knows', () => {
     await approvedMemory('retired', { status: 'retired' });
 
     const active = (await memories.mayApplyAt(STATION_CONTEXT)).filter((each) =>
-      each.appliesAt(STATION_CONTEXT),
+      each.appliesAt(STATION_CONTEXT, null),
     );
 
     expect(active.map((each) => each.id.value).sort()).toEqual([
@@ -295,10 +314,10 @@ describe('reading what the team already knows', () => {
     );
     const [lately, longAgo] = (await stored(draft)).proposals;
     await database.db.execute(
-      sql`update memory_proposal set state = 'rejected', decided_by = 'user_ada', decided_at = ${LATER.toISOString()} where id = ${lately?.id.value ?? ''}`,
+      sql`update memory_proposal set state = 'rejected', decided_by_id = 'user_ada', decided_at = ${LATER.toISOString()} where id = ${lately?.id.value ?? ''}`,
     );
     await database.db.execute(
-      sql`update memory_proposal set state = 'rejected', decided_by = 'user_ada', decided_at = '2026-01-01T00:00:00Z' where id = ${longAgo?.id.value ?? ''}`,
+      sql`update memory_proposal set state = 'rejected', decided_by_id = 'user_ada', decided_at = '2026-01-01T00:00:00Z' where id = ${longAgo?.id.value ?? ''}`,
     );
 
     const rejected = recentRejectionsAt(
@@ -306,6 +325,8 @@ describe('reading what the team already knows', () => {
       STATION_CONTEXT,
     );
 
-    expect(rejected.map((each) => each.body)).toEqual(['Turned down lately']);
+    expect(rejected.map((each) => each.body.value)).toEqual([
+      'Turned down lately',
+    ]);
   });
 });

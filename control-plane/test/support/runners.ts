@@ -2,11 +2,57 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { eq, inArray } from 'drizzle-orm';
 import * as schema from './schema';
 
+export const deleteRunsOf = async (
+  db: DrizzleDatabase,
+  workspaceId: string,
+): Promise<void> => {
+  const runs = db
+    .select({ id: schema.run.id })
+    .from(schema.run)
+    .where(eq(schema.run.workspaceId, workspaceId));
+
+  await db
+    .update(schema.taskNote)
+    .set({ runId: null })
+    .where(inArray(schema.taskNote.runId, runs));
+  await db
+    .update(schema.chatMessage)
+    .set({ runId: null })
+    .where(inArray(schema.chatMessage.runId, runs));
+  await db
+    .delete(schema.workingCopyArchive)
+    .where(inArray(schema.workingCopyArchive.grantedToRunId, runs));
+  await db
+    .delete(schema.startingPointHoldRun)
+    .where(eq(schema.startingPointHoldRun.workspaceId, workspaceId));
+  await db.delete(schema.run).where(eq(schema.run.workspaceId, workspaceId));
+};
+
+export const deleteChatsOf = async (
+  db: DrizzleDatabase,
+  workspaceId: string,
+): Promise<void> => {
+  for (let attempt = 0; ; attempt++) {
+    await deleteRunsOf(db, workspaceId);
+
+    try {
+      await db
+        .delete(schema.chat)
+        .where(eq(schema.chat.workspaceId, workspaceId));
+      return;
+    } catch (error) {
+      if (attempt >= 4) {
+        throw error;
+      }
+    }
+  }
+};
+
 export const deleteRunnersOf = async (
   db: DrizzleDatabase,
   workspaceId: string,
 ): Promise<void> => {
-  await db.delete(schema.run).where(eq(schema.run.workspaceId, workspaceId));
+  await deleteRunsOf(db, workspaceId);
   await db
     .delete(schema.stackCheck)
     .where(eq(schema.stackCheck.workspaceId, workspaceId));
@@ -26,10 +72,10 @@ export const deleteRunnersOf = async (
     .delete(schema.runner)
     .where(eq(schema.runner.workspaceId, workspaceId));
   await db
-    .delete(schema.poolToken)
+    .delete(schema.usedToken)
     .where(
       inArray(
-        schema.poolToken.poolId,
+        schema.usedToken.holderId,
         db
           .select({ id: schema.runnerPool.id })
           .from(schema.runnerPool)
@@ -43,10 +89,10 @@ export const deleteRunnersOf = async (
     .delete(schema.workspaceRunners)
     .where(eq(schema.workspaceRunners.workspaceId, workspaceId));
   await db
-    .delete(schema.egressToken)
+    .delete(schema.usedToken)
     .where(
       inArray(
-        schema.egressToken.egressId,
+        schema.usedToken.holderId,
         db
           .select({ id: schema.egress.id })
           .from(schema.egress)

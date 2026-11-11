@@ -1,38 +1,41 @@
 import { randomUUID } from 'node:crypto';
 import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
-import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  REPLAYED_CANDIDATES_READER,
+  type ReplayedCandidatesReaderPort,
+} from '@replays/application/ports/replayed-candidates-reader.port';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
-import { baselineOf } from '@replays/domain/services/baseline';
+import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
+import { servingBaselineOf } from '@replays/domain/services/baseline';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
+import {
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
-import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
-import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { type SearchPolicyTerms, searchStarted } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
+import { writtenStation } from './support/replays';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { searchReadOf } from './support/search-read';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-replay-insights-${randomUUID().slice(0, 8)}`;
@@ -49,11 +52,12 @@ const WITHIN = 60_000;
 
 const attachmentStore = {
   received: async () => [],
+  stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -66,18 +70,13 @@ const archiveStore: WorkspaceArchiveStorePort = {
 
 const judge: JudgePort = {
   available: true,
-  model: 'stub/judge',
   judge: async (request) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
+      model: 'stub/judge',
       guidance: null,
-      usage: {
-        inputTokens: 100,
-        outputTokens: 10,
-        cost: { amount: 0.01, currency: 'USD' },
-      },
       verdict: {
         value,
         reasons: [
@@ -142,24 +141,12 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
-  });
-  await db.insert(schema.workspaceArchive).values({
-    id: archiveId,
-    workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
-    grantedToRunId: randomUUID(),
-    size: 1_024,
-    sha256: 'a'.repeat(64),
-    grantedAt: at,
-    completedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -175,23 +162,41 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
-    briefedTask: BriefedTask.of({
-      stationId: StationId.of(stationId),
-      title: 'Drain the queue',
-      description: 'It stalls on restart.',
-      reviewing: null,
-      attachments: [],
-      notes: [],
-      openReviewComments: [],
-    }).parts,
-    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
+  });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId,
+      stationId,
+      briefedTask: BriefedTask.of({
+        stationId: StationId.of(stationId),
+        title: 'Drain the queue',
+        description: 'It stalls on restart.',
+        reviewing: null,
+        attachments: [],
+        notes: [],
+        openReviewComments: [],
+      }).parts,
+      endedAt: at,
+    }),
+  );
+  await db.insert(schema.workingCopyArchive).values({
+    id: archiveId,
+    workspaceId: team.workspaceId.value,
+    workingCopyKey: `work/task-${taskId}`,
+    grantedToRunId: runId,
+    size: 1_024,
+    sha256: 'a'.repeat(64),
+    grantedAt: at,
+    completedAt: at,
   });
 
   return { taskId, runId };
@@ -236,7 +241,16 @@ const replayRow = async (id: string) => {
 };
 
 const searchRunsOf = (searchId: string) =>
-  db.select().from(schema.run).where(eq(schema.run.searchId, searchId));
+  db
+    .select()
+    .from(schema.run)
+    .where(
+      and(
+        eq(schema.run.requesterOwner, 'replays'),
+        eq(schema.run.requesterKind, 'search'),
+        eq(schema.run.requesterId, searchId),
+      ),
+    );
 
 const queuedReplayRuns = async () =>
   db
@@ -246,7 +260,8 @@ const queuedReplayRuns = async () =>
       and(
         eq(schema.run.workspaceId, team.workspaceId.value),
         eq(schema.run.state, 'queued'),
-        isNotNull(schema.run.replayOfRunId),
+        eq(schema.run.requesterOwner, 'replays'),
+        eq(schema.run.requesterKind, 'replay'),
       ),
     );
 
@@ -337,13 +352,56 @@ const entryOf = async (runId: string) => {
 
 type Plan = (replayId: string) => { score: number; cost: number };
 
+const REPLAY_STARTS = [
+  'replays.start-planned-search-replays',
+  'replays.start-replay-of-started-check',
+];
+
+const replaysStarted = async (): Promise<boolean> =>
+  (
+    await db
+      .select({ deliveredAt: schema.eventDelivery.deliveredAt })
+      .from(schema.eventDelivery)
+      .where(inArray(schema.eventDelivery.subscriber, REPLAY_STARTS))
+  ).every((each) => each.deliveredAt !== null);
+
+const unsettledReplayEntries = async () =>
+  db
+    .select({ runId: schema.replayEntry.runId })
+    .from(schema.replayEntry)
+    .innerJoin(schema.replay, eq(schema.replay.id, schema.replayEntry.replayId))
+    .where(
+      and(
+        eq(schema.replay.workspaceId, team.workspaceId.value),
+        inArray(schema.replay.state, ['queued', 'running']),
+        or(
+          eq(schema.replayEntry.waiting, true),
+          and(
+            isNotNull(schema.replayEntry.runId),
+            isNull(schema.replayEntry.succeeded),
+            eq(schema.replayEntry.notRun, false),
+          ),
+        ),
+      ),
+    );
+
+const SETTLE_PAUSE_MS = 200;
+
 const drained = async (plan: Plan): Promise<void> => {
+  await eventually(replaysStarted, WITHIN);
+
   for (let turn = 0; turn < 200; turn += 1) {
     await app.get(DispatchReplayRuns).processDue();
 
     if ((await queuedReplayRuns()).length === 0) {
       await judged();
-      return;
+
+      if ((await unsettledReplayEntries()).length === 0) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, SETTLE_PAUSE_MS));
+      continue;
     }
 
     const assignment = await claimed();
@@ -384,7 +442,8 @@ const leasedSearchRun = async (
     const runs = await searchRunsOf(searchId);
 
     return runs.some(
-      (each) => each.state === 'queued' && each.searchIteration === iteration,
+      (each) =>
+        each.state === 'queued' && each.requesterToken === String(iteration),
     );
   }, WITHIN);
 
@@ -394,7 +453,10 @@ const leasedSearchRun = async (
     .from(schema.run)
     .where(eq(schema.run.id, assignment?.runId ?? ''));
 
-  expect(row?.searchId).toBe(searchId);
+  expect(row).toMatchObject({
+    requesterKind: 'search',
+    requesterId: searchId,
+  });
 
   return assignment as Claimed;
 };
@@ -427,17 +489,7 @@ const endedSearchRun = async ({ token, runId }: Claimed, failed = false) => {
     .expect(204);
 };
 
-const liveBlock = async () => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, BUILD);
-
-  if (!live) {
-    throw new Error('the build station is not live');
-  }
-
-  return live.station;
-};
+const liveBlock = () => writtenStation(app, DELIVERY, 'build');
 
 const proposing = (assignment: Claimed, body: object) =>
   bearing(assignment.token).post(
@@ -465,7 +517,7 @@ let fiveTasks: Original[];
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
@@ -497,9 +549,10 @@ beforeAll(async () => {
     sample: 0.1,
     minAgreement: 0.6,
   };
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -508,6 +561,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -519,6 +573,7 @@ beforeAll(async () => {
     },
     {
       id: POLISH,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'polish',
       name: 'Polish',
@@ -530,6 +585,7 @@ beforeAll(async () => {
     },
     {
       id: SHIP,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'ship',
       name: 'Ship',
@@ -539,6 +595,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',
@@ -705,34 +762,64 @@ describe('replayed candidates beside live runs', () => {
 
   it('reads each set’s current baseline as the baseline rule picks it, past newer stopped ones', async () => {
     const replays = app.get(DrizzleReplayRepository);
+    const reader = app.get<ReplayedCandidatesReaderPort>(
+      REPLAYED_CANDIDATES_READER,
+    );
     const sets = await db
       .selectDistinct({ setId: schema.replay.setId })
       .from(schema.replay)
       .where(eq(schema.replay.teamId, team.teamId.value));
     const setIds = sets.map((each) => ReplaySetId.of(each.setId));
 
-    for (const each of await replays.baselinesOfSets(setIds)) {
+    for (const each of await reader.servingBaselinesOfSets(setIds)) {
       const [row] = await db
         .select()
         .from(schema.replay)
         .where(eq(schema.replay.id, each.id.value));
 
+      const [outcome] = await db
+        .select()
+        .from(schema.replayOutcome)
+        .where(eq(schema.replayOutcome.replayId, each.id.value));
+      const stoppedId = randomUUID();
+      const startedAt = new Date(Date.now() + 60_000);
+      const entries = await db
+        .select()
+        .from(schema.replayEntry)
+        .where(eq(schema.replayEntry.replayId, each.id.value));
+
       await db.insert(schema.replay).values({
         ...(row as typeof schema.replay.$inferInsert),
-        id: randomUUID(),
+        id: stoppedId,
         state: 'stopped',
-        startedAt: new Date(Date.now() + 60_000),
+        takesPairings: false,
+        startedAt,
         version: 0,
       });
+      await db.insert(schema.replayOutcome).values({
+        ...(outcome as typeof schema.replayOutcome.$inferInsert),
+        replayId: stoppedId,
+        state: 'stopped',
+        servesAsBaseline: false,
+        healthSampleGroup: null,
+        startedAt,
+      });
+      await db.insert(schema.replayEntry).values(
+        entries.map((entry) => ({
+          ...entry,
+          replayId: stoppedId,
+          runId: entry.runId === null ? null : randomUUID(),
+        })),
+      );
     }
 
-    const read = await replays.baselinesOfSets(setIds);
+    const read = await reader.servingBaselinesOfSets(setIds);
 
-    expect(read).toHaveLength(setIds.length);
     for (const setId of setIds) {
-      expect(read.find((each) => each.setId.equals(setId))?.id.value).toBe(
-        baselineOf(await replays.ofSet(setId))?.id.value,
-      );
+      expect(
+        servingBaselineOf(read.filter((each) => each.setId.equals(setId)))?.id
+          .value,
+      ).toBe(servingBaselineOf(await replays.ofSet(setId))?.id.value);
     }
   });
 
@@ -766,9 +853,11 @@ describe('replayed candidates beside live runs', () => {
       userId: member,
       role: 'member',
     });
-    await db
-      .insert(schema.teamMember)
-      .values({ teamId: team.teamId.value, userId: member });
+    await db.insert(schema.teamMember).values({
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      userId: member,
+    });
     const others = await createTeam(
       db,
       app.get(DrizzleTaskRepository),

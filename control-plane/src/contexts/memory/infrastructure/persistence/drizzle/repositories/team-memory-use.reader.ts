@@ -32,7 +32,7 @@ export class DrizzleTeamMemoryUse implements TeamMemoryUsePort {
         handle: memory.handle,
         body: memory.body,
         reason: memory.retireReason,
-        by: memory.retiredBy,
+        by: memory.retiredById,
         at: memory.retiredAt,
         supersededBy: memory.supersededBy,
       })

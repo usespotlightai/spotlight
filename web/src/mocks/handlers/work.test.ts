@@ -12,12 +12,14 @@ import {
   readRunNotes,
   readTaskChangeStack,
   readTaskTrace,
+  readTeamRun,
   sendMessage,
   stopRun,
 } from '@/lib/api';
 import { serveMockApi } from '@/mocks/testing';
 import { DELIVERY_ID, PLATFORM_ID, SLUG, world } from '@/mocks/world';
 import { runsOfTeam } from '@/mocks/world/insights-history';
+import { everyPage } from '@/test/every-page';
 
 const teamId = PLATFORM_ID;
 
@@ -25,10 +27,16 @@ describe('the mock work area', () => {
   serveMockApi();
 
   it('lists every run of the team with its task, newest first', async () => {
-    const { data } = await listTeamRuns({
-      path: { teamId },
-      throwOnError: true,
-    });
+    const data = await everyPage(
+      async (before) =>
+        (
+          await listTeamRuns({
+            path: { teamId },
+            query: { before, limit: 200 },
+            throwOnError: true,
+          })
+        ).data,
+    );
     const inWorld = world().tasks[teamId].flatMap(
       (task) => world().runs[task.id] ?? [],
     );
@@ -161,7 +169,7 @@ describe('the mock work area', () => {
       throwOnError: true,
     });
 
-    expect(tasks.some((each) => each.id === added.id)).toBe(false);
+    expect(tasks.items.some((each) => each.id === added.id)).toBe(false);
   });
 
   it('sends a message to a run and stops it', async () => {
@@ -184,14 +192,12 @@ describe('the mock work area', () => {
       path: { teamId, runId: 'run_retries_3' },
       throwOnError: true,
     });
-    const { data: runs } = await listTeamRuns({
-      path: { teamId },
+    const { data: run } = await readTeamRun({
+      path: { teamId, runId: 'run_retries_3' },
       throwOnError: true,
     });
 
-    expect(runs.find((run) => run.id === 'run_retries_3')?.state).toBe(
-      'failed',
-    );
+    expect(run.state).toBe('failed');
   });
 });
 
@@ -210,7 +216,7 @@ describe('the mock work area in an empty workspace', () => {
       path: { teamId, taskId: 'task_retries' },
     });
 
-    expect(runs).toEqual([]);
+    expect(runs).toEqual({ items: [], next: null });
     expect(conversation.response?.status).toBe(404);
     expect(trace.response?.status).toBe(404);
   });

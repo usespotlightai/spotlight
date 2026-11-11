@@ -18,11 +18,13 @@ type Scored = SearchScores['candidates'][number];
 export interface PickConstraints {
   readonly rejected: readonly CandidateId[];
   readonly pullRequestOpen: boolean;
+  readonly stationGone: boolean;
 }
 
 export const NO_CONSTRAINTS: PickConstraints = {
   rejected: [],
   pullRequestOpen: false,
+  stationGone: false,
 };
 
 const declineOf = (
@@ -60,6 +62,10 @@ export const autoPickOf = (
   threshold: ReplayThreshold | null,
   constraints: PickConstraints,
 ): SearchPick => {
+  if (constraints.stationGone) {
+    return { outcome: 'declined', reason: 'station-gone' };
+  }
+
   const heldOut = scores.candidates.filter(
     (each) => each.heldOutScore !== null,
   );

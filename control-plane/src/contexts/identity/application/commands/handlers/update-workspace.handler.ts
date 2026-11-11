@@ -63,7 +63,7 @@ export class UpdateWorkspaceHandler
         await this.transaction.inTransaction(() =>
           this.workspaces.save(updated),
         );
-        this.outboundHosts.forget(id.value);
+        this.outboundHosts.forget(id);
       }
 
       return { outcome: 'updated', id: id.value };

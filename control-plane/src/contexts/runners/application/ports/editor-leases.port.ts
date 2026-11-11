@@ -1,6 +1,6 @@
 export const EDITOR_LEASES = Symbol('EDITOR_LEASES');
 
-export interface EditorLease {
+interface EditorLease {
   readonly sandboxId: string;
   readonly holder: string;
 }

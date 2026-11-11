@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatKeys } from '@/hooks/api/useChats';
+import { inboxKeys } from '@/hooks/api/useInbox';
 import { sendChatMessage } from '@/lib/api';
 
 type SendChatMessageInput = {
@@ -36,6 +37,7 @@ export function useSendChatMessage() {
     },
     onSuccess: (_sent, { teamId, chatId }) => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.one(chatId) });
+      void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
       void queryClient.invalidateQueries({
         queryKey: chatKeys.forTeam(teamId),
       });

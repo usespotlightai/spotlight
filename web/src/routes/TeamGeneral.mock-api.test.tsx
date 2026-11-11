@@ -28,6 +28,17 @@ const offered = async (name: RegExp) => {
   return screen.findByRole('menuitem', { name }, WAIT);
 };
 
+const listed = async (name: string) => {
+  await waitFor(
+    () =>
+      expect(
+        screen.queryByRole('menu', { hidden: true }),
+      ).not.toBeInTheDocument(),
+    WAIT,
+  );
+  return screen.findByText(name, undefined, WAIT);
+};
+
 describe('TeamGeneral on the mock API', () => {
   serveMockApi();
   quietBrowser();
@@ -40,9 +51,7 @@ describe('TeamGeneral on the mock API', () => {
 
     await userEvent.click(lena);
 
-    expect(
-      await screen.findByText('Lena Park', undefined, WAIT),
-    ).toBeInTheDocument();
+    expect(await listed('Lena Park')).toBeInTheDocument();
     await waitFor(
       () =>
         expect(
@@ -72,8 +81,6 @@ describe('TeamGeneral on the mock API', () => {
         ).toBe(true),
       WAIT,
     );
-    expect(
-      await screen.findByText('Lena Park', undefined, WAIT),
-    ).toBeInTheDocument();
+    expect(await listed('Lena Park')).toBeInTheDocument();
   });
 });

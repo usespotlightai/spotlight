@@ -1,5 +1,5 @@
+import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
 import type { ChangeStackGeneratorPort } from '@change-review/application/ports/change-stack-generator.port';
-import type { CodeReadingPort } from '@change-review/application/ports/code-reading.port';
 import type {
   DiffReaderPort,
   DiffSources,
@@ -7,9 +7,9 @@ import type {
 import type { SymbolIndexerPort } from '@change-review/application/ports/symbol-indexer.port';
 import {
   combined,
+  exceedsOneCall,
   layerCohort,
   layeredInRounds,
-  splits,
 } from '@change-review/application/services/cohort-layering';
 import {
   ATTEMPTS,
@@ -19,34 +19,36 @@ import {
 } from '@change-review/application/services/generation-attempt';
 import { withRenewedLease } from '@change-review/application/services/job-lease';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
-import { ChangeStacksUnavailableError } from '@change-review/domain/exceptions/change-stacks-unavailable.error';
 import {
   InvalidChangeStackError,
   type StackProblem,
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
+import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { factsOf } from '@change-review/domain/services/diff-facts';
 import { StackOutline } from '@change-review/domain/services/stack-outline';
-import {
-  NO_INDEX,
-  type SymbolIndex,
-} from '@change-review/domain/services/symbol-index';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import type { OutlinedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import {
+  NO_INDEX,
+  type SymbolIndex,
+} from '@change-review/domain/value-objects/symbol-index.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface GenerationRun {
   readonly id: RunId;
   readonly taskId: TaskId | null;
-  readonly isReplay: boolean;
-  readonly isSearch: boolean;
+  readonly teamOfRun: TeamId | null;
+  readonly trial: boolean;
+  readonly checkouts: number;
   readonly workspaceId: WorkspaceId;
 }
 
@@ -55,7 +57,7 @@ export class GenerateChangeStack {
     private readonly stacks: ChangeStackRepository,
     private readonly generator: ChangeStackGeneratorPort,
     private readonly reader: DiffReaderPort,
-    private readonly reading: CodeReadingPort,
+    private readonly reading: CodeReading,
     private readonly indexer: SymbolIndexerPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -74,19 +76,22 @@ export class GenerateChangeStack {
     const id = ChangeStackId.of(this.ids.generate());
     const { diff, sources } = this.reader.read(input.diff);
     const index = await this.indexOf(id, sources);
+    const taskStacks = run.taskId ? await this.stacks.ofTask(run.taskId) : [];
 
     const stack = ChangeStack.startGeneration({
       id,
       runId: run.id,
       taskId: run.taskId,
-      replay: run.isReplay,
-      isSearch: run.isSearch,
+      teamOfRun: run.teamOfRun,
+      trial: run.trial,
+      checkouts: run.checkouts,
       workspaceId: run.workspaceId,
       repository: input.repository,
       base: input.base,
       diff,
       facts: StackFacts.of(factsOf(diff, this.reading, index)),
       request: input.request,
+      taskStacks,
       now: this.clock.now(),
     });
 
@@ -115,14 +120,30 @@ export class GenerateChangeStack {
   }
 
   async generated(stack: ChangeStack): Promise<ChangeStack> {
-    if (stack.facts.hunks.every((each) => each.incidental)) {
-      return stack.propose([], this.clock.now());
+    const previous = stack.previous
+      ? await this.stacks.find(stack.previous)
+      : null;
+
+    if (!stack.needsModel) {
+      return stack.propose([], this.clock.now(), { previous });
     }
 
-    return splits(stack.facts) ? this.split(stack) : this.whole(stack);
+    const reused = previous && stack.reusedFrom(previous, this.clock.now());
+
+    if (reused) {
+      return reused;
+    }
+
+    return exceedsOneCall(stack.facts)
+      ? this.split(stack, previous)
+      : this.whole(stack, previous);
   }
 
-  private async whole(stack: ChangeStack): Promise<ChangeStack> {
+  private async whole(
+    stack: ChangeStack,
+    previous: ChangeStack | null,
+  ): Promise<ChangeStack> {
+    const basis = stack.previousStack(previous);
     const { diff, facts } = stack;
     let problems: readonly StackProblem[] = [];
     let generating = stack;
@@ -134,6 +155,7 @@ export class GenerateChangeStack {
           repository: stack.repository,
           facts,
           problems,
+          previous: basis,
         }),
       );
 
@@ -150,7 +172,7 @@ export class GenerateChangeStack {
       generating = generating.recordModel(usage);
 
       try {
-        return generating.propose(cohorts, this.clock.now());
+        return generating.propose(cohorts, this.clock.now(), { previous });
       } catch (error) {
         if (!(error instanceof InvalidChangeStackError)) {
           throw error;
@@ -162,7 +184,11 @@ export class GenerateChangeStack {
     return settleBroken(generating, problems, this.clock.now(), this.logger);
   }
 
-  private async split(stack: ChangeStack): Promise<ChangeStack> {
+  private async split(
+    stack: ChangeStack,
+    previous: ChangeStack | null,
+  ): Promise<ChangeStack> {
+    const basis = stack.previousStack(previous);
     const { diff, facts } = stack;
     let problems: readonly StackProblem[] = [];
     let generating = stack;
@@ -175,6 +201,7 @@ export class GenerateChangeStack {
           repository: stack.repository,
           facts,
           problems,
+          previous: basis,
         }),
       );
 
@@ -216,6 +243,7 @@ export class GenerateChangeStack {
               facts,
               repository: stack.repository,
               cohort,
+              previous: basis,
             }),
         ),
         {
@@ -253,7 +281,10 @@ export class GenerateChangeStack {
     }
 
     try {
-      return generating.propose(layered.cohorts, this.clock.now());
+      return generating.propose(layered.cohorts, this.clock.now(), {
+        modelProposal: layered.proposed,
+        previous,
+      });
     } catch (error) {
       if (!(error instanceof InvalidChangeStackError)) {
         throw error;

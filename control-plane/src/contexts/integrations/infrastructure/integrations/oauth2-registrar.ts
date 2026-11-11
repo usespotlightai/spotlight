@@ -2,6 +2,8 @@ import type {
   OAuth2ClientRegistrarPort,
   RegisteredClient,
 } from '@integrations/application/ports/oauth2-client-registrar.port';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
+import type { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 
 type Fetch = typeof globalThis.fetch;
@@ -21,12 +23,12 @@ export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
   ) {}
 
   async register(
-    endpoint: string,
-    redirectUri: string,
+    endpoint: OAuth2Endpoint,
+    redirectUri: OAuth2Endpoint,
   ): Promise<RegisteredClient | null> {
-    this.policy.allow(endpoint);
+    this.policy.allow(endpoint.value);
 
-    const reply = await this.fetch(endpoint, {
+    const reply = await this.fetch(endpoint.value, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -34,7 +36,7 @@ export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
       },
       body: JSON.stringify({
         client_name: 'Spotlight',
-        redirect_uris: [redirectUri],
+        redirect_uris: [redirectUri.value],
         grant_types: ['authorization_code', 'refresh_token'],
         response_types: ['code'],
         token_endpoint_auth_method: 'client_secret_post',
@@ -51,7 +53,12 @@ export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
       .json()
       .catch(() => null)) as RegistrationResponse | null;
 
-    if (typeof answered?.client_id !== 'string' || !answered.client_id) {
+    const clientId =
+      typeof answered?.client_id === 'string'
+        ? OAuth2ClientId.parsed(answered.client_id)
+        : null;
+
+    if (!answered || !clientId) {
       return null;
     }
 
@@ -62,7 +69,7 @@ export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
         : null;
 
     return {
-      clientId: answered.client_id,
+      clientId,
       clientSecret:
         typeof answered.client_secret === 'string' && answered.client_secret
           ? answered.client_secret

@@ -1,3 +1,4 @@
+import type { TokenScopeName } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const OIDC_TRUST_CONFIGURATION = Symbol('OIDC_TRUST_CONFIGURATION');
@@ -11,7 +12,7 @@ export interface OidcTrustView {
   readonly audience: string;
   readonly subject: string;
   readonly claims: Readonly<Record<string, string>>;
-  readonly scopes: readonly string[];
+  readonly scopes: readonly TokenScopeName[];
   readonly lifetimeMinutes: number;
   readonly description: string;
 }

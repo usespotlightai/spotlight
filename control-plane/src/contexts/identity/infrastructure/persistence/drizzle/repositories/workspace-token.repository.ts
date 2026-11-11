@@ -3,8 +3,12 @@ import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-worksp
 import { WorkspaceTokenAlreadyIssuedError } from '@identity/domain/exceptions/workspace-token-already-issued.error';
 import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
+import { RunAttempt } from '@identity/domain/value-objects/run-attempt.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import { workspaceToken } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -17,14 +21,11 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import { and, eq, isNotNull, lte, or, type SQL } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, lte, or, type SQL } from 'drizzle-orm';
 
 type Row = typeof workspaceToken.$inferSelect;
 
@@ -36,14 +37,14 @@ const rehydrated = (row: Row): WorkspaceToken =>
     description: TokenDescription.of(row.description),
     scopes: TokenScopes.named(row.scopes),
     hash: TokenHash.of(row.tokenHash),
-    issuedBy: UserId.of(row.issuedBy),
+    issuedBy: UserId.of(row.issuedById),
     issuedAt: row.issuedAt,
     expiresAt: row.expiresAt,
     issuedByTrustId:
       row.issuedByTrustId === null ? null : OidcTrustId.of(row.issuedByTrustId),
     trustVersion: row.trustVersion,
     runId: row.runId === null ? null : RunId.of(row.runId),
-    runAttempt: row.runAttempt,
+    runAttempt: row.runAttempt === null ? null : RunAttempt.of(row.runAttempt),
     version: row.version,
   });
 
@@ -67,13 +68,14 @@ export class DrizzleWorkspaceTokenRepository
           description: added.description.value,
           scopes: added.scopes.all.map((each) => each.value),
           tokenHash: added.hash.value,
-          issuedBy: added.issuedBy.value,
+          issuedById: added.issuedBy.value,
           issuedAt: added.issuedAt,
           expiresAt: added.expiresAt,
           issuedByTrustId: added.issuedByTrustId?.value ?? null,
           trustVersion: added.trustVersion,
           runId: added.runId?.value ?? null,
-          runAttempt: added.runAttempt,
+          runAttempt: added.runAttempt?.value ?? null,
+          version: added.version,
         });
       } catch (error) {
         if (codeOf(error) === UNIQUE_VIOLATION) {
@@ -127,6 +129,18 @@ export class DrizzleWorkspaceTokenRepository
     return this.one(eq(workspaceToken.tokenHash, hash.value));
   }
 
+  async ofWorkspace(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly WorkspaceToken[]> {
+    const rows = await this.context.db
+      .select()
+      .from(workspaceToken)
+      .where(eq(workspaceToken.workspaceId, workspaceId.value))
+      .orderBy(asc(workspaceToken.name));
+
+    return rows.map(rehydrated);
+  }
+
   async issuedByTrust(
     trustId: OidcTrustId,
   ): Promise<readonly WorkspaceToken[]> {
@@ -141,7 +155,7 @@ export class DrizzleWorkspaceTokenRepository
   async issuedForRun(
     workspaceId: WorkspaceId,
     runId: RunId,
-    attempt: number | null,
+    attempt: RunAttempt | null,
   ): Promise<readonly WorkspaceToken[]> {
     const rows = await this.context.db
       .select()
@@ -150,14 +164,16 @@ export class DrizzleWorkspaceTokenRepository
         and(
           eq(workspaceToken.workspaceId, workspaceId.value),
           eq(workspaceToken.runId, runId.value),
-          attempt === null ? undefined : eq(workspaceToken.runAttempt, attempt),
+          attempt === null
+            ? undefined
+            : eq(workspaceToken.runAttempt, attempt.value),
         ),
       );
 
     return rows.map(rehydrated);
   }
 
-  async issuedAndExpiredBy(
+  async dueToExpireBy(
     now: Date,
     limit: number,
   ): Promise<readonly WorkspaceToken[]> {

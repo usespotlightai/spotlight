@@ -1,23 +1,24 @@
 import { randomUUID } from 'node:crypto';
+import { TeamDirectory } from '@identity/application/services/team-directory.service';
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
-import { DrizzleIdentityResources } from '@identity/infrastructure/persistence/drizzle/readers/identity-resources.reader';
+import { WorkspaceReader } from '@identity/application/services/workspace-reader.service';
 import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
-import { DrizzleViewableWorkspaces } from '@identity/infrastructure/persistence/drizzle/readers/viewable-workspaces.reader';
-import { DrizzleWorkspaceReader } from '@identity/infrastructure/persistence/drizzle/readers/workspace.reader';
+import { DrizzleWorkspaceRecords } from '@identity/infrastructure/persistence/drizzle/readers/workspace-records.reader';
+import { DrizzleWorkspaceRoles } from '@identity/infrastructure/persistence/drizzle/readers/workspace-roles.reader';
 import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/drizzle/repositories/team.repository';
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { SystemClock } from '@platform/time/system-clock';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
+import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
+import { WorkAccess } from '@work/application/services/work-access.service';
 import { setupDoneNote } from '@work/domain/services/setup-list';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
@@ -29,11 +30,10 @@ import { createTeam as createTeamIn } from './support/team';
 
 const access = (db: DrizzleDatabase) =>
   new WorkspaceAccess(
-    new DrizzleViewableWorkspaces(db),
+    new DrizzleWorkspaceRoles(db),
     new DrizzleWorkspaceRepository(new DrizzleContext(db), {
       dispatch: async () => {},
     }),
-    new DrizzleIdentityResources(new DrizzleContext(db)),
     new DrizzleTeamRepository(new DrizzleContext(db), {
       dispatch: async () => {},
     }),
@@ -95,7 +95,7 @@ describe('the open setup lists of a team', () => {
   it('leaves a closed one out', async () => {
     const { teamId, list } = await createTeam('fallon');
 
-    const newNote = setupDoneNote(list.notes, DONE, NOW);
+    const newNote = setupDoneNote(list.notes, DONE, NOW, null);
     const gone = list.closeConversation(newNote as NonNullable<typeof newNote>);
 
     expect(gone.finishedAt).toBeNull();
@@ -124,7 +124,7 @@ describe('the open setup lists of a team', () => {
 
     await tasks.save(
       list.answer(NotePosition.of(0), {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Working on it.'),
         at: NOW,
         voice: Voice.station(),
@@ -154,19 +154,39 @@ describe('the open setup lists of a team', () => {
 });
 
 describe('the inbox item of a setup list', () => {
-  const inbox = () =>
+  const inbox = (state: 'open' | 'resolved' = 'open') =>
     new ListInboxHandler(
-      new DrizzleInboxReader(
-        db,
+      new DrizzleInboxReader(db, new DrizzlePersonReader(db), {
+        progressOf: async () => [],
+      }),
+      new WorkAccess(
         access(db),
-        new DrizzleWorkspaceReader(db),
-        new DrizzlePersonReader(db),
+        new WorkspaceReader(
+          new DrizzleWorkspaceRecords(db),
+          new DrizzleWorkspaceRepository(new DrizzleContext(db), {
+            dispatch: async () => {},
+          }),
+          new DrizzleTeamRepository(new DrizzleContext(db), {
+            dispatch: async () => {},
+          }),
+        ),
+        new TeamDirectory(
+          new DrizzleTeamRepository(new DrizzleContext(db), {
+            dispatch: async () => {},
+          }),
+        ),
       ),
-      new SystemClock(),
     )
-      .execute(new ListInboxQuery(waiting.slug, waiting.owner.value))
+      .execute(
+        new ListInboxQuery(
+          waiting.slug,
+          waiting.owner.value,
+          state,
+          FIRST_PAGE,
+        ),
+      )
       .then((entries) =>
-        (entries ?? []).filter(
+        (entries?.items ?? []).filter(
           (each): each is InboxItemDto => each.kind === 'task',
         ),
       );
@@ -185,18 +205,16 @@ describe('the inbox item of a setup list', () => {
   });
 
   it('reads as resolved once the list has been closed', async () => {
-    const newNote = setupDoneNote(waiting.list.notes, DONE, NOW);
+    const newNote = setupDoneNote(waiting.list.notes, DONE, NOW, null);
 
     await tasks.save(
       waiting.list.closeConversation(newNote as NonNullable<typeof newNote>),
     );
 
-    const [item] = await inbox();
+    const [item] = await inbox('resolved');
 
     expect(item?.resolved).toBe(true);
-    expect(item?.notes[item.notes.length - 1]?.body).toBe(
-      'Everything on this list is done.',
-    );
+    expect(item?.lastNote?.body).toBe('Everything on this list is done.');
   });
 });
 

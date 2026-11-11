@@ -21,6 +21,10 @@ export class DecisionEvidence {
     );
   }
 
+  get canSupportAny(): boolean {
+    return this.steps.size > 0 && this.changed.size > 0;
+  }
+
   supports(decision: Decision): boolean {
     return (
       decision.journalSteps.every((each) => this.steps.has(each)) &&

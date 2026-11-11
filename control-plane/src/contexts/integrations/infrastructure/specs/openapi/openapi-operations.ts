@@ -1,3 +1,4 @@
+import { httpOperationWrites } from '@integrations/domain/services/operation-writes';
 import type {
   HttpMethod,
   OperationParameter,
@@ -25,8 +26,6 @@ const METHODS: readonly HttpMethod[] = [
   'HEAD',
   'OPTIONS',
 ];
-
-const WRITING: readonly HttpMethod[] = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
 const PLACES: readonly ParameterPlace[] = ['path', 'query', 'header'];
 
@@ -396,7 +395,7 @@ const operationOf = (
       `${method} ${path}`,
     ),
     inputs,
-    writes: WRITING.includes(method),
+    writes: httpOperationWrites(method),
     call: {
       kind: 'http',
       method,

@@ -1,4 +1,4 @@
-import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
+import type { SecretReferenceAt } from '@configuration/application/dto/secret-reference-at.dto';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const INTEGRATION_CONFIGS = Symbol('INTEGRATION_CONFIGS');

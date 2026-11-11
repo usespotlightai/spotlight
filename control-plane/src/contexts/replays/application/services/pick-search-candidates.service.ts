@@ -1,10 +1,13 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type {
+  LinesPort,
+  StationView,
+} from '@replays/application/ports/lines.port';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import type { SearchEnded } from '@replays/domain/events/search-ended.event';
-import { ConfigPullRequestOpenAtStationError } from '@replays/domain/exceptions/config-pull-request-open-at-station.error';
+import { PullRequestOpenAtStationError } from '@replays/domain/exceptions/pull-request-open-at-station.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -16,6 +19,7 @@ import {
 } from '@replays/domain/services/search-picks';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
+import type { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -29,7 +33,7 @@ export class PickSearchCandidates {
     private readonly candidates: CandidateRepository,
     private readonly schedules: StationSearchScheduleRepository,
     private readonly healths: SetHealths,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -42,25 +46,27 @@ export class PickSearchCandidates {
 
     const seen = await this.searches.find(event.searchId);
 
-    if (!seen || seen.pick !== null) {
+    if (!seen?.awaitsPick) {
       return;
     }
 
     const standard = await this.healths.standardAt(seen.station);
-    const stationThere =
-      (await this.work.station(seen.station.lineId, seen.station.stationId)) !==
-      null;
+    const stationGone =
+      (await this.lines.station(
+        seen.station.lineId,
+        seen.station.stationId,
+      )) === null;
 
     await this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(event.searchId);
 
-      if (search?.current !== 'finished' || search.pick !== null) {
+      if (!search?.awaitsPick) {
         return;
       }
 
       const scores = scoresOf(
         search,
-        await this.replays.ofSearch(search.id),
+        (await this.replays.ofSearch(search.id)).map((each) => each.outcome()),
         standard.minGain,
       );
 
@@ -68,18 +74,17 @@ export class PickSearchCandidates {
         scores,
         search.objective,
         standard.threshold,
-        await this.pickConstraintsOf(search),
+        await this.pickConstraintsOf(search, stationGone),
       );
 
-      await this.searches.save(
-        search.picked(
-          stationThere ? pick : { outcome: 'declined', reason: 'station-gone' },
-        ),
-      );
+      await this.searches.save(search.picked(pick));
     });
   }
 
-  private async pickConstraintsOf(search: Search): Promise<PickConstraints> {
+  private async pickConstraintsOf(
+    search: Search,
+    stationGone: boolean,
+  ): Promise<PickConstraints> {
     const { stationId } = search.station;
     const schedule = await this.schedules.ofStation(stationId);
     const pullRequestOpen = await this.pullRequests.openAtStation(stationId);
@@ -94,6 +99,7 @@ export class PickSearchCandidates {
         .filter((each) => schedule?.hasRejected(each.fingerprint))
         .map((each) => each.id),
       pullRequestOpen,
+      stationGone,
     };
   }
 
@@ -111,13 +117,37 @@ export class PickSearchCandidates {
       return;
     }
 
-    const station = await this.work.station(
+    const station = await this.lines.station(
       search.station.lineId,
       search.station.stationId,
     );
 
     if (!station) {
       return;
+    }
+
+    if (await this.opened(search, proposal, station)) {
+      return;
+    }
+
+    await this.transaction.inTransaction(async () => {
+      const locked = await this.searches.locked(search.id);
+
+      if (locked?.pick?.outcome === 'picked') {
+        await this.searches.save(locked.pickWithdrawn('pull-request-open'));
+      }
+    });
+  }
+
+  private async opened(
+    search: Search,
+    proposal: SearchProposal,
+    station: StationView,
+  ): Promise<boolean> {
+    const { stationId } = search.station;
+
+    if (await this.pullRequests.openAtStation(stationId)) {
+      return false;
     }
 
     try {
@@ -129,7 +159,7 @@ export class PickSearchCandidates {
             candidateId: proposal.candidateId,
             station: search.station,
             stationKey: station.key,
-            candidateName: proposal.name.value,
+            candidateName: proposal.name,
             lineKey: station.lineKey,
             source: station.source,
             at: this.clock.now(),
@@ -137,18 +167,19 @@ export class PickSearchCandidates {
           }),
         ),
       );
+
+      return true;
     } catch (error) {
-      if (!(error instanceof ConfigPullRequestOpenAtStationError)) {
+      if (!(error instanceof PullRequestOpenAtStationError)) {
         throw error;
       }
 
-      await this.transaction.inTransaction(async () => {
-        const locked = await this.searches.locked(search.id);
-
-        if (locked?.pick?.outcome === 'picked') {
-          await this.searches.save(locked.pickWithdrawn('pull-request-open'));
-        }
-      });
+      return (
+        (await this.pullRequests.forCandidate(
+          search.id,
+          proposal.candidateId,
+        )) !== null
+      );
     }
   }
 }

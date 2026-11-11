@@ -1,29 +1,29 @@
+import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
+import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error';
+import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import type { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
-import type { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import type { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
+import type { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export type SandboxState = 'starting' | 'ready' | 'draining' | 'gone';
+export const SANDBOX_STATES = ['open', 'draining', 'gone'] as const;
 
-export const SANDBOX_STATES: readonly SandboxState[] = [
-  'starting',
-  'ready',
-  'draining',
-  'gone',
-];
+export type SandboxState = (typeof SANDBOX_STATES)[number];
 
-export const OPEN_SANDBOX_STATES: readonly SandboxState[] = [
-  'starting',
-  'ready',
-];
+export type SandboxStatus = 'starting' | 'ready' | 'draining' | 'gone';
 
 export const LIVE_SANDBOX_STATES: readonly SandboxState[] = [
-  ...OPEN_SANDBOX_STATES,
+  'open',
   'draining',
 ];
 
@@ -36,12 +36,14 @@ interface State {
   readonly workspaceId: WorkspaceId;
   readonly key: SandboxKey | null;
   readonly hostId: HostId | null;
+  readonly source: CredentialSource | null;
   readonly tokenHash: TokenHash | null;
   readonly state: SandboxState;
   readonly leases: readonly SandboxLease[];
   readonly idleSince: Date | null;
   readonly startedAt: Date;
   readonly goneAt: Date | null;
+  readonly warm: WarmPart | null;
   readonly version: number;
 }
 
@@ -54,22 +56,26 @@ export class Sandbox extends EventRecorder {
     id: SandboxId;
     workspaceId: WorkspaceId;
     key: SandboxKey | null;
-    hostId: HostId;
+    host: RunnerHost;
     tokenHash: TokenHash;
-    runId: string;
+    runId: RunId;
     at: Date;
   }): Sandbox {
+    Sandbox.assertHostIn(input.host, input.workspaceId);
+
     return new Sandbox({
       id: input.id,
       workspaceId: input.workspaceId,
       key: input.key,
-      hostId: input.hostId,
+      hostId: input.host.id,
+      source: input.host.source,
       tokenHash: input.tokenHash,
-      state: 'starting',
-      leases: [SandboxLease.forRun(input.runId, input.at)],
+      state: 'open',
+      leases: [SandboxLease.of(LeaseHolder.run(input.runId), input.at)],
       idleSince: null,
       startedAt: input.at,
       goneAt: null,
+      warm: null,
       version: 0,
     });
   }
@@ -85,12 +91,37 @@ export class Sandbox extends EventRecorder {
       workspaceId: input.workspaceId,
       key: input.key,
       hostId: null,
+      source: null,
       tokenHash: null,
-      state: 'starting',
+      state: 'open',
       leases: [],
       idleSince: input.at,
       startedAt: input.at,
       goneAt: null,
+      warm: null,
+      version: 0,
+    });
+  }
+
+  static requestWarm(input: {
+    id: SandboxId;
+    workspaceId: WorkspaceId;
+    warm: WarmPart;
+    at: Date;
+  }): Sandbox {
+    return new Sandbox({
+      id: input.id,
+      workspaceId: input.workspaceId,
+      key: null,
+      hostId: null,
+      source: null,
+      tokenHash: null,
+      state: 'open',
+      leases: [],
+      idleSince: input.at,
+      startedAt: input.at,
+      goneAt: null,
+      warm: input.warm,
       version: 0,
     });
   }
@@ -110,19 +141,19 @@ export class Sandbox extends EventRecorder {
       );
     }
 
-    if ((state.hostId === null) !== (state.tokenHash === null)) {
+    if (
+      (state.hostId === null) !== (state.tokenHash === null) ||
+      (state.hostId === null) !== (state.source === null)
+    ) {
       throw new InconsistentStateError(
         'sandbox',
-        'has a host with no token, or a token with no host',
+        'has a host with no token or pool, or a token or pool with no host',
       );
     }
 
-    const holdsARun = state.leases.some((each) => each.kind === 'run');
+    const holdsARun = state.leases.some((each) => each.isForRun);
 
-    if (
-      state.hostId === null &&
-      (holdsARun || (state.state !== 'starting' && state.state !== 'gone'))
-    ) {
+    if (state.hostId === null && (holdsARun || state.state === 'draining')) {
       throw new InconsistentStateError(
         'sandbox',
         `is ${state.state} or held by a run while no host started it`,
@@ -136,11 +167,35 @@ export class Sandbox extends EventRecorder {
       );
     }
 
+    if (
+      state.warm !== null &&
+      (state.key !== null ||
+        state.leases.length > 0 ||
+        state.state === 'draining')
+    ) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'is warm while it has a key, a lease or drains',
+      );
+    }
+
     return new Sandbox({ ...state, leases: [...state.leases] });
+  }
+
+  private static assertHostIn(host: RunnerHost, workspaceId: WorkspaceId) {
+    if (!host.belongsTo(workspaceId)) {
+      throw new UnknownHostError(host.id.value);
+    }
   }
 
   static goneBefore(now: Date): Date {
     return new Date(now.getTime() - GONE_RETENTION_MS);
+  }
+
+  isExpiredAt(now: Date): boolean {
+    return (
+      this.state.goneAt !== null && this.state.goneAt <= Sandbox.goneBefore(now)
+    );
   }
 
   get id(): SandboxId {
@@ -159,6 +214,10 @@ export class Sandbox extends EventRecorder {
     return this.state.hostId;
   }
 
+  get source(): CredentialSource | null {
+    return this.state.source;
+  }
+
   get tokenHash(): TokenHash | null {
     return this.state.tokenHash;
   }
@@ -168,7 +227,7 @@ export class Sandbox extends EventRecorder {
   }
 
   get isRequested(): boolean {
-    return !this.isPlaced && this.state.state === 'starting';
+    return !this.isPlaced && this.isOpen;
   }
 
   get current(): SandboxState {
@@ -195,43 +254,110 @@ export class Sandbox extends EventRecorder {
     return this.state.version;
   }
 
+  get warm(): WarmPart | null {
+    return this.state.warm;
+  }
+
+  get isWarm(): boolean {
+    return this.state.warm !== null && this.isOpen;
+  }
+
+  get lostWhileWarm(): boolean {
+    return this.state.warm !== null && this.state.state === 'gone';
+  }
+
   get isOpen(): boolean {
-    return OPEN_SANDBOX_STATES.includes(this.state.state);
+    return this.state.state === 'open';
   }
 
   get isLive(): boolean {
     return this.state.state !== 'gone';
   }
 
-  get mustDrain(): boolean {
-    return !this.isOpen;
+  holdsRun(runId: RunId): boolean {
+    return this.isHeldBy(LeaseHolder.run(runId));
   }
 
-  holdsRun(runId: string): boolean {
-    return this.state.leases.some((each) => each.isHeldBy('run', runId));
-  }
-
-  holdsEditor(holder: string): boolean {
-    return this.state.leases.some((each) => each.isHeldBy('editor', holder));
-  }
-
-  get isReady(): boolean {
-    return this.state.state === 'ready';
+  holdsEditor(holder: LeaseHolder): boolean {
+    return holder.isEditor && this.isHeldBy(holder);
   }
 
   get isIdle(): boolean {
     return this.state.idleSince !== null;
   }
 
-  takesRunOn(hostId: HostId): boolean {
+  isOn(hostId: HostId): boolean {
+    return this.state.hostId?.equals(hostId) ?? false;
+  }
+
+  isLiveOn(host: RunnerHost | null, now: Date): boolean {
     return (
-      this.isReady &&
-      this.isIdle &&
-      (this.state.hostId?.equals(hostId) ?? false)
+      this.isLive && host !== null && this.isOn(host.id) && host.isOnlineAt(now)
     );
   }
 
-  placeOn(hostId: HostId, tokenHash: TokenHash, at: Date): Sandbox {
+  isReadyOn(host: RunnerHost | null, now: Date): boolean {
+    return (
+      this.isOpen &&
+      this.isLiveOn(host, now) &&
+      (host?.reportsSandbox(this.state.id) ?? false)
+    );
+  }
+
+  statusOn(host: RunnerHost | null, now: Date): SandboxStatus {
+    if (!this.isOpen) {
+      return this.state.state === 'draining' ? 'draining' : 'gone';
+    }
+
+    return this.isReadyOn(host, now) ? 'ready' : 'starting';
+  }
+
+  takesRunOn(host: RunnerHost, now: Date): boolean {
+    return this.isReadyOn(host, now) && this.isIdle && !host.isStopping;
+  }
+
+  takesFirstRunOn(host: RunnerHost, now: Date): boolean {
+    return this.isWarm && this.takesRunOn(host, now);
+  }
+
+  warmFits(offer: RunnerOffer): boolean {
+    return this.isRequested && (this.state.warm?.fits(offer) ?? false);
+  }
+
+  keptBy(host: RunnerHost): boolean {
+    return (
+      this.isOpen && this.isOn(host.id) && !(host.isStopping && this.isIdle)
+    );
+  }
+
+  placeOn(host: RunnerHost, tokenHash: TokenHash, at: Date): Sandbox {
+    if (this.state.warm !== null) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'is warm, and starts only on a host that offers its placement',
+      );
+    }
+
+    return this.placedOn(host, tokenHash, at);
+  }
+
+  placeWarmOn(
+    host: RunnerHost,
+    offer: RunnerOffer,
+    tokenHash: TokenHash,
+    at: Date,
+  ): Sandbox {
+    if (!this.warmFits(offer)) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'is not a requested warm sandbox for a placement the host offers',
+      );
+    }
+
+    return this.placedOn(host, tokenHash, at);
+  }
+
+  private placedOn(host: RunnerHost, tokenHash: TokenHash, at: Date): Sandbox {
     if (!this.isRequested) {
       throw new InconsistentStateError(
         'sandbox',
@@ -239,10 +365,59 @@ export class Sandbox extends EventRecorder {
       );
     }
 
-    return this.with({ hostId, tokenHash, startedAt: at, idleSince: at });
+    Sandbox.assertHostIn(host, this.state.workspaceId);
+
+    return this.with({
+      hostId: host.id,
+      source: host.source,
+      tokenHash,
+      startedAt: at,
+      idleSince: at,
+    });
   }
 
-  holdRun(runId: string, at: Date): Sandbox {
+  holdRunFor(
+    run: {
+      runId: RunId;
+      workspaceId: WorkspaceId;
+      key: SandboxKey | null;
+    },
+    host: RunnerHost,
+    at: Date,
+  ): Sandbox {
+    const ownsTheRun =
+      run.key !== null &&
+      (this.state.key?.equals(run.key) ?? false) &&
+      this.state.workspaceId.equals(run.workspaceId);
+
+    return ownsTheRun && this.takesRunOn(host, at)
+      ? this.holdRun(run.runId, at)
+      : this;
+  }
+
+  adoptFor(
+    run: {
+      runId: RunId;
+      workspaceId: WorkspaceId;
+      key: SandboxKey | null;
+      line: LineId | null;
+    },
+    host: RunnerHost,
+    at: Date,
+  ): Sandbox {
+    const adopts =
+      run.key !== null &&
+      run.line !== null &&
+      (this.state.warm?.isFor(run.line) ?? false) &&
+      this.state.workspaceId.equals(run.workspaceId) &&
+      this.takesFirstRunOn(host, at);
+
+    return adopts
+      ? this.with({ key: run.key, warm: null }).holdRun(run.runId, at)
+      : this;
+  }
+
+  holdRun(runId: RunId, at: Date): Sandbox {
     if (this.holdsRun(runId)) {
       return this;
     }
@@ -250,32 +425,34 @@ export class Sandbox extends EventRecorder {
     if (!this.isOpen || !this.isPlaced) {
       throw new InconsistentStateError(
         'sandbox',
-        `is ${this.state.state} or has no host, and cannot take run ${runId}`,
+        `is ${this.state.state} or has no host, and cannot take run ${runId.value}`,
       );
     }
 
     return this.with({
-      leases: [...this.state.leases, SandboxLease.forRun(runId, at)],
+      leases: [
+        ...this.state.leases,
+        SandboxLease.of(LeaseHolder.run(runId), at),
+      ],
       idleSince: null,
     });
   }
 
-  releaseRun(runId: string, at: Date): Sandbox {
+  releaseRun(runId: RunId, at: Date): Sandbox {
     if (!this.holdsRun(runId)) {
       return this;
     }
 
-    const leases = this.state.leases.filter(
-      (each) => !each.isHeldBy('run', runId),
-    );
+    const holder = LeaseHolder.run(runId);
+    const leases = this.state.leases.filter((each) => !each.isHeldBy(holder));
 
     return this.with({
       leases,
-      idleSince: leases.some((each) => each.kind === 'run') ? null : at,
+      idleSince: leases.some((each) => each.isForRun) ? null : at,
     });
   }
 
-  retireRun(runId: string, at: Date): Sandbox {
+  retireRun(runId: RunId, at: Date): Sandbox {
     if (!this.holdsRun(runId)) {
       return this;
     }
@@ -285,29 +462,33 @@ export class Sandbox extends EventRecorder {
     return released.leases.length === 0 ? released.drain() : released;
   }
 
-  holdEditor(holder: string, at: Date): Sandbox {
-    if (!this.isOpen) {
+  holdEditor(holder: LeaseHolder, at: Date): Sandbox {
+    if (!holder.isEditor) {
       throw new InconsistentStateError(
         'sandbox',
-        `is ${this.state.state}, and no editor can hold it`,
+        `cannot give an editor lease to a ${holder.kind}`,
       );
+    }
+
+    if (!this.isOpen || this.state.warm !== null) {
+      return this;
     }
 
     return this.with({
       leases: [
-        ...this.state.leases.filter((each) => !each.isHeldBy('editor', holder)),
-        SandboxLease.forEditor(holder, at),
+        ...this.state.leases.filter((each) => !each.isHeldBy(holder)),
+        SandboxLease.of(holder, at),
       ],
     });
   }
 
-  releaseEditor(holder: string, at: Date): Sandbox {
+  releaseEditor(holder: LeaseHolder, at: Date): Sandbox {
     if (!this.holdsEditor(holder)) {
       return this;
     }
 
     return this.withLeases(
-      this.state.leases.filter((each) => !each.isHeldBy('editor', holder)),
+      this.state.leases.filter((each) => !each.isHeldBy(holder)),
       at,
     );
   }
@@ -320,22 +501,31 @@ export class Sandbox extends EventRecorder {
       : this.withLeases(leases, now);
   }
 
-  reported(): Sandbox {
-    return this.state.state === 'starting'
-      ? this.with({ state: 'ready' })
-      : this;
+  static unreportedStartedBefore(now: Date): Date {
+    return new Date(now.getTime() - START_WINDOW_MS);
   }
 
-  unreported(at: Date): Sandbox {
-    if (!this.isLive) {
-      return this;
-    }
+  strandedOn(host: RunnerHost | null, now: Date): Sandbox {
+    const stranded = this.isLive && this.isPlaced && !this.isLiveOn(host, now);
 
-    const stillStarting =
-      this.state.state === 'starting' &&
-      at.getTime() - this.state.startedAt.getTime() < START_WINDOW_MS;
+    return stranded ? this.lost(now) : this;
+  }
 
-    return stillStarting ? this : this.lost(at);
+  replacedForRun(): Sandbox {
+    return this.isOpen && this.isPlaced ? this.drain() : this;
+  }
+
+  droppedBy(hostId: HostId, at: Date): Sandbox {
+    return this.isOn(hostId) ? this.lost(at) : this;
+  }
+
+  unreportedOn(host: RunnerHost, at: Date): Sandbox {
+    const unreported =
+      this.isOn(host.id) &&
+      !host.reportsSandbox(this.state.id) &&
+      this.state.startedAt <= Sandbox.unreportedStartedBefore(at);
+
+    return unreported ? this.lost(at) : this;
   }
 
   lost(at: Date): Sandbox {
@@ -350,11 +540,11 @@ export class Sandbox extends EventRecorder {
       );
     }
 
-    return this.isOpen ? this.with({ state: 'draining' }) : this;
+    return this.isOpen ? this.with({ state: 'draining', warm: null }) : this;
   }
 
-  drainedWhenIdle(): Sandbox {
-    return this.isIdle ? this.drain() : this;
+  drainedWhenPlaced(): Sandbox {
+    return this.isPlaced ? this.drain() : this;
   }
 
   drainDue(policy: SandboxDrainPolicy, now: Date): boolean {
@@ -362,6 +552,10 @@ export class Sandbox extends EventRecorder {
 
     if (!this.isOpen || idleSince === null) {
       return false;
+    }
+
+    if (this.state.warm !== null) {
+      return now.getTime() - this.state.startedAt.getTime() >= policy.warmAgeMs;
     }
 
     const limit =
@@ -380,8 +574,12 @@ export class Sandbox extends EventRecorder {
     return held.isPlaced ? held.drain() : held.lost(now);
   }
 
+  private isHeldBy(holder: LeaseHolder): boolean {
+    return this.state.leases.some((each) => each.isHeldBy(holder));
+  }
+
   private withLeases(leases: readonly SandboxLease[], at: Date): Sandbox {
-    const idle = !leases.some((each) => each.kind === 'run');
+    const idle = !leases.some((each) => each.isForRun);
 
     return this.with({
       leases,

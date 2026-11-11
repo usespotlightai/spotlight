@@ -1,8 +1,7 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
+import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
-import type { TaskPullRequestState } from '@insights/domain/value-objects/task-pull-request-state';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 
 export interface RunUsageDto {
   readonly ms: number | null;
@@ -28,20 +27,11 @@ export interface RunOutcomeDto {
     readonly at: string;
   } | null;
   readonly passed: { readonly to: string; readonly at: string } | null;
-  readonly pullRequestState: TaskPullRequestState | null;
+  readonly pullRequestState: PullRequestState | null;
 }
 
-export const runOutcomeOf = (
-  record: RunRecord,
-  taskPullRequests: readonly TaskPullRequest[],
-): RunOutcomeDto | null => {
+export const runOutcomeOf = (record: RunFact): RunOutcomeDto => {
   const end = record.end;
-  const ending = record.ending;
-
-  if (!end || !ending) {
-    return null;
-  }
-
   const usage = record.usage;
 
   return {
@@ -49,7 +39,7 @@ export const runOutcomeOf = (
     taskId: end.location.taskId.value,
     fingerprint: end.fingerprint,
     endedAt: end.endedAt.toISOString(),
-    ending,
+    ending: record.ending,
     failure: end.failure,
     visit: end.visit,
     usage: usage
@@ -70,10 +60,8 @@ export const runOutcomeOf = (
         }
       : null,
     passed: record.passed
-      ? { to: record.passed.to, at: record.passed.at.toISOString() }
+      ? { to: record.passed.to.value, at: record.passed.at.toISOString() }
       : null,
-    pullRequestState:
-      taskPullRequests.find((each) => each.taskId.equals(end.location.taskId))
-        ?.state ?? null,
+    pullRequestState: record.pullRequest?.state ?? null,
   };
 };

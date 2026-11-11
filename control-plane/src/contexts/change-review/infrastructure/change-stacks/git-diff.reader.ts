@@ -4,7 +4,6 @@ import type {
   ReadDiff,
 } from '@change-review/application/ports/diff-reader.port';
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
-import type { SourceSide } from '@change-review/domain/services/symbol-index';
 import {
   Diff,
   type DiffFileStatus,
@@ -13,6 +12,7 @@ import {
   splitHunk,
   type UnnamedFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import type { SourceSide } from '@change-review/domain/value-objects/symbol-index.vo';
 
 interface OpenFile {
   path: string | null;

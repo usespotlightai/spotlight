@@ -2,23 +2,31 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
+import { RunClaims } from '@runs/application/services/run-claims.service';
+import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
+import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
-import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
-import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
+  TASK_VIEWS,
+  type TaskViewsPort,
+} from '@work/application/ports/task-views.port';
+import { TakeTurn } from '@work/application/services/take-turn.service';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq, ne } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 interface PendingMessage {
@@ -27,6 +35,7 @@ interface PendingMessage {
 }
 
 interface InboxItem {
+  readonly kind: string;
   readonly id: string;
   readonly taskId: string;
   readonly progress: string | null;
@@ -43,7 +52,7 @@ const SHIP = randomUUID();
 const DEPLOY = randomUUID();
 const SHA256 = 'a'.repeat(64);
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -138,11 +147,9 @@ const aTaskWithLeasedRun = async (
     currentRunId: runId,
   });
   await db.insert(schema.run).values({
+    ...requestedByTask(taskId, { revision: 0 }),
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: at,
     harness: 'dev',
     state: 'queued',
     placement: [['linux']],
@@ -150,9 +157,18 @@ const aTaskWithLeasedRun = async (
       command: { executable: 'sh', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['review', 'ship', 'done'], noteLimit: 0 },
-      resume: { key: `${taskId}:${at}` },
+      resume: {},
     },
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      taskId,
+      stationId: at,
+    }),
+  );
 
   return { taskId, runId };
 };
@@ -190,8 +206,8 @@ const inboxItemOf = (taskId: string): Promise<InboxItem> =>
           .get(`/api/workspaces/${team.slug}/inbox`)
           .set(TEST_USER_HEADER, team.owner.value)
           .expect(200)
-      ).body as InboxItem[]
-    ).find((each) => each.taskId === taskId),
+      ).body.items as InboxItem[]
+    ).find((each) => each.kind === 'task' && each.taskId === taskId),
   );
 
 const runIn = (runId: string, state: string) =>
@@ -228,7 +244,7 @@ const journalled = (token: string, runId: string, message: string) =>
 
 beforeAll(async () => {
   app = await openApp((module) =>
-    module.overrideProvider(WORKSPACE_ARCHIVE_STORE).useValue(archiveStore),
+    module.overrideProvider(WORKING_COPY_ARCHIVE_STORE).useValue(archiveStore),
   );
   db = app.get(DRIZZLE);
   team = await createTeam(
@@ -244,9 +260,10 @@ beforeAll(async () => {
     key: 'delivery',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: BACKLOG,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -255,6 +272,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -264,6 +282,7 @@ beforeAll(async () => {
     },
     {
       id: SHIP,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'ship',
       name: 'Ship',
@@ -273,6 +292,7 @@ beforeAll(async () => {
     },
     {
       id: DEPLOY,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'deploy',
       name: 'Deploy',
@@ -283,6 +303,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',
@@ -321,36 +342,39 @@ describe('a run that asks a person', () => {
     expect(suspended?.state).toBe('suspended');
     expect(suspended?.claimedBy).toBeNull();
     expect(suspended?.suspendedAttempts).toEqual([1]);
+    await runner(token)
+      .get(`/api/runs/${runId}/messages`)
+      .expect((response) =>
+        expect(response.status).toBeGreaterThanOrEqual(400),
+      );
+    await runner(token)
+      .post(`/api/runs/${runId}/lease`)
+      .expect((response) =>
+        expect(response.status).toBeGreaterThanOrEqual(400),
+      );
 
     const item = await inboxItemOf(taskId);
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
     expect((await taskRow(taskId))?.sessionId).toBe('session_1');
     expect(item.progress).toBeNull();
     expect(item.runId).toBe(runId);
-
-    await runner(token).get(`/api/runs/${runId}/messages`).expect(404);
-    await runner(token)
-      .post(`/api/runs/${runId}/lease`)
-      .expect((response) =>
-        expect(response.status).toBeGreaterThanOrEqual(400),
-      );
   });
 
-  it('requeues the same run as a new attempt once answered, to resume its session from its workspace', async () => {
+  it('requeues the same run as a new attempt once answered, to resume its session from its working copy', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const first = await claimed(runId);
 
     await journalled(first, runId, 'before the question');
     const granted = (
       await runner(first)
-        .post(`/api/runs/${runId}/workspace-archive`, {
+        .post(`/api/runs/${runId}/working-copy-archive`, {
           size: 2_048,
           sha256: SHA256,
         })
         .expect(201)
     ).body as { id: string };
     await runner(first)
-      .post(`/api/runs/${runId}/workspace-archive/${granted.id}/complete`)
+      .post(`/api/runs/${runId}/working-copy-archive/${granted.id}/complete`)
       .expect(204);
     await runner(first)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -361,12 +385,9 @@ describe('a run that asks a person', () => {
     const requeued = await runIn(runId, 'queued');
     expect(requeued?.attempt).toBe(2);
     expect(requeued?.spec).toMatchObject({
-      resume: {
-        key: `${taskId}:${BUILD}`,
-        sessionId: 'session_1',
-        resumeSession: true,
-      },
+      resume: { sessionId: 'session_1', resumeSession: true },
     });
+    expect(requeued?.workingCopyKey).toBe(`work/task-${taskId}`);
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
     expect((await inboxItemOf(taskId)).progress).toBe('queued');
 
@@ -374,7 +395,7 @@ describe('a run that asks a person', () => {
     expect(second).not.toBe(first);
 
     const restored = await runner(second)
-      .get(`/api/runs/${runId}/workspace-archive`)
+      .get(`/api/runs/${runId}/working-copy-archive`)
       .expect(200);
     expect(restored.body).toMatchObject({ id: granted.id, sha256: SHA256 });
 
@@ -386,7 +407,9 @@ describe('a run that asks a person', () => {
     await journalled(second, runId, 'after the answer');
     const journal = (
       await http()
-        .get(`/api/workspaces/${team.slug}/inbox/tasks/${taskId}/journal`)
+        .get(
+          `/api/workspaces/${team.slug}/inbox/tasks/${taskId}/journal/${runId}`,
+        )
         .set(TEST_USER_HEADER, team.owner.value)
         .expect(200)
     ).body as { runId: string; attempt: number }[];
@@ -404,7 +427,7 @@ describe('a run that asks a person', () => {
         handover: { next: 'ship', note: 'Drained.' },
       })
       .expect(204);
-    expect((await runRow(runId))?.state).toBe('completed');
+    await runIn(runId, 'completed');
 
     const runs = (
       await http()
@@ -469,6 +492,7 @@ describe('a run that asks a person', () => {
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
       .expect(204);
+    await eventually(async () => (await runRow(runId))?.turn === 'kept');
     const runs = app.get(DrizzleRunRepository);
     const read = await runs.findById(RunId.of(runId));
 
@@ -478,9 +502,98 @@ describe('a run that asks a person', () => {
 
     await runs.save(read.requestStop(new Date()));
 
-    await expect(runs.save(read.resumed([]))).rejects.toBeInstanceOf(
-      RunVersionConflictError,
-    );
+    await expect(
+      runs.save(read.resumed(null, 'answered', [], new Date())),
+    ).rejects.toBeInstanceOf(RunVersionConflictError);
+    expect((await runRow(runId))?.state).toBe('completed');
+  });
+});
+
+describe('the turn a run hands over, raced by people (R3, R4, R5)', () => {
+  const taskNotes = async (taskId: string) =>
+    db.select().from(schema.taskNote).where(eq(schema.taskNote.taskId, taskId));
+
+  it('ends the run, whichever comes first, when a person moves the task while its turn is decided (R3)', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const token = await claimed(runId);
+
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, askingForReview)
+      .expect(204);
+    await http()
+      .post(
+        `/api/teams/${team.teamId.value}/lines/${DELIVERY}/tasks/${taskId}/move`,
+      )
+      .set(TEST_USER_HEADER, team.owner.value)
+      .send({ stationId: BACKLOG, revision: 0 })
+      .expect((response) => expect(response.status).toBeLessThan(300));
+
+    const ended = await eventually(async () => {
+      const row = await runRow(runId);
+      return row?.endedAt ? row : null;
+    });
+    expect(ended.state).toBe('completed');
+    expect(ended.turn).toBeNull();
+    const task = await taskRow(taskId);
+    expect(task?.stationId).toBe(BACKLOG);
+    expect(task?.currentRunId).not.toBe(runId);
+  });
+
+  it('never leaves a run waiting with a stop request when a person stops it while its turn is decided (R4)', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const token = await claimed(runId);
+
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, askingForReview)
+      .expect(204);
+    await http()
+      .post(`/api/teams/${team.teamId.value}/runs/${runId}/stop`)
+      .set(TEST_USER_HEADER, team.owner.value)
+      .expect((response) => expect(response.status).toBeLessThan(300));
+
+    const ended = await eventually(async () => {
+      const row = await runRow(runId);
+      return row?.endedAt ? row : null;
+    });
+    expect(ended.turn).toBeNull();
+    expect(
+      (await taskNotes(taskId)).some(
+        (note) => note.body === 'Which queue should I drain?',
+      ),
+    ).toBe(true);
+  });
+
+  it('asks the person once however often the turn is decided again (R5)', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const token = await claimed(runId);
+
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, askingForReview)
+      .expect(204);
+    await eventually(async () => (await runRow(runId))?.turn === 'kept');
+    await app.get(TakeTurn).take(RunId.of(runId), 1);
+    await app.get(TakeTurn).take(RunId.of(runId), 1);
+
+    expect(await taskNotes(taskId)).toHaveLength(1);
+    expect((await runRow(runId))?.turn).toBe('kept');
+  });
+
+  it('shows hooks of the run that ended the station it ran at, after the turn moved the task on', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const token = await claimed(runId);
+
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, {
+        exitCode: 0,
+        failed: false,
+        handover: { next: 'ship', note: 'Built.' },
+      })
+      .expect(204);
+    await eventually(async () => (await taskRow(taskId))?.stationId === SHIP);
+
+    const view = await app.get<TaskViewsPort>(TASK_VIEWS).of(taskId, runId);
+
+    expect(view?.stationKey).toBe('build');
     expect((await runRow(runId))?.state).toBe('completed');
   });
 });
@@ -534,10 +647,15 @@ describe('a message in a run chat', () => {
     expect((await runRow(runId))?.state).toBe('completed');
 
     const queued = await runIn(next, 'queued');
-    expect(queued?.stationId).toBe(DEPLOY);
+    const [dispatched] = await db
+      .select()
+      .from(schema.dispatch)
+      .where(eq(schema.dispatch.id, next));
+    expect(dispatched?.stationId).toBe(DEPLOY);
+    expect(queued?.workingCopyKey).toBe(`work/task-${taskId}`);
     expect(queued?.spec).toMatchObject({
       briefing: expect.stringContaining('Deploy the docs with it too.'),
-      resume: { key: `task-${taskId}`, sessionId: 'session_1' },
+      resume: { sessionId: 'session_1' },
     });
 
     await claimed(next);
@@ -569,10 +687,10 @@ describe('a message in a run chat', () => {
 describe('a run queued while an earlier run of its task is still leased', () => {
   const claimsNext = async (): Promise<string[]> => {
     const claimed: string[] = [];
-    const runs = app.get(DrizzleRunRepository);
+    const claims = app.get(RunClaims);
 
     for (let taken = 0; taken < 5; taken++) {
-      const next = await runs.claimNext(
+      const next = await claims.next(
         {
           runner: RunnerId.of(`runner-${randomUUID()}`),
           workspaceId: team.workspaceId,
@@ -597,7 +715,7 @@ describe('a run queued while an earlier run of its task is still leased', () => 
     ['the same station', BUILD],
     ['another station', DEPLOY],
   ])(
-    'is claimed only once the earlier run has ended, so the two never share the task’s workspace, at %s',
+    'is claimed only once the earlier run has ended, so the two never share the task’s working copy, at %s',
     async (_, station) => {
       const { taskId, runId } = await aTaskWithLeasedRun();
       const token = await claimed(runId);
@@ -609,7 +727,6 @@ describe('a run queued while an earlier run of its task is still leased', () => 
       await db.insert(schema.run).values({
         ...(earlier as typeof schema.run.$inferInsert),
         id: next,
-        stationId: station,
         state: 'queued',
         claimedBy: null,
         leaseExpiresAt: null,
@@ -618,6 +735,15 @@ describe('a run queued while an earlier run of its task is still leased', () => 
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      await db.insert(schema.dispatch).values(
+        aDispatch({
+          runId: next,
+          workspaceId: team.workspaceId.value,
+          teamId: team.teamId.value,
+          taskId,
+          stationId: station,
+        }),
+      );
       await db
         .update(schema.task)
         .set({ currentRunId: next })

@@ -1,4 +1,6 @@
-export class InvalidTraceRangeError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidTraceRangeError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(names: readonly string[]) {

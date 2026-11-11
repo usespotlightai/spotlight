@@ -1,11 +1,10 @@
-import type { ErrorKind } from '@shared-kernel/domain/exceptions/error-kind';
+export type ApplicationErrorKind =
+  | 'conflict'
+  | 'invalid'
+  | 'not-allowed'
+  | 'not-found'
+  | 'upstream-error';
 
-export class ApplicationError extends Error {
-  constructor(
-    readonly kind: ErrorKind,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'ApplicationError';
-  }
+export abstract class ApplicationError extends Error {
+  abstract readonly kind: ApplicationErrorKind;
 }

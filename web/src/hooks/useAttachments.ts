@@ -56,7 +56,7 @@ export function useAttachments(
         key: uniqueKey(),
         name: file.name,
         size: file.size,
-        image: drawn(file.type) ? file : null,
+        imageSource: drawn(file.type) ? { blob: file } : null,
         ...(problem ? { state: 'failed', problem } : { state: 'uploading' }),
       };
 

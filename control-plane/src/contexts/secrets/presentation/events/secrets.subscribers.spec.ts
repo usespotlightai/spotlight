@@ -1,6 +1,6 @@
 import { DeleteWorkspaceSecrets } from '@secrets/application/services/delete-workspace-secrets.service';
 import { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.service';
-import { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
+import { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
@@ -17,7 +17,7 @@ import {
   RecordingLogger,
   transaction,
   WORKSPACE,
-} from '@secrets/secrets.fakes.fake-spec';
+} from '@secrets/testing/secrets.fakes.fake-spec';
 import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -55,7 +55,7 @@ const setUp = async () => {
     },
     runGrants: new PurgeRunGrants(
       grants,
-      new RunGrantsUnitOfWork(grants),
+      new RunGrantsChanges(grants),
       clockAt(),
       new RecordingLogger(),
     ),

@@ -1,4 +1,6 @@
-export class PullRequestHookDeniedError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class PullRequestHookDeniedError extends DomainError {
   readonly kind = 'not-allowed' as const;
 
   constructor(reason: string) {

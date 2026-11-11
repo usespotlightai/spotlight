@@ -1,4 +1,6 @@
-export class PullRequestRecordVersionConflictError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class PullRequestRecordVersionConflictError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(pullRequest: string) {

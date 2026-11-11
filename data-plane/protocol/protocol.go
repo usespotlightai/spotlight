@@ -254,15 +254,52 @@ type Run struct {
 type EventType string
 
 const (
-	EventWorkspaceReady EventType = "workspace.ready"
-	EventOutput         EventType = "output"
-	EventFailed         EventType = "failed"
-	EventSpan           EventType = "span"
-	EventUsage          EventType = "usage"
-	EventToolRefused    EventType = "tool.refused"
-	EventEgressChecked  EventType = "egress.checked"
-	EventAgentStopped   EventType = "agent.stopped"
+	EventWorkingCopyReady EventType = "working-copy.ready"
+	EventOutput           EventType = "output"
+	EventFailed           EventType = "failed"
+	EventSpan             EventType = "span"
+	EventUsage            EventType = "usage"
+	EventToolRefused      EventType = "tool.refused"
+	EventEgressChecked    EventType = "egress.checked"
+	EventAgentStopped     EventType = "agent.stopped"
+	EventHarnessConnected EventType = "harness.connected"
+	EventAgentReminded    EventType = "agent.reminded"
+	EventBackgroundWait   EventType = "background.waiting"
+	EventBackgroundDone   EventType = "background.settled"
+	EventBackgroundLost   EventType = "background.lost"
 )
+
+type BackgroundKind string
+
+const (
+	BackgroundCommand  BackgroundKind = "command"
+	BackgroundMonitor  BackgroundKind = "monitor"
+	BackgroundSubagent BackgroundKind = "subagent"
+	BackgroundOther    BackgroundKind = "other"
+)
+
+type BackgroundTask struct {
+	ID          string         `json:"id"`
+	Kind        BackgroundKind `json:"kind"`
+	Description string         `json:"description"`
+}
+
+type WaitEnded string
+
+const (
+	WaitSettled    WaitEnded = "settled"
+	WaitHandedOver WaitEnded = "handed-over"
+	WaitMessage    WaitEnded = "message"
+	WaitStopped    WaitEnded = "stopped"
+	WaitGone       WaitEnded = "gone"
+	WaitLimit      WaitEnded = "limit"
+)
+
+type BackgroundWork struct {
+	Tasks []BackgroundTask `json:"tasks"`
+	Until *time.Time       `json:"until,omitempty"`
+	Ended WaitEnded        `json:"ended,omitempty"`
+}
 
 type Event struct {
 	Seq      int       `json:"seq"`
@@ -363,9 +400,20 @@ const (
 )
 
 type ClaimResponse struct {
-	Kind  string      `json:"kind"`
-	Run   *Run        `json:"run"`
-	Check *StackCheck `json:"check"`
+	Kind  string       `json:"kind"`
+	Run   *Run         `json:"run"`
+	Check *StackCheck  `json:"check"`
+	Warm  *WarmSandbox `json:"warm,omitempty"`
+}
+
+type WarmSandbox struct {
+	Line      string         `json:"line"`
+	Checkouts []WarmCheckout `json:"checkouts"`
+}
+
+type WarmCheckout struct {
+	Path  string `json:"path"`
+	Setup string `json:"setup,omitempty"`
 }
 
 type Assignment struct {
@@ -402,13 +450,13 @@ type CheckStep struct {
 }
 
 const (
-	SkipNoBase          = "no-base"
-	SkipNoCheckout      = "no-checkout"
-	SkipCheckoutFailed  = "checkout-failed"
-	SkipSetupFailed     = "setup-failed"
-	SkipWorkspaceFailed = "workspace-failed"
-	SkipOutOfTime       = "out-of-time"
-	SkipNoImage         = "no-image"
+	SkipNoBase            = "no-base"
+	SkipNoCheckout        = "no-checkout"
+	SkipCheckoutFailed    = "checkout-failed"
+	SkipSetupFailed       = "setup-failed"
+	SkipWorkingCopyFailed = "working-copy-failed"
+	SkipOutOfTime         = "out-of-time"
+	SkipNoImage           = "no-image"
 )
 
 type SkippedCheck struct {

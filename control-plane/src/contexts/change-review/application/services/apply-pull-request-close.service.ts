@@ -1,5 +1,9 @@
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
+import {
+  discardsDecisionsOnClose,
+  keepsDecisions,
+} from '@change-review/domain/services/decision-policy';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -29,7 +33,7 @@ export class ApplyPullRequestClose {
       closed.pullRequest,
     );
 
-    if (!task || task.reviewing) {
+    if (!task || !keepsDecisions(task)) {
       return;
     }
 
@@ -40,17 +44,22 @@ export class ApplyPullRequestClose {
         return;
       }
 
-      await this.sets.save(
-        closed.merge
-          ? set.merge(
-              DecisionMerge.of({
-                repository: closed.repository,
-                commit: closed.merge.commit,
-                at: closed.closedAt ?? this.clock.now(),
-              }),
-            )
-          : set.closeUnmerged(),
-      );
+      if (closed.merge) {
+        await this.sets.save(
+          set.merge(
+            DecisionMerge.of({
+              repository: closed.repository,
+              commit: closed.merge.commit,
+              at: closed.closedAt ?? this.clock.now(),
+            }),
+          ),
+        );
+      } else if (
+        set.discardable &&
+        discardsDecisionsOnClose(task, closed.pullRequest)
+      ) {
+        await this.sets.remove(set);
+      }
     });
   }
 }

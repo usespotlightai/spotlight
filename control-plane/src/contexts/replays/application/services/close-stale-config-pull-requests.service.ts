@@ -2,7 +2,7 @@ import { ConfigRepositoryError } from '@replays/application/errors/config-reposi
 import type { ConfigRepositoryPort } from '@replays/application/ports/config-repository.port';
 import type {
   ConfigPullRequest,
-  GitHubPullRequest,
+  HostPullRequest,
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
@@ -46,14 +46,14 @@ export class CloseStaleConfigPullRequests implements PendingJobsPort {
   }
 
   private async attempt(due: ConfigPullRequest): Promise<void> {
-    const at = due.gitHubPullRequest;
+    const at = due.hostPullRequest;
 
     if (!at || !(await this.claimed(due))) {
       return;
     }
 
     try {
-      await this.closedOnGitHub(due, at);
+      await this.closedOnHost(due, at);
     } catch (error) {
       if (error instanceof ConfigRepositoryError) {
         await this.settled(due, (current) =>
@@ -78,15 +78,15 @@ export class CloseStaleConfigPullRequests implements PendingJobsPort {
     }
   }
 
-  private async closedOnGitHub(
+  private async closedOnHost(
     due: ConfigPullRequest,
-    at: GitHubPullRequest,
+    at: HostPullRequest,
   ): Promise<void> {
     const status = await this.configs.statusOf(due.workspaceId, at);
 
     if (status.state !== 'open') {
       await this.settled(due, (current) =>
-        current.recordGitHubClose({
+        current.recordHostClose({
           merged: status.state === 'merged',
           at: status.closedAt ?? this.clock.now(),
         }),

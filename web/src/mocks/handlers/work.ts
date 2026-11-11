@@ -11,6 +11,7 @@ import type {
 } from '@/lib/api';
 import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
+import { pageOf } from '@/mocks/paging';
 import { perWorld, world } from '@/mocks/world';
 import { SAM } from '@/mocks/world/people';
 import { runNetworkOf } from '@/mocks/world/run-network';
@@ -101,7 +102,7 @@ export const workHandlers: RequestHandler[] = [
         createdAt: new Date().toISOString(),
         progress: null,
         awaitingReview: null,
-        pullRequest: null,
+        pullRequests: [],
         createdBy: SAM,
         assignee: null,
         note: null,
@@ -191,9 +192,16 @@ export const workHandlers: RequestHandler[] = [
     },
   ),
 
-  api.get('/teams/:teamId/runs', ({ params }) =>
-    json(teamRunsOf(String(params.teamId))),
+  api.get('/teams/:teamId/runs', ({ params, request }) =>
+    json(pageOf(teamRunsOf(String(params.teamId)), request, (run) => run.id)),
   ),
+
+  api.get('/teams/:teamId/runs/:runId', ({ params }) => {
+    const run = teamRunsOf(String(params.teamId)).find(
+      (each) => each.id === String(params.runId),
+    );
+    return run ? json(run) : notFound();
+  }),
 
   api.get('/teams/:teamId/runs/:runId/notes', ({ params }) => {
     const located = locateRun(String(params.teamId), String(params.runId));

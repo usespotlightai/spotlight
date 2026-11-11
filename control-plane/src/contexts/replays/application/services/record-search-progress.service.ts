@@ -8,9 +8,11 @@ import { improvedOnBestBefore } from '@replays/domain/services/search-improvemen
 import {
   reconciled,
   type SeenRun,
+  searchRunEnding,
 } from '@replays/domain/services/search-reconciliation';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -19,12 +21,11 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface SearchRunEnded {
   readonly runId: string;
-  readonly outcome: string;
+  readonly outcome: RunResult;
   readonly asked: boolean;
   readonly started: boolean;
+  readonly endedAt: Date;
 }
-
-const COMPLETED = 'completed';
 
 export class RecordSearchProgress {
   constructor(
@@ -56,7 +57,12 @@ export class RecordSearchProgress {
           : { spent: Money.none(search.budget.ceiling.currency), unpriced: 0 },
         this.clock.now(),
         this.runIds,
-        improvedOnBestBefore(search, event.replayId, replays, minGain),
+        improvedOnBestBefore(
+          search,
+          event.replayId,
+          replays.map((each) => each.outcome()),
+          minGain,
+        ),
       );
     });
   }
@@ -69,11 +75,8 @@ export class RecordSearchProgress {
       await this.changing(search.id, async (fresh) =>
         fresh.recordRunEnd(
           run,
-          {
-            failed: event.outcome !== COMPLETED || event.asked,
-            started: event.started,
-          },
-          this.clock.now(),
+          searchRunEnding(event),
+          event.endedAt,
           this.runIds,
         ),
       );
@@ -96,7 +99,6 @@ export class RecordSearchProgress {
       reconciled(
         fresh,
         await this.replays.ofSearch(fresh.id),
-        seen.replayIds,
         runs,
         (await this.healths.standardAt(fresh.station)).minGain,
         this.clock.now(),

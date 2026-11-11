@@ -1,3 +1,4 @@
+import type { Dependent } from '@identity/application/ports/dependents.port';
 import type { WorkspaceDependentSource } from '@identity/application/ports/workspace-dependents.port';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
@@ -8,24 +9,33 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export class RunnerDependents implements WorkspaceDependentSource {
   constructor(
     private readonly trusts: RunnerTrustRepository,
-    private readonly declarations: WorkspaceRunnersRepository,
+    private readonly workspaceRunners: WorkspaceRunnersRepository,
     private readonly pools: RunnerPoolRepository,
     private readonly egresses: EgressRepository,
   ) {}
 
-  async dependentsOf(workspaceId: WorkspaceId): Promise<readonly string[]> {
+  async dependentsOf(workspaceId: WorkspaceId): Promise<readonly Dependent[]> {
     const [trusts, declared, pools, egresses] = await Promise.all([
       this.trusts.inWorkspace(workspaceId),
-      this.declarations.declaredIn(workspaceId),
+      this.workspaceRunners.ofWorkspace(workspaceId),
       this.pools.inWorkspace(workspaceId),
       this.egresses.inWorkspace(workspaceId),
     ]);
 
     return [
-      ...trusts.map((each) => `runner trust ${each.key.value}`),
-      ...pools.map((each) => `runner pool ${each.key.value}`),
-      ...egresses.map((each) => `egress ${each.key.value}`),
-      ...(declared ? ['workspace runners'] : []),
+      ...trusts.map((each) => ({
+        kind: 'runner-trust' as const,
+        key: each.key.value,
+      })),
+      ...pools.map((each) => ({
+        kind: 'runner-pool' as const,
+        key: each.key.value,
+      })),
+      ...egresses.map((each) => ({
+        kind: 'egress' as const,
+        key: each.key.value,
+      })),
+      ...(declared ? [{ kind: 'workspace-runners' as const, key: null }] : []),
     ];
   }
 }

@@ -12,11 +12,11 @@ const OTHER = RunId.of('baseline_run_0');
 const verdict = pairVerdictOf;
 
 describe('PairVerdict', () => {
-  it('reads the winner from the candidate’s side: its run wins, the baseline’s run is its loss, or a tie', () => {
-    expect(verdict('run').outcome).toBe('win');
-    expect(verdict('other').outcome).toBe('loss');
+  it('reads the verdict from the candidate’s side: a win, a loss or a tie', () => {
+    expect(verdict('win').outcome).toBe('win');
+    expect(verdict('loss').outcome).toBe('loss');
     expect(verdict('tie').outcome).toBe('tie');
-    expect(verdict('run').passes[0]).toEqual({
+    expect(verdict('win').passes[0]).toEqual({
       ownShownFirst: true,
       outcome: 'win',
       reasons: [
@@ -24,7 +24,7 @@ describe('PairVerdict', () => {
       ],
     });
     expect(() =>
-      PairVerdict.fromWinner({ winner: 'nobody', model: 'm', passes: [] }),
+      PairVerdict.of({ outcome: 'nobody', model: 'm', passes: [] }),
     ).toThrow(InvalidReplayError);
   });
 
@@ -69,13 +69,19 @@ describe('PairVerdict', () => {
 describe('EntryPairing', () => {
   it('is requested once against one run, then judged or failed, and stays so', () => {
     const requested = EntryPairing.requested(OTHER);
-    const judged = requested.judged(verdict('run'));
+    const judged = requested.judged(verdict('win'));
 
     expect(requested.pending).toBe(true);
     expect(judged.verdict?.outcome).toBe('win');
     expect(judged.failed('errored')).toBe(judged);
     expect(requested.failed('no-evidence').unpaired).toBe('no-evidence');
-    expect(() => requested.failed('something new')).toThrow(InvalidReplayError);
+    expect(() =>
+      EntryPairing.rehydrate({
+        otherRunId: OTHER,
+        verdict: null,
+        unpaired: 'something new',
+      }),
+    ).toThrow(InvalidReplayError);
     expect(requested.isAgainst(OTHER)).toBe(true);
   });
 

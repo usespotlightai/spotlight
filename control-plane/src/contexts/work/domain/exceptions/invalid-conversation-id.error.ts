@@ -1,4 +1,6 @@
-export class InvalidConversationIdError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidConversationIdError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(value: string) {

@@ -1,5 +1,5 @@
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { describe, expect, it } from 'vitest';
 

@@ -1,10 +1,11 @@
-import type { SandboxState } from '@runners/domain/aggregates/sandbox.aggregate';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 
 export const SANDBOXES = Symbol('SANDBOXES');
 
 export interface SandboxForRun {
   readonly workspaceId: string;
   readonly key: string | null;
+  readonly line: string | null;
   readonly hostId: string;
   readonly runId: string;
 }
@@ -14,15 +15,40 @@ export interface StartedSandbox {
   readonly token: string;
 }
 
-export interface SandboxTakingRuns {
-  readonly id: string;
-  readonly workspaceId: string;
-  readonly key: string;
+export type SandboxTakingRuns =
+  | {
+      readonly id: string;
+      readonly workspaceId: string;
+      readonly key: string;
+    }
+  | {
+      readonly id: string;
+      readonly workspaceId: string;
+      readonly warmFor: string;
+    };
+
+export interface WarmStart {
+  readonly line: string;
+  readonly checkouts: readonly {
+    readonly path: string;
+    readonly setup: string | null;
+  }[];
 }
+
+export interface StartedWarmSandbox extends StartedSandbox {
+  readonly warm: WarmStart;
+}
+
+export interface ReadyWarmSandbox {
+  readonly id: string;
+  readonly line: string;
+}
+
+type SandboxStatus = 'starting' | 'ready' | 'draining' | 'gone';
 
 export interface OpenedSandbox {
   readonly id: string;
-  readonly state: SandboxState;
+  readonly state: SandboxStatus;
 }
 
 export interface RequestedSandbox {
@@ -67,6 +93,26 @@ export interface SandboxesPort {
   ): Promise<StartedSandbox | null>;
 
   drain(sandboxId: string): Promise<void>;
+
+  requestedWarmIn(workspaceId: string): Promise<readonly string[]>;
+
+  startWarm(
+    sandboxId: string,
+    hostId: string,
+    offer: RunnerOffer,
+    at: Date,
+  ): Promise<StartedWarmSandbox | null>;
+
+  readyWarmIn(
+    workspaceId: string,
+    at: Date,
+  ): Promise<readonly ReadyWarmSandbox[]>;
+
+  adoptForRun(
+    sandboxId: string,
+    run: SandboxForRun,
+    at: Date,
+  ): Promise<boolean>;
 
   authenticate(token: string | undefined): Promise<AuthenticatedSandbox | null>;
 }

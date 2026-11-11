@@ -25,6 +25,7 @@ type egressSidecar struct {
 	keys         []protocol.HarnessKey
 	wait         time.Duration
 	sandboxHosts []string
+	networkName  string
 	network      string
 	container    string
 	credential   string
@@ -66,8 +67,11 @@ func (h *Host) egressSidecar(
 		host: h, name: name, labels: labels, keys: harnessKeys, sandboxHosts: sandboxHosts, wait: wait, credential: rand.Text(),
 	}
 
+	sidecar.networkName = "spotlight-" + name
+	h.holdNetwork(sidecar.networkName)
+
 	var err error
-	sidecar.network, err = h.engine.Network(ctx, "spotlight-"+name, labels)
+	sidecar.network, err = h.engine.Network(ctx, sidecar.networkName, labels)
 	if err != nil {
 		return sidecar, err
 	}
@@ -237,17 +241,22 @@ func (s *egressSidecar) authorityFile() sandbox.File {
 }
 
 func (s *egressSidecar) close() {
-	ctx, cancel := context.WithTimeout(context.Background(), cleanupBudget)
-	defer cancel()
+	if s.networkName != "" {
+		defer s.host.releaseNetwork(s.networkName)
+	}
 
 	if s.container != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), cleanupBudget)
+		defer cancel()
 		if err := s.host.engine.Destroy(ctx, s.container); err != nil {
-			s.host.log.Error("could not destroy a sandbox's egress; the next start destroys it", "egress", s.container, "error", err)
+			s.host.log.Error("could not destroy a sandbox's egress; the next sweep destroys it", "egress", s.container, "error", err)
 		}
 	}
 	if s.network != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), cleanupBudget)
+		defer cancel()
 		if err := s.host.engine.Unnetwork(ctx, s.network); err != nil {
-			s.host.log.Error("could not remove a sandbox's network; the next start removes it", "network", s.network, "error", err)
+			s.host.log.Error("could not remove a sandbox's network; the next sweep removes it", "network", s.networkName, "error", err)
 		}
 	}
 }

@@ -1,6 +1,6 @@
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubPullRequestReactions } from '@github/infrastructure/github/github-pull-request-reactions';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';

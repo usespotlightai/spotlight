@@ -5,6 +5,8 @@ import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class RevokeInviteHandler
   implements CommandHandlerPort<RevokeInviteCommand, boolean>
@@ -19,7 +21,7 @@ export class RevokeInviteHandler
     try {
       const administered = await this.administration.administeredBy(
         command.slug,
-        command.viewerId,
+        PersonPrincipal.of(UserId.of(command.viewerId)),
       );
 
       if (!administered) {

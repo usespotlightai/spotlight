@@ -21,7 +21,7 @@ describe('SecretDefinitions', () => {
 
     expect(read.ok && read.source.kind).toBe('built-in');
     expect(read.ok && read.value?.revealed()).toBe('lin_api_1');
-    expect(read.ok && read.valueVersion).toBe(1);
+    expect(read.ok && read.valueVersion?.value).toBe(1);
     expect(read.ok && read.bindings.hosts).toEqual(['api.linear.app']);
   });
 

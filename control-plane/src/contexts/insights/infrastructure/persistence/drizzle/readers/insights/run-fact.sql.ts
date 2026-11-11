@@ -37,7 +37,7 @@ export const onTeam = ({ workspaceId, teamId }: TeamInPeriod): SQL =>
   sql`${runFact.workspaceId} = ${workspaceId.value} and ${runFact.teamId} = ${teamId.value}`;
 
 export const endedIn = (from: Date, to: Date): SQL =>
-  sql`${runFact.endedAt} >= ${iso(from)}::timestamp and ${runFact.endedAt} < ${iso(to)}::timestamp`;
+  sql`${runFact.endedAt} >= ${iso(from)}::timestamptz and ${runFact.endedAt} < ${iso(to)}::timestamptz`;
 
 export const msOf = (column: SQL): SQL =>
   sql`(extract(epoch from ${column}) * 1000)::float8`;
@@ -61,8 +61,8 @@ export const periodFacts = (team: TeamInPeriod): SQL => {
   return sql`
     select
       ${runFact}.*,
-      ${runFact.endedAt} >= ${iso(current.from)}::timestamp as is_current,
-      to_char(${runFact.endedAt}, 'YYYY-MM-DD') as day
+      ${runFact.endedAt} >= ${iso(current.from)}::timestamptz as is_current,
+      to_char(${runFact.endedAt} at time zone 'UTC', 'YYYY-MM-DD') as day
     from ${runFact}
     where ${onTeam(team)} and ${endedIn(previous.from, current.to)}`;
 };
@@ -94,7 +94,7 @@ export const stationsInEndOrder = (facts: SQL, part?: SQL): SQL => {
 };
 
 export const spendColumns = sql`
-  sum(${runFact.cost} order by ${inEndOrder}) filter (where ${priced}) as amount,
+  sum(${runFact.cost}::float8 order by ${inEndOrder}) filter (where ${priced}) as amount,
   min(${runFact.currency}) filter (where ${priced}) as currency,
   count(distinct ${runFact.currency}) filter (where ${priced})::int as currencies,
   ${counted(sql`${ran} and not (${priced})`)} as unpriced`;
@@ -133,8 +133,8 @@ const timed = sql`${ran} and ${runFact.ms} is not null`;
 export const tallyColumns = sql`
   ${counted(ran)} as runs,
   ${counted(sql`not ${ran}`)} as cancelled,
-  ${counted(sql`${ran} and ${runFact.supersededAt} is null and ${runFact.ending} = 'failed'`)} as failed,
-  ${counted(sql`${ran} and ${runFact.supersededAt} is null and ${runFact.ending} = 'stopped'`)} as stopped,
+  ${counted(sql`${runFact.ending} = 'failed'`)} as failed,
+  ${counted(sql`${runFact.ending} = 'stopped'`)} as stopped,
   ${counted(sql`${ran} and ${runFact.checks} = 'passed'`)} as checks_passed,
   ${counted(sql`${ran} and ${runFact.checks} = 'failed'`)} as checks_failed,
   ${counted(sql`${ran} and ${runFact.firstHumanAction} = 'accepted'`)} as accepted,
@@ -193,7 +193,7 @@ export interface GroupColumns extends TallyColumns {
   readonly usage_recorded: number;
 }
 
-export const groupCountsOf = (row: GroupColumns): GroupCounts => ({
+export const groupCountsOfRow = (row: GroupColumns): GroupCounts => ({
   tally: tallyCountsOf(row),
   measured: {
     acted: row.acted,

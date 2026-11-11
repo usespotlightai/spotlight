@@ -1,44 +1,29 @@
 import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto';
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { PullRequestSnapshot } from '@github/domain/aggregates/pull-request.aggregate';
-import type { PullRequestThread } from '@github/domain/value-objects/bot-activity.vo';
+import type {
+  CommentAction,
+  ReceivedComment,
+} from '@github/domain/events/review-comment-received.event';
+import type { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
+import type { ReviewState } from '@github/domain/value-objects/review-state.vo';
 
 export const WEBHOOK_PARSER = Symbol('WEBHOOK_PARSER');
 
-type ReviewCommentAction = 'created' | 'edited' | 'deleted';
-
-type WebhookPlace =
-  | { readonly subject: 'file' }
-  | {
-      readonly subject: 'line';
-      readonly side: 'old' | 'new';
-      readonly line: number | null;
-      readonly startLine: number | null;
-    };
-
-type WebhookReviewComment = {
-  readonly id: number;
-  readonly url: string;
-  readonly path: string;
-  readonly body: string;
-  readonly inReplyToId: number | null;
-  readonly login: string | null;
-  readonly byBot: boolean;
-  readonly writtenAt: Date | null;
-} & WebhookPlace;
+type WebhookReviewComment = ReceivedComment & { readonly byBot: boolean };
 
 export type WebhookEvent =
   | { readonly kind: 'installation-removed' }
   | {
       readonly kind: 'review-comment';
-      readonly action: ReviewCommentAction;
+      readonly action: CommentAction;
       readonly pullRequest: string;
       readonly comment: WebhookReviewComment;
       readonly snapshot: PullRequestSnapshot | null;
     }
   | {
       readonly kind: 'conversation-comment';
-      readonly action: ReviewCommentAction;
+      readonly action: CommentAction;
       readonly pullRequest: string;
       readonly comment: {
         readonly id: number;
@@ -73,7 +58,7 @@ export type WebhookEvent =
       readonly pullRequest: string;
       readonly id: number | null;
       readonly snapshot: PullRequestSnapshot | null;
-      readonly state: 'approved' | 'changes-requested' | 'commented';
+      readonly state: ReviewState;
       readonly login: string | null;
       readonly byBot: boolean;
       readonly submittedAt: Date | null;

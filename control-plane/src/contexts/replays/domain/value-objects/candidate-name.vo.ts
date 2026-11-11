@@ -51,6 +51,10 @@ export class CandidateName {
   }
 
   equals(other: CandidateName): boolean {
-    return this.value === other.value;
+    return this.is(other.value);
+  }
+
+  is(raw: string): boolean {
+    return this.value.toLowerCase() === raw.toLowerCase();
   }
 }

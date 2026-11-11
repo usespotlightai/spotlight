@@ -1,7 +1,7 @@
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
+import { UnplaceableHappeningError } from '@integrations/domain/exceptions/unplaceable-happening.error';
 import { GitHubWebhookProvider } from '@integrations/infrastructure/webhooks/github.webhook-provider';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   PULL_REQUEST_MARK,
@@ -18,7 +18,7 @@ const MERGED: PullRequestActivity = {
   label: null,
   details: null,
   reviewComment: null,
-  byBot: false,
+  ignoredAsBot: false,
   checkSuite: null,
   failedChecks: [],
 };
@@ -36,7 +36,7 @@ const OPENED: PullRequestActivity = {
     draft: false,
   },
   reviewComment: null,
-  byBot: false,
+  ignoredAsBot: false,
   checkSuite: null,
   failedChecks: [],
 };
@@ -81,6 +81,7 @@ describe('GitHubWebhookProvider', () => {
       message: null,
       ourOwn: false,
       opens: null,
+      closedPullRequest: MERGED.pullRequest,
     });
   });
 
@@ -108,19 +109,38 @@ describe('GitHubWebhookProvider', () => {
     ]);
   });
 
-  it('names the checks that failed', async () => {
+  it('names the checks that failed, with the failed step and the end of the log', async () => {
     expect(
       (
         await readOne({
           ...MERGED,
           activity: 'checks-failed',
-          failedChecks: ['web / build', 'gitleaks / secret scan'],
+          failedChecks: [
+            {
+              name: 'web / build',
+              step: 'React Doctor',
+              summary: null,
+              log: 'src/routes/AgentChat.tsx:32\n##[error]Process completed with exit code 1.',
+            },
+            {
+              name: 'gitleaks / secret scan',
+              step: null,
+              summary: null,
+              log: null,
+            },
+          ],
         })
       ).message,
-    ).toEqual({ body: 'Failed: web / build, gitleaks / secret scan.' });
+    ).toEqual({
+      body: [
+        'Failed: web / build, gitleaks / secret scan.',
+        '**web / build** failed at the step "React Doctor". The end of its log:',
+        '```text\nsrc/routes/AgentChat.tsx:32\n##[error]Process completed with exit code 1.\n```',
+      ].join('\n\n'),
+    });
   });
 
-  it('carries the review comment, and where it is', async () => {
+  it('carries the review comment, where it is, and the pull request it is on', async () => {
     expect(
       (
         await readOne({
@@ -141,6 +161,7 @@ describe('GitHubWebhookProvider', () => {
       from: 10,
       to: 14,
       reviewComment: 'PRRC_1',
+      pullRequest: MERGED.pullRequest,
     });
   });
 
@@ -157,7 +178,7 @@ describe('GitHubWebhookProvider', () => {
   });
 
   it('marks what a bot did as Spotlight’s own', async () => {
-    expect(await readOne({ ...MERGED, byBot: true })).toMatchObject({
+    expect(await readOne({ ...MERGED, ignoredAsBot: true })).toMatchObject({
       ourOwn: true,
     });
   });
@@ -167,7 +188,7 @@ describe('GitHubWebhookProvider', () => {
       providerOver([
         { ...MERGED, branch: null, pullRequest: null },
       ]).provider.read(DELIVERED),
-    ).rejects.toThrow(UpstreamError);
+    ).rejects.toThrow(UnplaceableHappeningError);
   });
 
   it('requests a review of a pull request opened, found by the review it wants', async () => {
@@ -310,16 +331,17 @@ describe('GitHubWebhookProvider', () => {
   it('rejects a pull request opened that it cannot name', async () => {
     await expect(
       providerOver([{ ...OPENED, pullRequest: null }]).provider.read(DELIVERED),
-    ).rejects.toThrow(UpstreamError);
+    ).rejects.toThrow(UnplaceableHappeningError);
   });
 
   it('says nothing where GitHub reported no activity', async () => {
     expect(await providerOver([]).provider.read(DELIVERED)).toEqual([]);
   });
 
-  it('hands GitHub the delivery before reading what happened', async () => {
+  it('hands GitHub the delivery as a step of its own, apart from reading it', async () => {
     const { provider, github, order } = providerOver([MERGED]);
 
+    await provider.received(DELIVERED);
     await provider.read(DELIVERED);
 
     expect(github.receive).toHaveBeenCalledWith(DELIVERED);

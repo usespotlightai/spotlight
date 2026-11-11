@@ -1,3 +1,4 @@
+import { ReplaySetCreated } from '@replays/domain/events/replay-set-created.event';
 import { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
 import { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
 import { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
@@ -10,26 +11,32 @@ import { UnknownReplaySetEntryError } from '@replays/domain/exceptions/unknown-r
 import { UnreplayableEntryError } from '@replays/domain/exceptions/unreplayable-entry.error';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SetEntriesDigest } from '@replays/domain/value-objects/set-entries-digest.vo';
+import { SetSnapshot } from '@replays/domain/value-objects/set-snapshot.vo';
+import type { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const KEPT_SET_SIZE = 30;
+export const REPLAY_SET_SIZE = 30;
 
 export interface ReplayedStation {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly lineId: string;
-  readonly stationId: string;
+  readonly lineId: LineId;
+  readonly stationId: StationId;
 }
 
 export interface Replayable {
   readonly runId: RunId;
   readonly taskId: TaskId | null;
-  readonly stationId: string | null;
+  readonly stationId: StationId | null;
   readonly unreplayableReason: UnreplayableReason | null;
   readonly reason: string | null;
   readonly endedAt: Date;
@@ -72,7 +79,7 @@ export class ReplaySet extends EventRecorder {
     station: ReplayedStation;
     at: Date;
   }): ReplaySet {
-    return new ReplaySet(
+    const created = new ReplaySet(
       {
         id: input.id,
         station: input.station,
@@ -85,9 +92,33 @@ export class ReplaySet extends EventRecorder {
       },
       false,
     );
+
+    created.record(new ReplaySetCreated(input.id, input.station.workspaceId));
+
+    return created;
   }
 
   static rehydrate(state: State): ReplaySet {
+    if (state.entries.length > REPLAY_SET_SIZE) {
+      throw new InconsistentStateError(
+        HOLDER,
+        `holds ${state.entries.length} runs, more than ${REPLAY_SET_SIZE}`,
+      );
+    }
+
+    const runs = new Set(state.entries.map((each) => each.runId.value));
+    const tasks = new Set(state.entries.map((each) => each.taskId.value));
+
+    if (
+      runs.size !== state.entries.length ||
+      tasks.size !== state.entries.length
+    ) {
+      throw new InconsistentStateError(
+        HOLDER,
+        'holds one run or one task more than once',
+      );
+    }
+
     return new ReplaySet(state, false);
   }
 
@@ -147,12 +178,32 @@ export class ReplaySet extends EventRecorder {
     return ReplaySet.holderOf(this.state.id);
   }
 
+  digestOfEntries(sha256: (text: string) => string): SetEntriesDigest {
+    return SetEntriesDigest.of(
+      sha256(
+        this.runs
+          .map((each) => each.value)
+          .sort()
+          .join('\n'),
+      ),
+    );
+  }
+
+  get snapshot(): SetSnapshot {
+    return SetSnapshot.of({
+      id: this.state.id,
+      station: this.state.station,
+      entries: this.state.entries,
+      isAtGoneStation: this.isAtGoneStation,
+    });
+  }
+
   includes(run: RunId): boolean {
     return this.state.entries.some((each) => each.runId.equals(run));
   }
 
-  isAtStation(stationId: string): boolean {
-    return this.state.station.stationId === stationId;
+  isAtStation(stationId: StationId): boolean {
+    return this.state.station.stationId.equals(stationId);
   }
 
   stationLeft(at: Date): ReplaySet {
@@ -173,15 +224,12 @@ export class ReplaySet extends EventRecorder {
     }
   }
 
-  recordSearch(): ReplaySet {
+  refresh(changes: ReplaySetChanges, at: Date, users: SetUsers): ReplaySet {
     this.stillAtItsStation();
 
-    return this.with({});
-  }
-
-  refresh(changes: ReplaySetChanges, at: Date, inUse: boolean): ReplaySet {
-    this.stillAtItsStation();
-    this.unused(inUse);
+    if (users.inUse) {
+      throw new ReplaySetInUseError(this.id.value);
+    }
 
     const removed = this.state.entries.filter((each) =>
       changes.remove.some((run) => run.equals(each.runId)),
@@ -201,8 +249,8 @@ export class ReplaySet extends EventRecorder {
 
     const added = entries.slice(kept.length);
 
-    if (entries.length > KEPT_SET_SIZE) {
-      throw new ReplaySetFullError(KEPT_SET_SIZE);
+    if (entries.length > REPLAY_SET_SIZE) {
+      throw new ReplaySetFullError(REPLAY_SET_SIZE);
     }
 
     if (added.length === 0 && removed.length === 0) {
@@ -248,7 +296,7 @@ export class ReplaySet extends EventRecorder {
       );
     }
 
-    if (replayable.stationId !== this.state.station.stationId) {
+    if (!replayable.stationId?.equals(this.state.station.stationId)) {
       throw new ReplaySetEntryElsewhereError(run.value);
     }
 
@@ -266,12 +314,6 @@ export class ReplaySet extends EventRecorder {
       endedAt: replayable.endedAt,
       addedAt: at,
     });
-  }
-
-  private unused(inUse: boolean): void {
-    if (inUse) {
-      throw new ReplaySetInUseError(this.id.value);
-    }
   }
 
   private with(part: Partial<State>): ReplaySet {

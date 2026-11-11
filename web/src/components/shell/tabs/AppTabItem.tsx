@@ -1,4 +1,7 @@
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { type LucideIcon, X } from 'lucide-react';
+import { TAB_SLIDE, tabFrame } from '@/components/shell/tabs/app-tab-look';
 import { type AppTab, NEW_TAB_TITLE } from '@/lib/app-tabs';
 import { cn } from '@/lib/utils';
 
@@ -22,22 +25,26 @@ export function AppTabItem({
   onClose,
 }: AppTabItemProps) {
   const title = tab.title ?? NEW_TAB_TITLE;
+  const { setNodeRef, listeners, transform, transition, isDragging } =
+    useSortable({ id: tab.id, transition: TAB_SLIDE });
 
   return (
     <li
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition,
+      }}
+      {...listeners}
       data-slot="app-tab"
       data-active={active || undefined}
+      data-dragging={isDragging || undefined}
       onAuxClick={(event) => {
         if (closable && event.button === MIDDLE_BUTTON) {
           onClose();
         }
       }}
-      className={cn(
-        'group/tab relative flex h-7 w-56 min-w-0 shrink items-center rounded-md text-sm transition-colors',
-        active
-          ? 'bg-card text-foreground shadow-control'
-          : 'bg-card/50 text-muted-foreground hover:bg-card/80 hover:text-foreground',
-      )}
+      className={cn(tabFrame(active), isDragging && 'opacity-0')}
     >
       <button
         type="button"

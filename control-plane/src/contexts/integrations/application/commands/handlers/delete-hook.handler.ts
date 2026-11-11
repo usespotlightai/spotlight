@@ -27,8 +27,8 @@ export class DeleteHookHandler
     try {
       const existing = await this.definitions.withId(id);
       const permissions = existing
-        ? await this.access.permissionsOnTeam(
-            existing.teamId.value,
+        ? await this.access.permissionsInWorkspaceOfTeam(
+            existing.teamId,
             command.actor.principal,
           )
         : null;

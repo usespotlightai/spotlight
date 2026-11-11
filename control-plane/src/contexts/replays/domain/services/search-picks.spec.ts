@@ -96,7 +96,7 @@ describe('autoPickOf', () => {
         ),
         'success',
         THRESHOLD,
-        { rejected: [CandidateId.of('best')], pullRequestOpen: false },
+        { ...NO_CONSTRAINTS, rejected: [CandidateId.of('best')] },
       ),
     ).toEqual({ outcome: 'picked', candidateId: CandidateId.of('good') });
   });
@@ -110,7 +110,7 @@ describe('autoPickOf', () => {
         ),
         'success',
         THRESHOLD,
-        { rejected: [CandidateId.of('best')], pullRequestOpen: false },
+        { ...NO_CONSTRAINTS, rejected: [CandidateId.of('best')] },
       ),
     ).toEqual({ outcome: 'declined', reason: 'rejected-before' });
   });
@@ -118,7 +118,7 @@ describe('autoPickOf', () => {
   it('declines a passing candidate while a config pull request of the station is open', () => {
     expect(
       autoPickOf(scoresOf(scored('best')), 'success', THRESHOLD, {
-        rejected: [],
+        ...NO_CONSTRAINTS,
         pullRequestOpen: true,
       }),
     ).toEqual({ outcome: 'declined', reason: 'pull-request-open' });
@@ -127,9 +127,18 @@ describe('autoPickOf', () => {
         scoresOf(scored('flat', { heldOutSignificance: 'within-noise' })),
         'success',
         THRESHOLD,
-        { rejected: [], pullRequestOpen: true },
+        { ...NO_CONSTRAINTS, pullRequestOpen: true },
       ),
     ).toEqual({ outcome: 'declined', reason: 'no-held-out-gain' });
+  });
+
+  it('declines when the station of the search is gone', () => {
+    expect(
+      autoPickOf(scoresOf(scored('best')), 'success', THRESHOLD, {
+        ...NO_CONSTRAINTS,
+        stationGone: true,
+      }),
+    ).toEqual({ outcome: 'declined', reason: 'station-gone' });
   });
 
   it('declines when no candidate was held out', () => {

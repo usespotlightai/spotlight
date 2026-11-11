@@ -1,29 +1,42 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { chatKeys } from '@/hooks/api/useChats';
+import { inboxKeys } from '@/hooks/api/useInbox';
+import { journalKeys } from '@/hooks/api/useRunJournals';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import type { Chat } from '@/lib/chat';
 
 export function useChatRefresh(chatId: string | undefined, chat?: Chat) {
   const queryClient = useQueryClient();
+  const runId = chat?.runId ?? undefined;
+  const lastRunId = useRef(runId);
+
+  useEffect(() => {
+    if (runId) {
+      lastRunId.current = runId;
+    }
+  }, [runId]);
 
   const bump = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: chatKeys.journal(chatId) });
+    void queryClient.invalidateQueries({ queryKey: journalKeys.ofRun(runId) });
     void queryClient.invalidateQueries({ queryKey: chatKeys.one(chatId) });
-  }, [queryClient, chatId]);
+  }, [queryClient, chatId, runId]);
 
-  useRunStream(
-    chat?.runId ?? undefined,
-    Boolean(chat?.runId),
-    chat?.progress ?? null,
-    bump,
-  );
+  useRunStream(runId, Boolean(runId), chat?.progress ?? null, bump);
 
   const progress = chat?.progress;
   const messageCount = chat?.messages.length;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the journal must update when a run stops or a new message comes, but the effect reads neither value
   useEffect(() => {
-    void queryClient.invalidateQueries({ queryKey: chatKeys.journal(chatId) });
+    void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
+    void queryClient.invalidateQueries({
+      queryKey: journalKeys.runsOfChat(chatId),
+    });
+    if (lastRunId.current) {
+      void queryClient.invalidateQueries({
+        queryKey: journalKeys.ofRun(lastRunId.current),
+      });
+    }
   }, [queryClient, chatId, progress, messageCount]);
 }

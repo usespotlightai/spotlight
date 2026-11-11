@@ -1,16 +1,23 @@
 import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
-import type { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
+import type { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
+import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const WORK = Symbol('INSIGHTS_WORK');
 
 export interface EndedRun {
-  readonly runId: string;
-  readonly workspaceId: string;
-  readonly teamId: string;
-  readonly lineId: string;
-  readonly stationId: string;
-  readonly taskId: string;
-  readonly fingerprint: string | null;
+  readonly runId: RunId;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly lineId: LineId;
+  readonly stationId: StationId;
+  readonly taskId: TaskId;
+  readonly fingerprint: ConfigFingerprint | null;
   readonly visit: number;
   readonly harness: string;
   readonly model: string | null;
@@ -21,6 +28,12 @@ export interface EndedRun {
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
   readonly endedAt: Date;
+}
+
+export interface TaskRun {
+  readonly runId: RunId;
+  readonly taskId: TaskId;
+  readonly teamId: TeamId;
 }
 
 export interface ConfigPart {
@@ -47,7 +60,7 @@ export interface StationConfigView {
   readonly decisions: boolean;
   readonly memories: boolean;
   readonly judge?: {
-    readonly rubricHash: string;
+    readonly rubricVersion: RubricVersion;
     readonly sample: number;
     readonly minAgreement: number;
   };
@@ -87,19 +100,15 @@ export interface TracedWanted {
 }
 
 export interface WorkPort {
-  endedRun(runId: string): Promise<EndedRun | null>;
+  endedRun(runId: RunId): Promise<EndedRun | null>;
 
-  unfinishedRuns(teamId: string): Promise<readonly UnfinishedRun[]>;
+  taskRunOf(runId: RunId): Promise<TaskRun | null>;
+
+  unfinishedRuns(teamId: TeamId): Promise<readonly UnfinishedRun[]>;
 
   traced(wanted: TracedWanted): Promise<TracedWork>;
 
   configsInOrder(
     fingerprints: readonly string[],
   ): Promise<readonly ConfigInOrder[]>;
-
-  teamRepositories(teamId: string): Promise<readonly string[]>;
-
-  teamSkillKeys(teamId: string): Promise<readonly string[]>;
-
-  alertsAt(stationId: string): Promise<readonly AlertRule[] | null>;
 }

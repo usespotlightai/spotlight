@@ -1,4 +1,5 @@
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { GitHubUnansweredError } from '@github/application/errors/github-unanswered.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 const API = 'https://api.github.com';
 
@@ -30,6 +31,8 @@ export const call = (
       'content-type': 'application/json',
       ...init.headers,
     },
+  }).catch((error: unknown) => {
+    throw new GitHubUnansweredError(`${init.method ?? 'GET'} ${path}`, error);
   });
 
 const retryable = (response: Response, body: GitHubError): boolean => {

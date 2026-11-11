@@ -1,9 +1,9 @@
 import { KeepReplaySets } from '@replays/application/services/keep-replay-sets.service';
-import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
+import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import {
   CLOCK,
   FakeInsights,
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryChecks,
   InMemoryReplays,
@@ -14,7 +14,7 @@ import {
   usageFor,
 } from '@replays/application/services/replays.fake-spec';
 import {
-  KEPT_SET_SIZE,
+  REPLAY_SET_SIZE,
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
@@ -23,20 +23,24 @@ import {
   aReplay,
   aSearch,
   aSet,
+  BY,
   NOW,
+  replayFor,
   SEARCH_ID,
   STATION,
+  slots,
 } from '@replays/domain/replays.fake-spec';
-import { refreshCutoff } from '@replays/domain/services/kept-set-refresh';
+import { refreshCutoff } from '@replays/domain/services/replay-set-refresh';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let insights: FakeInsights;
 let checks: InMemoryChecks;
 
@@ -71,18 +75,18 @@ const keeping = (people = peopleWho(true)) =>
   new KeepReplaySets(
     memory.setRepository,
     memory.scheduleRepository,
-    work,
+    suppliers.lines,
     people,
     IDS,
     CLOCK,
   );
 
 const refreshing = () =>
-  new RefreshKeptSets(
+  new RefreshReplaySets(
     memory.setRepository,
     memory.searchRepository,
     usageFor(memory, checks),
-    work,
+    suppliers.trialableRuns,
     insights,
     CLOCK,
     TRANSACTION,
@@ -117,14 +121,14 @@ const unrefreshed = (refreshedAt: Date | null = null) =>
 
 beforeEach(() => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   insights = new FakeInsights();
   checks = new InMemoryChecks(memory.events);
 });
 
 describe('KeepReplaySets', () => {
   it('keeps an empty set for a station once a run of it ends', async () => {
-    await keeping().onRunEnded(STATION.stationId, STATION.workspaceId);
+    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
 
     const [kept] = memory.sets.values();
 
@@ -139,17 +143,23 @@ describe('KeepReplaySets', () => {
   });
 
   it('keeps one set for a station, however many of its runs end', async () => {
-    await keeping().onRunEnded(STATION.stationId, STATION.workspaceId);
-    await keeping().onRunEnded(STATION.stationId, STATION.workspaceId);
+    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
+    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
 
     expect(memory.sets.size).toBe(1);
   });
 
-  it('schedules automatic searches of the station beside its set, due at once, once', async () => {
-    await keeping().onRunEnded(STATION.stationId, STATION.workspaceId);
+  it('schedules automatic searches of a created set, due at once, once', async () => {
+    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
+    expect(memory.schedules.size).toBe(0);
+
+    const [created] = memory.sets.values();
+    await keeping().onSetCreated(created?.id as ReplaySetId);
+    expect(memory.schedules.size).toBe(1);
+
     memory.schedules.clear();
-    await keeping().onRunEnded(STATION.stationId, STATION.workspaceId);
-    await keeping().onRunEnded(STATION.stationId, STATION.workspaceId);
+    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
+    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
 
     const [set] = memory.sets.values();
     const [schedule] = memory.schedules.values();
@@ -163,7 +173,10 @@ describe('KeepReplaySets', () => {
   it('keeps no set for a run without a station, at a station Work does not know, or in another workspace', async () => {
     await keeping().onRunEnded(null, STATION.workspaceId);
     await keeping().onRunEnded('station_gone', STATION.workspaceId);
-    await keeping().onRunEnded(STATION.stationId, WorkspaceId.of('elsewhere'));
+    await keeping().onRunEnded(
+      STATION.stationId.value,
+      WorkspaceId.of('elsewhere'),
+    );
 
     expect(memory.sets.size).toBe(0);
   });
@@ -172,17 +185,17 @@ describe('KeepReplaySets', () => {
     await keeping({
       ...peopleWho(true),
       teamKey: async () => null,
-    }).onRunEnded(STATION.stationId, STATION.workspaceId);
+    }).onRunEnded(STATION.stationId.value, STATION.workspaceId);
 
     expect(memory.sets.size).toBe(0);
     expect(memory.schedules.size).toBe(0);
   });
 });
 
-describe('RefreshKeptSets', () => {
+describe('RefreshReplaySets', () => {
   it('fills a set that was never refreshed from its station’s recent runs', async () => {
     await memory.setRepository.add(unrefreshed());
-    work.recent = [recent('run_2'), recent('run_1')];
+    suppliers.trialableRuns.recent = [recent('run_2'), recent('run_1')];
 
     await refreshing().processDue();
 
@@ -200,24 +213,24 @@ describe('RefreshKeptSets', () => {
   });
 
   it('leaves a full set refreshed in the last 7 days, and refreshes an older one', async () => {
-    work.recent = [recent('run_1')];
+    suppliers.trialableRuns.recent = [recent('run_1')];
     await memory.setRepository.add(
       ReplaySet.rehydrate({
-        ...stateOf(aSet(KEPT_SET_SIZE)),
+        ...stateOf(aSet(REPLAY_SET_SIZE)),
         refreshedAt: new Date(NOW.getTime() - 6 * DAY_MS),
       }),
     );
 
     await refreshing().processDue();
 
-    expect(runsOfSet()).toHaveLength(KEPT_SET_SIZE);
+    expect(runsOfSet()).toHaveLength(REPLAY_SET_SIZE);
     expect(memory.sets.get('set_1')?.refreshedAt).toEqual(
       new Date(NOW.getTime() - 6 * DAY_MS),
     );
   });
 
   it('refreshes a set that is not full a day after its last refresh', async () => {
-    work.recent = [recent('run_1')];
+    suppliers.trialableRuns.recent = [recent('run_1')];
     await memory.setRepository.add(unrefreshed(NOW));
 
     await refreshing().processDue();
@@ -235,17 +248,17 @@ describe('RefreshKeptSets', () => {
   it('leaves a set another tick refreshed since it was found due', async () => {
     const fresh = unrefreshed(NOW);
     await memory.setRepository.add(fresh);
-    work.recent = [recent('run_1')];
+    suppliers.trialableRuns.recent = [recent('run_1')];
     const repository = {
       ...memory.setRepository,
-      dueForRefresh: async () => [fresh],
+      atLiveStationsRefreshedBefore: async () => [fresh],
     };
 
-    await new RefreshKeptSets(
+    await new RefreshReplaySets(
       repository,
       memory.searchRepository,
       usageFor(memory, checks),
-      work,
+      suppliers.trialableRuns,
       insights,
       CLOCK,
       TRANSACTION,
@@ -259,7 +272,7 @@ describe('RefreshKeptSets', () => {
     const set = unrefreshed();
     await memory.setRepository.add(set);
     await memory.searchRepository.add(aSearch({ set: aSet(10) }));
-    work.recent = [recent('run_1')];
+    suppliers.trialableRuns.recent = [recent('run_1')];
 
     await refreshing().processDue();
 
@@ -278,7 +291,7 @@ describe('RefreshKeptSets', () => {
   it('does not refresh before a search while a replay of the set is in progress', async () => {
     await memory.setRepository.add(unrefreshed());
     await memory.replayRepository.add(aReplay({ count: 1 }));
-    work.recent = [recent('run_1')];
+    suppliers.trialableRuns.recent = [recent('run_1')];
 
     expect(await refreshing().refreshBefore(ReplaySetId.of('set_1'))).toBe(
       false,
@@ -289,7 +302,7 @@ describe('RefreshKeptSets', () => {
   it('does not refresh a set while a check of it waits for its baseline', async () => {
     await memory.setRepository.add(unrefreshed());
     await checks.add(aCheck());
-    work.recent = [recent('run_1')];
+    suppliers.trialableRuns.recent = [recent('run_1')];
 
     await refreshing().processDue();
 
@@ -306,21 +319,66 @@ describe('RefreshKeptSets', () => {
         ReplaySet.rehydrate({
           ...stateOf(unrefreshed()),
           id: ReplaySetId.of(id),
-          station: { ...STATION, stationId: `station_${id}` },
+          station: { ...STATION, stationId: StationId.of(`station_${id}`) },
           refreshedAt:
             days === null ? null : new Date(NOW.getTime() - days * DAY_MS),
         }),
       );
     }
 
-    const due = await memory.setRepository.dueForRefresh(refreshCutoff(NOW), 2);
+    const due = await memory.setRepository.atLiveStationsRefreshedBefore(
+      refreshCutoff(NOW).unfilledBefore,
+    );
 
-    expect(due.map((each) => each.id.value)).toEqual(['set_a', 'set_b']);
+    expect(due.map((each) => each.id.value)).toEqual([
+      'set_a',
+      'set_b',
+      'set_c',
+    ]);
+  });
+
+  it('refreshes a free set even when more sets than one tick takes are in use', async () => {
+    const busy = aSet(1);
+
+    for (let at = 0; at < 20; at += 1) {
+      const set = ReplaySet.rehydrate({
+        ...stateOf(busy),
+        id: ReplaySetId.of(`set_0_${String(at).padStart(2, '0')}`),
+        refreshedAt: null,
+      });
+
+      await memory.setRepository.add(set);
+      await memory.replayRepository.add(
+        replayFor(set, `replay_busy_${at}`, 'candidate_busy', null)
+          .reserving(slots(1), () => RunId.of(`busy_run_${at}`))
+          .stop(NOW, BY),
+      );
+    }
+    await memory.setRepository.add(unrefreshed());
+    suppliers.trialableRuns.recent = [recent('run_1')];
+
+    await refreshing().processDue();
+
+    expect(runsOfSet()).toEqual(['run_1']);
+  });
+
+  it('does not refresh a set while a stopped replay of it still holds a runner', async () => {
+    await memory.setRepository.add(unrefreshed());
+    await memory.replayRepository.add(
+      aReplay({ count: 1 })
+        .reserving(slots(1), () => RunId.of('replay_run_1'))
+        .stop(NOW, BY),
+    );
+    suppliers.trialableRuns.recent = [recent('run_1')];
+
+    await refreshing().processDue();
+
+    expect(runsOfSet()).toEqual([]);
   });
 
   it('refreshes before a search, whenever it was last refreshed', async () => {
     await memory.setRepository.add(unrefreshed(NOW));
-    work.recent = [recent('run_1')];
+    suppliers.trialableRuns.recent = [recent('run_1')];
 
     expect(await refreshing().refreshBefore(ReplaySetId.of('set_1'))).toBe(
       true,
@@ -330,7 +388,7 @@ describe('RefreshKeptSets', () => {
 
   it('refreshes no set whose station is gone', async () => {
     await memory.setRepository.add(unrefreshed().stationLeft(NOW));
-    work.recent = [recent('run_1')];
+    suppliers.trialableRuns.recent = [recent('run_1')];
 
     await refreshing().processDue();
 

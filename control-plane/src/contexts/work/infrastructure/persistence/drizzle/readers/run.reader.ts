@@ -2,19 +2,30 @@ import {
   PERSON_READER,
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
-import {
-  WORKSPACE_ACCESS,
-  type WorkspaceAccessPort,
-} from '@identity/application/ports/workspace-access.port';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import {
+  olderThan,
+  pageOf,
+  sortableTime,
+} from '@platform/persistence/drizzle/keyset';
+import {
+  RUN_FACTS,
+  type RunFacts,
+  type RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@runs/application/ports/run-progress.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
+import type { Page, PageRequest } from '@work/application/dto/page.dto';
+import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type {
   RunConfigSummary,
   RunConfigView,
@@ -24,34 +35,42 @@ import type {
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
+import type { RunsInWorkspace } from '@work/application/ports/viewed-runs';
 import { worksOn } from '@work/domain/services/conversations';
+import { inThreadAt } from '@work/domain/services/station-thread';
+import { takesUpRun } from '@work/domain/services/taking-up';
 import {
-  progressOf,
   progressOfCurrentRun,
-  takenUpOnAnswer,
-} from '@work/domain/value-objects/run-state';
+  progressOfTaskRun,
+} from '@work/domain/value-objects/progress';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
+import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
   attachmentsFor,
   attachmentsOf,
   awaitedReviewsFor,
   reviewsBy,
   stationsPerLine,
-  threadAt,
   trailsFor,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
-import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
-import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
+import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, desc, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
+import {
+  and,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  type SQL,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-export const ranAt = alias(station, 'ran_at');
+const ranAt = alias(workStation, 'ran_at');
 
-export type StationRow = {
+type StationRow = {
   stationId: string | null;
   stationName: string | null;
   stationColor: string | null;
@@ -59,7 +78,7 @@ export type StationRow = {
   stationLineId: string | null;
 };
 
-export const stationSummaryOf = (
+const stationSummaryOf = (
   row: StationRow,
   stationCounts: Map<string, number>,
 ): RunStationSummary | null =>
@@ -76,260 +95,304 @@ export const stationSummaryOf = (
         count: stationCounts.get(row.stationLineId ?? '') ?? 1,
       };
 
+const lastChangeOf = (facts: RunFacts): Date =>
+  [
+    facts.endedAt,
+    facts.suspendedAt,
+    facts.startedAt,
+    facts.queuedAt,
+  ].reduce<Date>(
+    (latest, each) => (each && each > latest ? each : latest),
+    facts.queuedAt,
+  );
+
+const taskRuns = and(eq(dispatch.kind, 'task'), isNull(dispatch.refused));
+
 @Injectable()
 export class DrizzleRunReader implements RunReaderPort {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
-    @Inject(WORKSPACE_ACCESS) private readonly access: WorkspaceAccessPort,
     @Inject(PERSON_READER) private readonly people: PersonReaderPort,
+    @Inject(RUN_FACTS) private readonly facts: RunFactsPort,
+    @Inject(RUN_PROGRESS) private readonly progress: RunProgressPort,
   ) {}
-
-  private async visibleTo<Row extends { workspaceId: string }>(
-    viewer: UserId,
-    rows: readonly Row[],
-  ): Promise<Row[]> {
-    const visible = await this.access.viewableBy(
-      viewer,
-      rows.map((row) => WorkspaceId.of(row.workspaceId)),
-    );
-
-    return rows.filter((row) => visible.has(row.workspaceId));
-  }
 
   async listForTask(
     taskId: TaskId,
-    viewerId: UserId,
-  ): Promise<TaskRunSummary[]> {
-    const found = await this.db
-      .select({
-        id: run.id,
-        state: run.state,
-        stopRequested: sql<boolean>`${run.stopRequestedAt} is not null`,
-        attempt: run.attempt,
-        exitCode: run.exitCode,
-        startedAt: run.createdAt,
-        updatedAt: run.updatedAt,
-        harness: run.harness,
-        image: run.ranIn,
-        stationId: ranAt.id,
-        stationName: ranAt.name,
-        stationColor: ranAt.color,
-        stationPosition: ranAt.position,
-        stationLineId: ranAt.lineId,
-        workspaceId: run.workspaceId,
-        currentRunId: task.currentRunId,
-      })
-      .from(run)
-      .innerJoin(task, eq(task.id, run.taskId))
-      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
-      .where(eq(run.taskId, taskId.value))
-      .orderBy(desc(run.createdAt));
-    const rows = await this.visibleTo(viewerId, found);
+  ): Promise<RunsInWorkspace<TaskRunSummary[]> | null> {
+    const [owner] = await this.db
+      .select({ workspaceId: task.workspaceId })
+      .from(task)
+      .where(eq(task.id, taskId.value))
+      .limit(1);
 
-    const [stationCounts, review, awaited] = await Promise.all([
-      stationsPerLine(
-        this.db,
-        rows.flatMap((row) => (row.stationLineId ? [row.stationLineId] : [])),
-      ),
-      reviewsBy(this.db, [taskId.value]),
-      awaitedReviewsFor(this.db, [taskId.value]),
-    ]);
+    if (!owner) {
+      return null;
+    }
 
-    return rows.map(
-      ({ stationLineId, workspaceId: _workspace, currentRunId, ...rest }) => ({
-        ...rest,
-        station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
-        review: review.get(rest.id) ?? null,
-        takenUpOnAnswer: takenUpOnAnswer(rest.id, {
-          currentRunId,
-          awaitsPerson: awaited.has(taskId.value),
-        }),
-      }),
+    const runs = await this.taskRunsWhere(
+      eq(dispatch.taskId, taskId.value),
+      null,
     );
+
+    return {
+      workspaceId: WorkspaceId.of(owner.workspaceId),
+      found: runs.map(
+        ({
+          taskId: _task,
+          taskTitle: _title,
+          taskDescription: _description,
+          cursorAt: _cursor,
+          ...run
+        }) => run,
+      ),
+    };
   }
 
   async listForTeam(
     teamId: TeamId,
-    viewerId: UserId,
-  ): Promise<TeamRunSummary[]> {
-    const found = await this.db
+    page: PageRequest,
+  ): Promise<Page<TeamRunSummary>> {
+    const before = timeCursorOf(page.before);
+    const rows = await this.taskRunsWhere(
+      and(
+        eq(dispatch.teamId, teamId.value),
+        before ? olderThan(dispatch.orderedAt, dispatch.id, before) : undefined,
+      ) as SQL,
+      page.limit + 1,
+    );
+
+    return pageOf(rows, page.limit, (row) => ({
+      key: row.cursorAt,
+      id: row.id,
+    }));
+  }
+
+  async findForTeam(
+    teamId: TeamId,
+    runId: RunId,
+  ): Promise<TeamRunSummary | null> {
+    const [found] = await this.taskRunsWhere(
+      and(
+        eq(dispatch.teamId, teamId.value),
+        eq(dispatch.id, runId.value),
+      ) as SQL,
+      1,
+    );
+
+    return found ?? null;
+  }
+
+  private async taskRunsWhere(
+    narrowedTo: SQL,
+    limit: number | null,
+  ): Promise<(TeamRunSummary & { readonly cursorAt: string })[]> {
+    const query = this.db
       .select({
-        id: run.id,
-        state: run.state,
-        stopRequested: sql<boolean>`${run.stopRequestedAt} is not null`,
-        attempt: run.attempt,
-        exitCode: run.exitCode,
-        startedAt: run.createdAt,
-        updatedAt: run.updatedAt,
-        harness: run.harness,
-        image: run.ranIn,
-        taskId: run.taskId,
+        id: dispatch.id,
+        superseded: dispatch.superseded,
+        orderedAt: dispatch.orderedAt,
+        taskId: dispatch.taskId,
         taskTitle: task.title,
         taskDescription: task.description,
-        stationId: ranAt.id,
+        currentRunId: task.currentRunId,
+        stationId: ranAt.stationId,
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
         stationLineId: ranAt.lineId,
-        workspaceId: run.workspaceId,
-        currentRunId: task.currentRunId,
+        cursorAt: sortableTime(dispatch.orderedAt),
       })
-      .from(run)
-      .innerJoin(task, eq(task.id, run.taskId))
-      .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(line, eq(line.id, station.lineId))
-      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
-      .where(eq(line.teamId, teamId.value))
-      .orderBy(desc(run.createdAt));
-    const rows = await this.visibleTo(viewerId, found);
+      .from(dispatch)
+      .innerJoin(task, eq(task.id, dispatch.taskId))
+      .leftJoin(ranAt, eq(ranAt.stationId, dispatch.stationId))
+      .where(and(taskRuns, narrowedTo))
+      .orderBy(desc(dispatch.orderedAt), desc(dispatch.id));
+    const rows = await (limit === null ? query : query.limit(limit));
+    const taskIds = [
+      ...new Set(rows.flatMap((row) => (row.taskId ? [row.taskId] : []))),
+    ];
 
-    const [stationCounts, review, awaited] = await Promise.all([
+    const [facts, stationCounts, review, awaited] = await Promise.all([
+      this.factsOf(rows.map((row) => row.id)),
       stationsPerLine(
         this.db,
         rows.flatMap((row) => (row.stationLineId ? [row.stationLineId] : [])),
       ),
-      reviewsBy(
-        this.db,
-        rows.flatMap((row) => (row.taskId ? [row.taskId] : [])),
-      ),
-      awaitedReviewsFor(
-        this.db,
-        rows.flatMap((row) => (row.taskId ? [row.taskId] : [])),
-      ),
+      reviewsBy(this.db, taskIds),
+      awaitedReviewsFor(this.db, taskIds),
     ]);
 
-    return rows.map(
-      ({ stationLineId, workspaceId: _workspace, currentRunId, ...rest }) => ({
-        ...rest,
-        station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
-        review: review.get(rest.id) ?? null,
-        takenUpOnAnswer: takenUpOnAnswer(rest.id, {
-          currentRunId,
-          awaitsPerson: rest.taskId !== null && awaited.has(rest.taskId),
-        }),
-      }),
+    return rows.flatMap(
+      ({ stationLineId, currentRunId, superseded, orderedAt, ...row }) => {
+        const run = facts.get(row.id);
+        const state = run && RunReadingMapper.state(run.state, superseded);
+
+        return run && state
+          ? [
+              {
+                ...row,
+                state,
+                progress: progressOfTaskRun(
+                  state,
+                  RunReadingMapper.reading(run),
+                  takesUpRun({
+                    holdsRun: row.id === currentRunId,
+                    awaitsAPerson:
+                      row.taskId !== null && awaited.has(row.taskId),
+                  }),
+                ),
+                attempt: run.attempt,
+                exitCode: run.exitCode,
+                startedAt: orderedAt,
+                updatedAt: lastChangeOf(run),
+                endedAt: run.endedAt,
+                harness: run.harness.value,
+                image: run.image,
+                station: stationSummaryOf(
+                  { ...row, stationLineId },
+                  stationCounts,
+                ),
+                review: review.get(row.id) ?? null,
+              },
+            ]
+          : [];
+      },
     );
+  }
+
+  private async factsOf(
+    runIds: readonly string[],
+  ): Promise<ReadonlyMap<string, RunFacts>> {
+    const found =
+      runIds.length === 0 ? [] : await this.facts.of(runIds.map(RunId.of));
+
+    return new Map(found.map((each) => [each.runId.value, each]));
   }
 
   async notesFor(
     runId: RunId,
-    viewerId: UserId,
-  ): Promise<RunNotesSummary | null> {
+  ): Promise<RunsInWorkspace<RunNotesSummary> | null> {
     const [found] = await this.db
       .select({
-        runId: run.id,
-        state: run.state,
-        stopRequestedAt: run.stopRequestedAt,
+        runId: dispatch.id,
         taskId: task.id,
         title: task.title,
         description: task.description,
         workingRunId: task.currentRunId,
         createdAt: task.createdAt,
-        spec: run.spec,
-        stationId: ranAt.id,
+        briefing: dispatch.briefing,
+        stationId: ranAt.stationId,
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
         stationLineId: ranAt.lineId,
-        workspaceId: run.workspaceId,
+        dispatchedAt: dispatch.stationId,
+        workspaceId: dispatch.workspaceId,
       })
-      .from(run)
-      .innerJoin(task, eq(task.id, run.taskId))
-      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
-      .where(eq(run.id, runId.value))
+      .from(dispatch)
+      .innerJoin(task, eq(task.id, dispatch.taskId))
+      .leftJoin(ranAt, eq(ranAt.stationId, dispatch.stationId))
+      .where(and(taskRuns, eq(dispatch.id, runId.value)))
       .limit(1);
 
-    if (
-      !found ||
-      !(await this.access.mayView(viewerId, WorkspaceId.of(found.workspaceId)))
-    ) {
+    if (!found?.dispatchedAt) {
       return null;
     }
 
-    const trail = (await trailsFor(this.db, this.people, [found.taskId])).get(
-      found.taskId,
+    const [latest] = await this.db
+      .select({ runId: dispatch.id, superseded: dispatch.superseded })
+      .from(dispatch)
+      .where(
+        and(
+          taskRuns,
+          eq(dispatch.taskId, found.taskId),
+          eq(dispatch.stationId, found.dispatchedAt),
+        ),
+      )
+      .orderBy(desc(dispatch.orderedAt), desc(dispatch.id))
+      .limit(1);
+    const latestId = latest?.runId ?? found.runId;
+    const progress = new Map(
+      (
+        await this.progress.progressOf(
+          [...new Set([found.runId, latestId])].map(RunId.of),
+        )
+      ).map((each) => [each.runId.value, each]),
     );
-    const attached = await attachmentsFor(this.db, [found.taskId]);
-    const stationCounts = await stationsPerLine(this.db, [
-      found.stationLineId ?? '',
-    ]);
-    const notes = trail ?? [];
-    const [latest = found] = found.stationId
-      ? await this.db
-          .select({
-            runId: run.id,
-            state: run.state,
-            stopRequestedAt: run.stopRequestedAt,
-          })
-          .from(run)
-          .where(
-            and(
-              eq(run.taskId, found.taskId),
-              eq(run.stationId, found.stationId),
-            ),
-          )
-          .orderBy(desc(run.createdAt))
-          .limit(1)
-      : [];
-    const spec = RunSpecContract.from(found.spec);
+    const ran = progress.get(found.runId);
+    const latestRun = progress.get(latestId) ?? ran;
 
-    const latestRun = {
-      state: latest.state,
-      stopRequested: latest.stopRequestedAt !== null,
-    };
+    if (!ran || !latestRun) {
+      return null;
+    }
+
+    const [trails, attached, stationCounts] = await Promise.all([
+      trailsFor(this.db, this.people, [found.taskId]),
+      attachmentsFor(this.db, [found.taskId]),
+      stationsPerLine(this.db, [found.stationLineId ?? '']),
+    ]);
+    const notes = trails.get(found.taskId) ?? [];
 
     return {
-      runId: found.runId,
-      taskId: found.taskId,
-      title: found.title,
-      description: found.description,
-      attachments: attachmentsOf(attached, found.taskId).own,
-      station: stationSummaryOf({ ...found }, stationCounts),
-      createdAt: found.createdAt,
-      briefing: spec.briefing,
-      progress: worksOn(found.workingRunId === latest.runId, notes)
-        ? progressOfCurrentRun(latestRun, true)
-        : null,
-      latestRun: {
-        id: latest.runId,
-        state: latest.state,
-        progress: progressOf(latestRun),
+      workspaceId: WorkspaceId.of(found.workspaceId),
+      found: {
+        runId: found.runId,
+        taskId: found.taskId,
+        title: found.title,
+        description: found.description,
+        attachments: attachmentsOf(attached, found.taskId).own,
+        station: stationSummaryOf({ ...found }, stationCounts),
+        createdAt: found.createdAt,
+        briefing: found.briefing ?? '',
+        progress: worksOn(found.workingRunId === latestRun.runId.value, notes)
+          ? progressOfCurrentRun(RunReadingMapper.reading(latestRun), true)
+          : null,
+        latestRun: {
+          id: latestRun.runId.value,
+          state: RunReadingMapper.state(
+            latestRun.state,
+            latest?.superseded ?? false,
+          ),
+          progress: RunReadingMapper.progress(latestRun.progress),
+        },
+        notes: notes.filter((note) =>
+          inThreadAt(
+            {
+              runId: note.runId ? RunId.of(note.runId) : null,
+              stationId: StationId.of(note.stationId),
+            },
+            found.stationId ? StationId.of(found.stationId) : null,
+            runId,
+          ),
+        ),
       },
-      notes: threadAt(notes, found.stationId, runId.value),
     };
   }
 
   async configFor(
     runId: RunId,
-    viewerId: UserId,
-  ): Promise<RunConfigSummary | null> {
+  ): Promise<RunsInWorkspace<RunConfigSummary> | null> {
     const [found] = await this.db
       .select({
-        runId: run.id,
-        taskId: run.taskId,
-        stationId: run.stationId,
-        createdAt: run.createdAt,
-        fingerprint: run.stationFingerprint,
-        parts: run.stationConfig,
-        workspaceId: run.workspaceId,
+        runId: dispatch.id,
+        kind: dispatch.kind,
+        taskId: dispatch.taskId,
+        stationId: dispatch.stationId,
+        orderedAt: dispatch.orderedAt,
+        fingerprint: dispatch.stationFingerprint,
+        parts: dispatch.stationConfig,
+        workspaceId: dispatch.workspaceId,
       })
-      .from(run)
-      .where(
-        and(
-          eq(run.id, runId.value),
-          isNull(run.replayOfRunId),
-          isNull(run.searchId),
-        ),
-      )
+      .from(dispatch)
+      .where(and(eq(dispatch.id, runId.value), ne(dispatch.kind, 'trial')))
       .limit(1);
 
-    if (
-      !found ||
-      !(await this.access.mayView(viewerId, WorkspaceId.of(found.workspaceId)))
-    ) {
+    if (!found) {
       return null;
     }
 
+    const workspaceId = WorkspaceId.of(found.workspaceId);
     const ran =
       found.fingerprint && found.parts
         ? {
@@ -339,32 +402,32 @@ export class DrizzleRunReader implements RunReaderPort {
           }
         : null;
 
-    if (!ran || !found.stationId || !found.taskId) {
-      return { ran, before: null };
+    if (!ran || !found.stationId || found.kind !== 'task') {
+      return { workspaceId, found: { ran, before: null } };
     }
 
     const [earlier] = await this.db
       .select({
-        runId: run.id,
-        taskId: run.taskId,
-        fingerprint: run.stationFingerprint,
-        parts: run.stationConfig,
+        runId: dispatch.id,
+        taskId: dispatch.taskId,
+        fingerprint: dispatch.stationFingerprint,
+        parts: dispatch.stationConfig,
       })
-      .from(run)
+      .from(dispatch)
       .where(
         and(
-          eq(run.stationId, found.stationId),
-          lt(run.createdAt, found.createdAt),
-          isNotNull(run.taskId),
-          isNotNull(run.stationFingerprint),
+          eq(dispatch.stationId, found.stationId),
+          eq(dispatch.kind, 'task'),
+          lt(dispatch.orderedAt, found.orderedAt),
+          isNotNull(dispatch.stationFingerprint),
         ),
       )
-      .orderBy(desc(run.createdAt))
+      .orderBy(desc(dispatch.orderedAt))
       .limit(1);
 
     return {
-      ran,
-      before: earlier ? configured(earlier) : null,
+      workspaceId,
+      found: { ran, before: earlier ? configured(earlier) : null },
     };
   }
 }

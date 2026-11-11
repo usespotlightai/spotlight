@@ -1,5 +1,5 @@
 import type { DraftReviewCommentCommand } from '@change-review/application/commands/draft-review-comment.command';
-import type { ReviewAccess } from '@change-review/application/services/review-access.service';
+import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { UnknownReviewCommentError } from '@change-review/domain/exceptions/unknown-review-comment.error';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
@@ -11,23 +11,20 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export class DraftReviewCommentHandler
   implements CommandHandlerPort<DraftReviewCommentCommand, string>
 {
   constructor(
-    private readonly access: ReviewAccess,
+    private readonly access: TeamWorkAccess,
     private readonly comments: ReviewCommentRepository,
-    private readonly transaction: TransactionPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
 
   async execute(command: DraftReviewCommentCommand): Promise<string> {
     try {
-      const { task, author } = await this.access.ofRun(
+      const { task, author } = await this.access.actingInReview(
         command.teamId,
         command.runId,
         command.viewerId,
@@ -35,7 +32,7 @@ export class DraftReviewCommentHandler
       const id = ReviewCommentId.of(this.ids.generate());
       const now = this.clock.now();
 
-      if ('replyTo' in command.on) {
+      if (command.on.replyTo) {
         const parent = await this.comments.find(
           ReviewCommentId.of(command.on.replyTo),
         );
@@ -47,49 +44,31 @@ export class DraftReviewCommentHandler
         return await this.answer(parent, command.body, author, id, now);
       }
 
-      const anchor =
-        'file' in command.on
-          ? ReviewAnchor.onFile(command.on.file)
-          : ReviewAnchor.onLines(command.on);
+      const anchor = ReviewAnchor.at(command.on);
+      const thread = anchor.wholeFile
+        ? fileThreadOf(await this.comments.onFile(task.id, anchor.path), anchor)
+        : null;
 
-      return await this.transaction.inTransaction(async () => {
-        const thread = anchor.wholeFile
-          ? await this.threadOnFile(task.id, anchor)
-          : null;
+      if (thread) {
+        return await this.answer(thread, command.body, author, id, now);
+      }
 
-        if (thread) {
-          return this.answer(thread, command.body, author, id, now);
-        }
-
-        const draft = ReviewComment.draft({
-          id,
-          workspaceId: task.workspaceId,
-          taskId: task.id,
-          anchor,
-          body: command.body,
-          author,
-          now,
-        });
-
-        await this.comments.add(draft);
-
-        return draft.id.value;
+      const draft = ReviewComment.draft({
+        id,
+        workspaceId: task.workspaceId,
+        taskId: task.id,
+        anchor,
+        body: command.body,
+        author,
+        now,
       });
+
+      await this.comments.add(draft);
+
+      return draft.id.value;
     } catch (error) {
       rethrowAsApplicationError(error);
     }
-  }
-
-  private async threadOnFile(
-    taskId: TaskId,
-    anchor: ReviewAnchor,
-  ): Promise<ReviewComment | null> {
-    await this.comments.lockThreadsOnFile(taskId, anchor.path);
-
-    return fileThreadOf(
-      await this.comments.threadsOnFile(taskId, anchor.path),
-      anchor,
-    );
   }
 
   private async answer(

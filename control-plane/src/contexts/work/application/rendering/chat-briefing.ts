@@ -5,14 +5,13 @@ import type {
 } from '@work/application/ports/team-memories.port';
 import { Attached } from '@work/application/rendering/attached';
 import { ConfiguringSpotlight } from '@work/application/rendering/configuring-spotlight';
-import { ImproveStation } from '@work/application/rendering/improve-station';
 import { Learned } from '@work/application/rendering/learned';
 import { SettingUp } from '@work/application/rendering/setting-up';
 import { SpotlightCli } from '@work/application/rendering/spotlight-cli';
 import { Traced } from '@work/application/rendering/traced';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { ChatMessage } from '@work/domain/entities/chat-message.entity';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 
 const opening = (team: string | null): string =>
@@ -21,7 +20,7 @@ const opening = (team: string | null): string =>
     'You are not here to make the change yourself. Do not edit files, commit or push anything.',
   ].join(' ');
 
-const linesOf = (lines: readonly Line[]): string =>
+const linesOf = (lines: readonly LineMap[]): string =>
   lines.length === 0
     ? '## The lines\n\nThe team has no lines yet, so there is nowhere to propose a task.'
     : [
@@ -34,7 +33,7 @@ const linesOf = (lines: readonly Line[]): string =>
               .map((station) =>
                 [
                   `- \`${station.key.value}\` — ${station.name.value}`,
-                  station.description?.value.trim(),
+                  station.description?.trim(),
                 ]
                   .filter(Boolean)
                   .join(': '),
@@ -44,7 +43,7 @@ const linesOf = (lines: readonly Line[]): string =>
         ),
       ].join('\n\n');
 
-const workspaceOf = (chat: Chat): string =>
+const workingCopyOf = (chat: Chat): string =>
   chat.repositories.length === 0
     ? '## The workspace\n\nNo repository is checked out. Ask where the code lives if you need to read it.'
     : [
@@ -65,7 +64,10 @@ const proposing = [
   'Each proposal is shown to them in full the moment you make it, so do not list or summarise what you proposed afterwards. A short line saying it is their move is enough.',
 ].join('\n\n');
 
-const proposedSoFar = (chat: Chat, lines: readonly Line[]): string | null => {
+const proposedSoFar = (
+  chat: Chat,
+  lines: readonly LineMap[],
+): string | null => {
   const proposals = chat.messages.flatMap((message) =>
     message.proposal ? [message.proposal] : [],
   );
@@ -104,11 +106,12 @@ export const ChatBriefing = {
   brief(input: {
     chat: Chat;
     team: string | null;
-    lines: readonly Line[];
+    lines: readonly LineMap[];
     memories: readonly BriefedMemory[];
     memoryFolder: MemoryFolder | null;
     spotlightUrl: string;
     release: Release | null;
+    extensions: readonly string[];
   }): string {
     const messages = input.chat.messages.filter(
       (message) => message.kind === 'message',
@@ -119,7 +122,7 @@ export const ChatBriefing = {
     return [
       setup ? SettingUp.opening(input.team) : opening(input.team),
       linesOf(input.lines),
-      workspaceOf(input.chat),
+      workingCopyOf(input.chat),
       setup
         ? SettingUp.section(
             setup,
@@ -129,9 +132,7 @@ export const ChatBriefing = {
             input.release,
           )
         : null,
-      input.chat.targetStation
-        ? ImproveStation.section(input.chat.targetStation, input.lines)
-        : null,
+      ...input.extensions,
       Learned.section(input.memories),
       Learned.rest({
         folder: input.memoryFolder,

@@ -5,9 +5,15 @@ const SHAPE = new RegExp(`^${SECRET_NAME_SHAPE}$`);
 
 const STAND_IN_PREFIX = 'spotlight-egress:';
 
-const REFERENCE = new RegExp(`^secret\\.(${SECRET_NAME_SHAPE})$`);
+const REFERENCE_PREFIX = 'secret.';
+
+const REFERENCE = new RegExp(
+  `^${REFERENCE_PREFIX.replace('.', '\\.')}(${SECRET_NAME_SHAPE})$`,
+);
 
 export class SecretName {
+  static readonly REFERENCE_PREFIX = REFERENCE_PREFIX;
+
   private constructor(readonly value: string) {}
 
   static of(raw: string): SecretName {

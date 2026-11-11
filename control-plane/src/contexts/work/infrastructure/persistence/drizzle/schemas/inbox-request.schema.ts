@@ -1,5 +1,5 @@
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
-import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import {
   index,
   integer,
@@ -7,7 +7,6 @@ import {
   pgTable,
   primaryKey,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -21,13 +20,12 @@ export const inboxRequest = pgTable(
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
-    taskId: text('task_id')
-      .notNull()
-      .references(() => task.id, { onDelete: 'cascade' }),
+    taskId: text('task_id').notNull(),
     form: inboxRequestForm('form').notNull(),
     about: text('about').notNull(),
-    createdAt: timestamp('created_at').notNull(),
-    resolvedAt: timestamp('resolved_at'),
+    createdAt: timestamptz('created_at').notNull(),
+    openedAt: timestamptz('opened_at').notNull(),
+    resolvedAt: timestamptz('resolved_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -40,6 +38,11 @@ export const inboxRequest = pgTable(
       table.workspaceId,
       table.resolvedAt,
     ),
+    index('inbox_request_workspace_opened_idx').on(
+      table.workspaceId,
+      table.openedAt,
+      table.id,
+    ),
   ],
 );
 
@@ -50,7 +53,7 @@ export const inboxRequestRead = pgTable(
       .notNull()
       .references(() => inboxRequest.id, { onDelete: 'cascade' }),
     userId: text('user_id').notNull(),
-    readAt: timestamp('read_at').notNull(),
+    readAt: timestamptz('read_at').notNull(),
   },
   (table) => [primaryKey({ columns: [table.inboxRequestId, table.userId] })],
 );

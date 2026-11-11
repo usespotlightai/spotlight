@@ -1,9 +1,12 @@
-export class SearchInCooldownError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+
+export class SearchInCooldownError extends DomainError {
   readonly kind = 'conflict' as const;
 
-  constructor(stationId: string, until: Date) {
+  constructor(stationId: StationId, until: Date) {
     super(
-      `Station ${stationId} started a search too recently. Next start allowed: ${until.toISOString()}`,
+      `Station ${stationId.value} started a search too recently. Next start allowed: ${until.toISOString()}`,
     );
     this.name = 'SearchInCooldownError';
   }

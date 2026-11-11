@@ -98,7 +98,7 @@ type sandboxArchives struct {
 	grants   int
 }
 
-func (s *sandboxArchives) WorkspaceArchive(context.Context) (*protocol.StoredArchive, error) {
+func (s *sandboxArchives) WorkingCopyArchive(context.Context) (*protocol.StoredArchive, error) {
 	s.restores++
 	return s.archives.newest(), nil
 }

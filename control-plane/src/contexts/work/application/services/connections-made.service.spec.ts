@@ -1,21 +1,24 @@
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ConnectionsMade } from '@work/application/services/connections-made.service';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -33,16 +36,16 @@ const station = (
   position: number,
   kind: 'backlog' | 'work' | 'completed',
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(id.replace('station_', '')),
     name: StationName.of(id.replace('station_', '')),
     position,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     kind,
   });
 
-const line = Line.rehydrate({
+const line = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TEAM,
@@ -70,15 +73,15 @@ const waiting = () => {
   }).askToConnect(
     RUN,
     {
-      station: StationName.of('work'),
+      line: null,
       body: TaskNoteBody.of('Connect Linear.'),
       at: NOW,
       voice: Voice.station(RUN),
     },
     ConnectionAsk.of({
       teamId: TEAM,
-      integration: 'linear',
-      integrationName: 'Linear',
+      integration: IntegrationName.of('linear'),
+      providedBy: 'Linear',
       personId: ALICE,
     }),
   );
@@ -103,7 +106,12 @@ const answering = (fails = 0) => {
   } as unknown as TaskRepository;
 
   return {
-    made: new ConnectionsMade(tasks, { now: () => NOW, sleep: async () => {} }),
+    made: new ConnectionsMade(
+      tasks,
+      { findByStation: async () => null } as unknown as LineMapsPort,
+      { now: () => NOW, sleep: async () => {} },
+      { inTransaction: (work) => work() },
+    ),
     tasks,
     saved,
   };
@@ -118,7 +126,7 @@ describe('ConnectionsMade', () => {
     expect(tasks.awaitingConnection).toHaveBeenCalledWith(
       TEAM,
       ALICE,
-      'linear',
+      IntegrationName.of('linear'),
     );
     expect(saved).toHaveLength(1);
     const answer = saved[0]?.notes[saved[0].notes.length - 1];

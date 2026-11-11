@@ -6,7 +6,7 @@ import { NoticeSearchResults } from '@replays/application/services/notice-search
 import { PickSearchCandidates } from '@replays/application/services/pick-search-candidates.service';
 import {
   CLOCK,
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryConfigPullRequests,
   InMemoryReplays,
@@ -23,7 +23,6 @@ import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-requ
 import { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
-import { StationSearchScheduleDeletionRequested } from '@replays/domain/events/station-search-schedule-deletion-requested.event';
 import { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
 import {
   aSearch,
@@ -43,12 +42,14 @@ import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SEARCH_SKIP_REASONS } from '@replays/domain/value-objects/search-skip-reason';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let pullRequests: InMemoryConfigPullRequests;
 let noticed: SearchNotice[];
 let advised: StationNotice[];
@@ -68,9 +69,13 @@ const noticing = () =>
     pullRequests,
     memory.candidateRepository,
     memory.replayRepository,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
-    new SearchFindings(work),
-    work,
+    new SetHealths(
+      suppliers.configs,
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
+    new SearchFindings(suppliers.trialableRuns),
+    suppliers.lines,
     notices,
   );
 
@@ -81,8 +86,12 @@ const picking = () =>
     pullRequests,
     memory.candidateRepository,
     memory.scheduleRepository,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
-    work,
+    new SetHealths(
+      suppliers.configs,
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
+    suppliers.lines,
     IDS,
     CLOCK,
     TRANSACTION,
@@ -151,7 +160,7 @@ const pullRequestOf = (search: Search, source = true) =>
     candidateId: CandidateId.of('candidate_one'),
     station: STATION,
     stationKey: 'build',
-    candidateName: 'one',
+    candidateName: CandidateName.rehydrate('one'),
     lineKey: 'delivery',
     source: source
       ? {
@@ -165,7 +174,7 @@ const pullRequestOf = (search: Search, source = true) =>
 
 beforeEach(() => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   pullRequests = new InMemoryConfigPullRequests();
   noticed = [];
   advised = [];
@@ -202,7 +211,7 @@ describe('PickSearchCandidates', () => {
     const search = finishedWithNothing();
 
     await memory.searchRepository.add(search);
-    work.station = async () => null;
+    suppliers.lines.station = async () => null;
     await picking().searchEnded(ended(search, 'finished'));
 
     expect(memory.searches.get(search.id.value)?.pick).toEqual({
@@ -463,7 +472,12 @@ describe('NoticeSearchResults', () => {
 
 describe('SearchSchedules', () => {
   const schedules = () =>
-    new SearchSchedules(memory.scheduleRepository, work, TRANSACTION, CLOCK);
+    new SearchSchedules(
+      memory.scheduleRepository,
+      suppliers.configs,
+      TRANSACTION,
+      CLOCK,
+    );
 
   beforeEach(async () => {
     await memory.scheduleRepository.add(
@@ -476,29 +490,36 @@ describe('SearchSchedules', () => {
   });
 
   it('looks again at once at the stations of a line that changed', async () => {
-    await schedules().lineChanged('line_other');
+    await schedules().lineChanged(LineId.of('line_other'));
 
-    expect(memory.schedules.get(STATION.stationId)?.isDue(NOW)).toBe(false);
+    expect(memory.schedules.get(STATION.stationId.value)?.isDue(NOW)).toBe(
+      false,
+    );
 
     await schedules().lineChanged(STATION.lineId);
 
-    expect(memory.schedules.get(STATION.stationId)?.checkAfter).toEqual(NOW);
+    expect(memory.schedules.get(STATION.stationId.value)?.checkAfter).toEqual(
+      NOW,
+    );
   });
 
   it('forgets the configs rejected against another live config when the line changes', async () => {
     const rejectedAgainst = StationFingerprint.of('c'.repeat(64));
     const rejected = memory.schedules
-      .get(STATION.stationId)
+      .get(STATION.stationId.value)
       ?.configRejected(
         StationFingerprint.of('e'.repeat(64)),
         rejectedAgainst,
         NOW,
       );
 
-    memory.schedules.set(STATION.stationId, rejected as StationSearchSchedule);
+    memory.schedules.set(
+      STATION.stationId.value,
+      rejected as StationSearchSchedule,
+    );
     await schedules().lineChanged(STATION.lineId);
 
-    expect(memory.schedules.get(STATION.stationId)).toMatchObject({
+    expect(memory.schedules.get(STATION.stationId.value)).toMatchObject({
       rejected: [],
       rejectedAgainst: null,
     });
@@ -507,24 +528,23 @@ describe('SearchSchedules', () => {
   it('looks at a station at once when its alert fires', async () => {
     await schedules().alerted(STATION.stationId);
 
-    expect(memory.schedules.get(STATION.stationId)).toMatchObject({
+    expect(memory.schedules.get(STATION.stationId.value)).toMatchObject({
       alertPendingSince: NOW,
       checkAfter: NOW,
     });
   });
 
-  it('drops the schedule with its set, and asks to drop each of a deleted team', async () => {
-    expect(
-      await schedules().deleteForTeam(STATION.teamId, STATION.workspaceId),
-    ).toEqual([
-      new StationSearchScheduleDeletionRequested(
-        STATION.stationId,
-        STATION.workspaceId,
-      ),
-    ]);
-
+  it('drops the schedule with its set', async () => {
     await schedules().setGone(aSet().id);
 
+    expect(memory.schedules.size).toBe(0);
+  });
+
+  it('drops every schedule of a deleted team', async () => {
+    await schedules().ofTeam(TeamId.of('team_2'));
+    expect(memory.schedules.size).toBe(1);
+
+    await schedules().ofTeam(STATION.teamId);
     expect(memory.schedules.size).toBe(0);
   });
 });

@@ -11,6 +11,7 @@ import { TeamVersionConflictError } from '@identity/domain/exceptions/team-versi
 import type { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import type { TeamOrigin } from '@identity/domain/value-objects/team-origin.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -35,22 +36,23 @@ export class Team extends EventRecorder {
     readonly workspaceId: WorkspaceId,
     readonly key: TeamKey,
     readonly name: TeamName,
+    readonly origin: TeamOrigin,
     readonly members: readonly UserId[],
-    readonly version: number = 0,
-    readonly isDeleted: boolean = false,
+    readonly version: number,
+    readonly isDeleted: boolean,
   ) {
     super();
   }
 
   static createAtSignUp(input: Creation): Team {
-    const team = Team.make(input);
+    const team = Team.make(input, 'sign-up');
 
     team.record(
       new TeamCreated(
         input.workspaceId,
         input.id,
         input.createdBy,
-        'sign-up',
+        team.origin,
         ConfigurationChange.created(team.whatChanged, input.by),
       ),
     );
@@ -59,14 +61,14 @@ export class Team extends EventRecorder {
   }
 
   static create(input: Creation & { key: TeamKey }): Team {
-    const team = Team.make(input);
+    const team = Team.make(input, 'configuration');
 
     team.record(
       new TeamCreated(
         input.workspaceId,
         input.id,
         input.createdBy,
-        'configuration',
+        team.origin,
         ConfigurationChange.created(team.whatChanged, input.by),
       ),
     );
@@ -74,13 +76,16 @@ export class Team extends EventRecorder {
     return team;
   }
 
-  private static make(input: Creation): Team {
+  private static make(input: Creation, origin: TeamOrigin): Team {
     return new Team(
       input.id,
       input.workspaceId,
       input.key ?? TeamKey.from(input.name.value),
       input.name,
+      origin,
       [input.createdBy],
+      0,
+      false,
     );
   }
 
@@ -89,9 +94,16 @@ export class Team extends EventRecorder {
     workspaceId: WorkspaceId;
     key: TeamKey;
     name: TeamName;
+    origin: TeamOrigin;
     members: readonly UserId[];
     version: number;
   }): Team {
+    if (!Number.isInteger(input.version) || input.version < 0) {
+      throw new InconsistentStateError(
+        'team',
+        `has an impossible version (${input.version})`,
+      );
+    }
     if (input.members.length === 0) {
       throw new InconsistentStateError('team', 'has no members at all');
     }
@@ -101,8 +113,10 @@ export class Team extends EventRecorder {
       input.workspaceId,
       input.key,
       input.name,
+      input.origin,
       input.members,
       input.version,
+      false,
     );
   }
 
@@ -136,10 +150,6 @@ export class Team extends EventRecorder {
     return this.join(userId, workspace);
   }
 
-  rename(name: TeamName): Team {
-    return name.equals(this.name) ? this : this.with({ name });
-  }
-
   assertVersion(version: number): void {
     if (version !== this.version) {
       throw new TeamVersionConflictError(this.id.value);
@@ -157,6 +167,10 @@ export class Team extends EventRecorder {
         because,
         `Team ${this.key.value} ${because}.`,
       );
+    }
+
+    if (definition.name.equals(this.name)) {
+      return this;
     }
 
     const updated = this.with({ name: definition.name });
@@ -223,6 +237,7 @@ export class Team extends EventRecorder {
       this.workspaceId,
       this.key,
       over.name ?? this.name,
+      this.origin,
       over.members ?? this.members,
       this.version,
       over.deleted ?? this.isDeleted,

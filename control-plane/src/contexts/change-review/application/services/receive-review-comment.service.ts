@@ -2,6 +2,7 @@ import type { ReceivedReviewComment } from '@change-review/application/contracts
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
@@ -12,14 +13,16 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 
 const anchorOf = (
   comment: ReceivedReviewComment['comment'],
+  repository: RepositoryName | null,
 ): ReviewAnchor | null => {
   if (comment.subject === 'file') {
-    return ReviewAnchor.onFile(comment.path);
+    return ReviewAnchor.onFile(comment.path, repository);
   }
 
   return comment.line === null
     ? null
     : ReviewAnchor.onLines({
+        repository,
         path: comment.path,
         side: comment.side,
         line: comment.line,
@@ -69,12 +72,10 @@ export class ReceiveReviewComment {
     pullRequest,
     comment,
   }: ReceivedReviewComment): Promise<void> {
-    const task = await this.work.taskWithPullRequest(
-      workspaceId,
-      PullRequestUrl.of(pullRequest),
-    );
+    const on = PullRequestUrl.of(pullRequest);
+    const task = await this.work.taskWithPullRequest(workspaceId, on);
 
-    const anchor = anchorOf(comment);
+    const anchor = anchorOf(comment, RepositoryName.ofPullRequest(on));
 
     if (!task || !anchor) {
       return;
@@ -99,7 +100,7 @@ export class ReceiveReviewComment {
         anchor,
         body: comment.body,
         author: ReviewAuthor.onGitHub(comment.login),
-        replyTo: parent ? (parent.replyTo ?? parent.id) : null,
+        inReplyTo: parent,
         github: { id: comment.id, url: comment.url },
         at: comment.writtenAt ?? this.clock.now(),
       }),

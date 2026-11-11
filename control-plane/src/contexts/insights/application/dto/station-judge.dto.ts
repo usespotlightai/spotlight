@@ -1,13 +1,20 @@
+import type { JudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
 import type { KappaReading } from '@insights/domain/services/agreement-reading';
-import type {
-  AgreementReadings,
-  Coverage,
-  TrendPoint,
+import {
+  type AgreementReadings,
+  agreedOf,
+  type Coverage,
+  comparedOf,
+  headlineOf,
+  type TrendPoint,
 } from '@insights/domain/services/judge-agreement';
 import {
+  belowMinimumOf,
   type JudgeCalibration,
-  showsJudgeOf,
-  trendShownOf,
+  measuredOf,
+  pairsProgressOf,
+  TREND_MIN_PAIRS,
+  trendReadyOf,
 } from '@insights/domain/services/judge-calibration';
 import type { RubricReport } from '@insights/domain/services/judge-report';
 import type { ScoreKind } from '@insights/domain/value-objects/score-scale.vo';
@@ -18,10 +25,16 @@ export interface ClaimAgreementDto {
   readonly observed: number | null;
   readonly kappa: number | null;
   readonly reading: KappaReading | null;
+  readonly belowMinimum: boolean;
 }
 
 export interface AgreementDto {
   readonly pairs: number;
+  readonly measured: boolean;
+  readonly pairsProgress: number;
+  readonly agreed: number;
+  readonly compared: number;
+  readonly belowMinimum: boolean;
   readonly observed: number | null;
   readonly kappa: number | null;
   readonly spearman: number | null;
@@ -53,6 +66,8 @@ export interface RubricVersionDto {
   readonly confusion: ConfusionDto;
   readonly distribution: readonly ScoreCountDto[];
   readonly trend: readonly TrendPoint[];
+  readonly trendShown: boolean;
+  readonly trendMinPairs: number;
   readonly firstAt: string;
   readonly lastAt: string;
 }
@@ -69,7 +84,7 @@ export interface StationJudgeSettingsDto {
 export interface StationJudgeDto {
   readonly stationId: string;
   readonly judge: StationJudgeSettingsDto | null;
-  readonly calibration: JudgeCalibration;
+  readonly calibration: JudgeCalibrationDto;
   readonly versions: readonly RubricVersionDto[];
   readonly coverage: Coverage;
 }
@@ -97,6 +112,14 @@ export const rubricVersionOf = (
   judged: report.judged,
   agreement: {
     pairs: report.agreement.pairs,
+    measured: measuredOf(report.agreement.pairs),
+    pairsProgress: pairsProgressOf(report.agreement.pairs),
+    agreed: agreedOf(report.agreement.confusion),
+    compared: comparedOf(report.agreement.confusion),
+    belowMinimum: belowMinimumOf(
+      headlineOf(report.scale, report.agreement),
+      calibration.minAgreement,
+    ),
     observed: report.agreement.observed,
     kappa: report.agreement.kappa,
     spearman: report.agreement.spearman,
@@ -105,7 +128,10 @@ export const rubricVersionOf = (
     rmse: report.agreement.rmse,
     f1: report.agreement.f1,
     readings: report.agreement.readings,
-    claims: report.agreement.claims.map((each) => ({ ...each })),
+    claims: report.agreement.claims.map((each) => ({
+      ...each,
+      belowMinimum: belowMinimumOf(each.kappa, calibration.minAgreement),
+    })),
   },
   confusion: {
     labels: report.agreement.confusion.values.map(labelOf(report)),
@@ -116,10 +142,9 @@ export const rubricVersionOf = (
     judge: each.judge,
     people: each.people,
   })),
-  trend: trendShownOf(
-    report.trend,
-    showsJudgeOf(calibration, current, report.rubricVersion),
-  ),
+  trend: report.trend,
+  trendShown: trendReadyOf(report.agreement.pairs, report.trend),
+  trendMinPairs: TREND_MIN_PAIRS,
   firstAt: report.firstAt.toISOString(),
   lastAt: report.lastAt.toISOString(),
 });

@@ -17,13 +17,11 @@ export class StateChangeDetail implements ChangeDetail {
   }
 
   static released(lock: StateLock, forced: boolean): StateChangeDetail {
-    const operation = lock.info.Operation;
-
     return new StateChangeDetail({
       released: forced ? 'forced' : 'held-by-another',
-      lock: lock.id,
-      heldBy: lock.lockedBy,
-      operation: typeof operation === 'string' ? operation : null,
+      lock: lock.id.value,
+      heldBy: lock.lockedBy.value,
+      operation: lock.operation,
     });
   }
 

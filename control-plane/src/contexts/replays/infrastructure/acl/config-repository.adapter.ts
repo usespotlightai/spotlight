@@ -8,13 +8,14 @@ import { ConfigRepositoryError } from '@replays/application/errors/config-reposi
 import type {
   ConfigCommit,
   ConfigFile,
+  ConfigFileContent,
   ConfigPullRequestAt,
   ConfigPullRequestOpening,
   ConfigPullRequestStatus,
   ConfigRepositoryPort,
   OpenedConfigPullRequest,
 } from '@replays/application/ports/config-repository.port';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -62,14 +63,14 @@ export class ConfigRepository implements ConfigRepositoryPort {
       : null;
   }
 
-  async filesIn(
+  async filesUnder(
     workspaceId: WorkspaceId,
     repository: Repository,
     directory: string,
     commit: string,
-  ): Promise<readonly string[]> {
+  ): Promise<readonly ConfigFileContent[]> {
     return withRepositoryErrors(() =>
-      this.contents.filesIn(workspaceId, repository, directory, commit),
+      this.contents.filesUnder(workspaceId, repository, directory, commit),
     );
   }
 
@@ -110,18 +111,20 @@ export class ConfigRepository implements ConfigRepositoryPort {
     return {
       url: opened.url,
       number: opened.number,
-      gitHubId: opened.id,
+      hostId: opened.id,
       repository: opened.repository,
     };
   }
 
-  statusOf(
+  async statusOf(
     workspaceId: WorkspaceId,
     pullRequest: ConfigPullRequestAt,
   ): Promise<ConfigPullRequestStatus> {
-    return withRepositoryErrors(() =>
+    const status = await withRepositoryErrors(() =>
       this.pullRequests.statusOf({ workspaceId, ...pullRequest }),
     );
+
+    return { state: status.state, closedAt: status.closedAt };
   }
 
   async closed(

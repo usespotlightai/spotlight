@@ -162,7 +162,7 @@ describe('WorkloadRule', () => {
     expect(() => rule({ issuer: `${GITHUB}?x=1` })).toThrow(
       InvalidOidcTrustError,
     );
-    expect(rule({ issuer: 'http://127.0.0.1:8080' }).issuer).toBe(
+    expect(rule({ issuer: 'http://127.0.0.1:8080' }).issuer.value).toBe(
       'http://127.0.0.1:8080',
     );
   });

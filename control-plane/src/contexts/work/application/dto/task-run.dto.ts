@@ -1,7 +1,5 @@
-import {
-  type Progress,
-  RUN_STATES,
-} from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/progress';
+import { TASK_RUN_STATES } from '@work/domain/value-objects/task-run-state';
 
 export const REVIEW_STATE_NAMES = ['pending', 'answered'] as const;
 
@@ -10,7 +8,7 @@ interface RunReviewDto {
   readonly conversationId: string;
 }
 
-export const RUN_STATE_NAMES = RUN_STATES;
+export const RUN_STATE_NAMES = TASK_RUN_STATES;
 
 export interface RunStationDto {
   readonly id: string;

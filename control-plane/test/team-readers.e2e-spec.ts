@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 let app: INestApplication;
@@ -36,7 +37,7 @@ const inboxRequestsIn = async (userId: string): Promise<string[]> => {
 
   expect(answer.status).toBe(200);
 
-  return (answer.body as { id: string; inboxRequest: unknown }[]).flatMap(
+  return (answer.body.items as { id: string; inboxRequest: unknown }[]).flatMap(
     (each) => (each.inboxRequest ? [each.id] : []),
   );
 };
@@ -64,6 +65,7 @@ const createInboxRequest = async (
     form,
     about: RUN,
     createdAt: new Date(),
+    openedAt: new Date(),
   });
 
   return requestId;
@@ -117,10 +119,13 @@ beforeAll(async () => {
     workspaceId,
     key: `payments-${otherTeam.slice(0, 8)}`,
     name: 'Payments',
+    origin: 'configuration',
   });
-  await db
-    .insert(schema.teamMember)
-    .values({ teamId: otherTeam, userId: ELSEWHERE_IN_WORKSPACE });
+  await db.insert(schema.teamMember).values({
+    workspaceId,
+    teamId: otherTeam,
+    userId: ELSEWHERE_IN_WORKSPACE,
+  });
   await db.insert(schema.runRecord).values({
     runId: RUN,
     workspaceId,
@@ -225,6 +230,7 @@ describe('who is told which memories a run used on a deleted team’s line', () 
       workspaceId: team.workspaceId.value,
       key: `gone-${teamId.slice(0, 8)}`,
       name: 'Gone',
+      origin: 'configuration',
     });
     await db.insert(schema.line).values({
       id: lineId,
@@ -233,9 +239,10 @@ describe('who is told which memories a run used on a deleted team’s line', () 
       key: 'default',
       name: 'Default',
     });
-    await db.insert(schema.station).values([
+    await insertStations(db, [
       {
         id: stationId,
+        workspaceId: team.workspaceId.value,
         lineId,
         key: 'backlog',
         name: 'Backlog',
@@ -244,6 +251,7 @@ describe('who is told which memories a run used on a deleted team’s line', () 
       },
       {
         id: randomUUID(),
+        workspaceId: team.workspaceId.value,
         lineId,
         key: 'completed',
         name: 'Completed',
@@ -266,6 +274,7 @@ describe('who is told which memories a run used on a deleted team’s line', () 
       form: 'memories',
       about: RUN,
       createdAt: new Date(),
+      openedAt: new Date(),
     });
     await db.delete(schema.team).where(eq(schema.team.id, teamId));
   });

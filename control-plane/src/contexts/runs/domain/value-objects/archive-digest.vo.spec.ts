@@ -1,0 +1,13 @@
+import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
+import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
+import { describe, expect, it } from 'vitest';
+
+describe('ArchiveDigest', () => {
+  it('keeps a SHA-256 as lowercase hexadecimal', () => {
+    expect(ArchiveDigest.of('AB'.repeat(32)).sha256).toBe('ab'.repeat(32));
+  });
+
+  it.each(['', 'ab', 'g'.repeat(64), 'a'.repeat(65)])('rejects %o', (raw) => {
+    expect(() => ArchiveDigest.of(raw)).toThrow(InvalidWorkingCopyArchiveError);
+  });
+});

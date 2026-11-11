@@ -1,49 +1,34 @@
+import type {
+  DeclaredTool,
+  ToolCallInputs,
+} from '@integrations/application/dto/declared-tool.dto';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
-import type { Integration } from '@integrations/domain/entities/integration.entity';
+import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import type { CallFailureFact } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
+import type { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
+import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   Happened,
   TaskMark,
 } from '@work/application/contracts/happenings.contract';
-import type {
-  ToolDeclaration,
-  ToolInputValues,
-} from '@work/application/contracts/tools.contract';
 
-interface NoticeFileView {
+export interface NoticeFileView {
   readonly id: string;
   readonly name: string;
   readonly type: string;
   readonly size: number;
-}
-
-interface IntegrationTaskViewWaiting {
-  readonly conversationId: string;
-  readonly body: string;
-  readonly awaitsApproval: boolean;
-  readonly attachments: readonly NoticeFileView[];
-}
-
-export interface IntegrationTaskView {
-  readonly taskId: string;
-  readonly workspaceId: string;
-  readonly teamId: string;
-  readonly title: string;
-  readonly url: string | null;
-  readonly pullRequest: string | null;
-  readonly line: string;
-  readonly station: string;
-  readonly stationKey: string;
-  readonly marks: Readonly<Record<string, string>>;
-  readonly waiting: IntegrationTaskViewWaiting | null;
 }
 
 export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
@@ -51,17 +36,17 @@ export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
 export interface Credentials {
   injectedFor(
     url: string,
-    secrets: readonly string[],
+    secrets: readonly SecretName[],
   ): Promise<InjectedSecrets>;
 
   standInsFor(
     url: string,
-    secrets: readonly string[],
+    secrets: readonly SecretName[],
   ): Promise<InjectedSecrets>;
 }
 
 export interface SigningSecrets {
-  named(secret: string): Promise<VerifyingSecret>;
+  named(secret: SecretName): Promise<VerifyingSecret>;
 }
 
 export interface ActiveConnection {
@@ -72,7 +57,7 @@ export interface ActiveConnection {
 }
 
 export interface CallAuth {
-  workspace(): Promise<string>;
+  workspace(): Promise<WorkspaceId>;
   readonly connection: ActiveConnection | null;
   readonly credentials: Credentials;
 }
@@ -104,7 +89,7 @@ export type ActionResult =
   | { readonly kind: 'nothing-to-do' };
 
 export interface TaskPayload {
-  readonly task: IntegrationTaskView;
+  readonly task: TaskView;
   readonly ask: {
     readonly body: string;
     readonly link: string | null;
@@ -145,19 +130,30 @@ export type RefreshResult =
   | { readonly kind: 'failed' }
   | { readonly kind: 'not-refreshable' };
 
+export type CallAttempt =
+  | { readonly kind: 'answered'; readonly output: ToolOutput }
+  | { readonly kind: 'timed-out' }
+  | { readonly kind: 'failed'; readonly fact: CallFailureFact };
+
 export interface ResolvedTool {
   readonly integration: Integration;
   readonly provided: ProvidedTool;
-  readonly declared: ToolDeclaration;
-  readonly injectedSecrets: readonly string[];
+  readonly declared: DeclaredTool;
+  readonly injectedSecrets: readonly SecretName[];
   defaultFor(input: string): unknown;
-  call(inputs: ToolInputValues, callAuth: CallAuth): Promise<ToolOutput>;
+  attempt(
+    inputs: ToolCallInputs,
+    callAuth: CallAuth,
+    withinMs: number | null,
+  ): Promise<CallAttempt>;
 }
 
 export interface IntegrationRuntimePort {
   integrations(
     definitions: readonly DefinedIntegration[],
   ): readonly Integration[];
+
+  offered(definitions: readonly DefinedIntegration[]): readonly OfferedTools[];
 
   poll(
     definitions: readonly DefinedIntegration[],
@@ -182,14 +178,14 @@ export interface IntegrationRuntimePort {
 
   tool(
     definitions: readonly DefinedIntegration[],
-    tool: string,
-    task: IntegrationTaskView,
+    tool: ToolName,
+    task: TaskView,
   ): Promise<ResolvedTool | null>;
 
   refresh(
     definitions: readonly DefinedIntegration[],
     owner: { readonly teamId: TeamId; readonly workspaceId: WorkspaceId },
     integration: IntegrationKey,
-    refreshToken: AccessToken,
+    refreshToken: RefreshToken,
   ): Promise<RefreshResult>;
 }

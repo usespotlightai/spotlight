@@ -18,7 +18,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
+import { asc, desc, eq, inArray } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleInviteReader implements InviteReaderPort {
@@ -37,23 +37,21 @@ export class DrizzleInviteReader implements InviteReaderPort {
         inviterName: user.name,
         inviterImage: user.image,
         invitedAt: workspaceInvite.invitedAt,
+        acceptedAt: workspaceInvite.acceptedAt,
+        revokedAt: workspaceInvite.revokedAt,
         expiresAt: workspaceInvite.expiresAt,
       })
       .from(workspaceInvite)
-      .leftJoin(user, eq(user.id, workspaceInvite.invitedBy))
-      .where(
-        and(
-          eq(workspaceInvite.workspaceId, workspaceId.value),
-          isNull(workspaceInvite.acceptedAt),
-          isNull(workspaceInvite.revokedAt),
-          gt(workspaceInvite.expiresAt, now),
-        ),
-      )
+      .leftJoin(user, eq(user.id, workspaceInvite.invitedById))
+      .where(eq(workspaceInvite.workspaceId, workspaceId.value))
       .orderBy(desc(workspaceInvite.invitedAt));
+    const pending = rows.filter(
+      (row) => WorkspaceInvite.statusOf(row, now) === 'pending',
+    );
 
-    const teams = await this.teamsOf(rows.map((row) => row.id));
+    const teams = await this.teamsOf(pending.map((row) => row.id));
 
-    return rows.map((row) => ({
+    return pending.map((row) => ({
       id: row.id,
       email: row.email,
       role: invitable(row.role),
@@ -85,7 +83,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
       })
       .from(workspaceInvite)
       .innerJoin(workspace, eq(workspace.id, workspaceInvite.workspaceId))
-      .leftJoin(user, eq(user.id, workspaceInvite.invitedBy))
+      .leftJoin(user, eq(user.id, workspaceInvite.invitedById))
       .where(eq(workspaceInvite.tokenHash, hash.value))
       .limit(1);
 

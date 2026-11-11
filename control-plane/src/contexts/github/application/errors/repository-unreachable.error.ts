@@ -1,4 +1,6 @@
-export class RepositoryUnreachableError extends Error {
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+
+export class RepositoryUnreachableError extends ApplicationError {
   readonly kind = 'invalid' as const;
 
   constructor(repository: string) {

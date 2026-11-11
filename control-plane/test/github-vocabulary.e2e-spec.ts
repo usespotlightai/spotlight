@@ -1,6 +1,6 @@
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
 import { GitHubWebhookProvider } from '@integrations/infrastructure/webhooks/github.webhook-provider';
-import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { describe, expect, it } from 'vitest';
 
 const BUILT_IN_REACTIONS = BUILT_IN_LINES.flatMap((line) => line.reactions);

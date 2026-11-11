@@ -1,4 +1,6 @@
-export class InvalidAgentConfigFilterError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidAgentConfigFilterError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(reason: string) {

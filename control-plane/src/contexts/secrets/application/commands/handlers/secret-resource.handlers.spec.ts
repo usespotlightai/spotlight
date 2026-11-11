@@ -4,6 +4,7 @@ import { CreateSecretHandler } from '@secrets/application/commands/handlers/crea
 import { DeleteSecretHandler } from '@secrets/application/commands/handlers/delete-secret.handler';
 import { UpdateSecretHandler } from '@secrets/application/commands/handlers/update-secret.handler';
 import { UpdateSecretCommand } from '@secrets/application/commands/update-secret.command';
+import type { SecretUse } from '@secrets/application/ports/secret-uses.port';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretDefinitions } from '@secrets/infrastructure/definitions/secret-definitions';
 import {
@@ -16,7 +17,7 @@ import {
   NOW,
   transaction,
   WORKSPACE,
-} from '@secrets/secrets.fakes.fake-spec';
+} from '@secrets/testing/secrets.fakes.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
@@ -56,7 +57,7 @@ const setUp = (managesSecrets = true) => {
     clock,
     transaction,
   );
-  const uses: string[] = [];
+  const uses: SecretUse[] = [];
   const deleting = new DeleteSecretHandler(
     access,
     secrets,
@@ -75,9 +76,9 @@ const setUp = (managesSecrets = true) => {
       creating.execute(
         new CreateSecretCommand(WORKSPACE.value, ADMIN, key, definition),
       ),
-    update: (definition: unknown, version = 1) =>
+    update: (definition: unknown, version = 0) =>
       updating.execute(new UpdateSecretCommand(ID, ADMIN, version, definition)),
-    remove: (version = 1) =>
+    remove: (version = 0) =>
       deleting.execute(new DeleteSecretCommand(ID, ADMIN, version)),
     secrets,
     store,
@@ -192,9 +193,9 @@ describe('UpdateSecretHandler', () => {
   it('rejects a change to a version no longer current', async () => {
     const { update } = await created();
 
-    expect(await update(LINEAR, 0)).toEqual({
+    expect(await update(LINEAR, 1)).toEqual({
       outcome: 'version-conflict',
-      currentVersion: 1,
+      currentVersion: 0,
     });
   });
 
@@ -251,7 +252,7 @@ describe('DeleteSecretHandler', () => {
   it('will not delete a secret an integration still uses, and says which', async () => {
     const { remove, storedValue, uses } = await created();
 
-    uses.push('integration core/linear');
+    uses.push({ kind: 'integration', key: 'core/linear' });
 
     expect(await remove()).toEqual({
       outcome: 'in-use',

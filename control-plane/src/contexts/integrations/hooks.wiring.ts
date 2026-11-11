@@ -8,6 +8,10 @@ import {
   type TeamDirectoryPort,
 } from '@identity/application/ports/team-directory.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
+import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@identity/application/ports/workspace-outbound-scope.port';
 import { CreateHookCommand } from '@integrations/application/commands/create-hook.command';
 import { DeleteHookCommand } from '@integrations/application/commands/delete-hook.command';
 import { CreateHookHandler } from '@integrations/application/commands/handlers/create-hook.handler';
@@ -16,6 +20,10 @@ import { NoteByCallbackHandler } from '@integrations/application/commands/handle
 import { UpdateHookHandler } from '@integrations/application/commands/handlers/update-hook.handler';
 import { NoteByCallbackCommand } from '@integrations/application/commands/note-by-callback.command';
 import { UpdateHookCommand } from '@integrations/application/commands/update-hook.command';
+import {
+  CAUSATION,
+  type CausationPort,
+} from '@integrations/application/ports/causation.port';
 import {
   DEFINED_INTEGRATIONS,
   type DefinedIntegrationsPort,
@@ -30,6 +38,10 @@ import {
   type HookFiringHistoryPort,
 } from '@integrations/application/ports/hook-firing-history.port';
 import {
+  HOOK_REQUESTS,
+  type HookRequestsPort,
+} from '@integrations/application/ports/hook-requests.port';
+import {
   HOOK_RESOURCES,
   type HookResourcesPort,
 } from '@integrations/application/ports/hook-resources.port';
@@ -42,9 +54,14 @@ import {
   type HookSigningSecretsPort,
 } from '@integrations/application/ports/hook-signing-secrets.port';
 import {
+  HOOK_TASK_NOTES,
+  type HookTaskNotesPort,
+} from '@integrations/application/ports/hook-task-notes.port';
+import {
   HOOK_TOKENS,
   type HookTokensPort,
 } from '@integrations/application/ports/hook-tokens.port';
+import { HOOK_TOOLS } from '@integrations/application/ports/hook-tools.port';
 import {
   INTEGRATION_RUNTIME,
   type IntegrationRuntimePort,
@@ -57,6 +74,10 @@ import {
   OUTBOUND_LIMITS,
   type OutboundLimitsPort,
 } from '@integrations/application/ports/outbound-limits.port';
+import {
+  RUN_ATTEMPTS,
+  type RunAttemptsPort,
+} from '@integrations/application/ports/run-attempts.port';
 import {
   TASKS_FOR_HOOKS,
   type TasksForHooksPort,
@@ -76,19 +97,21 @@ import { ImportHookQuery } from '@integrations/application/queries/import-hook.q
 import { ListHookResourcesQuery } from '@integrations/application/queries/list-hook-resources.query';
 import { ReadHookQuery } from '@integrations/application/queries/read-hook.query';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
-import { FireHooks } from '@integrations/application/services/fire-hooks.service';
 import { HookAllowancesService } from '@integrations/application/services/hook-allowances.service';
 import { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
+import { HookSteps } from '@integrations/application/services/hook-steps.service';
 import { HookViews } from '@integrations/application/services/hook-views.service';
+import { HooksListening } from '@integrations/application/services/hooks-listening.service';
 import { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
+import { PurgeHookFirings } from '@integrations/application/services/purge-hook-firings.service';
+import { QueueHookFirings } from '@integrations/application/services/queue-hook-firings.service';
+import { RunBeforeHooks } from '@integrations/application/services/run-before-hooks.service';
+import { WorkHookFirings } from '@integrations/application/services/work-hook-firings.service';
 import {
   HOOK_CALLBACK_TOKENS,
   type HookCallbackTokenRepository,
 } from '@integrations/domain/repositories/hook-callback-token.repository';
-import {
-  HOOK_DEFINITIONS,
-  type HookDefinitionRepository,
-} from '@integrations/domain/repositories/hook-definition.repository';
+import { HOOK_DEFINITIONS } from '@integrations/domain/repositories/hook-definition.repository';
 import {
   HOOK_FIRINGS,
   type HookFiringRepository,
@@ -99,21 +122,26 @@ import {
 } from '@integrations/domain/repositories/integration-definition.repository';
 import { HookCalls } from '@integrations/infrastructure/acl/hook-calls.adapter';
 import { HookConfigs } from '@integrations/infrastructure/acl/hook-configs.adapter';
+import { HookTaskNotes } from '@integrations/infrastructure/acl/hook-task-notes.adapter';
 import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks.adapter';
+import { RunAttempts } from '@integrations/infrastructure/acl/run-attempts.adapter';
 import { TasksForHooks } from '@integrations/infrastructure/acl/tasks-for-hooks.adapter';
 import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
 import { HookCompiler } from '@integrations/infrastructure/hooks/hook-compiler';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { JoseHookTokens } from '@integrations/infrastructure/hooks/jose-hook-tokens';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { DrizzleHookDefinitionsReader } from '@integrations/infrastructure/persistence/drizzle/readers/hook-definitions.reader';
 import { DrizzleHookFiringHistory } from '@integrations/infrastructure/persistence/drizzle/readers/hook-firing-history.reader';
 import { DrizzleHookResources } from '@integrations/infrastructure/persistence/drizzle/readers/hook-resources.reader';
+import { DrizzleHookSigningSecrets } from '@integrations/infrastructure/persistence/drizzle/readers/hook-signing-secrets.reader';
 import { DrizzleHookCallbackTokens } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-callback-tokens.repository';
 import { DrizzleHookDefinitions } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-definitions.repository';
 import { DrizzleHookFirings } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-firings.repository';
 import { HookCallbackController } from '@integrations/presentation/http/controllers/hook-callback.controller';
 import { HookIssuerController } from '@integrations/presentation/http/controllers/hook-issuer.controller';
 import { HookResourceController } from '@integrations/presentation/http/controllers/hook-resource.controller';
+import { HOOK_CALLBACKS } from '@integrations/presentation/http/hook-callback-route';
 import { HookFiringWorker } from '@integrations/presentation/workers/hook-firing.worker';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
@@ -128,9 +156,17 @@ import {
 import { API_PREFIX } from '@platform/http/routes';
 import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
 import {
-  CAUSATION,
-  type CausationPort,
-} from '@shared-kernel/application/ports/causation.port';
+  HOOK_TRACES,
+  type HookTracesPort,
+} from '@runs/application/ports/hook-traces.port';
+import {
+  NETWORK_CALLS,
+  type NetworkCallsPort,
+} from '@runs/application/ports/network-calls.port';
+import {
+  RUN_FACTS,
+  type RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
 import {
   CLOCK,
   type ClockPort,
@@ -153,20 +189,8 @@ import {
   type TokenIssuer,
 } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
-import {
-  WORKSPACE_OUTBOUND_SCOPE,
-  type WorkspaceOutboundScopePort,
-} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
-import {
-  HOOK_TRACES,
-  type HookTracesPort,
-} from '@work/application/ports/hook-traces.port';
 import { LIFECYCLE_HOOKS } from '@work/application/ports/lifecycle-hooks.port';
-import {
-  NETWORK_CALLS,
-  type NetworkCallsPort,
-} from '@work/application/ports/network-calls.port';
 import {
   TASK_NOTES_FROM_HOOKS,
   type TaskNotesFromHooksPort,
@@ -185,7 +209,7 @@ export const HOOKS_CONTROLLERS: readonly Type[] = [
 export const HOOKS_PROVIDERS: readonly Provider[] = [
   DrizzleHookDefinitions,
   { provide: HOOK_DEFINITIONS, useExisting: DrizzleHookDefinitions },
-  { provide: HOOK_SIGNING_SECRETS, useExisting: DrizzleHookDefinitions },
+  { provide: HOOK_SIGNING_SECRETS, useClass: DrizzleHookSigningSecrets },
   { provide: HOOK_RESOURCES, useClass: DrizzleHookResources },
   { provide: HOOK_FIRINGS, useClass: DrizzleHookFirings },
   { provide: HOOK_FIRING_HISTORY, useClass: DrizzleHookFiringHistory },
@@ -205,6 +229,18 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
     provide: TASKS_FOR_HOOKS,
     inject: [TASK_VIEWS],
     useFactory: (tasks: TaskViewsPort) => new TasksForHooks(tasks),
+  },
+
+  {
+    provide: HOOK_TASK_NOTES,
+    inject: [TASK_NOTES_FROM_HOOKS],
+    useFactory: (notes: TaskNotesFromHooksPort) => new HookTaskNotes(notes),
+  },
+
+  {
+    provide: RUN_ATTEMPTS,
+    inject: [RUN_FACTS],
+    useFactory: (facts: RunFactsPort) => new RunAttempts(facts),
   },
 
   {
@@ -268,83 +304,164 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: HookRequests,
+    provide: HOOK_REQUESTS,
     inject: [
       ENV,
       OutboundPolicy,
       HOOK_SIGNING_SECRETS,
       HOOK_TOKENS,
-      HookCallbackTokens,
       NETWORK_CALLS,
       OUTBOUND_LIMITS,
       WORKSPACE_OUTBOUND_SCOPE,
+      CLOCK,
     ],
     useFactory: (
       env: Env,
       policy: OutboundPolicy,
       secrets: HookSigningSecretsPort,
       tokens: HookTokensPort,
-      callbacks: HookCallbackTokens,
       network: NetworkCallsPort,
       limits: OutboundLimitsPort,
       scope: WorkspaceOutboundScopePort,
+      clock: ClockPort,
     ) =>
       new HookRequests(
         {
-          publicUrl: publicUrlOf(env),
+          callbackUrl: `${publicUrlOf(env)}/${API_PREFIX}/${HOOK_CALLBACKS}`,
           policy,
         },
         secrets,
         tokens,
-        callbacks,
         network,
         limits,
         scope,
-      ),
-  },
-
-  {
-    provide: HOOK_RUNTIME,
-    inject: [
-      HOOK_DEFINITIONS,
-      EXPRESSION_ENGINE,
-      DEFINED_INTEGRATIONS,
-      INTEGRATION_RUNTIME,
-      CallAuthResolver,
-      HookRequests,
-      CLOCK,
-    ],
-    useFactory: (
-      hooks: HookDefinitionRepository,
-      expressions: ExpressionEnginePort,
-      defined: DefinedIntegrationsPort,
-      runtime: IntegrationRuntimePort,
-      callAuthResolver: CallAuthResolver,
-      requests: HookRequests,
-      clock: ClockPort,
-    ) =>
-      new CompiledHookRuntime(
-        hooks,
-        expressions,
-        defined,
-        runtime,
-        callAuthResolver,
-        requests,
         clock,
       ),
   },
 
   {
-    provide: FireHooks,
+    provide: DrizzleHookDefinitionsReader,
+    useClass: DrizzleHookDefinitionsReader,
+  },
+
+  { provide: HOOK_TOOLS, useExisting: DrizzleHookDefinitionsReader },
+
+  {
+    provide: HOOK_RUNTIME,
+    inject: [DrizzleHookDefinitionsReader, EXPRESSION_ENGINE],
+    useFactory: (
+      hooks: DrizzleHookDefinitionsReader,
+      expressions: ExpressionEnginePort,
+    ) => new CompiledHookRuntime(hooks, expressions),
+  },
+
+  {
+    provide: HookSteps,
+    inject: [
+      HOOK_RUNTIME,
+      HOOK_REQUESTS,
+      DEFINED_INTEGRATIONS,
+      INTEGRATION_RUNTIME,
+      CallAuthResolver,
+      HookCallbackTokens,
+      HOOK_CALLS,
+      CLOCK,
+      LOGGER,
+    ],
+    useFactory: (
+      runtime: HookRuntimePort,
+      requests: HookRequestsPort,
+      defined: DefinedIntegrationsPort,
+      integrations: IntegrationRuntimePort,
+      callAuth: CallAuthResolver,
+      callbacks: HookCallbackTokens,
+      calls: HookCallsPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) =>
+      new HookSteps(
+        runtime,
+        requests,
+        defined,
+        integrations,
+        callAuth,
+        callbacks,
+        calls,
+        clock,
+        logger,
+      ),
+  },
+
+  {
+    provide: HooksListening,
+    inject: [HOOK_RUNTIME],
+    useFactory: (runtime: HookRuntimePort) => new HooksListening(runtime),
+  },
+
+  {
+    provide: RunBeforeHooks,
+    inject: [
+      HOOK_RUNTIME,
+      HookSteps,
+      ID_GENERATOR,
+      CLOCK,
+      LOGGER,
+      RUN_ATTEMPTS,
+    ],
+    useFactory: (
+      runtime: HookRuntimePort,
+      steps: HookSteps,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+      attempts: RunAttemptsPort,
+    ) => new RunBeforeHooks(runtime, steps, ids, clock, logger, attempts),
+  },
+
+  {
+    provide: QueueHookFirings,
     inject: [
       HOOK_RUNTIME,
       HOOK_FIRINGS,
+      ID_GENERATOR,
+      CLOCK,
+      CAUSATION,
+      LOGGER,
+      TELEMETRY,
+      RUN_ATTEMPTS,
+    ],
+    useFactory: (
+      runtime: HookRuntimePort,
+      firings: HookFiringRepository,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+      causation: CausationPort,
+      logger: LoggerPort,
+      telemetry: TelemetryPort,
+      attempts: RunAttemptsPort,
+    ) =>
+      new QueueHookFirings(
+        runtime,
+        firings,
+        ids,
+        clock,
+        causation,
+        logger,
+        telemetry,
+        attempts,
+      ),
+  },
+
+  {
+    provide: WorkHookFirings,
+    inject: [
+      HOOK_RUNTIME,
+      HookSteps,
+      HOOK_FIRINGS,
       HOOK_FIRING_HISTORY,
       TASKS_FOR_HOOKS,
-      TASK_NOTES_FROM_HOOKS,
-      HOOK_CALLS,
+      HOOK_TASK_NOTES,
       PULL_REQUESTS,
-      ID_GENERATOR,
       CLOCK,
       CAUSATION,
       LOGGER,
@@ -352,27 +469,25 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       runtime: HookRuntimePort,
+      steps: HookSteps,
       firings: HookFiringRepository,
       history: HookFiringHistoryPort,
       tasks: TasksForHooksPort,
-      notes: TaskNotesFromHooksPort,
-      calls: HookCallsPort,
+      notes: HookTaskNotesPort,
       pullRequests: PullRequestPort,
-      ids: IdGeneratorPort,
       clock: ClockPort,
       causation: CausationPort,
       logger: LoggerPort,
       telemetry: TelemetryPort,
     ) =>
-      new FireHooks(
+      new WorkHookFirings(
         runtime,
+        steps,
         firings,
         history,
         tasks,
         notes,
-        calls,
         pullRequests,
-        ids,
         clock,
         causation,
         logger,
@@ -381,23 +496,40 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: PurgeHookFirings,
+    inject: [HOOK_FIRINGS, HookCallbackTokens, CLOCK],
+    useFactory: (
+      firings: HookFiringRepository,
+      callbacks: HookCallbackTokens,
+      clock: ClockPort,
+    ) => new PurgeHookFirings(firings, callbacks, clock),
+  },
+
+  {
     provide: LifecycleHookTriggers,
-    inject: [FireHooks, TASKS_FOR_HOOKS],
-    useFactory: (firings: FireHooks, tasks: TasksForHooksPort) =>
+    inject: [QueueHookFirings, TASKS_FOR_HOOKS],
+    useFactory: (firings: QueueHookFirings, tasks: TasksForHooksPort) =>
       new LifecycleHookTriggers(firings, tasks),
   },
 
   {
     provide: LIFECYCLE_HOOKS,
-    inject: [FireHooks],
-    useFactory: (firings: FireHooks) => new LifecycleHooks(firings),
+    inject: [HooksListening, RunBeforeHooks, LifecycleHookTriggers],
+    useFactory: (
+      listening: HooksListening,
+      before: RunBeforeHooks,
+      triggers: LifecycleHookTriggers,
+    ) => new LifecycleHooks(listening, before, triggers),
   },
 
   {
     provide: HookFiringWorker,
-    inject: [FireHooks, LOGGER],
-    useFactory: (firings: FireHooks, logger: LoggerPort) =>
-      new HookFiringWorker(firings, logger),
+    inject: [WorkHookFirings, PurgeHookFirings, LOGGER],
+    useFactory: (
+      firings: WorkHookFirings,
+      purging: PurgeHookFirings,
+      logger: LoggerPort,
+    ) => new HookFiringWorker(firings, purging, logger),
   },
 
   ...bindCommandHandler(CreateHookCommand, CreateHookHandler, [

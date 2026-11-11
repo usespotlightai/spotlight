@@ -1,5 +1,4 @@
 import type { TeamInPeriod } from '@insights/application/ports/insights-reader.port';
-import type { BotActivity } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import {
   type Percentiles,
   percentilesOf,
@@ -18,13 +17,14 @@ import {
   type Timed,
   type TypeMerge,
 } from '@insights/domain/services/shipping';
-import type { StationLocation } from '@insights/domain/services/team-history';
+import type { StationLocation } from '@insights/domain/services/station-ranking';
 import { ROUND_BUCKETS } from '@insights/domain/services/team-pull-requests';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
 import {
   PULL_REQUEST_TYPES,
   type PullRequestType,
 } from '@insights/domain/value-objects/pull-request-type';
+import type { BotActivity } from '@insights/domain/value-objects/seen-pull-request.vo';
 import {
   openedFor,
   ranOfOpened,
@@ -82,7 +82,7 @@ const lasted = (from: string, to: SQL): SQL =>
   sql`greatest(0, ${msOf(to)} - ${ms(from)})`;
 
 const periodMs = (end: 'from' | 'to'): SQL =>
-  msOf(sql.raw(`(period.value->>'${end}')::timestamp`));
+  msOf(sql.raw(`(period.value->>'${end}')::timestamptz`));
 
 const toFirstReviewMs = sql`case
   when ready_for_review_at is not null and first_unblocking_review_at is not null then
@@ -102,8 +102,8 @@ const awaitingAt = (at: SQL): SQL => sql`(
   and ready_for_review_at <= ${at}
   and not exists (
     select 1 from jsonb_array_elements(draft_periods) as period(value)
-    where (period.value->>'from')::timestamp <= ${at}
-      and (period.value->>'to' is null or (period.value->>'to')::timestamp > ${at})
+    where (period.value->>'from')::timestamptz <= ${at}
+      and (period.value->>'to' is null or (period.value->>'to')::timestamptz > ${at})
   )
   and (first_unblocking_review_at is null or first_unblocking_review_at > ${at})
   and (closed_at is null or closed_at > ${at})
@@ -115,15 +115,15 @@ const byAuthor = (when: SQL): SQL => sql`json_build_object(
 )`;
 
 const mergedBetween = (from: SQL, to: SQL): SQL =>
-  sql`state = 'merged' and closed_at >= ${from} and closed_at < ${to}`;
+  sql`merged_at >= ${from} and merged_at < ${to}`;
 
 const days = (team: TeamInPeriod): SQL => sql`(
   select
     listed.day,
     listed.at,
-    listed.day::timestamp as day_from,
-    listed.day::timestamp + interval '1 day' as day_to,
-    listed.day::timestamp + interval '1 day' - make_interval(days => ${ROLLING_DAYS}) as rolling_from
+    (listed.day::timestamp at time zone 'UTC') as day_from,
+    (listed.day::timestamp + interval '1 day') at time zone 'UTC' as day_to,
+    (listed.day::timestamp + interval '1 day' - make_interval(days => ${ROLLING_DAYS})) at time zone 'UTC' as rolling_from
   from unnest(${textArray(team.period.days)}) with ordinality as listed(day, at)
 ) as days`;
 
@@ -209,8 +209,8 @@ const mergesIn = async (
           select
             listed.week,
             listed.at,
-            greatest(listed.week::timestamp, ${iso(current.from)}::timestamp) as week_from,
-            least(listed.week::timestamp + interval '7 days', ${iso(current.to)}::timestamp) as week_to
+            greatest((listed.week::timestamp at time zone 'UTC'), ${iso(current.from)}::timestamptz) as week_from,
+            least((listed.week::timestamp + interval '7 days') at time zone 'UTC', ${iso(current.to)}::timestamptz) as week_to
           from unnest(${textArray(weeksOf(current))}) with ordinality as listed(week, at)
         ) as weeks
       ) as depth
@@ -289,8 +289,8 @@ const botsIn = async (
       sum((bot.value->>'resolvedThreads')::int)::int as "resolvedThreads"
     from covered
     cross join lateral jsonb_array_elements(covered.bot_activity) with ordinality as bot(value, at)
-    where covered.opened_at < ${iso(current.to)}::timestamp
-      and (covered.closed_at is null or covered.closed_at >= ${iso(current.from)}::timestamp)
+    where covered.opened_at < ${iso(current.to)}::timestamptz
+      and (covered.closed_at is null or covered.closed_at >= ${iso(current.from)}::timestamptz)
     group by bot.value->>'login'
     order by min(array[covered.ord, bot.at])
   `);

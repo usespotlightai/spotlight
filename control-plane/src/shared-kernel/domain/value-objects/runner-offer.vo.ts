@@ -1,5 +1,5 @@
 import { InvalidRunnerPlacementError } from '@shared-kernel/domain/exceptions/invalid-runner-placement.error';
-import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
+import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -262,6 +263,33 @@ func TestHistoryRejectsACandidateOrReplayNamedOutsideItsFolder(t *testing.T) {
 		}
 		if _, statErr := os.Stat(filepath.Join(root, "implementation")); !errors.Is(statErr, os.ErrNotExist) {
 			t.Errorf("wrote a history anyway: %v", statErr)
+		}
+	}
+}
+
+func TestHistoryWritesEachRepeatOfACalibratedSeed(t *testing.T) {
+	history := searchHistory()
+	seed := history.Candidates[0]
+	seed.CandidateName = "seed"
+	seed.Runs = nil
+	for repeat := 1; repeat <= 3; repeat++ {
+		ran := history.Candidates[0].Runs[0]
+		ran.RunID = ran.RunID + "_" + strconv.Itoa(repeat)
+		ran.Repeat = repeat
+		seed.Runs = append(seed.Runs, ran)
+	}
+	history.Candidates = []protocol.HistoryCandidate{seed}
+	historian(t, history)
+	root := t.TempDir()
+
+	if err := run([]string{"history", "--station", "implementation", "--out", root}, strings.NewReader(""), new(bytes.Buffer)); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	for repeat := 1; repeat <= 3; repeat++ {
+		result := filepath.Join(root, "implementation", "candidates", "seed", "runs", "run_1", strconv.Itoa(repeat), "result.json")
+		if _, err := os.Stat(result); err != nil {
+			t.Errorf("repeat %d: %v", repeat, err)
 		}
 	}
 }

@@ -1,37 +1,24 @@
-import { distinct } from '@shared-kernel/domain/services/distinct';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
-import { DuplicateRepositoryError } from '@work/domain/exceptions/duplicate-repository.error';
-import { MixedRunnerImagesError } from '@work/domain/exceptions/mixed-runner-images.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
-import type { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
-import type { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import type { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
+
+export interface LineRepository {
+  readonly repository: Repository;
+  readonly setup: string | null;
+}
 
 export class LineRepositories {
   private constructor(
-    readonly entries: readonly LineRepositoryConfig[],
+    readonly entries: readonly LineRepository[],
     readonly image: RunnerImage | null,
   ) {}
 
-  static of(entries: readonly LineRepositoryConfig[]): LineRepositories {
-    const names = new Set<string>();
-
-    for (const { repository } of entries) {
-      if (names.has(repository.name)) {
-        throw new DuplicateRepositoryError(repository.name);
-      }
-      names.add(repository.name);
-    }
-
-    const images = distinct(
-      entries.flatMap((each) => (each.image ? [each.image] : [])),
-    );
-
-    if (images.length > 1) {
-      throw new MixedRunnerImagesError(images.map((each) => each.value));
-    }
-
-    return new LineRepositories(entries, images[0] ?? null);
+  static of(
+    entries: readonly LineRepository[],
+    image: RunnerImage | null,
+  ): LineRepositories {
+    return new LineRepositories([...entries], image);
   }
 
   static none(): LineRepositories {
@@ -46,32 +33,29 @@ export class LineRepositories {
     return this.entries.length === 0;
   }
 
-  setupOf(repository: Repository): RepositorySetup | null {
+  setupOf(repository: Repository): string | null {
     return (
       this.entries.find((each) => each.repository.equals(repository))?.setup ??
       null
     );
   }
 
-  equals(other: LineRepositories): boolean {
-    return (
-      this.entries.length === other.entries.length &&
-      this.entries.every((each) =>
-        other.entries.some((theirs) => theirs.equals(each)),
-      )
-    );
+  names(repository: Repository): boolean {
+    return this.all.some((each) => each.equals(repository));
   }
 
-  named(name: string): Repository | null {
-    return this.all.find((each) => each.name === name) ?? null;
+  named(name: RepositoryName): Repository | null {
+    return this.all.find((each) => name.names(each)) ?? null;
   }
 
-  opening(name: string | null): Repository {
+  opening(name: RepositoryName | null): Repository {
     if (name) {
       const named = this.named(name);
 
       if (!named) {
-        throw new NoRepositoryError(`Line has no repository named ${name}.`);
+        throw new NoRepositoryError(
+          `Line has no repository named ${name.value}.`,
+        );
       }
 
       return named;

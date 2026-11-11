@@ -1,10 +1,11 @@
-import type { GitHubConnectionsPort } from '@change-review/application/ports/github-connections.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
+import { pullRequestsOf } from '@change-review/domain/services/pull-request-routing';
 import type {
   PullRequestReaction,
   PullRequestReactionsPort,
   ReactedTo,
 } from '@github/application/ports/pull-request-reactions.port';
+import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -14,7 +15,7 @@ const REVIEWING_REACTION: PullRequestReaction = 'eyes';
 export class SignalReviewing {
   constructor(
     private readonly work: WorkPort,
-    private readonly connections: GitHubConnectionsPort,
+    private readonly connections: WorkspaceConnectionsPort,
     private readonly reactions: PullRequestReactionsPort,
   ) {}
 
@@ -22,7 +23,9 @@ export class SignalReviewing {
     const reviewed = await this.reviewing(taskId);
 
     if (reviewed?.currentRun?.equals(runId) && (await this.stillGoing(runId))) {
-      await this.reactions.react(reviewed.on, REVIEWING_REACTION);
+      for (const on of reviewed.on) {
+        await this.reactions.react(on, REVIEWING_REACTION);
+      }
     }
   }
 
@@ -39,7 +42,9 @@ export class SignalReviewing {
       return;
     }
 
-    await this.reactions.remove(reviewed.on, REVIEWING_REACTION);
+    for (const on of reviewed.on) {
+      await this.reactions.remove(on, REVIEWING_REACTION);
+    }
   }
 
   private async stillGoing(runId: RunId): Promise<boolean> {
@@ -48,9 +53,10 @@ export class SignalReviewing {
     return run !== null && !run.ended;
   }
 
-  private async reviewing(
-    taskId: TaskId,
-  ): Promise<{ on: ReactedTo; currentRun: RunId | null } | null> {
+  private async reviewing(taskId: TaskId): Promise<{
+    on: readonly ReactedTo[];
+    currentRun: RunId | null;
+  } | null> {
     const task = await this.work.task(taskId);
 
     if (
@@ -62,7 +68,10 @@ export class SignalReviewing {
     }
 
     return {
-      on: { workspaceId: task.workspaceId, pullRequest: task.pullRequest },
+      on: pullRequestsOf(task).map((pullRequest) => ({
+        workspaceId: task.workspaceId,
+        pullRequest,
+      })),
       currentRun: task.currentRunId,
     };
   }

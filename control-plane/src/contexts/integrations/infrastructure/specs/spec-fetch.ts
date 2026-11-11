@@ -1,5 +1,5 @@
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { cappedText } from '@integrations/infrastructure/outbound/capped-body';
 import {
   type Dressed,
@@ -7,8 +7,13 @@ import {
   type Hop,
 } from '@integrations/infrastructure/outbound/followed-redirects';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import {
+  applyInjected,
+  redactInjected,
+} from '@integrations/infrastructure/outbound/secret-injection';
 import { SpecUnreadable } from '@integrations/infrastructure/specs/operation-record';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -25,7 +30,7 @@ export interface SpecRequest {
 
 export interface SpecInjection {
   readonly apiHost: string | null;
-  readonly secrets: readonly string[];
+  readonly secrets: readonly SecretName[];
   readonly connection: string | null;
   readonly credentials: Credentials;
 }
@@ -71,7 +76,7 @@ export class SpecFetch {
           const dressed = await this.dressed(hop, request, injection);
 
           if (dressed.injected.isEmpty) {
-            return { ...dressed, url: injected.redact(dressed.url) };
+            return { ...dressed, url: redactInjected(injected, dressed.url) };
           }
 
           injected = dressed.injected;
@@ -113,7 +118,7 @@ export class SpecFetch {
       }
 
       throw new SpecUnreadable(
-        `could not be read: ${hostOf(request.url)}: ${injected.redact(codeOf(error))}`,
+        `could not be read: ${hostOf(request.url)}: ${redactInjected(injected, codeOf(error))}`,
       );
     }
   }
@@ -142,7 +147,7 @@ export class SpecFetch {
       injection.secrets.length > 0
         ? await injection.credentials.injectedFor(hop.url, injection.secrets)
         : InjectedSecrets.none();
-    injected.applyTo({ url, headers });
+    applyInjected(injected, { url, headers });
 
     return { url: url.href, headers, injected };
   }

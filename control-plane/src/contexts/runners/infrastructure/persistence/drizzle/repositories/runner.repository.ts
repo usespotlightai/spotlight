@@ -8,7 +8,6 @@ import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import {
   RunnerWork,
   type RunnerWorkKind,
@@ -21,9 +20,11 @@ import {
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
@@ -69,6 +70,8 @@ const toRunner = (row: Row): Runner =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     source: credentialSourceOf(row),
     hostId: row.hostId === null ? null : HostId.of(row.hostId),
+    enters:
+      row.entersSandboxId === null ? null : SandboxId.of(row.entersSandboxId),
     labels: RunnerLabels.of(row.labels),
     tokenHash: TokenHash.of(row.tokenHash),
     egressTokenHash:
@@ -133,6 +136,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
         poolId: added.source.poolId?.value ?? null,
         trustId: added.source.trustId?.value ?? null,
         hostId: added.hostId?.value ?? null,
+        entersSandboxId: added.enters?.value ?? null,
         labels: [...added.labels.values],
         tokenHash: added.tokenHash.value,
         egressTokenHash: added.egressTokenHash?.value ?? null,
@@ -214,7 +218,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
     return found ? toRunner(found) : null;
   }
 
-  async aliveIn(poolId: RunnerPoolId, now: Date): Promise<readonly Runner[]> {
+  async aliveIn(poolId: PoolId, now: Date): Promise<readonly Runner[]> {
     const rows = await this.context.db
       .select()
       .from(runner)

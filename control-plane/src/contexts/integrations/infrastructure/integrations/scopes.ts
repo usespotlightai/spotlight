@@ -10,6 +10,7 @@ const TASK: Declared = {
     title: 'string',
     url: 'dyn',
     pullRequest: 'dyn',
+    pullRequests: 'list<string>',
     line: 'string',
     station: 'string',
     stationKey: 'string',

@@ -203,8 +203,11 @@ describe('a search for a better station config, when it stalls or loses its stat
       .expect(204);
 
     const resolved = (
-      (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
-        .body as InboxEntry[]
+      (
+        await owner()
+          .get(`/api/workspaces/${team.slug}/inbox?state=resolved`)
+          .expect(200)
+      ).body.items as InboxEntry[]
     ).find((each) => each.id === notice?.id);
 
     expect(resolved).toMatchObject({ unread: false, resolved: true });
@@ -219,9 +222,18 @@ describe('a search for a better station config, when it stalls or loses its stat
     expect(
       (
         (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
-          .body as InboxEntry[]
+          .body.items as InboxEntry[]
       ).some((each) => each.id === notice?.id),
     ).toBe(false);
+    expect(
+      (
+        (
+          await owner()
+            .get(`/api/workspaces/${team.slug}/inbox?state=resolved`)
+            .expect(200)
+        ).body.items as InboxEntry[]
+      ).some((each) => each.id === notice?.id),
+    ).toBe(true);
   }, 120_000);
 
   it('searches on once looking into why it stalled finds a cause the config can fix, and tells the team nothing when it ends with no pull request', async () => {
@@ -383,13 +395,15 @@ describe('a search for a better station config, when it stalls or loses its stat
         ).length === 0,
       WITHIN,
     );
-    expect(
-      (
-        await db
-          .select({ state: schema.run.state })
-          .from(schema.run)
-          .where(inArray(schema.run.id, [agentRun?.id ?? '']))
-      )[0]?.state,
-    ).not.toBe('queued');
+    await eventually(
+      async () =>
+        (
+          await db
+            .select({ state: schema.run.state })
+            .from(schema.run)
+            .where(inArray(schema.run.id, [agentRun?.id ?? '']))
+        )[0]?.state !== 'queued',
+      WITHIN,
+    );
   }, 120_000);
 });

@@ -1,4 +1,3 @@
-import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type {
   ProvisionAnswer,
@@ -14,6 +13,8 @@ import type {
   RunnersPort,
   StartedRunner,
 } from '@runners/application/ports/runners.port';
+import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
+import { occupancyOf } from '@runners/application/services/pool-occupancy';
 import { reviseRunner } from '@runners/application/services/runner-revisions';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
@@ -26,16 +27,16 @@ import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-p
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import { allowsUrl } from '@runners/domain/services/allows-url';
+import { egressAvailability } from '@runners/domain/services/egress-naming';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { HostRelease } from '@runners/domain/value-objects/host-release.vo';
 import type { PoolMode } from '@runners/domain/value-objects/pool-access.vo';
 import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type {
@@ -44,8 +45,10 @@ import type {
 } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 type Began<Through> =
@@ -55,6 +58,11 @@ type Began<Through> =
 
 type Starting = (through: RunnerPool | RunnerTrust) => Runner;
 
+interface Entering {
+  readonly sandbox: SandboxId;
+  readonly host: HostId;
+}
+
 type Unusable = { readonly outcome: 'unusable'; readonly detail: string };
 
 type Answered = ProvisionAnswer | Unusable;
@@ -62,6 +70,13 @@ type Answered = ProvisionAnswer | Unusable;
 type ResolvedEgress =
   | { readonly outcome: 'found'; readonly url: EgressUrl | null }
   | Unusable;
+
+const NO_EGRESS_NAMED: ProvisionedRunner = {
+  outcome: 'failed',
+  kind: 'unusable',
+  detail:
+    'The pool names no egress now. A run that uses secrets or the Spotlight API needs one.',
+};
 
 export interface RunnersSettings {
   readonly insecureAllowed: boolean;
@@ -75,6 +90,7 @@ export class Runners implements RunnersPort {
     private readonly hosts: RunnerHostRepository,
     private readonly runners: RunnerRepository,
     private readonly sandboxes: SandboxRepository,
+    private readonly placements: SandboxPlacementsPort,
     private readonly egresses: EgressRepository,
     private readonly calls: ProvisionCallsPort,
     private readonly secrets: ProvisionSecretsPort,
@@ -128,12 +144,12 @@ export class Runners implements RunnersPort {
       return { outcome: 'host-unreported' };
     }
 
-    if (known.isOlderThan(MIN_HOST_RELEASE)) {
+    if (known.isOutdated) {
       this.refused(source, host, 'host-outdated');
       return {
         outcome: 'host-outdated',
-        release: known.report.release,
-        minimum: MIN_HOST_RELEASE.value,
+        release: known.report.release.value,
+        minimum: HostRelease.MINIMUM.value,
       };
     }
 
@@ -147,11 +163,15 @@ export class Runners implements RunnersPort {
     const runnerId = RunnerId.of(this.ids.generate());
     const issued = this.tokens.issue();
     const egress = this.tokens.issue();
+    const entering: Entering | null = into
+      ? { sandbox: SandboxId.of(into), host: hostId }
+      : null;
     const starting: Starting = (through) =>
       Runner.start({
         id: runnerId,
         through,
         host: hostId,
+        enters: entering?.sandbox ?? null,
         tokenHash: TokenHash.of(issued.hash),
         egressTokenHash: TokenHash.of(egress.hash),
         proxyCredentialHash: null,
@@ -160,27 +180,21 @@ export class Runners implements RunnersPort {
         at,
         claimBy,
       });
-    const inSandbox = into
-      ? await this.sandboxes.find(SandboxId.of(into))
-      : null;
-
-    if (into && !inSandbox?.takesRunOn(hostId)) {
-      return { outcome: 'full' };
-    }
-
     const began =
       source.kind === 'trust'
         ? await this.beganThroughTrust(
             RunnerTrustId.of(source.id),
             'pull',
+            at,
             starting,
+            entering,
           )
         : await this.beganThroughPool(
-            RunnerPoolId.of(source.id),
+            PoolId.of(source.id),
             'pull',
             at,
             starting,
-            inSandbox !== null,
+            entering,
           );
 
     return began.outcome === 'began'
@@ -200,7 +214,7 @@ export class Runners implements RunnersPort {
     const issued = this.tokens.issue();
     let credential: NewToken | null = null;
     const began = await this.beganThroughPool(
-      RunnerPoolId.of(request.poolId),
+      PoolId.of(request.poolId),
       'push',
       at,
       (through) => {
@@ -210,6 +224,7 @@ export class Runners implements RunnersPort {
           id: request.runnerId,
           through,
           host: null,
+          enters: null,
           tokenHash: TokenHash.of(issued.hash),
           egressTokenHash: null,
           proxyCredentialHash: credential
@@ -221,21 +236,13 @@ export class Runners implements RunnersPort {
           claimBy: request.claimBy,
         });
       },
+      null,
+      (pool) =>
+        pool.servesEgressNeed(request.needsEgress) ? null : NO_EGRESS_NAMED,
     );
 
     if (began.outcome !== 'began') {
       return began;
-    }
-
-    if (request.needsEgress && !began.through.egress) {
-      await this.release(request.runnerId, at);
-
-      return {
-        outcome: 'failed',
-        kind: 'unusable',
-        detail:
-          'The pool names no egress now. A run that uses secrets or the Spotlight API needs one.',
-      };
     }
 
     const answer = await this.called(
@@ -366,9 +373,9 @@ export class Runners implements RunnersPort {
       pool: pool.key.value,
       workspaceId: pool.workspaceId.value,
       kind: request.work.kind,
-      stackId: request.work.kind === 'check' ? request.work.id : null,
-      runId: request.runId,
-      taskId: request.taskId,
+      checkId: request.work.kind === 'check' ? request.work.id : null,
+      runId: request.runId.value,
+      tags: request.tags,
       labels: request.labels,
       image: request.image,
       runnerId: request.runnerId.value,
@@ -386,40 +393,60 @@ export class Runners implements RunnersPort {
       return { outcome: 'found', url: null };
     }
 
-    if (!reference.egressId) {
-      const platform = this.settings.platformEgress;
+    const platform = this.settings.platformEgress;
+    const named = reference.egressId
+      ? await this.egresses.find(reference.egressId)
+      : null;
+    const availability = egressAvailability(reference, {
+      workspaceId: pool.workspaceId,
+      named,
+      platformStored: platform !== null,
+    });
 
-      return platform
-        ? { outcome: 'found', url: platform.url }
-        : {
-            outcome: 'unusable',
-            detail:
-              'Runner pool names the platform egress. This deployment has no platform egress.',
-          };
+    if (availability === 'no-platform-egress') {
+      return {
+        outcome: 'unusable',
+        detail:
+          'Runner pool names the platform egress. This deployment has no platform egress.',
+      };
     }
 
-    const named = await this.egresses.find(reference.egressId);
+    if (availability === 'not-in-workspace') {
+      return {
+        outcome: 'unusable',
+        detail: `Runner pool names egress ${reference.value}. This egress doesn’t exist in the pool’s workspace.`,
+      };
+    }
 
-    return named && !named.isDeleted && named.belongsTo(pool.workspaceId)
-      ? { outcome: 'found', url: named.url }
-      : {
-          outcome: 'unusable',
-          detail: `Runner pool names egress ${reference.value}. This egress doesn’t exist in the pool’s workspace.`,
-        };
+    return { outcome: 'found', url: named?.url ?? platform?.url ?? null };
   }
 
-  private async occupied(pool: RunnerPool, at: Date): Promise<number> {
-    const alive = await this.runners.aliveIn(pool.id, at);
+  private async takesRun(
+    entering: Entering | null,
+    at: Date,
+  ): Promise<boolean> {
+    if (!entering) {
+      return true;
+    }
 
-    return alive.length + (await this.sandboxes.idleInPool(pool.id));
+    const sandbox = await this.sandboxes.find(entering.sandbox);
+    const host = sandbox ? await this.hosts.find(entering.host) : null;
+
+    return !!sandbox && !!host && sandbox.takesRunOn(host, at);
   }
 
   private beganThroughTrust(
     id: RunnerTrustId,
     mode: PoolMode,
+    at: Date,
     starting: Starting,
+    entering: Entering | null,
   ): Promise<Began<RunnerTrust>> {
     return this.transaction.inTransaction(async () => {
+      if (!(await this.takesRun(entering, at))) {
+        return { outcome: 'full' };
+      }
+
       const trust = await this.trusts.find(id);
 
       if (trust?.capacity(mode) !== 'open') {
@@ -432,13 +459,14 @@ export class Runners implements RunnersPort {
     });
   }
 
-  private beganThroughPool(
-    id: RunnerPoolId,
+  private beganThroughPool<Refusal = never>(
+    id: PoolId,
     mode: PoolMode,
     at: Date,
     starting: (through: RunnerPool) => Runner,
-    slotHeld = false,
-  ): Promise<Began<RunnerPool>> {
+    entering: Entering | null = null,
+    refusal: (pool: RunnerPool) => Refusal | null = () => null,
+  ): Promise<Began<RunnerPool> | Refusal> {
     return this.transaction.inTransaction(async () => {
       const pool = await this.pools.findForStart(id);
 
@@ -446,9 +474,25 @@ export class Runners implements RunnersPort {
         return { outcome: 'gone' };
       }
 
+      const refused = refusal(pool);
+
+      if (refused !== null) {
+        return refused;
+      }
+
+      if (!(await this.takesRun(entering, at))) {
+        return { outcome: 'full' };
+      }
+
+      const occupancy = await occupancyOf(
+        this.runners,
+        this.placements,
+        pool.id,
+        at,
+      );
       const capacity = pool.capacity(
         mode,
-        slotHeld ? 0 : await this.occupied(pool, at),
+        entering ? occupancy.entering(entering.sandbox) : occupancy,
       );
 
       if (capacity !== 'open') {

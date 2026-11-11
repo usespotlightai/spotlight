@@ -1,7 +1,4 @@
-import type {
-  JsonObject,
-  JsonValue,
-} from '@shared-kernel/domain/services/json-value';
+import type { JsonObject, JsonValue } from '@shared-kernel/domain/json-value';
 
 export type ToolInputValues = Readonly<Record<string, JsonValue>>;
 

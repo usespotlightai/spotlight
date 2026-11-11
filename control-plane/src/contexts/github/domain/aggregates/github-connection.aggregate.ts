@@ -18,12 +18,13 @@ export class GitHubConnection extends EventRecorder {
     readonly workspaceId: WorkspaceId,
     readonly installation: GitHubInstallation | null,
     readonly version: number,
+    readonly isStored: boolean,
   ) {
     super();
   }
 
   static none(workspaceId: WorkspaceId): GitHubConnection {
-    return new GitHubConnection(workspaceId, null, 0);
+    return new GitHubConnection(workspaceId, null, 0, false);
   }
 
   static rehydrate(input: {
@@ -31,10 +32,10 @@ export class GitHubConnection extends EventRecorder {
     installation: GitHubInstallation;
     version: number;
   }): GitHubConnection {
-    if (!Number.isInteger(input.version) || input.version < 1) {
+    if (!Number.isInteger(input.version) || input.version < 0) {
       throw new InconsistentStateError(
         'github connection',
-        'was stored without ever being written',
+        `has an impossible version (${input.version})`,
       );
     }
 
@@ -42,6 +43,7 @@ export class GitHubConnection extends EventRecorder {
       input.workspaceId,
       input.installation,
       input.version,
+      true,
     );
   }
 
@@ -66,7 +68,8 @@ export class GitHubConnection extends EventRecorder {
       throw new InstallationAlreadyConnectedError(installation.value);
     }
 
-    const connected = this.with(installation);
+    const connected =
+      this.disconnectFromAllBut(installation).with(installation);
     connected.record(new WorkspaceConnected(this.workspaceId, installation));
 
     return connected;
@@ -85,8 +88,16 @@ export class GitHubConnection extends EventRecorder {
     return disconnected;
   }
 
-  equals(other: GitHubConnection): boolean {
-    return this.workspaceId.equals(other.workspaceId);
+  private disconnectFromAllBut(
+    installation: GitHubInstallation,
+  ): GitHubConnection {
+    return this.installation && !this.installation.equals(installation)
+      ? this.disconnectFrom(this.installation)
+      : this;
+  }
+
+  disconnect(): GitHubConnection {
+    return this.installation ? this.disconnectFrom(this.installation) : this;
   }
 
   private with(installation: GitHubInstallation | null): GitHubConnection {
@@ -94,6 +105,7 @@ export class GitHubConnection extends EventRecorder {
       this.workspaceId,
       installation,
       this.version,
+      this.isStored,
     );
     next.inheritEvents(this);
 

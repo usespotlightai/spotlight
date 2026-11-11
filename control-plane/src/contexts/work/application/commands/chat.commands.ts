@@ -52,3 +52,24 @@ export class DismissProposalCommand {
     readonly dismissedBy: string,
   ) {}
 }
+
+export class ResolveChatCommand {
+  constructor(
+    readonly chatId: string,
+    readonly resolvedBy: string,
+  ) {}
+}
+
+export class ReopenChatCommand {
+  constructor(
+    readonly chatId: string,
+    readonly reopenedBy: string,
+  ) {}
+}
+
+export class MarkChatReadCommand {
+  constructor(
+    readonly chatId: string,
+    readonly readBy: string,
+  ) {}
+}

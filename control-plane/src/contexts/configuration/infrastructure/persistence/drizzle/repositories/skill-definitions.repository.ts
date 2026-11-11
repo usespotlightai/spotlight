@@ -3,26 +3,20 @@ import { SkillAlreadyExistsError } from '@configuration/domain/exceptions/skill-
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
-import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { skillDefinition } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
+import { storedSkillOf } from '@configuration/infrastructure/persistence/drizzle/skill-definition-rows';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  codeOf,
+  UNIQUE_VIOLATION,
+} from '@platform/persistence/drizzle/violations';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
-
-const UNIQUE_VIOLATION = '23505';
-
-const collided = (error: unknown): boolean =>
-  (
-    ((error as { cause?: unknown } | null)?.cause ?? error) as {
-      code?: string;
-    } | null
-  )?.code === UNIQUE_VIOLATION;
 
 const inPlace = (definition: SkillDefinition) =>
   and(
@@ -36,8 +30,7 @@ const rehydrated = (row: Row): SkillDefinition =>
   SkillDefinition.rehydrate({
     id: SkillDefinitionId.of(row.id),
     teamId: TeamId.of(row.teamId),
-    key: SkillKey.of(row.key),
-    files: SkillFiles.of(row.files),
+    ...storedSkillOf(row),
     version: row.version,
   });
 
@@ -51,15 +44,6 @@ export class DrizzleSkillDefinitions implements SkillDefinitionRepository {
 
   withId(id: SkillDefinitionId): Promise<SkillDefinition | null> {
     return this.first(eq(skillDefinition.id, id.value));
-  }
-
-  of(teamId: TeamId, key: SkillKey): Promise<SkillDefinition | null> {
-    return this.first(
-      and(
-        eq(skillDefinition.teamId, teamId.value),
-        eq(skillDefinition.key, key.value),
-      ),
-    );
   }
 
   async ofTeam(teamId: TeamId): Promise<readonly SkillDefinition[]> {
@@ -91,7 +75,7 @@ export class DrizzleSkillDefinitions implements SkillDefinitionRepository {
           files,
         });
       } catch (error) {
-        if (collided(error)) {
+        if (codeOf(error) === UNIQUE_VIOLATION) {
           throw new SkillAlreadyExistsError(definition.key.value);
         }
 

@@ -14,10 +14,10 @@ import type {
   TeamProfile,
 } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
+import type { LineResourcesPort } from '@lines/application/ports/line-resources.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
 
 export class ExportableConfigurations {
   constructor(

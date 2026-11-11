@@ -60,9 +60,20 @@ func (c *Client) answered(id json.RawMessage, result json.RawMessage, failed *re
 }
 
 func (c *Client) onNotification(method string, params json.RawMessage) {
-	if method != "session/update" {
+	c.mu.Lock()
+	replaying := c.replaying
+	c.mu.Unlock()
+
+	if method == claudeCodeFrame {
+		if !replaying {
+			c.work.apply(claudeCodeWork(params))
+		}
 		return
 	}
+	if method != "session/update" || replaying {
+		return
+	}
+	c.work.touch()
 
 	var notification struct {
 		Update struct {

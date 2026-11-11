@@ -1,52 +1,58 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
+import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type { ChannelChats } from '@work/application/services/channel-chats.service';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
-import type { RunDetached } from '@work/domain/events/run-detached.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
+import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { Happening } from '@work/domain/value-objects/happening.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  deliveryLineOf,
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const TEAMMATES = {
+  membersOf: async () => TeamMembers.of([UserId.of('user_9')]),
+};
+
+const NO_RUNS = { of: async () => [] } as unknown as RunFactsPort;
 
 const channels = {
   reached: async () => null,
@@ -65,12 +71,14 @@ const stored: Attachment[] = [];
 const files = {
   grant: vi.fn(),
   received: vi.fn(async () => []),
+  stored: vi.fn(async () => true),
   taken: vi.fn(),
   save: vi.fn(async (_at, file: Attachment) => {
     stored.push(file);
   }),
   copy: vi.fn(),
   link: vi.fn(),
+  linkPending: vi.fn(),
   open: vi.fn(),
 } satisfies AttachmentStorePort;
 
@@ -92,12 +100,12 @@ const at = (
   position: number,
   kind: 'backlog' | 'work' | 'completed' = 'work',
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     harness: kind === 'work' ? HarnessId.of('dev') : undefined,
     kind,
   });
@@ -110,7 +118,7 @@ const sends = (happening: Happening, to: string, from?: string) =>
   });
 
 const line = (more: readonly Reaction[] = []) =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -142,6 +150,12 @@ const taskAt = (stationId = 'station_2') =>
     newId: () => 'task_1',
   });
 
+const landedAt = (stationId: string) =>
+  Task.rehydrate({
+    ...taskAt('station_2'),
+    stationId: StationId.of(stationId),
+  });
+
 let saved: Task | undefined;
 const dispatched: Task[] = [];
 
@@ -153,24 +167,24 @@ const tasks = (found: Task | null) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    findByMarks: vi.fn(async () => found),
+    findByCorrelation: vi.fn(async () => (found ? [found] : [])),
+    holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = () =>
   ({
-    add: vi.fn(),
-    save: vi.fn(),
     find: vi.fn(async () => line()),
     findByStation: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-  }) satisfies LineRepository;
+    candidate: vi.fn(),
+  }) satisfies LineMapsPort;
 
 const dispatch: TaskDispatching = {
   runIdFor: async ({ task }) => {
@@ -219,6 +233,8 @@ const receive = (
     processedEventsInMemory(),
     logger,
     channels,
+    NO_RUNS,
+    TEAMMATES,
   ).react(
     WorkspaceId.of('ws_1'),
     null,
@@ -255,6 +271,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     );
     const happenings = [news(CHANGES_REQUESTED, 'Handle the empty case.')];
 
@@ -290,6 +308,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
 
@@ -314,6 +334,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
 
@@ -345,7 +367,7 @@ describe('ReactToHappenings', () => {
 
     expect(saved?.stationId).toEqual(StationId.of('station_2'));
     expect(saved?.notes.map((each) => each.kind)).toEqual(['message']);
-    expect(saved?.notes.map((each) => each.voice.by)).toEqual(['world']);
+    expect(saved?.notes.map((each) => each.voice.kind)).toEqual(['world']);
     expect(dispatched).toHaveLength(1);
   });
 
@@ -374,7 +396,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: StationName.of('Code Review'),
+        line: null,
         body: TaskNoteBody.of('Addressed all three comments. Look again?'),
         at: NOW,
       },
@@ -395,7 +417,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: StationName.of('Code Review'),
+        line: null,
         body: TaskNoteBody.of('Which repository should this live in?'),
         at: NOW,
       },
@@ -429,6 +451,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
@@ -447,7 +471,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: StationName.of('Code Review'),
+        line: null,
         body: TaskNoteBody.of('Which repository should this live in?'),
         at: NOW,
       },
@@ -468,6 +492,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -503,7 +529,7 @@ describe('ReactToHappenings', () => {
       .assignRun(RunId.of('run_1'), line())
       .putToAPerson(RunId.of('run_1'), {
         voice: Voice.station(RunId.of('run_1')),
-        station: StationName.of('Code Review'),
+        line: null,
         body: TaskNoteBody.of('Which repository should this live in?'),
         at: NOW,
       });
@@ -522,6 +548,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -549,6 +577,7 @@ describe('ReactToHappenings', () => {
         saved?.id as TaskId,
         saved?.workspaceId as WorkspaceId,
         RunId.of('run_1'),
+        null,
       ),
     );
     expect(dispatched).toHaveLength(0);
@@ -559,7 +588,7 @@ describe('ReactToHappenings', () => {
       taskAt().askedAbout(
         {
           voice: Voice.station(),
-          station: StationName.of('Code Review'),
+          line: null,
           body: TaskNoteBody.of('What does the queue look like now?'),
           at: NOW,
         },
@@ -600,6 +629,8 @@ describe('ReactToHappenings', () => {
         processedEventsInMemory(),
         logger,
         channels,
+        NO_RUNS,
+        TEAMMATES,
       ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     it('takes a reply that is only a file as the answer, and keeps the file', async () => {
@@ -634,7 +665,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: StationName.of('Code Review'),
+        line: null,
         body: TaskNoteBody.of('Which queue should I drain?'),
         at: NOW,
       },
@@ -664,6 +695,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -698,6 +731,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -735,7 +770,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('leaves a task that has landed at the end of the line alone', async () => {
-    await receive(MERGED, taskAt('station_3'));
+    await receive(MERGED, landedAt('station_3'));
 
     expect(saved).toBeUndefined();
   });
@@ -801,7 +836,7 @@ describe('ReactToHappenings', () => {
       const task = taskAt(stationId)
         .assignRun(RunId.of('run_1'), line())
         .putToAPerson(RunId.of('run_1'), {
-          station: StationName.of('Implementation'),
+          line: null,
           body: TaskNoteBody.of('Which queue should I drain?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -815,7 +850,9 @@ describe('ReactToHappenings', () => {
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
       expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
-      expect(saved?.pullEvents().map((each) => each.kind)).toEqual([]);
+      expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
+        'task.noted',
+      ]);
       expect(dispatched).toHaveLength(0);
     });
 
@@ -856,7 +893,9 @@ describe('ReactToHappenings', () => {
         'message',
       ]);
       expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
-      expect(saved?.pullEvents()).toEqual([]);
+      expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
+        'task.noted',
+      ]);
       expect(dispatched).toHaveLength(0);
     });
 
@@ -896,7 +935,7 @@ describe('ReactToHappenings', () => {
           saved
             ?.pullEvents()
             .filter((each) => each.kind === 'task.run-detached')
-            .map((each) => (each as RunDetached).runId),
+            .map((each) => (each as TaskRunDetached).runId),
         ).toEqual([RunId.of('run_1')]);
         expect(dispatched).toHaveLength(0);
       });
@@ -927,7 +966,7 @@ describe('ReactToHappenings', () => {
           saved
             ?.pullEvents()
             .filter((each) => each.kind === 'task.run-detached')
-            .map((each) => (each as RunDetached).runId),
+            .map((each) => (each as TaskRunDetached).runId),
         ).toEqual([RunId.of('run_1')]);
         expect(dispatched).toHaveLength(0);
       });
@@ -968,9 +1007,11 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [news(MERGED, null)], 'received-as');
 
-    expect(stored.findByMarks).toHaveBeenCalledWith(
+    expect(stored.findByCorrelation).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
       expect.anything(),
     );
@@ -981,11 +1022,9 @@ describe('ReactToHappenings', () => {
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = Line.create({
-      by: changeActorIn(),
+    const opening = deliveryLineOf({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
-      line: BUILT_IN_LINES[0] as LineOpening,
       newId: () => `id_${++next}`,
     });
     const entry = opening.entry as Station;
@@ -998,23 +1037,23 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
-      findByMarks: vi.fn(async () => null),
+      findByCorrelation: vi.fn(async () => []),
+      holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      add: vi.fn(),
-      save: vi.fn(),
       find: vi.fn(async () => opening),
       findByStation: vi.fn(async () => opening),
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
-    } satisfies LineRepository;
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
@@ -1047,6 +1086,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
@@ -1064,11 +1105,9 @@ describe('ReactToHappenings', () => {
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = Line.create({
-      by: changeActorIn(),
+    const opening = deliveryLineOf({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
-      line: BUILT_IN_LINES[0] as LineOpening,
       newId: () => `id_${++next}`,
     });
 
@@ -1080,23 +1119,23 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
-      findByMarks: vi.fn(async () => null),
+      findByCorrelation: vi.fn(async () => []),
+      holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      add: vi.fn(),
-      save: vi.fn(),
       find: vi.fn(async () => opening),
       findByStation: vi.fn(async () => opening),
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
-    } satisfies LineRepository;
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
 
     const byEmail = vi.fn(async () => UserId.of('user_9'));
 
@@ -1131,6 +1170,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(byEmail).toHaveBeenCalledWith(
@@ -1140,16 +1181,14 @@ describe('ReactToHappenings', () => {
     expect(added?.assignee?.value).toBe('user_9');
   });
 
-  it('leaves an opened task unassigned where no member has the email', async () => {
+  it('leaves an opened task unassigned where the member matched by email is not on its team', async () => {
     const ISSUE_CREATED = Happening.of('linear.issue.created');
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = Line.create({
-      by: changeActorIn(),
+    const opening = deliveryLineOf({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
-      line: BUILT_IN_LINES[0] as LineOpening,
       newId: () => `id_${++next}`,
     });
 
@@ -1161,23 +1200,104 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
-      findByMarks: vi.fn(async () => null),
+      findByCorrelation: vi.fn(async () => []),
+      holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      add: vi.fn(),
-      save: vi.fn(),
       find: vi.fn(async () => opening),
       findByStation: vi.fn(async () => opening),
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
-    } satisfies LineRepository;
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
+
+    const byEmail = vi.fn(async () => UserId.of('user_9'));
+
+    const filed: Happened = {
+      happening: ISSUE_CREATED.value,
+      summary: 'An issue was filed.',
+      answers: false,
+      state: 'raised',
+      correlationKeys: { branch: null, marks: [issueMark] },
+      message: null,
+      ourOwn: false,
+      opens: {
+        lineRole: 'delivery',
+        station: null,
+        title: 'Drain the retry queue',
+        description: null,
+        assignEmail: 'dev@acme.test',
+        marks: [issueMark],
+      },
+    };
+
+    await new ReactToHappenings(
+      stored,
+      stored,
+      running,
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      { byEmail },
+      files,
+      processedEventsInMemory(),
+      logger,
+      channels,
+      NO_RUNS,
+      { membersOf: async () => TeamMembers.of([]) },
+    ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
+
+    expect(byEmail).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      'dev@acme.test',
+    );
+    expect(added?.assignee).toBeNull();
+  });
+
+  it('leaves an opened task unassigned where no member has the email', async () => {
+    const ISSUE_CREATED = Happening.of('linear.issue.created');
+    const issueMark = Mark.of('linear.issue', 'ISS-1');
+
+    let next = 0;
+    const opening = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `id_${++next}`,
+    });
+
+    let added: Task | undefined;
+    const stored = {
+      add: vi.fn(async (each: Task) => {
+        added = each;
+      }),
+      save: vi.fn(),
+      find: vi.fn(async () => null),
+      remove: vi.fn(),
+      placementsAt: vi.fn(async () => []),
+      findByCorrelation: vi.fn(async () => []),
+      holdingMark: vi.fn(async () => []),
+      settingUpFor: vi.fn(async () => null),
+      settingUpIn: vi.fn(async () => []),
+      settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
+    } satisfies TaskRepository & TaskPlacementsPort;
+
+    const running = {
+      find: vi.fn(async () => opening),
+      findByStation: vi.fn(async () => opening),
+      ofWorkspace: vi.fn(async () => [opening]),
+      ofTeam: vi.fn(async () => []),
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
@@ -1210,6 +1330,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(added?.assignee).toBeNull();
@@ -1221,15 +1343,11 @@ describe('ReactToHappenings', () => {
 
     const delivery = (key: string) => {
       let next = 0;
-      return Line.create({
-        by: changeActorIn(),
+      return deliveryLineOf({
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
-        line: {
-          ...(BUILT_IN_LINES[0] as LineOpening),
-          key: LineKey.of(key),
-          name: LineName.of(key),
-        },
+        key,
+        name: key,
         newId: () => `${key}_${++next}`,
       });
     };
@@ -1245,23 +1363,23 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
-      findByMarks: vi.fn(async () => null),
+      findByCorrelation: vi.fn(async () => []),
+      holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      add: vi.fn(),
-      save: vi.fn(),
       find: vi.fn(async () => first),
       findByStation: vi.fn(async () => first),
       ofWorkspace: vi.fn(async () => [second, first]),
       ofTeam: vi.fn(async () => []),
-    } satisfies LineRepository;
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
@@ -1294,6 +1412,8 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
@@ -1350,6 +1470,8 @@ describe('ReactToHappenings with a word for a chat', () => {
       processedEventsInMemory(),
       logger,
       chatting as unknown as ChannelChats,
+      NO_RUNS,
+      TEAMMATES,
     );
 
     return { reactions, chatting, refusal };
@@ -1416,7 +1538,9 @@ describe('ReactToHappenings with a word for a chat', () => {
     });
 
     it('refuses a task at the completed station, and leaves it alone', async () => {
-      const { reactions, chatting } = reacting(finishedAt('station_3'));
+      const { reactions, chatting } = reacting(
+        Task.rehydrate({ ...landedAt('station_3'), finishedAt: NOW }),
+      );
 
       await reactions.react(WorkspaceId.of('ws_1'), null, [mention()], null);
 
@@ -1459,5 +1583,90 @@ describe('ReactToHappenings with a word for a chat', () => {
       expect(saved).toBeUndefined();
       expect(chatting.answer).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('a happening for a task whose run’s turn is still being decided (R18)', () => {
+  const turnFor = (turn: 'pending' | 'kept', ageMs: number) =>
+    ({
+      of: async () => [
+        {
+          runId: RunId.of('run_1'),
+          turn,
+          suspendedAt: new Date(NOW.getTime() - ageMs),
+        },
+      ],
+    }) as unknown as RunFactsPort;
+
+  const reacting = (runs: RunFactsPort) => {
+    const stored = tasks(taskAt().assignRun(RunId.of('run_1'), line()));
+
+    return {
+      stored,
+      reactions: new ReactToHappenings(
+        stored,
+        stored,
+        lines(),
+        dispatch,
+        transaction,
+        clock,
+        ids,
+        members,
+        files,
+        processedEventsInMemory(),
+        logger,
+        channels,
+        runs,
+        TEAMMATES,
+      ),
+    };
+  };
+
+  it('is held back as a transient failure, so the delivery comes again once the turn is decided', async () => {
+    const { reactions, stored } = reacting(turnFor('pending', 60_000));
+
+    await expect(
+      reactions.react(
+        WorkspaceId.of('ws_1'),
+        null,
+        [news(CHANGES_REQUESTED, 'Handle the empty case.')],
+        'delivery_1',
+      ),
+    ).resolves.toMatchObject({ kind: 'failed', transient: true });
+    expect(stored.save).not.toHaveBeenCalled();
+  });
+
+  it('applies as to a working task once the turn has been pending longer than the wait', async () => {
+    const { reactions, stored } = reacting(turnFor('pending', 4 * 60_000));
+
+    await reactions.react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [news(CHANGES_REQUESTED, 'Handle the empty case.')],
+      'delivery_1',
+    );
+
+    expect(stored.save).toHaveBeenCalled();
+  });
+
+  it('is never held when its turn is kept, or for a poll with no cursor', async () => {
+    const kept = reacting(turnFor('kept', 60_000));
+    const cursorless = reacting(turnFor('pending', 60_000));
+
+    await kept.reactions.react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [news(COMMENTED, 'Still retries.')],
+      'delivery_1',
+    );
+    await cursorless.reactions.react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [news(COMMENTED, 'Still retries.')],
+      null,
+    );
+
+    expect(kept.stored.save).toHaveBeenCalled();
+    expect(cursorless.stored.save).toHaveBeenCalled();
   });
 });

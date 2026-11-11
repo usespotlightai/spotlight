@@ -1,10 +1,10 @@
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import type {
   SpecRead,
   SpecReaderPort,
 } from '@integrations/application/ports/spec-reader.port';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 
 export class SpecReaders implements SpecReaderPort {
   constructor(

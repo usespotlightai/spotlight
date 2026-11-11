@@ -1,7 +1,7 @@
 import type {
   IndexedReference,
   SymbolKind,
-} from '@change-review/domain/services/symbol-index';
+} from '@change-review/domain/value-objects/symbol-index.vo';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 export interface GrammarImport {

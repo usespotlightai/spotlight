@@ -1,6 +1,7 @@
 import { SubmitReviewHandler } from '@change-review/application/commands/handlers/submit-review.handler';
 import { SubmitReviewCommand } from '@change-review/application/commands/submit-review.command';
-import type { ReviewAccess } from '@change-review/application/services/review-access.service';
+import { SubmitReview } from '@change-review/application/services/submit-review.service';
+import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import type { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
@@ -39,35 +40,48 @@ const submitting = (over: { racing?: boolean } = {}) => {
 
   const handler = new SubmitReviewHandler(
     {
-      ofRun: async () => ({
+      actingInReview: async () => ({
         task: { id: TASK, workspaceId: WORKSPACE },
         by: ADA,
         author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
       }),
-    } as unknown as ReviewAccess,
-    {
-      draftsBy: async () =>
-        [...comments.values()].filter((each) => each.state === 'draft'),
-      save: async (comment: ReviewComment) => {
-        if (over.racing) {
-          throw new ReviewCommentVersionConflictError(comment.id.value);
-        }
-        comments.set(comment.id.value, comment);
+    } as unknown as TeamWorkAccess,
+    new SubmitReview(
+      {
+        draftsOn: async () =>
+          [...comments.values()].filter((each) => each.state === 'draft'),
+        save: async (comment: ReviewComment) => {
+          if (over.racing) {
+            throw new ReviewCommentVersionConflictError(comment.id.value);
+          }
+          comments.set(comment.id.value, comment);
+        },
+      } as unknown as ReviewCommentRepository,
+      {
+        add: async (review: Review) => void reviews.push(review),
+      } as unknown as ReviewRepository,
+      {
+        inTransaction: async (work) => {
+          const kept = reviews.length;
+
+          try {
+            return await work();
+          } catch (error) {
+            reviews.length = kept;
+            throw error;
+          }
+        },
       },
-    } as unknown as ReviewCommentRepository,
-    {
-      add: async (review: Review) => void reviews.push(review),
-    } as unknown as ReviewRepository,
-    { inTransaction: (work) => work() },
-    { generate: () => `review_${++ids}` },
-    { now: () => NOW, sleep: async () => {} },
+      { generate: () => `review_${++ids}` },
+      { now: () => NOW, sleep: async () => {} },
+    ),
   );
 
   return { handler, comments, reviews };
 };
 
 const command = () =>
-  new SubmitReviewCommand('team_1', 'run_1', ADA.value, 'comment', '');
+  new SubmitReviewCommand('team_1', 'run_1', ADA.value, 'comment', '', null);
 
 describe('SubmitReviewHandler', () => {
   it('claims the drafts for the review it submits', async () => {
@@ -77,7 +91,7 @@ describe('SubmitReviewHandler', () => {
 
     expect(reviews.map((each) => each.id.value)).toEqual(['review_1']);
     expect(comments.get('comment_1')?.reviewId?.value).toBe('review_1');
-    expect(comments.get('comment_1')?.state).toBe('submitted');
+    expect(comments.get('comment_1')?.state).toBe('sending');
   });
 
   it('submits the same drafts only once, however often it is requested', async () => {

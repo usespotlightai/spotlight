@@ -1,5 +1,6 @@
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const provider = (key: string): WebhookProviderPort => ({
@@ -18,15 +19,15 @@ describe('WebhookProviders', () => {
       provider('sentry'),
     ]);
 
-    expect(providers.find('sentry')?.key).toBe('sentry');
+    expect(providers.find(IntegrationKey.of('sentry'))?.key).toBe('sentry');
   });
 
   it('finds nothing for a provider nobody registered', () => {
-    expect(WebhookProviders.of([provider('github')]).find('sentry')).toBeNull();
-  });
-
-  it('finds nothing for an empty name', () => {
-    expect(WebhookProviders.of([provider('github')]).find('')).toBeNull();
+    expect(
+      WebhookProviders.of([provider('github')]).find(
+        IntegrationKey.of('sentry'),
+      ),
+    ).toBeNull();
   });
 
   it('reads its providers no sooner than it is called itself', () => {
@@ -37,7 +38,7 @@ describe('WebhookProviders', () => {
     });
 
     expect(reads).toBe(0);
-    expect(providers.find('github')?.key).toBe('github');
+    expect(providers.find(IntegrationKey.of('github'))?.key).toBe('github');
     expect(reads).toBe(1);
   });
 
@@ -48,8 +49,8 @@ describe('WebhookProviders', () => {
       return [provider('github')];
     });
 
-    providers.find('github');
-    providers.find('github');
+    providers.find(IntegrationKey.of('github'));
+    providers.find(IntegrationKey.of('github'));
     expect(providers.all).toHaveLength(1);
     expect(reads).toBe(1);
   });

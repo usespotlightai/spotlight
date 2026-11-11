@@ -1,10 +1,19 @@
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   EndedRunRow,
   StationRunReaderPort,
   UnfinishedRunRow,
 } from '@work/application/ports/station-run-reader.port';
-import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
 import { StationRuns } from '@work/application/services/station-runs.service';
+import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
 
 const QUEUED = new Date('2026-09-30T09:00:00.000Z');
@@ -29,13 +38,14 @@ const row = (change: Partial<EndedRunRow> = {}): EndedRunRow => ({
   ...change,
 });
 
+const NO_DISPATCHES: DispatchRepository = {
+  add: async () => {},
+  save: async () => {},
+  find: async () => null,
+};
+
 const readingOnly = (found: EndedRunRow): StationRunReaderPort =>
   ({ endedRun: async () => found }) as unknown as StationRunReaderPort;
-
-const NO_SKILLS: TeamSkillsPort = {
-  definedFor: async () => [],
-  readyFor: async () => [],
-};
 
 describe('StationRuns.ended', () => {
   it('names the harness, model, effort, profile, repositories and skills the run was configured with', async () => {
@@ -63,7 +73,7 @@ describe('StationRuns.ended', () => {
           },
         }),
       ),
-      NO_SKILLS,
+      NO_DISPATCHES,
     );
 
     expect(await stations.ended('run_1')).toEqual({
@@ -88,7 +98,7 @@ describe('StationRuns.ended', () => {
   });
 
   it('falls back on the harness the run ran on when it recorded no config', async () => {
-    const stations = new StationRuns(readingOnly(row()), NO_SKILLS);
+    const stations = new StationRuns(readingOnly(row()), NO_DISPATCHES);
 
     expect(await stations.ended('run_1')).toMatchObject({
       harness: 'claude-code',
@@ -123,7 +133,7 @@ describe('StationRuns.ended', () => {
           },
         }),
       ),
-      NO_SKILLS,
+      NO_DISPATCHES,
     );
 
     expect(await stations.ended('run_1')).toMatchObject({
@@ -134,50 +144,12 @@ describe('StationRuns.ended', () => {
   it('names the repository under review on a line that declares none', async () => {
     const stations = new StationRuns(
       readingOnly(row({ reviewing: 'acme/web' })),
-      NO_SKILLS,
+      NO_DISPATCHES,
     );
 
     expect(await stations.ended('run_1')).toMatchObject({
       repositories: ['acme/web'],
     });
-  });
-});
-
-describe('StationRuns.alertsAt', () => {
-  it('names the thresholds a station watches, and nothing for a station it does not know', async () => {
-    const alert = {
-      measure: 'sent_back_rate',
-      risesBy: 0.15,
-      above: null,
-      fallsBy: null,
-      below: null,
-      over: 10,
-    };
-    const stations = new StationRuns(
-      {
-        alertsAt: async (stationId: string) =>
-          stationId === 'station_1' ? [alert] : null,
-      } as unknown as StationRunReaderPort,
-      NO_SKILLS,
-    );
-
-    expect(await stations.alertsAt('station_1')).toEqual([alert]);
-    expect(await stations.alertsAt('station_9')).toBeNull();
-  });
-});
-
-describe('StationRuns.teamSkillKeys', () => {
-  it('names every skill the team defines', async () => {
-    const stations = new StationRuns(readingOnly(row()), {
-      ...NO_SKILLS,
-      definedFor: async (teamId) =>
-        teamId.value === 'team_1' ? ['grafana', 'our-migrations'] : [],
-    });
-
-    expect(await stations.teamSkillKeys('team_1')).toEqual([
-      'grafana',
-      'our-migrations',
-    ]);
   });
 });
 
@@ -192,8 +164,7 @@ const unfinishedRow = (
   openedBy: 'user_ada',
   harness: 'claude-code',
   config: null,
-  state: 'queued',
-  stopRequested: false,
+  progress: 'queued',
   queuedAt: QUEUED,
   startedAt: null,
   ...change,
@@ -206,7 +177,7 @@ describe('StationRuns.unfinished', () => {
         unfinishedOfTeam: async () => [
           unfinishedRow('run_queued'),
           unfinishedRow('run_claimed', {
-            state: 'claimed',
+            progress: 'in-progress',
             startedAt: STARTED,
             config: {
               prompt: null,
@@ -222,14 +193,11 @@ describe('StationRuns.unfinished', () => {
               memories: false,
             },
           }),
-          unfinishedRow('run_stopping', {
-            state: 'claimed',
-            stopRequested: true,
-          }),
-          unfinishedRow('run_suspended', { state: 'suspended' }),
+          unfinishedRow('run_stopping', { progress: 'stopping' }),
+          unfinishedRow('run_suspended', { progress: null }),
         ],
       } as unknown as StationRunReaderPort,
-      NO_SKILLS,
+      NO_DISPATCHES,
     );
 
     expect(
@@ -281,7 +249,7 @@ describe('StationRuns.traced', () => {
           ]),
         }),
       } as unknown as StationRunReaderPort,
-      NO_SKILLS,
+      NO_DISPATCHES,
     );
 
     const traced = await stations.traced({
@@ -304,5 +272,52 @@ describe('StationRuns.traced', () => {
       },
     ]);
     expect([...traced.outputs]).toEqual([['run_1', 'Done']]);
+  });
+});
+
+describe('StationRuns.taskRunOf', () => {
+  const dispatched = (
+    subject: Parameters<typeof Dispatch.ordered>[0]['subject'],
+  ): DispatchRepository => ({
+    ...NO_DISPATCHES,
+    find: async () =>
+      Dispatch.ordered({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of('team_1'),
+        subject,
+        configuredAs: null,
+        order: runOrderOf(RunId.of('run_1')),
+        now: QUEUED,
+      }),
+  });
+
+  it('names the task and team of a run ordered for a task', async () => {
+    const stations = new StationRuns(
+      readingOnly(row()),
+      dispatched({
+        kind: 'task',
+        taskId: TaskId.of('task_1'),
+        revision: TaskRevision.of(0),
+        stationId: StationId.of('station_1'),
+      }),
+    );
+
+    expect(await stations.taskRunOf('run_1')).toEqual({
+      runId: 'run_1',
+      taskId: 'task_1',
+      teamId: 'team_1',
+    });
+  });
+
+  it('names no task for a chat run or a run Work did not order', async () => {
+    const chat = new StationRuns(
+      readingOnly(row()),
+      dispatched({ kind: 'chat', chatId: ChatId.of('chat_1') }),
+    );
+    const unordered = new StationRuns(readingOnly(row()), NO_DISPATCHES);
+
+    expect(await chat.taskRunOf('run_1')).toBeNull();
+    expect(await unordered.taskRunOf('run_1')).toBeNull();
   });
 });

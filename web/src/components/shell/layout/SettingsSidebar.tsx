@@ -1,4 +1,5 @@
 import {
+  Bell,
   ChevronLeft,
   KeyRound,
   Mail,
@@ -13,6 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRunners } from '@/hooks/api/useRunners';
 import { emailsPath } from '@/lib/emails';
 import { membersPath } from '@/lib/members';
+import { notificationsPath } from '@/lib/notifications';
 import { isAdmin, type Role } from '@/lib/role';
 import { onlineCount, runnersPath } from '@/lib/runner';
 import {
@@ -44,7 +46,7 @@ export function SettingsSidebar({
       <div className="flex h-12 shrink-0 items-center">
         <Link
           to={back}
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 font-medium text-foreground text-sm outline-none transition-colors hover:bg-border/50"
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 font-medium text-foreground text-sm outline-none transition-colors hover:bg-sidebar-hover"
         >
           <ChevronLeft
             className="size-3.5 shrink-0 text-muted-foreground"
@@ -63,6 +65,11 @@ export function SettingsSidebar({
             <li>
               <SidebarLink to={emailsPath(slug)} icon={Mail}>
                 Emails
+              </SidebarLink>
+            </li>
+            <li>
+              <SidebarLink to={notificationsPath(slug)} icon={Bell}>
+                Notifications
               </SidebarLink>
             </li>
           </SettingsNavGroup>

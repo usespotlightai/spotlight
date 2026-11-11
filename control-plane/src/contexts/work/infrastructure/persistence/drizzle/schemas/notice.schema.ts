@@ -1,3 +1,4 @@
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
 import {
   index,
@@ -6,7 +7,6 @@ import {
   pgEnum,
   pgTable,
   text,
-  timestamp,
   unique,
 } from 'drizzle-orm/pg-core';
 
@@ -27,8 +27,8 @@ export const notice = pgTable(
     externalLabel: text('external_label'),
     headline: text('headline').notNull(),
     points: jsonb('points').$type<string[]>().notNull(),
-    createdAt: timestamp('created_at').notNull(),
-    resolvedAt: timestamp('resolved_at'),
+    createdAt: timestamptz('created_at').notNull(),
+    resolvedAt: timestamptz('resolved_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -37,5 +37,10 @@ export const notice = pgTable(
       .nullsNotDistinct(),
     index('notice_addressee_idx').on(table.workspaceId, table.addresseeId),
     index('notice_team_idx').on(table.teamId),
+    index('notice_workspace_created_idx').on(
+      table.workspaceId,
+      table.createdAt,
+      table.id,
+    ),
   ],
 );

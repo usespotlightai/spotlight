@@ -7,14 +7,23 @@ import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-
 import { RoleAssignmentDeniedError } from '@identity/domain/exceptions/role-assignment-denied.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
+import { dependentsInWorkspace } from '@identity/domain/services/workspace-contents';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
-import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
-import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
+import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
-import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { TokenScope } from '@identity/domain/value-objects/token-scope.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
+import {
+  contents,
+  handIssued,
+  issuedBy,
+  oidcTrustKeyed,
+  teamAt,
+} from '@identity/testing/identity.resources.fake-spec';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -24,10 +33,8 @@ import {
   TokenPrincipal,
 } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const BY = changeActorIn('ws_1');
@@ -47,6 +54,14 @@ const build = (id = 'ws_1') =>
   });
 
 describe('Workspace', () => {
+  it('is set up once the team made at sign-up exists, and not by a configured team', () => {
+    const pending = build();
+
+    expect(pending.setupStatus).toBe('pending');
+    expect(pending.teamCreated('configuration')).toBe(pending);
+    expect(pending.teamCreated('sign-up').setupStatus).toBe('done');
+  });
+
   it('starts with its creator as the sole owner', () => {
     expect(build().members).toEqual([
       { userId: UserId.of('user_1'), role: WorkspaceRole.owner },
@@ -60,6 +75,7 @@ describe('Workspace', () => {
         UserId.of('user_1'),
         FIRST_TEAM,
         ConfigurationChange.created(ACME, BY),
+        null,
       ),
     ]);
   });
@@ -94,17 +110,26 @@ describe('Workspace', () => {
     });
 
     it('lets an owner or an admin connect it', () => {
-      expect(build().administeredBy(OWNER)).toBe(true);
+      expect(build().permissionsFor(PersonPrincipal.of(OWNER)).isAdmin).toBe(
+        true,
+      );
       expect(
-        withMember(WorkspaceRole.admin).administeredBy(UserId.of('user_2')),
+        withMember(WorkspaceRole.admin).permissionsFor(
+          PersonPrincipal.of(UserId.of('user_2')),
+        ).isAdmin,
       ).toBe(true);
     });
 
     it('denies a member who is neither owner nor admin, and a stranger', () => {
       expect(
-        withMember(WorkspaceRole.member).administeredBy(UserId.of('user_2')),
+        withMember(WorkspaceRole.member).permissionsFor(
+          PersonPrincipal.of(UserId.of('user_2')),
+        ).isAdmin,
       ).toBe(false);
-      expect(build().administeredBy(UserId.of('stranger'))).toBe(false);
+      expect(
+        build().permissionsFor(PersonPrincipal.of(UserId.of('stranger')))
+          .isAdmin,
+      ).toBe(false);
     });
   });
 
@@ -127,10 +152,18 @@ describe('Workspace', () => {
     });
 
     it('lets an owner or an admin administer it, and nobody else', () => {
-      expect(workspace.administeredBy(OWNER)).toBe(true);
-      expect(workspace.administeredBy(ADMIN)).toBe(true);
-      expect(workspace.administeredBy(MEMBER)).toBe(false);
-      expect(workspace.administeredBy(STRANGER)).toBe(false);
+      expect(workspace.permissionsFor(PersonPrincipal.of(OWNER)).isAdmin).toBe(
+        true,
+      );
+      expect(workspace.permissionsFor(PersonPrincipal.of(ADMIN)).isAdmin).toBe(
+        true,
+      );
+      expect(workspace.permissionsFor(PersonPrincipal.of(MEMBER)).isAdmin).toBe(
+        false,
+      );
+      expect(
+        workspace.permissionsFor(PersonPrincipal.of(STRANGER)).isAdmin,
+      ).toBe(false);
     });
 
     it('has everybody of it as a member, and nobody outside it', () => {
@@ -407,6 +440,7 @@ describe('Workspace', () => {
           UserId.of('user_1'),
           null,
           ConfigurationChange.created(ACME, BY),
+          null,
         ),
       ]);
     });
@@ -487,58 +521,48 @@ describe('Workspace', () => {
     });
 
     it('is deleted only once it has no team, no token, no OIDC trust, no issued token and nothing else', () => {
+      const trust = oidcTrustKeyed('github-main');
+
       expect(() =>
         stored().delete(
-          [TeamKey.of('core')],
-          [],
-          [],
-          [],
-          Dependents.none(),
+          dependentsInWorkspace(contents({ teams: [teamAt(0, 'core')] })),
           BY,
         ),
       ).toThrow(/It still has: team core/);
       expect(() =>
         stored().delete(
-          [],
-          [TokenName.of('ci')],
-          [],
-          [],
-          Dependents.none(),
+          dependentsInWorkspace(contents({ tokens: [handIssued('ci')] })),
           BY,
         ),
       ).toThrow(/It still has: token ci/);
       expect(() =>
         stored().delete(
-          [],
-          [],
-          [OidcTrustKey.of('github-main')],
-          [],
-          Dependents.none(),
+          dependentsInWorkspace(contents({ trusts: [trust] })),
           BY,
         ),
       ).toThrow(/It still has: OIDC trust github-main/);
       expect(() =>
         stored().delete(
-          [],
-          [],
-          [],
-          [OidcTrustKey.of('github-main')],
-          Dependents.none(),
+          dependentsInWorkspace(contents({ tokens: [issuedBy(trust)] })),
           BY,
         ),
-      ).toThrow(/It still has: tokens issued by github-main/);
+      ).toThrow(/It still has: tokens issued by a deleted OIDC trust$/);
       expect(() =>
         stored().delete(
-          [],
-          [],
-          [],
-          [],
-          Dependents.of(['secret LINEAR_API_KEY']),
+          dependentsInWorkspace(
+            contents({ tokens: [issuedBy(trust)], trusts: [trust] }),
+          ),
+          BY,
+        ),
+      ).toThrow(/OIDC trust github-main, tokens issued by github-main$/);
+      expect(() =>
+        stored().delete(
+          Dependents.of([{ kind: 'secret', key: 'LINEAR_API_KEY' }]),
           BY,
         ),
       ).toThrow(/It still has: secret LINEAR_API_KEY/);
 
-      const deleted = stored().delete([], [], [], [], Dependents.none(), BY);
+      const deleted = stored().delete(Dependents.none(), BY);
 
       expect(deleted.isDeleted).toBe(true);
       expect(deleted.pullEvents()).toEqual([
@@ -567,7 +591,7 @@ describe('Workspace', () => {
     const person = (id: string) => PersonPrincipal.of(UserId.of(id));
 
     const token = (scopes: readonly string[], workspace = 'ws_1') =>
-      TokenPrincipal.of({
+      IssuedTokenGrant.principal({
         tokenId: WorkspaceTokenId.of('token_1'),
         workspaceId: WorkspaceId.of(workspace),
         scopes: TokenScopes.named(scopes),
@@ -581,9 +605,9 @@ describe('Workspace', () => {
         reads: permissions.reads,
         plans: permissions.plans,
         configures: permissions.configures,
-        managesSecrets: permissions.managesSecrets,
-        managesRunners: permissions.managesRunners,
-        managesOidcTrusts: permissions.managesOidcTrusts,
+        managesSecrets: permissions.allows(TokenScope.secrets),
+        managesRunners: permissions.allows(TokenScope.runners),
+        managesOidcTrusts: permissions.allows(TokenScope.trusts),
         isAdmin: permissions.isAdmin,
       };
     };
@@ -655,9 +679,8 @@ describe('Workspace', () => {
 
     it('clears nothing once it is deleted', () => {
       expect(
-        acme
-          .delete([], [], [], [], Dependents.none(), BY)
-          .permissionsFor(person('owner')).reads,
+        acme.delete(Dependents.none(), BY).permissionsFor(person('owner'))
+          .reads,
       ).toBe(false);
     });
   });

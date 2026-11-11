@@ -12,7 +12,9 @@ export interface OAuth2ClientRegistrationRepository {
     integration: IntegrationKey,
   ): Promise<OAuth2ClientRegistration | null>;
 
+  ofTeam(teamId: TeamId): Promise<readonly OAuth2ClientRegistration[]>;
+
   save(registration: OAuth2ClientRegistration): Promise<void>;
 
-  deleteForTeam(teamId: TeamId): Promise<void>;
+  remove(registration: OAuth2ClientRegistration): Promise<void>;
 }

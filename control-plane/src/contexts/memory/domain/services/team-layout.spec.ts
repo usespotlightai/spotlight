@@ -1,6 +1,8 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { TeamLayout } from '@memory/domain/services/team-layout';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -8,13 +10,13 @@ const layout = TeamLayout.of({
   teamId: TeamId.of('team_1'),
   lines: [
     {
-      id: 'line_delivery',
-      stations: ['station_build'],
+      id: LineId.of('line_delivery'),
+      stations: [StationId.of('station_build')],
       repositories: [Repository.of('acme/api')],
     },
     {
-      id: 'line_docs',
-      stations: ['station_write'],
+      id: LineId.of('line_docs'),
+      stations: [StationId.of('station_write')],
       repositories: [Repository.of('acme/docs')],
     },
   ],

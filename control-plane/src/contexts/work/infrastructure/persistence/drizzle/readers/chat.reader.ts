@@ -5,27 +5,40 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import {
+  olderThan,
+  pageOf,
+  sortableTime,
+} from '@platform/persistence/drizzle/keyset';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@runs/application/ports/run-progress.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import {
+  mapPage,
+  type Page,
+  type PageRequest,
+} from '@work/application/dto/page.dto';
 import type {
+  ChatOwnership,
   ChatReaderPort,
   ChatSummary,
   ChatView,
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { Progress } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/progress';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
+import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,
   chatAttachment,
   chatMessage,
 } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
-import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 type Row = typeof chat.$inferSelect;
@@ -52,76 +65,99 @@ export class DrizzleChatReader implements ChatReaderPort {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(PERSON_READER) private readonly people: PersonReaderPort,
+    @Inject(RUN_PROGRESS) private readonly progress: RunProgressPort,
   ) {}
 
-  async setupOf(teamId: TeamId): Promise<SetupChatView | null> {
+  async ownershipOf(chatId: ChatId): Promise<ChatOwnership | null> {
+    const [row] = await this.db
+      .select({ startedById: chat.startedById, teamId: chat.teamId })
+      .from(chat)
+      .where(eq(chat.id, chatId.value))
+      .limit(1);
+
+    return row
+      ? { startedBy: UserId.of(row.startedById), teamId: TeamId.of(row.teamId) }
+      : null;
+  }
+
+  async setupChatsOf(teamId: TeamId): Promise<readonly SetupChatView[]> {
     const rows = await this.db
       .select({
         id: chat.id,
         setup: chat.setup,
         startedById: chat.startedById,
+        createdAt: chat.createdAt,
       })
       .from(chat)
       .where(and(eq(chat.teamId, teamId.value), isNotNull(chat.setup)))
       .orderBy(desc(chat.createdAt));
-    const opened = rows.find((each) => each.setup?.pullRequest);
-    const latest = opened ?? rows[0];
-
-    if (!latest) {
-      return null;
-    }
-
-    const starter = await this.people.find(UserId.of(latest.startedById));
-
-    const ci = latest.setup?.ci ?? null;
-
-    return {
-      id: latest.id,
-      repository: latest.setup?.repository ?? '',
-      pullRequest: latest.setup?.pullRequest ?? null,
-      ci: ci && {
-        defaultBranch: ci.defaultBranch,
-        defaultBranchProtected: ci.defaultBranchProtected,
-        variables: ci.variables,
-      },
-      startedById: latest.startedById,
-      startedBy: starter?.name ?? '',
-    };
-  }
-
-  async startedBy(teamId: TeamId, userId: UserId): Promise<ChatSummary[]> {
-    const rows = await this.db
-      .select()
-      .from(chat)
-      .where(
-        and(eq(chat.teamId, teamId.value), eq(chat.startedById, userId.value)),
-      )
-      .orderBy(desc(chat.updatedAt));
-
-    const progressOf = await progressOfCurrentRuns(
-      this.db,
-      rows.map((row) => row.currentRunId),
-      false,
+    const starters = new Map(
+      await Promise.all(
+        [...new Set(rows.map((each) => each.startedById))].map(
+          async (id) =>
+            [id, (await this.people.find(UserId.of(id)))?.name ?? ''] as const,
+        ),
+      ),
     );
 
-    return rows.map((row) => summaryOf(row, progressOf));
+    return rows.map((row) => {
+      const ci = row.setup?.ci ?? null;
+
+      return {
+        id: row.id,
+        repository: row.setup?.repository ?? '',
+        pullRequest: row.setup?.pullRequest ?? null,
+        ci: ci && {
+          defaultBranch: ci.defaultBranch,
+          defaultBranchProtected: ci.defaultBranchProtected,
+          variables: ci.variables,
+        },
+        startedById: row.startedById,
+        startedBy: starters.get(row.startedById) ?? '',
+        startedAt: row.createdAt,
+      };
+    });
   }
 
-  async read(
+  async startedBy(
     teamId: TeamId,
-    chatId: ChatId,
-    viewerId: UserId,
-  ): Promise<ChatView | null> {
-    const [row] = await this.db
-      .select()
+    userId: UserId,
+    page: PageRequest,
+  ): Promise<Page<ChatSummary>> {
+    const before = timeCursorOf(page.before);
+    const rows = await this.db
+      .select({ chat, cursorAt: sortableTime(chat.updatedAt) })
       .from(chat)
       .where(
         and(
-          eq(chat.id, chatId.value),
           eq(chat.teamId, teamId.value),
-          eq(chat.startedById, viewerId.value),
+          eq(chat.startedById, userId.value),
+          before ? olderThan(chat.updatedAt, chat.id, before) : undefined,
         ),
       )
+      .orderBy(desc(chat.updatedAt), desc(chat.id))
+      .limit(page.limit + 1);
+
+    const progressOf = await progressOfCurrentRuns(
+      this.progress,
+      rows.map((row) => row.chat.currentRunId),
+      false,
+    );
+
+    return mapPage(
+      pageOf(rows, page.limit, (row) => ({
+        key: row.cursorAt,
+        id: row.chat.id,
+      })),
+      (row) => summaryOf(row.chat, progressOf),
+    );
+  }
+
+  async read(teamId: TeamId, chatId: ChatId): Promise<ChatView | null> {
+    const [row] = await this.db
+      .select()
+      .from(chat)
+      .where(and(eq(chat.id, chatId.value), eq(chat.teamId, teamId.value)))
       .limit(1);
 
     if (!row) {
@@ -140,7 +176,7 @@ export class DrizzleChatReader implements ChatReaderPort {
         .where(eq(chatAttachment.chatId, row.id))
         .orderBy(asc(chatAttachment.place)),
       this.people.find(UserId.of(row.startedById)).then((found) => [found]),
-      progressOfCurrentRuns(this.db, [row.currentRunId], false),
+      progressOfCurrentRuns(this.progress, [row.currentRunId], false),
     ]);
 
     const proposedAt = messages.flatMap((each) =>
@@ -150,16 +186,15 @@ export class DrizzleChatReader implements ChatReaderPort {
       proposedAt.length > 0
         ? await this.db
             .select({
-              id: station.id,
-              name: station.name,
-              color: station.color,
-              position: station.position,
-              lineId: station.lineId,
-              lineName: line.name,
+              id: workStation.stationId,
+              name: workStation.name,
+              color: workStation.color,
+              position: workStation.position,
+              lineId: workStation.lineId,
+              lineName: workStation.lineName,
             })
-            .from(station)
-            .innerJoin(line, eq(line.id, station.lineId))
-            .where(inArray(station.id, proposedAt))
+            .from(workStation)
+            .where(inArray(workStation.stationId, proposedAt))
         : [];
     const stationCounts = await stationsPerLine(
       this.db,
@@ -181,10 +216,15 @@ export class DrizzleChatReader implements ChatReaderPort {
           body: message.body,
           at: message.at.toISOString(),
           author:
-            message.authorId && starter?.id === message.authorId
-              ? starter
+            starter && message.authorId === starter.id.value
+              ? {
+                  id: starter.id.value,
+                  name: starter.name,
+                  image: starter.image,
+                }
               : null,
           runId: message.runId,
+          takenUpBy: message.acknowledgedByRunId,
           attachments: attachments
             .filter((each) => each.messagePosition === message.position)
             .map((each) => ({

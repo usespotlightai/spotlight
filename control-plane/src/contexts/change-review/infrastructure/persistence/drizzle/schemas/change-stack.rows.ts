@@ -4,7 +4,10 @@ import type {
 } from '@change-review/domain/services/diff-facts';
 import type { DiffFileStatus } from '@change-review/domain/value-objects/diff.vo';
 import type { CheckStatusView } from '@change-review/domain/value-objects/stack-check.vo';
-import type { CohortKind } from '@change-review/domain/value-objects/stack-cohort.vo';
+import type {
+  CohortKind,
+  LayerRevisionStatus,
+} from '@change-review/domain/value-objects/stack-cohort.vo';
 
 interface StoredHunk {
   readonly id: string;
@@ -46,6 +49,16 @@ interface StoredLayer {
   readonly hunks: readonly { readonly hunk: string }[];
   readonly notes: readonly StoredNote[];
   readonly questions?: readonly StoredQuestion[];
+  readonly revision?: {
+    readonly status: LayerRevisionStatus;
+    readonly previous?: string;
+  } | null;
+}
+
+export interface StoredRemovedLayer {
+  readonly previous: string;
+  readonly cohort: string;
+  readonly title: string;
 }
 
 export interface StoredCohort {
@@ -97,6 +110,7 @@ export interface StoredCheckOutcome {
   readonly skip: {
     readonly code: string;
     readonly detail: string | null;
+    readonly attempts?: number;
   } | null;
   readonly whole: StoredStep | null;
   readonly layers: readonly StoredStep[];

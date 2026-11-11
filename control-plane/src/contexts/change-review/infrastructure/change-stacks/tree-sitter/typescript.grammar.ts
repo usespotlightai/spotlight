@@ -1,4 +1,4 @@
-import type { IndexedReference } from '@change-review/domain/services/symbol-index';
+import type { IndexedReference } from '@change-review/domain/value-objects/symbol-index.vo';
 import {
   type EmbeddedScript,
   endingIn,
@@ -25,7 +25,7 @@ const NEST_VERBS = new Set([
   'Options',
 ]);
 
-const SCRIPT = /(<script\b[^>]*>)([\s\S]*?)<\/script>/g;
+const SCRIPT = /(<script\b[^>]*>)([\s\S]*?)<\/script\b[^>]*>/gi;
 
 const blanked = (text: string): string => text.replace(/[^\n]/g, ' ');
 

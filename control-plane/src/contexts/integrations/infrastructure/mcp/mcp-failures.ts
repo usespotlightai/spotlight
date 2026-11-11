@@ -1,6 +1,8 @@
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { answersTransiently } from '@integrations/domain/services/call-transience';
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { McpError } from '@modelcontextprotocol/sdk/types.js';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 export class McpUnauthorizedError extends Error {
   constructor(readonly server: string) {
@@ -17,6 +19,28 @@ export class McpQuestionUnsupportedError extends Error {
 }
 
 const UNAUTHORIZED = 401;
+
+const TRANSPORT_ERROR_CODES: ReadonlySet<number> = new Set([
+  ErrorCode.ConnectionClosed,
+  ErrorCode.RequestTimeout,
+]);
+
+const NETWORK_ERROR_CODES: ReadonlySet<string> = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ECONNABORTED',
+  'EPIPE',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_CLOSED',
+]);
 
 const SESSION_GONE = 404;
 
@@ -57,4 +81,58 @@ export const mcpReasonOf = (error: unknown, server: string): string => {
   }
 
   return `${host}: ${codeOf(error)}`;
+};
+
+const failedInTransport = (error: unknown): boolean => {
+  if (error instanceof McpError) {
+    return TRANSPORT_ERROR_CODES.has(error.code);
+  }
+
+  const cause = (error as { cause?: unknown } | null)?.cause ?? error;
+  const code = (cause as { code?: unknown } | null)?.code;
+
+  return typeof code === 'string' && NETWORK_ERROR_CODES.has(code);
+};
+
+const TRANSIENT = true;
+
+const PERMANENT = false;
+
+export const mcpFailureOf = (
+  operation: string,
+  server: string,
+  error: unknown,
+): Error => {
+  if (error instanceof UpstreamError || error instanceof EgressBlockedError) {
+    return error;
+  }
+
+  const reason = mcpReasonOf(error, server);
+
+  if (error instanceof McpUnauthorizedError) {
+    return new UpstreamError(
+      operation,
+      reason,
+      UNAUTHORIZED,
+      answersTransiently(UNAUTHORIZED),
+    );
+  }
+
+  if (error instanceof StreamableHTTPError) {
+    const status = error.code ?? null;
+
+    return new UpstreamError(
+      operation,
+      reason,
+      status,
+      status === null ? TRANSIENT : answersTransiently(status),
+    );
+  }
+
+  return new UpstreamError(
+    operation,
+    reason,
+    null,
+    failedInTransport(error) ? TRANSIENT : PERMANENT,
+  );
 };

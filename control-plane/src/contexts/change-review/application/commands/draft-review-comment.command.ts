@@ -4,14 +4,13 @@ export class DraftReviewCommentCommand {
     readonly runId: string,
     readonly viewerId: string,
     readonly body: string,
-    readonly on:
-      | {
-          readonly path: string;
-          readonly side: string;
-          readonly line: number;
-          readonly startLine: number | null;
-        }
-      | { readonly file: string }
-      | { readonly replyTo: string },
+    readonly on: {
+      readonly replyTo: string | null;
+      readonly repository: string | null;
+      readonly path: string;
+      readonly side: string | null;
+      readonly line: number | null;
+      readonly startLine: number | null;
+    },
   ) {}
 }

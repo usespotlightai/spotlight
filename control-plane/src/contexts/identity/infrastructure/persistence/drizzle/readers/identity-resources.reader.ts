@@ -5,6 +5,9 @@ import type {
   WorkspaceRecord,
   WorkspaceTokenRecord,
 } from '@identity/application/ports/identity-resources.port';
+import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import {
   oidcTrust,
   team,
@@ -14,12 +17,10 @@ import {
 } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import { and, asc, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
+import { and, eq, type SQL } from 'drizzle-orm';
 
 const WORKSPACE_COLUMNS = {
   id: workspace.id,
@@ -44,9 +45,11 @@ const TOKEN_COLUMNS = {
   name: workspaceToken.name,
   description: workspaceToken.description,
   scopes: workspaceToken.scopes,
-  issuedBy: workspaceToken.issuedBy,
+  issuedBy: workspaceToken.issuedById,
   issuedAt: workspaceToken.issuedAt,
   expiresAt: workspaceToken.expiresAt,
+  issuedByTrustId: workspaceToken.issuedByTrustId,
+  runId: workspaceToken.runId,
 };
 
 const TRUST_COLUMNS = {
@@ -61,13 +64,13 @@ const TRUST_COLUMNS = {
   scopes: oidcTrust.scopes,
   lifetimeMinutes: oidcTrust.lifetimeMinutes,
   description: oidcTrust.description,
-  createdBy: oidcTrust.createdBy,
+  createdBy: oidcTrust.createdById,
 };
 
-const issuedByHand = and(
-  isNull(workspaceToken.issuedByTrustId),
-  isNull(workspaceToken.runId),
-);
+const issuedByHand = (row: {
+  readonly issuedByTrustId: string | null;
+  readonly runId: string | null;
+}): boolean => !WorkspaceToken.issuedBySpotlight(row);
 
 type Row<T> = Omit<T, 'id' | 'workspaceId'> & {
   readonly id: string;
@@ -84,9 +87,14 @@ const teamRecordOf = (row: Row<TeamRecord>): TeamRecord => ({
   workspaceId: WorkspaceId.of(row.workspaceId),
 });
 
-const tokenRecordOf = (
-  row: Row<WorkspaceTokenRecord>,
-): WorkspaceTokenRecord => ({
+const tokenRecordOf = ({
+  issuedByTrustId: _trust,
+  runId: _run,
+  ...row
+}: Row<WorkspaceTokenRecord> & {
+  readonly issuedByTrustId: string | null;
+  readonly runId: string | null;
+}): WorkspaceTokenRecord => ({
   ...row,
   id: WorkspaceTokenId.of(row.id),
   workspaceId: WorkspaceId.of(row.workspaceId),
@@ -144,45 +152,6 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     ).map(teamRecordOf);
   }
 
-  async teamKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
-    return (
-      await this.context.db
-        .select({ key: team.key })
-        .from(team)
-        .where(eq(team.workspaceId, workspaceId.value))
-        .orderBy(asc(team.key))
-    ).map((each) => each.key);
-  }
-
-  async tokenNamesIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
-    return (
-      await this.context.db
-        .select({ name: workspaceToken.name })
-        .from(workspaceToken)
-        .where(
-          and(eq(workspaceToken.workspaceId, workspaceId.value), issuedByHand),
-        )
-        .orderBy(asc(workspaceToken.name))
-    ).map((each) => each.name);
-  }
-
-  async issuingTrustKeysIn(
-    workspaceId: WorkspaceId,
-  ): Promise<readonly string[]> {
-    return (
-      await this.context.db
-        .selectDistinct({ name: workspaceToken.name })
-        .from(workspaceToken)
-        .where(
-          and(
-            eq(workspaceToken.workspaceId, workspaceId.value),
-            isNotNull(workspaceToken.issuedByTrustId),
-          ),
-        )
-        .orderBy(asc(workspaceToken.name))
-    ).map((each) => each.name);
-  }
-
   async tokensIn(
     workspaceId: WorkspaceId,
   ): Promise<readonly WorkspaceTokenRecord[]> {
@@ -190,39 +159,41 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
       await this.context.db
         .select(TOKEN_COLUMNS)
         .from(workspaceToken)
-        .where(
-          and(eq(workspaceToken.workspaceId, workspaceId.value), issuedByHand),
-        )
-    ).map(tokenRecordOf);
+        .where(eq(workspaceToken.workspaceId, workspaceId.value))
+    )
+      .filter(issuedByHand)
+      .map(tokenRecordOf);
   }
 
-  tokenWithId(id: WorkspaceTokenId): Promise<WorkspaceTokenRecord | null> {
-    return this.token(eq(workspaceToken.id, id.value));
+  async tokenWithId(
+    id: WorkspaceTokenId,
+  ): Promise<WorkspaceTokenRecord | null> {
+    const [found] = await this.tokens(eq(workspaceToken.id, id.value));
+
+    return found ? tokenRecordOf(found) : null;
   }
 
-  tokenAt(
+  async tokenAt(
     workspaceId: WorkspaceId,
     name: string,
   ): Promise<WorkspaceTokenRecord | null> {
-    return this.token(
-      and(
-        eq(workspaceToken.workspaceId, workspaceId.value),
-        eq(workspaceToken.name, name),
-        issuedByHand,
-      ),
-    );
-  }
-
-  private async token(
-    where: SQL | undefined,
-  ): Promise<WorkspaceTokenRecord | null> {
-    const [found] = await this.context.db
-      .select(TOKEN_COLUMNS)
-      .from(workspaceToken)
-      .where(where)
-      .limit(1);
+    const found = (
+      await this.tokens(
+        and(
+          eq(workspaceToken.workspaceId, workspaceId.value),
+          eq(workspaceToken.name, name),
+        ),
+      )
+    ).find(issuedByHand);
 
     return found ? tokenRecordOf(found) : null;
+  }
+
+  private tokens(where: SQL | undefined) {
+    return this.context.db
+      .select(TOKEN_COLUMNS)
+      .from(workspaceToken)
+      .where(where);
   }
 
   oidcTrustWithId(id: OidcTrustId): Promise<OidcTrustRecord | null> {
@@ -247,16 +218,6 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
         .from(oidcTrust)
         .where(eq(oidcTrust.workspaceId, workspaceId.value))
     ).map(trustRecordOf);
-  }
-
-  async oidcTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
-    return (
-      await this.context.db
-        .select({ key: oidcTrust.key })
-        .from(oidcTrust)
-        .where(eq(oidcTrust.workspaceId, workspaceId.value))
-        .orderBy(asc(oidcTrust.key))
-    ).map((each) => each.key);
   }
 
   private async oidcTrust(

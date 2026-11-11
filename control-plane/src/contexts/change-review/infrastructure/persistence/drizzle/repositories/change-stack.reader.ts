@@ -1,5 +1,6 @@
 import type {
   ChangeStackDto,
+  CheckedStepDto,
   QuestionAnswerDto,
   StackCheckDto,
   StackCohortDto,
@@ -8,27 +9,31 @@ import type {
   ChangeStackReaderPort,
   ChangeStackSummary,
 } from '@change-review/application/ports/change-stack-reader.port';
-import { checkReasonOf } from '@change-review/application/rendering/check-reason';
+import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
+import {
+  type AnswerScope,
+  type GivenAnswer,
+  shownAnswerFor,
+} from '@change-review/domain/services/shown-answer';
+import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
-import {
-  checkStatusAt,
-  parseStoredSkip,
-  queueTimeout,
-} from '@change-review/domain/value-objects/stack-check.vo';
-import {
-  checkedStepOf,
-  diffOf,
-} from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
+import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import type { CheckedStep } from '@change-review/domain/value-objects/stack-check.vo';
+import type { QuestionId } from '@change-review/domain/value-objects/stack-ids';
+import { isShownForTask } from '@change-review/domain/value-objects/stack-progress.vo';
+import { diffOf } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
+import { toStackCheck } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import type { StoredCohort } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
 import { changeStack } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 import { questionAnswer } from '@change-review/infrastructure/persistence/drizzle/schemas/question-answer.schema';
 import { stackCheck } from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or } from 'drizzle-orm';
 
 const PROGRESS = {
   state: changeStack.state,
@@ -37,102 +42,148 @@ const PROGRESS = {
   completedAt: changeStack.completedAt,
 };
 
-const CHECK = {
-  command: stackCheck.command,
-  status: stackCheck.status,
-  outcome: stackCheck.outcome,
-  waitingSince: stackCheck.waitingSince,
-  leaseExpiresAt: stackCheck.leaseExpiresAt,
-  claimedAt: stackCheck.claimedAt,
-};
+const stepOf = (step: CheckedStep): CheckedStepDto => ({
+  step: step.step,
+  passed: step.passed,
+  output: step.output,
+  durationMs: step.durationMs,
+});
 
-type CheckRow = {
-  [K in keyof typeof CHECK]: (typeof CHECK)[K]['_']['data'] | null;
-};
-
-const checkOf = (row: CheckRow | null, now: Date): StackCheckDto | null => {
-  if (!row?.command || !row.status || !row.waitingSince) {
+const checkOf = (check: StackCheck | null, now: Date): StackCheckDto | null => {
+  if (!check) {
     return null;
   }
 
-  const status = checkStatusAt(
-    {
-      status: row.status,
-      waitingSince: row.waitingSince,
-      lease: { leaseExpiresAt: row.leaseExpiresAt, claimedAt: row.claimedAt },
-    },
-    now,
-  );
-
-  const skipped =
-    status === 'skipped'
-      ? row.outcome?.skip
-        ? parseStoredSkip(row.outcome.skip.code, row.outcome.skip.detail)
-        : queueTimeout()
-      : null;
+  const skip = check.skippedAt(now);
 
   return {
-    command: row.command,
-    status,
-    reason: checkReasonOf({
-      skipped,
-      wholeFailed:
-        row.outcome?.status === 'checked' &&
-        row.outcome.whole?.passed === false,
-    }),
-    whole: row.outcome?.whole ? checkedStepOf(row.outcome.whole) : null,
-    layers: row.outcome?.layers.map(checkedStepOf) ?? [],
+    command: check.request.command,
+    status: check.statusAt(now),
+    skip: skip && {
+      code: skip.code,
+      detail: skip.detail,
+      attempts: skip.attempts ?? null,
+    },
+    wholeFailed: check.wholeFailed,
+    whole: check.outcome?.whole ? stepOf(check.outcome.whole) : null,
+    layers: check.outcome?.layers.map(stepOf) ?? [],
   };
 };
 
-type AnswerRow = Pick<
-  typeof questionAnswer.$inferSelect,
-  | 'stackId'
-  | 'questionId'
-  | 'asked'
-  | 'reply'
-  | 'verdict'
-  | 'feedback'
-  | 'expected'
->;
+const ANSWER = {
+  id: questionAnswer.id,
+  stackId: questionAnswer.stackId,
+  taskId: questionAnswer.taskId,
+  repository: questionAnswer.repository,
+  asked: questionAnswer.asked,
+  expected: questionAnswer.expected,
+  reply: questionAnswer.reply,
+  verdict: questionAnswer.verdict,
+  feedback: questionAnswer.feedback,
+  answeredAt: questionAnswer.answeredAt,
+};
+
+type AnswerRow = {
+  [K in keyof typeof ANSWER]: (typeof questionAnswer.$inferSelect)[K];
+};
+
+interface StackScope {
+  readonly id: string;
+  readonly taskId: string | null;
+  readonly repository: string | null;
+}
+
+type StoredLayer = StoredCohort['layers'][number];
+
+const outlinedLayerOf = (layer: StoredLayer) => ({
+  id: layer.id,
+  title: layer.title,
+  summary: layer.summary,
+  dependsOn: layer.dependsOn.map((each) => ({
+    layer: each.layer,
+    because: each.because,
+  })),
+  hunks: layer.hunks.map((each) => ({ hunk: each.hunk })),
+  notes: layer.notes.map((each) => ({ path: each.path, note: each.note })),
+});
+
+const outlinedCohortOf = <L>(
+  cohort: StoredCohort,
+  layerOf: (layer: StoredLayer) => L,
+) => ({
+  id: cohort.id,
+  kind: cohort.kind,
+  title: cohort.title,
+  intent: cohort.intent,
+  layers: cohort.layers.map(layerOf),
+});
+
+type StoredQuestion = NonNullable<StoredLayer['questions']>[number];
 
 const cohortDtosOf = (
   cohorts: readonly StoredCohort[],
-  answered: (questionId: string, asked: string) => QuestionAnswerDto | null,
+  answered: (question: StoredQuestion) => QuestionAnswerDto | null,
 ): StackCohortDto[] =>
-  cohorts.map((cohort) => ({
-    ...cohort,
-    layers: cohort.layers.map(({ questions, ...layer }) => ({
-      ...layer,
-      questions: (questions ?? []).map((each) => ({
+  cohorts.map((cohort) =>
+    outlinedCohortOf(cohort, (layer) => ({
+      ...outlinedLayerOf(layer),
+      questions: (layer.questions ?? []).map((each) => ({
         id: each.id,
         question: each.question,
         hunks: each.hunks,
-        answered: answered(each.id, each.question),
+        answered: answered(each),
       })),
+      revision: layer.revision
+        ? {
+            status: layer.revision.status,
+            previous: layer.revision.previous ?? null,
+          }
+        : null,
     })),
-  }));
+  );
+
+const scopeOf = (stack: StackScope): AnswerScope => ({
+  stackId: ChangeStackId.of(stack.id),
+  taskId: stack.taskId ? TaskId.of(stack.taskId) : null,
+  repository: stack.repository ? RepositoryName.of(stack.repository) : null,
+});
+
+const givenOf = (row: AnswerRow): GivenAnswer => ({
+  ...scopeOf({
+    id: row.stackId,
+    taskId: row.taskId,
+    repository: row.repository,
+  }),
+  id: QuestionAnswerId.of(row.id),
+  asked: row.asked,
+  expected: row.expected,
+  reply: row.reply,
+  verdict: row.verdict,
+  feedback: row.feedback,
+  answeredAt: row.answeredAt,
+});
 
 const answeredFrom =
-  (rows: readonly AnswerRow[], stackId: string) =>
-  (questionId: string, asked: string): QuestionAnswerDto | null => {
-    const row = rows.find(
-      (each) =>
-        each.stackId === stackId &&
-        each.questionId === questionId &&
-        each.asked === asked,
-    );
+  (rows: readonly AnswerRow[], stack: StackScope) =>
+  (question: StoredQuestion): QuestionAnswerDto | null => {
+    const shown = shownAnswerFor(question, scopeOf(stack), rows.map(givenOf));
 
-    return row
-      ? {
-          questionId: row.questionId,
-          reply: row.reply,
-          verdict: row.verdict,
-          feedback: row.feedback,
-          expected: row.expected,
-        }
-      : null;
+    return shown && { questionId: question.id, ...shown };
   };
+
+const inScopeOf = (stacks: readonly StackScope[]) => {
+  const tasks = [
+    ...new Set(stacks.flatMap((stack) => (stack.taskId ? [stack.taskId] : []))),
+  ];
+
+  return or(
+    inArray(
+      questionAnswer.stackId,
+      stacks.map((stack) => stack.id),
+    ),
+    tasks.length > 0 ? inArray(questionAnswer.taskId, tasks) : undefined,
+  );
+};
 
 @Injectable()
 export class DrizzleChangeStackReader implements ChangeStackReaderPort {
@@ -142,7 +193,36 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     taskId: TaskId,
     now: Date,
   ): Promise<ChangeStackSummary | null> {
-    const [row] = await this.context.db
+    const [latest] = await this.shownForTask(taskId, now, (rows) =>
+      rows.slice(0, 1),
+    );
+
+    return latest ?? null;
+  }
+
+  latestPerRepository(
+    taskId: TaskId,
+    now: Date,
+  ): Promise<ChangeStackSummary[]> {
+    return this.shownForTask(taskId, now, (rows) => {
+      const seen = new Set<string | null>();
+
+      return rows.filter((row) => {
+        const known = seen.has(row.repository);
+
+        seen.add(row.repository);
+
+        return !known;
+      });
+    });
+  }
+
+  private async shownForTask(
+    taskId: TaskId,
+    now: Date,
+    pick: <R extends { repository: string | null }>(newestFirst: R[]) => R[],
+  ): Promise<ChangeStackSummary[]> {
+    const rows = await this.context.db
       .select({
         id: changeStack.id,
         runId: changeStack.runId,
@@ -150,38 +230,34 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         cohorts: changeStack.cohorts,
         files: changeStack.files,
         ...PROGRESS,
-        check: CHECK,
       })
       .from(changeStack)
-      .leftJoin(stackCheck, eq(stackCheck.stackId, changeStack.id))
-      .where(
-        and(
-          eq(changeStack.taskId, taskId.value),
-          ne(changeStack.state, 'failed'),
-        ),
-      )
-      .orderBy(desc(changeStack.startedAt))
-      .limit(1);
+      .where(eq(changeStack.taskId, taskId.value))
+      .orderBy(desc(changeStack.startedAt));
 
-    if (!row) {
-      return null;
-    }
+    return Promise.all(
+      pick(rows.filter((each) => isShownForTask(each.state))).map(
+        async (row): Promise<ChangeStackSummary> => {
+          const tally = tallyOf(diffOf(row.files).files);
 
-    const tally = tallyOf(diffOf(row.files).files);
-
-    return {
-      id: row.id,
-      runId: row.runId,
-      repository: row.repository,
-      state: row.state,
-      cohorts: row.cohorts.map((cohort) => ({
-        ...cohort,
-        layers: cohort.layers.map(({ questions: _, ...layer }) => layer),
-      })),
-      check: checkOf(row.check, now),
-      added: tally.added,
-      removed: tally.removed,
-    };
+          return {
+            id: row.id,
+            runId: RunId.of(row.runId),
+            repository: row.repository,
+            state: row.state,
+            cohorts: row.cohorts.map((cohort) =>
+              outlinedCohortOf(cohort, outlinedLayerOf),
+            ),
+            check: checkOf(
+              StackCheck.latestOf(await this.checksOf([row.id])),
+              now,
+            ),
+            added: tally.added,
+            removed: tally.removed,
+          };
+        },
+      ),
+    );
   }
 
   async ofRun(
@@ -192,40 +268,28 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     const rows = await this.context.db
       .select({
         id: changeStack.id,
+        taskId: changeStack.taskId,
         repository: changeStack.repository,
         files: changeStack.files,
         cohorts: changeStack.cohorts,
+        removedLayers: changeStack.removedLayers,
         ...PROGRESS,
-        check: CHECK,
       })
       .from(changeStack)
-      .leftJoin(stackCheck, eq(stackCheck.stackId, changeStack.id))
       .where(eq(changeStack.runId, runId.value))
       .orderBy(asc(changeStack.startedAt));
 
     const answers =
       rows.length > 0
         ? await this.context.db
-            .select({
-              stackId: questionAnswer.stackId,
-              questionId: questionAnswer.questionId,
-              asked: questionAnswer.asked,
-              reply: questionAnswer.reply,
-              verdict: questionAnswer.verdict,
-              feedback: questionAnswer.feedback,
-              expected: questionAnswer.expected,
-            })
+            .select(ANSWER)
             .from(questionAnswer)
             .where(
-              and(
-                inArray(
-                  questionAnswer.stackId,
-                  rows.map((row) => row.id),
-                ),
-                eq(questionAnswer.personId, viewerId.value),
-              ),
+              and(inScopeOf(rows), eq(questionAnswer.personId, viewerId.value)),
             )
         : [];
+
+    const checks = await this.checksOf(rows.map((row) => row.id));
 
     return rows.map((row) => ({
       id: row.id,
@@ -235,8 +299,73 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       startedAt: row.startedAt.toISOString(),
       completedAt: row.completedAt?.toISOString() ?? null,
       files: row.files,
-      cohorts: cohortDtosOf(row.cohorts, answeredFrom(answers, row.id)),
-      check: checkOf(row.check, now),
+      cohorts: cohortDtosOf(row.cohorts, answeredFrom(answers, row)),
+      removed: row.removedLayers.map((each) => ({
+        previous: each.previous,
+        cohort: each.cohort,
+        title: each.title,
+      })),
+      check: checkOf(
+        StackCheck.latestOf(
+          checks.filter((each) => each.stackId.value === row.id),
+        ),
+        now,
+      ),
     }));
+  }
+
+  async answerOf(
+    runId: RunId,
+    stackId: ChangeStackId,
+    questionId: QuestionId,
+    viewerId: UserId,
+  ): Promise<QuestionAnswerDto | null> {
+    const [stack] = await this.context.db
+      .select({
+        id: changeStack.id,
+        taskId: changeStack.taskId,
+        repository: changeStack.repository,
+        cohorts: changeStack.cohorts,
+      })
+      .from(changeStack)
+      .where(
+        and(
+          eq(changeStack.id, stackId.value),
+          eq(changeStack.runId, runId.value),
+        ),
+      )
+      .limit(1);
+    const question = stack?.cohorts
+      .flatMap((cohort) => cohort.layers)
+      .flatMap((layer) => layer.questions ?? [])
+      .find((each) => each.id === questionId);
+
+    if (!stack || !question) {
+      return null;
+    }
+
+    const answers = await this.context.db
+      .select(ANSWER)
+      .from(questionAnswer)
+      .where(
+        and(inScopeOf([stack]), eq(questionAnswer.personId, viewerId.value)),
+      );
+
+    return answeredFrom(answers, stack)(question);
+  }
+
+  private async checksOf(
+    stackIds: readonly string[],
+  ): Promise<readonly StackCheck[]> {
+    if (stackIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(stackCheck)
+      .where(inArray(stackCheck.stackId, [...stackIds]));
+
+    return rows.map(toStackCheck);
   }
 }

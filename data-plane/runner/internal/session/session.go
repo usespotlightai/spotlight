@@ -38,6 +38,7 @@ type Journal interface {
 	ReplyToReviewComment(ctx context.Context, runID string, reply protocol.ReviewCommentReply) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	History(ctx context.Context, runID string, request protocol.HistoryRequest) (json.RawMessage, error)
+	SearchView(ctx context.Context, runID string) (json.RawMessage, error)
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
 	Remember(ctx context.Context, runID string, remembered protocol.RememberRequest) (json.RawMessage, error)
@@ -48,7 +49,7 @@ type Journal interface {
 	AckMessages(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
 	AskPermission(ctx context.Context, runID string, asked protocol.PermissionRequest) (protocol.PermissionResponse, error)
-	WorkspaceArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
+	WorkingCopyArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
 	GrantArchive(ctx context.Context, runID string, size int64, sha256 string) (protocol.ArchiveGrant, error)
 	GrantAttachment(ctx context.Context, runID string, request protocol.AttachmentRequest) (protocol.AttachmentGrant, error)
 	CompleteArchive(ctx context.Context, runID, archiveID string) error
@@ -66,25 +67,28 @@ const (
 )
 
 type Options struct {
-	Workspace    string
-	Journal      Journal
-	Log          *slog.Logger
-	AgentUser    *account.User
-	Author       prepare.Author
-	Mirrors      string
-	ControlPlane string
-	Token        string
-	SetupTimeout time.Duration
-	Heartbeat    time.Duration
-	Transport    http.RoundTripper
-	ProxyEnv     map[string]string
-	Enforced     func(ctx context.Context) bool
-	Unready      error
+	Workspace      string
+	Journal        Journal
+	Log            *slog.Logger
+	AgentUser      *account.User
+	Author         prepare.Author
+	Mirrors        string
+	ControlPlane   string
+	Token          string
+	SetupTimeout   time.Duration
+	Heartbeat      time.Duration
+	Transport      http.RoundTripper
+	ProxyEnv       map[string]string
+	Enforced       func(ctx context.Context) bool
+	Unready        error
+	BackgroundWait time.Duration
+	SettleQuiet    time.Duration
 }
 
 type Sandbox struct {
 	space *workspace.Workspace
 	kept  *kept
+	setUp setUps
 }
 
 func Execute(ctx context.Context, run protocol.Run, opts Options) error {
@@ -123,6 +127,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	defer stopLeasing()
 	defer func() { s.kept = new(archiver.keep()) }()
 	if s.kept == nil || archiver.replays() {
+		s.setUp = nil
 		if err := archiver.restore(ctx); err != nil {
 			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
@@ -212,12 +217,15 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		}
 	}
 
-	opts.setUp(ctx, space.Dir, run.Spec.Checkouts, journal, log)
+	if s.setUp == nil {
+		s.setUp = setUps{}
+	}
+	unready := opts.setUp(ctx, space.Dir, run.Spec.Checkouts, s.setUp, journal, log)
 
 	if err := lifecycle.advance(WorkspaceReady); err != nil {
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
-	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
+	journal.record(ctx, protocol.Event{Type: protocol.EventWorkingCopyReady, Message: space.Dir})
 	archiver.recordBaseline()
 
 	channel, err := agentapi.Serve(
@@ -252,7 +260,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	})
 
 	channel.Histories(func(ctx context.Context, request protocol.HistoryRequest) (json.RawMessage, error) {
-		return opts.Journal.History(ctx, run.ID, request)
+		return history(ctx, opts.Journal, run, request)
 	})
 
 	channel.Memories(
@@ -319,14 +327,15 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	maps.Copy(env, opts.ProxyEnv)
 
 	harness, err := acp.Start(ctx, acp.Options{
-		Executable: run.Spec.Command.Executable,
-		Args:       run.Spec.Command.Args,
-		Env:        env,
-		Root:       cwd,
-		RunAs:      opts.AgentUser,
-		Answer:     answerPermissions(run, opts.Journal, journal, &escalated, log),
-		Session:    run.Spec.HarnessSetup.Session,
-		McpServers: serversOf(run.Spec.HarnessSetup.McpServers),
+		Executable:  run.Spec.Command.Executable,
+		Args:        run.Spec.Command.Args,
+		Env:         env,
+		Root:        cwd,
+		RunAs:       opts.AgentUser,
+		Answer:      answerPermissions(run, opts.Journal, journal, &escalated, log),
+		Session:     run.Spec.HarnessSetup.Session,
+		McpServers:  serversOf(run.Spec.HarnessSetup.McpServers),
+		SettleQuiet: opts.SettleQuiet,
 	})
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("start agent: %w", err))
@@ -345,19 +354,21 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	log.Info("agent started", "executable", run.Spec.Command.Executable, "cwd", cwd)
 
 	sessionID, err := open(ctx, harness, run.Spec.Resume.SessionID, log)
-	if err == nil {
-		err = configure(ctx, harness, sessionID, run.Spec.Command.SessionOptions, log)
-	}
 	if err != nil {
+		leave()
+		return unopened(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	}
+	if err := configure(ctx, harness, sessionID, run.Spec.Command.SessionOptions, log); err != nil {
 		leave()
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	talk := &conversation{
 		run:       run,
-		harness:   harness,
+		harness:   overACP(harness),
 		sessionID: sessionID,
 		joined:    joined,
+		unready:   unready,
 		journal:   journal,
 		control:   opts.Journal,
 		archiver:  archiver,
@@ -372,11 +383,19 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 			return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
 		},
 		escalated: &escalated,
-		handOver:  handingOver(opts, run, space.Dir, bases, log),
+		handOver:  func(ctx context.Context) { opts.generateStacks(ctx, run, space.Dir, bases, log) },
 		heartbeat: opts.heartbeat(),
-		log:       log,
-		stopped:   make(chan struct{}),
+		waitLimit: opts.BackgroundWait,
+		keepLost: func(tasks []workspace.LostTask) {
+			if err := space.KeepLostBackground(tasks); err != nil {
+				log.Warn("could not keep the list of background tasks that stopped", "error", err)
+			}
+		},
+		lost:    space.TakeLostBackground(),
+		log:     log,
+		stopped: make(chan struct{}),
 	}
+	journal.record(ctx, protocol.Event{Type: protocol.EventHarnessConnected, Message: harness.Protocol()})
 
 	stopLeasing()
 	err = talk.work(ctx, talk.opening(ctx))
@@ -386,25 +405,10 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	}
 
 	lifecycle.note(AgentExited, log)
-	if !replays(run) {
-		opts.generateStacks(ctx, run, space.Dir, bases, log)
-	}
 	lifecycle.note(Drained, log)
 
 	log.Info("run finished", "state", lifecycle.state)
 	return nil
-}
-
-func handingOver(
-	opts Options, run protocol.Run, dir string, bases map[string]string, log *slog.Logger,
-) func(context.Context) {
-	if !replays(run) {
-		return nil
-	}
-
-	return func(ctx context.Context) {
-		opts.generateStacks(ctx, run, dir, bases, log)
-	}
 }
 
 func replays(run protocol.Run) bool {
@@ -721,7 +725,19 @@ func setupFailed(
 	log *slog.Logger,
 	cause error,
 ) error {
-	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, true)
+	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, preparing(cause), true)
+}
+
+func unopened(
+	ctx context.Context,
+	runID string,
+	journal *journalWriter,
+	lifecycle *progress,
+	reporter Journal,
+	log *slog.Logger,
+	cause error,
+) error {
+	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, starting(cause), true)
 }
 
 func finish(
@@ -733,7 +749,7 @@ func finish(
 	log *slog.Logger,
 	cause error,
 ) error {
-	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, false)
+	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, starting(cause), false)
 }
 
 func failed(
@@ -744,14 +760,14 @@ func failed(
 	reporter Journal,
 	log *slog.Logger,
 	cause error,
-	beforeHandover bool,
+	message string,
+	setupFailed bool,
 ) error {
 	if err := lifecycle.advance(Errored); err != nil {
 		log.Warn("could not mark the run failed", "error", err)
 	}
 
 	telemetry.Report(cause, telemetry.Tags{"run": runID})
-	message := failureOf(cause, beforeHandover)
 
 	journal.append(protocol.Event{
 		Type:    protocol.EventFailed,
@@ -762,7 +778,7 @@ func failed(
 	if err := reporter.Complete(ctx, runID, protocol.Completion{
 		ExitCode:    -1,
 		Failed:      true,
-		SetupFailed: beforeHandover,
+		SetupFailed: setupFailed,
 		Message:     message,
 	}); err != nil {
 		log.Warn("could not report the failure", "error", err)
@@ -771,10 +787,11 @@ func failed(
 	return cause
 }
 
-func failureOf(cause error, beforeHandover bool) string {
-	if beforeHandover {
-		return "The runner couldn't prepare the run. Error: " + cause.Error()
-	}
+func preparing(cause error) string {
+	return "The runner couldn't prepare the run. Error: " + cause.Error()
+}
+
+func starting(cause error) string {
 	return "The runner couldn't start the agent. Error: " + cause.Error()
 }
 
@@ -829,23 +846,54 @@ func (o Options) checkEgress(ctx context.Context, journal *journalWriter) {
 	journal.append(protocol.Event{Type: protocol.EventEgressChecked, Data: checked})
 }
 
+const parallelSetups = 4
+
 func (o Options) setUp(
-	ctx context.Context, dir string, checkouts []protocol.Checkout, journal *journalWriter, log *slog.Logger,
-) {
+	ctx context.Context, dir string, checkouts []protocol.Checkout, done setUps, journal *journalWriter, log *slog.Logger,
+) []setupFailure {
+	var missed []protocol.Checkout
 	for _, checkout := range checkouts {
 		if checkout.Setup == "" {
 			continue
 		}
-
-		output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout, o.ProxyEnv)
-		if err != nil {
-			log.Warn("could not set up a checkout", "path", checkout.Path, "error", err)
-			output = strings.TrimSpace(fmt.Sprintf("%s\n\nSetup failed for %s. Error: %v", output, checkout.Path, err))
+		if done.unchanged(ctx, filepath.Join(dir, checkout.Path), checkout, log) {
+			journal.append(protocol.Event{Type: protocol.EventOutput, Message: setupStep, Data: []byte(fmt.Sprintf(
+				"Skipped setup for %s: the setup command and the dependency files did not change after the last setup in this sandbox.", checkout.Path,
+			))})
+			continue
 		}
-		if output != "" {
-			journal.append(protocol.Event{Type: protocol.EventOutput, Message: setupStep, Data: []byte(output)})
-		}
+		missed = append(missed, checkout)
 	}
+
+	failed := make([]*setupFailure, len(missed))
+	slots := make(chan struct{}, parallelSetups)
+	var installing sync.WaitGroup
+	for i, checkout := range missed {
+		installing.Go(func() {
+			slots <- struct{}{}
+			defer func() { <-slots }()
+			output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout, o.ProxyEnv)
+			if err != nil {
+				log.Warn("could not set up a checkout", "path", checkout.Path, "error", err)
+				failed[i] = &setupFailure{path: checkout.Path, command: checkout.Setup, err: err, output: output}
+				output = strings.TrimSpace(fmt.Sprintf("%s\n\nSetup failed for %s. Error: %v", output, checkout.Path, err))
+			}
+			if output != "" {
+				journal.append(protocol.Event{Type: protocol.EventOutput, Message: setupStep, Data: []byte(output)})
+			}
+		})
+	}
+	installing.Wait()
+
+	var failures []setupFailure
+	for i, checkout := range missed {
+		if failed[i] != nil {
+			failures = append(failures, *failed[i])
+			continue
+		}
+		done.record(ctx, filepath.Join(dir, checkout.Path), checkout, log)
+	}
+	return failures
 }
 
 type journalWriter struct {

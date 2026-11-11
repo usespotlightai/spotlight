@@ -2,16 +2,16 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { SendChatMessageCommand } from '@work/application/commands/chat.commands';
-import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { ChatLoader } from '@work/application/services/chat-loader.service';
+import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { Effort } from '@work/domain/value-objects/effort.vo';
 
 export class SendChatMessageHandler
   implements CommandHandlerPort<SendChatMessageCommand, void>
@@ -29,7 +29,11 @@ export class SendChatMessageHandler
   async execute(command: SendChatMessageCommand): Promise<void> {
     try {
       await this.transaction.inTransaction(async () => {
-        const chat = await this.loader.inTeam(command.teamId, command.chatId);
+        const chat = await this.loader.openedBy(
+          command.teamId,
+          command.chatId,
+          command.sentBy,
+        );
         const attachments = await this.files.handedOver(
           chat.workspaceId,
           command.attachments,

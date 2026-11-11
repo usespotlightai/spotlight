@@ -1,30 +1,12 @@
+import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
-export const CONFIGURED_RESOURCES = [
-  'workspace',
-  'team',
-  'line',
-  'skill',
-  'harness-profile',
-  'integration',
-  'hook',
-  'secret',
-  'workspace-token',
-  'oidc-trust',
-  'runner-trust',
-  'runner-pool',
-  'egress',
-  'workspace-runners',
-  'replay',
-  'replay-search',
-  'replay-check',
-  'config-pull-request',
-  'terraform-state',
-] as const;
+export type ResourceType = string;
 
-export type ConfiguredResource = (typeof CONFIGURED_RESOURCES)[number];
+export const CONFIGURATION_ACTIONS = ['created', 'updated', 'deleted'] as const;
 
-export type ConfigurationAction = 'created' | 'updated' | 'deleted';
+export type ConfigurationAction = (typeof CONFIGURATION_ACTIONS)[number];
 
 type RecordedValue =
   | null
@@ -40,14 +22,14 @@ export interface ChangeDetail {
 }
 
 interface Changed {
-  readonly resource: ConfiguredResource;
+  readonly resource: ResourceType;
   readonly id: string;
   readonly key: string;
 }
 
 export class ConfigurationChange {
   private constructor(
-    readonly resource: ConfiguredResource,
+    readonly resource: ResourceType,
     readonly resourceId: string,
     readonly key: string,
     readonly action: ConfigurationAction,
@@ -85,6 +67,13 @@ export class ConfigurationChange {
     by: ChangeActor,
     detail: ChangeDetail | null,
   ): ConfigurationChange {
+    if (!isSlug(changed.resource)) {
+      throw new InvalidIdentifierError(
+        'resource type',
+        'must be a lowercase slug',
+      );
+    }
+
     return new ConfigurationChange(
       changed.resource,
       changed.id,

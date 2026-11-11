@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import { cn } from '@/lib/utils';
 
 export const COLLAPSE_MS = 200;
@@ -6,6 +7,7 @@ export const COLLAPSE_MS = 200;
 type CollapsibleProps = {
   open: boolean;
   appear: boolean;
+  lazy?: boolean;
   className?: string;
   children: ReactNode;
 };
@@ -13,9 +15,12 @@ type CollapsibleProps = {
 export function Collapsible({
   open,
   appear,
+  lazy = false,
   className,
   children,
 }: CollapsibleProps) {
+  const mounted = useDelayedValue(open || null, COLLAPSE_MS) !== null;
+
   return (
     <div
       className={cn(
@@ -25,7 +30,7 @@ export function Collapsible({
       )}
     >
       <div inert={!open} className={cn('min-h-0 overflow-hidden', className)}>
-        {children}
+        {(!lazy || mounted) && children}
       </div>
     </div>
   );

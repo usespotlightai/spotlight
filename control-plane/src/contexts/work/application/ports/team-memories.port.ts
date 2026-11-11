@@ -32,15 +32,9 @@ interface OmittedMemory {
   readonly handle: string;
 }
 
-interface MemoryFolderRow {
-  readonly folder: string;
-  readonly level: string;
-}
-
 export interface MemoryFolder {
   readonly path: string;
-  readonly layout: readonly MemoryFolderRow[];
-  readonly repositoryFolder: string | null;
+  readonly guide: string;
 }
 
 export interface BriefingSelection {

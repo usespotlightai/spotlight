@@ -1,4 +1,6 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
+import { IntegrationsUsingSecret } from '@integrations/application/services/integrations-using-secret.service';
 import { IntegrationSecretUses } from '@integrations/infrastructure/acl/secret-uses.adapter';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
@@ -44,19 +46,29 @@ const teams: TeamDirectoryPort = {
 };
 
 describe('IntegrationSecretUses', () => {
+  const reader = new IntegrationReader(
+    new CelExpressionEngine(),
+    operationsContaining(),
+  );
+  const runtime = {
+    integrations: (definitions) =>
+      reader.readable(definitions).integrations.map((each) => each.integration),
+  } as Pick<IntegrationRuntimePort, 'integrations'> as IntegrationRuntimePort;
   const uses = new IntegrationSecretUses(
-    teams,
-    {
-      ofTeam: async () => [defined(LINEAR), defined(SENTRY)],
-      everywhere: vi.fn(),
-    },
-    new IntegrationReader(new CelExpressionEngine(), operationsContaining()),
+    new IntegrationsUsingSecret(
+      teams,
+      {
+        ofTeam: async () => [defined(LINEAR), defined(SENTRY)],
+        everywhere: vi.fn(),
+      },
+      runtime,
+    ),
   );
 
   it('names each integration of the workspace that uses the secret', async () => {
     expect(
       await uses.usesOf({ workspaceId: 'ws_1', name: 'LINEAR_API_KEY' }),
-    ).toEqual(['integration core/linear']);
+    ).toEqual([{ kind: 'integration', key: 'core/linear' }]);
   });
 
   it('names nothing for a secret that no integration uses', async () => {

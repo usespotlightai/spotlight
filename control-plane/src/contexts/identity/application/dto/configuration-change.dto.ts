@@ -1,7 +1,7 @@
 import type {
   ConfigurationAction,
-  ConfiguredResource,
   RecordedDetail,
+  ResourceType,
 } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 
 export type ChangedBy =
@@ -16,7 +16,7 @@ export type ChangedBy =
 
 export interface ConfigurationChangeDto {
   readonly seq: number;
-  readonly resource: ConfiguredResource;
+  readonly resource: ResourceType;
   readonly resourceId: string;
   readonly key: string;
   readonly action: ConfigurationAction;

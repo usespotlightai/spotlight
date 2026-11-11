@@ -1,7 +1,10 @@
 import type {
+  InboxChatResponseDto,
   InboxItemResponseDto,
+  InboxItemViewResponseDto,
   InboxNoticeResponseDto,
   InboxRunResponseDto,
+  JournalledRunResponseDto,
   NoteResponseDto,
   RunJournalResponseDto,
 } from '@/lib/api';
@@ -11,11 +14,17 @@ import { teamPath } from '@/lib/team';
 
 export type InboxItem = InboxItemResponseDto;
 
+export type InboxItemView = InboxItemViewResponseDto;
+
 export type InboxNotice = InboxNoticeResponseDto;
 
 export type InboxRun = InboxRunResponseDto;
 
-export type InboxEntry = InboxItem | InboxNotice | InboxRun;
+export type InboxChat = InboxChatResponseDto;
+
+export type InboxEntry = InboxItem | InboxNotice | InboxRun | InboxChat;
+
+export type ResolvableEntry = InboxItem | InboxNotice | InboxChat;
 
 export type Note = NoteResponseDto;
 
@@ -42,6 +51,8 @@ export type ConversationItem = {
 };
 
 export type RunJournal = RunJournalResponseDto;
+
+export type JournalledRun = JournalledRunResponseDto;
 
 export const decisionPending = (notes: readonly Note[]): boolean =>
   notes.findLast((note) => note.kind === 'asked')?.form === 'approval';
@@ -276,6 +287,9 @@ export const inboxItemPath = (slug: string, id: string, runId?: string) =>
 export const inboxRunPath = (slug: string, teamId: string, runId: string) =>
   `${inboxPath(slug)}/teams/${encodeURIComponent(teamId)}/runs/${encodeURIComponent(runId)}`;
 
+export const inboxChatPath = (slug: string, teamId: string, chatId: string) =>
+  `${inboxPath(slug)}/teams/${encodeURIComponent(teamId)}/chats/${encodeURIComponent(chatId)}`;
+
 export const workingWordsOf = (
   progress: ShownProgress,
   station: string,
@@ -298,47 +312,27 @@ export const noticePath = (slug: string, id: string) =>
 export const noticeLinkPath = (slug: string, notice: InboxNotice) =>
   `${teamPath(slug, notice.teamId)}/${notice.link.replace(/^\/+/, '')}`;
 
-export const taskItemOf = (
-  entries: readonly InboxEntry[] | undefined,
-  id: string | undefined,
-): InboxItem | undefined =>
-  entries?.find(
-    (each): each is InboxItem => each.kind === 'task' && each.id === id,
-  );
+export const resolvable = (entry: InboxEntry): entry is ResolvableEntry =>
+  entry.kind !== 'run' && !entry.resolved;
 
-export const noticeOf = (
-  entries: readonly InboxEntry[] | undefined,
-  id: string | undefined,
-): InboxNotice | undefined =>
-  entries?.find(
-    (each): each is InboxNotice => each.kind === 'notice' && each.id === id,
-  );
-
-export const resolvable = (
-  entry: InboxEntry,
-): entry is InboxItem | InboxNotice => entry.kind !== 'run' && !entry.resolved;
-
-export const running = (entry: InboxEntry): boolean =>
-  entry.kind === 'run' ||
-  (entry.kind === 'task' && !entry.resolved && entry.progress !== null);
-
-export const reopenable = (
-  entry: InboxEntry,
-): entry is InboxItem | InboxNotice => {
-  if (entry.kind === 'run' || !entry.resolved) {
-    return false;
-  }
-  if (entry.kind === 'notice' || entry.inboxRequest) {
-    return true;
-  }
-
-  const closing = entry.notes[entry.notes.length - 1];
-
-  return closing?.form === 'resolved' && closing.voice === 'person';
-};
+export const reopenable = (entry: InboxEntry): entry is ResolvableEntry =>
+  entry.reopenable;
 
 export const entryKey = (entry: InboxEntry): string =>
   `${entry.kind}:${entry.id}`;
+
+export const chatPreviewOf = (chat: InboxChat): string => {
+  if (chat.progress) {
+    return workingWordsOf(chat.progress, 'Agent');
+  }
+  if (chat.resolved) {
+    return 'Chat resolved.';
+  }
+
+  return chat.openProposals > 0
+    ? `${chat.openProposals} task ${chat.openProposals === 1 ? 'proposal' : 'proposals'} waiting for you.`
+    : 'Waiting for you.';
+};
 
 export const NOTICE_POINTS_LABEL = 'Details';
 
@@ -370,7 +364,7 @@ export const previewOf = (item: InboxItem): string => {
       : 'A judged run needs your grade. Grades check the judge.';
   }
 
-  const asked = item.notes[item.notes.length - 1];
+  const asked = item.lastNote;
 
   if (!asked) {
     return `Waiting at ${item.station}`;

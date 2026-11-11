@@ -1,18 +1,16 @@
 import {
   ANSWER_VERDICTS,
   type AnswerVerdict,
-} from '@change-review/domain/aggregates/question-answer.aggregate';
+} from '@change-review/domain/value-objects/answer-verdict.vo';
+import type { StoredModelUsage } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import {
-  changeStack,
-  type StoredModelUsage,
-} from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
-import {
+  index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -23,9 +21,10 @@ export const questionAnswer = pgTable(
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
-    stackId: text('stack_id')
-      .notNull()
-      .references(() => changeStack.id, { onDelete: 'cascade' }),
+    taskId: text('task_id'),
+    teamId: text('team_id'),
+    stackId: text('stack_id').notNull(),
+    repository: text('repository'),
     questionId: text('question_id').notNull(),
     personId: text('person_id').notNull(),
     asked: text('asked').notNull(),
@@ -34,8 +33,8 @@ export const questionAnswer = pgTable(
     verdict: answerVerdict('verdict').$type<AnswerVerdict>().notNull(),
     feedback: text('feedback'),
     usage: jsonb('usage').$type<StoredModelUsage>().notNull(),
-    answeredAt: timestamp('answered_at').notNull(),
-    version: integer('version').notNull().default(0),
+    answeredAt: timestamptz('answered_at').notNull(),
+    version: integer('version').notNull(),
   },
   (table) => [
     uniqueIndex('question_answer_person_idx').on(
@@ -43,5 +42,7 @@ export const questionAnswer = pgTable(
       table.personId,
       table.questionId,
     ),
+    index('question_answer_task_idx').on(table.taskId),
+    index('question_answer_team_idx').on(table.teamId),
   ],
 );

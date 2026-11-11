@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"math/big"
 	"net"
 	"net/http"
@@ -49,6 +50,9 @@ type fakeEngine struct {
 	pullTo    map[string]sandbox.Image
 	pulls     []string
 	auths     []string
+	dangling  []sandbox.Image
+	removed   []string
+	untagged  []string
 	failStart bool
 	failProbe bool
 	failPull  bool
@@ -57,13 +61,16 @@ type fakeEngine struct {
 	starts    int
 	probes    int
 
-	egresses    map[string]sandbox.Spec
-	networks    map[string]map[string]string
-	unnetworked []string
-	leftNets    []string
-	egressMute  bool
-	egressFails bool
-	callMute    bool
+	egresses       map[string]sandbox.Spec
+	networks       map[string]map[string]string
+	unnetworked    []string
+	leftNets       []string
+	unnetworkFails map[string]int
+	destroyFails   int
+	sweeps         int
+	egressMute     bool
+	egressFails    bool
+	callMute       bool
 
 	put       map[string]map[string]sandbox.File
 	signals   map[string][]string
@@ -213,8 +220,95 @@ func (e *fakeEngine) Pull(_ context.Context, image, auth string) error {
 		name, _, _ := strings.Cut(image, ":")
 		pulled = imageAt(name, strings.Repeat("a", 64))
 	}
+	if before, ok := e.images[image]; ok && before.ID != pulled.ID && !e.referenced(before.ID, image) {
+		e.dangling = append(e.dangling, sandbox.Image{ID: before.ID, Digests: before.Digests})
+	}
 	e.images[image] = pulled
 	return nil
+}
+
+func (e *fakeEngine) referenced(id, except string) bool {
+	for ref, each := range e.images {
+		if ref != except && each.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *fakeEngine) Images(context.Context) ([]sandbox.Image, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	byID := map[string]*sandbox.Image{}
+	var order []string
+	for ref, each := range e.images {
+		found, ok := byID[each.ID]
+		if !ok {
+			found = &sandbox.Image{ID: each.ID, Digests: slices.Clone(each.Digests)}
+			byID[each.ID] = found
+			order = append(order, each.ID)
+		}
+		if !strings.Contains(ref, "@") {
+			found.Tags = append(found.Tags, ref)
+		}
+	}
+	listed := slices.Clone(e.dangling)
+	for _, id := range order {
+		listed = append(listed, *byID[id])
+	}
+	return listed, nil
+}
+
+func (e *fakeEngine) Remove(_ context.Context, image string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	id := image
+	if each, ok := e.images[image]; ok {
+		id = each.ID
+	}
+	if e.runsFrom(id) && (image == id || !e.referenced(id, image)) {
+		return sandbox.ErrInUse
+	}
+	e.untagged = append(e.untagged, image)
+
+	if image != id {
+		delete(e.images, image)
+		if !e.referenced(id, "") {
+			e.dangling = append(e.dangling, sandbox.Image{ID: id})
+		}
+		return nil
+	}
+	for ref, each := range e.images {
+		if each.ID == id {
+			delete(e.images, ref)
+		}
+	}
+	e.dangling = slices.DeleteFunc(e.dangling, func(each sandbox.Image) bool { return each.ID == id })
+	e.removed = append(e.removed, id)
+	return nil
+}
+
+func (e *fakeEngine) Used(_ context.Context, image string) (bool, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.runsFrom(image), nil
+}
+
+func (e *fakeEngine) runsFrom(id string) bool {
+	for sandboxID, spec := range e.started {
+		if spec.Image == id && !slices.Contains(e.destroyed, sandboxID) {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *fakeEngine) imagesRemoved() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.removed)
 }
 
 func (e *fakeEngine) Start(_ context.Context, spec sandbox.Spec) (string, error) {
@@ -304,6 +398,10 @@ func (e *fakeEngine) Destroy(_ context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	if _, egress := e.egresses[id]; egress && e.destroyFails > 0 {
+		e.destroyFails--
+		return errors.New("context deadline exceeded")
+	}
 	e.destroyed = append(e.destroyed, id)
 	return nil
 }
@@ -352,12 +450,51 @@ func (e *fakeEngine) Unnetwork(_ context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	if e.unnetworkFails[id] > 0 {
+		e.unnetworkFails[id]--
+		return errors.New("context deadline exceeded")
+	}
+	if len(e.attachedTo(id)) > 0 {
+		return errors.New("error while removing network: network has active endpoints")
+	}
 	e.unnetworked = append(e.unnetworked, id)
 	return nil
 }
 
-func (e *fakeEngine) Networks(context.Context, string, string) ([]string, error) {
-	return e.leftNets, nil
+func (e *fakeEngine) Networks(context.Context, string, string) ([]sandbox.Network, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.sweeps++
+	var networks []sandbox.Network
+	for _, name := range slices.Concat(slices.Sorted(maps.Keys(e.networks)), e.leftNets) {
+		if !slices.Contains(e.unnetworked, name) {
+			networks = append(networks, sandbox.Network{ID: name, Name: name})
+		}
+	}
+	return networks, nil
+}
+
+func (e *fakeEngine) Attached(_ context.Context, network string) ([]string, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.attachedTo(network), nil
+}
+
+func (e *fakeEngine) attachedTo(network string) []string {
+	var attached []string
+	for _, id := range slices.Sorted(maps.Keys(e.egresses)) {
+		if slices.Contains(e.destroyed, id) {
+			continue
+		}
+		for _, join := range e.egresses[id].Joins {
+			if join.Network == network {
+				attached = append(attached, id)
+			}
+		}
+	}
+	return attached
 }
 
 func (e *fakeEngine) egressOf(runner string) (string, sandbox.Spec, bool) {
@@ -1573,6 +1710,63 @@ func TestLooksInsideAgainWhenATagMovesAndFailsARunItsHarnessLeft(t *testing.T) {
 	})
 }
 
+func TestRemovesTheImageATagMovedFromOnceNothingRunsIt(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.ImageGrace = time.Millisecond
+	opts.Capacity = 2
+	serving(t, opts, engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	running := engine.workSandboxes()[0]
+	first := "sha256:" + strings.Repeat("a", 64)
+	engine.set(func(e *fakeEngine) {
+		e.images["runner:previous"] = imageAt("runner", strings.Repeat("a", 64))
+		e.images["runner:older"] = imageAt("runner", strings.Repeat("a", 64))
+	})
+
+	engine.set(func(e *fakeEngine) { e.pullTo["runner:1"] = imageAt("runner", strings.Repeat("b", 64)) })
+	pool.work <- assignment("runner_2")
+	eventually(t, "a sandbox from the moved tag", func() bool { return len(engine.workSandboxes()) == 2 })
+	time.Sleep(100 * time.Millisecond)
+	engine.mu.Lock()
+	removed, untagged := slices.Clone(engine.removed), slices.Clone(engine.untagged)
+	engine.mu.Unlock()
+	if len(removed)+len(untagged) != 0 {
+		t.Fatalf("removed %v and untagged %v while a sandbox runs from it", removed, untagged)
+	}
+
+	engine.finish(running)
+	eventually(t, "the old image removed", func() bool { return slices.Equal(engine.imagesRemoved(), []string{first}) })
+	if _, err := engine.Inspect(context.Background(), "runner:1"); err != nil {
+		t.Errorf("removed the image it serves: %v", err)
+	}
+}
+
+func TestLeavesImagesItDidNotPull(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.images["runner:dev"] = sandbox.Image{ID: "sha256:built-here"}
+	engine.images["ghcr.io/acme/tool:2"] = imageAt("ghcr.io/acme/tool", strings.Repeat("d", 64))
+	engine.images["runner:other"] = sandbox.Image{
+		ID:      "sha256:shared",
+		Digests: []string{"runner@sha256:" + strings.Repeat("e", 64), "ghcr.io/acme/runner@sha256:" + strings.Repeat("e", 64)},
+	}
+	opts := options(t)
+	opts.ImageGrace = time.Millisecond
+	serving(t, opts, engine, pool)
+
+	eventually(t, "the image served", func() bool {
+		_, ok := pool.reported("runner:1")
+		return ok
+	})
+	time.Sleep(200 * time.Millisecond)
+
+	if removed := engine.imagesRemoved(); len(removed) != 0 {
+		t.Errorf("removed %v, which it never pulled or another repository holds", removed)
+	}
+}
+
 func TestRunsTheCopyItHasWhenAPullFails(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	serving(t, options(t), engine, pool)
@@ -1999,6 +2193,70 @@ func TestRemovesTheNetworksACrashedHostLeftBehind(t *testing.T) {
 		defer engine.mu.Unlock()
 		return slices.Contains(engine.unnetworked, "spotlight-orphan")
 	})
+}
+
+func TestRemovesANetworkItCouldNotRemoveWhenTheRunEnded(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.unnetworkFails = map[string]int{"spotlight-runner_1": 1}
+	opts := options(t)
+	opts.SweepEvery = 20 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	engine.finish(engine.workSandboxes()[0])
+
+	eventually(t, "the network removed by a sweep", func() bool {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		return engine.unnetworkFails["spotlight-runner_1"] == 0 && slices.Contains(engine.unnetworked, "spotlight-runner_1")
+	})
+}
+
+func TestDestroysTheEgressItCouldNotDestroyWhenTheRunEnded(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.SweepEvery = 20 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	egressID, _, _ := engine.egressOf("runner_1")
+	engine.mu.Lock()
+	engine.destroyFails = 1
+	engine.mu.Unlock()
+	engine.finish(engine.workSandboxes()[0])
+
+	eventually(t, "the egress and its network removed by a sweep", func() bool {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		return engine.destroyFails == 0 && slices.Contains(engine.destroyed, egressID) &&
+			slices.Contains(engine.unnetworked, "spotlight-runner_1")
+	})
+}
+
+func TestKeepsTheNetworkOfARunningSandbox(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.SweepEvery = 10 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	engine.mu.Lock()
+	swept := engine.sweeps
+	engine.mu.Unlock()
+	eventually(t, "more sweeps", func() bool {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		return engine.sweeps >= swept+3
+	})
+
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	if slices.Contains(engine.unnetworked, "spotlight-runner_1") {
+		t.Error("a sweep removed the network of a running sandbox")
+	}
 }
 
 func TestHandsEgressTheAuthoritiesItTrustsForPrivateHosts(t *testing.T) {

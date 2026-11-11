@@ -1,6 +1,6 @@
 import { InvalidHarnessModelError } from '@shared-kernel/domain/exceptions/invalid-harness-model.error';
 
-const MAX_LENGTH = 60;
+export const HARNESS_MODEL_MAX_LENGTH = 60;
 
 export class HarnessModel {
   private constructor(readonly value: string) {}
@@ -11,9 +11,9 @@ export class HarnessModel {
     if (trimmed.length === 0) {
       throw new InvalidHarnessModelError('must not be empty');
     }
-    if (trimmed.length > MAX_LENGTH) {
+    if (trimmed.length > HARNESS_MODEL_MAX_LENGTH) {
       throw new InvalidHarnessModelError(
-        `must be at most ${MAX_LENGTH} characters`,
+        `must be at most ${HARNESS_MODEL_MAX_LENGTH} characters`,
       );
     }
 

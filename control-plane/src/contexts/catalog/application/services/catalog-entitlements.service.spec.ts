@@ -1,12 +1,8 @@
 import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
-import type { CatalogTool } from '@catalog/domain/entities/catalog-item.entity';
-import type { MeteredCall } from '@catalog/domain/value-objects/metered-call.vo';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -14,47 +10,15 @@ const NOW = new Date('2026-09-23T12:00:00.000Z');
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 
-const entitlements = (
-  plan: WorkspacePlan,
-  answering: (tool: CatalogTool) => Promise<unknown> = async () =>
-    'Three pages.',
-) => {
-  const metered: MeteredCall[] = [];
-  const called: string[] = [];
-  let tick = 0;
-
-  const service = new CatalogEntitlements(
+const entitlements = (plan: WorkspacePlan) => ({
+  service: new CatalogEntitlements(
     new StaticCatalog(CATALOG_ITEMS),
     { of: async () => plan },
-    {
-      record: async (call) => {
-        metered.push(call);
-      },
-      deleteForWorkspace: async () => undefined,
-    },
-    {
-      call: async (tool) => {
-        called.push(tool.id.value);
-        return answering(tool);
-      },
-    },
-    {
-      now: () => new Date(NOW.getTime() + 40 * tick++),
-      sleep: async () => {},
-    },
-  );
-
-  return { service, metered, called };
-};
+    { now: () => NOW, sleep: async () => {} },
+  ),
+});
 
 const tools = (...ids: string[]) => ({ tools: ids, skills: [] });
-
-const calling = (id: string) => ({
-  workspaceId: WORKSPACE,
-  runId: RunId.of('run_1'),
-  id,
-  inputs: { query: 'queues' },
-});
 
 describe('CatalogEntitlements', () => {
   it('entitles what the workspace’s plan includes', async () => {
@@ -110,65 +74,5 @@ describe('CatalogEntitlements', () => {
       'catalog.web-search@1.1.0',
       'catalog.fetch-page@1.0.0',
     ]);
-  });
-
-  it('meters each call it makes, by the version called', async () => {
-    const { service, metered } = entitlements(WorkspacePlan.of(Plan.team));
-
-    await expect(
-      service.call(calling('catalog.web-search@1.1.0')),
-    ).resolves.toEqual({ kind: 'answered', output: 'Three pages.' });
-
-    expect(metered).toHaveLength(1);
-    expect(metered[0]).toMatchObject({
-      runId: RunId.of('run_1'),
-      succeeded: true,
-      billable: true,
-    });
-    expect(metered[0]?.item.value).toBe('catalog.web-search@1.1.0');
-    expect(metered[0]?.ms).toBeGreaterThan(0);
-  });
-
-  it('meters a call the catalog service failed, as failed and not billable', async () => {
-    const { service, metered } = entitlements(WorkspacePlan.of(Plan.team), () =>
-      Promise.reject(new UpstreamError('calling', 'down')),
-    );
-
-    await expect(
-      service.call(calling('catalog.web-search@1.1.0')),
-    ).rejects.toThrow(UpstreamError);
-    expect(
-      metered.map((each) => ({
-        succeeded: each.succeeded,
-        billable: each.billable,
-      })),
-    ).toEqual([{ succeeded: false, billable: false }]);
-  });
-
-  it('calls and meters nothing the plan no longer covers', async () => {
-    const { service, metered, called } = entitlements(
-      WorkspacePlan.of(Plan.team, new Date('2026-09-01T00:00:00.000Z')),
-    );
-
-    await expect(
-      service.call(calling('catalog.web-search@1.1.0')),
-    ).resolves.toMatchObject({
-      kind: 'denied',
-      denial: { reason: 'expired' },
-    });
-    expect(called).toEqual([]);
-    expect(metered).toEqual([]);
-  });
-
-  it('calls no skill, as the wrong kind', async () => {
-    const { service, called } = entitlements(WorkspacePlan.of(Plan.team));
-
-    await expect(
-      service.call(calling('catalog.research@1.0.0')),
-    ).resolves.toMatchObject({
-      kind: 'denied',
-      denial: { reason: 'wrong-kind' },
-    });
-    expect(called).toEqual([]);
   });
 });

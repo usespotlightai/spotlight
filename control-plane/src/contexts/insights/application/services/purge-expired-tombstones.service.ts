@@ -1,7 +1,8 @@
-import type { DeletionsPort } from '@insights/application/ports/deletions.port';
+import type { PullRequestRecordRepository } from '@insights/domain/repositories/pull-request-record.repository';
 import { tombstonesExpiredBefore } from '@insights/domain/services/pull-request-tombstone';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
 const PURGE_BATCH = 500;
 
@@ -13,7 +14,8 @@ export class PurgeExpiredTombstones implements PendingJobsPort {
   #purgedAt: number | null = null;
 
   constructor(
-    private readonly deletions: DeletionsPort,
+    private readonly records: PullRequestRecordRepository,
+    private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -25,11 +27,22 @@ export class PurgeExpiredTombstones implements PendingJobsPort {
     }
 
     this.#purgedAt = now.getTime();
-    const before = tombstonesExpiredBefore(now);
+    const expiredBefore = tombstonesExpiredBefore(now);
 
-    while (
-      (await this.deletions.purgeTombstonesBefore(before, PURGE_BATCH)) ===
-      PURGE_BATCH
-    ) {}
+    for (;;) {
+      const expired = (
+        await this.records.tombstonesBefore(expiredBefore, PURGE_BATCH)
+      ).filter((each) => each.tombstoneExpiredBefore(expiredBefore));
+
+      for (const record of expired) {
+        await this.transaction.inTransaction(() =>
+          this.records.save(record.delete()),
+        );
+      }
+
+      if (expired.length < PURGE_BATCH) {
+        break;
+      }
+    }
   }
 }

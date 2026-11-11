@@ -33,6 +33,17 @@ updates:
         patterns: ["*"]
         update-types: [minor, patch]
 
+  - package-ecosystem: npm
+    directory: /desktop
+    commit-message:
+      prefix: "fix(deps)"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 5
+    groups:
+      electron:
+        patterns: ["electron", "electron-builder", "electron-updater"]
+
   - package-ecosystem: gomod
     directory: /data-plane
     commit-message:

@@ -1,10 +1,18 @@
 import { GradeRunCommand } from '@insights/application/commands/grade-run.command';
 import { GradeRunHandler } from '@insights/application/commands/handlers/grade-run.handler';
-import type { StationJudge } from '@insights/application/ports/evidence.port';
+import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
+import type { StationJudge } from '@insights/application/ports/station-judges.port';
+import { ReadRunScoresHandler } from '@insights/application/queries/handlers/read-run-scores.handler';
+import { ReadRunScoresQuery } from '@insights/application/queries/read-run-scores.query';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
+import { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import {
   JudgingsInMemory,
   judgeScore,
@@ -12,24 +20,26 @@ import {
   RUBRIC_VERSION,
   rubricOf,
   ScoresInMemory,
-} from '@insights/domain/judging.fake-spec';
+} from '@insights/judging.fake-spec';
 import {
   endedRecord,
   inTransaction,
   NOBODY_ELSE,
   RunRecordsInMemory,
-  TaskPullRequestsInMemory,
+  StationFactsInMemory,
   WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+} from '@insights/runs.fake-spec';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NUMBER_JUDGE: StationJudge = {
-  teamId: 'team_1',
-  lineId: 'line_1',
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
   rubric: 'scores: 1-5\nHow well did it retry?',
   rubricVersion: RUBRIC_VERSION,
   claims: [],
@@ -39,8 +49,8 @@ const NUMBER_JUDGE: StationJudge = {
 };
 
 const CLAIMS_JUDGE: StationJudge = {
-  teamId: 'team_1',
-  lineId: 'line_1',
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
   rubric: null,
   rubricVersion: RUBRIC_VERSION,
   claims: ['It retries the upload.', 'It adds a test.'],
@@ -69,23 +79,26 @@ const grading = async (
     judgesOnTeam: async () => new Map(),
     judgeAt: async () => station,
   };
-  const reports = new StationJudgeReports(
-    evidence,
-    scores,
-    records,
-    new TaskPullRequestsInMemory(),
-  );
+  const facts = new StationFactsInMemory(records, { scores });
+  const reports = new StationJudgeReports(evidence, facts);
   let next = 0;
+  const access = new InsightsAccess({
+    ...NOBODY_ELSE,
+    viewerOf: async (_teamId, principal) =>
+      principal.userId.equals(UserId.of('user_stranger'))
+        ? null
+        : { workspaceId: WORKSPACE, by: principal.userId },
+  });
+  const terms = new GradingTermsOf(evidence, judgings);
+  const views = new RunScoresViews(facts, reports, terms);
+  const deletions = deletionsInMemory();
+  const reading = new ReadRunScoresHandler(access, views);
   const handler = new GradeRunHandler(
-    new InsightsAccess({
-      ...NOBODY_ELSE,
-      membershipOnTeam: async (_teamId, principal) =>
-        principal.userId.equals(UserId.of('user_stranger'))
-          ? null
-          : { workspaceId: WORKSPACE, by: principal.userId },
-    }),
-    new RunScoresViews(records, scores, reports, judgings),
+    access,
+    terms,
+    records,
     scores,
+    new FactRecorder(deletions),
     inTransaction,
     {
       generate: () => {
@@ -96,18 +109,40 @@ const grading = async (
     { now: () => new Date('2026-09-30T12:00:00.000Z'), sleep: async () => {} },
   );
 
+  const graded = async (command: GradeRunCommand) => {
+    await handler.execute(command);
+
+    return reading.execute(
+      new ReadRunScoresQuery(command.teamId, command.runId, command.viewerId),
+    );
+  };
+
   return {
     scores,
     judgings,
     reports,
+    deletions,
     grade: (value: boolean | number | null, by = 'user_ada', runId = 'run_1') =>
-      handler.execute(new GradeRunCommand('team_1', runId, value, null, by)),
+      graded(new GradeRunCommand('team_1', runId, value, null, by)),
     gradeClaims: (claims: readonly boolean[] | null, by = 'user_ada') =>
-      handler.execute(new GradeRunCommand('team_1', 'run_1', null, claims, by)),
+      graded(new GradeRunCommand('team_1', 'run_1', null, claims, by)),
   };
 };
 
 describe('GradeRunHandler', () => {
+  it('drops a grade of a run whose task was deleted meanwhile', async () => {
+    const run = await grading();
+
+    await run.deletions.markDeleted(
+      DeletionScope.ofTask(WORKSPACE, TaskId.of('task_1')),
+    );
+    await run.grade(true);
+
+    expect(
+      [...run.scores.stored.values()].filter((each) => !each.fromJudge),
+    ).toEqual([]);
+  });
+
   it('records a person’s grade on the judge’s scale and rubric', async () => {
     const run = await grading();
 
@@ -162,7 +197,7 @@ describe('GradeRunHandler', () => {
   it('names the claims the judge marked, even once the station’s claims changed', async () => {
     const run = await grading(null, {
       ...CLAIMS_JUDGE,
-      rubricVersion: 'd'.repeat(64),
+      rubricVersion: RubricVersion.of('d'.repeat(64)),
     });
     await run.scores.add(
       judgeScore('run_1', ScoreScale.claims(), 0, {
@@ -203,8 +238,8 @@ describe('GradeRunHandler', () => {
     const { report } = await run.reports.at({
       workspaceId: WORKSPACE,
       teamId: TeamId.of('team_1'),
-      lineId: 'line_1',
-      stationId: 'station_1',
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of('station_1'),
     });
 
     expect(report.versions[0]?.agreement.pairs).toBe(1);

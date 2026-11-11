@@ -1,27 +1,31 @@
-import { useParams } from 'react-router';
+import { useState } from 'react';
+import { MissingImage } from '@/components/shared/attachment/MissingImage';
 import { ZoomableImage } from '@/components/shared/attachment/ZoomableImage';
 import { useObjectUrl } from '@/hooks/useObjectUrl';
-import { attachmentPath } from '@/lib/attachment';
+import type { ImageSource } from '@/lib/attachment';
 
 type ImagePreviewProps = {
-  image: Blob;
+  source: ImageSource;
   name: string;
-  storedId?: string;
   className?: string;
 };
 
-export function ImagePreview({
-  image,
-  name,
-  storedId,
-  className,
-}: ImagePreviewProps) {
-  const { slug } = useParams();
-  const stored = slug && storedId ? attachmentPath(slug, storedId) : null;
-  const local = useObjectUrl(stored ? null : image);
-  const url = stored ?? local;
+export function ImagePreview({ source, name, className }: ImagePreviewProps) {
+  const local = useObjectUrl('blob' in source ? source.blob : null);
+  const url = 'url' in source ? source.url : local;
+  const [failed, setFailed] = useState<string | null>(null);
+
+  if (url && failed === url) {
+    return <MissingImage name={name} />;
+  }
 
   return url ? (
-    <ZoomableImage src={url} name={name} className={className} />
+    <ZoomableImage
+      src={url}
+      name={name}
+      loading="lazy"
+      className={className}
+      onError={() => setFailed(url)}
+    />
   ) : null;
 }

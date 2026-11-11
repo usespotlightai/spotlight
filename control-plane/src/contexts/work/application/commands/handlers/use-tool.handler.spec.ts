@@ -2,14 +2,23 @@ import type {
   CatalogDenial,
   CatalogDenialReason,
 } from '@catalog/application/contracts/catalog.contract';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import type {
+  RunPolicyContract,
+  RunRequesterContract,
+} from '@runs/application/contracts/run-order.contract';
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
@@ -17,7 +26,6 @@ import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type {
-  IntegrationToolsPort,
   ResolvedTool,
   TaskToolContext,
   ToolContext,
@@ -28,26 +36,38 @@ import type {
   LifecycleHooksPort,
   ToolUsedHookEvent,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import {
+  leasedRun,
+  runLeasesOver,
+} from '@work/application/ports/runs.fake-spec';
 import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
-import { RunWorks } from '@work/application/services/run-works.service';
-import { StationCatalog } from '@work/application/services/station-catalog.service';
+import { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
+import type { IntegrationToolResolver } from '@work/application/services/integration-tools.service';
+import { RunCatalog } from '@work/application/services/run-catalog.service';
+import {
+  aChatDispatch,
+  aTaskDispatch,
+  dispatchesOf,
+  runWorksOver,
+} from '@work/application/services/run-works.fake-spec';
 import { ToolSources } from '@work/application/services/tool-sources.service';
 import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import { ToolUsed } from '@work/domain/events/tool-used.event';
-import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
+import type { ToolUsed } from '@work/domain/events/tool-used.event';
+import { LeaseLostError } from '@work/domain/exceptions/lease-lost.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { PersonRule } from '@work/domain/services/stricter-rule';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import {
   builtInTool,
   CHECKS,
@@ -56,29 +76,20 @@ import {
   REVIEW,
   REVIEW_COMMENT,
   SETUP_PULL_REQUEST,
-  TEST_STATION_CHANGE,
-} from '@work/domain/services/built-in-tools';
-import type { PersonRule } from '@work/domain/services/stricter-rule';
-import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
-import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+} from '@work/domain/value-objects/built-in-tools';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
@@ -89,27 +100,27 @@ import { describe, expect, it } from 'vitest';
 const NOW = new Date('2026-09-12T09:00:00.000Z');
 
 const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
     stations: [
-      Station.of({
+      stationOf({
         id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'backlog',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_completed'),
         key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 1,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'completed',
       }),
     ],
@@ -131,6 +142,7 @@ const task = () =>
 
 const chat = () =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),
@@ -179,41 +191,66 @@ const describedAs = (tool: string) => {
   return toolManifestOf(declared);
 };
 
+type Requested = 'task' | 'chat' | 'spec' | 'search';
+
+const REQUESTERS: Readonly<Record<Requested, RunRequesterContract>> = {
+  task: WorkRequesters.task(
+    TaskId.of('task_1'),
+    TaskRevision.of(0),
+    TeamId.of('team_1'),
+  ),
+  chat: WorkRequesters.chat(ChatId.of('chat_1'), TeamId.of('team_1')),
+  spec: {
+    owner: 'workspace',
+    kind: 'spec',
+    id: 'run_1',
+    token: null,
+    team: null,
+  },
+  search: {
+    owner: 'replays',
+    kind: 'search',
+    id: 'search_1',
+    token: '1',
+    team: 'team_1',
+  },
+};
+
+const policyFor = (requested: Requested): RunPolicyContract =>
+  requested === 'search'
+    ? {
+        holdsTurn: false,
+        gated: false,
+        actsBeyondItself: false,
+        asks: 'recorded',
+        listed: false,
+        exclusive: false,
+      }
+    : requested === 'chat'
+      ? WorkRequesters.chatPolicy
+      : requested === 'task'
+        ? WorkRequesters.taskPolicy
+        : { ...WorkRequesters.chatPolicy, exclusive: false };
+
 const claimed = (
   enabled: string[] = ['pull-request'],
   over: {
-    dispatchedAt?: string;
-    subject?: RunSubject | null;
+    requested?: Requested;
     catalog?: string[];
   } = {},
-) =>
-  Run.enqueue({
-    id: RunId.of('run_1'),
-    workspaceId: WorkspaceId.of('ws_1'),
-    harness: HarnessId.of('dev'),
-    subject:
-      over.subject !== undefined
-        ? over.subject
-        : RunSubject.task(
-            TaskId.of('task_1'),
-            over.dispatchedAt ? StationId.of(over.dispatchedAt) : null,
-            TaskRevision.of(0),
-          ),
-    spec: RunSpec.of({
-      command: { executable: 'sh', args: [] },
-      briefing: 'do the thing',
-      handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
-      manifest: enabled.map(describedAs),
-      ...(over.catalog ? { catalog: over.catalog } : {}),
-    }),
-  }).claim(RunnerId.of('runner_1'), NOW);
+): LeasedRunFacts =>
+  leasedRun({
+    requester: REQUESTERS[over.requested ?? 'task'],
+    policy: policyFor(over.requested ?? 'task'),
+    manifest: enabled.map((each) => describedAs(each).name),
+    pins: over.catalog ?? [],
+  });
 
 const LINE = {
   id: 'line_1',
   teamId: TeamId.of('team_1'),
   stationAt: () => null,
-} as unknown as Line;
+} as unknown as LineMap;
 
 const TASK_VIEW: TaskViewDto = {
   taskId: 'task_1',
@@ -227,6 +264,7 @@ const TASK_VIEW: TaskViewDto = {
   marks: {},
   repositories: ['acme/widgets'],
   pullRequest: null,
+  pullRequests: [],
   runId: 'run_1',
 };
 
@@ -243,18 +281,20 @@ interface Called {
 }
 
 const using = (
-  run: Run = claimed(),
+  run: LeasedRunFacts = claimed(),
   over: {
     lineAt?: string | null;
+    dispatchedAt?: string;
     task?: Task;
     approval?: ApprovalNeeded | null;
     failing?: boolean;
+    changedWhileCalling?: boolean;
     movedOnWhileCalling?: boolean;
     decision?: HookDecision;
     hooksDown?: boolean;
     afterFails?: boolean;
     recordingFails?: boolean;
-    movedOnTo?: Run;
+    movedOnTo?: LeasedRunFacts;
     missing?: ConnectionMissingDto;
     actingAs?: ToolActingAs;
     personRule?: PersonRule;
@@ -270,7 +310,7 @@ const using = (
     reason: over.denied?.reason ?? 'expired',
     because: 'denied here',
   });
-  const catalog = new StationCatalog({
+  const catalog = new RunCatalog({
     entitledTo: async (_workspace, named) =>
       over.denied?.when === 'before'
         ? {
@@ -307,6 +347,10 @@ const using = (
         inputs: ToolInputs.of(request.inputs),
       });
 
+      if (over.changedWhileCalling) {
+        current = Task.rehydrate({ ...current, version: current.version + 1 });
+      }
+
       return { kind: 'answered', output: 'Three pages.' };
     },
   });
@@ -314,7 +358,12 @@ const using = (
   const tasks = {
     find: async () => current,
     save: async (saved: Task) => {
-      current = saved;
+      if (over.changedWhileCalling && saved.version !== current.version) {
+        throw new TaskVersionConflictError(saved.id.value);
+      }
+      current = over.changedWhileCalling
+        ? Task.rehydrate({ ...saved, version: saved.version + 1 })
+        : saved;
     },
   } as unknown as TaskRepository;
   const linear = over.approval
@@ -327,34 +376,33 @@ const using = (
       })
     : LINEAR_COMMENT;
 
-  const builtIns = new BuiltInTools([
-    {
-      tool: PULL_REQUEST,
-      call: async (context, inputs) => {
-        called.push({ tool: PULL_REQUEST.value, context, inputs });
-        return 'https://github.com/acme/widgets/pull/7';
+  const builtIns = new BuiltInTools(
+    [
+      {
+        tool: PULL_REQUEST,
+        call: async (context, inputs) => {
+          called.push({ tool: PULL_REQUEST.value, context, inputs });
+          return 'https://github.com/acme/widgets/pull/7';
+        },
       },
-    },
-    {
-      tool: PROPOSE_TASK,
-      call: async (context, inputs) => {
-        called.push({ tool: PROPOSE_TASK.value, context, inputs });
-        return 'Proposed.';
+      {
+        tool: PROPOSE_TASK,
+        call: async (context, inputs) => {
+          called.push({ tool: PROPOSE_TASK.value, context, inputs });
+          return 'Proposed.';
+        },
       },
-    },
-    ...[
-      REVIEW_COMMENT,
-      REVIEW,
-      SETUP_PULL_REQUEST,
-      TEST_STATION_CHANGE,
-      CHECKS,
-    ].map((tool) => ({
-      tool,
-      call: async () => null,
-    })),
-  ]);
+      ...[REVIEW_COMMENT, REVIEW, SETUP_PULL_REQUEST, CHECKS].map((tool) => ({
+        tool,
+        call: async () => null,
+      })),
+    ],
+    new ChatToolExtensions({
+      find: async () => chat(),
+    } as unknown as ChatRepository),
+  );
 
-  const integrationTools: IntegrationToolsPort = {
+  const integrationTools: IntegrationToolResolver = {
     resolve: async (tool, context): Promise<ResolvedTool | null> =>
       tool.equals(LINEAR_COMMENT.tool) && context.kind === 'task'
         ? {
@@ -366,13 +414,22 @@ const using = (
               input.name === 'issue' ? 'ENG-12' : undefined,
             call: async (inputs) => {
               if (over.movedOnWhileCalling) {
-                throw new RunAttemptOverError('run_1', 1);
+                throw new LeaseLostError('run_1', 1);
               }
               called.push({ tool: tool.value, context, inputs });
               if (over.failing) {
-                throw new UpstreamError('using linear.comment', 'down');
+                return {
+                  outcome: 'failed',
+                  failure: {
+                    blocked: false,
+                    reason: 'using linear.comment: down',
+                  },
+                };
               }
-              return 'https://linear.app/acme/issue/ENG-12#comment-1';
+              return {
+                outcome: 'answered',
+                output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+              };
             },
           }
         : null,
@@ -381,7 +438,7 @@ const using = (
   const lineAt = over.lineAt === undefined ? 'station_1' : over.lineAt;
 
   const hooked: Hooked = { before: [], after: [], asked: [] };
-  const recorded: DomainEvent[] = [];
+  const recorded: ToolUsed[] = [];
   const taskViews: TaskViewsPort = {
     of: async (taskId: string, runId: string | null) => {
       hooked.asked.push({ taskId, runId });
@@ -408,20 +465,33 @@ const using = (
   const afterwards = new ToolUsedHooks(taskViews, hooks);
 
   const found = over.movedOnTo ? [run, over.movedOnTo] : [run];
+  const requested = WorkRequesters.decode(run.requester);
+  const dispatches = dispatchesOf(
+    ...(requested && 'task' in requested
+      ? [
+          aTaskDispatch(
+            run.runId,
+            requested.task,
+            StationId.of(over.dispatchedAt ?? 'station_1'),
+          ),
+        ]
+      : requested
+        ? [aChatDispatch(run.runId, requested.chat)]
+        : []),
+  );
   const handler = new UseToolHandler(
-    new RunWorks(
-      {
-        findById: async () =>
-          (found.length > 1 ? found.shift() : found[0]) ?? null,
-      } as unknown as RunRepository,
+    runWorksOver(
+      runLeasesOver(
+        () => (found.length > 1 ? found.shift() : found[0]) ?? null,
+      ),
       tasks,
       { find: async () => chat() } as unknown as ChatRepository,
       {
         findByStation: async (stationId: StationId) =>
           stationId.value === lineAt ? LINE : null,
         ofTeam: async () => [LINE],
-      } as unknown as LineRepository,
-      { of: async () => null },
+      } as unknown as LineMapsPort,
+      dispatches,
       { now: () => NOW, sleep: async () => {} },
     ),
     new ToolSources(builtIns, integrationTools, catalog),
@@ -429,20 +499,20 @@ const using = (
     hooks,
     { generate: () => 'occurrence_1' },
     {
-      dispatch: async (events) => {
+      record: async (use) => {
         if (over.recordingFails) {
           throw new Error('the outbox is unreachable');
         }
-        recorded.push(...events);
+        recorded.push(use.used);
       },
+      purgeBefore: async () => 0,
     },
+    { now: () => NOW, sleep: async () => {} },
   );
 
   const delivered = async () => {
     for (const event of recorded) {
-      if (event instanceof ToolUsed) {
-        await afterwards.on(event);
-      }
+      await afterwards.on(event);
     }
   };
 
@@ -561,7 +631,7 @@ describe('UseToolHandler', () => {
   it('hands a chat’s tool the chat and the team’s lines', async () => {
     const { useTool, called } = using(
       claimed(['propose-task'], {
-        subject: RunSubject.chat(ChatId.of('chat_1')),
+        requested: 'chat',
       }),
     );
 
@@ -578,7 +648,7 @@ describe('UseToolHandler', () => {
   it('resolves no task’s tool from a chat', async () => {
     const { useTool, called } = using(
       claimed(['pull-request'], {
-        subject: RunSubject.chat(ChatId.of('chat_1')),
+        requested: 'chat',
       }),
     );
 
@@ -606,9 +676,18 @@ describe('UseToolHandler', () => {
     expect(called).toEqual([]);
   });
 
+  it('refuses a run that may not act beyond itself, and calls nothing', async () => {
+    const { useTool, called } = using(claimed([], { requested: 'search' }));
+
+    await expect(useTool('pull-request')).rejects.toMatchObject({
+      kind: 'not-allowed',
+    });
+    expect(called).toEqual([]);
+  });
+
   it('rejects a run that works nothing', async () => {
     const { useTool, called } = using(
-      claimed(['pull-request'], { subject: null }),
+      claimed(['pull-request'], { requested: 'spec' }),
     );
 
     await expect(useTool('pull-request')).rejects.toMatchObject({
@@ -618,10 +697,10 @@ describe('UseToolHandler', () => {
   });
 
   it('resolves the tool on the line of the station the run was dispatched at, not where its task is now', async () => {
-    const { useTool } = using(
-      claimed(['pull-request'], { dispatchedAt: 'station_2' }),
-      { lineAt: 'station_2' },
-    );
+    const { useTool } = using(claimed(['pull-request']), {
+      dispatchedAt: 'station_2',
+      lineAt: 'station_2',
+    });
 
     await expect(useTool('pull-request')).resolves.toEqual({
       output: 'https://github.com/acme/widgets/pull/7',
@@ -835,7 +914,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -850,7 +929,7 @@ describe('UseToolHandler', () => {
         ...approved.answer(
           NotePosition.of(approved.notes.length - 1),
           {
-            station: StationName.of('Backlog'),
+            line: null,
             body: TaskNoteBody.of('Approved.'),
             at: NOW,
             voice: Voice.person(UserId.of('user_1')),
@@ -883,7 +962,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -898,7 +977,7 @@ describe('UseToolHandler', () => {
         ...approved.answer(
           NotePosition.of(approved.notes.length - 1),
           {
-            station: StationName.of('Backlog'),
+            line: null,
             body: TaskNoteBody.of('Approved.'),
             at: NOW,
             voice: Voice.person(UserId.of('user_1')),
@@ -927,7 +1006,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -938,7 +1017,7 @@ describe('UseToolHandler', () => {
     const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approved.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -975,7 +1054,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -986,7 +1065,7 @@ describe('UseToolHandler', () => {
     const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approved.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -1009,6 +1088,51 @@ describe('UseToolHandler', () => {
     ).toBe(true);
   });
 
+  it('hands the approval back on the task as it is now, where the task changed while the call failed', async () => {
+    const asked = task().clearFor(
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
+      ),
+      NEEDS_APPROVAL,
+      {
+        line: null,
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      },
+      RunId.of('run_1'),
+      null,
+    ).task;
+    const granted = asked.answer(
+      NotePosition.of(asked.notes.length - 1),
+      {
+        line: null,
+        body: TaskNoteBody.of('Approved.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_1')),
+      },
+      'approved',
+    );
+
+    const { useTool, called, current } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+      failing: true,
+      changedWhileCalling: true,
+      task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
+    });
+
+    await expect(
+      useTool('linear.comment', { body: 'Fixed.' }),
+    ).rejects.toMatchObject({ kind: 'upstream-error' });
+    expect(called).toHaveLength(1);
+    expect(
+      current().notes.find((note) => note.approval)?.approval?.grants,
+    ).toBe(true);
+  });
+
   it('does not call a tool the person rejected, in their own words, without asking again', async () => {
     const asked = task().clearFor(
       ApprovalSubject.toolCall(
@@ -1019,7 +1143,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1030,7 +1154,7 @@ describe('UseToolHandler', () => {
     const rejected = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Not before the release.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -1061,7 +1185,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1070,7 +1194,7 @@ describe('UseToolHandler', () => {
       null,
     ).task;
     const talkedBack = asked.answer(NotePosition.of(asked.notes.length - 1), {
-      station: StationName.of('Backlog'),
+      line: null,
       body: TaskNoteBody.of('Mention the ticket too.'),
       at: NOW,
       voice: Voice.person(UserId.of('user_1')),
@@ -1101,7 +1225,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1112,7 +1236,7 @@ describe('UseToolHandler', () => {
     const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approved.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -1202,7 +1326,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1213,7 +1337,7 @@ describe('UseToolHandler', () => {
       const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -1250,7 +1374,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1261,7 +1385,7 @@ describe('UseToolHandler', () => {
       const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -1287,9 +1411,7 @@ describe('UseToolHandler', () => {
     it('calls nothing where the run moved on to another attempt while the hooks were called', async () => {
       const leased = claimed(['linear.comment']);
       const { useTool, called, hooked } = using(leased, {
-        movedOnTo: leased
-          .expireLease(leased.leaseExpiresAt as Date)
-          .claim(RunnerId.of('runner_1'), NOW),
+        movedOnTo: { ...leased, attempt: 2 },
       });
 
       await expect(
@@ -1310,7 +1432,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1321,7 +1443,7 @@ describe('UseToolHandler', () => {
       const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -1370,7 +1492,7 @@ describe('UseToolHandler', () => {
 
       await useTool('linear.comment', { body: 'Fixed.' });
 
-      expect((recorded[0] as ToolUsed).output.json).toBe(
+      expect(recorded[0]?.output.json).toBe(
         '"https://linear.app/acme/issue/ENG-12#comment-1"',
       );
     });
@@ -1401,14 +1523,30 @@ describe('UseToolHandler', () => {
         output: 'https://linear.app/acme/issue/ENG-12#comment-1',
         actingAs: null,
       });
-      expect(recorded).toEqual([expect.any(ToolUsed)]);
+      expect(recorded).toEqual([
+        expect.objectContaining({ kind: 'tool.used' }),
+      ]);
       await expect(delivered()).rejects.toThrow('the hooks are down');
+    });
+
+    it('records no use of a chat’s tool', async () => {
+      const { useTool, recorded } = using(
+        claimed(['propose-task'], { requested: 'chat' }),
+      );
+
+      await useTool('propose-task', {
+        line: 'delivery',
+        station: 'backlog',
+        title: 'Back off',
+      });
+
+      expect(recorded).toEqual([]);
     });
 
     it('calls no hooks about a chat’s tool', async () => {
       const { useTool, hooked } = using(
         claimed(['propose-task'], {
-          subject: RunSubject.chat(ChatId.of('chat_1')),
+          requested: 'chat',
         }),
       );
 
@@ -1450,7 +1588,7 @@ describe('UseToolHandler', () => {
       expect(asked?.form).toBe('connection');
       expect(asked?.approval).toBeNull();
       expect(asked?.connectionAsk?.personId.value).toBe('user_1');
-      expect(asked?.connectionAsk?.integration).toBe('linear');
+      expect(asked?.connectionAsk?.integration.value).toBe('linear');
       expect(current().assignee?.value).toBe('user_1');
       expect(current().awaitingReview).toBe(true);
     });
@@ -1496,7 +1634,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approve?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1551,9 +1689,7 @@ describe('UseToolHandler', () => {
         },
       });
 
-      const used = recorded.find((each) => each instanceof ToolUsed) as
-        | ToolUsed
-        | undefined;
+      const [used] = recorded;
       expect(used?.actingAs?.personId?.value).toBe('user_1');
       expect(used?.actingAs?.linkedAccount).toBe('@alice');
     });

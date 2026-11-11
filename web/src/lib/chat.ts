@@ -188,6 +188,9 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
   return cut.filter((turn) => turn.message || turn.moments.length > 0);
 };
 
+export const runsOfTurn = (turn: ChatTurn | undefined): string[] =>
+  turn?.message?.takenUpBy ? [turn.message.takenUpBy] : [];
+
 const PROPOSAL_STATUSES: Record<Proposal['state'], ApprovalStatus> = {
   open: 'pending',
   accepted: 'approved',

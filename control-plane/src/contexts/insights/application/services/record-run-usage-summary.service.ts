@@ -1,14 +1,13 @@
-import type { DeletionsPort } from '@insights/application/ports/deletions.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
+import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
+import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 interface ServerCallsReceived {
@@ -22,7 +21,7 @@ interface ServerCallsReceived {
 export interface RunUsageReceived {
   readonly runId: string;
   readonly workspaceId: string;
-  readonly taskId: string | null;
+  readonly listed: boolean;
   readonly ms: number | null;
   readonly steps: number;
   readonly errors: number;
@@ -43,11 +42,19 @@ export class RecordRunUsageSummary {
   constructor(
     private readonly work: WorkPort,
     private readonly records: RunRecordRepository,
-    private readonly deletions: DeletionsPort,
+    private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
   ) {}
 
   async usageRecorded(event: RunUsageReceived): Promise<void> {
+    const taskRun = event.listed
+      ? await this.work.taskRunOf(RunId.of(event.runId))
+      : null;
+
+    if (!taskRun) {
+      return;
+    }
+
     const usage = RunUsage.of({
       ms: event.ms,
       steps: event.steps,
@@ -74,34 +81,18 @@ export class RecordRunUsageSummary {
     });
 
     const workspaceId = WorkspaceId.of(event.workspaceId);
-    const taskId = event.taskId ? TaskId.of(event.taskId) : null;
-    const run = await this.work.endedRun(event.runId);
-    const teamId = run ? TeamId.of(run.teamId) : null;
+    const taskId = taskRun.taskId;
+    const teamId = taskRun.teamId;
+    const runId = RunId.of(event.runId);
 
-    await this.transaction.inTransaction(async () => {
-      await this.deletions.lockDeletion(workspaceId, taskId, teamId);
-      const runId = RunId.of(event.runId);
-      const existing = await this.records.of(runId);
-
-      if (await this.deletions.isDeleted(workspaceId, taskId, teamId)) {
-        if (existing && taskId) {
-          await this.records.removeForTask(taskId);
-        }
-        return;
-      }
-
-      if (!existing) {
-        await this.records.add(
-          RunRecord.empty(runId, workspaceId, taskId).recordUsage(usage, tools),
-        );
-        return;
-      }
-
-      const recorded = existing.recordUsage(usage, tools);
-
-      if (recorded !== existing) {
-        await this.records.save(recorded);
-      }
-    });
+    await this.transaction.inTransaction(() =>
+      this.recorder.record(this.records, {
+        owner: FactOwner.of(workspaceId, { teamId, taskId }),
+        deleted: (existing) => existing.delete(),
+        load: () => this.records.of(runId),
+        fresh: () => RunRecord.empty(runId, workspaceId, taskId),
+        change: (record) => record.recordUsage(usage, tools),
+      }),
+    );
   }
 }

@@ -18,7 +18,7 @@ const deleting = () => {
     plans: {
       deleteForWorkspace: async (workspaceId) => void plans.push(workspaceId),
     },
-    meter: {
+    calls: {
       record: async () => undefined,
       deleteForWorkspace: async (workspaceId) => void calls.push(workspaceId),
     },
@@ -39,7 +39,7 @@ describe('catalogSubscribers', () => {
     expect(calls).toEqual([]);
   });
 
-  it('deletes the metered calls of a deleted workspace', async () => {
+  it('deletes the catalog calls of a deleted workspace', async () => {
     const { plans, calls, subscribers } = deleting();
 
     await subscribers

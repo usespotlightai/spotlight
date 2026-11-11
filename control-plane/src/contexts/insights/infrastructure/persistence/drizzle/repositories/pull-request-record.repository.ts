@@ -1,18 +1,42 @@
-import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
+import {
+  PullRequestRecord,
+  type ReviewTask,
+} from '@insights/domain/aggregates/pull-request-record.aggregate';
 import { PullRequestRecordVersionConflictError } from '@insights/domain/exceptions/pull-request-record-version-conflict.error';
 import type { PullRequestRecordRepository } from '@insights/domain/repositories/pull-request-record.repository';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import {
   type PullRequestRow,
   seenOfRow,
 } from '@insights/infrastructure/persistence/drizzle/mappers/pull-request-seen.mapper';
 import { pullRequestRecord } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { inList } from '@platform/persistence/drizzle/in-list';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, arrayContains, eq, or } from 'drizzle-orm';
+import { and, arrayContains, eq, isNull, lt, or, sql } from 'drizzle-orm';
+
+const reviewTasksOf = (row: PullRequestRow): readonly ReviewTask[] => {
+  if (row.reviewTaskIds.length !== row.reviewTeamIds.length) {
+    throw new InconsistentStateError(
+      'pull request record',
+      'holds review tasks without their teams',
+    );
+  }
+
+  return row.reviewTaskIds.map((taskId, at) => ({
+    taskId: TaskId.of(taskId),
+    teamId: TeamId.of(row.reviewTeamIds[at] as string),
+  }));
+};
 
 const toRecord = (row: PullRequestRow): PullRequestRecord =>
   PullRequestRecord.rehydrate({
@@ -20,13 +44,14 @@ const toRecord = (row: PullRequestRow): PullRequestRecord =>
     pullRequest: PullRequestUrl.of(row.pullRequest),
     seen: seenOfRow(row),
     owner:
-      row.ownerTaskId && row.ownerTeamId
+      row.ownerTaskId && row.ownerTeamId && row.ownerOpenedAt
         ? {
             taskId: TaskId.of(row.ownerTaskId),
             teamId: TeamId.of(row.ownerTeamId),
+            openedAt: row.ownerOpenedAt,
           }
         : null,
-    reviewTasks: row.reviewTaskIds.map((each) => TaskId.of(each)),
+    reviewTasks: reviewTasksOf(row),
     githubPurgedAt: row.githubPurgedAt,
     version: row.version,
   });
@@ -66,7 +91,9 @@ const columnsOf = (record: PullRequestRecord) => {
     seenVersion: seen?.version ?? null,
     ownerTaskId: record.owner?.taskId.value ?? null,
     ownerTeamId: record.owner?.teamId.value ?? null,
-    reviewTaskIds: record.reviewTasks.map((each) => each.value),
+    ownerOpenedAt: record.owner?.openedAt ?? null,
+    reviewTaskIds: record.reviewTasks.map((each) => each.taskId.value),
+    reviewTeamIds: record.reviewTasks.map((each) => each.teamId.value),
     githubPurgedAt: record.githubPurgedAt,
   };
 };
@@ -81,7 +108,11 @@ const at = (workspaceId: WorkspaceId, pullRequest: PullRequestUrl) =>
 export class DrizzlePullRequestRecordRepository
   implements PullRequestRecordRepository
 {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
+  ) {}
 
   async at(
     workspaceId: WorkspaceId,
@@ -96,98 +127,146 @@ export class DrizzlePullRequestRecordRepository
     return row ? toRecord(row) : null;
   }
 
-  async add(added: PullRequestRecord): Promise<void> {
-    const written = await this.context.db
-      .insert(pullRequestRecord)
-      .values({
-        workspaceId: added.workspaceId.value,
-        pullRequest: added.pullRequest.value,
-        version: added.version + 1,
-        ...columnsOf(added),
-      })
-      .onConflictDoNothing()
-      .returning({ pullRequest: pullRequestRecord.pullRequest });
-
-    if (written.length === 0) {
-      throw new PullRequestRecordVersionConflictError(added.pullRequest.value);
-    }
-  }
-
-  async save(saved: PullRequestRecord): Promise<void> {
-    const written = await this.context.db
-      .update(pullRequestRecord)
-      .set({ version: saved.version + 1, ...columnsOf(saved) })
-      .where(
-        and(
-          at(saved.workspaceId, saved.pullRequest),
-          eq(pullRequestRecord.version, saved.version),
-        ),
-      )
-      .returning({ pullRequest: pullRequestRecord.pullRequest });
-
-    if (written.length === 0) {
-      throw new PullRequestRecordVersionConflictError(saved.pullRequest.value);
-    }
-  }
-
-  async remove(removed: PullRequestRecord): Promise<void> {
-    const gone = await this.context.db
-      .delete(pullRequestRecord)
-      .where(
-        and(
-          at(removed.workspaceId, removed.pullRequest),
-          eq(pullRequestRecord.version, removed.version),
-        ),
-      )
-      .returning({ pullRequest: pullRequestRecord.pullRequest });
-
-    if (gone.length === 0) {
-      throw new PullRequestRecordVersionConflictError(
-        removed.pullRequest.value,
-      );
-    }
-  }
-
-  async findByTask(
-    workspaceId: WorkspaceId,
-    taskId: TaskId,
+  async ownedBy(
+    taskIds: readonly TaskId[],
   ): Promise<readonly PullRequestRecord[]> {
+    if (taskIds.length === 0) {
+      return [];
+    }
+
     const rows = await this.context.db
       .select()
       .from(pullRequestRecord)
       .where(
-        and(
-          eq(pullRequestRecord.workspaceId, workspaceId.value),
-          or(
-            eq(pullRequestRecord.ownerTaskId, taskId.value),
-            arrayContains(pullRequestRecord.reviewTaskIds, [taskId.value]),
+        inList(
+          pullRequestRecord.ownerTaskId,
+          taskIds.map((each) => each.value),
+        ),
+      );
+
+    return rows.map(toRecord);
+  }
+
+  add(added: PullRequestRecord): Promise<void> {
+    return this.context.inTransaction(async () => {
+      const written = await this.context.db
+        .insert(pullRequestRecord)
+        .values({
+          workspaceId: added.workspaceId.value,
+          pullRequest: added.pullRequest.value,
+          version: added.version,
+          ...columnsOf(added),
+        })
+        .onConflictDoNothing()
+        .returning({ pullRequest: pullRequestRecord.pullRequest });
+
+      if (written.length === 0) {
+        throw new PullRequestRecordVersionConflictError(
+          added.pullRequest.value,
+        );
+      }
+
+      await this.events.dispatch(added.pullEvents());
+    });
+  }
+
+  save(saved: PullRequestRecord): Promise<void> {
+    if (saved.isDeleted) {
+      return this.removed(saved);
+    }
+
+    return this.context.inTransaction(async () => {
+      const written = await this.context.db
+        .update(pullRequestRecord)
+        .set({ version: saved.version + 1, ...columnsOf(saved) })
+        .where(
+          and(
+            at(saved.workspaceId, saved.pullRequest),
+            eq(pullRequestRecord.version, saved.version),
           ),
-        ),
-      );
+        )
+        .returning({ pullRequest: pullRequestRecord.pullRequest });
 
-    return rows.map(toRecord);
+      if (written.length === 0) {
+        throw new PullRequestRecordVersionConflictError(
+          saved.pullRequest.value,
+        );
+      }
+
+      await this.events.dispatch(saved.pullEvents());
+    });
   }
 
-  async ownedByTeam(
-    workspaceId: WorkspaceId,
-    teamId: TeamId,
+  private removed(removed: PullRequestRecord): Promise<void> {
+    return this.context.inTransaction(async () => {
+      const gone = await this.context.db
+        .delete(pullRequestRecord)
+        .where(
+          and(
+            at(removed.workspaceId, removed.pullRequest),
+            eq(pullRequestRecord.version, removed.version),
+          ),
+        )
+        .returning({ pullRequest: pullRequestRecord.pullRequest });
+
+      if (gone.length === 0) {
+        throw new PullRequestRecordVersionConflictError(
+          removed.pullRequest.value,
+        );
+      }
+
+      await this.events.dispatch(removed.pullEvents());
+    });
+  }
+
+  async ofScope(
+    scope: DeletionScope,
+    max: number,
   ): Promise<readonly PullRequestRecord[]> {
     const rows = await this.context.db
       .select()
       .from(pullRequestRecord)
       .where(
         and(
-          eq(pullRequestRecord.workspaceId, workspaceId.value),
-          eq(pullRequestRecord.ownerTeamId, teamId.value),
+          eq(pullRequestRecord.workspaceId, scope.workspaceId.value),
+          scope.kind === 'task'
+            ? or(
+                eq(pullRequestRecord.ownerTaskId, scope.taskId.value),
+                arrayContains(pullRequestRecord.reviewTaskIds, [
+                  scope.taskId.value,
+                ]),
+              )
+            : scope.kind === 'team'
+              ? or(
+                  eq(pullRequestRecord.ownerTeamId, scope.teamId.value),
+                  arrayContains(pullRequestRecord.reviewTeamIds, [
+                    scope.teamId.value,
+                  ]),
+                )
+              : undefined,
         ),
-      );
+      )
+      .limit(max);
 
     return rows.map(toRecord);
   }
 
-  async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.db
-      .delete(pullRequestRecord)
-      .where(eq(pullRequestRecord.workspaceId, workspaceId.value));
+  async tombstonesBefore(
+    before: Date,
+    max: number,
+  ): Promise<readonly PullRequestRecord[]> {
+    const rows = await this.context.db
+      .select()
+      .from(pullRequestRecord)
+      .where(
+        and(
+          lt(pullRequestRecord.githubPurgedAt, before),
+          isNull(pullRequestRecord.ownerTaskId),
+          sql`cardinality(${pullRequestRecord.reviewTaskIds}) = 0`,
+        ),
+      )
+      .limit(max);
+
+    return rows.map(toRecord);
   }
 }

@@ -1,19 +1,16 @@
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { InvalidNoticeError } from '@work/domain/exceptions/invalid-notice.error';
+import { NoticeRaised } from '@work/domain/events/notice-raised.event';
+import { NoticeResolved } from '@work/domain/events/notice-resolved.event';
 import type { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import type { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
+import type { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
 import type { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
-
-const MAX_SUBJECT = 200;
-
-const RESOLVED_SHOWN_FOR_DAYS = 30;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface NoticeState {
   readonly id: NoticeId;
@@ -21,7 +18,7 @@ interface NoticeState {
   readonly teamId: TeamId;
   readonly addressee: UserId | null;
   readonly form: NoticeForm;
-  readonly subject: string;
+  readonly subject: NoticeSubject;
   readonly link: NoticeLink;
   readonly externalLink: NoticeExternalLink | null;
   readonly wording: NoticeWording;
@@ -30,8 +27,15 @@ interface NoticeState {
   readonly version: number;
 }
 
-export class Notice {
-  private constructor(private readonly state: NoticeState) {}
+export interface NoticeAudience {
+  readonly addressee: UserId;
+  readonly unaddressed: boolean;
+}
+
+export class Notice extends EventRecorder {
+  private constructor(private readonly state: NoticeState) {
+    super();
+  }
 
   static create(input: {
     id: NoticeId;
@@ -39,34 +43,43 @@ export class Notice {
     teamId: TeamId;
     addressee: UserId | null;
     form: NoticeForm;
-    subject: string;
+    subject: NoticeSubject;
     link: NoticeLink;
     externalLink: NoticeExternalLink | null;
     wording: NoticeWording;
     at: Date;
   }): Notice {
-    const subject = input.subject.trim();
-
-    if (!subject || subject.length > MAX_SUBJECT) {
-      throw new InvalidNoticeError(
-        `subject must be 1 to ${MAX_SUBJECT} characters`,
-      );
-    }
-
-    return new Notice({
+    const created = new Notice({
       ...input,
-      subject,
       createdAt: input.at,
       resolvedAt: null,
       version: 0,
     });
+    created.raised(input.at);
+
+    return created;
   }
 
-  static resolvedShownSince(now: Date): Date {
-    return new Date(now.getTime() - RESOLVED_SHOWN_FOR_DAYS * DAY_MS);
+  static deliverable(
+    addressee: UserId | null,
+    addresseeSeesTeam: boolean,
+  ): boolean {
+    return addressee === null || addresseeSeesTeam;
+  }
+
+  static reopenable(resolvedAt: Date | null): boolean {
+    return resolvedAt !== null;
+  }
+
+  static unread(resolvedAt: Date | null): boolean {
+    return resolvedAt === null;
   }
 
   static rehydrate(state: NoticeState): Notice {
+    if (state.version < 0) {
+      throw new InconsistentStateError('notice', 'has a negative version');
+    }
+
     if (state.resolvedAt && state.resolvedAt < state.createdAt) {
       throw new InconsistentStateError(
         'notice',
@@ -97,7 +110,7 @@ export class Notice {
     return this.state.form;
   }
 
-  get subject(): string {
+  get subject(): NoticeSubject {
     return this.state.subject;
   }
 
@@ -125,19 +138,62 @@ export class Notice {
     return this.state.version;
   }
 
+  static audienceOf(person: UserId): NoticeAudience {
+    return { addressee: person, unaddressed: true };
+  }
+
+  static addressedTo(addressee: UserId | null, person: UserId): boolean {
+    const audience = Notice.audienceOf(person);
+
+    return addressee
+      ? addressee.equals(audience.addressee)
+      : audience.unaddressed;
+  }
+
   isFor(person: UserId): boolean {
-    return this.state.addressee?.equals(person) ?? true;
+    return Notice.addressedTo(this.state.addressee, person);
   }
 
   resolve(at: Date): Notice {
-    return this.state.resolvedAt
-      ? this
-      : new Notice({ ...this.state, resolvedAt: at });
+    if (this.state.resolvedAt) {
+      return this;
+    }
+
+    const resolved = new Notice({ ...this.state, resolvedAt: at });
+    resolved.inheritEvents(this);
+    resolved.record(
+      new NoticeResolved(
+        this.state.id,
+        this.state.workspaceId,
+        this.state.addressee,
+        at,
+      ),
+    );
+
+    return resolved;
   }
 
-  reopen(): Notice {
-    return this.state.resolvedAt
-      ? new Notice({ ...this.state, resolvedAt: null })
-      : this;
+  reopen(at: Date): Notice {
+    if (!Notice.reopenable(this.state.resolvedAt)) {
+      return this;
+    }
+
+    const reopened = new Notice({ ...this.state, resolvedAt: null });
+    reopened.inheritEvents(this);
+    reopened.raised(at);
+
+    return reopened;
+  }
+
+  private raised(at: Date): void {
+    this.record(
+      new NoticeRaised(
+        this.state.id,
+        this.state.workspaceId,
+        this.state.teamId,
+        this.state.addressee,
+        at,
+      ),
+    );
   }
 }

@@ -1,8 +1,9 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
+import { PLAIN_STATION_COLOR } from '@lines/application/contracts/line-view.contract';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
   InboxApproval,
@@ -12,15 +13,19 @@ import type {
 } from '@work/application/ports/inbox-reader.port';
 import type { RunReview } from '@work/application/ports/run-reader.port';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
-import { pendingIn, reviewsIn } from '@work/domain/services/conversations';
+import {
+  conversationsOf,
+  notesIn,
+  pendingIn,
+  reviewsIn,
+  TURNING_NOTE_KINDS,
+} from '@work/domain/services/conversations';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import {
   toApprovalSubject,
   toEditedCall,
 } from '@work/infrastructure/persistence/drizzle/repositories/approval-subject.rows';
-import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
-import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
+import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 import {
   type ApprovalRow,
   type ConnectionAskRow,
@@ -28,10 +33,21 @@ import {
   taskAttachment,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { asc, count, eq, inArray, sql } from 'drizzle-orm';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-const deferredStation = alias(station, 'deferred_station');
+const deferredStation = alias(workStation, 'deferred_station');
 
 export interface TaskAttachments {
   readonly own: readonly AttachmentSummary[];
@@ -142,75 +158,95 @@ const connecting = (
       }
     : null;
 
-export const failureIn = (notes: readonly InboxNote[]): InboxFailure | null =>
+export const failureIn = (
+  notes: readonly Pick<InboxNote, 'failure'>[],
+): InboxFailure | null =>
   notes.reduce<InboxFailure | null>(
     (about, note) => note.failure ?? about,
     null,
   );
 
-export const trailsFor = async (
+const NOTE_COLUMNS = {
+  taskId: taskNote.taskId,
+  position: taskNote.position,
+  station: taskNote.station,
+  stationId: taskNote.stationId,
+  stationColor: workStation.color,
+  stationPosition: workStation.position,
+  runId: taskNote.runId,
+  kind: taskNote.kind,
+  form: taskNote.form,
+  voice: taskNote.voice,
+  readAt: taskNote.readAt,
+  body: taskNote.body,
+  at: taskNote.at,
+  authorId: taskNote.authorId,
+  source: taskNote.source,
+  deferredTo: deferredStation.name,
+  coAuthorIds: taskNote.coAuthorIds,
+  approval: taskNote.approval,
+  failure: taskNote.failure,
+  connectionAsk: taskNote.connectionAsk,
+};
+
+type NoteRow = Pick<
+  typeof taskNote.$inferSelect,
+  | 'taskId'
+  | 'position'
+  | 'station'
+  | 'stationId'
+  | 'runId'
+  | 'kind'
+  | 'form'
+  | 'voice'
+  | 'readAt'
+  | 'body'
+  | 'at'
+  | 'authorId'
+  | 'source'
+  | 'coAuthorIds'
+  | 'approval'
+  | 'failure'
+  | 'connectionAsk'
+> & {
+  readonly stationColor: string | null;
+  readonly stationPosition: number | null;
+  readonly deferredTo: string | null;
+};
+
+const inboxNotesOf = async (
   db: DrizzleDatabase,
   people: PersonReaderPort,
-  taskIds: readonly string[],
-): Promise<Map<string, InboxNote[]>> => {
-  const trail = new Map<string, InboxNote[]>();
-
-  if (taskIds.length === 0) {
-    return trail;
+  rows: readonly NoteRow[],
+): Promise<(InboxNote & { readonly taskId: string })[]> => {
+  if (rows.length === 0) {
+    return [];
   }
 
-  const attached = await attachmentsFor(db, taskIds);
+  const [attached, authors] = await Promise.all([
+    attachmentsFor(
+      db,
+      rows.map((row) => row.taskId),
+    ),
+    people.findMany(
+      rows.flatMap((row) => [
+        ...(row.authorId ? [UserId.of(row.authorId)] : []),
+        ...row.coAuthorIds.map(UserId.of),
+        ...(row.connectionAsk ? [UserId.of(row.connectionAsk.personId)] : []),
+        ...(row.approval?.askedOf ? [UserId.of(row.approval.askedOf)] : []),
+      ]),
+    ),
+  ]);
 
-  const rows = await db
-    .select({
-      taskId: taskNote.taskId,
-      position: taskNote.position,
-      station: taskNote.station,
-      stationId: taskNote.stationId,
-      stationColor: station.color,
-      stationPosition: station.position,
-      runId: taskNote.runId,
-      kind: taskNote.kind,
-      form: taskNote.form,
-      voice: taskNote.voice,
-      readAt: taskNote.readAt,
-      body: taskNote.body,
-      at: taskNote.at,
-      authorId: taskNote.authorId,
-      source: taskNote.source,
-      deferredTo: deferredStation.name,
-      coAuthorIds: taskNote.coAuthorIds,
-      approval: taskNote.approval,
-      failure: taskNote.failure,
-      connectionAsk: taskNote.connectionAsk,
-    })
-    .from(taskNote)
-    .leftJoin(station, eq(station.id, taskNote.stationId))
-    .leftJoin(
-      deferredStation,
-      eq(deferredStation.id, sql`${taskNote.deferredMove} ->> 'to'`),
-    )
-    .where(inArray(taskNote.taskId, [...taskIds]))
-    .orderBy(asc(taskNote.taskId), asc(taskNote.position));
-
-  const authors = await people.findMany(
-    rows.flatMap((row) => [
-      ...(row.authorId ? [UserId.of(row.authorId)] : []),
-      ...row.coAuthorIds.map(UserId.of),
-      ...(row.connectionAsk ? [UserId.of(row.connectionAsk.personId)] : []),
-      ...(row.approval?.askedOf ? [UserId.of(row.approval.askedOf)] : []),
-    ]),
-  );
-
-  for (const row of rows) {
-    const notes = trail.get(row.taskId) ?? [];
+  return rows.map((row) => {
     const author = row.authorId ? authors.get(row.authorId) : undefined;
 
-    notes.push({
+    return {
+      taskId: row.taskId,
       position: row.position,
       station: row.station,
       stationId: row.stationId,
-      stationColor: row.stationColor ?? StationColor.plain().value,
+      stationColor: row.stationColor ?? PLAIN_STATION_COLOR,
       stationPosition: row.stationPosition ?? 0,
       runId: row.runId,
       kind: row.kind,
@@ -238,13 +274,207 @@ export const trailsFor = async (
       approval: approvalOf(row.approval, authors),
       failure: failed(row.failure),
       connection: connecting(row.connectionAsk, authors),
-    });
+    };
+  });
+};
 
-    trail.set(row.taskId, notes);
+const byTask = (
+  notes: readonly (InboxNote & { readonly taskId: string })[],
+): Map<string, InboxNote[]> => {
+  const trail = new Map<string, InboxNote[]>();
+
+  for (const { taskId, ...note } of notes) {
+    trail.set(taskId, [...(trail.get(taskId) ?? []), note]);
   }
 
   return trail;
 };
+
+export const trailsFor = async (
+  db: DrizzleDatabase,
+  people: PersonReaderPort,
+  taskIds: readonly string[],
+): Promise<Map<string, InboxNote[]>> => {
+  if (taskIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select(NOTE_COLUMNS)
+    .from(taskNote)
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
+    .leftJoin(
+      deferredStation,
+      eq(deferredStation.stationId, sql`${taskNote.deferredMove} ->> 'to'`),
+    )
+    .where(inArray(taskNote.taskId, [...taskIds]))
+    .orderBy(asc(taskNote.taskId), asc(taskNote.position));
+
+  return byTask(await inboxNotesOf(db, people, rows));
+};
+
+export const newestNotesFor = async (
+  db: DrizzleDatabase,
+  people: PersonReaderPort,
+  taskIds: readonly string[],
+): Promise<Map<string, InboxNote>> => {
+  const named = [...new Set(taskIds)];
+
+  if (named.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .selectDistinctOn([taskNote.taskId], NOTE_COLUMNS)
+    .from(taskNote)
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
+    .leftJoin(
+      deferredStation,
+      eq(deferredStation.stationId, sql`${taskNote.deferredMove} ->> 'to'`),
+    )
+    .where(inArray(taskNote.taskId, named))
+    .orderBy(taskNote.taskId, desc(taskNote.position));
+
+  return new Map(
+    (await inboxNotesOf(db, people, rows)).map(
+      ({ taskId, ...note }) => [taskId, note] as const,
+    ),
+  );
+};
+
+export interface NoteAt {
+  readonly taskId: string;
+  readonly position: number;
+}
+
+export const noteKey = (at: NoteAt): string => `${at.taskId}:${at.position}`;
+
+export const notesAt = async (
+  db: DrizzleDatabase,
+  people: PersonReaderPort,
+  at: readonly NoteAt[],
+): Promise<Map<string, InboxNote>> => {
+  if (at.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select(NOTE_COLUMNS)
+    .from(taskNote)
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
+    .leftJoin(
+      deferredStation,
+      eq(deferredStation.stationId, sql`${taskNote.deferredMove} ->> 'to'`),
+    )
+    .where(
+      or(
+        ...at.map((each) =>
+          and(
+            eq(taskNote.taskId, each.taskId),
+            eq(taskNote.position, each.position),
+          ),
+        ),
+      ),
+    );
+
+  return new Map(
+    (await inboxNotesOf(db, people, rows)).map(
+      ({ taskId, ...note }) =>
+        [noteKey({ taskId, position: note.position }), note] as const,
+    ),
+  );
+};
+
+export type ConversationMark = Pick<
+  InboxNote,
+  | 'position'
+  | 'kind'
+  | 'readAt'
+  | 'at'
+  | 'station'
+  | 'stationColor'
+  | 'stationPosition'
+  | 'runId'
+  | 'failure'
+>;
+
+export const marksFor = async (
+  db: DrizzleDatabase,
+  taskIds: readonly string[],
+): Promise<Map<string, ConversationMark[]>> => {
+  const named = [...new Set(taskIds)];
+  const marks = new Map<string, ConversationMark[]>();
+
+  if (named.length === 0) {
+    return marks;
+  }
+
+  const rows = await db
+    .select({
+      taskId: taskNote.taskId,
+      position: taskNote.position,
+      kind: taskNote.kind,
+      readAt: taskNote.readAt,
+      at: taskNote.at,
+      station: taskNote.station,
+      stationColor: workStation.color,
+      stationPosition: workStation.position,
+      runId: taskNote.runId,
+      failure: taskNote.failure,
+    })
+    .from(taskNote)
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
+    .where(
+      and(
+        inArray(taskNote.taskId, named),
+        or(
+          inArray(taskNote.kind, [...TURNING_NOTE_KINDS]),
+          isNotNull(taskNote.failure),
+        ),
+      ),
+    )
+    .orderBy(asc(taskNote.taskId), asc(taskNote.position));
+
+  for (const { taskId, ...row } of rows) {
+    marks.set(taskId, [
+      ...(marks.get(taskId) ?? []),
+      {
+        ...row,
+        stationColor: row.stationColor ?? PLAIN_STATION_COLOR,
+        stationPosition: row.stationPosition ?? 0,
+        failure: failed(row.failure),
+      },
+    ]);
+  }
+
+  return marks;
+};
+
+export interface MarkedConversation<T> {
+  readonly from: T;
+  readonly to: T | null;
+  readonly notes: readonly T[];
+}
+
+export const conversationsAmong = <T extends { kind: TaskNoteKind }>(
+  notes: readonly T[],
+): MarkedConversation<T>[] =>
+  conversationsOf(notes.map((each) => each.kind)).flatMap((conversation) => {
+    const from = conversation.from.noteIn(notes);
+
+    return from
+      ? [
+          {
+            from,
+            to:
+              conversation.to === null
+                ? null
+                : (conversation.to.noteIn(notes) ?? null),
+            notes: notesIn(conversation, notes),
+          },
+        ]
+      : [];
+  });
 
 export const stationsPerLine = async (
   db: DrizzleDatabase,
@@ -258,10 +488,10 @@ export const stationsPerLine = async (
   }
 
   const rows = await db
-    .select({ lineId: station.lineId, stations: count() })
-    .from(station)
-    .where(inArray(station.lineId, named))
-    .groupBy(station.lineId);
+    .select({ lineId: workStation.lineId, stations: count() })
+    .from(workStation)
+    .where(inArray(workStation.lineId, named))
+    .groupBy(workStation.lineId);
 
   for (const row of rows) {
     counts.set(row.lineId, row.stations);
@@ -282,26 +512,34 @@ export const awaitedReviewsFor = async (
   }
 
   const rows = await db
-    .select({ taskId: taskNote.taskId, kind: taskNote.kind })
+    .select({
+      taskId: taskNote.taskId,
+      position: taskNote.position,
+      kind: taskNote.kind,
+    })
     .from(taskNote)
-    .where(inArray(taskNote.taskId, named))
+    .where(
+      and(
+        inArray(taskNote.taskId, named),
+        inArray(taskNote.kind, [...TURNING_NOTE_KINDS]),
+      ),
+    )
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
 
-  const trails = new Map<string, { kind: TaskNoteKind }[]>();
+  const trails = new Map<string, { kind: TaskNoteKind; position: number }[]>();
 
-  for (const row of rows) {
-    const notes = trails.get(row.taskId) ?? [];
-    notes.push({ kind: row.kind });
-    trails.set(row.taskId, notes);
+  for (const { taskId, ...note } of rows) {
+    trails.set(taskId, [...(trails.get(taskId) ?? []), note]);
   }
 
   for (const [taskId, trail] of trails) {
     const pending = pendingIn(trail);
+    const from = pending?.from.noteIn(trail);
 
-    if (pending) {
+    if (from) {
       awaited.set(
         taskId,
-        ConversationId.of({ taskId: TaskId.of(taskId), from: pending.from })
+        ConversationId.of({ taskId: TaskId.of(taskId), from: from.position })
           .value,
       );
     }
@@ -314,7 +552,7 @@ type TrailNote = {
   taskId: string;
   position: number;
   kind: TaskNoteKind;
-  runId: string | null;
+  runId: RunId | null;
 };
 
 export const reviewsBy = async (
@@ -347,18 +585,18 @@ export const reviewsBy = async (
       taskId: row.taskId,
       position: row.position,
       kind: row.kind,
-      runId: row.runId,
+      runId: row.runId === null ? null : RunId.of(row.runId),
     });
     trails.set(row.taskId, notes);
   }
 
   for (const [taskId, trail] of trails) {
-    for (const [runId, reviewed] of reviewsIn(trail)) {
-      review.set(runId, {
+    for (const reviewed of reviewsIn(trail)) {
+      review.set(reviewed.runId.value, {
         state: reviewed.state,
         conversationId: ConversationId.of({
           taskId: TaskId.of(taskId),
-          from: reviewed.from,
+          from: reviewed.from.value,
         }).value,
       });
     }
@@ -379,24 +617,15 @@ export const briefingsFor = async (
   }
 
   const rows = await db
-    .select({ id: run.id, spec: run.spec })
-    .from(run)
-    .where(inArray(run.id, named));
+    .select({ id: dispatch.id, briefing: dispatch.briefing })
+    .from(dispatch)
+    .where(inArray(dispatch.id, named));
 
   for (const row of rows) {
-    briefings.set(row.id, RunSpecContract.from(row.spec).briefing);
+    if (row.briefing !== null) {
+      briefings.set(row.id, row.briefing);
+    }
   }
 
   return briefings;
 };
-
-export const threadAt = <T extends { runId: string | null; stationId: string }>(
-  notes: readonly T[],
-  stationId: string | null,
-  runId: string,
-): T[] =>
-  notes.filter(
-    (note) =>
-      note.runId === runId ||
-      (stationId !== null && note.stationId === stationId),
-  );

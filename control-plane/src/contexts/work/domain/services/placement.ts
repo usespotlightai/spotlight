@@ -1,12 +1,18 @@
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 
-export const Placement = {
-  atTheTop(ranks: readonly TaskRank[]): TaskRank {
-    return Placement.below(ranks, null);
-  },
+export type QueueEntry = 'opened' | 'passed-on' | 'deferred' | 'reacted';
 
-  atTheBack(ranks: readonly TaskRank[]): TaskRank {
-    return TaskRank.between(ranks[ranks.length - 1] ?? null, null);
+const atTheTop = (ranks: readonly TaskRank[]): TaskRank =>
+  Placement.below(ranks, null);
+
+const atTheBack = (ranks: readonly TaskRank[]): TaskRank =>
+  TaskRank.between(ranks[ranks.length - 1] ?? null, null);
+
+export const Placement = {
+  entering(entry: QueueEntry, ranks: readonly TaskRank[]): TaskRank {
+    return entry === 'opened' || entry === 'passed-on'
+      ? atTheBack(ranks)
+      : atTheTop(ranks);
   },
 
   below(ranks: readonly TaskRank[], after: TaskRank | null): TaskRank {

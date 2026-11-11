@@ -5,6 +5,7 @@ import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Notice } from '@/components/shared/Notice';
+import { ShowMore } from '@/components/shared/ShowMore';
 import { ViewPills } from '@/components/shared/ViewPills';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
@@ -73,6 +74,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
           <p className="text-muted-foreground text-sm">
             Nothing is waiting for you. Switch to All to see every run.
           </p>
+          <ShowMore list={runs} what="Older runs" className="mt-2" />
         </Notice>
       ) : (
         <ScrollArea
@@ -111,6 +113,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
               </Disclosure>
             </section>
           ))}
+          <ShowMore list={runs} what="Older runs" className="mt-2" />
         </ScrollArea>
       )}
     </>

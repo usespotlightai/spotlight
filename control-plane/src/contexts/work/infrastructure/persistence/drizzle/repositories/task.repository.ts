@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   FOREIGN_KEY_VIOLATION,
+  UNIQUE_VIOLATION,
   violates,
 } from '@platform/persistence/drizzle/violations';
 import {
@@ -11,34 +12,39 @@ import {
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { StationNotKnownYetError } from '@work/application/errors/station-not-known-yet.error';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
-import { MarkAlreadyClaimedError } from '@work/domain/exceptions/mark-already-claimed.error';
+import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-already-opened.error';
+import { TaskBranchTakenError } from '@work/domain/exceptions/task-branch-taken.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
-import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { openSetupList } from '@work/domain/services/setup-list';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
+import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
+import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -54,10 +60,6 @@ import {
   toEditedCall,
 } from '@work/infrastructure/persistence/drizzle/repositories/approval-subject.rows';
 import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
-import {
   type ApprovalRow,
   type ConnectionAskRow,
   type DeferredMoveRow,
@@ -65,9 +67,22 @@ import {
   taskAttachment,
   taskMark,
   taskNote,
+  taskPullRequest,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, eq, gt, inArray, not, notExists, or, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
+import {
+  and,
+  asc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  lt,
+  not,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 type Row = typeof task.$inferSelect;
 type NoteRow = typeof taskNote.$inferSelect;
@@ -125,16 +140,16 @@ const toDeferredMoveRow = (move: DeferredMove): DeferredMoveRow => ({
 const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
   ConnectionAsk.of({
     teamId: TeamId.of(row.teamId),
-    integration: row.integration,
-    integrationName: row.integrationName,
+    integration: IntegrationName.of(row.integration),
+    providedBy: row.integrationName,
     personId: UserId.of(row.personId),
     met: row.met,
   });
 
 const toConnectionAskRow = (ask: ConnectionAsk): ConnectionAskRow => ({
   teamId: ask.teamId.value,
-  integration: ask.integration,
-  integrationName: ask.integrationName,
+  integration: ask.integration.value,
+  integrationName: ask.providedBy,
   personId: ask.personId.value,
   met: ask.met,
 });
@@ -143,12 +158,12 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
   TaskNote.of({
     position: NotePosition.of(row.position),
     attachments: toAttachments(attachments, row.position),
-    station: StationName.of(row.station),
+    station: row.station === null ? null : StationName.of(row.station),
     stationId: StationId.of(row.stationId),
     body: TaskNoteBody.of(row.body),
     at: row.at,
     voice: Voice.of({
-      by: row.voice,
+      kind: row.voice,
       author: row.authorId,
       coAuthors: row.coAuthorIds,
       run: row.runId,
@@ -173,6 +188,7 @@ const toTask = (
   notes: NoteRow[],
   attachments: AttachmentRow[],
   marks: MarkRow[],
+  laterPullRequests: LaterPullRequestRow[],
 ): Task =>
   Task.rehydrate({
     attachments: toAttachments(attachments, null),
@@ -184,15 +200,15 @@ const toTask = (
     description: row.description ? TaskDescription.of(row.description) : null,
     rank: TaskRank.of(row.rank),
     currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
-    sessionId: row.sessionId ? HarnessSession.of(row.sessionId) : null,
-    runnerId: row.runnerId ? RunnerId.of(row.runnerId) : null,
+    session: row.sessionId ? HarnessSession.of(row.sessionId) : null,
+    claimedBy: row.runnerId ? RunnerId.of(row.runnerId) : null,
     notes: notes.map((note) => toNote(note, attachments)),
     createdAt: row.createdAt,
     originStationId: row.originStationId
       ? StationId.of(row.originStationId)
       : null,
     createdBy: row.createdById ? UserId.of(row.createdById) : null,
-    openedFrom: TaskOrigin.of(row.openedFrom),
+    openedFrom: TaskOrigin.decode(row.openedFrom),
     proposedIn:
       row.proposedInChatId !== null && row.proposedInPosition !== null
         ? ProposalOrigin.of({
@@ -202,6 +218,12 @@ const toTask = (
         : null,
     assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
     finishedAt: row.finishedAt,
+    draftGeneration: DraftGeneration.of(row.draftGeneration),
+    awaitedTurn:
+      row.awaitedTurnAttempt !== null && row.currentRunId
+        ? AwaitedTurn.of(RunId.of(row.currentRunId), row.awaitedTurnAttempt)
+        : null,
+    answeredTurnAt: row.answeredTurnAt,
     revision: TaskRevision.of(row.revision),
     version: row.version,
     pullRequestLink: row.pullRequest
@@ -211,13 +233,31 @@ const toTask = (
           })
         : PullRequestLink.opened(PullRequestUrl.of(row.pullRequest))
       : null,
-    marks: marks.map((each) => Mark.of(each.kind, each.value)),
+    pullRequestClosedAt: row.pullRequestClosedAt,
+    heldMarks: marks.map((each) =>
+      HeldMark.of(Mark.of(each.kind, each.value), each.heldSince),
+    ),
+    laterPullRequests: laterPullRequests.map((each) =>
+      LaterPullRequest.of(
+        PullRequestUrl.of(each.url),
+        each.openedAt,
+        each.closedAt,
+      ),
+    ),
   });
+
+interface LaterPullRequestRow {
+  readonly taskId: string;
+  readonly url: string;
+  readonly openedAt: Date;
+  readonly closedAt: Date | null;
+}
 
 interface MarkRow {
   readonly taskId: string;
   readonly kind: string;
   readonly value: string;
+  readonly heldSince: Date;
 }
 
 @Injectable()
@@ -236,7 +276,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   private async inserted(added: Task): Promise<void> {
-    await this.atStation(added, () =>
+    await this.translated(added, () =>
       this.context.db.insert(task).values({
         id: added.id.value,
         workspaceId: added.workspaceId.value,
@@ -246,26 +286,33 @@ export class DrizzleTaskRepository implements TaskRepository {
         description: added.description?.value ?? null,
         rank: added.rank.value,
         currentRunId: added.currentRunId?.value ?? null,
-        sessionId: added.sessionId?.value ?? null,
-        runnerId: added.runnerId?.value ?? null,
+        sessionId: added.session?.value ?? null,
+        runnerId: added.claimedBy?.value ?? null,
         createdAt: added.createdAt,
         originStationId: added.originStationId?.value ?? null,
         createdById: added.createdBy?.value ?? null,
-        openedFrom: added.openedFrom.value,
+        openedFrom: added.openedFrom.encoded,
         proposedInChatId: added.proposedIn?.chatId.value ?? null,
         proposedInPosition: added.proposedIn?.position.value ?? null,
         assigneeId: added.assignee?.value ?? null,
         pullRequest: added.pullRequest?.value ?? null,
+        pullRequestClosedAt: added.pullRequestClosedAt,
         reviewing: added.reviewing,
         reviewFromOutside: added.fromOutside,
         finishedAt: added.finishedAt,
+        workingCopyReleasedAt: added.workingCopyRelease.releasedAt,
         revision: added.revision.value,
+        isSetup: added.isSetup,
+        setupOpen: added.setupOpen,
+        unreadAsk: added.hasUnreadAsk,
+        draftGeneration: added.draftGeneration.value,
       }),
     );
 
     await this.writeNotes(added);
     await this.writeAttachments(added);
     await this.writeMarks(added);
+    await this.writeLaterPullRequests(added);
   }
 
   async save(saved: Task): Promise<void> {
@@ -275,15 +322,29 @@ export class DrizzleTaskRepository implements TaskRepository {
     });
   }
 
-  private async atStation<T>(
+  private async translated<T>(
     written: Task,
     work: () => Promise<T>,
   ): Promise<T> {
     try {
       return await work();
     } catch (error) {
-      if (violates(error, FOREIGN_KEY_VIOLATION, 'station_id_station_id_fk')) {
-        throw new UnknownStationError(written.stationId.value);
+      if (violates(error, FOREIGN_KEY_VIOLATION, 'task_station_fk')) {
+        throw new StationNotKnownYetError(written.stationId.value);
+      }
+
+      if (violates(error, UNIQUE_VIOLATION, 'task_workspace_branch_uidx')) {
+        throw new TaskBranchTakenError(written.branch.value);
+      }
+
+      if (
+        written.proposedIn &&
+        violates(error, UNIQUE_VIOLATION, 'task_proposed_in_uidx')
+      ) {
+        throw new ProposalAlreadyOpenedError(
+          written.proposedIn.chatId.value,
+          written.proposedIn.position.value,
+        );
       }
 
       throw error;
@@ -291,7 +352,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   private async stored(saved: Task): Promise<void> {
-    const written = await this.atStation(saved, () =>
+    const written = await this.translated(saved, () =>
       this.context.db
         .update(task)
         .set({
@@ -301,14 +362,22 @@ export class DrizzleTaskRepository implements TaskRepository {
           description: saved.description?.value ?? null,
           rank: saved.rank.value,
           currentRunId: saved.currentRunId?.value ?? null,
-          sessionId: saved.sessionId?.value ?? null,
-          runnerId: saved.runnerId?.value ?? null,
+          sessionId: saved.session?.value ?? null,
+          runnerId: saved.claimedBy?.value ?? null,
           pullRequest: saved.pullRequest?.value ?? null,
+          pullRequestClosedAt: saved.pullRequestClosedAt,
           reviewing: saved.reviewing,
           reviewFromOutside: saved.fromOutside,
           finishedAt: saved.finishedAt,
+          workingCopyReleasedAt: saved.workingCopyRelease.releasedAt,
           assigneeId: saved.assignee?.value ?? null,
           revision: saved.revision.value,
+          isSetup: saved.isSetup,
+          setupOpen: saved.setupOpen,
+          unreadAsk: saved.hasUnreadAsk,
+          draftGeneration: saved.draftGeneration.value,
+          awaitedTurnAttempt: saved.awaitedTurn?.attempt ?? null,
+          answeredTurnAt: saved.answeredTurnAt,
         })
         .where(
           and(eq(task.id, saved.id.value), eq(task.version, saved.version)),
@@ -323,10 +392,11 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeNotes(saved);
     await this.writeAttachments(saved);
     await this.writeMarks(saved);
+    await this.writeLaterPullRequests(saved);
   }
 
   private async writeMarks(written: Task): Promise<void> {
-    const marked = or(
+    const held = or(
       ...written.marks.map((mark) =>
         and(eq(taskMark.kind, mark.kind), eq(taskMark.value, mark.value)),
       ),
@@ -337,41 +407,74 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(
         and(
           eq(taskMark.taskId, written.id.value),
-          marked ? not(marked) : undefined,
+          held ? not(held) : undefined,
         ),
       );
 
-    if (written.marks.length === 0) {
+    if (written.heldMarks.length === 0) {
       return;
     }
 
-    const stored = await this.context.db
+    await this.context.db
       .insert(taskMark)
       .values(
-        written.marks.map((mark) => ({
+        written.heldMarks.map((each) => ({
           workspaceId: written.workspaceId.value,
           taskId: written.id.value,
-          kind: mark.kind,
-          value: mark.value,
+          kind: each.mark.kind,
+          value: each.mark.value,
+          heldSince: each.since,
+        })),
+      )
+      .onConflictDoNothing({
+        target: [taskMark.taskId, taskMark.kind, taskMark.value],
+      });
+  }
+
+  private async writeLaterPullRequests(written: Task): Promise<void> {
+    if (written.laterPullRequests.length === 0) {
+      return;
+    }
+
+    await this.context.db
+      .insert(taskPullRequest)
+      .values(
+        written.laterPullRequests.map((each) => ({
+          workspaceId: written.workspaceId.value,
+          taskId: written.id.value,
+          url: each.url.value,
+          openedAt: each.openedAt,
+          closedAt: each.closedAt,
         })),
       )
       .onConflictDoUpdate({
-        target: [taskMark.workspaceId, taskMark.kind, taskMark.value],
-        set: { taskId: sql`excluded.task_id` },
-        setWhere: sql`${taskMark.taskId} = excluded.task_id`,
-      })
-      .returning({ kind: taskMark.kind, value: taskMark.value });
+        target: [taskPullRequest.taskId, taskPullRequest.url],
+        set: { closedAt: sql`excluded.closed_at` },
+      });
+  }
 
-    const taken = written.marks.find(
-      (mark) =>
-        !stored.some(
-          (each) => each.kind === mark.kind && each.value === mark.value,
-        ),
-    );
-
-    if (taken) {
-      throw new MarkAlreadyClaimedError(taken.toString());
+  private async laterPullRequestsFor(
+    taskIds: string[],
+  ): Promise<Map<string, LaterPullRequestRow[]>> {
+    if (taskIds.length === 0) {
+      return new Map();
     }
+
+    const rows = await this.context.db
+      .select({
+        taskId: taskPullRequest.taskId,
+        url: taskPullRequest.url,
+        openedAt: taskPullRequest.openedAt,
+        closedAt: taskPullRequest.closedAt,
+      })
+      .from(taskPullRequest)
+      .where(inArray(taskPullRequest.taskId, taskIds))
+      .orderBy(asc(taskPullRequest.openedAt), asc(taskPullRequest.url));
+
+    return rows.reduce((opened, row) => {
+      opened.set(row.taskId, [...(opened.get(row.taskId) ?? []), row]);
+      return opened;
+    }, new Map<string, LaterPullRequestRow[]>());
   }
 
   private async marksFor(taskIds: string[]): Promise<Map<string, MarkRow[]>> {
@@ -384,6 +487,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         taskId: taskMark.taskId,
         kind: taskMark.kind,
         value: taskMark.value,
+        heldSince: taskMark.heldSince,
       })
       .from(taskMark)
       .where(inArray(taskMark.taskId, taskIds));
@@ -399,6 +503,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     const notes = await this.notesFor(ids);
     const attachments = await this.attachmentsFor(ids);
     const marks = await this.marksFor(ids);
+    const later = await this.laterPullRequestsFor(ids);
 
     return rows.map((each) =>
       toTask(
@@ -406,6 +511,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         notes.get(each.id) ?? [],
         attachments.get(each.id) ?? [],
         marks.get(each.id) ?? [],
+        later.get(each.id) ?? [],
       ),
     );
   }
@@ -426,41 +532,22 @@ export class DrizzleTaskRepository implements TaskRepository {
     return whole ?? null;
   }
 
-  async findByMarks(
+  async findByCorrelation(
     workspaceId: WorkspaceId,
     correlationKeys: CorrelationKeys,
-  ): Promise<Task | null> {
+  ): Promise<readonly Task[]> {
     const named = correlationKeys.branch
       ? eq(task.branch, correlationKeys.branch.value)
       : undefined;
-
     const marked = correlationKeys.marks.length
-      ? inArray(
-          task.id,
-          this.context.db
-            .select({ id: taskMark.taskId })
-            .from(taskMark)
-            .where(
-              and(
-                eq(taskMark.workspaceId, workspaceId.value),
-                or(
-                  ...correlationKeys.marks.map((mark) =>
-                    and(
-                      eq(taskMark.kind, mark.kind),
-                      eq(taskMark.value, mark.value),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        )
+      ? inArray(task.id, this.holdersOf(workspaceId, correlationKeys.marks))
       : undefined;
 
     if (!named && !marked) {
-      return null;
+      return [];
     }
 
-    const [found] = await this.context.db
+    const found = await this.context.db
       .select()
       .from(task)
       .where(
@@ -469,37 +556,59 @@ export class DrizzleTaskRepository implements TaskRepository {
           named && marked ? or(named, marked) : (named ?? marked),
         ),
       )
-      .limit(1)
+      .orderBy(task.id)
       .for('update');
-
-    if (!found) {
-      return null;
-    }
-
-    const [whole] = await this.whole([found]);
-
-    return whole ?? null;
-  }
-
-  async remove(removed: Task): Promise<void> {
-    await this.context.inTransaction(async () => {
-      await this.context.db.delete(task).where(eq(task.id, removed.id.value));
-      await this.events.dispatch(removed.pullEvents());
-    });
-  }
-
-  async allAtStation(stationId: StationId): Promise<Task[]> {
-    const found = await this.context.db
-      .select()
-      .from(task)
-      .where(eq(task.stationId, stationId.value))
-      .orderBy(task.rank);
 
     return this.whole(found);
   }
 
+  async holdingMark(
+    workspaceId: WorkspaceId,
+    mark: Mark,
+  ): Promise<readonly Task[]> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(inArray(task.id, this.holdersOf(workspaceId, [mark])));
+
+    return this.whole(found);
+  }
+
+  private holdersOf(workspaceId: WorkspaceId, marks: readonly Mark[]) {
+    return this.context.db
+      .select({ id: taskMark.taskId })
+      .from(taskMark)
+      .where(
+        and(
+          eq(taskMark.workspaceId, workspaceId.value),
+          or(
+            ...marks.map((mark) =>
+              and(eq(taskMark.kind, mark.kind), eq(taskMark.value, mark.value)),
+            ),
+          ),
+        ),
+      );
+  }
+
+  async remove(removed: Task): Promise<void> {
+    await this.context.inTransaction(async () => {
+      const gone = await this.context.db
+        .delete(task)
+        .where(
+          and(eq(task.id, removed.id.value), eq(task.version, removed.version)),
+        )
+        .returning({ id: task.id });
+
+      if (gone.length === 0) {
+        throw new TaskVersionConflictError(removed.id.value);
+      }
+
+      await this.events.dispatch(removed.pullEvents());
+    });
+  }
+
   async settingUpFor(teamId: TeamId): Promise<Task | null> {
-    const [found] = await this.openSetups(eq(line.teamId, teamId.value));
+    const [found] = await this.openSetups(eq(workStation.teamId, teamId.value));
 
     return found ?? null;
   }
@@ -512,10 +621,28 @@ export class DrizzleTaskRepository implements TaskRepository {
     return this.openSetups();
   }
 
+  async withTurnAnsweredBetween(
+    after: Date,
+    before: Date,
+  ): Promise<readonly Task[]> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        and(
+          isNotNull(task.currentRunId),
+          gt(task.answeredTurnAt, after),
+          lt(task.answeredTurnAt, before),
+        ),
+      );
+
+    return this.whole(found);
+  }
+
   async awaitingConnection(
     teamId: TeamId,
     personId: UserId,
-    integration: string,
+    integration: IntegrationName,
   ): Promise<readonly Task[]> {
     const found = await this.context.db
       .select()
@@ -530,7 +657,7 @@ export class DrizzleTaskRepository implements TaskRepository {
               and(
                 sql`${taskNote.connectionAsk} is not null`,
                 sql`(${taskNote.connectionAsk}->>'personId') = ${personId.value}`,
-                sql`(${taskNote.connectionAsk}->>'integration') = ${integration}`,
+                sql`(${taskNote.connectionAsk}->>'integration') = ${integration.value}`,
                 sql`(${taskNote.connectionAsk}->>'teamId') = ${teamId.value}`,
                 sql`(${taskNote.connectionAsk}->>'met')::boolean = false`,
               ),
@@ -541,40 +668,14 @@ export class DrizzleTaskRepository implements TaskRepository {
     return this.whole(found);
   }
 
-  private async openSetups(of?: ReturnType<typeof eq>): Promise<Task[]> {
-    const closing = alias(taskNote, 'closing');
-
-    const open = notExists(
-      this.context.db
-        .select({ closed: sql`1` })
-        .from(closing)
-        .where(
-          and(
-            eq(closing.taskId, task.id),
-            eq(closing.kind, 'passed'),
-            gt(closing.position, taskNote.position),
-          ),
-        ),
-    );
-
+  private async openSetups(of?: SQL): Promise<Task[]> {
     const found = await this.context.db
       .select({ task })
       .from(task)
-      .innerJoin(
-        taskNote,
-        and(eq(taskNote.taskId, task.id), eq(taskNote.form, 'setup')),
-      )
-      .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(line, eq(line.id, station.lineId))
-      .where(of ? and(open, of) : open);
+      .innerJoin(workStation, eq(workStation.stationId, task.stationId))
+      .where(and(eq(task.setupOpen, true), of));
 
-    const unique = [
-      ...new Map(found.map((each) => [each.task.id, each.task])).values(),
-    ];
-
-    return (await this.whole(unique)).filter((each) =>
-      openSetupList(each.notes),
-    );
+    return this.whole(found.map((each) => each.task));
   }
 
   private async notesFor(taskIds: string[]): Promise<Map<string, NoteRow[]>> {
@@ -663,18 +764,19 @@ export class DrizzleTaskRepository implements TaskRepository {
         saved.notes.map((note, position) => ({
           taskId: saved.id.value,
           position,
-          station: note.station.value,
+          station: note.station?.value ?? null,
           stationId: note.stationId.value,
           body: note.body.value,
           at: note.at,
           anchor: note.anchor?.parts ?? null,
           answeredAt: note.answeredAt,
-          voice: note.voice.by,
+          voice: note.voice.kind,
           authorId: note.voice.author?.value ?? null,
           source: note.voice.source,
           coAuthorIds: note.voice.coAuthors.map((each) => each.value),
           runId: note.voice.run?.value ?? null,
           kind: note.kind,
+          closesConversation: saved.closesAConversationAt(note.position),
           readAt: note.readAt,
           acknowledgedAt: note.acknowledgedAt,
           form: note.form,
@@ -703,6 +805,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           approval: sql`excluded.approval`,
           failure: sql`excluded.failure`,
           connectionAsk: sql`excluded.connection_ask`,
+          closesConversation: sql`excluded.closes_conversation`,
         },
       });
   }

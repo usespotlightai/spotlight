@@ -4,6 +4,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { MarkdownCommentBodies } from '@change-review/infrastructure/rendering/markdown-comment-bodies';
 import type { StickyComment } from '@github/application/ports/pull-request-comments.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -14,15 +15,16 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-16T10:00:00Z');
 
-const ready = () =>
+const ready = (repository: string | null = null, run = 'run-1') =>
   ChangeStack.startGeneration({
-    id: ChangeStackId.of('stack-1'),
-    runId: RunId.of('run-1'),
+    id: ChangeStackId.of(`stack-${repository ?? 'only'}`),
+    runId: RunId.of(run),
     taskId: null,
-    replay: false,
-    isSearch: false,
+    teamOfRun: TeamId.of('team_1'),
+    trial: false,
+    checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
-    repository: null,
+    repository,
     base: null,
     request: null,
     diff: Diff.of([
@@ -43,7 +45,7 @@ const ready = () =>
         ],
       },
     ]),
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     now: NOW,
   }).propose(
     [
@@ -73,8 +75,10 @@ const unreachable = async (): Promise<never> => {
 const posting = (
   over: {
     pullRequest?: string | null;
+    pullRequests?: readonly string[];
+    stacks?: readonly { repository: string | null; run: string }[];
     failing?: 'run' | 'task' | 'connection' | 'upsert';
-    replay?: boolean;
+    trial?: boolean;
   } = {},
 ) => {
   const upserted: StickyComment[] = [];
@@ -82,24 +86,28 @@ const posting = (
     over.pullRequest === undefined
       ? 'https://github.com/acme/widgets/pull/66'
       : over.pullRequest;
+  const pullRequests = over.pullRequests ?? (pullRequest ? [pullRequest] : []);
 
   const poster = new PostChangeStackComment(
     {
-      latestForTask: async () => {
-        const stack = ready();
+      latestForTask: async () => null,
+      latestPerRepository: async () =>
+        (over.stacks ?? [{ repository: null, run: 'run-1' }]).map((each) => {
+          const stack = ready(each.repository, each.run);
 
-        return {
-          id: stack.id.value,
-          runId: stack.runId.value,
-          repository: stack.repository?.value ?? null,
-          state: stack.state,
-          cohorts: stack.cohorts,
-          check: null,
-          added: 0,
-          removed: 0,
-        };
-      },
+          return {
+            id: stack.id.value,
+            runId: stack.runId,
+            repository: stack.repository?.value ?? null,
+            state: stack.state,
+            cohorts: stack.cohorts,
+            check: null,
+            added: 0,
+            removed: 0,
+          };
+        }),
       ofRun: async () => [],
+      answerOf: async () => null,
     },
     {
       slugOf: async () => 'acme',
@@ -120,11 +128,11 @@ const posting = (
           ended: false,
           completed: false,
           decisions: false,
-          isReplay: over.replay ?? false,
-          isSearch: false,
+          trial: over.trial ?? false,
+          isolated: over.trial ?? false,
+          checkouts: 1,
         };
       },
-      wasClaimedBy: async () => true,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => {
@@ -136,7 +144,10 @@ const posting = (
           id: TaskId.of('task-1'),
           workspaceId: WorkspaceId.of('workspace-1'),
           teamId: TeamId.of('team-1'),
-          pullRequest: pullRequest ? PullRequestUrl.of(pullRequest) : null,
+          pullRequest: pullRequests[0]
+            ? PullRequestUrl.of(pullRequests[0])
+            : null,
+          pullRequests: pullRequests.map((each) => PullRequestUrl.of(each)),
           reviewing: false,
           currentRunId: null,
         };
@@ -162,6 +173,7 @@ const posting = (
       decisionsOf: ({ taskId }) =>
         `https://app.example/tasks/${taskId}#decisions`,
     },
+    new MarkdownCommentBodies(),
   );
 
   return { poster, upserted };
@@ -180,8 +192,58 @@ describe('PostChangeStackComment', () => {
     );
   });
 
-  it('never comments for a replay, whatever its run says of a task', async () => {
-    const { poster, upserted } = posting({ replay: true });
+  it('comments on the pull request of each stack’s repository', async () => {
+    const { poster, upserted } = posting({
+      pullRequests: [
+        'https://github.com/acme/widgets/pull/66',
+        'https://github.com/acme/Docs/pull/7',
+      ],
+      stacks: [
+        { repository: 'docs', run: 'run-2' },
+        { repository: 'widgets', run: 'run-1' },
+      ],
+    });
+
+    await poster.ofTask(TaskId.of('task-1'));
+
+    expect(upserted.map((each) => [each.pullRequest.value, each.body])).toEqual(
+      [
+        [
+          'https://github.com/acme/widgets/pull/66',
+          expect.stringContaining('https://app.example/runs/run-1/changes'),
+        ],
+        [
+          'https://github.com/acme/Docs/pull/7',
+          expect.stringContaining('https://app.example/runs/run-2/changes'),
+        ],
+      ],
+    );
+  });
+
+  it('puts a stack of a repository with no pull request of its own on the task’s first one only when that one has none', async () => {
+    const { poster, upserted } = posting({
+      pullRequests: [
+        'https://github.com/acme/widgets/pull/66',
+        'https://github.com/acme/docs/pull/7',
+      ],
+      stacks: [
+        { repository: 'infra', run: 'run-3' },
+        { repository: 'widgets', run: 'run-1' },
+      ],
+    });
+
+    await poster.ofTask(TaskId.of('task-1'));
+
+    expect(upserted.map((each) => each.pullRequest.value)).toEqual([
+      'https://github.com/acme/widgets/pull/66',
+    ]);
+    expect(upserted[0]?.body).toContain(
+      'https://app.example/runs/run-1/changes',
+    );
+  });
+
+  it('never comments for a trial, whatever its run says of a task', async () => {
+    const { poster, upserted } = posting({ trial: true });
 
     await poster.ofRun(RunId.of('run-1'));
 

@@ -12,15 +12,15 @@ export class WebReviewLinks implements ReviewLinksPort {
       'w',
       page.slug,
       'team',
-      page.teamId,
+      page.teamId.value,
       'runs',
-      page.runId,
+      page.runId.value,
       'changes',
     ]);
   }
 
   decisionsOf(page: DecisionsPage): string {
-    return `${this.at(['w', page.slug, 'team', page.teamId, 'tasks', page.taskId])}#decisions`;
+    return `${this.at(['w', page.slug, 'team', page.teamId.value, 'tasks', page.taskId.value])}#decisions`;
   }
 
   private at(parts: readonly string[]): string {

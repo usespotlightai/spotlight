@@ -1,3 +1,4 @@
+import type { SignupSurvey } from '@identity/domain/value-objects/signup-survey.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -16,5 +17,6 @@ export class WorkspaceCreated implements ConfigurationChanged {
       readonly name: TeamName;
     } | null,
     readonly change: ConfigurationChange,
+    readonly survey: SignupSurvey | null,
   ) {}
 }

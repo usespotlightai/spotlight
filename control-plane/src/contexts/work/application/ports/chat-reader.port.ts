@@ -1,7 +1,8 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { Progress } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/progress';
 
 export const CHAT_READER = Symbol('CHAT_READER');
 
@@ -73,6 +74,7 @@ interface ChatMessageView {
   readonly at: string;
   readonly author: ChatAuthorView | null;
   readonly runId: string | null;
+  readonly takenUpBy: string | null;
   readonly attachments: readonly ChatAttachmentView[];
   readonly traces: readonly ChatTraceView[];
   readonly proposal: ChatProposalView | null;
@@ -96,16 +98,24 @@ export interface SetupChatView {
   readonly ci: SetupCiView | null;
   readonly startedById: string;
   readonly startedBy: string;
+  readonly startedAt: Date;
+}
+
+export interface ChatOwnership {
+  readonly startedBy: UserId;
+  readonly teamId: TeamId;
 }
 
 export interface ChatReaderPort {
-  startedBy(teamId: TeamId, userId: UserId): Promise<ChatSummary[]>;
+  ownershipOf(chatId: ChatId): Promise<ChatOwnership | null>;
 
-  read(
+  startedBy(
     teamId: TeamId,
-    chatId: ChatId,
-    viewerId: UserId,
-  ): Promise<ChatView | null>;
+    userId: UserId,
+    page: PageRequest,
+  ): Promise<Page<ChatSummary>>;
 
-  setupOf(teamId: TeamId): Promise<SetupChatView | null>;
+  read(teamId: TeamId, chatId: ChatId): Promise<ChatView | null>;
+
+  setupChatsOf(teamId: TeamId): Promise<readonly SetupChatView[]>;
 }

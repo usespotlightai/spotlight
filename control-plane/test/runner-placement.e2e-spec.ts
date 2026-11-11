@@ -1,5 +1,5 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
+import { placementMatches } from '@runs/infrastructure/persistence/drizzle/placement-matches';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';

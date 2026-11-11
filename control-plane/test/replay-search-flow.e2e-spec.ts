@@ -3,7 +3,6 @@ import { AdvanceSearches } from '@replays/application/services/advance-searches.
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { LINE_CHANGED } from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { autoSearched } from './support/app';
@@ -55,6 +54,7 @@ import {
   turnedOff,
   WITHIN,
 } from './support/search-flow';
+import { lineChangedOf } from './support/stations';
 
 openSearchFlow();
 
@@ -104,7 +104,7 @@ describe('a search for a better station config', () => {
     }
     expect(
       (
-        (await owner().get(`${teamPath()}/runs`).expect(200)).body as {
+        (await owner().get(`${teamPath()}/runs`).expect(200)).body.items as {
           id: string;
         }[]
       ).some((each) => each.id === replayRun),
@@ -196,10 +196,16 @@ describe('a search for a better station config', () => {
       await bearing(agent.token)
         .get(`/api/runs/${agent.runId}/history?station=build`)
         .expect(200)
+    ).body as { runs: { taskId: string; runId: string }[] };
+    const view = (
+      await bearing(agent.token)
+        .get(`/api/runs/${agent.runId}/search-view`)
+        .expect(200)
     ).body as {
-      runs: { taskId: string; runId: string }[];
+      configs: { fingerprint: string; config: { harness: string } }[];
       candidates: {
         candidateName: string;
+        fingerprint: string;
         runs: {
           original: string;
           taskId: string;
@@ -210,20 +216,18 @@ describe('a search for a better station config', () => {
       seedBlock: { key: string };
     };
 
-    expect(history.seedBlock.key).toBe('build');
+    expect(view.seedBlock.key).toBe('build');
     expect(history.runs.some((each) => heldOutTaskIds.has(each.taskId))).toBe(
       false,
     );
-    expect(history.candidates.map((each) => each.candidateName)).toEqual([
-      'seed',
-    ]);
+    expect(view.candidates.map((each) => each.candidateName)).toEqual(['seed']);
     expect(
       [
-        ...new Set(history.candidates[0]?.runs.map((each) => each.original)),
+        ...new Set(view.candidates[0]?.runs.map((each) => each.original)),
       ].sort(),
     ).toEqual(searchedRuns);
     expect(
-      history.candidates[0]?.runs.every((each) => each.succeeded === true),
+      view.candidates[0]?.runs.every((each) => each.succeeded === true),
     ).toBe(true);
 
     const block = await liveBlock();
@@ -287,12 +291,10 @@ describe('a search for a better station config', () => {
         .where(eq(schema.replayCandidate.searchId, id)),
     ).toHaveLength(2);
 
-    await app.get(DispatchReplayRuns).processDue();
-    const bystander = await claimed();
-
-    if (!bystander) {
-      throw new Error('no replay run waited to be claimed');
-    }
+    const bystander = await eventually(async () => {
+      await app.get(DispatchReplayRuns).processDue();
+      return claimed();
+    }, WITHIN);
 
     const byStander = await bearing(bystander.token)
       .post(`/api/runs/${agent.runId}/search-candidates`, {
@@ -324,7 +326,7 @@ describe('a search for a better station config', () => {
 
     await endedSearchRun(agent);
     await eventually(
-      () => deliveredTo('work.end-runner-of-ended-run', 'runId', agent.runId),
+      () => deliveredTo('runs.end-runner-of-ended-run', 'runId', agent.runId),
       WITHIN,
     );
     for (const path of [
@@ -358,13 +360,18 @@ describe('a search for a better station config', () => {
         .get(`/api/runs/${second.runId}/history?station=build`)
         .expect(200)
     ).body as typeof history;
+    const laterView = (
+      await bearing(second.token)
+        .get(`/api/runs/${second.runId}/search-view`)
+        .expect(200)
+    ).body as typeof view;
 
-    expect(later.candidates.map((each) => each.candidateName)).toEqual([
+    expect(laterView.candidates.map((each) => each.candidateName)).toEqual([
       'seed',
       'in-order',
       'terse',
     ]);
-    for (const candidate of later.candidates) {
+    for (const candidate of laterView.candidates) {
       expect(
         [...new Set(candidate.runs.map((each) => each.original))].sort(),
       ).toEqual(searchedRuns);
@@ -373,15 +380,20 @@ describe('a search for a better station config', () => {
       ).toBe(false);
     }
     expect(
-      later.candidates[2]?.runs.every((each) => each.succeeded === false),
+      laterView.candidates[2]?.runs.every((each) => each.succeeded === false),
     ).toBe(true);
+    expect(laterView.configs.map((each) => each.fingerprint)).toEqual(
+      expect.arrayContaining(
+        laterView.candidates.map((each) => each.fingerprint),
+      ),
+    );
     expect(
-      later.candidates[2]?.runs.every(
+      laterView.candidates[2]?.runs.every(
         (each) => each.guidance === STUB_GUIDANCE,
       ),
     ).toBe(true);
     expect(
-      later.candidates[1]?.runs.every((each) => each.guidance === null),
+      laterView.candidates[1]?.runs.every((each) => each.guidance === null),
     ).toBe(true);
     expect(later.runs.some((each) => heldOutTaskIds.has(each.taskId))).toBe(
       false,
@@ -403,7 +415,13 @@ describe('a search for a better station config', () => {
     expect(
       current.candidates.find((each) => each.name === 'terse')?.heldOutReplayId,
     ).toBeNull();
-    expect(await originalsOf(heldOutReplayId)).toEqual(heldOutRuns);
+    expect(
+      await eventually(async () => {
+        const originals = await originalsOf(heldOutReplayId);
+
+        return originals.length > 0 && originals;
+      }, WITHIN),
+    ).toEqual(heldOutRuns);
 
     await drained(() => ({ score: 5, cost: 0.1 }));
     await eventually(async () => {
@@ -502,13 +520,7 @@ describe('a search for a better station config', () => {
       .update(schema.line)
       .set({ search: { ...(line?.search as object), enabled: false } as never })
       .where(eq(schema.line.id, DELIVERY));
-    await delivered({
-      kind: LINE_CHANGED,
-      lineId: DELIVERY,
-      workspaceId: team.workspaceId.value,
-      teamId: team.teamId.value,
-      stationIds: [BUILD],
-    } as never);
+    await delivered((await lineChangedOf(db, DELIVERY, [BUILD])) as never);
 
     expect((await searchRow(stopped.id))?.stopReason).toBe('turned-off');
     expect((await searchRow(stopped.id))?.state).toBe('stopped');
@@ -530,13 +542,7 @@ describe('a search for a better station config', () => {
         search: { ...(station?.search as object), enabled: false } as never,
       })
       .where(eq(schema.station.id, BUILD));
-    await delivered({
-      kind: LINE_CHANGED,
-      lineId: DELIVERY,
-      workspaceId: team.workspaceId.value,
-      teamId: team.teamId.value,
-      stationIds: [BUILD],
-    } as never);
+    await delivered((await lineChangedOf(db, DELIVERY, [BUILD])) as never);
 
     expect(await searchRow(again.id)).toMatchObject({
       state: 'stopped',

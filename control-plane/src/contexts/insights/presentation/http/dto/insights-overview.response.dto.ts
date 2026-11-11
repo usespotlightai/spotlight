@@ -6,7 +6,7 @@ import type {
   InsightsOverviewDto,
   StationWorthImprovingDto,
 } from '@insights/application/dto/insights.dto';
-import type { SignalReading } from '@insights/domain/services/station-ranking';
+import type { SignalReadingDto } from '@insights/application/dto/read-model.dto';
 import { STATION_SIGNALS } from '@insights/domain/services/station-ranking';
 import {
   DeltaResponseDto,
@@ -338,7 +338,7 @@ export class SignalReadingResponseDto {
   })
   readonly currency: string | null;
 
-  constructor(reading: SignalReading) {
+  constructor(reading: SignalReadingDto) {
     this.signal = reading.signal;
     this.now = reading.now;
     this.before = reading.before;

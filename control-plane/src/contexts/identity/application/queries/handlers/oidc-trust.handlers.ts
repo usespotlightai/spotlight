@@ -7,10 +7,10 @@ import type {
   ListOidcTrustResourcesQuery,
   ReadOidcTrustQuery,
 } from '@identity/application/queries/oidc-trust.queries';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReadOidcTrustHandler

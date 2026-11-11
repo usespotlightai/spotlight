@@ -8,6 +8,7 @@ import {
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
+import { RunnerEndedError } from '@runners/domain/exceptions/runner-ended.error';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
@@ -16,6 +17,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const later = (ms: number): Date => new Date(STARTED_AT.getTime() + ms);
@@ -86,7 +88,7 @@ describe('Runner', () => {
       RunnerAlreadyClaimedError,
     );
     expect(() => aRunner({ claimWithinMs: 1 }).claim(RUN, later(5))).toThrow(
-      RunnerAlreadyClaimedError,
+      RunnerEndedError,
     );
   });
 
@@ -96,7 +98,7 @@ describe('Runner', () => {
     expect(ended.hasEnded).toBe(true);
     expect(ended.isAlive(later(3))).toBe(false);
     expect(ended.ended(later(4))).toBe(ended);
-    expect(() => ended.heartbeat(later(5))).toThrow(RunnerAlreadyClaimedError);
+    expect(() => ended.heartbeat(later(5))).toThrow(RunnerEndedError);
   });
 
   it('is discarded when released before it claimed anything, and ended after', () => {
@@ -152,8 +154,8 @@ describe('Runner', () => {
   it('knows the work it leases', () => {
     const working = aRunner().claim(RUN, later(1));
 
-    expect(working.hasLeaseOn(RunnerWork.run('run_1'))).toBe(true);
-    expect(working.hasLeaseOn(RunnerWork.check('run_1'))).toBe(false);
+    expect(working.work?.equals(RunnerWork.run('run_1'))).toBe(true);
+    expect(working.work?.equals(RunnerWork.check('run_1'))).toBe(false);
   });
 
   it('takes the credential source of the pool or trust it started under, on the host that requested it', () => {
@@ -174,6 +176,16 @@ describe('Runner', () => {
 
   it('is started with no host when a pool provisioned it', () => {
     expect(aRunner({ host: null }).hostId).toBeNull();
+  });
+
+  it('records the sandbox it enters, which only a runner on a host can enter', () => {
+    expect(aRunner({ enters: 'sandbox_1' }).enters).toEqual(
+      SandboxId.of('sandbox_1'),
+    );
+    expect(aRunner().enters).toBeNull();
+    expect(() => aRunner({ host: null, enters: 'sandbox_1' })).toThrow(
+      InconsistentStateError,
+    );
   });
 
   it('is not started for a pool that is deleted, a trust that is deleted, nor with no time to claim', () => {

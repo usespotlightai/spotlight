@@ -1,28 +1,24 @@
-import { ChangeReviewModule } from '@change-review/change-review.module';
-import { ConfigurationModule } from '@configuration/configuration.module';
-import { InsightsModule } from '@insights/insights.module';
-import { IntegrationsModule } from '@integrations/integrations.module';
-import { MemoryModule } from '@memory/memory.module';
+import { ChangeReviewBindingsModule } from '@change-review/change-review.module';
+import { ConfigurationBindingsModule } from '@configuration/configuration.module';
+import { InsightsBindingsModule } from '@insights/insights.module';
+import { IntegrationsBindingsModule } from '@integrations/integrations.module';
+import { MemoryBindingsModule } from '@memory/memory.module';
 import { Global, Module } from '@nestjs/common';
-import { ReplaysModule } from '@replays/replays.module';
+import { ReplaysBindingsModule } from '@replays/replays.module';
+import { RunsBindingsModule } from '@runs/runs.module';
+import { WorkBindingsModule } from '@work/work.module';
+
+const BINDINGS = [
+  RunsBindingsModule,
+  WorkBindingsModule,
+  ConfigurationBindingsModule,
+  ChangeReviewBindingsModule,
+  IntegrationsBindingsModule,
+  MemoryBindingsModule,
+  InsightsBindingsModule,
+  ReplaysBindingsModule,
+];
 
 @Global()
-@Module({
-  imports: [
-    ConfigurationModule,
-    ChangeReviewModule,
-    IntegrationsModule,
-    MemoryModule,
-    InsightsModule,
-    ReplaysModule,
-  ],
-  exports: [
-    ConfigurationModule,
-    ChangeReviewModule,
-    IntegrationsModule,
-    MemoryModule,
-    InsightsModule,
-    ReplaysModule,
-  ],
-})
+@Module({ imports: BINDINGS, exports: BINDINGS })
 export class ContextBindingsModule {}

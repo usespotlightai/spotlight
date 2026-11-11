@@ -1,7 +1,11 @@
+import {
+  HANDOVER_TO_A_PERSON,
+  HANDOVER_TO_FINISH,
+  requestsAPerson,
+} from '@shared-kernel/domain/value-objects/handover-word';
+import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
-import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 export const MAX_HANDOVER_ATTACHMENTS = 10;
 
@@ -34,7 +38,7 @@ export class Handover {
 
   sentToReview(reason: string): Handover {
     return new Handover(
-      REVIEW,
+      HANDOVER_TO_A_PERSON,
       [reason.trim(), this.note === '' ? '' : `Note from the run: ${this.note}`]
         .filter(Boolean)
         .join('\n\n'),
@@ -43,11 +47,11 @@ export class Handover {
   }
 
   isDone(): boolean {
-    return this.next.toLowerCase() === DONE;
+    return this.next.toLowerCase() === HANDOVER_TO_FINISH;
   }
 
   requestsReview(): boolean {
-    return this.next === '' || this.next.toLowerCase() === REVIEW;
+    return requestsAPerson(this.next);
   }
 
   names(key: StationKey): boolean {

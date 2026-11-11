@@ -55,57 +55,59 @@ describe('Voice', () => {
 
   describe('read back from storage', () => {
     it('takes the three back apart', () => {
-      expect(Voice.of({ by: 'person', author: 'user_1' }).isPerson).toBe(true);
-      expect(Voice.of({ by: 'world' }).isWorld).toBe(true);
-      expect(Voice.of({ by: 'world', author: 'user_1' }).author?.value).toBe(
+      expect(Voice.of({ kind: 'person', author: 'user_1' }).isPerson).toBe(
+        true,
+      );
+      expect(Voice.of({ kind: 'world' }).isWorld).toBe(true);
+      expect(Voice.of({ kind: 'world', author: 'user_1' }).author?.value).toBe(
         'user_1',
       );
-      expect(Voice.of({ by: 'station', run: 'run_1' }).run?.value).toBe(
+      expect(Voice.of({ kind: 'station', run: 'run_1' }).run?.value).toBe(
         'run_1',
       );
     });
 
     it('rejects a person nobody can name', () => {
-      expect(() => Voice.of({ by: 'person' })).toThrow(InvalidVoiceError);
+      expect(() => Voice.of({ kind: 'person' })).toThrow(InvalidVoiceError);
     });
 
     it('takes back the integration the world spoke through', () => {
-      expect(Voice.of({ by: 'world', source: 'slack' }).source).toBe('slack');
+      expect(Voice.of({ kind: 'world', source: 'slack' }).source).toBe('slack');
     });
 
     it('rejects a source on a voice that is not the world’s', () => {
       expect(() =>
-        Voice.of({ by: 'person', author: 'user_1', source: 'slack' }),
+        Voice.of({ kind: 'person', author: 'user_1', source: 'slack' }),
       ).toThrow(InvalidVoiceError);
     });
 
     it('rejects a name on a voice the station spoke', () => {
-      expect(() => Voice.of({ by: 'station', author: 'user_1' })).toThrow(
+      expect(() => Voice.of({ kind: 'station', author: 'user_1' })).toThrow(
         InvalidVoiceError,
       );
     });
 
     it('takes back the co-authors of a person', () => {
       expect(
-        Voice.of({ by: 'person', author: 'user_1', coAuthors: ['user_2'] })
+        Voice.of({ kind: 'person', author: 'user_1', coAuthors: ['user_2'] })
           .coAuthors[0]?.value,
       ).toBe('user_2');
     });
 
     it('rejects co-authors on a voice that is not a person’s', () => {
-      expect(() => Voice.of({ by: 'station', coAuthors: ['user_2'] })).toThrow(
-        InvalidVoiceError,
-      );
+      expect(() =>
+        Voice.of({ kind: 'station', coAuthors: ['user_2'] }),
+      ).toThrow(InvalidVoiceError);
     });
 
     it('rejects a run behind a voice the station did not speak', () => {
-      expect(() => Voice.of({ by: 'world', run: 'run_1' })).toThrow(
+      expect(() => Voice.of({ kind: 'world', run: 'run_1' })).toThrow(
         InvalidVoiceError,
       );
     });
 
     it('rejects a voice that it does not know', () => {
-      expect(() => Voice.of({ by: 'nobody' })).toThrow(InvalidVoiceError);
+      expect(() => Voice.of({ kind: 'nobody' })).toThrow(InvalidVoiceError);
     });
   });
 });

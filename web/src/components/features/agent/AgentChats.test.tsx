@@ -8,6 +8,8 @@ import type { ChatSummary } from '@/lib/chat';
 const chats = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
+const older = vi.fn();
+const load = vi.fn();
 
 vi.mock('@/hooks/api/useChats', () => ({
   useChats: () => ({
@@ -16,6 +18,7 @@ vi.mock('@/hooks/api/useChats', () => ({
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
     refetch,
+    more: { available: older(), loading: false, load },
   }),
 }));
 
@@ -47,6 +50,8 @@ const showing = () =>
 beforeEach(() => {
   chats.mockReturnValue([chat]);
   failing.mockReturnValue(false);
+  older.mockReturnValue(false);
+  load.mockClear();
   refetch.mockClear();
 });
 

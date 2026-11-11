@@ -108,6 +108,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     teamId: workspaceId,
     title: 'Drain the queue',
     pullRequest: null,
+    pullRequests: [],
     line: 'delivery',
     station: 'Implementation',
     stationKey: 'implementation',
@@ -213,7 +214,10 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
       secretBoundTo('api.linear.app'),
     );
 
-    await expect(comment()).resolves.toBe('https://linear.app/c/1');
+    await expect(comment()).resolves.toEqual({
+      outcome: 'answered',
+      output: 'https://linear.app/c/1',
+    });
 
     const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://api.linear.app/graphql');
@@ -235,9 +239,10 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
       ),
     );
 
-    await expect(comment()).resolves.toBe(
-      'https://linear.app/c/1?key=[secret]',
-    );
+    await expect(comment()).resolves.toEqual({
+      outcome: 'answered',
+      output: 'https://linear.app/c/1?key=[secret]',
+    });
 
     const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
     expect(new URL(url).searchParams.get('key')).toBe(VALUE);
@@ -301,8 +306,14 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
       secretBoundTo('api.linear.app'),
     );
 
-    await expect(comment('run_8', 1)).resolves.toBe('https://linear.app/c/1');
-    await expect(comment('run_8', 2)).resolves.toBe('https://linear.app/c/1');
+    await expect(comment('run_8', 1)).resolves.toEqual({
+      outcome: 'answered',
+      output: 'https://linear.app/c/1',
+    });
+    await expect(comment('run_8', 2)).resolves.toEqual({
+      outcome: 'answered',
+      output: 'https://linear.app/c/1',
+    });
     await expect(comment('run_8', 1)).rejects.toThrow(/for attempt 1 is over/);
     expect(fetch).toHaveBeenCalledTimes(2);
 
@@ -322,11 +333,17 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
       secretBoundTo('api.linear.app'),
     );
 
-    await expect(comment('run_9', 1)).resolves.toBe('https://linear.app/c/1');
+    await expect(comment('run_9', 1)).resolves.toEqual({
+      outcome: 'answered',
+      output: 'https://linear.app/c/1',
+    });
     await grants.leaseLost({ workspaceId, runId: 'run_9', attempt: 1 });
 
     await expect(comment('run_9', 1)).rejects.toThrow(/for attempt 1 is over/);
-    await expect(comment('run_9', 2)).resolves.toBe('https://linear.app/c/1');
+    await expect(comment('run_9', 2)).resolves.toEqual({
+      outcome: 'answered',
+      output: 'https://linear.app/c/1',
+    });
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
@@ -357,7 +374,13 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
       secretBoundTo('uploads.linear.app'),
     );
 
-    await expect(comment()).rejects.toThrow(/not bound to https:\/\/api/);
+    await expect(comment()).resolves.toEqual({
+      outcome: 'failed',
+      failure: {
+        blocked: true,
+        reason: 'Secret LINEAR_API_KEY is not bound to https://api.linear.app.',
+      },
+    });
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -381,6 +404,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
           accessToken: 'xoxb-encrypted-1',
           refreshToken: 'xoxe-encrypted-1',
         }),
+        at: new Date('2026-09-01T00:00:00.000Z'),
       }),
     );
 

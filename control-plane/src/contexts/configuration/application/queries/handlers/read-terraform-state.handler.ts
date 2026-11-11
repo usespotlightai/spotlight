@@ -1,7 +1,7 @@
 import type { StateRead } from '@configuration/application/dto/terraform-state-outcomes.dto';
 import type { TerraformStateBodiesPort } from '@configuration/application/ports/terraform-state-bodies.port';
+import type { TerraformStateReaderPort } from '@configuration/application/ports/terraform-state-reader.port';
 import type { ReadTerraformStateQuery } from '@configuration/application/queries/read-terraform-state.query';
-import type { TerraformStateRepository } from '@configuration/domain/repositories/terraform-state.repository';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
@@ -14,7 +14,7 @@ export class ReadTerraformStateHandler
 {
   constructor(
     private readonly access: WorkspaceAccessPort,
-    private readonly states: TerraformStateRepository,
+    private readonly states: TerraformStateReaderPort,
     private readonly bodies: TerraformStateBodiesPort,
   ) {}
 
@@ -33,17 +33,16 @@ export class ReadTerraformStateHandler
         return forbiddenTo('plan');
       }
 
-      const state = await this.states.named(
+      const latest = await this.states.latestOf(
         permissions.workspaceId,
         StateName.of(query.name),
       );
-      const latest = state?.latest;
 
-      if (!state || !latest) {
+      if (!latest) {
         return { outcome: 'empty' };
       }
 
-      const body = await this.bodies.read(state, latest);
+      const body = await this.bodies.read(latest.at);
 
       if (!body) {
         throw new InconsistentStateError(

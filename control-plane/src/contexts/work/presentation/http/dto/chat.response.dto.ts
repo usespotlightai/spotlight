@@ -6,6 +6,7 @@ import {
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { InboxAuthorResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
+import { pageResponseOf } from '@work/presentation/http/paging';
 
 export class ChatSetupResponseDto {
   @ApiProperty({ example: 'acme/infra' })
@@ -257,6 +258,13 @@ export class ChatMessageResponseDto {
   })
   readonly runId: string | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'The run that took up this message',
+  })
+  readonly takenUpBy: string | null;
+
   @ApiProperty({ type: AttachmentResponseDto, isArray: true })
   readonly attachments: readonly AttachmentResponseDto[];
 
@@ -277,6 +285,7 @@ export class ChatMessageResponseDto {
     at: string,
     author: InboxAuthorResponseDto | null,
     runId: string | null,
+    takenUpBy: string | null,
     attachments: readonly AttachmentResponseDto[],
     traces: readonly ChatTraceResponseDto[],
     proposal: ChatProposalResponseDto | null,
@@ -287,6 +296,7 @@ export class ChatMessageResponseDto {
     this.at = at;
     this.author = author;
     this.runId = runId;
+    this.takenUpBy = takenUpBy;
     this.attachments = attachments;
     this.traces = traces;
     this.proposal = proposal;
@@ -326,3 +336,7 @@ export class ChatResponseDto extends ChatSummaryResponseDto {
     this.messages = messages;
   }
 }
+
+export const ChatSummaryPageResponseDto = pageResponseOf(
+  ChatSummaryResponseDto,
+);

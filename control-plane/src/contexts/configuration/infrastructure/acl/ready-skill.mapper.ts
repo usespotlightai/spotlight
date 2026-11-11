@@ -1,8 +1,8 @@
-import type { SkillFolder } from '@configuration/application/ports/skill-reader.port';
+import type { ReadSkillFolder } from '@configuration/application/ports/skill-folders.port';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 
 export const ReadySkillMapper = {
-  toReady(folder: SkillFolder): ReadySkillFolder {
+  toReady(folder: ReadSkillFolder): ReadySkillFolder {
     return {
       skill: {
         key: folder.skill.key.value,

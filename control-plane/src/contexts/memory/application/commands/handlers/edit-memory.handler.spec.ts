@@ -1,11 +1,9 @@
 import { EditMemoryCommand } from '@memory/application/commands/edit-memory.command';
 import { EditMemoryHandler } from '@memory/application/commands/handlers/edit-memory.handler';
-import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
-import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
@@ -45,22 +43,18 @@ const editing = (member = true) => {
     save: vi.fn(),
   };
   const work = {
-    linesOf: async () => [],
     reasoning: async () => null,
     notesOf: async () => null,
   } as unknown as WorkPort;
   const people = {
-    memberOf: async () => (member ? { workspaceId: WORKSPACE, by: ADA } : null),
+    viewerOf: async () => (member ? { workspaceId: WORKSPACE, by: ADA } : null),
     find: async () => ({ name: 'Ada', image: null }),
   } as unknown as PeoplePort;
   const repository = memories as unknown as MemoryRepository;
   const handler = new EditMemoryHandler(
     new MemoryAccess(people, work),
-    new TeamMemoryLoader(repository, work),
+    new TeamMemoryLoader(repository, { ofTeam: async () => [] }),
     repository,
-    new TeamMemoryViews(repository, work, people, {
-      runsUsing: async () => new Map(),
-    } as unknown as MemoryUsesPort),
     { generate: () => 'memory_new' },
     { now: () => NOW, sleep: async () => undefined },
   );
@@ -88,7 +82,8 @@ describe('EditMemoryHandler', () => {
 
     const edited = await edit();
 
-    expect(edited.supersedes).toBe(OLD.id.value);
+    expect(edited).toBe('memory_new');
+    expect(added[0]?.supersedes?.equals(OLD.id)).toBe(true);
     expect(memories.save).not.toHaveBeenCalled();
     expect(added).toHaveLength(1);
     expect(added[0]?.pullEvents()).toEqual([

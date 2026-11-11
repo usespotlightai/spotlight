@@ -5,8 +5,3 @@ export const DELIVERING = Retry.backoff({
   initialDelayMs: 2_000,
   maxDelayMs: 60 * 60 * 1000,
 });
-
-export const MAX_DELIVERY_ATTEMPTS = DELIVERING.maxAttempts;
-
-export const nextDeliveryAttempt = (attempts: number, now: Date): Date | null =>
-  DELIVERING.nextAttemptAt(attempts, now);

@@ -1,7 +1,6 @@
 import type { CheckingPlan } from '@change-review/domain/value-objects/check-request.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -16,13 +15,24 @@ export interface RunForReview {
   readonly ended: boolean;
   readonly completed: boolean;
   readonly decisions: boolean;
-  readonly isReplay: boolean;
-  readonly isSearch: boolean;
+  readonly trial: boolean;
+  readonly isolated: boolean;
+  readonly checkouts: number;
 }
+
+const REASONED_STEP_KINDS = [
+  'message',
+  'thought',
+  'planned',
+  'handover',
+  'remember',
+] as const;
+
+type ReasonedStepKind = (typeof REASONED_STEP_KINDS)[number];
 
 export interface ReasonedStep {
   readonly index: number;
-  readonly kind: string;
+  readonly kind: ReasonedStepKind;
   readonly text: string;
 }
 
@@ -36,6 +46,7 @@ export interface ReviewedTask {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId | null;
   readonly pullRequest: PullRequestUrl | null;
+  readonly pullRequests: readonly PullRequestUrl[];
   readonly reviewing: boolean;
   readonly currentRunId: RunId | null;
 }
@@ -44,8 +55,6 @@ export interface WorkPort {
   run(runId: RunId): Promise<RunForReview | null>;
 
   teamOfRun(runId: RunId): Promise<TeamId | null>;
-
-  wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
 
   reasoning(runId: RunId): Promise<RunReasoning | null>;
 

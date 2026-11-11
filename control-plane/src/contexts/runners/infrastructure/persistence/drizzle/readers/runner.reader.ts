@@ -9,6 +9,7 @@ import type {
 } from '@runners/application/ports/runner-reader.port';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import {
   runner,
@@ -21,7 +22,7 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, gt, isNotNull, isNull, ne, or } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
 
 const sourceOf = (row: {
   poolId: string | null;
@@ -31,8 +32,6 @@ const sourceOf = (row: {
   row.poolId !== null
     ? { kind: 'pool', key: row.poolKey }
     : { kind: 'trust', key: row.trustKey };
-
-const PLATFORM = 'spotlight';
 
 @Injectable()
 export class DrizzleRunnerReader implements RunnerReaderPort {
@@ -62,20 +61,24 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
   }
 
   async hasEgressCapableRunner(workspaceId: WorkspaceId): Promise<boolean> {
-    const [egressPool] = await this.db
-      .select({ id: runnerPool.id })
+    const egressPools = await this.db
+      .select({ egress: runnerPool.provisionEgress })
       .from(runnerPool)
       .where(
         and(
           eq(runnerPool.workspaceId, workspaceId.value),
           isNotNull(runnerPool.provisionUrl),
           isNotNull(runnerPool.provisionEgress),
-          this.platform ? undefined : ne(runnerPool.provisionEgress, PLATFORM),
         ),
-      )
-      .limit(1);
+      );
 
-    if (egressPool) {
+    if (
+      egressPools.some(
+        (row) =>
+          row.egress !== null &&
+          EgressReference.of(row.egress).usableWith(this.platform),
+      )
+    ) {
       return true;
     }
 

@@ -1,8 +1,9 @@
 import { CHANGE_REVIEW_EVENT_MAPPERS } from '@change-review/application/integration-events/change-review.event-mappers';
-import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import { ChangeStackReady } from '@change-review/domain/events/change-stack-ready.event';
-import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
+import { ChangeStackBecameReady } from '@change-review/domain/events/change-stack-became-ready.event';
+import { StackChecked } from '@change-review/domain/events/stack-checked.event';
+import { TrialStackSettled } from '@change-review/domain/events/trial-stack-settled.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -10,14 +11,14 @@ import { describe, expect, it } from 'vitest';
 
 describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
   it('publishes whether a run’s change passed its checks, and for which task', () => {
-    const checked = new ChangeStackChecked(
-      ChangeStackId.of('stack_1'),
+    const checked = new StackChecked(
+      StackCheckId.of(ChangeStackId.of('stack_1'), false),
       RunId.of('run_1'),
       TaskId.of('task_1'),
       WorkspaceId.of('ws_1'),
       false,
       false,
-      false,
+      new Date('2026-10-02T09:30:00.000Z'),
     );
 
     expect(
@@ -31,11 +32,12 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
         taskId: 'task_1',
         workspaceId: 'ws_1',
         passed: false,
+        at: '2026-10-02T09:30:00.000Z',
       },
     ]);
   });
   it('publishes what the change cohorts of a run’s stack set out to do, leaving incidental ones out', () => {
-    const ready = new ChangeStackReady(
+    const ready = new ChangeStackBecameReady(
       ChangeStackId.of('stack_1'),
       RunId.of('run_1'),
       TaskId.of('task_1'),
@@ -68,15 +70,15 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a replay’s checked change as its own, never as a task’s', () => {
-    const checked = new ChangeStackChecked(
-      ChangeStackId.of('stack_1'),
+  it('publishes a trial’s checked change as its own, never as a task’s', () => {
+    const checked = new StackChecked(
+      StackCheckId.of(ChangeStackId.of('stack_1'), false),
       RunId.of('replay_1'),
       null,
       WorkspaceId.of('ws_1'),
       true,
       true,
-      false,
+      new Date('2026-10-02T09:30:00.000Z'),
     );
 
     expect(
@@ -85,7 +87,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       ).map((each) => each.map(checked, new Date())),
     ).toEqual([
       {
-        kind: 'change-review.replay-change-checked.v1',
+        kind: 'change-review.trial-change-checked.v1',
         runId: 'replay_1',
         workspaceId: 'ws_1',
         passed: true,
@@ -93,15 +95,15 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a recheck of a replay’s change apart from its first check', () => {
-    const rechecked = new ChangeStackChecked(
-      ChangeStackId.of('stack_1'),
+  it('publishes a recheck of a trial’s change apart from its first check', () => {
+    const rechecked = new StackChecked(
+      StackCheckId.of(ChangeStackId.of('stack_1'), true),
       RunId.of('replay_1'),
       null,
       WorkspaceId.of('ws_1'),
       false,
       true,
-      true,
+      new Date('2026-10-02T09:30:00.000Z'),
     );
 
     expect(
@@ -110,7 +112,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       ).map((each) => each.map(rechecked, new Date())),
     ).toEqual([
       {
-        kind: 'change-review.replay-change-rechecked.v1',
+        kind: 'change-review.trial-change-rechecked.v1',
         runId: 'replay_1',
         workspaceId: 'ws_1',
         passed: false,
@@ -118,8 +120,8 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes that a replay’s stack completed, so its replay can take it up', () => {
-    const completed = new ReplayStackCompleted(
+  it('publishes that a trial’s stack completed, so its trial can take it up', () => {
+    const completed = new TrialStackSettled(
       ChangeStackId.of('stack_1'),
       RunId.of('replay_1'),
       WorkspaceId.of('ws_1'),
@@ -131,7 +133,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       ).map((each) => each.map(completed, new Date())),
     ).toEqual([
       {
-        kind: 'change-review.replay-stack-completed.v1',
+        kind: 'change-review.trial-stack-settled.v1',
         runId: 'replay_1',
         workspaceId: 'ws_1',
       },

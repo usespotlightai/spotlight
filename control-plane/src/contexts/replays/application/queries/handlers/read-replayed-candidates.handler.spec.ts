@@ -10,7 +10,7 @@ import {
 } from '@replays/application/services/replayed-candidates.fake-spec';
 import {
   accessFor,
-  FakeWork,
+  FakeSuppliers,
   InMemoryConfigPullRequests,
   InMemoryReplays,
   PERSON,
@@ -29,10 +29,12 @@ import {
   STATION,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -50,18 +52,18 @@ let now: Date;
 let pullRequests: InMemoryConfigPullRequests;
 
 const read = (period = '30d', mayPlan: boolean | null = false) => {
-  const work = new FakeWork();
+  const suppliers = new FakeSuppliers();
 
   return new ReadReplayedCandidatesHandler(
-    accessFor(memory, work, mayPlan),
-    memory.replayRepository,
-    memory.searchRepository,
-    memory.setRepository,
-    memory.candidateRepository,
-    pullRequests,
-    work,
+    accessFor(memory, suppliers, mayPlan),
+    memory.readerOver(pullRequests),
+    suppliers.trialableRuns,
     { now: () => now, sleep: async () => {} },
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    new SetHealths(
+      suppliers.configs,
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
   ).execute(
     new ReadReplayedCandidatesQuery(STATION.teamId.value, PERSON, period),
   );
@@ -162,7 +164,7 @@ describe('ReadReplayedCandidatesHandler', () => {
         remove: [],
       },
       NOW,
-      false,
+      SetUsers.none(),
     );
     const theirs = Candidate.live({
       ...made,
@@ -214,7 +216,7 @@ describe('ReadReplayedCandidatesHandler', () => {
         candidateId: CandidateId.of('candidate_terse'),
         station: STATION,
         stationKey: 'build',
-        candidateName: 'terse',
+        candidateName: CandidateName.rehydrate('terse'),
         lineKey: 'delivery',
         source: null,
         at: NOW,

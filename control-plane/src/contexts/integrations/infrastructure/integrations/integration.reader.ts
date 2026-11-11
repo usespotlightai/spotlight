@@ -1,24 +1,43 @@
-import type { ReadIntegrations } from '@configuration/application/ports/integration-reader.port';
-import { ToolDeclarationMapper } from '@integrations/application/mappers/tool-declaration.mapper';
+import type { DeclaredTool } from '@integrations/application/dto/declared-tool.dto';
+import { DeclaredToolMapper } from '@integrations/application/mappers/declared-tool.mapper';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
+import type { ToolDeclarationsPort } from '@integrations/application/ports/tool-declarations.port';
 import { generatedTools } from '@integrations/domain/services/generated-tools';
+import type { ActsAsKind } from '@integrations/domain/value-objects/acts-as.vo';
+import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
+import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
   type Compiled,
   compileIntegration,
   type ReadableIntegration,
+  type SecretReferenceAt,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import type { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import type { ToolDeclaration } from '@work/application/contracts/tools.contract';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
-type ReadIntegration = Omit<
-  ReadIntegrations['integrations'][number],
-  'connected' | 'linkedAccount'
->;
+interface ReadSpec {
+  readonly kind: ApiSpecKind;
+  readonly tools: number;
+  readonly readAt: Date;
+  readonly problem: string | null;
+}
+
+interface ReadIntegration {
+  readonly integration: string;
+  readonly path: string;
+  readonly name: string;
+  readonly requiresConnection: boolean;
+  readonly actsAs: ActsAsKind;
+  readonly credentials: readonly SecretName[];
+  readonly spec: ReadSpec | null;
+}
 
 export interface ReadDefinitions {
   readonly integrations: readonly ReadIntegration[];
@@ -33,7 +52,17 @@ export interface FoundTool {
 
 const MAX_COMPILED = 500;
 
-export class IntegrationReader {
+const offeredBy = (
+  integration: Integration,
+  defined: DefinedIntegration,
+): OfferedTools =>
+  OfferedTools.listed(
+    integration,
+    defined.tools.map((tool) => ToolName.rehydrate(tool)),
+    defined.generatedFrom ? ContentHash.of(defined.generatedFrom) : null,
+  );
+
+export class IntegrationReader implements ToolDeclarationsPort {
   readonly #compiled = new Map<string, Compiled>();
 
   constructor(
@@ -50,7 +79,6 @@ export class IntegrationReader {
           const defined = definitions.find(
             (each) => each.integration === integration.key.value,
           );
-          const handWritten = integration.tools.map((each) => each.tool);
 
           return {
             integration: integration.key.value,
@@ -63,9 +91,7 @@ export class IntegrationReader {
               apiSpec && defined?.reading
                 ? {
                     kind: apiSpec.spec.kind,
-                    tools: defined.tools.filter(
-                      (each) => !handWritten.includes(each),
-                    ).length,
+                    tools: offeredBy(integration, defined).generatedCount,
                     readAt: defined.reading.readAt,
                     problem: defined.reading.problem,
                   }
@@ -98,52 +124,64 @@ export class IntegrationReader {
     return { integrations, problems };
   }
 
+  offered(definitions: readonly DefinedIntegration[]): readonly OfferedTools[] {
+    return definitions.flatMap((defined) => {
+      const compiled = this.compiledOf(defined);
+
+      return compiled.ok
+        ? [offeredBy(compiled.readable.integration, defined)]
+        : [];
+    });
+  }
+
   async providedTool(
     definitions: readonly DefinedIntegration[],
     tool: string,
   ): Promise<FoundTool | null> {
-    const integration = tool.slice(0, tool.indexOf('.'));
-    const name = tool.slice(tool.indexOf('.') + 1);
-    const defined = definitions.find(
-      (each) => each.integration === integration,
-    );
-    const compiled = defined?.tools.includes(tool)
-      ? this.compiledOf(defined)
-      : null;
+    const named = ToolName.parsed(tool);
+    const defined = named
+      ? definitions.find((each) => each.integration === named.integration.value)
+      : undefined;
+    const compiled = defined ? this.compiledOf(defined) : null;
 
-    if (!defined || !compiled?.ok) {
+    if (!named || !defined || !compiled?.ok) {
       return null;
     }
 
     const readable = compiled.readable;
-    const written = readable.integration.providedTool(tool);
+    const source = offeredBy(readable.integration, defined).sourceOf(named);
 
-    if (written) {
-      return { readable, tool: written, operation: null };
+    if (source.kind === 'written') {
+      return { readable, tool: source.tool, operation: null };
     }
 
-    if (!defined.generatedFrom || !readable.apiSpec) {
-      return null;
-    }
-
-    const hash = ContentHash.of(defined.generatedFrom);
-    const operation = await this.operations.of(hash, name);
-    const [provided] = operation
-      ? generatedTools({
-          integration: readable.integration.key,
-          integrationName: readable.integration.name,
-          spec: readable.apiSpec.spec,
-          hash,
-          operations: [operation],
-          filter: readable.apiSpec.filter,
-          approvals: readable.apiSpec.approvals,
-          handWritten: [...readable.tools.keys()],
-        }).tools
-      : [];
+    const operation =
+      source.kind === 'generated' && readable.apiSpec
+        ? await this.operations.of(source.from, named.name)
+        : null;
+    const [provided] =
+      operation && readable.apiSpec && source.kind === 'generated'
+        ? generatedTools({
+            integration: readable.integration.key,
+            integrationName: readable.integration.name,
+            spec: readable.apiSpec.spec,
+            hash: source.from,
+            operations: [operation],
+            filter: readable.apiSpec.filter,
+            approvals: readable.apiSpec.approvals,
+            handWritten: [...readable.tools.keys()],
+          }).tools
+        : [];
 
     return operation && provided
       ? { readable, tool: provided, operation }
       : null;
+  }
+
+  secretReferencesOf(
+    defined: DefinedIntegration,
+  ): readonly SecretReferenceAt[] {
+    return this.compiledOf(defined).secretReferences;
   }
 
   private compiledOf(defined: DefinedIntegration): Compiled {
@@ -171,7 +209,7 @@ export class IntegrationReader {
   async declared(
     definitions: readonly DefinedIntegration[],
     tools: readonly string[],
-  ): Promise<readonly ToolDeclaration[]> {
+  ): Promise<readonly DeclaredTool[]> {
     const providedTools = [];
 
     for (const tool of tools) {
@@ -180,12 +218,7 @@ export class IntegrationReader {
 
     return providedTools.flatMap((each) =>
       each
-        ? [
-            ToolDeclarationMapper.toDeclaration(
-              each.tool,
-              each.readable.integration.name,
-            ),
-          ]
+        ? [DeclaredToolMapper.of(each.tool, each.readable.integration.name)]
         : [],
     );
   }

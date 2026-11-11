@@ -4,7 +4,7 @@ import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/co
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class ConfigPullRequestRequested implements ConfigurationChanged {
-  readonly kind = 'replays.config-pull-request-requested';
+  readonly kind = 'config-pull-request.requested';
 
   constructor(
     readonly pullRequestId: ConfigPullRequestId,

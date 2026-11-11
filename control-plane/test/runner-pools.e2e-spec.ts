@@ -5,21 +5,23 @@ import {
   CHANGE_STACK_READER,
   type ChangeStackReaderPort,
 } from '@change-review/application/ports/change-stack-reader.port';
+import { checkReasonText } from '@change-review/application/rendering/check-reason.text';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import { DrizzleUsedPoolTokensRepository } from '@runners/infrastructure/persistence/drizzle/repositories/used-pool-tokens.repository';
+import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
+import { DrizzleUsedTokens } from '@runners/infrastructure/persistence/drizzle/ledgers/used-tokens.ledger';
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
+import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -37,6 +39,7 @@ import { eventually } from './support/eventually';
 import { definitionOf } from './support/line-definition';
 import { E2E_LONG_POLL_MS } from './support/long-poll';
 import { deleteRunnersOf } from './support/runners';
+import { requestedBySpec } from './support/runs';
 import * as schema from './support/schema';
 import { listSetUp, seatTeam } from './support/team';
 
@@ -118,6 +121,7 @@ describe('runner pools (e2e)', () => {
     const id = randomUUID();
 
     await db.insert(schema.run).values({
+      ...requestedBySpec(id),
       id,
       workspaceId,
       harness: 'dev',
@@ -128,7 +132,7 @@ describe('runner pools (e2e)', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        resume: { key: `task:${id}` },
+        resume: {},
       },
     });
 
@@ -140,7 +144,9 @@ describe('runner pools (e2e)', () => {
       .get<ChangeStackReaderPort>(CHANGE_STACK_READER)
       .ofRun(RunId.of(runId), UserId.of('nobody'), new Date());
 
-    return stack?.check ?? null;
+    return stack?.check
+      ? { ...stack.check, reason: checkReasonText(stack.check) }
+      : null;
   };
 
   const claimWith = (token: string, host = HOST, image = DEFAULT_IMAGE) =>
@@ -519,16 +525,16 @@ describe('runner pools (e2e)', () => {
         tokenVersion: 2,
       }).expect(200);
       const context = new DrizzleContext(db);
-      const usedTokens = new DrizzleUsedPoolTokensRepository(context);
+      const usedTokens = new DrizzleUsedTokens(context);
 
       await expect(
         context.inTransaction(() =>
-          usedTokens.recordUse(
+          usedTokens.record(
             TokenHash.of(sha256Of(token)),
-            RunnerPoolId.of(randomUUID()),
+            TokenHolder.pool(PoolId.of(randomUUID())),
           ),
         ),
-      ).rejects.toBeInstanceOf(PoolTokenAlreadyUsedError);
+      ).resolves.toBe(false);
       expect(
         await db
           .select()
@@ -553,8 +559,8 @@ describe('runner pools (e2e)', () => {
 
       const used = await db
         .select()
-        .from(schema.poolToken)
-        .where(eq(schema.poolToken.poolId, made.body.id));
+        .from(schema.usedToken)
+        .where(eq(schema.usedToken.holderId, made.body.id));
 
       expect(used.map((each) => each.tokenHash).sort()).toEqual(
         [sha256Of(first), sha256Of(second)].sort(),
@@ -619,6 +625,7 @@ describe('runner pools (e2e)', () => {
         startedById: owner,
         title: 'Set up our configuration.',
         harness: 'claude-code',
+        repositories: ['acme/infra'],
         setup: {
           repository: 'acme/infra',
           folder: 'spotlight',
@@ -1014,6 +1021,7 @@ describe('runner pools (e2e)', () => {
         }).expect(201);
         const withSecrets = randomUUID();
         await db.insert(schema.run).values({
+          ...requestedBySpec(withSecrets),
           id: withSecrets,
           workspaceId,
           harness: 'dev',
@@ -1023,7 +1031,7 @@ describe('runner pools (e2e)', () => {
             command: { executable: 'sh', args: [] },
             briefing: 'do the thing',
             handover: { options: [], noteLimit: 0 },
-            resume: { key: `task:${withSecrets}` },
+            resume: {},
             injectedSecrets: ['LINEAR_API_KEY'],
           },
         });
@@ -1084,13 +1092,22 @@ describe('runner pools (e2e)', () => {
         return written.length === 5 ? written : null;
       });
 
-      expect(failed.message).toContain('unreachable');
+      expect(failed.detail).toContain('unreachable');
       expect(failed.provisionAttempts).toBe(5);
-      expect(steps.map((each) => [each.type, each.message, each.seq])).toEqual(
-        [-1, -2, -3, -4, -5].map((seq) => [
+      expect(
+        steps
+          .map((each) => [
+            each.type,
+            JSON.parse(Buffer.from(each.data ?? '', 'base64').toString('utf8'))
+              .failure,
+            each.seq,
+          ])
+          .sort((a, b) => Number(b[2]) - Number(a[2])),
+      ).toEqual(
+        [0, 1, 2, 3, 4].map((back) => [
           'provision.failed',
-          'Provisioning failed · unreachable',
-          seq,
+          'unreachable',
+          JournalSeq.firstControlPlane - back,
         ]),
       );
     }, 30_000);
@@ -1114,9 +1131,9 @@ describe('runner pools (e2e)', () => {
         expect(sent.data).toMatchObject({
           kind: 'check',
           stackId,
-          taskId: null,
           labels: ['sandbox'],
         });
+        expect(sent.data).not.toHaveProperty('taskId');
 
         const oneRun = sent.data.runner.token as string;
         await http()

@@ -7,7 +7,7 @@ export class WorkspaceRunnersCreated implements ConfigurationChanged {
   readonly kind = 'workspace-runners.created';
 
   constructor(
-    readonly declarationId: WorkspaceRunnersId,
+    readonly workspaceRunnersId: WorkspaceRunnersId,
     readonly workspaceId: WorkspaceId,
     readonly change: ConfigurationChange,
   ) {}

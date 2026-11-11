@@ -1,6 +1,6 @@
-import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.error';
-import { RUBRIC_VERSION } from '@insights/domain/judging.fake-spec';
+import { InvalidRubricError } from '@insights/domain/exceptions/invalid-rubric.error';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
+import { RUBRIC_VERSION } from '@insights/judging.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 describe('Rubric', () => {
@@ -42,7 +42,7 @@ describe('Rubric', () => {
 
   it('is named by the 64-character hash of its text', () => {
     expect(() => Rubric.of({ text: 'Did it retry?', version: 'v1' })).toThrow(
-      InvalidScoreError,
+      InvalidRubricError,
     );
   });
 

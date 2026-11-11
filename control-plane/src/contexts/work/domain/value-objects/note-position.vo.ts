@@ -11,6 +11,26 @@ export class NotePosition {
     return new NotePosition(value);
   }
 
+  static lastIn(trail: readonly unknown[]): NotePosition | null {
+    return trail.length === 0 ? null : new NotePosition(trail.length - 1);
+  }
+
+  static nextIn(trail: readonly unknown[]): NotePosition {
+    return new NotePosition(trail.length);
+  }
+
+  next(): NotePosition {
+    return new NotePosition(this.value + 1);
+  }
+
+  noteIn<T>(trail: readonly T[]): T | undefined {
+    return trail[this.value];
+  }
+
+  throughIn<T>(trail: readonly T[], last: NotePosition | null): T[] {
+    return trail.slice(this.value, last?.next().value);
+  }
+
   isAtOrBefore(other: NotePosition): boolean {
     return this.value <= other.value;
   }

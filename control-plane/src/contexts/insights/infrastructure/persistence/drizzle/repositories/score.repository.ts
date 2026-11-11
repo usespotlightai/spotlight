@@ -1,18 +1,14 @@
 import { Score } from '@insights/domain/aggregates/score.aggregate';
 import { ScoreVersionConflictError } from '@insights/domain/exceptions/score-version-conflict.error';
-import type {
-  ScoreRepository,
-  StationScores,
-  StationsScores,
-} from '@insights/domain/repositories/score.repository';
-import { Citation } from '@insights/domain/value-objects/citation.vo';
-import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
-import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
-import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
-import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+import type { ScoreRepository } from '@insights/domain/repositories/score.repository';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-scope.sql';
 import {
-  type StoredCitation,
+  scoreFieldsOfRow,
+  storedCitation,
+} from '@insights/infrastructure/persistence/drizzle/mappers/score.mapper';
+import {
   type StoredReason,
   score,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
@@ -23,65 +19,14 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, type SQL, sql } from 'drizzle-orm';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { and, eq } from 'drizzle-orm';
 
 type ScoreRow = typeof score.$inferSelect;
 
-const citationOf = (stored: StoredCitation): Citation => {
-  if (stored.hunk !== null) {
-    return Citation.ofHunk(stored.hunk);
-  }
-  if (stored.step === null) {
-    throw new InconsistentStateError(
-      'score',
-      'cites neither a step nor a hunk',
-    );
-  }
-
-  return Citation.ofStep(stored.step);
-};
-
-const storedCitation = (citation: Citation): StoredCitation => ({
-  step: citation.step,
-  hunk: citation.hunk,
-});
-
 const toScore = (row: ScoreRow): Score =>
-  Score.rehydrate({
-    id: ScoreId.of(row.id),
-    runId: RunId.of(row.runId),
-    workspaceId: WorkspaceId.of(row.workspaceId),
-    location: RunLocation.of({
-      teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
-      taskId: TaskId.of(row.taskId),
-    }),
-    fingerprint: row.fingerprint,
-    source: row.source,
-    scale: ScoreScale.of(row.kind),
-    value: row.value,
-    claimResults: row.claimResults,
-    rubricVersion: row.rubricVersion,
-    model: row.model,
-    reasons: row.reasons.map((each) =>
-      JudgeReason.of({
-        text: each.text,
-        citations: each.citations.map(citationOf),
-        claim: each.claim,
-      }),
-    ),
-    seen: SeenEvidence.of(row.seen),
-    by: row.by ? UserId.of(row.by) : null,
-    at: row.at,
-    version: row.version,
-  });
+  Score.rehydrate(scoreFieldsOfRow(row));
 
 const columnsOf = (stored: Score) => ({
   kind: stored.scale.kind,
@@ -97,24 +42,6 @@ const storedReasons = (stored: Score): StoredReason[] =>
     citations: each.citations.map(storedCitation),
     claim: each.claim,
   }));
-
-const judgedWhere = (criteria: {
-  readonly workspaceId: WorkspaceId;
-  readonly teamId: TeamId;
-  readonly lineId: string;
-  readonly stationId: string;
-  readonly rubricVersion?: string;
-}): SQL | undefined =>
-  and(
-    eq(score.workspaceId, criteria.workspaceId.value),
-    eq(score.teamId, criteria.teamId.value),
-    eq(score.lineId, criteria.lineId),
-    eq(score.stationId, criteria.stationId),
-    eq(score.source, 'judge'),
-    criteria.rubricVersion === undefined
-      ? undefined
-      : eq(score.rubricVersion, criteria.rubricVersion),
-  );
 
 @Injectable()
 export class DrizzleScoreRepository implements ScoreRepository {
@@ -133,15 +60,15 @@ export class DrizzleScoreRepository implements ScoreRepository {
           runId: added.runId.value,
           workspaceId: added.workspaceId.value,
           teamId: added.location.teamId.value,
-          lineId: added.location.lineId,
-          stationId: added.location.stationId,
+          lineId: added.location.lineId.value,
+          stationId: added.location.stationId.value,
           taskId: added.location.taskId.value,
           fingerprint: added.fingerprint,
           source: added.source,
           model: added.model,
           reasons: storedReasons(added),
           seen: { steps: added.seen.steps, hunks: added.seen.hunks },
-          by: added.by?.value ?? null,
+          scoredById: added.by?.value ?? null,
           version: added.version,
           ...columnsOf(added),
         })
@@ -157,6 +84,10 @@ export class DrizzleScoreRepository implements ScoreRepository {
   }
 
   async save(saved: Score): Promise<void> {
+    if (saved.isDeleted) {
+      return this.removed(saved);
+    }
+
     await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(score)
@@ -174,7 +105,10 @@ export class DrizzleScoreRepository implements ScoreRepository {
     });
   }
 
-  async judgeOf(runId: RunId, rubricVersion: string): Promise<Score | null> {
+  async judgeOf(
+    runId: RunId,
+    rubricVersion: RubricVersion,
+  ): Promise<Score | null> {
     const [row] = await this.context.db
       .select()
       .from(score)
@@ -198,7 +132,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
         and(
           eq(score.runId, runId.value),
           eq(score.source, 'person'),
-          eq(score.by, by.value),
+          eq(score.scoredById, by.value),
         ),
       )
       .limit(1);
@@ -224,64 +158,26 @@ export class DrizzleScoreRepository implements ScoreRepository {
     return rows.map(toScore);
   }
 
-  async judgedAtStation(criteria: StationScores): Promise<readonly Score[]> {
-    const rows = await this.context.db
-      .select()
-      .from(score)
-      .where(judgedWhere(criteria))
-      .orderBy(desc(score.at), desc(score.id))
-      .limit(criteria.last);
-
-    return rows.map(toScore);
-  }
-
-  async judgedAtStations(criteria: StationsScores): Promise<readonly Score[]> {
-    const stations = [
-      ...new Map(
-        criteria.stations.map((each) => [
-          JSON.stringify([each.lineId, each.stationId, each.rubricVersion]),
-          each,
-        ]),
-      ).values(),
-    ];
-
-    if (stations.length === 0) {
-      return [];
-    }
-
-    const picked = sql.join(
-      stations.map(
-        (each) =>
-          sql`(select ${score.id} from ${score} where ${judgedWhere({ ...criteria, ...each })} order by ${score.at} desc, ${score.id} desc limit ${criteria.last})`,
-      ),
-      sql` union all `,
-    );
-    const rows = await this.context.db
-      .select()
-      .from(score)
-      .where(sql`${score.id} in (${picked})`);
-
-    return rows.map(toScore);
-  }
-
-  async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db.delete(score).where(eq(score.taskId, taskId.value));
-  }
-
-  async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.context.db
+  private async removed(removed: Score): Promise<void> {
+    const gone = await this.context.db
       .delete(score)
       .where(
-        and(
-          eq(score.workspaceId, workspaceId.value),
-          eq(score.teamId, teamId.value),
-        ),
-      );
+        and(eq(score.id, removed.id.value), eq(score.version, removed.version)),
+      )
+      .returning({ id: score.id });
+
+    if (gone.length === 0) {
+      throw new ScoreVersionConflictError(removed.id.value);
+    }
   }
 
-  async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.db
-      .delete(score)
-      .where(eq(score.workspaceId, workspaceId.value));
+  async ofScope(scope: DeletionScope, max: number): Promise<readonly Score[]> {
+    const rows = await this.context.db
+      .select()
+      .from(score)
+      .where(inScope(score, scope))
+      .limit(max);
+
+    return rows.map(toScore);
   }
 }

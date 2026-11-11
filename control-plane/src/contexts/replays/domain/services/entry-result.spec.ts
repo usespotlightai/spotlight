@@ -290,7 +290,7 @@ describe('whether a replayed task succeeded', () => {
       [null, false],
       ['unprepared', null],
       ['unprovisioned', null],
-      ['hooks-unanswered', null],
+      ['start-gate-unanswered', null],
       ['runner-lost', null],
       ['superseded', null],
     ] as const) {

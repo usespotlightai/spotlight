@@ -11,10 +11,16 @@ import {
 } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { noteRefusal } from '@platform/http/refusal';
-import { ApplicationError } from '@shared-kernel/application/errors/application-error';
-import type { ErrorKind } from '@shared-kernel/domain/exceptions/error-kind';
+import {
+  ApplicationError,
+  type ApplicationErrorKind,
+} from '@shared-kernel/application/errors/application-error';
+import { TranslatedDomainError } from '@shared-kernel/application/errors/translated-domain-error';
 
-const AS_HTTP: Record<ErrorKind, (message: string) => HttpException> = {
+const AS_HTTP: Record<
+  ApplicationErrorKind,
+  (message: string) => HttpException
+> = {
   conflict: (message) => new ConflictException(message),
   invalid: (message) => new UnprocessableEntityException(message),
   'not-allowed': (message) => new ForbiddenException(message),
@@ -33,7 +39,10 @@ export class ApplicationErrorFilter extends BaseExceptionFilter {
     if (http.getStatus() < HttpStatus.INTERNAL_SERVER_ERROR) {
       noteRefusal(host.switchToHttp().getResponse(), {
         kind: exception.kind,
-        error: exception.constructor.name,
+        error: (exception instanceof TranslatedDomainError
+          ? exception.refusal
+          : exception
+        ).constructor.name,
       });
     }
 

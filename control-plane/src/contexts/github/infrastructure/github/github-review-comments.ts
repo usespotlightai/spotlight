@@ -7,8 +7,8 @@ import type {
   ReviewCommentsPort,
 } from '@github/application/ports/review-comments.port';
 import { Inject, Injectable } from '@nestjs/common';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 const API = 'https://api.github.com';
 

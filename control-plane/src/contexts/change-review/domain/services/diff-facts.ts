@@ -1,7 +1,4 @@
-import {
-  NO_INDEX,
-  type SymbolIndex,
-} from '@change-review/domain/services/symbol-index';
+import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { indexedFacts } from '@change-review/domain/services/symbol-links';
 import type {
   Diff,
@@ -9,6 +6,10 @@ import type {
   DiffHunk,
 } from '@change-review/domain/value-objects/diff.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import {
+  NO_INDEX,
+  type SymbolIndex,
+} from '@change-review/domain/value-objects/symbol-index.vo';
 
 const FILE_CLASSES = [
   'lockfile',
@@ -23,7 +24,7 @@ const FILE_CLASSES = [
 
 export type FileClass = (typeof FILE_CLASSES)[number];
 
-const LINK_KINDS = ['uses', 'tests', 'moves'] as const;
+const LINK_KINDS = ['uses', 'removes', 'tests', 'moves'] as const;
 
 export type LinkKind = (typeof LINK_KINDS)[number];
 
@@ -57,20 +58,72 @@ export interface DiffFacts {
   readonly imports: readonly FileImport[];
 }
 
-export const NO_FACTS: DiffFacts = { hunks: [], links: [], imports: [] };
+export const linkFact = ({ kind, to, because }: HunkLink): string => {
+  const symbols = because.join(', ');
+
+  switch (kind) {
+    case 'uses':
+      return `uses ${symbols} from ${to}`;
+    case 'removes':
+      return `removes ${symbols}, which ${to} stops using`;
+    case 'tests':
+      return `tests ${symbols} in ${to}`;
+    case 'moves':
+      return `moves code from ${to}`;
+  }
+};
+
+export const connectedGroups = (
+  hunks: readonly HunkId[],
+  links: readonly HunkLink[],
+): HunkId[][] => {
+  const parent = new Map<HunkId, HunkId>(hunks.map((hunk) => [hunk, hunk]));
+  const size = new Map<HunkId, number>(hunks.map((hunk) => [hunk, 1]));
+  const root = (hunk: HunkId): HunkId => {
+    let top = hunk;
+
+    while (parent.get(top) !== top) {
+      top = parent.get(top) ?? top;
+    }
+    for (let at = hunk; at !== top; ) {
+      const next = parent.get(at) ?? top;
+      parent.set(at, top);
+      at = next;
+    }
+    return top;
+  };
+
+  for (const { from, to } of links) {
+    if (parent.has(from) && parent.has(to)) {
+      const [a, b] = [root(from), root(to)];
+
+      if (a !== b) {
+        const [small, large] =
+          (size.get(a) ?? 1) < (size.get(b) ?? 1) ? [a, b] : [b, a];
+        parent.set(small, large);
+        size.set(large, (size.get(large) ?? 1) + (size.get(small) ?? 1));
+      }
+    }
+  }
+
+  const groups = new Map<HunkId, HunkId[]>();
+
+  for (const hunk of hunks) {
+    const top = root(hunk);
+    const group = groups.get(top);
+
+    if (group) {
+      group.push(hunk);
+    } else {
+      groups.set(top, [hunk]);
+    }
+  }
+
+  return [...groups.values()];
+};
 
 export const placedHunks = (facts: DiffFacts): HunkId[] =>
   facts.hunks.filter((each) => !each.incidental).map((each) => each.hunk);
-
-export interface CodeReading {
-  classOf(path: string): FileClass;
-
-  reads(path: string): boolean;
-
-  definitionsIn(path: string, added: readonly string[]): readonly string[];
-
-  importsIn(path: string, added: readonly string[]): readonly string[];
-}
 
 const MAX_DEFINERS = 3;
 
@@ -113,15 +166,11 @@ const importedStems = (
       (specifier) => specifier.split(/[/.]/).filter(Boolean).pop() ?? specifier,
     );
 
-const movedBetween = (from: DiffHunk, to: DiffHunk): boolean => {
-  const removed = linesOf(from, '-').filter((line) => line.trim());
+const movedBlockOf = (hunk: DiffHunk): string | null => {
+  const removed = linesOf(hunk, '-').filter((line) => line.trim());
   const block = squeezed(removed);
 
-  return (
-    removed.length >= MIN_MOVED_LINES &&
-    block.length > 0 &&
-    squeezed(linesOf(to, '+')).includes(block)
-  );
+  return removed.length >= MIN_MOVED_LINES && block.length > 0 ? block : null;
 };
 
 export const factsOf = (
@@ -138,32 +187,55 @@ export const factsOf = (
     file.hunks.map((hunk) => ({ file, hunk })),
   );
 
-  const moves: HunkLink[] = entries.flatMap((source) =>
+  const incidentalHunks = new Set(
     entries
-      .filter(
-        (target) =>
-          target.hunk.id !== source.hunk.id &&
-          movedBetween(source.hunk, target.hunk),
-      )
-      .map((target) => ({
-        kind: 'moves' as const,
-        from: target.hunk.id,
-        to: source.hunk.id,
-        because: [`${source.file.path} → ${target.file.path}`],
-      })),
+      .filter(({ file, hunk }) => {
+        const fileClass = reading.classOf(file.path);
+
+        return (
+          fileClass === 'lockfile' ||
+          fileClass === 'generated' ||
+          fileClass === 'snapshot' ||
+          (file.status === 'renamed' && hunk.patch === '') ||
+          (hunk.patch !== '' && formattingOnly(hunk))
+        );
+      })
+      .map(({ hunk }) => hunk.id),
   );
+  const substantive = entries.filter(
+    ({ hunk }) => !incidentalHunks.has(hunk.id),
+  );
+
+  const additions = substantive.map((each) => ({
+    ...each,
+    text: squeezed(linesOf(each.hunk, '+')),
+  }));
+  const moves: HunkLink[] = substantive.flatMap((source) => {
+    const block = movedBlockOf(source.hunk);
+
+    return block === null
+      ? []
+      : additions
+          .filter(
+            (target) =>
+              target.hunk.id !== source.hunk.id &&
+              target.text.length >= block.length &&
+              target.text.includes(block),
+          )
+          .map((target) => ({
+            kind: 'moves' as const,
+            from: target.hunk.id,
+            to: source.hunk.id,
+            because: [`${source.file.path} → ${target.file.path}`],
+          }));
+  });
 
   const movedHunks = new Set(moves.flatMap(({ from, to }) => [from, to]));
 
   const hunks: HunkFacts[] = entries.map(({ file, hunk }) => {
     const fileClass = reading.classOf(file.path);
     const renamed = file.status === 'renamed' && hunk.patch === '';
-    const incidental =
-      fileClass === 'lockfile' ||
-      fileClass === 'generated' ||
-      fileClass === 'snapshot' ||
-      renamed ||
-      (hunk.patch !== '' && formattingOnly(hunk));
+    const incidental = incidentalHunks.has(hunk.id);
 
     return {
       hunk: hunk.id,
@@ -277,9 +349,9 @@ export const factsOf = (
     }
   }
 
-  for (const { from, to, because } of indexed.links) {
+  for (const { kind, from, to, because } of indexed.links) {
     if (!known.get(from)?.incidental && !known.get(to)?.incidental) {
-      link('uses', from, to, because);
+      link(kind, from, to, because);
     }
   }
 

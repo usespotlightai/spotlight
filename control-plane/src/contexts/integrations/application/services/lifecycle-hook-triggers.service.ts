@@ -1,57 +1,72 @@
-import type { TasksForHooksPort } from '@integrations/application/ports/tasks-for-hooks.port';
-import type { FireHooks } from '@integrations/application/services/fire-hooks.service';
+import type {
+  TasksForHooksPort,
+  TaskView,
+} from '@integrations/application/ports/tasks-for-hooks.port';
+import type { QueueHookFirings } from '@integrations/application/services/queue-hook-firings.service';
+import type { ToolUsedFields } from '@integrations/domain/value-objects/hook-event-facts.vo';
+import { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
+import type { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import type { DispatchEndedIntegrationEvent } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
-import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { TaskMovedIntegrationEvent } from '@shared-kernel/application/integration-events/task-moved.integration-event';
 import type { TaskOpenedIntegrationEvent } from '@shared-kernel/application/integration-events/task-opened.integration-event';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class LifecycleHookTriggers {
   constructor(
-    private readonly firings: FireHooks,
+    private readonly firings: QueueHookFirings,
     private readonly tasks: TasksForHooksPort,
   ) {}
 
-  async runEnded(event: RunEndedIntegrationEvent): Promise<void> {
+  async toolUsed(
+    task: TaskView,
+    used: ToolUsedFields,
+    occurrence: HookOccurrenceKey,
+  ): Promise<void> {
+    await this.firings.queue(task, HookOccurrence.toolUsed(used, occurrence));
+  }
+
+  async runEnded(event: DispatchEndedIntegrationEvent): Promise<void> {
+    const run = RunId.of(event.runId);
     const task = event.taskId
-      ? await this.tasks.of(event.taskId, event.runId)
+      ? await this.tasks.of(TaskId.of(event.taskId), run)
       : null;
 
     if (task) {
-      await this.firings.happened({
-        on: 'run.ended',
-        occurrence: `run-ended:${event.runId}`,
-        change: event.outcome,
+      await this.firings.queue(
         task,
-        event: { outcome: event.outcome },
-      });
+        HookOccurrence.runEnded(run, event.outcome),
+      );
     }
   }
 
   async taskOpened(event: TaskOpenedIntegrationEvent): Promise<void> {
-    const task = await this.tasks.of(event.taskId, null);
+    const task = await this.tasks.of(TaskId.of(event.taskId), null);
 
     if (task) {
-      await this.firings.happened({
-        on: 'task.opened',
-        occurrence: `task-opened:${event.taskId}`,
-        change: task.stationKey,
+      await this.firings.queue(
         task,
-        event: {},
-      });
+        HookOccurrence.taskOpened(task.taskId, task.stationKey),
+      );
     }
   }
 
   async taskMoved(event: TaskMovedIntegrationEvent): Promise<void> {
-    const task = await this.tasks.of(event.taskId, null);
+    const task = await this.tasks.of(TaskId.of(event.taskId), null);
 
     if (task) {
-      await this.firings.happened({
-        on: 'task.moved',
-        occurrence: `task-moved:${event.taskId}:${event.at}`,
-        change: `${event.from} → ${event.to}`,
+      await this.firings.queue(
         task,
-        event: { from: event.from, to: event.to },
-      });
+        HookOccurrence.taskMoved(task.taskId, {
+          from: event.from,
+          to: event.to,
+          at: event.at,
+        }),
+      );
     }
   }
 
@@ -62,24 +77,21 @@ export class LifecycleHookTriggers {
       return;
     }
 
+    const pullRequest = PullRequestUrl.of(event.pullRequest);
     const task = await this.tasks.ofPullRequest(
-      event.workspaceId,
-      event.pullRequest,
+      WorkspaceId.of(event.workspaceId),
+      pullRequest,
     );
 
     if (task) {
-      await this.firings.happened({
-        on: 'pull-request.merged',
-        occurrence: `pull-request-merged:${event.pullRequest}`,
-        change: event.pullRequest,
+      await this.firings.queue(
         task,
-        event: {
-          url: event.pullRequest,
-          repository: event.repository,
-          mergeCommit: event.mergeCommit,
-        },
-        matchedLater: true,
-      });
+        HookOccurrence.pullRequestMerged(
+          pullRequest,
+          Repository.of(event.repository),
+          event.mergeCommit,
+        ),
+      );
     }
   }
 }

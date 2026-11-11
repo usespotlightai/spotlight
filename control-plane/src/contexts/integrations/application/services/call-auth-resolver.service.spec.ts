@@ -1,18 +1,24 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type {
-  TeamMembership,
+  TeamWorkspaceMembership,
   WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
-import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
+import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
+import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
+import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -26,8 +32,9 @@ const integration = (
 ) =>
   Integration.of({
     key: IntegrationKey.of('slack'),
-    requiresConnection,
+    connectsOver: requiresConnection ? 'oauth2' : null,
     actsAs,
+    apiSpecs: ['mcp'],
   });
 
 const ALICE = UserId.of('user_alice');
@@ -43,13 +50,14 @@ const connected = (token: string, owner: ConnectionOwner) =>
     integration: IntegrationKey.of('slack'),
     owner,
     accessToken: AccessToken.of(token),
-    refreshToken: AccessToken.of('xoxe-1'),
+    refreshToken: RefreshToken.of('xoxe-1'),
     expiresAt: null,
     scopes: [],
     linkedAccount: '@alice',
     refreshFailedAt: null,
     refreshClaim: null,
     version: 1,
+    connectedAt: new Date('2026-09-01T00:00:00.000Z'),
   });
 
 const resolving = (
@@ -62,7 +70,7 @@ const resolving = (
       token ? connected(token, owner) : null,
   );
   const onTeam = vi.fn(async () =>
-    over.member === false ? null : ({} as TeamMembership),
+    over.member === false ? null : ({} as TeamWorkspaceMembership),
   );
   const afterUnauthorized = vi.fn(async () => AccessToken.of('xoxp-refreshed'));
   const find = vi.fn(async () =>
@@ -82,8 +90,9 @@ const resolving = (
     resolver: new CallAuthResolver(
       { of } as unknown as IntegrationConnectionRepository,
       { find, inWorkspace: vi.fn() } satisfies TeamDirectoryPort,
-      { onTeam } as unknown as WorkspaceAccessPort,
+      { inWorkspaceOfTeam: onTeam } as unknown as WorkspaceAccessPort,
       secrets.injection,
+      new InjectedCallCredentials(secrets.injection),
       { afterUnauthorized } as unknown as ConnectionRefresh,
     ),
     of,
@@ -94,19 +103,12 @@ const resolving = (
   };
 };
 
-const injectedHeaders = async (
-  injected: Promise<{
-    applyTo(request: { url: URL; headers: Record<string, string> }): void;
-  }>,
-) => {
-  const headers: Record<string, string> = {};
-  (await injected).applyTo({
-    url: new URL('https://slack.com/api/x'),
-    headers,
-  });
-
-  return headers;
-};
+const injectedHeaders = async (injected: Promise<InjectedSecrets>) =>
+  Object.fromEntries(
+    (await injected).injected
+      .filter((each) => each.location === 'header')
+      .map((each) => [each.name, each.value.revealed()]),
+  );
 
 describe('CallAuthResolver', () => {
   it('hands over no connection where the integration makes none', async () => {
@@ -173,7 +175,7 @@ describe('CallAuthResolver', () => {
       expect(found.kind === 'chosen' && found.connection?.linkedAccount).toBe(
         '@alice',
       );
-      expect(onTeam).toHaveBeenCalledWith('team_1', ALICE);
+      expect(onTeam).toHaveBeenCalledWith(TEAM, ALICE);
       expect(of).toHaveBeenCalledWith(
         TEAM,
         IntegrationKey.of('slack'),
@@ -235,7 +237,7 @@ describe('CallAuthResolver', () => {
     expect(
       await injectedHeaders(
         callAuth.credentials.injectedFor('https://slack.com/api/x', [
-          'SLACK_BOT_TOKEN',
+          SecretName.of('SLACK_BOT_TOKEN'),
         ]),
       ),
     ).toEqual({ authorization: 'Bearer xoxb-1' });
@@ -261,7 +263,7 @@ describe('CallAuthResolver', () => {
 
     await expect(
       callAuth.credentials.injectedFor('https://slack.com/api/x', [
-        'SLACK_BOT_TOKEN',
+        SecretName.of('SLACK_BOT_TOKEN'),
       ]),
     ).rejects.toThrow(/which no workspace has/);
   });
@@ -272,15 +274,14 @@ describe('CallAuthResolver', () => {
     const callAuth = await resolver.forRun(
       {
         teamId: TEAM,
-        workspaceId: 'ws_1',
-        runId: 'run_1',
-        attempt: 2,
-        injectedSecrets: ['SLACK_BOT_TOKEN'],
+        workspaceId: WorkspaceId.of('ws_1'),
+        run: RunAttemptRef.of(RunId.of('run_1'), 2),
+        injectedSecrets: [SecretName.of('SLACK_BOT_TOKEN')],
       },
       null,
     );
     await callAuth.credentials.injectedFor('https://slack.com/api/x', [
-      'SLACK_BOT_TOKEN',
+      SecretName.of('SLACK_BOT_TOKEN'),
     ]);
 
     expect(grant).toHaveBeenCalledWith({
@@ -304,9 +305,8 @@ describe('CallAuthResolver', () => {
     await resolver.forRun(
       {
         teamId: TEAM,
-        workspaceId: 'ws_1',
-        runId: 'run_1',
-        attempt: 1,
+        workspaceId: WorkspaceId.of('ws_1'),
+        run: RunAttemptRef.of(RunId.of('run_1'), 1),
         injectedSecrets: [],
       },
       null,

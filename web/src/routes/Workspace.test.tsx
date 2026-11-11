@@ -9,6 +9,10 @@ import { quietBrowser } from '@/test/signed-in';
 
 vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
 vi.mock('@/hooks/api/useSettingUp', () => ({ useSettingUp: vi.fn() }));
+vi.mock('@/hooks/useLiveStream', () => ({ useLiveStream: vi.fn() }));
+vi.mock('@/hooks/useInboxNotifier', () => ({ useInboxNotifier: vi.fn() }));
+vi.mock('@/hooks/useDesktopBadge', () => ({ useDesktopBadge: vi.fn() }));
+vi.mock('@/hooks/useDesktopCommands', () => ({ useDesktopCommands: vi.fn() }));
 
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
@@ -18,6 +22,7 @@ vi.mock('@/hooks/api/useLines', () => ({
 }));
 vi.mock('@/hooks/api/useTasks', () => ({
   useTasks: () => ({ data: [], isPending: false }),
+  useTask: () => ({ data: undefined, isPending: false }),
 }));
 vi.mock('@/hooks/useCommandSections', () => ({
   useCommandSections: () => [],
@@ -273,7 +278,7 @@ describe('Workspace', () => {
 
     renderAt('acme-inc');
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: /./ })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Your teams' }),
     ).not.toBeInTheDocument();
@@ -295,7 +300,7 @@ describe('Workspace', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'The workspace could not be loaded.',
     );
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: /./ })).not.toBeInTheDocument();
     expect(screen.queryByText('section slot')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Workspace not found' }),

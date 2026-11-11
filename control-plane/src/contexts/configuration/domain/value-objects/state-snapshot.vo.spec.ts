@@ -1,5 +1,4 @@
 import { InvalidTerraformStateError } from '@configuration/domain/exceptions/invalid-terraform-state.error';
-import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -32,28 +31,6 @@ describe('StateSnapshot', () => {
   it('refuses an MD5 that is not 32 hexadecimal digits', () => {
     expect(() =>
       StateSnapshot.of({ serial: 1, lineage: 'abc', md5: 'xyz', size: 1 }),
-    ).toThrow(InvalidTerraformStateError);
-  });
-});
-
-describe('StateLock', () => {
-  const at = new Date('2026-10-26T10:00:00Z');
-
-  it('keeps the lock info Terraform sent', () => {
-    const info = { ID: 'a', Operation: 'OperationTypePlan', Who: 'me@laptop' };
-
-    expect(
-      StateLock.of({ info, lockedBy: 'person:u1', lockedAt: at }).info,
-    ).toEqual(info);
-  });
-
-  it.each([
-    ['not an object', 'a'],
-    ['no ID', { Operation: 'OperationTypePlan' }],
-    ['an empty ID', { ID: ' ' }],
-  ])('refuses lock info with %s', (_, info) => {
-    expect(() =>
-      StateLock.of({ info, lockedBy: 'person:u1', lockedAt: at }),
     ).toThrow(InvalidTerraformStateError);
   });
 });

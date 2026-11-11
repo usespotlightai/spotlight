@@ -1,4 +1,6 @@
-export class UnknownNoticeError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class UnknownNoticeError extends DomainError {
   readonly kind = 'not-found' as const;
 
   constructor(id: string) {

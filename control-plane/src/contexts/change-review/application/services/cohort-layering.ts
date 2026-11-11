@@ -11,25 +11,29 @@ import {
   type DiffFacts,
   placedHunks,
 } from '@change-review/domain/services/diff-facts';
+import type { PreviousStack } from '@change-review/domain/services/previous-stack';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
 import { StackOutline } from '@change-review/domain/services/stack-outline';
+import { stackPartOf } from '@change-review/domain/services/stack-part';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
   OutlinedCohort,
   ProposedCohort,
+  StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
-const SPLIT_ABOVE = 80;
+const MAX_HUNKS_PER_CALL = 80;
 
-export const splits = (facts: DiffFacts): boolean =>
-  placedHunks(facts).length > SPLIT_ABOVE;
+export const exceedsOneCall = (facts: DiffFacts): boolean =>
+  placedHunks(facts).length > MAX_HUNKS_PER_CALL;
 
 export type CohortLayering =
   | {
       readonly outcome: 'layered';
       readonly cohort: ProposedCohort;
+      readonly proposed: ProposedCohort;
       readonly usage: readonly ModelCall[];
     }
   | {
@@ -52,16 +56,25 @@ export const layerCohort = async (
     repository: RepositoryName | null;
     cohort: OutlinedCohort;
     redraft?: RedraftRequest | null;
+    redrafting?: StackCohort;
+    previous?: PreviousStack | null;
   },
 ): Promise<CohortLayering> => {
-  const { cohort, repository, redraft } = request;
-  const part = StackOutline.partOf(request.diff, request.facts, cohort.hunks);
+  const { cohort, repository, redraft, redrafting, previous } = request;
+  const part = stackPartOf(request.diff, request.facts, cohort.hunks);
   const usage: ModelCall[] = [];
   let problems: readonly StackProblem[] = [];
 
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     const attempt = await attempted(() =>
-      generator.layers({ part, repository, cohort, problems, redraft }),
+      generator.layers({
+        part,
+        repository,
+        cohort,
+        problems,
+        redraft,
+        previous,
+      }),
     );
     const call = attempt.generated ? attempt.answer.usage : attempt.usage;
 
@@ -81,7 +94,13 @@ export const layerCohort = async (
     try {
       return {
         outcome: 'layered',
-        cohort: StackOutline.layered(part, cohort, attempt.answer.layers),
+        cohort: StackOutline.layered(
+          part,
+          cohort,
+          attempt.answer.layers,
+          redrafting,
+        ),
+        proposed: StackOutline.proposed(cohort, attempt.answer.layers),
         usage,
       };
     } catch (error) {
@@ -131,7 +150,11 @@ export const layeredInRounds = async (
 };
 
 export type CombinedLayerings =
-  | { readonly outcome: 'layered'; readonly cohorts: readonly ProposedCohort[] }
+  | {
+      readonly outcome: 'layered';
+      readonly cohorts: readonly ProposedCohort[];
+      readonly proposed: readonly ProposedCohort[];
+    }
   | {
       readonly outcome: 'unanswered';
       readonly truncated: boolean;
@@ -168,6 +191,9 @@ export const combined = (
         outcome: 'layered',
         cohorts: layerings.flatMap((each) =>
           each.outcome === 'layered' ? [each.cohort] : [],
+        ),
+        proposed: layerings.flatMap((each) =>
+          each.outcome === 'layered' ? [each.proposed] : [],
         ),
       };
 };

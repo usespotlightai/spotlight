@@ -1,4 +1,6 @@
-export class SearchIterationClosedError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class SearchIterationClosedError extends DomainError {
   readonly kind = 'not-found' as const;
 
   constructor(runId: string) {

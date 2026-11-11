@@ -64,7 +64,7 @@ export const RunnerProblems = {
     });
   },
 
-  declarationInvalid(
+  workspaceRunnersInvalid(
     error: InvalidWorkspaceRunnersError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({

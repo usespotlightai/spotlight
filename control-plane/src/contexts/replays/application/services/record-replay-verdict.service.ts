@@ -1,28 +1,14 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import type { Unjudged } from '@replays/domain/value-objects/entry-judging.vo';
+import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import {
-  type CitedReason,
-  JudgeVerdict,
-} from '@replays/domain/value-objects/judge-verdict.vo';
-import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+  type JudgingAttempt,
+  judgingPurposeOf,
+} from '@replays/domain/value-objects/judging-attempt';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-
-export interface ReplayRunJudged {
-  readonly runId: string;
-  readonly scale: string;
-  readonly value: number;
-  readonly claimResults: readonly boolean[] | null;
-  readonly claims: readonly string[];
-  readonly passThreshold: number;
-  readonly model: string;
-  readonly referenced: boolean;
-  readonly reasons: readonly CitedReason[];
-  readonly guidance: string | null;
-  readonly spent: ModelSpent;
-}
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class RecordReplayVerdict {
   constructor(
@@ -31,50 +17,54 @@ export class RecordReplayVerdict {
     private readonly clock: ClockPort,
   ) {}
 
-  judged(event: ReplayRunJudged): Promise<void> {
-    const verdict = JudgeVerdict.of(event);
-
-    return this.changing(event.runId, (replay, run, now) =>
-      replay.recordVerdict(run, verdict, event.spent, now),
-    );
-  }
-
-  failed(runId: string, failure: string, spent: ModelSpent): Promise<void> {
-    return this.changing(runId, (replay, run, now) =>
-      replay.recordJudgingFailure(run, failure, spent, now),
-    );
-  }
-
-  rejudged(event: ReplayRunJudged): Promise<void> {
-    const verdict = JudgeVerdict.of(event);
-
-    return this.changing(event.runId, (replay, run) =>
-      replay.recordRejudgment(run, verdict, event.spent),
-    );
-  }
-
-  rejudgingFailed(
-    runId: string,
-    failure: string,
-    spent: ModelSpent,
+  changeJudged(
+    attempt: JudgingAttempt,
+    run: RunId,
+    verdict: JudgeVerdict,
   ): Promise<void> {
-    return this.changing(runId, (replay, run) =>
-      replay.recordRejudgingFailure(run, failure, spent),
+    return judgingPurposeOf(attempt) === 'original'
+      ? this.judged(run, verdict)
+      : this.rejudged(run, verdict);
+  }
+
+  changeJudgingFailed(
+    attempt: JudgingAttempt,
+    run: RunId,
+    failure: Unjudged,
+  ): Promise<void> {
+    return judgingPurposeOf(attempt) === 'original'
+      ? this.failed(run, failure)
+      : this.rejudgingFailed(run, failure);
+  }
+
+  judged(run: RunId, verdict: JudgeVerdict): Promise<void> {
+    return this.changing(run, (replay, now) =>
+      replay.recordVerdict(run, verdict, now),
     );
   }
 
-  rejudgingRequestFailed(event: ReplayRejudgingFailed): Promise<void> {
-    return this.changing(event.run.value, (replay, run) =>
-      replay.recordRejudgingFailure(run, event.why, null),
+  failed(run: RunId, failure: Unjudged): Promise<void> {
+    return this.changing(run, (replay, now) =>
+      replay.recordJudgingFailure(run, failure, now),
+    );
+  }
+
+  rejudged(run: RunId, verdict: JudgeVerdict): Promise<void> {
+    return this.changing(run, (replay) =>
+      replay.recordRejudgment(run, verdict),
+    );
+  }
+
+  rejudgingFailed(run: RunId, failure: Unjudged): Promise<void> {
+    return this.changing(run, (replay) =>
+      replay.recordRejudgingFailure(run, failure),
     );
   }
 
   private changing(
-    runId: string,
-    change: (replay: Replay, run: RunId, now: Date) => Replay,
+    run: RunId,
+    change: (replay: Replay, now: Date) => Replay,
   ): Promise<void> {
-    const run = RunId.of(runId);
-
     return this.transaction.inTransaction(async () => {
       const replay = await this.replays.ranAs(run);
 
@@ -82,7 +72,7 @@ export class RecordReplayVerdict {
         return;
       }
 
-      const changed = change(replay, run, this.clock.now());
+      const changed = change(replay, this.clock.now());
 
       if (changed !== replay) {
         await this.replays.save(changed);

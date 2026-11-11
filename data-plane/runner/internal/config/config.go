@@ -21,6 +21,7 @@ type Config struct {
 	AgentUser      string
 	Author         prepare.Author
 	RunTimeout     time.Duration
+	BackgroundWait time.Duration
 	Egress         Egress
 }
 
@@ -35,9 +36,10 @@ func (e Egress) Configured() bool { return e.URL != "" }
 func (c Config) HasAssignmentFile() bool { return c.AssignmentFile != "" }
 
 const (
-	DefaultWorkspace   = "/workspace"
-	defaultAuthorName  = "Spotlight"
-	defaultAuthorEmail = "noreply@usespotlight.ai"
+	DefaultWorkspace      = "/workspace"
+	defaultAuthorName     = "Spotlight"
+	defaultAuthorEmail    = "noreply@usespotlight.ai"
+	defaultBackgroundWait = 30 * time.Minute
 )
 
 const usage = "usage: spotlight runner [harnesses <json>]"
@@ -51,6 +53,7 @@ const (
 	envAuthorName      = "SPOTLIGHT_GIT_AUTHOR_NAME"
 	envAuthorEmail     = "SPOTLIGHT_GIT_AUTHOR_EMAIL"
 	envRunTimeout      = protocol.RunTimeoutVar
+	envBackgroundWait  = "SPOTLIGHT_BACKGROUND_WAIT"
 	envEgressURL       = protocol.EgressURLVar
 	envProxyCredential = protocol.EgressProxyCredentialVar
 	envTraffic         = protocol.EgressTrafficVar
@@ -118,6 +121,16 @@ func Load(args []string) (Config, error) {
 			note(fmt.Errorf("%s: %q is not a duration such as 6h, or 0 for no limit", envRunTimeout, raw))
 		} else {
 			cfg.RunTimeout = timeout
+		}
+	}
+
+	cfg.BackgroundWait = defaultBackgroundWait
+	if raw := get(envBackgroundWait); raw != "" {
+		wait, err := time.ParseDuration(raw)
+		if err != nil || wait < 0 {
+			note(fmt.Errorf("%s: %q is not a duration such as 30m, or 0 for no wait", envBackgroundWait, raw))
+		} else {
+			cfg.BackgroundWait = wait
 		}
 	}
 

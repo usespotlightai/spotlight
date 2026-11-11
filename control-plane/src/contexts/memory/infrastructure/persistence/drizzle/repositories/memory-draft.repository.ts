@@ -1,5 +1,6 @@
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
+import { MemoryDraftAlreadyOpenError } from '@memory/domain/exceptions/memory-draft-already-open.error';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -22,9 +23,11 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -75,8 +78,8 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
     body: MemoryBody.of(row.body),
     scope: MemoryScope.of({
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: row.lineId === null ? null : LineId.of(row.lineId),
+      stationId: row.stationId === null ? null : StationId.of(row.stationId),
       repository: row.repository ? Repository.of(row.repository) : null,
       paths: row.paths.map(MemoryPath.of),
     }),
@@ -92,9 +95,9 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
     recordedAt: row.recordedAt,
     state: row.state,
     decision:
-      row.decidedBy && row.decidedAt
+      row.decidedById && row.decidedAt
         ? MemoryDecision.of({
-            by: UserId.of(row.decidedBy),
+            by: UserId.of(row.decidedById),
             at: row.decidedAt,
           })
         : null,
@@ -130,29 +133,32 @@ const columnsOf = (draft: MemoryDraft) => ({
 });
 
 const proposalRows = (draft: MemoryDraft) =>
-  draft.proposals.map((each, position) => ({
-    id: each.id.value,
-    draftId: draft.id.value,
-    position,
-    kind: each.kind,
-    body: each.body.value,
-    teamId: each.scope.teamId.value,
-    lineId: each.scope.lineId,
-    stationId: each.scope.stationId,
-    repository: each.scope.repository?.value ?? null,
-    paths: each.scope.paths.map((path) => path.value),
-    taskId: each.provenance.taskId.value,
-    runId: each.provenance.runId.value,
-    steps: [...each.provenance.steps],
-    notes: [...each.provenance.notes],
-    source: each.source,
-    proposedBy: each.proposedBy,
-    supersedes: each.supersedes?.value ?? null,
-    recordedAt: each.recordedAt,
-    state: each.state,
-    decidedBy: each.decision?.by.value ?? null,
-    decidedAt: each.decision?.at ?? null,
-  }));
+  draft.proposals.map(
+    (each, position) =>
+      ({
+        id: each.id.value,
+        draftId: draft.id.value,
+        position,
+        kind: each.kind,
+        body: each.body.value,
+        teamId: each.scope.teamId.value,
+        lineId: each.scope.lineId?.value ?? null,
+        stationId: each.scope.stationId?.value ?? null,
+        repository: each.scope.repository?.value ?? null,
+        paths: each.scope.paths.map((path) => path.value),
+        taskId: each.provenance.taskId.value,
+        runId: each.provenance.runId.value,
+        steps: [...each.provenance.steps],
+        notes: [...each.provenance.notes],
+        source: each.source,
+        proposedBy: each.proposedBy,
+        supersedes: each.supersedes?.value ?? null,
+        recordedAt: each.recordedAt,
+        state: each.state,
+        decidedById: each.decision?.by.value ?? null,
+        decidedAt: each.decision?.at ?? null,
+      }) satisfies typeof memoryProposal.$inferInsert,
+  );
 
 @Injectable()
 export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
@@ -177,7 +183,7 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
         .returning({ id: memoryDraft.id });
 
       if (written.length === 0) {
-        throw new MemoryDraftVersionConflictError(added.id.value);
+        throw new MemoryDraftAlreadyOpenError(added.taskId.value);
       }
 
       await this.proposalsReplaced(added);
@@ -186,6 +192,10 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
   }
 
   async save(saved: MemoryDraft): Promise<void> {
+    if (saved.isDeleted) {
+      return this.removed(saved);
+    }
+
     await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(memoryDraft)
@@ -246,10 +256,20 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
     return row ? this.withProposals(row) : null;
   }
 
-  async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
+  private async removed(removed: MemoryDraft): Promise<void> {
+    const gone = await this.context.db
       .delete(memoryDraft)
-      .where(eq(memoryDraft.taskId, taskId.value));
+      .where(
+        and(
+          eq(memoryDraft.id, removed.id.value),
+          eq(memoryDraft.version, removed.version),
+        ),
+      )
+      .returning({ id: memoryDraft.id });
+
+    if (gone.length === 0) {
+      throw new MemoryDraftVersionConflictError(removed.id.value);
+    }
   }
 
   private async withProposals(row: DraftRow): Promise<MemoryDraft> {

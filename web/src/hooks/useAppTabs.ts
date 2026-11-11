@@ -5,6 +5,7 @@ import {
   type AppTabs,
   activeTabOf,
   closed,
+  moved,
   newTabPath,
   opened,
   type Place,
@@ -110,6 +111,8 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
         show(next);
       }
     },
+    move: (id: string, to: string) =>
+      change((current) => moved(current, id, to)),
     open: () =>
       show(
         opened(

@@ -20,8 +20,8 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
 import type { AttachmentUploadDto } from '@work/application/dto/attachment.dto';
 import { ReadAttachmentQuery } from '@work/application/queries/read-attachment.query';

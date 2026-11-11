@@ -16,7 +16,7 @@ describe('OAuthTokens', () => {
     expect(tokens.accessToken.value).toBe('xoxb-1');
     expect(tokens.refreshToken?.value).toBe('xoxe-1');
     expect(tokens.expiresAt).toBe(at);
-    expect(tokens.scopes).toEqual(['chat:write']);
+    expect(tokens.scopes.map((each) => each.value)).toEqual(['chat:write']);
     expect(tokens.linkedAccount).toBe('Acme');
   });
 

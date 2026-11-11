@@ -1,10 +1,13 @@
 import type { StackProblem } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import type {
-  DiffFacts,
-  HunkLink,
+import {
+  connectedGroups,
+  type DiffFacts,
+  type HunkLink,
+  linkFact,
 } from '@change-review/domain/services/diff-facts';
+import { groupedBy } from '@change-review/domain/services/grouped-by';
+import { placementsOf } from '@change-review/domain/services/hunk-placements';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
-import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 interface Assignment {
   readonly cohort: number;
@@ -13,45 +16,38 @@ interface Assignment {
 
 const assignmentsOf = (
   cohorts: readonly ProposedCohort[],
-): Map<string, Assignment> => {
-  const assignments = new Map<string, Assignment>();
-
-  cohorts.forEach((cohort, c) => {
-    cohort.layers.forEach((layer, l) => {
-      for (const entry of layer.hunks) {
-        assignments.set(entry.hunk, { cohort: c, layer: l });
-      }
-    });
-  });
-
-  return assignments;
-};
+): Map<string, Assignment> =>
+  new Map(
+    [...placementsOf(cohorts)].flatMap(([hunk, placements]) => {
+      const last = placements[placements.length - 1];
+      return last ? [[hunk, { cohort: last.cohort, layer: last.layer }]] : [];
+    }),
+  );
 
 const layerName = (assignment: Assignment): string =>
   `layer ${assignment.layer + 1}`;
 
-const usesProblems = (
+const orderProblems = (
+  code: 'uses' | 'removes',
   links: readonly HunkLink[],
   assignments: ReadonlyMap<string, Assignment>,
 ): StackProblem[] =>
-  links.flatMap(({ from, to, because }): StackProblem[] => {
-    const user = assignments.get(from);
-    const definer = assignments.get(to);
-    const uses = `${from} uses ${because.join(', ')} from ${to}`;
+  links.flatMap((link): StackProblem[] => {
+    const later = assignments.get(link.from);
+    const earlier = assignments.get(link.to);
+    const fact = `${link.from} ${linkFact(link)}`;
 
-    if (!user || !definer) {
+    if (!later || !earlier) {
       return [];
     }
-    if (user.cohort !== definer.cohort) {
-      return [
-        { code: 'uses', message: `${uses}, so they belong in the same cohort` },
-      ];
+    if (later.cohort !== earlier.cohort) {
+      return [{ code, message: `${fact}, so they belong in the same cohort` }];
     }
-    if (user.layer < definer.layer) {
+    if (later.layer < earlier.layer) {
       return [
         {
-          code: 'uses',
-          message: `${uses}, so it cannot come in an earlier layer than ${to}`,
+          code,
+          message: `${fact}, so it cannot come in an earlier layer than ${link.to}`,
         },
       ];
     }
@@ -63,11 +59,7 @@ const testsProblems = (
   links: readonly HunkLink[],
   assignments: ReadonlyMap<string, Assignment>,
 ): StackProblem[] => {
-  const byTest = new Map<string, HunkLink[]>();
-
-  for (const link of links) {
-    byTest.set(link.from, [...(byTest.get(link.from) ?? []), link]);
-  }
+  const byTest = groupedBy(links, (link) => link.from);
 
   return [...byTest.entries()].flatMap(([test, covered]): StackProblem[] => {
     const assigned = assignments.get(test);
@@ -167,29 +159,13 @@ const unconnectedProblems = (
       return [];
     }
 
-    const group = new Map<HunkId, HunkId>(hunks.map((hunk) => [hunk, hunk]));
-    const root = (hunk: HunkId): HunkId => {
-      const parent = group.get(hunk) ?? hunk;
-      return parent === hunk ? hunk : root(parent);
-    };
+    const groups = connectedGroups(hunks, facts.links);
 
-    for (const { from, to } of facts.links) {
-      if (group.has(from) && group.has(to)) {
-        group.set(root(from), root(to));
-      }
-    }
-
-    const groups = new Map<string, string[]>();
-
-    for (const hunk of hunks) {
-      groups.set(root(hunk), [...(groups.get(root(hunk)) ?? []), hunk]);
-    }
-
-    return groups.size > 1
+    return groups.length > 1
       ? [
           {
             code: 'unconnected',
-            message: `cohort ${c + 1} joins hunks the code does not connect (${[...groups.values()].map((each) => each.join(', ')).join(' | ')}) without saying why`,
+            message: `cohort ${c + 1} joins hunks the code does not connect (${groups.map((each) => each.join(', ')).join(' | ')}) without saying why`,
           },
         ]
       : [];
@@ -205,7 +181,8 @@ export const factProblems = (
     facts.links.filter((link) => link.kind === kind);
 
   return [
-    ...usesProblems(of('uses'), assignments),
+    ...orderProblems('uses', of('uses'), assignments),
+    ...orderProblems('removes', of('removes'), assignments),
     ...testsProblems(of('tests'), assignments),
     ...movesProblems(of('moves'), assignments),
     ...migrationProblems(cohorts, facts, assignments),
@@ -221,27 +198,27 @@ export const derivedDependencies = (
   const derived = new Map<string, Map<number, Set<string>>>();
 
   for (const { kind, from, to, because } of links) {
-    const user = assignments.get(from);
-    const definer = assignments.get(to);
+    const later = assignments.get(from);
+    const earlier = assignments.get(to);
 
     if (
       kind === 'moves' ||
-      !user ||
-      !definer ||
-      user.cohort !== definer.cohort ||
-      definer.layer >= user.layer
+      !later ||
+      !earlier ||
+      later.cohort !== earlier.cohort ||
+      earlier.layer >= later.layer
     ) {
       continue;
     }
 
-    const key = `${user.cohort}.${user.layer}`;
+    const key = `${later.cohort}.${later.layer}`;
     const layers = derived.get(key) ?? new Map<number, Set<string>>();
-    const symbols = layers.get(definer.layer + 1) ?? new Set<string>();
+    const symbols = layers.get(earlier.layer + 1) ?? new Set<string>();
 
     for (const symbol of because) {
       symbols.add(symbol);
     }
-    layers.set(definer.layer + 1, symbols);
+    layers.set(earlier.layer + 1, symbols);
     derived.set(key, layers);
   }
 

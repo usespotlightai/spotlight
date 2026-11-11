@@ -27,6 +27,7 @@ import {
   type ResourceFixture,
 } from './support/resource-conformance';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { seatTeam } from './support/team';
 
 const LINEAR = {
@@ -124,8 +125,9 @@ describe('an integration, created through the resource API (e2e)', () => {
       key: 'delivery',
       name: 'Delivery',
     });
-    await db.insert(schema.station).values({
+    await insertStations(db, {
       id: stationId,
+      workspaceId: team?.workspaceId ?? '',
       lineId,
       key: 'implementation',
       name: 'Implementation',

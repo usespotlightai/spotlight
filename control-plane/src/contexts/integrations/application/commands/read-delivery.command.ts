@@ -1,5 +1,5 @@
-import type { StoredDelivery } from '@integrations/application/ports/delivery-queue.port';
+import type { ReceivedDelivery } from '@integrations/application/dto/received-delivery.dto';
 
 export class ReadDeliveryCommand {
-  constructor(readonly delivered: StoredDelivery) {}
+  constructor(readonly delivered: ReceivedDelivery) {}
 }

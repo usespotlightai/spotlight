@@ -2,11 +2,11 @@ import type { HarnessProfileResourceDto } from '@configuration/application/dto/h
 import type { HarnessProfileResourcesPort } from '@configuration/application/ports/harness-profile-resources.port';
 import type { ImportHarnessProfileQuery } from '@configuration/application/queries/import-harness-profile.query';
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
-import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -45,7 +45,7 @@ export class ImportHarnessProfileHandler
 
       const record = await this.resources.at(
         team.id,
-        ProfileKey.of(address.key).value,
+        ProfileKey.of(address.key),
       );
 
       return record ? this.views.of(record) : null;

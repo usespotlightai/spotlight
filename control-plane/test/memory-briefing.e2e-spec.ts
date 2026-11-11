@@ -1,32 +1,42 @@
 import { randomUUID } from 'node:crypto';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import {
+  MEMORY_DRAFTS,
+  type MemoryDraftRepository,
+} from '@memory/domain/repositories/memory-draft.repository';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
-import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { Run } from '@runs/domain/aggregates/run.aggregate';
+import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import {
   type BriefingContext,
   TEAM_MEMORIES,
   type TeamMemoriesPort,
 } from '@work/application/ports/team-memories.port';
-import { Run } from '@work/domain/aggregates/run.aggregate';
+import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
-import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
+import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/dispatch.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 interface Written {
@@ -51,9 +61,10 @@ const lineWith = async (id: string, key: string, work: string) => {
     key,
     name: key,
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: id,
       key: 'backlog',
       name: 'Backlog',
@@ -62,6 +73,7 @@ const lineWith = async (id: string, key: string, work: string) => {
     },
     {
       id: work,
+      workspaceId: team.workspaceId.value,
       lineId: id,
       key: 'work',
       name: 'Work',
@@ -70,6 +82,7 @@ const lineWith = async (id: string, key: string, work: string) => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: id,
       key: 'completed',
       name: 'Completed',
@@ -190,26 +203,48 @@ describe('briefing runs with what the team remembers', () => {
         id: runId,
         workspaceId: team.workspaceId,
         harness: HarnessId.of('codex'),
-        subject: RunSubject.task(
-          team.list.id,
-          team.stationId,
-          TaskRevision.of(0),
+        ...orderedFor.holdingTurn(
+          team.list.id.value,
+          0,
+          team.teamId,
+          'work',
+          'task',
         ),
         spec: RunSpec.of({
           checkouts: [],
           command: { executable: 'codex-acp', args: [] },
           briefing: 'Fix the queue.',
           handover: { options: [], noteLimit: 0 },
-          resume: { key: 'task_1' },
+          resume: {},
         }),
-        briefedWith: BriefedMemories.of({
+      }),
+    );
+    await app.get(DrizzleDispatchRepository).add(
+      Dispatch.ordered({
+        id: runId,
+        workspaceId: team.workspaceId,
+        teamId: team.teamId,
+        subject: {
+          kind: 'task',
+          taskId: team.list.id,
+          revision: TaskRevision.of(0),
+          stationId: team.stationId,
+        },
+        configuredAs: null,
+        briefedMemories: BriefedMemories.of({
           briefed: [
             { id: byPath.id, handle: byPath.handle },
             { id: teamWide.id, handle: teamWide.handle },
           ],
           omitted: [{ id: lineOnly.id, handle: lineOnly.handle }],
         }),
-      }),
+        order: DispatchOrder.of({
+          kind: 'run',
+          runId,
+          snapshot: { runId: runId.value },
+        }),
+        now: new Date(),
+      }).enqueuedAsRun(),
     );
 
     const read = await served(app)
@@ -254,7 +289,7 @@ describe('briefing runs with what the team remembers', () => {
 
   it('never briefs a memory still waiting on a person', async () => {
     const runId = RunId.of(randomUUID());
-    await app.get(DrizzleMemoryDraftRepository).add(
+    await app.get<MemoryDraftRepository>(MEMORY_DRAFTS).add(
       MemoryDraft.create({
         id: MemoryDraftId.of(randomUUID()),
         taskId: team.list.id,
@@ -280,8 +315,8 @@ describe('briefing runs with what the team remembers', () => {
             runId,
             runContext: {
               teamId: TeamId.of(team.teamId.value),
-              lineId: DELIVERY,
-              stationId: BUILD,
+              lineId: LineId.of(DELIVERY),
+              stationId: StationId.of(BUILD),
               repositories: [API],
             },
             steps: [{ index: 1, kind: 'message', text: 'Sent it.' }],
@@ -312,22 +347,33 @@ describe('briefing runs with what the team remembers', () => {
         id: runId,
         workspaceId: team.workspaceId,
         harness: HarnessId.of('claude-code'),
-        subject: RunSubject.task(
-          team.list.id,
-          team.stationId,
-          TaskRevision.of(0),
+        ...orderedFor.holdingTurn(
+          team.list.id.value,
+          0,
+          team.teamId,
+          'work',
+          'task',
         ),
         spec: RunSpec.of({
           checkouts: [],
           command: { executable: 'claude-agent-acp', args: [] },
           briefing: 'Fix the queue.',
           handover: { options: [], noteLimit: 0 },
-          resume: { key: 'task_2' },
+          resume: {},
         }),
-        briefedWith: BriefedMemories.of({
+      }),
+    );
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: runId.value,
+        workspaceId: team.workspaceId.value,
+        teamId: team.teamId.value,
+        taskId: team.list.id.value,
+        stationId: team.stationId.value,
+        briefedMemories: {
           briefed: [{ id: teamWide.id, handle: teamWide.handle }],
           omitted: [],
-        }),
+        },
       }),
     );
     const stranger = randomUUID();
@@ -342,6 +388,12 @@ describe('briefing runs with what the team remembers', () => {
       workspaceId: team.workspaceId.value,
       key: `other-${otherTeam.slice(0, 6)}`,
       name: 'Other',
+      origin: 'configuration',
+    });
+    await db.insert(schema.teamMember).values({
+      workspaceId: team.workspaceId.value,
+      teamId: otherTeam,
+      userId: team.owner.value,
     });
 
     const byStranger = await served(app)

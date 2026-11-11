@@ -18,6 +18,7 @@ import {
   ApiBadRequestResponse,
   ApiBody,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -25,8 +26,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 
 @ApiTags('decisions')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -73,6 +74,10 @@ export class DecisionController {
   @ApiParam({ name: 'decisionId', type: String })
   @ApiBody({ type: DisputeDecisionRequestDto })
   @ApiCreatedResponse({ type: TaskDecisionsResponseDto })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   @ApiBadRequestResponse({
     description:
       'The reason is missing or too long, or the decision does not name the path',
@@ -85,10 +90,7 @@ export class DecisionController {
     @Body() body: DisputeDecisionRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TaskDecisionsResponseDto> {
-    const found = await this.commandBus.execute<
-      DisputeDecisionCommand,
-      TaskDecisionsDto
-    >(
+    await this.commandBus.execute<DisputeDecisionCommand, void>(
       new DisputeDecisionCommand(
         teamId,
         taskId,
@@ -99,6 +101,6 @@ export class DecisionController {
       ),
     );
 
-    return new TaskDecisionsResponseDto(found);
+    return this.taskDecisions(teamId, taskId, user);
   }
 }

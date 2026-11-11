@@ -7,7 +7,9 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { deleteRunnersOf } from './support/runners';
+import { requestedByChat, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-start-${randomUUID().slice(0, 8)}`;
@@ -77,14 +79,14 @@ const claimed = async (runId: string): Promise<string> => {
   return assignment.token;
 };
 
-const spec = (key: string) => ({
+const SPEC = {
   checkouts: [{ remote: 'spotlight:repository', path: 'api' }],
   command: { executable: 'sh', args: [] },
   briefing: 'Drain the queue.',
   handover: { options: ['review'], noteLimit: 0 },
-  resume: { key },
+  resume: {},
   startingPoint: true,
-});
+};
 
 const aLeasedTaskRun = async (): Promise<LeasedRun> => {
   const taskId = randomUUID();
@@ -102,15 +104,13 @@ const aLeasedTaskRun = async (): Promise<LeasedRun> => {
     currentRunId: runId,
   });
   await db.insert(schema.run).values({
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: BUILD,
     harness: 'dev',
     state: 'queued',
     placement: [['linux']],
-    spec: spec(`task-${taskId}`),
+    spec: SPEC,
   });
 
   return { runId, taskId, token: await claimed(runId), attempt: 1 };
@@ -129,30 +129,30 @@ const aLeasedChatRun = async (): Promise<LeasedRun> => {
     harness: 'dev',
   });
   await db.insert(schema.run).values({
+    ...requestedByChat(chatId, { teamId: team.teamId.value }),
     id: runId,
     workspaceId: team.workspaceId.value,
-    chatId,
     harness: 'dev',
     state: 'queued',
     placement: [['linux']],
-    spec: spec(`chat-${chatId}`),
+    spec: { ...SPEC, startingPoint: false },
   });
 
   return { runId, taskId: null, token: await claimed(runId), attempt: 1 };
 };
 
 const anArchiveOf = async (
-  taskId: string,
+  of: { readonly taskId: string | null; readonly runId: string },
   completed: boolean,
 ): Promise<string> => {
+  const taskId = of.taskId as string;
   const id = randomUUID();
 
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.workingCopyArchive).values({
     id,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
-    grantedToRunId: randomUUID(),
+    workingCopyKey: `work/task-${taskId}`,
+    grantedToRunId: of.runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: new Date(),
@@ -187,9 +187,10 @@ beforeAll(async () => {
     key: 'delivery',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -198,6 +199,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -207,6 +209,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',
@@ -231,7 +234,7 @@ afterAll(async () => {
 describe('a runner saying where its run started', () => {
   it('records the completed archive the run restored and the commit each checkout began at', async () => {
     const leased = await aLeasedTaskRun();
-    const archiveId = await anArchiveOf(leased.taskId as string, true);
+    const archiveId = await anArchiveOf(leased, true);
 
     await report(leased, { ...atApi(), archiveId }).expect(204);
     await report(leased, { ...atApi(), archiveId }).expect(204);
@@ -261,7 +264,7 @@ describe('a runner saying where its run started', () => {
     expect((await runRow(leased.runId))?.startedFromAt).toBeNull();
   });
 
-  it('rejects a run that works a chat', async () => {
+  it('rejects a run whose spec asks for no starting point', async () => {
     const leased = await aLeasedChatRun();
 
     await report(leased, { ...atApi(), checkouts: [] }).expect(409);
@@ -283,8 +286,8 @@ describe('a runner saying where its run started', () => {
   it('rejects an archive the run could not have restored', async () => {
     const leased = await aLeasedTaskRun();
     const other = await aLeasedTaskRun();
-    const incomplete = await anArchiveOf(leased.taskId as string, false);
-    const ofAnotherTask = await anArchiveOf(other.taskId as string, true);
+    const incomplete = await anArchiveOf(leased, false);
+    const ofAnotherTask = await anArchiveOf(other, true);
 
     for (const archiveId of [incomplete, ofAnotherTask, randomUUID()]) {
       await report(leased, { ...atApi(), archiveId }).expect(422);

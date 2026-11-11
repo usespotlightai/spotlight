@@ -6,11 +6,16 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
+export interface ToolRule {
+  readonly tool: ToolName;
+  readonly rule: PersonToolRule;
+}
+
 interface State {
   readonly teamId: TeamId;
   readonly personId: UserId;
   readonly integration: IntegrationKey;
-  readonly rules: ReadonlyMap<string, PersonToolRule>;
+  readonly rules: readonly ToolRule[];
   readonly version: number;
 }
 
@@ -22,7 +27,7 @@ export class PersonToolPolicy {
     personId: UserId;
     integration: IntegrationKey;
   }): PersonToolPolicy {
-    return new PersonToolPolicy({ ...input, rules: new Map(), version: 0 });
+    return new PersonToolPolicy({ ...input, rules: [], version: 0 });
   }
 
   static rehydrate(input: State): PersonToolPolicy {
@@ -33,7 +38,7 @@ export class PersonToolPolicy {
       );
     }
 
-    if ([...input.rules.values()].some((each) => each.allows)) {
+    if (input.rules.some((each) => each.rule.allows)) {
       throw new InconsistentStateError(
         'person tool policy',
         'was stored with a rule that only allows, which it never stores',
@@ -55,7 +60,7 @@ export class PersonToolPolicy {
     return this.state.integration;
   }
 
-  get rules(): ReadonlyMap<string, PersonToolRule> {
+  get rules(): readonly ToolRule[] {
     return this.state.rules;
   }
 
@@ -68,26 +73,26 @@ export class PersonToolPolicy {
   }
 
   ruleFor(tool: ToolName): PersonToolRule {
-    return this.state.rules.get(tool.value) ?? PersonToolRule.allowed();
+    return (
+      this.state.rules.find((each) => each.tool.equals(tool))?.rule ??
+      PersonToolRule.allowed()
+    );
   }
 
   set(tool: ToolName, rule: PersonToolRule): PersonToolPolicy {
-    if (!tool.value.startsWith(`${this.state.integration.value}.`)) {
+    if (!tool.integration.equals(this.state.integration)) {
       throw new InvalidIntegrationPartError(
         'tool rule',
         `names ${tool.value}, which ${this.state.integration.value} does not offer`,
       );
     }
 
-    const rules = new Map(this.state.rules);
+    const others = this.state.rules.filter((each) => !each.tool.equals(tool));
 
-    if (rule.allows) {
-      rules.delete(tool.value);
-    } else {
-      rules.set(tool.value, rule);
-    }
-
-    return new PersonToolPolicy({ ...this.state, rules });
+    return new PersonToolPolicy({
+      ...this.state,
+      rules: rule.allows ? others : [...others, { tool, rule }],
+    });
   }
 
   equals(other: PersonToolPolicy): boolean {

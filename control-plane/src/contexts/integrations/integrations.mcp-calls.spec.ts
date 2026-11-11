@@ -1,16 +1,22 @@
+import {
+  scopedTo,
+  scopeRecorder,
+  unscoped,
+} from '@identity/application/ports/workspace-outbound-scope.fake-spec';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type {
   CallAuth,
-  IntegrationTaskView,
   ResolvedTool,
 } from '@integrations/application/ports/integration-runtime.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
+import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
-import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -26,15 +32,16 @@ import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { discoveringNothing } from '@integrations/integrations.mcp.fake-spec';
+import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import {
-  scopedTo,
-  unscoped,
-} from '@platform/outbound/outbound-scope.fake-spec';
-import { scopeRecorder } from '@shared-kernel/application/ports/workspace-outbound-scope.fake-spec';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const expressions = new CelExpressionEngine();
@@ -65,17 +72,20 @@ const DELETE = SpecOperation.of({
   call: { kind: 'mcp', tool: 'delete_issue' },
 });
 
-const TASK: IntegrationTaskView = {
-  taskId: 'task_1',
-  workspaceId: 'ws_1',
-  teamId: 'team_1',
+const TASK: TaskView = {
+  taskId: TaskId.of('task_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
   title: 'Drain the queue',
   url: null,
   pullRequest: null,
-  line: 'delivery',
-  station: 'Implementation',
-  stationKey: 'implementation',
+  pullRequests: [],
+  line: LineKey.of('delivery'),
+  station: StationName.of('Implementation'),
+  stationKey: StationKey.of('implementation'),
   marks: {},
+  repositories: [],
+  runId: null,
   waiting: null,
 };
 
@@ -113,7 +123,7 @@ const resolving = async (
         tools: ['tracker.delete-issue'],
       }),
     ],
-    'tracker.delete-issue',
+    ToolName.of('tracker.delete-issue'),
     TASK,
   );
 
@@ -134,7 +144,7 @@ const callAuthAs = (
 
   return {
     unauthorized,
-    workspace: async () => 'ws_1',
+    workspace: async () => WorkspaceId.of('ws_1'),
     connection: {
       token: AccessToken.of(token),
       owner: ConnectionOwner.person(UserId.of('ada')),
@@ -153,7 +163,9 @@ describe('a tool an MCP server offers', () => {
     const resolved = await resolving(call);
 
     await expect(
-      resolved.call({ id: 'ENG-1' }, callAuthAs('ada-token')),
+      answerOf(
+        resolved.attempt({ id: 'ENG-1' }, callAuthAs('ada-token'), null),
+      ),
     ).resolves.toEqual({ deleted: 'ENG-1' });
     expect(call).toHaveBeenCalledWith(
       expect.stringMatching(/^team_1:tracker:oauth2:person:ada:[0-9a-f]{16}$/),
@@ -177,7 +189,9 @@ describe('a tool an MCP server offers', () => {
     const callAuth = callAuthAs('stale', 'fresh');
     const resolved = await resolving(call);
 
-    await expect(resolved.call({}, callAuth)).resolves.toBe('done');
+    await expect(answerOf(resolved.attempt({}, callAuth, null))).resolves.toBe(
+      'done',
+    );
     expect(callAuth.unauthorized).toHaveBeenCalledTimes(1);
     expect(call.mock.calls[1]?.[4]).toMatchObject({ connection: 'fresh' });
     expect(call.mock.calls[0]?.[0]).not.toBe(call.mock.calls[1]?.[0]);
@@ -188,7 +202,9 @@ describe('a tool an MCP server offers', () => {
       throw new McpUnauthorizedError(SERVER);
     });
 
-    await expect(resolved.call({}, callAuthAs('stale'))).rejects.toThrow(
+    await expect(
+      answerOf(resolved.attempt({}, callAuthAs('stale'), null)),
+    ).rejects.toThrow(
       'using tracker.delete-issue: mcp.tracker.example answered 401',
     );
   });
@@ -199,8 +215,8 @@ describe('a tool an MCP server offers', () => {
     });
 
     await expect(
-      resolved.call({}, callAuthAs('ada-token')),
-    ).rejects.toBeInstanceOf(ToolAskedMidCallError);
+      answerOf(resolved.attempt({}, callAuthAs('ada-token'), null)),
+    ).rejects.toThrow(/asked a question in the middle of the call/);
   });
 
   it('calls the server within the workspace list, so each request it makes honours it', async () => {
@@ -213,7 +229,7 @@ describe('a tool an MCP server offers', () => {
       return { content: [{ type: 'text' as const, text: 'done' }] };
     }, scopedTo('mcp.tracker.example'));
 
-    await resolved.call({}, callAuthAs('ada-token'));
+    await answerOf(resolved.attempt({}, callAuthAs('ada-token'), null));
 
     expect(allowed).toEqual([true, false]);
   });
@@ -225,7 +241,7 @@ describe('a tool an MCP server offers', () => {
       recorder.scope,
     );
 
-    await resolved.call({}, callAuthAs('ada-token'));
+    await answerOf(resolved.attempt({}, callAuthAs('ada-token'), null));
 
     expect(recorder.entered()).toEqual(['cached']);
   });
@@ -239,8 +255,8 @@ describe('a tool an MCP server offers', () => {
       throw blocked;
     });
 
-    await expect(resolved.call({}, callAuthAs('ada-token'))).rejects.toBe(
-      blocked,
-    );
+    await expect(
+      answerOf(resolved.attempt({}, callAuthAs('ada-token'), null)),
+    ).rejects.toThrow(blocked.message);
   });
 });

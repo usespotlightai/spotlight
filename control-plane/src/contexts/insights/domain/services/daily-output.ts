@@ -1,15 +1,4 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import {
-  type CarriedConfigs,
-  configChangesAlong,
-} from '@insights/domain/services/config-intervals';
 import type { ResolvedDelivery } from '@insights/domain/services/headline';
-import { spendingOf } from '@insights/domain/services/measures';
-import {
-  endedWithin,
-  startedWithin,
-  type TeamHistory,
-} from '@insights/domain/services/team-history';
 import {
   dayOf,
   type InsightsPeriod,
@@ -56,30 +45,6 @@ const NO_SPENDING: DaySpending = {
   mixedCurrencies: false,
 };
 
-export const daySpendingOf = (
-  history: TeamHistory,
-  period: InsightsPeriod,
-): ReadonlyMap<string, DaySpending> => {
-  const byDay = new Map<string, RunRecord[]>();
-
-  for (const record of endedWithin(history.records, period.current)) {
-    if (record.ran && record.end) {
-      const day = dayOf(record.end.endedAt);
-      byDay.set(day, [...(byDay.get(day) ?? []), record]);
-    }
-  }
-
-  return new Map(
-    [...byDay].map(([day, runs]) => {
-      const { spend, unpriced, mixedCurrencies } = spendingOf(
-        runs.map((each) => each.usage?.spend ?? null),
-      );
-
-      return [day, { runs: runs.length, spend, unpriced, mixedCurrencies }];
-    }),
-  );
-};
-
 export const dailyOutputFrom = (
   spending: ReadonlyMap<string, DaySpending>,
   resolved: readonly ResolvedDelivery[],
@@ -117,38 +82,3 @@ export const outputCurrencyOf = (
     mixedCurrencies,
   };
 };
-
-export const beganAt = (record: RunRecord): Date | null =>
-  record.end?.beganAt ?? null;
-
-export const configMarkersAlong = (
-  records: readonly RunRecord[],
-  before: readonly RunRecord[] = [],
-): readonly ConfigMarker[] =>
-  configChangesAlong(records, before).flatMap(({ run, previous }) =>
-    previous === null
-      ? []
-      : [
-          {
-            lineId: run.lineId,
-            stationId: run.stationId,
-            fingerprint: run.fingerprint,
-            previousFingerprint: previous,
-            firstRunAt: run.beganAt,
-            runId: run.runId.value,
-          },
-        ],
-  );
-
-export const configMarkersOf = (
-  history: TeamHistory,
-  period: InsightsPeriod,
-  carried: CarriedConfigs,
-): readonly ConfigMarker[] =>
-  configMarkersAlong(
-    startedWithin(history.records, {
-      from: carried.from,
-      to: period.lookback.to,
-    }),
-    carried.lastRuns,
-  ).filter((each) => within(period.current, each.firstRunAt));

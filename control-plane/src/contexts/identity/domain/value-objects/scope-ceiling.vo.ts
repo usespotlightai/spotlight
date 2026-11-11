@@ -1,5 +1,6 @@
+import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
+import type { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
-import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 
 type ScopeLevel =
   | { readonly kind: 'unlimited' }
@@ -12,7 +13,7 @@ export class ScopeCeiling {
 
   static of(principal: Principal): ScopeCeiling {
     return principal.kind === 'token'
-      ? ScopeCeiling.withScopes(principal.scopes)
+      ? ScopeCeiling.withScopes(IssuedTokenGrant.of(principal).scopes)
       : ScopeCeiling.unlimited;
   }
 

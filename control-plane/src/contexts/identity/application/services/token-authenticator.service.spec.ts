@@ -4,17 +4,17 @@ import type { WorkspaceToken } from '@identity/domain/aggregates/workspace-token
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-25T10:00:00.000Z');
@@ -72,14 +72,14 @@ describe('TokenAuthenticator', () => {
     expect(
       await authenticator(ISSUED_BY_TRUST, trustAt(1)).authenticate('bearer'),
     ).toMatchObject({
-      issuedByTrustId: OidcTrustId.of('trust_1'),
+      grant: { issuedByTrustId: OidcTrustId.of('trust_1') },
     });
     expect(
       await authenticator(ISSUED_BY_TRUST, trustAt(1, 4)).authenticate(
         'bearer',
       ),
     ).toMatchObject({
-      issuedByTrustId: OidcTrustId.of('trust_1'),
+      grant: { issuedByTrustId: OidcTrustId.of('trust_1') },
     });
   });
 

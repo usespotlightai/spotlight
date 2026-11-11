@@ -3,9 +3,10 @@ import type {
   CitedReason,
   JudgeEvidence,
 } from '@insights/domain/services/judge-evidence';
-import type { JudgeCriteria } from '@insights/domain/value-objects/judge-criteria.vo';
 import type { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
-import { metRate } from '@insights/domain/value-objects/score-scale.vo';
+import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
+import { claimShareOf } from '@shared-kernel/domain/value-objects/judge-scale.vo';
 
 export const MAX_REASONS = 5;
 
@@ -75,7 +76,7 @@ const groundedOnClaims = (
 
   return {
     grounded: true,
-    value: metRate(claimResults),
+    value: claimShareOf(claimResults),
     claimResults,
     reasons,
   };
@@ -98,7 +99,7 @@ export const groundedVerdict = (
   let value: number;
 
   try {
-    value = criteria.scale.valueOf(verdict.value);
+    value = ScoreScale.of(criteria.scale.kind).valueOf(verdict.value);
   } catch (error) {
     if (error instanceof InvalidScoreError) {
       return UNREADABLE;

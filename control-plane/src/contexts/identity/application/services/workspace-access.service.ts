@@ -1,45 +1,47 @@
-import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
-import type { ViewableWorkspacesPort } from '@identity/application/ports/viewable-workspaces.port';
 import type {
-  TeamMembership,
   TeamPermissions,
+  TeamWorkspaceMembership,
   WorkspaceAccessPort,
   WorkspaceMembership,
   WorkspacePermissions,
 } from '@identity/application/ports/workspace-access.port';
+import type { WorkspaceRolesPort } from '@identity/application/ports/workspace-roles.port';
+import type { Team } from '@identity/domain/aggregates/team.aggregate';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { TeamAccess } from '@identity/domain/services/team-access';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
+import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import {
   PersonPrincipal,
   type Principal,
 } from '@shared-kernel/domain/value-objects/principal.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const permissionsIn = (
-  workspace: Workspace | null,
-  principal: Principal,
-): WorkspacePermissions | null => {
-  const permissions = workspace?.permissionsFor(principal);
-
-  return workspace && permissions?.reads
+const published = (
+  workspace: Workspace,
+  permissions: Permissions,
+): WorkspacePermissions | null =>
+  permissions.reads
     ? {
         workspaceId: workspace.id,
         slug: workspace.slug.value,
         plans: permissions.plans,
         configures: permissions.configures,
-        managesSecrets: permissions.managesSecrets,
-        managesRunners: permissions.managesRunners,
-        managesOidcTrusts: permissions.managesOidcTrusts,
+        scopes: new Set(permissions.allowedScopes.map((scope) => scope.value)),
         isAdmin: permissions.isAdmin,
       }
     : null;
-};
+
+const permissionsIn = (
+  workspace: Workspace | null,
+  principal: Principal,
+): WorkspacePermissions | null =>
+  workspace ? published(workspace, workspace.permissionsFor(principal)) : null;
 
 const membershipOf = (
   permissions: WorkspacePermissions,
@@ -53,23 +55,32 @@ const membershipOf = (
 
 export class WorkspaceAccess implements WorkspaceAccessPort {
   constructor(
-    private readonly visibility: ViewableWorkspacesPort,
+    private readonly roles: WorkspaceRolesPort,
     private readonly workspaces: WorkspaceRepository,
-    private readonly resources: IdentityResourcesPort,
     private readonly teams: TeamRepository,
   ) {}
 
-  viewableBy(
-    viewer: UserId,
-    workspaces: readonly WorkspaceId[],
-  ): Promise<ReadonlySet<string>> {
-    return this.visibility.viewableBy(viewer, workspaces);
+  async mayView(viewer: UserId, workspaceId: WorkspaceId): Promise<boolean> {
+    return (await this.viewableOf(viewer, [workspaceId])).length > 0;
   }
 
-  async mayView(viewer: UserId, workspaceId: WorkspaceId): Promise<boolean> {
-    return (await this.viewableBy(viewer, [workspaceId])).has(
-      workspaceId.value,
-    );
+  async viewableOf(
+    viewer: UserId,
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly WorkspaceId[]> {
+    if (workspaceIds.length === 0) {
+      return [];
+    }
+
+    const roles = await this.roles.rolesOf(viewer, workspaceIds);
+
+    return workspaceIds.filter((each) => {
+      const role = roles.get(each.value);
+
+      return (
+        role !== undefined && Permissions.ofRole(WorkspaceRole.of(role)).reads
+      );
+    });
   }
 
   async inWorkspace(
@@ -84,8 +95,11 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     return permissions ? membershipOf(permissions, viewer) : null;
   }
 
-  async onTeam(teamId: string, viewer: UserId): Promise<TeamMembership | null> {
-    const permissions = await this.permissionsOnTeam(
+  async inWorkspaceOfTeam(
+    teamId: TeamId,
+    viewer: UserId,
+  ): Promise<TeamWorkspaceMembership | null> {
+    const permissions = await this.permissionsInWorkspaceOfTeam(
       teamId,
       PersonPrincipal.of(viewer),
     );
@@ -112,36 +126,43 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     );
   }
 
-  async permissionsOnTeam(
-    teamId: string,
+  async permissionsInWorkspaceOfTeam(
+    teamId: TeamId,
     principal: Principal,
   ): Promise<TeamPermissions | null> {
-    const team = await this.resources.teamWithId(TeamId.of(teamId));
-    const permissions = team
-      ? await this.permissionsIn(team.workspaceId, principal)
-      : null;
-
-    return team && permissions ? { ...permissions, teamId: team.id } : null;
+    return this.grantedOnTeam(teamId, (team, workspace) =>
+      published(
+        workspace,
+        TeamAccess.permissionsInWorkspaceOf(team, workspace, principal),
+      ),
+    );
   }
 
-  async permissionsAsTeamReader(
-    teamId: string,
+  async permissionsAsTeamMember(
+    teamId: TeamId,
     principal: Principal,
   ): Promise<TeamPermissions | null> {
-    const team = await this.teams.find(TeamId.of(teamId));
-    const workspace = team
-      ? await this.workspaces.find(team.workspaceId)
-      : null;
-
-    const permissions =
-      team && workspace && TeamAccess.allows(team, workspace, principal)
-        ? permissionsIn(workspace, principal)
-        : null;
-
-    return team && permissions ? { ...permissions, teamId: team.id } : null;
+    return this.grantedOnTeam(teamId, (team, workspace) =>
+      TeamAccess.actsOnTeam(team, workspace, principal)
+        ? published(workspace, workspace.permissionsFor(principal))
+        : null,
+    );
   }
 
   mayPlan(principal: Principal): boolean {
     return Permissions.global(principal).plans;
+  }
+
+  private async grantedOnTeam(
+    teamId: TeamId,
+    granted: (team: Team, workspace: Workspace) => WorkspacePermissions | null,
+  ): Promise<TeamPermissions | null> {
+    const team = await this.teams.find(teamId);
+    const workspace = team
+      ? await this.workspaces.find(team.workspaceId)
+      : null;
+    const permissions = team && workspace ? granted(team, workspace) : null;
+
+    return team && permissions ? { ...permissions, teamId: team.id } : null;
   }
 }

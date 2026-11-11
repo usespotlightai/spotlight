@@ -3,19 +3,21 @@ import { ReviewCommentEdited } from '@change-review/domain/events/review-comment
 import { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import { NotYourReviewCommentError } from '@change-review/domain/exceptions/not-your-review-comment.error';
+import type { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import type { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import type { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import type { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const REVIEW_COMMENT_STATES = [
   'draft',
-  'submitted',
+  'sending',
   'posted',
   'failed',
   'deleted',
@@ -64,6 +66,7 @@ export class ReviewComment extends EventRecorder {
     readonly pendingOwnEdits: readonly string[],
     readonly createdAt: Date,
     readonly editedAt: Date | null,
+    readonly failure: DeliveryFailure | null,
     readonly version: number,
   ) {
     super();
@@ -100,6 +103,7 @@ export class ReviewComment extends EventRecorder {
       [],
       input.now,
       null,
+      null,
       0,
     );
   }
@@ -111,7 +115,7 @@ export class ReviewComment extends EventRecorder {
     anchor: ReviewAnchor;
     body: string;
     author: ReviewAuthor;
-    replyTo: ReviewCommentId | null;
+    inReplyTo: ReviewComment | null;
     github: OnGitHub;
     at: Date;
   }): ReviewComment {
@@ -128,7 +132,7 @@ export class ReviewComment extends EventRecorder {
       input.anchor,
       input.body.trim(),
       input.author,
-      input.replyTo,
+      input.inReplyTo?.threadRoot ?? null,
       null,
       'posted',
       input.github,
@@ -136,6 +140,7 @@ export class ReviewComment extends EventRecorder {
       false,
       [],
       input.at,
+      null,
       null,
       0,
     );
@@ -157,6 +162,7 @@ export class ReviewComment extends EventRecorder {
     pendingOwnEdits: readonly string[];
     createdAt: Date;
     editedAt: Date | null;
+    failure: DeliveryFailure | null;
     version: number;
   }): ReviewComment {
     if (input.state === 'draft' && input.github) {
@@ -173,7 +179,7 @@ export class ReviewComment extends EventRecorder {
     }
     if (
       input.state !== 'deleted' &&
-      (input.state === 'submitted') !== (input.sentBody !== null)
+      (input.state === 'sending') !== (input.sentBody !== null)
     ) {
       throw new InconsistentStateError(
         'review comment',
@@ -184,6 +190,12 @@ export class ReviewComment extends EventRecorder {
       throw new InconsistentStateError(
         'review comment',
         'has an edit to send to GitHub but is not on GitHub',
+      );
+    }
+    if ((input.state === 'failed') !== (input.failure !== null)) {
+      throw new InconsistentStateError(
+        'review comment',
+        'failed to reach GitHub without a reason, or has a reason while it did not fail',
       );
     }
 
@@ -203,16 +215,45 @@ export class ReviewComment extends EventRecorder {
       input.pendingOwnEdits,
       input.createdAt,
       input.editedAt,
+      input.failure,
       input.version,
     );
   }
 
   get answerable(): boolean {
-    return this.state === 'submitted' || this.state === 'posted';
+    return (
+      this.state === 'sending' ||
+      (this.state === 'posted' && this.github !== null)
+    );
   }
 
   get threadOnGitHub(): OnGitHub | null {
     return this.state === 'posted' ? this.github : null;
+  }
+
+  get pullRequestOnGitHub(): PullRequestUrl | null {
+    if (!this.github) {
+      return null;
+    }
+
+    let at: URL;
+
+    try {
+      at = new URL(this.github.url);
+    } catch {
+      return null;
+    }
+
+    if (at.protocol !== 'https:') {
+      return null;
+    }
+
+    at.hash = '';
+    at.search = '';
+
+    const pullRequest = PullRequestUrl.of(at.toString());
+
+    return pullRequest.repository ? pullRequest : null;
   }
 
   replied(input: {
@@ -246,14 +287,15 @@ export class ReviewComment extends EventRecorder {
       this.anchor,
       body,
       input.author,
-      this.replyTo ?? this.id,
+      this.threadRoot,
       null,
-      'submitted',
+      'sending',
       null,
       body,
       false,
       [],
       input.now,
+      null,
       null,
       0,
     );
@@ -265,20 +307,16 @@ export class ReviewComment extends EventRecorder {
     return reply;
   }
 
-  visibleTo(viewer: UserId): boolean {
-    if (this.state === 'deleted') {
-      return false;
-    }
-
-    return this.state !== 'draft' || this.writtenBy(viewer);
+  get threadRoot(): ReviewCommentId {
+    return this.replyTo ?? this.id;
   }
 
   writtenBy(viewer: UserId): boolean {
     return this.author.userId?.equals(viewer) ?? false;
   }
 
-  get isAgentAuthored(): boolean {
-    return this.author.kind === 'agent';
+  get deliveredAlone(): boolean {
+    return this.author.kind === 'person';
   }
 
   get sending(): boolean {
@@ -288,7 +326,7 @@ export class ReviewComment extends EventRecorder {
   isOwnPostedCopy(anchor: ReviewAnchor, body: string): boolean {
     return (
       this.sentBody !== null &&
-      this.anchor.equals(anchor) &&
+      this.anchor.samePlaceAs(anchor) &&
       body.includes(this.sentBody)
     );
   }
@@ -302,7 +340,7 @@ export class ReviewComment extends EventRecorder {
       throw new InvalidReviewError('can only submit draft comments');
     }
 
-    return this.with({ state: 'submitted', reviewId, sentBody: this.body });
+    return this.with({ state: 'sending', reviewId, sentBody: this.body });
   }
 
   postedAs(github: OnGitHub | null): ReviewComment {
@@ -380,7 +418,7 @@ export class ReviewComment extends EventRecorder {
     return deleted;
   }
 
-  notPosted(): ReviewComment {
+  notPosted(failure: DeliveryFailure): ReviewComment {
     if (this.sentBody === null) {
       return this;
     }
@@ -390,7 +428,18 @@ export class ReviewComment extends EventRecorder {
 
     return this.reviewId
       ? this.with({ state: 'draft', reviewId: null, sentBody: null })
-      : this.with({ state: 'failed', sentBody: null });
+      : this.with({ state: 'failed', sentBody: null, failure });
+  }
+
+  returnedToDraftFrom(reviewId: ReviewId): ReviewComment {
+    if (this.sentBody === null || !this.belongsTo(reviewId)) {
+      return this;
+    }
+    if (this.state === 'deleted') {
+      return this.with({ sentBody: null });
+    }
+
+    return this.with({ state: 'draft', reviewId: null, sentBody: null });
   }
 
   editSent(body: string): ReviewComment {
@@ -425,7 +474,16 @@ export class ReviewComment extends EventRecorder {
   }
 
   deletedOnGitHub(): ReviewComment {
-    return this.with({ state: 'deleted' });
+    if (this.state === 'deleted') {
+      return this;
+    }
+
+    return this.with({
+      state: 'deleted',
+      sentBody: null,
+      editPending: false,
+      pendingOwnEdits: [],
+    });
   }
 
   private assertWrittenBy(by: UserId): void {
@@ -443,7 +501,9 @@ export class ReviewComment extends EventRecorder {
     editPending?: boolean;
     pendingOwnEdits?: readonly string[];
     editedAt?: Date;
+    failure?: DeliveryFailure | null;
   }): ReviewComment {
+    const state = change.state ?? this.state;
     const next = new ReviewComment(
       this.id,
       this.workspaceId,
@@ -453,13 +513,18 @@ export class ReviewComment extends EventRecorder {
       this.author,
       this.replyTo,
       change.reviewId === undefined ? this.reviewId : change.reviewId,
-      change.state ?? this.state,
+      state,
       change.github === undefined ? this.github : change.github,
       change.sentBody === undefined ? this.sentBody : change.sentBody,
       change.editPending ?? this.editPending,
       change.pendingOwnEdits ?? this.pendingOwnEdits,
       this.createdAt,
       change.editedAt ?? this.editedAt,
+      change.failure !== undefined
+        ? change.failure
+        : state === 'failed'
+          ? this.failure
+          : null,
       this.version,
     );
 

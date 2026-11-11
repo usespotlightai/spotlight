@@ -1,4 +1,4 @@
-import { InvalidHarnessVersionError } from '@runners/domain/exceptions/invalid-harness-version.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 const SHAPE = /^v?([0-9]+(\.[0-9A-Za-z-]+)*)$/;
 
@@ -11,7 +11,8 @@ export class HarnessVersion {
     const matched = SHAPE.exec(raw.trim());
 
     if (!matched?.[1] || matched[1].length > MAX_LENGTH) {
-      throw new InvalidHarnessVersionError(
+      throw new InconsistentStateError(
+        'harness version',
         'must be a harness CLI release, as in 2.1.270',
       );
     }

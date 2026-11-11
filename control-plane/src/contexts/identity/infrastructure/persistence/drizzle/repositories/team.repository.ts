@@ -5,6 +5,7 @@ import { TeamVersionConflictError } from '@identity/domain/exceptions/team-versi
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import type { TeamOrigin } from '@identity/domain/value-objects/team-origin.vo';
 import {
   team,
   teamMember,
@@ -30,6 +31,7 @@ interface Row {
   readonly workspaceId: string;
   readonly key: string;
   readonly name: string;
+  readonly origin: TeamOrigin;
   readonly version: number;
 }
 
@@ -51,7 +53,9 @@ export class DrizzleTeamRepository implements TeamRepository {
   private async inserted(added: Team): Promise<void> {
     await this.context.inTransaction(async () => {
       try {
-        await this.context.db.insert(team).values(this.written(added));
+        await this.context.db
+          .insert(team)
+          .values({ ...this.written(added), version: added.version });
       } catch (error) {
         if (codeOf(error) === UNIQUE_VIOLATION) {
           throw new TeamAlreadyExistsError(added.key.value);
@@ -67,6 +71,7 @@ export class DrizzleTeamRepository implements TeamRepository {
       if (added.members.length > 0) {
         await this.context.db.insert(teamMember).values(
           added.members.map((member) => ({
+            workspaceId: added.workspaceId.value,
             teamId: added.id.value,
             userId: member.value,
           })),
@@ -132,7 +137,11 @@ export class DrizzleTeamRepository implements TeamRepository {
         await this.context.db
           .insert(teamMember)
           .values(
-            memberIds.map((userId) => ({ teamId: saved.id.value, userId })),
+            memberIds.map((userId) => ({
+              workspaceId: saved.workspaceId.value,
+              teamId: saved.id.value,
+              userId,
+            })),
           )
           .onConflictDoNothing({
             target: [teamMember.teamId, teamMember.userId],
@@ -183,6 +192,7 @@ export class DrizzleTeamRepository implements TeamRepository {
       workspaceId: record.workspaceId.value,
       key: record.key.value,
       name: record.name.value,
+      origin: record.origin,
     };
   }
 
@@ -207,6 +217,7 @@ export class DrizzleTeamRepository implements TeamRepository {
         workspaceId: WorkspaceId.of(row.workspaceId),
         key: TeamKey.of(row.key),
         name: TeamName.of(row.name),
+        origin: row.origin,
         members: members
           .filter((member) => member.teamId === row.id)
           .map((member) => UserId.of(member.userId)),

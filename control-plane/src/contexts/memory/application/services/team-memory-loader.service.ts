@@ -1,4 +1,4 @@
-import type { WorkPort } from '@memory/application/ports/work.port';
+import type { LinesPort } from '@memory/application/ports/lines.port';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
@@ -9,7 +9,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 export class TeamMemoryLoader {
   constructor(
     private readonly memories: MemoryRepository,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
   ) {}
 
   async memory(access: TeamAccess, memoryId: string): Promise<Memory> {
@@ -25,7 +25,7 @@ export class TeamMemoryLoader {
   async layoutOf(access: TeamAccess): Promise<TeamLayout> {
     return TeamLayout.of({
       teamId: access.teamId,
-      lines: (await this.work.linesOf(access.teamId)).map((line) => ({
+      lines: (await this.lines.ofTeam(access.teamId)).map((line) => ({
         id: line.id,
         stations: line.stations.map((each) => each.id),
         repositories: line.repositories,

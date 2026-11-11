@@ -8,12 +8,14 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -23,8 +25,8 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
@@ -33,8 +35,13 @@ import {
   StopChatCommand,
 } from '@work/application/commands/chat.commands';
 import type { ChatDto, ChatSummaryDto } from '@work/application/dto/chat.dto';
-import type { RunJournalDto } from '@work/application/dto/run-journal.dto';
+import { mapPage, type Page } from '@work/application/dto/page.dto';
+import type {
+  JournalledRunDto,
+  RunJournalDto,
+} from '@work/application/dto/run-journal.dto';
 import {
+  ListChatJournalRunsQuery,
   ListChatsQuery,
   ReadChatJournalQuery,
   ReadChatQuery,
@@ -45,14 +52,19 @@ import {
 } from '@work/presentation/http/dto/chat.request.dto';
 import {
   ChatResponseDto,
+  ChatSummaryPageResponseDto,
   ChatSummaryResponseDto,
 } from '@work/presentation/http/dto/chat.response.dto';
-import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
+import {
+  JournalledRunResponseDto,
+  RunJournalResponseDto,
+} from '@work/presentation/http/dto/run-journal.response.dto';
 import { ChatHttpMapper } from '@work/presentation/http/mappers/chat.http.mapper';
 import { choiceInput } from '@work/presentation/http/mappers/choice-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 import { setupInput } from '@work/presentation/http/mappers/setup-input';
+import { ApiPageQuery, pageRequestOf } from '@work/presentation/http/paging';
 
 @ApiTags('chats')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -74,22 +86,25 @@ export class ChatController {
     summary:
       'The chats the caller has started with the team’s agent, latest first',
   })
-  @ApiOkResponse({ type: ChatSummaryResponseDto, isArray: true })
+  @ApiPageQuery()
+  @ApiOkResponse({ type: ChatSummaryPageResponseDto })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
   async list(
     @Param('teamId') teamId: string,
+    @Query('before') before: string | undefined,
+    @Query('limit') limit: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<ChatSummaryResponseDto[]> {
+  ): Promise<Page<ChatSummaryResponseDto>> {
     const chats = await this.queryBus.execute<
       ListChatsQuery,
-      ChatSummaryDto[] | null
-    >(new ListChatsQuery(teamId, user.id));
+      Page<ChatSummaryDto> | null
+    >(new ListChatsQuery(teamId, user.id, pageRequestOf(before, limit)));
 
     if (!chats) {
       throw new NotFoundException();
     }
 
-    return chats.map(ChatHttpMapper.summaryToResponse);
+    return mapPage(chats, ChatHttpMapper.summaryToResponse);
   }
 
   @Post()
@@ -166,21 +181,48 @@ export class ChatController {
 
   @Get(':chatId/journal')
   @ApiOperation({
-    operationId: 'readChatJournal',
-    summary: 'What the agent did and wrote in each run of a chat',
+    operationId: 'listChatJournalRuns',
+    summary: 'The runs of a chat that have a journal, oldest first',
   })
   @ApiParam({ name: 'chatId', type: String })
+  @ApiOkResponse({ type: JournalledRunResponseDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'No such chat for this caller' })
+  async journalRuns(
+    @Param('teamId') teamId: string,
+    @Param('chatId') chatId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<JournalledRunResponseDto[]> {
+    const runs = await this.queryBus.execute<
+      ListChatJournalRunsQuery,
+      JournalledRunDto[] | null
+    >(new ListChatJournalRunsQuery(teamId, chatId, user.id));
+
+    if (!runs) {
+      throw new NotFoundException();
+    }
+
+    return runs.map(RunJournalHttpMapper.runToResponse);
+  }
+
+  @Get(':chatId/journal/:runId')
+  @ApiOperation({
+    operationId: 'readChatJournal',
+    summary: 'What the agent did and wrote in one run of a chat, per attempt',
+  })
+  @ApiParam({ name: 'chatId', type: String })
+  @ApiParam({ name: 'runId', type: String })
   @ApiOkResponse({ type: RunJournalResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
   async journal(
     @Param('teamId') teamId: string,
     @Param('chatId') chatId: string,
+    @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RunJournalResponseDto[]> {
     const journals = await this.queryBus.execute<
       ReadChatJournalQuery,
       RunJournalDto[] | null
-    >(new ReadChatJournalQuery(teamId, chatId, user.id));
+    >(new ReadChatJournalQuery(teamId, chatId, runId, user.id));
 
     if (!journals) {
       throw new NotFoundException();
@@ -249,6 +291,10 @@ export class ChatController {
   @ApiNoContentResponse({ description: 'The task is being created' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
   @ApiConflictResponse({ description: 'The proposal is already decided' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async accept(
     @Param('teamId') teamId: string,
     @Param('chatId') chatId: string,

@@ -10,9 +10,9 @@ import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -23,6 +23,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { aDispatch, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -105,26 +106,37 @@ beforeAll(async () => {
     runIds.set(name, runId);
 
     await db.insert(schema.run).values({
+      ...requestedByTask(taskId.value, { teamId: team.teamId.value }),
       id: runId.value,
       workspaceId: team.workspaceId.value,
       harness: 'dev',
-      taskId: taskId.value,
-      taskRevision: 0,
-      stationId: team.stationId.value,
       state: 'completed',
+      ...outcomeOf('completed'),
       spec: {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        resume: { key: 'task:station' },
+        resume: {},
       },
       createdAt: ago(130),
+      queuedAt: ago(130),
       startedAt: ago(125),
       endedAt: ago(120),
     });
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: runId.value,
+        workspaceId: team.workspaceId.value,
+        teamId: team.teamId.value,
+        taskId: taskId.value,
+        stationId: team.stationId.value,
+        orderedAt: ago(130),
+        endedAt: ago(120),
+      }),
+    );
 
-    const ended: RunEndedIntegrationEvent = {
-      kind: RUN_ENDED,
+    const ended: DispatchEndedIntegrationEvent = {
+      kind: DISPATCH_ENDED,
       runId: runId.value,
       workspaceId: team.workspaceId.value,
       taskId: taskId.value,

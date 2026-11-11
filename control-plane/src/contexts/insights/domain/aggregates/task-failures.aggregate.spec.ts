@@ -1,6 +1,7 @@
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
-import { day, failuresOf } from '@insights/domain/insights.fake-spec';
 import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
+import { day, failuresOf } from '@insights/insights.fake-spec';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('TaskFailures', () => {
@@ -22,7 +23,7 @@ describe('TaskFailures', () => {
     expect(
       failures.raise(
         FailureOccurrence.of({
-          stationId: 'station_1',
+          stationId: StationId.of('station_1'),
           runId: null,
           source: 'hook:notify',
           code: 'loop',
@@ -36,7 +37,7 @@ describe('TaskFailures', () => {
   it('comes from a run or a named hook, and says what went wrong', () => {
     const of = (source: string, code: string) =>
       FailureOccurrence.of({
-        stationId: 'station_1',
+        stationId: StationId.of('station_1'),
         runId: null,
         source,
         code,

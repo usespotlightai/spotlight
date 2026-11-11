@@ -57,7 +57,6 @@ const receiving = (stored: ReviewComment[] = []) => {
   const service = new ReceiveReviewComment(
     {
       run: async () => null,
-      wasClaimedBy: async () => false,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => null,
@@ -66,6 +65,7 @@ const receiving = (stored: ReviewComment[] = []) => {
         workspaceId,
         teamId: null,
         pullRequest,
+        pullRequests: [pullRequest],
         reviewing: false,
         currentRunId: null,
       }),
@@ -87,7 +87,7 @@ const onGitHub = (githubId: number, body = 'Earlier') =>
     anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 12 }),
     body,
     author: ReviewAuthor.onGitHub('octocat'),
-    replyTo: null,
+    inReplyTo: null,
     github: { id: githubId, url: `https://github.com/c/${githubId}` },
     at: NOW,
   });
@@ -104,6 +104,7 @@ describe('ReceiveReviewComment', () => {
     expect(stored?.anchor.lines?.line).toBe(12);
     expect(stored?.author.equals(ReviewAuthor.onGitHub('octocat'))).toBe(true);
     expect(stored?.github?.id).toBe(300);
+    expect(stored?.anchor.repository?.value).toBe('web');
   });
 
   it('threads a reply under the comment it answers', async () => {

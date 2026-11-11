@@ -5,6 +5,14 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const WORKSPACE_ACCESS = Symbol('WORKSPACE_ACCESS');
 
+export type TokenScopeName =
+  | 'read'
+  | 'plan'
+  | 'configure'
+  | 'secrets'
+  | 'runners'
+  | 'trusts';
+
 export interface WorkspaceMembership {
   readonly workspaceId: WorkspaceId;
   readonly slug: string;
@@ -12,7 +20,7 @@ export interface WorkspaceMembership {
   readonly isAdmin: boolean;
 }
 
-export interface TeamMembership extends WorkspaceMembership {
+export interface TeamWorkspaceMembership extends WorkspaceMembership {
   readonly teamId: TeamId;
 }
 
@@ -21,9 +29,7 @@ export interface WorkspacePermissions {
   readonly slug: string;
   readonly plans: boolean;
   readonly configures: boolean;
-  readonly managesSecrets: boolean;
-  readonly managesRunners: boolean;
-  readonly managesOidcTrusts: boolean;
+  readonly scopes: ReadonlySet<TokenScopeName>;
   readonly isAdmin: boolean;
 }
 
@@ -32,19 +38,22 @@ export interface TeamPermissions extends WorkspacePermissions {
 }
 
 export interface WorkspaceAccessPort {
-  viewableBy(
-    viewer: UserId,
-    workspaces: readonly WorkspaceId[],
-  ): Promise<ReadonlySet<string>>;
-
   mayView(viewer: UserId, workspaceId: WorkspaceId): Promise<boolean>;
+
+  viewableOf(
+    viewer: UserId,
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly WorkspaceId[]>;
 
   inWorkspace(
     slug: string,
     viewer: UserId,
   ): Promise<WorkspaceMembership | null>;
 
-  onTeam(teamId: string, viewer: UserId): Promise<TeamMembership | null>;
+  inWorkspaceOfTeam(
+    teamId: TeamId,
+    viewer: UserId,
+  ): Promise<TeamWorkspaceMembership | null>;
 
   permissionsIn(
     workspaceId: WorkspaceId,
@@ -56,13 +65,13 @@ export interface WorkspaceAccessPort {
     principal: Principal,
   ): Promise<WorkspacePermissions | null>;
 
-  permissionsOnTeam(
-    teamId: string,
+  permissionsInWorkspaceOfTeam(
+    teamId: TeamId,
     principal: Principal,
   ): Promise<TeamPermissions | null>;
 
-  permissionsAsTeamReader(
-    teamId: string,
+  permissionsAsTeamMember(
+    teamId: TeamId,
     principal: Principal,
   ): Promise<TeamPermissions | null>;
 

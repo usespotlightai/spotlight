@@ -1,14 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
+import {
+  MEMORY_DRAFTS,
+  type MemoryDraftRepository,
+} from '@memory/domain/repositories/memory-draft.repository';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
-import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -62,7 +67,7 @@ const proposing = async (
   fromOutside = false,
 ): Promise<RunId> => {
   const runId = RunId.of(`run_${randomUUID().slice(0, 8)}`);
-  const drafts = app.get(DrizzleMemoryDraftRepository);
+  const drafts = app.get<MemoryDraftRepository>(MEMORY_DRAFTS);
   const existing = await drafts.forTask(team.list.id);
   const requested = (
     existing ??
@@ -80,8 +85,8 @@ const proposing = async (
       runId,
       runContext: {
         teamId: team.teamId,
-        lineId: team.line.id.value,
-        stationId: team.stationId.value,
+        lineId: LineId.of(team.line.id.value),
+        stationId: StationId.of(team.stationId.value),
         repositories: [API],
       },
       steps: [
@@ -109,12 +114,20 @@ const proposing = async (
 const reviewPath = (runId: RunId) =>
   `/api/teams/${team.teamId.value}/tasks/${team.list.id.value}/runs/${runId.value}/memories`;
 
-const inbox = async (as: string): Promise<readonly InboxBody[]> =>
+const inboxIn = async (
+  as: string,
+  state: 'open' | 'resolved',
+): Promise<readonly InboxBody[]> =>
   (
     await served(app)
-      .get(`/api/workspaces/${team.slug}/inbox`)
+      .get(`/api/workspaces/${team.slug}/inbox?state=${state}`)
       .set(TEST_USER_HEADER, as)
-  ).body;
+  ).body.items ?? [];
+
+const inbox = async (as: string): Promise<readonly InboxBody[]> => [
+  ...(await inboxIn(as, 'open')),
+  ...(await inboxIn(as, 'resolved')),
+];
 
 const inboxRequestFor = (items: readonly InboxBody[], runId: RunId) =>
   items.find(
@@ -203,7 +216,7 @@ describe('reviewing the memories a run proposed', () => {
       'Approve me.',
       'Edited.',
     ]);
-    expect(active.every((each) => each.approvedBy === team.owner.value)).toBe(
+    expect(active.every((each) => each.approvedById === team.owner.value)).toBe(
       true,
     );
     expect(active.every((each) => each.steps?.join() === '5')).toBe(true);
@@ -346,9 +359,11 @@ describe('reviewing the memories a run proposed', () => {
       userId: teammate,
       role: 'member',
     });
-    await db
-      .insert(schema.teamMember)
-      .values({ teamId: team.teamId.value, userId: teammate });
+    await db.insert(schema.teamMember).values({
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      userId: teammate,
+    });
 
     await eventually(async () =>
       inboxRequestFor(await inbox(team.owner.value), runId),

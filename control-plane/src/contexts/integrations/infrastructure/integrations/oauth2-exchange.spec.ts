@@ -1,4 +1,4 @@
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import {
   compileIntegration,
   type OAuth2Endpoints,
@@ -79,7 +79,10 @@ describe('OAuth2Exchange', () => {
     expect(tokens?.accessToken.value).toBe('xoxb-1');
     expect(tokens?.refreshToken?.value).toBe('xoxe-1');
     expect(tokens?.expiresAt).toEqual(new Date('2026-09-07T11:00:00.000Z'));
-    expect(tokens?.scopes).toEqual(['chat:write', 'channels:read']);
+    expect(tokens?.scopes.map((each) => each.value)).toEqual([
+      'chat:write',
+      'channels:read',
+    ]);
     expect(tokens?.linkedAccount).toBe('Acme');
   });
 
@@ -164,7 +167,7 @@ describe('OAuth2Exchange', () => {
       'the-verifier',
     );
 
-    expect(tokens?.scopes).toEqual(['chat:write']);
+    expect(tokens?.scopes.map((each) => each.value)).toEqual(['chat:write']);
   });
 
   it('refreshes with the refresh token', async () => {

@@ -6,4 +6,5 @@ export type ChangeCheckedIntegrationEvent = {
   readonly taskId: string | null;
   readonly workspaceId: string;
   readonly passed: boolean | null;
+  readonly at: string;
 };

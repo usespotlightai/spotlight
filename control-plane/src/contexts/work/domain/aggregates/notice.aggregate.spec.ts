@@ -9,6 +9,7 @@ import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-l
 import { noticeForm } from '@work/domain/value-objects/notice-form';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
+import { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
 import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -25,7 +26,7 @@ const created = (subject = 'replay-search search_1 iteration 3') =>
     teamId: TeamId.of('team_1'),
     addressee: PERSON,
     form: 'ended',
-    subject,
+    subject: NoticeSubject.of(subject),
     link: NoticeLink.of({
       path: 'lines/line_1/stations/station_1',
       label: 'Open the station',
@@ -54,8 +55,22 @@ describe('Notice', () => {
   it('reopens once resolved, and leaves an open notice as it is', () => {
     const open = created();
 
-    expect(open.resolve(later(3)).reopen().resolvedAt).toBeNull();
-    expect(open.reopen()).toBe(open);
+    expect(open.resolve(later(3)).reopen(later(4)).resolvedAt).toBeNull();
+    expect(open.reopen(later(4))).toBe(open);
+  });
+
+  it('records that it was raised, resolved and raised again when it reopens', () => {
+    const open = created();
+    expect(open.pullEvents().map((each) => each.kind)).toEqual([
+      'notice.raised',
+    ]);
+
+    const reopened = open.resolve(later(3)).reopen(later(4));
+
+    expect(reopened.pullEvents().map((each) => each.kind)).toEqual([
+      'notice.resolved',
+      'notice.raised',
+    ]);
   });
 
   it('resolves once', () => {
@@ -118,12 +133,6 @@ describe('Notice', () => {
         }),
       ).toThrow(InvalidNoticeExternalLinkError);
     }
-  });
-
-  it('keeps showing a resolved notice for 30 days', () => {
-    expect(Notice.resolvedShownSince(NOW)).toEqual(
-      new Date('2026-09-01T09:00:00.000Z'),
-    );
   });
 
   it('rejects a stored notice resolved before it was created', () => {

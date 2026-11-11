@@ -1,11 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
+import { journalKeys } from '@/hooks/api/useRunJournals';
 import { runMemoryKeys } from '@/hooks/api/useRunMemories';
 import { runNotesKeys } from '@/hooks/api/useRunNotes';
 import { runScoreKeys } from '@/hooks/api/useRunScores';
 import { useRunStream } from '@/hooks/api/useRunStream';
-import { journalKeys } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
 import { type Progress, type TeamRun, underway } from '@/lib/run';
 import type { LatestRun } from '@/lib/run-notes';
@@ -34,13 +34,10 @@ export function useRunRefresh({
 
   const bump = useCallback(() => {
     void queryClient.invalidateQueries({
-      queryKey: journalKeys.forTask(taskId),
+      queryKey: journalKeys.ofRun(watchedId),
     });
     void queryClient.invalidateQueries({
       queryKey: runNotesKeys.forRun(runId),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: teamRunKeys.forTeam(teamId),
     });
     void queryClient.invalidateQueries({
       queryKey: changeStackKeys.forRun(runId),
@@ -50,7 +47,7 @@ export function useRunRefresh({
         queryKey: runMemoryKeys.forRun(teamId, runId),
       });
     }
-  }, [queryClient, taskId, runId, teamId]);
+  }, [queryClient, watchedId, runId, teamId]);
 
   useRunStream(
     watchedId,
@@ -71,6 +68,15 @@ export function useRunRefresh({
       (was.state !== watchedState || was.id !== watchedId)
     ) {
       bump();
+      void queryClient.invalidateQueries({
+        queryKey: journalKeys.ofRun(was.id),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: journalKeys.runsOfTask(taskId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: teamRunKeys.forTeam(teamId),
+      });
       if (watchedId === runId) {
         void queryClient.invalidateQueries({
           queryKey: runScoreKeys.forRun(runId),
@@ -78,5 +84,5 @@ export function useRunRefresh({
       }
     }
     previous.current = { id: watchedId, state: watchedState };
-  }, [watchedId, watchedState, bump, queryClient, runId]);
+  }, [watchedId, watchedState, bump, queryClient, runId, taskId, teamId]);
 }

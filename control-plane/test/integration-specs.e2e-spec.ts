@@ -165,6 +165,7 @@ describe('an integration providing tools from an API spec (e2e)', () => {
     teamId: workspaceId,
     title: 'Drain the queue',
     pullRequest: null,
+    pullRequests: [],
     line: 'delivery',
     station: 'Implementation',
     stationKey: 'implementation',
@@ -310,9 +311,10 @@ describe('an integration providing tools from an API spec (e2e)', () => {
 
     const finding = await resolved('petstore.find-pets-by-status');
 
-    await expect(finding.call({ status: 'sold' })).resolves.toEqual([
-      { id: 10, name: 'doggie', status: 'sold' },
-    ]);
+    await expect(finding.call({ status: 'sold' })).resolves.toEqual({
+      outcome: 'answered',
+      output: [{ id: 10, name: 'doggie', status: 'sold' }],
+    });
     expect(
       upstream.received.map((each) => `${each.method} ${each.url}`),
     ).toEqual(['GET /api/v3/pet/findByStatus?status=sold']);
@@ -331,9 +333,8 @@ describe('an integration providing tools from an API spec (e2e)', () => {
     });
 
     await expect(adding.call(accepted.values)).resolves.toEqual({
-      id: 11,
-      name: 'rex',
-      photoUrls: [],
+      outcome: 'answered',
+      output: { id: 11, name: 'rex', photoUrls: [] },
     });
   });
 
@@ -413,8 +414,8 @@ describe('an integration providing tools from an API spec (e2e)', () => {
     const issue = await resolved('linear.issue');
 
     await expect(issue.call({ id: 'i1' })).resolves.toEqual({
-      id: 'i1',
-      title: 'Broken',
+      outcome: 'answered',
+      output: { id: 'i1', title: 'Broken' },
     });
   });
 });

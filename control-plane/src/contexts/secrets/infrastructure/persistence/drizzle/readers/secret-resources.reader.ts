@@ -1,3 +1,4 @@
+import type { Dependent } from '@identity/application/ports/dependents.port';
 import type { WorkspaceDependentSource } from '@identity/application/ports/workspace-dependents.port';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -61,10 +62,11 @@ export class DrizzleSecretResources
     ).map((each) => each.name);
   }
 
-  async dependentsOf(workspaceId: WorkspaceId): Promise<readonly string[]> {
-    return (await this.namesIn(workspaceId.value)).map(
-      (name) => `secret ${name}`,
-    );
+  async dependentsOf(workspaceId: WorkspaceId): Promise<readonly Dependent[]> {
+    return (await this.namesIn(workspaceId.value)).map((name) => ({
+      kind: 'secret',
+      key: name,
+    }));
   }
 
   private async first(where: SQL | undefined): Promise<SecretRecord | null> {

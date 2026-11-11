@@ -6,6 +6,7 @@ import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker'
 import { WorldMessage } from '@/components/features/inbox/conversation/WorldMessage';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
+import { Turn } from '@/components/shared/Turn';
 import { useArrivals } from '@/hooks/useArrivals';
 import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
@@ -24,15 +25,17 @@ import { lastNoteOf } from '@/lib/run-notes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
 import { cn } from '@/lib/utils';
 
-interface Turn {
+interface NoteTurn {
   readonly prompt: Note | null;
   readonly notes: Note[];
 }
 
+type WorkedBy = ReadonlyMap<number, readonly RunJournal[]>;
+
 const shown = (note: Note): boolean => !closesOrReopens(note);
 
-const turnsOf = (item: ConversationItem): Turn[] => {
-  const cut: Turn[] = [{ prompt: null, notes: [] }];
+const turnsOf = (item: ConversationItem): NoteTurn[] => {
+  const cut: NoteTurn[] = [{ prompt: null, notes: [] }];
 
   for (const note of item.notes.filter(shown)) {
     if (note.voice === 'person' || note.voice === 'world') {
@@ -109,6 +112,13 @@ export function Conversation({
   afterRun,
 }: ConversationProps) {
   const marked = marksIn(item);
+  const turns = turnsOf(item);
+  const workedBy: WorkedBy = new Map(
+    item.notes.map((note) => [
+      note.position,
+      workedOn(worked, item.notes, note.runId, note.at),
+    ]),
+  );
   const arrived = useArrivals(
     item.id,
     item.notes.map((note) => note.position),
@@ -180,7 +190,7 @@ export function Conversation({
       box.scrollHeight - box.scrollTop - box.clientHeight < CLOSE;
   };
 
-  const rendered = (turn: Turn, at: number): boolean =>
+  const rendered = (turn: NoteTurn, at: number): boolean =>
     turn.prompt !== null ||
     turn.notes.length > 0 ||
     (at === 0 && Boolean(briefing));
@@ -198,7 +208,7 @@ export function Conversation({
       >
         <TimeMarker at={item.createdAt} />
 
-        {turnsOf(item).map((turn, at, all) => {
+        {turns.map((turn, at, all) => {
           const head =
             turn.prompt?.voice === 'world' ? (
               <WorldMessage
@@ -225,29 +235,34 @@ export function Conversation({
           const afterAnother = all.slice(0, at).some(rendered);
 
           return (
-            <section
+            <Turn
               // biome-ignore lint/suspicious/noArrayIndexKey: the turns come in order and their order does not change
               key={at}
-              className={cn('flex flex-col', afterAnother && 'mt-6')}
-            >
-              {turn.prompt && marked.has(turn.prompt.position) && (
-                <div className={cn('mb-3', !afterAnother && 'mt-6')}>
-                  <TimeMarker at={turn.prompt.at} />
-                </div>
-              )}
-
-              {head && (
-                <div
-                  data-note={turn.prompt?.position}
-                  className={cn(
-                    STICKY_AT_TOP,
-                    turn.prompt && arrived(turn.prompt.position) && ARRIVING,
+              className={cn(afterAnother && 'mt-6')}
+              head={
+                <>
+                  {turn.prompt && marked.has(turn.prompt.position) && (
+                    <div className={cn('mb-3', !afterAnother && 'mt-6')}>
+                      <TimeMarker at={turn.prompt.at} />
+                    </div>
                   )}
-                >
-                  {head}
-                </div>
-              )}
 
+                  {head && (
+                    <div
+                      data-note={turn.prompt?.position}
+                      className={cn(
+                        STICKY_AT_TOP,
+                        turn.prompt &&
+                          arrived(turn.prompt.position) &&
+                          ARRIVING,
+                      )}
+                    >
+                      {head}
+                    </div>
+                  )}
+                </>
+              }
+            >
               <ol className="mt-6 flex flex-col gap-6">
                 {turn.notes.map((note, place) => {
                   const before = turn.notes[place - 1];
@@ -274,12 +289,7 @@ export function Conversation({
                         resolved={item.resolved}
                         deciding={deciding}
                         arrived={arrived(note.position)}
-                        worked={workedOn(
-                          worked,
-                          item.notes,
-                          note.runId,
-                          note.at,
-                        )}
+                        worked={workedBy.get(note.position) ?? []}
                       />
 
                       {closesRun && <li>{closesRun}</li>}
@@ -302,7 +312,7 @@ export function Conversation({
                     )
                   ))}
               </ol>
-            </section>
+            </Turn>
           );
         })}
 

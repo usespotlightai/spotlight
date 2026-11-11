@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
+  codeOf,
   UNIQUE_VIOLATION,
   violates,
 } from '@platform/persistence/drizzle/violations';
@@ -12,7 +13,6 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
-import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -29,14 +29,11 @@ import type { SearchPick } from '@replays/domain/value-objects/search-pick';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
 import { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
-import { ACTIVE_SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import {
-  replay,
   replaySearch,
   replaySearchIteration,
   type StoredFailureCause,
-  type StoredModelSpent,
   type StoredReflectedTask,
   type StoredSearchPick,
   type StoredSearchReplay,
@@ -44,11 +41,17 @@ import {
   type StoredSplitEntry,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
+  optionalModelSpentOf,
+  optionalStoredSpent,
+} from '@replays/infrastructure/persistence/drizzle/stored-model-spent';
+import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -61,19 +64,17 @@ import {
   exists,
   gte,
   inArray,
-  isNull,
   or,
   type SQL,
-  sql,
 } from 'drizzle-orm';
+
+const ACTIVE_AT_STATION = 'replay_search_active_idx';
 
 type SearchRow = typeof replaySearch.$inferSelect;
 
 type IterationRow = typeof replaySearchIteration.$inferSelect;
 
-const ACTIVE_INDEX = 'replay_search_active_idx';
-
-const active = inArray(replaySearch.state, [...ACTIVE_SEARCH_STATES]);
+const active = eq(replaySearch.active, true);
 
 const isReplayStopReason = (raw: string): raw is ReplayStopReason =>
   (REPLAY_STOP_REASONS as readonly string[]).includes(raw);
@@ -91,6 +92,7 @@ const searchReplayOf = (
 
   return SearchReplay.rehydrate({
     replayId: ReplayId.of(stored.replayId),
+    started: stored.started,
     end: stored.end,
     spent: stored.spent === null ? null : Money.of(stored.spent, currency),
     unpriced: stored.unpriced,
@@ -99,6 +101,7 @@ const searchReplayOf = (
 
 const storedReplay = (replay: SearchReplay): StoredSearchReplay => ({
   replayId: replay.replayId.value,
+  started: replay.started,
   end: replay.end,
   spent: replay.spent?.amount ?? null,
   unpriced: replay.unpriced,
@@ -117,22 +120,6 @@ const storedSplitEntries = (
     runId: each.runId.value,
     taskId: each.taskId.value,
   }));
-
-const modelSpentOf = (stored: StoredModelSpent | null): ModelSpent | null =>
-  stored &&
-  ModelSpent.of(
-    stored.spends.map((each) => Money.of(each.amount, each.currency)),
-    stored.unpriced,
-  );
-
-const storedSpent = (spent: ModelSpent | null): StoredModelSpent | null =>
-  spent && {
-    spends: spent.spends.map((each) => ({
-      amount: each.amount,
-      currency: each.currency,
-    })),
-    unpriced: spent.unpriced,
-  };
 
 const reflectedTaskOf = (stored: StoredReflectedTask): ReflectedTask =>
   ReflectedTask.of({
@@ -185,7 +172,7 @@ const toIteration = (row: IterationRow, currency: string): SearchIteration =>
       }),
     ),
     attempts: row.attempts,
-    agentSpent: modelSpentOf(row.agentSpent),
+    agentSpent: optionalModelSpentOf(row.agentSpent),
     incumbent: row.incumbent ? CandidateId.of(row.incumbent) : null,
     result: row.result,
     reflectedOn: row.reflectedOn.map(reflectedTaskOf),
@@ -226,8 +213,8 @@ const toSearch = (
     station: {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
     },
     setId: ReplaySetId.of(row.setId),
     agent:
@@ -309,42 +296,13 @@ export class DrizzleSearchRepository implements SearchRepository {
     );
   }
 
-  ofSetsStartedSince(
-    setIds: readonly ReplaySetId[],
-    since: Date,
-  ): Promise<readonly Search[]> {
-    if (setIds.length === 0) {
-      return Promise.resolve([]);
-    }
-
+  ofLineStartedSince(lineId: LineId, since: Date): Promise<readonly Search[]> {
     return this.withIterations(
       and(
-        inArray(replaySearch.setId, [
-          ...new Set(setIds.map((each) => each.value)),
-        ]),
+        eq(replaySearch.lineId, lineId.value),
         gte(replaySearch.startedAt, since),
       ) as SQL,
     );
-  }
-
-  ofLineStartedSince(lineId: string, since: Date): Promise<readonly Search[]> {
-    return this.withIterations(
-      and(
-        eq(replaySearch.lineId, lineId),
-        gte(replaySearch.startedAt, since),
-      ) as SQL,
-    );
-  }
-
-  async lockedOfLineStartedSince(
-    lineId: string,
-    since: Date,
-  ): Promise<readonly Search[]> {
-    await this.context.db.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${`replay-search-line:${lineId}`}, 0))`,
-    );
-
-    return this.ofLineStartedSince(lineId, since);
   }
 
   async ranAs(run: RunId): Promise<Search | null> {
@@ -365,25 +323,25 @@ export class DrizzleSearchRepository implements SearchRepository {
     return found ?? null;
   }
 
-  async activeAtStation(stationId: string): Promise<Search | null> {
+  async activeAtStation(stationId: StationId): Promise<Search | null> {
     const [found] = await this.withIterations(
-      and(eq(replaySearch.stationId, stationId), active) as SQL,
+      and(eq(replaySearch.stationId, stationId.value), active) as SQL,
     );
 
     return found ?? null;
   }
 
-  activeOfLine(lineId: string): Promise<readonly Search[]> {
+  activeOfLine(lineId: LineId): Promise<readonly Search[]> {
     return this.withIterations(
-      and(eq(replaySearch.lineId, lineId), active) as SQL,
+      and(eq(replaySearch.lineId, lineId.value), active) as SQL,
     );
   }
 
-  async newestAtStation(stationId: string): Promise<Search | null> {
+  async newestAtStation(stationId: StationId): Promise<Search | null> {
     const rows = await this.context.db
       .select()
       .from(replaySearch)
-      .where(eq(replaySearch.stationId, stationId))
+      .where(eq(replaySearch.stationId, stationId.value))
       .orderBy(desc(replaySearch.startedAt), desc(replaySearch.id))
       .limit(1);
     const [found] = await this.ofRows(rows);
@@ -399,8 +357,8 @@ export class DrizzleSearchRepository implements SearchRepository {
     return found ?? null;
   }
 
-  ofStation(stationId: string): Promise<readonly Search[]> {
-    return this.withIterations(eq(replaySearch.stationId, stationId));
+  ofStation(stationId: StationId): Promise<readonly Search[]> {
+    return this.withIterations(eq(replaySearch.stationId, stationId.value));
   }
 
   ofTeam(teamId: TeamId): Promise<readonly Search[]> {
@@ -411,28 +369,8 @@ export class DrizzleSearchRepository implements SearchRepository {
     return this.withIterations(
       or(
         active,
-        exists(
-          this.context.db
-            .select({ one: replay.id })
-            .from(replay)
-            .where(
-              and(
-                eq(replay.searchId, replaySearch.id),
-                inArray(replay.state, ['queued', 'running']),
-              ),
-            ),
-        ),
-        exists(
-          this.context.db
-            .select({ one: replaySearchIteration.number })
-            .from(replaySearchIteration)
-            .where(
-              and(
-                eq(replaySearchIteration.searchId, replaySearch.id),
-                isNull(replaySearchIteration.agentSpent),
-              ),
-            ),
-        ),
+        eq(replaySearch.awaitsReplays, true),
+        eq(replaySearch.awaitsAgentSpend, true),
       ) as SQL,
     );
   }
@@ -443,8 +381,11 @@ export class DrizzleSearchRepository implements SearchRepository {
         .insert(replaySearch)
         .values({ ...this.columnsOf(added), version: added.version })
         .catch((error: unknown) => {
-          if (violates(error, UNIQUE_VIOLATION, ACTIVE_INDEX)) {
+          if (violates(error, UNIQUE_VIOLATION, ACTIVE_AT_STATION)) {
             throw new SearchInProgressError(added.station.stationId);
+          }
+          if (codeOf(error) === UNIQUE_VIOLATION) {
+            throw new SearchVersionConflictError(added.id.value);
           }
           throw error;
         });
@@ -486,8 +427,8 @@ export class DrizzleSearchRepository implements SearchRepository {
       id: aggregate.id.value,
       workspaceId: aggregate.workspaceId.value,
       teamId: aggregate.teamId.value,
-      lineId: aggregate.station.lineId,
-      stationId: aggregate.station.stationId,
+      lineId: aggregate.station.lineId.value,
+      stationId: aggregate.station.stationId.value,
       setId: aggregate.setId.value,
       harness: aggregate.agent?.harness ?? null,
       model: aggregate.agent?.model ?? null,
@@ -508,6 +449,9 @@ export class DrizzleSearchRepository implements SearchRepository {
       seedCandidateId: aggregate.seed.candidateId.value,
       seedFingerprint: aggregate.seed.fingerprint.value,
       seedReplay: storedReplay(aggregate.seed.replay),
+      awaitsReplays: aggregate.unendedReplays.length > 0,
+      awaitsAgentSpend: aggregate.awaitingAgentSpend.length > 0,
+      active: aggregate.isActive,
       requests: aggregate.requests.map(storedRequest),
       droppedRequests: aggregate.dropped.map(storedRequest),
       heldOut: aggregate.heldOut.map((each) => ({
@@ -544,7 +488,7 @@ export class DrizzleSearchRepository implements SearchRepository {
             requestedBy: proposal.requestedBy?.value ?? null,
           })),
           attempts: each.attempts,
-          agentSpent: storedSpent(each.agentSpent),
+          agentSpent: optionalStoredSpent(each.agentSpent),
           incumbent: each.incumbent?.value ?? null,
           result: each.result,
           reflectedOn: each.reflectedOn.map(storedReflectedTask),

@@ -1,3 +1,4 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 
@@ -40,9 +41,7 @@ export class Attachment {
     if (!Number.isInteger(input.size) || input.size < 0) {
       throw new InvalidAttachmentError('size must be a whole number of bytes');
     }
-    if (Attachment.tooLarge(input.size)) {
-      throw new InvalidAttachmentError('must be no larger than 25 MB');
-    }
+    Attachment.assertSize(input.size);
 
     const type = input.contentType?.trim().toLowerCase() ?? '';
 
@@ -60,6 +59,22 @@ export class Attachment {
     contentType: string;
     size: number;
   }): Attachment {
+    if (
+      !input.name ||
+      named(input.name) !== input.name ||
+      !Number.isInteger(input.size) ||
+      input.size < 0 ||
+      Attachment.tooLarge(input.size) ||
+      !(
+        CONTENT_TYPE.test(input.contentType) || input.contentType === UNNAMEABLE
+      )
+    ) {
+      throw new InconsistentStateError(
+        'attachment',
+        'breaks the name, size or content type rules it was made with',
+      );
+    }
+
     return new Attachment(
       AttachmentId.of(input.id),
       input.name,
@@ -70,6 +85,12 @@ export class Attachment {
 
   static tooLarge(size: number): boolean {
     return size > MAX_ATTACHMENT_BYTES;
+  }
+
+  static assertSize(size: number): void {
+    if (Attachment.tooLarge(size)) {
+      throw new InvalidAttachmentError('must be no larger than 25 MB');
+    }
   }
 
   copiedAs(id: AttachmentId): Attachment {

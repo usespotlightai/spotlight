@@ -10,10 +10,7 @@ import {
   OAuth2NonceCookie,
 } from '@integrations/presentation/http/oauth2-nonce-cookie';
 import type { CommandBus } from '@nestjs/cqrs';
-import type {
-  AuthenticatedUser,
-  SessionReaderPort,
-} from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { describe, expect, it, vi } from 'vitest';
 
 const ADMIN: AuthenticatedUser = {
@@ -50,12 +47,9 @@ const controlling = (viewer: AuthenticatedUser | null = ADMIN) => {
   return {
     controller: new OAuth2ConnectionController(
       { execute } as unknown as CommandBus,
-      {
-        read: async () => viewer,
-        readBearer: async () => null,
-      } satisfies SessionReaderPort,
       new OAuth2NonceCookie(true),
     ),
+    viewer,
     execute,
   };
 };
@@ -87,10 +81,10 @@ describe('OAuth2ConnectionController', () => {
   });
 
   it('finishes with the cookie nonce and the signed-in person, clearing the cookie', async () => {
-    const { controller, execute } = controlling();
+    const { controller, execute, viewer } = controlling();
     const { response, redirect, clearCookie } = answering();
 
-    await controller.callback('s', 'c', withCookie('n-1'), response);
+    await controller.callback('s', 'c', withCookie('n-1'), response, viewer);
 
     const finish = execute.mock.calls[0]?.[0] as FinishOAuth2ConnectionCommand;
     expect(finish.nonce).toBe('n-1');
@@ -103,32 +97,32 @@ describe('OAuth2ConnectionController', () => {
   });
 
   it('rejects a browser that brought no nonce cookie', async () => {
-    const { controller, execute } = controlling();
+    const { controller, execute, viewer } = controlling();
     const { response, redirect } = answering();
 
-    await controller.callback('s', 'c', { headers: {} }, response);
+    await controller.callback('s', 'c', { headers: {} }, response, viewer);
 
     expect(execute).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
   });
 
   it('rejects a browser with no session', async () => {
-    const { controller, execute } = controlling(null);
+    const { controller, execute, viewer } = controlling(null);
     const { response, redirect } = answering();
 
-    await controller.callback('s', 'c', withCookie('n-1'), response);
+    await controller.callback('s', 'c', withCookie('n-1'), response, viewer);
 
     expect(execute).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
   });
 
-  it('connects the team unless requested to connect the caller', async () => {
+  it('leaves whom the connection acts as to the domain unless requested', async () => {
     const { controller, execute } = controlling();
 
     await controller.connect('team_1', 'slack', ADMIN, answering().response);
 
     const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
-    expect(begin.owner).toBe('team');
+    expect(begin.actsAs).toBeNull();
     expect(begin.returnTo).toBeNull();
   });
 
@@ -141,7 +135,7 @@ describe('OAuth2ConnectionController', () => {
     });
 
     const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
-    expect(begin.owner).toBe('person');
+    expect(begin.actsAs).toBe('requester');
     expect(begin.returnTo).toBe('/w/acme/inbox/task_1');
   });
 

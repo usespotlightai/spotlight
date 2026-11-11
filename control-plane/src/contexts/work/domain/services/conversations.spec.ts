@@ -1,14 +1,20 @@
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import {
   awaitsAPerson,
   conversationsOf,
+  listedAsOpen,
   notesIn,
   pendingIn,
+  reopenable,
   reviewsIn,
   stillOpen,
   worksOn,
 } from '@work/domain/services/conversations';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { describe, expect, it } from 'vitest';
+
+const at = NotePosition.of;
 
 const trail = (...kinds: TaskNoteKind[]) => conversationsOf(kinds);
 
@@ -19,30 +25,30 @@ describe('conversationsOf', () => {
 
   it('opens at the asking and closes at the moving on', () => {
     expect(trail('passed', 'asked', 'answered', 'passed')).toEqual([
-      { from: 1, to: 3 },
+      { from: at(1), to: at(3) },
     ]);
   });
 
   it('leaves the last one open where nothing has closed it', () => {
-    expect(trail('asked', 'answered')).toEqual([{ from: 0, to: null }]);
+    expect(trail('asked', 'answered')).toEqual([{ from: at(0), to: null }]);
   });
 
   it('takes a follow-up as the same conversation carrying on', () => {
     expect(trail('asked', 'answered', 'asked')).toEqual([
-      { from: 0, to: null },
+      { from: at(0), to: null },
     ]);
   });
 
   it('opens a second one only after the first has closed', () => {
     expect(trail('asked', 'passed', 'asked')).toEqual([
-      { from: 0, to: 1 },
-      { from: 2, to: null },
+      { from: at(0), to: at(1) },
+      { from: at(2), to: null },
     ]);
   });
 
   it('ignores a moving on that closed nothing', () => {
     expect(trail('passed', 'asked', 'passed', 'passed')).toEqual([
-      { from: 1, to: 2 },
+      { from: at(1), to: at(2) },
     ]);
   });
 });
@@ -57,15 +63,69 @@ describe('stillOpen', () => {
   });
 });
 
+describe('listedAsOpen', () => {
+  const seen = { kind: 'asked' as const, readAt: new Date(0) };
+  const unseen = { kind: 'asked' as const, readAt: null };
+
+  it('lists an open conversation while its task is unfinished', () => {
+    expect(listedAsOpen({ from: 0, to: null, notes: [seen] }, false)).toBe(
+      true,
+    );
+    expect(listedAsOpen({ from: 0, to: null, notes: [unseen] }, true)).toBe(
+      false,
+    );
+  });
+
+  it('lists a closed conversation only while an ask in it is unread', () => {
+    expect(listedAsOpen({ from: 0, to: 1, notes: [unseen] }, true)).toBe(true);
+    expect(listedAsOpen({ from: 0, to: 1, notes: [seen] }, false)).toBe(false);
+  });
+});
+
+describe('reopenable', () => {
+  const resolvedByAPerson = { form: 'resolved' as const, byAPerson: true };
+
+  it('reopens the last conversation where a person resolved it', () => {
+    expect(
+      reopenable(at(2), { from: at(2), to: at(4) }, resolvedByAPerson),
+    ).toBe(true);
+  });
+
+  it('does not reopen a conversation a later one followed', () => {
+    expect(
+      reopenable(at(0), { from: at(2), to: at(4) }, resolvedByAPerson),
+    ).toBe(false);
+    expect(reopenable(at(2), { from: at(2), to: null }, null)).toBe(false);
+    expect(reopenable(at(2), null, null)).toBe(false);
+  });
+
+  it('does not reopen a conversation a station or a pass closed', () => {
+    expect(
+      reopenable(
+        at(2),
+        { from: at(2), to: at(4) },
+        { form: 'resolved', byAPerson: false },
+      ),
+    ).toBe(false);
+    expect(
+      reopenable(
+        at(2),
+        { from: at(2), to: at(4) },
+        { form: 'words', byAPerson: true },
+      ),
+    ).toBe(false);
+  });
+});
+
 describe('notesIn', () => {
   const trail = ['a', 'b', 'c', 'd'];
 
   it('covers the note that opened it through the one that closed it', () => {
-    expect(notesIn({ from: 1, to: 2 }, trail)).toEqual(['b', 'c']);
+    expect(notesIn({ from: at(1), to: at(2) }, trail)).toEqual(['b', 'c']);
   });
 
   it('runs to the end of the trail while it is still open', () => {
-    expect(notesIn({ from: 1, to: null }, trail)).toEqual(['b', 'c', 'd']);
+    expect(notesIn({ from: at(1), to: null }, trail)).toEqual(['b', 'c', 'd']);
   });
 });
 
@@ -80,7 +140,7 @@ describe('pendingIn', () => {
         ),
       ),
     ).toEqual({
-      from: 1,
+      from: at(1),
       to: null,
     });
   });
@@ -107,67 +167,74 @@ describe('pendingIn', () => {
 describe('reviewsIn', () => {
   const note = (kind: TaskNoteKind, runId: string | null = null) => ({
     kind,
-    runId,
+    runId: runId === null ? null : RunId.of(runId),
   });
 
+  const reviewed = (notes: readonly ReturnType<typeof note>[]) =>
+    reviewsIn(notes).map(
+      ({ runId, ...review }) => [runId.value, review] as const,
+    );
+
   it('keeps the answer pending where nobody has given one', () => {
-    expect([...reviewsIn([note('asked', 'run_1')])]).toEqual([
-      ['run_1', { from: 0, state: 'pending' }],
+    expect([...reviewed([note('asked', 'run_1')])]).toEqual([
+      ['run_1', { from: at(0), state: 'pending' }],
     ]);
   });
 
   it('points a later ask at the conversation it joined', () => {
     expect([
-      ...reviewsIn([
+      ...reviewed([
         note('asked', 'run_1'),
         note('answered'),
         note('asked', 'run_2'),
       ]),
     ]).toEqual([
-      ['run_1', { from: 0, state: 'answered' }],
-      ['run_2', { from: 0, state: 'pending' }],
+      ['run_1', { from: at(0), state: 'answered' }],
+      ['run_2', { from: at(0), state: 'pending' }],
     ]);
   });
 
   it('opens a new one where the task moved on in between', () => {
     expect([
-      ...reviewsIn([
+      ...reviewed([
         note('asked', 'run_1'),
         note('passed'),
         note('asked', 'run_2'),
       ]),
     ]).toEqual([
-      ['run_1', { from: 0, state: 'answered' }],
-      ['run_2', { from: 2, state: 'pending' }],
+      ['run_1', { from: at(0), state: 'answered' }],
+      ['run_2', { from: at(2), state: 'pending' }],
     ]);
   });
 
   it('counts as answered once a person answers, before the task moves on', () => {
-    expect([...reviewsIn([note('asked', 'run_1'), note('answered')])]).toEqual([
-      ['run_1', { from: 0, state: 'answered' }],
+    expect([...reviewed([note('asked', 'run_1'), note('answered')])]).toEqual([
+      ['run_1', { from: at(0), state: 'answered' }],
     ]);
   });
 
   it('counts an asking as answered once the task moves on from it without an answer', () => {
     expect([
-      ...reviewsIn([note('asked', 'run_1'), note('passed', 'run_2')]),
-    ]).toEqual([['run_1', { from: 0, state: 'answered' }]]);
+      ...reviewed([note('asked', 'run_1'), note('passed', 'run_2')]),
+    ]).toEqual([['run_1', { from: at(0), state: 'answered' }]]);
   });
 
   it('keeps each run apart', () => {
-    const reviews = reviewsIn([
-      note('asked', 'run_1'),
-      note('answered'),
-      note('passed', 'run_2'),
-      note('asked', 'run_3'),
-    ]);
+    const reviews = new Map(
+      reviewed([
+        note('asked', 'run_1'),
+        note('answered'),
+        note('passed', 'run_2'),
+        note('asked', 'run_3'),
+      ]) as [string, unknown][],
+    );
 
-    expect(reviews.get('run_1')?.state).toBe('answered');
-    expect(reviews.get('run_3')).toEqual({ from: 3, state: 'pending' });
+    expect(reviews.get('run_1')).toEqual({ from: at(0), state: 'answered' });
+    expect(reviews.get('run_3')).toEqual({ from: at(3), state: 'pending' });
   });
 
   it('finds nothing where no run asked', () => {
-    expect([...reviewsIn([note('passed', 'run_1')])]).toEqual([]);
+    expect([...reviewed([note('passed', 'run_1')])]).toEqual([]);
   });
 });
 

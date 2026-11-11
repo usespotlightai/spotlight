@@ -1,15 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
-  PAIRING_STATE,
-  Replay,
-} from '@replays/domain/aggregates/replay.aggregate';
+  codeOf,
+  UNIQUE_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
+import { DispatchSlotTakenError } from '@replays/domain/exceptions/dispatch-slot-taken.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import { VALID_BASELINE_STATES } from '@replays/domain/services/baseline';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
-import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
+import {
+  EntryJudging,
+  unjudgedOf,
+} from '@replays/domain/value-objects/entry-judging.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
 import {
   EntryPairing,
@@ -21,84 +27,52 @@ import {
   reasonOf,
 } from '@replays/domain/value-objects/entry-reason';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
-import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
-import { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { DISPATCHING_REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
+import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
+import { ScoringHash } from '@replays/domain/value-objects/scoring-hash.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { isUnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
+import { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
 import {
   replay,
-  replayCandidate,
   replayEntry,
   type StoredEntryChecks,
   type StoredEntryJudging,
   type StoredEntryPairing,
-  type StoredModelSpent,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
+import {
+  optionalModelSpentOf,
+  optionalStoredSpent,
+} from '@replays/infrastructure/persistence/drizzle/stored-model-spent';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  exists,
-  gte,
-  inArray,
-  isNotNull,
-  isNull,
-  lte,
-  ne,
-  or,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, eq, exists, inArray, or, type SQL } from 'drizzle-orm';
 
 type ReplayRow = typeof replay.$inferSelect;
 
 type EntryRow = typeof replayEntry.$inferSelect;
 
-const DISPATCHING = ['queued', 'running'] as const;
-
-const NEWEST_READ_FOR_HEALTH = 3;
-
 const ofThisReplay = eq(replayEntry.replayId, replay.id);
 
-const notEnded = and(
-  isNull(replayEntry.unreplayableReason),
-  eq(replayEntry.notRun, false),
-);
+const waiting = and(ofThisReplay, eq(replayEntry.waiting, true));
 
-const waiting = and(ofThisReplay, isNull(replayEntry.runId), notEnded);
+const occupying = and(ofThisReplay, eq(replayEntry.occupying, true));
 
-const occupying = and(
-  ofThisReplay,
-  isNotNull(replayEntry.runId),
-  notEnded,
-  or(
-    isNull(replayEntry.result),
-    and(eq(replayEntry.measured, false), ne(replayEntry.result, 'cancelled')),
-  ),
-);
-
-const unqueued = and(
-  ofThisReplay,
-  isNotNull(replayEntry.runId),
-  eq(replayEntry.queued, false),
-  notEnded,
-  isNull(replayEntry.result),
-);
+const unconfirmed = and(ofThisReplay, eq(replayEntry.unconfirmed, true));
 
 const unreplayableReasonOf = (row: EntryRow) => {
   if (row.unreplayableReason === null) {
@@ -183,7 +157,7 @@ const judgingOf = (stored: StoredEntryJudging | null): EntryJudging | null => {
   }
 
   return stored.unjudged
-    ? EntryJudging.failed(stored.unjudged)
+    ? EntryJudging.failed(unjudgedOf(stored.unjudged))
     : EntryJudging.requested();
 };
 
@@ -208,22 +182,6 @@ const judgingRow = (judging: EntryJudging | null): StoredEntryJudging | null =>
       guidance: judging.verdict.guidance,
     },
     unjudged: judging.unjudged,
-  };
-
-const modelSpentOf = (stored: StoredModelSpent | null): ModelSpent | null =>
-  stored &&
-  ModelSpent.of(
-    stored.spends.map((each) => Money.of(each.amount, each.currency)),
-    stored.unpriced,
-  );
-
-const storedSpent = (spent: ModelSpent | null): StoredModelSpent | null =>
-  spent && {
-    spends: spent.spends.map((each) => ({
-      amount: each.amount,
-      currency: each.currency,
-    })),
-    unpriced: spent.unpriced,
   };
 
 const checksRow = (checks: ChangeChecks | null): StoredEntryChecks | null =>
@@ -267,6 +225,7 @@ const toEntry = (row: EntryRow): ReplayEntry =>
     taskId: TaskId.of(row.taskId),
     repeat: row.repeat,
     run: row.runId ? RunId.of(row.runId) : null,
+    slot: row.slot,
     queued: row.queued,
     fingerprint: row.fingerprint
       ? StationFingerprint.of(row.fingerprint)
@@ -278,15 +237,12 @@ const toEntry = (row: EntryRow): ReplayEntry =>
     measures: measuresOf(row),
     checks: row.checks ? ChangeChecks.rehydrate(row.checks) : null,
     judging: judgingOf(row.judging),
-    generationSpent: modelSpentOf(row.generationSpent),
-    judgingSpent: modelSpentOf(row.judgingSpent),
+    generationSpent: optionalModelSpentOf(row.generationSpent),
     succeeded: row.succeeded,
     reasons: reasonsOf(row),
     secondJudging: judgingOf(row.secondJudging),
-    rejudgingSpent: modelSpentOf(row.rejudgingSpent),
     recheck: row.recheck ? ChangeChecks.rehydrate(row.recheck) : null,
     pairing: pairingOf(row.pairing),
-    pairingSpent: modelSpentOf(row.pairingSpent),
   });
 
 const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
@@ -295,16 +251,17 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
     station: {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
     },
     setId: ReplaySetId.of(row.setId),
     candidateId: CandidateId.of(row.candidateId),
+    liveCandidate: row.liveCandidate,
     baseline: row.baseline,
     judges: row.judges,
     checked: row.checked,
-    rubricVersion: row.rubricVersion,
-    scoringHash: row.scoringHash,
+    rubricVersion: RubricVersion.optional(row.rubricVersion),
+    scoringHash: ScoringHash.of(row.scoringHash),
     ceiling: Money.ceiling(row.ceilingAmount, row.ceilingCurrency),
     unpricedRate:
       row.unpricedRate === null
@@ -339,8 +296,10 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
     version: row.version,
   });
 
-const entryRow = (replayId: string, entry: ReplayEntry) => ({
-  replayId,
+const entryRow = (replay: Replay, entry: ReplayEntry) => ({
+  replayId: replay.id.value,
+  pool: replay.dispatchPool.value,
+  slot: entry.slot,
   position: entry.position,
   originalRunId: entry.original.value,
   taskId: entry.taskId.value,
@@ -351,6 +310,9 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
   queueAttempts: entry.queueAttempts,
   unreplayableReason: entry.unreplayableReason,
   notRun: entry.notRun,
+  waiting: entry.isWaiting,
+  occupying: entry.occupiesARunner,
+  unconfirmed: entry.isUnconfirmed,
   result: entry.end?.result ?? null,
   failure: entry.end?.failure ?? null,
   stopped: entry.end?.stopped ?? null,
@@ -369,8 +331,7 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
   cacheWriteTokens: entry.measures?.tokens.cacheWrite ?? null,
   checks: checksRow(entry.checks),
   judging: judgingRow(entry.judging),
-  generationSpent: storedSpent(entry.generationSpent),
-  judgingSpent: storedSpent(entry.judgingSpent),
+  generationSpent: optionalStoredSpent(entry.generationSpent),
   succeeded: entry.succeeded,
   reasons: entry.reasons.map((each) => ({
     code: each.code,
@@ -379,10 +340,8 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
     hunks: [...each.hunks],
   })),
   secondJudging: judgingRow(entry.secondJudging),
-  rejudgingSpent: storedSpent(entry.rejudgingSpent),
   recheck: checksRow(entry.recheck),
   pairing: pairingRow(entry.pairing),
-  pairingSpent: storedSpent(entry.pairingSpent),
 });
 
 @Injectable()
@@ -391,12 +350,23 @@ export class DrizzleReplayRepository implements ReplayRepository {
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
+    private readonly outcomes: DrizzleReplayOutcomes,
   ) {}
 
   async find(id: ReplayId): Promise<Replay | null> {
     const [found] = await this.withEntries(eq(replay.id, id.value));
 
     return found ?? null;
+  }
+
+  findMany(ids: readonly ReplayId[]): Promise<readonly Replay[]> {
+    if (ids.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.withEntries(
+      inArray(replay.id, [...new Set(ids.map((each) => each.value))]),
+    );
   }
 
   async ranAs(run: RunId): Promise<Replay | null> {
@@ -416,6 +386,15 @@ export class DrizzleReplayRepository implements ReplayRepository {
     return this.withEntries(eq(replay.setId, setId.value));
   }
 
+  async healthSamplesOfSets(
+    setIds: readonly ReplaySetId[],
+    perGroup: number,
+  ): Promise<readonly Replay[]> {
+    return this.findMany(
+      await this.outcomes.healthSampleCandidatesOf(setIds, perGroup),
+    );
+  }
+
   async pairingWith(replayId: ReplayId): Promise<readonly ReplayId[]> {
     const rows = await this.context.db
       .select({ id: replay.id })
@@ -423,7 +402,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .where(
         and(
           eq(replay.pairwiseReferenceId, replayId.value),
-          eq(replay.state, PAIRING_STATE),
+          eq(replay.takesPairings, true),
         ),
       );
 
@@ -434,113 +413,13 @@ export class DrizzleReplayRepository implements ReplayRepository {
     return this.withEntries(eq(replay.searchId, searchId.value));
   }
 
-  ofSearches(searchIds: readonly SearchId[]): Promise<readonly Replay[]> {
-    if (searchIds.length === 0) {
-      return Promise.resolve([]);
-    }
-
-    return this.withEntries(
-      inArray(replay.searchId, [
-        ...new Set(searchIds.map((each) => each.value)),
-      ]),
-    );
-  }
-
-  async baselinesOfSets(
-    setIds: readonly ReplaySetId[],
-  ): Promise<readonly Replay[]> {
-    if (setIds.length === 0) {
-      return [];
-    }
-
-    return this.hydrated(
-      await this.context.db
-        .selectDistinctOn([replay.setId])
-        .from(replay)
-        .where(
-          and(
-            inArray(replay.setId, [
-              ...new Set(setIds.map((each) => each.value)),
-            ]),
-            eq(replay.baseline, true),
-            inArray(replay.state, [...VALID_BASELINE_STATES]),
-          ),
-        )
-        .orderBy(asc(replay.setId), desc(replay.startedAt), asc(replay.id)),
-    );
-  }
-
-  async healthReadOfSets(
-    setIds: readonly ReplaySetId[],
-  ): Promise<readonly Replay[]> {
-    if (setIds.length === 0) {
-      return [];
-    }
-
-    const ranked = this.context.db
-      .select({
-        id: replay.id,
-        place:
-          sql<number>`row_number() over (partition by ${replay.setId}, ${replayCandidate.kind}, ${replay.calibration}, ${replay.repeats} order by coalesce(${replay.endedAt}, ${replay.startedAt}) desc, ${replay.id} desc)`.as(
-            'place',
-          ),
-      })
-      .from(replay)
-      .innerJoin(replayCandidate, eq(replayCandidate.id, replay.candidateId))
-      .where(
-        and(
-          inArray(replay.setId, [...new Set(setIds.map((each) => each.value))]),
-          or(isNull(replay.searchId), eq(replay.calibration, true)),
-          or(
-            and(
-              eq(replayCandidate.kind, 'live'),
-              eq(replay.state, 'finished'),
-              isNull(replay.runSubset),
-            ),
-            eq(replayCandidate.kind, 'oracle'),
-          ),
-        ),
-      )
-      .as('ranked');
-    const newest = await this.context.db
-      .select({ id: ranked.id })
-      .from(ranked)
-      .where(lte(ranked.place, NEWEST_READ_FOR_HEALTH));
-
-    return newest.length === 0
-      ? []
-      : this.withEntries(
-          inArray(
-            replay.id,
-            newest.map((each) => each.id),
-          ),
-        );
-  }
-
-  async ofTeamStartedSince(
-    teamId: TeamId,
-    since: Date,
-    max: number,
-  ): Promise<readonly Replay[]> {
-    return this.hydrated(
-      await this.context.db
-        .select()
-        .from(replay)
-        .where(
-          and(eq(replay.teamId, teamId.value), gte(replay.startedAt, since)),
-        )
-        .orderBy(desc(replay.startedAt), desc(replay.id))
-        .limit(max),
-    );
-  }
-
   async teamsDispatching(): Promise<readonly TeamId[]> {
     const rows = await this.context.db
       .selectDistinct({ teamId: replay.teamId })
       .from(replay)
       .where(
         and(
-          inArray(replay.state, [...DISPATCHING]),
+          inArray(replay.state, [...DISPATCHING_REPLAY_STATES]),
           exists(
             this.context.db
               .select({ one: replayEntry.position })
@@ -553,12 +432,12 @@ export class DrizzleReplayRepository implements ReplayRepository {
     return rows.map((row) => TeamId.of(row.teamId));
   }
 
-  inProgressOfTeamLocked(teamId: TeamId): Promise<readonly Replay[]> {
+  inProgressOfTeam(teamId: TeamId): Promise<readonly Replay[]> {
     return this.withEntries(
       and(
         eq(replay.teamId, teamId.value),
         or(
-          inArray(replay.state, [...DISPATCHING]),
+          inArray(replay.state, [...DISPATCHING_REPLAY_STATES]),
           exists(
             this.context.db
               .select({ one: replayEntry.position })
@@ -567,7 +446,6 @@ export class DrizzleReplayRepository implements ReplayRepository {
           ),
         ),
       ) as SQL,
-      true,
     );
   }
 
@@ -577,7 +455,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
         this.context.db
           .select({ one: replayEntry.position })
           .from(replayEntry)
-          .where(unqueued),
+          .where(unconfirmed),
       ),
     );
   }
@@ -589,6 +467,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
         version: added.version,
       });
       await this.writeEntries(added);
+      await this.outcomes.put(added);
       await this.events.dispatch(added.pullEvents());
     });
   }
@@ -616,6 +495,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
 
       if (!saved.isDeleted) {
         await this.writeEntries(saved);
+        await this.outcomes.put(saved);
       }
       await this.events.dispatch(saved.pullEvents());
     });
@@ -626,11 +506,13 @@ export class DrizzleReplayRepository implements ReplayRepository {
       id: aggregate.id.value,
       workspaceId: aggregate.workspaceId.value,
       teamId: aggregate.teamId.value,
-      lineId: aggregate.station.lineId,
-      stationId: aggregate.station.stationId,
+      lineId: aggregate.station.lineId.value,
+      stationId: aggregate.station.stationId.value,
       setId: aggregate.setId.value,
       candidateId: aggregate.candidateId.value,
+      liveCandidate: aggregate.liveCandidate,
       baseline: aggregate.baseline,
+      takesPairings: aggregate.takesPairings,
       judges: aggregate.judges,
       checked: aggregate.checked,
       rubricVersion: aggregate.rubricVersion,
@@ -665,21 +547,26 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .where(eq(replayEntry.replayId, aggregate.id.value));
     await this.context.db
       .insert(replayEntry)
-      .values(
-        aggregate.entries.map((each) => entryRow(aggregate.id.value, each)),
-      );
+      .values(aggregate.entries.map((each) => entryRow(aggregate, each)))
+      .catch((error: unknown) => {
+        if (violates(error, UNIQUE_VIOLATION, 'replay_entry_slot_idx')) {
+          throw new DispatchSlotTakenError(aggregate.dispatchPool);
+        }
+        if (codeOf(error) === UNIQUE_VIOLATION) {
+          throw new ReplayVersionConflictError(aggregate.id.value);
+        }
+        throw error;
+      });
   }
 
-  private async withEntries(
-    where: SQL,
-    locked = false,
-  ): Promise<readonly Replay[]> {
-    const query = this.context.db
-      .select()
-      .from(replay)
-      .where(where)
-      .orderBy(asc(replay.startedAt), asc(replay.id));
-    return this.hydrated(locked ? await query.for('update') : await query);
+  private async withEntries(where: SQL): Promise<readonly Replay[]> {
+    return this.hydrated(
+      await this.context.db
+        .select()
+        .from(replay)
+        .where(where)
+        .orderBy(asc(replay.startedAt), asc(replay.id)),
+    );
   }
 
   private async hydrated(

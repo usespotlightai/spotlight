@@ -6,14 +6,17 @@ import {
   DECISION_STATUSES,
   type DecisionStatusValue,
 } from '@change-review/domain/value-objects/decision-status.vo';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -28,24 +31,37 @@ export const decisionSet = pgTable(
     workspaceId: text('workspace_id').notNull(),
     sourceRunId: text('source_run_id'),
     generationRunId: text('generation_run_id'),
-    generationRequestedAt: timestamp('generation_requested_at'),
-    jobAttempts: integer('job_attempts').notNull().default(0),
-    jobDueAt: timestamp('job_due_at'),
-    status: decisionStatus('status')
-      .$type<DecisionStatusValue>()
-      .notNull()
-      .default('proposed'),
-    mergedRepository: text('merged_repository'),
-    mergedCommit: text('merged_commit'),
-    mergedAt: timestamp('merged_at'),
-    version: integer('version').notNull().default(0),
+    generationRequestedAt: timestamptz('generation_requested_at'),
+    jobAttempts: integer('job_attempts').notNull(),
+    jobDueAt: timestamptz('job_due_at'),
+    status: decisionStatus('status').$type<DecisionStatusValue>().notNull(),
+    version: integer('version').notNull(),
   },
   (table) => [
+    check(
+      'decision_set_job_attempts_not_negative',
+      sql`${table.jobAttempts} >= 0`,
+    ),
     uniqueIndex('decision_set_task_idx').on(table.taskId),
     index('decision_set_generation_idx').on(table.generationRequestedAt),
-    index('decision_set_merged_idx').on(
-      table.workspaceId,
-      table.mergedRepository,
+    index('decision_set_workspace_idx').on(table.workspaceId),
+  ],
+);
+
+export const decisionSetMerge = pgTable(
+  'decision_set_merge',
+  {
+    setId: text('set_id')
+      .notNull()
+      .references(() => decisionSet.id, { onDelete: 'cascade' }),
+    repository: text('repository').notNull(),
+    commit: text('commit').notNull(),
+    mergedAt: timestamptz('merged_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.setId, table.repository] }),
+    index('decision_set_merge_repository_idx').on(
+      table.repository,
       table.mergedAt,
     ),
   ],
@@ -67,6 +83,7 @@ export const decision = pgTable(
     journalSteps: jsonb('journal_steps').$type<number[]>().notNull(),
   },
   (table) => [
+    check('decision_position_not_negative', sql`${table.position} >= 0`),
     uniqueIndex('decision_position_idx').on(table.setId, table.position),
     index('decision_paths_idx').using('gin', table.paths),
   ],
@@ -80,9 +97,9 @@ export const decisionDispute = pgTable(
       .notNull()
       .references(() => decision.id, { onDelete: 'cascade' }),
     path: text('path').notNull(),
-    byUserId: text('by_user_id').notNull(),
+    disputedById: text('disputed_by_id').notNull(),
     reason: text('reason').notNull(),
-    at: timestamp('at').notNull(),
+    at: timestamptz('at').notNull(),
   },
   (table) => [index('decision_dispute_decision_idx').on(table.decisionId)],
 );

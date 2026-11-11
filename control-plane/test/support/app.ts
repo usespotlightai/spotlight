@@ -1,15 +1,15 @@
 import type { Server } from 'node:http';
+import {
+  SESSION_READER,
+  type SessionReaderPort,
+} from '@identity/application/ports/session-reader.port';
 import type { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { ENV } from '@platform/config/config.constants';
 import { parseEnv } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
-import {
-  type AuthenticatedUser,
-  SESSION_READER,
-  type SessionReaderPort,
-} from '@shared-kernel/application/ports/session.port';
 import request from 'supertest';
 import { AppModule } from '@/app.module';
 import { configureApp } from '@/app.setup';
@@ -47,13 +47,31 @@ export const autoSearched = async (app: INestApplication): Promise<void> => {
   await start();
 };
 
+const databases = new WeakMap<INestApplication, string>();
+
 export const openApp = async (
   overriding: (
     module: TestingModuleBuilder,
     env: Env,
   ) => TestingModuleBuilder = (module) => module,
+  options: {
+    readonly env?: Partial<Env>;
+    readonly sharingDatabaseOf?: INestApplication;
+  } = {},
 ): Promise<INestApplication> => {
-  const env = { ...parseEnv(), DATABASE_URL: await clonedDatabase('app') };
+  const shared = options.sharingDatabaseOf
+    ? databases.get(options.sharingDatabaseOf)
+    : undefined;
+
+  if (options.sharingDatabaseOf && !shared) {
+    throw new Error('Share the database of an app opened with openApp');
+  }
+
+  const env = {
+    ...parseEnv(),
+    ...options.env,
+    DATABASE_URL: shared ?? (await clonedDatabase('app')),
+  };
   const compiled = await overriding(
     Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(SESSION_READER)
@@ -71,8 +89,13 @@ export const openApp = async (
 
   app.close = async () => {
     await closed();
-    await droppedDatabase(env.DATABASE_URL);
+
+    if (!shared) {
+      await droppedDatabase(env.DATABASE_URL);
+    }
   };
+
+  databases.set(app, env.DATABASE_URL);
 
   await app.listen(0, '127.0.0.1');
 

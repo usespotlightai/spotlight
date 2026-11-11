@@ -2,6 +2,7 @@ import { ExchangeWorkloadTokenCommand } from '@identity/application/commands/exc
 import type { IssuedTokenDto } from '@identity/application/dto/issued-token.dto';
 import { ExchangeWorkloadTokenRequestDto } from '@identity/presentation/http/dto/exchange-workload-token.request.dto';
 import { IssuedTokenResponseDto } from '@identity/presentation/http/dto/issued-token.response.dto';
+import { WORKSPACE_TOKEN_EXCHANGE } from '@identity/presentation/http/workspace-token-routes';
 import {
   Body,
   Controller,
@@ -19,8 +20,9 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
+import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
 import { CLIENT_HEADER } from '@platform/http/resources/resource-headers';
-import { WORKSPACE_TOKEN_EXCHANGE } from '@platform/http/routes';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 
 const UNAUTHORIZED =
@@ -28,11 +30,13 @@ const UNAUTHORIZED =
 
 @ApiTags('workspace-tokens')
 @AllowAnonymous()
+@InAudience('resources')
 @Controller(WORKSPACE_TOKEN_EXCHANGE)
 export class WorkloadTokenExchangeController {
   constructor(private readonly commandBus: CommandBus) {}
 
   @Post('exchange')
+  @RateLimited({ name: 'workload-token-exchange', max: 300, windowSeconds: 60 })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'exchangeWorkloadToken',

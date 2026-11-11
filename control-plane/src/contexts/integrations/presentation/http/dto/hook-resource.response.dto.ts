@@ -1,16 +1,16 @@
-import type { HookResourceDto } from '@integrations/application/dto/hook-resource.dto';
-import {
-  HOOK_ON_FAILURES,
-  Hook,
-} from '@integrations/domain/entities/hook.entity';
+import type {
+  HookRequestView,
+  HookResourceDto,
+  HookStepView,
+} from '@integrations/application/dto/hook-resource.dto';
+import type {
+  WrittenHookMatch,
+  WrittenHookSigning,
+} from '@integrations/application/ports/hook-resources.port';
+import { HOOK_ON_FAILURES } from '@integrations/domain/value-objects/hook.vo';
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
-
-type Raw = Readonly<Record<string, unknown>>;
-
-const listOf = (raw: unknown): string[] =>
-  Array.isArray(raw) ? raw.map(String) : [];
 
 export class HookMatchDto {
   @ApiProperty({
@@ -50,12 +50,12 @@ export class HookMatchDto {
   })
   readonly paths: string[];
 
-  constructor(raw: Raw) {
-    this.tools = listOf(raw.tools);
-    this.lines = listOf(raw.lines);
-    this.stations = listOf(raw.stations);
-    this.repositories = listOf(raw.repositories);
-    this.paths = listOf(raw.paths);
+  constructor(match: WrittenHookMatch) {
+    this.tools = [...match.tools];
+    this.lines = [...match.lines];
+    this.stations = [...match.stations];
+    this.repositories = [...match.repositories];
+    this.paths = [...match.paths];
   }
 }
 
@@ -97,11 +97,11 @@ export class HookRequestDto {
   })
   readonly from: 'spotlight' | 'network';
 
-  constructor(raw: Raw) {
-    this.url = String(raw.url ?? '');
-    this.headers = { ...((raw.headers ?? {}) as Record<string, string>) };
-    this.body = raw.body;
-    this.from = raw.from === 'network' ? 'network' : 'spotlight';
+  constructor(request: HookRequestView) {
+    this.url = request.url;
+    this.headers = { ...request.headers };
+    this.body = request.body;
+    this.from = request.from;
   }
 }
 
@@ -136,16 +136,14 @@ export class HookStepDto {
   })
   readonly request?: HookRequestDto;
 
-  constructor(raw: Raw) {
-    this.name = String(raw.name ?? '');
+  constructor(step: HookStepView) {
+    this.name = step.name;
 
-    if (typeof raw.call === 'string') {
-      this.call = raw.call;
-      this.with = { ...((raw.with ?? {}) as Record<string, unknown>) };
-    }
-
-    if (raw.request && typeof raw.request === 'object') {
-      this.request = new HookRequestDto(raw.request as Raw);
+    if ('call' in step) {
+      this.call = step.call;
+      this.with = { ...step.with };
+    } else {
+      this.request = new HookRequestDto(step.request);
     }
   }
 }
@@ -157,8 +155,8 @@ export class HookOidcDto {
   })
   readonly audience: string;
 
-  constructor(raw: Raw) {
-    this.audience = String(raw.audience ?? '');
+  constructor(audience: string) {
+    this.audience = audience;
   }
 }
 
@@ -176,13 +174,11 @@ export class HookSigningDto {
   })
   readonly oidc?: HookOidcDto;
 
-  constructor(raw: Raw) {
-    if (typeof raw.secretVersion === 'number') {
-      this.secretVersion = raw.secretVersion;
-    }
-
-    if (raw.oidc && typeof raw.oidc === 'object') {
-      this.oidc = new HookOidcDto(raw.oidc as Raw);
+  constructor(signing: WrittenHookSigning) {
+    if ('oidc' in signing) {
+      this.oidc = new HookOidcDto(signing.oidc.audience);
+    } else {
+      this.secretVersion = signing.secretVersion;
     }
   }
 }
@@ -247,28 +243,20 @@ export class HookResourceResponseDto extends ResourceResponseDto {
 
   constructor(hook: HookResourceDto) {
     super(hook);
-    const raw = hook.definition;
 
     this.teamId = hook.teamId;
-    this.key = String(raw.key ?? '');
-    this.on = String(raw.on ?? '');
-    this.match = new HookMatchDto((raw.match ?? {}) as Raw);
+    this.key = hook.key;
+    this.on = hook.on;
+    this.match = new HookMatchDto(hook.match);
 
-    if (typeof raw.when === 'string') {
-      this.when = raw.when;
+    if (hook.when !== null) {
+      this.when = hook.when;
     }
 
-    this.vars = { ...((raw.vars ?? {}) as Record<string, string>) };
-    this.steps = ((raw.steps ?? []) as Raw[]).map(
-      (step) => new HookStepDto(step),
-    );
-    this.signing =
-      raw.signing && typeof raw.signing === 'object'
-        ? new HookSigningDto(raw.signing as Raw)
-        : null;
-    this.failure = String(raw.failure ?? Hook.DEFAULTS.failure);
-    this.timeoutSeconds = Number(
-      raw.timeoutSeconds ?? Hook.DEFAULTS.timeoutSeconds,
-    );
+    this.vars = { ...hook.vars };
+    this.steps = hook.steps.map((step) => new HookStepDto(step));
+    this.signing = hook.signing ? new HookSigningDto(hook.signing) : null;
+    this.failure = hook.failure;
+    this.timeoutSeconds = hook.timeoutSeconds;
   }
 }

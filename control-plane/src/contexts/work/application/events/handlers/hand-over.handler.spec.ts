@@ -1,58 +1,53 @@
+import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import {
+  requestedBy,
+  runEnded,
+  runExhausted,
+  runFailed,
+  cannedJournalReadings as runJournalReadings,
+  runStopped,
+} from '@work/application/ports/runs.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
+import { RunEndedFacts } from '@work/application/services/run-ending-reactions';
+import { RunRouting } from '@work/application/services/run-routing.service';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { HandoverFor } from '@work/domain/services/handover-for';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { Handover } from '@work/domain/value-objects/handover.vo';
-import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
-import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  routesOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const aSpec = (executable = 'sh') =>
-  RunSpec.of({
-    command: { executable, args: [] },
-    briefing: 'do the thing',
-    handover: { options: [], noteLimit: 4_000 },
-    resume: { key: 'task:station' },
-  });
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
@@ -65,20 +60,20 @@ const at = (
   ends = false,
   passesTo: readonly string[] = [],
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     harness,
-    routes: StationRoutes.of({ ends, stations: passesTo.map(StationId.of) }),
+    routes: routesOf({ ends, stations: passesTo.map(StationId.of) }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
 const line = () =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -106,71 +101,51 @@ const task = (runId = 'run_1') =>
 
 const LATER = new Date(NOW.getTime() + 120_000);
 
-const queued = (taskId: string | null = 'task_1') =>
-  Run.enqueue({
-    id: RunId.of('run_1'),
-    workspaceId: WorkspaceId.of('ws_1'),
-    harness: HarnessId.of('dev'),
-    subject: taskId
-      ? RunSubject.task(TaskId.of(taskId), null, TaskRevision.of(0))
-      : null,
-    spec: aSpec(),
+const IN_TASK = requestedBy.task('task_1', 0);
+
+const ENDED = {
+  requester: IN_TASK,
+  claimedBy: 'runner_1',
+  endedAt: NOW.toISOString(),
+};
+
+interface Reported {
+  readonly next?: string;
+  readonly note?: string;
+  readonly session?: string;
+}
+
+const run = (failed: boolean, reported: Reported = {}) =>
+  (failed ? runFailed : runEnded)({
+    ...ENDED,
+    session: reported.session ?? null,
+    report:
+      reported.next === undefined && reported.note === undefined
+        ? null
+        : {
+            next: reported.next || null,
+            note: reported.note || null,
+            files: [],
+          },
   });
 
-const run = (
-  failed: boolean,
-  report: HandoverReport = HandoverReport.none(),
-) => {
-  const runner = RunnerId.of('runner_1');
+const stoppedRun = () => runStopped(ENDED);
 
-  return queued()
-    .claim(runner, NOW)
-    .complete(
-      runner,
-      RunOutcome.of({ exitCode: failed ? 1 : 0, failed }),
-      report,
-    );
-};
+const exhausted = () =>
+  runExhausted({
+    requester: IN_TASK,
+    failure: 'runner-lost',
+    endedAt: LATER.toISOString(),
+  });
 
-const stoppedRun = () => {
-  const runner = RunnerId.of('runner_1');
-
-  return queued().claim(runner, NOW).complete(runner, RunOutcome.stopped(0));
-};
-
-const exhausted = () => {
-  const runner = RunnerId.of('runner_1');
-  let ended = queued();
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    ended.pullEvents();
-    ended = ended.claim(runner, NOW).expireLease(LATER);
-  }
-  return ended;
-};
-
-const timedOut = () => {
-  const runner = RunnerId.of('runner_1');
-  let ended = queued();
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    ended.pullEvents();
-    ended =
-      attempt < 2
-        ? ended.claim(runner, NOW).expireLease(LATER)
-        : ended.claim(runner, NOW).timedOut(runner, NOW);
-  }
-  return ended;
-};
+const timedOut = () =>
+  runExhausted({
+    requester: IN_TASK,
+    failure: 'timed-out',
+    endedAt: NOW.toISOString(),
+  });
 
 let saved: Task | undefined;
-let savedRun: Run | undefined;
-let storedRun: Run | null = null;
-
-const runs = {
-  findById: vi.fn(async () => storedRun),
-  save: vi.fn(async (each: Run) => {
-    savedRun = each;
-  }),
-} as unknown as RunRepository;
 
 const tasks = (found: Task | null = task()) =>
   ({
@@ -180,54 +155,91 @@ const tasks = (found: Task | null = task()) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    findByMarks: vi.fn(async () => null),
+    findByCorrelation: vi.fn(async () => []),
+    holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = () =>
   ({
-    add: vi.fn(),
-    save: vi.fn(),
     find: vi.fn(async () => line()),
     findByStation: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-  }) satisfies LineRepository;
+    candidate: vi.fn(),
+  }) satisfies LineMapsPort;
 
 const dispatch: TaskDispatching = {
   runIdFor: async () => RunId.of('run_2'),
 };
 
-const handOver = (ended = run(false), stored: TaskRepository = tasks()) => {
-  const handler = new HandOver(
-    stored,
-    runs,
+const handOver = async (
+  ended = run(false),
+  stored: TaskRepository = tasks(),
+  lastWords: string | null = null,
+) => {
+  const routing = new RunRouting(
     stored as TaskRepository & TaskPlacementsPort,
-    lines(),
     dispatch,
     clock,
   );
-  storedRun = ended;
-  const [raised] = ended.pullEvents();
-
-  if (!raised) {
-    throw new Error('the run announced nothing');
+  const handler = new HandOver(
+    stored,
+    lines(),
+    routing,
+    {
+      attemptsOfRun: async () => [],
+    } as unknown as RunJournalReaderPort,
+    runJournalReadings({ lastWordsIn: () => lastWords }),
+  );
+  if (ended.handsOver) {
+    return routedAsItsTurn(ended, stored, routing, lastWords);
   }
 
-  return raised instanceof RunCompleted
-    ? handler.onRunCompleted(raised)
-    : handler.onRunExhausted(raised as RunExhausted);
+  return handler.onRunEnded(ended);
+};
+
+const routedAsItsTurn = async (
+  ended: RunEndedIntegrationEvent,
+  stored: TaskRepository,
+  routing: RunRouting,
+  lastWords: string | null,
+) => {
+  const runId = RunId.of(ended.runId);
+  const taskId = WorkRequesters.taskOf(ended.requester);
+  const task = taskId ? await stored.find(taskId) : null;
+
+  if (!task?.hasCurrentRun(runId)) {
+    return;
+  }
+
+  const map = line();
+  const handover = HandoverFor.after({
+    outcome: RunEndedFacts.result(ended),
+    handover: RunEndedFacts.handover(ended),
+    line: map,
+    currentStation: task.stationId,
+    lastWords: ended.report ? null : lastWords,
+  });
+  const session = RunEndedFacts.session(ended);
+  const recorded = session
+    ? task.recordSession(
+        runId,
+        session,
+        ended.claimedBy ? RunnerId.of(ended.claimedBy) : null,
+      )
+    : task;
+
+  await stored.save(await routing.routed(handover, recorded, map, runId));
 };
 
 beforeEach(() => {
   saved = undefined;
-  savedRun = undefined;
-  storedRun = null;
 });
 
 describe('HandOver', () => {
@@ -242,12 +254,7 @@ describe('HandOver', () => {
   });
 
   it('puts the last words of a run without a handover to the person', async () => {
-    await handOver(
-      run(
-        false,
-        HandoverReport.of({ lastWords: 'Here is a draft you can use.' }),
-      ),
-    );
+    await handOver(run(false), tasks(), 'Here is a draft you can use.');
 
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.notes.map((each) => each.body.value)).toEqual([
@@ -268,35 +275,26 @@ describe('HandOver', () => {
     });
   });
 
-  it('supersedes a failed run whose task moved on, and asks nobody about it', async () => {
+  it('asks nobody about a failed run whose task moved on', async () => {
     await handOver(run(true), tasks(task('run_9')));
 
     expect(saved).toBeUndefined();
-    expect(savedRun?.state).toBe('superseded');
-    expect(savedRun?.outcome?.failure?.code).toBe('superseded');
   });
 
   it('does not hand over a task whose current run took a revision it has since moved on from', async () => {
-    const runner = RunnerId.of('runner_1');
-    const stale = Run.enqueue({
-      id: RunId.of('run_1'),
-      workspaceId: WorkspaceId.of('ws_1'),
-      harness: HarnessId.of('dev'),
-      subject: RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(3)),
-      spec: aSpec(),
-    })
-      .claim(runner, NOW)
-      .complete(runner, RunOutcome.of({ exitCode: 1, failed: true }));
+    const stale = runFailed({
+      ...ENDED,
+      requester: requestedBy.task('task_1', 3),
+    });
 
     await expect(handOver(stale)).rejects.toThrow(InconsistentStateError);
 
     expect(saved).toBeUndefined();
-    expect(savedRun).toBeUndefined();
   });
 
   it('keeps a failure on a finished task from the inbox', async () => {
     const finished = task().finishHere(RunId.of('run_1'), line(), {
-      station: StationName.of('Triage'),
+      line: null,
       body: TaskNoteBody.of('Done by hand.'),
       at: NOW,
       voice: Voice.station(RunId.of('run_1')),
@@ -305,13 +303,6 @@ describe('HandOver', () => {
     await handOver(run(true), tasks(finished));
 
     expect(saved).toBeUndefined();
-    expect(savedRun?.state).toBe('superseded');
-  });
-
-  it('leaves a run that succeeded as it was, even where its task moved on', async () => {
-    await handOver(run(false), tasks(task('run_9')));
-
-    expect(savedRun).toBeUndefined();
   });
 
   it('brings a stopped run back to the person rather than advancing it', async () => {
@@ -325,17 +316,7 @@ describe('HandOver', () => {
   });
 
   it('closes a task that the run handed over as done', async () => {
-    await handOver(
-      run(
-        false,
-        HandoverReport.of({
-          handover: Handover.of({
-            next: 'done',
-            note: 'Pull request opened.',
-          }),
-        }),
-      ),
-    );
+    await handOver(run(false, { next: 'done', note: 'Pull request opened.' }));
 
     expect(saved?.finished).toBe(true);
     expect(saved?.awaitingReview).toBe(false);
@@ -346,7 +327,7 @@ describe('HandOver', () => {
   it('names the station the note came from', async () => {
     await handOver();
 
-    expect(saved?.notes[0]?.station.value).toBe('Triage');
+    expect(saved?.notes[0]?.station?.value).toBe('Triage');
   });
 
   it('leaves a task alone once another run has taken it', async () => {
@@ -356,10 +337,16 @@ describe('HandOver', () => {
   });
 
   it('leaves a run with no task of its own alone', async () => {
-    const runner = RunnerId.of('runner_1');
-    const loose = queued(null)
-      .claim(runner, NOW)
-      .complete(runner, RunOutcome.of({ exitCode: 0, failed: false }));
+    const loose = runEnded({
+      ...ENDED,
+      requester: {
+        owner: 'workspace',
+        kind: 'spec',
+        id: 'run_1',
+        token: null,
+        team: null,
+      },
+    });
 
     await handOver(loose);
 
@@ -385,27 +372,22 @@ describe('HandOver', () => {
     await expect(handOver(run(false), tasks(null))).resolves.toBeUndefined();
   });
   it('remembers the conversation the run worked in', async () => {
-    await handOver(
-      run(
-        false,
-        HandoverReport.of({ session: HarnessSession.of('session_1') }),
-      ),
-    );
+    await handOver(run(false, { session: 'session_1' }));
 
-    expect(saved?.sessionId?.value).toBe('session_1');
+    expect(saved?.session?.value).toBe('session_1');
     expect(saved?.awaitingReview).toBe(true);
   });
 
   it('leaves the task without one when the runner reported none', async () => {
     await handOver();
 
-    expect(saved?.sessionId).toBeNull();
+    expect(saved?.session).toBeNull();
   });
 
   describe('a run that ends while its task waits on a person', () => {
     const asked = () =>
       task().putToAPerson(RunId.of('run_1'), {
-        station: StationName.of('Triage'),
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -421,12 +403,7 @@ describe('HandOver', () => {
 
     it('never finishes or passes on a task whose question is still open', async () => {
       await handOver(
-        run(
-          false,
-          HandoverReport.of({
-            handover: Handover.of({ next: 'done', note: 'Done.' }),
-          }),
-        ),
+        run(false, { next: 'done', note: 'Done.' }),
         tasks(asked()),
       );
 
@@ -438,7 +415,7 @@ describe('HandOver', () => {
 
     const deferredWhileAsked = () =>
       asked().deferMove(line(), StationId.of('station_4'), {
-        station: StationName.of('Triage'),
+        line: null,
         body: TaskNoteBody.of('The checks failed on the pull request.'),
         at: NOW,
         voice: Voice.world(),
@@ -448,13 +425,7 @@ describe('HandOver', () => {
       ['is stopped', stoppedRun],
       [
         'hands over the task as done',
-        () =>
-          run(
-            false,
-            HandoverReport.of({
-              handover: Handover.of({ next: 'done', note: 'Done.' }),
-            }),
-          ),
+        () => run(false, { next: 'done', note: 'Done.' }),
       ],
       ['fails', () => run(true)],
     ])(
@@ -482,28 +453,24 @@ describe('HandOver', () => {
   describe('a move deferred while the run was in progress', () => {
     const deferred = (to = 'station_4') =>
       task().deferMove(line(), StationId.of(to), {
-        station: StationName.of('Triage'),
+        line: null,
         body: TaskNoteBody.of('The checks failed on the pull request.'),
         at: NOW,
         voice: Voice.world(),
       });
 
     const handingOver = (next: string) =>
-      run(
-        false,
-        HandoverReport.of({
-          handover: Handover.of({ next, note: 'Over to you.' }),
-        }),
-      );
+      run(false, { next, note: 'Over to you.' });
 
-    const endings: readonly [string, () => Run, string][] = [
-      ['hands over nothing', () => run(false), 'words'],
-      ['asks a person', () => handingOver('review'), 'words'],
-      ['hands over the task as done', () => handingOver('done'), 'words'],
-      ['fails', () => run(true), 'failure'],
-      ['is stopped', stoppedRun, 'words'],
-      ['is never finished', exhausted, 'failure'],
-    ];
+    const endings: readonly [string, () => RunEndedIntegrationEvent, string][] =
+      [
+        ['hands over nothing', () => run(false), 'words'],
+        ['asks a person', () => handingOver('review'), 'words'],
+        ['hands over the task as done', () => handingOver('done'), 'words'],
+        ['fails', () => run(true), 'failure'],
+        ['is stopped', stoppedRun, 'words'],
+        ['is never finished', exhausted, 'failure'],
+      ];
 
     const MOVED =
       'Moved to Build when the run ended. An event arrived while the run was in progress.';
@@ -543,7 +510,7 @@ describe('HandOver', () => {
         ),
         ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
         {
-          station: StationName.of('Triage'),
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -555,7 +522,7 @@ describe('HandOver', () => {
       return asked.answer(
         NotePosition.of(1),
         {
-          station: StationName.of('Triage'),
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),

@@ -1,4 +1,4 @@
-import type { SeenPullRequest } from '@insights/domain/aggregates/pull-request-record.aggregate';
+import { SeenPullRequest } from '@insights/domain/value-objects/seen-pull-request.vo';
 import type { pullRequestRecord } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 
 export type PullRequestRow = typeof pullRequestRecord.$inferSelect;
@@ -11,7 +11,7 @@ export const seenOfRow = (row: PullRequestRow): SeenPullRequest | null =>
   row.openedAt !== null &&
   row.updatedAt !== null &&
   row.state !== null
-    ? {
+    ? SeenPullRequest.of({
         repository: row.repository,
         number: row.number,
         title: row.title,
@@ -41,5 +41,5 @@ export const seenOfRow = (row: PullRequestRow): SeenPullRequest | null =>
         isRevert: row.isRevert,
         revertedBy: row.revertedBy,
         version: row.seenVersion,
-      }
+      })
     : null;

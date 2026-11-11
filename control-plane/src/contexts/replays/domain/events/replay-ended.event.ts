@@ -5,7 +5,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReplayEnded implements DomainEvent {
-  readonly kind = 'replays.replay-ended';
+  readonly kind = 'replay.ended';
 
   constructor(
     readonly replayId: ReplayId,

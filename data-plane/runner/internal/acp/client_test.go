@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -79,9 +80,8 @@ func TestOpensASessionAndReportsTheAgentsOutput(t *testing.T) {
 	}
 
 	var output string
-	result, err := client.Prompt(ctx, sessionID, "do the thing", func(update acp.Update) {
-		output += update.Text
-	})
+	client.Watch(func(update acp.Update) { output += update.Text })
+	result, err := client.Prompt(ctx, sessionID, "do the thing")
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestCancelEndsTheTurnInFlight(t *testing.T) {
 
 	done := make(chan acp.Result, 1)
 	go func() {
-		result, _ := client.Prompt(ctx, "session_1", "keep working", func(acp.Update) {})
+		result, _ := client.Prompt(ctx, "session_1", "keep working")
 		done <- result
 	}()
 
@@ -229,7 +229,7 @@ func TestAnswersThePermissionTheAgentRequests(t *testing.T) {
 		})
 
 		ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
-		result, err := client.Prompt(ctx, "session_1", "do it", func(acp.Update) {})
+		result, err := client.Prompt(ctx, "session_1", "do it")
 		stop()
 
 		if err != nil {
@@ -250,7 +250,7 @@ func TestReadsAndWritesWithinTheWorkspace(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	if _, err := client.Prompt(ctx, "session_1", "read it", func(acp.Update) {}); err != nil {
+	if _, err := client.Prompt(ctx, "session_1", "read it"); err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
 
@@ -269,7 +269,7 @@ func TestRejectsAPathOutsideTheWorkspace(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	result, err := client.Prompt(ctx, "session_1", "read outside", func(acp.Update) {})
+	result, err := client.Prompt(ctx, "session_1", "read outside")
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
@@ -362,7 +362,7 @@ func TestAPermissionIsAnsweredOnceNotForever(t *testing.T) {
 		})
 
 		ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
-		result, err := client.Prompt(ctx, "session_1", "clean up", func(acp.Update) {})
+		result, err := client.Prompt(ctx, "session_1", "clean up")
 		stop()
 
 		if err != nil {
@@ -385,7 +385,7 @@ func TestAPermissionIsRefusedWhenNobodyAnswers(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	result, err := client.Prompt(ctx, "session_1", "clean up", func(acp.Update) {})
+	result, err := client.Prompt(ctx, "session_1", "clean up")
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
@@ -460,7 +460,8 @@ func TestASessionOpensWithWhatTheHarnessIsSetUpWith(t *testing.T) {
 			}
 
 			var output string
-			if _, err := client.Prompt(ctx, "session_1", "go", func(update acp.Update) { output += update.Text }); err != nil {
+			client.Watch(func(update acp.Update) { output += update.Text })
+			if _, err := client.Prompt(ctx, "session_1", "go"); err != nil {
 				t.Fatalf("%s, resuming=%v: prompt: %v", expected.name, resuming, err)
 			}
 			stop()
@@ -518,5 +519,161 @@ func TestSetsASessionConfigOption(t *testing.T) {
 	}
 	if err := client.SetConfigOption(ctx, sessionID, "colour", "blue"); err == nil {
 		t.Fatal("an option the harness refuses did not fail")
+	}
+}
+
+const workingHarness = `
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+const frame = (message) => send({ jsonrpc: "2.0", method: "_claude/sdkMessage",
+  params: { sessionId: "session_1", message: { type: "system", ...message } } });
+const say = (text) => send({ jsonrpc: "2.0", method: "session/update",
+  params: { sessionId: "session_1", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text } } } });
+let buffered = "";
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/load") { say("from before"); send({ jsonrpc: "2.0", id: msg.id, result: {} }); }
+    if (msg.method === "session/prompt") {
+      frame({ subtype: "session_state_changed", state: "running" });
+      frame({ subtype: "background_tasks_changed", tasks: [{ task_id: "t1", task_type: "local_bash", description: "npm test" }] });
+      send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
+      frame({ subtype: "session_state_changed", state: "idle" });
+      setTimeout(() => {
+        frame({ subtype: "background_tasks_changed", tasks: [] });
+        frame({ subtype: "session_state_changed", state: "running" });
+        say("woke up");
+        frame({ subtype: "session_state_changed", state: "idle" });
+      }, 200);
+    }
+  }
+});
+`
+
+func TestUpdatesOutsideATurnReachTheWatcherButNotTheReplay(t *testing.T) {
+	client, err := acp.Start(context.Background(), acp.Options{
+		Executable:  pretend(t, workingHarness),
+		Root:        t.TempDir(),
+		SettleQuiet: 50 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
+	defer stop()
+
+	var mu sync.Mutex
+	var seen []string
+	client.Watch(func(update acp.Update) {
+		mu.Lock()
+		defer mu.Unlock()
+		seen = append(seen, update.Text)
+	})
+
+	if err := client.Resume(ctx, "session_1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Prompt(ctx, "session_1", "go"); err != nil {
+		t.Fatal(err)
+	}
+
+	if work := client.Current(); !work.Seen || len(work.Background) != 1 || work.Background[0].Description != "npm test" {
+		t.Fatalf("right after the turn: %+v", work)
+	}
+
+	work, settled := client.Settle(ctx)
+	if !settled || len(work.Background) != 0 {
+		t.Fatalf("settled=%v %+v", settled, work)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if !reflect.DeepEqual(seen, []string{"woke up"}) {
+		t.Errorf("the watcher saw %q", seen)
+	}
+}
+
+func TestAHarnessWithoutWorkFramesSettlesAtOnce(t *testing.T) {
+	client, _ := start(t, responsiveHarness, nil)
+
+	work, settled := client.Settle(context.Background())
+	if !settled || work.Seen {
+		t.Fatalf("settled=%v %+v", settled, work)
+	}
+}
+
+func TestSettlingStopsAtTheDeadline(t *testing.T) {
+	client, err := acp.Start(context.Background(), acp.Options{
+		Executable:  pretend(t, workingHarness),
+		Root:        t.TempDir(),
+		SettleQuiet: 50 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
+	defer stop()
+	if _, err := client.Prompt(ctx, "session_1", "go"); err != nil {
+		t.Fatal(err)
+	}
+
+	short, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	defer cancel()
+	work, settled := client.Settle(short)
+	if settled || len(work.Background) != 1 {
+		t.Fatalf("settled=%v %+v", settled, work)
+	}
+}
+
+func TestClaudeCodeTaskTypesBecomeSpotlightKinds(t *testing.T) {
+	client, err := acp.Start(context.Background(), acp.Options{
+		Executable: pretend(t, `
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "";
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/prompt") {
+      send({ jsonrpc: "2.0", method: "_claude/sdkMessage", params: { sessionId: "s", message: { type: "system",
+        subtype: "background_tasks_changed", tasks: [
+          { task_id: "1", task_type: "local_bash", description: "tests" },
+          { task_id: "2", task_type: "local_agent", description: "explore" },
+          { task_id: "3", task_type: "monitor", description: "watch" },
+          { task_id: "4", task_type: "workflow", description: "flow" } ] } } });
+      send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
+    }
+  }
+});
+`),
+		Root: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	if _, err := client.Prompt(context.Background(), "s", "go"); err != nil {
+		t.Fatal(err)
+	}
+
+	var kinds []string
+	for _, task := range client.Current().Background {
+		kinds = append(kinds, string(task.Kind))
+	}
+	if !reflect.DeepEqual(kinds, []string{"command", "subagent", "monitor", "other"}) {
+		t.Fatalf("kinds %v", kinds)
 	}
 }

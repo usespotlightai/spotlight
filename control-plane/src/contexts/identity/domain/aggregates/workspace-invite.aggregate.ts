@@ -1,3 +1,4 @@
+import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invite-accepted.event';
 import { WorkspaceInviteCreated } from '@identity/domain/events/workspace-invite-created.event';
 import { WorkspaceInviteRevoked } from '@identity/domain/events/workspace-invite-revoked.event';
@@ -12,11 +13,18 @@ import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.v
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const INVITE_LASTS_FOR_DAYS = 14;
+export const INVITE_LASTS_FOR_DAYS = 14;
 
 const DAY = 24 * 60 * 60 * 1000;
 
 export type InviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+export type InviteOffer =
+  | { readonly outcome: 'already-a-member' }
+  | {
+      readonly outcome: 'invited' | 'resent';
+      readonly invite: WorkspaceInvite;
+    };
 
 const NOT_PENDING_BECAUSE: Record<Exclude<InviteStatus, 'pending'>, string> = {
   accepted: 'has already been accepted',
@@ -98,31 +106,47 @@ export class WorkspaceInvite extends EventRecorder implements State {
     return created;
   }
 
-  static createOrResend(
+  static offer(
     existing: WorkspaceInvite | null,
     input: {
       id: InviteId;
-      workspaceId: WorkspaceId;
+      workspace: Workspace;
       email: EmailAddress;
+      holder: UserId | null;
       spec: InviteSpec;
       tokenHash: TokenHash;
       invitedBy: UserId;
       now: Date;
     },
-  ): { invite: WorkspaceInvite; resent: boolean } {
+  ): InviteOffer {
+    if (input.holder && input.workspace.hasMember(input.holder)) {
+      return { outcome: 'already-a-member' };
+    }
+
     if (existing && !existing.hasEndedAt(input.now)) {
       return {
+        outcome: 'resent',
         invite: existing.resend({
           spec: input.spec,
           tokenHash: input.tokenHash,
           by: input.invitedBy,
           now: input.now,
         }),
-        resent: true,
       };
     }
 
-    return { invite: WorkspaceInvite.create(input), resent: false };
+    return {
+      outcome: 'invited',
+      invite: WorkspaceInvite.create({
+        id: input.id,
+        workspaceId: input.workspace.id,
+        email: input.email,
+        spec: input.spec,
+        tokenHash: input.tokenHash,
+        invitedBy: input.invitedBy,
+        now: input.now,
+      }),
+    };
   }
 
   static statusOf(
@@ -144,10 +168,10 @@ export class WorkspaceInvite extends EventRecorder implements State {
   }
 
   static rehydrate(input: State): WorkspaceInvite {
-    if (!Number.isInteger(input.version) || input.version < 1) {
+    if (!Number.isInteger(input.version) || input.version < 0) {
       throw new InconsistentStateError(
         'invite',
-        'was stored without ever being written',
+        `has an impossible version (${input.version})`,
       );
     }
     if (input.acceptedBy && !input.acceptedAt) {
@@ -239,6 +263,17 @@ export class WorkspaceInvite extends EventRecorder implements State {
     );
 
     return revoked;
+  }
+
+  removedWithWorkspace(deleted: WorkspaceId): WorkspaceInvite {
+    if (!this.workspaceId.equals(deleted)) {
+      throw new InconsistentStateError(
+        'invite',
+        'was removed with a workspace it does not belong to',
+      );
+    }
+
+    return this;
   }
 
   private createdEvent(by: UserId, resent: boolean): WorkspaceInviteCreated {

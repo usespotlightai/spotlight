@@ -22,19 +22,28 @@ export type PullRequestUpdatedIntegrationEvent = {
     readonly from: string;
     readonly to: string | null;
   }[];
-  readonly firstReviewAt: string | null;
-  readonly firstUnblockingReviewAt: string | null;
-  readonly firstApprovedAt: string | null;
-  readonly humanReviewedAt: readonly string[];
-  readonly reviews: number;
-  readonly reviewRounds: number;
+  readonly reviews: readonly {
+    readonly id: number;
+    readonly state: 'approved' | 'changes-requested' | 'commented';
+    readonly login: string | null;
+    readonly byBot: boolean;
+    readonly submittedAt: string | null;
+    readonly dismissed: boolean;
+  }[];
   readonly reviewComments: number;
-  readonly botActivity: readonly {
+  readonly botComments: readonly {
+    readonly id: number;
+    readonly on: 'line' | 'conversation';
     readonly login: string;
-    readonly reviews: number;
-    readonly comments: number;
-    readonly threads: number;
-    readonly resolvedThreads: number;
+    readonly opensThread: boolean;
+    readonly deleted: boolean;
+  }[];
+  readonly threads: readonly {
+    readonly id: string;
+    readonly firstCommentId: number | null;
+    readonly login: string | null;
+    readonly byBot: boolean;
+    readonly resolved: boolean;
   }[];
   readonly isRevert: boolean;
   readonly revertedBy: string | null;

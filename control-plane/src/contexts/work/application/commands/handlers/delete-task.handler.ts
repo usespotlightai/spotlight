@@ -1,5 +1,6 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import type { LineLoader } from '@work/application/services/line-loader.service';
@@ -12,24 +13,28 @@ export class DeleteTaskHandler
   constructor(
     private readonly tasks: TaskRepository,
     private readonly lines: LineLoader,
+    private readonly transaction: TransactionPort,
   ) {}
 
   async execute(command: DeleteTaskCommand): Promise<void> {
     try {
-      const found = await this.tasks.find(TaskId.of(command.taskId));
+      await this.transaction.inTransaction(async () => {
+        const unknown = () => new UnknownTaskError(command.taskId);
+        const found = await this.tasks.find(TaskId.of(command.taskId));
 
-      if (
-        !found ||
-        !(await this.lines.findByStation(
+        if (!found) {
+          throw unknown();
+        }
+
+        await this.lines.atStation(
           command.teamId,
           found.stationId,
           command.viewerId,
-        ))
-      ) {
-        throw new UnknownTaskError(command.taskId);
-      }
+          unknown,
+        );
 
-      await this.tasks.remove(found.deleted());
+        await this.tasks.remove(found.deleted());
+      });
     } catch (error) {
       rethrowAsApplicationError(error);
     }

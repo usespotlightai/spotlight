@@ -1,6 +1,6 @@
 import type { Duplex } from 'node:stream';
 import type { EditorConnectionDto } from '@runners/application/dto/sandbox-editor.dto';
-import type { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
+import type { EditorSessionsPort } from '@runners/application/ports/editor-sessions.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { createWebSocketStream, type WebSocket } from 'ws';
 
@@ -19,14 +19,14 @@ export interface EditorTiming {
   readonly pingMs: number;
 }
 
-const EDITOR_TIMING: EditorTiming = {
-  renewMs: 30_000,
+const editorTiming = (renewMs: number): EditorTiming => ({
+  renewMs,
   pollMs: 1_000,
   startWaitMs: 10 * 60_000,
   hostWaitMs: 15_000,
   activityMs: 30 * 60_000,
   pingMs: 30_000,
-};
+});
 
 const STOPPED = 'The sandbox stopped. Please connect again.';
 
@@ -39,9 +39,9 @@ export class EditorSession {
   constructor(
     private readonly websocket: WebSocket,
     private readonly connection: EditorConnectionDto,
-    private readonly editors: SandboxEditors,
+    private readonly editors: EditorSessionsPort,
     private readonly logger: LoggerPort,
-    private readonly timing: EditorTiming = EDITOR_TIMING,
+    private readonly timing: EditorTiming = editorTiming(editors.renewEvery()),
   ) {
     this.editor = createWebSocketStream(websocket);
     this.editor.on('error', () => {});
@@ -101,13 +101,13 @@ export class EditorSession {
     const until = Date.now() + this.timing.startWaitMs;
 
     while (!this.closed) {
-      const state = await this.editors.stateOf(this.connection);
+      const sandbox = await this.editors.stateOf(this.connection);
 
-      if (state === 'ready') {
+      if (sandbox?.ready) {
         return true;
       }
 
-      if (state !== 'starting') {
+      if (!sandbox?.open) {
         this.close(EDITOR_CLOSE.sandboxStopped, STOPPED);
         return false;
       }
@@ -185,15 +185,15 @@ export class EditorSession {
         return;
       }
 
-      const state = await this.editors.renew(this.connection);
-      this.held = state !== null;
+      const sandbox = await this.editors.renew(this.connection);
+      this.held = sandbox !== null;
 
       if (this.closed) {
         await this.release();
         return;
       }
 
-      if (state !== 'starting' && state !== 'ready') {
+      if (!sandbox?.open) {
         this.close(EDITOR_CLOSE.sandboxStopped, STOPPED);
       }
     } catch (error) {

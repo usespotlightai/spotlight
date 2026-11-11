@@ -231,10 +231,11 @@ describe('a workspace, created through the resource API (e2e)', () => {
       workspaceId: made.body.id,
       key: 'core',
       name: 'Core',
+      origin: 'configuration',
     });
     await db
       .insert(schema.teamMember)
-      .values({ teamId, userId: fixture.admin });
+      .values({ workspaceId: made.body.id, teamId, userId: fixture.admin });
 
     const rejected = await as(fixture.admin).delete(
       made.body.id,
@@ -260,15 +261,12 @@ describe('a workspace, created through the resource API (e2e)', () => {
       workspaceId: made.body.id,
       key: 'core',
       name: 'Core',
+      origin: 'configuration',
     });
 
     await expect(
       workspaces.save(
         existing?.delete(
-          [],
-          [],
-          [],
-          [],
           Dependents.none(),
           changeActorIn(made.body.id),
         ) as Workspace,

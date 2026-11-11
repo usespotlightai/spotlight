@@ -7,40 +7,44 @@ import { PageNotice } from '@/components/shared/PageNotice';
 import { useRunNotes } from '@/hooks/api/useRunNotes';
 import { useRunRefresh } from '@/hooks/api/useRunRefresh';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
-import { useTeamRuns } from '@/hooks/api/useTeamRuns';
-import { failed, loading } from '@/lib/query';
+import { useTeamRun } from '@/hooks/api/useTeamRuns';
+import { notFound } from '@/lib/error';
+import { JournalDemandContext } from '@/lib/journal-demand';
+import { failed, type Loadable, loading } from '@/lib/query';
 
 type Query = UseQueryResult<unknown>;
 
 const stillLoading = (
-  runs: Query,
-  found: boolean,
+  found: Query,
   conversation: Query,
-  journal: Query,
+  journal: Loadable,
 ): boolean =>
-  loading(runs) ||
-  (found &&
+  loading(found) ||
+  (Boolean(found.data) &&
     (loading(conversation) ||
       (conversation.data !== undefined && loading(journal))));
 
-const lostOf = (runs: Query, found: boolean, conversation: Query) => {
-  if (failed(runs)) {
-    return runs;
+const lostOf = (found: Query, conversation: Query) => {
+  if (failed(found) && !notFound(found.error)) {
+    return found;
   }
 
-  return found && failed(conversation) ? conversation : null;
+  return found.data && failed(conversation) ? conversation : null;
 };
 
 export function Run() {
   const { slug, teamId, runId } = useParams();
-  const runs = useTeamRuns(teamId);
-  const run = runs.data?.find((each) => each.id === runId);
+  const found = useTeamRun(teamId, runId);
+  const run = found.data;
   const conversationQuery = useRunNotes(
     teamId,
-    runs.data && !run ? undefined : runId,
+    failed(found) ? undefined : runId,
   );
   const conversation = conversationQuery.data;
-  const journal = useTaskJournal(slug, conversation?.taskId);
+  const journal = useTaskJournal(slug, conversation?.taskId, [
+    runId,
+    conversation?.latestRun?.id,
+  ]);
 
   useRunRefresh({
     teamId,
@@ -55,11 +59,11 @@ export function Run() {
     return null;
   }
 
-  if (stillLoading(runs, Boolean(run), conversationQuery, journal)) {
+  if (stillLoading(found, conversationQuery, journal)) {
     return <RunSkeleton />;
   }
 
-  const lost = lostOf(runs, Boolean(run), conversationQuery);
+  const lost = lostOf(found, conversationQuery);
 
   if (lost) {
     return (
@@ -84,14 +88,16 @@ export function Run() {
   }
 
   return (
-    <RunPage
-      key={run.id}
-      slug={slug}
-      teamId={teamId}
-      run={run}
-      conversation={conversation}
-      worked={journal.data ?? []}
-      journalFailed={failed(journal)}
-    />
+    <JournalDemandContext value={journal.demand}>
+      <RunPage
+        key={run.id}
+        slug={slug}
+        teamId={teamId}
+        run={run}
+        conversation={conversation}
+        worked={journal.data ?? []}
+        journalFailed={failed(journal)}
+      />
+    </JournalDemandContext>
   );
 }

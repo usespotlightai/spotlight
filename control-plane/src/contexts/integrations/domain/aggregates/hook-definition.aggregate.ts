@@ -1,13 +1,14 @@
-import type {
-  Hook,
-  HookOnFailure,
-} from '@integrations/domain/entities/hook.entity';
 import { HookCreated } from '@integrations/domain/events/hook-created.event';
 import { HookDeleted } from '@integrations/domain/events/hook-deleted.event';
 import { HookUpdated } from '@integrations/domain/events/hook-updated.event';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
+import {
+  type HookAllowances,
+  providesTool,
+} from '@integrations/domain/services/hook-allowances';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
+import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
@@ -39,18 +40,18 @@ interface Props {
   readonly event: HookEvent;
   readonly document: DefinitionDocument;
   readonly tools: readonly ToolName[];
+  readonly blocks: boolean;
   readonly signing: SigningVersion | null;
   readonly version: number;
 }
 
 interface State extends Props {
   readonly deleted: boolean;
-  readonly secretInput: HookSigningSecret | null;
 }
 
 interface Signing {
   readonly signing: SigningVersion | null;
-  readonly secretInput: HookSigningSecret | null;
+  readonly supplied: HookSigningSecret | null;
 }
 
 export interface Compiled {
@@ -63,15 +64,9 @@ export type SigningSecretChange =
   | { readonly kind: 'unchanged'; readonly version: number }
   | { readonly kind: 'none' };
 
-export interface HookAllowances {
-  readonly provided: readonly string[];
-  readonly signsTokens: boolean;
-  allowsHost(host: string): boolean;
-}
-
 const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
-  const missing = hook.matchedTools.filter(
-    (tool) => !allowances.provided.includes(tool.value),
+  const missing = hook.match.tools.filter(
+    (tool) => !providesTool(allowances, tool),
   );
 
   if (missing.length > 0) {
@@ -82,10 +77,7 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   }
 
   hook.steps.forEach((step, index) => {
-    if (
-      step.kind === 'call' &&
-      !allowances.provided.includes(step.tool.value)
-    ) {
+    if (step.kind === 'call' && !providesTool(allowances, step.tool)) {
       throw new InvalidHookError(
         FieldPath.of(['steps', index, 'call']),
         `names tool ${step.tool.value}, which no team integration offers`,
@@ -108,12 +100,12 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   if (hook.signing === 'oidc' && !allowances.signsTokens) {
     throw new InvalidHookError(
       FieldPath.of(['signing', 'oidc']),
-      'needs HOOK_SIGNING_KEY set to sign OIDC tokens',
+      'needs a signing key to sign OIDC tokens. This deployment has none',
     );
   }
 };
 
-const NOT_SIGNED: Signing = { signing: null, secretInput: null };
+const NOT_SIGNED: Signing = { signing: null, supplied: null };
 
 const signingFor = (
   hook: Hook,
@@ -126,15 +118,15 @@ const signingFor = (
 
   if (change.kind === 'supplied') {
     return stored && change.versioned.version === stored.version
-      ? { signing: stored, secretInput: null }
+      ? { signing: stored, supplied: null }
       : {
           signing: { version: change.versioned.version },
-          secretInput: change.versioned.secret,
+          supplied: change.versioned.secret,
         };
   }
 
   if (stored && (change.kind === 'none' || change.version === stored.version)) {
-    return { signing: stored, secretInput: null };
+    return { signing: stored, supplied: null };
   }
 
   if (stored) {
@@ -151,7 +143,10 @@ const signingFor = (
 };
 
 export class HookDefinition extends EventRecorder {
-  private constructor(private readonly state: State) {
+  private constructor(
+    private readonly state: State,
+    readonly uncommittedSigningSecret: HookSigningSecret | null = null,
+  ) {
     super();
   }
 
@@ -167,18 +162,23 @@ export class HookDefinition extends EventRecorder {
   ): HookDefinition {
     guardAllowed(input.hook, input.allowances);
 
-    const created = new HookDefinition({
-      id: input.id,
-      workspaceId: input.workspaceId,
-      teamId: input.teamId,
-      key: input.hook.key,
-      event: input.hook.event,
-      document: input.document,
-      tools: input.hook.tools,
-      ...signingFor(input.hook, input.secret, null),
-      version: 0,
-      deleted: false,
-    });
+    const { signing, supplied } = signingFor(input.hook, input.secret, null);
+    const created = new HookDefinition(
+      {
+        id: input.id,
+        workspaceId: input.workspaceId,
+        teamId: input.teamId,
+        key: input.hook.key,
+        event: input.hook.event,
+        document: input.document,
+        tools: input.hook.tools,
+        blocks: input.hook.blocks,
+        signing,
+        version: 0,
+        deleted: false,
+      },
+      supplied,
+    );
 
     created.record(
       new HookCreated(
@@ -200,7 +200,7 @@ export class HookDefinition extends EventRecorder {
       );
     }
 
-    return new HookDefinition({ ...input, deleted: false, secretInput: null });
+    return new HookDefinition({ ...input, deleted: false });
   }
 
   assertVersion(version: number): void {
@@ -229,12 +229,21 @@ export class HookDefinition extends EventRecorder {
 
     guardAllowed(compiled.hook, allowances);
 
-    const updated = this.with({
-      event: compiled.hook.event,
-      document: compiled.document,
-      tools: compiled.hook.tools,
-      ...signingFor(compiled.hook, secret, this.signing),
-    });
+    const { signing, supplied } = signingFor(
+      compiled.hook,
+      secret,
+      this.signing,
+    );
+    const updated = this.with(
+      {
+        event: compiled.hook.event,
+        document: compiled.document,
+        tools: compiled.hook.tools,
+        blocks: compiled.hook.blocks,
+        signing,
+      },
+      supplied,
+    );
 
     updated.record(
       new HookUpdated(
@@ -256,10 +265,6 @@ export class HookDefinition extends EventRecorder {
     deleted.record(this.deletedBy(by));
 
     return deleted;
-  }
-
-  cascadeDelete(by: ChangeActor): HookDefinition {
-    return this.delete(by);
   }
 
   get id(): HookDefinitionId {
@@ -287,9 +292,7 @@ export class HookDefinition extends EventRecorder {
   }
 
   get blocks(): boolean {
-    const blocking: HookOnFailure = 'block';
-
-    return this.state.document.hasValue('failure', blocking);
+    return this.state.blocks;
   }
 
   get workspaceId(): WorkspaceId {
@@ -298,10 +301,6 @@ export class HookDefinition extends EventRecorder {
 
   get signing(): SigningVersion | null {
     return this.state.signing;
-  }
-
-  get secretInput(): HookSigningSecret | null {
-    return this.state.secretInput;
   }
 
   get version(): number {
@@ -333,8 +332,11 @@ export class HookDefinition extends EventRecorder {
     };
   }
 
-  private with(change: Partial<State>): HookDefinition {
-    const next = new HookDefinition({ ...this.state, ...change });
+  private with(
+    change: Partial<State>,
+    supplied = this.uncommittedSigningSecret,
+  ): HookDefinition {
+    const next = new HookDefinition({ ...this.state, ...change }, supplied);
 
     next.inheritEvents(this);
 

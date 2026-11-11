@@ -31,6 +31,11 @@ export interface AttachmentStorePort {
     uploadedBy?: RunId,
   ): Promise<Attachment[]>;
 
+  stored(
+    workspaceId: WorkspaceId,
+    ids: readonly AttachmentId[],
+  ): Promise<boolean>;
+
   taken(workspaceId: WorkspaceId, files: readonly Attachment[]): Promise<void>;
 
   save(
@@ -50,6 +55,12 @@ export interface AttachmentStorePort {
     file: Attachment,
     wanted: Wanted,
   ): Promise<string>;
+
+  linkPending(
+    workspaceId: WorkspaceId,
+    id: AttachmentId,
+    wanted: Wanted,
+  ): Promise<string | null>;
 
   open(workspaceId: WorkspaceId, file: Attachment): Promise<AttachmentContent>;
 }

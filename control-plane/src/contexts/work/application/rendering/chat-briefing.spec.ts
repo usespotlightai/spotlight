@@ -1,7 +1,13 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -12,19 +18,16 @@ import type {
 } from '@work/application/ports/team-memories.port';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
@@ -43,6 +46,7 @@ const traceOf = (id: string, title: string) =>
 
 const started = (traces: readonly TraceReference[] = []) =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: LEON,
@@ -57,8 +61,9 @@ const brief = (
   chat: Chat,
   memories: readonly BriefedMemory[] = [],
   memoryFolder: MemoryFolder | null = null,
-  lines: readonly Line[] = [],
+  lines: readonly LineMap[] = [],
   release: Release | null = null,
+  extensions: readonly string[] = [],
 ) =>
   ChatBriefing.brief({
     chat,
@@ -68,37 +73,38 @@ const brief = (
     memoryFolder,
     spotlightUrl: 'https://app.usespotlight.ai/',
     release,
+    extensions,
   });
 
-const DELIVERY = Line.rehydrate({
+const DELIVERY = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
   key: LineKey.of('delivery'),
   name: LineName.of('Delivery'),
   stations: [
-    Station.of({
+    stationOf({
       id: StationId.of('station_0'),
       key: StationKey.of('backlog'),
       name: StationName.of('Backlog'),
       position: 0,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       kind: 'backlog',
     }),
-    Station.of({
+    stationOf({
       id: StationId.of('station_2'),
       key: StationKey.of('completed'),
       name: StationName.of('Completed'),
       position: 2,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       kind: 'completed',
     }),
-    Station.of({
+    stationOf({
       id: StationId.of('station_1'),
       key: StationKey.of('implementation'),
       name: StationName.of('Building'),
       position: 1,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       harness: HarnessId.of('claude-code'),
       kind: 'work',
     }),
@@ -108,8 +114,11 @@ const DELIVERY = Line.rehydrate({
 const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
   const handed = chat
     .assignRun(RunId.of('run_1'), NOW)
-    .endRun(RunId.of('run_1'))
-    .addMessage({
+    .runEnded(RunId.of('run_1'), {
+      session: HarnessSession.of('session_1'),
+      claimedBy: null,
+    })
+    .chat.addMessage({
       by: LEON,
       body: ChatMessageBody.fromInput('And this one?'),
       traces,
@@ -118,7 +127,7 @@ const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
     .assignRun(RunId.of('run_2'), NOW);
   const event = handed
     .pullEvents()
-    .filter((each): each is ChatDispatched => each instanceof ChatDispatched)
+    .filter((each): each is ChatRunAssigned => each instanceof ChatRunAssigned)
     .pop();
 
   return ChatBriefing.followUp(handed, event?.acknowledged ?? []);
@@ -126,6 +135,7 @@ const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
 
 const targetStationChat = () =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: LEON,
@@ -147,35 +157,13 @@ const IMPLEMENTATION = TargetStation.rehydrate({
 });
 
 describe('ChatBriefing', () => {
-  it('briefs a chat that targets a station to read its history first', () => {
-    const briefed = brief(targetStationChat(), [], null, [DELIVERY]);
+  it('briefs a chat with what its offered tool extensions say', () => {
+    const briefed = brief(targetStationChat(), [], null, [DELIVERY], null, [
+      '## Improving a station\n\nRead its history first.',
+    ]);
 
     expect(briefed).toContain('## Improving a station');
-    expect(briefed).toContain('the Building station');
-    expect(briefed).toContain(
-      'spotlight history --line delivery --station implementation --last 30',
-    );
-    expect(briefed).toContain('Propose one change at a time');
-    expect(briefed).toContain('prompts/<team>/delivery/implementation.md');
-  });
-
-  it('briefs a chat that targets a station to test its change with the tool, and to show a diff only when the tool cannot start', () => {
-    const briefed = brief(targetStationChat(), [], null, [DELIVERY]);
-
-    expect(briefed).toContain(
-      'spotlight tools call test-station-change --name <slug> --hypothesis "…" < station.json',
-    );
-    expect(briefed).toContain('Add `--mode search` only when the person asks');
-    expect(briefed).toContain(
-      'Show a Terraform diff only when the tool cannot start',
-    );
-  });
-
-  it('tells the agent when the station it was to improve is gone', () => {
-    const briefed = brief(targetStationChat());
-
-    expect(briefed).toContain('no longer on the team');
-    expect(briefed).not.toContain('spotlight history --line');
+    expect(briefed).toContain('Read its history first.');
   });
 
   it('says nothing of a target station where none was shared', () => {
@@ -264,14 +252,7 @@ describe('ChatBriefing', () => {
   it('points a chat at the memory folder, without the line or station, and never tells it to remember', () => {
     const briefing = brief(started(), [], {
       path: '.spotlight/memory',
-      layout: [
-        { folder: 'team/', level: 'the whole team' },
-        {
-          folder: 'repositories/<owner>/<name>/<path>/',
-          level: 'a repository, or a file or folder in it',
-        },
-      ],
-      repositoryFolder: 'repositories/',
+      guide: '```\nteam/    the whole team\n```',
     });
 
     expect(briefing).toContain('## The rest of what the team remembers');
@@ -288,6 +269,7 @@ describe('ChatBriefing', () => {
 
   describe('a setup chat', () => {
     const setup = Chat.start({
+      lines: [],
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
@@ -366,6 +348,7 @@ describe('ChatBriefing', () => {
 
     it('does not warn when the team’s repositories are checked out too', () => {
       const reading = Chat.start({
+        lines: [],
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
         startedBy: LEON,
@@ -387,6 +370,7 @@ describe('ChatBriefing', () => {
 
     const withCi = (ci: Partial<Parameters<typeof CiSetup.of>[0]> = {}) =>
       Chat.start({
+        lines: [],
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
         startedBy: LEON,

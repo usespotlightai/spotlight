@@ -11,11 +11,12 @@ import {
 } from '@integrations/infrastructure/specs/spec-fetch';
 import { ThreadedSpecReader } from '@integrations/infrastructure/specs/threaded-spec-reader';
 import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 import { stringify as yamlOf } from 'yaml';
 
 const CALL_AUTH: CallAuth = {
-  workspace: async () => 'ws_1',
+  workspace: async () => WorkspaceId.of('ws_1'),
   connection: null,
   credentials: credentialsFor(),
 };
@@ -114,7 +115,7 @@ describe('ThreadedSpecReader', () => {
         refreshed ? AccessToken.of(refreshed) : null,
       );
       const callAuth: CallAuth = {
-        workspace: async () => 'ws_1',
+        workspace: async () => WorkspaceId.of('ws_1'),
         connection: {
           token: AccessToken.of('lin-old'),
           owner: ConnectionOwner.team(),

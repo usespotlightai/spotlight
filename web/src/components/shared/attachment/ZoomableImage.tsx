@@ -104,6 +104,7 @@ type ZoomableImageProps = {
   name: string;
   className?: string;
   loading?: HTMLImageElement['loading'];
+  onError?: () => void;
 };
 
 export function ZoomableImage({
@@ -111,6 +112,7 @@ export function ZoomableImage({
   name,
   className,
   loading,
+  onError,
 }: ZoomableImageProps) {
   const button = useRef<HTMLButtonElement>(null);
   const thumb = useRef<HTMLImageElement>(null);
@@ -177,6 +179,7 @@ export function ZoomableImage({
           src={src}
           alt=""
           loading={loading}
+          onError={onError}
           className={cn(className, shown && 'invisible')}
         />
       </button>

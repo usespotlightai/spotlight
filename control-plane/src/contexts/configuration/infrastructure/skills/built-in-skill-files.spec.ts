@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import { BuiltInSkillFiles } from '@configuration/infrastructure/skills/built-in-skill-files';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
+import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const written = (name: string, description: string, body: string) =>
@@ -20,18 +21,19 @@ const BUILT_IN_SKILL_KEYS = [HANDING_OVER, OPENING_PULL_REQUESTS, USING_TOOLS];
 describe('BuiltInSkillFiles', () => {
   const builtIn = new BuiltInSkillFiles(BUILT_IN_SKILL_KEYS);
   const instructionsOf = (key: string) =>
-    builtIn.named(key)?.files.find((each) => each.path === 'SKILL.md')?.text ??
-    '';
+    builtIn
+      .named(SkillKey.of(key))
+      ?.files.find((each) => each.path === 'SKILL.md')?.text ?? '';
 
   it('reads every built-in skill', () => {
     for (const key of BUILT_IN_SKILL_KEYS) {
-      expect(builtIn.named(key)?.skill.key.value).toBe(key);
+      expect(builtIn.named(SkillKey.of(key))?.skill.key.value).toBe(key);
     }
   });
 
   it('says what each is for, under a name only Spotlight uses', () => {
     for (const key of BUILT_IN_SKILL_KEYS) {
-      const skill = builtIn.named(key)?.skill;
+      const skill = builtIn.named(SkillKey.of(key))?.skill;
 
       expect(skill?.description.length).toBeGreaterThan(20);
       expect(skill?.key.isReserved).toBe(true);

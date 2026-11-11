@@ -3,13 +3,11 @@ import type {
   InsightsReaderPort,
   PullRequestListing,
   PullRequestPage,
+  RunListing,
   RunsListed,
   TeamInPeriod,
-} from '@insights/application/ports/insights-reader.port';
-import type {
-  RunListing,
   TeamWindow,
-} from '@insights/domain/repositories/run-record.repository';
+} from '@insights/application/ports/insights-reader.port';
 import type { AgentConfigComparisonCounts } from '@insights/domain/services/agent-config-comparison';
 import type { ChangeCounts } from '@insights/domain/services/before-after';
 import type { CostCountsInPeriod } from '@insights/domain/services/cost-breakdown';

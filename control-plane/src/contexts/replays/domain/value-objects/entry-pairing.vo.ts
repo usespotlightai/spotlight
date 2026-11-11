@@ -15,7 +15,6 @@ const UNPAIRED_BECAUSE = [
   'errored',
   'interrupted',
   'other-rubric',
-  'ceiling-reached',
 ] as const;
 
 export type Unpaired = (typeof UNPAIRED_BECAUSE)[number];
@@ -34,24 +33,6 @@ const unpairedOf = (why: string): Unpaired => {
 
 const isOutcome = (raw: string): raw is PairOutcome =>
   (PAIR_OUTCOMES as readonly string[]).includes(raw);
-
-const OUTCOME_OF_WINNER: Readonly<Record<string, PairOutcome>> = {
-  run: 'win',
-  other: 'loss',
-  tie: 'tie',
-};
-
-const outcomeOfWinner = (winner: string): PairOutcome => {
-  const outcome = OUTCOME_OF_WINNER[winner];
-
-  if (!outcome) {
-    throw new InvalidReplayError(
-      `side-by-side winner must be its run, the other or a tie, not ${winner}`,
-    );
-  }
-
-  return outcome;
-};
 
 const PASSES = 2;
 
@@ -124,34 +105,6 @@ export class PairVerdict {
     );
   }
 
-  static fromWinner(input: {
-    winner: string;
-    model: string;
-    passes: readonly {
-      readonly runShownFirst: boolean;
-      readonly winner: string;
-      readonly reasons: readonly {
-        readonly text: string;
-        readonly runHunks: readonly string[];
-        readonly otherHunks: readonly string[];
-      }[];
-    }[];
-  }): PairVerdict {
-    return PairVerdict.of({
-      outcome: outcomeOfWinner(input.winner),
-      model: input.model,
-      passes: input.passes.map((pass) => ({
-        ownShownFirst: pass.runShownFirst,
-        outcome: outcomeOfWinner(pass.winner),
-        reasons: pass.reasons.map((each) => ({
-          text: each.text,
-          ownHunks: each.runHunks,
-          theirHunks: each.otherHunks,
-        })),
-      })),
-    });
-  }
-
   equals(other: PairVerdict): boolean {
     return (
       this.outcome === other.outcome &&
@@ -204,10 +157,8 @@ export class EntryPairing {
       : this;
   }
 
-  failed(why: string): EntryPairing {
-    return this.pending
-      ? new EntryPairing(this.otherRunId, null, unpairedOf(why))
-      : this;
+  failed(why: Unpaired): EntryPairing {
+    return this.pending ? new EntryPairing(this.otherRunId, null, why) : this;
   }
 
   equals(other: EntryPairing): boolean {

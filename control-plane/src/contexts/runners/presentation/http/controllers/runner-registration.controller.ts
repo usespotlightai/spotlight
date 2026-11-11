@@ -6,8 +6,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 import { RegisterRunnerCommand } from '@runners/application/commands/runner-fleet.commands';
 import type { RegisteredRunnerDto } from '@runners/application/dto/runner.dto';
 import { RegisterRunnerRequestDto } from '@runners/presentation/http/dto/register-runner.request.dto';
@@ -17,7 +17,7 @@ import { RegisteredRunnerResponseDto } from '@runners/presentation/http/dto/regi
 @ApiUnauthorizedResponse({
   description: 'Missing, no longer valid or wrong runner token',
 })
-@RunnerOnly()
+@MachineOnly()
 @Controller()
 export class RunnerRegistrationController {
   constructor(private readonly commandBus: CommandBus) {}
@@ -29,7 +29,7 @@ export class RunnerRegistrationController {
   })
   @ApiOkResponse({ type: RegisteredRunnerResponseDto })
   async register(
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: RegisterRunnerRequestDto,
   ): Promise<RegisteredRunnerResponseDto> {
     const registered = await this.commandBus.execute<

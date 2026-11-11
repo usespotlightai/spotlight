@@ -1,17 +1,10 @@
+import { dominates } from '@shared-kernel/domain/services/pareto-dominance';
+
 export interface Placed {
   readonly id: string;
   readonly cost: number;
   readonly value: number;
 }
-
-const dominates = (one: Placed, other: Placed, higher: boolean): boolean => {
-  const better = higher ? one.value >= other.value : one.value <= other.value;
-  const strictly = higher ? one.value > other.value : one.value < other.value;
-
-  return (
-    one.cost <= other.cost && better && (one.cost < other.cost || strictly)
-  );
-};
 
 export const paretoFrontier = (
   points: readonly Placed[],

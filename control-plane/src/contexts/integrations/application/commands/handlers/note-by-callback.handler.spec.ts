@@ -1,14 +1,17 @@
 import { NoteByCallbackHandler } from '@integrations/application/commands/handlers/note-by-callback.handler';
 import { NoteByCallbackCommand } from '@integrations/application/commands/note-by-callback.command';
+import { causationInMemory } from '@integrations/application/ports/causation.fake-spec';
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
+import { taskViewOf } from '@integrations/application/ports/tasks-for-hooks.fake-spec';
 import type { TasksForHooksPort } from '@integrations/application/ports/tasks-for-hooks.port';
 import { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
 import { CallbackTaskHandler } from '@integrations/application/queries/handlers/callback-task.handler';
 import { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookCallbackToken } from '@integrations/domain/aggregates/hook-callback-token.aggregate';
 import type { HookCallbackTokenRepository } from '@integrations/domain/repositories/hook-callback-token.repository';
-import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -24,8 +27,8 @@ const HOLDER = HookCallbackToken.issueFor(
     tokenHash: HASH,
     workspaceId: WorkspaceId.of('workspace_1'),
     taskId: TaskId.of('task_1'),
-    hook: 'dba-review',
-    firing: 'firing_1',
+    hook: HookKey.of('dba-review'),
+    firing: HookFiringId.of('firing_1'),
   },
   NOW,
 );
@@ -36,20 +39,7 @@ const FIRED = CausalChain.none().append({
   description: 'the hook dba-review',
 });
 
-const TASK = {
-  taskId: 'task_1',
-  workspaceId: 'workspace_1',
-  teamId: 'team_1',
-  title: 'Add a column',
-  url: 'https://spotlight.example.com/t/1',
-  line: 'delivery',
-  station: 'Implementation',
-  stationKey: 'implementation',
-  marks: {},
-  repositories: ['acme/api'],
-  pullRequest: null,
-  runId: null,
-};
+const TASK = taskViewOf({ runId: null });
 
 const setUp = (
   callbackToken: HookCallbackToken | null,
@@ -59,7 +49,8 @@ const setUp = (
   const repository = {
     add: vi.fn(async () => {}),
     withToken: vi.fn(async () => callbackToken),
-    purgeExpiringBefore: vi.fn(async () => {}),
+    expiredBefore: vi.fn(async () => []),
+    remove: vi.fn(async () => {}),
   } satisfies HookCallbackTokenRepository;
   const clock = { now: () => now, sleep: async () => {} };
   const callbacks = new HookCallbackTokens(
@@ -130,7 +121,10 @@ describe('hook callbacks', () => {
   });
 
   it('reads nothing when the task moved to another workspace', async () => {
-    const { reading } = setUp(HOLDER, { ...TASK, workspaceId: 'workspace_2' });
+    const { reading } = setUp(
+      HOLDER,
+      taskViewOf({ runId: null, workspaceId: 'workspace_2' }),
+    );
 
     await expect(
       reading.execute(new CallbackTaskQuery('token')),
@@ -182,12 +176,16 @@ describe('hook callbacks', () => {
 
     await expect(
       noting.execute(new NoteByCallbackCommand('token', '   ', null)),
-    ).resolves.toBe('empty');
+    ).resolves.toEqual({
+      invalid: 'Note must not be empty. Maximum length: 20000 characters',
+    });
     await expect(
       noting.execute(
         new NoteByCallbackCommand('token', 'x'.repeat(20_001), null),
       ),
-    ).resolves.toBe('empty');
+    ).resolves.toEqual({
+      invalid: 'Note must not be empty. Maximum length: 20000 characters',
+    });
     await expect(
       rejected.noting.execute(new NoteByCallbackCommand('token', 'Hi', null)),
     ).resolves.toBe('rejected');

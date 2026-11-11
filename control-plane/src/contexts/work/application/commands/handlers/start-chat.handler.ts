@@ -1,49 +1,44 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { StartChatCommand } from '@work/application/commands/chat.commands';
 import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
-import type { ChatDispatching } from '@work/application/services/chat-dispatch';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { CiSetups } from '@work/application/services/ci-setups.service';
+import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { ConfigFolderUnreachableError } from '@work/domain/exceptions/config-folder-unreachable.error';
-import { SetupNeedsAnAdminError } from '@work/domain/exceptions/setup-needs-an-admin.error';
-import { SetupNeedsEgressError } from '@work/domain/exceptions/setup-needs-egress.error';
-import { UnknownHarnessError } from '@work/domain/exceptions/unknown-harness.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
+import { SetupAdmission } from '@work/domain/services/setup-admission';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
-import { Effort } from '@work/domain/value-objects/effort.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 
 export class StartChatHandler
   implements CommandHandlerPort<StartChatCommand, string | null>
 {
   constructor(
-    private readonly workspaces: WorkspaceReaderPort,
-    private readonly access: WorkspaceAccessPort,
+    private readonly access: WorkAccess,
     private readonly chats: ChatRepository,
     private readonly files: FilesLoader,
     private readonly traces: TracesLoader,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly dispatch: ChatDispatching,
     private readonly launch: HarnessLaunchPort,
     private readonly repositories: AccessibleRepositoriesPort,
@@ -57,8 +52,8 @@ export class StartChatHandler
   async execute(command: StartChatCommand): Promise<string | null> {
     try {
       const startedBy = UserId.of(command.startedBy);
-      const member = await this.workspaces.findTeamForMember(
-        command.teamId,
+      const member = await this.access.seenTeam(
+        TeamId.of(command.teamId),
         startedBy,
       );
 
@@ -66,78 +61,57 @@ export class StartChatHandler
         return null;
       }
 
-      if (
-        !this.launch.catalogue().some((each) => each.id === command.harness)
-      ) {
-        throw new UnknownHarnessError(command.harness);
-      }
+      const harness = HarnessCatalogue.of(
+        this.launch.catalogue().map((each) => HarnessId.of(each.id)),
+      ).chosen(command.harness);
 
-      const workspaceId = WorkspaceId.of(member.workspaceId);
-      const teamId = TeamId.of(member.teamId);
-      const asked = command.setup ? ConfigFolder.of(command.setup) : null;
-
-      if (
-        asked &&
-        !(
-          await this.access.permissionsIn(
+      const { workspaceId, teamId } = member;
+      const asked = command.setup
+        ? await this.admitted(
+            ConfigFolder.of(command.setup),
             workspaceId,
-            PersonPrincipal.of(startedBy),
-          )
-        )?.isAdmin
-      ) {
-        throw new SetupNeedsAnAdminError();
-      }
-
-      if (
-        asked &&
-        !(await this.repositories.isAccessible(workspaceId, asked.repository))
-      ) {
-        throw new ConfigFolderUnreachableError(asked.repository.value);
-      }
-
-      if (asked && !(await this.runners.hasEgressCapableRunner(workspaceId))) {
-        throw new SetupNeedsEgressError();
-      }
-
-      const setup = asked
-        ? asked.withCi(
-            await this.ci.setUp(workspaceId, startedBy, asked.repository),
+            startedBy,
           )
         : null;
 
-      const started = await this.transaction.inTransaction(async () => {
-        const attachments = await this.files.handedOver(
-          workspaceId,
-          command.attachments,
-        );
-        const traces = await this.traces.shared(command.traces);
-        const targetStation = command.targetStation
-          ? await this.targetStationOf(command.targetStation)
-          : null;
-
-        const chat = Chat.start({
-          workspaceId,
-          teamId,
-          startedBy,
-          harness: HarnessId.of(command.harness),
-          model: command.model === null ? null : HarnessModel.of(command.model),
-          effort: command.effort === null ? null : Effort.of(command.effort),
-          repositories: command.repositories.map((each) => Repository.of(each)),
-          body: ChatMessageBody.fromInput(
-            command.body,
-            attachments,
-            traces,
-            targetStation,
-          ),
+      const attachments = await this.files.handedOver(
+        workspaceId,
+        command.attachments,
+      );
+      const traces = await this.traces.shared(command.traces);
+      const targetStation = command.targetStation
+        ? await this.targetStationOf(command.targetStation)
+        : null;
+      const chat = Chat.start({
+        workspaceId,
+        teamId,
+        lines: await this.lines.ofTeam(teamId),
+        startedBy,
+        harness,
+        model: command.model === null ? null : HarnessModel.of(command.model),
+        effort: command.effort === null ? null : Effort.of(command.effort),
+        repositories: command.repositories.map((each) => Repository.of(each)),
+        body: ChatMessageBody.fromInput(
+          command.body,
           attachments,
           traces,
-          targetStation: targetStation,
-          setup,
-          now: this.clock.now(),
-          newId: () => this.ids.generate(),
-        });
+          targetStation,
+        ),
+        attachments,
+        traces,
+        targetStation,
+        setup: asked,
+        now: this.clock.now(),
+        newId: () => this.ids.generate(),
+      });
+      const withCi = asked
+        ? chat.ciSetUp(
+            await this.ci.setUp(workspaceId, startedBy, asked.repository),
+          )
+        : chat;
 
-        const taken = await this.dispatch.takenUp(chat);
+      const started = await this.transaction.inTransaction(async () => {
+        const taken = await this.dispatch.takenUp(withCi);
         await this.chats.add(taken);
         await this.files.takenIn(workspaceId, attachments);
 
@@ -148,6 +122,25 @@ export class StartChatHandler
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private async admitted(
+    folder: ConfigFolder,
+    workspaceId: WorkspaceId,
+    startedBy: UserId,
+  ): Promise<ConfigFolder> {
+    const [requesterIsAdmin, folderReachable, egressAvailable] =
+      await Promise.all([
+        this.access.isAdminOf(workspaceId, startedBy),
+        this.repositories.isAccessible(workspaceId, folder.repository),
+        this.runners.hasEgressCapableRunner(workspaceId),
+      ]);
+
+    return SetupAdmission.admitted(folder, {
+      requesterIsAdmin,
+      codeReachable: folderReachable,
+      egressAvailable,
+    });
   }
 
   private async targetStationOf(stationId: string): Promise<TargetStation> {

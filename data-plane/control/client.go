@@ -231,6 +231,17 @@ func (c *Client) History(
 	return out, nil
 }
 
+func (c *Client) SearchView(ctx context.Context, runID string) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/search-view", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, fmt.Errorf("read the search view: %w", err)
+	}
+
+	return out, nil
+}
+
 func unknownStation(request protocol.HistoryRequest) string {
 	if request.Line != "" {
 		return fmt.Sprintf("line %q has no station %q in this team", request.Line, request.Station)
@@ -509,13 +520,13 @@ func (c *Client) Attachment(
 	return nil
 }
 
-func (c *Client) WorkspaceArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error) {
-	path := fmt.Sprintf("/api/runs/%s/workspace-archive", url.PathEscape(runID))
+func (c *Client) WorkingCopyArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error) {
+	path := fmt.Sprintf("/api/runs/%s/working-copy-archive", url.PathEscape(runID))
 
 	var stored protocol.StoredArchive
 	status, err := c.request(ctx, http.MethodGet, path, nil, &stored)
 	if err != nil {
-		return nil, fmt.Errorf("read the workspace to restore: %w", err)
+		return nil, fmt.Errorf("read the working copy to restore: %w", err)
 	}
 	if status == http.StatusNoContent {
 		return nil, nil
@@ -527,12 +538,12 @@ func (c *Client) WorkspaceArchive(ctx context.Context, runID string) (*protocol.
 func (c *Client) GrantArchive(
 	ctx context.Context, runID string, size int64, sha256 string,
 ) (protocol.ArchiveGrant, error) {
-	path := fmt.Sprintf("/api/runs/%s/workspace-archive", url.PathEscape(runID))
+	path := fmt.Sprintf("/api/runs/%s/working-copy-archive", url.PathEscape(runID))
 
 	var granted protocol.ArchiveGrant
 	body := protocol.ArchiveRequest{Size: size, SHA256: sha256}
 	if err := c.do(ctx, http.MethodPost, path, body, &granted); err != nil {
-		return protocol.ArchiveGrant{}, fmt.Errorf("request a workspace archive: %w", err)
+		return protocol.ArchiveGrant{}, fmt.Errorf("request a working copy archive: %w", err)
 	}
 
 	return granted, nil
@@ -553,12 +564,12 @@ func (c *Client) GrantAttachment(
 
 func (c *Client) CompleteArchive(ctx context.Context, runID, archiveID string) error {
 	path := fmt.Sprintf(
-		"/api/runs/%s/workspace-archive/%s/complete",
+		"/api/runs/%s/working-copy-archive/%s/complete",
 		url.PathEscape(runID), url.PathEscape(archiveID),
 	)
 
 	if err := c.do(ctx, http.MethodPost, path, nil, nil); err != nil {
-		return fmt.Errorf("complete the workspace archive: %w", err)
+		return fmt.Errorf("complete the working copy archive: %w", err)
 	}
 
 	return nil

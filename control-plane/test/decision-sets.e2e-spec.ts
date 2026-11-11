@@ -6,6 +6,7 @@ import { DecisionEvidence } from '@change-review/domain/value-objects/decision-e
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
+import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
 import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -173,8 +174,8 @@ describe('storing a task’s decisions', () => {
     const read = await sets.forTask(set.taskId);
 
     expect(read?.status.isMerged).toBe(true);
-    expect(read?.status.merge?.repository.value).toBe('acme/api');
-    expect(read?.status.merge?.at.toISOString()).toBe(NOW.toISOString());
+    expect(read?.status.merges[0]?.repository.value).toBe('acme/api');
+    expect(read?.status.merges[0]?.at.toISOString()).toBe(NOW.toISOString());
   });
 
   it('does not write over a set that changed since it was read', async () => {
@@ -192,7 +193,9 @@ describe('storing a task’s decisions', () => {
     await sets.add(set);
     await sets.save(generated(set, FIRST, [decided()]));
 
-    await sets.removeForTask(set.taskId);
+    const read = await sets.forTask(set.taskId);
+    if (!read) throw new Error('not stored');
+    await sets.remove(read);
 
     expect(await sets.forTask(set.taskId)).toBeNull();
     const [left] = (
@@ -209,8 +212,8 @@ describe('storing a task’s decisions', () => {
     await sets.save(generated(set, FIRST, [decided()]));
 
     const read = await sets.forTask(set.taskId);
-    if (!read) throw new Error('not stored');
-    await sets.save(read.closeUnmerged());
+    if (!read?.discardable) throw new Error('not stored');
+    await sets.remove(read);
 
     expect(await sets.forTask(set.taskId)).toBeNull();
   });
@@ -220,7 +223,7 @@ describe('storing a task’s decisions', () => {
     await sets.add(set);
     await sets.save(set.requestGeneration(FIRST, NOW));
 
-    await expect(sets.save(set.closeUnmerged())).rejects.toThrow(
+    await expect(sets.remove(set)).rejects.toThrow(
       DecisionSetVersionConflictError,
     );
   });
@@ -396,7 +399,7 @@ describe('reading the decisions that shipped', () => {
     const found = await reader().merged({
       workspaceId: WORKSPACE,
       repository: Repository.of('acme/api'),
-      within: ['api/src/uploads'],
+      within: [WorkingCopyPath.of('api/src/uploads')],
       since: null,
       until: null,
       max: 50,
@@ -417,5 +420,92 @@ describe('reading the decisions that shipped', () => {
 
     expect(titles(found)).toEqual([['Polls every second']]);
     expect(found[0]?.repository).toBe('acme/web');
+  });
+});
+
+describe('reading the decisions of a task with a pull request in each repository', () => {
+  const WORKSPACE = WorkspaceId.of('ws_two_repositories');
+  const reader = () =>
+    new DrizzleDecisionReader(new DrizzleContext(database.db));
+  const seek = (repository: string | null) =>
+    reader().merged({
+      workspaceId: WORKSPACE,
+      repository: repository ? Repository.of(repository) : null,
+      within: [],
+      since: null,
+      until: null,
+      max: 50,
+    });
+  const summary = (
+    found: Awaited<ReturnType<DrizzleDecisionReader['merged']>>,
+  ) =>
+    found.map((each) => [
+      each.repository,
+      each.commit,
+      each.decisions.map((d) => d.title),
+    ]);
+
+  let set: DecisionSet;
+
+  beforeAll(async () => {
+    set = DecisionSet.open({
+      id: DecisionSetId.of('two_repositories'),
+      taskId: TaskId.of('two_repositories_task'),
+      workspaceId: WORKSPACE,
+    }).requestGeneration(FIRST, NOW);
+    await sets.add(set);
+    await sets.save(
+      generated(
+        set,
+        FIRST,
+        [
+          decided({ title: 'Retries uploads', paths: ['api/src/uploads.ts'] }),
+          decided({ title: 'Polls every second', paths: ['web/src/poll.ts'] }),
+        ],
+        DecisionEvidence.of({
+          steps: [3],
+          changed: ['api/src/uploads.ts', 'web/src/poll.ts'],
+        }),
+      ).merge(merge('acme/api', new Date('2026-09-22T00:00:00Z'))),
+    );
+  });
+
+  it('keeps the decisions on the other repository’s files unmerged until it merges', async () => {
+    expect(summary(await seek('acme/api'))).toEqual([
+      ['acme/api', 'a'.repeat(40), ['Retries uploads']],
+    ]);
+    expect(await seek('acme/web')).toEqual([]);
+  });
+
+  it('stores a merge for each repository, and attributes each decision to its own', async () => {
+    const read = await sets.forTask(set.taskId);
+    if (!read) throw new Error('not stored');
+    await sets.save(
+      read.merge(
+        DecisionMerge.of({
+          repository: Repository.of('acme/web'),
+          commit: 'b'.repeat(40),
+          at: new Date('2026-09-23T00:00:00Z'),
+        }),
+      ),
+    );
+
+    const stored = await sets.forTask(set.taskId);
+    expect(stored?.status.merges.map((each) => each.repository.value)).toEqual([
+      'acme/api',
+      'acme/web',
+    ]);
+    expect(summary(await seek('acme/web'))).toEqual([
+      ['acme/web', 'b'.repeat(40), ['Polls every second']],
+    ]);
+    expect(summary(await seek(null))).toEqual([
+      ['acme/web', 'b'.repeat(40), ['Polls every second']],
+      ['acme/api', 'a'.repeat(40), ['Retries uploads']],
+    ]);
+    expect(
+      (await reader().ofTask(set.taskId))?.merges.map(
+        (each) => each.repository,
+      ),
+    ).toEqual(['acme/api', 'acme/web']);
   });
 });

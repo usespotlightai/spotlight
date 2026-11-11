@@ -1,3 +1,11 @@
+import type { JudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
+import type {
+  AgreementReadingsDto,
+  CorrelationReadingDto,
+  CoverageDto,
+  KappaReadingDto,
+  TrendPointDto,
+} from '@insights/application/dto/read-model.dto';
 import type {
   AgreementDto,
   ClaimAgreementDto,
@@ -9,21 +17,11 @@ import type {
 } from '@insights/application/dto/station-judge.dto';
 import {
   CORRELATION_READINGS,
-  type CorrelationReading,
-  correlationReadingOf,
   KAPPA_READINGS,
-  type KappaReading,
-  kappaReadingOf,
 } from '@insights/domain/services/agreement-reading';
-import type {
-  AgreementReadings,
-  Coverage,
-  TrendPoint,
-} from '@insights/domain/services/judge-agreement';
 import {
   AGREEMENT_MEASURES,
   HIDDEN_REASONS,
-  type JudgeCalibration,
 } from '@insights/domain/services/judge-calibration';
 import { SCORE_KINDS } from '@insights/domain/value-objects/score-scale.vo';
 import { ApiProperty } from '@nestjs/swagger';
@@ -52,7 +50,7 @@ export class JudgeCalibrationResponseDto {
     description:
       'How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s',
   })
-  readonly reading: KappaReading | CorrelationReading | null;
+  readonly reading: KappaReadingDto | CorrelationReadingDto | null;
 
   @ApiProperty({
     example: 24,
@@ -60,6 +58,13 @@ export class JudgeCalibrationResponseDto {
       'Runs of the current rubric with both a judge score and people’s',
   })
   readonly pairs: number;
+
+  @ApiProperty({
+    example: 10,
+    description:
+      'Runs with both a judge score and people’s that agreement needs before it counts',
+  })
+  readonly minPairs: number;
 
   @ApiProperty({ nullable: true, type: Number, example: 0.6 })
   readonly minAgreement: number | null;
@@ -71,19 +76,22 @@ export class JudgeCalibrationResponseDto {
   })
   readonly hiddenReason: string | null;
 
-  constructor(calibration: JudgeCalibration) {
+  @ApiProperty({
+    description:
+      'Whether the judge’s scores are hidden for a reason other than too few runs with both scores',
+  })
+  readonly failing: boolean;
+
+  constructor(calibration: JudgeCalibrationDto) {
     this.qualified = calibration.qualified;
     this.measure = calibration.measure;
     this.agreement = calibration.agreement;
-    this.reading =
-      calibration.measure === 'kappa'
-        ? kappaReadingOf(calibration.agreement)
-        : calibration.measure === 'spearman'
-          ? correlationReadingOf(calibration.agreement)
-          : null;
+    this.reading = calibration.reading;
     this.pairs = calibration.pairs;
+    this.minPairs = calibration.minPairs;
     this.minAgreement = calibration.minAgreement;
     this.hiddenReason = calibration.hiddenReason;
+    this.failing = calibration.failing;
   }
 }
 
@@ -149,9 +157,14 @@ export class ClaimAgreementResponseDto {
     enum: [...KAPPA_READINGS, null],
     nullable: true,
     description:
-      'How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa',
+      'How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa',
   })
   readonly reading: string | null;
+
+  @ApiProperty({
+    description: 'Whether the claim’s kappa is below the minimum agreement',
+  })
+  readonly belowMinimum: boolean;
 
   constructor(agreement: ClaimAgreementDto) {
     this.index = agreement.index;
@@ -159,6 +172,7 @@ export class ClaimAgreementResponseDto {
     this.observed = agreement.observed;
     this.kappa = agreement.kappa;
     this.reading = agreement.reading;
+    this.belowMinimum = agreement.belowMinimum;
   }
 }
 
@@ -167,7 +181,7 @@ export class AgreementReadingsResponseDto {
     enum: [...KAPPA_READINGS, null],
     nullable: true,
     description:
-      'How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa',
+      'How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa',
   })
   readonly kappa: string | null;
 
@@ -187,7 +201,7 @@ export class AgreementReadingsResponseDto {
   })
   readonly spearman: string | null;
 
-  constructor(readings: AgreementReadings) {
+  constructor(readings: AgreementReadingsDto) {
     this.kappa = readings.kappa;
     this.pearson = readings.pearson;
     this.spearman = readings.spearman;
@@ -197,6 +211,38 @@ export class AgreementReadingsResponseDto {
 export class AgreementResponseDto {
   @ApiProperty({ example: 24 })
   readonly pairs: number;
+
+  @ApiProperty({
+    description:
+      'Whether enough runs have both scores for the figures below to count',
+  })
+  readonly measured: boolean;
+
+  @ApiProperty({
+    example: 0.3,
+    description:
+      'How far the pairs are towards the minimum that agreement needs, from 0 to 1',
+  })
+  readonly pairsProgress: number;
+
+  @ApiProperty({
+    example: 21,
+    description:
+      'Scores where the judge and people agree: runs, or claim marks for a judge of claims',
+  })
+  readonly agreed: number;
+
+  @ApiProperty({
+    example: 24,
+    description: 'Scores compared: runs, or claim marks for a judge of claims',
+  })
+  readonly compared: number;
+
+  @ApiProperty({
+    description:
+      'Whether the headline measure, kappa or Spearman’s, is below the minimum agreement',
+  })
+  readonly belowMinimum: boolean;
 
   @ApiProperty({
     nullable: true,
@@ -261,6 +307,11 @@ export class AgreementResponseDto {
 
   constructor(agreement: AgreementDto) {
     this.pairs = agreement.pairs;
+    this.measured = agreement.measured;
+    this.pairsProgress = agreement.pairsProgress;
+    this.agreed = agreement.agreed;
+    this.compared = agreement.compared;
+    this.belowMinimum = agreement.belowMinimum;
     this.observed = agreement.observed;
     this.kappa = agreement.kappa;
     this.spearman = agreement.spearman;
@@ -347,7 +398,7 @@ export class TrendPointResponseDto {
   })
   readonly people: number | null;
 
-  constructor(point: TrendPoint) {
+  constructor(point: TrendPointDto) {
     this.day = point.day;
     this.judged = point.judged;
     this.judge = point.judge;
@@ -382,8 +433,25 @@ export class RubricVersionResponseDto {
   })
   readonly distribution: readonly ScoreCountResponseDto[];
 
-  @ApiProperty({ type: TrendPointResponseDto, isArray: true })
+  @ApiProperty({
+    type: TrendPointResponseDto,
+    isArray: true,
+    description:
+      'Daily means of the judge’s and people’s scores, the judge’s included while its scores are hidden on runs',
+  })
   readonly trend: readonly TrendPointResponseDto[];
+
+  @ApiProperty({
+    description:
+      'Whether enough runs have both scores, over more than one day, to draw the trend',
+  })
+  readonly trendShown: boolean;
+
+  @ApiProperty({
+    example: 30,
+    description: 'Runs with both scores that the trend needs',
+  })
+  readonly trendMinPairs: number;
 
   @ApiProperty({ example: '2026-09-20T10:00:00.000Z' })
   readonly firstAt: string;
@@ -402,6 +470,8 @@ export class RubricVersionResponseDto {
       (each) => new ScoreCountResponseDto(each),
     );
     this.trend = version.trend.map((each) => new TrendPointResponseDto(each));
+    this.trendShown = version.trendShown;
+    this.trendMinPairs = version.trendMinPairs;
     this.firstAt = version.firstAt;
     this.lastAt = version.lastAt;
   }
@@ -420,7 +490,7 @@ export class JudgeCoverageRatesResponseDto {
   @ApiProperty({ nullable: true, type: Number, example: 0.24 })
   readonly neither: number | null;
 
-  constructor(rates: Coverage['rates']) {
+  constructor(rates: CoverageDto['rates']) {
     this.both = rates.both;
     this.judgeOnly = rates.judgeOnly;
     this.peopleOnly = rates.peopleOnly;
@@ -453,7 +523,7 @@ export class JudgeCoverageResponseDto {
   })
   readonly rates: JudgeCoverageRatesResponseDto;
 
-  constructor(coverage: Coverage) {
+  constructor(coverage: CoverageDto) {
     this.runs = coverage.runs;
     this.both = coverage.both;
     this.judgeOnly = coverage.judgeOnly;

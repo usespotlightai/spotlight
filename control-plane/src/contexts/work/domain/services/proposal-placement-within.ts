@@ -1,13 +1,13 @@
-import type { Line } from '@work/domain/aggregates/line.aggregate';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { NowhereToProposeError } from '@work/domain/exceptions/nowhere-to-propose.error';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 const keysOf = (named: readonly { key: { value: string } }[]): string =>
   named.map((each) => each.key.value).join(', ') || 'none';
 
 export const proposalPlacementWithin = (
-  lines: readonly Line[],
+  lines: readonly LineMap[],
   named: { line: string; station: string },
 ): ProposalPlacement => {
   const lineNamed = named.line.trim();

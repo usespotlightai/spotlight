@@ -1,4 +1,6 @@
-export class NotYourInviteError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class NotYourInviteError extends DomainError {
   readonly kind = 'not-allowed' as const;
 
   constructor(readonly invited: string) {

@@ -1,58 +1,89 @@
 import { Work } from '@insights/infrastructure/acl/work.adapter';
-import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
 import type {
-  StationAlertShape,
+  LogFields,
+  LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type {
+  EndedStationRun,
   StationRunsPort,
 } from '@work/application/ports/station-runs.port';
 import { describe, expect, it } from 'vitest';
 
-const alert = (shape: Partial<StationAlertShape>): StationAlertShape => ({
-  measure: 'failed_rate',
-  risesBy: null,
-  above: null,
-  fallsBy: null,
-  below: null,
-  over: 3,
-  ...shape,
+const SHA_256 = 'a'.repeat(64);
+
+const endedRun = (fingerprint: string | null): EndedStationRun => ({
+  runId: 'run_1',
+  workspaceId: 'ws_1',
+  teamId: 'team_1',
+  lineId: 'line_1',
+  stationId: 'station_1',
+  taskId: 'task_1',
+  fingerprint,
+  visit: 1,
+  harness: 'claude-code',
+  model: null,
+  effort: null,
+  profileKey: null,
+  repositories: [],
+  skills: [],
+  queuedAt: new Date('2026-09-30T09:00:00.000Z'),
+  startedAt: null,
+  endedAt: new Date('2026-09-30T10:00:00.000Z'),
 });
 
-const workWith = (alerts: readonly StationAlertShape[] | null) => {
-  const warned: string[] = [];
+const workOf = (fingerprint: string | null) => {
+  const warned: { fields: LogFields; message: string }[] = [];
   const logger: LoggerPort = {
-    debug: () => undefined,
-    info: () => undefined,
-    warn: (fields) => {
-      warned.push(String(fields.measure));
+    debug: () => {},
+    info: () => {},
+    warn: (fields, message) => {
+      warned.push({ fields, message });
     },
-    error: () => undefined,
+    error: () => {},
   };
-  const work = new Work(
-    { alertsAt: async () => alerts } as unknown as StationRunsPort,
-    {} as LineResourcesPort,
-    logger,
-  );
+  const stations = {
+    ended: async () => endedRun(fingerprint),
+  } as unknown as StationRunsPort;
 
-  return { work, warned };
+  return { work: new Work(stations, logger), warned };
 };
 
-describe('Work', () => {
-  it('reads a station’s alerts as rules, skipping and logging any that Insights cannot watch', async () => {
-    const { work, warned } = workWith([
-      alert({ above: 0.5 }),
-      alert({ measure: 'happiness', below: 0.2 }),
-      alert({ above: 0.5, below: 0.1 }),
-    ]);
+describe('reading an ended run from Work', () => {
+  it('reads a SHA-256 fingerprint as the config it ran', async () => {
+    const { work, warned } = workOf(SHA_256);
 
-    const rules = await work.alertsAt('station_1');
+    const run = await work.endedRun(RunId.of('run_1'));
 
-    expect(rules?.map((each) => each.key)).toEqual(['failed_rate:above']);
-    expect(warned).toEqual(['happiness', 'failed_rate']);
+    expect(run?.fingerprint).toBe(SHA_256);
+    expect(warned).toEqual([]);
   });
 
-  it('says a station is gone when work no longer has it', async () => {
-    const { work } = workWith(null);
+  it('reads a fingerprint that is not a SHA-256 as no config, and warns of it', async () => {
+    const { work, warned } = workOf('not-a-sha-256');
 
-    expect(await work.alertsAt('station_1')).toBeNull();
+    const run = await work.endedRun(RunId.of('run_1'));
+
+    expect(run?.fingerprint).toBe(null);
+    expect(warned).toEqual([
+      {
+        fields: {
+          runId: 'run_1',
+          stationId: 'station_1',
+          fingerprint: 'not-a-sha-256',
+        },
+        message:
+          'Run ended with a malformed config fingerprint, recorded as no config',
+      },
+    ]);
+  });
+
+  it('warns of nothing when a run ended with no config', async () => {
+    const { work, warned } = workOf(null);
+
+    const run = await work.endedRun(RunId.of('run_1'));
+
+    expect(run?.fingerprint).toBe(null);
+    expect(warned).toEqual([]);
   });
 });

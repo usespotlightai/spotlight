@@ -1,17 +1,16 @@
+import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
+import { TokenScope } from '@identity/domain/value-objects/token-scope.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
-import {
-  PersonPrincipal,
-  TokenPrincipal,
-} from '@shared-kernel/domain/value-objects/principal.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const token = (scopes: readonly string[]) =>
-  TokenPrincipal.of({
+  IssuedTokenGrant.principal({
     tokenId: WorkspaceTokenId.of('token_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     scopes: TokenScopes.named(scopes),
@@ -26,9 +25,9 @@ describe('Permissions of a token’s scopes', () => {
       reads: permissions.reads,
       plans: permissions.plans,
       configures: permissions.configures,
-      managesSecrets: permissions.managesSecrets,
-      managesRunners: permissions.managesRunners,
-      managesOidcTrusts: permissions.managesOidcTrusts,
+      managesSecrets: permissions.allows(TokenScope.secrets),
+      managesRunners: permissions.allows(TokenScope.runners),
+      managesOidcTrusts: permissions.allows(TokenScope.trusts),
       isAdmin: permissions.isAdmin,
     };
   };
@@ -102,6 +101,27 @@ describe('Permissions of a token’s scopes', () => {
       });
     },
   );
+});
+
+describe('The scopes permissions allow', () => {
+  it('names the scopes a role or a token is allowed, and no more', () => {
+    const named = (permissions: Permissions) =>
+      permissions.allowedScopes.map((scope) => scope.value);
+
+    expect(named(Permissions.ofRole(WorkspaceRole.member))).toEqual([
+      'read',
+      'plan',
+    ]);
+    expect(named(Permissions.ofRole(WorkspaceRole.admin))).toEqual([
+      'read',
+      'plan',
+      'configure',
+      'secrets',
+      'runners',
+      'trusts',
+    ]);
+    expect(named(Permissions.none)).toEqual([]);
+  });
 });
 
 describe('Permissions beyond any one workspace', () => {

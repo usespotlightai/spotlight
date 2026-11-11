@@ -14,8 +14,8 @@ import {
   PULL_REQUEST_AUTHORS,
   ROUND_BUCKETS,
 } from '@insights/domain/services/team-pull-requests';
+import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
 import { PULL_REQUEST_TYPES } from '@insights/domain/value-objects/pull-request-type';
-import { TASK_PULL_REQUEST_STATES } from '@insights/domain/value-objects/task-pull-request-state';
 import {
   InsightsPeriodResponseDto,
   SpreadResponseDto,
@@ -427,7 +427,7 @@ export class InsightsPullRequestResponseDto {
   @ApiProperty({ enum: PULL_REQUEST_TYPES, example: 'feature' })
   readonly type: string;
 
-  @ApiProperty({ enum: TASK_PULL_REQUEST_STATES, example: 'merged' })
+  @ApiProperty({ enum: PULL_REQUEST_STATES, example: 'merged' })
   readonly state: string;
 
   @ApiProperty({ example: '2026-09-29T10:00:00.000Z' })

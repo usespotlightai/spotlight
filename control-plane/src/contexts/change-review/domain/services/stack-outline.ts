@@ -7,24 +7,22 @@ import {
   type DiffFacts,
   placedHunks,
 } from '@change-review/domain/services/diff-facts';
+import { DraftedStack } from '@change-review/domain/services/drafted-stack';
 import { factProblems } from '@change-review/domain/services/fact-rules';
 import {
+  changeLayerCount,
   cohortHeaderProblems,
-  StackProposal,
-} from '@change-review/domain/services/stack-proposal';
+} from '@change-review/domain/services/stack-checks';
+import { type StackPart } from '@change-review/domain/services/stack-part';
+import { StackProposal } from '@change-review/domain/services/stack-proposal';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type {
+  DraftedLayer,
+  DraftedOutline,
   OutlinedCohort,
   ProposedCohort,
-  ProposedLayer,
   StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
-import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
-
-export interface StackPart {
-  readonly diff: Diff;
-  readonly facts: DiffFacts;
-}
 
 const asOneLayer = (cohort: OutlinedCohort): ProposedCohort => ({
   ...cohort,
@@ -40,7 +38,7 @@ const asOneLayer = (cohort: OutlinedCohort): ProposedCohort => ({
   ],
 });
 
-const shapeProblems = (
+const outlineShapeProblems = (
   diff: Diff,
   facts: DiffFacts,
   cohorts: readonly OutlinedCohort[],
@@ -106,11 +104,14 @@ export const StackOutline = {
   validate(input: {
     diff: Diff;
     facts: DiffFacts;
-    cohorts: readonly OutlinedCohort[];
+    cohorts: readonly DraftedOutline[];
   }): OutlinedCohort[] {
-    const cohorts = withoutIncidental(input.facts, input.cohorts);
+    const cohorts = withoutIncidental(
+      input.facts,
+      DraftedStack.outline(input.cohorts),
+    );
     const problems = [
-      ...shapeProblems(input.diff, input.facts, cohorts),
+      ...outlineShapeProblems(input.diff, input.facts, cohorts),
       ...factProblems(cohorts.map(asOneLayer), input.facts),
     ];
 
@@ -162,42 +163,25 @@ export const StackOutline = {
     };
   },
 
-  partOf(diff: Diff, facts: DiffFacts, hunks: readonly HunkId[]): StackPart {
-    const within = new Set<string>(hunks);
-    const files = diff.files.flatMap((file) => {
-      const kept = file.hunks.filter((hunk) => within.has(hunk.id));
-      return kept.length > 0 ? [{ ...file, hunks: kept }] : [];
-    });
-    const paths = new Set(files.map((file) => file.path));
-
-    return {
-      diff: Diff.of(files),
-      facts: {
-        hunks: facts.hunks.filter((each) => within.has(each.hunk)),
-        links: facts.links.filter(
-          (link) => within.has(link.from) && within.has(link.to),
-        ),
-        imports: facts.imports.filter(
-          (each) => paths.has(each.from) && paths.has(each.to),
-        ),
-      },
-    };
+  proposed(
+    cohort: OutlinedCohort,
+    layers: readonly DraftedLayer[],
+  ): ProposedCohort {
+    const { hunks: _, ...outlined } = cohort;
+    return { ...outlined, layers: DraftedStack.layers(layers) };
   },
 
   layered(
     part: StackPart,
     cohort: OutlinedCohort,
-    layers: readonly ProposedLayer[],
+    layers: readonly DraftedLayer[],
+    redrafting?: StackCohort,
   ): ProposedCohort {
-    const { hunks: _, ...outlined } = cohort;
-    const layered = { ...outlined, layers };
-
-    StackProposal.validate({
+    return StackProposal.checkedCohort({
       diff: part.diff,
       facts: part.facts,
-      cohorts: [layered],
+      cohort: StackOutline.proposed(cohort, layers),
+      changeLayersAtLeast: redrafting && changeLayerCount([redrafting]),
     });
-
-    return layered;
   },
 };

@@ -1,12 +1,17 @@
+import type {
+  StationChangeTestOutcome,
+  StationChangeTestRequest,
+} from '@replays/application/contracts/station-change-tests.contract';
 import { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import {
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryConfigPullRequests,
   InMemoryReplays,
   peopleWho,
   refreshingFor,
   snapshotsFor,
+  stepsFor,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { SetHealths } from '@replays/application/services/set-healths.service';
@@ -27,6 +32,7 @@ import {
   searchRunIds,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -38,10 +44,6 @@ import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type {
-  StationChangeTestOutcome,
-  StationChangeTestRequest,
-} from '@work/application/ports/station-change-tests.port';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -53,7 +55,7 @@ const CHECKED = CandidateScoring.of({
 });
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let pullRequests: InMemoryConfigPullRequests;
 let now: Date;
 let policy: SearchPolicy;
@@ -77,42 +79,51 @@ const policyOf = (over: Partial<Parameters<typeof SearchPolicy.of>[0]> = {}) =>
     ...over,
   });
 
+const joinOf = (request: string) => ({
+  searchId: SearchId.of('search_other'),
+  request: CandidateId.of(request),
+  at: now,
+});
+
 const tests = () => {
   const healths = new SetHealths(
-    work,
+    suppliers.configs,
     memory.replayRepository,
     memory.candidateRepository,
   );
 
   return new StationChangeTests(
-    work,
+    suppliers.lines,
+    suppliers.configs,
     peopleWho(true),
     memory.scheduleRepository,
     memory.setRepository,
     memory.searchRepository,
     memory.candidateRepository,
     pullRequests,
+    refreshingFor(memory, suppliers),
     new CheckSearchReadiness(
-      refreshingFor(memory, work),
       memory.setRepository,
       healths,
-      work,
+      suppliers.dispatch,
       { sha256: (text: string) => text },
       IDS,
       clock,
     ),
     new StartSearch(
-      snapshotsFor(memory, work),
+      snapshotsFor(memory, suppliers),
+      stepsFor(memory, suppliers, clock),
       memory.setRepository,
-      memory.replayRepository,
-      memory.candidateRepository,
       memory.searchRepository,
       memory.scheduleRepository,
+      memory.budgetRepository,
       { sha256: (text: string) => text },
       IDS,
       clock,
       TRANSACTION,
     ),
+    snapshotsFor(memory, suppliers),
+    stepsFor(memory, suppliers, clock),
     IDS,
     clock,
     TRANSACTION,
@@ -154,12 +165,13 @@ const withSet = async (set: ReplaySet) => {
 
 beforeEach(async () => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  memory.startsPlannedReplays = true;
+  suppliers = new FakeSuppliers();
   pullRequests = new InMemoryConfigPullRequests();
   now = NOW;
   policy = policyOf();
   scoring = CHECKED;
-  work.live = async () => ({
+  suppliers.configs.live = async () => ({
     lineKey: 'delivery',
     block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
     fingerprint: LIVE_FINGERPRINT,
@@ -184,7 +196,10 @@ beforeEach(async () => {
 
 describe('StationChangeTests', () => {
   it('starts a one-iteration test with no search agent, asked for by the person', async () => {
-    work.invalidAgent = { field: 'harness', reason: 'is unknown' };
+    suppliers.dispatch.invalidAgent = {
+      field: 'harness',
+      reason: 'is unknown',
+    };
 
     expect(await asked()).toMatchObject({
       outcome: 'started',
@@ -203,7 +218,10 @@ describe('StationChangeTests', () => {
   });
 
   it('refuses a search with no agent, but not a test', async () => {
-    work.invalidAgent = { field: 'harness', reason: 'is unknown' };
+    suppliers.dispatch.invalidAgent = {
+      field: 'harness',
+      reason: 'is unknown',
+    };
 
     expect(await asked({ mode: 'search' })).toMatchObject({
       outcome: 'refused',
@@ -274,7 +292,7 @@ describe('StationChangeTests', () => {
         candidateId: CandidateId.of('candidate_one'),
         station: STATION,
         stationKey: 'build',
-        candidateName: 'one',
+        candidateName: CandidateName.rehydrate('one'),
         lineKey: 'delivery',
         source: {
           repository: Repository.of('acme/platform'),
@@ -307,13 +325,13 @@ describe('StationChangeTests', () => {
     memory.searches.clear();
     policy = policyOf();
 
-    const schedule = memory.schedules.get(STATION.stationId);
+    const schedule = memory.schedules.get(STATION.stationId.value);
 
     await memory.scheduleRepository.save(
       (schedule as StationSearchSchedule)
-        .requested(now)
-        .requested(now)
-        .requested(now),
+        .requested(joinOf('a'))
+        .requested(joinOf('b'))
+        .requested(joinOf('c')),
     );
 
     expect(await asked()).toMatchObject({
@@ -323,7 +341,7 @@ describe('StationChangeTests', () => {
   });
 
   it('ignores the cooldown of the station', async () => {
-    const schedule = memory.schedules.get(STATION.stationId);
+    const schedule = memory.schedules.get(STATION.stationId.value);
 
     await memory.scheduleRepository.save(
       (schedule as StationSearchSchedule).started({
@@ -331,7 +349,9 @@ describe('StationChangeTests', () => {
         inSet: [],
         at: now,
         cooldownMilliseconds: 3 * DAY,
-        trigger: 'schedule',
+        searchId: SearchId.of('search_earlier'),
+        request: null,
+        candidates: [],
       }),
     );
 

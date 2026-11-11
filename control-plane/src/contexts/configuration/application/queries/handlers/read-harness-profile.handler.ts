@@ -2,6 +2,7 @@ import type { HarnessProfileResourceDto } from '@configuration/application/dto/h
 import type { HarnessProfileResourcesPort } from '@configuration/application/ports/harness-profile-resources.port';
 import type { ReadHarnessProfileQuery } from '@configuration/application/queries/read-harness-profile.query';
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
+import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -20,12 +21,14 @@ export class ReadHarnessProfileHandler
     query: ReadHarnessProfileQuery,
   ): Promise<HarnessProfileResourceDto | null> {
     try {
-      const record = await this.resources.withId(query.profileId);
+      const record = await this.resources.withId(
+        HarnessProfileId.of(query.profileId),
+      );
 
       if (
         !record ||
-        !(await this.access.permissionsOnTeam(
-          record.teamId.value,
+        !(await this.access.permissionsInWorkspaceOfTeam(
+          record.teamId,
           query.principal,
         ))
       ) {

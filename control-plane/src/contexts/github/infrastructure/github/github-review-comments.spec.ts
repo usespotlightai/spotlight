@@ -1,7 +1,7 @@
 import type { ReviewCommentReply } from '@github/application/ports/review-comments.port';
 import { GitHubReviewComments } from '@github/infrastructure/github/github-review-comments';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

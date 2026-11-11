@@ -41,8 +41,8 @@ export class UpdateIntegrationHandler
       const existing = await this.definitions.withId(id);
       loaded = existing;
       const permissions = existing
-        ? await this.access.permissionsOnTeam(
-            existing.teamId.value,
+        ? await this.access.permissionsInWorkspaceOfTeam(
+            existing.teamId,
             command.actor.principal,
           )
         : null;

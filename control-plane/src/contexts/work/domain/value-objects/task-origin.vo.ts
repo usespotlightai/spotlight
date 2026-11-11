@@ -1,31 +1,58 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Happening } from '@work/domain/value-objects/happening.vo';
+import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 
 const PERSON = 'person';
 
-const INTEGRATION = /^[a-z][a-z0-9_-]*$/;
+const INTEGRATION = 'integration:';
 
-const SAME_INTEGRATION: Readonly<Record<string, string>> = { git: 'github' };
+type Origin =
+  | { readonly kind: 'person' }
+  | { readonly kind: 'integration'; readonly integration: IntegrationName };
 
 export class TaskOrigin {
-  private constructor(readonly value: string) {}
+  private constructor(private readonly origin: Origin) {}
 
   static person(): TaskOrigin {
-    return new TaskOrigin(PERSON);
+    return new TaskOrigin({ kind: 'person' });
   }
 
   static receivedFrom(happening: Happening): TaskOrigin {
-    return TaskOrigin.of(happening.integration);
+    return new TaskOrigin({
+      kind: 'integration',
+      integration: IntegrationName.ofHappening(happening),
+    });
   }
 
-  static of(raw: string): TaskOrigin {
-    if (raw !== PERSON && !INTEGRATION.test(raw)) {
+  static decode(encoded: string): TaskOrigin {
+    if (encoded === PERSON) {
+      return TaskOrigin.person();
+    }
+
+    if (!encoded.startsWith(INTEGRATION)) {
       throw new InconsistentStateError(
-        'task',
-        'was created by a person or received from an integration it names',
+        'task origin',
+        `is neither a person nor an integration: "${encoded}"`,
       );
     }
 
-    return new TaskOrigin(SAME_INTEGRATION[raw] ?? raw);
+    return new TaskOrigin({
+      kind: 'integration',
+      integration: IntegrationName.of(encoded.slice(INTEGRATION.length)),
+    });
+  }
+
+  get encoded(): string {
+    return this.origin.kind === 'integration'
+      ? `${INTEGRATION}${this.origin.integration.value}`
+      : PERSON;
+  }
+
+  get integration(): IntegrationName | null {
+    return this.origin.kind === 'integration' ? this.origin.integration : null;
+  }
+
+  equals(other: TaskOrigin): boolean {
+    return this.encoded === other.encoded;
   }
 }

@@ -1,5 +1,7 @@
+import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+
 export interface ToolUse {
-  readonly tool: string;
+  readonly tool: ToolName;
   readonly by: string;
 }
 
@@ -16,8 +18,10 @@ export class ToolUses {
     return new ToolUses([]);
   }
 
-  ofAny(tools: readonly string[]): ToolUses {
-    return new ToolUses(this.uses.filter((each) => tools.includes(each.tool)));
+  ofAny(tools: readonly ToolName[]): ToolUses {
+    return new ToolUses(
+      this.uses.filter((each) => tools.some((tool) => tool.equals(each.tool))),
+    );
   }
 
   get isEmpty(): boolean {
@@ -27,7 +31,12 @@ export class ToolUses {
   equals(other: ToolUses): boolean {
     return (
       this.kind === other.kind &&
-      JSON.stringify(this.uses) === JSON.stringify(other.uses)
+      this.uses.length === other.uses.length &&
+      this.uses.every(
+        (each, index) =>
+          each.tool.value === other.uses[index]?.tool.value &&
+          each.by === other.uses[index]?.by,
+      )
     );
   }
 }

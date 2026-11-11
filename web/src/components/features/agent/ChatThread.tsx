@@ -6,9 +6,17 @@ import { ChatProposal } from '@/components/features/agent/ChatProposal';
 import { StepsWork } from '@/components/features/inbox/conversation/StepsWork';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { Turn } from '@/components/shared/Turn';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useJournalSight } from '@/hooks/useJournalSight';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
-import { type Chat, type ChatMoment, momentsOf, turnsOf } from '@/lib/chat';
+import {
+  type Chat,
+  type ChatMoment,
+  momentsOf,
+  runsOfTurn,
+  turnsOf,
+} from '@/lib/chat';
 import { type RunJournal, STICKY_AT_TOP } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +37,7 @@ export function ChatThread({
 }: ChatThreadProps) {
   const moments = momentsOf(chat.messages, journals);
   const turns = turnsOf(moments);
+  const sight = useJournalSight();
   const scroller = useStickToBottom<HTMLDivElement>(
     turns.filter((turn) => turn.message).length,
   );
@@ -54,22 +63,24 @@ export function ChatThread({
             const progress = last ? chat.progress : null;
 
             return (
-              <section
+              <Turn
                 // biome-ignore lint/suspicious/noArrayIndexKey: the turns come in order and their order does not change
                 key={at}
-                className={cn('flex flex-col', at > 0 && 'mt-6')}
+                ref={sight(runsOfTurn(turn))}
+                className={cn(at > 0 && 'mt-6')}
+                head={
+                  turn.message && (
+                    <div className={STICKY_AT_TOP}>
+                      <ChatPersonMessage
+                        slug={slug}
+                        teamId={teamId}
+                        message={turn.message}
+                        targetStation={at === 0 ? chat.targetStation : null}
+                      />
+                    </div>
+                  )
+                }
               >
-                {turn.message && (
-                  <div className={STICKY_AT_TOP}>
-                    <ChatPersonMessage
-                      slug={slug}
-                      teamId={teamId}
-                      message={turn.message}
-                      targetStation={at === 0 ? chat.targetStation : null}
-                    />
-                  </div>
-                )}
-
                 {(turn.moments.length > 0 || progress) && (
                   <ol className="mt-6 flex flex-col gap-6">
                     {turn.moments.map((moment, place) => (
@@ -124,7 +135,7 @@ export function ChatThread({
                     )}
                   </ol>
                 )}
-              </section>
+              </Turn>
             );
           })}
         </div>

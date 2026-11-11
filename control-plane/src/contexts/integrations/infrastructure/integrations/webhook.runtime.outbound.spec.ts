@@ -1,3 +1,4 @@
+import { scopedTo } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import {
   compileIntegration,
   type ReadableIntegration,
@@ -13,7 +14,6 @@ import {
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import { scopedTo } from '@platform/outbound/outbound-scope.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -86,7 +86,7 @@ const runtimeFor = (...hosts: string[]) => {
       compiled(TRACKER),
       WorkspaceId.of('ws_1'),
       signingFor(),
-      () => 1_700_000_000_000,
+      { now: () => new Date(1_700_000_000_000), sleep: async () => {} },
       jwks,
       outbound,
       credentialsFor(),

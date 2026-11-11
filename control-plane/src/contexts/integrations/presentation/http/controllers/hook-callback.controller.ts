@@ -4,6 +4,7 @@ import type { CallbackTaskView } from '@integrations/application/dto/callback-ta
 import { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
 import { CallbackNoteRequestDto } from '@integrations/presentation/http/dto/callback-note.request.dto';
 import { CallbackTaskResponseDto } from '@integrations/presentation/http/dto/callback-task.response.dto';
+import { HOOK_CALLBACKS } from '@integrations/presentation/http/hook-callback-route';
 import {
   BadRequestException,
   Body,
@@ -28,7 +29,7 @@ import {
 } from '@nestjs/swagger';
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
-import { HOOK_CALLBACKS } from '@platform/http/routes';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 
 const UNAUTHORIZED =
   'The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.';
@@ -37,6 +38,7 @@ const UNAUTHORIZED =
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
+@InAudience('public')
 @Controller(HOOK_CALLBACKS)
 export class HookCallbackController {
   constructor(
@@ -95,10 +97,8 @@ export class HookCallbackController {
       ),
     );
 
-    if (noted === 'empty') {
-      throw new BadRequestException(
-        'Note must not be empty. Maximum length: 20000 characters',
-      );
+    if (typeof noted === 'object') {
+      throw new BadRequestException(noted.invalid);
     }
 
     if (noted === 'rejected') {

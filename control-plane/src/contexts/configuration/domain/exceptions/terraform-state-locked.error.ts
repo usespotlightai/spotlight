@@ -1,6 +1,7 @@
 import type { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 
-export class TerraformStateLockedError extends Error {
+export class TerraformStateLockedError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(

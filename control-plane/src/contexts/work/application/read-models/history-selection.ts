@@ -1,4 +1,4 @@
-import type { RunOutcomeShape } from '@work/application/ports/run-outcomes.port';
+import type { RunResultShape } from '@work/application/ports/run-results.port';
 
 export const HISTORY_RUNS = { usual: 30, max: 50, matched: 500 } as const;
 
@@ -8,7 +8,7 @@ export const historyLength = (requested: number | null): number =>
     : Math.min(Math.floor(requested), HISTORY_RUNS.max);
 
 export const turnedOut = (
-  outcome: RunOutcomeShape | null,
+  outcome: RunResultShape | null,
   wanted: string,
 ): boolean =>
   outcome !== null &&

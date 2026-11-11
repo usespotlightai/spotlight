@@ -1,8 +1,9 @@
+import { OutboundHostsUnreadError } from '@identity/application/errors/outbound-hosts-unread.error';
 import type { WorkspaceOutboundHostsPort } from '@identity/application/ports/workspace-outbound-hosts.port';
 import { WorkspaceOutboundScope } from '@identity/infrastructure/outbound/workspace-outbound-scope';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import { OutboundHostsUnreadError } from '@shared-kernel/application/errors/outbound-hosts-unread.error';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const hosts = (over: Partial<WorkspaceOutboundHostsPort> = {}) => ({
@@ -25,10 +26,10 @@ describe('WorkspaceOutboundScope', () => {
     const scope = new WorkspaceOutboundScope(hosts());
 
     await expect(
-      allowedWithin((work) => scope.within('ws_1', work)),
+      allowedWithin((work) => scope.within(WorkspaceId.of('ws_1'), work)),
     ).resolves.toEqual([true, false]);
     await expect(
-      allowedWithin((work) => scope.withinFresh('ws_1', work)),
+      allowedWithin((work) => scope.withinFresh(WorkspaceId.of('ws_1'), work)),
     ).resolves.toEqual([false, true]);
   });
 
@@ -42,7 +43,7 @@ describe('WorkspaceOutboundScope', () => {
       }),
     );
 
-    await expect(scope.within('ws_gone', work)).rejects.toThrow(
+    await expect(scope.within(WorkspaceId.of('ws_gone'), work)).rejects.toThrow(
       OutboundHostsUnreadError,
     );
     expect(work).not.toHaveBeenCalled();

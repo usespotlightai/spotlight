@@ -1,5 +1,5 @@
 import type { EditReviewCommentCommand } from '@change-review/application/commands/edit-review-comment.command';
-import type { ReviewAccess } from '@change-review/application/services/review-access.service';
+import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { UnknownReviewCommentError } from '@change-review/domain/exceptions/unknown-review-comment.error';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
@@ -11,14 +11,14 @@ export class EditReviewCommentHandler
   implements CommandHandlerPort<EditReviewCommentCommand, void>
 {
   constructor(
-    private readonly access: ReviewAccess,
+    private readonly access: TeamWorkAccess,
     private readonly comments: ReviewCommentRepository,
     private readonly clock: ClockPort,
   ) {}
 
   async execute(command: EditReviewCommentCommand): Promise<void> {
     try {
-      const { task, by } = await this.access.ofRun(
+      const { task, by } = await this.access.actingInReview(
         command.teamId,
         command.runId,
         command.viewerId,

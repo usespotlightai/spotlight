@@ -14,15 +14,15 @@ import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-p
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class RunnerConfiguration implements RunnerConfigurationPort {
   constructor(
     private readonly trusts: RunnerTrustRepository,
-    private readonly declarations: WorkspaceRunnersRepository,
+    private readonly workspaceRunners: WorkspaceRunnersRepository,
     private readonly workspaces: WorkspaceReaderPort,
     private readonly pools: RunnerPoolRepository,
     private readonly egresses: EgressRepository,
@@ -31,7 +31,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
   async in(workspaceId: WorkspaceId): Promise<RunnersView> {
     const [trusts, declared, pools, egresses] = await Promise.all([
       this.trusts.inWorkspace(workspaceId),
-      this.declarations.declaredIn(workspaceId),
+      this.workspaceRunners.ofWorkspace(workspaceId),
       this.pools.inWorkspace(workspaceId),
       this.egresses.inWorkspace(workspaceId),
     ]);
@@ -51,7 +51,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
   }
 
   async poolWithId(id: string): Promise<RunnerPoolView | null> {
-    const pool = await this.pools.find(RunnerPoolId.of(id));
+    const pool = await this.pools.find(PoolId.of(id));
 
     return pool ? RunnerResourceMapper.configuredPool(pool) : null;
   }
@@ -62,8 +62,12 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
     return egress ? RunnerResourceMapper.configuredEgress(egress) : null;
   }
 
-  async declaredWithId(id: string): Promise<WorkspaceRunnersView | null> {
-    const declared = await this.declarations.find(WorkspaceRunnersId.of(id));
+  async workspaceRunnersWithId(
+    id: string,
+  ): Promise<WorkspaceRunnersView | null> {
+    const declared = await this.workspaceRunners.find(
+      WorkspaceRunnersId.of(id),
+    );
 
     return declared ? this.declaration(declared) : null;
   }
@@ -71,10 +75,10 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
   private async declaration(
     declared: WorkspaceRunners,
   ): Promise<WorkspaceRunnersView | null> {
-    const slug = await this.workspaces.slugOf(declared.workspaceId.value);
+    const slug = await this.workspaces.slugOf(declared.workspaceId);
 
     return slug
-      ? RunnerResourceMapper.configuredDeclaration(declared, slug)
+      ? RunnerResourceMapper.configuredWorkspaceRunners(declared, slug)
       : null;
   }
 }

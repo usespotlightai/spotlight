@@ -3,7 +3,6 @@ import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto
 import type {
   CheckSuite,
   PullRequestActivity,
-  PullRequestActivityKind,
   PullRequestDetails,
   PullRequestReviewComment,
 } from '@github/application/dto/pull-request-activity.dto';
@@ -15,9 +14,18 @@ import type {
 import type {
   PullRequestSize,
   PullRequestSnapshot,
-  PullRequestState,
 } from '@github/domain/aggregates/pull-request.aggregate';
+import { ignoredAsBot } from '@github/domain/services/pull-request-activity-policy';
+import { mergeOf } from '@github/domain/value-objects/pull-request-merge.vo';
+import {
+  closedAtOf,
+  type PullRequestState,
+  pullRequestStateOf,
+} from '@github/domain/value-objects/pull-request-state.vo';
+import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
+import type { ReviewState } from '@github/domain/value-objects/review-state.vo';
 import { stripByline } from '@github/infrastructure/github/byline';
+import { pullRequestActivityOf } from '@github/infrastructure/webhooks/pull-request-activity.translation';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
@@ -106,12 +114,6 @@ const THREAD_ACTIONS: ReadonlyMap<unknown, boolean> = new Map([
   ['unresolved', false],
 ]);
 
-const OPENING_ACTIONS: readonly unknown[] = [
-  'opened',
-  'reopened',
-  'ready_for_review',
-];
-
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
 
@@ -171,56 +173,10 @@ const detailsOf = (
     : null;
 };
 
-const FROM_ANY_SENDER: readonly PullRequestActivityKind[] = [
-  'opened',
-  'labelled',
-  'checks-failed',
-];
-
-const byBot = (payload: Payload): boolean =>
+const sentByBot = (payload: Payload): boolean =>
   payload.sender?.type === 'Bot' ||
   payload.comment?.user?.type === 'Bot' ||
   payload.review?.user?.type === 'Bot';
-
-const activityOf = (
-  event: string | undefined,
-  payload: Payload,
-): PullRequestActivityKind | null => {
-  if (event === 'pull_request' && OPENING_ACTIONS.includes(payload.action)) {
-    return 'opened';
-  }
-
-  if (event === 'pull_request' && payload.action === 'labeled') {
-    return 'labelled';
-  }
-
-  if (event === 'pull_request' && payload.action === 'closed') {
-    return payload.pull_request?.merged === true ? 'merged' : 'closed-unmerged';
-  }
-
-  if (event === 'pull_request_review') {
-    return payload.review?.state === 'changes_requested'
-      ? 'changes-requested'
-      : payload.action === 'submitted'
-        ? 'commented'
-        : null;
-  }
-
-  if (
-    (event === 'issue_comment' || event === 'pull_request_review_comment') &&
-    payload.action === 'created'
-  ) {
-    return 'commented';
-  }
-
-  if (event === 'check_suite' && payload.action === 'completed') {
-    return payload.check_suite?.conclusion === 'failure'
-      ? 'checks-failed'
-      : null;
-  }
-
-  return null;
-};
 
 const checkSuiteOf = (payload: Payload): CheckSuite | null => {
   const id = at(payload.check_suite?.id);
@@ -233,7 +189,13 @@ const pullRequestActivity = (
   event: string | undefined,
   payload: Payload,
 ): WebhookEvent[] => {
-  const activity = activityOf(event, payload);
+  const activity = pullRequestActivityOf({
+    event: event ?? null,
+    action: text(payload.action),
+    merged: payload.pull_request?.merged === true,
+    reviewState: text(payload.review?.state),
+    checkConclusion: text(payload.check_suite?.conclusion),
+  });
 
   if (!activity) {
     return [];
@@ -255,7 +217,7 @@ const pullRequestActivity = (
     details: detailsOf(payload.pull_request) ?? detailsOf(payload.issue),
     reviewComment:
       reviewCommentOf(payload.comment) ?? reviewCommentOf(payload.review),
-    byBot: !FROM_ANY_SENDER.includes(activity) && byBot(payload),
+    ignoredAsBot: ignoredAsBot(activity, sentByBot(payload)),
     checkSuite: checkSuiteOf(payload),
     failedChecks: [],
   };
@@ -278,13 +240,12 @@ const sizeOf = (pull: Pull): PullRequestSize | null => {
     : null;
 };
 
-const stateOf = (pull: Pull): PullRequestState => {
-  if (pull.merged === true || text(pull.merged_at)) {
-    return 'merged';
-  }
-
-  return pull.state === 'closed' ? 'closed' : 'open';
-};
+const stateOf = (pull: Pull): PullRequestState =>
+  pullRequestStateOf({
+    state: text(pull.state),
+    merged: pull.merged === true,
+    mergedAt: text(pull.merged_at),
+  });
 
 const snapshotOf = (payload: Payload): PullRequestSnapshot | null => {
   const pull = payload.pull_request;
@@ -331,10 +292,10 @@ const snapshotOf = (payload: Payload): PullRequestSnapshot | null => {
           ? writtenAt(pull.updated_at)
           : null,
       state,
-      closedAt:
-        state === 'merged'
-          ? (writtenAt(pull.merged_at) ?? writtenAt(pull.closed_at))
-          : writtenAt(pull.closed_at),
+      closedAt: closedAtOf(state, {
+        mergedAt: writtenAt(pull.merged_at),
+        closedAt: writtenAt(pull.closed_at),
+      }),
       updatedAt: writtenAt(pull.updated_at),
     };
   } catch {
@@ -433,19 +394,17 @@ const reviewThread = (payload: Payload): WebhookEvent[] => {
     {
       kind: 'review-thread',
       pullRequest,
-      thread: {
+      thread: PullRequestThread.of({
         id,
         firstCommentId: at(firstComment?.id),
         login: text(firstComment?.user?.login),
         byBot: firstComment?.user?.type === 'Bot',
         resolved,
-      },
+      }),
       snapshot: snapshotOf(payload),
     },
   ];
 };
-
-const COMMIT = /^[0-9a-f]{40}$/i;
 
 const pullRequestClosed = (payload: Payload): WebhookEvent[] => {
   const pull = payload.pull_request;
@@ -456,9 +415,9 @@ const pullRequestClosed = (payload: Payload): WebhookEvent[] => {
     return [];
   }
 
-  const commit = text(pull.merge_commit_sha);
+  const merge = mergeOf(pull.merged === true, text(pull.merge_commit_sha));
 
-  if (pull.merged === true && !(commit && COMMIT.test(commit))) {
+  if (merge.outcome === 'unproven') {
     return [];
   }
 
@@ -468,7 +427,7 @@ const pullRequestClosed = (payload: Payload): WebhookEvent[] => {
       pullRequest,
       repository,
       gitHubId: at(pull.id),
-      merge: pull.merged === true && commit ? { commit } : null,
+      merge: merge.outcome === 'merged' ? merge.merge : null,
       closedAt: writtenAt(pull.closed_at),
     },
   ];
@@ -493,8 +452,6 @@ const pullRequestReopened = (payload: Payload): WebhookEvent[] => {
     },
   ];
 };
-
-type ReviewState = 'approved' | 'changes-requested' | 'commented';
 
 const REVIEW_STATES: ReadonlyMap<string, ReviewState> = new Map([
   ['approved', 'approved'],

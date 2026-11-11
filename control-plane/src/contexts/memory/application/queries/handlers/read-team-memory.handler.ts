@@ -5,6 +5,8 @@ import type { TeamMemoryLoader } from '@memory/application/services/team-memory-
 import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ReadTeamMemoryHandler
   implements QueryHandlerPort<ReadTeamMemoryQuery, TeamMemoryDetailDto>
@@ -17,7 +19,10 @@ export class ReadTeamMemoryHandler
 
   async execute(query: ReadTeamMemoryQuery): Promise<TeamMemoryDetailDto> {
     try {
-      const access = await this.access.forTeam(query.teamId, query.viewerId);
+      const access = await this.access.forTeam(
+        TeamId.of(query.teamId),
+        UserId.of(query.viewerId),
+      );
 
       return await this.views.detail(
         await this.loader.memory(access, query.memoryId),

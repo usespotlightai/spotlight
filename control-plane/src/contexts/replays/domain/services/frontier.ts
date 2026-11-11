@@ -1,6 +1,7 @@
 import type { GainSignificance } from '@replays/domain/services/gain-estimate';
 import { isSuccess } from '@replays/domain/services/search-ranking';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
+import { dominates } from '@shared-kernel/domain/services/pareto-dominance';
 
 export interface FrontierPoint {
   readonly seed: boolean;
@@ -16,10 +17,10 @@ const rateOf = (point: FrontierPoint): number =>
 const costOf = (point: FrontierPoint): number =>
   point.costPerRun ?? Number.POSITIVE_INFINITY;
 
-const dominates = (one: FrontierPoint, other: FrontierPoint): boolean =>
-  rateOf(one) >= rateOf(other) &&
-  costOf(one) <= costOf(other) &&
-  (rateOf(one) > rateOf(other) || costOf(one) < costOf(other));
+const placed = (point: FrontierPoint) => ({
+  cost: costOf(point),
+  value: rateOf(point),
+});
 
 export const frontierOf = <Point extends FrontierPoint>(
   points: readonly Point[],
@@ -36,7 +37,9 @@ export const frontierOf = <Point extends FrontierPoint>(
 
   return eligible
     .filter(
-      (each) => each.seed || !eligible.some((other) => dominates(other, each)),
+      (each) =>
+        each.seed ||
+        !eligible.some((other) => dominates(placed(other), placed(each), true)),
     )
     .sort(
       (one, other) =>

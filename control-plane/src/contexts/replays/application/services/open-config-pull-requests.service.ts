@@ -1,8 +1,9 @@
 import { ConfigRepositoryError } from '@replays/application/errors/config-repository.error';
 import type { ConfigRepositoryPort } from '@replays/application/ports/config-repository.port';
+import type { LinesPort } from '@replays/application/ports/lines.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { StationSourceEditorPort } from '@replays/application/ports/station-source-editor.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { TrialableRunsPort } from '@replays/application/ports/trialable-runs.port';
 import {
   ConfigPullRequestBody,
   type ConfigPullRequestFacts,
@@ -29,7 +30,11 @@ import {
   NO_REGRESSIONS,
   regressionLimitOf,
 } from '@replays/domain/services/search-regressions';
-import { scoresOf } from '@replays/domain/services/search-scores';
+import {
+  heldOutPendingFor,
+  scoresOf,
+} from '@replays/domain/services/search-scores';
+import { CommitSha } from '@replays/domain/value-objects/commit-sha.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -62,7 +67,8 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     private readonly searches: SearchRepository,
     private readonly candidates: CandidateRepository,
     private readonly replays: ReplayRepository,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
+    private readonly trialableRuns: TrialableRunsPort,
     private readonly people: PeoplePort,
     private readonly configs: ConfigRepositoryPort,
     private readonly editor: StationSourceEditorPort,
@@ -108,7 +114,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
 
     const committed = async (commit: string) => {
       const next = (pullRequest as ConfigPullRequest).commit(
-        commit,
+        CommitSha.of(commit),
         this.clock.now(),
       );
 
@@ -152,7 +158,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     const { repository: named, path } = pullRequest;
     const [search, station, teamKey] = await Promise.all([
       this.searches.find(pullRequest.searchId),
-      this.work.station(
+      this.lines.station(
         pullRequest.station.lineId,
         pullRequest.station.stationId,
       ),
@@ -172,7 +178,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       );
     }
 
-    const repository = Repository.of(named);
+    const repository = named;
     const found = await this.candidates.findMany([
       pullRequest.candidateId,
       search.seed.candidateId,
@@ -202,14 +208,14 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       );
     }
 
-    const module = (
-      await this.configs.filesIn(
+    const configFiles = (
+      await this.configs.filesUnder(
         pullRequest.workspaceId,
         repository,
         path.slice(0, Math.max(path.lastIndexOf('/'), 0)),
         file.commit,
       )
-    ).filter((each) => each.endsWith('.tf') && each !== path);
+    ).filter((each) => each.path !== path);
     const edited = await this.editor.edited({
       file: { path, content: file.content },
       teamKey,
@@ -217,16 +223,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       stationKey: station.key,
       seed: seed.block,
       candidate: candidate.block,
-      module,
-      read: async (other) =>
-        (
-          await this.configs.fileAt(
-            pullRequest.workspaceId,
-            repository,
-            other,
-            file.commit,
-          )
-        )?.content ?? null,
+      configFiles,
     });
 
     if (!edited.ok) {
@@ -256,7 +253,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     const {
       url,
       number,
-      gitHubId,
+      hostId,
       repository: canonical,
     } = await this.configs.opened(pullRequest.workspaceId, repository, {
       branch: pullRequest.branch,
@@ -268,7 +265,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       opened: {
         url: PullRequestUrl.of(url),
         number,
-        gitHubId,
+        hostId,
         repository: Repository.of(canonical),
         basedOn: seed.fingerprint,
         proposing: candidate.fingerprint,
@@ -288,7 +285,8 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     const live = await this.healths.standardAt(search.station);
     const set = await this.sets.find(search.setId);
     const found = await this.findings.findingsOf(search);
-    const scores = scoresOf(search, replays, live.minGain);
+    const outcomes = replays.map((each) => each.outcome());
+    const scores = scoresOf(search, outcomes, live.minGain);
     const picked = scores.candidates.find((each) =>
       each.candidateId.equals(candidate.id),
     );
@@ -308,7 +306,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       objective: search.objective,
       stationKey,
       lineKey,
-      candidateName: pullRequest.candidateName,
+      candidateName: pullRequest.candidateName.value,
       hypothesis: candidate.search?.hypothesis.value ?? null,
       unchecked,
       changes: candidate.changedFrom.changes,
@@ -338,12 +336,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
         picked?.searchedGain ?? null,
         picked?.heldOutGain ?? null,
       ),
-      heldOutPending:
-        !picked?.heldOutGain &&
-        Boolean(picked?.heldOutReplayId) &&
-        [picked?.heldOutReplayId, scores.seed.heldOutReplayId].some(
-          (id) => id && !replayOf(id)?.endedAt,
-        ),
+      heldOutPending: heldOutPendingFor(scores, candidate.id, outcomes),
       currency: search.budget.ceiling.currency,
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,
@@ -380,7 +373,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
   ): Promise<ConfigPullRequestFacts['tasks']> {
     const titles = new Map(
       (
-        await this.work.runSummaries(search.workspaceId, [
+        await this.trialableRuns.runSummaries(search.workspaceId, [
           ...search.split.searchedRuns,
           ...search.split.heldOutRuns,
         ])
@@ -389,8 +382,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     const rowsOf = (replay: Replay | null, runs: readonly RunId[]) =>
       replay
         ? taskRowsOf(
-            taskComparisons(replay, seed, runs),
-            { candidate: replay.scoring, live: seed?.scoring ?? null },
+            taskComparisons(replay.outcome(), seed?.outcome() ?? null, runs),
             titles,
           )
         : [];

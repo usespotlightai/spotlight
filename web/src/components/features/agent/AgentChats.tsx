@@ -6,6 +6,7 @@ import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ShowMore } from '@/components/shared/ShowMore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useChats } from '@/hooks/api/useChats';
 import {
@@ -76,6 +77,10 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
                 />
               ))}
             </ol>
+          )}
+
+          {planned.length > 0 && (
+            <ShowMore list={chats} what="Older chats" className="mt-2" />
           )}
         </div>
       </ScrollArea>

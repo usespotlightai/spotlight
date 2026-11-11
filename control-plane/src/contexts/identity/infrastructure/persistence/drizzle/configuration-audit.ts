@@ -6,6 +6,7 @@ import type {
   AuditPage,
   ConfigurationAuditPort,
 } from '@identity/application/ports/configuration-audit.port';
+import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
 import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -13,7 +14,6 @@ import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type {
   ConfigurationAction,
   ConfigurationChange,
-  ConfiguredResource,
 } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, desc, eq, lt } from 'drizzle-orm';
@@ -23,7 +23,7 @@ type Row = typeof configurationChange.$inferSelect;
 const actorColumns = (actor: Actor | null) => {
   if (!actor) {
     return {
-      actor: 'spotlight',
+      actor: 'spotlight' as const,
       userId: null,
       tokenId: null,
       trustId: null,
@@ -36,10 +36,13 @@ const actorColumns = (actor: Actor | null) => {
   return {
     actor: principal.kind,
     userId: principal.userId.value,
-    tokenId: principal.kind === 'token' ? principal.tokenId.value : null,
+    tokenId:
+      principal.kind === 'token'
+        ? IssuedTokenGrant.of(principal).tokenId.value
+        : null,
     trustId:
       principal.kind === 'token'
-        ? (principal.issuedByTrustId?.value ?? null)
+        ? (IssuedTokenGrant.of(principal).issuedByTrustId?.value ?? null)
         : null,
     client: actor.client.toString(),
   };
@@ -98,7 +101,7 @@ export class DrizzleConfigurationAudit implements ConfigurationAuditPort {
 
     return rows.map((row) => ({
       seq: row.seq,
-      resource: row.resource as ConfiguredResource,
+      resource: row.resource,
       resourceId: row.resourceId,
       key: row.key,
       action: row.action as ConfigurationAction,

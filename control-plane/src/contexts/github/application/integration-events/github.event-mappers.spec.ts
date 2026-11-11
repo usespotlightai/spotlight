@@ -2,12 +2,21 @@ import { GITHUB_EVENT_MAPPERS } from '@github/application/integration-events/git
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
-import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
+import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
+import { DraftPeriod } from '@github/domain/value-objects/draft-period.vo';
+import { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
+import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const PULL_7 = PullRequestUrl.of('https://github.com/acme/api/pull/7');
+
+const ACME_API = Repository.of('acme/api');
 
 const published = (event: DomainEvent) =>
   GITHUB_EVENT_MAPPERS.filter((each) => each.from === event.kind).map((each) =>
@@ -18,24 +27,19 @@ describe('GITHUB_EVENT_MAPPERS', () => {
   it('publishes a received review comment as plain data', () => {
     expect(
       published(
-        new ReviewCommentReceived(
-          WorkspaceId.of('ws_1'),
-          'edited',
-          'https://github.com/acme/api/pull/7',
-          {
-            id: 300,
-            url: 'https://github.com/acme/api/pull/7#discussion_r300',
-            path: 'src/a.ts',
-            subject: 'line',
-            side: 'old',
-            line: 12,
-            startLine: null,
-            body: 'Why not a constant?',
-            inReplyToId: 200,
-            login: 'octocat',
-            writtenAt: new Date('2026-09-16T09:00:00Z'),
-          },
-        ),
+        new ReviewCommentReceived(WorkspaceId.of('ws_1'), 'edited', PULL_7, {
+          id: 300,
+          url: 'https://github.com/acme/api/pull/7#discussion_r300',
+          path: 'src/a.ts',
+          subject: 'line',
+          side: 'old',
+          line: 12,
+          startLine: null,
+          body: 'Why not a constant?',
+          inReplyToId: 200,
+          login: 'octocat',
+          writtenAt: new Date('2026-09-16T09:00:00Z'),
+        }),
       ),
     ).toEqual([
       {
@@ -63,8 +67,8 @@ describe('GITHUB_EVENT_MAPPERS', () => {
       published(
         new PullRequestClosed(
           WorkspaceId.of('ws_1'),
-          'https://github.com/acme/api/pull/7',
-          'acme/api',
+          PULL_7,
+          ACME_API,
           707,
           { commit: 'c'.repeat(40) },
           new Date('2026-09-21T09:30:00Z'),
@@ -89,8 +93,8 @@ describe('GITHUB_EVENT_MAPPERS', () => {
       published(
         new PullRequestReopened(
           WorkspaceId.of('ws_1'),
-          'https://github.com/acme/api/pull/7',
-          'acme/api',
+          PULL_7,
+          ACME_API,
           707,
           new Date('2026-09-22T09:30:00Z'),
         ),
@@ -107,38 +111,13 @@ describe('GITHUB_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a submitted review, who wrote it and when', () => {
-    expect(
-      published(
-        new PullRequestReviewed(
-          WorkspaceId.of('ws_1'),
-          'https://github.com/acme/api/pull/7',
-          'approved',
-          'ada',
-          false,
-          new Date('2026-09-21T09:30:00Z'),
-        ),
-      ),
-    ).toEqual([
-      {
-        kind: 'github.pull-request-reviewed.v1',
-        workspaceId: 'ws_1',
-        pullRequest: 'https://github.com/acme/api/pull/7',
-        state: 'approved',
-        login: 'ada',
-        byBot: false,
-        submittedAt: '2026-09-21T09:30:00.000Z',
-      },
-    ]);
-  });
-
   it('publishes a close without a merge as naming no commit', () => {
     expect(
       published(
         new PullRequestClosed(
           WorkspaceId.of('ws_1'),
-          'https://github.com/acme/api/pull/7',
-          'acme/api',
+          PULL_7,
+          ACME_API,
           null,
           null,
           null,
@@ -146,12 +125,12 @@ describe('GITHUB_EVENT_MAPPERS', () => {
       ),
     ).toMatchObject([{ merged: false, mergeCommit: null, closedAt: null }]);
   });
-  it('publishes what a pull request now is as plain data, owned by a task or not', () => {
+  it('publishes what a pull request now is, with what GitHub saw of its reviews, as plain data', () => {
     expect(
       published(
         new PullRequestUpdated(WorkspaceId.of('ws_1'), {
-          pullRequest: 'https://github.com/acme/api/pull/7',
-          repository: 'acme/api',
+          pullRequest: PULL_7,
+          repository: ACME_API,
           number: 7,
           title: 'Retry failed uploads',
           author: 'ada',
@@ -166,29 +145,49 @@ describe('GITHUB_EVENT_MAPPERS', () => {
           updatedAt: new Date('2026-09-21T09:05:00Z'),
           readyForReviewAt: new Date('2026-09-20T10:00:00Z'),
           draftPeriods: [
-            {
+            DraftPeriod.of({
               from: new Date('2026-09-20T12:00:00Z'),
               to: new Date('2026-09-20T14:00:00Z'),
-            },
+            }),
           ],
-          firstReviewAt: null,
-          firstUnblockingReviewAt: new Date('2026-09-20T11:00:00Z'),
-          firstApprovedAt: null,
-          humanReviewedAt: [new Date('2026-09-20T12:00:00Z')],
-          reviews: 0,
-          reviewRounds: 0,
-          reviewComments: 0,
-          botActivity: [
-            {
+          reviews: [
+            PullRequestReview.of({
+              id: 1,
+              state: 'commented',
               login: 'coderabbitai[bot]',
-              reviews: 1,
-              comments: 2,
-              threads: 1,
-              resolvedThreads: 1,
-            },
+              byBot: true,
+              at: new Date('2026-09-20T11:00:00Z'),
+            }),
+            PullRequestReview.of({
+              id: 2,
+              state: 'approved',
+              login: 'grace',
+              byBot: false,
+              at: null,
+            }),
           ],
-          isRevert: false,
-          revertedBy: null,
+          dismissedReviews: [2],
+          reviewComments: 1,
+          botComments: [
+            BotComment.of({
+              id: 10,
+              on: 'line',
+              login: 'coderabbitai[bot]',
+              opensThread: true,
+              deleted: false,
+            }),
+          ],
+          threads: [
+            PullRequestThread.of({
+              id: 'PRRT_1',
+              firstCommentId: 10,
+              login: 'coderabbitai[bot]',
+              byBot: true,
+              resolved: true,
+            }),
+          ],
+          isRevert: true,
+          revertedBy: PullRequestUrl.of('https://github.com/acme/api/pull/9'),
           version: 3,
         }),
       ),
@@ -217,24 +216,45 @@ describe('GITHUB_EVENT_MAPPERS', () => {
             to: '2026-09-20T14:00:00.000Z',
           },
         ],
-        firstReviewAt: null,
-        firstUnblockingReviewAt: '2026-09-20T11:00:00.000Z',
-        firstApprovedAt: null,
-        humanReviewedAt: ['2026-09-20T12:00:00.000Z'],
-        reviews: 0,
-        reviewRounds: 0,
-        reviewComments: 0,
-        botActivity: [
+        reviews: [
           {
+            id: 1,
+            state: 'commented',
             login: 'coderabbitai[bot]',
-            reviews: 1,
-            comments: 2,
-            threads: 1,
-            resolvedThreads: 1,
+            byBot: true,
+            submittedAt: '2026-09-20T11:00:00.000Z',
+            dismissed: false,
+          },
+          {
+            id: 2,
+            state: 'approved',
+            login: 'grace',
+            byBot: false,
+            submittedAt: null,
+            dismissed: true,
           },
         ],
-        isRevert: false,
-        revertedBy: null,
+        reviewComments: 1,
+        botComments: [
+          {
+            id: 10,
+            on: 'line',
+            login: 'coderabbitai[bot]',
+            opensThread: true,
+            deleted: false,
+          },
+        ],
+        threads: [
+          {
+            id: 'PRRT_1',
+            firstCommentId: 10,
+            login: 'coderabbitai[bot]',
+            byBot: true,
+            resolved: true,
+          },
+        ],
+        isRevert: true,
+        revertedBy: 'https://github.com/acme/api/pull/9',
         version: 3,
       },
     ]);
@@ -245,7 +265,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
       published(
         new PullRequestPurged(
           WorkspaceId.of('ws_1'),
-          'https://github.com/acme/api/pull/7',
+          PULL_7,
           new Date('2026-03-01T10:00:00Z'),
         ),
       ),

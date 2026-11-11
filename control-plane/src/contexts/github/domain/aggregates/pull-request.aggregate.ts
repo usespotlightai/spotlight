@@ -1,34 +1,34 @@
+import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
+import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
 import { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
-import type { ReviewState } from '@github/domain/events/pull-request-reviewed.event';
 import {
   PullRequestUpdated,
   type UpdatedPullRequest,
-  type UpdatedState,
 } from '@github/domain/events/pull-request-updated.event';
-import { botActivityOf } from '@github/domain/services/bot-activity';
+import {
+  type CommentAction,
+  type CommentPlace,
+  ReviewCommentReceived,
+} from '@github/domain/events/review-comment-received.event';
 import { pastRetention } from '@github/domain/services/pull-request-retention';
 import {
   type RevertTarget,
   revertTargetOf,
   sameRevertTarget,
 } from '@github/domain/services/revert-convention';
-import type {
-  BotComment,
-  PullRequestThread,
-} from '@github/domain/value-objects/bot-activity.vo';
-import {
-  type DraftPeriod,
-  openPeriodOf,
-  samePeriods,
-} from '@github/domain/value-objects/draft-period.vo';
+import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
+import { DraftPeriod } from '@github/domain/value-objects/draft-period.vo';
+import type { PullRequestMerge } from '@github/domain/value-objects/pull-request-merge.vo';
+import type { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
+import type { PullRequestState } from '@github/domain/value-objects/pull-request-state.vo';
+import type { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-export type PullRequestState = UpdatedState;
 
 export interface PullRequestSize {
   readonly additions: number;
@@ -55,21 +55,34 @@ export interface PullRequestSnapshot {
   readonly updatedAt: Date | null;
 }
 
-export interface WebhookReview {
-  readonly id: number;
-  readonly state: ReviewState;
-  readonly login: string | null;
-  readonly byBot: boolean;
-  readonly at: Date | null;
-}
+type LineCommentDetails = {
+  readonly url: string;
+  readonly path: string;
+  readonly body: string;
+  readonly writtenAt: Date | null;
+} & CommentPlace;
 
-export interface WebhookComment {
+export interface PullRequestComment {
   readonly id: number;
   readonly on: 'line' | 'conversation';
-  readonly action: 'created' | 'edited' | 'deleted';
+  readonly action: CommentAction;
   readonly login: string | null;
   readonly inReplyToId: number | null;
   readonly byBot: boolean;
+  readonly details: LineCommentDetails | null;
+}
+
+export interface PullRequestClosing {
+  readonly repository: Repository;
+  readonly gitHubId: number | null;
+  readonly merge: PullRequestMerge | null;
+  readonly closedAt: Date | null;
+}
+
+export interface PullRequestReopening {
+  readonly repository: Repository;
+  readonly gitHubId: number | null;
+  readonly reopenedAt: Date | null;
 }
 
 interface Props {
@@ -86,7 +99,7 @@ interface Props {
   readonly closedAt: Date | null;
   readonly updatedAt: Date;
   readonly reverts: RevertTarget | null;
-  readonly reviews: readonly WebhookReview[];
+  readonly reviews: readonly PullRequestReview[];
   readonly dismissedReviews: readonly number[];
   readonly comments: readonly number[];
   readonly deletedComments: readonly number[];
@@ -95,22 +108,9 @@ interface Props {
   readonly revertedBy: PullRequestUrl | null;
 }
 
-const VERDICTS: readonly ReviewState[] = ['approved', 'changes-requested'];
-
 const UPDATED = 'pull-request.updated';
 
 const notUpdated = (event: DomainEvent): boolean => event.kind !== UPDATED;
-
-const atOf = (review: WebhookReview): number =>
-  review.at?.getTime() ?? Number.POSITIVE_INFINITY;
-
-const earliestOf = (reviews: readonly WebhookReview[]): Date | null => {
-  const [first] = reviews
-    .filter((each) => each.at !== null)
-    .sort((a, b) => atOf(a) - atOf(b));
-
-  return first?.at ?? null;
-};
 
 const sameSize = (
   one: PullRequestSize | null,
@@ -140,6 +140,7 @@ export class PullRequest extends EventRecorder {
     readonly number: number,
     private readonly props: Props,
     readonly version: number,
+    readonly isStored: boolean,
   ) {
     super();
   }
@@ -178,7 +179,7 @@ export class PullRequest extends EventRecorder {
           : (snapshot.markedReadyAt ?? snapshot.openedAt),
         draftPeriods:
           snapshot.draft && snapshot.markedDraftAt
-            ? [{ from: snapshot.markedDraftAt, to: null }]
+            ? [DraftPeriod.openedAt(snapshot.markedDraftAt)]
             : [],
         state: snapshot.state,
         closedAt,
@@ -193,6 +194,7 @@ export class PullRequest extends EventRecorder {
         revertedBy: null,
       },
       0,
+      false,
     );
     created.recordUpdated();
 
@@ -212,6 +214,20 @@ export class PullRequest extends EventRecorder {
       version: number;
     } & Props,
   ): PullRequest {
+    if (!Number.isInteger(input.version) || input.version < 0) {
+      throw new InconsistentStateError(
+        'pull request',
+        `has an impossible version (${input.version})`,
+      );
+    }
+
+    if (input.state === 'open' && input.closedAt !== null) {
+      throw new InconsistentStateError(
+        'pull request',
+        'is open but has a time it was closed',
+      );
+    }
+
     return new PullRequest(
       input.workspaceId,
       input.url,
@@ -240,6 +256,7 @@ export class PullRequest extends EventRecorder {
         revertedBy: input.revertedBy,
       },
       input.version,
+      true,
     );
   }
 
@@ -295,7 +312,7 @@ export class PullRequest extends EventRecorder {
     return this.props.reverts;
   }
 
-  get reviews(): readonly WebhookReview[] {
+  get reviews(): readonly PullRequestReview[] {
     return this.props.reviews;
   }
 
@@ -325,44 +342,6 @@ export class PullRequest extends EventRecorder {
 
   get merged(): boolean {
     return this.props.state === 'merged';
-  }
-
-  get firstReviewAt(): Date | null {
-    return earliestOf(this.byPeople());
-  }
-
-  get firstUnblockingReviewAt(): Date | null {
-    return earliestOf(
-      this.props.reviews.filter(
-        (each) =>
-          this.props.author === null || each.login !== this.props.author,
-      ),
-    );
-  }
-
-  get firstApprovedAt(): Date | null {
-    return earliestOf(
-      this.props.reviews.filter(
-        (each) =>
-          each.state === 'approved' &&
-          !this.props.dismissedReviews.includes(each.id),
-      ),
-    );
-  }
-
-  get humanReviewedAt(): readonly Date[] {
-    return this.byPeople()
-      .flatMap((each) => (each.at ? [each.at] : []))
-      .sort((a, b) => a.getTime() - b.getTime());
-  }
-
-  get reviewRounds(): number {
-    const reviews = [...this.byPeople()].sort((a, b) => atOf(a) - atOf(b));
-    const verdicts = reviews.filter((each) => VERDICTS.includes(each.state));
-    const last = verdicts[verdicts.length - 1];
-    const after = last ? reviews.slice(reviews.indexOf(last) + 1) : reviews;
-
-    return verdicts.length + (after.length > 0 ? 1 : 0);
   }
 
   isPastRetention(now: Date): boolean {
@@ -451,7 +430,7 @@ export class PullRequest extends EventRecorder {
     return updated;
   }
 
-  recordReview(review: WebhookReview): PullRequest {
+  recordReview(review: PullRequestReview): PullRequest {
     if (this.props.reviews.some((each) => each.id === review.id)) {
       return this;
     }
@@ -460,6 +439,31 @@ export class PullRequest extends EventRecorder {
       ...this.props,
       reviews: [...this.props.reviews, review],
     });
+  }
+
+  closedBy(closing: PullRequestClosing): PullRequest {
+    return this.noticed(
+      new PullRequestClosed(
+        this.workspaceId,
+        this.url,
+        closing.repository,
+        closing.gitHubId,
+        closing.merge,
+        closing.closedAt,
+      ),
+    );
+  }
+
+  reopenedBy(reopening: PullRequestReopening): PullRequest {
+    return this.noticed(
+      new PullRequestReopened(
+        this.workspaceId,
+        this.url,
+        reopening.repository,
+        reopening.gitHubId,
+        reopening.reopenedAt,
+      ),
+    );
   }
 
   dismissReview(id: number): PullRequest {
@@ -477,11 +481,37 @@ export class PullRequest extends EventRecorder {
       : this.withoutEvent(next);
   }
 
-  recordComment(comment: WebhookComment): PullRequest {
-    if (comment.byBot) {
-      return this.botCommented(comment);
+  recordComment(comment: PullRequestComment): PullRequest {
+    const redelivered =
+      comment.action === 'created' && this.knowsComment(comment);
+    const recorded = comment.byBot
+      ? this.botCommented(comment)
+      : this.peopleCommented(comment);
+
+    if (!comment.details || redelivered) {
+      return recorded;
     }
 
+    return recorded.noticed(
+      new ReviewCommentReceived(this.workspaceId, comment.action, this.url, {
+        id: comment.id,
+        inReplyToId: comment.inReplyToId,
+        login: comment.login,
+        ...comment.details,
+      }),
+    );
+  }
+
+  private knowsComment(comment: PullRequestComment): boolean {
+    return comment.byBot
+      ? this.props.botComments.some((each) =>
+          each.isComment(comment.id, comment.on),
+        )
+      : this.props.comments.includes(comment.id) ||
+          this.props.deletedComments.includes(comment.id);
+  }
+
+  private peopleCommented(comment: PullRequestComment): PullRequest {
     if (comment.on === 'conversation') {
       return this;
     }
@@ -540,11 +570,7 @@ export class PullRequest extends EventRecorder {
   purge(): PullRequest {
     const purged = this.next(this.props, notUpdated);
     purged.record(
-      new PullRequestPurged(
-        this.workspaceId,
-        this.url.value,
-        this.props.updatedAt,
-      ),
+      new PullRequestPurged(this.workspaceId, this.url, this.props.updatedAt),
     );
 
     return purged;
@@ -556,9 +582,9 @@ export class PullRequest extends EventRecorder {
     );
   }
 
-  private botCommented(comment: WebhookComment): PullRequest {
-    const known = this.props.botComments.find(
-      (each) => each.id === comment.id && each.on === comment.on,
+  private botCommented(comment: PullRequestComment): PullRequest {
+    const known = this.props.botComments.find((each) =>
+      each.isComment(comment.id, comment.on),
     );
     const deleted = comment.action === 'deleted';
 
@@ -575,13 +601,13 @@ export class PullRequest extends EventRecorder {
       ...this.props,
       botComments: [
         ...this.props.botComments.filter((each) => each !== known),
-        {
+        BotComment.of({
           id: comment.id,
           on: comment.on,
           login: comment.login,
           opensThread: comment.on === 'line' && comment.inReplyToId === null,
           deleted,
-        },
+        }),
       ],
     };
 
@@ -592,7 +618,7 @@ export class PullRequest extends EventRecorder {
     snapshot: PullRequestSnapshot,
   ): readonly DraftPeriod[] {
     const periods = this.props.draftPeriods;
-    const open = openPeriodOf(periods);
+    const open = DraftPeriod.openOf(periods);
     const lastUpdatedAt = snapshot.updatedAt ?? this.props.updatedAt;
 
     const wasReady =
@@ -601,24 +627,18 @@ export class PullRequest extends EventRecorder {
     if (snapshot.draft && !open && wasReady) {
       return [
         ...periods,
-        { from: snapshot.markedDraftAt ?? lastUpdatedAt, to: null },
+        DraftPeriod.openedAt(snapshot.markedDraftAt ?? lastUpdatedAt),
       ];
     }
 
     if (!snapshot.draft && open) {
       return [
         ...periods.slice(0, -1),
-        { from: open.from, to: snapshot.markedReadyAt ?? lastUpdatedAt },
+        open.closedAt(snapshot.markedReadyAt ?? lastUpdatedAt),
       ];
     }
 
     return periods;
-  }
-
-  private byPeople(): readonly WebhookReview[] {
-    return this.props.reviews.filter(
-      (each) => !each.byBot && !this.props.dismissedReviews.includes(each.id),
-    );
   }
 
   private unchanged(next: Props): boolean {
@@ -631,7 +651,7 @@ export class PullRequest extends EventRecorder {
       sameTime(next.openedAt, this.props.openedAt) &&
       next.draft === this.props.draft &&
       sameTime(next.readyForReviewAt, this.props.readyForReviewAt) &&
-      samePeriods(next.draftPeriods, this.props.draftPeriods) &&
+      DraftPeriod.sameAll(next.draftPeriods, this.props.draftPeriods) &&
       next.state === this.props.state &&
       sameTime(next.closedAt, this.props.closedAt) &&
       sameRevertTarget(next.reverts, this.props.reverts)
@@ -649,6 +669,13 @@ export class PullRequest extends EventRecorder {
     return this.next(next, () => true);
   }
 
+  private noticed(event: DomainEvent): PullRequest {
+    const noticing = this.next(this.props, () => true);
+    noticing.record(event);
+
+    return noticing;
+  }
+
   private next(
     next: Props,
     including: (event: DomainEvent) => boolean,
@@ -660,6 +687,7 @@ export class PullRequest extends EventRecorder {
       this.number,
       next,
       this.version,
+      this.isStored,
     );
     succeeded.inheritEvents(this, including);
 
@@ -677,8 +705,8 @@ export class PullRequest extends EventRecorder {
       this.record(
         new PullRequestRevertMerged(
           this.workspaceId,
-          this.url.value,
-          this.repository.value,
+          this.url,
+          this.repository,
           this.props.reverts,
           this.props.closedAt,
         ),
@@ -688,8 +716,8 @@ export class PullRequest extends EventRecorder {
 
   private updatedPullRequest(): UpdatedPullRequest {
     return {
-      pullRequest: this.url.value,
-      repository: this.repository.value,
+      pullRequest: this.url,
+      repository: this.repository,
       number: this.number,
       title: this.props.title,
       author: this.props.author,
@@ -704,17 +732,14 @@ export class PullRequest extends EventRecorder {
       updatedAt: this.props.updatedAt,
       readyForReviewAt: this.props.readyForReviewAt,
       draftPeriods: this.props.draftPeriods,
-      firstReviewAt: this.firstReviewAt,
-      firstUnblockingReviewAt: this.firstUnblockingReviewAt,
-      firstApprovedAt: this.firstApprovedAt,
-      humanReviewedAt: this.humanReviewedAt,
-      reviews: this.byPeople().length,
-      reviewRounds: this.reviewRounds,
+      reviews: this.props.reviews,
+      dismissedReviews: this.props.dismissedReviews,
       reviewComments: this.props.comments.length,
-      botActivity: botActivityOf(this.props),
+      botComments: this.props.botComments,
+      threads: this.props.threads,
       isRevert: this.props.reverts !== null,
-      revertedBy: this.props.revertedBy?.value ?? null,
-      version: this.version + 1,
+      revertedBy: this.props.revertedBy,
+      version: this.isStored ? this.version + 1 : this.version,
     };
   }
 }

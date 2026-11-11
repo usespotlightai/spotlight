@@ -1,8 +1,8 @@
+import type { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import type {
   ChangeDetail,
   RecordedDetail,
 } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import type { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 
 export class IssuedTokenDetail implements ChangeDetail {
   private constructor(

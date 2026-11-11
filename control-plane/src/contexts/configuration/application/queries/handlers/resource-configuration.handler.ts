@@ -8,17 +8,20 @@ import type { IntegrationConfigsPort } from '@configuration/application/ports/in
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import type { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
 import type { ExportableConfigurations } from '@configuration/application/services/exportable-configurations.service';
+import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
+import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { OidcTrustConfigurationPort } from '@identity/application/ports/oidc-trust-configuration.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type { LineResourcesPort } from '@lines/application/ports/line-resources.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
 
 interface OnTeam {
   readonly teamId: TeamId;
@@ -60,7 +63,7 @@ export class ResourceConfigurationHandler
         (await this.access.permissionsIn(workspaceId, query.principal));
       const workspace =
         permissions &&
-        (await this.workspaces.profileOf(permissions.workspaceId.value));
+        (await this.workspaces.profileOf(permissions.workspaceId));
 
       if (!workspace) {
         return null;
@@ -87,15 +90,19 @@ export class ResourceConfigurationHandler
       case 'team':
         return this.teamWorkspaceOf({ teamId: TeamId.of(id) });
       case 'line':
-        return this.teamWorkspaceOf(await this.lines.withId(id));
+        return this.teamWorkspaceOf(await this.lines.withId(LineId.of(id)));
       case 'skill':
-        return this.teamWorkspaceOf(await this.skills.withId(id));
+        return this.teamWorkspaceOf(
+          await this.skills.withId(SkillDefinitionId.of(id)),
+        );
       case 'integration':
         return this.teamWorkspaceOf(await this.integrations.withId(id));
       case 'hook':
         return this.teamWorkspaceOf(await this.hooks.withId(id));
       case 'harness-profile':
-        return this.teamWorkspaceOf(await this.profiles.withId(id));
+        return this.teamWorkspaceOf(
+          await this.profiles.withId(HarnessProfileId.of(id)),
+        );
       case 'secret':
         return workspaceIdOf(await this.secrets.withId(id));
       case 'oidc-trust':
@@ -107,7 +114,7 @@ export class ResourceConfigurationHandler
       case 'egress':
         return workspaceIdOf(await this.runners.egressWithId(id));
       case 'workspace-runners':
-        return workspaceIdOf(await this.runners.declaredWithId(id));
+        return workspaceIdOf(await this.runners.workspaceRunnersWithId(id));
     }
   }
 

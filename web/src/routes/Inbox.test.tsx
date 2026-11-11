@@ -9,6 +9,9 @@ const failing = vi.fn();
 const refetch = vi.fn();
 const resolve = vi.fn();
 const reopen = vi.fn();
+const resolvedOnes = vi.fn();
+const moreResolved = vi.fn();
+const resolvedPending = vi.fn();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
@@ -18,6 +21,14 @@ vi.mock('@/hooks/api/useInbox', () => ({
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
     refetch,
+  }),
+  useResolvedInbox: () => ({
+    data: resolvedOnes(),
+    isPending: resolvedPending(),
+    errorUpdateCount: 0,
+    isFetching: false,
+    refetch,
+    more: { available: moreResolved(), loading: false, load: vi.fn() },
   }),
 }));
 
@@ -48,23 +59,23 @@ const item = (over: Record<string, unknown> = {}) => ({
   createdAt: '2026-08-29T09:02:00.000Z',
   askedAt: '2026-08-29T12:00:00.000Z',
   resolved: false,
+  section: 'open',
+  reopenable: false,
   progress: null,
   runId: null,
   inboxRequest: null,
   unread: false,
-  notes: [
-    {
-      position: 0,
-      kind: 'asked',
-      station: 'Implementation',
-      stationColor: '#5c66d9',
-      stationPosition: 2,
-      runId: null,
-      body: 'Which queue should I drain?',
-      at: '2026-08-29T12:00:00.000Z',
-      author: null,
-    },
-  ],
+  lastNote: {
+    position: 0,
+    kind: 'asked',
+    station: 'Implementation',
+    stationColor: '#5c66d9',
+    stationPosition: 2,
+    runId: null,
+    body: 'Which queue should I drain?',
+    at: '2026-08-29T12:00:00.000Z',
+    author: null,
+  },
   ...over,
 });
 
@@ -81,14 +92,38 @@ const notice = (over: Record<string, unknown> = {}) => ({
   askedAt: '2026-08-29T13:00:00.000Z',
   unread: true,
   resolved: false,
+  section: 'open',
+  reopenable: false,
   ...over,
 });
+
+const chat = (over: Record<string, unknown> = {}) => ({
+  kind: 'chat',
+  id: 'chat_1',
+  teamId: 'team_1',
+  title: 'Why do retries pile up?',
+  progress: null,
+  openProposals: 0,
+  askedAt: '2026-08-29T14:00:00.000Z',
+  unread: false,
+  resolved: false,
+  section: 'open',
+  reopenable: false,
+  ...over,
+});
+
+const markChatRead = vi.fn();
+
+vi.mock('@/hooks/api/useMarkInboxChatRead', () => ({
+  useMarkInboxChatRead: () => ({ mutate: markChatRead }),
+}));
 
 const tree = (path: string) => (
   <MemoryRouter initialEntries={[path]}>
     <Routes>
       <Route path="/w/:slug/inbox" element={<Inbox />}>
         <Route path=":itemId" element={<p>the conversation</p>} />
+        <Route path="teams/:teamId/chats/:chatId" element={<p>the chat</p>} />
       </Route>
     </Routes>
   </MemoryRouter>
@@ -101,9 +136,88 @@ describe('Inbox', () => {
     localStorage.clear();
     waiting.mockReturnValue([item()]);
     failing.mockReturnValue(false);
+    resolvedOnes.mockReturnValue([]);
+    moreResolved.mockReturnValue(false);
+    resolvedPending.mockReturnValue(false);
     refetch.mockClear();
     resolve.mockClear();
     reopen.mockClear();
+  });
+
+  describe('chats', () => {
+    it('lists a chat that waits for its starter under Open, linking to it in the inbox', () => {
+      waiting.mockReturnValue([chat({ openProposals: 2, unread: true })]);
+      renderAt('/w/acme/inbox');
+
+      expect(
+        screen.getByRole('link', { name: /Why do retries pile up\?/ }),
+      ).toHaveAttribute('href', '/w/acme/inbox/teams/team_1/chats/chat_1');
+      expect(
+        screen.getByText('2 task proposals waiting for you.'),
+      ).toBeVisible();
+      expect(screen.getByText('Unread')).toBeInTheDocument();
+    });
+
+    it('lists a chat with a run under Running, saying how far it is', async () => {
+      waiting.mockReturnValue([
+        chat({ progress: 'in-progress', section: 'running' }),
+      ]);
+      renderAt('/w/acme/inbox');
+
+      await userEvent.click(screen.getByRole('button', { name: /Running/ }));
+
+      expect(screen.getByText('Agent is working…')).toBeVisible();
+    });
+
+    it('lists a resolved chat under Resolved', async () => {
+      waiting.mockReturnValue([
+        chat({ resolved: true, section: 'resolved', reopenable: true }),
+      ]);
+      renderAt('/w/acme/inbox');
+
+      await userEvent.click(screen.getByRole('button', { name: /Resolved/ }));
+
+      expect(screen.getByText('Chat resolved.')).toBeVisible();
+    });
+
+    it('marks a chat read when it is opened', async () => {
+      waiting.mockReturnValue([chat({ unread: true })]);
+      renderAt('/w/acme/inbox');
+
+      await userEvent.click(
+        screen.getByRole('link', { name: /Why do retries pile up\?/ }),
+      );
+
+      expect(markChatRead).toHaveBeenCalledWith({
+        slug: 'acme',
+        chatId: 'chat_1',
+      });
+    });
+
+    it('opens a chat beside the list', async () => {
+      waiting.mockReturnValue([chat()]);
+      renderAt('/w/acme/inbox');
+
+      const row = screen.getByRole('link', {
+        name: /Why do retries pile up\?/,
+      });
+      await userEvent.click(row);
+
+      expect(screen.getByText('the chat')).toBeVisible();
+      expect(row).toHaveAttribute('aria-current', 'page');
+    });
+
+    it('resolves and unresolves a chat by hand', async () => {
+      waiting.mockReturnValue([chat()]);
+      renderAt('/w/acme/inbox');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Resolve' }));
+
+      expect(resolve).toHaveBeenCalledWith({
+        slug: 'acme',
+        entry: expect.objectContaining({ kind: 'chat', id: 'chat_1' }),
+      });
+    });
   });
 
   describe('resolving', () => {
@@ -119,7 +233,14 @@ describe('Inbox', () => {
     });
 
     it('unresolves what is resolved on request', async () => {
-      waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
+      waiting.mockReturnValue([
+        notice({
+          resolved: true,
+          unread: false,
+          section: 'resolved',
+          reopenable: true,
+        }),
+      ]);
       renderAt('/w/acme/inbox');
 
       await userEvent.click(screen.getByRole('button', { name: /Resolved/ }));
@@ -132,7 +253,7 @@ describe('Inbox', () => {
     });
 
     it('does not offer to unresolve a conversation that moved on by itself', () => {
-      waiting.mockReturnValue([item({ resolved: true })]);
+      waiting.mockReturnValue([item({ resolved: true, section: 'resolved' })]);
       renderAt('/w/acme/inbox');
 
       expect(
@@ -205,7 +326,12 @@ describe('Inbox', () => {
       const person = userEvent.setup();
       waiting.mockReturnValue([
         item(),
-        item({ id: 'task_2:0', taskId: 'task_2', resolved: true }),
+        item({
+          id: 'task_2:0',
+          taskId: 'task_2',
+          resolved: true,
+          section: 'resolved',
+        }),
       ]);
       renderAt('/w/acme/inbox');
 
@@ -240,7 +366,7 @@ describe('Inbox', () => {
     });
 
     it('stays, counting none, when nothing is open', () => {
-      waiting.mockReturnValue([item({ resolved: true })]);
+      waiting.mockReturnValue([item({ resolved: true, section: 'resolved' })]);
       renderAt('/w/acme/inbox');
 
       expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
@@ -259,6 +385,7 @@ describe('Inbox', () => {
           title: 'Cap the retries',
           progress: 'in-progress',
           runId: 'run_2',
+          section: 'running',
         }),
       ]);
     });
@@ -332,6 +459,8 @@ describe('Inbox', () => {
           askedAt: '2026-08-29T12:00:00.000Z',
           unread: false,
           resolved: false,
+          section: 'running',
+          reopenable: false,
         },
       ]);
       renderAt('/w/acme/inbox');
@@ -351,7 +480,11 @@ describe('Inbox', () => {
 
     it('leaves what is resolved where it is', () => {
       waiting.mockReturnValue([
-        item({ resolved: true, progress: 'in-progress' }),
+        item({
+          resolved: true,
+          progress: 'in-progress',
+          section: 'resolved',
+        }),
       ]);
       renderAt('/w/acme/inbox');
 
@@ -373,6 +506,7 @@ describe('Inbox', () => {
           taskId: 'task_2',
           title: 'Cap the retries',
           resolved: true,
+          section: 'resolved',
         }),
       ]);
     });
@@ -405,6 +539,54 @@ describe('Inbox', () => {
         'aria-expanded',
         'true',
       );
+    });
+
+    it('counts the first page of resolved entries while collapsed', () => {
+      waiting.mockReturnValue([item()]);
+      resolvedOnes.mockReturnValue([
+        item({
+          id: 'task_3:0',
+          taskId: 'task_3',
+          resolved: true,
+          section: 'resolved',
+        }),
+        item({
+          id: 'task_4:0',
+          taskId: 'task_4',
+          resolved: true,
+          section: 'resolved',
+        }),
+      ]);
+      moreResolved.mockReturnValue(true);
+      renderAt('/w/acme/inbox');
+
+      const section = screen.getByRole('button', { name: /Resolved/ });
+
+      expect(section).toHaveAttribute('aria-expanded', 'false');
+      expect(section).toHaveTextContent('2+');
+    });
+
+    it('shows a placeholder count until the resolved entries arrive', () => {
+      waiting.mockReturnValue([item()]);
+      resolvedOnes.mockReturnValue(undefined);
+      resolvedPending.mockReturnValue(true);
+      renderAt('/w/acme/inbox');
+
+      const section = screen.getByRole('button', { name: /Resolved/ });
+
+      expect(section.querySelector('span[aria-hidden]')).not.toBeNull();
+      expect(section).toHaveTextContent(/^Resolved$/);
+    });
+
+    it('counts what it has, with no placeholder, when the resolved entries fail', () => {
+      waiting.mockReturnValue([item()]);
+      resolvedOnes.mockReturnValue(undefined);
+      renderAt('/w/acme/inbox');
+
+      const section = screen.getByRole('button', { name: /Resolved/ });
+
+      expect(section.querySelector('span[aria-hidden]')).toBeNull();
+      expect(section).toHaveTextContent('0');
     });
 
     it('stays, counting none, when nothing is resolved', () => {
@@ -441,7 +623,12 @@ describe('Inbox', () => {
 
     it('moves to resolved once dismissed', () => {
       waiting.mockReturnValue([
-        notice({ resolved: true, unread: false }),
+        notice({
+          resolved: true,
+          unread: false,
+          section: 'resolved',
+          reopenable: true,
+        }),
         item(),
       ]);
       renderAt('/w/acme/inbox');

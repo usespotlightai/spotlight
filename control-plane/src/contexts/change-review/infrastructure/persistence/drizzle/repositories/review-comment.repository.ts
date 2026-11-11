@@ -2,7 +2,9 @@ import { ReviewComment } from '@change-review/domain/aggregates/review-comment.a
 import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
+import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import type { FilePath } from '@change-review/domain/value-objects/file-path.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
@@ -19,13 +21,15 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 type Row = typeof reviewComment.$inferSelect;
 
 const anchorOf = (row: Row): ReviewAnchor => {
+  const repository = RepositoryName.optional(row.repository);
+
   if (row.side === null && row.line === null && row.startLine === null) {
-    return ReviewAnchor.onFile(row.path);
+    return ReviewAnchor.onFile(row.path, repository);
   }
 
   if (row.side === null || row.line === null) {
@@ -36,6 +40,7 @@ const anchorOf = (row: Row): ReviewAnchor => {
   }
 
   return ReviewAnchor.onLines({
+    repository,
     path: row.path,
     side: row.side,
     line: row.line,
@@ -68,6 +73,9 @@ const toComment = (row: Row): ReviewComment =>
     pendingOwnEdits: row.pendingOwnEdits,
     createdAt: row.createdAt,
     editedAt: row.editedAt,
+    failure: row.failureCode
+      ? DeliveryFailure.rehydrate(row.failureCode, row.failureDetail)
+      : null,
     version: row.version,
   });
 
@@ -75,6 +83,7 @@ const toRow = (comment: ReviewComment): Row => ({
   id: comment.id.value,
   workspaceId: comment.workspaceId.value,
   taskId: comment.taskId.value,
+  repository: comment.anchor.repository?.value ?? null,
   path: comment.anchor.path.value,
   side: comment.anchor.lines?.side ?? null,
   line: comment.anchor.lines?.line ?? null,
@@ -94,6 +103,8 @@ const toRow = (comment: ReviewComment): Row => ({
   pendingOwnEdits: [...comment.pendingOwnEdits],
   createdAt: comment.createdAt,
   editedAt: comment.editedAt,
+  failureCode: comment.failure?.code ?? null,
+  failureDetail: comment.failure?.detail ?? null,
   version: comment.version,
 });
 
@@ -161,30 +172,13 @@ export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
     return row ? toComment(row) : null;
   }
 
-  async draftsBy(
-    taskId: TaskId,
-    author: ReviewAuthor,
-  ): Promise<ReviewComment[]> {
-    const written = author.userId
-      ? eq(reviewComment.authorId, author.userId.value)
-      : author.kind === 'agent'
-        ? and(
-            isNull(reviewComment.authorId),
-            isNotNull(reviewComment.authorRunId),
-          )
-        : null;
-
-    if (!written) {
-      return [];
-    }
-
+  async draftsOn(taskId: TaskId): Promise<ReviewComment[]> {
     const rows = await this.context.db
       .select()
       .from(reviewComment)
       .where(
         and(
           eq(reviewComment.taskId, taskId.value),
-          written,
           eq(reviewComment.state, 'draft'),
         ),
       )
@@ -203,20 +197,7 @@ export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
     return rows.map(toComment);
   }
 
-  async lockThreadsOnFile(taskId: TaskId, path: FilePath): Promise<void> {
-    if (!this.context.transacting) {
-      throw new Error('Locking the threads on a file needs a transaction');
-    }
-
-    await this.context.db.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${`review-file:${taskId.value}:${path.value}`}, 0))`,
-    );
-  }
-
-  async threadsOnFile(
-    taskId: TaskId,
-    path: FilePath,
-  ): Promise<ReviewComment[]> {
+  async onFile(taskId: TaskId, path: FilePath): Promise<ReviewComment[]> {
     const rows = await this.context.db
       .select()
       .from(reviewComment)
@@ -224,8 +205,6 @@ export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
         and(
           eq(reviewComment.taskId, taskId.value),
           eq(reviewComment.path, path.value),
-          isNull(reviewComment.line),
-          isNull(reviewComment.replyToId),
         ),
       )
       .orderBy(asc(reviewComment.createdAt));
@@ -233,9 +212,23 @@ export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
     return rows.map(toComment);
   }
 
-  async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
-      .delete(reviewComment)
-      .where(eq(reviewComment.taskId, taskId.value));
+  async remove(removed: ReviewComment): Promise<void> {
+    await this.context.inTransaction(async () => {
+      const deleted = await this.context.db
+        .delete(reviewComment)
+        .where(
+          and(
+            eq(reviewComment.id, removed.id.value),
+            eq(reviewComment.version, removed.version),
+          ),
+        )
+        .returning({ id: reviewComment.id });
+
+      if (deleted.length === 0) {
+        throw new ReviewCommentVersionConflictError(removed.id.value);
+      }
+
+      await this.events.dispatch(removed.pullEvents());
+    });
   }
 }

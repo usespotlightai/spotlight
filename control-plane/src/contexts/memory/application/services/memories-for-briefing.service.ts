@@ -1,17 +1,20 @@
 import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
-import { folderLayoutAt } from '@memory/application/rendering/memory-folder-layout';
+import { folderGuideAt } from '@memory/application/rendering/memory-folder-layout';
 import type { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { selectForBriefing } from '@memory/domain/services/briefing-selection';
 import {
+  laysOutFolder,
   MEMORY_FOLDER,
-  repositoryFolderAt,
 } from '@memory/domain/services/memory-folder';
+import { BriefingAbout } from '@memory/domain/value-objects/briefing-about.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type {
   MemoriesBriefedBeforePort,
   NamedMemory,
@@ -38,8 +41,9 @@ const pathOf = (raw: string): MemoryPath | null => {
 
 const contextOf = (briefing: BriefedContext): RunContext => ({
   teamId: briefing.teamId,
-  lineId: briefing.lineId,
-  stationId: briefing.stationId,
+  lineId: briefing.lineId === null ? null : LineId.of(briefing.lineId),
+  stationId:
+    briefing.stationId === null ? null : StationId.of(briefing.stationId),
   repositories: briefing.repositories,
 });
 
@@ -50,8 +54,7 @@ const folderAt = (
   laid
     ? {
         path: MEMORY_FOLDER,
-        layout: folderLayoutAt(runContext),
-        repositoryFolder: repositoryFolderAt(runContext),
+        guide: folderGuideAt(runContext),
       }
     : null;
 
@@ -105,7 +108,10 @@ export class MemoriesForBriefing
       })),
       folder: folderAt(
         runContext,
-        applying.length > 0 || teamMemories.size > 0,
+        laysOutFolder({
+          applying: applying.length,
+          briefed: teamMemories.size,
+        }),
       ),
     };
   }
@@ -117,7 +123,10 @@ export class MemoriesForBriefing
     const touched = applying.some((each) => each.scope.paths.length > 0)
       ? await briefing.touched()
       : ([] as readonly TouchedFile[]);
-    const ranks = await this.relevance.rank(ids, briefing.about);
+    const ranks = await this.relevance.rank(
+      ids,
+      BriefingAbout.of(briefing.about),
+    );
     const recalled = await this.uses.runsUsing(ids, 'recalled');
 
     const chosen = selectForBriefing(
@@ -146,7 +155,13 @@ export class MemoriesForBriefing
         id: each.id.value,
         handle: each.handle.value,
       })),
-      folder: folderAt(runContext, applying.length > 0),
+      folder: folderAt(
+        runContext,
+        laysOutFolder({
+          applying: applying.length,
+          briefed: chosen.briefed.length,
+        }),
+      ),
     };
   }
 }

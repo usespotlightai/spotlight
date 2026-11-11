@@ -8,18 +8,21 @@ import type {
   DecisionReaderPort,
   MergedSought,
 } from '@change-review/application/ports/decision-reader.port';
+import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
 import {
   type DecisionSetRow,
   generationRunOf,
-  mergeRowOf,
+  type MergeRow,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.rows';
 import {
   decision,
   decisionDispute,
   decisionSet,
+  decisionSetMerge,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/decision.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import {
   and,
@@ -38,22 +41,32 @@ type DisputeRow = typeof decisionDispute.$inferSelect;
 
 const escaped = (path: string): string => path.replace(/[\\%_]/g, '\\$&');
 
-const lies = (path: string, within: readonly string[]): boolean =>
-  within.length === 0 ||
-  within.some((each) => path === each || path.startsWith(`${each}/`));
+const lies = (path: string, within: readonly WorkingCopyPath[]): boolean =>
+  within.length === 0 || within.some((each) => each.covers(path));
 
-const touching = (within: readonly string[]): SQL =>
+const shipped = (within: readonly WorkingCopyPath[]): SQL =>
   sql`exists (
     select 1 from ${decision}, jsonb_array_elements_text(${decision.paths}) as touched(path)
-    where ${decision.setId} = ${decisionSet.id}
-    and (${sql.join(
-      within.map(
-        (each) =>
-          sql`touched.path = ${each} or touched.path like ${`${escaped(each)}/%`}`,
-      ),
-      sql` or `,
-    )})
+    where ${decision.setId} = ${decisionSetMerge.setId}
+    and starts_with(lower(touched.path), lower(split_part(${decisionSetMerge.repository}, '/', 2)) || '/')
+    ${
+      within.length > 0
+        ? sql`and (${sql.join(
+            within.map(
+              (each) =>
+                sql`touched.path = ${each.value} or touched.path like ${`${escaped(each.value)}/%`}`,
+            ),
+            sql` or `,
+          )})`
+        : sql``
+    }
   )`;
+
+const toMerge = (row: MergeRow) => ({
+  repository: row.repository,
+  commit: row.commit,
+  at: row.mergedAt,
+});
 
 const toDecision = (
   row: DecisionRow,
@@ -71,7 +84,7 @@ const toDecision = (
     .map((dispute) => ({
       id: dispute.id,
       path: dispute.path,
-      by: dispute.byUserId,
+      by: dispute.disputedById,
       byName: null,
       reason: dispute.reason,
       at: dispute.at,
@@ -106,48 +119,56 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
     }
 
     const { decisions, disputes } = await this.decisionRowsOf([set.id]);
+    const merges = await this.context.db
+      .select()
+      .from(decisionSetMerge)
+      .where(eq(decisionSetMerge.setId, set.id))
+      .orderBy(asc(decisionSetMerge.mergedAt));
 
     return {
       runId: set.sourceRunId,
       generating: generationRunOf(set) !== null,
       status: set.status,
-      merge: mergeRowOf(set),
+      merges: merges.map(toMerge),
       decisions: decisionsIn(set, decisions, disputes),
     };
   }
 
   async merged(sought: MergedSought): Promise<MergedDecisionsDto[]> {
-    const sets = await this.context.db
-      .select()
-      .from(decisionSet)
+    const merges = await this.context.db
+      .select({ set: decisionSet, merge: decisionSetMerge })
+      .from(decisionSetMerge)
+      .innerJoin(decisionSet, eq(decisionSet.id, decisionSetMerge.setId))
       .where(
         and(
           eq(decisionSet.workspaceId, sought.workspaceId.value),
-          eq(decisionSet.status, 'merged'),
           sought.repository
-            ? eq(decisionSet.mergedRepository, sought.repository.value)
+            ? eq(decisionSetMerge.repository, sought.repository.value)
             : undefined,
-          sought.since ? gte(decisionSet.mergedAt, sought.since) : undefined,
-          sought.until ? lte(decisionSet.mergedAt, sought.until) : undefined,
-          sought.within.length > 0 ? touching(sought.within) : undefined,
+          sought.since
+            ? gte(decisionSetMerge.mergedAt, sought.since)
+            : undefined,
+          sought.until
+            ? lte(decisionSetMerge.mergedAt, sought.until)
+            : undefined,
+          shipped(sought.within),
         ),
       )
-      .orderBy(desc(decisionSet.mergedAt))
+      .orderBy(desc(decisionSetMerge.mergedAt))
       .limit(sought.max);
 
-    const { decisions, disputes } = await this.decisionRowsOf(
-      sets.map((each) => each.id),
-    );
+    const { decisions, disputes } = await this.decisionRowsOf([
+      ...new Set(merges.map((each) => each.set.id)),
+    ]);
 
-    return sets.flatMap((set) => {
-      const merge = mergeRowOf(set);
-
-      if (!merge) {
-        return [];
-      }
-
+    return merges.flatMap(({ set, merge }) => {
+      const repository = Repository.of(merge.repository);
       const matching = decisionsIn(set, decisions, disputes, (each) =>
-        each.paths.some((path) => lies(path, sought.within)),
+        each.paths.some(
+          (path) =>
+            WorkingCopyPath.of(path).isWithin(repository) &&
+            lies(path, sought.within),
+        ),
       );
 
       return matching.length > 0
@@ -157,7 +178,7 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
               runId: set.sourceRunId,
               repository: merge.repository,
               commit: merge.commit,
-              mergedAt: merge.at,
+              mergedAt: merge.mergedAt,
               decisions: matching,
             },
           ]

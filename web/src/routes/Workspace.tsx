@@ -15,7 +15,11 @@ import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useAppTabs } from '@/hooks/useAppTabs';
 import { useCommandShortcut } from '@/hooks/useCommandShortcut';
+import { useDesktopBadge } from '@/hooks/useDesktopBadge';
+import { useDesktopCommands } from '@/hooks/useDesktopCommands';
+import { useInboxNotifier } from '@/hooks/useInboxNotifier';
 import { useLastPlace } from '@/hooks/useLastPlace';
+import { useLiveStream } from '@/hooks/useLiveStream';
 import { useSlideFrom } from '@/hooks/useSlideFrom';
 import { failed, loading } from '@/lib/query';
 import { TabTitleContext } from '@/lib/tab-title';
@@ -33,12 +37,16 @@ export function Workspace() {
   const [searching, setSearching] = useState(false);
   const toggleSearch = useCallback(() => setSearching((open) => !open), []);
   useCommandShortcut(toggleSearch);
+  useLiveStream(useInboxNotifier());
+  useDesktopBadge(slug);
+  useDesktopCommands(slug, tabs);
   const strip = (
     <AppTabStrip
       tabs={tabs.tabs}
       activeId={tabs.activeId}
       onSelect={tabs.select}
       onClose={tabs.close}
+      onMove={tabs.move}
       onOpen={tabs.open}
     />
   );

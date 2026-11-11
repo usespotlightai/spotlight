@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/drizzle/configuration-audit';
 import { DrizzleOidcTrustUsage } from '@identity/infrastructure/persistence/drizzle/oidc-trust-usage';
 import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
+import { DrizzleSignupSurveys } from '@identity/infrastructure/persistence/drizzle/signup-surveys';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
-import { AsyncLocalCausation } from '@platform/events/async-local-causation';
-import { DeliveryBacklog } from '@platform/events/delivery-backlog';
+import { CauseCarrier } from '@platform/events/cause-carrier';
 import {
   EventDelivery,
   LEASE_MS,
@@ -14,7 +14,14 @@ import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import {
+  OUTBOX_RETENTION_MS,
+  OutboxRetention,
+} from '@platform/events/outbox-retention';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { SHARED_KERNEL_PAYLOAD_TYPES } from '@platform/events/shared-kernel-payload-types';
+import { ChangeNotices } from '@platform/live/change-notices';
+import { InMemoryLiveFeed } from '@platform/live/in-memory-live-feed';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -26,14 +33,12 @@ import { subscribing } from '@shared-kernel/application/ports/domain-event-subsc
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import {
   actorFor,
   changeActorIn,
 } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
@@ -75,8 +80,8 @@ let context: DrizzleContext;
 let now = new Date();
 const received: string[] = [];
 let failing = 0;
-const causation = new AsyncLocalCausation();
-const causes: string[] = [];
+const causation = new CauseCarrier();
+const causes: unknown[] = [];
 let callOut: (event: Called) => Promise<readonly DomainEvent[]> =
   async () => [];
 
@@ -102,7 +107,7 @@ const outboxWith = () => {
       ['bell.answered'],
       async (event) => {
         received.push(`answered ${event.marker.value}`);
-        causes.push(causation.current().description);
+        causes.push(causation.current());
       },
     ),
     subscribing<{ kind: string; marker: string }>(
@@ -110,15 +115,6 @@ const outboxWith = () => {
       ['bell.published-rang.v1'],
       async (event) => {
         received.push(`published ${typeof event.marker} ${event.marker}`);
-      },
-    ),
-    subscribing<{ kind: string; marker: string }>(
-      'test.fail-published',
-      ['bell.published-rang.v1'],
-      async (event) => {
-        if (event.marker === 'failing') {
-          throw new Error('failed');
-        }
       },
     ),
     subscribing<Called>(
@@ -147,6 +143,7 @@ const outboxWith = () => {
     identityProjections(
       new DrizzleConfigurationAudit(context),
       new DrizzleOidcTrustUsage(context),
+      new DrizzleSignupSurveys(context),
     ),
   );
   const clock = { now: () => now } as ClockPort;
@@ -156,6 +153,8 @@ const outboxWith = () => {
     types,
     mappers,
     projections,
+    new ChangeNotices(),
+    new InMemoryLiveFeed(),
     { generate: () => randomUUID() },
     clock,
     causation,
@@ -251,26 +250,22 @@ describe('the event outbox', () => {
     expect(received).toHaveLength(4);
   });
 
-  it('carries the chain of causes an event was recorded in to what its subscribers raise', async () => {
+  it('carries the cause an event was recorded in to what its subscribers raise', async () => {
     causes.length = 0;
     const { outbox, delivery } = outboxWith();
-    const chain = CausalChain.none().append({
-      kind: 'hook',
-      key: 'hook:bell',
-      description: 'the hook bell',
-    });
+    const cause = { links: [{ key: 'hook:bell' }], depth: 1 };
 
-    await causation.runWith(chain, () =>
+    await causation.runWith(cause, () =>
       outbox.record([new Rang(Marker.of('caused'))]),
     );
     await delivery.processDue();
 
-    expect(causes).toEqual(['the hook bell']);
+    expect(causes).toEqual([cause]);
     expect(
-      (await database.db.select({ cause: eventOutbox.cause }).from(eventOutbox))
-        .map((each) => CausalChain.read(each.cause).description)
-        .filter((each) => each !== ''),
-    ).toEqual(['the hook bell', 'the hook bell', 'the hook bell']);
+      (
+        await database.db.select({ cause: eventOutbox.cause }).from(eventOutbox)
+      ).filter((each) => each.cause !== null),
+    ).toEqual([{ cause }, { cause }, { cause }]);
   });
 
   it('publishes what other contexts may receive as plain data, beside the domain event', async () => {
@@ -328,90 +323,6 @@ describe('the event outbox', () => {
       }),
     );
     failing = 0;
-  });
-
-  it('counts the pending deliveries of a subscriber for the events about one thing', async () => {
-    const { outbox, delivery } = outboxWith();
-    const pending = (marker: string) =>
-      new DeliveryBacklog(context).pendingDeliveriesFor(
-        'test.receive-published',
-        {
-          marker,
-        },
-      );
-
-    await outbox.record([new Rang(Marker.of('tracked'))]);
-
-    await expect(pending('tracked')).resolves.toEqual({
-      pending: 1,
-      deadLettered: 0,
-    });
-    await expect(pending('never-rang')).resolves.toEqual({
-      pending: 0,
-      deadLettered: 0,
-    });
-
-    await delivery.processDue();
-
-    await expect(pending('tracked')).resolves.toEqual({
-      pending: 0,
-      deadLettered: 0,
-    });
-  });
-
-  it('matches every field it is given', async () => {
-    const { outbox } = outboxWith();
-    const pending = (kind: string) =>
-      new DeliveryBacklog(context).pendingDeliveriesFor(
-        'test.receive-published',
-        {
-          marker: 'two-fields',
-          kind,
-        },
-      );
-
-    await outbox.record([new Rang(Marker.of('two-fields'))]);
-
-    await expect(pending('bell.published-rang.v1')).resolves.toEqual({
-      pending: 1,
-      deadLettered: 0,
-    });
-    await expect(pending('bell.other')).resolves.toEqual({
-      pending: 0,
-      deadLettered: 0,
-    });
-  });
-
-  it('finds the events about one thing by an id held in a value object', async () => {
-    const { outbox } = outboxWith();
-
-    await outbox.record([new Rang(Marker.of('nested'))]);
-
-    await expect(
-      new DeliveryBacklog(context).pendingDeliveriesFor('test.answer', {
-        marker: 'nested',
-      }),
-    ).resolves.toEqual({ pending: 1, deadLettered: 0 });
-  });
-
-  it('counts what a subscriber dead-lettered, and not what it still retries', async () => {
-    const { outbox, delivery } = outboxWith();
-    const pending = () =>
-      new DeliveryBacklog(context).pendingDeliveriesFor('test.fail-published', {
-        marker: 'failing',
-      });
-
-    await outbox.record([new Rang(Marker.of('failing'))]);
-    await delivery.processDue();
-
-    await expect(pending()).resolves.toEqual({ pending: 1, deadLettered: 0 });
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-      now = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-      await delivery.processDue();
-    }
-
-    await expect(pending()).resolves.toEqual({ pending: 1, deadLettered: 1 });
   });
 
   describe('a subscriber that calls out', () => {
@@ -536,5 +447,107 @@ describe('the event outbox', () => {
 
       expect((await deliveryOf(eventId))?.deliveredAt).not.toBeNull();
     });
+  });
+});
+
+describe('the rows the event outbox keeps', () => {
+  const kindsRecorded = async (kinds: readonly string[]) =>
+    (
+      await database.db
+        .select({ kind: eventOutbox.kind })
+        .from(eventOutbox)
+        .where(inArray(eventOutbox.kind, [...kinds]))
+    ).map((each) => each.kind);
+
+  it('keeps no row for an event nobody hears, but still projects it', async () => {
+    const { outbox } = outboxWith();
+
+    await outbox.record([
+      new Reconfigured(
+        ConfigurationChange.updated(
+          { resource: 'team', id: 'team-unheard', key: 'unheard' },
+          changeActorIn('ws_unheard', actorFor('user_unheard')),
+        ),
+      ),
+    ]);
+
+    expect(await kindsRecorded(['bell.reconfigured'])).toEqual([]);
+    expect(
+      await database.db
+        .select({ key: configurationChange.key })
+        .from(configurationChange)
+        .where(eq(configurationChange.workspaceId, 'ws_unheard')),
+    ).toEqual([{ key: 'unheard' }]);
+  });
+
+  it('keeps a row for an event that is heard or published', async () => {
+    const { outbox } = outboxWith();
+    const before = (
+      await kindsRecorded(['bell.rang', 'bell.published-rang.v1'])
+    ).length;
+
+    await outbox.record([new Rang(Marker.of('kept'))]);
+
+    expect(
+      (await kindsRecorded(['bell.rang', 'bell.published-rang.v1'])).length,
+    ).toBe(before + 2);
+  });
+
+  it('deletes delivered events after a week, and keeps pending and dead-lettered ones', async () => {
+    const at = new Date('2026-11-01T00:00:00.000Z');
+    const old = new Date(at.getTime() - OUTBOX_RETENTION_MS - 1);
+    const recent = new Date(at.getTime() - OUTBOX_RETENTION_MS + 60_000);
+    const event = async (
+      recordedAt: Date,
+      deliveries: { deliveredAt: Date | null; deadLetteredAt: Date | null }[],
+    ) => {
+      const id = randomUUID();
+      await database.db.insert(eventOutbox).values({
+        id,
+        kind: 'bell.retained',
+        payload: {},
+        recordedAt,
+      });
+      for (const [index, each] of deliveries.entries()) {
+        await database.db.insert(eventDelivery).values({
+          eventId: id,
+          subscriber: `test.retained-${index}`,
+          dueAt: recordedAt,
+          ...each,
+        });
+      }
+      return id;
+    };
+    const delivered = { deliveredAt: old, deadLetteredAt: null };
+    const pending = { deliveredAt: null, deadLetteredAt: null };
+    const deadLettered = { deliveredAt: null, deadLetteredAt: old };
+
+    const oldDelivered = await event(old, [delivered, delivered]);
+    const oldPartly = await event(old, [delivered, pending]);
+    const oldDead = await event(old, [deadLettered]);
+    const recentDelivered = await event(recent, [delivered]);
+
+    const deleted = await new OutboxRetention(context, {
+      now: () => at,
+    } as ClockPort).sweep();
+
+    const left = (
+      await database.db
+        .select({ id: eventOutbox.id })
+        .from(eventOutbox)
+        .where(eq(eventOutbox.kind, 'bell.retained'))
+    ).map((each) => each.id);
+
+    expect(deleted).toBeGreaterThanOrEqual(1);
+    expect(left).not.toContain(oldDelivered);
+    expect(left).toEqual(
+      expect.arrayContaining([oldPartly, oldDead, recentDelivered]),
+    );
+    expect(
+      await database.db
+        .select({ subscriber: eventDelivery.subscriber })
+        .from(eventDelivery)
+        .where(eq(eventDelivery.eventId, oldDelivered)),
+    ).toEqual([]);
   });
 });

@@ -7,14 +7,13 @@ import {
   type S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import {
-  headObject,
-  missing,
-  type S3Clients,
-} from '@platform/storage/s3-clients';
+import type { KeyOverlay } from '@platform/storage/key-overlay';
+import type { S3Clients } from '@platform/storage/s3-clients';
+import { missing } from '@platform/storage/s3-objects';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { StorageNotConfiguredError } from '@work/application/errors/storage-not-configured.error';
 import type {
   AttachmentContent,
   AttachmentStorePort,
@@ -46,13 +45,26 @@ const decoded = (name: string | undefined, fallback: string): string => {
   }
 };
 
+const described = (
+  id: AttachmentId,
+  head: HeadObjectCommandOutput,
+): Attachment =>
+  Attachment.of({
+    id: id.value,
+    name: decoded(head.Metadata?.[NAME], id.value),
+    contentType: head.ContentType,
+    size: head.ContentLength ?? -1,
+  });
+
 export class S3AttachmentStore implements AttachmentStorePort {
   private readonly store: S3Client;
   private readonly signer: S3Client;
   private readonly bucket: string;
+  private readonly keys: KeyOverlay;
 
   constructor(clients: S3Clients) {
     this.bucket = clients.bucket;
+    this.keys = clients.keys;
     this.store = clients.store;
     this.signer = clients.signer;
   }
@@ -74,7 +86,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       this.signer,
       new PutObjectCommand({
         Bucket: this.bucket,
-        Key: pendingKeyOf(workspaceId, file.id),
+        Key: this.keys.writeKey(pendingKeyOf(workspaceId, file.id)),
         ContentType: file.contentType,
         ContentLength: file.size,
         Metadata: { [UPLOADER]: uploader.value, [NAME]: encoded(file.name) },
@@ -107,7 +119,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     return Promise.all(
       distinct.map(async (id) => {
         const head =
-          (await this.stored(workspaceId, id)) ??
+          (await this.storedHead(workspaceId, id)) ??
           (await this.pending(workspaceId, id));
 
         if (!head) {
@@ -117,12 +129,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
           throw new InvalidAttachmentError('was not uploaded by this run');
         }
 
-        return Attachment.of({
-          id: id.value,
-          name: decoded(head.Metadata?.[NAME], id.value),
-          contentType: head.ContentType,
-          size: head.ContentLength ?? -1,
-        });
+        return described(id, head);
       }),
     );
   }
@@ -137,7 +144,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     await this.store.send(
       new PutObjectCommand({
         Bucket: this.bucket,
-        Key: keyOf(workspaceId, file.id),
+        Key: this.keys.writeKey(keyOf(workspaceId, file.id)),
         Body: bytes,
         ContentType: file.contentType,
         Metadata: { [NAME]: encoded(file.name) },
@@ -155,8 +162,8 @@ export class S3AttachmentStore implements AttachmentStorePort {
     await this.store.send(
       new CopyObjectCommand({
         Bucket: this.bucket,
-        CopySource: `${this.bucket}/${keyOf(workspaceId, from.id)}`,
-        Key: keyOf(workspaceId, to.id),
+        CopySource: `${this.bucket}/${await this.storedKey(workspaceId, from.id)}`,
+        Key: this.keys.writeKey(keyOf(workspaceId, to.id)),
         MetadataDirective: 'COPY',
       }),
     );
@@ -169,6 +176,36 @@ export class S3AttachmentStore implements AttachmentStorePort {
   ): Promise<string> {
     this.assertBucket();
 
+    return this.signed(
+      await this.storedKey(workspaceId, file.id),
+      file,
+      wanted,
+    );
+  }
+
+  async linkPending(
+    workspaceId: WorkspaceId,
+    id: AttachmentId,
+    wanted: Wanted,
+  ): Promise<string | null> {
+    this.assertBucket();
+
+    const pending = await this.keys.locate(
+      this.store,
+      this.bucket,
+      pendingKeyOf(workspaceId, id),
+    );
+
+    return pending
+      ? this.signed(pending.key, described(id, pending.head), wanted)
+      : null;
+  }
+
+  private signed(
+    key: string,
+    file: Attachment,
+    wanted: Wanted,
+  ): Promise<string> {
     // Non-image files and SVG files download and do not render, so they cannot run as pages.
     const shown =
       wanted === 'shown' && file.image && file.contentType !== 'image/svg+xml';
@@ -177,7 +214,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       this.signer,
       new GetObjectCommand({
         Bucket: this.bucket,
-        Key: keyOf(workspaceId, file.id),
+        Key: key,
         ResponseContentType: file.contentType,
         ResponseContentDisposition: `${shown ? 'inline' : 'attachment'}; filename*=UTF-8''${encoded(file.name)}`,
       }),
@@ -194,7 +231,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     const read = await this.store.send(
       new GetObjectCommand({
         Bucket: this.bucket,
-        Key: keyOf(workspaceId, file.id),
+        Key: await this.storedKey(workspaceId, file.id),
       }),
     );
 
@@ -206,6 +243,27 @@ export class S3AttachmentStore implements AttachmentStorePort {
       bytes: await read.Body.transformToByteArray(),
       contentType: read.ContentType ?? file.contentType,
     };
+  }
+
+  async stored(
+    workspaceId: WorkspaceId,
+    ids: readonly AttachmentId[],
+  ): Promise<boolean> {
+    if (ids.length === 0) {
+      return true;
+    }
+
+    this.assertBucket();
+
+    const found = await Promise.all(
+      ids.map(
+        async (id) =>
+          (await this.storedHead(workspaceId, id)) ??
+          (await this.pending(workspaceId, id)),
+      ),
+    );
+
+    return found.every((head) => head !== null);
   }
 
   async taken(
@@ -225,27 +283,35 @@ export class S3AttachmentStore implements AttachmentStorePort {
     workspaceId: WorkspaceId,
     id: AttachmentId,
   ): Promise<void> {
-    if (await this.stored(workspaceId, id)) {
+    if (await this.storedHead(workspaceId, id)) {
       return;
     }
 
-    const from = pendingKeyOf(workspaceId, id);
+    const from = await this.keys.readKey(
+      this.store,
+      this.bucket,
+      pendingKeyOf(workspaceId, id),
+    );
     const copied = await this.store
       .send(
         new CopyObjectCommand({
           Bucket: this.bucket,
           CopySource: `${this.bucket}/${from}`,
-          Key: keyOf(workspaceId, id),
+          Key: this.keys.writeKey(keyOf(workspaceId, id)),
           MetadataDirective: 'COPY',
         }),
       )
       .catch(missing);
 
     if (!copied) {
-      if (!(await this.stored(workspaceId, id))) {
+      if (!(await this.storedHead(workspaceId, id))) {
         throw new InvalidAttachmentError('was never uploaded');
       }
 
+      return;
+    }
+
+    if (!this.keys.owns(from)) {
       return;
     }
 
@@ -254,31 +320,41 @@ export class S3AttachmentStore implements AttachmentStorePort {
       .catch(missing);
   }
 
-  private stored(
+  private storedKey(
     workspaceId: WorkspaceId,
     id: AttachmentId,
-  ): Promise<HeadObjectCommandOutput | null> {
-    return headObject(this.store, {
-      Bucket: this.bucket,
-      Key: keyOf(workspaceId, id),
-    });
+  ): Promise<string> {
+    return this.keys.readKey(this.store, this.bucket, keyOf(workspaceId, id));
   }
 
-  private pending(
+  private async storedHead(
     workspaceId: WorkspaceId,
     id: AttachmentId,
   ): Promise<HeadObjectCommandOutput | null> {
-    return headObject(this.store, {
-      Bucket: this.bucket,
-      Key: pendingKeyOf(workspaceId, id),
-    });
+    return (
+      (await this.keys.locate(this.store, this.bucket, keyOf(workspaceId, id)))
+        ?.head ?? null
+    );
+  }
+
+  private async pending(
+    workspaceId: WorkspaceId,
+    id: AttachmentId,
+  ): Promise<HeadObjectCommandOutput | null> {
+    return (
+      (
+        await this.keys.locate(
+          this.store,
+          this.bucket,
+          pendingKeyOf(workspaceId, id),
+        )
+      )?.head ?? null
+    );
   }
 
   private assertBucket(): void {
     if (!this.bucket) {
-      throw new InvalidAttachmentError(
-        'storage is not configured on this deployment',
-      );
+      throw new StorageNotConfiguredError('Attachment');
     }
   }
 }

@@ -3,37 +3,44 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
+import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
 import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { endingFor } from './support/run-ended';
+import { runFactsOver, runJournalsOver } from './support/run-facts';
+import { aDispatch, aTurn, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
 let reader: DrizzleRunReader;
+let traces: DrizzleRunnerTraceReader;
 
 beforeAll(async () => {
   database = await openDatabase('run_notes_reader');
   db = database.db;
+  const facts = runFactsOver(db);
   reader = new DrizzleRunReader(
     db,
-    {
-      mayView: async () => true,
-      viewableBy: async (_viewer: unknown, ids: readonly { value: string }[]) =>
-        new Set(ids.map((id) => id.value)),
-    } as never,
     { findMany: async () => new Map() } as never,
+    facts,
+    facts,
+  );
+  traces = new DrizzleRunnerTraceReader(
+    db,
+    reader,
+    new DrizzleRunJournalReader(db, runJournalsOver(db)),
   );
 }, 60_000);
 
 afterAll(async () => {
   await database?.close();
 });
-
-const VIEWER = UserId.of('user_1');
 
 type RunState = (typeof schema.run.$inferInsert)['state'];
 
@@ -49,10 +56,12 @@ const taskOnLine = async (...names: string[]) => {
     teamId: 'team_1',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values(
+  await insertStations(
+    db,
     names.map((name, position) => ({
       id: stations[position],
       key: `station-${position}`,
+      workspaceId: 'ws_1',
       lineId,
       name,
       position,
@@ -98,18 +107,34 @@ const taskOnLine = async (...names: string[]) => {
       id,
       workspaceId: 'ws_1',
       harness: 'dev',
-      taskId,
-      stationId,
+      ...requestedByTask(taskId, { teamId: 'team_1' }),
       state,
+      ...endingFor(state),
       spec: {
         command: { executable: 'sh', args: [] },
         briefing: 'Fix the queue.',
         handover: { options: ['done'], noteLimit: 0 },
-        resume: { key: `${taskId}:${id}` },
+        resume: {},
       },
       createdAt: new Date(createdAt),
       stopRequestedAt,
+      ...(state === 'suspended' ? aTurn() : {}),
+      ...(state === 'claimed'
+        ? {
+            claimedBy: 'runner_1',
+            leaseExpiresAt: new Date(Date.now() + 60_000),
+          }
+        : {}),
     });
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: id,
+        taskId,
+        stationId,
+        teamId: 'team_1',
+        orderedAt: new Date(createdAt),
+      }),
+    );
     return id;
   };
 
@@ -124,7 +149,7 @@ const taskAtImplementation = async () => {
 };
 
 const bodiesOf = async (runId: string) =>
-  (await reader.notesFor(RunId.of(runId), VIEWER))?.notes.map(
+  (await reader.notesFor(RunId.of(runId)))?.found.notes.map(
     (each) => each.body,
   );
 
@@ -158,7 +183,7 @@ describe('the notes of a run', () => {
     await note(atImplementation, null, 'try again');
     await note(atImplementation, second, 'it failed again');
 
-    const found = await reader.notesFor(RunId.of(first), VIEWER);
+    const found = (await reader.notesFor(RunId.of(first)))?.found;
 
     expect(found?.notes.map((each) => each.body)).toEqual([
       'it failed',
@@ -182,7 +207,7 @@ describe('the notes of a run', () => {
     );
     await current(taskId, second);
 
-    const found = await reader.notesFor(RunId.of(first), VIEWER);
+    const found = (await reader.notesFor(RunId.of(first)))?.found;
 
     expect(found?.latestRun).toEqual({
       id: second,
@@ -201,7 +226,7 @@ describe('the notes of a run', () => {
       new Date('2026-10-20T09:05:00.000Z'),
     );
 
-    const found = await reader.notesFor(RunId.of(stopped), VIEWER);
+    const found = (await reader.notesFor(RunId.of(stopped)))?.found;
 
     expect(found?.latestRun.progress).toBeNull();
   });
@@ -217,7 +242,7 @@ describe('the notes of a run', () => {
     const there = await run(triage, 'claimed', '2026-10-20T10:00:00.000Z');
     await current(taskId, there);
 
-    const found = await reader.notesFor(RunId.of(here), VIEWER);
+    const found = (await reader.notesFor(RunId.of(here)))?.found;
 
     expect(found?.latestRun).toEqual({
       id: here,
@@ -272,8 +297,7 @@ describe('the notes of a run', () => {
       'ran before the rename',
     );
 
-    const [shown] =
-      (await reader.notesFor(RunId.of(built), VIEWER))?.notes ?? [];
+    const [shown] = (await reader.notesFor(RunId.of(built)))?.found.notes ?? [];
 
     expect(shown).toMatchObject({
       station: 'Implementation',
@@ -328,13 +352,15 @@ describe('the notes of a run', () => {
 describe('the progress of a run once a person answered it', () => {
   const listed = async (taskId: string, runId: string) => {
     const [forTask, forTeam, traced] = await Promise.all([
-      reader.listForTask(TaskId.of(taskId), VIEWER),
-      reader.listForTeam(TeamId.of('team_1'), VIEWER),
-      new DrizzleRunnerTraceReader(db).runsForTask(TaskId.of(taskId)),
+      reader.listForTask(TaskId.of(taskId)).then((runs) => runs?.found ?? []),
+      reader
+        .listForTeam(TeamId.of('team_1'), FIRST_PAGE)
+        .then((page) => page.items),
+      traces.runsForTask(TaskId.of(taskId)),
     ]);
 
     return [forTask, forTeam, traced].map(
-      (runs) => runs.find((each) => each.id === runId)?.takenUpOnAnswer,
+      (runs) => runs.find((each) => each.id === runId)?.progress,
     );
   };
 
@@ -359,21 +385,21 @@ describe('the progress of a run once a person answered it', () => {
   it('takes up the current run in every run list once the answer is in', async () => {
     const { taskId, runId, older } = await paused('suspended', true);
 
-    expect(await listed(taskId, runId)).toEqual([true, true, true]);
-    expect(await listed(taskId, older)).toEqual([false, false, false]);
+    expect(await listed(taskId, runId)).toEqual(['queued', 'queued', 'queued']);
+    expect(await listed(taskId, older)).toEqual([null, null, null]);
   });
 
   it('takes up no run while the person still owes the answer', async () => {
     const { taskId, runId } = await paused('suspended', false);
 
-    expect(await listed(taskId, runId)).toEqual([false, false, false]);
+    expect(await listed(taskId, runId)).toEqual([null, null, null]);
   });
 
   it('says in the run notes that an answered run is queued again', async () => {
     const suspended = await paused('suspended', true);
 
     expect(
-      (await reader.notesFor(RunId.of(suspended.runId), VIEWER))?.progress,
+      (await reader.notesFor(RunId.of(suspended.runId)))?.found.progress,
     ).toBe('queued');
   });
 });

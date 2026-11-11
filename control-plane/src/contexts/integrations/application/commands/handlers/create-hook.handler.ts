@@ -26,6 +26,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class CreateHookHandler
   implements CommandHandlerPort<CreateHookCommand, ResourceCreated | null>
@@ -43,8 +44,8 @@ export class CreateHookHandler
 
   async execute(command: CreateHookCommand): Promise<ResourceCreated | null> {
     try {
-      const permissions = await this.access.permissionsOnTeam(
-        command.teamId,
+      const permissions = await this.access.permissionsInWorkspaceOfTeam(
+        TeamId.of(command.teamId),
         command.actor.principal,
       );
       if (!permissions) {

@@ -53,6 +53,7 @@ describe('setting a team up as code (e2e)', () => {
 
   const settingUp = (runId: string) =>
     Chat.start({
+      lines: [],
       workspaceId: WorkspaceId.of(workspaceId),
       teamId: TeamId.of(workspaceId),
       startedBy: UserId.of(owner),
@@ -106,14 +107,19 @@ describe('setting a team up as code (e2e)', () => {
     const chat = settingUp(runId);
 
     await chats().add(chat);
-    await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toEqual({
-      id: chat.id.value,
-      repository: 'acme/infra',
-      pullRequest: null,
-      ci: null,
-      startedById: owner,
-      startedBy: 'Ada',
-    });
+    await expect(
+      reader().setupChatsOf(TeamId.of(workspaceId)),
+    ).resolves.toEqual([
+      {
+        id: chat.id.value,
+        repository: 'acme/infra',
+        pullRequest: null,
+        ci: null,
+        startedById: owner,
+        startedBy: 'Ada',
+        startedAt: expect.any(Date),
+      },
+    ]);
 
     const found = await chats().find(chat.id);
     expect(found?.setup?.repository.value).toBe('acme/infra');
@@ -128,23 +134,27 @@ describe('setting a team up as code (e2e)', () => {
     );
 
     await expect(
-      reader().setupOf(TeamId.of(workspaceId)),
-    ).resolves.toMatchObject({
-      id: chat.id.value,
-      pullRequest: PULL_REQUEST,
-    });
+      reader().setupChatsOf(TeamId.of(workspaceId)),
+    ).resolves.toMatchObject([
+      {
+        id: chat.id.value,
+        pullRequest: PULL_REQUEST,
+      },
+    ]);
   });
 
   it('answers no setup chat for a team that started none', async () => {
-    await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toBeNull();
+    await expect(
+      reader().setupChatsOf(TeamId.of(workspaceId)),
+    ).resolves.toEqual([]);
   });
 
   it('lets a token issued for a run read the workspace until the run ends', async () => {
     const issued = await runTokens().issueFor({
-      workspaceId,
-      runId: randomUUID(),
+      workspaceId: WorkspaceId.of(workspaceId),
+      runId: RunId.of(randomUUID()),
       attempt: 1,
-      issuedBy: owner,
+      issuedBy: UserId.of(owner),
       scopes: ['plan'],
       expiresAt: new Date(Date.now() + 60 * 60 * 1_000),
     });
@@ -158,24 +168,28 @@ describe('setting a team up as code (e2e)', () => {
     expect(row?.tokenHash).not.toBe(issued.token);
     expect(row?.runAttempt).toBe(1);
 
-    await runTokens().revokeFor(workspaceId, row?.runId as string, null);
+    await runTokens().revokeFor(
+      WorkspaceId.of(workspaceId),
+      RunId.of(row?.runId as string),
+      null,
+    );
 
     expect((await exported(issued.token)).status).toBe(401);
   });
 
   it('revokes only the attempt that ended', async () => {
-    const runId = randomUUID();
+    const runId = RunId.of(randomUUID());
     const wanted = {
-      workspaceId,
+      workspaceId: WorkspaceId.of(workspaceId),
       runId,
-      issuedBy: owner,
+      issuedBy: UserId.of(owner),
       scopes: ['plan'],
       expiresAt: new Date(Date.now() + 60 * 60 * 1_000),
     };
     const first = await runTokens().issueFor({ ...wanted, attempt: 1 });
     const second = await runTokens().issueFor({ ...wanted, attempt: 2 });
 
-    await runTokens().revokeFor(workspaceId, runId, 1);
+    await runTokens().revokeFor(WorkspaceId.of(workspaceId), runId, 1);
 
     expect((await exported(first.token)).status).toBe(401);
     expect((await exported(second.token)).status).toBe(200);
@@ -184,18 +198,16 @@ describe('setting a team up as code (e2e)', () => {
   it('deletes a run token once it has expired', async () => {
     const expiresAt = new Date(Date.now() + 60 * 1_000);
     const issued = await runTokens().issueFor({
-      workspaceId,
-      runId: randomUUID(),
+      workspaceId: WorkspaceId.of(workspaceId),
+      runId: RunId.of(randomUUID()),
       attempt: 1,
-      issuedBy: owner,
+      issuedBy: UserId.of(owner),
       scopes: ['plan'],
       expiresAt,
     });
     const expired = async (by: Date) =>
       (
-        await app
-          .get(DrizzleWorkspaceTokenRepository)
-          .issuedAndExpiredBy(by, 10_000)
+        await app.get(DrizzleWorkspaceTokenRepository).dueToExpireBy(by, 10_000)
       ).map((each) => each.id.value);
 
     expect(await expired(new Date(expiresAt.getTime() - 1))).not.toContain(
@@ -216,7 +228,9 @@ describe('setting a team up as code (e2e)', () => {
     }).expect(422);
 
     expect(JSON.stringify(rejected.body)).toContain("can't access acme/infra");
-    await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toBeNull();
+    await expect(
+      reader().setupChatsOf(TeamId.of(workspaceId)),
+    ).resolves.toEqual([]);
   });
 
   it('says who started the setup chat, and links it only for them', async () => {

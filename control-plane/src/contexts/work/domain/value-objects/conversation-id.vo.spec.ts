@@ -37,4 +37,9 @@ describe('ConversationId', () => {
       InvalidConversationIdError,
     );
   });
+
+  it('tries a value and gives nothing where it names no note', () => {
+    expect(ConversationId.tryParse('task_1:2')?.from.value).toBe(2);
+    expect(ConversationId.tryParse('request_1')).toBeNull();
+  });
 });

@@ -53,6 +53,7 @@ const PLATFORM = Team.rehydrate({
   workspaceId: ACME,
   key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
+  origin: 'configuration',
   members: [LEON],
   version: 0,
 });
@@ -98,7 +99,7 @@ const resending = (
     new InviteSending(
       {
         find: async (id: UserId) => ({
-          id: id.value,
+          id,
           name: 'Leon',
           image: null,
         }),

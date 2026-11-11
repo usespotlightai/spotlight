@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatKeys } from '@/hooks/api/useChats';
+import { inboxKeys } from '@/hooks/api/useInbox';
 import { startChat } from '@/lib/api';
 import type { ChatSetup } from '@/lib/chat';
 
@@ -30,6 +31,7 @@ export function useStartChat() {
     },
     onSuccess: (chat, { teamId }) => {
       queryClient.setQueryData(chatKeys.one(chat.id), chat);
+      void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
       void queryClient.invalidateQueries({
         queryKey: chatKeys.forTeam(teamId),
       });

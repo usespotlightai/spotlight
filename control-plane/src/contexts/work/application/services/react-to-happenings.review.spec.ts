@@ -1,13 +1,15 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
+import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   type Happened,
@@ -15,31 +17,42 @@ import {
   REVIEW_MARK,
 } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { ChannelChats } from '@work/application/services/channel-chats.service';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
-import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
+import {
+  deliveryLineOf,
+  repositoryOf,
+  reviewLineOf,
+  reviewsOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
-import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
+import type {
+  ReviewIntake,
+  ReviewStart,
+} from '@work/domain/value-objects/review-intake.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { describe, expect, it, vi } from 'vitest';
+
+const TEAMMATES = {
+  membersOf: async () => TeamMembers.of([UserId.of('user_9')]),
+};
+
+const NO_RUNS = { of: async () => [] } as unknown as RunFactsPort;
 
 const channels = {
   reached: async () => null,
@@ -57,9 +70,11 @@ const files = {
   grant: vi.fn(),
   received: vi.fn(async () => []),
   save: vi.fn(),
+  stored: vi.fn(async () => true),
   taken: vi.fn(),
   copy: vi.fn(),
   link: vi.fn(),
+  linkPending: vi.fn(),
   open: vi.fn(),
 } satisfies AttachmentStorePort;
 const logger: LoggerPort = {
@@ -67,16 +82,6 @@ const logger: LoggerPort = {
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
-};
-
-const opening = (role: LineRole): LineOpening => {
-  const found = BUILT_IN_LINES.find((each) => each.role?.equals(role));
-
-  if (!found) {
-    throw new Error(`no built-in line plays ${role.value}`);
-  }
-
-  return found;
 };
 
 let made = 0;
@@ -88,28 +93,27 @@ const fresh = (prefix: string): string => {
 
 const created = (
   role: LineRole,
-  over: Partial<LineOpening> = {},
+  over: { reviews?: ReviewIntake | null } = {},
   repositories: readonly string[] = [],
 ) =>
-  Line.create({
-    by: changeActorIn(),
+  (role.equals(LineRole.REVIEW) ? reviewLineOf : deliveryLineOf)({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
-    line: { ...opening(role), ...over },
     newId: () => fresh('id'),
-  })
-    .runsOn(HarnessId.of('dev'), null)
-    .worksIn(
-      repositories.map((each) =>
-        LineRepositoryConfig.of(
-          // biome-ignore lint/style/noNonNullAssertion: the address of a pull request always contains its repository
-          PullRequestUrl.of(`https://github.com/${each}/pull/1`).repository!,
-        ),
+    harness: HarnessId.of('dev'),
+    ...over,
+    repositories: repositories.map((each) =>
+      repositoryOf(
+        // biome-ignore lint/style/noNonNullAssertion: the address of a pull request always contains its repository
+        PullRequestUrl.of(`https://github.com/${each}/pull/1`).repository!,
       ),
-    );
+    ),
+  });
 
-const reviewing = (over: Partial<LineOpening> = {}, repositories?: string[]) =>
-  created(LineRole.REVIEW, over, repositories);
+const reviewing = (
+  over: { reviews?: ReviewIntake | null } = {},
+  repositories?: string[],
+) => created(LineRole.REVIEW, over, repositories);
 
 const requested = (
   trigger: 'opened' | 'mentioned',
@@ -152,8 +156,8 @@ const requested = (
 };
 
 const world = (input: {
-  lines: readonly Line[];
-  findByMarks?: (correlationKeys: CorrelationKeys) => Task | null;
+  lines: readonly LineMap[];
+  findByCorrelation?: (correlationKeys: CorrelationKeys) => Task | null;
 }) => {
   const added: Task[] = [];
   const saved: Task[] = [];
@@ -168,21 +172,22 @@ const world = (input: {
     }),
     find: vi.fn(async () => null),
     remove: vi.fn(),
-    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    findByMarks: vi.fn(
-      async (_at: WorkspaceId, correlationKeys: CorrelationKeys) =>
-        input.findByMarks?.(correlationKeys) ?? null,
+    findByCorrelation: vi.fn(
+      async (_at: WorkspaceId, correlationKeys: CorrelationKeys) => {
+        const found = input.findByCorrelation?.(correlationKeys) ?? null;
+        return found ? [found] : [];
+      },
     ),
+    holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
   } satisfies TaskRepository & TaskPlacementsPort;
 
   const lines = {
-    add: vi.fn(),
-    save: vi.fn(),
     find: vi.fn(async () => null),
     findByStation: vi.fn(
       async (stationId) =>
@@ -190,7 +195,8 @@ const world = (input: {
     ),
     ofWorkspace: vi.fn(async () => input.lines),
     ofTeam: vi.fn(async () => input.lines),
-  } satisfies LineRepository;
+    candidate: vi.fn(),
+  } satisfies LineMapsPort;
 
   const dispatch: TaskDispatching = {
     runIdFor: async ({ task }) => {
@@ -212,6 +218,8 @@ const world = (input: {
     processedEventsInMemory(),
     logger,
     channels,
+    NO_RUNS,
+    TEAMMATES,
   );
 
   let deliveries = 0;
@@ -233,7 +241,7 @@ const world = (input: {
   };
 };
 
-const policy = (start: string, skip = {}) => ReviewPolicy.of({ start, skip });
+const policy = (start: ReviewStart, skip = {}) => reviewsOf({ start, skip });
 
 describe('ReactToHappenings, with a review request', () => {
   it('opens a task reviewing a pull request as it opens, on the line that reviews them', async () => {
@@ -267,7 +275,7 @@ describe('ReactToHappenings, with a review request', () => {
           pullRequest: 'https://github.com/acme/api/issues/7',
         }),
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ kind: 'reacted' });
 
     expect(added).toEqual([]);
     expect(logger.warn).toHaveBeenCalledWith(
@@ -348,7 +356,7 @@ describe('ReactToHappenings, with a review request', () => {
 
     const skipping = world({
       lines: [delivery, reviewing({ reviews: policy('opened') })],
-      findByMarks: holding,
+      findByCorrelation: holding,
     });
     await skipping.react(requested('opened', { branch: own.branch.value }));
     expect(skipping.added).toHaveLength(0);
@@ -358,7 +366,7 @@ describe('ReactToHappenings, with a review request', () => {
         delivery,
         reviewing({ reviews: policy('opened', { spotlight: false }) }),
       ],
-      findByMarks: holding,
+      findByCorrelation: holding,
     });
     await reviewingOwn.react(requested('opened', { branch: own.branch.value }));
     expect(reviewingOwn.added).toHaveLength(1);
@@ -374,10 +382,10 @@ describe('ReactToHappenings, with a review request', () => {
       rank: TaskRank.of('i'),
       now: NOW,
       newId: () => 'task_own',
-    }).markedBy(Mark.pullRequest(PullRequestUrl.of(PULL)));
+    }).markedBy(Mark.pullRequest(PullRequestUrl.of(PULL)), new Date(0));
     const { react, added } = world({
       lines: [delivery, reviewing({ reviews: policy('opened') })],
-      findByMarks: (correlationKeys) =>
+      findByCorrelation: (correlationKeys) =>
         correlationKeys.marks.some((mark) => mark.kind === PULL_REQUEST_MARK)
           ? own
           : null,
@@ -398,10 +406,10 @@ describe('ReactToHappenings, with a review request', () => {
       rank: TaskRank.of('i'),
       now: NOW,
       newId: () => 'task_review',
-    }).reviews(PullRequestUrl.of(PULL), { outside: false });
+    }).reviews(PullRequestUrl.of(PULL), { outside: false }, line, new Date(0));
     const { react, added, saved } = world({
       lines: [line],
-      findByMarks: (correlationKeys) =>
+      findByCorrelation: (correlationKeys) =>
         correlationKeys.marks.some((mark) => mark.kind === REVIEW_MARK)
           ? underway
           : null,
@@ -429,8 +437,8 @@ describe('ReactToHappenings, with a review request', () => {
       description: null,
       rank: TaskRank.of('i'),
       currentRunId: null,
-      sessionId: null,
-      runnerId: null,
+      session: null,
+      claimedBy: null,
       notes: [],
       createdAt: NOW,
       originStationId: null,
@@ -439,12 +447,13 @@ describe('ReactToHappenings, with a review request', () => {
       pullRequestLink: PullRequestLink.reviewing(PullRequestUrl.of(PULL), {
         outside: false,
       }),
-      marks: [Mark.review(PullRequestUrl.of(PULL))],
+      heldMarks: [HeldMark.of(Mark.review(PullRequestUrl.of(PULL)), NOW)],
       finishedAt: NOW,
+      version: 0,
     });
     const { react, added } = world({
       lines: [line],
-      findByMarks: (correlationKeys) =>
+      findByCorrelation: (correlationKeys) =>
         correlationKeys.marks.length > 0 ? finished : null,
     });
 

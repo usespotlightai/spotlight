@@ -5,6 +5,7 @@ import {
   ApiQuery,
   ApiResponse,
 } from '@nestjs/swagger';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import {
   ApiProblemResponse,
   ConventionalApiController,
@@ -27,7 +28,11 @@ export interface DataSourceKind {
 }
 
 export const dataSourceApi = (source: DataSourceKind) => ({
-  Controller: () => ConventionalApiController(RESOURCES, source.tag),
+  Controller: () =>
+    applyDecorators(
+      ConventionalApiController(RESOURCES, source.tag),
+      InAudience('resources'),
+    ),
 
   Read: (path: string, summary: string) =>
     applyDecorators(

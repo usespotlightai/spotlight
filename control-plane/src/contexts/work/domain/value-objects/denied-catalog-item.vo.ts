@@ -1,4 +1,4 @@
-import type { RefusalReason } from '@work/domain/value-objects/run-outcome.vo';
+import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
 
 export type CatalogDenialReason =
   | 'unknown'

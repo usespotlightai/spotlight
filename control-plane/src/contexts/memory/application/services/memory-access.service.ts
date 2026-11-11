@@ -4,7 +4,9 @@ import type {
   WorkPort,
 } from '@memory/application/ports/work.port';
 import { TeamAccess } from '@memory/domain/services/team-access';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export interface Reviewing {
   readonly task: RememberedTask;
@@ -17,20 +19,20 @@ export class MemoryAccess {
     private readonly work: WorkPort,
   ) {}
 
-  async forTeam(teamId: string, viewerId: string): Promise<TeamAccess> {
+  async forTeam(teamId: TeamId, viewerId: UserId): Promise<TeamAccess> {
     return TeamAccess.onTeam(
       teamId,
-      await this.people.memberOf(teamId, viewerId),
+      await this.people.viewerOf(teamId, viewerId),
     );
   }
 
   async ofTask(
-    teamId: string,
-    taskId: string,
-    viewerId: string,
+    teamId: TeamId,
+    taskId: TaskId,
+    viewerId: UserId,
   ): Promise<Reviewing | null> {
     const access = await this.forTeam(teamId, viewerId);
-    const task = await this.work.task(TaskId.of(taskId));
+    const task = await this.work.task(taskId);
 
     return task && access.reviews(task) ? { task, access } : null;
   }

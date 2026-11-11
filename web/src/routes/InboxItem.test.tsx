@@ -18,15 +18,24 @@ vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: viewer() }),
 }));
 
+type Waiting = { id: string; notes?: unknown[] }[] | undefined;
+
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
-  useInbox: () => ({
-    data: waiting(),
-    isPending: waiting() === undefined,
-    errorUpdateCount: failing() ? 1 : 0,
-    isFetching: false,
-    refetch: vi.fn(),
-  }),
+  useInboxItem: (_slug: string, itemId: string) => {
+    const found = (waiting() as Waiting)?.find((each) => each.id === itemId);
+
+    return {
+      data: found && {
+        ...found,
+        lastNote: found.notes?.[found.notes.length - 1] ?? null,
+      },
+      isPending: waiting() === undefined,
+      errorUpdateCount: failing() ? 1 : 0,
+      isFetching: false,
+      refetch: vi.fn(),
+    };
+  },
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -40,6 +49,7 @@ vi.mock('@/hooks/api/useTaskJournal', () => ({
     data: journal(),
     isPending: journal() === undefined,
     errorUpdateCount: journalFailing() ? 1 : 0,
+    demand: { runs: [], want: () => {} },
   }),
 }));
 
@@ -152,7 +162,7 @@ describe('InboxItem', () => {
 
       expect(container.querySelector('header')).toBeInTheDocument();
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'The inbox could not be loaded.',
+        'The message could not be loaded.',
       );
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
       expect(screen.queryByText(/Nothing here/)).not.toBeInTheDocument();
@@ -707,7 +717,7 @@ describe('InboxItem', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('shows the same run carrying on after the answer, without repeating what it did before', () => {
+    it('shows the same run carrying on after the answer, without repeating what it did before', async () => {
       const [only] = item([note(), answered]);
       waiting.mockReturnValue([
         { ...only, runId: 'run_1', progress: 'in-progress' },
@@ -732,6 +742,12 @@ describe('InboxItem', () => {
       ]);
 
       renderItem();
+
+      for (const worked of screen.getAllByRole('button', {
+        name: /^Work(ed|ing)/,
+      })) {
+        await userEvent.click(worked);
+      }
 
       expect(screen.getAllByText('queue-stats --all')).toHaveLength(1);
       expect(screen.getAllByText('queue-drain webhook-retries')).toHaveLength(

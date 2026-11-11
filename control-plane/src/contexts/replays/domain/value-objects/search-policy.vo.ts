@@ -1,9 +1,6 @@
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
-import {
-  isSearchObjective,
-  type SearchObjective,
-} from '@replays/domain/value-objects/search-objective';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 
 export class SearchPolicy {
   private constructor(
@@ -34,7 +31,7 @@ export class SearchPolicy {
     } | null;
     iterations: number | null;
     repeats: number | null;
-    objective: string | null;
+    objective: SearchObjective | null;
   }): SearchPolicy {
     return new SearchPolicy(
       input.enabled,
@@ -46,7 +43,7 @@ export class SearchPolicy {
       input.agent && SearchAgent.of(input.agent),
       input.iterations,
       input.repeats,
-      isSearchObjective(input.objective) ? input.objective : null,
+      input.objective,
     );
   }
 }

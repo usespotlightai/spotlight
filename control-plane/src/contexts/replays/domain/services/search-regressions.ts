@@ -1,5 +1,5 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { taskComparisons } from '@replays/domain/services/replay-results';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -24,8 +24,8 @@ export const regressionsOf = (
 export const NO_REGRESSIONS = regressionsOf(null, null);
 
 export const countRegressions = (
-  candidate: Replay,
-  seed: Replay,
+  candidate: ReplayOutcome,
+  seed: ReplayOutcome,
   runSubset: readonly RunId[],
 ): number =>
   taskComparisons(candidate, seed, runSubset).filter((each) => each.regressed)

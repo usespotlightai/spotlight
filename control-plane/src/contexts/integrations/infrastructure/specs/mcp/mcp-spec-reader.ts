@@ -63,7 +63,7 @@ export class McpSpecReader implements SpecReaderPort {
         (token) =>
           this.sessions.tools(server, {
             connection: token?.value ?? null,
-            secrets: spec.injectedSecrets.map((each) => each.value),
+            secrets: spec.injectedSecrets,
             credentials: callAuth.credentials,
           }),
         spec.connected ? callAuth.connection : null,

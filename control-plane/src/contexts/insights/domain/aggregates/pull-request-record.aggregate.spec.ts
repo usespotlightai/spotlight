@@ -1,5 +1,7 @@
 import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
-import { seenOf } from '@insights/domain/pull-requests.fake-spec';
+import { InvalidPullRequestRecordError } from '@insights/domain/exceptions/invalid-pull-request-record.error';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { seenOf } from '@insights/pull-requests.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -15,7 +17,18 @@ const noted = () =>
 const SEEN_AT = new Date('2026-09-28T09:00:00.000Z');
 const LATER = new Date('2026-09-28T10:00:00.000Z');
 
-const OWNER = { taskId: TaskId.of('task_1'), teamId: TeamId.of('team_1') };
+const OPENED_AT = new Date('2026-09-28T08:00:00.000Z');
+
+const REVIEW = { taskId: TaskId.of('task_2'), teamId: TeamId.of('team_7') };
+
+const OWNER = {
+  taskId: TaskId.of('task_1'),
+  teamId: TeamId.of('team_1'),
+  openedAt: OPENED_AT,
+};
+
+const kinds = (record: PullRequestRecord | null): readonly string[] =>
+  record?.pullEvents().map((each) => each.kind) ?? [];
 
 describe('PullRequestRecord', () => {
   it('keeps the newest of what GitHub said, however late an older word arrives', () => {
@@ -36,21 +49,45 @@ describe('PullRequestRecord', () => {
   });
 
   it('remembers each review task that ran on it once', () => {
-    const reviewed = noted()
-      .recordReview(TaskId.of('task_2'))
-      .recordReview(TaskId.of('task_2'));
+    const reviewed = noted().recordReview(REVIEW).recordReview(REVIEW);
 
-    expect(reviewed.reviewTasks).toEqual([TaskId.of('task_2')]);
+    expect(reviewed.reviewTasks).toEqual([REVIEW]);
   });
 
-  it('outlives GitHub purging it only where a task owns or reviewed it', () => {
+  it('keeps only a tombstone once GitHub purges it, unless a task owns or reviewed it', () => {
     const people = noted().seenAs(seenOf());
+    const owned = people.assignOwner(OWNER).purgedByGitHub(SEEN_AT);
 
-    expect(people.purgedByGitHub(SEEN_AT)).toBeNull();
-    expect(people.assignOwner(OWNER).purgedByGitHub(SEEN_AT)).not.toBeNull();
+    expect(people.purgedByGitHub(SEEN_AT).isTombstone).toBe(true);
+    expect(people.purgedByGitHub(SEEN_AT).seen).toBeNull();
+    expect(owned.isTombstone).toBe(false);
+    expect(owned.seen).not.toBeNull();
     expect(
-      people.recordReview(TaskId.of('task_2')).purgedByGitHub(SEEN_AT),
-    ).not.toBeNull();
+      people.recordReview(REVIEW).purgedByGitHub(SEEN_AT).isTombstone,
+    ).toBe(false);
+  });
+
+  it('keeps a tombstone of a pull request GitHub purged before Spotlight saw it', () => {
+    const tombstone = noted().purgedByGitHub(SEEN_AT);
+
+    expect(tombstone.isTombstone).toBe(true);
+    expect(tombstone.seenAs(seenOf({ updatedAt: SEEN_AT }))).toBe(tombstone);
+    expect(tombstone.tombstoneExpiredBefore(LATER)).toBe(true);
+    expect(tombstone.tombstoneExpiredBefore(SEEN_AT)).toBe(false);
+  });
+
+  it('refuses a stored record that holds nothing', () => {
+    expect(() =>
+      PullRequestRecord.rehydrate({
+        workspaceId: WorkspaceId.of('ws_1'),
+        pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+        seen: null,
+        owner: null,
+        reviewTasks: [],
+        githubPurgedAt: null,
+        version: 1,
+      }),
+    ).toThrow(InvalidPullRequestRecordError);
   });
 
   it('reads GitHub anew from its first version once GitHub purged it and recorded it again later', () => {
@@ -58,11 +95,11 @@ describe('PullRequestRecord', () => {
       .assignOwner(OWNER)
       .seenAs(seenOf({ version: 6 }))
       .purgedByGitHub(SEEN_AT);
-    const back = record?.seenAs(
+    const back = record.seenAs(
       seenOf({ title: 'Back', version: 1, updatedAt: LATER }),
     );
 
-    expect(record?.githubPurgedAt).toEqual(SEEN_AT);
+    expect(record.githubPurgedAt).toEqual(SEEN_AT);
     expect(back?.seen?.title).toBe('Back');
     expect(back?.githubPurgedAt).toBeNull();
   });
@@ -74,9 +111,7 @@ describe('PullRequestRecord', () => {
       .purgedByGitHub(SEEN_AT);
 
     expect(
-      record?.seenAs(
-        seenOf({ title: 'Stale', version: 7, updatedAt: SEEN_AT }),
-      ),
+      record.seenAs(seenOf({ title: 'Stale', version: 7, updatedAt: SEEN_AT })),
     ).toBe(record);
   });
 
@@ -93,31 +128,231 @@ describe('PullRequestRecord', () => {
   it('keeps the latest time GitHub purged it', () => {
     const record = noted().assignOwner(OWNER).purgedByGitHub(LATER);
 
-    expect(record?.purgedByGitHub(SEEN_AT)).toBe(record);
-    expect(record?.purgedByGitHub(LATER)).toBe(record);
+    expect(record.purgedByGitHub(SEEN_AT)).toBe(record);
+    expect(record.purgedByGitHub(LATER)).toBe(record);
   });
 
-  it('lets go of a task, and of itself once nothing refers to it and GitHub purged it', () => {
+  it('lets go of a task, and keeps a tombstone once nothing refers to it and GitHub purged it', () => {
     const owned = noted().assignOwner(OWNER).seenAs(seenOf());
     const purged = owned.purgedByGitHub(SEEN_AT);
-    const unseen = noted().recordReview(TaskId.of('task_2'));
+    const unseen = noted().recordReview(REVIEW);
 
-    expect(owned.withoutTask(OWNER.taskId)?.owner).toBeNull();
-    expect(owned.withoutTask(OWNER.taskId)?.seen).not.toBeNull();
-    expect(owned.withoutTask(TaskId.of('task_9'))).toBe(owned);
-    expect(purged?.withoutTask(OWNER.taskId)).toBeNull();
-    expect(unseen.withoutTask(TaskId.of('task_2'))).toBeNull();
     expect(
-      purged?.recordReview(TaskId.of('task_2')).withoutTask(OWNER.taskId)
+      owned.erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
+        ?.owner,
+    ).toBeNull();
+    expect(
+      owned.erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
+        ?.seen,
+    ).not.toBeNull();
+    expect(
+      owned.erasing(
+        DeletionScope.ofTask(WorkspaceId.of('ws_1'), TaskId.of('task_9')),
+      ),
+    ).toBe(owned);
+    expect(
+      purged.erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
+        ?.isTombstone,
+    ).toBe(true);
+    expect(
+      purged.erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
+        ?.seen,
+    ).toBeNull();
+    expect(
+      unseen.erasing(
+        DeletionScope.ofTask(WorkspaceId.of('ws_1'), TaskId.of('task_2')),
+      ),
+    ).toBeNull();
+    expect(
+      purged
+        .recordReview(REVIEW)
+        .erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
         ?.reviewTasks,
-    ).toEqual([TaskId.of('task_2')]);
+    ).toEqual([REVIEW]);
   });
 
-  it('lets go of a deleted team, and of itself once GitHub purged it', () => {
+  it('lets go of a deleted team, and keeps a tombstone once GitHub purged it', () => {
     const owned = noted().assignOwner(OWNER).seenAs(seenOf());
 
-    expect(owned.withoutTeam(OWNER.teamId)?.owner).toBeNull();
-    expect(owned.withoutTeam(TeamId.of('team_2'))).toBe(owned);
-    expect(owned.purgedByGitHub(SEEN_AT)?.withoutTeam(OWNER.teamId)).toBeNull();
+    expect(
+      owned.erasing(DeletionScope.ofTeam(WorkspaceId.of('ws_1'), OWNER.teamId))
+        ?.owner,
+    ).toBeNull();
+    expect(
+      owned.erasing(
+        DeletionScope.ofTeam(WorkspaceId.of('ws_1'), TeamId.of('team_2')),
+      ),
+    ).toBe(owned);
+    expect(
+      owned
+        .purgedByGitHub(SEEN_AT)
+        .erasing(DeletionScope.ofTeam(WorkspaceId.of('ws_1'), OWNER.teamId))
+        ?.isTombstone,
+    ).toBe(true);
+  });
+
+  it('lets go of the review tasks of a deleted team', () => {
+    const reviewed = noted()
+      .seenAs(seenOf())
+      .recordReview(REVIEW)
+      .recordReview({ taskId: TaskId.of('task_3'), teamId: OWNER.teamId });
+
+    expect(
+      reviewed.erasing(
+        DeletionScope.ofTeam(WorkspaceId.of('ws_1'), REVIEW.teamId),
+      )?.reviewTasks,
+    ).toEqual([{ taskId: TaskId.of('task_3'), teamId: OWNER.teamId }]);
+    expect(
+      noted()
+        .recordReview(REVIEW)
+        .erasing(DeletionScope.ofTeam(WorkspaceId.of('ws_1'), REVIEW.teamId)),
+    ).toBeNull();
+  });
+
+  it('is the pull request of the task that owns it, open until GitHub says otherwise, with GitHub’s close and first review', () => {
+    const owned = noted().assignOwner(OWNER);
+
+    expect(owned.forTask).toMatchObject({
+      taskId: OWNER.taskId,
+      teamId: OWNER.teamId,
+      state: 'open',
+      openedAt: OPENED_AT,
+      firstReviewAt: null,
+      closedAt: null,
+    });
+    expect(
+      owned.seenAs(
+        seenOf({
+          state: 'merged',
+          closedAt: LATER,
+          firstReviewAt: SEEN_AT,
+        }),
+      ).forTask,
+    ).toMatchObject({
+      state: 'merged',
+      closedAt: LATER,
+      firstReviewAt: SEEN_AT,
+    });
+    expect(noted().seenAs(seenOf()).forTask).toBeNull();
+  });
+
+  describe('for a task with pull requests in several repositories', () => {
+    const EARLIER_MERGE = new Date('2026-09-28T11:00:00.000Z');
+    const LATEST_MERGE = new Date('2026-09-28T12:00:00.000Z');
+
+    const inRepository = (
+      repository: string,
+      openedAt: Date,
+      seen: Parameters<typeof seenOf>[0] = {},
+    ) =>
+      PullRequestRecord.noted(
+        WorkspaceId.of('ws_1'),
+        PullRequestUrl.of(`https://github.com/acme/${repository}/pull/1`),
+      )
+        .assignOwner({ ...OWNER, openedAt })
+        .seenAs(seenOf(seen));
+
+    it('is the one pull request as it is when the task has only one', () => {
+      const only = inRepository('api', OPENED_AT, {
+        state: 'merged',
+        closedAt: LATER,
+        firstReviewAt: SEEN_AT,
+      });
+
+      expect(PullRequestRecord.taskFactOf([only])).toEqual(only.forTask);
+      expect(PullRequestRecord.taskFactOf([])).toBeNull();
+    });
+
+    it('is open while any of them is open, shown by the newest open one', () => {
+      const merged = inRepository('api', LATER, {
+        state: 'merged',
+        closedAt: LATEST_MERGE,
+        firstReviewAt: LATER,
+      });
+      const open = inRepository('web', OPENED_AT, {
+        firstReviewAt: SEEN_AT,
+      });
+
+      expect(PullRequestRecord.taskFactOf([merged, open])).toMatchObject({
+        pullRequest: open.pullRequest,
+        state: 'open',
+        openedAt: OPENED_AT,
+        firstReviewAt: SEEN_AT,
+        closedAt: null,
+      });
+    });
+
+    it('is merged at the latest merge once all of them are merged', () => {
+      const first = inRepository('api', OPENED_AT, {
+        state: 'merged',
+        closedAt: LATEST_MERGE,
+      });
+      const second = inRepository('web', LATER, {
+        state: 'merged',
+        closedAt: EARLIER_MERGE,
+      });
+
+      expect(PullRequestRecord.taskFactOf([first, second])).toMatchObject({
+        pullRequest: second.pullRequest,
+        state: 'merged',
+        openedAt: OPENED_AT,
+        closedAt: LATEST_MERGE,
+      });
+    });
+
+    it('is closed when none is open and one closed without a merge', () => {
+      const merged = inRepository('api', OPENED_AT, {
+        state: 'merged',
+        closedAt: LATEST_MERGE,
+      });
+      const closed = inRepository('web', LATER, {
+        state: 'closed',
+        closedAt: EARLIER_MERGE,
+      });
+
+      expect(PullRequestRecord.taskFactOf([merged, closed])).toMatchObject({
+        state: 'closed',
+        openedAt: OPENED_AT,
+        closedAt: LATEST_MERGE,
+      });
+    });
+  });
+
+  it('says when a task takes it, when GitHub’s view changes and when it closes for its task', () => {
+    const owned = noted().assignOwner(OWNER);
+
+    expect(kinds(owned)).toEqual(['pull-request-record.owned']);
+    expect(owned.assignOwner(OWNER)).toBe(owned);
+    expect(kinds(owned.seenAs(seenOf({ state: 'open' })))).toEqual([
+      'pull-request-record.seen',
+    ]);
+    expect(
+      kinds(owned.seenAs(seenOf({ state: 'merged', closedAt: LATER }))),
+    ).toEqual(['pull-request-record.seen', 'pull-request-record.closed']);
+    expect(
+      kinds(
+        noted()
+          .seenAs(seenOf({ state: 'closed', closedAt: LATER }))
+          .assignOwner(OWNER),
+      ),
+    ).toEqual([
+      'pull-request-record.seen',
+      'pull-request-record.owned',
+      'pull-request-record.closed',
+    ]);
+  });
+
+  it('says which tasks it let go of, and that it was erased', () => {
+    const owned = noted().assignOwner(OWNER).seenAs(seenOf());
+    owned.pullEvents();
+
+    expect(
+      kinds(
+        owned.erasing(
+          DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId),
+        ),
+      ),
+    ).toEqual(['pull-request-record.released']);
+    expect(kinds(owned.delete())).toEqual(['pull-request-record.erased']);
   });
 });

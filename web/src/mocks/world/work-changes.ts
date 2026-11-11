@@ -148,6 +148,13 @@ const POSTGRES_API: ChangeStackResponseDto = {
   state: 'ready',
   failure: null,
   check: null,
+  removed: [
+    {
+      previous: 'c1.l4',
+      cohort: 'Postgres driver 8.13',
+      title: 'Pin the pool size to ten',
+    },
+  ],
   files: [
     changedFile(POSTGRES, 'package.json', 'api_package', 14),
     changedFile(POSTGRES, 'src/db/pool.ts', 'api_pool'),
@@ -184,6 +191,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
             },
           ],
           questions: [],
+          revision: { status: 'unchanged', previous: 'c1.l1' },
         },
         {
           id: 'c1.l2',
@@ -213,6 +221,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
               answered: null,
             },
           ],
+          revision: { status: 'modified', previous: 'c1.l2' },
         },
         {
           id: 'c1.l3',
@@ -227,6 +236,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
             },
           ],
           questions: [],
+          revision: { status: 'added', previous: null },
         },
       ],
     },
@@ -243,6 +253,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
           hunks: [{ hunk: 'api_lockfile' }],
           notes: [],
           questions: [],
+          revision: null,
         },
       ],
     },
@@ -257,6 +268,7 @@ const SEARCH: ChangeStackResponseDto = {
   state: 'ready',
   failure: null,
   check: null,
+  removed: [],
   files: [
     changedFile(SEARCH_RUN, TRIGRAM_MIGRATION, 'search_h1'),
     changedFile(
@@ -283,6 +295,7 @@ const SEARCH: ChangeStackResponseDto = {
           hunks: [{ hunk: 'search_h1' }],
           notes: [],
           questions: [],
+          revision: null,
         },
         {
           id: 'c1.l2',
@@ -292,6 +305,7 @@ const SEARCH: ChangeStackResponseDto = {
           hunks: [{ hunk: 'search_h2' }],
           notes: [],
           questions: [],
+          revision: null,
         },
       ],
     },
@@ -306,6 +320,7 @@ const REFERRAL: ChangeStackResponseDto = {
   state: 'ready',
   failure: null,
   check: null,
+  removed: [],
   files: [
     changedFile(REFERRAL_RUN, 'src/lib/referral.ts', 'referral_h1'),
     changedFile(
@@ -331,6 +346,7 @@ const REFERRAL: ChangeStackResponseDto = {
           hunks: [{ hunk: 'referral_h1' }],
           notes: [],
           questions: [],
+          revision: null,
         },
         {
           id: 'c1.l2',
@@ -339,6 +355,7 @@ const REFERRAL: ChangeStackResponseDto = {
           hunks: [{ hunk: 'referral_h2' }],
           notes: [],
           questions: [],
+          revision: null,
         },
       ],
     },

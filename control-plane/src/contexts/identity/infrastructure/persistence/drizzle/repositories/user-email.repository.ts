@@ -33,7 +33,9 @@ export class DrizzleUserEmailRepository implements UserEmailRepository {
   async add(added: UserEmail): Promise<void> {
     await this.context.inTransaction(async () => {
       try {
-        await this.context.db.insert(userEmail).values(this.written(added));
+        await this.context.db
+          .insert(userEmail)
+          .values({ ...this.written(added), version: added.version });
       } catch (error) {
         if (violates(error, UNIQUE_VIOLATION, 'user_email_user_email')) {
           throw new EmailAlreadyAddedError(added.email.value);

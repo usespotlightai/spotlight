@@ -10,48 +10,57 @@ import {
   type JudgeRequest,
 } from '@insights/application/ports/judge.port';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
-import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { DeleteChangeJudgings } from '@replays/application/services/delete-change-judgings.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
+import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
 import {
   taskComparisons,
   totalsOf,
 } from '@replays/domain/services/replay-results';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import type { JournalEntry } from '@runs/application/ports/run-journal.port';
+import {
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
+import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
-import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
-import type { JournalEntry } from '@work/application/ports/run-journal.port';
-import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
-import { plannedCandidate, replayOf, startedReplay } from './support/replays';
+import {
+  plannedCandidate,
+  replayOf,
+  startedReplay,
+  writtenStation,
+} from './support/replays';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-scoring-${randomUUID().slice(0, 8)}`;
@@ -65,11 +74,12 @@ const RUBRIC = 'scores: 1-5\nDoes it drain the queue in order?';
 
 const attachmentStore = {
   received: async () => [],
+  stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -124,19 +134,14 @@ const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
   available: true,
-  model: 'stub/judge',
   judge: async (request) => {
     requests.push(request);
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
+      model: 'stub/judge',
       guidance: null,
-      usage: {
-        inputTokens: 2_000,
-        outputTokens: 50,
-        cost: { amount: 0.01, currency: 'USD' },
-      },
       verdict: {
         value,
         reasons: [
@@ -246,24 +251,12 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
-  });
-  await db.insert(schema.workspaceArchive).values({
-    id: archiveId,
-    workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
-    grantedToRunId: randomUUID(),
-    size: 1_024,
-    sha256: 'a'.repeat(64),
-    grantedAt: at,
-    completedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: BUILD,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -279,23 +272,41 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
-    briefedTask: BriefedTask.of({
-      stationId: StationId.of(BUILD),
-      title: 'Drain the queue',
-      description: 'It stalls on restart.',
-      reviewing: null,
-      attachments: [],
-      notes: [],
-      openReviewComments: [],
-    }).parts,
-    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
+  });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId,
+      stationId: BUILD,
+      briefedTask: BriefedTask.of({
+        stationId: StationId.of(BUILD),
+        title: 'Drain the queue',
+        description: 'It stalls on restart.',
+        reviewing: null,
+        attachments: [],
+        notes: [],
+        openReviewComments: [],
+      }).parts,
+      endedAt: at,
+    }),
+  );
+  await db.insert(schema.workingCopyArchive).values({
+    id: archiveId,
+    workspaceId: team.workspaceId.value,
+    workingCopyKey: `work/task-${taskId}`,
+    grantedToRunId: runId,
+    size: 1_024,
+    sha256: 'a'.repeat(64),
+    grantedAt: at,
+    completedAt: at,
   });
   await new DrizzleRunJournal(new DrizzleContext(db)).append(
     RunAttempt.of(RunId.of(runId), 1),
@@ -305,30 +316,46 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
   );
 
   if (accepted) {
-    await app
-      .get(DrizzleRunRecordRepository)
-      .add(
-        RunRecord.empty(
-          RunId.of(runId),
-          team.workspaceId,
-          TaskId.of(taskId),
-        ).recordAction(HumanAction.of('accepted', at)),
-      );
+    await app.get(DrizzleRunRecordRepository).add(
+      RunRecord.empty(RunId.of(runId), team.workspaceId, TaskId.of(taskId))
+        .recordEnd(
+          RunEnd.of({
+            location: RunLocation.of({
+              teamId: team.teamId,
+              lineId: LineId.of(DELIVERY),
+              stationId: StationId.of(BUILD),
+              taskId: TaskId.of(taskId),
+            }),
+            fingerprint: null,
+            agentConfig: RunAgentConfig.of({
+              harness: 'claude-code',
+              model: null,
+              effort: null,
+              profileKey: null,
+              repositories: [],
+              skills: [],
+            }),
+            queuedAt: null,
+            startedAt: null,
+            endedAt: at,
+            ending: 'completed',
+            failure: null,
+            visit: 1,
+            asked: false,
+          }),
+        )
+        .recordAction(HumanAction.of('accepted', at)),
+    );
   }
 
   return { taskId, runId };
 };
 
-const proposed = async (prompt: string): Promise<string> => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, BUILD);
-
-  return plannedCandidate(app, DELIVERY, 'build', {
-    ...live?.station,
+const proposed = async (prompt: string): Promise<string> =>
+  plannedCandidate(app, DELIVERY, 'build', {
+    ...(await writtenStation(app, DELIVERY, 'build')),
     prompt,
   });
-};
 
 interface Claimed {
   readonly token: string;
@@ -389,7 +416,7 @@ const processed = async () => {
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
@@ -417,9 +444,10 @@ beforeAll(async () => {
     repository: Repository.of('acme/api').value,
     setup: 'npm ci',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -428,6 +456,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -447,6 +476,7 @@ beforeAll(async () => {
     },
     {
       id: SHIP,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'ship',
       name: 'Ship',
@@ -456,6 +486,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',
@@ -653,11 +684,14 @@ describe('a replay at a station that checks and judges', () => {
     );
 
     const replay = await replayOf(app, id);
-    const comparison = taskComparisons(replay, await replayOf(app, baselineId));
+    const comparison = taskComparisons(
+      replay.outcome(),
+      (await replayOf(app, baselineId)).outcome(),
+    );
 
     expect(replay.judges).toBe(true);
     expect(replay.checked).toBe(true);
-    expect(totalsOf(replay)).toMatchObject({
+    expect(totalsOf(replay.outcome())).toMatchObject({
       scored: 2,
       unscored: 0,
       successRate: 0.5,
@@ -675,7 +709,9 @@ describe('a replay at a station that checks and judges', () => {
       [first.runId, false, 1, true, true],
     ]);
 
-    const [regressed, steady] = comparison;
+    const [regressed, steady] = comparison.map((row) =>
+      replay.entries.find((each) => each.original.value === row.original),
+    );
     const spentOf = (spent: ModelSpent | null | undefined) =>
       spent && {
         spends: spent.spends.map((each) => ({
@@ -685,29 +721,25 @@ describe('a replay at a station that checks and judges', () => {
         unpriced: spent.unpriced,
       };
 
-    expect(spentOf(steady?.candidate[0]?.generationSpent)).toEqual({
+    expect(spentOf(steady?.generationSpent)).toEqual({
       spends: [{ amount: 0.02, currency: 'USD' }],
       unpriced: 0,
     });
-    expect(spentOf(steady?.candidate[0]?.judgingSpent)).toEqual({
-      spends: [{ amount: 0.01, currency: 'USD' }],
-      unpriced: 0,
-    });
-    expect(regressed?.candidate[0]?.checks).toMatchObject({
+    expect(regressed?.checks).toMatchObject({
       state: 'failed',
       failedAt: ['the whole change'],
       why: null,
     });
-    expect(regressed?.candidate[0]?.verdict).toMatchObject({
+    expect(regressed?.verdict).toMatchObject({
       value: 2,
       passes: false,
       referenced: false,
     });
-    expect(regressed?.candidate[0]?.reasons.map((each) => each.code)).toEqual([
+    expect(regressed?.reasons.map((each) => each.code)).toEqual([
       'check-failed',
       'judge-failed',
     ]);
-    expect(steady?.candidate[0]?.verdict).toMatchObject({
+    expect(steady?.verdict).toMatchObject({
       value: 5,
       passes: true,
       referenced: true,
@@ -749,9 +781,10 @@ describe('a replay at a station that checks and judges', () => {
         .from(schema.changeJudging)
         .where(inArray(schema.changeJudging.runId, replayRuns)),
     ).toHaveLength(4);
-    await app
-      .get(DeleteInsights)
-      .judgingsAndScoresOfTeam(team.workspaceId, team.teamId);
+    const deleting = app.get(DeleteInsights);
+    const deleted = DeletionScope.ofTeam(team.workspaceId, team.teamId);
+    await app.get(DeleteChangeJudgings).ofTeam(team.teamId);
+    await deleting.scores(deleted);
     expect(
       await db
         .select()
@@ -761,10 +794,10 @@ describe('a replay at a station that checks and judges', () => {
     expect(
       (
         await db
-          .select({ replay: schema.changeStack.replay })
+          .select({ trial: schema.changeStack.trial })
           .from(schema.changeStack)
           .where(inArray(schema.changeStack.runId, replayRuns))
-      ).map((each) => each.replay),
+      ).map((each) => each.trial),
     ).toEqual([true, true, true, true]);
   }, 120_000);
 });
@@ -788,9 +821,7 @@ describe('a task run’s change', () => {
     await db.insert(schema.run).values({
       id: runId,
       workspaceId: team.workspaceId.value,
-      taskId,
-      taskRevision: 0,
-      stationId: BUILD,
+      ...requestedByTask(taskId, { teamId: team.teamId.value }),
       harness: 'claude-code',
       state: 'queued',
       spec: {
@@ -805,7 +836,7 @@ describe('a task run’s change', () => {
         command: { executable: 'claude-agent-acp', args: [] },
         briefing: 'Retry uploads.',
         handover: { options: ['ship'], noteLimit: 0 },
-        resume: { key: `task-${taskId}` },
+        resume: {},
         diffs: true,
         check: 'npm test',
       },
@@ -835,7 +866,7 @@ describe('a task run’s change', () => {
 
       expect(stack?.checkCommand).toBe('npm test');
       expect(stack?.checkSetup).toBe('npm ci');
-      expect(stack?.replay).toBe(false);
+      expect(stack?.trial).toBe(false);
     } finally {
       await db
         .update(schema.station)

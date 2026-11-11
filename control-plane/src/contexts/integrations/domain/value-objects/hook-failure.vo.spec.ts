@@ -13,8 +13,9 @@ describe('HookFailure', () => {
     ['timeout', true],
     ['throttled', true],
     ['server-error', true],
-    ['tool-failed', true],
-    ['errored', true],
+    ['unavailable', true],
+    ['tool-failed', false],
+    ['errored', false],
     ['rejected', false],
     ['not-allowed', false],
     ['unwritable', false],
@@ -29,7 +30,7 @@ describe('HookFailure', () => {
   );
 
   it('states a retry for every code it knows', () => {
-    expect(Object.keys(HOOK_FAILURES)).toHaveLength(12);
+    expect(Object.keys(HOOK_FAILURES)).toHaveLength(13);
   });
 
   it('schedules a later attempt for a failure worth retrying, and no attempt after its last one', () => {
@@ -61,6 +62,56 @@ describe('HookFailure', () => {
     [503, 'server-error'],
   ])('reads an answer of %i as %s', (status, code) => {
     expect(HookFailure.answered(status, 'answered').code).toBe(code);
+  });
+
+  it.each<[Parameters<typeof HookFailure.callFailed>[0], HookFailureCode]>([
+    [
+      { kind: 'upstream', status: null, transient: true, reason: 'cut off' },
+      'unreachable',
+    ],
+    [
+      { kind: 'upstream', status: 503, transient: true, reason: '503' },
+      'server-error',
+    ],
+    [
+      { kind: 'upstream', status: 429, transient: true, reason: '429' },
+      'throttled',
+    ],
+    [
+      { kind: 'upstream', status: 404, transient: true, reason: '404' },
+      'rejected',
+    ],
+    [
+      { kind: 'upstream', status: null, transient: false, reason: 'no' },
+      'tool-failed',
+    ],
+    [{ kind: 'blocked', reason: 'not allowed there' }, 'not-allowed'],
+    [{ kind: 'unknown', reason: 'a bug' }, 'tool-failed'],
+  ])('reads a failed tool call %j as %s', (fact, code) => {
+    expect(HookFailure.callFailed(fact).code).toBe(code);
+  });
+
+  it('retries a failed tool call only when the failure is transient', () => {
+    expect(
+      HookFailure.callFailed({
+        kind: 'upstream',
+        status: 502,
+        transient: true,
+        reason: '502',
+      }).retry.allowsRetry,
+    ).toBe(true);
+    expect(
+      HookFailure.callFailed({
+        kind: 'upstream',
+        status: 400,
+        transient: true,
+        reason: '400',
+      }).retry.allowsRetry,
+    ).toBe(false);
+    expect(
+      HookFailure.callFailed({ kind: 'unknown', reason: 'a bug' }).retry
+        .allowsRetry,
+    ).toBe(false);
   });
 
   it('keeps its reason when it is superseded', () => {

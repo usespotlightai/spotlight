@@ -173,10 +173,10 @@ func TestASandboxWithNoRunRestoresWaitsAndArchivesItsEditsWhenItDrains(t *testin
 	<-done
 
 	want := []string{
-		"GET /api/sandboxes/sandbox_a/workspace-archive",
-		"POST /api/sandboxes/sandbox_a/workspace-archive",
+		"GET /api/sandboxes/sandbox_a/working-copy-archive",
+		"POST /api/sandboxes/sandbox_a/working-copy-archive",
 		"PUT /objects/archive_1",
-		"POST /api/sandboxes/sandbox_a/workspace-archive/archive_1/complete",
+		"POST /api/sandboxes/sandbox_a/working-copy-archive/archive_1/complete",
 	}
 	if got := plane.called(); !slices.Equal(got, want) {
 		t.Errorf("called %v, want %v", got, want)

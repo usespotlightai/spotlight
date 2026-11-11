@@ -9,7 +9,11 @@ import type {
   StepId,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
-import type { StackCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import type {
+  LayerRevision,
+  RemovedLayer,
+  StackCohort,
+} from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import {
   CohortId,
@@ -19,14 +23,17 @@ import {
 } from '@change-review/domain/value-objects/stack-ids';
 import {
   type ChangeStackState,
+  type StackFailure,
   StackProgress,
 } from '@change-review/domain/value-objects/stack-progress.vo';
 import type {
   StoredCohort,
   StoredFacts,
   StoredFile,
+  StoredRemovedLayer,
   StoredStep,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 const stepOf = (raw: string): StepId =>
   raw === WHOLE_STEP ? WHOLE_STEP : LayerId.of(raw);
@@ -71,6 +78,31 @@ export const factsOf = (stored: StoredFacts): StackFacts =>
     imports: stored.imports.map((each) => ({ ...each })),
   });
 
+const revisionOf = (
+  stored: NonNullable<StoredCohort['layers'][number]['revision']>,
+): LayerRevision => {
+  if (stored.status === 'added') {
+    return { status: 'added' };
+  }
+  if (!stored.previous) {
+    throw new InconsistentStateError(
+      'change stack',
+      `has a layer ${stored.status} without the layer it follows`,
+    );
+  }
+
+  return { status: stored.status, previous: LayerId.of(stored.previous) };
+};
+
+export const removedOf = (
+  stored: readonly StoredRemovedLayer[],
+): RemovedLayer[] =>
+  stored.map((each) => ({
+    previous: LayerId.of(each.previous),
+    cohort: each.cohort,
+    title: each.title,
+  }));
+
 export const cohortsOf = (
   stored: readonly StoredCohort[],
 ): readonly StackCohort[] =>
@@ -96,12 +128,13 @@ export const cohortsOf = (
         answer: each.answer,
         hunks: each.hunks.map((hunk) => HunkId.of(hunk)),
       })),
+      revision: layer.revision ? revisionOf(layer.revision) : null,
     })),
   }));
 
 export const progressOf = (row: {
   state: ChangeStackState;
-  failure: string | null;
+  failure: StackFailure | null;
   startedAt: Date;
   completedAt: Date | null;
 }): StackProgress =>
@@ -139,5 +172,6 @@ export const cohortRows = (cohorts: readonly StackCohort[]): StoredCohort[] =>
         ...each,
         hunks: [...each.hunks],
       })),
+      revision: layer.revision && { ...layer.revision },
     })),
   }));

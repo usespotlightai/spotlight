@@ -11,8 +11,16 @@ export class DraftGeneration {
     return new DraftGeneration(value);
   }
 
+  static sentAs(value: number | null): DraftGeneration | null {
+    return value === null ? null : DraftGeneration.of(value);
+  }
+
   static first(): DraftGeneration {
     return new DraftGeneration(0);
+  }
+
+  correcting(shown: number): DraftGeneration | null {
+    return Number.isInteger(shown) && shown >= this.value ? null : this;
   }
 
   next(): DraftGeneration {

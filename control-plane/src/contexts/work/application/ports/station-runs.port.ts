@@ -1,6 +1,4 @@
 import type { FingerprintedConfig } from '@work/application/contracts/station-config.contract';
-import type { TracedWanted } from '@work/application/ports/station-run-reader.port';
-import type { Progress } from '@work/domain/value-objects/run-state';
 
 export const STATION_RUNS = Symbol('STATION_RUNS');
 
@@ -24,6 +22,12 @@ export interface EndedStationRun {
   readonly endedAt: Date;
 }
 
+export interface StationTaskRun {
+  readonly runId: string;
+  readonly taskId: string;
+  readonly teamId: string;
+}
+
 export interface UnfinishedStationRun {
   readonly runId: string;
   readonly lineId: string;
@@ -32,7 +36,7 @@ export interface UnfinishedStationRun {
   readonly openedBy: string | null;
   readonly harness: string;
   readonly model: string | null;
-  readonly progress: Progress;
+  readonly progress: 'queued' | 'in-progress' | 'stopping';
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
 }
@@ -52,23 +56,22 @@ interface TracedTask {
   readonly stationId: string;
 }
 
+export interface TracedRunsWanted {
+  readonly taskIds: readonly string[];
+  readonly runIds: readonly string[];
+  readonly stationIds: readonly string[];
+}
+
 export interface TracedWork {
   readonly tasks: readonly TracedTask[];
   readonly stations: readonly TracedStation[];
   readonly outputs: ReadonlyMap<string, string>;
 }
 
-export interface StationAlertShape {
-  readonly measure: string;
-  readonly risesBy: number | null;
-  readonly above: number | null;
-  readonly fallsBy: number | null;
-  readonly below: number | null;
-  readonly over: number;
-}
-
 export interface StationRunsPort {
   ended(runId: string): Promise<EndedStationRun | null>;
+
+  taskRunOf(runId: string): Promise<StationTaskRun | null>;
 
   unfinished(teamId: string): Promise<readonly UnfinishedStationRun[]>;
 
@@ -76,9 +79,5 @@ export interface StationRunsPort {
     fingerprints: readonly string[],
   ): Promise<readonly FingerprintedConfig[]>;
 
-  alertsAt(stationId: string): Promise<readonly StationAlertShape[] | null>;
-
-  teamSkillKeys(teamId: string): Promise<readonly string[]>;
-
-  traced(wanted: TracedWanted): Promise<TracedWork>;
+  traced(wanted: TracedRunsWanted): Promise<TracedWork>;
 }

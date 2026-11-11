@@ -1,68 +1,74 @@
-import type {
-  TeamDirectoryPort,
-  TeamProfile,
-} from '@identity/application/ports/team-directory.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
-import { Line } from '@work/domain/aggregates/line.aggregate';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
+import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
 
-const team = (): TeamProfile => ({
-  id: TeamId.of('team_1'),
-  workspaceId: WorkspaceId.of('ws_1'),
-  key: 'platform',
-  name: 'Platform',
-  members: [UserId.of('user_1'), UserId.of('user_2')],
-});
+const MEMBERS = [UserId.of('user_1'), UserId.of('user_2')];
+
+const seeing = (
+  viewers: readonly string[] = ['user_1', 'user_2'],
+  outsideTheTeam: readonly string[] = [],
+) =>
+  workAccessSeeing(
+    (teamId, viewer) =>
+      teamId.value === 'team_1' && viewers.includes(viewer.value),
+    {
+      members: MEMBERS,
+      onTeam: (_, viewer) => !outsideTheTeam.includes(viewer.value),
+    },
+  );
 
 const delivery = (
   workspaceId = 'ws_1',
   backlogId = 'station_1',
   teamId = 'team_1',
 ) =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
     teamId: TeamId.of(teamId),
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
     stations: [
-      Station.of({
+      stationOf({
         id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'backlog',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_completed'),
         key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 1,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'completed',
       }),
     ],
@@ -88,40 +94,30 @@ const tasks = (found: Task | null = task()) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    findByMarks: vi.fn(async () => null),
+    findByCorrelation: vi.fn(async () => []),
+    holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
-
-const teams = (found: TeamProfile | null = team()) =>
-  ({
-    find: vi.fn(async () => found),
-    inWorkspace: vi.fn(async () => (found ? [found] : [])),
-  }) satisfies TeamDirectoryPort;
 
 const lines = (teamId = 'team_1') =>
   ({
     findByStation: vi.fn(async () => delivery('ws_1', 'station_1', teamId)),
-  }) as unknown as LineRepository;
+  }) as unknown as LineMapsPort;
 
 const assign = (
   assigneeId: string | null,
   viewerId = 'user_1',
   stored: TaskRepository = tasks(),
-  team: TeamDirectoryPort = teams(),
-  board: LineRepository = lines(),
+  board: LineMapsPort = lines(),
 ) =>
-  new AssignTaskHandler(
-    stored,
-    team,
-    transaction,
-    taskReaderOver(() => saved),
-    board,
-  ).execute(new AssignTaskCommand('team_1', 'task_1', assigneeId, viewerId));
+  new AssignTaskHandler(stored, seeing(), transaction, board).execute(
+    new AssignTaskCommand('team_1', 'task_1', assigneeId, viewerId),
+  );
 
 describe('AssignTaskHandler', () => {
   beforeEach(() => {
@@ -129,34 +125,67 @@ describe('AssignTaskHandler', () => {
   });
 
   it('gives a task to a team member', async () => {
-    const dto = await assign('user_2');
+    await assign('user_2');
 
     expect(saved?.assignee?.value).toBe('user_2');
-    expect(dto.assignee?.id).toBe('user_2');
   });
 
   it('takes a task back to unclaimed', async () => {
-    const stored = tasks(task().assign(UserId.of('user_2')));
+    const stored = tasks(
+      task().assign(UserId.of('user_2'), TeamMembers.of(MEMBERS)),
+    );
 
-    const dto = await assign(null, 'user_1', stored);
+    await assign(null, 'user_1', stored);
 
     expect(saved?.assignee).toBeNull();
-    expect(dto.assignee).toBeNull();
   });
 
   it('does not give work to someone not on the team', async () => {
     await expect(assign('user_stranger')).rejects.toThrow(ApplicationError);
   });
 
-  it('turns away a viewer who is not on the team', async () => {
+  it('turns away a viewer who does not see the team', async () => {
     await expect(assign('user_2', 'user_outsider')).rejects.toThrow(
       ApplicationError,
     );
   });
 
+  it('refuses a workspace member who sees the team but is not on it, changing nothing', async () => {
+    const handler = new AssignTaskHandler(
+      tasks(),
+      seeing(['user_1', 'user_2', 'user_bystander'], ['user_bystander']),
+      transaction,
+      lines(),
+    );
+
+    await expect(
+      handler.execute(
+        new AssignTaskCommand('team_1', 'task_1', 'user_2', 'user_bystander'),
+      ),
+    ).rejects.toMatchObject({
+      refusal: expect.any(TeamMembershipRequiredError),
+    });
+    expect(saved).toBeUndefined();
+  });
+
+  it('lets a workspace admin assign, though not on the team’s roster', async () => {
+    const handler = new AssignTaskHandler(
+      tasks(),
+      seeing(['user_1', 'user_2', 'user_admin']),
+      transaction,
+      lines(),
+    );
+
+    await handler.execute(
+      new AssignTaskCommand('team_1', 'task_1', 'user_2', 'user_admin'),
+    );
+
+    expect(saved?.assignee?.value).toBe('user_2');
+  });
+
   it('turns away a task the team does not have, before it changes anything', async () => {
     await expect(
-      assign('user_2', 'user_1', tasks(), teams(), lines('team_other')),
+      assign('user_2', 'user_1', tasks(), lines('team_other')),
     ).rejects.toThrow(ApplicationError);
     expect(saved).toBeUndefined();
   });

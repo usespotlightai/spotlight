@@ -38,7 +38,12 @@ export class CheckEvaluations {
       check.awaitsBaseline && set !== null && !set.isAtGoneStation;
 
     return {
-      evaluation: evaluationOf(check, replay, baseline, awaiting),
+      evaluation: evaluationOf(
+        check,
+        replay?.outcome() ?? null,
+        baseline?.outcome() ?? null,
+        awaiting,
+      ),
       replay,
       baseline,
       set,

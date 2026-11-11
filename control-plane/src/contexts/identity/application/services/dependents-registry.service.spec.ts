@@ -12,12 +12,16 @@ describe('DependentsRegistry', () => {
   it('gathers the dependents that every registered context names for the team', async () => {
     const registry = new DependentsRegistry<TeamId>();
 
-    registry.register({ dependentsOf: async () => ['line delivery'] });
-    registry.register({ dependentsOf: async () => ['skill grafana'] });
+    registry.register({
+      dependentsOf: async () => [{ kind: 'line', key: 'delivery' }],
+    });
+    registry.register({
+      dependentsOf: async () => [{ kind: 'skill', key: 'grafana' }],
+    });
 
     expect(await registry.of(TeamId.of('team_1'))).toEqual([
-      'line delivery',
-      'skill grafana',
+      { kind: 'line', key: 'delivery' },
+      { kind: 'skill', key: 'grafana' },
     ]);
   });
 });

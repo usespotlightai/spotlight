@@ -7,6 +7,16 @@ import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 
 export const MIN_PAIRS = 10;
 
+export const measuredOf = (pairs: number): boolean => pairs >= MIN_PAIRS;
+
+export const pairsProgressOf = (pairs: number): number =>
+  Math.min(1, pairs / MIN_PAIRS);
+
+export const belowMinimumOf = (
+  value: number | null,
+  minAgreement: number | null,
+): boolean => value !== null && minAgreement !== null && value < minAgreement;
+
 export const HIDDEN_REASONS = [
   'no-judge',
   'unreadable-rubric',
@@ -15,11 +25,11 @@ export const HIDDEN_REASONS = [
   'below-min-agreement',
 ] as const;
 
-type HiddenReason = (typeof HIDDEN_REASONS)[number];
+export type HiddenReason = (typeof HIDDEN_REASONS)[number];
 
 export const AGREEMENT_MEASURES = ['kappa', 'spearman'] as const;
 
-type AgreementMeasure = (typeof AGREEMENT_MEASURES)[number];
+export type AgreementMeasure = (typeof AGREEMENT_MEASURES)[number];
 
 export interface JudgeCalibration {
   readonly qualified: boolean;
@@ -84,6 +94,10 @@ export const calibrationOf = (
   return { qualified: true, hiddenReason: null, ...known };
 };
 
+export const failingOf = (calibration: JudgeCalibration): boolean =>
+  calibration.hiddenReason !== null &&
+  calibration.hiddenReason !== 'too-few-pairs';
+
 export const showsJudgeOf = (
   calibration: JudgeCalibration,
   current: string | null,
@@ -91,8 +105,9 @@ export const showsJudgeOf = (
 ): boolean =>
   calibration.qualified && current !== null && rubricVersion === current;
 
-export const trendShownOf = (
+export const TREND_MIN_PAIRS = 30;
+
+export const trendReadyOf = (
+  pairs: number,
   trend: readonly TrendPoint[],
-  shown: boolean,
-): TrendPoint[] =>
-  trend.map((point) => (shown ? point : { ...point, judge: null }));
+): boolean => pairs >= TREND_MIN_PAIRS && trend.length > 1;

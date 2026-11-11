@@ -5,7 +5,7 @@ import {
   type PermissionDecision,
   PermissionRule,
 } from '@configuration/domain/value-objects/permission-rule.vo';
-import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
+import { SecretReference } from '@configuration/domain/value-objects/secret-reference.vo';
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -92,17 +92,19 @@ export class ProfileSettings {
     };
   }
 
-  get secretReferences(): readonly SecretReferenceAt[] {
+  get secretReferences(): readonly SecretReference[] {
     return this.mcpServers.flatMap((server, at) =>
-      server.injectedSecrets.map(({ variable, secret }) => ({
-        path: FieldPath.of(['mcpServers', at, 'env', variable]),
-        name: secret.value,
-      })),
+      server.injectedSecrets.map(({ variable, secret }) =>
+        SecretReference.at(
+          FieldPath.of(['mcpServers', at, 'env', variable]),
+          secret,
+        ),
+      ),
     );
   }
 
   uses(secret: SecretName): boolean {
-    return this.secretReferences.some((each) => each.name === secret.value);
+    return this.secretReferences.some((each) => each.isTo(secret));
   }
 
   equals(other: ProfileSettings): boolean {

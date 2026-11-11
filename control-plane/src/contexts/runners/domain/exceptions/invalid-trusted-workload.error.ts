@@ -1,4 +1,6 @@
-export class InvalidTrustedWorkloadError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidTrustedWorkloadError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(

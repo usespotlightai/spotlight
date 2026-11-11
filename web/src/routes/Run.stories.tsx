@@ -8,6 +8,7 @@ import {
 
 type RunArgs = {
   readonly run:
+    | 'run_retries_1'
     | 'run_retries_2'
     | 'run_retries_3'
     | 'run_billing_1'
@@ -23,6 +24,7 @@ const meta = {
     args: { run: 'run_retries_2', memories: false },
     argTypes: {
       run: choice('Run', {
+        run_retries_1: 'At a station the task has left',
         run_retries_2: 'Finished',
         run_retries_3: 'Working',
         run_billing_1: 'Run failed',

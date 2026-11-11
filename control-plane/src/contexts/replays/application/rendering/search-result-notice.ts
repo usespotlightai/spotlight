@@ -1,11 +1,9 @@
 import type { NoticeWords } from '@replays/application/rendering/reflection-notice';
-import {
-  type AdvisedSkipReason,
-  SKIP_ADVICE,
-} from '@replays/application/rendering/skip-advice';
+import { SKIP_ADVICE } from '@replays/application/rendering/skip-advice';
 import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { SearchPickDecline } from '@replays/domain/value-objects/search-pick';
+import type { LastingSkipReason } from '@replays/domain/value-objects/search-skip-reason';
 import type { SearchCutShort } from '@replays/domain/value-objects/search-stop-reason';
 
 const percent = (value: number): number => Math.round(value * 100);
@@ -167,7 +165,7 @@ export const SearchResultWording = {
     };
   },
 
-  skipped(stationName: string | null, reason: AdvisedSkipReason): NoticeWords {
+  skipped(stationName: string | null, reason: LastingSkipReason): NoticeWords {
     return {
       headline: `Spotlight cannot search ${stationOf(stationName)}`,
       points: SKIP_ADVICE[reason],

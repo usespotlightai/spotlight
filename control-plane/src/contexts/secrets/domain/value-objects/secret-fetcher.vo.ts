@@ -1,30 +1,26 @@
+import type { EgressId } from '@secrets/domain/value-objects/egress-id.vo';
 import type { Recipient } from '@secrets/domain/value-objects/recipient.vo';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class SecretFetcher {
   private readonly kind = 'secret-fetcher';
 
   private constructor(
     readonly recipient: Recipient,
-    readonly sharedEgress: string | null,
+    readonly sharedEgress: EgressId | null,
   ) {}
 
   static sidecar(recipient: Recipient): SecretFetcher {
     return new SecretFetcher(recipient, null);
   }
 
-  static shared(recipient: Recipient, egressId: string): SecretFetcher {
-    if (egressId.trim().length === 0) {
-      throw new InconsistentStateError(
-        'secret fetcher',
-        'was named with no egress',
-      );
-    }
-
-    return new SecretFetcher(recipient, egressId);
+  static shared(recipient: Recipient, egress: EgressId): SecretFetcher {
+    return new SecretFetcher(recipient, egress);
   }
 
-  static of(recipient: Recipient, sharedEgress: string | null): SecretFetcher {
+  static of(
+    recipient: Recipient,
+    sharedEgress: EgressId | null,
+  ): SecretFetcher {
     return sharedEgress === null
       ? SecretFetcher.sidecar(recipient)
       : SecretFetcher.shared(recipient, sharedEgress);
@@ -33,14 +29,16 @@ export class SecretFetcher {
   matches(pinned: SecretFetcher): boolean {
     return pinned.sharedEgress === null
       ? this.sharedEgress === null && this.recipient.equals(pinned.recipient)
-      : this.sharedEgress === pinned.sharedEgress;
+      : this.sharedEgress?.equals(pinned.sharedEgress) === true;
   }
 
   equals(other: SecretFetcher): boolean {
     return (
       this.kind === other.kind &&
-      this.sharedEgress === other.sharedEgress &&
-      this.recipient.equals(other.recipient)
+      this.recipient.equals(other.recipient) &&
+      (this.sharedEgress === null || other.sharedEgress === null
+        ? this.sharedEgress === other.sharedEgress
+        : this.sharedEgress.equals(other.sharedEgress))
     );
   }
 }

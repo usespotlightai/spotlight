@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  InboxChat,
   InboxEntry,
   InboxItem,
   InboxNotice,
@@ -8,20 +9,22 @@ import type {
   RunJournal,
 } from '@/lib/inbox';
 import {
+  chatPreviewOf,
   counted,
   decisionPending,
+  entryKey,
   formatShortDuration,
   inboxItemPath,
   lastNoteAt,
   noticeLinkPath,
-  noticeOf,
   noticePath,
   noticePreviewOf,
   previewOf,
+  reopenable,
+  resolvable,
   shownAt,
   spentIn,
   spentOn,
-  taskItemOf,
   threadText,
   workedOn,
 } from '@/lib/inbox';
@@ -88,33 +91,33 @@ describe('spentIn', () => {
 });
 
 describe('previewOf', () => {
-  const item = (notes: Partial<Note>[]) =>
+  const item = (lastNote: Partial<Note> | null) =>
     ({
       station: 'Planning',
       description: 'A few quick steps will get everything ready.',
-      notes,
+      lastNote,
     }) as InboxItem;
 
   it('shows the last note', () => {
-    expect(previewOf(item([{ form: 'words', body: 'Which queue?' }]))).toBe(
+    expect(previewOf(item({ form: 'words', body: 'Which queue?' }))).toBe(
       'Which queue?',
     );
   });
 
   it('shows the task’s description, not the listed steps, for setting up a team', () => {
     expect(
-      previewOf(item([{ form: 'setup', body: '1. [Connect GitHub](/x). …' }])),
+      previewOf(item({ form: 'setup', body: '1. [Connect GitHub](/x). …' })),
     ).toBe('A few quick steps will get everything ready.');
   });
 
   it('says where it waits when there is no note', () => {
-    expect(previewOf(item([]))).toBe('Waiting at Planning');
+    expect(previewOf(item(null))).toBe('Waiting at Planning');
   });
 
   it('says a station alert fired, and that it resolved', () => {
     const alert = (resolved: boolean) =>
       ({
-        ...item([]),
+        ...item(null),
         resolved,
         inboxRequest: { form: 'alert', about: 'alert_1' },
       }) as InboxItem;
@@ -386,6 +389,8 @@ const notice = (over: Partial<InboxNotice> = {}): InboxNotice => ({
   askedAt: '2026-10-01T10:00:00.000Z',
   unread: true,
   resolved: false,
+  section: 'open',
+  reopenable: false,
   ...over,
 });
 
@@ -412,9 +417,7 @@ describe('notices', () => {
       { kind: 'task', id: 'same' } as InboxItem,
     ];
 
-    expect(noticeOf(entries, 'same')?.kind).toBe('notice');
-    expect(taskItemOf(entries, 'same')?.kind).toBe('task');
-    expect(noticeOf(entries, 'other')).toBeUndefined();
+    expect(new Set(entries.map(entryKey)).size).toBe(2);
   });
 });
 
@@ -428,5 +431,48 @@ describe('formatShortDuration', () => {
     expect(formatShortDuration(4_320_000)).toBe('1h 12m');
     expect(formatShortDuration(7_200_000)).toBe('2h');
     expect(formatShortDuration(167_040_000)).toBe('46h 24m');
+  });
+});
+
+describe('chatPreviewOf', () => {
+  const chat = (over: Partial<InboxChat> = {}): InboxChat => ({
+    kind: 'chat',
+    id: 'chat_1',
+    teamId: 'team_1',
+    title: 'Why do retries pile up?',
+    progress: null,
+    openProposals: 0,
+    askedAt: '2026-10-01T10:00:00.000Z',
+    unread: false,
+    resolved: false,
+    section: 'open',
+    reopenable: false,
+    ...over,
+  });
+
+  it('says how far the run of a chat has come', () => {
+    expect(chatPreviewOf(chat({ progress: 'queued' }))).toBe(
+      'Queued. Agent starts when a runner is free.',
+    );
+  });
+
+  it('counts the proposals that wait', () => {
+    expect(chatPreviewOf(chat({ openProposals: 1 }))).toBe(
+      '1 task proposal waiting for you.',
+    );
+    expect(chatPreviewOf(chat({ openProposals: 3 }))).toBe(
+      '3 task proposals waiting for you.',
+    );
+  });
+
+  it('says a chat is resolved, or waits for its starter', () => {
+    expect(chatPreviewOf(chat({ resolved: true }))).toBe('Chat resolved.');
+    expect(chatPreviewOf(chat())).toBe('Waiting for you.');
+  });
+
+  it('lets a person resolve a chat until it is resolved, then reopen it', () => {
+    expect(resolvable(chat())).toBe(true);
+    expect(resolvable(chat({ resolved: true }))).toBe(false);
+    expect(reopenable(chat({ resolved: true, reopenable: true }))).toBe(true);
   });
 });

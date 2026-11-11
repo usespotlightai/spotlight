@@ -92,6 +92,28 @@ describe('useChatMessage in a shared draft', () => {
 
     expect(result.current.outgoing.attachments).toEqual(['att_2']);
     expect(result.current.images.map((each) => each.name)).toEqual(['a.png']);
+    expect(result.current.images[0]?.imageSource).toEqual({
+      url: '/api/workspaces/acme/attachments/att_2',
+    });
+  });
+});
+
+describe('useChatMessage clearing a sent draft', () => {
+  it('clears the draft when it is sent', () => {
+    const { rerender, update } = watched(synced('task-draft:a', 3, true));
+
+    rerender({ shared: synced('task-draft:a', 4, true) });
+
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the next draft alone after a switch from a sent draft', () => {
+    const { rerender, update } = watched(synced('task-draft:a', 3, true));
+
+    rerender({ shared: synced('task-draft:b', 0, false) });
+    rerender({ shared: synced('task-draft:b', 2, true) });
+
+    expect(update).not.toHaveBeenCalled();
   });
 });
 

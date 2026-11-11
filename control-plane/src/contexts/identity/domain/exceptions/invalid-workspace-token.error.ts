@@ -1,4 +1,6 @@
-export class InvalidWorkspaceTokenError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidWorkspaceTokenError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(

@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class MemoryFileResponseDto {
   @ApiProperty({
     example: '.spotlight/memory/repositories/acme/api/src/uploads/M-18.md',
-    description: 'Where to write it, relative to the run’s workspace',
+    description: 'Where to write it, relative to the run’s working copy',
   })
   readonly path: string;
 

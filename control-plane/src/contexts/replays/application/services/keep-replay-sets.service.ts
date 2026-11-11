@@ -1,5 +1,5 @@
+import type { LinesPort } from '@replays/application/ports/lines.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { StationHasReplaySetError } from '@replays/domain/exceptions/station-has-replay-set.error';
@@ -8,26 +8,28 @@ import type { StationSearchScheduleRepository } from '@replays/domain/repositori
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class KeepReplaySets {
   constructor(
     private readonly sets: ReplaySetRepository,
     private readonly schedules: StationSearchScheduleRepository,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
     private readonly people: PeoplePort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
 
   async onRunEnded(
-    stationId: string | null,
+    ranAt: string | null,
     workspaceId: WorkspaceId,
   ): Promise<void> {
-    if (!stationId) {
+    if (!ranAt) {
       return;
     }
 
+    const stationId = StationId.of(ranAt);
     const kept = await this.sets.ofStation(stationId);
 
     if (kept) {
@@ -35,7 +37,7 @@ export class KeepReplaySets {
       return;
     }
 
-    const station = await this.work.findStation(stationId);
+    const station = await this.lines.findStation(stationId);
 
     if (
       !station?.workspaceId.equals(workspaceId) ||
@@ -61,10 +63,15 @@ export class KeepReplaySets {
       if (!(error instanceof StationHasReplaySetError)) {
         throw error;
       }
-      return;
     }
+  }
 
-    await this.scheduled(created);
+  async onSetCreated(setId: ReplaySetId): Promise<void> {
+    const set = await this.sets.find(setId);
+
+    if (set) {
+      await this.scheduled(set);
+    }
   }
 
   private async scheduled(set: ReplaySet): Promise<void> {

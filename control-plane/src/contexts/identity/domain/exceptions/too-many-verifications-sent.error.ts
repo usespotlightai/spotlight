@@ -1,4 +1,6 @@
-export class TooManyVerificationsSentError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class TooManyVerificationsSentError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(most: number) {
