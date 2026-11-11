@@ -599,20 +599,10 @@ export interface TaskPlace {
   readonly revision: number;
 }
 
-export const latestRunsAtCurrentStation = async (
-  db: DrizzleDatabase,
-  places: readonly TaskPlace[],
-): Promise<Map<string, string>> => {
-  const latest = new Map<string, string>();
-  const distinct = [
-    ...new Map(places.map((place) => [place.taskId, place])).values(),
-  ];
+const PLACES_PER_QUERY = 200;
 
-  if (distinct.length === 0) {
-    return latest;
-  }
-
-  const rows = await db
+const latestRunsAmong = (db: DrizzleDatabase, places: readonly TaskPlace[]) =>
+  db
     .selectDistinctOn([dispatch.taskId], {
       taskId: dispatch.taskId,
       id: dispatch.id,
@@ -622,7 +612,7 @@ export const latestRunsAtCurrentStation = async (
       and(
         taskRuns,
         or(
-          ...distinct.map((place) =>
+          ...places.map((place) =>
             and(
               eq(dispatch.taskId, place.taskId),
               eq(dispatch.stationId, place.stationId),
@@ -639,13 +629,25 @@ export const latestRunsAtCurrentStation = async (
     )
     .orderBy(dispatch.taskId, ...LATEST_RUN_FIRST);
 
-  for (const row of rows) {
-    if (row.taskId) {
-      latest.set(row.taskId, row.id);
-    }
-  }
+export const latestRunsAtCurrentStation = async (
+  db: DrizzleDatabase,
+  places: readonly TaskPlace[],
+): Promise<Map<string, string>> => {
+  const distinct = [
+    ...new Map(places.map((place) => [place.taskId, place])).values(),
+  ];
+  const batches = Array.from(
+    { length: Math.ceil(distinct.length / PLACES_PER_QUERY) },
+    (_, index) =>
+      distinct.slice(index * PLACES_PER_QUERY, (index + 1) * PLACES_PER_QUERY),
+  );
+  const rows = (
+    await Promise.all(batches.map((batch) => latestRunsAmong(db, batch)))
+  ).flat();
 
-  return latest;
+  return new Map(
+    rows.flatMap((row) => (row.taskId ? [[row.taskId, row.id] as const] : [])),
+  );
 };
 
 export const briefingsFor = async (
