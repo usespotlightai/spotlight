@@ -7,6 +7,7 @@ import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionControls } from '@/components/shared/DecisionControls';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
+import { OverflowFade } from '@/components/shared/OverflowFade';
 import type { Attachment } from '@/lib/attachment';
 import {
   type Proposal,
@@ -57,13 +58,15 @@ export function ProposedTaskCard({
         }
       />
 
-      <ProposedTaskFacts
-        slug={slug}
-        teamId={teamId}
-        proposal={proposal}
-        attachments={attachments}
-        titleId={titleId}
-      />
+      <OverflowFade className="max-h-96">
+        <ProposedTaskFacts
+          slug={slug}
+          teamId={teamId}
+          proposal={proposal}
+          attachments={attachments}
+          titleId={titleId}
+        />
+      </OverflowFade>
 
       <DecisionControls>
         <DecisionButton
