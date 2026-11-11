@@ -9,6 +9,7 @@ import type { DefinedIntegrationsPort } from '@integrations/application/ports/de
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type {
   OAuth2LinkingPort,
+  OAuth2Refusal,
   OAuth2Start,
 } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
@@ -20,6 +21,7 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -43,6 +45,13 @@ const takesConnection = async (
     .find((each) => each.key.equals(integration))
     ?.takesConnectionFrom(owner) ?? false;
 
+type NotBegun =
+  | 'not-allowed'
+  | 'takes-no-connection'
+  | 'no-oauth2-endpoints'
+  | 'no-client'
+  | 'not-begun';
+
 export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
   BeginOAuth2ConnectionCommand,
   OAuth2Start | null
@@ -54,6 +63,7 @@ export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
     private readonly linking: OAuth2LinkingPort,
     private readonly clients: OAuth2ClientResolution,
     private readonly scope: WorkspaceOutboundScopePort,
+    private readonly logger: LoggerPort,
   ) {}
 
   async execute(
@@ -69,8 +79,22 @@ export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
       );
       const membership = await this.access.inWorkspaceOfTeam(teamId, viewer);
 
-      if (!mayConnect(membership, owner, viewer)) {
+      const notBegun = (reason: NotBegun, registers?: boolean): null => {
+        this.logger.info(
+          {
+            teamId: teamId.value,
+            integration: integration.value,
+            owner: owner.kind,
+            reason,
+            registers,
+          },
+          'Did not begin an OAuth2 connection',
+        );
         return null;
+      };
+
+      if (!mayConnect(membership, owner, viewer)) {
+        return notBegun('not-allowed');
       }
 
       if (
@@ -82,7 +106,7 @@ export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
           owner,
         ))
       ) {
-        return null;
+        return notBegun('takes-no-connection');
       }
 
       return await this.scope.within(membership.workspaceId, async () => {
@@ -90,27 +114,34 @@ export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
           teamId,
           integration,
         );
-        const client = registration
-          ? await this.clients.clientFor(
-              teamId,
-              integration,
-              registration.endpoint,
-              registration.server,
-            )
-          : null;
 
-        return client
-          ? this.linking.begin(
-              {
-                teamId,
-                integration,
-                by: viewer,
-                owner: owner.kind,
-                returnTo: command.returnTo,
-              },
-              client,
-            )
-          : null;
+        if (!registration) {
+          return notBegun('no-oauth2-endpoints');
+        }
+
+        const client = await this.clients.clientFor(
+          teamId,
+          integration,
+          registration.endpoint,
+          registration.server,
+        );
+
+        if (!client) {
+          return notBegun('no-client', registration.endpoint !== null);
+        }
+
+        const started = await this.linking.begin(
+          {
+            teamId,
+            integration,
+            by: viewer,
+            owner: owner.kind,
+            returnTo: command.returnTo,
+          },
+          client,
+        );
+
+        return started ?? notBegun('not-begun');
       });
     } catch (error) {
       rethrowAsApplicationError(error);
@@ -130,6 +161,7 @@ export class FinishOAuth2ConnectionHandler implements CommandHandlerPort<
     private readonly runtime: IntegrationRuntimePort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
+    private readonly logger: LoggerPort,
   ) {}
 
   async execute(
@@ -144,16 +176,28 @@ export class FinishOAuth2ConnectionHandler implements CommandHandlerPort<
           command.viewerId === null ? null : UserId.of(command.viewerId),
       });
 
-      if (!authorized) {
-        return null;
+      if ('refused' in authorized) {
+        return this.notFinished({
+          teamId: authorized.teamId?.value,
+          integration: authorized.integration?.value,
+          reason: authorized.refused,
+        });
       }
 
       const { by, teamId, integration } = authorized;
       const owner = ConnectionOwner.ofKind(authorized.owner, by);
       const membership = await this.access.inWorkspaceOfTeam(teamId, by);
+      const about = {
+        teamId: teamId.value,
+        integration: integration.value,
+        owner: owner.kind,
+      };
+
+      if (!mayConnect(membership, owner, by)) {
+        return this.notFinished({ ...about, reason: 'not-allowed' });
+      }
 
       if (
-        !mayConnect(membership, owner, by) ||
         !(await takesConnection(
           this.defined,
           this.runtime,
@@ -162,7 +206,7 @@ export class FinishOAuth2ConnectionHandler implements CommandHandlerPort<
           owner,
         ))
       ) {
-        return null;
+        return this.notFinished({ ...about, reason: 'takes-no-connection' });
       }
 
       await this.transaction.inTransaction(async () => {
@@ -191,5 +235,15 @@ export class FinishOAuth2ConnectionHandler implements CommandHandlerPort<
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private notFinished(fields: {
+    readonly reason: OAuth2Refusal | 'not-allowed' | 'takes-no-connection';
+    readonly teamId?: string;
+    readonly integration?: string;
+    readonly owner?: string;
+  }): null {
+    this.logger.info(fields, 'Did not finish an OAuth2 connection');
+    return null;
   }
 }
