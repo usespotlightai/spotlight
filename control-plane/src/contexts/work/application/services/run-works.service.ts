@@ -43,9 +43,12 @@ export interface PendingMessage {
   readonly attachments: readonly Attachment[];
 }
 
-const pendingOf = (message: TaskNote | ChatMessage): PendingMessage => ({
+const pendingOf = (
+  message: TaskNote | ChatMessage,
+  body = message.body,
+): PendingMessage => ({
   position: message.position.value,
-  body: message.body.value,
+  body: body.value,
   attachments: message.attachments,
 });
 
@@ -108,13 +111,23 @@ export class RunWorks {
     if (subject?.kind === 'task') {
       const task = await this.tasks.find(subject.taskId);
 
-      return task ? task.pendingFor(run.runId).map(pendingOf) : [];
+      if (!task) {
+        return [];
+      }
+
+      const line = await this.lines.findByStation(task.stationId);
+
+      return task
+        .pendingFor(run.runId)
+        .map((note) => pendingOf(note, note.toldOn(line)));
     }
 
     if (subject?.kind === 'chat') {
       const chat = await this.chats.find(subject.chatId);
 
-      return chat ? chat.pendingFor(run.runId).map(pendingOf) : [];
+      return chat
+        ? chat.pendingFor(run.runId).map((message) => pendingOf(message))
+        : [];
     }
 
     return [];

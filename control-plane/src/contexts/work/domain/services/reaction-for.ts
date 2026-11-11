@@ -25,7 +25,6 @@ export type Outcome =
   | { readonly kind: 'nothing' }
   | (OutcomeNote & { readonly kind: 'stays' })
   | (OutcomeNote & { readonly kind: 'deferredMove'; readonly to: Station })
-  | (OutcomeNote & { readonly kind: 'interrupts' })
   | (OutcomeNote & { readonly kind: 'answers'; readonly to: NotePosition })
   | (OutcomeNote & { readonly kind: 'moves'; readonly to: Station });
 
@@ -101,27 +100,11 @@ export const ReactionFor = {
           return { kind: 'moves', to: destination, ...note() };
         }
 
-        return input.line.completed.id.equals(destination.id)
-          ? {
-              kind: 'interrupts',
-              ...note(
-                TaskNoteBody.interrupted(
-                  input.payload.summary,
-                  here?.name ?? null,
-                ),
-              ),
-            }
-          : {
-              kind: 'deferredMove',
-              to: destination,
-              ...note(
-                TaskNoteBody.deferredMove(
-                  input.payload.summary,
-                  input.anchor,
-                  destination.name,
-                ),
-              ),
-            };
+        return {
+          kind: 'deferredMove',
+          to: destination,
+          ...note(),
+        };
       }
     }
 

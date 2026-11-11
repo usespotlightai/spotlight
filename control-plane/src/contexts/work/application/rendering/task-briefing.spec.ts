@@ -163,16 +163,21 @@ const brief = (
   memories: readonly BriefedMemory[] = [],
   memoryFolder: MemoryFolder | null = null,
   tools: readonly DeclaredTool[] = [],
-) =>
-  TaskBriefing.brief({
-    task: (noted ?? task(station.id.value)).briefed.withDecisions(decisions),
-    line: lineOf(station, at('station_2', 'Spec', 1)),
+) => {
+  const line = lineOf(station, at('station_2', 'Spec', 1));
+
+  return TaskBriefing.brief({
+    task: (noted ?? task(station.id.value))
+      .briefedOn(line)
+      .withDecisions(decisions),
+    line,
     skills: builtIn,
     listedIn: null,
     memories,
     memoryFolder,
     tools,
   });
+};
 
 describe('TaskBriefing', () => {
   it('leads with the station’s instructions', () => {
@@ -443,16 +448,19 @@ describe('TaskBriefing', () => {
   });
 
   describe('the skills a station enables for a run', () => {
-    const listed = (station: Station) =>
-      TaskBriefing.brief({
-        task: task(station.id.value).briefed,
-        line: lineOf(station, at('station_2', 'Spec', 1)),
+    const listed = (station: Station) => {
+      const line = lineOf(station, at('station_2', 'Spec', 1));
+
+      return TaskBriefing.brief({
+        task: task(station.id.value).briefedOn(line),
+        line,
         skills: builtIn,
         listedIn: '.spotlight/skills',
         memories: [],
         memoryFolder: null,
         tools: [],
       });
+    };
 
     it('pastes no skill in, and lists none, where the harness reads them itself', () => {
       const briefing = brief(triage());
@@ -620,7 +628,7 @@ describe('TaskBriefing', () => {
 
     const briefed = (noted: Task) =>
       TaskBriefing.brief({
-        task: noted.briefed,
+        task: noted.briefedOn(inBoth()),
         line: inBoth(),
         skills: builtIn,
         listedIn: null,

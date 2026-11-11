@@ -18,6 +18,7 @@ export type PendingAttachment = {
       readonly state: 'ready';
       readonly id: string;
       readonly uploadedAt?: number;
+      readonly restored?: boolean;
     }
   | { readonly state: 'failed'; readonly problem: string }
 );

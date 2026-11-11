@@ -69,6 +69,8 @@ export interface InboxNote {
   readonly at: Date;
   readonly author: InboxAuthor | null;
   readonly coAuthors: readonly InboxAuthor[];
+  readonly source: string | null;
+  readonly deferredTo: string | null;
   readonly readAt: Date | null;
   readonly approval: InboxApproval | null;
   readonly failure: InboxFailure | null;
@@ -86,6 +88,10 @@ interface InboxStation {
   readonly position: number;
 }
 
+interface InboxCurrentStation extends InboxStation {
+  readonly latestRunId: string | null;
+}
+
 export interface InboxItemSummary {
   readonly kind: 'task';
   readonly id: string;
@@ -99,7 +105,7 @@ export interface InboxItemSummary {
   readonly stationPosition: number;
   readonly stationCount: number;
   readonly originStation: InboxStation;
-  readonly currentStation: InboxStation;
+  readonly currentStation: InboxCurrentStation;
   readonly createdAt: Date;
   readonly askedAt: Date;
   readonly resolved: boolean;

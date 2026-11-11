@@ -83,6 +83,8 @@ export interface NoteDto {
   readonly at: string;
   readonly author: InboxAuthorDto | null;
   readonly coAuthors: readonly InboxAuthorDto[];
+  readonly source: string | null;
+  readonly deferredTo: string | null;
   readonly approval: InboxApprovalDto | null;
   readonly failure: InboxFailureDto | null;
   readonly connection: InboxConnectionDto | null;
@@ -92,6 +94,10 @@ interface InboxStationDto {
   readonly name: string | null;
   readonly color: string;
   readonly position: number;
+}
+
+interface InboxCurrentStationDto extends InboxStationDto {
+  readonly latestRunId: string | null;
 }
 
 export interface InboxItemDto {
@@ -107,7 +113,7 @@ export interface InboxItemDto {
   readonly stationPosition: number;
   readonly stationCount: number;
   readonly originStation: InboxStationDto;
-  readonly currentStation: InboxStationDto;
+  readonly currentStation: InboxCurrentStationDto;
   readonly createdAt: string;
   readonly askedAt: string;
   readonly resolved: boolean;
