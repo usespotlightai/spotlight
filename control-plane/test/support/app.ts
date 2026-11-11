@@ -14,7 +14,7 @@ import { AutoSearches } from '@replays/application/services/auto-searches.servic
 import request, { type Response } from 'supertest';
 
 import { AppModule } from '@/app.module';
-import { configureApp } from '@/app.setup';
+import { APP_OPTIONS, configureApp } from '@/app.setup';
 
 import { clonedDatabase, droppedDatabase } from './database';
 
@@ -95,9 +95,7 @@ export const openApp = async (
       .useValue(env),
     env,
   ).compile();
-  const app = configureApp(
-    compiled.createNestApplication({ bodyParser: false }),
-  );
+  const app = configureApp(compiled.createNestApplication(APP_OPTIONS));
   const closed = app.close.bind(app);
 
   withManualAutoSearches(app);

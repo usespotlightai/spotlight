@@ -51,12 +51,10 @@ export function withGatewayErrorReported(
   request: Request | undefined,
 ): unknown {
   if (request && response && isGatewayStatus(response.status)) {
-    const path = routeOf(request.url);
-
-    captureException(
-      new GatewayError(`${request.method} ${path} answered ${response.status}`),
-      { fingerprint: ['gateway-error', request.method, path] },
-    );
+    captureException(new GatewayError(`API answered ${response.status}`), {
+      fingerprint: ['gateway-error', String(response.status)],
+      tags: { route: `${request.method} ${routeOf(request.url)}` },
+    });
   }
 
   return thrown;
@@ -102,17 +100,19 @@ function withoutIds(breadcrumb: Breadcrumb): Breadcrumb {
 function routeOf(url: string): string {
   return new URL(url, 'http://spotlight.invalid').pathname
     .split('/')
-    .map((segment, at) => (at > 2 && at % 2 === 1 ? ':id' : segment))
+    .map((segment, at) =>
+      at > 2 && at % 2 === 1 ? ':id' : shapedSegment(segment),
+    )
     .join('/');
 }
 
 const WORD = /^[a-z][a-z-]{0,23}$/;
 
+const shapedSegment = (segment: string): string =>
+  segment === '' || WORD.test(segment) ? segment : ':id';
+
 const shapedPath = (path: string): string =>
-  path
-    .split('/')
-    .map((segment) => (segment === '' || WORD.test(segment) ? segment : ':id'))
-    .join('/');
+  path.split('/').map(shapedSegment).join('/');
 
 function urlShape<T extends string | undefined>(url: T): T {
   if (!url) {

@@ -7,12 +7,11 @@ import { buildOpenApiDocument } from '@platform/http/openapi';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
-import { configureApp } from './app.setup';
+import { APP_OPTIONS, configureApp } from './app.setup';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    // better-auth reads the raw request body itself.
-    bodyParser: false,
+    ...APP_OPTIONS,
     bufferLogs: true,
   });
   app.useLogger(app.get(Logger));
