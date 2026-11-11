@@ -123,7 +123,7 @@ describe('withGatewayErrorReported', () => {
     { method: 'GET' },
   );
 
-  it('reports a gateway error once, grouped by its route without names or ids', () => {
+  it('reports a gateway error once, grouped by its status, and tags its route without names or ids', () => {
     const thrown = { message: 'boom' };
 
     expect(
@@ -135,15 +135,42 @@ describe('withGatewayErrorReported', () => {
     ).toBe(thrown);
 
     expect(sentry.captureException).toHaveBeenCalledExactlyOnceWith(
-      new GatewayError(
-        'GET /api/workspaces/:id/teams/:id/runs/:id answered 503',
-      ),
+      new GatewayError('API answered 503'),
       {
-        fingerprint: [
-          'gateway-error',
-          'GET',
-          '/api/workspaces/:id/teams/:id/runs/:id',
-        ],
+        fingerprint: ['gateway-error', '503'],
+        tags: { route: 'GET /api/workspaces/:id/teams/:id/runs/:id' },
+      },
+    );
+  });
+
+  it('groups gateway errors from different routes together', () => {
+    withGatewayErrorReported(
+      {},
+      new Response(null, { status: 502 }),
+      new Request('https://app.test/api/workspaces'),
+    );
+    withGatewayErrorReported(
+      {},
+      new Response(null, { status: 502 }),
+      new Request(
+        'https://app.test/api/workspaces/acme/inbox/task_1/317b6c10-fa1f-490d-a874-38959f9065dc',
+      ),
+    );
+
+    expect(sentry.captureException).toHaveBeenNthCalledWith(
+      1,
+      new GatewayError('API answered 502'),
+      {
+        fingerprint: ['gateway-error', '502'],
+        tags: { route: 'GET /api/workspaces' },
+      },
+    );
+    expect(sentry.captureException).toHaveBeenNthCalledWith(
+      2,
+      new GatewayError('API answered 502'),
+      {
+        fingerprint: ['gateway-error', '502'],
+        tags: { route: 'GET /api/workspaces/:id/inbox/:id/:id' },
       },
     );
   });
