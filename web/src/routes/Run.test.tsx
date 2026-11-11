@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -483,8 +483,38 @@ describe('Run', () => {
 
       expect(send).toHaveBeenCalledWith(
         expect.objectContaining({ runId: 'run_2', body: 'try again' }),
-        expect.anything(),
+        expect.objectContaining({ onError: expect.any(Function) as unknown }),
       );
+    });
+
+    it('clears the box on press, before the server answers', async () => {
+      later({ state: 'failed' });
+
+      renderRun();
+      const box = screen.getByRole('textbox', {
+        name: 'Message Implementation',
+      });
+      await write(box, 'try again');
+      await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+      expect(box).toHaveTextContent('');
+    });
+
+    it('puts the text back when the server refuses the message', async () => {
+      later({ state: 'failed' });
+      send.mockImplementation(
+        (_message: unknown, options: { onError: (error: unknown) => void }) =>
+          options.onError(new Error('refused')),
+      );
+
+      renderRun();
+      const box = screen.getByRole('textbox', {
+        name: 'Message Implementation',
+      });
+      await write(box, 'try again');
+      await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+      await waitFor(() => expect(box).toHaveTextContent('try again'));
     });
 
     it('shows a message on its way before the server has it', () => {
@@ -494,6 +524,7 @@ describe('Run', () => {
           runId: 'run_1',
           body: 'and once more',
           attachments: [],
+          files: [],
           sentAt: Date.parse('2026-08-29T12:10:00.000Z'),
         },
       ]);

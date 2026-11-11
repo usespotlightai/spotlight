@@ -36,6 +36,7 @@ describe('withMessagesInFlight', () => {
     runId: 'run_1',
     body: 'try again',
     attachments: [],
+    files: [],
     sentAt: Date.parse('2026-10-20T10:00:00.000Z'),
     ...over,
   });
@@ -58,6 +59,21 @@ describe('withMessagesInFlight', () => {
     });
   });
 
+  it('shows the files of a message on its way', () => {
+    const file = {
+      id: 'att_1',
+      name: 'log.txt',
+      contentType: 'text/plain',
+      size: 12,
+    };
+
+    expect(
+      withMessagesInFlight(thread, [outgoing({ files: [file] })], sam).notes.at(
+        -1,
+      ),
+    ).toMatchObject({ attachments: [file] });
+  });
+
   it('leaves out a message once the thread has it from the server', () => {
     const arrived = {
       ...thread,
@@ -68,6 +84,7 @@ describe('withMessagesInFlight', () => {
           voice: 'person',
           body: 'try again',
           author: sam,
+          attachments: [],
           at: '2026-10-20T10:00:01.000Z',
         },
       ],
@@ -86,6 +103,7 @@ describe('withMessagesInFlight', () => {
           voice: 'person',
           body: 'ok',
           author: sam,
+          attachments: [],
           at: '2026-10-20T10:00:01.000Z',
         },
       ],
@@ -100,6 +118,36 @@ describe('withMessagesInFlight', () => {
     ).toEqual(['The tests failed.', 'ok', 'ok']);
   });
 
+  it('drops a message of files only once the server has it with the same files', () => {
+    const file = {
+      id: 'att_1',
+      name: 'log.txt',
+      contentType: 'text/plain',
+      size: 12,
+    };
+    const arrived = {
+      ...thread,
+      notes: [
+        ...thread.notes,
+        {
+          position: 5,
+          voice: 'person',
+          body: '',
+          author: sam,
+          attachments: [file],
+          at: '2026-10-20T10:00:01.000Z',
+        },
+      ],
+    } as unknown as RunNotes;
+    const sent = outgoing({ body: '', attachments: ['att_1'], files: [file] });
+
+    expect(withMessagesInFlight(arrived, [sent], sam)).toBe(arrived);
+    expect(
+      withMessagesInFlight(arrived, [{ ...sent, attachments: ['att_2'] }], sam)
+        .notes,
+    ).toHaveLength(3);
+  });
+
   it('keeps a message that only repeats an older one', () => {
     const older = {
       ...thread,
@@ -110,6 +158,7 @@ describe('withMessagesInFlight', () => {
           voice: 'person',
           body: 'try again',
           author: sam,
+          attachments: [],
           at: '2026-10-20T08:00:00.000Z',
         },
       ],

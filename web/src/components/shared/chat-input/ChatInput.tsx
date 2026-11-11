@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react';
-import { type CSSProperties, type ReactNode, useRef } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
 
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import { ChatEditor } from '@/components/shared/chat-input/ChatEditor';
@@ -21,11 +21,12 @@ import {
 import { cn } from '@/lib/utils';
 
 type Sending =
-  | { disabled: true; pending?: never; onSend?: never }
+  | { disabled: true; pending?: never; locked?: never; onSend?: never }
   | {
       disabled?: false;
       pending: boolean;
-      onSend: (message: Outgoing, sent: () => void) => void;
+      locked?: boolean;
+      onSend: (message: Outgoing, restore: (error?: unknown) => void) => void;
     };
 
 type ChatInputProps = Sending & {
@@ -55,11 +56,87 @@ const EXPANDED: CSSProperties = {
     '"top top top" "editor editor editor" "plus settings send"',
 };
 
+const forwardSend = (
+  onSend: (message: Outgoing, restore: (error?: unknown) => void) => void,
+  outgoing: Outgoing,
+  shared: SharedDraft | null,
+  latestGeneration: { readonly current: number | undefined },
+  restore: () => void,
+) => {
+  const sentGeneration = shared?.synced ? shared.generation : undefined;
+
+  onSend(
+    shared
+      ? {
+          ...outgoing,
+          coAuthors: shared.coAuthors(),
+          ...(shared.synced && { draftGeneration: shared.generation }),
+        }
+      : outgoing,
+    () => {
+      if (
+        sentGeneration === undefined ||
+        latestGeneration.current === sentGeneration
+      ) {
+        restore();
+      }
+    },
+  );
+};
+
+type SendingOptions = {
+  message: ReturnType<typeof useChatMessage>;
+  shared: SharedDraft | null;
+  disabled: boolean;
+  pending: boolean;
+  running: boolean;
+  onStop?: () => void;
+  onSend?: (message: Outgoing, restore: (error?: unknown) => void) => void;
+};
+
+function useSending({
+  message,
+  shared,
+  disabled,
+  pending,
+  running,
+  onStop,
+  onSend,
+}: SendingOptions) {
+  const latestGeneration = useRef(shared?.generation);
+  const generation = shared?.generation;
+  useEffect(() => {
+    latestGeneration.current = generation;
+  }, [generation]);
+
+  return useChatSend({
+    outgoing: message.outgoing,
+    empty: message.blank,
+    uploading: message.uploading,
+    disabled,
+    pending,
+    running,
+    onStop,
+    onSend:
+      onSend &&
+      ((outgoing) =>
+        forwardSend(
+          onSend,
+          outgoing,
+          shared,
+          latestGeneration,
+          message.restore,
+        )),
+    clear: message.release,
+  });
+}
+
 export function ChatInput({
   slug,
   label,
   placeholder,
   pending = false,
+  locked = false,
   running = false,
   onStop,
   initialReferences = NO_REFERENCES,
@@ -79,35 +156,21 @@ export function ChatInput({
     shared,
     draft,
   );
-  useFileDropTarget(message.attach, { disabled, pending });
+  useFileDropTarget(message.attach, { disabled });
   const lifted = message.images.length > 0;
   const { inner, writing, height, expanded } = useOneLineFit(
     message.written,
     lifted,
   );
 
-  const { send, unsendable, stopping } = useChatSend({
-    outgoing: message.outgoing,
-    empty: message.blank,
-    uploading: message.uploading,
+  const { send, unsendable, stopping } = useSending({
+    message,
+    shared,
     disabled,
-    pending,
+    pending: pending || locked,
     running,
     onStop,
-    onSend:
-      onSend &&
-      ((outgoing, sent) =>
-        shared
-          ? onSend(
-              {
-                ...outgoing,
-                coAuthors: shared.coAuthors(),
-                ...(shared.synced && { draftGeneration: shared.generation }),
-              },
-              () => message.clearSent(outgoing.body),
-            )
-          : onSend(outgoing, sent)),
-    sent: message.clear,
+    onSend,
   });
 
   return (
@@ -150,7 +213,7 @@ export function ChatInput({
                 initialReferences={message.seed.references}
                 initialText={message.seed.text}
                 handle={message.editor}
-                editable={!pending && !disabled}
+                editable={!locked && !disabled}
                 disabled={disabled}
                 onEnter={send}
                 onWritten={message.setWritten}
@@ -161,7 +224,7 @@ export function ChatInput({
           <ChatInputArea disabled={disabled} area="plus" className="flex">
             <AttachButton
               onAttach={message.attach}
-              disabled={pending}
+              disabled={locked}
               icon={<Plus className="size-4" />}
               className="size-7 rounded-full border border-border text-muted-foreground"
             />

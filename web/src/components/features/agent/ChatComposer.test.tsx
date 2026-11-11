@@ -1,14 +1,19 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ChatComposer } from '@/components/features/agent/ChatComposer';
 import type { Chat } from '@/lib/chat';
 import { pressEnter, textOf, write } from '@/test/lexical';
 
-const sent =
-  vi.fn<
-    (input: unknown, options: { onSuccess: (data?: unknown) => void }) => void
-  >();
+const sent = vi.fn<
+  (
+    input: unknown,
+    options: {
+      onSuccess: (data?: unknown) => void;
+      onError: (error: Error) => void;
+    },
+  ) => void
+>();
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({
@@ -116,8 +121,7 @@ describe('ChatComposer', () => {
     );
   });
 
-  it('empties the box after a reply was sent', async () => {
-    sent.mockImplementation((_input, { onSuccess }) => onSuccess());
+  it('empties the box when a reply is sent', async () => {
     showing(chat('chat_1'));
     await write(box(), 'Done');
     await pressEnter(box());
@@ -125,5 +129,16 @@ describe('ChatComposer', () => {
     showing(chat('chat_1'));
 
     expect(textOf(box())).toBe('');
+  });
+
+  it('puts the reply back after the server refused it', async () => {
+    sent.mockImplementation((_input, { onError }) =>
+      onError(new Error('refused')),
+    );
+    showing(chat('chat_1'));
+    await write(box(), 'Done');
+    await pressEnter(box());
+
+    await waitFor(() => expect(textOf(box())).toBe('Done'));
   });
 });

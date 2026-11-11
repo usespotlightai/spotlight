@@ -1,4 +1,5 @@
 import type { RunNotesResponseDto } from '@/lib/api';
+import type { Attachment } from '@/lib/attachment';
 import {
   type ConversationItem,
   type RunJournal,
@@ -22,6 +23,7 @@ export type OutgoingMessage = {
   readonly runId: string;
   readonly body: string;
   readonly attachments: string[];
+  readonly files: Attachment[];
   readonly coAuthors?: string[];
   readonly draftGeneration?: number;
   readonly answers?: boolean;
@@ -31,6 +33,12 @@ export type OutgoingMessage = {
 export type MessageInFlight = OutgoingMessage & { readonly sentAt: number };
 
 const CLOCK_SKEW_MS = 60_000;
+
+const sameIds = (left: readonly string[], right: readonly string[]) => {
+  const expected = new Set(right);
+
+  return left.length === right.length && left.every((id) => expected.has(id));
+};
 
 const stillOnTheirWay = (
   conversation: RunNotes,
@@ -46,8 +54,12 @@ const stillOnTheirWay = (
         !matched.has(note.position) &&
         note.voice === 'person' &&
         note.author?.id === me?.id &&
-        body !== '' &&
+        (body !== '' || message.attachments.length > 0) &&
         note.body === body &&
+        sameIds(
+          note.attachments.map((each) => each.id),
+          message.attachments,
+        ) &&
         Date.parse(note.at) >= message.sentAt - CLOCK_SKEW_MS,
     );
 
@@ -91,7 +103,7 @@ export const withMessagesInFlight = (
         stationPosition: conversation.station?.position ?? 0,
         runId: null,
         body: message.body,
-        attachments: [],
+        attachments: message.files,
         at: new Date(message.sentAt).toISOString(),
         author: me,
         coAuthors: [],

@@ -48,10 +48,10 @@ export function InboxComposer({
         />
       }
       onStop={runId ? () => stop.mutate({ teamId, runId }) : undefined}
-      onSend={({ body, attachments, coAuthors, draftGeneration }, sent) =>
+      onSend={({ body, attachments, coAuthors, draftGeneration }, restore) =>
         answer.mutate(
           { slug, itemId, body, attachments, coAuthors, draftGeneration },
-          { onSuccess: sent },
+          { onError: restore },
         )
       }
     />

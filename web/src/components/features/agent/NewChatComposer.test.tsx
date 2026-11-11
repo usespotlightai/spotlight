@@ -7,10 +7,15 @@ import type { SharedTrace, TargetStation } from '@/lib/chat';
 import { toast } from '@/lib/toast';
 import { erase, pressEnter, textOf, write } from '@/test/lexical';
 
-const started =
-  vi.fn<
-    (input: unknown, options: { onSuccess: (data?: unknown) => void }) => void
-  >();
+const started = vi.fn<
+  (
+    input: unknown,
+    options: {
+      onSuccess: (data?: unknown) => void;
+      onError: (error: Error) => void;
+    },
+  ) => void
+>();
 const starting = { isError: false, error: null as unknown };
 const harnesses = vi.fn<(...args: unknown[]) => unknown>();
 
@@ -487,6 +492,9 @@ describe('NewChatComposer', () => {
     });
 
     it('keeps the text after a send that fails', async () => {
+      started.mockImplementation((_input, { onError }) =>
+        onError(new Error('refused')),
+      );
       await returning(null, 'Plan the retries');
       await pressEnter(box());
       cleanup();

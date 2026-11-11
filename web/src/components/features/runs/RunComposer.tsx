@@ -71,19 +71,23 @@ export function RunComposer({
         />
       }
       onStop={() => stop.mutate({ teamId, runId })}
-      onSend={({ body, attachments, coAuthors, draftGeneration }, sent) => {
+      onSend={(
+        { body, attachments, files, coAuthors, draftGeneration },
+        restore,
+      ) => {
         send.mutate(
           {
             teamId,
             runId,
             body,
             attachments,
+            files,
             coAuthors,
             draftGeneration,
             answers: answering,
             startsWork: answering || restarts,
           },
-          { onSuccess: sent },
+          { onError: restore },
         );
         onSent?.();
       }}

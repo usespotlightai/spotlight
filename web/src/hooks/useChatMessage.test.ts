@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { LexicalEditor } from 'lexical';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +8,8 @@ import type { SharedDraft } from '@/hooks/useSharedDraft';
 import type { SharedAttachment } from '@/lib/shared-draft';
 
 const uploaded = vi.fn<(...args: unknown[]) => unknown>();
+
+vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 
 vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: (input: unknown) => uploaded(input),
@@ -118,21 +121,64 @@ describe('useChatMessage clearing a sent draft', () => {
   });
 });
 
-describe('useChatMessage clearing a sent draft', () => {
-  it('clears the draft when it is sent', () => {
-    const { rerender, update } = watched(synced('task-draft:a', 3, true));
+describe('useChatMessage putting back a refused message', () => {
+  it('writes the sent text back in front of what was typed since', () => {
+    const update = vi.fn();
+    const { result } = renderHook(() =>
+      useChatMessage('acme', [], 'try again'),
+    );
+    result.current.editor.current = {
+      update,
+      getEditorState: () => ({ toJSON: () => ({ root: { children: [] } }) }),
+    } as unknown as LexicalEditor;
 
-    rerender({ shared: synced('task-draft:a', 4, true) });
+    act(() => result.current.release());
+    act(() => result.current.restore());
 
-    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledTimes(2);
   });
 
-  it('leaves the next draft alone after a switch from a sent draft', () => {
-    const { rerender, update } = watched(synced('task-draft:a', 3, true));
+  it('reports a refused message that has no box to go back to', () => {
+    const { result } = renderHook(() =>
+      useChatMessage('acme', [], 'try again'),
+    );
 
-    rerender({ shared: synced('task-draft:b', 0, false) });
-    rerender({ shared: synced('task-draft:b', 2, true) });
+    act(() => result.current.release());
+    act(() => result.current.restore());
+
+    expect(captureException).toHaveBeenCalledOnce();
+  });
+
+  it('puts nothing back when nothing was sent', () => {
+    const update = vi.fn();
+    const { result } = renderHook(() =>
+      useChatMessage('acme', [], 'try again'),
+    );
+    result.current.editor.current = { update } as unknown as LexicalEditor;
+
+    act(() => result.current.restore());
 
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('puts an uploaded file back after the box cleared it', async () => {
+    uploaded.mockResolvedValue({ id: 'att_1' });
+    const { result } = renderHook(() => useChatMessage('acme', [], ''));
+
+    act(() => {
+      result.current.attach([image()]);
+    });
+    await waitFor(() =>
+      expect(result.current.outgoing.attachments).toEqual(['att_1']),
+    );
+
+    act(() => result.current.release());
+    expect(result.current.outgoing.attachments).toEqual([]);
+
+    act(() => result.current.restore());
+    expect(result.current.outgoing.attachments).toEqual(['att_1']);
+    expect(result.current.outgoing.files).toEqual([
+      { id: 'att_1', name: 'shot.png', size: 3, contentType: 'image/png' },
+    ]);
   });
 });

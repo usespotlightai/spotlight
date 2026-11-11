@@ -87,7 +87,8 @@ export function NewChatComposer({
       slug={slug}
       label="Plan with the agent"
       placeholder="What do you want to plan?"
-      pending={start.isPending || !harness}
+      pending={start.isPending}
+      locked={!harness}
       draft={draft}
       initialReferences={references}
       initialText={defaultPrompt ?? undefined}
@@ -119,7 +120,7 @@ export function NewChatComposer({
           )}
         </>
       }
-      onSend={({ body, attachments, traces, targetStation }, sent) =>
+      onSend={({ body, attachments, traces, targetStation }, restore) =>
         start.mutate(
           {
             teamId,
@@ -134,10 +135,8 @@ export function NewChatComposer({
             ...(setup ? { setup } : {}),
           },
           {
-            onSuccess: (chat) => {
-              sent();
-              onStarted(chat.id);
-            },
+            onSuccess: (chat) => onStarted(chat.id),
+            onError: restore,
           },
         )
       }

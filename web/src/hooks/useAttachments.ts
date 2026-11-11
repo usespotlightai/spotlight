@@ -57,6 +57,7 @@ export function useAttachments(
         key: uniqueKey(),
         name: file.name,
         size: file.size,
+        contentType: file.type,
         imageSource: drawn(file.type) ? { blob: file } : null,
         ...(problem ? { state: 'failed', problem } : { state: 'uploading' }),
       };
@@ -92,6 +93,13 @@ export function useAttachments(
 
   const clear = () => setAttachments([]);
 
+  const restore = useCallback((back: readonly PendingAttachment[]) => {
+    setAttachments((all) => [
+      ...back.filter((each) => !all.some((kept) => kept.key === each.key)),
+      ...all,
+    ]);
+  }, []);
+
   return {
     attachments,
     ids: attachments.flatMap((each) =>
@@ -101,6 +109,7 @@ export function useAttachments(
     add,
     remove,
     clear,
+    restore,
     handlers: {
       onDragOver: allowFileDrop,
       onDropCapture: (event: DragEvent) => dropFiles(event, add),

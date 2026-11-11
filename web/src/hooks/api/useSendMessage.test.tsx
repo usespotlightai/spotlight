@@ -1,8 +1,13 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { runNotesKeys } from '@/hooks/api/useRunNotes';
 import {
   useMessagesInFlight,
   useSendMessage,
@@ -33,6 +38,7 @@ const message = {
   runId: 'run_2',
   body: 'try again',
   attachments: [],
+  files: [],
   startsWork: true,
 };
 
@@ -52,6 +58,59 @@ describe('useMessagesInFlight', () => {
         { ...message, sentAt: expect.any(Number) as number },
       ]),
     );
+  });
+
+  it('holds the files of a message with the message', async () => {
+    sendMessage.mockReturnValue(new Promise(() => {}));
+    const result = setUp(['run_2']);
+    const files = [
+      { id: 'att_1', name: 'log.txt', contentType: 'text/plain', size: 12 },
+    ];
+
+    act(() => result.current.send.mutate({ ...message, files }));
+
+    await waitFor(() =>
+      expect(result.current.inFlight[0]?.files).toEqual(files),
+    );
+  });
+
+  it('keeps a message the server took, and does not wait for the notes to load again', async () => {
+    sendMessage.mockResolvedValue({});
+    let loads = 0;
+    let finish: () => void = () => {};
+    const client = new QueryClient({
+      defaultOptions: { mutations: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => ({
+        notes: useQuery({
+          queryKey: [...runNotesKeys.all, 'run_2'],
+          queryFn: () => {
+            loads += 1;
+
+            return loads === 1
+              ? null
+              : new Promise<null>((resolve) => {
+                  finish = () => resolve(null);
+                });
+          },
+        }),
+        send: useSendMessage(),
+        inFlight: useMessagesInFlight(['run_2']),
+      }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.notes.isSuccess).toBe(true));
+
+    act(() => result.current.send.mutate(message));
+
+    await waitFor(() => expect(result.current.send.isSuccess).toBe(true));
+    expect(result.current.notes.isFetching).toBe(true);
+    expect(result.current.inFlight).toHaveLength(1);
+    act(() => finish());
   });
 
   it('lets go of a message that the server refused', async () => {
