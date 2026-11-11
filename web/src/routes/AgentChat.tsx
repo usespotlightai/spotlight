@@ -85,6 +85,7 @@ export function AgentChat() {
             teamId={teamId}
             chat={chat}
             journals={journal.data ?? []}
+            runs={journal.demand.runs}
             footer={
               <ComposerFooter>
                 <ChatComposer

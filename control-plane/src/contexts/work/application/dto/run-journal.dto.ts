@@ -71,4 +71,6 @@ export interface RunJournalDto {
 export interface JournalledRunDto {
   readonly runId: string;
   readonly createdAt: string;
+  readonly stepCount: number;
+  readonly messageCount: number;
 }

@@ -295,8 +295,21 @@ export class JournalledRunResponseDto {
   @ApiProperty({ example: '2026-11-06T09:30:00.000Z' })
   readonly createdAt: string;
 
-  constructor(runId: string, createdAt: string) {
+  @ApiProperty({ example: 12 })
+  readonly stepCount: number;
+
+  @ApiProperty({ example: 2 })
+  readonly messageCount: number;
+
+  constructor(
+    runId: string,
+    createdAt: string,
+    stepCount: number,
+    messageCount: number,
+  ) {
     this.runId = runId;
     this.createdAt = createdAt;
+    this.stepCount = stepCount;
+    this.messageCount = messageCount;
   }
 }

@@ -4,6 +4,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
   RunChanges,
   RunJournal,
+  RunStepCounts,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalsPort } from '@runs/application/ports/run-journals.port';
 import { HARNESS_CONNECTED } from '@runs/domain/value-objects/journal-entry-type';
@@ -44,33 +45,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
       return [];
     }
 
-    const entries = await this.journalled(inArray(runJournalEntry.runId, ids), [
-      asc(runJournalEntry.runId),
-      asc(runJournalEntry.attempt),
-      asc(runJournalEntry.seq),
-    ]);
-    const journals = new Map<
-      string,
-      { journal: JournalBuilder; reported: Reported }
-    >();
-
-    for (const row of entries) {
-      const at = `${row.runId}:${row.attempt}`;
-      const reading = journals.get(at) ?? {
-        journal: new JournalBuilder(row.createdAt),
-        reported: new Reported(),
-      };
-      const event = {
-        type: row.type,
-        at: row.at,
-        message: row.message,
-        data: row.data,
-      };
-
-      reading.journal.take(event);
-      reading.reported.take(event);
-      journals.set(at, reading);
-    }
+    const journals = await this.readings(ids);
 
     return [...journals.entries()].map(([at, reading]) => {
       const [runId, attempt] = at.split(':');
@@ -86,6 +61,29 @@ export class DrizzleRunJournals implements RunJournalsPort {
         egressEnforcement: reading.journal.egressEnforcement(),
       };
     });
+  }
+
+  async countsOf(
+    runIds: readonly RunId[],
+  ): Promise<Map<string, RunStepCounts>> {
+    const counts = new Map<string, RunStepCounts>();
+
+    for (const journal of await this.ofRuns(runIds)) {
+      const before = counts.get(journal.runId) ?? {
+        stepCount: 0,
+        messageCount: 0,
+      };
+      const messages = journal.steps.filter(
+        (step) => step.kind === 'message',
+      ).length;
+
+      counts.set(journal.runId, {
+        stepCount: before.stepCount + journal.steps.length - messages,
+        messageCount: before.messageCount + messages,
+      });
+    }
+
+    return counts;
   }
 
   async changesOf(runIds: readonly RunId[]): Promise<RunChanges[]> {
@@ -135,6 +133,38 @@ export class DrizzleRunJournals implements RunJournalsPort {
         ? [{ runId, paths: taken, checkouts: checkouts.get(runId) ?? [] }]
         : [];
     });
+  }
+
+  private async readings(ids: string[]) {
+    const entries = await this.journalled(inArray(runJournalEntry.runId, ids), [
+      asc(runJournalEntry.runId),
+      asc(runJournalEntry.attempt),
+      asc(runJournalEntry.seq),
+    ]);
+    const journals = new Map<
+      string,
+      { journal: JournalBuilder; reported: Reported }
+    >();
+
+    for (const row of entries) {
+      const at = `${row.runId}:${row.attempt}`;
+      const reading = journals.get(at) ?? {
+        journal: new JournalBuilder(row.createdAt),
+        reported: new Reported(),
+      };
+      const event = {
+        type: row.type,
+        at: row.at,
+        message: row.message,
+        data: row.data,
+      };
+
+      reading.journal.take(event);
+      reading.reported.take(event);
+      journals.set(at, reading);
+    }
+
+    return journals;
   }
 
   private async journalled(which: SQL, order: SQL[]) {

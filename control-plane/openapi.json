@@ -28580,11 +28580,21 @@
           "createdAt": {
             "type": "string",
             "example": "2026-11-06T09:30:00.000Z"
+          },
+          "stepCount": {
+            "type": "number",
+            "example": 12
+          },
+          "messageCount": {
+            "type": "number",
+            "example": 2
           }
         },
         "required": [
           "runId",
-          "createdAt"
+          "createdAt",
+          "stepCount",
+          "messageCount"
         ]
       },
       "RunMarksResponseDto": {
