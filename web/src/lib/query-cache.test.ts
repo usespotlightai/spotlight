@@ -9,7 +9,7 @@ import {
 } from '@/lib/query-cache';
 
 const persisted = (queryClient: QueryClient) =>
-  dehydrate(queryClient, persistOptions('build').dehydrateOptions).queries.map(
+  dehydrate(queryClient, persistOptions('api').dehydrateOptions).queries.map(
     ({ queryKey }) => queryKey,
   );
 
@@ -48,8 +48,22 @@ describe('persistOptions', () => {
     expect(persisted(queryClient)).toEqual([]);
   });
 
-  it('drops a cache saved by another build', () => {
-    expect(persistOptions('build-2').buster).toBe('build-2');
+  it('leaves out queries that found nothing, such as a signed-out session', () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['inbox'], ['item']);
+    queryClient.setQueryData(['auth', 'session'], null);
+
+    expect(persisted(queryClient)).toEqual([['inbox']]);
+  });
+
+  it('keeps a cache across builds of the same API', () => {
+    expect(persistOptions('api_1').buster).toBe(persistOptions('api_1').buster);
+  });
+
+  it('drops a cache saved against another API', () => {
+    expect(persistOptions('api_2').buster).not.toBe(
+      persistOptions('api_1').buster,
+    );
   });
 });
 

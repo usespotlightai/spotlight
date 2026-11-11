@@ -56,7 +56,7 @@ const render = () =>
     <StrictMode>
       <PersistQueryClientProvider
         client={queryClient}
-        persistOptions={persistOptions(import.meta.env.VITE_BUILD_ID)}
+        persistOptions={persistOptions(import.meta.env.VITE_API_SHAPE)}
       >
         <Toaster>
           <BrowserRouter>

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import babel from '@rolldown/plugin-babel';
@@ -8,11 +10,16 @@ import { defineConfig } from 'vitest/config';
 
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 
-const buildId = process.env.SENTRY_RELEASE || String(Date.now());
+const apiShape = createHash('sha256')
+  .update(
+    readFileSync(path.resolve(import.meta.dirname, 'src/lib/api/types.gen.ts')),
+  )
+  .digest('hex')
+  .slice(0, 16);
 
 export default defineConfig(({ command }) => ({
   define: {
-    'import.meta.env.VITE_BUILD_ID': JSON.stringify(buildId),
+    'import.meta.env.VITE_API_SHAPE': JSON.stringify(apiShape),
   },
   plugins: [
     react(),
