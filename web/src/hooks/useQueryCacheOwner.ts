@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useIsRestoring, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
 
 import {
@@ -10,16 +10,17 @@ import {
 export function useQueryCacheOwnedBy(userId: string | null): boolean {
   const queryClient = useQueryClient();
   const owner = useSyncExternalStore(onQueryCacheOwnerChange, queryCacheOwner);
-  const owned = userId === null || owner === userId;
+  const restoring = useIsRestoring();
+  const owned = !restoring && (userId === null || owner === userId);
 
   useEffect(() => {
-    if (owned || userId === null) {
+    if (restoring || owned || userId === null) {
       return;
     }
 
     void queryClient.resetQueries();
     ownQueryCache(userId);
-  }, [owned, userId, queryClient]);
+  }, [restoring, owned, userId, queryClient]);
 
   return owned;
 }

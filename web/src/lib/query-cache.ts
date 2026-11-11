@@ -18,8 +18,8 @@ const persister = createAsyncStoragePersister({
   key: CACHE_KEY,
   storage: {
     getItem: async (key) => (await get<string>(key)) ?? null,
-    setItem: (key, value) => set(key, value),
-    removeItem: (key) => del(key),
+    setItem: async (key, value) => set(key, value),
+    removeItem: async (key) => del(key),
   },
 });
 
@@ -34,10 +34,6 @@ export const persistOptions = (
   maxAge: CACHE_MAX_AGE_MS,
   dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
 });
-
-export const forgetQueryCache = async (): Promise<void> => {
-  await persister.removeClient();
-};
 
 let rememberedOwner: string | null = null;
 const ownerListeners = new Set<() => void>();
@@ -65,10 +61,34 @@ const storeOwner = (userId: string) => {
   }
 };
 
+const ownerChanged = () => {
+  for (const listener of ownerListeners) {
+    listener();
+  }
+};
+
 export const ownQueryCache = (userId: string): void => {
   rememberedOwner = userId;
   storeOwner(userId);
-  for (const listener of ownerListeners) {
-    listener();
+  ownerChanged();
+};
+
+const forgetOwner = () => {
+  rememberedOwner = null;
+  try {
+    localStorage.removeItem(OWNER_KEY);
+  } catch {
+    return;
+  } finally {
+    ownerChanged();
+  }
+};
+
+export const forgetQueryCache = async (): Promise<void> => {
+  forgetOwner();
+  try {
+    await persister.removeClient();
+  } catch {
+    return;
   }
 };

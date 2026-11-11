@@ -31,9 +31,9 @@ export function useSignOut() {
         );
       }
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       queryClient.clear();
-      await forgetQueryCache();
+      void forgetQueryCache();
     },
   });
 }
