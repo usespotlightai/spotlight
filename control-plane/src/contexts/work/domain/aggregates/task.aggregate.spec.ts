@@ -2305,34 +2305,20 @@ describe('Task and the happenings received while it has a current run', () => {
     });
   });
 
-  it('stops its run and asks over a pending tool approval when interrupted, since the run would work on once approved', () => {
-    const asking = assigned()
-      .deferMove(LINE, SPEC, world)
-      .clearFor(
-        ApprovalSubject.toolCall(
-          ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
-        ),
-        ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
-        { ...newNote, voice: Voice.station(RUN) },
-        RUN,
-        null,
-      ).task;
-    asking.pullEvents();
+  it('is finished by a happening while its run works, detaching the run', () => {
+    const finished = assigned().react(LINE, COMPLETED, TaskRank.of('m'), world);
 
-    expect(asking.awaitsAnAnswer).toBe(false);
+    expect(finished.stationId).toEqual(COMPLETED);
+    expect(finished.finished).toBe(true);
+    expect(finished.currentRunId).toBeNull();
+    expect(finished.awaitingReview).toBe(false);
+    expect(detached(finished)).toEqual([RUN]);
+  });
 
-    const interrupted = asking.interrupt(world);
-
-    expect(interrupted.currentRunId).toBeNull();
-    expect(detached(interrupted)).toEqual([RUN]);
-    expect(interrupted.notes.map((each) => each.kind)).toEqual([
-      'message',
-      'asked',
-      'asked',
-    ]);
-    expect(interrupted.awaitingReview).toBe(true);
-    expect(interrupted.decisionPending).toBe(false);
-    expect(interrupted.deferredMoveTo).toBeNull();
+  it('cannot be moved by a happening to a station other than the completed one while its run works', () => {
+    expect(() => assigned().react(LINE, SPEC, TaskRank.of('m'), world)).toThrow(
+      InvalidTaskTransitionError,
+    );
   });
 
   it('does not defer a move to the end of its line', () => {
@@ -2475,20 +2461,6 @@ describe('Task and the happenings received while it has a current run', () => {
     ).toThrow(InvalidTaskTransitionError);
   });
 
-  it('detaches the run and puts itself to a person when interrupted', () => {
-    const interrupted = assigned().interrupt(world);
-
-    expect(interrupted.stationId).toEqual(HERE);
-    expect(interrupted.currentRunId).toBeNull();
-    expect(interrupted.awaitingReview).toBe(true);
-    expect(interrupted.assignee).toEqual(UserId.of('user_1'));
-    expect(detached(interrupted)).toEqual([RUN]);
-  });
-
-  it('is interrupted only while it has a current run', () => {
-    expect(() => added().interrupt(world)).toThrow(InvalidTaskTransitionError);
-  });
-
   describe('while its run waits on a person', () => {
     const paused = () => {
       const task = assigned().putToAPerson(RUN, {
@@ -2521,7 +2493,7 @@ describe('Task and the happenings received while it has a current run', () => {
       );
     });
 
-    it('cannot be finished by a happening while it waits on a tool approval', () => {
+    it('is finished by a happening while it waits on a tool approval', () => {
       const approving = assigned().clearFor(
         ApprovalSubject.toolCall(
           ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
@@ -2532,8 +2504,22 @@ describe('Task and the happenings received while it has a current run', () => {
         null,
       ).task;
 
+      const finished = approving.react(
+        LINE,
+        COMPLETED,
+        TaskRank.of('m'),
+        world,
+      );
+
+      expect(finished.finished).toBe(true);
+      expect(finished.currentRunId).toBeNull();
+      expect(finished.awaitingReview).toBe(false);
+      expect(finished.decisionPending).toBe(false);
       expect(() =>
-        approving.react(LINE, COMPLETED, TaskRank.of('m'), world),
+        finished.answer(approving.openConversation?.from as NotePosition, {
+          ...newNote,
+          voice: Voice.person(UserId.of('user_1')),
+        }),
       ).toThrow(InvalidTaskTransitionError);
     });
 
@@ -2546,12 +2532,6 @@ describe('Task and the happenings received while it has a current run', () => {
       expect(finished.awaitingReview).toBe(false);
       expect(finished.openConversation).toBeNull();
       expect(detached(finished)).toEqual([RUN]);
-    });
-
-    it('cannot be interrupted, as it already waits on a person', () => {
-      expect(() => paused().interrupt(world)).toThrow(
-        InvalidTaskTransitionError,
-      );
     });
 
     it('is moved where a move was deferred to once its run ends without passing it on', () => {
@@ -2568,29 +2548,6 @@ describe('Task and the happenings received while it has a current run', () => {
       expect(moved.stationId).toEqual(SPEC);
       expect(moved.currentRunId).toBeNull();
       expect(moved.awaitingReview).toBe(false);
-    });
-  });
-
-  describe('once interrupted', () => {
-    const person = { ...newNote, voice: Voice.person(UserId.of('user_1')) };
-
-    it('takes a word in the run chat as the answer, wanting a run at its station again', () => {
-      const answered = assigned()
-        .interrupt(world)
-        .receiveMessage(RUN, person, HERE);
-
-      expect(answered.awaitingReview).toBe(false);
-      expect(answered.notes.map((each) => each.kind)).toEqual([
-        'asked',
-        'answered',
-      ]);
-      expect(answered.wantsRun(LINE)).toBe(true);
-    });
-
-    it('will not take a word from the chat of a run at a station it has left', () => {
-      expect(() =>
-        assigned().interrupt(world).receiveMessage(RUN, person, SPEC),
-      ).toThrow(InvalidTaskTransitionError);
     });
   });
 });

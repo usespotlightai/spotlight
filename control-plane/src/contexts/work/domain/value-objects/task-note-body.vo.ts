@@ -44,25 +44,6 @@ export class TaskNoteBody {
     return TaskNoteBody.of(account ? `${moved}\n\n${account.value}` : moved);
   }
 
-  static interrupted(
-    summary: string,
-    working: StationName | null,
-  ): TaskNoteBody {
-    return TaskNoteBody.happenedWhile(summary, working, 'was working');
-  }
-
-  private static happenedWhile(
-    summary: string,
-    station: StationName | null,
-    doing: string,
-  ): TaskNoteBody {
-    const happened = TaskNoteBody.of(summary).value.replace(/\.$/, '');
-
-    return TaskNoteBody.of(
-      `${happened} while ${station?.value ?? 'its station'} ${doing}. Close the task, or reply to carry on.`,
-    );
-  }
-
   static fromInput(
     raw: string,
     attachments: readonly Attachment[] = [],
