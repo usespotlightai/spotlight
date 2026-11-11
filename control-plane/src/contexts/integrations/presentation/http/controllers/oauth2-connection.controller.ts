@@ -55,7 +55,11 @@ export const FAILED_REDIRECT = '/?integration=failed';
 
 const OAUTH2_ERROR_CODE = /^[a-z_]{1,64}$/;
 
-type CallbackRefusal = 'incomplete-callback' | 'no-nonce-cookie' | 'signed-out';
+type CallbackRefusal =
+  | 'provider-error'
+  | 'incomplete-callback'
+  | 'no-nonce-cookie'
+  | 'signed-out';
 
 @ApiTags('integrations')
 @Controller()
@@ -137,8 +141,13 @@ export class OAuth2ConnectionController {
     const nonce = this.nonceCookie.readFrom(request.headers);
     this.nonceCookie.clear(response);
 
+    if (error) {
+      this.failed(response, 'provider-error', error);
+      return;
+    }
+
     if (!state || !code) {
-      this.failed(response, 'incomplete-callback', error);
+      this.failed(response, 'incomplete-callback');
       return;
     }
 

@@ -171,7 +171,7 @@ describe('OAuth2ConnectionController', () => {
     expect(execute).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
     expect(logger.info).toHaveBeenCalledExactlyOnceWith(
-      { reason: 'incomplete-callback', providerError: 'access_denied' },
+      { reason: 'provider-error', providerError: 'access_denied' },
       'Did not finish an OAuth2 connection',
     );
   });
@@ -189,6 +189,47 @@ describe('OAuth2ConnectionController', () => {
       viewer,
     );
 
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      { reason: 'provider-error', providerError: undefined },
+      'Did not finish an OAuth2 connection',
+    );
+  });
+
+  it('fails on a service error even when a code comes with it', async () => {
+    const { controller, execute, viewer, logger } = controlling();
+    const { response, redirect } = answering();
+
+    await controller.callback(
+      's',
+      'c',
+      'server_error',
+      withCookie('n-1'),
+      response,
+      viewer,
+    );
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      { reason: 'provider-error', providerError: 'server_error' },
+      'Did not finish an OAuth2 connection',
+    );
+  });
+
+  it('says a callback with no code is incomplete', async () => {
+    const { controller, execute, viewer, logger } = controlling();
+    const { response } = answering();
+
+    await controller.callback(
+      's',
+      undefined,
+      undefined,
+      withCookie('n-1'),
+      response,
+      viewer,
+    );
+
+    expect(execute).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledExactlyOnceWith(
       { reason: 'incomplete-callback', providerError: undefined },
       'Did not finish an OAuth2 connection',

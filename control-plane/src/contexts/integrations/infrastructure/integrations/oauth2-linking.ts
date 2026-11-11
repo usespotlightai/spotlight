@@ -45,8 +45,15 @@ const sameNonce = (one: string, other: string): boolean => {
   return a.length === b.length && timingSafeEqual(a, b);
 };
 
-const refused = (reason: OAuth2Refusal): OAuth2Refused => ({
+const refused = (
+  reason: OAuth2Refusal,
+  intent?: OpenedOAuth2Intent,
+): OAuth2Refused => ({
   refused: reason,
+  ...(intent && {
+    teamId: TeamId.of(intent.teamId),
+    integration: IntegrationKey.of(intent.integration),
+  }),
 });
 
 export class OAuth2Linking implements OAuth2LinkingPort {
@@ -151,11 +158,11 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     }
 
     if (!returned.nonce || !sameNonce(returned.nonce, intent.nonce)) {
-      return refused('nonce-mismatch');
+      return refused('nonce-mismatch', intent);
     }
 
     if (returned.viewerId?.value !== intent.by) {
-      return refused('other-person');
+      return refused('other-person', intent);
     }
 
     if (
@@ -165,7 +172,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
         this.clock.now(),
       ))
     ) {
-      return refused('nonce-spent');
+      return refused('nonce-spent', intent);
     }
 
     const teamId = TeamId.of(intent.teamId);
@@ -173,7 +180,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     return (
       (await this.onBehalfOf(teamId, () =>
         this.exchanged(teamId, intent, returned),
-      )) ?? refused('no-team')
+      )) ?? refused('no-team', intent)
     );
   }
 
@@ -190,7 +197,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       intent.integration,
     );
     if (!oauth2) {
-      return refused('no-oauth2-endpoints');
+      return refused('no-oauth2-endpoints', intent);
     }
 
     const client = await this.clients.existingFor(
@@ -200,7 +207,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     );
 
     if (!client) {
-      return refused('no-client');
+      return refused('no-client', intent);
     }
 
     const tokens = await this.exchange.exchange(
@@ -212,7 +219,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     );
 
     if (!tokens) {
-      return refused('token-exchange-failed');
+      return refused('token-exchange-failed', intent);
     }
 
     return {

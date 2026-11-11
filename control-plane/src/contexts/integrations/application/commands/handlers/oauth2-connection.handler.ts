@@ -177,7 +177,11 @@ export class FinishOAuth2ConnectionHandler implements CommandHandlerPort<
       });
 
       if ('refused' in authorized) {
-        return this.notFinished({ reason: authorized.refused });
+        return this.notFinished({
+          teamId: authorized.teamId?.value,
+          integration: authorized.integration?.value,
+          reason: authorized.refused,
+        });
       }
 
       const { by, teamId, integration } = authorized;

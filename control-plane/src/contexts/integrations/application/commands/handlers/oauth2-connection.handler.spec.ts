@@ -393,15 +393,35 @@ describe('FinishOAuth2ConnectionHandler', () => {
 
   it('stores nothing when the callback is not valid', async () => {
     const { handler, save, logger } = finishing({
-      authorized: { refused: 'nonce-spent' },
+      authorized: {
+        refused: 'no-client',
+        teamId: TeamId.of('team_1'),
+        integration: IntegrationKey.of('slack'),
+      },
     });
 
     expect(await handler.execute(command())).toBeNull();
     expect(logger.info).toHaveBeenCalledExactlyOnceWith(
-      { reason: 'nonce-spent' },
+      { teamId: 'team_1', integration: 'slack', reason: 'no-client' },
       'Did not finish an OAuth2 connection',
     );
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it('logs a refusal before the state opens with its reason alone', async () => {
+    const { handler, logger } = finishing({
+      authorized: { refused: 'state-not-accepted' },
+    });
+
+    expect(await handler.execute(command())).toBeNull();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      {
+        teamId: undefined,
+        integration: undefined,
+        reason: 'state-not-accepted',
+      },
+      'Did not finish an OAuth2 connection',
+    );
   });
 
   it('re-checks the authorizer may still connect, and denies if not', async () => {

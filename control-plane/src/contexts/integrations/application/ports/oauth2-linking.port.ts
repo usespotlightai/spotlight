@@ -45,6 +45,8 @@ export type OAuth2Refusal =
 
 export interface OAuth2Refused {
   readonly refused: OAuth2Refusal;
+  readonly teamId?: TeamId;
+  readonly integration?: IntegrationKey;
 }
 
 export interface OAuth2Registration {

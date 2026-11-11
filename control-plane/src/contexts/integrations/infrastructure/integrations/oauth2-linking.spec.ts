@@ -177,6 +177,12 @@ const linkInput = (over: Partial<OAuth2LinkInput> = {}): OAuth2LinkInput => ({
 
 const viewerOf = (id: string | null) => (id === null ? null : UserId.of(id));
 
+const refusedFor = (reason: string) => ({
+  refused: reason,
+  teamId: TeamId.of('team_1'),
+  integration: IntegrationKey.of('slack'),
+});
+
 const returned = (
   over: {
     state?: string;
@@ -276,7 +282,7 @@ describe('OAuth2Linking', () => {
     const { it, exchange, allowedWhileRegistering } = linking({ team: false });
 
     expect(await it.begin(linkInput())).toBeNull();
-    expect(await it.authorized(returned())).toEqual({ refused: 'no-team' });
+    expect(await it.authorized(returned())).toEqual(refusedFor('no-team'));
     expect(allowedWhileRegistering).toEqual([]);
     expect(exchange).not.toHaveBeenCalled();
   });
@@ -301,38 +307,38 @@ describe('OAuth2Linking', () => {
   it('yields nothing when the service does not accept the code', async () => {
     const { it } = linking({ exchanged: null });
 
-    expect(await it.authorized(returned())).toEqual({
-      refused: 'token-exchange-failed',
-    });
+    expect(await it.authorized(returned())).toEqual(
+      refusedFor('token-exchange-failed'),
+    );
   });
 
   it('rejects a browser whose nonce cookie is not the one the state carries', async () => {
     const { it, exchange } = linking();
 
-    expect(await it.authorized(returned({ nonce: 'n-2' }))).toEqual({
-      refused: 'nonce-mismatch',
-    });
+    expect(await it.authorized(returned({ nonce: 'n-2' }))).toEqual(
+      refusedFor('nonce-mismatch'),
+    );
     expect(exchange).not.toHaveBeenCalled();
   });
 
   it('rejects a browser that brought no nonce cookie', async () => {
     const { it, exchange } = linking();
 
-    expect(await it.authorized(returned({ nonce: null }))).toEqual({
-      refused: 'nonce-mismatch',
-    });
+    expect(await it.authorized(returned({ nonce: null }))).toEqual(
+      refusedFor('nonce-mismatch'),
+    );
     expect(exchange).not.toHaveBeenCalled();
   });
 
   it('rejects a session that is not the person who began', async () => {
     const { it, exchange } = linking();
 
-    expect(await it.authorized(returned({ viewerId: 'user_2' }))).toEqual({
-      refused: 'other-person',
-    });
-    expect(await it.authorized(returned({ viewerId: null }))).toEqual({
-      refused: 'other-person',
-    });
+    expect(await it.authorized(returned({ viewerId: 'user_2' }))).toEqual(
+      refusedFor('other-person'),
+    );
+    expect(await it.authorized(returned({ viewerId: null }))).toEqual(
+      refusedFor('other-person'),
+    );
     expect(exchange).not.toHaveBeenCalled();
   });
 
@@ -340,9 +346,7 @@ describe('OAuth2Linking', () => {
     const { it, exchange } = linking();
 
     expect(await it.authorized(returned())).toHaveProperty('tokens');
-    expect(await it.authorized(returned())).toEqual({
-      refused: 'nonce-spent',
-    });
+    expect(await it.authorized(returned())).toEqual(refusedFor('nonce-spent'));
     expect(exchange).toHaveBeenCalledOnce();
   });
 
