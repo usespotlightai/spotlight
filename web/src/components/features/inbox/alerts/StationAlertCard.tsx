@@ -1,4 +1,5 @@
 import { BellRing } from 'lucide-react';
+
 import { AlertChart } from '@/components/features/inbox/alerts/AlertChart';
 import { AlertChartEmpty } from '@/components/features/inbox/alerts/AlertChartEmpty';
 import { StationAlertSkeleton } from '@/components/features/inbox/alerts/StationAlertSkeleton';

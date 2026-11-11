@@ -28,10 +28,10 @@ import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export class CreateHarnessProfileHandler
-  implements
-    CommandHandlerPort<CreateHarnessProfileCommand, ResourceCreated | null>
-{
+export class CreateHarnessProfileHandler implements CommandHandlerPort<
+  CreateHarnessProfileCommand,
+  ResourceCreated | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,

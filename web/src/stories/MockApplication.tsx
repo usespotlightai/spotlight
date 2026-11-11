@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { type Location, MemoryRouter } from 'react-router';
+
 import App from '@/App';
 import { Toaster } from '@/components/ui/toast';
 import { failuresToasted } from '@/lib/failure-toasts';

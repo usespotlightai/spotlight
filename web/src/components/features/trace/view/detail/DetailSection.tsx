@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { DetailCopy } from '@/components/features/trace/view/detail/DetailCopy';
 import { PaneSection } from '@/components/shared/PaneSection';
 

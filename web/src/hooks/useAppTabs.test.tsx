@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
+
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { AppTabStrip } from '@/components/shell/tabs/AppTabStrip';
 import { useAppTabs } from '@/hooks/useAppTabs';

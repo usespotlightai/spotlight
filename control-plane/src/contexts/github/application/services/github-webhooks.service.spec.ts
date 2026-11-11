@@ -95,7 +95,7 @@ const hooks = (
     lockedConnectedWorkspaceOf: vi.fn(async () =>
       connected ? WORKSPACE : null,
     ),
-    save: vi.fn(async (_: GitHubConnection) => {}),
+    save: vi.fn<GitHubConnectionRepository['save']>(async () => {}),
   } satisfies GitHubConnectionRepository;
   const signature = { signs: vi.fn(() => over.signs ?? true) };
   const logger = {
@@ -270,7 +270,7 @@ describe('GitHubWebhooks', () => {
 
       await service.receive(DELIVERY);
 
-      const [saved] = connections.save.mock.calls[0] as [GitHubConnection];
+      const [saved] = connections.save.mock.calls[0];
       expect(saved.installation).toBeNull();
       expect(saved.pullEvents().map((each) => each.kind)).toEqual([
         'workspace.disconnected',

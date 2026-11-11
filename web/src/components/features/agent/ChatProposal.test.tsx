@@ -2,12 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ChatProposal } from '@/components/features/agent/ChatProposal';
 import type { Attachment } from '@/lib/attachment';
 import type { Proposal } from '@/lib/chat';
 import { toast } from '@/lib/toast';
 
-const created = vi.fn();
+const created =
+  vi.fn<(input: unknown, options?: { onError?: () => void }) => void>();
 const dismissed = vi.fn();
 
 vi.mock('@/hooks/api/useAcceptProposal', () => ({
@@ -173,7 +175,9 @@ describe('ChatProposal', () => {
         type: 'success',
         title: 'Task created',
         description: 'Back off exponentially',
-        actionProps: expect.objectContaining({ children: 'Open task' }),
+        actionProps: expect.objectContaining({
+          children: 'Open task',
+        }) as unknown,
       }),
     );
   });

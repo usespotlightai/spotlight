@@ -12,13 +12,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ListIntegrationConnectionsHandler
-  implements
-    QueryHandlerPort<
-      ListIntegrationConnectionsQuery,
-      IntegrationConnectionsDto | null
-    >
-{
+export class ListIntegrationConnectionsHandler implements QueryHandlerPort<
+  ListIntegrationConnectionsQuery,
+  IntegrationConnectionsDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly roster: IntegrationConnectionRosterPort,

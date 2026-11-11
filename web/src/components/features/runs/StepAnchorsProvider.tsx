@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
+
 import type { JournalStep, RunJournal } from '@/lib/inbox';
 import { StepAnchorsContext, stepAnchor } from '@/lib/step-anchors';
 

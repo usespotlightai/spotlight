@@ -1,4 +1,5 @@
 import { MoreHorizontal } from 'lucide-react';
+
 import { DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 type RowActionsTriggerProps = {

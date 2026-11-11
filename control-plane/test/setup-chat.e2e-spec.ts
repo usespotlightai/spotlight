@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   RUN_TOKENS,
   type RunTokensPort,
@@ -31,6 +32,7 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
@@ -117,7 +119,7 @@ describe('setting a team up as code (e2e)', () => {
         ci: null,
         startedById: owner,
         startedBy: 'Ada',
-        startedAt: expect.any(Date),
+        startedAt: expect.any(Date) as unknown,
       },
     ]);
 
@@ -242,7 +244,7 @@ describe('setting a team up as code (e2e)', () => {
           .get(`/api/teams/${workspaceId}/configuration/onboarding`)
           .set(TEST_USER_HEADER, viewer)
           .expect(200)
-      ).body;
+      ).body as unknown;
 
     await expect(seenBy(owner)).resolves.toMatchObject({
       canSetUp: false,

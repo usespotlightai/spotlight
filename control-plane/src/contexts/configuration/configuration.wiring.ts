@@ -124,10 +124,10 @@ import { S3TerraformStateBodies } from '@configuration/infrastructure/storage/s3
 import { HclStationSourceEdits } from '@configuration/infrastructure/terraform/hcl-station-source-edits';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
 import { HarnessProfileResourceController } from '@configuration/presentation/http/controllers/harness-profile-resource.controller';
-import { SkillController } from '@configuration/presentation/http/controllers/skill.controller';
 import { SkillResourceController } from '@configuration/presentation/http/controllers/skill-resource.controller';
-import { TerraformController } from '@configuration/presentation/http/controllers/terraform.controller';
+import { SkillController } from '@configuration/presentation/http/controllers/skill.controller';
 import { TerraformStateController } from '@configuration/presentation/http/controllers/terraform-state.controller';
+import { TerraformController } from '@configuration/presentation/http/controllers/terraform.controller';
 import {
   OIDC_TRUST_CONFIGURATION,
   type OidcTrustConfigurationPort,

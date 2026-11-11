@@ -65,24 +65,38 @@ const texts = (value: unknown): readonly string[] =>
     ? value.filter((each): each is string => typeof each === 'string')
     : [];
 
+const isRecord = ({
+  proxyCredential,
+  host,
+  port,
+  bytesOut,
+  bytesIn,
+  ms,
+  outcome,
+  status,
+  reason,
+  at,
+}: Record<string, unknown>): boolean =>
+  typeof proxyCredential === 'string' &&
+  typeof host === 'string' &&
+  typeof port === 'number' &&
+  typeof bytesOut === 'number' &&
+  typeof bytesIn === 'number' &&
+  typeof ms === 'number' &&
+  typeof outcome === 'string' &&
+  (status === undefined || typeof status === 'number') &&
+  (reason === undefined || typeof reason === 'string') &&
+  typeof at === 'string';
+
 const records = (
   value: unknown,
 ): RecordEgressConnectionsRequestDto['records'] =>
   Array.isArray(value)
-    ? value.filter(
+    ? (value as unknown[]).filter(
         (each): each is RecordEgressConnectionsRequestDto['records'][number] =>
           typeof each === 'object' &&
           each !== null &&
-          typeof each.proxyCredential === 'string' &&
-          typeof each.host === 'string' &&
-          typeof each.port === 'number' &&
-          typeof each.bytesOut === 'number' &&
-          typeof each.bytesIn === 'number' &&
-          typeof each.ms === 'number' &&
-          typeof each.outcome === 'string' &&
-          (each.status === undefined || typeof each.status === 'number') &&
-          (each.reason === undefined || typeof each.reason === 'string') &&
-          typeof each.at === 'string',
+          isRecord(each as Record<string, unknown>),
       )
     : [];
 

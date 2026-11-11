@@ -123,7 +123,14 @@ const detailOf = (reason: EntryReason): string | null => {
       return lookup(CHECK_SKIPS, detail);
     case 'unjudged':
       return lookup(UNJUDGED, detail);
-    default:
+    case 'asked-a-person':
+    case 'check-failed':
+    case 'judge-failed':
+    case 'judged':
+    case 'no-change':
+    case 'no-change-stack':
+    case 'nothing-judges':
+    case 'run-stopped':
       return detail;
   }
 };

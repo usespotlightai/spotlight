@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { type PillSize, type PillVariant, pillClass } from '@/lib/pill';
 
 type ExternalPillLinkProps = {

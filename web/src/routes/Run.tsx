@@ -1,5 +1,6 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useParams } from 'react-router';
+
 import { RunPage } from '@/components/features/runs/RunPage';
 import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -12,7 +13,7 @@ import { notFound } from '@/lib/error';
 import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, type Loadable, loading } from '@/lib/query';
 
-type Query = UseQueryResult<unknown>;
+type Query = UseQueryResult;
 
 const stillLoading = (
   found: Query,

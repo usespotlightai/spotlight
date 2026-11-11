@@ -1,5 +1,6 @@
 import { ChevronsUpDown } from 'lucide-react';
 import { type ComponentType, useId } from 'react';
+
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -51,7 +52,7 @@ export function CheckboxSelect({
     value.length === 0
       ? none
       : value.length === 1
-        ? (value[0] as string)
+        ? value[0]
         : many(value.length);
 
   const listed = readOnly ? [...value].sort() : options;
@@ -69,7 +70,7 @@ export function CheckboxSelect({
           closeOnClick={false}
           disabled={readOnly}
           className="data-checked:data-disabled:opacity-100"
-          onCheckedChange={(checked) => toggle(option, Boolean(checked))}
+          onCheckedChange={(checked) => toggle(option, checked)}
         >
           <span className="truncate">{option}</span>
         </DropdownMenuCheckboxItem>

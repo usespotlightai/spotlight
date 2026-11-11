@@ -37,9 +37,10 @@ import type { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo'
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
 
-export class UseToolHandler
-  implements CommandHandlerPort<UseToolCommand, ToolAnswerDto>
-{
+export class UseToolHandler implements CommandHandlerPort<
+  UseToolCommand,
+  ToolAnswerDto
+> {
   constructor(
     private readonly works: RunWorks,
     private readonly sources: ToolSources,

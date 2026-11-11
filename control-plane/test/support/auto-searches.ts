@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { and, eq, inArray, sql } from 'drizzle-orm';
+
 import { autoSearched } from './app';
 import { eventually } from './eventually';
 import * as schema from './schema';

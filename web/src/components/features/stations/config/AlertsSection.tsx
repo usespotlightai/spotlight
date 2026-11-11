@@ -29,7 +29,7 @@ export function AlertsSection({ alerts, currency }: AlertsSectionProps) {
 
             return (
               <li
-                // biome-ignore lint/suspicious/noArrayIndexKey: the alerts show in their written order and can repeat
+                // oxlint-disable-next-line react/no-array-index-key -- the alerts show in their written order and can repeat
                 key={place}
                 aria-label={alertPhrase(alert, currency)}
                 className={cn(TABLE_ROW, COLUMNS)}

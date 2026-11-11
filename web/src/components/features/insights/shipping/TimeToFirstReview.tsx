@@ -1,4 +1,5 @@
 import { useState } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';

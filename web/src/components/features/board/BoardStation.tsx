@@ -2,6 +2,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+
 import { StationSection } from '@/components/features/board/column/StationSection';
 import { TaskRow } from '@/components/features/board/task/TaskRow';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';

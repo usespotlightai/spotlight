@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunReadModel } from '@runs/application/services/run-read-model.service';
@@ -15,6 +16,7 @@ import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/read
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { aRunOf, endingFor } from './support/run-ended';
 import { aTurn, requestedBySpec, requestedByTask } from './support/runs';
@@ -48,6 +50,7 @@ const inboxWith = async (
     stopRequestedAt = null as Date | null,
     answered = true,
     asked = true,
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- widens the default to every turn
     turn = 'kept' as 'pending' | 'kept',
   } = {},
 ) => {

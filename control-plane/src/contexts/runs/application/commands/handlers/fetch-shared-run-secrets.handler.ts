@@ -6,9 +6,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class FetchSharedRunSecretsHandler
-  implements CommandHandlerPort<FetchSharedRunSecretsCommand, EgressSecretsDto>
-{
+export class FetchSharedRunSecretsHandler implements CommandHandlerPort<
+  FetchSharedRunSecretsCommand,
+  EgressSecretsDto
+> {
   constructor(
     private readonly egress: RunnerEgressPort,
     private readonly fetches: EgressSecretFetches,

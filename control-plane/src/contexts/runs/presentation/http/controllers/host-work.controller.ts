@@ -32,15 +32,14 @@ import {
   RecordHostCallResponseCommand,
 } from '@runs/application/commands/host-call.commands';
 import { ClaimHostWorkCommand } from '@runs/application/commands/runner.commands';
-import type { HostClaimDto } from '@runs/application/dto/host.dto';
 import type {
   HostCallClaimDto,
   RecordHostCallResponseDto,
 } from '@runs/application/dto/host-call.dto';
 import type { HostRequirementsDto } from '@runs/application/dto/host-requirements.dto';
+import type { HostClaimDto } from '@runs/application/dto/host.dto';
 import { HostRequirementsQuery } from '@runs/application/queries/host.queries';
 import { HarnessProbeResponseDto } from '@runs/presentation/http/dto/harness-probe.response.dto';
-import { HostClaimResponseDto } from '@runs/presentation/http/dto/host.response.dto';
 import {
   ClaimHostCallRequestDto,
   RecordHostCallResponseRequestDto,
@@ -52,6 +51,7 @@ import {
   HostRequirementsResponseDto,
   RunnerReleaseResponseDto,
 } from '@runs/presentation/http/dto/host-requirements.response.dto';
+import { HostClaimResponseDto } from '@runs/presentation/http/dto/host.response.dto';
 import {
   ClaimedWorkResponseDto,
   WarmCheckoutResponseDto,

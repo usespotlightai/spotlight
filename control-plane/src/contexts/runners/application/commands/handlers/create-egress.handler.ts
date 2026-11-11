@@ -33,9 +33,10 @@ import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class CreateEgressHandler
-  implements CommandHandlerPort<CreateEgressCommand, EgressCreatedDto | null>
-{
+export class CreateEgressHandler implements CommandHandlerPort<
+  CreateEgressCommand,
+  EgressCreatedDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,

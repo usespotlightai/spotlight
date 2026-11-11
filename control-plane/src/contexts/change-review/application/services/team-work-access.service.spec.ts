@@ -1,4 +1,3 @@
-import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type {
   ReviewedTask,
   RunForReview,
@@ -38,7 +37,7 @@ const access = (
             },
       actsOnTeam: async () => over.actsOnTeam ?? over.member !== false,
       find: async () => ({ name: 'Ada', image: null }),
-    } as unknown as PeoplePort,
+    },
     {
       run: async (): Promise<RunForReview | null> =>
         over.run === null

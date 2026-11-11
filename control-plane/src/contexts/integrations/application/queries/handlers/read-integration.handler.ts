@@ -7,10 +7,10 @@ import { IntegrationDefinitionId } from '@integrations/domain/value-objects/inte
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadIntegrationHandler
-  implements
-    QueryHandlerPort<ReadIntegrationQuery, IntegrationResourceDto | null>
-{
+export class ReadIntegrationHandler implements QueryHandlerPort<
+  ReadIntegrationQuery,
+  IntegrationResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IntegrationResourcesPort,
@@ -35,7 +35,7 @@ export class ReadIntegrationHandler
         return null;
       }
 
-      return this.views.of(record);
+      return await this.views.of(record);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

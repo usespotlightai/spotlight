@@ -174,7 +174,7 @@ describe('compiling an integration', () => {
     it('rejects a rule written as anything but an expression', () => {
       expect(
         complaining(
-          // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+          // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
           WHOLE.replace('${{ body.type == "Issue" }}', 'body.type'),
           'webhook.events.0.when',
         ),
@@ -625,9 +625,9 @@ on:
 
     it('lets a rule that walks a list read each item, and nothing else', () => {
       const list = WHOLE.replace(
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
         '    - when: ${{ body.type == "Issue" }}',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
         '    - forEach: ${{ body.issues }}\n      when: ${{ item.done }}',
       );
 
@@ -637,7 +637,7 @@ on:
 
     it('warns, at the capture, where a lookup capture shadows a built-in name', () => {
       const shadowing = WHOLE.replace(
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
         '    - when: ${{ body.type == "Issue" }}',
         `    - when: \${{ body.type == "Issue" }}
       lookup:
@@ -665,9 +665,9 @@ on:
       expect(
         warnings(
           WHOLE.replace(
-            // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+            // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
             'value: ${{ body.data.identifier }}',
-            // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+            // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
             'value: ${{ email }}',
           ),
         ),
@@ -723,7 +723,7 @@ actions:
       parseYaml(
         ACTION.replace(
           'x-line: line-',
-          // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+          // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
           'authorization: Bearer ${{ secret.DEMO_TOKEN }}\n        x-line: line-',
         ),
       ),
@@ -1245,7 +1245,7 @@ tools:
       ),
     ).toMatchObject({
       ok: false,
-      problems: [{ reason: expect.stringMatching(/not both/) }],
+      problems: [{ reason: expect.stringMatching(/not both/) as unknown }],
     });
   });
 
@@ -1279,7 +1279,7 @@ tools:
       ok: false,
       problems: expect.arrayContaining([
         expect.objectContaining({ field: FieldPath.of(['openapi', 'tools']) }),
-      ]),
+      ]) as unknown,
     });
   });
 
@@ -1625,7 +1625,7 @@ on:
 
     const read = compiled(ACTION);
     expect(read.ok && read.readable.actions.get('post')?.uploads).toEqual(
-      expect.objectContaining({ complete: expect.anything() }),
+      expect.objectContaining({ complete: expect.anything() as unknown }),
     );
   });
 

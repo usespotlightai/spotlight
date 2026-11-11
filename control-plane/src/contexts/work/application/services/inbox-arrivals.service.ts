@@ -49,7 +49,8 @@ const sightingOf = (
         unread: entry.unread,
         askedAt: entry.askedAt,
       };
-    default:
+    case 'chat':
+    case 'run':
       return null;
   }
 };

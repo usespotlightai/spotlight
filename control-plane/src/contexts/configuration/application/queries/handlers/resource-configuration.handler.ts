@@ -31,13 +31,10 @@ interface InWorkspace {
   readonly workspaceId: WorkspaceId;
 }
 
-export class ResourceConfigurationHandler
-  implements
-    QueryHandlerPort<
-      ResourceConfigurationQuery,
-      ExportableResourceConfigurationDto | null
-    >
-{
+export class ResourceConfigurationHandler implements QueryHandlerPort<
+  ResourceConfigurationQuery,
+  ExportableResourceConfigurationDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly workspaces: WorkspaceReaderPort,

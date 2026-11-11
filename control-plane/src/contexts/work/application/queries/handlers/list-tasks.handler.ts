@@ -13,9 +13,10 @@ import type {
 } from '@work/application/queries/list-tasks.query';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 
-export class ListTasksHandler
-  implements QueryHandlerPort<ListTasksQuery, Page<TaskDto> | null>
-{
+export class ListTasksHandler implements QueryHandlerPort<
+  ListTasksQuery,
+  Page<TaskDto> | null
+> {
   constructor(
     private readonly tasks: TaskReaderPort,
     private readonly access: WorkAccess,
@@ -40,16 +41,17 @@ export class ListTasksHandler
             },
       );
 
-      return mapPage(found, TaskMapper.summaryToDto);
+      return mapPage(found, (each) => TaskMapper.summaryToDto(each));
     } catch (error) {
       rethrowAsApplicationError(error);
     }
   }
 }
 
-export class ReadTaskHandler
-  implements QueryHandlerPort<ReadTaskQuery, TaskDto | null>
-{
+export class ReadTaskHandler implements QueryHandlerPort<
+  ReadTaskQuery,
+  TaskDto | null
+> {
   constructor(
     private readonly tasks: TaskReaderPort,
     private readonly access: WorkAccess,

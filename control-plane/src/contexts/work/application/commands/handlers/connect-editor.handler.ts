@@ -18,10 +18,10 @@ interface Found {
   readonly key: string;
 }
 
-export class ConnectEditorHandler
-  implements
-    CommandHandlerPort<ConnectEditorCommand, EditorConnectionDto | null>
-{
+export class ConnectEditorHandler implements CommandHandlerPort<
+  ConnectEditorCommand,
+  EditorConnectionDto | null
+> {
   constructor(
     private readonly tasks: TaskWorkspacesPort,
     private readonly chats: ChatRepository,

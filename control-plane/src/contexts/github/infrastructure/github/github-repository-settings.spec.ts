@@ -41,7 +41,9 @@ const routing = (route: (method: string, url: string) => Answer) =>
     sent.push({
       url,
       method,
-      body: init.body ? JSON.parse(String(init.body)) : {},
+      body: init.body
+        ? (JSON.parse(init.body as string) as Record<string, unknown>)
+        : {},
     });
 
     return answering(route(method, url));

@@ -1,9 +1,8 @@
 import type { HookCall } from '@integrations/application/ports/hook-calls.port';
 import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
-import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
+import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
@@ -13,6 +12,7 @@ import type {
   HookStepOutcome,
   WaitingHookStep,
 } from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/drizzle/configuration-audit';
 import { DrizzleOidcTrustUsage } from '@identity/infrastructure/persistence/drizzle/oidc-trust-usage';
 import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
@@ -40,6 +41,7 @@ import {
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 class Marker {
@@ -82,8 +84,9 @@ const received: string[] = [];
 let failing = 0;
 const causation = new CauseCarrier();
 const causes: unknown[] = [];
-let callOut: (event: Called) => Promise<readonly DomainEvent[]> =
-  async () => [];
+let callOut: (
+  event: Called,
+) => Promise<readonly DomainEvent[]> = async () => [];
 
 const logger = {
   debug: () => undefined,

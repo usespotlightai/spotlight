@@ -1,4 +1,5 @@
 import { delay, HttpResponse, http } from 'msw';
+
 import { openPage, scenario } from '@/mocks/scenario';
 import { readByShellOnly } from '@/mocks/shell';
 

@@ -1,4 +1,5 @@
 import { type RefObject, useEffect, useLayoutEffect, useRef } from 'react';
+
 import type { PullRequestType } from '@/lib/insights-pull-requests';
 import {
   advance,

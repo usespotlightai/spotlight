@@ -134,7 +134,7 @@ describe('Judging', () => {
     const done = judged(
       queuedJudging(),
       true,
-      Array.from({ length: 6 }, () => GROUNDED[0] as (typeof GROUNDED)[0]),
+      Array.from({ length: 6 }, () => GROUNDED[0]),
     );
 
     expect(done.hasPendingJob).toBe(true);

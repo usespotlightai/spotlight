@@ -179,6 +179,7 @@ export const formatPullRequestFilterValue = (
         ? (named[0] ?? value)
         : `${named.length} repositories`;
     }
+    case 'week':
     default:
       return value;
   }

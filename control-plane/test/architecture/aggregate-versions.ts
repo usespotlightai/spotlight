@@ -1,5 +1,7 @@
 import { basename } from 'node:path';
+
 import ts from 'typescript';
+
 import { tableNamed } from './drizzle-tables';
 import {
   descendants,
@@ -53,7 +55,7 @@ const AGGREGATES: readonly Aggregate[] = sourceFiles('contexts')
     /\/domain\/aggregates\/[^/]+\.aggregate\.ts$/.test(file.path),
   )
   .map((file) => {
-    const context = file.path.split('/')[1] as string;
+    const context = file.path.split('/')[1];
     const aggregate = basename(file.path, '.aggregate.ts');
 
     return {

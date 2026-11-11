@@ -111,6 +111,7 @@ export class RunnerChangeStackController {
         recheck === 'true',
         body.skipped
           ? {
+              // oxlint-disable-next-line typescript/no-unnecessary-type-conversion -- the request body is not validated at runtime
               code: String(body.skipped.code),
               detail:
                 typeof body.skipped.detail === 'string'
@@ -119,9 +120,12 @@ export class RunnerChangeStackController {
             }
           : null,
         (Array.isArray(body.steps) ? body.steps : []).map((step) => ({
+          // oxlint-disable-next-line typescript/no-unnecessary-type-conversion -- the request body is not validated at runtime
           step: String(step.step),
+          // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare -- the request body is not validated at runtime
           passed: step.passed === true,
           output: typeof step.output === 'string' ? step.output : '',
+          // oxlint-disable-next-line typescript/no-unnecessary-type-conversion -- the request body is not validated at runtime
           durationMs: Number(step.durationMs) || 0,
         })),
       ),

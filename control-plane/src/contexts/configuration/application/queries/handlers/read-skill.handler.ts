@@ -7,9 +7,10 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadSkillHandler
-  implements QueryHandlerPort<ReadSkillQuery, SkillResourceDto | null>
-{
+export class ReadSkillHandler implements QueryHandlerPort<
+  ReadSkillQuery,
+  SkillResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: SkillResourcesPort,
@@ -32,7 +33,7 @@ export class ReadSkillHandler
         return null;
       }
 
-      return this.views.of(record);
+      return await this.views.of(record);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

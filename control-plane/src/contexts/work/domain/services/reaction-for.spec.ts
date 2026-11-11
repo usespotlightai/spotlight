@@ -14,9 +14,9 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
-import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import { Approval } from '@work/domain/value-objects/approval.vo';
 import type { HappeningPayload } from '@work/domain/value-objects/happening-payload';
 import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
 import {

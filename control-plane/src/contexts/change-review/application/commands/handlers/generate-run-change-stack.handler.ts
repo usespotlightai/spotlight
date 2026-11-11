@@ -9,9 +9,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export class GenerateRunChangeStackHandler
-  implements CommandHandlerPort<GenerateRunChangeStackCommand, void>
-{
+export class GenerateRunChangeStackHandler implements CommandHandlerPort<
+  GenerateRunChangeStackCommand,
+  void
+> {
   constructor(
     private readonly work: WorkPort,
     private readonly leases: RunLeasesPort,

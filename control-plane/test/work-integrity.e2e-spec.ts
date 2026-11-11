@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -31,8 +32,9 @@ import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzl
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { DrizzleStationDeletionGuard } from '@work/infrastructure/persistence/drizzle/station-deletion.guard';
-import { eq } from 'drizzle-orm';
+import { DrizzleQueryError, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
@@ -143,7 +145,7 @@ describe('a line that drops a station', () => {
       context.inTransaction(() =>
         new DrizzleStationDeletionGuard(context).release([reviewId]),
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow(DrizzleQueryError);
     await expect(tasks.find(task.id)).resolves.not.toBeNull();
   });
 

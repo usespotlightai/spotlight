@@ -61,7 +61,7 @@ describe('DeliveryWorker', () => {
   it('starts no new turn once it is going down', async () => {
     const { worker, work } = ticking(async () => 1);
 
-    worker.onModuleDestroy();
+    void worker.onModuleDestroy();
     await worker.tick();
 
     expect(work.processDue).not.toHaveBeenCalled();

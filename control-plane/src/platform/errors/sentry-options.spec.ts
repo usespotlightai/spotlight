@@ -1,5 +1,5 @@
 import { sentryOptions } from '@platform/errors/sentry-options';
-import type { Breadcrumb, ErrorEvent, EventHint } from '@sentry/nestjs';
+import type { Breadcrumb, ErrorEvent } from '@sentry/nestjs';
 import { describe, expect, it } from 'vitest';
 
 const options = sentryOptions({ SENTRY_DSN: 'https://key@sentry.invalid/1' });
@@ -18,8 +18,8 @@ describe('sentryOptions', () => {
             data: { url: 'https://hooks.slack.com/services/T0/B0/secret' },
           },
         ],
-      } as ErrorEvent,
-      {} as EventHint,
+      },
+      {},
     ) as ErrorEvent;
 
     expect(event.request?.url).toBe(
@@ -33,7 +33,7 @@ describe('sentryOptions', () => {
     const breadcrumb = options?.beforeBreadcrumb?.({
       category: 'fetch',
       data: { url: 'https://api.github.com/repos/acme/app?access_token=x' },
-    } as Breadcrumb) as Breadcrumb;
+    }) as Breadcrumb;
 
     expect(breadcrumb.data?.url).toBe('https://api.github.com');
   });

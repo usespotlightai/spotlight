@@ -16,7 +16,6 @@ import {
 } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
-import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -118,8 +117,8 @@ const claimingReserved = (found: StackCheck | null) => {
         },
       } as unknown as StackCheckRepository,
       { find: async () => completed() } as unknown as ChangeStackRepository,
-      { patchOf: () => 'diff' } as PatchWriterPort,
-      { inTransaction: (work) => work() } as TransactionPort,
+      { patchOf: () => 'diff' },
+      { inTransaction: (work) => work() },
     ),
   };
 };
@@ -135,7 +134,7 @@ describe('ClaimChangeStackCheck', () => {
       { waitingIn } as unknown as StackCheckRepository,
       { find } as unknown as ChangeStackRepository,
       {} as PatchWriterPort,
-      { inTransaction: (work) => work() } as TransactionPort,
+      { inTransaction: (work) => work() },
     ).claimNext(WorkspaceId.of('ws_1'), RunnerId.of('runner_1'), LAPTOP, NOW);
 
     expect(claimed).toBeNull();
@@ -169,8 +168,8 @@ describe('ClaimChangeStackCheck', () => {
         },
       } as unknown as StackCheckRepository,
       { find: async () => completed() } as unknown as ChangeStackRepository,
-      { patchOf: () => 'diff' } as PatchWriterPort,
-      { inTransaction: (work) => work() } as TransactionPort,
+      { patchOf: () => 'diff' },
+      { inTransaction: (work) => work() },
     ).claimNext(WorkspaceId.of('ws_1'), RUNNER, LAPTOP, NOW);
 
     expect(claimed).not.toBeNull();
@@ -251,8 +250,8 @@ describe('ClaimChangeStackCheck', () => {
             },
           } as unknown as StackCheckRepository,
           { find: async () => null } as unknown as ChangeStackRepository,
-          { patchOf: () => 'diff' } as PatchWriterPort,
-          { inTransaction: (work) => work() } as TransactionPort,
+          { patchOf: () => 'diff' },
+          { inTransaction: (work) => work() },
         ),
       };
     };
@@ -298,7 +297,7 @@ describe('ClaimChangeStackCheck', () => {
           } as unknown as StackCheckRepository,
           {} as ChangeStackRepository,
           {} as PatchWriterPort,
-          { inTransaction: (work) => work() } as TransactionPort,
+          { inTransaction: (work) => work() },
         ),
       };
     };
@@ -366,7 +365,7 @@ describe('ClaimChangeStackCheck', () => {
           } as unknown as StackCheckRepository,
           {} as ChangeStackRepository,
           {} as PatchWriterPort,
-          { inTransaction: (work) => work() } as TransactionPort,
+          { inTransaction: (work) => work() },
         ),
       };
     };

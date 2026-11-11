@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   HOOK_FIRING_HISTORY,
   type HookFiringHistoryPort,
@@ -10,16 +11,16 @@ import {
   type HookFiringRepository,
 } from '@integrations/domain/repositories/hook-firing.repository';
 import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
-import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
+import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
+import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -37,6 +38,7 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp } from './support/app';
 import * as schema from './support/schema';
 
@@ -277,7 +279,11 @@ describe('hook firings, stored in the database (e2e)', () => {
       .from(schema.hookFiring)
       .where(eq(schema.hookFiring.hookId, hookId));
 
-    expect(ended.map((each) => [each.state, each.failure]).sort()).toEqual([
+    expect(
+      ended
+        .sort((a, b) => a.state.localeCompare(b.state))
+        .map((each) => [each.state, each.failure]),
+    ).toEqual([
       ['failed', 'rejected'],
       ['superseded', 'superseded'],
     ]);

@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
@@ -37,9 +39,9 @@ const inboxRequestsIn = async (userId: string): Promise<string[]> => {
 
   expect(answer.status).toBe(200);
 
-  return (answer.body.items as { id: string; inboxRequest: unknown }[]).flatMap(
-    (each) => (each.inboxRequest ? [each.id] : []),
-  );
+  return (
+    answer.body as { items: { id: string; inboxRequest: unknown }[] }
+  ).items.flatMap((each) => (each.inboxRequest ? [each.id] : []));
 };
 
 const createInboxRequest = async (
@@ -88,7 +90,7 @@ const readToken = async (of = team): Promise<string> => {
 
   expect(answer.status).toBe(201);
 
-  return answer.headers['spotlight-workspace-token'] as string;
+  return answer.headers['spotlight-workspace-token'];
 };
 
 beforeAll(async () => {

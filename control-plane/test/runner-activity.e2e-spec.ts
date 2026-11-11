@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { requesterRefOf } from '@runs/application/ports/run-requester-labels.port';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
@@ -6,6 +7,7 @@ import { DrizzleRunnerActivityReader } from '@runs/infrastructure/persistence/dr
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DrizzleWorkRequesterLabels } from '@work/infrastructure/persistence/drizzle/readers/work-requester-labels.reader';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import {
   requestedByChat,

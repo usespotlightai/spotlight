@@ -358,36 +358,35 @@ export type SettingsWorld = {
 
 const NOBODY: TeamConnections = { mine: [], people: [] };
 
-export const settingsWorld = perWorld(
-  (kind): SettingsWorld =>
-    kind === 'empty'
-      ? {
-          gitHubConnected: false,
-          integrations: { [PLATFORM_ID]: [], [GROWTH_ID]: [] },
-          connections: {
-            [PLATFORM_ID]: structuredClone(NOBODY),
-            [GROWTH_ID]: structuredClone(NOBODY),
-          },
-          skills: { [PLATFORM_ID]: [], [GROWTH_ID]: [] },
-          tokens: [],
-          oidcTrusts: [],
-          pools: [],
-          fleet: structuredClone(NO_FLEET),
-          settingUp: [],
-          viewerIsAdmin: true,
-          setupCi: null,
-        }
-      : {
-          gitHubConnected: true,
-          integrations: structuredClone(INTEGRATIONS),
-          connections: structuredClone(CONNECTIONS),
-          skills: structuredClone(SKILLS),
-          tokens: structuredClone(TOKENS),
-          oidcTrusts: structuredClone(OIDC_TRUSTS),
-          pools: structuredClone(RUNNER_POOLS),
-          fleet: structuredClone(FLEET),
-          settingUp: [],
-          viewerIsAdmin: true,
-          setupCi: { ...SETUP_CI },
+export const settingsWorld = perWorld((kind): SettingsWorld =>
+  kind === 'empty'
+    ? {
+        gitHubConnected: false,
+        integrations: { [PLATFORM_ID]: [], [GROWTH_ID]: [] },
+        connections: {
+          [PLATFORM_ID]: structuredClone(NOBODY),
+          [GROWTH_ID]: structuredClone(NOBODY),
         },
+        skills: { [PLATFORM_ID]: [], [GROWTH_ID]: [] },
+        tokens: [],
+        oidcTrusts: [],
+        pools: [],
+        fleet: structuredClone(NO_FLEET),
+        settingUp: [],
+        viewerIsAdmin: true,
+        setupCi: null,
+      }
+    : {
+        gitHubConnected: true,
+        integrations: structuredClone(INTEGRATIONS),
+        connections: structuredClone(CONNECTIONS),
+        skills: structuredClone(SKILLS),
+        tokens: structuredClone(TOKENS),
+        oidcTrusts: structuredClone(OIDC_TRUSTS),
+        pools: structuredClone(RUNNER_POOLS),
+        fleet: structuredClone(FLEET),
+        settingUp: [],
+        viewerIsAdmin: true,
+        setupCi: { ...SETUP_CI },
+      },
 );

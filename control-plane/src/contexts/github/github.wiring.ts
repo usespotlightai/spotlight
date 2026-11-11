@@ -13,10 +13,10 @@ import {
   INSTALLATIONS,
   type InstallationsPort,
 } from '@github/application/ports/installations.port';
-import { PULL_REQUESTS } from '@github/application/ports/pull-request.port';
 import { PULL_REQUEST_COMMENTS } from '@github/application/ports/pull-request-comments.port';
 import { PULL_REQUEST_REACTIONS } from '@github/application/ports/pull-request-reactions.port';
 import { PULL_REQUEST_REVIEWS } from '@github/application/ports/pull-request-reviews.port';
+import { PULL_REQUESTS } from '@github/application/ports/pull-request.port';
 import {
   REPOSITORY_ACCESS,
   RepositoryAccessPort,
@@ -47,8 +47,8 @@ import { GitHubAppAccess } from '@github/infrastructure/github/github-app.access
 import { GitHubAppIdentity } from '@github/infrastructure/github/github-app.identity';
 import { GitHubCheckRuns } from '@github/infrastructure/github/github-check-runs';
 import { GitHubGitTransport } from '@github/infrastructure/github/github-git.transport';
-import { GitHubInstallationAdministration } from '@github/infrastructure/github/github-installation.administration';
 import { GitHubInstallationRepositories } from '@github/infrastructure/github/github-installation-repositories';
+import { GitHubInstallationAdministration } from '@github/infrastructure/github/github-installation.administration';
 import { GitHubPullRequestComments } from '@github/infrastructure/github/github-pull-request-comments';
 import { GitHubPullRequestReactions } from '@github/infrastructure/github/github-pull-request-reactions';
 import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-pull-request-reviews';

@@ -1,4 +1,5 @@
 import { Unplug } from 'lucide-react';
+
 import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { RowActions } from '@/components/shared/RowActions';
 import { useDisconnectIntegration } from '@/hooks/api/useDisconnectIntegration';

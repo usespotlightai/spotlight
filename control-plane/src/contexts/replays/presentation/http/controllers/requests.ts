@@ -30,7 +30,7 @@ const countAt = (
   at: readonly string[],
   reason: string,
 ): number => {
-  const count = fields[at[at.length - 1] as string];
+  const count = fields[at[at.length - 1]];
 
   return typeof count === 'number' ? count : rejectAt(at, reason);
 };
@@ -40,7 +40,7 @@ const optionalTextAt = (
   at: readonly string[],
   reason: string,
 ): string | null => {
-  const text = fields[at[at.length - 1] as string];
+  const text = fields[at[at.length - 1]];
 
   if (text === undefined || text === null) {
     return null;

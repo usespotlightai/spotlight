@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { extname, join } from 'node:path';
 import { Worker } from 'node:worker_threads';
+
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import type {
@@ -39,6 +40,7 @@ const FROM_SOURCE_WITH = {
     '-r',
     'tsconfig-paths/register',
   ],
+  // oxlint-disable-next-line node/no-process-env -- the worker runs with the parent environment
   env: { ...process.env, TS_NODE_PROJECT: 'tsconfig.build.json' },
 };
 

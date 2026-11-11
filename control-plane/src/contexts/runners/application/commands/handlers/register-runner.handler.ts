@@ -9,9 +9,10 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export class RegisterRunnerHandler
-  implements CommandHandlerPort<RegisterRunnerCommand, RegisteredRunnerDto>
-{
+export class RegisterRunnerHandler implements CommandHandlerPort<
+  RegisterRunnerCommand,
+  RegisteredRunnerDto
+> {
   constructor(
     private readonly runners: RunnerRepository,
     private readonly clock: ClockPort,

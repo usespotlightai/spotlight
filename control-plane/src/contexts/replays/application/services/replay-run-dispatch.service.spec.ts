@@ -20,8 +20,8 @@ import {
   InMemoryReplayRunDecisions,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -343,7 +343,9 @@ describe('ReplayRunDispatch', () => {
       runs.onEnqueue = async () => {
         throw new Error('the process stopped');
       };
-      await expect(dispatch.dispatch(ORDER)).rejects.toThrow();
+      await expect(dispatch.dispatch(ORDER)).rejects.toThrow(
+        'the process stopped',
+      );
       runs.onEnqueue = async () => {};
       replayKept = false;
 
@@ -420,7 +422,9 @@ describe('ReplayRunDispatch', () => {
       runs.onEnqueue = async () => {
         throw new Error('the process stopped');
       };
-      await expect(dispatch.dispatch(ORDER)).rejects.toThrow();
+      await expect(dispatch.dispatch(ORDER)).rejects.toThrow(
+        'the process stopped',
+      );
       runs.known.clear();
 
       expect(await dispatch.cancel(RUN, OWNER, false)).toEqual({

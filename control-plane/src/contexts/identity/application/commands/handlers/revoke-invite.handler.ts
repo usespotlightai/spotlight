@@ -8,9 +8,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class RevokeInviteHandler
-  implements CommandHandlerPort<RevokeInviteCommand, boolean>
-{
+export class RevokeInviteHandler implements CommandHandlerPort<
+  RevokeInviteCommand,
+  boolean
+> {
   constructor(
     private readonly administration: WorkspaceAdministration,
     private readonly invites: WorkspaceInviteRepository,

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+
 import { MemoryPlaceNode } from '@/components/features/memory/MemoryPlaceNode';
 import type { PlaceNode } from '@/lib/memory';
 

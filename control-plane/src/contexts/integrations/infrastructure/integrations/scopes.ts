@@ -124,7 +124,12 @@ export const seenAs = (schema: InputSchema): string => {
       return 'string';
     case 'boolean':
       return 'bool';
-    default:
+    case 'array':
+    case 'integer':
+    case 'null':
+    case 'number':
+    case 'object':
+    case null:
       return OUTSIDE;
   }
 };

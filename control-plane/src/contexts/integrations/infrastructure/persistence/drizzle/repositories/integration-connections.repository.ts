@@ -75,7 +75,7 @@ export class DrizzleIntegrationConnections
       )
       .limit(1);
 
-    return found ? await this.rehydrate(found) : null;
+    return found ? this.rehydrate(found) : null;
   }
 
   async save(connection: IntegrationConnection): Promise<void> {

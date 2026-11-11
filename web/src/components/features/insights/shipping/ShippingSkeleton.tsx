@@ -1,4 +1,5 @@
 import { Play } from 'lucide-react';
+
 import {
   AUTHOR_SERIES,
   ROUND_FILLS,
@@ -6,11 +7,11 @@ import {
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { InsightsTableSkeleton } from '@/components/features/insights/InsightsTableSkeleton';
-import { StackedRowsSkeleton } from '@/components/features/insights/StackedRowsSkeleton';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { DayChartSkeleton } from '@/components/features/insights/shipping/DayChartSkeleton';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { PIPELINE_HEIGHT } from '@/components/features/insights/shipping/PipelineFlowChart';
+import { StackedRowsSkeleton } from '@/components/features/insights/StackedRowsSkeleton';
 import { Segmented } from '@/components/shared/Segmented';
 import { ChartSkeleton } from '@/components/shared/skeleton/ChartSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
@@ -49,12 +50,10 @@ const smoothing = (
   />
 );
 
-const DEPTH_LEGEND = [
-  ...ROUNDS.map((rounds) => ({
-    label: formatRounds(rounds),
-    color: ROUND_FILLS[rounds],
-  })),
-];
+const DEPTH_LEGEND = ROUNDS.map((rounds) => ({
+  label: formatRounds(rounds),
+  color: ROUND_FILLS[rounds],
+}));
 
 export function ShippingSkeleton() {
   return (
@@ -135,7 +134,6 @@ export function ShippingSkeleton() {
             >
               <ul className="flex flex-col gap-2">
                 {Array.from({ length: TYPES }, (_, at) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: placeholder types have no identity
                   <li key={at} className="flex flex-col gap-1">
                     <div className="flex items-baseline justify-between gap-2 text-xs">
                       <SkeletonLine className="w-28" />

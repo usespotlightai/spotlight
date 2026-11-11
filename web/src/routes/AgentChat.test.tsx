@@ -3,13 +3,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { AgentChat } from '@/routes/AgentChat';
 import { write } from '@/test/lexical';
 
-const chat = vi.fn();
-const chatError = vi.fn();
+const chat = vi.fn<(...args: unknown[]) => unknown>();
+const chatError = vi.fn<(...args: unknown[]) => unknown>();
 const refetch = vi.fn();
-const journal = vi.fn();
+const journal = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useChats', () => ({
   chatKeys: {

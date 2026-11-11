@@ -1,8 +1,8 @@
 import { BUILT_IN_SKILL_KEY_LIST } from '@shared-kernel/domain/built-in-skills';
 import type { RunOrder } from '@work/domain/services/run-order';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import type { Station } from '@work/domain/value-objects/station.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 
 export interface ConfiguredSkillFolder {
   readonly skill: { readonly key: string };

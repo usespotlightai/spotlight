@@ -12,7 +12,7 @@ const UNNAMEABLE = 'application/octet-stream';
 
 const named = (raw: string): string =>
   (raw.split(/[\\/]/).pop() ?? '')
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: a file name must not contain these characters
+    // oxlint-disable-next-line no-control-regex -- a file name must not contain these characters
     .replace(/[\u0000-\u001f\u007f]/g, '')
     .slice(-MAX_NAME)
     .replace(/^\.+/, '')

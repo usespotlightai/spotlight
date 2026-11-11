@@ -165,9 +165,7 @@ describe('StartOracleReplay', () => {
 
     await oracles().baselineEnded(ended);
     const [first] = oracleReplays();
-    await memory.replayRepository.save(
-      (first as NonNullable<typeof first>).stop(new Date(), BY),
-    );
+    await memory.replayRepository.save(first.stop(new Date(), BY));
     await oracles().baselineEnded(ended);
 
     expect(oracleReplays()).toHaveLength(2);

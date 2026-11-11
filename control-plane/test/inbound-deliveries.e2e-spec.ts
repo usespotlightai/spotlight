@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { InboundDelivery } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import { InboundDeliveryVersionConflictError } from '@integrations/domain/exceptions/inbound-delivery-version-conflict.error';
 import {
@@ -14,6 +15,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp } from './support/app';
 import * as schema from './support/schema';
 

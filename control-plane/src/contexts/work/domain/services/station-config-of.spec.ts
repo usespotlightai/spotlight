@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';

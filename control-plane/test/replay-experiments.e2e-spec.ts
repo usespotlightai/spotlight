@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
@@ -12,8 +13,8 @@ import { healthView } from '@replays/application/queries/views/replay-views';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { dispatchedInTurn } from '@replays/domain/services/replay-dispatch';
 import {
   taskComparisons,
@@ -22,8 +23,8 @@ import {
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/drizzle/repositories/candidate.repository';
-import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
+import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import {
   ARCHIVE_REFERENCES,
   type ArchiveReferencesPort,
@@ -47,7 +48,6 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -64,6 +64,7 @@ import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet, runEnded } from './support/kept-sets';
@@ -375,7 +376,7 @@ const untilEnded = (runId: string) =>
       .from(schema.replayEntry)
       .where(eq(schema.replayEntry.runId, runId));
 
-    return entry?.result !== null && entry?.measured === true;
+    return entry?.result !== null && entry?.measured;
   });
 
 const startReplay = (setId: string, candidate: string, amount: number) =>
@@ -827,10 +828,12 @@ describe('a replay', () => {
     }
     expect(
       (
-        (await owner().get(`${teamPath()}/runs`).expect(200)).body.items as {
-          id: string;
-        }[]
-      ).some((each) => each.id === runId),
+        (await owner().get(`${teamPath()}/runs`).expect(200)).body as {
+          readonly items: {
+            id: string;
+          }[];
+        }
+      ).items.some((each) => each.id === runId),
     ).toBe(false);
   });
 
@@ -1009,7 +1012,7 @@ describe('a replay set whose station leaves its line', () => {
     );
     await eventually(async () => (await startingPointHoldsOf()).length === 0);
 
-    expect((await dispatchRow(replayRun as string))?.stationId).toBe(POLISH);
+    expect((await dispatchRow(replayRun))?.stationId).toBe(POLISH);
 
     const otherTeam = randomUUID();
     const otherReader = randomUUID();
@@ -1045,7 +1048,7 @@ describe('a replay set whose station leaves its line', () => {
     await owner().get(`${teamPath()}/replay-runs/${replayRun}`).expect(404);
     await owner().get(`${teamPath()}/runs/${replayRun}/config`).expect(404);
 
-    await expect(startReplay(setId, 'live', 1)).rejects.toThrow();
+    await expect(startReplay(setId, 'live', 1)).rejects.toThrow(/is not live/);
     expect(await refreshedBefore(setId)).toBe(false);
   });
 });
@@ -1070,18 +1073,20 @@ describe('a team that is deleted', () => {
       teamId: team.teamId.value,
       key: 'core',
     };
-    await app.get(EventOutbox).record([deleted as unknown as DomainEvent]);
+    await app.get(EventOutbox).record([deleted]);
 
-    await eventually(async () => {
-      await app.get(EventDelivery).drain(2_000);
+    await expect(
+      eventually(async () => {
+        await app.get(EventDelivery).drain(2_000);
 
-      const sets = await db
-        .select()
-        .from(schema.replaySet)
-        .where(eq(schema.replaySet.teamId, team.teamId.value));
-      const held = await heldOf();
+        const sets = await db
+          .select()
+          .from(schema.replaySet)
+          .where(eq(schema.replaySet.teamId, team.teamId.value));
+        const held = await heldOf();
 
-      return sets.length === 0 && held.length === 0;
-    }, 60_000);
+        return sets.length === 0 && held.length === 0;
+      }, 60_000),
+    ).resolves.toBe(true);
   });
 });

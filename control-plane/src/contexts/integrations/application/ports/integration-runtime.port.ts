@@ -7,8 +7,8 @@ import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.p
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { CallFailureFact } from '@integrations/domain/value-objects/hook-failure.vo';
-import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';

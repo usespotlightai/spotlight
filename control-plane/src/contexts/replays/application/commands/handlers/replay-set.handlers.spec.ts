@@ -154,7 +154,7 @@ describe('KeepReplaySets', () => {
     expect(memory.schedules.size).toBe(0);
 
     const [created] = memory.sets.values();
-    await keeping().onSetCreated(created?.id as ReplaySetId);
+    await keeping().onSetCreated(created?.id);
     expect(memory.schedules.size).toBe(1);
 
     memory.schedules.clear();
@@ -280,9 +280,10 @@ describe('RefreshReplaySets', () => {
     expect(memory.sets.get('set_1')?.refreshedAt).toBeNull();
 
     const search = await memory.searchRepository.find(SEARCH_ID);
-    await memory.searchRepository.save(
-      search?.turnOff(NOW) ?? expect.unreachable(),
-    );
+    if (!search) {
+      throw new Error('the search is missing');
+    }
+    await memory.searchRepository.save(search.turnOff(NOW));
     await refreshing().processDue();
 
     expect(runsOfSet()).toEqual(['run_1']);

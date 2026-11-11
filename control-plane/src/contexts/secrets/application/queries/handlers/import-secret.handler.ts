@@ -8,9 +8,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ImportSecretHandler
-  implements QueryHandlerPort<ImportSecretQuery, SecretResourceDto | null>
-{
+export class ImportSecretHandler implements QueryHandlerPort<
+  ImportSecretQuery,
+  SecretResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: SecretResourcesPort,

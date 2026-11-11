@@ -1,8 +1,5 @@
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type {
-  TracedTask,
-  TracedTaskReaderPort,
-} from '@work/application/ports/traced-task-reader.port';
+import type { TracedTask } from '@work/application/ports/traced-task-reader.port';
 import { TracesLoader } from '@work/application/services/traces-loader.service';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
@@ -13,7 +10,7 @@ const tracing = (known: readonly TracedTask[]) => {
     known.filter((each) => ids.some((id) => id.value === each.taskId)),
   );
 
-  return { of, traces: new TracesLoader({ of } as TracedTaskReaderPort) };
+  return { of, traces: new TracesLoader({ of }) };
 };
 
 const RETRIES = {

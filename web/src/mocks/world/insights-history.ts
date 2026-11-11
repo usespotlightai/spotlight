@@ -173,7 +173,7 @@ const weighted = <T>(
       return value;
     }
   }
-  return choices[0]?.[0] as T;
+  return choices[0]?.[0];
 };
 
 const SIZES: Record<string, readonly (readonly [RunSize, number])[]> = {
@@ -662,9 +662,7 @@ const syntheticHistory = (cutoff: number): History => {
       const day = today - back * DAY_MS;
       const count = tasksThatDay(draw, line, back);
       for (let each = 0; each < count; each += 1) {
-        const [title, type] = line.titles[
-          titleAt % line.titles.length
-        ] as Titled;
+        const [title, type] = line.titles[titleAt % line.titles.length];
         titleAt += 1;
         const task: HistoryTask = {
           id: `${line.prefix}_${tasks.length + 1}`,

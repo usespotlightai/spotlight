@@ -4,17 +4,18 @@ import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknow
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { skipOf } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
+import { skipOf } from '@change-review/domain/value-objects/stack-check.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export class RecordChangeStackCheckHandler
-  implements CommandHandlerPort<RecordChangeStackCheckCommand, void>
-{
+export class RecordChangeStackCheckHandler implements CommandHandlerPort<
+  RecordChangeStackCheckCommand,
+  void
+> {
   constructor(
     private readonly checks: StackCheckRepository,
     private readonly stacks: ChangeStackRepository,

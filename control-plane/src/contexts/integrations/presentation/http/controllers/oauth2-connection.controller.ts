@@ -87,7 +87,7 @@ export class OAuth2ConnectionController {
 
     if (actsAs !== null && !ACTS_AS.includes(actsAs)) {
       throw new BadRequestException(
-        `A connection must act as ${ACTS_AS.join(' or ')}. Received: ${String(actsAs)}`,
+        `A connection must act as ${ACTS_AS.join(' or ')}. Received: ${actsAs}`,
       );
     }
 

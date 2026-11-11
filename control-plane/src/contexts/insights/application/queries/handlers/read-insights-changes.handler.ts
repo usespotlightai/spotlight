@@ -1,8 +1,8 @@
-import { periodOf } from '@insights/application/dto/insights.dto';
 import type {
   ChangeMarkerDto,
   InsightsChangesDto,
 } from '@insights/application/dto/insights-changes.dto';
+import { periodOf } from '@insights/application/dto/insights.dto';
 import { stationJudgeCalibrationOf } from '@insights/application/dto/judge-calibration.dto';
 import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
@@ -36,9 +36,10 @@ const pairOf = ({ marker }: ChangeCounts): ConfigPair => ({
   next: marker.fingerprint,
 });
 
-export class ReadInsightsChangesHandler
-  implements QueryHandlerPort<ReadInsightsChangesQuery, InsightsChangesDto>
-{
+export class ReadInsightsChangesHandler implements QueryHandlerPort<
+  ReadInsightsChangesQuery,
+  InsightsChangesDto
+> {
   constructor(
     private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,

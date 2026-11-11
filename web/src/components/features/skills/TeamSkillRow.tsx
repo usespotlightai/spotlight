@@ -1,4 +1,5 @@
 import { SquareMousePointer } from 'lucide-react';
+
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { OneLine } from '@/components/shared/OneLine';
 import { RowIcon } from '@/components/shared/RowIcon';

@@ -652,7 +652,14 @@ describe('Workspace', () => {
       [['configure', 'trusts'], true, true, false, false, true],
     ])(
       'lets a %j token of its own read, and never administer',
-      (scopes, plans, configures, managesSecrets, managesRunners, managesOidcTrusts) => {
+      (
+        scopes,
+        plans,
+        configures,
+        managesSecrets,
+        managesRunners,
+        managesOidcTrusts,
+      ) => {
         expect(permissionsOf(token(scopes))).toEqual({
           reads: true,
           plans,

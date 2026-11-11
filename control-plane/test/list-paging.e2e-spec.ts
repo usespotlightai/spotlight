@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -13,6 +14,7 @@ import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/reade
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { runFactsOver } from './support/run-facts';
 import { aDispatch, requestedByTask } from './support/runs';
@@ -493,7 +495,7 @@ describe('the runs of a team', () => {
 
     const first = await runs.listForTeam(team, pageAfter(null, 2));
     const second = await runs.listForTeam(team, pageAfter(first.next, 2));
-    const one = await runs.findForTeam(team, RunId.of(runIds[0] as string));
+    const one = await runs.findForTeam(team, RunId.of(runIds[0]));
 
     expect(first.items.map((each) => each.id)).toEqual([runIds[2], runIds[1]]);
     expect(second.items.map((each) => each.id)).toEqual([runIds[0]]);

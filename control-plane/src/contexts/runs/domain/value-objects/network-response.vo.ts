@@ -44,7 +44,7 @@ export class NetworkResponse {
 
     return new NetworkResponse(
       input.status,
-      { ...(input.headers ?? {}) },
+      { ...input.headers },
       (input.body ?? new Uint8Array()).slice(0, MAX_BODY_BYTES),
       input.ms,
       error,

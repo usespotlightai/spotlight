@@ -79,7 +79,7 @@ const posting = (
     {
       changeStackOf: () => '',
       decisionsOf: ({ taskId }) =>
-        `https://app.example/tasks/${taskId}#decisions`,
+        `https://app.example/tasks/${taskId.value}#decisions`,
     },
     {
       find: async () => ({ name: 'Maya Chen', image: null }),

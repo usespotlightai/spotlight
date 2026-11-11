@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
 import {
@@ -17,6 +18,7 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
@@ -119,10 +121,12 @@ const inboxIn = async (
   state: 'open' | 'resolved',
 ): Promise<readonly InboxBody[]> =>
   (
-    await served(app)
-      .get(`/api/workspaces/${team.slug}/inbox?state=${state}`)
-      .set(TEST_USER_HEADER, as)
-  ).body.items ?? [];
+    (
+      await served(app)
+        .get(`/api/workspaces/${team.slug}/inbox?state=${state}`)
+        .set(TEST_USER_HEADER, as)
+    ).body as { readonly items?: readonly InboxBody[] }
+  ).items ?? [];
 
 const inbox = async (as: string): Promise<readonly InboxBody[]> => [
   ...(await inboxIn(as, 'open')),

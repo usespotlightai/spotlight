@@ -1,8 +1,8 @@
+import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
 import {
   Decision,
   type ProposedDecision,
 } from '@change-review/domain/entities/decision.entity';
-import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
 import { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
@@ -13,6 +14,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { aDispatch, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
@@ -73,8 +75,13 @@ const disputing = (by: string) =>
     .set(TEST_USER_HEADER, by)
     .send({ path: 'queue.ts', reason: 'The queue is gone.' });
 
-const commentsOnReview = async (): Promise<{ id: string; body: string }[]> =>
-  (await reading(TEAMMATE)).body.comments;
+interface Comment {
+  readonly id: string;
+  readonly body: string;
+}
+
+const commentsOnReview = async (): Promise<Comment[]> =>
+  ((await reading(TEAMMATE)).body as { comments: Comment[] }).comments;
 
 const stackOfRun = (): ChangeStack =>
   ChangeStack.startGeneration({
@@ -148,7 +155,7 @@ beforeAll(async () => {
   await db.insert(schema.user).values(
     [TEAMMATE, ADMIN, BYSTANDER, OUTSIDER].map((id, at) => ({
       id,
-      name: ['Bea', 'Cy', 'Dee', 'Eve'][at] as string,
+      name: ['Bea', 'Cy', 'Dee', 'Eve'][at],
       email: `${id}@example.com`,
     })),
   );
@@ -230,7 +237,9 @@ describe('a workspace member who is not on the team', () => {
     const answer = await commenting(BYSTANDER);
 
     expect(answer.status).toBe(403);
-    expect(answer.body.message).toContain('not a member of this team');
+    expect((answer.body as { message: string }).message).toContain(
+      'not a member of this team',
+    );
     expect(await commentsOnReview()).toEqual([]);
   });
 
@@ -244,19 +253,21 @@ describe('a workspace member who is not on the team', () => {
 
   it('may not edit or delete a teammate’s comment, which stays as it was', async () => {
     const drafted = await commenting(TEAMMATE);
+    const { id } = drafted.body as Comment;
 
     expect(drafted.status).toBe(201);
-    expect((await editing(BYSTANDER, drafted.body.id)).status).toBe(403);
-    expect((await deleting(BYSTANDER, drafted.body.id)).status).toBe(403);
+    expect((await editing(BYSTANDER, id)).status).toBe(403);
+    expect((await deleting(BYSTANDER, id)).status).toBe(403);
     expect(
-      (await commentsOnReview()).find((each) => each.id === drafted.body.id)
-        ?.body,
+      (await commentsOnReview()).find((each) => each.id === id)?.body,
     ).toBe('Why a queue?');
   });
 
   it('may not submit a review', async () => {
     expect((await submitting(BYSTANDER)).status).toBe(403);
-    expect((await reading(TEAMMATE)).body.reviews).toEqual([]);
+    expect(
+      ((await reading(TEAMMATE)).body as { reviews: unknown[] }).reviews,
+    ).toEqual([]);
   });
 });
 
@@ -271,9 +282,10 @@ describe('someone outside the workspace', () => {
 describe('a member of the team', () => {
   it('comments, answers and submits a review', async () => {
     const drafted = await commenting(TEAMMATE);
+    const { id } = drafted.body as Comment;
 
     expect(drafted.status).toBe(201);
-    expect((await editing(TEAMMATE, drafted.body.id)).status).toBe(204);
+    expect((await editing(TEAMMATE, id)).status).toBe(204);
     expect((await answering(TEAMMATE)).status).toBe(201);
     expect((await disputing(TEAMMATE)).status).toBe(404);
     expect((await submitting(TEAMMATE)).status).toBe(201);
@@ -283,8 +295,9 @@ describe('a member of the team', () => {
 describe('a workspace admin who is not on the team', () => {
   it('comments and deletes the comment', async () => {
     const drafted = await commenting(ADMIN);
+    const { id } = drafted.body as Comment;
 
     expect(drafted.status).toBe(201);
-    expect((await deleting(ADMIN, drafted.body.id)).status).toBe(204);
+    expect((await deleting(ADMIN, id)).status).toBe(204);
   });
 });

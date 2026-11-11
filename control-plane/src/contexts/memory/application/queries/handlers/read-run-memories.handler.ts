@@ -11,8 +11,8 @@ import type { MemoryReviews } from '@memory/application/services/memory-reviews.
 import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
-import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { TeamAccess } from '@memory/domain/services/team-access';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -22,9 +22,10 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ReadRunMemoriesHandler
-  implements QueryHandlerPort<ReadRunMemoriesQuery, RunMemoriesDto>
-{
+export class ReadRunMemoriesHandler implements QueryHandlerPort<
+  ReadRunMemoriesQuery,
+  RunMemoriesDto
+> {
   constructor(
     private readonly access: MemoryAccess,
     private readonly work: WorkPort,

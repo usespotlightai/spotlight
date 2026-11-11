@@ -228,7 +228,7 @@ describe('GitDiffReader with the whole file as context', () => {
     );
 
     expect(short.sources[1]?.text.split('\n')).toEqual([
-      ...Array(9).fill(''),
+      ...Array<string>(9).fill(''),
       'new',
     ]);
   });

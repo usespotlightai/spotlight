@@ -48,7 +48,7 @@ export class AuthenticatedGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const marked = (marker: symbol) =>
-      this.reflector.getAllAndOverride<boolean>(marker, [
+      this.reflector.getAllAndOverride<boolean | undefined>(marker, [
         context.getHandler(),
         context.getClass(),
       ]) === true;

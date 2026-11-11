@@ -1,10 +1,10 @@
 import { InvalidTerraformStateError } from '@configuration/domain/exceptions/invalid-terraform-state.error';
 import type { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
+import { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
 import {
   lockOperationOf,
   StateLock,
 } from '@configuration/domain/value-objects/state-lock.vo';
-import { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
 
 type LockBody = Readonly<Record<string, unknown>>;
 

@@ -1,10 +1,10 @@
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   OUTER_DIVIDER,
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { spentIn } from '@/lib/inbox';
 import { formatCount } from '@/lib/insights';
 import {

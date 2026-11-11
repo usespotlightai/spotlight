@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { SOURCE_ROOT } from './source-index';
 
 type SnapshotForeignKey = {
@@ -20,7 +21,7 @@ const META = join(SOURCE_ROOT, '..', 'drizzle', 'meta');
 const latest = readdirSync(META)
   .filter((name) => name.endsWith('_snapshot.json'))
   .sort()
-  .reverse()[0] as string;
+  .reverse()[0];
 
 const tables = Object.values(
   (

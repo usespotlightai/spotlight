@@ -6,9 +6,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class AddTeamMemberHandler
-  implements CommandHandlerPort<AddTeamMemberCommand, boolean>
-{
+export class AddTeamMemberHandler implements CommandHandlerPort<
+  AddTeamMemberCommand,
+  boolean
+> {
   constructor(
     private readonly administration: TeamAdministration,
     private readonly teams: TeamRepository,

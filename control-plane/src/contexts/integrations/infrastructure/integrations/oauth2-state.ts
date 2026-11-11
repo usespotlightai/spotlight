@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+
 import type { ConnectionOwnerKind } from '@integrations/domain/value-objects/connection-owner.vo';
 
 const LIVES_MS = 10 * 60 * 1000;
@@ -66,7 +67,9 @@ export class OAuth2State {
     let payload: Payload;
 
     try {
-      payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+      payload = JSON.parse(
+        Buffer.from(body, 'base64url').toString('utf8'),
+      ) as Payload;
     } catch {
       return null;
     }

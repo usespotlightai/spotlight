@@ -7,7 +7,7 @@ type InitialAvatarProps = {
 };
 
 export function InitialAvatar({ name, className }: InitialAvatarProps) {
-  const [initial] = [...name.trim()];
+  const [initial] = Array.from(name.trim());
 
   return (
     <Avatar aria-hidden size="sm" className="rounded after:rounded">

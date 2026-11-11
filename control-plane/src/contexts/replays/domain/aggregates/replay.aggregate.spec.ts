@@ -1,6 +1,6 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/entities/replay-entry.entity';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCeilingReached } from '@replays/domain/events/replay-ceiling-reached.event';

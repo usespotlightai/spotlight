@@ -17,7 +17,7 @@ export class TeamIntegrations {
 
     return integrationTools.length > 0
       ? (await this.integrations.provided(line.teamId, integrationTools)).map(
-          ToolDeclarationMapper.toDeclared,
+          (each) => ToolDeclarationMapper.toDeclared(each),
         )
       : [];
   }

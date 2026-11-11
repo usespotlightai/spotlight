@@ -1,5 +1,6 @@
 import { Spool } from 'lucide-react';
 import { useState } from 'react';
+
 import { MemoryReview } from '@/components/features/inbox/memories/MemoryReview';
 import { ProposedMemoriesSkeleton } from '@/components/features/inbox/memories/ProposedMemoriesSkeleton';
 import { Collapsible } from '@/components/shared/Collapsible';

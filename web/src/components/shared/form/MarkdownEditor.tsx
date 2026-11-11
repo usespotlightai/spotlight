@@ -22,6 +22,7 @@ import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import type { EditorThemeClasses } from 'lexical';
+
 import { cn } from '@/lib/utils';
 
 const NODES = [
@@ -113,6 +114,7 @@ export function MarkdownEditor({
   size = 'sm',
 }: MarkdownEditorProps) {
   return (
+    // oxlint-disable-next-line typescript/no-deprecated -- the move to LexicalExtensionComposer is its own change
     <LexicalComposer
       initialConfig={{
         namespace: 'markdown',

@@ -34,9 +34,10 @@ const sideOf = (
   spent: totals ? moneyView(totals.spent) : null,
 });
 
-export class ReadReplayCheckHandler
-  implements QueryHandlerPort<ReadReplayCheckQuery, ReplayCheckDto>
-{
+export class ReadReplayCheckHandler implements QueryHandlerPort<
+  ReadReplayCheckQuery,
+  ReplayCheckDto
+> {
   constructor(
     private readonly access: ReplaysAccess,
     private readonly trialableRuns: TrialableRunsPort,

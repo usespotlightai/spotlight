@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+
 import { readInsightsAgentConfigs } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import type {

@@ -211,7 +211,7 @@ describe('AnswerQuestionHandler', () => {
     await first.execute(answer(null));
 
     const { handler, added } = answering({
-      answeredMeanwhile: before[0] as QuestionAnswer,
+      answeredMeanwhile: before[0],
     });
 
     await expect(handler.execute(answer(null))).rejects.toMatchObject({
@@ -224,7 +224,7 @@ describe('AnswerQuestionHandler', () => {
   it('answers again, on the same answer, a question the stack asks in other words since it was redrafted', async () => {
     const { handler: first, added: before } = answering();
     await first.execute(answer(null));
-    const stale = before[0] as QuestionAnswer;
+    const stale = before[0];
     Object.defineProperty(stale, 'asked', { value: 'An older question?' });
 
     const { handler, added, saved } = answering({ earlier: stale });
@@ -261,7 +261,7 @@ describe('AnswerQuestionHandler', () => {
     await expect(
       handler.execute(answer('The integration.')),
     ).rejects.toMatchObject({
-      refusal: expect.any(TeamMembershipRequiredError),
+      refusal: expect.any(TeamMembershipRequiredError) as unknown,
     });
     expect(added).toEqual([]);
     expect(saved).toEqual([]);
@@ -303,7 +303,7 @@ describe('AnswerQuestionHandler', () => {
   it('takes a new answer once the earlier stack expected another answer', async () => {
     const { handler: first, added: before } = answering();
     await first.execute(answer(null));
-    const outdated = before[0] as QuestionAnswer;
+    const outdated = before[0];
     Object.defineProperty(outdated, 'expected', { value: 'The bot signs it.' });
 
     const { handler, added } = answering({ inTask: [outdated] });

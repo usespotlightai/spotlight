@@ -27,9 +27,10 @@ import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
-export class UpdateEgressHandler
-  implements CommandHandlerPort<UpdateEgressCommand, ResourceUpdated | null>
-{
+export class UpdateEgressHandler implements CommandHandlerPort<
+  UpdateEgressCommand,
+  ResourceUpdated | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,

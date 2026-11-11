@@ -11,10 +11,7 @@ import { configurationChange } from '@identity/infrastructure/persistence/drizzl
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
-import type {
-  ConfigurationAction,
-  ConfigurationChange,
-} from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, desc, eq, lt } from 'drizzle-orm';
 
@@ -104,7 +101,7 @@ export class DrizzleConfigurationAudit implements ConfigurationAuditPort {
       resource: row.resource,
       resourceId: row.resourceId,
       key: row.key,
-      action: row.action as ConfigurationAction,
+      action: row.action,
       by: changedBy(row),
       client: row.client,
       details: row.details,

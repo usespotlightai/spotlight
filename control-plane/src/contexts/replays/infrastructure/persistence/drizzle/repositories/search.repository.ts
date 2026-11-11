@@ -84,9 +84,11 @@ const searchReplayOf = (
   currency: string,
 ): SearchReplay => {
   if (stored.end !== null && !isReplayStopReason(stored.end)) {
+    const end: string = stored.end;
+
     throw new InconsistentStateError(
       'search',
-      `has a replay that ended in a way no longer known, ${stored.end}`,
+      `has a replay that ended in a way no longer known, ${end}`,
     );
   }
 

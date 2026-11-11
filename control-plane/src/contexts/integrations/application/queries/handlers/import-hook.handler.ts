@@ -9,9 +9,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ImportHookHandler
-  implements QueryHandlerPort<ImportHookQuery, HookResourceDto | null>
-{
+export class ImportHookHandler implements QueryHandlerPort<
+  ImportHookQuery,
+  HookResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,

@@ -12,9 +12,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
-export class ReadDeliveryHandler
-  implements CommandHandlerPort<ReadDeliveryCommand, DeliveryFailure | null>
-{
+export class ReadDeliveryHandler implements CommandHandlerPort<
+  ReadDeliveryCommand,
+  DeliveryFailure | null
+> {
   constructor(
     private readonly providers: ProviderForDelivery,
     private readonly reader: DeliveryReaderPort,

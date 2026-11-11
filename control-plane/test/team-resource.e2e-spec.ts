@@ -1,13 +1,11 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   TEAM_DEPENDENTS,
   type TeamDependentsPort,
 } from '@identity/application/ports/team-dependents.port';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
@@ -29,6 +27,7 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
@@ -36,6 +35,8 @@ import {
 } from './support/resource-conformance';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
+
+type Team = { id: string; version: number };
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
@@ -116,16 +117,15 @@ describe('a team, created through the resource API (e2e)', () => {
   });
 
   it('is created bare, with none of the lines or the welcome a team made at sign-up gets', async () => {
-    const made = await create(fixture.valid);
+    const created = await create(fixture.valid);
+    const made = created.body as Team;
     const recorded = await app
       .get<DrizzleDatabase>(DRIZZLE)
       .select({ kind: schema.eventOutbox.kind })
       .from(schema.eventOutbox)
-      .where(
-        sql`${schema.eventOutbox.payload}::text like ${`%${made.body.id}%`}`,
-      );
+      .where(sql`${schema.eventOutbox.payload}::text like ${`%${made.id}%`}`);
 
-    expect(made.status).toBe(201);
+    expect(created.status).toBe(201);
     expect(recorded.map((each) => each.kind).sort()).toEqual([
       'identity.team-created.v1',
       'team.created',
@@ -135,62 +135,59 @@ describe('a team, created through the resource API (e2e)', () => {
         .get<DrizzleDatabase>(DRIZZLE)
         .select({ id: schema.line.id })
         .from(schema.line)
-        .where(eq(schema.line.teamId, made.body.id)),
+        .where(eq(schema.line.teamId, made.id)),
     ).toEqual([]);
   });
 
   it('counts whoever created it among its members', async () => {
-    const made = await create(fixture.valid);
+    const made = (await create(fixture.valid)).body as Team;
 
     expect(
       await app
         .get<DrizzleDatabase>(DRIZZLE)
         .select({ userId: schema.teamMember.userId })
         .from(schema.teamMember)
-        .where(eq(schema.teamMember.teamId, made.body.id)),
+        .where(eq(schema.teamMember.teamId, made.id)),
     ).toEqual([{ userId: fixture.admin }]);
   });
 
   it('keeps the key it was created with', async () => {
-    const made = await create(fixture.valid);
-    const moved = await change(made.body.id, made.body.version, {
+    const made = (await create(fixture.valid)).body as Team;
+    const moved = await change(made.id, made.version, {
       key: 'platform',
       name: 'Core',
     });
 
     expect(moved.status).toBe(422);
-    expect(moved.body.errors).toEqual([
+    expect((moved.body as { errors: unknown[] }).errors).toEqual([
       expect.objectContaining({ path: 'key' }),
     ]);
   });
 
   it('will not be deleted while it has a line', async () => {
-    const made = await create(fixture.valid);
+    const made = (await create(fixture.valid)).body as Team;
 
     await app.get<DrizzleDatabase>(DRIZZLE).insert(schema.line).values({
       id: randomUUID(),
       workspaceId,
-      teamId: made.body.id,
+      teamId: made.id,
       key: 'delivery',
       name: 'Delivery',
     });
 
-    const rejected = await remove(made.body.id, made.body.version);
+    const rejected = await remove(made.id, made.version);
 
     expect(rejected.status).toBe(409);
     expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
-      detail: expect.stringContaining('line delivery'),
+      detail: expect.stringContaining('line delivery') as unknown,
     });
 
     await app
       .get<DrizzleDatabase>(DRIZZLE)
       .delete(schema.line)
       .where(
-        and(
-          eq(schema.line.teamId, made.body.id),
-          eq(schema.line.key, 'delivery'),
-        ),
+        and(eq(schema.line.teamId, made.id), eq(schema.line.key, 'delivery')),
       );
   });
 
@@ -202,7 +199,7 @@ describe('a team, created through the resource API (e2e)', () => {
         by: changeActorIn(),
         workspaceId: WorkspaceId.of(workspaceId),
         teamId: TeamId.of(teamId),
-        line: BUILT_IN_LINES[0] as LineOpening,
+        line: BUILT_IN_LINES[0],
         harness: HarnessId.of('claude-code'),
         newId: () => `${teamId}-${++next}`,
       }),
@@ -293,7 +290,7 @@ describe('a team, created through the resource API (e2e)', () => {
       await app.get<TeamDependentsPort>(TEAM_DEPENDENTS).of(TeamId.of(teamId)),
     ).toEqual(
       expect.arrayContaining([
-        { kind: 'line', key: (BUILT_IN_LINES[0] as LineOpening).key.value },
+        { kind: 'line', key: BUILT_IN_LINES[0].key.value },
         { kind: 'skill', key: 'grafana' },
         { kind: 'integration', key: 'linear' },
         { kind: 'harness-profile', key: 'careful' },

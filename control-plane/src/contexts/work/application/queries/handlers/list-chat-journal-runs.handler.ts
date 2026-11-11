@@ -9,10 +9,10 @@ import type { ListChatJournalRunsQuery } from '@work/application/queries/chat.qu
 import type { RunAccess } from '@work/application/services/run-access.service';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
-export class ListChatJournalRunsHandler
-  implements
-    QueryHandlerPort<ListChatJournalRunsQuery, JournalledRunDto[] | null>
-{
+export class ListChatJournalRunsHandler implements QueryHandlerPort<
+  ListChatJournalRunsQuery,
+  JournalledRunDto[] | null
+> {
   constructor(
     private readonly journals: RunJournalReaderPort,
     private readonly access: RunAccess,
@@ -30,7 +30,7 @@ export class ListChatJournalRunsHandler
         UserId.of(query.viewerId),
       );
 
-      return runs?.map(RunJournalMapper.runToDto) ?? null;
+      return runs?.map((each) => RunJournalMapper.runToDto(each)) ?? null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

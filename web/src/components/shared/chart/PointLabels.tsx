@@ -1,4 +1,5 @@
 import { usePlotArea, useXAxisScale, useYAxisScale } from 'recharts';
+
 import { LABEL_SIZE, placeLabels } from '@/lib/point-labels';
 
 export type ChartLabel = {

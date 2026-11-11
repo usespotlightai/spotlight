@@ -8,13 +8,13 @@ import { HookUpdated } from '@integrations/domain/events/hook-updated.event';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
-import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
+import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -40,6 +40,7 @@ const secret = (fill: string) =>
 const hook = ({
   key = 'grafana-reads',
   tools = ['grafana.search'],
+  // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- widens the default to every signing
   signing = 'hmac' as 'hmac' | 'oidc' | null,
 } = {}) =>
   Hook.of({
@@ -143,7 +144,7 @@ describe('HookDefinition', () => {
   });
 
   it('rejects a tool it calls that no integration offers, at that step', () => {
-    try {
+    expect(() =>
       HookDefinition.create({
         ...compiled(),
         id: ID,
@@ -152,11 +153,12 @@ describe('HookDefinition', () => {
         secret: supplied('a', 1),
         allowances: { ...PROVIDED, provided: [ToolName.of('grafana.search')] },
         by: BY,
-      });
-      expect.unreachable();
-    } catch (error) {
-      expect((error as InvalidHookError).at.rendered).toBe('steps[0].call');
-    }
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        at: expect.objectContaining({ rendered: 'steps[0].call' }) as unknown,
+      }),
+    );
   });
 
   it('rejects a request to a host this Spotlight does not call', () => {

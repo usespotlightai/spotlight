@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { DEFAULT_RANGE, rangeOf } from '@/lib/range';
 
 describe('rangeOf', () => {

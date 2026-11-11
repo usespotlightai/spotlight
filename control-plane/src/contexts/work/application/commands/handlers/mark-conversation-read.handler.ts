@@ -5,9 +5,10 @@ import type { MarkConversationReadCommand } from '@work/application/commands/mar
 import type { ConversationLoader } from '@work/application/services/conversation-loader.service';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
-export class MarkConversationReadHandler
-  implements CommandHandlerPort<MarkConversationReadCommand, void>
-{
+export class MarkConversationReadHandler implements CommandHandlerPort<
+  MarkConversationReadCommand,
+  void
+> {
   constructor(
     private readonly conversations: ConversationLoader,
     private readonly tasks: TaskRepository,

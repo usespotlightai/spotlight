@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
+
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { autoSearched } from './support/app';
+
+import { type Answer, autoSearched, type Problem } from './support/app';
 import { activeSearchAt, dueNow } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
@@ -104,10 +106,12 @@ describe('a search for a better station config', () => {
     }
     expect(
       (
-        (await owner().get(`${teamPath()}/runs`).expect(200)).body.items as {
-          id: string;
-        }[]
-      ).some((each) => each.id === replayRun),
+        (await owner().get(`${teamPath()}/runs`).expect(200)).body as {
+          readonly items: {
+            id: string;
+          }[];
+        }
+      ).items.some((each) => each.id === replayRun),
     ).toBe(false);
     await owner()
       .post(`${teamPath()}/searches/${id}/candidates/${randomUUID()}/pick`)
@@ -231,19 +235,27 @@ describe('a search for a better station config', () => {
     ).toBe(true);
 
     const block = await liveBlock();
-    const rejected = await proposing(agent, {
+    const rejected = (await proposing(agent, {
       name: 'Not a slug',
       hypothesis: '',
       station: { ...block, passesTo: [] },
-    }).expect(422);
+    }).expect(422)) as Answer<Problem>;
 
     expect(rejected.body.errors).toEqual(
       expect.arrayContaining([
-        { path: 'name', message: expect.any(String), severity: 'error' },
-        { path: 'hypothesis', message: expect.any(String), severity: 'error' },
+        {
+          path: 'name',
+          message: expect.any(String) as unknown,
+          severity: 'error',
+        },
+        {
+          path: 'hypothesis',
+          message: expect.any(String) as unknown,
+          severity: 'error',
+        },
         {
           path: 'station.passesTo',
-          message: expect.any(String),
+          message: expect.any(String) as unknown,
           severity: 'error',
         },
       ]),
@@ -296,13 +308,13 @@ describe('a search for a better station config', () => {
       return claimed();
     }, WITHIN);
 
-    const byStander = await bearing(bystander.token)
+    const byStander = (await bearing(bystander.token)
       .post(`/api/runs/${agent.runId}/search-candidates`, {
         name: 'stranger',
         hypothesis: 'Not my run.',
         station: { ...block, prompt: 'Build it, stranger.' },
       })
-      .expect(404);
+      .expect(404)) as Answer<Problem>;
 
     expect(byStander.body.detail).toBe(
       'This run is no longer the active run of the search',
@@ -520,7 +532,7 @@ describe('a search for a better station config', () => {
       .update(schema.line)
       .set({ search: { ...(line?.search as object), enabled: false } as never })
       .where(eq(schema.line.id, DELIVERY));
-    await delivered((await lineChangedOf(db, DELIVERY, [BUILD])) as never);
+    await delivered(await lineChangedOf(db, DELIVERY, [BUILD]));
 
     expect((await searchRow(stopped.id))?.stopReason).toBe('turned-off');
     expect((await searchRow(stopped.id))?.state).toBe('stopped');
@@ -542,7 +554,7 @@ describe('a search for a better station config', () => {
         search: { ...(station?.search as object), enabled: false } as never,
       })
       .where(eq(schema.station.id, BUILD));
-    await delivered((await lineChangedOf(db, DELIVERY, [BUILD])) as never);
+    await delivered(await lineChangedOf(db, DELIVERY, [BUILD]));
 
     expect(await searchRow(again.id)).toMatchObject({
       state: 'stopped',

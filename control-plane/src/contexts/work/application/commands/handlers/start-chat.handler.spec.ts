@@ -1,7 +1,6 @@
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -10,7 +9,6 @@ import { StartChatHandler } from '@work/application/commands/handlers/start-chat
 import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { CiSetups } from '@work/application/services/ci-setups.service';
-import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import type { WorkAccess } from '@work/application/services/work-access.service';
@@ -63,20 +61,20 @@ const starting = ({
     { ofTeam: async () => [] } as unknown as LineMapsPort,
     {
       takenUp: vi.fn(async (chat: Chat) => chat),
-    } as unknown as ChatDispatching,
+    },
     {
       catalogue: () => [{ id: 'claude-code' }],
     } as unknown as HarnessLaunchPort,
     {
-      isAccessible: vi.fn(async (_, repository) =>
-        accessible.includes(repository.value),
+      isAccessible: vi.fn<AccessibleRepositoriesPort['isAccessible']>(
+        async (_, repository) => accessible.includes(repository.value),
       ),
     } satisfies AccessibleRepositoriesPort,
     {
       hasEgressCapableRunner: vi.fn(async () => hosted),
     } as unknown as RunnerReaderPort,
     { setUp } as unknown as CiSetups,
-    { generate: () => 'chat_1' } as IdGeneratorPort,
+    { generate: () => 'chat_1' },
     { now: () => NOW } as ClockPort,
     {
       inTransaction: (work: () => Promise<unknown>) => work(),

@@ -172,9 +172,7 @@ export const workedOn = (
       const began = journal.marks.startedAt;
 
       return (
-        began
-          ? inside(Date.parse(began))
-          : until === Number.POSITIVE_INFINITY
+        began ? inside(Date.parse(began)) : until === Number.POSITIVE_INFINITY
       )
         ? [journal]
         : [];

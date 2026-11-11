@@ -1,5 +1,6 @@
 import { getSharedHighlighter } from '@pierre/diffs';
 import { useEffect, useState } from 'react';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
@@ -64,7 +65,7 @@ export function CodeBlock({
         (commandHtml ? (
           <div
             className="code-block"
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: the Shiki markup comes from the trusted command of the step
+            // oxlint-disable-next-line react/no-danger -- the Shiki markup comes from the trusted command of the step
             dangerouslySetInnerHTML={{ __html: commandHtml }}
           />
         ) : (

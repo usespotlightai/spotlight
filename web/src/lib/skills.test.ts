@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { pointedSkill, skillPath } from '@/lib/skills';
 
 describe('pointing at a skill', () => {

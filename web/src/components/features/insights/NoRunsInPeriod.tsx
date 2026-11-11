@@ -1,5 +1,6 @@
 import { ChartNoAxesColumn } from 'lucide-react';
 import type { ReactNode } from 'react';
+
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';

@@ -14,7 +14,6 @@ import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
-import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -68,7 +67,7 @@ const trusting = (admin = true) => {
     } as unknown as WorkspaceAccessPort,
     trusts,
     { generate: () => `trust_${++next}` },
-    { inTransaction: (work) => work() } as TransactionPort,
+    { inTransaction: (work) => work() },
     {
       now: () => new Date('2026-10-26T10:00:00Z'),
       sleep: async () => undefined,

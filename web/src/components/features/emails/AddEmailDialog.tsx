@@ -1,4 +1,5 @@
-import { type FormEvent, useId, useState } from 'react';
+import { type SubmitEvent, useId, useState } from 'react';
+
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,7 +29,7 @@ export function AddEmailDialog({ open, onOpenChange }: AddEmailDialogProps) {
   const written = email.trim();
   const busy = add.isPending;
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: SubmitEvent) => {
     event.preventDefault();
 
     if (!written || busy) {
@@ -81,7 +82,7 @@ export function AddEmailDialog({ open, onOpenChange }: AddEmailDialogProps) {
               value={email}
               onChange={(event) => {
                 setEmail(event.target.value);
-                add.isError && add.reset();
+                if (add.isError) add.reset();
               }}
             />
           </div>

@@ -1,10 +1,10 @@
 import { AcceptInviteCommand } from '@identity/application/commands/accept-invite.command';
 import { AcceptInviteHandler } from '@identity/application/commands/handlers/accept-invite.handler';
-import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
+import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
-import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
+import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
@@ -125,7 +125,7 @@ describe('AcceptInviteHandler', () => {
       handler.execute(accept('grace@example.com')),
     ).rejects.toMatchObject({
       kind: 'not-allowed',
-      message: expect.stringMatching(/sign in as ada@example.com/),
+      message: expect.stringMatching(/sign in as ada@example.com/) as unknown,
     });
     expect(save).not.toHaveBeenCalled();
   });

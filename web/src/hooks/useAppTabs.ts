@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { type Location, useLocation, useNavigate } from 'react-router';
+
 import {
   APP_TABS_KEY,
   type AppTabs,
@@ -38,7 +39,8 @@ const placeOf = (
 };
 
 export function useAppTabs(slug: string, teams: readonly Team[]) {
-  const { pathname, search, hash, state } = useLocation();
+  const location: Location<unknown> = useLocation();
+  const { pathname, search, hash, state } = location;
   const navigate = useNavigate();
   const storageKey = `${APP_TABS_KEY}.${slug}`;
   const here = placeOf(pathname, search, hash, state);
@@ -91,7 +93,7 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
   const show = (next: AppTabs) => {
     change(() => next);
     const tab = activeTabOf(next);
-    navigate(tab.path, { state: tab.trail ? { trail: tab.trail } : null });
+    void navigate(tab.path, { state: tab.trail ? { trail: tab.trail } : null });
   };
 
   return {

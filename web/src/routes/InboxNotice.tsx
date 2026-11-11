@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
+
 import { InboxDetailLayout } from '@/components/features/inbox/InboxDetailLayout';
 import { InboxGone } from '@/components/features/inbox/InboxGone';
 import { NoticeCard } from '@/components/features/inbox/notices/NoticeCard';
@@ -23,6 +24,7 @@ export function InboxNotice() {
   const notice = found.data;
   const { data: workspace } = useWorkspace(slug);
   const resolve = useResolveInboxNotice();
+  const { mutate: resolveNotice } = resolve;
   const pending = notice && !notice.resolved ? notice.id : null;
   const resolvedOnOpening = useRef<string | null>(null);
 
@@ -33,11 +35,11 @@ export function InboxNotice() {
 
     const timer = setTimeout(() => {
       resolvedOnOpening.current = pending;
-      resolve.mutate({ slug, noticeId: pending });
+      resolveNotice({ slug, noticeId: pending });
     }, RESOLVE_AFTER_MS);
 
     return () => clearTimeout(timer);
-  }, [slug, pending, resolve.mutate]);
+  }, [slug, pending, resolveNotice]);
 
   const team = workspace?.teams.find(
     (candidate) => candidate.id === notice?.teamId,

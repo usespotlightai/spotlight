@@ -9,12 +9,12 @@ import { TerraformStateLockedError } from '@configuration/domain/exceptions/terr
 import { TerraformStateSerialBehindError } from '@configuration/domain/exceptions/terraform-state-serial-behind.error';
 import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
 import { StateChangeDetail } from '@configuration/domain/value-objects/state-change-detail.vo';
-import type { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import type { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
+import type { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import type { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import type { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
-import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import type { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
+import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import type { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';

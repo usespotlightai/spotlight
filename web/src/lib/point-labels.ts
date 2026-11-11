@@ -89,7 +89,7 @@ export const placeLabels = (
         !taken.some((box) => overlap(box, boxOf(option))),
     );
     const kept = options.find((option) => inside(boxOf(option), span));
-    placed.push(free ?? kept ?? (options[0] as PlacedLabel));
+    placed.push(free ?? kept ?? options[0]);
   }
 
   return placed;

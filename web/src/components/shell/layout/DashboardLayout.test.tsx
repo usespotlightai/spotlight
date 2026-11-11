@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
+
 import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
 
 const handle = () => screen.getByRole('separator', { name: 'Resize sidebar' });

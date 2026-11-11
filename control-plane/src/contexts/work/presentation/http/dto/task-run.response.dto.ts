@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import {
   REVIEW_STATE_NAMES,
   RUN_STATE_NAMES,
 } from '@work/application/dto/task-run.dto';
+import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
 import { pageResponseOf } from '@work/presentation/http/paging';

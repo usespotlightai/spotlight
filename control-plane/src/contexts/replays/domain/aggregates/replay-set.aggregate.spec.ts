@@ -49,6 +49,15 @@ const IN_USE = SetUsers.of({
   checks: [],
 });
 
+const errorOf = (make: () => unknown): unknown => {
+  try {
+    make();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('was not rejected');
+};
+
 describe('ReplaySet', () => {
   it('is kept empty at its station until its first refresh, and records that it was created', () => {
     const set = ReplaySet.create({
@@ -225,7 +234,7 @@ describe('ReplaySet', () => {
     });
 
     it('rejects a run that cannot be replayed, with the reason Work returned', () => {
-      try {
+      const error = errorOf(() =>
         aSet().refresh(
           adding({
             ...replayable('run_1'),
@@ -234,14 +243,13 @@ describe('ReplaySet', () => {
           }),
           NOW,
           SetUsers.none(),
-        );
-        expect.unreachable();
-      } catch (error) {
-        expect(error).toBeInstanceOf(UnreplayableEntryError);
-        expect((error as UnreplayableEntryError).unreplayableReason).toBe(
-          'no-starting-point',
-        );
-      }
+        ),
+      );
+
+      expect(error).toBeInstanceOf(UnreplayableEntryError);
+      expect((error as UnreplayableEntryError).unreplayableReason).toBe(
+        'no-starting-point',
+      );
     });
 
     it('rejects a run that worked no task', () => {

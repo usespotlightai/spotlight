@@ -10,13 +10,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
-export class ListWorkspaceResourcesHandler
-  implements
-    QueryHandlerPort<
-      ListWorkspaceResourcesQuery,
-      readonly WorkspaceResourceDto[]
-    >
-{
+export class ListWorkspaceResourcesHandler implements QueryHandlerPort<
+  ListWorkspaceResourcesQuery,
+  readonly WorkspaceResourceDto[]
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IdentityResourcesPort,
@@ -37,7 +34,7 @@ export class ListWorkspaceResourcesHandler
 
       return visible
         .filter((each) => each !== null)
-        .map(ResourceMapper.workspace);
+        .map((workspace) => ResourceMapper.workspace(workspace));
     } catch (error) {
       rethrowAsApplicationError(error);
     }

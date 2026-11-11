@@ -2,6 +2,7 @@ import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { tabFor, useDesktopCommands } from '@/hooks/useDesktopCommands';
 
 const TABS = ['a', 'b', 'c'].map((id) => ({
@@ -74,7 +75,7 @@ describe('useDesktopCommands', () => {
   });
 
   it('closes the window when the last tab is closed', () => {
-    const { send, actions, close } = listen([TABS[1] as (typeof TABS)[number]]);
+    const { send, actions, close } = listen([TABS[1]]);
 
     send('close-tab');
 

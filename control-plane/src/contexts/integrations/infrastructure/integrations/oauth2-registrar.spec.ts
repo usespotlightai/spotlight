@@ -35,9 +35,10 @@ describe('OAuth2Registrar', () => {
       secretExpiresAt: new Date(1_800_000_000_000),
     });
     const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(JSON.parse(String(init.body)).redirect_uris).toEqual([
-      CALLBACK.value,
-    ]);
+    expect(
+      (JSON.parse(init.body as string) as { redirect_uris: string[] })
+        .redirect_uris,
+    ).toEqual([CALLBACK.value]);
     expect(init.redirect).toBe('manual');
   });
 

@@ -2,10 +2,11 @@ import { QueryClient } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { failuresToasted } from '@/lib/failure-toasts';
 import { withSentRequest } from '@/lib/request-failure';
 
-const added = vi.fn();
+const added = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/toast', () => ({
   toast: { add: (shown: unknown) => added(shown) },
@@ -17,6 +18,7 @@ const failing = async (thrown: unknown, meta?: { quiet?: boolean }) => {
   await client
     .getMutationCache()
     .build(client, {
+      // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the toasts are tested against values that are not errors
       mutationFn: () => Promise.reject(thrown),
       meta,
     })

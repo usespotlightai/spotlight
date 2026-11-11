@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
+
 import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
@@ -129,7 +130,6 @@ export function Conversation({
   const pinnedAt = useRef<number | null>(null);
   const ours = useRef(false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new item starts the conversation again, but the effect reads only the nodes
   useLayoutEffect(() => {
     const box = scroller.current;
     const inside = content.current;
@@ -219,7 +219,7 @@ export function Conversation({
 
           return (
             <Turn
-              // biome-ignore lint/suspicious/noArrayIndexKey: the turns come in order and their order does not change
+              // oxlint-disable-next-line react/no-array-index-key -- the turns come in order and their order does not change
               key={at}
               head={
                 <>

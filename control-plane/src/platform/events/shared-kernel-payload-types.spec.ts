@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { SHARED_KERNEL_PAYLOAD_TYPES } from '@platform/events/shared-kernel-payload-types';
 import { describe, expect, it } from 'vitest';
 
@@ -27,9 +28,10 @@ describe('SHARED_KERNEL_PAYLOAD_TYPES', () => {
       for (const file of readdirSync(within).filter(
         (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
       )) {
-        const loaded: Record<string, unknown> = await import(
-          join(within, file)
-        );
+        const loaded = (await import(join(within, file))) as Record<
+          string,
+          unknown
+        >;
 
         for (const [name, value] of Object.entries(loaded)) {
           if (

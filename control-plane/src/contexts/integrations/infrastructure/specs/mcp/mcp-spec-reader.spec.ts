@@ -93,7 +93,7 @@ describe('McpSpecReader', () => {
   it('refreshes the team’s connection once when the server does not accept it, and lists with the new token', async () => {
     const unauthorized = vi.fn(async () => AccessToken.of('fresh'));
     const tools = vi
-      .fn()
+      .fn<McpSessions['tools']>()
       .mockRejectedValueOnce(new McpUnauthorizedError(SPEC.url ?? ''))
       .mockResolvedValueOnce([tool('one')]);
     const read = await new McpSpecReader({

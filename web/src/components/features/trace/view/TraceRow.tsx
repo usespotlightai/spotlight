@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { memo } from 'react';
+
 import { TraceBar } from '@/components/features/trace/view/TraceBar';
 import { TraceEgressMark } from '@/components/features/trace/view/TraceEgressMark';
 import { TraceRunVerdict } from '@/components/features/trace/view/TraceRunVerdict';

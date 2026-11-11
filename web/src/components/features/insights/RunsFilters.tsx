@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { Pill } from '@/components/shared/Pill';
 import type { LineResponseDto } from '@/lib/api';
@@ -37,6 +38,7 @@ export function RunsFilters({
     onChange({ ...filter, [key]: value ?? undefined });
 
   const formatValue = (key: RunFilterKey, value: string): string => {
+    // oxlint-disable-next-line typescript/switch-exhaustiveness-check -- the shared formatter handles every other key
     switch (key) {
       case 'personId':
         return formatPerson(people, value);

@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
+
 import {
   OutputAgainstCost,
   TipContent,
@@ -150,14 +151,12 @@ describe('OutputAgainstCost', () => {
 
     expect(empty).toHaveTextContent('0–0–');
     expect(busy).toHaveTextContent('5$4.201Implementation');
-    expect(
-      within(busy as HTMLElement).getByRole('link', { name: '5' }),
-    ).toHaveAttribute(
+    expect(within(busy).getByRole('link', { name: '5' })).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/insights?tab=traces&period=7d&day=2026-09-30',
     );
     expect(
-      within(busy as HTMLElement).getByRole('link', { name: 'Implementation' }),
+      within(busy).getByRole('link', { name: 'Implementation' }),
     ).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_build',

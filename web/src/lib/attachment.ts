@@ -1,4 +1,5 @@
 import type { ClipboardEvent, DragEvent } from 'react';
+
 import type { AttachmentResponseDto } from '@/lib/api';
 
 export type Attachment = AttachmentResponseDto;

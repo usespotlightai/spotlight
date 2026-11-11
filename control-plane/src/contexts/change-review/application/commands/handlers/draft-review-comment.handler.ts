@@ -12,9 +12,10 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 
-export class DraftReviewCommentHandler
-  implements CommandHandlerPort<DraftReviewCommentCommand, string>
-{
+export class DraftReviewCommentHandler implements CommandHandlerPort<
+  DraftReviewCommentCommand,
+  string
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly comments: ReviewCommentRepository,

@@ -43,10 +43,10 @@ const takesConnection = async (
     .find((each) => each.key.equals(integration))
     ?.takesConnectionFrom(owner) ?? false;
 
-export class BeginOAuth2ConnectionHandler
-  implements
-    CommandHandlerPort<BeginOAuth2ConnectionCommand, OAuth2Start | null>
-{
+export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
+  BeginOAuth2ConnectionCommand,
+  OAuth2Start | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly defined: DefinedIntegrationsPort,
@@ -118,9 +118,10 @@ export class BeginOAuth2ConnectionHandler
   }
 }
 
-export class FinishOAuth2ConnectionHandler
-  implements CommandHandlerPort<FinishOAuth2ConnectionCommand, string | null>
-{
+export class FinishOAuth2ConnectionHandler implements CommandHandlerPort<
+  FinishOAuth2ConnectionCommand,
+  string | null
+> {
   constructor(
     private readonly linking: OAuth2LinkingPort,
     private readonly connections: IntegrationConnectionRepository,

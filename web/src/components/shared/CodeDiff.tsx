@@ -1,6 +1,7 @@
 import { parseDiffFromFile } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';
 import { useEffect, useMemo, useRef } from 'react';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useHighlighterReady } from '@/hooks/useHighlighterReady';
 import type { LineRange } from '@/lib/changes';

@@ -1,8 +1,8 @@
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { StationNameSkeleton } from '@/components/features/inbox/conversation/StationNameSkeleton';
 import { TurnsSkeleton } from '@/components/features/inbox/conversation/TurnsSkeleton';
-import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { ChatInputSkeleton } from '@/components/shared/chat-input/ChatInputSkeleton';
+import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { STICKY_AT_TOP } from '@/lib/inbox';

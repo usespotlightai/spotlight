@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ProposedMemories } from '@/components/features/inbox/memories/ProposedMemories';
 import type { ProposedMemory } from '@/lib/memory';
 
@@ -230,7 +231,7 @@ describe('ProposedMemories', () => {
     ]);
 
     const [card] = screen.getAllByRole('listitem');
-    const within_ = within(card as HTMLElement);
+    const within_ = within(card);
     expect(within_.getByText('Retry 410s never.')).toBeVisible();
     expect(within_.getByText('Rationale')).toBeVisible();
     expect(within_.getByText('This station')).toBeVisible();
@@ -266,7 +267,7 @@ describe('ProposedMemories', () => {
 
     const [card] = screen.getAllByRole('listitem');
     expect(
-      within(card as HTMLElement).getByRole('heading', {
+      within(card).getByRole('heading', {
         name: 'Memory approved by Maya Chen',
       }),
     ).toBeVisible();

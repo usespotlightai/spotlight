@@ -45,7 +45,7 @@ export class HarnessCommand {
     return new HarnessCommand(
       executable,
       [...(input.args ?? [])],
-      { ...(input.env ?? {}) },
+      { ...input.env },
       sessionOptions,
     );
   }

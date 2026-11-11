@@ -62,7 +62,9 @@ describe('DeleteEgressHandler', () => {
 
     await expect(handler.execute(command())).resolves.toEqual({
       outcome: 'in-use',
-      reason: expect.stringContaining('Runner pools that name it: sandboxes'),
+      reason: expect.stringContaining(
+        'Runner pools that name it: sandboxes',
+      ) as unknown,
     });
     expect(saved).toEqual([]);
   });

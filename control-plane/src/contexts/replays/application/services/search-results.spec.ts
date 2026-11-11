@@ -193,7 +193,7 @@ describe('PickSearchCandidates', () => {
 
     const declined = memory.events.filter(
       (each) => each instanceof SearchPickDeclined,
-    ) as SearchPickDeclined[];
+    );
 
     expect(memory.searches.get(search.id.value)?.pick).toEqual({
       outcome: 'declined',
@@ -201,7 +201,7 @@ describe('PickSearchCandidates', () => {
     });
     expect(declined).toHaveLength(1);
 
-    await noticing().pickDeclined(declined[0] as SearchPickDeclined);
+    await noticing().pickDeclined(declined[0]);
 
     expect(noticed).toEqual([]);
     expect(advised).toEqual([]);

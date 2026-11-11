@@ -25,7 +25,7 @@ type AgentConfigFiltersProps = {
 };
 
 const picked = (options: readonly PickerOption[], value: string) =>
-  options.find((each) => each.id === value) ?? (options[0] as PickerOption);
+  options.find((each) => each.id === value) ?? options[0];
 
 export function AgentConfigFilters({
   narrowed,

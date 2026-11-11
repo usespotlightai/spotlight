@@ -13,9 +13,10 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ReadStationJudgeHandler
-  implements QueryHandlerPort<ReadStationJudgeQuery, StationJudgeDto>
-{
+export class ReadStationJudgeHandler implements QueryHandlerPort<
+  ReadStationJudgeQuery,
+  StationJudgeDto
+> {
   constructor(
     private readonly access: InsightsAccess,
     private readonly reports: StationJudgeReports,

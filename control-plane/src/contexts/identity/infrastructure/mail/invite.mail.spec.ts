@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 const sending = (over: Partial<Env> = {}) => {
   const delivered: MailMessage[] = [];
   const transport: MailTransport = {
-    deliver: vi.fn(async (message) => {
+    deliver: vi.fn<MailTransport['deliver']>(async (message) => {
       delivered.push(message);
     }),
   };

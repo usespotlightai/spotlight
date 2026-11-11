@@ -170,7 +170,7 @@ export const cursorProfile: ProfileTranslator = {
 
     return {
       files,
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+      // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
       env: { CURSOR_CONFIG_DIR: '${SPOTLIGHT_STATE_DIR}/cursor' },
       config: {},
       session: null,

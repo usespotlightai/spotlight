@@ -1,4 +1,5 @@
 import type { ReactNode, Ref, UIEventHandler } from 'react';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 type PaneScrollerProps = {

@@ -39,13 +39,10 @@ const connectionOf = (
   }
 };
 
-export class RecordEgressConnectionsHandler
-  implements
-    CommandHandlerPort<
-      RecordEgressConnectionsCommand,
-      EgressConnectionsRecordedDto
-    >
-{
+export class RecordEgressConnectionsHandler implements CommandHandlerPort<
+  RecordEgressConnectionsCommand,
+  EgressConnectionsRecordedDto
+> {
   constructor(
     private readonly egress: RunnerEgressPort,
     private readonly fetches: EgressSecretFetches,

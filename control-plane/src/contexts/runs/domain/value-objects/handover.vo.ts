@@ -35,9 +35,7 @@ export class Handover {
       this.next === other.next &&
       this.note === other.note &&
       this.attachments.length === other.attachments.length &&
-      this.attachments.every((each, at) =>
-        each.equals(other.attachments[at] as HandedOverFile),
-      )
+      this.attachments.every((each, at) => each.equals(other.attachments[at]))
     );
   }
 }

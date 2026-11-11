@@ -21,7 +21,7 @@ const compiled = (reviews: string, role = 'review') =>
     name: 'Review',
     role,
     stations: STATIONS,
-    ...(parseYaml(reviews) ?? {}),
+    ...parseYaml(reviews),
   });
 
 const read = (reviews: string) => {

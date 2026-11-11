@@ -117,7 +117,7 @@ export class ToolCall {
       .sort()
       .map((name) => ({
         name,
-        value: writtenOf(this.inputs.values[name] as JsonValue),
+        value: writtenOf(this.inputs.values[name]),
       }));
   }
 
@@ -136,7 +136,7 @@ export class ToolCall {
     const typed: Record<string, JsonValue> = {};
 
     for (const name of names) {
-      const value = typedAs(values[name] as JsonValue, edits[name] ?? '');
+      const value = typedAs(values[name], edits[name] ?? '');
 
       if (value === undefined) {
         return { problem: null };
@@ -166,9 +166,7 @@ export class ToolCall {
       this.tool.equals(other.tool) &&
       Object.keys(mine).length === Object.keys(theirs).length &&
       Object.keys(mine).every(
-        (name) =>
-          name in theirs &&
-          sameJson(mine[name] as JsonValue, theirs[name] as JsonValue),
+        (name) => name in theirs && sameJson(mine[name], theirs[name]),
       )
     );
   }

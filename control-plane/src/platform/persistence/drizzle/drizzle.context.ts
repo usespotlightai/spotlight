@@ -31,7 +31,7 @@ export class DrizzleContext implements TransactionPort {
     const committed: (() => void)[] = [];
     const result = await this.root.transaction((tx) =>
       this.asyncLocal.run(
-        { db: tx as unknown as DrizzleDatabase, committed },
+        { db: tx, committed },
         work,
       ),
     );
@@ -53,7 +53,7 @@ export class DrizzleContext implements TransactionPort {
     const committed: (() => void)[] = [];
     const result = await current.db.transaction((savepoint) =>
       this.asyncLocal.run(
-        { db: savepoint as unknown as DrizzleDatabase, committed },
+        { db: savepoint, committed },
         work,
       ),
     );

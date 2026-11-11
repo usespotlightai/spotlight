@@ -6,8 +6,8 @@ import { ReadProposedMemoryQuery } from '@memory/application/queries/read-propos
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
-import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -132,7 +132,7 @@ describe('RememberHandler', () => {
 
     await expect(remember()).rejects.toMatchObject({
       kind: 'invalid',
-      message: expect.stringContaining("a task's run"),
+      message: expect.stringContaining("a task's run") as unknown,
     });
   });
 

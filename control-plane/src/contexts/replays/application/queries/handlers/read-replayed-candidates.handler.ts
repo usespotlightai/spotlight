@@ -29,10 +29,10 @@ const distinct = <T extends { readonly value: string }>(
   ...new Map(values.map((each) => [each.value, each])).values(),
 ];
 
-export class ReadReplayedCandidatesHandler
-  implements
-    QueryHandlerPort<ReadReplayedCandidatesQuery, ReplayedCandidatesDto>
-{
+export class ReadReplayedCandidatesHandler implements QueryHandlerPort<
+  ReadReplayedCandidatesQuery,
+  ReplayedCandidatesDto
+> {
   constructor(
     private readonly access: ReplaysAccess,
     private readonly reader: ReplayedCandidatesReaderPort,

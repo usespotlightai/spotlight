@@ -83,7 +83,7 @@ describe('SetupPullRequestToolUse', () => {
     await expect(tool.call(context, INPUTS)).resolves.toEqual({ url: URL });
     expect(open).toHaveBeenCalledWith({
       workspaceId: WorkspaceId.of('ws_1'),
-      repository: expect.objectContaining({ value: 'acme/infra' }),
+      repository: expect.objectContaining({ value: 'acme/infra' }) as unknown,
       branch: 'spotlight-configuration',
       title: 'Set up Spotlight as code',
       body: 'Triage reads the bug, feature and chore labels.',

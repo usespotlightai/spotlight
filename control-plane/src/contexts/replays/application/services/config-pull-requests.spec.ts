@@ -413,7 +413,7 @@ describe('picking a search candidate', () => {
         branch: only().branch,
         base: 'c1',
         replacing: null,
-        message: expect.stringMatching(/^build: terse\n/),
+        message: expect.stringMatching(/^build: terse\n/) as unknown,
         files: [{ path: 'teams/core/delivery.tf', content: 'edited\n' }],
       },
     ]);

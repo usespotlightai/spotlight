@@ -113,11 +113,9 @@ describe('StationAlert', () => {
     expect(() => again.alongside([first])).toThrow(
       /already exists on this station/,
     );
-    try {
-      again.alongside([first]);
-    } catch (error) {
-      expect((error as InvalidStationAlertError).field).toBeNull();
-    }
+    expect(() => again.alongside([first])).toThrow(
+      expect.objectContaining({ field: null }),
+    );
   });
 
   it('lets one measure be watched for a level and for a move at once', () => {

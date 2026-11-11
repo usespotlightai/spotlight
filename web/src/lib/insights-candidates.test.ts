@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
+
 import {
-  type CandidatesSet,
   type CandidatesStation,
   changeLinkOf,
   costBasisNote,
@@ -14,8 +14,8 @@ import {
 } from '@/lib/insights-candidates';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
-const implementation = CANDIDATES.stations[0]?.sets[0] as CandidatesSet;
-const review = CANDIDATES.stations[1]?.sets[0] as CandidatesSet;
+const implementation = CANDIDATES.stations[0]?.sets[0];
+const review = CANDIDATES.stations[1]?.sets[0];
 const [picked, terse] = implementation.candidates as readonly SetCandidate[];
 
 describe('formatSource', () => {
@@ -53,13 +53,13 @@ describe('replayedPoints', () => {
   });
 
   it('names each search’s live replay by its day where a set was searched more than once', () => {
-    const [first, second] = implementation.candidates as SetCandidate[];
+    const [first, second] = implementation.candidates;
     const points = replayedPoints({
       ...implementation,
       candidates: [
-        first as SetCandidate,
+        first,
         {
-          ...(second as SetCandidate),
+          ...second,
           search: {
             searchId: 'search_2',
             state: 'finished',
@@ -137,16 +137,16 @@ describe('stationReplayedPoints', () => {
 
 describe('changeLinkOf', () => {
   it('leads to the config pull request', () => {
-    expect(changeLinkOf(picked as SetCandidate)).toBe(
+    expect(changeLinkOf(picked)).toBe(
       'https://github.com/acme/spotlight-config/pull/42',
     );
   });
 
   it('leads nowhere without a pull request, or before it has an address', () => {
-    expect(changeLinkOf(terse as SetCandidate)).toBeNull();
+    expect(changeLinkOf(terse)).toBeNull();
     expect(
       changeLinkOf({
-        ...(picked as SetCandidate),
+        ...picked,
         pullRequest: {
           id: 'pr',
           state: 'opening',
@@ -161,7 +161,7 @@ describe('changeLinkOf', () => {
 });
 
 describe('costBasisNote', () => {
-  const candidate = picked as SetCandidate;
+  const candidate = picked;
 
   it('says nothing when the cost covers the runs the rates do', () => {
     expect(costBasisNote(candidate)).toBeNull();

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { RepositoryUnreachableError } from '@github/application/errors/repository-unreachable.error';
 import {
   STATION_CONFIG_PULL_REQUESTS,
@@ -24,8 +25,9 @@ import {
   STATION_CONFIG_CANDIDATES,
   type StationConfigCandidatesPort,
 } from '@work/application/ports/station-config-candidates.port';
-import { eq } from 'drizzle-orm';
+import { DrizzleQueryError, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+
 import { autoSearched } from './support/app';
 import { dueNow, scheduleOf } from './support/auto-searches';
 import { eventually } from './support/eventually';
@@ -111,7 +113,7 @@ const prompted = async (prompt: string): Promise<string> => {
 };
 
 const lineChanged = async () =>
-  delivered((await lineChangedOf(db, DELIVERY, [BUILD])) as never);
+  delivered(await lineChangedOf(db, DELIVERY, [BUILD]));
 
 interface OnGitHub {
   readonly at?: Date;
@@ -302,14 +304,14 @@ describe('following a config pull request after it opened', () => {
 
     await closedOnGitHub(1, false, { workspaceId: randomUUID() });
 
-    expect((await pullRequestRow(opened?.id as string))?.state).toBe('opened');
+    expect((await pullRequestRow(opened?.id))?.state).toBe('opened');
 
     await closedOnGitHub(1, false, {
       gitHubId: null,
       repository: CONFIG.toUpperCase(),
     });
 
-    expect(await pullRequestRow(opened?.id as string)).toMatchObject({
+    expect(await pullRequestRow(opened?.id)).toMatchObject({
       state: 'closed',
       closedBecause: 'by-person',
     });
@@ -355,7 +357,7 @@ describe('following a config pull request after it opened', () => {
 
     await reopenedOnGitHub(1);
 
-    expect(await pullRequestRow(opened?.id as string)).toMatchObject({
+    expect(await pullRequestRow(opened?.id)).toMatchObject({
       state: 'opened',
       closedBecause: null,
     });
@@ -408,7 +410,7 @@ describe('following a config pull request after it opened', () => {
     const notices = await teamNotices();
 
     expect(await pullRequestRow(id)).toMatchObject({
-      state: expect.toBeOneOf(['closing', 'closed']),
+      state: expect.toBeOneOf(['closing', 'closed']) as unknown,
       closedBecause: 'stale',
     });
     expect(
@@ -499,7 +501,7 @@ describe('following a config pull request after it opened', () => {
         basedOn: (await liveAt()).config.fingerprint,
         proposing: 'f'.repeat(64),
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(DrizzleQueryError);
 
     github.statuses.set(27, { state: 'closed', closedAt: new Date() });
     await db

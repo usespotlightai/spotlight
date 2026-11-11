@@ -1,8 +1,13 @@
-import type { ErrorEvent } from '@sentry/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const sentry = vi.hoisted(() => ({
-  init: vi.fn(),
+  init: vi.fn<
+    (options: {
+      tracesSampleRate?: unknown;
+      integrations?: unknown;
+      dataCollection: { userInfo?: unknown };
+    }) => void
+  >(),
   captureException: vi.fn(),
   setUser: vi.fn(),
 }));
@@ -76,7 +81,7 @@ describe('scrubbed', () => {
         },
         { category: 'fetch', data: { url: '/api/runs?cursor=secret' } },
       ],
-    } as ErrorEvent);
+    });
 
     expect(JSON.stringify(event)).not.toContain('secret');
     expect(event.user).toEqual({ id: 'user-1' });
@@ -97,7 +102,7 @@ describe('scrubbed', () => {
         },
         { category: 'fetch', data: { url: '/api/invites/Zx81kQ_secret' } },
       ],
-    } as ErrorEvent);
+    });
 
     expect(JSON.stringify(event)).not.toContain('secret');
     expect(event.request?.url).toBe('https://app.test/invites/:id');

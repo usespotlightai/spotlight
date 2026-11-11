@@ -21,7 +21,7 @@ export const NoteHttpMapper = {
       note.stationPosition,
       note.runId,
       note.body,
-      note.attachments.map(AttachmentHttpMapper.toResponse),
+      note.attachments.map((each) => AttachmentHttpMapper.toResponse(each)),
       note.at,
       note.author
         ? new InboxAuthorResponseDto(

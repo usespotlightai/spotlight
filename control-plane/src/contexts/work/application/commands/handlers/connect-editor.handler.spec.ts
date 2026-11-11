@@ -116,7 +116,7 @@ describe('ConnectEditorHandler', () => {
     const { connect, leases } = setUp();
 
     await expect(connect(OUTSIDER, TASK, null)).rejects.toMatchObject({
-      refusal: expect.any(UnknownTaskError),
+      refusal: expect.any(UnknownTaskError) as unknown,
     });
     expect(await connect(BEA, { kind: 'task', id: 'task_9' }, null)).toBeNull();
     expect(await connect(BEA, TASK, 'other')).toBeNull();
@@ -128,7 +128,7 @@ describe('ConnectEditorHandler', () => {
     const { connect, leases } = setUp();
 
     await expect(connect(CAL, TASK, 'acme')).rejects.toMatchObject({
-      refusal: expect.any(TeamMembershipRequiredError),
+      refusal: expect.any(TeamMembershipRequiredError) as unknown,
     });
     expect(leases.hold).not.toHaveBeenCalled();
   });

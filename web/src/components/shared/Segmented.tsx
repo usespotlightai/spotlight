@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { useRef } from 'react';
+
 import { useTabIndicator } from '@/hooks/useTabIndicator';
 import { cn } from '@/lib/utils';
 

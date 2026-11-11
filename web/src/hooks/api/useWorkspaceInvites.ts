@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { listWorkspaceInvites } from '@/lib/api';
 
 export const inviteKeys = {

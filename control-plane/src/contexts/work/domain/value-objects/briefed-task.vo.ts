@@ -127,6 +127,7 @@ export class BriefedTask {
   }
 
   withDecisions(decisions: readonly DecisionOnRecord[]): BriefedTask {
+    // oxlint-disable-next-line typescript/no-misused-spread -- a value object copies its own fields
     return BriefedTask.of({ ...this, decisions });
   }
 

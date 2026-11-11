@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import {
   scopedTo,

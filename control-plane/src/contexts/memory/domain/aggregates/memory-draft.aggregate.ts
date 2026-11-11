@@ -10,8 +10,8 @@ import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.err
 import type { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
-import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
+import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';

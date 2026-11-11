@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
+
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+
 import * as schema from './schema';
 
 export const awaitingCheck = async (

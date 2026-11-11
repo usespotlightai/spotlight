@@ -1,11 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+
 import { SetSummary } from '@/components/features/insights/candidates/SetSummary';
-import type { CandidatesSet } from '@/lib/insights-candidates';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
-const noisy = CANDIDATES.stations[0]?.sets[0] as CandidatesSet;
-const unchecked = CANDIDATES.stations[1]?.sets[0] as CandidatesSet;
+const noisy = CANDIDATES.stations[0]?.sets[0];
+const unchecked = CANDIDATES.stations[1]?.sets[0];
 
 const warning = () =>
   document.querySelector('[data-slot="set-warning"]')?.textContent ?? null;

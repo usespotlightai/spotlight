@@ -22,6 +22,9 @@ const json = (body: unknown) =>
     headers: { 'content-type': 'application/json' },
   });
 
+const urlOf = (url: string | URL | Request) =>
+  url instanceof Request ? url.url : url.toString();
+
 const answering = (
   over: {
     resource?: string;
@@ -30,7 +33,7 @@ const answering = (
   } = {},
 ) =>
   vi.fn(async (url: string | URL | Request) => {
-    const requested = url.toString();
+    const requested = urlOf(url);
 
     if (requested === SERVER) {
       return new Response(null, {
@@ -89,7 +92,7 @@ describe('OAuth2Discovery', () => {
       scopes: ['read', 'write'],
       identity: null,
     });
-    expect(fetch.mock.calls.map(([url]) => url.toString())).toContain(METADATA);
+    expect(fetch.mock.calls.map(([url]) => urlOf(url))).toContain(METADATA);
   });
 
   it('caches what it found for a while, and requests nothing again', async () => {
@@ -156,7 +159,7 @@ describe('OAuth2Discovery', () => {
       discovery(fetch, ['mcp.tracker.example']).endpoints(DISCOVERED),
     ).resolves.toBeNull();
     expect(
-      fetch.mock.calls.some(([url]) => url.toString().startsWith(ISSUER)),
+      fetch.mock.calls.some(([url]) => urlOf(url).startsWith(ISSUER)),
     ).toBe(false);
   });
 });

@@ -1,11 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { LexicalEditor } from 'lexical';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { useChatMessage } from '@/hooks/useChatMessage';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
 import type { SharedAttachment } from '@/lib/shared-draft';
 
-const uploaded = vi.fn();
+const uploaded = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: (input: unknown) => uploaded(input),

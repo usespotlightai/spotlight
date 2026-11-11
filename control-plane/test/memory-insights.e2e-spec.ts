@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
@@ -19,7 +20,8 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
@@ -164,9 +166,13 @@ afterAll(async () => {
 
 describe('the team’s memory on Insights (e2e)', () => {
   it('counts active memories, their use by the period’s runs only, the ones flagged wrong, and runs with memories against runs without', async () => {
-    const answer = await served(app)
+    const answer = (await served(app)
       .get(`/api/teams/${team.teamId.value}/insights/memory?period=7d`)
-      .set(TEST_USER_HEADER, team.owner.value);
+      .set(TEST_USER_HEADER, team.owner.value)) as Answer<{
+      readonly flagged: unknown;
+      readonly withMemories: unknown;
+      readonly withoutMemories: unknown;
+    }>;
 
     expect(answer.status).toBe(200);
     expect(answer.body).toMatchObject({

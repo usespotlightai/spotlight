@@ -12,7 +12,7 @@ const answering = (existing: { id: number; body: string }[]) => {
     requests.push({
       url,
       method: init.method ?? 'GET',
-      body: init.body ? JSON.parse(String(init.body)) : null,
+      body: init.body ? (JSON.parse(init.body as string) as unknown) : null,
     });
     return (init.method ?? 'GET') === 'GET'
       ? new Response(JSON.stringify(existing), { status: 200 })
@@ -22,7 +22,7 @@ const answering = (existing: { id: number; body: string }[]) => {
   const comments = new GitHubPullRequestComments(
     {
       credential: async () => ({ username: 'x-access-token', password: 'tok' }),
-    } as never,
+    },
     fetch,
   );
 

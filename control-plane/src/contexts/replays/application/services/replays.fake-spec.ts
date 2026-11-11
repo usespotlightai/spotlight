@@ -52,13 +52,13 @@ import {
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { LineSearchBudget } from '@replays/domain/aggregates/line-search-budget.aggregate';
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import {
   ReplayRunDecision,
   type ReplayRunOwner,
 } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import type { SearchReplaysPlanned } from '@replays/domain/events/search-replays-planned.event';
@@ -80,10 +80,10 @@ import {
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { LineSearchBudgetRepository } from '@replays/domain/repositories/line-search-budget.repository';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/replay-run-decision.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
@@ -600,9 +600,7 @@ export class FakeLines implements LinesPort {
   ): Promise<StationBlock | null> => StationBlock.of(block);
 }
 
-export class FakeStationConfigCandidates
-  implements StationConfigCandidatesPort
-{
+export class FakeStationConfigCandidates implements StationConfigCandidatesPort {
   live = async (): Promise<LiveStationConfig | null> => ({
     lineKey: 'delivery',
     fingerprint: FINGERPRINT,

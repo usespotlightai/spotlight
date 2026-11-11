@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 describe('FirstTeam', () => {
   it('creates the team a new workspace named, owned by who created it, and says so', async () => {
-    const add = vi.fn(async (_: Team) => {});
+    const add = vi.fn<(team: Team) => Promise<void>>(async () => {});
 
     await new FirstTeam({
       add,

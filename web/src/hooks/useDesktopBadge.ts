@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+
 import { useInbox } from '@/hooks/api/useInbox';
 import { desktopApp } from '@/lib/desktop';
 

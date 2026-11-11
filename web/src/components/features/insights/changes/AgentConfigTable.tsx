@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+
 import { AgentConfigRow } from '@/components/features/insights/changes/AgentConfigRow';
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';

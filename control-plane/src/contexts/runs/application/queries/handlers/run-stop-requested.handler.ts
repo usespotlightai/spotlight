@@ -5,9 +5,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export class RunStopRequestedHandler
-  implements QueryHandlerPort<RunStopRequestedQuery, boolean>
-{
+export class RunStopRequestedHandler implements QueryHandlerPort<
+  RunStopRequestedQuery,
+  boolean
+> {
   constructor(private readonly leases: RunLeasesPort) {}
 
   async execute(query: RunStopRequestedQuery): Promise<boolean> {

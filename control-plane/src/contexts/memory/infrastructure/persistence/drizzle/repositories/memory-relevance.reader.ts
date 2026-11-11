@@ -26,7 +26,7 @@ export class DrizzleMemoryRelevance implements MemoryRelevancePort {
     const rows = await this.context.db
       .select({
         id: memory.id,
-        rank: sql<number>`ts_rank(${document}, ${anyOf})`,
+        rank: sql<number>`ts_rank(${document}, ${anyOf})`.mapWith(Number),
       })
       .from(memory)
       .where(
@@ -39,7 +39,7 @@ export class DrizzleMemoryRelevance implements MemoryRelevancePort {
         ),
       );
 
-    return new Map(rows.map((row) => [row.id, Number(row.rank)]));
+    return new Map(rows.map((row) => [row.id, row.rank]));
   }
 
   async recall(

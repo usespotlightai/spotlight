@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+
 import type { ConnectBridge } from './bridges';
 
 contextBridge.exposeInMainWorld('spotlightConnect', {

@@ -1,10 +1,11 @@
 import diagnostics from 'node:diagnostics_channel';
+
 import type { CelVariables } from '@platform/expressions/cel-variables';
+import type { Expression } from '@platform/expressions/expression-engine.port';
 import {
   ExpressionFailedError,
   firstLine,
 } from '@platform/expressions/expression.errors';
-import type { Expression } from '@platform/expressions/expression-engine.port';
 
 export const EXPRESSION_FAILED = 'spotlight:expression:failed';
 
@@ -53,7 +54,12 @@ const asText = (read: unknown): string | null => {
     return null;
   }
 
-  return typeof read === 'object' ? null : String(read);
+  return typeof read === 'string' ||
+    typeof read === 'number' ||
+    typeof read === 'boolean' ||
+    typeof read === 'bigint'
+    ? String(read)
+    : null;
 };
 
 export const evaluateText = (

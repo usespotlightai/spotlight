@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+
 import { isCommandShortcut } from '@/lib/command';
 
 export function useCommandShortcut(onToggle: () => void) {

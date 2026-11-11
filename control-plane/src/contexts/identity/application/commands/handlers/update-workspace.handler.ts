@@ -18,9 +18,10 @@ import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class UpdateWorkspaceHandler
-  implements CommandHandlerPort<UpdateWorkspaceCommand, ResourceUpdated | null>
-{
+export class UpdateWorkspaceHandler implements CommandHandlerPort<
+  UpdateWorkspaceCommand,
+  ResourceUpdated | null
+> {
   constructor(
     private readonly definitions: IdentityDefinitionsPort,
     private readonly workspaces: WorkspaceRepository,

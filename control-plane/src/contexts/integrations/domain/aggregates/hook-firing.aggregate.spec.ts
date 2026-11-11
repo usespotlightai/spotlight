@@ -1,21 +1,21 @@
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { InvalidHookFiringTransitionError } from '@integrations/domain/exceptions/invalid-hook-firing-transition.error';
 import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
-import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   pullRequestMerged,
   runEnded,
   taskMoved,
   usedTool,
 } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
+import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
+import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';

@@ -6,6 +6,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
 import { ReplayedLegend } from '@/components/features/insights/candidates/ReplayedLegend';
 import {
   ReplayedPointMark,

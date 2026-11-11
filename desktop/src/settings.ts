@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { DEFAULT_ADDRESS, originOf } from './links';
 
 interface Settings {

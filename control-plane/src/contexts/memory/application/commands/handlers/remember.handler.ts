@@ -12,8 +12,8 @@ import { MemoryDraftAlreadyOpenError } from '@memory/domain/exceptions/memory-dr
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
-import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import {
   type RememberedStep,
   Remembering,
@@ -43,9 +43,10 @@ interface Remembrance {
   readonly id: MemoryId;
 }
 
-export class RememberHandler
-  implements CommandHandlerPort<RememberCommand, string>
-{
+export class RememberHandler implements CommandHandlerPort<
+  RememberCommand,
+  string
+> {
   constructor(
     private readonly loader: RunnerMemoryLoader,
     private readonly work: WorkPort,

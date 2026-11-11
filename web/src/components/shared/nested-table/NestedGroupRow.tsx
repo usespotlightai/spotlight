@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
 import {
   OUTER_DIVIDER,

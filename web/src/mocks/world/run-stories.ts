@@ -434,7 +434,7 @@ const reviewStory = (context: Context): Omit<RunStory, 'spend'> => {
 };
 
 const clockOf = (runId: string): string => {
-  const sum = [...runId].reduce(
+  const sum = Array.from(runId).reduce(
     (total, letter) => total + letter.charCodeAt(0),
     0,
   );
@@ -443,7 +443,11 @@ const clockOf = (runId: string): string => {
 
 const revisionOf = (runId: string): number =>
   20 +
-  ([...runId].reduce((total, letter) => total + letter.charCodeAt(0), 0) % 60);
+  (Array.from(runId).reduce(
+    (total, letter) => total + letter.charCodeAt(0),
+    0,
+  ) %
+    60);
 
 const investigateStory = (context: Context): Omit<RunStory, 'spend'> => {
   const deployed = clockOf(context.run.taskId);

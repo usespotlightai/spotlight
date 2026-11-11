@@ -265,7 +265,7 @@ export class Workspace extends EventRecorder {
   private isLastOwner(userId: UserId): boolean {
     const owners = this.members.filter((each) => each.role.isOwner);
 
-    return owners.length === 1 && owners[0]?.userId.equals(userId) === true;
+    return owners.length === 1 && owners[0]?.userId.equals(userId);
   }
 
   private assignmentContext(target: UserId, by: UserId): RoleAssignmentContext {

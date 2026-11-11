@@ -12,9 +12,10 @@ import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import type { RunAccess } from '@work/application/services/run-access.service';
 
-export class ReadTaskTraceHandler
-  implements QueryHandlerPort<ReadTaskTraceQuery, TaskTraceDto | null>
-{
+export class ReadTaskTraceHandler implements QueryHandlerPort<
+  ReadTaskTraceQuery,
+  TaskTraceDto | null
+> {
   constructor(
     private readonly runs: RunReaderPort,
     private readonly journals: RunJournalReaderPort,

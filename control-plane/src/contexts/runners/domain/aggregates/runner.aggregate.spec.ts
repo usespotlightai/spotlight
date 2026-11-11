@@ -1,4 +1,3 @@
-import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import {
   aPullPool,
   aRunner,
@@ -7,6 +6,7 @@ import {
   STARTED_AT,
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
 import { RunnerEndedError } from '@runners/domain/exceptions/runner-ended.error';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';

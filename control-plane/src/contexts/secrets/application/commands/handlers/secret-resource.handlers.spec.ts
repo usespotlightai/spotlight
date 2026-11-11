@@ -256,7 +256,7 @@ describe('DeleteSecretHandler', () => {
 
     expect(await remove()).toEqual({
       outcome: 'in-use',
-      reason: expect.stringContaining('integration core/linear'),
+      reason: expect.stringContaining('integration core/linear') as unknown,
     });
     expect(await storedValue()).toBe('lin_api_1');
   });

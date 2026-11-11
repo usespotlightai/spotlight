@@ -6,10 +6,10 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ListOidcTrustsHandler
-  implements
-    QueryHandlerPort<ListOidcTrustsQuery, readonly OidcTrustSummaryDto[] | null>
-{
+export class ListOidcTrustsHandler implements QueryHandlerPort<
+  ListOidcTrustsQuery,
+  readonly OidcTrustSummaryDto[] | null
+> {
   constructor(
     private readonly workspaces: WorkspaceRepository,
     private readonly trusts: OidcTrustReaderPort,

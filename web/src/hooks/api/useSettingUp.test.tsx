@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { lineKeys } from '@/hooks/api/useLines';
 import { useSettingUp } from '@/hooks/api/useSettingUp';
@@ -13,7 +14,7 @@ import {
   wasCreatedHere,
 } from '@/lib/setup-status';
 
-const readOnboarding = vi.fn();
+const readOnboarding = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/api', () => ({
   readOnboarding: (options: unknown) => readOnboarding(options),

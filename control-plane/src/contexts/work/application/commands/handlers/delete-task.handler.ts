@@ -7,9 +7,10 @@ import type { LineLoader } from '@work/application/services/line-loader.service'
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
-export class DeleteTaskHandler
-  implements CommandHandlerPort<DeleteTaskCommand, void>
-{
+export class DeleteTaskHandler implements CommandHandlerPort<
+  DeleteTaskCommand,
+  void
+> {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly lines: LineLoader,

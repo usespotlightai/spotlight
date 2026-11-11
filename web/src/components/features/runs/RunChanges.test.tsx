@@ -1,43 +1,42 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+
 import { RunChanges } from '@/components/features/runs/RunChanges';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
 import { WithRunSidePanel } from '@/test/WithRunSidePanel';
 
-const step = (part: Partial<JournalStep>): JournalStep =>
-  ({
-    kind: 'tool',
-    text: 'edit',
-    status: 'completed',
-    tool: 'edit',
-    detail: null,
-    ms: 1,
-    startedAt: '2026-08-29T12:00:00.000Z',
-    locations: [],
-    input: null,
-    output: null,
-    change: null,
-    ...part,
-  }) as JournalStep;
+const step = (part: Partial<JournalStep>): JournalStep => ({
+  kind: 'tool',
+  text: 'edit',
+  status: 'completed',
+  tool: 'edit',
+  detail: null,
+  ms: 1,
+  startedAt: '2026-08-29T12:00:00.000Z',
+  locations: [],
+  input: null,
+  output: null,
+  change: null,
+  ...part,
+});
 
-const journal = (steps: JournalStep[]): RunJournal =>
-  ({
-    runId: 'r1',
-    attempt: 1,
-    steps,
-    ms: null,
-    spent: null,
-    spans: [],
-    marks: {
-      startedAt: null,
-      readyAt: null,
-      firstAgentUpdateAt: null,
-      lastAgentUpdateAt: null,
-      agentStoppedAt: null,
-      endedAt: null,
-    },
-  }) as RunJournal;
+const journal = (steps: JournalStep[]): RunJournal => ({
+  runId: 'r1',
+  attempt: 1,
+  steps,
+  ms: null,
+  spent: null,
+  spans: [],
+  marks: {
+    startedAt: null,
+    readyAt: null,
+    firstAgentUpdateAt: null,
+    lastAgentUpdateAt: null,
+    agentStoppedAt: null,
+    endedAt: null,
+  },
+});
 
 describe('RunChanges', () => {
   it('shows nothing when the run touched no files', () => {

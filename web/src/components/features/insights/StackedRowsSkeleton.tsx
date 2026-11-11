@@ -8,7 +8,6 @@ export function StackedRowsSkeleton({ rows }: { rows: number }) {
     <ul aria-hidden className="flex flex-col">
       {Array.from({ length: rows }, (_, at) => (
         <li
-          // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows keep their place
           key={at}
           className="grid h-7 grid-cols-[4.5rem_minmax(0,1fr)_5.5rem] items-center gap-3"
         >

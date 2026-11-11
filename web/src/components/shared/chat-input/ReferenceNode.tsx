@@ -8,6 +8,7 @@ import {
   type Spread,
 } from 'lexical';
 import type { ReactNode } from 'react';
+
 import { ReferenceToken } from '@/components/shared/chat-input/ReferenceToken';
 import type { Reference } from '@/lib/chat-input';
 

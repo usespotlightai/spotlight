@@ -10,9 +10,10 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 
 const REOPENED = 'Reopened.';
 
-export class ReopenConversationHandler
-  implements CommandHandlerPort<ReopenConversationCommand, void>
-{
+export class ReopenConversationHandler implements CommandHandlerPort<
+  ReopenConversationCommand,
+  void
+> {
   constructor(
     private readonly conversations: ConversationLoader,
     private readonly tasks: TaskRepository,

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { authClient } from '@/lib/authClient';
 import { type DeviceStatus, TOO_MANY_ATTEMPTS } from '@/lib/device';
 

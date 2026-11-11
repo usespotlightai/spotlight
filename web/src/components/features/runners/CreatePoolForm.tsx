@@ -1,4 +1,5 @@
 import { type SubmitEvent, useId, useState } from 'react';
+
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
 import { sanitizeSlug, slugify } from '@/lib/slug';

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { IssuedTokens } from '@identity/application/services/issued-tokens.service';
 import { TOKEN_SCOPES } from '@identity/domain/value-objects/token-scope.vo';
 import type { INestApplication } from '@nestjs/common';
@@ -18,7 +19,14 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import {
+  type Answer,
+  openApp,
+  type Problem,
+  served,
+  TEST_USER_HEADER,
+} from './support/app';
 import { eventually } from './support/eventually';
 import {
   conformsAsResource,
@@ -43,11 +51,11 @@ const LINEAR = {
     verify: { hmac: { secret: 'secret.LINEAR_SIGNING' } },
     events: [
       {
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the definition's own expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- the definition's own expression syntax
         when: '${{ body.type == "Issue" }}',
         raise: {
           happening: 'linear.issue.completed',
-          // biome-ignore lint/suspicious/noTemplateCurlyInString: the definition's own expression syntax
+          // oxlint-disable-next-line no-template-curly-in-string -- the definition's own expression syntax
           marks: [{ kind: 'linear.issue', value: '${{ body.data.id }}' }],
         },
       },
@@ -130,6 +138,12 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
 };
 
 conformsAsResource({ kind: 'oidc-trust', open: seated });
+
+interface Trust {
+  readonly id: string;
+  readonly version: number;
+  readonly createdBy: string;
+}
 
 describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)', () => {
   let app: INestApplication;
@@ -267,8 +281,8 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
         claims: { repository: REPOSITORY },
         scopes: ['configure'],
         createdBy: { id: seat.owner, name: 'Ada' },
-        createdAt: expect.any(String),
-        lastIssuedAt: expect.any(String),
+        createdAt: expect.any(String) as unknown,
+        lastIssuedAt: expect.any(String) as unknown,
       }),
       expect.objectContaining({
         key: 'github-pull-requests',
@@ -388,11 +402,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
   });
 
   it('rejects a lifetime longer than an hour', async () => {
-    const rejected = await http()
+    const rejected = (await http()
       .post(`/api/v1/resources/workspaces/${seat.workspaceId}/oidc-trusts`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
-      .send(trusting({ lifetimeMinutes: 61 }));
+      .send(trusting({ lifetimeMinutes: 61 }))) as Answer<Problem>;
 
     expect(rejected.status).toBe(422);
     expect(rejected.body.errors).toEqual([
@@ -459,11 +473,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
   it('keeps the tokens it issued when applied again unchanged', async () => {
     const trust = await create(trusting());
     const issued = await exchanged(trust.id, MAIN);
-    const reapplied = await http()
+    const reapplied = (await http()
       .put(`/api/v1/resources/oidc-trusts/${trust.id}`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('If-Match', '"0"')
-      .send(trusting());
+      .send(trusting())) as Answer<Trust>;
 
     expect(reapplied.status).toBe(200);
     expect(reapplied.body.version).toBe(0);
@@ -479,11 +493,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
   it('keeps the tokens it issued when only its description changes', async () => {
     const trust = await create(trusting());
     const issued = await exchanged(trust.id, MAIN);
-    const described = await http()
+    const described = (await http()
       .put(`/api/v1/resources/oidc-trusts/${trust.id}`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('If-Match', '"0"')
-      .send(trusting({ description: 'Deploys main' }));
+      .send(trusting({ description: 'Deploys main' }))) as Answer<Trust>;
 
     expect(described.status).toBe(200);
     expect(described.body.version).toBe(1);
@@ -609,7 +623,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
           .set(TEST_USER_HEADER, seat.owner)
           .set('Idempotency-Key', randomUUID())
           .send({ name: scopes.join('-'), scopes })
-      ).headers['spotlight-workspace-token'] as string;
+      ).headers['spotlight-workspace-token'];
     const narrow = as(await issue(['configure', 'trusts']));
     const withoutTrusts = as(await issue(['configure', 'secrets', 'runners']));
     const secrets = await create(
@@ -669,24 +683,27 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
   });
 
   it('bootstraps CI once with a trusts token, then plans and applies with none stored', async () => {
-    const issued = await http()
+    const issued = (await http()
       .post(`/api/v1/resources/workspaces/${seat.workspaceId}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
-      .send({ name: 'bootstrap', scopes: ['configure', 'trusts'] });
-    const bootstrap = as(issued.headers['spotlight-workspace-token'] as string);
-    const plans = await bootstrap.post(
+      .send({
+        name: 'bootstrap',
+        scopes: ['configure', 'trusts'],
+      })) as Answer<Trust>;
+    const bootstrap = as(issued.headers['spotlight-workspace-token']);
+    const plans = (await bootstrap.post(
       `/api/v1/resources/workspaces/${seat.workspaceId}/oidc-trusts`,
       trusting({
         key: 'github-pull-requests',
         subject: PULL_REQUEST,
         scopes: ['plan'],
       }),
-    );
-    const applies = await bootstrap.post(
+    )) as Answer<Trust>;
+    const applies = (await bootstrap.post(
       `/api/v1/resources/workspaces/${seat.workspaceId}/oidc-trusts`,
       trusting({ scopes: ['configure'] }),
-    );
+    )) as Answer<Trust>;
 
     expect([plans.status, applies.status]).toEqual([201, 201]);
     expect(applies.body.createdBy).toBe(seat.owner);

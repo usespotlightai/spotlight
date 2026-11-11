@@ -9,12 +9,12 @@ import { ReviewCommentId } from '@change-review/domain/value-objects/review-comm
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { DrizzleReviewCommentRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review-comment.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { sql } from 'drizzle-orm';
+import { DrizzleQueryError, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 const NOW = new Date('2026-09-23T10:00:00.000Z');
@@ -40,7 +40,7 @@ beforeAll(async () => {
     new DrizzleContext(database.db),
     {
       dispatch: async () => {},
-    } as unknown as DomainEventDispatcher,
+    },
   );
 }, 60_000);
 
@@ -99,7 +99,7 @@ describe('storing review comments', () => {
       database.db.execute(
         sql`update review_comment set side = null where id = 'on_lines'`,
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow(DrizzleQueryError);
   });
 });
 

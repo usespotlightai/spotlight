@@ -2,6 +2,7 @@ import type { ArgTypes } from '@storybook/react-vite';
 import { onlineManager } from '@tanstack/react-query';
 import type { Location } from 'react-router';
 import { mocked } from 'storybook/test';
+
 import { useSession } from '@/hooks/api/useSession';
 import { APP_TABS_KEY } from '@/lib/app-tabs';
 import {

@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react';
+
 import { LABEL_ROOM } from '@/components/features/trace/view/TraceBar';
 import { INDENT } from '@/components/features/trace/view/TraceRow';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';

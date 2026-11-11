@@ -22,7 +22,9 @@ export class ToolOutput {
   }
 
   get answer(): unknown {
-    return JSON.parse(this.json);
+    const answer: unknown = JSON.parse(this.json);
+
+    return answer;
   }
 
   equals(other: ToolOutput): boolean {

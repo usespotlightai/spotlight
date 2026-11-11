@@ -1,4 +1,5 @@
 import { Send, Trash2 } from 'lucide-react';
+
 import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { RowActions } from '@/components/shared/RowActions';
 import { useRemoveMyEmail } from '@/hooks/api/useRemoveMyEmail';

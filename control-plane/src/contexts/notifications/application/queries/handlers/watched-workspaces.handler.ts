@@ -5,9 +5,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class WatchedWorkspacesHandler
-  implements QueryHandlerPort<WatchedWorkspacesQuery, readonly string[]>
-{
+export class WatchedWorkspacesHandler implements QueryHandlerPort<
+  WatchedWorkspacesQuery,
+  readonly string[]
+> {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
     private readonly access: WorkspaceAccessPort,

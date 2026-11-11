@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import {
   MEMORY_DRAFTS,
@@ -17,6 +18,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
@@ -513,12 +515,16 @@ describe('remembering from inside a run', () => {
 
     await eventually(async () => {
       const items = (
-        await http()
-          .get(`/api/workspaces/${team.slug}/inbox`)
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body.items as {
-        inboxRequest: { form: string; about: string } | null;
-      }[];
+        (
+          await http()
+            .get(`/api/workspaces/${team.slug}/inbox`)
+            .set(TEST_USER_HEADER, team.owner.value)
+        ).body as {
+          readonly items: {
+            inboxRequest: { form: string; about: string } | null;
+          }[];
+        }
+      ).items;
 
       return items.some(
         (each) =>

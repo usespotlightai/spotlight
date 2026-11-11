@@ -10,9 +10,7 @@ interface Held {
   readonly until: number;
 }
 
-export class CachedWorkspaceOutboundHosts
-  implements WorkspaceOutboundHostsPort
-{
+export class CachedWorkspaceOutboundHosts implements WorkspaceOutboundHostsPort {
   private readonly held = new Map<string, Held>();
 
   constructor(

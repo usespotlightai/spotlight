@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import { SpanDetail } from '@/components/features/trace/view/SpanDetail';
 import { TraceGrid } from '@/components/features/trace/view/TraceGrid';
 import { TraceRow } from '@/components/features/trace/view/TraceRow';

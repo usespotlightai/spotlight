@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import { OutboundCalls } from '@platform/outbound/outbound-calls';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -43,7 +44,7 @@ describe('OutboundCalls', () => {
           host: new URL(origin).host,
           method: 'GET',
           status: 200,
-          durationMs: expect.any(Number),
+          durationMs: expect.any(Number) as unknown,
         },
       },
       'Outbound call',
@@ -56,7 +57,10 @@ describe('OutboundCalls', () => {
 
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
       {
-        outbound: expect.objectContaining({ method: 'POST', status: 429 }),
+        outbound: expect.objectContaining({
+          method: 'POST',
+          status: 429,
+        }) as unknown,
       },
       'Outbound call refused',
     );
@@ -74,8 +78,10 @@ describe('OutboundCalls', () => {
 
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
       {
-        outbound: expect.objectContaining({ host: `127.0.0.1:${port}` }),
-        err: expect.anything(),
+        outbound: expect.objectContaining({
+          host: `127.0.0.1:${port}`,
+        }) as unknown,
+        err: expect.anything() as unknown,
       },
       'Outbound call failed',
     );

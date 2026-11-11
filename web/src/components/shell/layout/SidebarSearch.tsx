@@ -1,4 +1,5 @@
 import { Search } from 'lucide-react';
+
 import { commandShortcut } from '@/lib/command';
 
 type SidebarSearchProps = {

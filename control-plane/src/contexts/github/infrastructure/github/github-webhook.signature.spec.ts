@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+
 import { GitHubWebhookSignature } from '@github/infrastructure/github/github-webhook.signature';
 import { describe, expect, it } from 'vitest';
 

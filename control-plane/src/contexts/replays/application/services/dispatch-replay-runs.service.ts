@@ -1,6 +1,6 @@
 import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayRunOwner } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
 import { DispatchSlotTakenError } from '@replays/domain/exceptions/dispatch-slot-taken.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';

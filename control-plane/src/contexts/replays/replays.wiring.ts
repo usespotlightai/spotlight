@@ -173,8 +173,8 @@ import { SetStations } from '@replays/application/services/set-stations.service'
 import { SetUsage } from '@replays/application/services/set-usage.service';
 import { StartCheckReplays } from '@replays/application/services/start-check-replays.service';
 import { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
-import { StartSearch } from '@replays/application/services/start-search.service';
 import { StartSearchReplays } from '@replays/application/services/start-search-replays.service';
+import { StartSearch } from '@replays/application/services/start-search.service';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import { StationChangeTests } from '@replays/application/services/station-change-tests.service';
 import { StationConfigs } from '@replays/application/services/station-configs.service';
@@ -187,9 +187,9 @@ import { TestStationChangeExtension } from '@replays/infrastructure/acl/chat-too
 import { ConfigRepository } from '@replays/infrastructure/acl/config-repository.adapter';
 import { ConfigurationStationSourceEditor } from '@replays/infrastructure/acl/configuration-station-source.editor';
 import { HarnessCommands } from '@replays/infrastructure/acl/harness-commands';
-import { Insights } from '@replays/infrastructure/acl/insights.adapter';
 import { InsightsChangeJudge } from '@replays/infrastructure/acl/insights-change-judge.adapter';
 import { InsightsPairJudge } from '@replays/infrastructure/acl/insights-pair-judge.adapter';
+import { Insights } from '@replays/infrastructure/acl/insights.adapter';
 import { Lines } from '@replays/infrastructure/acl/lines.adapter';
 import { People } from '@replays/infrastructure/acl/people.adapter';
 import { Runs } from '@replays/infrastructure/acl/runs.adapter';
@@ -209,10 +209,10 @@ import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/
 import { DrizzleChangeJudgingRepository } from '@replays/infrastructure/persistence/drizzle/repositories/change-judging.repository';
 import { DrizzleConfigPullRequestRepository } from '@replays/infrastructure/persistence/drizzle/repositories/config-pull-request.repository';
 import { DrizzleLineSearchBudgetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/line-search-budget.repository';
-import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleReplayCheckRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-check.repository';
 import { DrizzleReplayRunDecisionRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-run-decision.repository';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
+import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
 import { DrizzleSideBySideJudgingRepository } from '@replays/infrastructure/persistence/drizzle/repositories/side-by-side-judging.repository';
 import { DrizzleStationSearchScheduleRepository } from '@replays/infrastructure/persistence/drizzle/repositories/station-search-schedule.repository';

@@ -5,6 +5,7 @@ import {
   timingSafeEqual,
   verify as verifySignature,
 } from 'node:crypto';
+
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
 import type {
@@ -102,7 +103,8 @@ export class WebhookRuntime implements WebhookProviderPort {
         return this.asymmetric(auth, delivered);
       case 'jwt':
         return this.jwt(auth, delivered);
-      default:
+      case 'oauth2':
+      case 'secrets':
         return false;
     }
   }
@@ -207,8 +209,12 @@ export class WebhookRuntime implements WebhookProviderPort {
     let payload: { exp?: number; aud?: unknown; iss?: unknown };
 
     try {
-      header = JSON.parse(Buffer.from(head, 'base64url').toString('utf8'));
-      payload = JSON.parse(Buffer.from(claims, 'base64url').toString('utf8'));
+      header = JSON.parse(
+        Buffer.from(head, 'base64url').toString('utf8'),
+      ) as typeof header;
+      payload = JSON.parse(
+        Buffer.from(claims, 'base64url').toString('utf8'),
+      ) as typeof payload;
     } catch {
       return false;
     }

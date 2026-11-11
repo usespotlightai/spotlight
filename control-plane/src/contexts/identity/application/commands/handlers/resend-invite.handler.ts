@@ -13,9 +13,10 @@ import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.v
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ResendInviteHandler
-  implements CommandHandlerPort<ResendInviteCommand, WorkspaceInviteDto | null>
-{
+export class ResendInviteHandler implements CommandHandlerPort<
+  ResendInviteCommand,
+  WorkspaceInviteDto | null
+> {
   constructor(
     private readonly administration: WorkspaceAdministration,
     private readonly invites: WorkspaceInviteRepository,

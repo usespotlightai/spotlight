@@ -10,9 +10,10 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 
-export class RecordRunImageHandler
-  implements CommandHandlerPort<RecordRunImageCommand, void>
-{
+export class RecordRunImageHandler implements CommandHandlerPort<
+  RecordRunImageCommand,
+  void
+> {
   constructor(
     private readonly runs: RunRepository,
     private readonly claimants: RunnerClaimantsPort,

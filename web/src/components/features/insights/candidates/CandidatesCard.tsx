@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
+
 import { CandidatesTable } from '@/components/features/insights/candidates/CandidatesTable';
+import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import type { StationNames } from '@/lib/insights';
 import type { CandidatesStation } from '@/lib/insights-candidates';

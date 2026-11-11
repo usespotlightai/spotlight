@@ -1,4 +1,5 @@
 import { useParams } from 'react-router';
+
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';

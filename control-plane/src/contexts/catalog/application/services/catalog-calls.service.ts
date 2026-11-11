@@ -1,11 +1,11 @@
 import type { CatalogCallResult } from '@catalog/application/contracts/catalog.contract';
 import { CatalogEntitledMapper } from '@catalog/application/mappers/catalog-entitled.mapper';
+import type { CatalogCallLedgerPort } from '@catalog/application/ports/catalog-call-ledger.port';
+import type { CatalogServicePort } from '@catalog/application/ports/catalog-service.port';
 import type {
   CatalogCallRequest,
   CatalogCallsPort,
 } from '@catalog/application/ports/catalog.port';
-import type { CatalogCallLedgerPort } from '@catalog/application/ports/catalog-call-ledger.port';
-import type { CatalogServicePort } from '@catalog/application/ports/catalog-service.port';
 import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
 import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
 import { resolveEntitled } from '@catalog/domain/services/entitlement-resolution';

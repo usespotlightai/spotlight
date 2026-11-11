@@ -8,13 +8,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ListHarnessProfileResourcesHandler
-  implements
-    QueryHandlerPort<
-      ListHarnessProfileResourcesQuery,
-      readonly HarnessProfileResourceDto[] | null
-    >
-{
+export class ListHarnessProfileResourcesHandler implements QueryHandlerPort<
+  ListHarnessProfileResourcesQuery,
+  readonly HarnessProfileResourceDto[] | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   INTEGRATION_RUNTIME,
   type IntegrationRuntimePort,
@@ -29,7 +30,8 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { opened, recipient } from './support/sealing';
@@ -72,6 +74,11 @@ interface ClaimedCall {
   readonly headers: Record<string, string>;
   readonly body: string;
   readonly secretsToken?: string;
+}
+
+interface Fetched {
+  readonly runId: string;
+  readonly secrets: readonly { readonly sealed: string }[];
 }
 
 describe('an integration action sent from a host of the workspace (e2e)', () => {
@@ -262,11 +269,11 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
     }).expect(401);
 
     const to = recipient();
-    const fetched = await redeem(call.id, {
+    const fetched = (await redeem(call.id, {
       host: HOST,
       token: call.secretsToken,
       recipient: to.written,
-    }).expect(200);
+    }).expect(200)) as Answer<Fetched>;
 
     expect(fetched.body).toMatchObject({
       runId: call.id,
@@ -288,7 +295,7 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
     expect(opened(audit.sealed, to, call.id, 'AUDIT_TOKEN')).toBe(VALUE);
     expect(() =>
       opened(audit.sealed, to, 'another-call', 'AUDIT_TOKEN'),
-    ).toThrow();
+    ).toThrow('unable to authenticate data');
 
     await redeem(call.id, {
       host: HOST,
@@ -325,7 +332,9 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
       ),
     );
 
-    expect(answers.map((each) => each.status).sort()).toEqual([200, 409]);
+    expect(answers.map((each) => each.status).sort((a, b) => a - b)).toEqual([
+      200, 409,
+    ]);
 
     await http()
       .post(`/api/hosts/calls/${call.id}/response`)

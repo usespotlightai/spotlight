@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   SNAPSHOT_TABLE_NAMES,
   SNAPSHOT_VERSIONED_TABLES,

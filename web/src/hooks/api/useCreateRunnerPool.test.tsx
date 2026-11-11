@@ -2,9 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { useCreateRunnerPool } from '@/hooks/api/useCreateRunnerPool';
 
-const createRunnerPool = vi.fn();
+const createRunnerPool = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/api', () => ({
   createRunnerPool: (options: unknown) => createRunnerPool(options),
@@ -54,7 +55,7 @@ describe('useCreateRunnerPool', () => {
     );
     expect(createRunnerPool).toHaveBeenCalledWith({
       path: { workspaceId: 'workspace_acme' },
-      headers: { 'Idempotency-Key': expect.any(String) },
+      headers: { 'Idempotency-Key': expect.any(String) as string },
       body: { key: 'my-computer' },
     });
   });

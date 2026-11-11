@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { readReplayedCandidates } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import type { InsightsCandidates } from '@/lib/insights-candidates';

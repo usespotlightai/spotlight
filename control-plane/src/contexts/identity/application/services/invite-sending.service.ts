@@ -4,8 +4,8 @@ import type {
   PersonSummary,
 } from '@identity/application/ports/person-reader.port';
 import type { Team } from '@identity/domain/aggregates/team.aggregate';
-import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import type { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
+import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 

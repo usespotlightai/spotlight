@@ -32,27 +32,26 @@ const reading = (
       ),
     } as unknown as WorkspaceAccessPort,
     {
-      ofTeam: vi.fn(
-        async (): Promise<readonly TeamIntegrationReading[]> =>
-          over.defined === false
-            ? []
-            : [
-                {
-                  integration: 'linear',
-                  name: 'Linear',
-                  path: 'integrations/linear',
-                  requiresConnection: over.requiresConnection ?? false,
-                  actsAs: 'team',
-                  spec: over.spec
-                    ? {
-                        kind: 'openapi',
-                        tools: 19,
-                        readAt: new Date('2026-10-05T12:00:00.000Z'),
-                        problem: null,
-                      }
-                    : null,
-                },
-              ],
+      ofTeam: vi.fn(async (): Promise<readonly TeamIntegrationReading[]> =>
+        over.defined === false
+          ? []
+          : [
+              {
+                integration: 'linear',
+                name: 'Linear',
+                path: 'integrations/linear',
+                requiresConnection: over.requiresConnection ?? false,
+                actsAs: 'team',
+                spec: over.spec
+                  ? {
+                      kind: 'openapi',
+                      tools: 19,
+                      readAt: new Date('2026-10-05T12:00:00.000Z'),
+                      problem: null,
+                    }
+                  : null,
+              },
+            ],
       ),
     } satisfies TeamIntegrationReadingsPort,
     {

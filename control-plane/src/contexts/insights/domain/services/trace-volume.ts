@@ -20,8 +20,8 @@ export const traceVolumeOf = (
   const width = Math.max(range.bucketMs, 1);
   const length = Math.max(Math.ceil((range.to.getTime() - from) / width), 1);
 
-  const counts = new Array<number>(length).fill(0);
-  const errors = new Array<number>(length).fill(0);
+  const counts = Array.from({ length }, () => 0);
+  const errors = Array.from({ length }, () => 0);
 
   for (const trace of traces) {
     const at = Math.min(

@@ -11,14 +11,14 @@ const editorOf = (element: HTMLElement): LexicalEditor =>
   (element as unknown as { __lexicalEditor: LexicalEditor }).__lexicalEditor;
 
 export const write = (element: HTMLElement, text: string) =>
-  act(() => {
+  act(async () => {
     editorOf(element).update(() => $getRoot().selectEnd().insertText(text), {
       discrete: true,
     });
   });
 
 export const erase = (element: HTMLElement) =>
-  act(() => {
+  act(async () => {
     editorOf(element).update(
       () => {
         $getRoot().clear().append($createParagraphNode());
@@ -28,7 +28,7 @@ export const erase = (element: HTMLElement) =>
   });
 
 export const pressEnter = (element: HTMLElement, { shift = false } = {}) =>
-  act(() => {
+  act(async () => {
     editorOf(element).dispatchCommand(
       KEY_ENTER_COMMAND,
       new KeyboardEvent('keydown', { key: 'Enter', shiftKey: shift }),
@@ -44,6 +44,6 @@ export const snapshot = (element: HTMLElement): EditorState =>
   editorOf(element).getEditorState();
 
 export const restore = (element: HTMLElement, state: EditorState) =>
-  act(() => {
+  act(async () => {
     editorOf(element).setEditorState(state.clone(null));
   });

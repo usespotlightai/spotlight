@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { SignalRow } from '@/components/features/insights/SignalRow';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { HealthyLine } from '@/components/shared/HealthyLine';

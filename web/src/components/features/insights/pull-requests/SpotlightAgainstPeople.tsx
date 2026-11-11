@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {

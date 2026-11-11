@@ -9,9 +9,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ConnectGitHubHandler
-  implements CommandHandlerPort<ConnectGitHubCommand, string | null>
-{
+export class ConnectGitHubHandler implements CommandHandlerPort<
+  ConnectGitHubCommand,
+  string | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly connections: GitHubConnectionRepository,

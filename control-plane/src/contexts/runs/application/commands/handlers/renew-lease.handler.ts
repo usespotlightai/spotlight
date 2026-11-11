@@ -13,9 +13,10 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 const ATTEMPTS = 3;
 
-export class RenewLeaseHandler
-  implements CommandHandlerPort<RenewLeaseCommand, void>
-{
+export class RenewLeaseHandler implements CommandHandlerPort<
+  RenewLeaseCommand,
+  void
+> {
   constructor(
     private readonly runs: RunRepository,
     private readonly claimants: RunnerClaimantsPort,

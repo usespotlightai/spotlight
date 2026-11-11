@@ -3,9 +3,10 @@ import type { HookTokensPort } from '@integrations/application/ports/hook-tokens
 import type { HookIssuerQuery } from '@integrations/application/queries/hook-issuer.query';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class HookIssuerHandler
-  implements QueryHandlerPort<HookIssuerQuery, HookIssuerDto>
-{
+export class HookIssuerHandler implements QueryHandlerPort<
+  HookIssuerQuery,
+  HookIssuerDto
+> {
   constructor(private readonly tokens: HookTokensPort) {}
 
   async execute(): Promise<HookIssuerDto> {

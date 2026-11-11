@@ -3,15 +3,16 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import type { RunChangeStacks } from '@/lib/change-stack';
 import { RunChangeStack } from '@/routes/RunChangeStack';
 import { INVITATIONS, LARGE_FILE } from '@/test/fixtures/change-stack';
 
-const stacks = vi.fn();
+const stacks = vi.fn<(...args: unknown[]) => unknown>();
 const stacksFailing = vi.fn();
 const refetchStacks = vi.fn();
-const review = vi.fn();
-const decided = vi.fn();
+const review = vi.fn<(...args: unknown[]) => unknown>();
+const decided = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   changeStackKeys: { forRun: () => ['change-stacks'] },
@@ -272,7 +273,7 @@ describe('RunChangeStack', () => {
       ]);
       const [controller] = within(files).getAllByRole('article');
       expect(
-        within(controller as HTMLElement).getByText(
+        within(controller).getByText(
           'Adds the invite and accept endpoints. Only admins may invite; anyone with a token may accept.',
         ),
       ).toBeInTheDocument();

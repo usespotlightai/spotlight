@@ -31,13 +31,13 @@ export const typeProblem = (
 
   const list = LIST.exec(type);
   if (list) {
-    return typeProblem(list[1] as string, known);
+    return typeProblem(list[1], known);
   }
 
   const map = MAP.exec(type);
   if (map) {
-    return MAP_KEYS.has(map[1] as string)
-      ? typeProblem(map[2] as string, known)
+    return MAP_KEYS.has(map[1])
+      ? typeProblem(map[2], known)
       : `keys a map by ${map[1]}. A map key must be string, int, uint or bool`;
   }
 
@@ -96,7 +96,7 @@ export const orderedTypes = (
     }
 
     doing.add(name);
-    for (const named of namesIn(types[name] as Shape, new Set())) {
+    for (const named of namesIn(types[name], new Set())) {
       if (named in types) {
         visit(named);
       }

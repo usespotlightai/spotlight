@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
+
 import { cn } from '@/lib/utils';
 
 type EmptyStateProps = {

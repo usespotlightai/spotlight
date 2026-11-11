@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   REPOSITORY_SETTINGS,
   type RepositorySettingsPort,
@@ -18,6 +19,7 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { deleteChatsOf } from './support/runners';
 import * as schema from './support/schema';
@@ -72,7 +74,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
         .get(`/api/teams/${workspaceId}/configuration/onboarding`)
         .set(TEST_USER_HEADER, viewer)
         .expect(200)
-    ).body;
+    ).body as unknown;
 
   beforeAll(async () => {
     app = await openApp((module) =>
@@ -144,7 +146,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
     ]);
     expect(written).toEqual([
       {
-        SPOTLIGHT_URL: expect.any(String),
+        SPOTLIGHT_URL: expect.any(String) as unknown,
         SPOTLIGHT_PLAN_TRUST: byKey['github-pull-requests']?.id,
         SPOTLIGHT_APPLY_TRUST: byKey['github-apply']?.id,
       },

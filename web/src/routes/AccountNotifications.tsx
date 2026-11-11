@@ -1,5 +1,6 @@
 import { AppWindow, Bell } from 'lucide-react';
 import { useState } from 'react';
+
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';

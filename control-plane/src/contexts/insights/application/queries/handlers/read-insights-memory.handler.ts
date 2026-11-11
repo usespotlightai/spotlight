@@ -1,5 +1,5 @@
-import { periodOf } from '@insights/application/dto/insights.dto';
 import type { InsightsMemoryDto } from '@insights/application/dto/insights-memory.dto';
+import { periodOf } from '@insights/application/dto/insights.dto';
 import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
 import type { MemoryUsePort } from '@insights/application/ports/memory-use.port';
 import type { PeoplePort } from '@insights/application/ports/people.port';
@@ -12,9 +12,10 @@ import { memoryComparisonFrom } from '@insights/domain/services/memory-compariso
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadInsightsMemoryHandler
-  implements QueryHandlerPort<ReadInsightsMemoryQuery, InsightsMemoryDto>
-{
+export class ReadInsightsMemoryHandler implements QueryHandlerPort<
+  ReadInsightsMemoryQuery,
+  InsightsMemoryDto
+> {
   constructor(
     private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,

@@ -6,11 +6,11 @@ import type {
   InviteSent,
 } from '@identity/application/services/invite-sending.service';
 import type { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
-import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import {
   type InviteOffer,
   WorkspaceInvite,
 } from '@identity/domain/aggregates/workspace-invite.aggregate';
+import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited.error';
 import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
@@ -42,10 +42,10 @@ interface Offered {
   readonly token: string;
 }
 
-export class InviteToWorkspaceHandler
-  implements
-    CommandHandlerPort<InviteToWorkspaceCommand, InviteOutcomeDto | null>
-{
+export class InviteToWorkspaceHandler implements CommandHandlerPort<
+  InviteToWorkspaceCommand,
+  InviteOutcomeDto | null
+> {
   constructor(
     private readonly administration: WorkspaceAdministration,
     private readonly invites: WorkspaceInviteRepository,

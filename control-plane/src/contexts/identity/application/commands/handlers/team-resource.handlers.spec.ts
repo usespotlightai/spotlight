@@ -5,7 +5,6 @@ import { DeleteTeamHandler } from '@identity/application/commands/handlers/delet
 import { UpdateTeamHandler } from '@identity/application/commands/handlers/update-team.handler';
 import { UpdateTeamCommand } from '@identity/application/commands/update-team.command';
 import type { Dependent } from '@identity/application/ports/dependents.port';
-import type { Team } from '@identity/domain/aggregates/team.aggregate';
 import { TeamAlreadyExistsError } from '@identity/domain/exceptions/team-already-exists.error';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import {
@@ -58,7 +57,7 @@ describe('CreateTeamHandler', () => {
       id: 'team_new',
     });
 
-    const [added] = stored.add.mock.calls[0] as [Team];
+    const [added] = stored.add.mock.calls[0];
 
     expect(added.key.value).toBe('core');
     expect(added.pullEvents()).toEqual([
@@ -112,9 +111,7 @@ describe('UpdateTeamHandler', () => {
       outcome: 'updated',
       id: 'team_1',
     });
-    expect((stored.save.mock.calls[0] as [Team])[0].name.value).toBe(
-      'Core platform',
-    );
+    expect(stored.save.mock.calls[0][0].name.value).toBe('Core platform');
   });
 
   it('points at the key when a request changes it', async () => {
@@ -163,7 +160,7 @@ describe('DeleteTeamHandler', () => {
     const { remove, stored } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((stored.save.mock.calls[0] as [Team])[0].isDeleted).toBe(true);
+    expect(stored.save.mock.calls[0][0].isDeleted).toBe(true);
   });
 
   it('will not delete a team that still has configuration, and says what', async () => {
@@ -174,7 +171,9 @@ describe('DeleteTeamHandler', () => {
 
     expect(await remove()).toEqual({
       outcome: 'in-use',
-      reason: expect.stringContaining('integration linear, line delivery'),
+      reason: expect.stringContaining(
+        'integration linear, line delivery',
+      ) as unknown,
     });
     expect(stored.save).not.toHaveBeenCalled();
   });

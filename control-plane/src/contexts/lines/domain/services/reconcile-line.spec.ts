@@ -1,9 +1,6 @@
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { LineInUseError } from '@lines/domain/exceptions/line-in-use.error';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { reconcileLine } from '@lines/domain/services/reconcile-line';
 import {
   LinePlan,
@@ -22,7 +19,6 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -38,7 +34,7 @@ const existingLine = () => {
     by: changeActorIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
-    line: BUILT_IN_LINES[0] as LineOpening,
+    line: BUILT_IN_LINES[0],
     harness: HarnessId.of('dev'),
     newId: () => `id_${++next}`,
   });
@@ -175,7 +171,7 @@ describe('reconciling a line with the plan describing it', () => {
     const plan = asPlan(line);
     const moved = [...plan.stations];
     const [taken] = moved.splice(1, 1);
-    moved.splice(2, 0, taken as StationPlan);
+    moved.splice(2, 0, taken);
 
     const { result } = reconciling(like(plan, { stations: moved }), line);
 
@@ -197,7 +193,7 @@ describe('reconciling a line with the plan describing it', () => {
         stations: [
           ...plan.stations.slice(0, -1),
           station('handover'),
-          plan.stations[plan.stations.length - 1] as StationPlan,
+          plan.stations[plan.stations.length - 1],
         ],
       }),
       line,
@@ -229,7 +225,7 @@ describe('reconciling a line with the plan describing it', () => {
   it('does not remove a station with tasks at it', () => {
     const line = existingLine();
     const plan = asPlan(line);
-    const going = plan.stations[1]?.key.value as string;
+    const going = plan.stations[1]?.key.value;
 
     const { result } = reconciling(
       like(plan, { stations: plan.stations.filter((_, at) => at !== 1) }),
@@ -271,8 +267,8 @@ describe('reconciling a line with the plan describing it', () => {
     const { result } = reconciling(
       like(plan, {
         stations: plan.stations.map((each) =>
-          each.key.equals((first as StationPlan).key)
-            ? { ...each, passesTo: [(second as StationPlan).key] }
+          each.key.equals(first.key)
+            ? { ...each, passesTo: [second.key] }
             : each,
         ),
       }),
@@ -283,7 +279,7 @@ describe('reconciling a line with the plan describing it', () => {
     expect(
       result.ok &&
         result.line.stations[0]?.routes.stations.some((each) =>
-          each.equals(result.line.stations[1]?.id as StationId),
+          each.equals(result.line.stations[1]?.id),
         ),
     ).toBe(true);
   });
@@ -291,7 +287,7 @@ describe('reconciling a line with the plan describing it', () => {
   it('resolves every reaction onto the line it describes', () => {
     const line = existingLine();
     const plan = asPlan(line);
-    const to = plan.stations[plan.stations.length - 1] as StationPlan;
+    const to = plan.stations[plan.stations.length - 1];
 
     const { result } = reconciling(
       like(plan, {

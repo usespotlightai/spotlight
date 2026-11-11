@@ -8,8 +8,8 @@ import type {
 } from '@runners/application/ports/runner-egress.port';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
-import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import {
   type EgressAvailability,
   egressAvailability,

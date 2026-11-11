@@ -12,6 +12,7 @@ import {
   type LexicalEditor,
 } from 'lexical';
 import { type RefObject, useState } from 'react';
+
 import { EditorHandle } from '@/components/shared/chat-input/EditorHandle';
 import {
   $spacedReferences,
@@ -75,6 +76,7 @@ export function ChatEditor({
 
   return (
     <LexicalCollaboration>
+      {/* oxlint-disable-next-line typescript/no-deprecated -- the move to LexicalExtensionComposer is its own change */}
       <LexicalComposer initialConfig={initialConfig}>
         <PlainTextPlugin
           contentEditable={

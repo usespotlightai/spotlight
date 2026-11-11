@@ -1,5 +1,6 @@
 import { DndContext } from '@dnd-kit/core';
 import { useParams } from 'react-router';
+
 import { InboxDragOverlay } from '@/components/features/inbox/InboxDragOverlay';
 import { InboxDropZone } from '@/components/features/inbox/InboxDropZone';
 import { InboxListSkeleton } from '@/components/features/inbox/InboxListSkeleton';

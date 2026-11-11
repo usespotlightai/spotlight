@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -13,7 +14,8 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf, deleteRunsOf } from './support/runners';
 import { requestedBySpec } from './support/runs';
@@ -28,6 +30,11 @@ const IMAGE = 'ghcr.io/acme/runner:main';
 const VALUE = 'lin_api_e2e_egress';
 
 const TOKEN = `${'e'.repeat(8)}${randomUUID().replaceAll('-', '')}`;
+
+interface Fetched {
+  readonly runId: string;
+  readonly secrets: readonly { readonly sealed: string }[];
+}
 
 describe('egress fetching a run’s secrets (e2e)', () => {
   let app: INestApplication;
@@ -182,9 +189,9 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     const work = await claimed();
     const to = recipient();
 
-    const fetched = await fetchSecrets(work.egressToken, to.written).expect(
+    const fetched = (await fetchSecrets(work.egressToken, to.written).expect(
       200,
-    );
+    )) as Answer<Fetched>;
 
     expect(fetched.body).toMatchObject({
       runId,
@@ -192,7 +199,9 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       denied: [
         {
           secret: 'NOWHERE',
-          reason: expect.stringContaining('Secret NOWHERE not found'),
+          reason: expect.stringContaining(
+            'Secret NOWHERE not found',
+          ) as unknown,
         },
       ],
     });
@@ -249,7 +258,9 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     const to = recipient();
 
     await fetchSecrets(work.egressToken, to.written).expect(200);
-    const again = await fetchSecrets(work.egressToken, to.written).expect(200);
+    const again = (await fetchSecrets(work.egressToken, to.written).expect(
+      200,
+    )) as Answer<Fetched>;
 
     expect(again.body.secrets).toHaveLength(1);
     await fetchSecrets(work.egressToken, recipient().written).expect(409);
@@ -275,9 +286,9 @@ describe('egress fetching a run’s secrets (e2e)', () => {
 
     expect(second.work.run.id).toBe(runId);
 
-    const fetched = await fetchSecrets(second.egressToken, to.written).expect(
+    const fetched = (await fetchSecrets(second.egressToken, to.written).expect(
       200,
-    );
+    )) as Answer<Fetched>;
 
     expect(fetched.body.runId).toBe(runId);
     expect(fetched.body.secrets).toHaveLength(1);

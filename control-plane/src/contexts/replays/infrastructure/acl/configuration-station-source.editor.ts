@@ -42,9 +42,7 @@ const ERRORS: Readonly<
   'edit-failed': 'edit-failed',
 };
 
-export class ConfigurationStationSourceEditor
-  implements StationSourceEditorPort
-{
+export class ConfigurationStationSourceEditor implements StationSourceEditorPort {
   constructor(private readonly edits: StationSourceEditsPort) {}
 
   async edited(edit: StationSourceEdit): Promise<StationSourceEdited> {

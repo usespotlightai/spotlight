@@ -1,8 +1,8 @@
-import { namedOf } from '@insights/application/dto/insights.dto';
 import {
   type InsightsTracesDto,
   insightsTracesOf,
 } from '@insights/application/dto/insights-traces.dto';
+import { namedOf } from '@insights/application/dto/insights.dto';
 import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
 import type { PeoplePort } from '@insights/application/ports/people.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
@@ -24,9 +24,10 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export class ListInsightsTracesHandler
-  implements QueryHandlerPort<ListInsightsTracesQuery, InsightsTracesDto>
-{
+export class ListInsightsTracesHandler implements QueryHandlerPort<
+  ListInsightsTracesQuery,
+  InsightsTracesDto
+> {
   constructor(
     private readonly access: InsightsAccess,
     private readonly reader: InsightsReaderPort,

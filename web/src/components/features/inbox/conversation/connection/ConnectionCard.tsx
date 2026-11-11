@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router';
+
 import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';

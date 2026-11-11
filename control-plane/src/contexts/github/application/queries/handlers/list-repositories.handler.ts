@@ -10,9 +10,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ListRepositoriesHandler
-  implements QueryHandlerPort<ListRepositoriesQuery, RepositorySummary[] | null>
-{
+export class ListRepositoriesHandler implements QueryHandlerPort<
+  ListRepositoriesQuery,
+  RepositorySummary[] | null
+> {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
     private readonly connections: WorkspaceConnectionsPort,

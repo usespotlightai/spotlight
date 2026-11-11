@@ -12,12 +12,12 @@ import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { HookStepOutcome } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import { recordOfEvent } from '@integrations/infrastructure/hooks/hook-event-record';
 import {
   compileHook,
   type HookIR,
   type HookStepIR,
 } from '@integrations/infrastructure/hooks/hook.compile';
-import { recordOfEvent } from '@integrations/infrastructure/hooks/hook-event-record';
 import {
   asJson,
   requiredTextOf,
@@ -259,7 +259,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
 
     if (this.compiled.size > REMEMBERED) {
       const [oldest] = this.compiled.keys();
-      this.compiled.delete(oldest as string);
+      this.compiled.delete(oldest);
     }
 
     return compiled;

@@ -13,9 +13,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ReadOidcTrustHandler
-  implements QueryHandlerPort<ReadOidcTrustQuery, OidcTrustResourceDto | null>
-{
+export class ReadOidcTrustHandler implements QueryHandlerPort<
+  ReadOidcTrustQuery,
+  OidcTrustResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IdentityResourcesPort,
@@ -39,9 +40,10 @@ export class ReadOidcTrustHandler
   }
 }
 
-export class ImportOidcTrustHandler
-  implements QueryHandlerPort<ImportOidcTrustQuery, OidcTrustResourceDto | null>
-{
+export class ImportOidcTrustHandler implements QueryHandlerPort<
+  ImportOidcTrustQuery,
+  OidcTrustResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IdentityResourcesPort,
@@ -69,13 +71,10 @@ export class ImportOidcTrustHandler
   }
 }
 
-export class ListOidcTrustResourcesHandler
-  implements
-    QueryHandlerPort<
-      ListOidcTrustResourcesQuery,
-      readonly OidcTrustResourceDto[] | null
-    >
-{
+export class ListOidcTrustResourcesHandler implements QueryHandlerPort<
+  ListOidcTrustResourcesQuery,
+  readonly OidcTrustResourceDto[] | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IdentityResourcesPort,
@@ -92,7 +91,7 @@ export class ListOidcTrustResourcesHandler
 
       return permissions
         ? (await this.resources.oidcTrustsIn(permissions.workspaceId)).map(
-            ResourceMapper.oidcTrust,
+            (trust) => ResourceMapper.oidcTrust(trust),
           )
         : null;
     } catch (error) {

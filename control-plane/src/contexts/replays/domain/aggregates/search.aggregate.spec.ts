@@ -48,7 +48,10 @@ import {
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import {
+  type ChangeDetail,
+  ConfigurationChange,
+} from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -196,7 +199,7 @@ describe('Search', () => {
               key: SEARCH_ID.value,
             },
             BY,
-            expect.anything(),
+            expect.anything() as ChangeDetail,
           ),
         ),
         new SearchReplaysPlanned(SEARCH_ID, set.workspaceId, [SEED]),
@@ -912,8 +915,8 @@ describe('Search', () => {
       expect(() =>
         at(stalled(), [
           ReflectedTask.of({
-            taskId: heldOut?.taskId as TaskId,
-            originalRunId: heldOut?.runId as RunId,
+            taskId: heldOut?.taskId,
+            originalRunId: heldOut?.runId,
             replayRunId: RunId.of('replayed_held_out'),
           }),
         ]),
@@ -975,7 +978,7 @@ describe('Search', () => {
 
     it('rejects a cause for a task it does not look into, held out or not, alike', () => {
       const search = stalledAgain();
-      const heldOut = search.split.heldOut[0]?.taskId as TaskId;
+      const heldOut = search.split.heldOut[0]?.taskId;
 
       for (const taskId of [
         heldOut,
@@ -1185,7 +1188,7 @@ describe('Search', () => {
         causeInput(search, 0, 'config'),
         later(4),
       );
-      const reflection = recorded.iterations[2] as SearchIteration;
+      const reflection = recorded.iterations[2];
       const state = {
         number: 3,
         runId: run(3),

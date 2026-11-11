@@ -1,4 +1,5 @@
 import type { RefObject } from 'react';
+
 import { EditorSetup } from '@/components/features/editor/EditorSetup';
 import { Popover, PopoverContent } from '@/components/ui/popover';
 import type { EditorSetupState } from '@/hooks/useEditorLaunch';

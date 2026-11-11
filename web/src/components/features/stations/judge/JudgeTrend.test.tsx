@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+
 import { JudgeTrend } from '@/components/features/stations/judge/JudgeTrend';
 
 const judgeLegend = () =>

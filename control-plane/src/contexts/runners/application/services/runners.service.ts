@@ -16,15 +16,15 @@ import type {
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import { occupancyOf } from '@runners/application/services/pool-occupancy';
 import { reviseRunner } from '@runners/application/services/runner-revisions';
-import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
+import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { ProvisionSecretDecryptionFailedError } from '@runners/domain/exceptions/provision-secret-decryption-failed.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
-import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
+import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import { allowsUrl } from '@runners/domain/services/allows-url';
 import { egressAvailability } from '@runners/domain/services/egress-naming';

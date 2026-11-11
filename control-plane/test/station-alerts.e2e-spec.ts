@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { StationAlertStateVersionConflictError } from '@insights/domain/exceptions/station-alert-state-version-conflict.error';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { DrizzleStationAlertStateRepository } from '@insights/infrastructure/persistence/drizzle/repositories/station-alert-state.repository';
@@ -22,6 +23,7 @@ import {
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { aDispatch, outcomeOf, requestedByTask } from './support/runs';
@@ -115,7 +117,7 @@ const ranAndEnded = async (minutesAgo: number) => {
     asked: false,
   };
 
-  await app.get(EventOutbox).record([ended as never]);
+  await app.get(EventOutbox).record([ended]);
 
   return runId;
 };
@@ -138,7 +140,7 @@ const actedOn = async (
     server: null,
   };
 
-  await app.get(EventOutbox).record([acted as never]);
+  await app.get(EventOutbox).record([acted]);
 };
 
 const eventuallyFound = async <T>(read: () => Promise<T | null | undefined>) =>
@@ -228,7 +230,7 @@ describe('a station alert (e2e)', () => {
       rule: { measure: 'accepted_rate', below: 0.5, over: 1 },
       resolvedAt: null,
     });
-    expect(answer.body.series).toEqual([
+    expect((answer.body as { series: unknown[] }).series).toEqual([
       expect.objectContaining({ runId, value: 0 }),
     ]);
 
@@ -239,10 +241,10 @@ describe('a station alert (e2e)', () => {
     expect(inbox.status).toBe(200);
     expect(
       (
-        inbox.body.items as {
-          inboxRequest: { form: string; about: string } | null;
-        }[]
-      ).some(
+        inbox.body as {
+          items: { inboxRequest: { form: string; about: string } | null }[];
+        }
+      ).items.some(
         (each) =>
           each.inboxRequest?.form === 'alert' &&
           each.inboxRequest.about === inboxRequest.about,
@@ -286,7 +288,7 @@ describe('a station alert (e2e)', () => {
         ),
       );
 
-    await actedOn(unanswered?.runId as string, 'accepted', 4);
+    await actedOn(unanswered?.runId, 'accepted', 4);
 
     const [recovered] = await eventuallyFound(async () => {
       const alerts = await alertsAtStation();
@@ -333,7 +335,7 @@ describe('a station alert (e2e)', () => {
       .set({ alerts: [] })
       .where(eq(schema.station.id, watched));
     const updated = await lineChangedOf(db, team.line.id.value, [watched]);
-    await app.get(EventOutbox).record([updated as never]);
+    await app.get(EventOutbox).record([updated]);
 
     const [recovered] = await eventuallyFound(async () => {
       const alerts = await alertsAtStation();
@@ -359,7 +361,7 @@ describe('a station alert (e2e)', () => {
   it('deletes the alerts of a deleted task through the station’s alert state, so a check read before the deletion cannot write them back', async () => {
     const alertStates = app.get(DrizzleStationAlertStateRepository);
     const [alert] = await alertsAtStation();
-    const stale = await alertStates.ofAlert(AlertId.of(alert?.id as string));
+    const stale = await alertStates.ofAlert(AlertId.of(alert?.id));
     const [before] = await db
       .select()
       .from(schema.stationAlertState)
@@ -370,7 +372,7 @@ describe('a station alert (e2e)', () => {
       taskId: team.list.id.value,
       workspaceId: team.workspaceId.value,
     };
-    await app.get(EventOutbox).record([deleted as never]);
+    await app.get(EventOutbox).record([deleted]);
 
     await eventuallyFound(async () =>
       (await alertsAtStation()).length === 0 ? true : null,

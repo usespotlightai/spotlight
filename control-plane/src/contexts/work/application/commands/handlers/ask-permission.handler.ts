@@ -18,9 +18,10 @@ const ANSWERS: Readonly<Record<PermissionCleared, PermissionAnswer>> = {
   pending: 'pending',
 };
 
-export class AskPermissionHandler
-  implements CommandHandlerPort<AskPermissionCommand, PermissionAnswerDto>
-{
+export class AskPermissionHandler implements CommandHandlerPort<
+  AskPermissionCommand,
+  PermissionAnswerDto
+> {
   constructor(
     private readonly works: RunWorks,
     private readonly toolNames: HarnessToolNamesPort,

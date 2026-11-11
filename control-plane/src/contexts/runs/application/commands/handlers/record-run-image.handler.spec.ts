@@ -33,7 +33,7 @@ const claimed = () =>
   }).claim(claimer(RunnerId.of('runner_1')), NOW);
 
 const recording = (options: { run?: Run | null; known?: boolean } = {}) => {
-  const save = vi.fn(async (_: Run) => {});
+  const save = vi.fn<(run: Run) => Promise<void>>(async () => {});
   const seen = vi.fn(async () =>
     options.known === false
       ? null

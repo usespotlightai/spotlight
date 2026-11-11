@@ -12,7 +12,7 @@ import { Pool } from 'pg';
 
 export interface RunFactsRebuild {
   readonly facts: RebuildRunFacts;
-  close(): Promise<void>;
+  readonly close: () => Promise<void>;
 }
 
 const READ_ONLY: DomainEventDispatcher = {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { spanned, startedOn } from '@/lib/trace-list';
 
 const AT = Date.UTC(2026, 7, 29, 12, 0, 0);

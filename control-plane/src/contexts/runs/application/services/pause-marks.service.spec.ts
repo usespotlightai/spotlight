@@ -27,7 +27,7 @@ const marked = async (resumesAtOnce: boolean) => {
     appendControlPlaneEntry,
   } as unknown as RunJournalPort).onRunPaused(paused(resumesAtOnce));
 
-  return appendControlPlaneEntry.mock.calls[0]?.[1];
+  return appendControlPlaneEntry.mock.calls[0]?.[1] as unknown;
 };
 
 describe('PauseMarks', () => {

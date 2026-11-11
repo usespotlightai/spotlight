@@ -32,7 +32,7 @@ const issuing = (
     throwing?: Error;
   } = {},
 ) => {
-  const add = vi.fn(async (_: WorkspaceToken) => {
+  const add = vi.fn<(token: WorkspaceToken) => Promise<void>>(async () => {
     if (over.throwing) {
       throw over.throwing;
     }
@@ -81,7 +81,7 @@ describe('CreateWorkspaceTokenHandler', () => {
     });
     expect(issued?.token).toMatch(/^[\w-]{43}$/);
 
-    const [stored] = add.mock.calls[0] as [WorkspaceToken];
+    const [stored] = add.mock.calls[0];
 
     expect(stored.hash.value).toBe(issuer.hash(issued?.token ?? ''));
     expect(stored.issuedBy).toEqual(OWNER);

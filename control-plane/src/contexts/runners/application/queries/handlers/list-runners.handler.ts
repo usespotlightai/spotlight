@@ -9,9 +9,10 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ListRunnersHandler
-  implements QueryHandlerPort<ListRunnersQuery, RunnerFleetDto | null>
-{
+export class ListRunnersHandler implements QueryHandlerPort<
+  ListRunnersQuery,
+  RunnerFleetDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly runners: RunnerReaderPort,
@@ -45,7 +46,7 @@ export class ListRunnersHandler
             RunnerHost.isOnline(host.lastHeartbeatAt, now),
           ),
         ),
-        runners: runners.map(RunnerFleetMapper.runner),
+        runners: runners.map((each) => RunnerFleetMapper.runner(each)),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

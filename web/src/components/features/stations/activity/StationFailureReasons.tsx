@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { StationFailures } from '@/components/features/insights/StationFailures';
 import { TabSection } from '@/components/features/stations/TabSection';
 import { useInsightsStations } from '@/hooks/api/useInsightsStations';

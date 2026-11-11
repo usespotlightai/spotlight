@@ -36,8 +36,8 @@ import { UnknownStationError } from '@work/domain/exceptions/unknown-station.err
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { chatPlacement } from '@work/domain/services/chat-placement';
 import { TraceAccess } from '@work/domain/services/trace-access';
-import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';

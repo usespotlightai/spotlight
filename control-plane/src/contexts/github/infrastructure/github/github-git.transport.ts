@@ -1,4 +1,5 @@
 import { Readable } from 'node:stream';
+
 import {
   REPOSITORY_ACCESS,
   type RepositoryAccessPort,
@@ -73,7 +74,7 @@ export class GitHubGitTransport implements RepositoryGitPort {
           }
         : {}),
       redirect: 'manual',
-    } as RequestInit);
+    });
 
     const answered: Record<string, string> = {};
     for (const name of ANSWERED) {

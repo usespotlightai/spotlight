@@ -1320,7 +1320,7 @@ describe('insightsSubscribers', () => {
       runId: RunId.of('run_1'),
       location: queuedJudging().location,
       source: 'person',
-    } as never);
+    });
 
     expect(subscriber.asked).toEqual(['resolve task_1 run_1']);
   });

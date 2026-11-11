@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { RunMemories } from '@/components/features/runs/memories/RunMemories';
 import type { RunMemoriesData, RunProposal, TeamMemory } from '@/lib/memory';
 import { WithRunSidePanel } from '@/test/WithRunSidePanel';
@@ -204,7 +205,7 @@ describe('RunMemories', () => {
     await userEvent.click(
       screen.getAllByRole('button', {
         name: 'This was wrong',
-      })[0] as HTMLElement,
+      })[0],
     );
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
@@ -229,7 +230,7 @@ describe('RunMemories', () => {
 
     const card = within(
       screen.getByRole('region', { name: 'Supplied to the agent' }),
-    ).getAllByRole('listitem')[0] as HTMLElement;
+    ).getAllByRole('listitem')[0];
     await userEvent.click(
       within(card).getByRole('button', { name: 'This was wrong' }),
     );

@@ -34,7 +34,7 @@ const reviewTasksOf = (row: PullRequestRow): readonly ReviewTask[] => {
 
   return row.reviewTaskIds.map((taskId, at) => ({
     taskId: TaskId.of(taskId),
-    teamId: TeamId.of(row.reviewTeamIds[at] as string),
+    teamId: TeamId.of(row.reviewTeamIds[at]),
   }));
 };
 

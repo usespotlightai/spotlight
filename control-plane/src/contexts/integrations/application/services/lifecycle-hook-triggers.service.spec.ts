@@ -11,8 +11,8 @@ import {
   taskMoved,
 } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
-import type { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import type { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';

@@ -1,4 +1,5 @@
 import { inspect } from 'node:util';
+
 import {
   applyInjected,
   redactInjected,

@@ -383,7 +383,7 @@ const versionStartOf = (version: Version): number =>
 
 export const versionAt = (profile: Profile, at: number): Version =>
   [...profile.versions].reverse().find((each) => versionStartOf(each) <= at) ??
-  (profile.versions[0] as Version);
+  profile.versions[0];
 
 export type Titled = readonly [title: string, type: PullRequestType];
 

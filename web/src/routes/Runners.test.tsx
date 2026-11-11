@@ -2,12 +2,13 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { Runners } from '@/routes/Runners';
 
-const fleet = vi.fn();
+const fleet = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const refetch = vi.fn();
-const role = vi.fn();
+const role = vi.fn<(...args: unknown[]) => unknown>();
 
 const pools = vi.fn(() => [] as unknown[]);
 

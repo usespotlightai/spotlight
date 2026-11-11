@@ -6,9 +6,10 @@ import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-ar
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class CompleteSandboxArchiveHandler
-  implements CommandHandlerPort<CompleteSandboxArchiveCommand, boolean>
-{
+export class CompleteSandboxArchiveHandler implements CommandHandlerPort<
+  CompleteSandboxArchiveCommand,
+  boolean
+> {
   constructor(
     private readonly sandboxes: SandboxArchives,
     private readonly archives: WorkingCopyArchiveRepository,

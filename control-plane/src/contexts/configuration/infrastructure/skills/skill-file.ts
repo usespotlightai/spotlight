@@ -5,11 +5,11 @@ import type {
 } from '@configuration/application/ports/skill-folders.port';
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
+import { SKILL_MAIN_FILE } from '@configuration/domain/value-objects/skill-files.vo';
 import {
   Skill,
   type SkillSecret,
 } from '@configuration/domain/value-objects/skill.vo';
-import { SKILL_MAIN_FILE } from '@configuration/domain/value-objects/skill-files.vo';
 import { splitFrontmatter } from '@platform/markdown/frontmatter';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';

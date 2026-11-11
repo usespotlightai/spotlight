@@ -11,9 +11,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
-export class DisputeDecisionHandler
-  implements CommandHandlerPort<DisputeDecisionCommand, void>
-{
+export class DisputeDecisionHandler implements CommandHandlerPort<
+  DisputeDecisionCommand,
+  void
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly sets: DecisionSetRepository,

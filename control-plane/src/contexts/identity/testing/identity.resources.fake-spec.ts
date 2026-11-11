@@ -3,8 +3,8 @@ import type { TeamDependentsPort } from '@identity/application/ports/team-depend
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import { Team } from '@identity/domain/aggregates/team.aggregate';
-import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
+import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import type { WorkspaceContents } from '@identity/domain/services/workspace-contents';
@@ -73,8 +73,8 @@ export const workspaces = (
     find,
     findBySlug: find,
     isTaken: vi.fn(async () => over.taken ?? false),
-    add: vi.fn(async (_: Workspace) => {}),
-    save: vi.fn(async (_: Workspace) => {
+    add: vi.fn<(workspace: Workspace) => Promise<void>>(async () => {}),
+    save: vi.fn<(workspace: Workspace) => Promise<void>>(async () => {
       if (over.throwing) {
         find.mockResolvedValue(over.thenAt ?? null);
         throw over.throwing;
@@ -97,12 +97,12 @@ export const teams = (
     find,
     named: find,
     ofWorkspace: vi.fn(async () => over.inWorkspace ?? []),
-    add: vi.fn(async (_: Team) => {
+    add: vi.fn<(team: Team) => Promise<void>>(async () => {
       if (over.throwing) {
         throw over.throwing;
       }
     }),
-    save: vi.fn(async (_: Team) => {
+    save: vi.fn<(team: Team) => Promise<void>>(async () => {
       if (over.throwing) {
         find.mockResolvedValue(over.thenAt ?? null);
         throw over.throwing;

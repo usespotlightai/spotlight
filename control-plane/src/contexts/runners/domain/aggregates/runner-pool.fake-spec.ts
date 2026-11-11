@@ -1,7 +1,7 @@
-import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
+import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';

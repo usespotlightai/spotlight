@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router';
+
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { AuthTitle } from '@/components/shell/auth/AuthTitle';
 import { SignInToContinue } from '@/components/shell/auth/SignInToContinue';

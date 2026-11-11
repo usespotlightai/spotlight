@@ -49,7 +49,7 @@ describe('TaskRank', () => {
 
   it('keeps a whole shuffled station in order', () => {
     const ranks = ['a', between('a', null)];
-    ranks.push(between(ranks[0] as string, ranks[1] as string));
+    ranks.push(between(ranks[0], ranks[1]));
 
     expect([...ranks].sort()).toEqual([ranks[0], ranks[2], ranks[1]]);
   });

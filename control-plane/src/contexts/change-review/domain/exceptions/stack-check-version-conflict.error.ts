@@ -6,7 +6,7 @@ export class StackCheckVersionConflictError extends DomainError {
 
   constructor(id: StackCheckId) {
     super(
-      `Change stack ${id} changed since you loaded it. Please reload and try again.`,
+      `Change stack ${id.toString()} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'StackCheckVersionConflictError';
   }

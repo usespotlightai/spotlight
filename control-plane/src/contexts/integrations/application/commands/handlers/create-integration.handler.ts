@@ -28,10 +28,10 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export class CreateIntegrationHandler
-  implements
-    CommandHandlerPort<CreateIntegrationCommand, ResourceCreated | null>
-{
+export class CreateIntegrationHandler implements CommandHandlerPort<
+  CreateIntegrationCommand,
+  ResourceCreated | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,

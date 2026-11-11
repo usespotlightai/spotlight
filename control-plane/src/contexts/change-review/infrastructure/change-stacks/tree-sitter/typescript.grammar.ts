@@ -292,7 +292,7 @@ const javascript = (
   },
   namesOf: (node) => {
     const named = field(node, 'name');
-    return named && /identifier$/.test(named.type) ? [named] : [];
+    return named && named.type.endsWith('identifier') ? [named] : [];
   },
   hosts: new Set(['class_body']),
   bodies: new Set([
