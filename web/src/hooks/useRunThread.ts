@@ -3,11 +3,26 @@ import { useLatestRun } from '@/hooks/useLatestRun';
 import { useMe } from '@/hooks/useMe';
 import type { TeamRun } from '@/lib/run';
 import {
+  type LatestRun,
   type RunNotes,
   threadProgress,
   withMessagesInFlight,
 } from '@/lib/run-notes';
 
+type RunThread<Latest> = {
+  latest: Latest;
+  conversation: RunNotes | undefined;
+  progress: ReturnType<typeof threadProgress>;
+};
+
+export function useRunThread(
+  run: TeamRun,
+  reported: RunNotes | undefined,
+): RunThread<LatestRun>;
+export function useRunThread(
+  run: TeamRun | undefined,
+  reported: RunNotes | undefined,
+): RunThread<LatestRun | null>;
 export function useRunThread(
   run: TeamRun | undefined,
   reported: RunNotes | undefined,
