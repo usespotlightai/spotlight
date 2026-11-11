@@ -185,7 +185,7 @@ const searchWithTerse = (): Search => {
   const runIds = searchRunIds();
 
   return aSearch()
-    .recordReplayStopReason(
+    .recordReplayEndState(
       ReplayId.of('replay_seed'),
       'finished',
       charged,
@@ -198,7 +198,7 @@ const searchWithTerse = (): Search => {
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
-    .recordReplayStopReason(
+    .recordReplayEndState(
       ReplayId.of('replay_terse'),
       'finished',
       charged,
@@ -833,7 +833,7 @@ describe('following a config pull request after it opened', () => {
     const runIds = searchRunIds();
     const finished = world.search.heldOut.reduce(
       (each, held) =>
-        each.recordReplayStopReason(
+        each.recordReplayEndState(
           held.replay.replayId,
           'finished',
           charged,

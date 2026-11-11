@@ -178,6 +178,7 @@ import { StartSearch } from '@replays/application/services/start-search.service'
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import { StationChangeTests } from '@replays/application/services/station-change-tests.service';
 import { StationConfigs } from '@replays/application/services/station-configs.service';
+import { StopSupersededChecks } from '@replays/application/services/stop-superseded-checks.service';
 import { TestStationChange } from '@replays/application/services/test-station-change.service';
 import { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
 import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
@@ -642,6 +643,21 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         clock,
         transaction,
       ),
+  },
+  {
+    provide: StopSupersededChecks,
+    inject: [
+      DrizzleReplayCheckRepository,
+      DrizzleReplayRepository,
+      CLOCK,
+      TRANSACTION,
+    ],
+    useFactory: (
+      checks: DrizzleReplayCheckRepository,
+      replays: DrizzleReplayRepository,
+      clock: ClockPort,
+      transaction: TransactionPort,
+    ) => new StopSupersededChecks(checks, replays, clock, transaction),
   },
   {
     provide: DeleteChangeJudgings,
@@ -1616,11 +1632,12 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RecordReplayPairVerdict,
-    inject: [DrizzleReplayRepository, TRANSACTION],
+    inject: [DrizzleReplayRepository, TRANSACTION, CLOCK],
     useFactory: (
       replays: DrizzleReplayRepository,
       transaction: TransactionPort,
-    ) => new RecordReplayPairVerdict(replays, transaction),
+      clock: ClockPort,
+    ) => new RecordReplayPairVerdict(replays, transaction, clock),
   },
   {
     provide: RequestReplayRejudging,
@@ -1843,6 +1860,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       DeleteReplayRunDecisions,
       StartSearchReplays,
       StartCheckReplays,
+      StopSupersededChecks,
       NoticeSearchResults,
       PickSearchCandidates,
       SearchSchedules,
@@ -1882,6 +1900,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       deletingRunDecisions: DeleteReplayRunDecisions,
       startingSearchReplays: StartSearchReplays,
       startingCheckReplays: StartCheckReplays,
+      stoppingSupersededChecks: StopSupersededChecks,
       noticingResults: NoticeSearchResults,
       picking: PickSearchCandidates,
       schedules: SearchSchedules,
@@ -1921,6 +1940,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           deletingRunDecisions,
           startingSearchReplays,
           startingCheckReplays,
+          stoppingSupersededChecks,
           noticingResults,
           picking,
           schedules,

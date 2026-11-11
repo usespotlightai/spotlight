@@ -364,7 +364,11 @@ describe('setHealthOf', () => {
   });
 
   it('says the replay it was compared with stopped, rather than waiting on it for ever', () => {
-    const stoppedLive = started('replay_live', PLAIN, 1).stop(later(1), BY);
+    const stoppedLive = started('replay_live', PLAIN, 1).stop(
+      later(1),
+      BY,
+      'search-ended',
+    );
     const oracle = setHealthOf(
       [stoppedLive.outcome(), plainly('replay_oracle', ORACLE, []).outcome()],
       [PLAIN, ORACLE],

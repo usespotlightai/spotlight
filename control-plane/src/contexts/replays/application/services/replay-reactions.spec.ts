@@ -304,7 +304,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     await dispatching().processDue();
     const replay = memory.replays.get('replay_1');
     await memory.replayRepository.save(
-      (replay as NonNullable<typeof replay>).stop(later(1), BY),
+      (replay as NonNullable<typeof replay>).stop(later(1), BY, 'search-ended'),
     );
     const queuedRun =
       memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
@@ -855,6 +855,42 @@ describe('scoring a replayed task', () => {
 
     expect(entry()?.judging?.unjudged).toBe('request-failed');
     expect(entry()?.succeeded).toBeNull();
+  });
+
+  it('stops the replay once the judge model account has no credits, so the runs left spend nothing', async () => {
+    const replay = aReplay({
+      count: 2,
+      candidate: candidateOf('searched', JUDGED, RUBRIC),
+    }).reserving(slots(1), () => RunId.of('replay_run_0'));
+    await memory.candidateRepository.add(
+      candidateOf('searched', JUDGED, RUBRIC),
+    );
+    await memory.replayRepository.add(replay);
+
+    await completed('replay_run_0');
+    await judging().failed(RunId.of('replay_run_0'), 'insufficient-credits');
+
+    expect(entry()?.judging?.unjudged).toBe('insufficient-credits');
+    expect(memory.replays.get('replay_1')?.current).toBe('stopped');
+    expect(memory.replays.get('replay_1')?.stoppedBecause).toBe(
+      'insufficient-credits',
+    );
+  });
+
+  it('keeps replaying after a judge request fails for another reason', async () => {
+    const replay = aReplay({
+      count: 2,
+      candidate: candidateOf('searched', JUDGED, RUBRIC),
+    }).reserving(slots(1), () => RunId.of('replay_run_0'));
+    await memory.candidateRepository.add(
+      candidateOf('searched', JUDGED, RUBRIC),
+    );
+    await memory.replayRepository.add(replay);
+
+    await completed('replay_run_0');
+    await judging().failed(RunId.of('replay_run_0'), 'request-failed');
+
+    expect(memory.replays.get('replay_1')?.current).not.toBe('stopped');
   });
 });
 

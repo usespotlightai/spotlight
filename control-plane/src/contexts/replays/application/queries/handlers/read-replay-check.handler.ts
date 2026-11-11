@@ -32,6 +32,7 @@ const sideOf = (
   interval: intervalView(totals?.interval ?? null),
   tasksScored: totals?.tasksScored ?? 0,
   spent: totals ? moneyView(totals.spent) : null,
+  stoppedBecause: replay?.stoppedBecause ?? null,
 });
 
 export class ReadReplayCheckHandler implements QueryHandlerPort<

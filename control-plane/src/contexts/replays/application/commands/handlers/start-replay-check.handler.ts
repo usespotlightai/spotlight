@@ -315,6 +315,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
           threshold,
           planned.repeats,
           evaluation.result,
+          planned.reference,
         )
       ) {
         return each.id;

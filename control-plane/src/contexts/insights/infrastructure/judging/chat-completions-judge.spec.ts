@@ -346,13 +346,25 @@ describe('judging a run through a chat completions endpoint', () => {
 
   it('says the request failed when the provider answers with an error', async () => {
     const { fetch } = answering(
+      new Response(JSON.stringify({ error: { message: 'Overloaded' } }), {
+        status: 503,
+      }),
+    );
+
+    await expect(judging(fetch)).rejects.toMatchObject({
+      kind: 'request-failed',
+    });
+  });
+
+  it('says the account has insufficient credits when the provider asks for payment', async () => {
+    const { fetch } = answering(
       new Response(JSON.stringify({ error: { message: 'No credits' } }), {
         status: 402,
       }),
     );
 
     await expect(judging(fetch)).rejects.toMatchObject({
-      kind: 'request-failed',
+      kind: 'insufficient-credits',
     });
   });
 

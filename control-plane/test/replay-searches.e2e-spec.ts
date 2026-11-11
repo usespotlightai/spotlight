@@ -107,7 +107,7 @@ const travelled = (search: Search): Search => {
   const runs = searchRunIds();
 
   return search
-    .recordReplayStopReason(SEED, 'finished', charged(5), NOW, runs, true)
+    .recordReplayEndState(SEED, 'finished', charged(5), NOW, runs, true)
     .queueRun(RunId.of('search_run_1'))
     .acceptProposal(RunId.of('search_run_1'), {
       candidateId: CandidateId.of('candidate_terse'),
@@ -127,7 +127,7 @@ const travelled = (search: Search): Search => {
       later(1),
       runs,
     )
-    .recordReplayStopReason(
+    .recordReplayEndState(
       ReplayId.of('replay_terse'),
       'finished',
       charged(2.5),
@@ -221,7 +221,7 @@ describe('DrizzleSearchRepository', () => {
       () => ReplayId.of('held_out_terse'),
       later(4),
     );
-    search = search.recordReplayStopReason(
+    search = search.recordReplayEndState(
       ReplayId.of('held_out_terse'),
       'ceiling-reached',
       charged(1),

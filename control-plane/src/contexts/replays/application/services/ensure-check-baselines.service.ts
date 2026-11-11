@@ -56,6 +56,11 @@ export class EnsureCheckBaselines implements PendingJobsPort {
       return;
     }
 
+    if (!check.wantsBaselineFor(replay)) {
+      await this.checks.save(check.markBaselineUnavailable());
+      return;
+    }
+
     const live =
       set && !set.isAtGoneStation
         ? await this.configs.live(set.station.lineId, set.station.stationId)

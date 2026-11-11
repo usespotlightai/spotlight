@@ -6,6 +6,7 @@ const UNJUDGED_BECAUSE = [
   'unreadable-rubric',
   'no-evidence',
   'request-failed',
+  'insufficient-credits',
   'unreadable',
   'ungrounded',
   'errored',

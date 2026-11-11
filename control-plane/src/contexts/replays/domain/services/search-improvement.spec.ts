@@ -47,7 +47,7 @@ const searchWith = (objective: SearchObjective = 'success'): Search => {
     set: SET,
     objective,
     budget: aBudget({ iterations: 5 }),
-  }).recordReplayStopReason(
+  }).recordReplayEndState(
     ReplayId.of('replay_seed'),
     'finished',
     { spent: Money.of(10, 'USD'), unpriced: 0 },
@@ -55,7 +55,7 @@ const searchWith = (objective: SearchObjective = 'success'): Search => {
     ids,
     false,
   );
-  const first = proposedIn(seeded, 1, 'firmer', ids).recordReplayStopReason(
+  const first = proposedIn(seeded, 1, 'firmer', ids).recordReplayEndState(
     ReplayId.of('replay_firmer'),
     'finished',
     { spent: Money.of(1, 'USD'), unpriced: 0 },

@@ -22,6 +22,7 @@ import {
 } from '@replays/application/services/replays.fake-spec';
 import { StartCheckReplays } from '@replays/application/services/start-check-replays.service';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
+import { StopSupersededChecks } from '@replays/application/services/stop-superseded-checks.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -50,6 +51,7 @@ import { StationChanges } from '@replays/domain/value-objects/station-changes.vo
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { IdempotentLookupsPort } from '@shared-kernel/application/ports/idempotent-lookups.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -141,6 +143,7 @@ const start = async (
   station: unknown = PLAN,
   mayPlan: boolean | null = true,
   line?: unknown,
+  clock: ClockPort = CLOCK,
 ): Promise<ReplayCheckStartedOutcome> => {
   const outcome = await new StartReplayCheckHandler(
     accessFor(memory, suppliers, mayPlan),
@@ -154,7 +157,7 @@ const start = async (
       memory.setRepository,
       snapshotsFor(memory, suppliers),
       IDS,
-      CLOCK,
+      clock,
       TRANSACTION,
     ),
     evaluations(),
@@ -164,7 +167,7 @@ const start = async (
     LOOKUPS,
     { sha256 },
     IDS,
-    CLOCK,
+    clock,
     TRANSACTION,
     QUIET,
   ).execute(
@@ -360,6 +363,7 @@ describe('StartReplayCheckHandler', () => {
       (memory.replays.get(checkOf(first).replayId.value) as Replay).stop(
         NOW,
         BY,
+        'search-ended',
       ),
     );
     const second = idOf(await start());
@@ -577,6 +581,22 @@ describe('EnsureCheckBaselines', () => {
     });
   });
 
+  it('starts no baseline for a check whose replay stopped, which reads as stopped', async () => {
+    keptAtStation();
+    const id = idOf(await start());
+    const replay = memory.replays.get(checkOf(id).replayId.value) as Replay;
+    await memory.replayRepository.save(replay.stop(NOW, BY, 'search-ended'));
+
+    await ensuring();
+
+    expect(baselines()).toHaveLength(0);
+    expect(checkOf(id).baseline).toBe('unavailable');
+    expect(await read(id)).toMatchObject({
+      result: 'undecided',
+      undecidedBecause: 'stopped',
+    });
+  });
+
   it('is undecided once the baseline it found is gone', async () => {
     keptAtStation();
     const id = idOf(await start());
@@ -634,5 +654,79 @@ describe('ReadReplayCheckHandler', () => {
     const id = idOf(await start());
 
     expect(await errorOf(read(id, null))).toBe('not-found');
+  });
+});
+
+describe('StopSupersededChecks', () => {
+  const LATER: ClockPort = {
+    now: () => new Date(NOW.getTime() + 60_000),
+    sleep: async () => {},
+  };
+
+  const plannedAs = (hashes: StationHashes) => {
+    suppliers.configs.validate = async (_line, _station, block) => ({
+      ok: true,
+      fingerprint: PLANNED,
+      hashes,
+      liveHashes: LIVE_HASHES,
+      scoring: CHECKED,
+      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      block: StationBlock.of(block),
+    });
+  };
+
+  const stoppingSuperseded = async () => {
+    const stopping = new StopSupersededChecks(
+      checks,
+      memory.replayRepository,
+      CLOCK,
+      TRANSACTION,
+    );
+
+    for (const event of memory.events.slice()) {
+      if (event instanceof ReplayCheckStarted) {
+        await stopping.started(event);
+      }
+    }
+  };
+
+  const replayOf = (id: string) =>
+    memory.replays.get(checkOf(id).replayId.value) as Replay;
+
+  it('stops the replay of an earlier check of the same pull request once a later change of it starts a check', async () => {
+    keptAtStation();
+    const earlier = idOf(await start());
+
+    plannedAs(
+      StationHashes.of({ behaviour: '5'.repeat(64), scoring: '4'.repeat(64) }),
+    );
+    const later = idOf(
+      await start(
+        { ...PLAN, prompt: 'Build it well.' },
+        true,
+        undefined,
+        LATER,
+      ),
+    );
+
+    await stoppingSuperseded();
+
+    expect(replayOf(earlier).current).toBe('stopped');
+    expect(replayOf(later).current).not.toBe('stopped');
+    expect(await read(earlier)).toMatchObject({
+      result: 'undecided',
+      undecidedBecause: 'stopped',
+      candidate: { stoppedBecause: 'superseded' },
+    });
+    expect((await read(later)).candidate.stoppedBecause).toBeNull();
+  });
+
+  it('keeps an earlier check of the same pull request whose change is the same', async () => {
+    keptAtStation();
+    const only = idOf(await start());
+
+    await stoppingSuperseded();
+
+    expect(replayOf(only).current).not.toBe('stopped');
   });
 });

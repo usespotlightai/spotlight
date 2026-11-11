@@ -98,6 +98,7 @@ export class RecordLineChange {
           oracle.stop(
             this.clock.now(),
             ChangeActor.spotlight(oracle.workspaceId),
+            'stale',
           ),
         );
       }
