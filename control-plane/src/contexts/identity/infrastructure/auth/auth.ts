@@ -4,11 +4,12 @@ import type { RateLimitStorage } from '@identity/infrastructure/auth/redis-rate-
 import * as schema from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
-import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { createRelationalDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { deviceAuthorization } from 'better-auth/plugins';
+import type { Pool } from 'pg';
 
 export const CLI_CLIENT_ID = 'spotlight-cli';
 
@@ -36,11 +37,15 @@ const refusesClientChosenFields = createAuthMiddleware(async (ctx) => {
 
 export const createAuth = (
   env: Env,
-  db: DrizzleDatabase,
+  pool: Pool,
   rateLimit: RateLimitStorage | null,
 ) =>
   betterAuth({
-    database: drizzleAdapter(db, { provider: 'pg', schema }),
+    database: drizzleAdapter(createRelationalDatabase(pool, schema), {
+      provider: 'pg',
+      schema,
+    }),
+    advanced: { database: { joins: true } },
     ...(rateLimit && { rateLimit: { customStorage: rateLimit } }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,

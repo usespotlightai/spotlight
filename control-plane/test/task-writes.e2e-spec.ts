@@ -12,7 +12,7 @@ import { setupDoneNote } from '@work/domain/services/setup-list';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -123,6 +123,28 @@ describe('writing a task somebody else has written', () => {
 
     await expect(
       tasks.save(withCurrentRun(one, RunId.of(randomUUID()))),
+    ).rejects.toBeInstanceOf(TaskVersionConflictError);
+  });
+
+  it('rejects a write from a reading whose notes came after its row', async () => {
+    const { one } = await opened();
+    const reading = tasks as unknown as {
+      partsFor: (ids: readonly string[]) => Promise<unknown>;
+    };
+    const parts = reading.partsFor.bind(tasks);
+    const between = vi
+      .spyOn(reading, 'partsFor')
+      .mockImplementationOnce(async (ids) => {
+        await tasks.save(closed(one));
+        return parts(ids);
+      });
+
+    const torn = await tasks.find(one.id);
+
+    between.mockRestore();
+    expect(torn?.notes.length).toBeGreaterThan(one.notes.length);
+    await expect(
+      tasks.save(withCurrentRun(torn as Task, RunId.of(randomUUID()))),
     ).rejects.toBeInstanceOf(TaskVersionConflictError);
   });
 

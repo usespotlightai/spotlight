@@ -154,28 +154,36 @@ export class DrizzleRunnerRepository implements RunnerRepository {
   }
 
   async save(saved: Runner): Promise<void> {
+    if (!saved.hasEvents) {
+      await this.stored(saved);
+      return;
+    }
+
     await this.context.inTransaction(async () => {
-      const matching = and(
-        eq(runner.id, saved.id.value),
-        eq(runner.version, saved.version),
-      );
-      const written = saved.isDiscarded
-        ? await this.context.db
-            .delete(runner)
-            .where(matching)
-            .returning({ id: runner.id })
-        : await this.context.db
-            .update(runner)
-            .set({ ...columnsOf(saved), version: saved.version + 1 })
-            .where(matching)
-            .returning({ id: runner.id });
-
-      if (written.length === 0) {
-        throw new RunnerVersionConflictError(saved.id.value);
-      }
-
+      await this.stored(saved);
       await this.events.dispatch(saved.pullEvents());
     });
+  }
+
+  private async stored(saved: Runner): Promise<void> {
+    const matching = and(
+      eq(runner.id, saved.id.value),
+      eq(runner.version, saved.version),
+    );
+    const written = saved.isDiscarded
+      ? await this.context.db
+          .delete(runner)
+          .where(matching)
+          .returning({ id: runner.id })
+      : await this.context.db
+          .update(runner)
+          .set({ ...columnsOf(saved), version: saved.version + 1 })
+          .where(matching)
+          .returning({ id: runner.id });
+
+    if (written.length === 0) {
+      throw new RunnerVersionConflictError(saved.id.value);
+    }
   }
 
   async find(id: RunnerId): Promise<Runner | null> {

@@ -1,5 +1,6 @@
 import type {
   TeamPermissions,
+  WorkspaceTeamAccess,
   TeamWorkspaceMembership,
   WorkspaceAccessPort,
   WorkspaceMembership,
@@ -93,6 +94,28 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     );
 
     return permissions ? membershipOf(permissions, viewer) : null;
+  }
+
+  async teamAccessIn(
+    slug: string,
+    viewer: UserId,
+  ): Promise<WorkspaceTeamAccess | null> {
+    const workspace = await this.workspaces.findBySlug(WorkspaceSlug.of(slug));
+    const principal = PersonPrincipal.of(viewer);
+
+    if (!workspace?.permissionsFor(principal).reads) {
+      return null;
+    }
+
+    return {
+      workspaceId: workspace.id,
+      teams: (await this.teams.ofWorkspace(workspace.id)).map((team) => ({
+        teamId: team.id,
+        sees: TeamAccess.permissionsInWorkspaceOf(team, workspace, principal)
+          .reads,
+        actsOn: TeamAccess.actsOnTeam(team, workspace, principal),
+      })),
+    };
   }
 
   async inWorkspaceOfTeam(

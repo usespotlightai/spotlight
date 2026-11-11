@@ -25,7 +25,14 @@ import {
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, notInArray } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  getTableColumns,
+  notInArray,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 const isSlugCollision = (error: unknown): boolean =>
   typeof error === 'object' &&
@@ -33,6 +40,10 @@ const isSlugCollision = (error: unknown): boolean =>
   'code' in error &&
   (error as { code?: string }).code === UNIQUE_VIOLATION &&
   ((error as { constraint?: string }).constraint ?? '').includes('slug');
+
+const membersOfWorkspace = sql<
+  { readonly userId: string; readonly role: string }[]
+>`coalesce((select json_agg(json_build_object('userId', ${workspaceMember.userId}, 'role', ${workspaceMember.role})) from ${workspaceMember} where ${workspaceMember.workspaceId} = ${workspace.id}), '[]'::json)`;
 
 @Injectable()
 export class DrizzleWorkspaceRepository implements WorkspaceRepository {
@@ -53,37 +64,30 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
   }
 
   async find(workspaceId: WorkspaceId): Promise<Workspace | null> {
-    const [found] = await this.context.db
-      .select({ slug: workspace.slug })
-      .from(workspace)
-      .where(eq(workspace.id, workspaceId.value))
-      .limit(1);
-
-    return found ? this.findBySlug(WorkspaceSlug.of(found.slug)) : null;
+    return this.one(eq(workspace.id, workspaceId.value));
   }
 
   async findBySlug(slug: WorkspaceSlug): Promise<Workspace | null> {
+    return this.one(eq(workspace.slug, slug.value));
+  }
+
+  private async one(where: SQL): Promise<Workspace | null> {
     const [found] = await this.context.db
-      .select()
+      .select({ ...getTableColumns(workspace), members: membersOfWorkspace })
       .from(workspace)
-      .where(eq(workspace.slug, slug.value))
+      .where(where)
       .limit(1);
 
     if (!found) {
       return null;
     }
 
-    const members = await this.context.db
-      .select()
-      .from(workspaceMember)
-      .where(eq(workspaceMember.workspaceId, found.id));
-
     return Workspace.rehydrate({
       id: WorkspaceId.of(found.id),
       name: WorkspaceName.of(found.name),
       slug: WorkspaceSlug.of(found.slug),
       outboundHosts: HostAllowList.restored(found.outboundHosts),
-      members: members.map((each) => ({
+      members: found.members.map((each) => ({
         userId: UserId.of(each.userId),
         role: WorkspaceRole.of(each.role),
       })),

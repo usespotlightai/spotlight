@@ -23,6 +23,23 @@ export class DrizzleContext implements TransactionPort {
     return this.asyncLocal.getStore() !== undefined;
   }
 
+  // pg refuses a second query while its client runs one, and a transaction holds one client.
+  async concurrently<T extends readonly unknown[]>(
+    ...loads: { readonly [K in keyof T]: () => Promise<T[K]> }
+  ): Promise<T> {
+    const results: unknown[] = [];
+
+    if (!this.transacting) {
+      results.push(...(await Promise.all(loads.map((load) => load()))));
+    } else {
+      for (const load of loads) {
+        results.push(await load());
+      }
+    }
+
+    return results as unknown as T;
+  }
+
   async inTransaction<T>(work: () => Promise<T>): Promise<T> {
     if (this.asyncLocal.getStore()) {
       return work();

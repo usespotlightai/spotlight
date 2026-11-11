@@ -15,8 +15,7 @@ import type { Env } from '@platform/config/env.schema';
 import type { Logging } from '@platform/logging/logger.config';
 import { LOGGING } from '@platform/logging/logging.constants';
 import { LoggingModule } from '@platform/logging/logging.module';
-import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { PG_POOL } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
 import { RedisConnection } from '@platform/redis/redis-connection';
 import {
@@ -24,6 +23,7 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
+import type { Pool } from 'pg';
 
 const REQUEST_LIMIT = '4mb';
 
@@ -44,16 +44,16 @@ const formKeepingRawBody = {
   providers: [
     {
       provide: AUTH,
-      inject: [ENV, DRIZZLE, RedisConnection, LOGGER],
+      inject: [ENV, PG_POOL, RedisConnection, LOGGER],
       useFactory: (
         env: Env,
-        db: DrizzleDatabase,
+        pool: Pool,
         redis: RedisConnection,
         logger: LoggerPort,
       ) =>
         createAuth(
           env,
-          db,
+          pool,
           redis.client && redisRateLimit(redis.client, logger),
         ),
     },

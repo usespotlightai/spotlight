@@ -127,82 +127,81 @@ const toLine = (
     version: line.version,
   });
 
-const waysOf = async (
-  context: DrizzleContext,
-  stations: readonly StationRow[],
-): Promise<Ways> => {
-  const stationIds = stations.map((each) => each.id);
-  const ways: Ways = {
-    routes: new Map(),
-    tools: new Map(),
-    skills: new Map(),
-  };
+const grouped = <Row extends { readonly stationId: string }, Value>(
+  rows: readonly Row[],
+  valueOf: (row: Row) => Value,
+): Map<string, Value[]> => {
+  const found = new Map<string, Value[]>();
 
-  if (stationIds.length === 0) {
-    return ways;
+  for (const row of rows) {
+    const values = found.get(row.stationId) ?? [];
+    values.push(valueOf(row));
+    found.set(row.stationId, values);
   }
 
-  const routes = await context.db
-    .select()
-    .from(stationRoute)
-    .where(inArray(stationRoute.stationId, stationIds));
-
-  for (const row of routes) {
-    const found = ways.routes.get(row.stationId) ?? [];
-    found.push(StationId.of(row.toStationId));
-    ways.routes.set(row.stationId, found);
-  }
-
-  const tools = await context.db
-    .select()
-    .from(stationTool)
-    .where(inArray(stationTool.stationId, stationIds))
-    .orderBy(stationTool.position);
-
-  for (const row of tools) {
-    const found = ways.tools.get(row.stationId) ?? [];
-    found.push(Tool.of(row.tool));
-    ways.tools.set(row.stationId, found);
-  }
-
-  const skills = await context.db
-    .select()
-    .from(stationSkill)
-    .where(inArray(stationSkill.stationId, stationIds))
-    .orderBy(stationSkill.position);
-
-  for (const row of skills) {
-    const found = ways.skills.get(row.stationId) ?? [];
-    found.push(SkillKey.of(row.skill));
-    ways.skills.set(row.stationId, found);
-  }
-
-  return ways;
+  return found;
 };
 
-export const hydratedLines = async (
+const linePartsOf = async (
   context: DrizzleContext,
-  rows: readonly LineRow[],
-): Promise<Line[]> => {
-  if (rows.length === 0) {
-    return [];
-  }
-
-  const lineIds = rows.map((each) => each.id);
-  const stations = await context.db
-    .select()
+  lineIds: readonly string[],
+) => {
+  const ids = [...lineIds];
+  const stationsOfLines = context.db
+    .select({ id: station.id })
     .from(station)
-    .where(inArray(station.lineId, lineIds))
-    .orderBy(station.position);
-  const ways = await waysOf(context, stations);
-  const reactions = await context.db
-    .select()
-    .from(lineReaction)
-    .where(inArray(lineReaction.lineId, lineIds));
-  const repositories = await context.db
-    .select()
-    .from(lineRepository)
-    .where(inArray(lineRepository.lineId, lineIds));
+    .where(inArray(station.lineId, ids));
+  const [stations, routes, tools, skills, reactions, repositories] =
+    await context.concurrently(
+      () =>
+        context.db
+          .select()
+          .from(station)
+          .where(inArray(station.lineId, ids))
+          .orderBy(station.position),
+      () =>
+        context.db
+          .select()
+          .from(stationRoute)
+          .where(inArray(stationRoute.stationId, stationsOfLines)),
+      () =>
+        context.db
+          .select()
+          .from(stationTool)
+          .where(inArray(stationTool.stationId, stationsOfLines))
+          .orderBy(stationTool.position),
+      () =>
+        context.db
+          .select()
+          .from(stationSkill)
+          .where(inArray(stationSkill.stationId, stationsOfLines))
+          .orderBy(stationSkill.position),
+      () =>
+        context.db
+          .select()
+          .from(lineReaction)
+          .where(inArray(lineReaction.lineId, ids)),
+      () =>
+        context.db
+          .select()
+          .from(lineRepository)
+          .where(inArray(lineRepository.lineId, ids)),
+    );
+
+  return { stations, routes, tools, skills, reactions, repositories };
+};
+
+type LineParts = Awaited<ReturnType<typeof linePartsOf>>;
+
+const assembledLines = (
+  rows: readonly LineRow[],
+  { stations, routes, tools, skills, reactions, repositories }: LineParts,
+): Line[] => {
+  const ways: Ways = {
+    routes: grouped(routes, (row) => StationId.of(row.toStationId)),
+    tools: grouped(tools, (row) => Tool.of(row.tool)),
+    skills: grouped(skills, (row) => SkillKey.of(row.skill)),
+  };
 
   return rows.map((row) =>
     toLine(
@@ -229,3 +228,17 @@ export const hydratedLines = async (
     ),
   );
 };
+
+export const hydratedLines = async (
+  context: DrizzleContext,
+  rows: readonly LineRow[],
+): Promise<Line[]> =>
+  rows.length === 0
+    ? []
+    : assembledLines(
+        rows,
+        await linePartsOf(
+          context,
+          rows.map((each) => each.id),
+        ),
+      );
