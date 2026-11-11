@@ -62,7 +62,7 @@ export class SetAvatarHandler implements CommandHandlerPort<
           existing ? this.avatars.save(next) : this.avatars.add(next),
         );
       } catch (error) {
-        await this.images.remove(owned.owner, imageId);
+        await this.images.remove(owned.owner, imageId).catch(() => undefined);
         throw error;
       }
 

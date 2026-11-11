@@ -1,5 +1,4 @@
 import type { AvatarImagesPort } from '@identity/application/ports/avatar-images.port';
-import type { Avatar } from '@identity/domain/aggregates/avatar.aggregate';
 import type { AvatarRemoved } from '@identity/domain/events/avatar-removed.event';
 import type { AvatarReplaced } from '@identity/domain/events/avatar-replaced.event';
 import type { TeamDeleted } from '@identity/domain/events/team-deleted.event';
@@ -23,6 +22,8 @@ export const REMOVE_AVATARS_OF_DELETED_WORKSPACE =
 export const REMOVE_AVATAR_IMAGES_OF_DELETED_WORKSPACE =
   'identity.remove-avatar-images-of-deleted-workspace';
 
+const REMOVAL_ATTEMPTS = 3;
+
 export class AvatarRemoval {
   constructor(
     private readonly avatars: AvatarRepository,
@@ -33,19 +34,13 @@ export class AvatarRemoval {
     return this.images.remove(event.owner, event.previousImage);
   }
 
-  async ofTeam(event: TeamDeleted): Promise<void> {
-    const found = await this.avatars.find(
-      AvatarOwner.team(event.workspaceId, event.teamId),
-    );
-
-    if (found) {
-      await this.removed(found);
-    }
+  ofTeam(event: TeamDeleted): Promise<void> {
+    return this.removedFor(AvatarOwner.team(event.workspaceId, event.teamId));
   }
 
   async ofWorkspace(event: WorkspaceDeleted): Promise<void> {
     for (const found of await this.avatars.ofWorkspace(event.workspaceId)) {
-      await this.removed(found);
+      await this.removedFor(found.owner);
     }
   }
 
@@ -57,12 +52,24 @@ export class AvatarRemoval {
     return this.images.removeAllIn(event.workspaceId);
   }
 
-  private async removed(found: Avatar): Promise<void> {
-    try {
-      await this.avatars.save(found.removed());
-    } catch (error) {
-      if (!(error instanceof AvatarVersionConflictError)) {
-        throw error;
+  private async removedFor(owner: AvatarOwner): Promise<void> {
+    for (let attempt = 1; ; attempt += 1) {
+      const found = await this.avatars.find(owner);
+
+      if (!found) {
+        return;
+      }
+
+      try {
+        await this.avatars.save(found.removed());
+        return;
+      } catch (error) {
+        if (
+          !(error instanceof AvatarVersionConflictError) ||
+          attempt === REMOVAL_ATTEMPTS
+        ) {
+          throw error;
+        }
       }
     }
   }

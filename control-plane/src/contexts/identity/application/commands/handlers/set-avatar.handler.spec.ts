@@ -103,6 +103,14 @@ describe('SetAvatarHandler', () => {
     expect(remove).toHaveBeenCalledWith(OWNER, NEW_IMAGE);
   });
 
+  it('keeps the conflict when the image cannot be removed', async () => {
+    const { handler, add, remove } = setting('admin');
+    add.mockRejectedValueOnce(new AvatarVersionConflictError('workspace ws_1'));
+    remove.mockRejectedValueOnce(new Error('S3 is down'));
+
+    await expect(handler.execute(set())).rejects.toThrow('workspace ws_1');
+  });
+
   it('forbids somebody who cannot configure the workspace', async () => {
     const { handler, put } = setting('member');
 

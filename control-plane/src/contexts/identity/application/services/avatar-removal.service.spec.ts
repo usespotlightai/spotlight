@@ -80,14 +80,39 @@ describe('AvatarRemoval', () => {
     expect(removeAllIn).toHaveBeenCalledWith(OWNER.workspaceId);
   });
 
-  it('leaves an avatar that changed meanwhile to its next change', async () => {
+  it('reloads and removes an avatar that changed meanwhile', async () => {
     const { service, save } = removal(storedAvatar(OLD));
     save.mockRejectedValueOnce(
       new AvatarVersionConflictError('workspace ws_1'),
     );
 
+    await service.ofWorkspace({ workspaceId: OWNER.workspaceId } as never);
+
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1]?.[0].isRemoved).toBe(true);
+  });
+
+  it('fails, so the delivery is retried, when it keeps changing', async () => {
+    const { service, save } = removal(storedAvatar(OLD));
+    save.mockRejectedValue(new AvatarVersionConflictError('workspace ws_1'));
+
     await expect(
-      service.ofWorkspace({ workspaceId: OWNER.workspaceId } as never),
-    ).resolves.toBeUndefined();
+      service.ofTeam({
+        workspaceId: OWNER.workspaceId,
+        teamId: TEAM,
+      } as TeamDeleted),
+    ).rejects.toThrow(AvatarVersionConflictError);
+    expect(save).toHaveBeenCalledTimes(3);
+  });
+
+  it('removes nothing when the avatar is already gone', async () => {
+    const { service, save } = removal(null);
+
+    await service.ofTeam({
+      workspaceId: OWNER.workspaceId,
+      teamId: TEAM,
+    } as TeamDeleted);
+
+    expect(save).not.toHaveBeenCalled();
   });
 });
