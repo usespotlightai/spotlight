@@ -10,6 +10,10 @@ import {
   RUN_JOURNALS,
   type RunJournalsPort,
 } from '@runs/application/ports/run-journals.port';
+import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -26,11 +30,14 @@ import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispa
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { and, asc, eq, isNull, type SQL } from 'drizzle-orm';
 
+type DispatchedRun = Pick<JournalledRun, 'runId' | 'createdAt'>;
+
 @Injectable()
 export class DrizzleRunJournalReader implements RunJournalReaderPort {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(RUN_JOURNALS) private readonly journals: RunJournalsPort,
+    @Inject(LOGGER) private readonly logger: LoggerPort,
   ) {}
 
   async listForTask(
@@ -44,7 +51,7 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
   async runsOfTask(
     taskId: TaskId,
   ): Promise<RunsInWorkspace<JournalledRun[]> | null> {
-    return this.ofTask(taskId, undefined, async (runs) => runs);
+    return this.ofTask(taskId, undefined, (runs) => this.counted(runs));
   }
 
   async ofTaskRun(
@@ -77,7 +84,7 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     teamId: TeamId,
     chatId: ChatId,
   ): Promise<RunsOfChat<JournalledRun[]> | null> {
-    return this.ofChat(teamId, chatId, undefined, async (runs) => runs);
+    return this.ofChat(teamId, chatId, undefined, (runs) => this.counted(runs));
   }
 
   async ofChatRun(
@@ -93,7 +100,7 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
   private async ofTask<T>(
     taskId: TaskId,
     narrowedTo: SQL | undefined,
-    read: (runs: JournalledRun[]) => Promise<T>,
+    read: (runs: DispatchedRun[]) => Promise<T>,
   ): Promise<RunsInWorkspace<T> | null> {
     const [found] = await this.db
       .select({ workspaceId: task.workspaceId })
@@ -123,7 +130,7 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     teamId: TeamId,
     chatId: ChatId,
     narrowedTo: SQL | undefined,
-    read: (runs: JournalledRun[]) => Promise<T>,
+    read: (runs: DispatchedRun[]) => Promise<T>,
   ): Promise<RunsOfChat<T> | null> {
     const [found] = await this.db
       .select({ startedById: chat.startedById })
@@ -150,7 +157,28 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     };
   }
 
-  private dispatched(which: SQL): Promise<JournalledRun[]> {
+  private async counted(runs: DispatchedRun[]): Promise<JournalledRun[]> {
+    const startedAt = performance.now();
+    const counts = await this.journals.countsOf(
+      runs.map((each) => RunId.of(each.runId)),
+    );
+
+    this.logger.debug(
+      {
+        runs: runs.length,
+        durationMs: Math.round(performance.now() - startedAt),
+      },
+      'counted the steps of runs',
+    );
+
+    return runs.map((each) => ({
+      ...each,
+      stepCount: counts.get(each.runId)?.stepCount ?? 0,
+      messageCount: counts.get(each.runId)?.messageCount ?? 0,
+    }));
+  }
+
+  private dispatched(which: SQL): Promise<DispatchedRun[]> {
     return this.db
       .select({ runId: dispatch.id, createdAt: dispatch.orderedAt })
       .from(dispatch)

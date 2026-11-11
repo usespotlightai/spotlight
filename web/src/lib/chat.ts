@@ -10,7 +10,7 @@ import {
   type ApprovalStatus,
   WAITING_FOR_APPROVAL,
 } from '@/lib/approval-status';
-import type { JournalStep, RunJournal } from '@/lib/inbox';
+import type { JournalledRun, JournalStep, RunJournal } from '@/lib/inbox';
 import { stretchesOf } from '@/lib/journal-step';
 import { teamSectionPath } from '@/lib/team';
 
@@ -120,7 +120,8 @@ export type ChatMoment =
       readonly kind: 'worked';
       readonly at: string;
       readonly steps: readonly JournalStep[];
-    };
+    }
+  | { readonly kind: 'pending'; readonly at: string; readonly count: number };
 
 export const CHAT_KEEPS_REPOSITORIES =
   'A chat keeps the repositories it started with. To use other repositories, start a new chat.';
@@ -159,13 +160,32 @@ const worked = (journal: RunJournal): ChatMoment[] =>
         },
   );
 
+const pendingOf = (
+  runs: readonly JournalledRun[],
+  journals: readonly RunJournal[],
+): ChatMoment[] =>
+  runs
+    .filter(
+      (run) =>
+        run.stepCount > 0 &&
+        !journals.some((journal) => journal.runId === run.runId),
+    )
+    .map((run) => ({
+      kind: 'pending',
+      at: run.createdAt,
+      count: run.stepCount,
+    }));
+
 export const momentsOf = (
   messages: readonly ChatMessage[],
   journals: readonly RunJournal[],
+  runs: readonly JournalledRun[],
 ): ChatMoment[] =>
-  [...messages.map(momentOf), ...journals.flatMap(worked)].sort(
-    (a, b) => Date.parse(a.at) - Date.parse(b.at),
-  );
+  [
+    ...messages.map(momentOf),
+    ...journals.flatMap(worked),
+    ...pendingOf(runs, journals),
+  ].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 
 export type ChatTurn = {
   readonly message: ChatMessage | null;

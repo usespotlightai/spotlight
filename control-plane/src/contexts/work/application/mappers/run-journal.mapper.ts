@@ -74,6 +74,11 @@ export const RunJournalMapper = {
   },
 
   runToDto(run: JournalledRun): JournalledRunDto {
-    return { runId: run.runId, createdAt: run.createdAt.toISOString() };
+    return {
+      runId: run.runId,
+      createdAt: run.createdAt.toISOString(),
+      stepCount: run.stepCount,
+      messageCount: run.messageCount,
+    };
   },
 };

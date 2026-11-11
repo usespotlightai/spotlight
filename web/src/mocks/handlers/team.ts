@@ -1,4 +1,4 @@
-import type { RequestHandler } from 'msw';
+import { delay, type RequestHandler } from 'msw';
 
 import type {
   ChatResponseDto,
@@ -23,6 +23,7 @@ import {
   chatTurn,
   journalRunsOf,
   messageBy,
+  STEPS_UNLOADED_CHAT,
   teamChats,
   turnEndsAt,
 } from '@/mocks/world/team-chats';
@@ -529,8 +530,16 @@ const chatHandlers = [
     return record ? json(journalRunsOf(record.journals)) : notFound();
   }),
 
-  api.get('/teams/:teamId/chats/:chatId/journal/:runId', ({ params }) => {
+  api.get('/teams/:teamId/chats/:chatId/journal/:runId', async ({ params }) => {
     const record = chatIn(String(params.teamId), params.chatId);
+
+    if (
+      record?.chat.id === STEPS_UNLOADED_CHAT &&
+      record.journals.at(-1)?.runId !== params.runId
+    ) {
+      await delay('infinite');
+    }
+
     return record
       ? json(
           record.journals.filter((journal) => journal.runId === params.runId),

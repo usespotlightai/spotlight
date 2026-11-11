@@ -4,7 +4,10 @@ import { AgentWorking } from '@/components/features/agent/AgentWorking';
 import { ChatEmpty } from '@/components/features/agent/ChatEmpty';
 import { ChatPersonMessage } from '@/components/features/agent/ChatPersonMessage';
 import { ChatProposal } from '@/components/features/agent/ChatProposal';
-import { StepsWork } from '@/components/features/inbox/conversation/StepsWork';
+import {
+  StepsWork,
+  StepsWorkPending,
+} from '@/components/features/inbox/conversation/StepsWork';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { Turn } from '@/components/shared/Turn';
@@ -18,7 +21,11 @@ import {
   runsOfTurn,
   turnsOf,
 } from '@/lib/chat';
-import { type RunJournal, STICKY_AT_TOP } from '@/lib/inbox';
+import {
+  type JournalledRun,
+  type RunJournal,
+  STICKY_AT_TOP,
+} from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
 type ChatThreadProps = {
@@ -26,6 +33,7 @@ type ChatThreadProps = {
   teamId: string;
   chat: Chat;
   journals: readonly RunJournal[];
+  runs: readonly JournalledRun[];
   footer: ReactNode;
 };
 
@@ -34,9 +42,13 @@ export function ChatThread({
   teamId,
   chat,
   journals,
+  runs,
   footer,
 }: ChatThreadProps) {
-  const moments = momentsOf(chat.messages, journals);
+  const resting = runs.filter(
+    (run) => chat.progress !== 'in-progress' || run.runId !== chat.runId,
+  );
+  const moments = momentsOf(chat.messages, journals, resting);
   const turns = turnsOf(moments);
   const sight = useJournalSight();
   const scroller = useStickToBottom<HTMLDivElement>(
@@ -114,6 +126,10 @@ export function ChatThread({
                             ariaLabel="Agent message"
                             className="border-none bg-transparent p-0"
                           />
+                        )}
+
+                        {moment.kind === 'pending' && (
+                          <StepsWorkPending count={moment.count} />
                         )}
 
                         {moment.kind === 'worked' && (

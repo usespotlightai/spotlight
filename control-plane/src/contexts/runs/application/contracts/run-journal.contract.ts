@@ -79,7 +79,12 @@ export interface RunChanges {
   readonly paths: readonly string[];
 }
 
-export interface JournalledRun {
+export interface RunStepCounts {
+  readonly stepCount: number;
+  readonly messageCount: number;
+}
+
+export interface JournalledRun extends RunStepCounts {
   readonly runId: string;
   readonly createdAt: Date;
 }

@@ -10,7 +10,7 @@ import {
   tracesHandedOver,
   turnsOf,
 } from '@/lib/chat';
-import type { JournalStep, RunJournal } from '@/lib/inbox';
+import type { JournalledRun, JournalStep, RunJournal } from '@/lib/inbox';
 
 const message = (over: Partial<ChatMessage>): ChatMessage => ({
   position: 0,
@@ -71,6 +71,7 @@ describe('momentsOf', () => {
           }),
         ]),
       ],
+      [],
     );
 
     expect(moments.map((each) => each.kind)).toEqual([
@@ -95,6 +96,7 @@ describe('momentsOf', () => {
           }),
         ]),
       ],
+      [],
     );
 
     expect(moments.map((each) => each.kind)).toEqual(['message', 'worked']);
@@ -115,6 +117,7 @@ describe('momentsOf', () => {
           step({ tool: 'read', startedAt: '2026-09-14T09:00:04.000Z' }),
         ]),
       ],
+      [],
     );
 
     expect(
@@ -144,6 +147,7 @@ describe('momentsOf', () => {
         }),
       ],
       [],
+      [],
     );
 
     expect(moment?.kind).toBe('proposed');
@@ -171,6 +175,7 @@ describe('turnsOf', () => {
             }),
           ]),
         ],
+        [],
       ),
     );
 
@@ -267,5 +272,44 @@ describe('runsOfTurn', () => {
     expect(runsOfTurn({ message: message({}), moments: [] })).toEqual([]);
     expect(runsOfTurn({ message: null, moments: [] })).toEqual([]);
     expect(runsOfTurn(undefined)).toEqual([]);
+  });
+});
+
+const run = (over: Partial<JournalledRun>): JournalledRun => ({
+  runId: 'run_1',
+  createdAt: '2026-09-14T09:00:00.500Z',
+  stepCount: 3,
+  messageCount: 1,
+  ...over,
+});
+
+describe('a run whose journal has not loaded', () => {
+  it('holds its place after what started it, with its steps counted', () => {
+    const moments = momentsOf([message({})], [], [run({})]);
+
+    expect(moments).toEqual([
+      expect.objectContaining({ kind: 'message' }),
+      { kind: 'pending', at: '2026-09-14T09:00:00.500Z', count: 3 },
+    ]);
+  });
+
+  it('gives way to its steps once the journal loads', () => {
+    const moments = momentsOf(
+      [message({})],
+      [journal([step({}), step({}), step({})])],
+      [run({})],
+    );
+
+    expect(moments.map((each) => each.kind)).toEqual(['message', 'worked']);
+  });
+
+  it('holds no place when the run has no steps', () => {
+    const moments = momentsOf(
+      [message({})],
+      [],
+      [run({ stepCount: 0, messageCount: 1 })],
+    );
+
+    expect(moments.map((each) => each.kind)).toEqual(['message']);
   });
 });

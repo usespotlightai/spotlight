@@ -31,13 +31,24 @@ export const journalRunsOf = (
       (journal, at) =>
         journals.findIndex((other) => other.runId === journal.runId) === at,
     )
-    .map((journal) => ({
-      runId: journal.runId,
-      createdAt:
-        journal.marks.startedAt ??
-        journal.steps[0]?.startedAt ??
-        new Date(0).toISOString(),
-    }));
+    .map((journal) => {
+      const steps = journals
+        .filter((other) => other.runId === journal.runId)
+        .flatMap((other) => other.steps);
+      const messageCount = steps.filter(
+        (step) => step.kind === 'message',
+      ).length;
+
+      return {
+        runId: journal.runId,
+        createdAt:
+          journal.marks.startedAt ??
+          journal.steps[0]?.startedAt ??
+          new Date(0).toISOString(),
+        stepCount: steps.length - messageCount,
+        messageCount,
+      };
+    });
 
 const takenUp = (record: ChatRecord): ChatRecord => {
   const runs = journalRunsOf(record.journals);
@@ -581,7 +592,9 @@ const longTurnSteps = (turn: number): StepDraft[] => [
   },
 ];
 
-const longChat = (): ChatRecord => {
+export const STEPS_UNLOADED_CHAT = 'chat_steps_unloaded';
+
+const longChat = (id = 'chat_long'): ChatRecord => {
   const startedAt = hoursAgo(LONG_TURNS + 2);
   const journals = Array.from({ length: LONG_TURNS }, (_, turn) =>
     chatTurn(
@@ -594,7 +607,7 @@ const longChat = (): ChatRecord => {
 
   return {
     chat: chatOf({
-      id: 'chat_long',
+      id,
       title: 'Tune the retry backoff, one pass at a time',
       repositories: ['acme/worker'],
       createdAt: startedAt,
@@ -623,6 +636,7 @@ const seededChats = (): Record<string, ChatRecord[]> => ({
     quarterChat(),
     pastedLogChat(),
     longChat(),
+    longChat(STEPS_UNLOADED_CHAT),
   ].map(takenUp),
   [GROWTH_ID]: [onboardingChat()].map(takenUp),
 });
