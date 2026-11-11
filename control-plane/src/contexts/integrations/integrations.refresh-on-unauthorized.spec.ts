@@ -740,11 +740,15 @@ describe('OAuth that recovers from a token the service does not accept', () => {
       viewerId: ALICE,
     });
 
+    if ('refused' in authorized) {
+      throw new Error(authorized.refused);
+    }
+
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(url.searchParams.get('client_id')).toBe('dcr-client');
-    expect(authorized?.tokens.accessToken.value).toBe('at-2');
-    expect(authorized?.tokens.linkedAccount).toBe('@alice');
-    expect(authorized?.owner).toBe('person');
+    expect(authorized.tokens.accessToken.value).toBe('at-2');
+    expect(authorized.tokens.linkedAccount).toBe('@alice');
+    expect(authorized.owner).toBe('person');
     expect(linear.verifiers).toHaveLength(1);
   });
 });

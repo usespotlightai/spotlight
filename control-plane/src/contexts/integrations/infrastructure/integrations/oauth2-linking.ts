@@ -12,6 +12,8 @@ import type {
   OAuth2Authorized,
   OAuth2LinkInput,
   OAuth2LinkingPort,
+  OAuth2Refusal,
+  OAuth2Refused,
   OAuth2Registration,
   OAuth2Returned,
   OAuth2Start,
@@ -42,6 +44,10 @@ const sameNonce = (one: string, other: string): boolean => {
 
   return a.length === b.length && timingSafeEqual(a, b);
 };
+
+const refused = (reason: OAuth2Refusal): OAuth2Refused => ({
+  refused: reason,
+});
 
 export class OAuth2Linking implements OAuth2LinkingPort {
   constructor(
@@ -135,16 +141,21 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     return { url: authorize.toString(), nonce, expiresAt: signed.expiresAt };
   }
 
-  async authorized(returned: OAuth2Returned): Promise<OAuth2Authorized | null> {
+  async authorized(
+    returned: OAuth2Returned,
+  ): Promise<OAuth2Authorized | OAuth2Refused> {
     const intent = this.state.open(returned.state);
 
-    if (
-      !intent ||
-      !returned.nonce ||
-      !sameNonce(returned.nonce, intent.nonce) ||
-      returned.viewerId?.value !== intent.by
-    ) {
-      return null;
+    if (!intent) {
+      return refused('state-not-accepted');
+    }
+
+    if (!returned.nonce || !sameNonce(returned.nonce, intent.nonce)) {
+      return refused('nonce-mismatch');
+    }
+
+    if (returned.viewerId?.value !== intent.by) {
+      return refused('other-person');
     }
 
     if (
@@ -154,13 +165,15 @@ export class OAuth2Linking implements OAuth2LinkingPort {
         this.clock.now(),
       ))
     ) {
-      return null;
+      return refused('nonce-spent');
     }
 
     const teamId = TeamId.of(intent.teamId);
 
-    return this.onBehalfOf(teamId, () =>
-      this.exchanged(teamId, intent, returned),
+    return (
+      (await this.onBehalfOf(teamId, () =>
+        this.exchanged(teamId, intent, returned),
+      )) ?? refused('no-team')
     );
   }
 
@@ -168,7 +181,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     teamId: TeamId,
     intent: OpenedOAuth2Intent,
     returned: OAuth2Returned,
-  ): Promise<OAuth2Authorized | null> {
+  ): Promise<OAuth2Authorized | OAuth2Refused> {
     const oauth2 = await oauth2Of(
       this.defined,
       this.reader,
@@ -176,16 +189,18 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       teamId,
       intent.integration,
     );
-    const client = oauth2
-      ? await this.clients.existingFor(
-          teamId,
-          IntegrationKey.of(intent.integration),
-          authorizationServerOf(oauth2),
-        )
-      : null;
+    if (!oauth2) {
+      return refused('no-oauth2-endpoints');
+    }
 
-    if (!oauth2 || !client) {
-      return null;
+    const client = await this.clients.existingFor(
+      teamId,
+      IntegrationKey.of(intent.integration),
+      authorizationServerOf(oauth2),
+    );
+
+    if (!client) {
+      return refused('no-client');
     }
 
     const tokens = await this.exchange.exchange(
@@ -197,7 +212,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     );
 
     if (!tokens) {
-      return null;
+      return refused('token-exchange-failed');
     }
 
     return {

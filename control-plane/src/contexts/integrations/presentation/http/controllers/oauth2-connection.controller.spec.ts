@@ -11,6 +11,7 @@ import {
 } from '@integrations/presentation/http/oauth2-nonce-cookie';
 import type { CommandBus } from '@nestjs/cqrs';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { describe, expect, it, vi } from 'vitest';
 
 const ADMIN: AuthenticatedUser = {
@@ -44,13 +45,22 @@ const controlling = (viewer: AuthenticatedUser | null = ADMIN) => {
         : { url: 'https://slack.com/oauth', nonce: 'n-1', expiresAt: EXPIRES },
   );
 
+  const logger = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } satisfies LoggerPort;
+
   return {
     controller: new OAuth2ConnectionController(
       { execute } as unknown as CommandBus,
       new OAuth2NonceCookie(),
+      logger,
     ),
     viewer,
     execute,
+    logger,
   };
 };
 
@@ -84,7 +94,14 @@ describe('OAuth2ConnectionController', () => {
     const { controller, execute, viewer } = controlling();
     const { response, redirect, clearCookie } = answering();
 
-    await controller.callback('s', 'c', withCookie('n-1'), response, viewer);
+    await controller.callback(
+      's',
+      'c',
+      undefined,
+      withCookie('n-1'),
+      response,
+      viewer,
+    );
 
     const finish = execute.mock.calls[0]?.[0] as FinishOAuth2ConnectionCommand;
     expect(finish.nonce).toBe('n-1');
@@ -97,23 +114,85 @@ describe('OAuth2ConnectionController', () => {
   });
 
   it('rejects a browser that brought no nonce cookie', async () => {
-    const { controller, execute, viewer } = controlling();
+    const { controller, execute, viewer, logger } = controlling();
     const { response, redirect } = answering();
 
-    await controller.callback('s', 'c', { headers: {} }, response, viewer);
+    await controller.callback(
+      's',
+      'c',
+      undefined,
+      { headers: {} },
+      response,
+      viewer,
+    );
 
     expect(execute).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      { reason: 'no-nonce-cookie', providerError: undefined },
+      'Did not finish an OAuth2 connection',
+    );
   });
 
   it('rejects a browser with no session', async () => {
-    const { controller, execute, viewer } = controlling(null);
+    const { controller, execute, viewer, logger } = controlling(null);
     const { response, redirect } = answering();
 
-    await controller.callback('s', 'c', withCookie('n-1'), response, viewer);
+    await controller.callback(
+      's',
+      'c',
+      undefined,
+      withCookie('n-1'),
+      response,
+      viewer,
+    );
 
     expect(execute).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      { reason: 'signed-out', providerError: undefined },
+      'Did not finish an OAuth2 connection',
+    );
+  });
+
+  it('says what the service answered when it sends no code back', async () => {
+    const { controller, execute, viewer, logger } = controlling();
+    const { response, redirect } = answering();
+
+    await controller.callback(
+      's',
+      undefined,
+      'access_denied',
+      withCookie('n-1'),
+      response,
+      viewer,
+    );
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      { reason: 'incomplete-callback', providerError: 'access_denied' },
+      'Did not finish an OAuth2 connection',
+    );
+  });
+
+  it('logs no error text that is not an OAuth2 error code', async () => {
+    const { controller, viewer, logger } = controlling();
+    const { response } = answering();
+
+    await controller.callback(
+      's',
+      undefined,
+      'Bearer secret-value',
+      withCookie('n-1'),
+      response,
+      viewer,
+    );
+
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      { reason: 'incomplete-callback', providerError: undefined },
+      'Did not finish an OAuth2 connection',
+    );
   });
 
   it('leaves whom the connection acts as to the domain unless requested', async () => {

@@ -33,6 +33,20 @@ export interface OAuth2Authorized extends OAuth2LinkInput {
   readonly tokens: OAuthTokens;
 }
 
+export type OAuth2Refusal =
+  | 'state-not-accepted'
+  | 'nonce-mismatch'
+  | 'other-person'
+  | 'nonce-spent'
+  | 'no-team'
+  | 'no-oauth2-endpoints'
+  | 'no-client'
+  | 'token-exchange-failed';
+
+export interface OAuth2Refused {
+  readonly refused: OAuth2Refusal;
+}
+
 export interface OAuth2Registration {
   readonly endpoint: string | null;
   readonly server: AuthorizationServer | null;
@@ -49,7 +63,9 @@ export interface OAuth2LinkingPort {
     client: OAuth2Client,
   ): Promise<OAuth2Start | null>;
 
-  authorized(returned: OAuth2Returned): Promise<OAuth2Authorized | null>;
+  authorized(
+    returned: OAuth2Returned,
+  ): Promise<OAuth2Authorized | OAuth2Refused>;
 
   landingFor(
     teamId: TeamId,

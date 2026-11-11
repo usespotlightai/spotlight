@@ -42,6 +42,10 @@ import {
 } from '@platform/http/decorators/current-user.decorator';
 import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
 import type { RequestHeaders } from '@platform/http/request-headers';
+import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
 
 export interface Redirectable extends CookieJar {
   redirect(url: string): void;
@@ -49,12 +53,17 @@ export interface Redirectable extends CookieJar {
 
 export const FAILED_REDIRECT = '/?integration=failed';
 
+const OAUTH2_ERROR_CODE = /^[a-z_]{1,64}$/;
+
+type CallbackRefusal = 'incomplete-callback' | 'no-nonce-cookie' | 'signed-out';
+
 @ApiTags('integrations')
 @Controller()
 export class OAuth2ConnectionController {
   constructor(
     private readonly commandBus: CommandBus,
     @Inject(OAuth2NonceCookie) private readonly nonceCookie: OAuth2NonceCookie,
+    @Inject(LOGGER) private readonly logger: LoggerPort,
   ) {}
 
   @Post('teams/:teamId/integrations/:integration/connect')
@@ -120,6 +129,7 @@ export class OAuth2ConnectionController {
   async callback(
     @Query('state') state: string | undefined,
     @Query('code') code: string | undefined,
+    @Query('error') error: string | undefined,
     @Req() request: { readonly headers: RequestHeaders },
     @Res() response: Redirectable,
     @OptionalUser() viewer: AuthenticatedUser | null,
@@ -127,13 +137,18 @@ export class OAuth2ConnectionController {
     const nonce = this.nonceCookie.readFrom(request.headers);
     this.nonceCookie.clear(response);
 
-    if (!state || !code || !nonce) {
-      response.redirect(FAILED_REDIRECT);
+    if (!state || !code) {
+      this.failed(response, 'incomplete-callback', error);
+      return;
+    }
+
+    if (!nonce) {
+      this.failed(response, 'no-nonce-cookie');
       return;
     }
 
     if (!viewer) {
-      response.redirect(FAILED_REDIRECT);
+      this.failed(response, 'signed-out');
       return;
     }
 
@@ -143,5 +158,21 @@ export class OAuth2ConnectionController {
     >(new FinishOAuth2ConnectionCommand(state, code, nonce, viewer.id));
 
     response.redirect(url ?? FAILED_REDIRECT);
+  }
+
+  private failed(
+    response: Redirectable,
+    reason: CallbackRefusal,
+    error?: string,
+  ): void {
+    this.logger.info(
+      {
+        reason,
+        providerError:
+          error && OAUTH2_ERROR_CODE.test(error) ? error : undefined,
+      },
+      'Did not finish an OAuth2 connection',
+    );
+    response.redirect(FAILED_REDIRECT);
   }
 }
