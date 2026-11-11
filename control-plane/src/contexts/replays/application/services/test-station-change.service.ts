@@ -43,7 +43,7 @@ export interface StationChangeOffer {
   readonly briefing: string | null;
 }
 
-const blockOf = (text: string): unknown => {
+const fieldsOf = (text: string): unknown => {
   try {
     return JSON.parse(text);
   } catch {
@@ -111,7 +111,7 @@ export class TestStationChange {
         mode,
         name: inputs.name ?? '',
         hypothesis: inputs.hypothesis ?? '',
-        block: blockOf(inputs.config ?? ''),
+        fields: fieldsOf(inputs.config ?? ''),
       }),
     );
   }

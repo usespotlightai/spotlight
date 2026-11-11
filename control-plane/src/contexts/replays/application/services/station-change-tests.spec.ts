@@ -60,6 +60,7 @@ let pullRequests: InMemoryConfigPullRequests;
 let now: Date;
 let policy: SearchPolicy;
 let scoring: CandidateScoring;
+let liveBlock: Record<string, unknown>;
 
 const clock: ClockPort = { now: () => now, sleep: async () => {} };
 
@@ -142,9 +143,21 @@ const asked = (
     mode: 'test',
     name: 'shorter-prompt',
     hypothesis: 'Fewer missed tests.',
-    block: { key: 'build', name: 'Build', kind: 'work', prompt: 'Test first.' },
+    fields: { prompt: 'Test first.' },
     ...over,
   });
+
+const validatedBlocks = (): unknown[] => {
+  const validated: unknown[] = [];
+  const validate = suppliers.configs.validate.bind(suppliers.configs);
+
+  suppliers.configs.validate = async (...args) => {
+    validated.push(args[2]);
+    return validate(...args);
+  };
+
+  return validated;
+};
 
 const searches = (): Search[] => [...memory.searches.values()];
 
@@ -171,9 +184,10 @@ beforeEach(async () => {
   now = NOW;
   policy = policyOf();
   scoring = CHECKED;
+  liveBlock = { key: 'build', name: 'Build', kind: 'work' };
   suppliers.configs.live = async () => ({
     lineKey: 'delivery',
-    block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
+    block: StationBlock.of(liveBlock),
     fingerprint: LIVE_FINGERPRINT,
     scoring,
     hashes: LIVE_HASHES,
@@ -236,6 +250,39 @@ describe('StationChangeTests', () => {
     expect(again).toEqual(first);
     expect(searches()).toHaveLength(1);
     expect(searches()[0]?.requests).toHaveLength(1);
+  });
+
+  it('validates the change with the fields it leaves out taken from the live config', async () => {
+    const validated = validatedBlocks();
+
+    await asked({ fields: { model: 'claude-haiku-5-5' } });
+
+    expect(validated).toEqual([
+      { key: 'build', name: 'Build', kind: 'work', model: 'claude-haiku-5-5' },
+    ]);
+  });
+
+  it('takes the fields a change to a running search leaves out from the starting config of the search', async () => {
+    await asked({ mode: 'search' });
+    liveBlock = { key: 'build', name: 'Build', kind: 'work', color: '#000000' };
+    const validated = validatedBlocks();
+
+    await asked({
+      name: 'second',
+      requester: UserId.of('user_other'),
+      fields: { model: 'claude-haiku-5-5' },
+    });
+
+    expect(validated).toEqual([
+      { key: 'build', name: 'Build', kind: 'work', model: 'claude-haiku-5-5' },
+    ]);
+  });
+
+  it('refuses a change to a field a test may not change', async () => {
+    expect(await asked({ fields: { color: '#000000' } })).toMatchObject({
+      outcome: 'invalid',
+      problems: [{ path: 'station.color' }],
+    });
   });
 
   it('adds a change to a running search, and refuses a name another candidate has', async () => {

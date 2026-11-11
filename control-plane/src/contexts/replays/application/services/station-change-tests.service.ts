@@ -45,6 +45,7 @@ import {
   nameProblem,
   searchedProposalOf,
 } from '@replays/domain/services/searched-proposal';
+import { isBlock } from '@replays/domain/value-objects/block-shape';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
@@ -412,7 +413,9 @@ export class StationChangeTests {
     const validated = await this.configs.validate(
       request.lineId,
       request.stationId,
-      request.block,
+      isBlock(request.fields)
+        ? seed.overlaidWith(request.fields)
+        : request.fields,
     );
     const address =
       teamKey && StationPath.of(teamKey, station.lineKey, station.key);
