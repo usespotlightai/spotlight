@@ -8,6 +8,9 @@ import { useWorkspaces } from '@/hooks/api/useWorkspaces';
 
 vi.mock('@/hooks/api/useSession', () => ({ useSession: vi.fn() }));
 vi.mock('@/hooks/api/useWorkspaces', () => ({ useWorkspaces: vi.fn() }));
+vi.mock('@/hooks/useQueryCacheOwner', () => ({
+  useQueryCacheOwnedBy: () => true,
+}));
 
 const mockSession = vi.mocked(useSession);
 const mockWorkspaces = vi.mocked(useWorkspaces);

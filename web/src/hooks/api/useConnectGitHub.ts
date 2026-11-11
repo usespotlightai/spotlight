@@ -13,6 +13,7 @@ export function useConnectGitHub(
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
     retry: false,
+    meta: { persist: false },
     queryFn: async () => {
       await connectGitHub({
         path: { slug: slug as string },

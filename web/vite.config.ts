@@ -8,7 +8,12 @@ import { defineConfig } from 'vitest/config';
 
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 
+const buildId = process.env.SENTRY_RELEASE || String(Date.now());
+
 export default defineConfig(({ command }) => ({
+  define: {
+    'import.meta.env.VITE_BUILD_ID': JSON.stringify(buildId),
+  },
   plugins: [
     react(),
     babel({
