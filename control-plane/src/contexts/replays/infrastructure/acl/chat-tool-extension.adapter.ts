@@ -40,7 +40,7 @@ const DECLARATION: ChatToolDeclaration = {
       name: 'config',
       schema: { type: 'string' },
       description:
-        'The station fields you change, as JSON with the names the line resource uses. Spotlight takes every other field from the live config',
+        "The station fields you change, as JSON with the names the line resource uses. Spotlight takes every other field from the station's current config, or from the running search's starting config. null removes a field",
       required: true,
       stdin: true,
     },

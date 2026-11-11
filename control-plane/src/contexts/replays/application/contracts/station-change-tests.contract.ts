@@ -18,7 +18,7 @@ export interface StationChangeTestRequest {
   readonly mode: StationChangeTestMode;
   readonly name: string;
   readonly hypothesis: string;
-  readonly block: unknown;
+  readonly fields: unknown;
 }
 
 export type StationChangeRefusal =

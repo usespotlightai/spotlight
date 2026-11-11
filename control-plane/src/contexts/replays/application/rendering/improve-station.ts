@@ -34,7 +34,7 @@ export const ImproveStation = {
       ].join('\n'),
       [
         'Test your change, do not only describe it:',
-        `- Propose one change. Write as JSON only the station fields you change, as the \`spotlight_line\` resource for \`${line}\` names them (\`prompt\`, \`harness\`, \`model\`, \`effort\`, \`profile\`, \`skills\`, \`tools\`), for example \`{"model": "…"}\`. Spotlight takes every other field from the live config.`,
+        `- Propose one change. Write as JSON only the station fields you change, as the \`spotlight_line\` resource for \`${line}\` names them (\`prompt\`, \`harness\`, \`model\`, \`effort\`, \`profile\`, \`skills\`, \`tools\`), for example \`{"model": "…"}\`. Spotlight takes every other field from the station's current config, or from the running search's starting config. Set a field to \`null\` to remove it.`,
         `- Call the tool. It replays the change against the live config, and the result arrives in the person's inbox:\n\n\`\`\`\nspotlight tools call ${TEST_STATION_CHANGE_TOOL} --name <slug> --hypothesis "…" < station.json\n\`\`\``,
         '- The default mode is `test`: Spotlight replays only your change. Add `--mode search` only when the person asks for a search; the search agent then refines your change.',
         '- Tell the person what the tool answered: what happens next and that the result arrives in their inbox.',
