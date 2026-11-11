@@ -300,8 +300,13 @@ const endReplay = async (
       await tx
         .update(schema.replayEntry)
         .set({
-          runId: entry.runId ?? randomUUID(),
-          queued: false,
+          runId: randomUUID(),
+          queued: true,
+          unreplayableReason: null,
+          notRun: false,
+          waiting: false,
+          occupying: false,
+          unconfirmed: false,
           result: 'completed',
           stopped: false,
           asked: false,
