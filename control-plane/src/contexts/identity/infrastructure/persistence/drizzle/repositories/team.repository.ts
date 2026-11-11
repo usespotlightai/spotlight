@@ -163,7 +163,8 @@ export class DrizzleTeamRepository implements TeamRepository {
 
   async named(workspaceId: WorkspaceId, key: TeamKey): Promise<Team | null> {
     return this.one(
-      sql`${eq(team.workspaceId, workspaceId.value)} and ${eq(team.key, key.value)}`,
+      eq(team.workspaceId, workspaceId.value),
+      eq(team.key, key.value),
     );
   }
 
@@ -177,11 +178,11 @@ export class DrizzleTeamRepository implements TeamRepository {
     ).map(rehydrated);
   }
 
-  private async one(where: SQL): Promise<Team | null> {
+  private async one(...conditions: readonly SQL[]): Promise<Team | null> {
     const [found] = await this.context.db
       .select({ ...getTableColumns(team), members: membersOfTeam })
       .from(team)
-      .where(where)
+      .where(and(...conditions))
       .limit(1);
 
     return found ? rehydrated(found) : null;

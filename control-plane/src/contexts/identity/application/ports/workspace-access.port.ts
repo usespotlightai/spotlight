@@ -37,7 +37,7 @@ export interface TeamPermissions extends WorkspacePermissions {
   readonly teamId: TeamId;
 }
 
-export interface TeamAccessEntry {
+interface TeamAccessEntry {
   readonly teamId: TeamId;
   readonly sees: boolean;
   readonly actsOn: boolean;

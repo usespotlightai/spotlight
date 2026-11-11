@@ -7,7 +7,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Client, Pool } from 'pg';
 import type { Test } from 'supertest';
 
-export const ROUND_TRIP_MS = 15;
+const ROUND_TRIP_MS = 15;
 
 const PROBE_HEADER = 'x-query-rounds-probe';
 
