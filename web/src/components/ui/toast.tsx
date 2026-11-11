@@ -146,25 +146,25 @@ function ToastIcon({ type }: { type: string | undefined }) {
 
   if (type === "success") {
     icon = (
-      <CircleCheckIcon className="fill-chart-success" aria-hidden="true" />
+      <CircleCheckIcon className="[--toast-icon:var(--color-chart-success)]" aria-hidden="true" />
     )
   }
 
   if (type === "info") {
     icon = (
-      <InfoIcon className="fill-muted-foreground" aria-hidden="true" />
+      <InfoIcon className="[--toast-icon:var(--color-muted-foreground)] dark:[--toast-icon:var(--color-neutral-500)]" aria-hidden="true" />
     )
   }
 
   if (type === "warning") {
     icon = (
-      <TriangleAlertIcon className="fill-amber-500 dark:fill-amber-400" aria-hidden="true" />
+      <TriangleAlertIcon className="text-amber-950 [--toast-icon:var(--color-amber-500)] dark:[--toast-icon:var(--color-amber-400)]" aria-hidden="true" />
     )
   }
 
   if (type === "error") {
     icon = (
-      <OctagonXIcon className="fill-destructive" aria-hidden="true" />
+      <OctagonXIcon className="[--toast-icon:var(--color-destructive)] dark:[--toast-icon:var(--color-red-500)]" aria-hidden="true" />
     )
   }
 
@@ -181,7 +181,7 @@ function ToastIcon({ type }: { type: string | undefined }) {
   return (
     <span
       data-slot="toast-icon"
-      className="flex h-5 shrink-0 items-center text-popover [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4"
+      className="flex h-5 shrink-0 items-center text-white [&_svg]:pointer-events-none [&_svg]:fill-(--toast-icon,none) [&_svg>:first-child]:stroke-(--toast-icon,currentColor) [&_svg:not([class*='size-'])]:size-4"
     >
       {icon}
     </span>
