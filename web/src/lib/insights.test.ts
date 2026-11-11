@@ -125,12 +125,13 @@ describe('the insights view in the address', () => {
     expect(
       viewOf(
         new URLSearchParams(
-          'tab=traces&pullRequestState=merged&humanAction=sent-back&asked=true&taskIds=a,b&model=~default&repository=none',
+          'tab=traces&pullRequestState=merged&humanAction=sent-back&resolution=moved-on&asked=true&taskIds=a,b&model=~default&repository=none',
         ),
       ).filter,
     ).toEqual({
       pullRequestState: 'merged',
       humanAction: 'sent-back',
+      resolution: 'moved-on',
       asked: 'true',
       taskIds: 'a,b',
       model: '~default',
@@ -139,7 +140,7 @@ describe('the insights view in the address', () => {
     expect(
       viewOf(
         new URLSearchParams(
-          'tab=traces&pullRequestState=lost&humanAction=shrugged&asked=no',
+          'tab=traces&pullRequestState=lost&humanAction=shrugged&resolution=merged&asked=no',
         ),
       ).filter,
     ).toEqual({});
@@ -462,6 +463,7 @@ describe('cost', () => {
     expect(formatFilterValue('dismissedServer', 'linear')).toBe('linear');
     expect(formatFilterValue('taskIds', 'task_1,task_2')).toBe('2 tasks');
     expect(formatFilterValue('humanAction', 'sent-back')).toBe('Sent back');
+    expect(formatFilterValue('resolution', 'failed')).toBe('Failed, no answer');
     expect(formatFilterValue('pullRequestState', 'merged')).toBe('Merged');
   });
 
@@ -565,6 +567,10 @@ describe('tallyTiles', () => {
       value: '2',
       detail: '20% of runs',
       delta: { tone: 'good' },
+    });
+    expect(tiles[2]?.drill).toEqual({
+      tab: 'traces',
+      filter: { resolution: 'accepted' },
     });
   });
 });

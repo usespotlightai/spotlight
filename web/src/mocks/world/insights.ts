@@ -28,6 +28,7 @@ import {
   distinct,
   NO_CHANGE,
   type PeriodName,
+  runResolutionOf,
   type Span,
   shareOf,
   spanOf,
@@ -823,6 +824,8 @@ const RUN_MATCHERS: {
   outcome: (run, value) => run.ending === value,
   pullRequestState: (run, value) => run.pullRequestState === value,
   humanAction: (run, value) => run.firstHumanAction?.kind === value,
+  resolution: (run, value) =>
+    run.ending !== 'cancelled' && runResolutionOf(run) === value,
   asked: (run, value) => value !== 'true' || run.firstHumanAction !== null,
   harness: (run, value) => run.harness === value,
   model: (run, value) => (run.model ?? '') === value,

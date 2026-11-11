@@ -20778,6 +20778,22 @@
             }
           },
           {
+            "name": "resolution",
+            "required": false,
+            "in": "query",
+            "description": "Only runs that ran and have this resolution",
+            "schema": {
+              "enum": [
+                "accepted",
+                "sent-back",
+                "moved-on",
+                "failed",
+                "other"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "name": "humanAction",
             "required": false,
             "in": "query",

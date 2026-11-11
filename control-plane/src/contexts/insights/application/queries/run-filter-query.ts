@@ -38,6 +38,7 @@ export interface RunFilterQuery {
   readonly dismissedServer: QueryValue;
   readonly pullRequestState: QueryValue;
   readonly humanAction: QueryValue;
+  readonly resolution: QueryValue;
   readonly asked: QueryValue;
 }
 
@@ -106,5 +107,6 @@ export const runFilterInputOf = (query: RunFilterQuery): RunFilterInput => ({
   ),
   pullRequestState: single(query.pullRequestState, 'pull request state'),
   humanAction: single(query.humanAction, 'human action'),
+  resolution: single(query.resolution, 'resolution'),
   asked: flagOf(query.asked, 'answer to whether the task asked'),
 });

@@ -692,7 +692,7 @@ describe('the team’s insights (e2e)', () => {
     expect((failed.body as InsightsTracesResponseDto).matched).toBe(0);
   });
 
-  it('drills down by pull request state, human action, inbox asks, tasks, the harness’s own model and no repository', async () => {
+  it('drills down by pull request state, human action, resolution, inbox asks, tasks, the harness’s own model and no repository', async () => {
     const total = async (query: string) =>
       (
         (await asOwner(insights('traces', `range=7d&${query}`)))
@@ -702,6 +702,8 @@ describe('the team’s insights (e2e)', () => {
     expect(await total('pullRequestState=merged')).toBe(1);
     expect(await total('pullRequestState=open')).toBe(0);
     expect(await total('humanAction=answered')).toBe(1);
+    expect(await total('resolution=moved-on')).toBe(1);
+    expect(await total('resolution=accepted')).toBe(0);
     expect(await total('asked=true')).toBe(1);
     expect(await total(`taskIds=${randomUUID()},${TASK.value}`)).toBe(1);
     expect(await total(`taskIds=${randomUUID()}`)).toBe(0);
@@ -721,6 +723,7 @@ describe('the team’s insights (e2e)', () => {
     expect(await status('pullRequestState=shipped')).toBe(422);
     expect(await status('humanAction=shrugged')).toBe(422);
     expect(await status('humanAction=dismissed')).toBe(422);
+    expect(await status('resolution=merged')).toBe(422);
     expect(await status('asked=yes')).toBe(422);
     expect(await status('stationId=a&stationId=b')).toBe(422);
     expect(await status('day=2026-02-30')).toBe(422);

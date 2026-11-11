@@ -868,6 +868,7 @@ describe('run facts', () => {
             dismissedServer: { kind: 'any' },
             pullRequestState: null,
             humanAction: null,
+            resolution: null,
             asked: false,
           },
           window,

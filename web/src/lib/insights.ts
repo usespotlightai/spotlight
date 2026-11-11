@@ -135,6 +135,16 @@ const RUN_HUMAN_ACTIONS: readonly RunHumanAction[] = [
   'sent-back',
 ];
 
+export type RunResolution = NonNullable<TraceQuery['resolution']>;
+
+const RUN_RESOLUTIONS: readonly RunResolution[] = [
+  'accepted',
+  'sent-back',
+  'moved-on',
+  'failed',
+  'other',
+];
+
 const MAX_TASK_IDS = 200;
 
 const RUN_FILTER_KEYS = [
@@ -143,6 +153,7 @@ const RUN_FILTER_KEYS = [
   'outcome',
   'pullRequestState',
   'humanAction',
+  'resolution',
   'asked',
   'harness',
   'model',
@@ -220,6 +231,12 @@ const runFilterOf = (params: URLSearchParams): RunFilter =>
       if (
         key === 'humanAction' &&
         !RUN_HUMAN_ACTIONS.includes(value as RunHumanAction)
+      ) {
+        return [];
+      }
+      if (
+        key === 'resolution' &&
+        !RUN_RESOLUTIONS.includes(value as RunResolution)
       ) {
         return [];
       }
@@ -927,6 +944,7 @@ const FILTER_LABELS: Record<RunFilterKey, string> = {
   outcome: 'Outcome',
   pullRequestState: 'Pull request',
   humanAction: 'Then',
+  resolution: 'Resolution',
   asked: 'Asked a person',
   harness: 'Harness',
   model: 'Model',
@@ -962,6 +980,14 @@ const HUMAN_ACTIONS: Record<RunHumanAction, string> = {
   'sent-back': 'Sent back',
 };
 
+const RESOLUTIONS: Record<RunResolution, string> = {
+  accepted: 'Accepted',
+  'sent-back': 'Sent back',
+  'moved-on': 'Moved on',
+  failed: 'Failed, no answer',
+  other: 'Other',
+};
+
 export const formatFilterValue = (key: RunFilterKey, value: string): string => {
   // oxlint-disable-next-line typescript/switch-exhaustiveness-check -- every other key shows its value as it is
   switch (key) {
@@ -979,6 +1005,8 @@ export const formatFilterValue = (key: RunFilterKey, value: string): string => {
       return PULL_REQUEST_STATES[value as RunPullRequestState] ?? value;
     case 'humanAction':
       return HUMAN_ACTIONS[value as RunHumanAction] ?? value;
+    case 'resolution':
+      return RESOLUTIONS[value as RunResolution] ?? value;
     case 'asked':
       return 'Yes';
     case 'fingerprint':
@@ -1046,7 +1074,7 @@ export const tallyTiles = (
     now.resolutions.accepted,
     seen.accepted,
     changes.resolutions.accepted,
-    { tab: 'traces', filter: { ...filter, outcome: 'accepted' } },
+    { tab: 'traces', filter: { ...filter, resolution: 'accepted' } },
   ),
   ...counted(
     'sent-back',
@@ -1054,6 +1082,7 @@ export const tallyTiles = (
     now.resolutions.sentBack,
     seen.sentBack,
     changes.resolutions.sentBack,
+    { tab: 'traces', filter: { ...filter, resolution: 'sent-back' } },
   ),
   ...counted('merged', 'Merged', now.merged, seen.merged, changes.merged),
   {

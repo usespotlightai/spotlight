@@ -34,6 +34,7 @@ const NOTHING: RunFilterQuery = {
   dismissedServer: null,
   pullRequestState: null,
   humanAction: null,
+  resolution: null,
   asked: null,
 };
 

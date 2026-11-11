@@ -19158,6 +19158,10 @@ export type ListInsightsTracesData = {
      */
     asked?: boolean;
     /**
+     * Only runs that ran and have this resolution
+     */
+    resolution?: 'accepted' | 'sent-back' | 'moved-on' | 'failed' | 'other';
+    /**
      * Only runs that a person acted on first in this way
      */
     humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back';

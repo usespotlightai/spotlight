@@ -9,7 +9,10 @@ import type {
   RunFilter,
 } from '@insights/domain/services/run-filter';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
-import { msOf } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
+import {
+  msOf,
+  withResolution,
+} from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
   runFact,
   taskHumanAction,
@@ -151,6 +154,7 @@ const filtered = (window: TeamWindow, filter: RunFilter): SQL | undefined =>
     filter.humanAction === null
       ? undefined
       : sql`${runFact.firstHumanAction}::text = ${filter.humanAction}`,
+    filter.resolution === null ? undefined : withResolution(filter.resolution),
     filter.personId === null
       ? undefined
       : eq(runFact.openedById, filter.personId),
