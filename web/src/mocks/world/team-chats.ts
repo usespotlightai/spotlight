@@ -560,6 +560,51 @@ const pastedLogChat = (): ChatRecord => {
   };
 };
 
+const LONG_PROPOSAL = [
+  'Webhook deliveries to billing fail with `503` since Friday’s deploy, and every retry lands on the same minute.',
+  '## What to change',
+  ...Array.from(
+    { length: 12 },
+    (_, at) =>
+      `- Step ${at + 1}: give retry ${at + 1} a jittered backoff of up to ${2 ** (at % 6)} seconds and check that billing accepts the delivery.`,
+  ),
+  '## Done when',
+  '- No two retries for the same endpoint land in the same second.',
+  '- The retry queues stay empty for a full day.',
+].join('\n\n');
+
+const longProposalChat = (): ChatRecord => {
+  const sentAt = hoursAgo(29);
+  const answer = chatTurn('run_chat_long_proposal_1', sentAt, [
+    {
+      kind: 'message',
+      text: 'The backoff needs jitter on every retry. I propose one task with the full plan.',
+    },
+  ]);
+
+  return {
+    chat: chatOf({
+      id: 'chat_long_proposal',
+      title: 'Plan the backoff jitter',
+      createdAt: sentAt,
+      updatedAt: turnEndsAt(answer),
+      messages: [
+        messageBy(SAM, 0, 'Plan the backoff jitter as one task.', sentAt),
+        proposed(
+          1,
+          'run_chat_long_proposal_1',
+          secondsAfter(sentAt, 30),
+          proposalAt(PLATFORM_ID, 'station_spec', {
+            title: 'Add jitter to the webhook retry backoff',
+            description: LONG_PROPOSAL,
+          }),
+        ),
+      ],
+    }),
+    journals: [answer],
+  };
+};
+
 const LONG_TURNS = 64;
 
 const LONG_FILES = [
@@ -638,6 +683,7 @@ const seededChats = (): Record<string, ChatRecord[]> => ({
     rateLimitsChat(),
     quarterChat(),
     pastedLogChat(),
+    longProposalChat(),
     longChat(),
     longChat(STEPS_UNLOADED_CHAT),
   ].map(takenUp),
