@@ -17,6 +17,7 @@ export * from '@integrations/infrastructure/persistence/drizzle/schemas/hook.sch
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 export * from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
 export * from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
+export * from '@notifications/infrastructure/persistence/drizzle/schemas/arrival-ledger.schema';
 export * from '@notifications/infrastructure/persistence/drizzle/schemas/push-subscription.schema';
 export * from '@platform/persistence/drizzle/schemas/event.schema';
 export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
@@ -32,7 +33,6 @@ export * from '@work/infrastructure/persistence/drizzle/schemas/attachment.schem
 export * from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/inbox-request.schema';
-export * from '@work/infrastructure/persistence/drizzle/schemas/inbox-watch.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task-draft.schema';

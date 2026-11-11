@@ -10,6 +10,7 @@ import type { ConversationLoader } from '@work/application/services/conversation
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import type { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
+import { handedToRun } from '@work/application/services/handed-to-run';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
@@ -98,11 +99,7 @@ export class AnswerConversationHandler implements CommandHandlerPort<
       command.edits,
     );
 
-    const runId = answered.wantsRun(line)
-      ? await this.dispatch.runIdFor({ task: answered, line })
-      : null;
-
-    await this.tasks.save(runId ? answered.assignRun(runId, line) : answered);
+    await this.tasks.save(await handedToRun(this.dispatch, answered, line));
     await this.files.takenIn(task.workspaceId, attachments);
 
     return { taskId: task.id, next: sent && answered.draftGeneration };

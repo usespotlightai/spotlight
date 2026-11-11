@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { DiffFile, DiffHunk } from '@/lib/change-stack';
 import {
+  type CodeReview,
   drafts,
   linesOf,
   type ReviewComment,
   rangeOf,
   reviewOfStack,
+  routeOf,
   samePlace,
   sideOf,
   spotOf,
@@ -120,11 +122,52 @@ describe('samePlace', () => {
   });
 });
 
+describe('routeOf', () => {
+  const WEB = 'https://github.com/acme/web/pull/7';
+  const review = (landings: CodeReview['landings']): CodeReview => ({
+    landings,
+    reviews: [],
+    comments: [],
+  });
+
+  it('answers from the routes the server gives, for a repository in any case', () => {
+    const both = review([
+      { repository: null, route: 'ambiguous', pullRequest: null },
+      { repository: 'web', route: 'routed', pullRequest: WEB },
+      {
+        repository: 'docs',
+        route: 'routed',
+        pullRequest: 'https://github.com/acme/docs/pull/3',
+      },
+    ]);
+
+    expect(routeOf(both, 'Docs')).toBe('routed');
+    expect(routeOf(both, 'infra')).toBe('waiting');
+    expect(routeOf(both, null)).toBe('ambiguous');
+  });
+
+  it('routes what names no repository only where the server routes it', () => {
+    expect(
+      routeOf(
+        review([{ repository: null, route: 'routed', pullRequest: WEB }]),
+        null,
+      ),
+    ).toBe('routed');
+    expect(
+      routeOf(
+        review([{ repository: null, route: 'waiting', pullRequest: null }]),
+        null,
+      ),
+    ).toBe('waiting');
+    expect(routeOf(undefined, 'web')).toBe('waiting');
+  });
+});
+
 describe('drafts', () => {
   it('counts the caller’s drafts', () => {
     expect(
       drafts({
-        pullRequest: null,
+        landings: [],
         reviews: [],
         comments: [
           comment({ state: 'draft' }),
@@ -179,7 +222,7 @@ describe('rangeOf and linesOf', () => {
 
 describe('reviewOfStack', () => {
   const review = {
-    pullRequest: null,
+    landings: [],
     reviews: [],
     comments: [
       comment({ id: 'in_web', repository: 'web' }),

@@ -23,7 +23,6 @@ import type { RepositoryName } from '@work/domain/value-objects/repository-name.
 import type { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import type { ReviewRequestReceived } from '@work/domain/value-objects/review-request.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
-import { WarmSandboxQuota } from '@work/domain/value-objects/warm-sandbox-quota.vo';
 
 export interface LineMapInput {
   readonly id: LineId;
@@ -37,7 +36,6 @@ export interface LineMapInput {
   readonly repositories?: LineRepositories;
   readonly reviews?: ReviewIntake | null;
   readonly placement?: RunnerPlacement;
-  readonly warmSandboxes?: WarmSandboxQuota;
   readonly welcomesTeams?: boolean;
 }
 
@@ -73,7 +71,6 @@ export class LineMap {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewIntake | null,
     readonly placement: RunnerPlacement,
-    readonly warmSandboxes: WarmSandboxQuota,
     readonly welcomesTeams: boolean,
   ) {}
 
@@ -99,7 +96,6 @@ export class LineMap {
       input.repositories ?? LineRepositories.none(),
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
-      input.warmSandboxes ?? WarmSandboxQuota.NONE,
       input.welcomesTeams ?? false,
     );
   }

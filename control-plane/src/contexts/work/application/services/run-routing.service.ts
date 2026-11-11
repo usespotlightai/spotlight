@@ -3,6 +3,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
+import { handedToRun } from '@work/application/services/handed-to-run';
 import type { NewNote, Task } from '@work/domain/aggregates/task.aggregate';
 import { Placement } from '@work/domain/services/placement';
 import { routeAfterRun } from '@work/domain/services/route-after-run';
@@ -89,10 +90,6 @@ export class RunRouting {
             { newNote, handover },
           );
 
-    const runId = moved.wantsRun(routing.line)
-      ? await this.dispatch.runIdFor({ task: moved, line: routing.line })
-      : null;
-
-    return runId ? moved.assignRun(runId, routing.line) : moved;
+    return handedToRun(this.dispatch, moved, routing.line);
   }
 }

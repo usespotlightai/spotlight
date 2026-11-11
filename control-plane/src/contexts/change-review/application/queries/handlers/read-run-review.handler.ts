@@ -14,6 +14,7 @@ import type {
 import type { ReadRunReviewQuery } from '@change-review/application/queries/read-run-review.query';
 import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { commentVisibleTo } from '@change-review/domain/services/comment-visibility';
+import { landingsOf } from '@change-review/domain/services/pull-request-routing';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import type { DeliveryFailureCode } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
@@ -104,7 +105,12 @@ export class ReadRunReviewHandler implements QueryHandlerPort<
             : null;
 
       return {
-        pullRequest: task.pullRequest?.value ?? null,
+        landings: landingsOf(task).map((each) => ({
+          repository: each.repository?.value ?? null,
+          route: each.route.kind,
+          pullRequest:
+            each.route.kind === 'routed' ? each.route.pullRequest.value : null,
+        })),
         comments: comments.map(({ view, author }): ReviewCommentDto => ({
           id: view.id,
           repository: view.repository,

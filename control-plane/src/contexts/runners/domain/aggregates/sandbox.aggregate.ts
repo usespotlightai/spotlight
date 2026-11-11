@@ -401,6 +401,7 @@ export class Sandbox extends EventRecorder {
       workspaceId: WorkspaceId;
       key: SandboxKey | null;
       line: LineId | null;
+      lineFingerprint: string | null;
     },
     host: RunnerHost,
     at: Date,
@@ -408,7 +409,8 @@ export class Sandbox extends EventRecorder {
     const adopts =
       run.key !== null &&
       run.line !== null &&
-      (this.state.warm?.isFor(run.line) ?? false) &&
+      run.lineFingerprint !== null &&
+      (this.state.warm?.isFor(run.line, run.lineFingerprint) ?? false) &&
       this.state.workspaceId.equals(run.workspaceId) &&
       this.takesFirstRunOn(host, at);
 
@@ -541,6 +543,14 @@ export class Sandbox extends EventRecorder {
     }
 
     return this.isOpen ? this.with({ state: 'draining', warm: null }) : this;
+  }
+
+  retireWarm(): Sandbox | 'removed' {
+    if (!this.isWarm) {
+      return this;
+    }
+
+    return this.isRequested ? 'removed' : this.drain();
   }
 
   drainedWhenPlaced(): Sandbox {

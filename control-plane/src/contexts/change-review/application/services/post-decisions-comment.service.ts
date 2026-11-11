@@ -26,7 +26,7 @@ export class PostDecisionsComment {
   async ofTask(taskId: TaskId): Promise<void> {
     const task = await this.work.task(taskId);
 
-    if (!task?.pullRequest || !task.teamId || !keepsDecisions(task)) {
+    if (!task?.teamId || !keepsDecisions(task)) {
       return;
     }
 

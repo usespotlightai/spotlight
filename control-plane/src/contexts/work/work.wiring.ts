@@ -64,18 +64,12 @@ import { ChangeNotices } from '@platform/live/change-notices';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { Leadership } from '@platform/redis/leadership';
 import { s3ClientsOf } from '@platform/storage/s3-clients';
-import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
 import {
   RUNNER_READER,
   type RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
-import {
-  WARM_SANDBOXES,
-  type WarmSandboxesPort,
-} from '@runners/application/ports/warm-sandboxes.port';
 import {
   ARCHIVE_HOLDERS,
   type ArchiveHoldersPort,
@@ -130,10 +124,6 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
-import {
-  ERROR_REPORTS,
-  type ErrorReportsPort,
-} from '@shared-kernel/application/ports/error-reports.port';
 import {
   ID_GENERATOR,
   type IdGeneratorPort,
@@ -232,8 +222,8 @@ import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.h
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
-import { ReopenTaskPullRequest } from '@work/application/events/handlers/reopen-task-pull-request.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
+import { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
 import { WelcomeTeam } from '@work/application/events/handlers/welcome-team.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { ACCESSIBLE_REPOSITORIES } from '@work/application/ports/accessible-repositories.port';
@@ -305,6 +295,7 @@ import {
   LIVE_TASK_DRAFTS,
   type LiveTaskDraftsPort,
 } from '@work/application/ports/live-task-drafts.port';
+import { MEMBER_INBOXES } from '@work/application/ports/member-inboxes.port';
 import {
   MEMORIES_BRIEFED_BEFORE,
   type MemoriesBriefedBeforePort,
@@ -415,14 +406,6 @@ import {
   TURN_RETAKES,
   type TurnRetakesPort,
 } from '@work/application/ports/turn-retakes.port';
-import {
-  WARM_SANDBOX_KEEPING,
-  type WarmSandboxKeepingPort,
-} from '@work/application/ports/warm-sandbox-keeping.port';
-import {
-  WARM_SANDBOX_LINES,
-  type WarmSandboxLinesPort,
-} from '@work/application/ports/warm-sandbox-lines.port';
 import { WORK_RUN_LOOKUP } from '@work/application/ports/work-run-lookup.port';
 import {
   WORK_STATIONS,
@@ -514,12 +497,12 @@ import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { DraftSending } from '@work/application/services/draft-sending.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { HistoryAccesses } from '@work/application/services/history-accesses.service';
-import { InboxArrivals } from '@work/application/services/inbox-arrivals.service';
 import { InboxRequestLoader } from '@work/application/services/inbox-request-loader.service';
 import { InboxRequests } from '@work/application/services/inbox-requests.service';
 import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
+import { MemberInboxes } from '@work/application/services/member-inboxes.service';
 import { NoteFiles } from '@work/application/services/note-files.service';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
@@ -560,7 +543,6 @@ import { TraceScopes } from '@work/application/services/trace-scopes.service';
 import { TracesLoader } from '@work/application/services/traces-loader.service';
 import { TrialableRuns } from '@work/application/services/trialable-runs.service';
 import { Turns } from '@work/application/services/turns.service';
-import { WarmSandboxKeeping } from '@work/application/services/warm-sandbox-keeping.service';
 import { WorkAccess } from '@work/application/services/work-access.service';
 import { WorkRunLookup } from '@work/application/services/work-run-lookup.service';
 import { WorkTaskLookup } from '@work/application/services/work-task-lookup.service';
@@ -577,10 +559,6 @@ import {
   type InboxRequestRepository,
 } from '@work/domain/repositories/inbox-request.repository';
 import {
-  INBOX_WATCH_REPOSITORY,
-  type InboxWatchRepository,
-} from '@work/domain/repositories/inbox-watch.repository';
-import {
   NOTICE_REPOSITORY,
   type NoticeRepository,
 } from '@work/domain/repositories/notice.repository';
@@ -589,7 +567,6 @@ import {
   type TaskRepository,
 } from '@work/domain/repositories/task.repository';
 import { LinesLineMaps } from '@work/infrastructure/acl/lines.adapter';
-import { RunnersWarmSandboxKeeping } from '@work/infrastructure/acl/runners-warm-sandboxes.adapter';
 import { RunsHarnessCatalogue } from '@work/infrastructure/acl/runs-harness-catalogue';
 import { DrizzleTaskDraftStates } from '@work/infrastructure/collab/drizzle-task-draft-states';
 import { HocuspocusLiveTaskDrafts } from '@work/infrastructure/collab/hocuspocus-live-task-drafts';
@@ -621,7 +598,6 @@ import { DrizzleWorkRequesterLabels } from '@work/infrastructure/persistence/dri
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/dispatch.repository';
 import { DrizzleInboxRequestRepository } from '@work/infrastructure/persistence/drizzle/repositories/inbox-request.repository';
-import { DrizzleInboxWatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/inbox-watch.repository';
 import { DrizzleNoticeRepository } from '@work/infrastructure/persistence/drizzle/repositories/notice.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { DrizzleStationDeletionGuard } from '@work/infrastructure/persistence/drizzle/station-deletion.guard';
@@ -629,7 +605,6 @@ import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.st
 import { S3Readiness } from '@work/infrastructure/storage/s3-readiness';
 import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-parent';
 import { TaskDraftCollab } from '@work/presentation/collab/task-draft.collab';
-import { inboxArrivalSubscribers } from '@work/presentation/events/inbox-arrivals.subscribers';
 import { workStationSubscribers } from '@work/presentation/events/work-stations.subscribers';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
 import { AttachmentController } from '@work/presentation/http/controllers/attachment.controller';
@@ -644,12 +619,10 @@ import { WORK_CHANGE_NOTICES } from '@work/presentation/live/work.change-notices
 import { ProcessedEventsWorker } from '@work/presentation/workers/processed-events.worker';
 import { ToolUsesWorker } from '@work/presentation/workers/tool-uses.worker';
 import { TurnsWorker } from '@work/presentation/workers/turns.worker';
-import { WarmSandboxesWorker } from '@work/presentation/workers/warm-sandboxes.worker';
 
 const WORK_EVENTS = Symbol('WORK_EVENTS');
 
 const WORK_STATION_EVENTS = Symbol('WORK_STATION_EVENTS');
-const INBOX_ARRIVAL_EVENTS = Symbol('INBOX_ARRIVAL_EVENTS');
 
 export const WORK_CONTROLLERS: readonly Type[] = [
   RunWorkController,
@@ -853,57 +826,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: NOTICE_REPOSITORY, useExisting: DrizzleNoticeRepository },
 
-  { provide: INBOX_WATCH_REPOSITORY, useClass: DrizzleInboxWatchRepository },
-
   {
-    provide: InboxArrivals,
-    inject: [
-      INBOX_WATCH_REPOSITORY,
-      INBOX_READER,
-      WorkAccess,
-      CLOCK,
-      TRANSACTION,
-      LOGGER,
-      ERROR_REPORTS,
-      TELEMETRY,
-    ],
-    useFactory: (
-      watches: InboxWatchRepository,
-      inbox: InboxReaderPort,
-      access: WorkAccess,
-      clock: ClockPort,
-      transaction: TransactionPort,
-      logger: LoggerPort,
-      reports: ErrorReportsPort,
-      telemetry: TelemetryPort,
-    ) =>
-      new InboxArrivals(
-        watches,
-        inbox,
-        access,
-        clock,
-        transaction,
-        logger,
-        reports,
-        telemetry,
-      ),
+    provide: MemberInboxes,
+    inject: [INBOX_READER, WorkAccess],
+    useFactory: (inbox: InboxReaderPort, access: WorkAccess) =>
+      new MemberInboxes(inbox, access),
   },
-
-  {
-    provide: PendingJobWorker,
-    inject: [InboxArrivals, LOGGER],
-    useFactory: (arrivals: InboxArrivals, logger: LoggerPort) =>
-      new PendingJobWorker([arrivals], logger),
-  },
-
-  {
-    provide: INBOX_ARRIVAL_EVENTS,
-    inject: [EventSubscribers, InboxArrivals],
-    useFactory: (subscribers: EventSubscribers, arrivals: InboxArrivals) => {
-      subscribers.register(inboxArrivalSubscribers(arrivals));
-      return true;
-    },
-  },
+  { provide: MEMBER_INBOXES, useExisting: MemberInboxes },
 
   {
     provide: Notices,
@@ -1166,36 +1095,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         telemetry,
         logger,
       ),
-  },
-
-  {
-    provide: WARM_SANDBOX_KEEPING,
-    inject: [WARM_SANDBOXES],
-    useFactory: (sandboxes: WarmSandboxesPort) =>
-      new RunnersWarmSandboxKeeping(sandboxes),
-  },
-
-  { provide: WARM_SANDBOX_LINES, useExisting: LINE_MAPS },
-
-  {
-    provide: WarmSandboxKeeping,
-    inject: [WARM_SANDBOX_LINES, WARM_SANDBOX_KEEPING, CLOCK, LOGGER],
-    useFactory: (
-      lines: WarmSandboxLinesPort,
-      sandboxes: WarmSandboxKeepingPort,
-      clock: ClockPort,
-      logger: LoggerPort,
-    ) => new WarmSandboxKeeping(lines, sandboxes, clock, logger),
-  },
-
-  {
-    provide: WarmSandboxesWorker,
-    inject: [WarmSandboxKeeping, Leadership, LOGGER],
-    useFactory: (
-      keeping: WarmSandboxKeeping,
-      leadership: Leadership,
-      logger: LoggerPort,
-    ) => new WarmSandboxesWorker(keeping, leadership, logger),
   },
 
   {
@@ -1845,6 +1744,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RUN_JOURNAL_READER,
       TakeTurn,
       RUN_JOURNAL_READINGS,
+      TASK_PLACEMENTS,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1874,6 +1774,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       journals: RunJournalReaderPort,
       turns: TakeTurn,
       readings: RunJournalReadingsPort,
+      placements: TaskPlacementsPort,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -1929,7 +1830,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           toolUsedHooks,
           notices,
           takenMarks: new ReleaseTakenMarks(tasks, transaction),
-          reopenedPullRequests: new ReopenTaskPullRequest(tasks, transaction),
+          taskPullRequests: new TrackTaskPullRequests(
+            tasks,
+            lines,
+            placements,
+            taskDispatch,
+            transaction,
+            clock,
+          ),
         }),
       ]);
       return true;

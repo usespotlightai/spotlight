@@ -26,6 +26,7 @@ import type {
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
+import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
   lineMapOf,
@@ -158,6 +159,8 @@ const opening = (
   const tasks = {
     find: async () => stored,
     findByCorrelation: async () => (over.markedTask ? [over.markedTask] : []),
+    owningPullRequest: async () => null,
+    reviewingPullRequest: async () => null,
     holdingMark: async () => [],
     save: async (each: Task) => {
       saved.push(each);
@@ -271,7 +274,7 @@ describe('OpenPullRequest', () => {
 
     await open(task());
 
-    expect(saved[0]?.pullRequest?.value).toBe(
+    expect(saved[0]?.pullRequests[0]?.value).toBe(
       'https://github.com/acme/widgets/pull/7',
     );
   });
@@ -372,7 +375,7 @@ describe('OpenPullRequest', () => {
     expect(opened).toEqual([]);
   });
 
-  it('edits the first where the agent names no repository and several are worked', async () => {
+  it('asks the agent to name a repository where several are worked, and edits none', async () => {
     const already = task().recordPullRequest(
       RUN,
       PullRequestUrl.of('https://github.com/acme/api/pull/1'),
@@ -383,11 +386,8 @@ describe('OpenPullRequest', () => {
       repositories: ['acme/api', 'acme/web'],
     });
 
-    await open(already);
-
-    expect(edited.map((each) => each.pullRequest.value)).toEqual([
-      'https://github.com/acme/api/pull/1',
-    ]);
+    await expect(open(already)).rejects.toThrow(NoRepositoryError);
+    expect(edited).toEqual([]);
     expect(opened).toEqual([]);
   });
 
@@ -427,7 +427,7 @@ describe('OpenPullRequest', () => {
     await open(task());
 
     expect(saved[0]?.notes).toHaveLength(1);
-    expect(saved[0]?.pullRequest?.value).toBe(
+    expect(saved[0]?.pullRequests[0]?.value).toBe(
       'https://github.com/acme/widgets/pull/7',
     );
   });

@@ -177,6 +177,12 @@ const linkInput = (over: Partial<OAuth2LinkInput> = {}): OAuth2LinkInput => ({
 
 const viewerOf = (id: string | null) => (id === null ? null : UserId.of(id));
 
+const refusedFor = (reason: string) => ({
+  refused: reason,
+  teamId: TeamId.of('team_1'),
+  integration: IntegrationKey.of('slack'),
+});
+
 const returned = (
   over: {
     state?: string;
@@ -237,13 +243,17 @@ describe('OAuth2Linking', () => {
 
     const authorized = await it.authorized(returned());
 
+    if ('refused' in authorized) {
+      throw new Error(authorized.refused);
+    }
+
     expect(exchange).toHaveBeenCalledOnce();
-    expect(authorized?.teamId.value).toBe('team_1');
-    expect(authorized?.integration.value).toBe('slack');
-    expect(authorized?.by.value).toBe('user_1');
-    expect(authorized?.owner).toBe('person');
-    expect(authorized?.returnTo).toBe('/w/acme/inbox/task_1');
-    expect(authorized?.tokens.accessToken.value).toBe('xoxb-1');
+    expect(authorized.teamId.value).toBe('team_1');
+    expect(authorized.integration.value).toBe('slack');
+    expect(authorized.by.value).toBe('user_1');
+    expect(authorized.owner).toBe('person');
+    expect(authorized.returnTo).toBe('/w/acme/inbox/task_1');
+    expect(authorized.tokens.accessToken.value).toBe('xoxb-1');
   });
 
   it('exchanges the code within the outbound scope of the team’s workspace', async () => {
@@ -272,7 +282,7 @@ describe('OAuth2Linking', () => {
     const { it, exchange, allowedWhileRegistering } = linking({ team: false });
 
     expect(await it.begin(linkInput())).toBeNull();
-    expect(await it.authorized(returned())).toBeNull();
+    expect(await it.authorized(returned())).toEqual(refusedFor('no-team'));
     expect(allowedWhileRegistering).toEqual([]);
     expect(exchange).not.toHaveBeenCalled();
   });
@@ -288,43 +298,55 @@ describe('OAuth2Linking', () => {
       nonce: 'n-1',
     }).token;
 
-    expect(await it.authorized(returned({ state: forged }))).toBeNull();
+    expect(await it.authorized(returned({ state: forged }))).toEqual({
+      refused: 'state-not-accepted',
+    });
     expect(exchange).not.toHaveBeenCalled();
   });
 
   it('yields nothing when the service does not accept the code', async () => {
     const { it } = linking({ exchanged: null });
 
-    expect(await it.authorized(returned())).toBeNull();
+    expect(await it.authorized(returned())).toEqual(
+      refusedFor('token-exchange-failed'),
+    );
   });
 
   it('rejects a browser whose nonce cookie is not the one the state carries', async () => {
     const { it, exchange } = linking();
 
-    expect(await it.authorized(returned({ nonce: 'n-2' }))).toBeNull();
+    expect(await it.authorized(returned({ nonce: 'n-2' }))).toEqual(
+      refusedFor('nonce-mismatch'),
+    );
     expect(exchange).not.toHaveBeenCalled();
   });
 
   it('rejects a browser that brought no nonce cookie', async () => {
     const { it, exchange } = linking();
 
-    expect(await it.authorized(returned({ nonce: null }))).toBeNull();
+    expect(await it.authorized(returned({ nonce: null }))).toEqual(
+      refusedFor('nonce-mismatch'),
+    );
     expect(exchange).not.toHaveBeenCalled();
   });
 
   it('rejects a session that is not the person who began', async () => {
     const { it, exchange } = linking();
 
-    expect(await it.authorized(returned({ viewerId: 'user_2' }))).toBeNull();
-    expect(await it.authorized(returned({ viewerId: null }))).toBeNull();
+    expect(await it.authorized(returned({ viewerId: 'user_2' }))).toEqual(
+      refusedFor('other-person'),
+    );
+    expect(await it.authorized(returned({ viewerId: null }))).toEqual(
+      refusedFor('other-person'),
+    );
     expect(exchange).not.toHaveBeenCalled();
   });
 
   it('rejects a state that has already been returned once', async () => {
     const { it, exchange } = linking();
 
-    expect(await it.authorized(returned())).not.toBeNull();
-    expect(await it.authorized(returned())).toBeNull();
+    expect(await it.authorized(returned())).toHaveProperty('tokens');
+    expect(await it.authorized(returned())).toEqual(refusedFor('nonce-spent'));
     expect(exchange).toHaveBeenCalledOnce();
   });
 

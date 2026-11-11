@@ -28,14 +28,18 @@ import type {
   ChatView,
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
-import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { Progress } from '@work/domain/value-objects/progress';
+import { inboxSectionOf } from '@work/application/read-models/inbox-section';
 import {
-  chatSectionOf,
-  chatUnread,
-  chatWaiting,
+  chatInboxStanding,
+  chatProgress,
+} from '@work/domain/services/chat-inbox';
+import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { RunProgressReading } from '@work/domain/value-objects/progress';
+import {
+  chatInboxFacts,
+  chatInboxFactsOf,
 } from '@work/infrastructure/persistence/drizzle/readers/chat-inbox-state';
-import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
+import { currentRunReadings } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
 import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
@@ -48,38 +52,33 @@ import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 type Row = typeof chat.$inferSelect;
 
-const inboxFacts = { unread: chatUnread, waiting: chatWaiting };
-
-type InboxFacts = Record<keyof typeof inboxFacts, boolean>;
+type InboxFacts = {
+  readonly waiting: boolean;
+  readonly lastProposedAt: Date | null;
+};
 
 const summaryOf = (
   row: Row,
-  facts: InboxFacts,
-  progressOf: (runId: string | null) => Progress | null,
-): ChatSummary => ({
-  id: row.id,
-  title: row.title,
-  harness: row.harness,
-  model: row.model,
-  effort: row.effort,
-  repositories: row.repositories,
-  targetStation: row.targetStation ?? null,
-  setup: row.setup ?? null,
-  createdAt: row.createdAt.toISOString(),
-  updatedAt: row.updatedAt.toISOString(),
-  progress:
-    row.currentRunId === null
-      ? facts.waiting
-        ? 'queued'
-        : null
-      : progressOf(row.currentRunId),
-  waitingForYou:
-    chatSectionOf({
-      ...facts,
-      resolvedAt: row.resolvedAt,
-      working: row.currentRunId,
-    }) === 'open',
-});
+  inbox: InboxFacts,
+  currentRunOf: (runId: string | null) => RunProgressReading | null,
+): ChatSummary => {
+  const facts = chatInboxFactsOf({ ...row, ...inbox });
+
+  return {
+    id: row.id,
+    title: row.title,
+    harness: row.harness,
+    model: row.model,
+    effort: row.effort,
+    repositories: row.repositories,
+    targetStation: row.targetStation ?? null,
+    setup: row.setup ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    progress: chatProgress(facts, currentRunOf(row.currentRunId)),
+    waitingForYou: inboxSectionOf(chatInboxStanding(facts)) === 'open',
+  };
+};
 
 @Injectable()
 export class DrizzleChatReader implements ChatReaderPort {
@@ -147,7 +146,11 @@ export class DrizzleChatReader implements ChatReaderPort {
   ): Promise<Page<ChatSummary>> {
     const before = timeCursorOf(page.before);
     const rows = await this.db
-      .select({ chat, cursorAt: sortableTime(chat.updatedAt), ...inboxFacts })
+      .select({
+        chat,
+        cursorAt: sortableTime(chat.updatedAt),
+        ...chatInboxFacts,
+      })
       .from(chat)
       .where(
         and(
@@ -159,10 +162,9 @@ export class DrizzleChatReader implements ChatReaderPort {
       .orderBy(desc(chat.updatedAt), desc(chat.id))
       .limit(page.limit + 1);
 
-    const progressOf = await progressOfCurrentRuns(
+    const currentRunOf = await currentRunReadings(
       this.progress,
       rows.map((row) => row.chat.currentRunId),
-      false,
     );
 
     return mapPage(
@@ -170,13 +172,13 @@ export class DrizzleChatReader implements ChatReaderPort {
         key: row.cursorAt,
         id: row.chat.id,
       })),
-      (row) => summaryOf(row.chat, row, progressOf),
+      (row) => summaryOf(row.chat, row, currentRunOf),
     );
   }
 
   async read(teamId: TeamId, chatId: ChatId): Promise<ChatView | null> {
     const [found] = await this.db
-      .select({ chat, ...inboxFacts })
+      .select({ chat, ...chatInboxFacts })
       .from(chat)
       .where(and(eq(chat.id, chatId.value), eq(chat.teamId, teamId.value)))
       .limit(1);
@@ -186,7 +188,7 @@ export class DrizzleChatReader implements ChatReaderPort {
     }
 
     const row = found.chat;
-    const [messages, attachments, [starter], progressOf] = await Promise.all([
+    const [messages, attachments, [starter], currentRunOf] = await Promise.all([
       this.db
         .select()
         .from(chatMessage)
@@ -198,7 +200,7 @@ export class DrizzleChatReader implements ChatReaderPort {
         .where(eq(chatAttachment.chatId, row.id))
         .orderBy(asc(chatAttachment.place)),
       this.people.find(UserId.of(row.startedById)).then((found) => [found]),
-      progressOfCurrentRuns(this.progress, [row.currentRunId], false),
+      currentRunReadings(this.progress, [row.currentRunId]),
     ]);
 
     const proposedAt = messages.flatMap((each) =>
@@ -224,7 +226,7 @@ export class DrizzleChatReader implements ChatReaderPort {
     );
 
     return {
-      ...summaryOf(row, found, progressOf),
+      ...summaryOf(row, found, currentRunOf),
       runId: row.currentRunId,
       messages: messages.map((message) => {
         const proposal = message.proposal ?? null;

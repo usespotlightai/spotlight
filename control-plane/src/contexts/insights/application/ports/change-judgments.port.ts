@@ -9,6 +9,7 @@ export interface ChangeJudgmentOrder {
   readonly criteria: JudgeCriteria;
   readonly reference: RunId | null;
   readonly guidanceRequested: boolean;
+  readonly effectsBlocked: boolean;
 }
 
 interface ChangeJudgmentReason {

@@ -34,6 +34,7 @@ import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.err
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
+import { chatUnread } from '@work/domain/services/chat-inbox';
 import { chatPlacement } from '@work/domain/services/chat-placement';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -281,10 +282,6 @@ export class Chat extends EventRecorder {
     return this.currentRunId !== null;
   }
 
-  get inboxRunning(): boolean {
-    return this.running || this.wantsFollowUp;
-  }
-
   resolve(by: UserId, at: Date): Chat {
     this.assertStarter(by);
 
@@ -300,11 +297,19 @@ export class Chat extends EventRecorder {
   markRead(by: UserId, at: Date): Chat {
     this.assertStarter(by);
 
-    const readAt = this.readAt;
-    const stale =
-      readAt === null || this.messages.some((message) => message.at > readAt);
+    return this.unread ? this.with({ readAt: at }) : this;
+  }
 
-    return stale ? this.with({ readAt: at }) : this;
+  get unread(): boolean {
+    const proposedAt = this.messages
+      .filter((message) => message.kind === 'proposed')
+      .map((message) => message.at.getTime());
+
+    return chatUnread({
+      readAt: this.readAt,
+      lastProposedAt:
+        proposedAt.length === 0 ? null : new Date(Math.max(...proposedAt)),
+    });
   }
 
   hasCurrentRun(runId: RunId): boolean {

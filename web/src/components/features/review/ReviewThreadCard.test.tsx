@@ -92,7 +92,10 @@ describe('ReviewThreadCard', () => {
   });
 
   it('says a comment waits for the pull request where there is none yet', () => {
-    const waiting = { ...REVIEW, pullRequest: null };
+    const waiting: CodeReview = {
+      ...REVIEW,
+      landings: [{ repository: null, route: 'waiting', pullRequest: null }],
+    };
 
     render(
       within_(
@@ -104,6 +107,25 @@ describe('ReviewThreadCard', () => {
     expect(
       screen.getByText('Posts when the pull request opens'),
     ).toBeInTheDocument();
+  });
+
+  it('says a comment names no repository where the task has several pull requests', () => {
+    const ambiguous: CodeReview = {
+      ...REVIEW,
+      landings: [{ repository: null, route: 'ambiguous', pullRequest: null }],
+    };
+
+    render(
+      within_(
+        ambiguous,
+        <ReviewThreadCard thread={threadOf(ambiguous, 'comment_expiry')} />,
+      ),
+    );
+
+    expect(screen.getByText('Names no repository')).toHaveAttribute(
+      'title',
+      'The task has more than one pull request. The comment names no repository.',
+    );
   });
 
   it('replies in the thread', async () => {

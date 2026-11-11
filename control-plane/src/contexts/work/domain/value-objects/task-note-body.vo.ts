@@ -25,6 +25,18 @@ export class TaskNoteBody {
     return TaskNoteBody.of(anchored || summary);
   }
 
+  static heldMove(to: StationName, account: TaskNoteBody): TaskNoteBody {
+    return TaskNoteBody.of(
+      `The task has another open pull request. It moves to ${to.value} when its last pull request closes.\n\n${account.value}`,
+    );
+  }
+
+  static movedWhenPullRequestsClosed(to: StationName): TaskNoteBody {
+    return TaskNoteBody.of(
+      `Moved to ${to.value} when the last pull request of the task closed.`,
+    );
+  }
+
   static deferredMove(to: StationName, account: TaskNoteBody): TaskNoteBody {
     return TaskNoteBody.of(
       `This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${account.value}`,

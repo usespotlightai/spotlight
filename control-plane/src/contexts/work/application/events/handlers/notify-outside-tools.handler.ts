@@ -30,7 +30,6 @@ export class NotifyOutsideTools {
     const notified = await this.notifier.notify(
       task,
       bindableTaskEventOf(event),
-      event.kind === 'task.pull-request-opened' ? event.url : null,
     );
 
     if (notified.length === 0) {

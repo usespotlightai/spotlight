@@ -39,12 +39,12 @@ import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo'
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
 import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
-import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
+import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
+import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
-import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -73,6 +73,7 @@ import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/wo
 import {
   and,
   asc,
+  desc,
   eq,
   gt,
   inArray,
@@ -188,7 +189,7 @@ const toTask = (
   notes: NoteRow[],
   attachments: AttachmentRow[],
   marks: MarkRow[],
-  laterPullRequests: LaterPullRequestRow[],
+  ownedPullRequests: OwnedPullRequestRow[],
 ): Task =>
   Task.rehydrate({
     attachments: toAttachments(attachments, null),
@@ -226,31 +227,31 @@ const toTask = (
     answeredTurnAt: row.answeredTurnAt,
     revision: TaskRevision.of(row.revision),
     version: row.version,
-    pullRequestLink: row.pullRequest
-      ? row.reviewing
-        ? PullRequestLink.reviewing(PullRequestUrl.of(row.pullRequest), {
-            outside: row.reviewFromOutside,
-          })
-        : PullRequestLink.opened(PullRequestUrl.of(row.pullRequest))
+    reviewedPullRequest: row.reviewedPullRequest
+      ? ReviewedPullRequest.of(PullRequestUrl.of(row.reviewedPullRequest), {
+          outside: row.reviewFromOutside,
+        })
       : null,
-    pullRequestClosedAt: row.pullRequestClosedAt,
+    moveHeldTo: row.moveHeldTo ? StationId.of(row.moveHeldTo) : null,
     heldMarks: marks.map((each) =>
       HeldMark.of(Mark.of(each.kind, each.value), each.heldSince),
     ),
-    laterPullRequests: laterPullRequests.map((each) =>
-      LaterPullRequest.of(
+    ownedPullRequests: ownedPullRequests.map((each) =>
+      OwnedPullRequest.of(
         PullRequestUrl.of(each.url),
         each.openedAt,
         each.closedAt,
+        each.closeRouted,
       ),
     ),
   });
 
-interface LaterPullRequestRow {
+interface OwnedPullRequestRow {
   readonly taskId: string;
   readonly url: string;
   readonly openedAt: Date;
   readonly closedAt: Date | null;
+  readonly closeRouted: boolean;
 }
 
 interface MarkRow {
@@ -264,12 +265,12 @@ interface Parts {
   readonly notes: Map<string, NoteRow[]>;
   readonly attachments: Map<string, AttachmentRow[]>;
   readonly marks: Map<string, MarkRow[]>;
-  readonly later: Map<string, LaterPullRequestRow[]>;
+  readonly owned: Map<string, OwnedPullRequestRow[]>;
 }
 
 const assembled = (
   rows: readonly Row[],
-  { notes, attachments, marks, later }: Parts,
+  { notes, attachments, marks, owned }: Parts,
 ): Task[] =>
   rows.map((each) =>
     toTask(
@@ -277,7 +278,7 @@ const assembled = (
       notes.get(each.id) ?? [],
       attachments.get(each.id) ?? [],
       marks.get(each.id) ?? [],
-      later.get(each.id) ?? [],
+      owned.get(each.id) ?? [],
     ),
   );
 
@@ -316,10 +317,9 @@ export class DrizzleTaskRepository implements TaskRepository {
         proposedInChatId: added.proposedIn?.chatId.value ?? null,
         proposedInPosition: added.proposedIn?.position.value ?? null,
         assigneeId: added.assignee?.value ?? null,
-        pullRequest: added.pullRequest?.value ?? null,
-        pullRequestClosedAt: added.pullRequestClosedAt,
-        reviewing: added.reviewing,
+        reviewedPullRequest: added.reviewedPullRequest?.url.value ?? null,
         reviewFromOutside: added.fromOutside,
+        moveHeldTo: added.moveHeldTo?.value ?? null,
         finishedAt: added.finishedAt,
         workingCopyReleasedAt: added.workingCopyRelease.releasedAt,
         revision: added.revision.value,
@@ -333,7 +333,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeNotes(added);
     await this.writeAttachments(added);
     await this.writeMarks(added);
-    await this.writeLaterPullRequests(added);
+    await this.writeOwnedPullRequests(added);
   }
 
   async save(saved: Task): Promise<void> {
@@ -385,10 +385,9 @@ export class DrizzleTaskRepository implements TaskRepository {
           currentRunId: saved.currentRunId?.value ?? null,
           sessionId: saved.session?.value ?? null,
           runnerId: saved.claimedBy?.value ?? null,
-          pullRequest: saved.pullRequest?.value ?? null,
-          pullRequestClosedAt: saved.pullRequestClosedAt,
-          reviewing: saved.reviewing,
+          reviewedPullRequest: saved.reviewedPullRequest?.url.value ?? null,
           reviewFromOutside: saved.fromOutside,
+          moveHeldTo: saved.moveHeldTo?.value ?? null,
           finishedAt: saved.finishedAt,
           workingCopyReleasedAt: saved.workingCopyRelease.releasedAt,
           assigneeId: saved.assignee?.value ?? null,
@@ -413,7 +412,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeNotes(saved);
     await this.writeAttachments(saved);
     await this.writeMarks(saved);
-    await this.writeLaterPullRequests(saved);
+    await this.writeOwnedPullRequests(saved);
   }
 
   private async writeMarks(written: Task): Promise<void> {
@@ -452,31 +451,35 @@ export class DrizzleTaskRepository implements TaskRepository {
       });
   }
 
-  private async writeLaterPullRequests(written: Task): Promise<void> {
-    if (written.laterPullRequests.length === 0) {
+  private async writeOwnedPullRequests(written: Task): Promise<void> {
+    if (written.ownedPullRequests.length === 0) {
       return;
     }
 
     await this.context.db
       .insert(taskPullRequest)
       .values(
-        written.laterPullRequests.map((each) => ({
+        written.ownedPullRequests.map((each) => ({
           workspaceId: written.workspaceId.value,
           taskId: written.id.value,
           url: each.url.value,
           openedAt: each.openedAt,
           closedAt: each.closedAt,
+          closeRouted: each.closeRouted,
         })),
       )
       .onConflictDoUpdate({
         target: [taskPullRequest.taskId, taskPullRequest.url],
-        set: { closedAt: sql`excluded.closed_at` },
+        set: {
+          closedAt: sql`excluded.closed_at`,
+          closeRouted: sql`excluded.close_routed`,
+        },
       });
   }
 
-  private async laterPullRequestsFor(
+  private async ownedPullRequestsFor(
     taskIds: string[],
-  ): Promise<Map<string, LaterPullRequestRow[]>> {
+  ): Promise<Map<string, OwnedPullRequestRow[]>> {
     if (taskIds.length === 0) {
       return new Map();
     }
@@ -487,6 +490,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         url: taskPullRequest.url,
         openedAt: taskPullRequest.openedAt,
         closedAt: taskPullRequest.closedAt,
+        closeRouted: taskPullRequest.closeRouted,
       })
       .from(taskPullRequest)
       .where(inArray(taskPullRequest.taskId, taskIds))
@@ -495,7 +499,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     return rows.reduce((opened, row) => {
       opened.set(row.taskId, [...(opened.get(row.taskId) ?? []), row]);
       return opened;
-    }, new Map<string, LaterPullRequestRow[]>());
+    }, new Map<string, OwnedPullRequestRow[]>());
   }
 
   private async marksFor(taskIds: string[]): Promise<Map<string, MarkRow[]>> {
@@ -525,14 +529,14 @@ export class DrizzleTaskRepository implements TaskRepository {
 
   // The row comes first: a part written after it changes the version, so a save from a mixed read conflicts.
   private async partsFor(ids: string[]): Promise<Parts> {
-    const [notes, attachments, marks, later] = await this.context.concurrently(
+    const [notes, attachments, marks, owned] = await this.context.concurrently(
       () => this.notesFor(ids),
       () => this.attachmentsFor(ids),
       () => this.marksFor(ids),
-      () => this.laterPullRequestsFor(ids),
+      () => this.ownedPullRequestsFor(ids),
     );
 
-    return { notes, attachments, marks, later };
+    return { notes, attachments, marks, owned };
   }
 
   async find(id: TaskId): Promise<Task | null> {
@@ -573,6 +577,53 @@ export class DrizzleTaskRepository implements TaskRepository {
       .for('update');
 
     return this.whole(found);
+  }
+
+  async owningPullRequest(
+    workspaceId: WorkspaceId,
+    pullRequest: PullRequestUrl,
+  ): Promise<Task | null> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        inArray(
+          task.id,
+          this.context.db
+            .select({ id: taskPullRequest.taskId })
+            .from(taskPullRequest)
+            .where(
+              and(
+                eq(taskPullRequest.workspaceId, workspaceId.value),
+                eq(taskPullRequest.url, pullRequest.value),
+              ),
+            ),
+        ),
+      )
+      .orderBy(desc(task.createdAt), task.id)
+      .limit(1)
+      .for('update');
+
+    return (await this.whole(found))[0] ?? null;
+  }
+
+  async reviewingPullRequest(
+    workspaceId: WorkspaceId,
+    pullRequest: PullRequestUrl,
+  ): Promise<Task | null> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        and(
+          eq(task.workspaceId, workspaceId.value),
+          eq(task.reviewedPullRequest, pullRequest.value),
+        ),
+      )
+      .orderBy(desc(task.createdAt), task.id)
+      .limit(1);
+
+    return (await this.whole(found))[0] ?? null;
   }
 
   async holdingMark(

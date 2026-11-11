@@ -1,5 +1,6 @@
 import { InvalidRunSpecError } from '@runs/domain/exceptions/invalid-run-spec.error';
 import type { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
+import type { WarmCheckout } from '@runs/domain/value-objects/warm-line.vo';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -485,6 +486,15 @@ export class RunSpec {
           : [],
       ),
     );
+  }
+
+  get warmCheckouts(): readonly WarmCheckout[] | null {
+    const checkouts = this.parts.checkouts ?? [];
+    const placed = checkouts.flatMap(({ path, setup }) =>
+      path === undefined ? [] : [{ path, setup: setup ?? null }],
+    );
+
+    return placed.length === checkouts.length ? placed : null;
   }
 
   get checkoutFolders(): readonly string[] {

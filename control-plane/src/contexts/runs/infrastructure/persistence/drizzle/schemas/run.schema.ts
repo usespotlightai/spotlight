@@ -87,6 +87,7 @@ export const run = pgTable(
       .notNull()
       .default({}),
     lineId: text('line_id'),
+    lineFingerprint: text('line_fingerprint'),
     apiGrant: jsonb('api_grant').$type<RunApiGrantParts>(),
     orderFingerprint: text('order_fingerprint'),
     state: runState('state').notNull(),

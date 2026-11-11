@@ -48,6 +48,10 @@ export interface WorkspaceTeamAccess {
   readonly teams: readonly TeamAccessEntry[];
 }
 
+export interface MemberTeamAccess extends WorkspaceTeamAccess {
+  readonly viewer: UserId;
+}
+
 export interface WorkspaceAccessPort {
   mayView(viewer: UserId, workspaceId: WorkspaceId): Promise<boolean>;
 
@@ -65,6 +69,10 @@ export interface WorkspaceAccessPort {
     slug: string,
     viewer: UserId,
   ): Promise<WorkspaceTeamAccess | null>;
+
+  teamAccessOfMembers(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly MemberTeamAccess[]>;
 
   inWorkspaceOfTeam(
     teamId: TeamId,

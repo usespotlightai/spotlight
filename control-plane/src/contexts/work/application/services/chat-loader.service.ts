@@ -39,10 +39,18 @@ export class ChatLoader {
     return chat;
   }
 
-  async startedBy(chatId: string, viewer: string): Promise<Chat> {
+  async inInboxOf(chatId: string, slug: string, person: string): Promise<Chat> {
+    const viewer = UserId.of(person);
     const chat = await this.chats.find(ChatId.of(chatId));
+    const team = chat ? await this.access.seenTeam(chat.teamId, viewer) : null;
 
-    if (!chat?.isStartedBy(UserId.of(viewer))) {
+    if (
+      !chat ||
+      !team ||
+      team.slug !== slug ||
+      !team.workspaceId.equals(chat.workspaceId) ||
+      !(await this.access.standingOn(chat.teamId, viewer)).seesTasks
+    ) {
       throw new UnknownChatError(chatId);
     }
 

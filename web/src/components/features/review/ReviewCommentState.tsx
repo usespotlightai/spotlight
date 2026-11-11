@@ -1,6 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 
-import type { ReviewComment } from '@/lib/review';
+import type { PullRequestRoute, ReviewComment } from '@/lib/review';
 import { cn } from '@/lib/utils';
 
 const STATE_DESCRIPTION: Record<ReviewComment['state'], string> = {
@@ -10,17 +10,28 @@ const STATE_DESCRIPTION: Record<ReviewComment['state'], string> = {
   failed: 'Not posted to GitHub',
 };
 
+const SENDING_DESCRIPTION: Record<PullRequestRoute, string> = {
+  routed: STATE_DESCRIPTION.sending,
+  waiting: 'Posts when the pull request opens',
+  ambiguous: 'Names no repository',
+};
+
+const AMBIGUOUS =
+  'The task has more than one pull request. The comment names no repository.';
+
 export function ReviewCommentState({
   comment,
-  waiting,
+  route,
 }: {
   comment: ReviewComment;
-  waiting: boolean;
+  route: PullRequestRoute;
 }) {
-  const description =
-    comment.state === 'sending' && waiting
-      ? 'Posts when the pull request opens'
-      : STATE_DESCRIPTION[comment.state];
+  const sending = comment.state === 'sending';
+  const description = sending
+    ? SENDING_DESCRIPTION[route]
+    : STATE_DESCRIPTION[comment.state];
+  const title =
+    comment.failure ?? (sending && route === 'ambiguous' ? AMBIGUOUS : null);
 
   const className = cn(
     'flex shrink-0 items-center rounded-full border border-border bg-card px-1.5 py-0 font-medium text-muted-foreground text-xs',
@@ -46,7 +57,7 @@ export function ReviewCommentState({
   }
 
   return (
-    <span className={className} title={comment.failure ?? undefined}>
+    <span className={className} title={title ?? undefined}>
       {description}
     </span>
   );

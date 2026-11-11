@@ -11,6 +11,7 @@ import type { IntegrationRuntimePort } from '@integrations/application/ports/int
 import type {
   OAuth2Authorized,
   OAuth2LinkingPort,
+  OAuth2Refused,
 } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
@@ -23,6 +24,7 @@ import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -35,6 +37,7 @@ const authorizing = (allowed: boolean, member = true) =>
     viewableOf: vi.fn(),
     inWorkspace: vi.fn(),
     teamAccessIn: vi.fn(),
+    teamAccessOfMembers: vi.fn(),
     inWorkspaceOfTeam: vi.fn(async () =>
       member
         ? {
@@ -70,6 +73,16 @@ describe('BeginOAuth2ConnectionHandler', () => {
     const begin = vi.fn(async () => STARTED);
     const scoped: string[] = [];
     const clientFor = vi.fn(async () => CLIENT);
+    const registrationFor = vi.fn(async () => ({
+      endpoint: 'https://slack.com/register' as string | null,
+      server: null,
+    }));
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    } satisfies LoggerPort;
     const integration = Integration.of({
       key: IntegrationKey.of('slack'),
       apiSpecs: ['mcp'],
@@ -80,6 +93,8 @@ describe('BeginOAuth2ConnectionHandler', () => {
     return {
       begin,
       clientFor,
+      registrationFor,
+      logger,
       scoped,
       handler: new BeginOAuth2ConnectionHandler(
         authorizing(over.allowed ?? true, over.member ?? true),
@@ -87,13 +102,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
         {
           integrations: () => [integration],
         } as unknown as IntegrationRuntimePort,
-        {
-          begin,
-          registrationFor: async () => ({
-            endpoint: 'https://slack.com/register',
-            server: null,
-          }),
-        } as unknown as OAuth2LinkingPort,
+        { begin, registrationFor } as unknown as OAuth2LinkingPort,
         { clientFor } as unknown as OAuth2ClientResolution,
         {
           within: async (workspace, work) => {
@@ -102,9 +111,24 @@ describe('BeginOAuth2ConnectionHandler', () => {
           },
           withinFresh: async (_workspace, work) => work(),
         } satisfies WorkspaceOutboundScopePort,
+        logger,
       ),
     };
   };
+
+  const notBegun = (
+    reason: string,
+    over: { registers?: boolean; owner?: 'team' | 'person' } = {},
+  ) => [
+    {
+      teamId: 'team_1',
+      integration: 'slack',
+      owner: over.owner ?? 'team',
+      reason,
+      registers: over.registers,
+    },
+    'Did not begin an OAuth2 connection',
+  ];
 
   const command = (
     actsAs: 'team' | 'requester' | null = null,
@@ -119,9 +143,10 @@ describe('BeginOAuth2ConnectionHandler', () => {
     );
 
   it('returns the authorize URL for an admin connecting the team', async () => {
-    const { handler, begin } = beginning();
+    const { handler, begin, logger } = beginning();
 
     expect(await handler.execute(command())).toBe(STARTED);
+    expect(logger.info).not.toHaveBeenCalled();
     expect(begin).toHaveBeenCalledWith(
       {
         teamId: TeamId.of('team_1'),
@@ -149,18 +174,56 @@ describe('BeginOAuth2ConnectionHandler', () => {
   });
 
   it('begins nothing where no app is registered for the integration', async () => {
-    const { handler, clientFor, begin } = beginning();
+    const { handler, clientFor, begin, logger } = beginning();
     clientFor.mockResolvedValueOnce(null as never);
 
     expect(await handler.execute(command())).toBeNull();
     expect(begin).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      ...notBegun('no-client', { registers: true }),
+    );
+  });
+
+  it('says it could not register where the integration names no registration endpoint', async () => {
+    const { handler, clientFor, registrationFor, logger } = beginning();
+    registrationFor.mockResolvedValueOnce({ endpoint: null, server: null });
+    clientFor.mockResolvedValueOnce(null as never);
+
+    expect(await handler.execute(command())).toBeNull();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      ...notBegun('no-client', { registers: false }),
+    );
+  });
+
+  it('begins nothing where the integration has no OAuth2 endpoints', async () => {
+    const { handler, clientFor, registrationFor, logger } = beginning();
+    registrationFor.mockResolvedValueOnce(null as never);
+
+    expect(await handler.execute(command())).toBeNull();
+    expect(clientFor).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      ...notBegun('no-oauth2-endpoints'),
+    );
+  });
+
+  it('says so where the linking does not begin', async () => {
+    const { handler, begin, logger } = beginning();
+    begin.mockResolvedValueOnce(null as never);
+
+    expect(await handler.execute(command())).toBeNull();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      ...notBegun('not-begun'),
+    );
   });
 
   it('denies someone who may not connect the team', async () => {
-    const { handler, begin } = beginning({ allowed: false });
+    const { handler, begin, logger } = beginning({ allowed: false });
 
     expect(await handler.execute(command())).toBeNull();
     expect(begin).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      ...notBegun('not-allowed'),
+    );
   });
 
   it('lets any member connect their own account where the integration acts as each person', async () => {
@@ -182,10 +245,13 @@ describe('BeginOAuth2ConnectionHandler', () => {
   });
 
   it('rejects a person’s own connection where the integration acts as the team', async () => {
-    const { handler, begin } = beginning();
+    const { handler, begin, logger } = beginning();
 
     expect(await handler.execute(command('requester'))).toBeNull();
     expect(begin).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      ...notBegun('takes-no-connection', { owner: 'person' }),
+    );
   });
 
   it('denies someone who is not on the team', async () => {
@@ -211,7 +277,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
 
   const finishing = (
     over: {
-      authorized?: OAuth2Authorized | null;
+      authorized?: OAuth2Authorized | OAuth2Refused;
       allowed?: boolean;
       member?: boolean;
       actsAs?: ActsAs;
@@ -235,9 +301,13 @@ describe('FinishOAuth2ConnectionHandler', () => {
         'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
     );
 
-    const returned = vi.fn(async () =>
-      'authorized' in over ? over.authorized : authorized,
-    );
+    const returned = vi.fn(async () => over.authorized ?? authorized);
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    } satisfies LoggerPort;
 
     const handler = new FinishOAuth2ConnectionHandler(
       {
@@ -258,19 +328,21 @@ describe('FinishOAuth2ConnectionHandler', () => {
         inTransaction: (work: () => Promise<unknown>) => work(),
       } as TransactionPort,
       { now: () => CONNECTED_AT } as ClockPort,
+      logger,
     );
 
-    return { handler, save, dispatch, returned, landingFor };
+    return { handler, save, dispatch, returned, landingFor, logger };
   };
 
   const command = () =>
     new FinishOAuth2ConnectionCommand('the-state', 'the-code', 'n-1', 'user_1');
 
   it('connects the integration, saves it, announces it, and says where to go', async () => {
-    const { handler, save, dispatch, returned } = finishing();
+    const { handler, save, dispatch, returned, logger } = finishing();
 
     const to = await handler.execute(command());
 
+    expect(logger.info).not.toHaveBeenCalled();
     expect(returned).toHaveBeenCalledWith({
       state: 'the-state',
       code: 'the-code',
@@ -321,17 +393,52 @@ describe('FinishOAuth2ConnectionHandler', () => {
   });
 
   it('stores nothing when the callback is not valid', async () => {
-    const { handler, save } = finishing({ authorized: null });
+    const { handler, save, logger } = finishing({
+      authorized: {
+        refused: 'no-client',
+        teamId: TeamId.of('team_1'),
+        integration: IntegrationKey.of('slack'),
+      },
+    });
 
     expect(await handler.execute(command())).toBeNull();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      { teamId: 'team_1', integration: 'slack', reason: 'no-client' },
+      'Did not finish an OAuth2 connection',
+    );
     expect(save).not.toHaveBeenCalled();
   });
 
+  it('logs a refusal before the state opens with its reason alone', async () => {
+    const { handler, logger } = finishing({
+      authorized: { refused: 'state-not-accepted' },
+    });
+
+    expect(await handler.execute(command())).toBeNull();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      {
+        teamId: undefined,
+        integration: undefined,
+        reason: 'state-not-accepted',
+      },
+      'Did not finish an OAuth2 connection',
+    );
+  });
+
   it('re-checks the authorizer may still connect, and denies if not', async () => {
-    const { handler, save } = finishing({ allowed: false });
+    const { handler, save, logger } = finishing({ allowed: false });
 
     expect(await handler.execute(command())).toBeNull();
     expect(save).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      {
+        teamId: 'team_1',
+        integration: 'slack',
+        owner: 'team',
+        reason: 'not-allowed',
+      },
+      'Did not finish an OAuth2 connection',
+    );
   });
 
   it('stores a person’s own connection as theirs, and lands where they began', async () => {
@@ -365,12 +472,21 @@ describe('FinishOAuth2ConnectionHandler', () => {
   });
 
   it('rejects a person’s own connection once the integration acts as the team', async () => {
-    const { handler, save } = finishing({
+    const { handler, save, logger } = finishing({
       actsAs: ActsAs.team(),
       authorized: { ...authorized, owner: 'person' },
     });
 
     expect(await handler.execute(command())).toBeNull();
     expect(save).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      {
+        teamId: 'team_1',
+        integration: 'slack',
+        owner: 'person',
+        reason: 'takes-no-connection',
+      },
+      'Did not finish an OAuth2 connection',
+    );
   });
 });

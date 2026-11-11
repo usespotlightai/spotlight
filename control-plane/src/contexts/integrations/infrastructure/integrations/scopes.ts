@@ -9,7 +9,6 @@ const TASK: Declared = {
   schema: {
     title: 'string',
     url: 'dyn',
-    pullRequest: 'dyn',
     pullRequests: 'list<string>',
     line: 'string',
     station: 'string',

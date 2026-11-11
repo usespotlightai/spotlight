@@ -657,5 +657,6 @@ export const replaysSubscribers = (
     'replays.stop-superseded-checks',
     ['replay.check-started'],
     (event) => reactions.stoppingSupersededChecks.started(event),
+    { callsOut: true },
   ),
 ];

@@ -144,10 +144,9 @@ const posting = (
           id: TaskId.of('task-1'),
           workspaceId: WorkspaceId.of('workspace-1'),
           teamId: TeamId.of('team-1'),
-          pullRequest: pullRequests[0]
-            ? PullRequestUrl.of(pullRequests[0])
-            : null,
           pullRequests: pullRequests.map((each) => PullRequestUrl.of(each)),
+          openPullRequests: [],
+          reviewedPullRequest: null,
           reviewing: false,
           currentRunId: null,
         };

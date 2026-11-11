@@ -20,7 +20,11 @@ export class MarkChatReadHandler implements CommandHandlerPort<
 
   async execute(command: MarkChatReadCommand): Promise<void> {
     try {
-      const chat = await this.loader.startedBy(command.chatId, command.readBy);
+      const chat = await this.loader.inInboxOf(
+        command.chatId,
+        command.slug,
+        command.readBy,
+      );
       const read = chat.markRead(UserId.of(command.readBy), this.clock.now());
 
       if (read !== chat) {

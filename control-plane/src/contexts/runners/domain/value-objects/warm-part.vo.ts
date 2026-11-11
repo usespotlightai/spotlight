@@ -62,7 +62,7 @@ export class WarmPart {
     return this.placement.matches(offer);
   }
 
-  isFor(lineId: LineId): boolean {
-    return this.lineId.equals(lineId);
+  isFor(lineId: LineId, fingerprint: string): boolean {
+    return this.lineId.equals(lineId) && this.fingerprint === fingerprint;
   }
 }

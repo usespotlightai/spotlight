@@ -50,6 +50,16 @@ describe('shownAnswerFor', () => {
     });
   });
 
+  it('shares answers across a repository named in another case', () => {
+    expect(
+      shownAnswerFor(
+        QUESTION,
+        { ...STACK, repository: RepositoryName.of('Web') },
+        [at('2026-11-02T10:00:00Z', QUESTION.answer)],
+      )?.reply,
+    ).toBe('Reply at 2026-11-02T10:00:00Z');
+  });
+
   it('is the latest earlier answer once the expected answer changed, without its feedback or expected answer', () => {
     expect(
       shownAnswerFor(QUESTION, STACK, [

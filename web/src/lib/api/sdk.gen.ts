@@ -508,6 +508,13 @@ export const removeMyEmail = <ThrowOnError extends boolean = false>(options: Opt
 export const verifyMyEmail = <ThrowOnError extends boolean = false>(options: Options<VerifyMyEmailData, ThrowOnError>): RequestResult<VerifyMyEmailResponses, VerifyMyEmailErrors, ThrowOnError> => (options.client ?? client).post<VerifyMyEmailResponses, VerifyMyEmailErrors, ThrowOnError>({ url: '/me/email-verifications/{token}', ...options });
 
 /**
+ * Watch for changes in your workspaces and messages sent to you
+ *
+ * Sends "ready" first, then "changed" with a topic and ids for each change in a workspace you may view, and each message other parts of Spotlight send to you, with its own event name. "changed" with the topic "workspaces" means you joined a workspace: open a new stream to watch it. "resync" means some changes were missed: fetch everything again. After about 10 minutes the server sends "reopen", then closes the stream 15 seconds later: open a new stream before it closes and no change is missed. Missed events are not sent again.
+ */
+export const watchLive = <ThrowOnError extends boolean = false>(options?: Options<WatchLiveData, ThrowOnError>): RequestResult<WatchLiveResponses, WatchLiveErrors, ThrowOnError> => (options?.client ?? client).get<WatchLiveResponses, WatchLiveErrors, ThrowOnError>({ url: '/me/live', ...options });
+
+/**
  * Resolve a catalog tool by name and version constraint, if the workspace’s plan includes it
  */
 export const readCatalogTool = <ThrowOnError extends boolean = false>(options: Options<ReadCatalogToolData, ThrowOnError>): RequestResult<ReadCatalogToolResponses, ReadCatalogToolErrors, ThrowOnError> => (options.client ?? client).get<ReadCatalogToolResponses, ReadCatalogToolErrors, ThrowOnError>({
@@ -1615,13 +1622,6 @@ export const subscribeToPush = <ThrowOnError extends boolean = false>(options: O
     ...options.headers
   }
 });
-
-/**
- * Watch for changes in your workspaces and new inbox items
- *
- * Sends "ready" first, then "changed" with a topic and ids for each change in a workspace you may view, and "notification" for each new item in your inbox. "changed" with the topic "workspaces" means you joined a workspace: open a new stream to watch it. "resync" means some changes were missed: fetch everything again. After about 10 minutes the server sends "reopen", then closes the stream 15 seconds later: open a new stream before it closes and no change is missed. Missed events are not sent again.
- */
-export const watchLive = <ThrowOnError extends boolean = false>(options?: Options<WatchLiveData, ThrowOnError>): RequestResult<WatchLiveResponses, WatchLiveErrors, ThrowOnError> => (options?.client ?? client).get<WatchLiveResponses, WatchLiveErrors, ThrowOnError>({ url: '/me/live', ...options });
 
 /**
  * The skills this team defines

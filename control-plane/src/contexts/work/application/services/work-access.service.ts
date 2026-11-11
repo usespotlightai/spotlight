@@ -1,5 +1,8 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  WorkspaceAccessPort,
+  WorkspaceTeamAccess,
+} from '@identity/application/ports/workspace-access.port';
 import type {
   TeamOriginName,
   WorkspaceReaderPort,
@@ -20,6 +23,20 @@ export interface SeenTeam {
   readonly slug: string;
   readonly origin: TeamOriginName;
 }
+
+const inboxScopeOf = (
+  access: WorkspaceTeamAccess,
+  viewer: UserId,
+): InboxScope => ({
+  workspaceId: access.workspaceId.value,
+  viewer,
+  teamsSeen: new Set(
+    access.teams.filter((each) => each.sees).map((each) => each.teamId.value),
+  ),
+  teamsActedOn: new Set(
+    access.teams.filter((each) => each.actsOn).map((each) => each.teamId.value),
+  ),
+});
 
 export class WorkAccess {
   constructor(
@@ -97,48 +114,15 @@ export class WorkAccess {
     return team ? TeamMembers.of(team.members) : null;
   }
 
-  async memberInboxesIn(workspaceId: WorkspaceId): Promise<InboxScope[]> {
-    const teamsOf = new Map<string, { viewer: UserId; teams: Set<string> }>();
-
-    for (const team of await this.teams.inWorkspace(workspaceId)) {
-      for (const member of team.members) {
-        const entry = teamsOf.get(member.value) ?? {
-          viewer: member,
-          teams: new Set<string>(),
-        };
-        entry.teams.add(team.id.value);
-        teamsOf.set(member.value, entry);
-      }
-    }
-
-    return [...teamsOf.values()].map(({ viewer, teams }) => ({
-      workspaceId: workspaceId.value,
-      viewer,
-      teamsSeen: teams,
-      teamsActedOn: teams,
-    }));
+  async inboxesIn(workspaceId: WorkspaceId): Promise<InboxScope[]> {
+    return (await this.access.teamAccessOfMembers(workspaceId)).map((each) =>
+      inboxScopeOf(each, each.viewer),
+    );
   }
 
   async inboxOf(slug: string, viewer: UserId): Promise<InboxScope | null> {
     const access = await this.access.teamAccessIn(slug, viewer);
 
-    if (!access) {
-      return null;
-    }
-
-    return {
-      workspaceId: access.workspaceId.value,
-      viewer,
-      teamsSeen: new Set(
-        access.teams
-          .filter((each) => each.sees)
-          .map((each) => each.teamId.value),
-      ),
-      teamsActedOn: new Set(
-        access.teams
-          .filter((each) => each.actsOn)
-          .map((each) => each.teamId.value),
-      ),
-    };
+    return access ? inboxScopeOf(access, viewer) : null;
   }
 }

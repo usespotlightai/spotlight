@@ -272,7 +272,18 @@ export const LARGE_FILE: ChangeStackResponseDto = {
 };
 
 export const REVIEW: CodeReviewResponseDto = {
-  pullRequest: 'https://github.com/acme/api/pull/42',
+  landings: [
+    {
+      repository: null,
+      route: 'routed',
+      pullRequest: 'https://github.com/acme/api/pull/42',
+    },
+    {
+      repository: 'api',
+      route: 'routed',
+      pullRequest: 'https://github.com/acme/api/pull/42',
+    },
+  ],
   reviews: [],
   comments: [
     {

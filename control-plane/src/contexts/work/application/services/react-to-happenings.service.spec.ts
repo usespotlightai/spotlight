@@ -9,6 +9,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -39,6 +40,7 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -169,6 +171,8 @@ const tasks = (found: Task | null) =>
     remove: vi.fn(),
     placementsAt: vi.fn(async () => []),
     findByCorrelation: vi.fn(async () => (found ? [found] : [])),
+    owningPullRequest: vi.fn(async () => null),
+    reviewingPullRequest: vi.fn(async () => null),
     holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
@@ -769,6 +773,43 @@ describe('ReactToHappenings', () => {
     );
   });
 
+  it('keeps a task with another open pull request where it is, and leaves the close to GitHub’s event', async () => {
+    const api = PullRequestUrl.of('https://github.com/acme/api/pull/7');
+    const docs = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
+    const owning = Task.rehydrate({
+      ...taskAt(),
+      ownedPullRequests: [
+        OwnedPullRequest.of(api, NOW),
+        OwnedPullRequest.of(docs, NOW),
+      ],
+    });
+
+    await new ReactToHappenings(
+      tasks(owning),
+      tasks(owning),
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      members,
+      files,
+      processedEventsInMemory(),
+      logger,
+      channels,
+      NO_RUNS,
+      TEAMMATES,
+    ).react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [{ ...news(MERGED, null), closedPullRequest: api.value }],
+      'received-as',
+    );
+
+    expect(saved?.stationId.value).toBe('station_2');
+    expect(saved?.openPullRequests).toEqual([api, docs]);
+  });
+
   it('leaves a task that has landed at the end of the line alone', async () => {
     await receive(MERGED, landedAt('station_3'));
 
@@ -1025,6 +1066,8 @@ describe('ReactToHappenings', () => {
       remove: vi.fn(),
       placementsAt: vi.fn(async () => []),
       findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
       holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
@@ -1107,6 +1150,8 @@ describe('ReactToHappenings', () => {
       remove: vi.fn(),
       placementsAt: vi.fn(async () => []),
       findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
       holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
@@ -1188,6 +1233,8 @@ describe('ReactToHappenings', () => {
       remove: vi.fn(),
       placementsAt: vi.fn(async () => []),
       findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
       holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
@@ -1269,6 +1316,8 @@ describe('ReactToHappenings', () => {
       remove: vi.fn(),
       placementsAt: vi.fn(async () => []),
       findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
       holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
@@ -1351,6 +1400,8 @@ describe('ReactToHappenings', () => {
       remove: vi.fn(),
       placementsAt: vi.fn(async () => []),
       findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
       holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),

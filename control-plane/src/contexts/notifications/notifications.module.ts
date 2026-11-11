@@ -4,9 +4,10 @@ import {
   NOTIFICATIONS_CONTROLLERS,
   NOTIFICATIONS_PROVIDERS,
 } from '@notifications/notifications.wiring';
+import { WorkModule } from '@work/work.module';
 
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, WorkModule],
   controllers: [...NOTIFICATIONS_CONTROLLERS],
   providers: [...NOTIFICATIONS_PROVIDERS],
 })

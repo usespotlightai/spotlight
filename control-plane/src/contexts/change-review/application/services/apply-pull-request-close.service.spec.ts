@@ -31,7 +31,9 @@ const MERGED: ClosedPullRequest = {
   closedAt: CLOSED_AT,
 };
 
-const decided = () =>
+const DOCS_PULL = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
+
+const decided = (paths: readonly string[] = ['api/src/uploads.ts']) =>
   DecisionSet.open({
     id: DecisionSetId.of('set_1'),
     taskId: TASK,
@@ -40,20 +42,21 @@ const decided = () =>
     .requestGeneration(RUN, NOW)
     .recordGeneration({
       runId: RUN,
-      newId: () => 'decision_1',
-      proposed: [
-        {
-          kind: 'limitation',
-          title: 'Retries only once',
-          why: 'Backoff is not in the client yet.',
-          alternatives: [],
-          paths: ['api/src/uploads.ts'],
-          steps: [3],
-        },
-      ],
+      newId: (() => {
+        let next = 0;
+        return () => `decision_${(next += 1)}`;
+      })(),
+      proposed: paths.map((path) => ({
+        kind: 'limitation' as const,
+        title: `Retries only once in ${path}`,
+        why: 'Backoff is not in the client yet.',
+        alternatives: [],
+        paths: [path],
+        steps: [3],
+      })),
       evidence: DecisionEvidence.of({
         steps: [3],
-        changed: ['api/src/uploads.ts'],
+        changed: [...paths],
       }),
     });
 
@@ -74,8 +77,9 @@ const applying = (
             id: TASK,
             workspaceId: WORKSPACE,
             teamId: null,
-            pullRequest: MERGED.pullRequest,
-            pullRequests: [MERGED.pullRequest].filter((each) => each !== null),
+            pullRequests: [MERGED.pullRequest],
+            openPullRequests: [MERGED.pullRequest],
+            reviewedPullRequest: null,
             reviewing: false,
             currentRunId: null,
             ...over.task,
@@ -123,17 +127,57 @@ describe('applying a pull request close to the decisions of its task', () => {
     expect(stored()).toBeNull();
   });
 
-  it('keeps them when a later pull request of the task closes unmerged', async () => {
-    const { service, stored } = applying();
+  it('keeps them when a pull request of another repository closes unmerged', async () => {
+    const { service, stored } = applying({
+      task: {
+        pullRequests: [MERGED.pullRequest, DOCS_PULL],
+        openPullRequests: [MERGED.pullRequest, DOCS_PULL],
+      },
+    });
 
     await service.closed({
       ...MERGED,
-      pullRequest: PullRequestUrl.of('https://github.com/acme/docs/pull/3'),
+      pullRequest: DOCS_PULL,
       repository: Repository.of('acme/docs'),
       merge: null,
     });
 
     expect(stored()?.decisions).toHaveLength(1);
+  });
+
+  it('drops only the decisions of the repository whose pull request closed unmerged first', async () => {
+    const { service, stored } = applying({
+      stored: decided(['api/src/uploads.ts', 'docs/guide.md']),
+      task: {
+        pullRequests: [MERGED.pullRequest, DOCS_PULL],
+        openPullRequests: [MERGED.pullRequest, DOCS_PULL],
+      },
+    });
+
+    await service.closed({ ...MERGED, merge: null });
+
+    expect(
+      stored()?.decisions.map((each) => each.paths.map((path) => path.value)),
+    ).toEqual([['docs/guide.md']]);
+  });
+
+  it('deletes them when the last open pull request of the task closes unmerged', async () => {
+    const { service, stored } = applying({
+      stored: decided(['api/src/uploads.ts', 'docs/guide.md']),
+      task: {
+        pullRequests: [MERGED.pullRequest, DOCS_PULL],
+        openPullRequests: [DOCS_PULL],
+      },
+    });
+
+    await service.closed({
+      ...MERGED,
+      pullRequest: DOCS_PULL,
+      repository: Repository.of('acme/docs'),
+      merge: null,
+    });
+
+    expect(stored()).toBeNull();
   });
 
   it('keeps them after they merge, whatever closes later', async () => {
@@ -148,7 +192,10 @@ describe('applying a pull request close to the decisions of its task', () => {
   it('records the merge of each repository of the task', async () => {
     const WEB_PULL = PullRequestUrl.of('https://github.com/acme/web/pull/4');
     const { service, stored } = applying({
-      task: { pullRequests: [MERGED.pullRequest, WEB_PULL] },
+      task: {
+        pullRequests: [MERGED.pullRequest, WEB_PULL],
+        openPullRequests: [MERGED.pullRequest, WEB_PULL],
+      },
     });
 
     await service.closed(MERGED);

@@ -19,8 +19,10 @@ import { ReviewCommentVersionConflictError } from '@change-review/domain/excepti
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import {
-  pullRequestOfComment,
-  pullRequestOfReview,
+  type PullRequestRoute,
+  pullRequestsOf,
+  routeOfComment,
+  routeOfReview,
 } from '@change-review/domain/services/pull-request-routing';
 import { DeliveryAttempts } from '@change-review/domain/value-objects/delivery-attempts.vo';
 import {
@@ -32,7 +34,6 @@ import type { WorkspaceConnectionsPort } from '@github/application/ports/workspa
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 
 const AT_A_TIME = 10;
 
@@ -69,7 +70,7 @@ class DeliveryFailed extends Error {
 
 type Poster = (
   author: ReviewAuthor,
-  pullRequest: PullRequestUrl | null,
+  route: PullRequestRoute,
 ) => Promise<PostingTarget>;
 
 const failureOf = (error: unknown): DeliveryFailure =>
@@ -204,7 +205,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
     if (!task) {
       throw new DeliveryFailed('task-deleted');
     }
-    if (!task.pullRequest) {
+    if (pullRequestsOf(task).length === 0) {
       throw new NoPullRequestYet();
     }
 
@@ -212,14 +213,17 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       throw new DeliveryFailed('not-connected');
     }
 
-    const on: Poster = async (author, pullRequest) => {
-      if (!pullRequest) {
+    const on: Poster = async (author, route) => {
+      if (route.kind === 'waiting') {
         throw new NoPullRequestYet();
+      }
+      if (route.kind === 'ambiguous') {
+        throw new DeliveryFailed('pull-request-ambiguous');
       }
 
       return {
         workspaceId: task.workspaceId,
-        pullRequest,
+        pullRequest: route.pullRequest,
         by: author.userId
           ? {
               kind: 'person',
@@ -251,10 +255,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       return;
     }
 
-    const target = await on(
-      comment.author,
-      pullRequestOfComment(task, comment),
-    );
+    const target = await on(comment.author, routeOfComment(task, comment));
 
     if (delivery.kind === 'file') {
       await this.postOnFile(delivery, comment, target);
@@ -307,7 +308,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       return;
     }
 
-    const author = await on(review.author, pullRequestOfReview(task, review));
+    const author = await on(review.author, routeOfReview(task, review));
     const submitted = await this.sent(delivery, () =>
       this.github.submit({
         ...author,
@@ -401,7 +402,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       throw new DeliveryFailed('parent-never-on-github');
     }
 
-    const target = await on(reply.author, pullRequestOfComment(task, parent));
+    const target = await on(reply.author, routeOfComment(task, parent));
     const posted = await this.sent(delivery, () =>
       this.github.reply({
         ...target,

@@ -15,6 +15,12 @@ export const REVIEW_VERDICT_NAMES = [
   'request-changes',
 ] as const;
 
+export const PULL_REQUEST_ROUTE_NAMES = [
+  'routed',
+  'waiting',
+  'ambiguous',
+] as const;
+
 export interface DeliveryFailureDto {
   readonly code: DeliveryFailureCode;
   readonly detail: string | null;
@@ -54,8 +60,14 @@ export interface ReviewDto {
   readonly submittedAt: string;
 }
 
-export interface RunReviewDto {
+interface PullRequestLandingDto {
+  readonly repository: string | null;
+  readonly route: (typeof PULL_REQUEST_ROUTE_NAMES)[number];
   readonly pullRequest: string | null;
+}
+
+export interface RunReviewDto {
+  readonly landings: readonly PullRequestLandingDto[];
   readonly comments: readonly ReviewCommentDto[];
   readonly reviews: readonly ReviewDto[];
 }

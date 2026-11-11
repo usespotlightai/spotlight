@@ -14,8 +14,12 @@ export class CallbackTaskResponseDto {
 
   @ApiProperty({ type: [String] }) readonly repositories: string[];
 
-  @ApiProperty({ type: String, nullable: true })
-  readonly pullRequest: string | null;
+  @ApiProperty({
+    type: [String],
+    description:
+      'The pull requests of the task: the one it reviews, or the ones it opened',
+  })
+  readonly pullRequests: string[];
 
   @ApiProperty({ description: 'The hook that the token was issued to' })
   readonly hook: string;
@@ -29,7 +33,7 @@ export class CallbackTaskResponseDto {
     this.stationKey = task.stationKey;
     this.marks = { ...task.marks };
     this.repositories = [...task.repositories];
-    this.pullRequest = task.pullRequest;
+    this.pullRequests = [...task.pullRequests];
     this.hook = task.hook;
   }
 }

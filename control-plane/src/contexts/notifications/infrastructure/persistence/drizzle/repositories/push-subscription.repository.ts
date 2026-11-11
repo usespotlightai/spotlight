@@ -13,7 +13,7 @@ type Row = typeof pushSubscription.$inferSelect;
 
 const toSubscription = (row: Row): PushSubscription =>
   PushSubscription.rehydrate({
-    endpoint: PushEndpoint.of(row.endpoint),
+    endpoint: PushEndpoint.rehydrate(row.endpoint),
     person: UserId.of(row.personId),
     keys: PushKeys.of({ p256dh: row.p256dh, auth: row.auth }),
     createdAt: row.createdAt,

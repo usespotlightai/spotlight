@@ -21,13 +21,14 @@ export class ChecksToolUse implements BuiltInToolUse<TaskToolContext> {
       throw new UnknownTaskError(taskId.value);
     }
 
-    const first = task.pullRequestLink?.url;
+    const pullRequests = task.reviewedPullRequest
+      ? [task.reviewedPullRequest.url]
+      : task.pullRequests;
 
-    if (!first) {
+    if (pullRequests.length === 0) {
       throw new NoPullRequestError(taskId.value);
     }
 
-    const pullRequests = [first, ...task.laterPullRequests];
     const read = await Promise.allSettled(
       pullRequests.map(async (pullRequest) => ({
         pullRequest: pullRequest.value,

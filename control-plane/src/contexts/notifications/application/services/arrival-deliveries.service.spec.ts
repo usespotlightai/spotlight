@@ -26,7 +26,7 @@ const ITEM: ArrivedItem = {
 
 const subscriptionAt = (endpoint: string) =>
   PushSubscription.create({
-    endpoint: PushEndpoint.of(endpoint),
+    endpoint: PushEndpoint.rehydrate(endpoint),
     person: UserId.of('user_1'),
     keys: PushKeys.of({ p256dh: 'a'.repeat(87), auth: 'b'.repeat(22) }),
     at: new Date('2026-11-08T09:00:00.000Z'),
@@ -73,6 +73,7 @@ const deliveriesWith = (input: {
       push,
       subscriptions,
       workspaces,
+      { pathTo: (slug, kind, id) => `/${slug}/${kind}/${id}` },
       logger,
     ),
     seenBy,
@@ -93,18 +94,18 @@ describe('ArrivalDeliveries', () => {
         kind: 'task',
         title: 'Which database?',
         body: 'Postgres or SQLite for the cache?',
-        path: '/w/acme/inbox/task_1%3A0',
+        path: '/acme/task/task_1:0',
         at: '2026-11-08T10:00:00.000Z',
       },
     ]);
   });
 
-  it('links a notice to its own page', async () => {
+  it('links a notice as a notice', async () => {
     const { deliveries, seenBy } = deliveriesWith({});
 
     await deliveries.streamed({ ...ITEM, itemKind: 'notice', itemId: 'ntc_1' });
 
-    expect(seenBy('user_1')[0]?.path).toBe('/w/acme/inbox/notices/ntc_1');
+    expect(seenBy('user_1')[0]?.path).toBe('/acme/notice/ntc_1');
   });
 
   it('pushes to each browser of the person', async () => {
@@ -121,6 +122,23 @@ describe('ArrivalDeliveries', () => {
       'https://fcm.googleapis.com/fcm/send/one',
       'https://web.push.apple.com/two',
     ]);
+  });
+
+  it('forgets a browser at a push service Spotlight no longer uses and pushes to the others', async () => {
+    const retired = subscriptionAt('https://push.retired.example/one');
+    const { deliveries, send, remove } = deliveriesWith({
+      subscriptions: [
+        retired,
+        subscriptionAt('https://web.push.apple.com/two'),
+      ],
+    });
+
+    await deliveries.pushed(ITEM);
+
+    expect(send.mock.calls.map(([target]) => target.endpoint)).toEqual([
+      'https://web.push.apple.com/two',
+    ]);
+    expect(remove).toHaveBeenCalledWith(retired);
   });
 
   it('forgets a browser whose push service says the subscription is gone', async () => {

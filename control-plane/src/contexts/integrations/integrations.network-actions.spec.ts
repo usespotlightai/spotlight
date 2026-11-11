@@ -71,7 +71,6 @@ const TASK: TaskView = {
   teamId: TeamId.of('team_1'),
   title: 'Drain the queue',
   url: null,
-  pullRequest: null,
   pullRequests: [],
   line: LineKey.of('delivery'),
   station: StationName.of('Implementation'),

@@ -5,6 +5,7 @@ import type { Claimant } from '@runs/domain/value-objects/claimant';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -32,6 +33,12 @@ const POOLED: Claimant = {
   claims: 'reserved',
 };
 
+const setupFingerprint = (setup: string, placement: string[] = []) =>
+  WarmFingerprint.ofSetup({
+    checkouts: [{ path: 'widgets', setup }],
+    placement: RunnerPlacement.of(placement),
+  });
+
 const waiting = (
   id: string,
   over: {
@@ -42,6 +49,7 @@ const waiting = (
     placement?: string[];
     ordering?: ReturnType<typeof orderedFor.spec>;
     line?: string;
+    setup?: string;
     restore?: string;
     queuedAt?: string;
   } = {},
@@ -57,6 +65,13 @@ const waiting = (
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
       resume: {},
+      checkouts: [
+        {
+          remote: 'spotlight:repository',
+          path: 'widgets',
+          setup: over.setup ?? 'setup_1',
+        },
+      ],
     }),
     placement: RunnerPlacement.of(over.placement ?? []),
     line: over.line ? LineId.of(over.line) : null,
@@ -71,13 +86,8 @@ const inOrder = (
   by: Claimant = BY,
   now: Date = NOW,
   leasedRequesters: readonly RunRequester[] = [],
-  archivedKeys: readonly WorkingCopyKey[] = [],
-) =>
-  ClaimOrder.inOrder(
-    { waiting: runs, leasedRequesters, archivedKeys },
-    by,
-    now,
-  );
+  archived: readonly WorkingCopyKey[] = [],
+) => ClaimOrder.inOrder({ waiting: runs, leasedRequesters }, by, now, archived);
 
 const next = (...runs: Run[]) => inOrder(runs)[0]?.id.value ?? null;
 
@@ -223,14 +233,20 @@ describe('ClaimOrder', () => {
       line: 'line_2',
     });
     const keyless = waiting('keyless', { line: 'line_1' });
+    const outdated = waiting('outdated', {
+      ordering: orderedFor.spec('outdated', 'task-6'),
+      line: 'line_1',
+      setup: 'setup_0',
+    });
 
     expect(
       inOrder(
-        [first, held, restoring, archived, elsewhere, keyless],
+        [first, held, restoring, archived, elsewhere, keyless, outdated],
         {
           ...BY,
           sandbox: {
             firstOfLine: LineId.of('line_1'),
+            fingerprint: setupFingerprint('setup_1'),
             avoiding: [WorkingCopyKey.of('workspace', 'task-2')],
           },
         },
@@ -243,11 +259,14 @@ describe('ClaimOrder', () => {
 
   describe('for ready warm sandboxes', () => {
     const recent = '2026-09-17T11:59:30.000Z';
-    const firstRunsOf = (
-      runs: readonly Run[],
-      archivedKeys: readonly WorkingCopyKey[] = [],
-    ) => ({ waiting: runs, leasedRequesters: [], archivedKeys });
-    const line1 = { line: LineId.of('line_1') };
+    const firstRunsOf = (runs: readonly Run[]) => ({
+      waiting: runs,
+      leasedRequesters: [],
+    });
+    const line1 = {
+      line: LineId.of('line_1'),
+      fingerprint: setupFingerprint('setup_1'),
+    };
 
     it('keeps for each ready warm sandbox of a line the soonest first run of that line queued in the last minute', () => {
       const soonest = waiting('soonest', {
@@ -272,6 +291,7 @@ describe('ClaimOrder', () => {
         ClaimOrder.reservedForWarm({
           ready: [line1],
           firstRuns: firstRunsOf([next, stale, soonest]),
+          archived: [],
           avoiding: [],
           now: NOW,
         }),
@@ -280,6 +300,7 @@ describe('ClaimOrder', () => {
         ClaimOrder.reservedForWarm({
           ready: [line1, line1],
           firstRuns: firstRunsOf([next, stale, soonest]),
+          archived: [],
           avoiding: [],
           now: NOW,
         }),
@@ -287,6 +308,25 @@ describe('ClaimOrder', () => {
         WorkingCopyKey.of('workspace', 'task-1'),
         WorkingCopyKey.of('workspace', 'task-2'),
       ]);
+    });
+
+    it('keeps no first run ordered under another setup of the line', () => {
+      const outdated = waiting('outdated', {
+        ordering: orderedFor.spec('outdated', 'task-1'),
+        line: 'line_1',
+        setup: 'setup_0',
+        queuedAt: recent,
+      });
+
+      expect(
+        ClaimOrder.reservedForWarm({
+          ready: [line1],
+          firstRuns: firstRunsOf([outdated]),
+          archived: [],
+          avoiding: [],
+          now: NOW,
+        }),
+      ).toEqual([]);
     });
 
     it('keeps no run that is not a first run of the line, or whose key is held', () => {
@@ -309,10 +349,8 @@ describe('ClaimOrder', () => {
       expect(
         ClaimOrder.reservedForWarm({
           ready: [line1],
-          firstRuns: firstRunsOf(
-            [archived, held, elsewhere],
-            [WorkingCopyKey.of('workspace', 'task-1')],
-          ),
+          firstRuns: firstRunsOf([archived, held, elsewhere]),
+          archived: [WorkingCopyKey.of('workspace', 'task-1')],
           avoiding: [WorkingCopyKey.of('workspace', 'task-2')],
           now: NOW,
         }),

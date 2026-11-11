@@ -11,14 +11,13 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import type { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
+import { handedToRun } from '@work/application/services/handed-to-run';
 import type { WorkAccess } from '@work/application/services/work-access.service';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
-import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -105,17 +104,9 @@ export class SendMessageHandler implements CommandHandlerPort<
       target.stationId,
     );
 
-    await this.tasks.save(
-      received.wantsRun(line) ? await this.assignRun(received, line) : received,
-    );
+    await this.tasks.save(await handedToRun(this.dispatch, received, line));
     await this.files.takenIn(task.workspaceId, attachments);
 
     return sent && received.draftGeneration;
-  }
-
-  private async assignRun(task: Task, line: LineMap): Promise<Task> {
-    const runId = await this.dispatch.runIdFor({ task, line });
-
-    return runId ? task.assignRun(runId, line) : task;
   }
 }

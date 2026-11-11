@@ -495,10 +495,13 @@ export class InboxController {
   @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
   async resolveInboxChat(
+    @Param('slug') slug: string,
     @Param('chatId') chatId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new ResolveChatCommand(chatId, user.id));
+    await this.commandBus.execute(
+      new ResolveChatCommand(chatId, slug, user.id),
+    );
   }
 
   @Post('chats/:chatId/reopen')
@@ -512,10 +515,11 @@ export class InboxController {
   @ApiNoContentResponse({ description: 'It is open again' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
   async reopenInboxChat(
+    @Param('slug') slug: string,
     @Param('chatId') chatId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new ReopenChatCommand(chatId, user.id));
+    await this.commandBus.execute(new ReopenChatCommand(chatId, slug, user.id));
   }
 
   @Post('chats/:chatId/read')
@@ -529,10 +533,13 @@ export class InboxController {
   @ApiNoContentResponse({ description: 'It is no longer unread' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
   async markInboxChatRead(
+    @Param('slug') slug: string,
     @Param('chatId') chatId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new MarkChatReadCommand(chatId, user.id));
+    await this.commandBus.execute(
+      new MarkChatReadCommand(chatId, slug, user.id),
+    );
   }
 
   @Get('tasks/:taskId/journal')

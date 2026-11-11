@@ -13,7 +13,6 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   type Happened,
-  PULL_REQUEST_MARK,
   REVIEW_MARK,
 } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
@@ -36,11 +35,11 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
-import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import type {
   ReviewIntake,
   ReviewStart,
 } from '@work/domain/value-objects/review-intake.vo';
+import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -158,6 +157,7 @@ const requested = (
 const world = (input: {
   lines: readonly LineMap[];
   findByCorrelation?: (correlationKeys: CorrelationKeys) => Task | null;
+  owning?: Task | null;
 }) => {
   const added: Task[] = [];
   const saved: Task[] = [];
@@ -179,6 +179,8 @@ const world = (input: {
         return found ? [found] : [];
       },
     ),
+    owningPullRequest: vi.fn(async () => input.owning ?? null),
+    reviewingPullRequest: vi.fn(async () => null),
     holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
@@ -257,7 +259,7 @@ describe('ReactToHappenings, with a review request', () => {
     expect(task?.stationId.value).toBe(line.entry?.id.value);
     expect(task?.title.value).toBe('Retry uploads');
     expect(task?.reviewing).toBe(true);
-    expect(task?.pullRequest?.value).toBe(PULL);
+    expect(task?.reviewedPullRequest?.url.value).toBe(PULL);
     expect(task?.marks.map(String)).toEqual([`${REVIEW_MARK}:${PULL}`]);
     expect(task?.currentRunId?.value).toBe('run_1');
     expect(dispatched).toHaveLength(1);
@@ -382,13 +384,10 @@ describe('ReactToHappenings, with a review request', () => {
       rank: TaskRank.of('i'),
       now: NOW,
       newId: () => 'task_own',
-    }).markedBy(Mark.pullRequest(PullRequestUrl.of(PULL)), new Date(0));
+    });
     const { react, added } = world({
       lines: [delivery, reviewing({ reviews: policy('opened') })],
-      findByCorrelation: (correlationKeys) =>
-        correlationKeys.marks.some((mark) => mark.kind === PULL_REQUEST_MARK)
-          ? own
-          : null,
+      owning: own,
     });
 
     await react(requested('opened', { branch: null }));
@@ -444,7 +443,7 @@ describe('ReactToHappenings, with a review request', () => {
       originStationId: null,
       createdBy: null,
       openedFrom: TaskOrigin.person(),
-      pullRequestLink: PullRequestLink.reviewing(PullRequestUrl.of(PULL), {
+      reviewedPullRequest: ReviewedPullRequest.of(PullRequestUrl.of(PULL), {
         outside: false,
       }),
       heldMarks: [HeldMark.of(Mark.review(PullRequestUrl.of(PULL)), NOW)],

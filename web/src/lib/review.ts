@@ -167,6 +167,18 @@ export const samePlace = (spot: ReviewSpot | null, other: ReviewSpot) =>
   spot.side === other.side &&
   spot.line === other.line;
 
+export type PullRequestRoute = CodeReview['landings'][number]['route'];
+
+export const routeOf = (
+  review: CodeReview | undefined,
+  repository: string | null,
+): PullRequestRoute =>
+  review?.landings.find((landing) =>
+    landing.repository === null || repository === null
+      ? landing.repository === repository
+      : sameRepository(landing.repository, repository),
+  )?.route ?? 'waiting';
+
 export const drafts = (review: CodeReview | undefined): number =>
   review?.comments.filter((comment) => comment.state === 'draft').length ?? 0;
 

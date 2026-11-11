@@ -1,4 +1,7 @@
+import type { LineView } from '@lines/application/contracts/line-view.contract';
+import type { LinesPort } from '@lines/application/ports/lines.port';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
+import { REMOTE_VIA_GIT_PROXY } from '@runs/application/contracts/run-spec.contract';
 import { Runs } from '@runs/application/services/runs.service';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer } from '@runs/domain/aggregates/run.fake-spec';
@@ -6,6 +9,8 @@ import { RunAlreadyExistsError } from '@runs/domain/exceptions/run-already-exist
 import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
+import { LinesWarmLines } from '@runs/infrastructure/acl/lines-warm-lines.adapter';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -80,6 +85,17 @@ const ISOLATED: RunOrderContract = {
   line: null,
 };
 
+const lineViewOf = (over: Partial<LineView>): LineView =>
+  ({
+    id: 'line_1',
+    workspaceId: 'ws_1',
+    runners: [],
+    image: null,
+    warmSandboxes: 1,
+    repositories: [],
+    ...over,
+  }) as LineView;
+
 const inMemory = () => {
   const stored = new Map<string, Run>();
   const runs = {
@@ -117,6 +133,54 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     expect(run?.requester.subject).toBe('work/task/task_1');
     expect(run?.requester.token).toBe('2');
     expect(run?.orderFingerprint).toMatch(/^sha:/);
+  });
+
+  it('keeps the setup of the line the run is ordered on as its own checkouts and placement give it, matching the line’s warm sandboxes', async () => {
+    const { runs, stored } = inMemory();
+    const placement = { labelGroups: [['gpu']], image: null };
+    const spec = {
+      ...ORDER.spec,
+      checkouts: [
+        { remote: REMOTE_VIA_GIT_PROXY, path: 'widgets', setup: 'npm ci' },
+        { remote: REMOTE_VIA_GIT_PROXY, path: 'api' },
+      ],
+    };
+    const [warm] = await new LinesWarmLines({
+      keepingWarmSandboxes: async () => [
+        lineViewOf({
+          runners: ['gpu'],
+          repositories: [
+            { repository: 'acme/api', setup: null },
+            { repository: 'acme/widgets', setup: 'npm ci' },
+          ],
+        }),
+      ],
+    } as unknown as LinesPort).keepingWarmSandboxes();
+
+    await runs.enqueue({ ...ORDER, placement, spec, line: 'line_1' });
+    await runs.enqueue({
+      ...ORDER,
+      runId: 'run_2',
+      placement,
+      spec: {
+        ...spec,
+        checkouts: [{ remote: REMOTE_VIA_GIT_PROXY, path: 'widgets' }],
+      },
+      line: 'line_1',
+    });
+    await runs.enqueue({ ...ORDER, runId: 'run_3', placement, spec });
+
+    expect(
+      stored
+        .get('run_1')
+        ?.lineFingerprint?.equals(WarmFingerprint.ofSetup(warm)),
+    ).toBe(true);
+    expect(
+      stored
+        .get('run_2')
+        ?.lineFingerprint?.equals(WarmFingerprint.ofSetup(warm)),
+    ).toBe(false);
+    expect(stored.get('run_3')?.lineFingerprint).toBeNull();
   });
 
   it('keeps what the order asks of the run: its working copy, the exact archive, extensions and tags', async () => {
