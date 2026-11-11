@@ -2,11 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useRunProgress } from '@/hooks/useRunProgress';
 import type { Progress } from '@/lib/run';
 
-const stopRun = vi.fn();
+const stopRun = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/api', () => ({
   stopRun: (...args: unknown[]) => stopRun(...args),

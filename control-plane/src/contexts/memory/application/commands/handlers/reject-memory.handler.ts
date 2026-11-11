@@ -13,9 +13,10 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class RejectMemoryHandler
-  implements CommandHandlerPort<RejectMemoryCommand, void>
-{
+export class RejectMemoryHandler implements CommandHandlerPort<
+  RejectMemoryCommand,
+  void
+> {
   constructor(
     private readonly access: MemoryAccess,
     private readonly drafts: MemoryDraftRepository,

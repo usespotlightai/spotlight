@@ -134,7 +134,7 @@ const refreshing = (
       { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
       runtimeWith(
         {},
-        { refresh } as unknown as OAuth2Exchange,
+        { refresh },
         clientsFrom('{"slack":{"id":"c-1","secret":"s-1"}}'),
         hosts,
       ),

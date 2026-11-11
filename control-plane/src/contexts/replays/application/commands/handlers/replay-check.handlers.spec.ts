@@ -24,9 +24,9 @@ import { StartCheckReplays } from '@replays/application/services/start-check-rep
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import { StopSupersededChecks } from '@replays/application/services/stop-superseded-checks.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
 import {
@@ -186,7 +186,7 @@ const start = async (
     ),
   );
 
-  for (const event of [...memory.events]) {
+  for (const event of memory.events.slice()) {
     if (event instanceof ReplayCheckStarted) {
       await new StartCheckReplays(
         checks,
@@ -429,7 +429,7 @@ describe('StartReplayCheckHandler', () => {
     expect((await read(one)).baselineReplayId).toBe(baselines[0]?.id.value);
     expect((await read(two)).baselineReplayId).toBe(baselines[0]?.id.value);
 
-    await finished((baselines[0] as Replay).id);
+    await finished(baselines[0].id);
     await finished(checkOf(two).replayId, false);
     expect((await read(two)).result).toBe('failed');
   });
@@ -683,7 +683,7 @@ describe('StopSupersededChecks', () => {
       TRANSACTION,
     );
 
-    for (const event of [...memory.events]) {
+    for (const event of memory.events.slice()) {
       if (event instanceof ReplayCheckStarted) {
         await stopping.started(event);
       }

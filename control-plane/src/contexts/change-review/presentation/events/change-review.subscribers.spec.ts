@@ -108,7 +108,7 @@ describe('change review receiving a review comment on GitHub', () => {
 
     expect(receive).toHaveBeenCalledWith(
       expect.objectContaining({
-        comment: expect.objectContaining({ writtenAt: null }),
+        comment: expect.objectContaining({ writtenAt: null }) as unknown,
       }),
     );
   });

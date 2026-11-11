@@ -1,4 +1,5 @@
 import ts from 'typescript';
+
 import { reachableFrom } from './context-dependencies';
 import {
   contextOf,

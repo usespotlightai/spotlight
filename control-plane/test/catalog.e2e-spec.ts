@@ -1,13 +1,11 @@
 import { randomUUID } from 'node:crypto';
+
 import { CatalogCalls } from '@catalog/application/services/catalog-calls.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { DrizzleCatalogCallLedger } from '@catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger';
 import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/readers/workspace-plans.reader';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import { buildOpenApiDocument } from '@platform/http/openapi';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -31,12 +29,32 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import {
+  type Answer,
+  openApp,
+  type Problem,
+  served,
+  TEST_USER_HEADER,
+} from './support/app';
 import { definitionOf } from './support/line-definition';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
 const PROBLEM = 'application/problem+json';
+
+interface CatalogItem {
+  readonly id: string;
+  readonly tools: readonly string[];
+}
+
+interface LineAnswer {
+  readonly id: string;
+  readonly version: number;
+  readonly definition: {
+    readonly stations: readonly { readonly tools: readonly string[] }[];
+  };
+}
 
 describe('the catalog, read as Terraform data sources (e2e)', () => {
   let app: INestApplication;
@@ -51,11 +69,11 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
       expiresAt,
     });
 
-  const read = (
+  const read = async (
     kind: 'tools' | 'skills',
     query: Record<string, string>,
     as: string = seat.member,
-  ) =>
+  ): Promise<Answer<CatalogItem & Problem>> =>
     served(app)
       .get(`/api/v1/resources/workspaces/${workspace}/catalog/${kind}`)
       .query(query)
@@ -98,7 +116,7 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
       version: '1.1.0',
       constraint: '~> 1.0',
       plan: 'team',
-      description: expect.any(String),
+      description: expect.any(String) as unknown,
     });
   });
 
@@ -186,13 +204,13 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'terraform', scopes: ['read'] });
 
-    const answer = await served(app)
+    const answer = (await served(app)
       .get(`/api/v1/resources/workspaces/${workspace}/catalog/tools`)
       .query({ name: 'web-search', version: '~> 1.0' })
       .set(
         'Authorization',
         `Bearer ${issued.headers['spotlight-workspace-token']}`,
-      );
+      )) as Answer<CatalogItem>;
 
     await db
       .delete(schema.workspaceToken)
@@ -239,7 +257,7 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
   const enabling = (tools: string[], skills: string[]) => {
-    const delivery = definitionOf(BUILT_IN_LINES[0] as LineOpening);
+    const delivery = definitionOf(BUILT_IN_LINES[0]);
 
     return {
       ...delivery,
@@ -282,7 +300,7 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
   const onTheTeamPlan = () =>
     db.insert(schema.workspacePlan).values({ workspaceId: team, plan: 'team' });
 
-  const created = (body: object) =>
+  const created = async (body: object): Promise<Answer<Problem>> =>
     served(app)
       .post(`/api/v1/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
@@ -290,8 +308,7 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
       .send(body);
 
   it('rejects a line naming a catalog item the plan does not include, pointing at where it is named', async () => {
-    const at = definitionOf(BUILT_IN_LINES[0] as LineOpening).stations[1]?.tools
-      .length;
+    const at = definitionOf(BUILT_IN_LINES[0]).stations[1]?.tools.length;
     const rejected = await created(enabling(['catalog.web-search@1.1.0'], []));
 
     expect(rejected.status).toBe(422);
@@ -321,23 +338,27 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
   it('stores the versions it names, so an upgrade reads back as a change to the station', async () => {
     await onTheTeamPlan();
     const http = served(app);
-    const made = await http
+    const made = (await http
       .post(`/api/v1/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
-      .send(enabling(['catalog.web-search@1.0.0'], ['catalog.research@1.0.0']));
+      .send(
+        enabling(['catalog.web-search@1.0.0'], ['catalog.research@1.0.0']),
+      )) as Answer<LineAnswer>;
 
     expect(made.status).toBe(201);
     expect(made.body.definition.stations[1]).toMatchObject({
-      tools: expect.arrayContaining(['catalog.web-search@1.0.0']),
-      skills: expect.arrayContaining(['catalog.research@1.0.0']),
+      tools: expect.arrayContaining(['catalog.web-search@1.0.0']) as unknown,
+      skills: expect.arrayContaining(['catalog.research@1.0.0']) as unknown,
     });
 
-    const upgraded = await http
+    const upgraded = (await http
       .put(`/api/v1/resources/lines/${made.body.id}`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('If-Match', `"${made.body.version}"`)
-      .send(enabling(['catalog.web-search@1.1.0'], ['catalog.research@1.0.0']));
+      .send(
+        enabling(['catalog.web-search@1.1.0'], ['catalog.research@1.0.0']),
+      )) as Answer<LineAnswer>;
 
     expect(upgraded.status).toBe(200);
     expect(upgraded.body.version).toBeGreaterThan(made.body.version);
@@ -350,13 +371,13 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
   });
 
   it('rejects one catalog tool named at two versions, pointing at the station', async () => {
-    const rejected = await served(app)
+    const rejected = (await served(app)
       .post(`/api/v1/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send(
         enabling(['catalog.web-search@1.0.0', 'catalog.web-search@1.1.0'], []),
-      );
+      )) as Answer<Problem>;
 
     expect(rejected.status).toBe(422);
     expect(rejected.body.detail).toContain('catalog.web-search twice');

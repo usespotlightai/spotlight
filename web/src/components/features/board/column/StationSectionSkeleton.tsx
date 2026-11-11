@@ -1,5 +1,6 @@
 import { ChevronDown, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
+
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { Disclosure } from '@/components/shell/layout/Disclosure';

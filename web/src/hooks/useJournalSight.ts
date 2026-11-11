@@ -1,4 +1,5 @@
 import { type RefCallback, use, useCallback, useEffect, useRef } from 'react';
+
 import { JournalDemandContext } from '@/lib/journal-demand';
 
 export function useJournalSight(): (

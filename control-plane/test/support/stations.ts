@@ -9,6 +9,7 @@ import {
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { lineMapOf } from '@work/infrastructure/acl/line-map.translation';
 import { eq, inArray, sql } from 'drizzle-orm';
+
 import * as schema from './schema';
 
 type StationRow = typeof schema.station.$inferInsert;
@@ -64,12 +65,12 @@ export const insertStations = async (
   db: DrizzleDatabase,
   stations: StationRow | readonly StationRow[],
 ): Promise<void> => {
-  const rows = Array.isArray(stations) ? stations : [stations as StationRow];
+  const rows = ([] as readonly StationRow[]).concat(stations);
 
   await db.insert(schema.station).values(rows);
   await projectStations(
     db,
-    rows.map((each) => each.id as string),
+    rows.map((each) => each.id),
   );
 };
 

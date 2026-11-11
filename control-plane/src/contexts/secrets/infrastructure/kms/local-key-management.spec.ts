@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+
 import { DecryptionFailedError } from '@secrets/infrastructure/crypto/envelope';
 import { LocalKeyManagement } from '@secrets/infrastructure/kms/local-key-management';
 import { describe, expect, it } from 'vitest';

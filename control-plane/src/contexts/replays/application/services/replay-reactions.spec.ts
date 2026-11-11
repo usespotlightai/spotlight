@@ -30,8 +30,8 @@ import { RequestReplayJudging } from '@replays/application/services/request-repl
 import { RequestReplayRecheck } from '@replays/application/services/request-replay-recheck.service';
 import { RequestReplayRejudging } from '@replays/application/services/request-replay-rejudging.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/entities/replay-entry.entity';
 import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import type { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
@@ -1020,7 +1020,7 @@ describe('probing a set', () => {
     const [first] = wanted<ReplayRejudgingRequested>(
       'replay.rejudging-requested',
     );
-    await rejudging().requested(first as ReplayRejudgingRequested);
+    await rejudging().requested(first);
 
     expect(entries()[0]?.secondJudging?.unjudged).toBe('unavailable');
     expect(entries()[1]?.secondJudging?.pending).toBe(true);
@@ -1095,7 +1095,7 @@ describe('probing a set', () => {
     changes.recheckableStacks = [];
 
     const [first] = wanted<ReplayRecheckRequested>('replay.recheck-requested');
-    await rechecking().requested(first as ReplayRecheckRequested);
+    await rechecking().requested(first);
 
     expect(entries()[0]?.recheck?.state).toBe('absent');
     expect(entries()[0]?.checksFlipped).toBeNull();

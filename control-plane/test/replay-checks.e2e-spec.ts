@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -18,7 +19,14 @@ import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import {
+  type Answer,
+  openApp,
+  type Problem,
+  served,
+  TEST_USER_HEADER,
+} from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import { deleteRunnersOf } from './support/runners';
@@ -68,6 +76,11 @@ let planToken: string;
 let stranger: string;
 let keptSetId: string;
 let originals: string[];
+
+interface CheckAnswer {
+  readonly id: string;
+  readonly reused: boolean;
+}
 
 const http = () => served(app);
 
@@ -331,7 +344,7 @@ const tokenWith = async (scopes: readonly string[]) => {
 
   expect(issued.status).toBe(201);
 
-  return issued.headers[TOKEN_HEADER] as string;
+  return issued.headers[TOKEN_HEADER];
 };
 
 beforeAll(async () => {
@@ -455,9 +468,9 @@ afterAll(async () => {
 
 describe('a replay check', () => {
   it('fails, saying why, when the station has no replay set yet', async () => {
-    const rejected = await bearing(planToken)
+    const rejected = (await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(planned()))
-      .expect(409);
+      .expect(409)) as Answer<Problem>;
 
     expect(rejected.headers['content-type']).toContain(
       'application/problem+json',
@@ -470,9 +483,9 @@ describe('a replay check', () => {
   it('fails, saying why, when the station’s replay set has no runs yet', async () => {
     await createSet([]);
 
-    const rejected = await bearing(planToken)
+    const rejected = (await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(planned()))
-      .expect(409);
+      .expect(409)) as Answer<Problem>;
 
     expect(rejected.body.detail).toBe(
       'Station build has no runs in its replay set yet.',
@@ -487,9 +500,9 @@ describe('a replay check', () => {
       .where(eq(schema.line.id, DELIVERY));
 
     try {
-      const rejected = await bearing(planToken)
+      const rejected = (await bearing(planToken)
         .post(`${teamPath()}/replay-checks`, checkBody(planned()))
-        .expect(409);
+        .expect(409)) as Answer<Problem>;
 
       expect(rejected.body.detail).toContain('has no replay_check block');
     } finally {
@@ -501,18 +514,18 @@ describe('a replay check', () => {
   });
 
   it('names each problem of a planned station the line would not take, and rejects one that changes nothing that runs', async () => {
-    const invalid = await bearing(planToken)
+    const invalid = (await bearing(planToken)
       .post(
         `${teamPath()}/replay-checks`,
         checkBody(planned({ effort: 'huge' })),
       )
-      .expect(422);
+      .expect(422)) as Answer<Problem>;
 
     expect(invalid.body.errors).toEqual([
       expect.objectContaining({ path: 'station.effort', severity: 'error' }),
     ]);
 
-    const unchanged = await bearing(planToken)
+    const unchanged = (await bearing(planToken)
       .post(
         `${teamPath()}/replay-checks`,
         checkBody({
@@ -525,7 +538,7 @@ describe('a replay check', () => {
           passesTo: ['ship'],
         }),
       )
-      .expect(409);
+      .expect(409)) as Answer<Problem>;
 
     expect(unchanged.body.type).toBe('urn:spotlight:problem:nothing-to-replay');
     expect(unchanged.body.detail).toContain('check');
@@ -618,9 +631,12 @@ describe('a replay check', () => {
       .expect(200);
     expect(again.body).toMatchObject({ id: check.id, reused: true });
     expect(again.headers['idempotent-replayed']).toBeUndefined();
-    const elsewhere = await bearing(planToken)
+    const elsewhere = (await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(planned(), 43))
-      .expect(201);
+      .expect(201)) as Answer<{
+      readonly id: string;
+      readonly reused: boolean;
+    }>;
     expect(elsewhere.body).toMatchObject({ reused: false });
     expect(elsewhere.body.id).not.toBe(check.id);
     const fresh = check as CheckRead & {
@@ -632,20 +648,20 @@ describe('a replay check', () => {
     expect(fresh.threshold.unpricedRun.amount).toBeCloseTo(4 / 3, 5);
 
     const key = randomUUID();
-    const once = await bearing(planToken)
+    const once = (await bearing(planToken)
       .post(
         `${teamPath()}/replay-checks`,
         checkBody(planned({ prompt: 'Build it, once.' })),
         key,
       )
-      .expect(201);
-    const retried = await bearing(planToken)
+      .expect(201)) as Answer<CheckAnswer>;
+    const retried = (await bearing(planToken)
       .post(
         `${teamPath()}/replay-checks`,
         checkBody(planned({ prompt: 'Build it, once.' })),
         key,
       )
-      .expect(201);
+      .expect(201)) as Answer<CheckAnswer>;
     expect(retried.body.id).toBe(once.body.id);
     expect(retried.body.reused).toBe(false);
     expect(retried.headers['idempotent-replayed']).toBe('true');
@@ -743,9 +759,9 @@ describe('a replay check', () => {
         .where(eq(schema.line.id, DELIVERY));
     }
 
-    const current = await bearing(planToken)
+    const current = (await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(change))
-      .expect(200);
+      .expect(200)) as Answer<CheckAnswer>;
     expect(current.body.id).toBe(second.id);
 
     expect(
@@ -795,12 +811,12 @@ describe('a replay check', () => {
     });
     expect(candidate?.station).not.toHaveProperty('runners');
 
-    const rejected = await bearing(planToken)
+    const rejected = (await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, {
         ...checkBody(live),
         line: { repositories: [{ name: '' }] },
       })
-      .expect(422);
+      .expect(422)) as Answer<Problem>;
     expect(rejected.body.errors[0].path).toMatch(/^line\.repositories/);
 
     await bearing(planToken)
@@ -811,8 +827,8 @@ describe('a replay check', () => {
   it('compares checks started together against the one baseline that comes, and wants a new one once the live station is scored differently', async () => {
     const raced = new Date();
     const race = await createSet([
-      originals[0] as string,
-      originals[2] as string,
+      originals[0],
+      originals[2],
       await anOriginal(),
     ]);
 
@@ -820,9 +836,9 @@ describe('a replay check', () => {
       startCheck(planned({ prompt: 'Build it, racing.' })),
       startCheck(planned({ prompt: 'Build it, racing too.' })),
     ]);
-    const shared = await baselineOf(one as CheckRead);
+    const shared = await baselineOf(one);
 
-    expect(await baselineOf(two as CheckRead)).toBe(shared);
+    expect(await baselineOf(two)).toBe(shared);
     expect(
       (
         await db
@@ -843,9 +859,7 @@ describe('a replay check', () => {
       const fresh = await baselineOf(rescored);
 
       expect(fresh).not.toBe(shared);
-      expect((await readCheck((one as CheckRead).id)).baselineReplayId).toBe(
-        shared,
-      );
+      expect((await readCheck(one.id)).baselineReplayId).toBe(shared);
     } finally {
       await db
         .update(schema.station)
@@ -855,7 +869,7 @@ describe('a replay check', () => {
   });
 
   it('is undecided, saying so, once the baseline it found is gone and none can come', async () => {
-    await createSet([originals[0] as string, await anOriginal()]);
+    await createSet([originals[0], await anOriginal()]);
     const check = await startCheck(planned({ prompt: 'Build it, baseless.' }));
     const baseline = await baselineOf(check);
 

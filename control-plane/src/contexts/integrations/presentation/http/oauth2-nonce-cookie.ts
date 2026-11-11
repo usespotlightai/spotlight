@@ -2,7 +2,7 @@ import { OAUTH2_CALLBACK_ROUTE } from '@integrations/presentation/http/oauth2-ca
 import type { RequestHeaders } from '@platform/http/request-headers';
 import { API_PREFIX } from '@platform/http/routes';
 
-export interface CookieOptions {
+interface CookieOptions {
   readonly httpOnly: boolean;
   readonly secure: boolean;
   readonly sameSite: 'lax';
@@ -15,21 +15,28 @@ export interface CookieJar {
   clearCookie(name: string, options: CookieOptions): void;
 }
 
+const CALLBACK_PATH = `/${API_PREFIX}/${OAUTH2_CALLBACK_ROUTE}`;
+
 export const OAUTH2_NONCE_COOKIE = 'spotlight_oauth2_nonce';
 
 export class OAuth2NonceCookie {
-  constructor(private readonly secure: boolean) {}
-
-  static forPublicUrl(url: string): OAuth2NonceCookie {
-    return new OAuth2NonceCookie(new URL(url).protocol === 'https:');
-  }
-
   set(jar: CookieJar, nonce: string, expires: Date): void {
-    jar.cookie(OAUTH2_NONCE_COOKIE, nonce, { ...this.options(), expires });
+    jar.cookie(OAUTH2_NONCE_COOKIE, nonce, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: CALLBACK_PATH,
+      expires,
+    });
   }
 
   clear(jar: CookieJar): void {
-    jar.clearCookie(OAUTH2_NONCE_COOKIE, this.options());
+    jar.clearCookie(OAUTH2_NONCE_COOKIE, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: CALLBACK_PATH,
+    });
   }
 
   readFrom(headers: RequestHeaders): string | null {
@@ -46,14 +53,5 @@ export class OAuth2NonceCookie {
     }
 
     return null;
-  }
-
-  private options(): CookieOptions {
-    return {
-      httpOnly: true,
-      secure: this.secure,
-      sameSite: 'lax',
-      path: `/${API_PREFIX}/${OAUTH2_CALLBACK_ROUTE}`,
-    };
   }
 }

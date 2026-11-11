@@ -50,7 +50,9 @@ export interface Field {
   readonly kind: 'string' | 'number' | 'boolean' | 'null';
 }
 
-const leaf = (path: string, raw: unknown): Field => {
+type JsonLeaf = string | number | boolean | null;
+
+const leaf = (path: string, raw: JsonLeaf): Field => {
   if (raw === null) {
     return { path, value: 'null', kind: 'null' };
   }
@@ -80,7 +82,7 @@ const walked = (raw: unknown, at: string): Field[] => {
         );
   }
 
-  return [leaf(at, raw)];
+  return [leaf(at, raw as JsonLeaf)];
 };
 
 export const shaped = (body: string): Field[] | null => {

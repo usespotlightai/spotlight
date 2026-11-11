@@ -69,7 +69,7 @@ const definitions = (
   return {
     withId: read,
     ofTeam: vi.fn(async () => []),
-    save: vi.fn(async (_: SkillDefinition) => {
+    save: vi.fn<SkillDefinitionRepository['save']>(async () => {
       if (over.throwing) {
         throw over.throwing;
       }
@@ -115,9 +115,7 @@ describe('CreateSkillHandler', () => {
       id: 'skill_new',
       replayed: false,
     });
-    expect(
-      (repository.save.mock.calls[0] as [SkillDefinition])[0].key.value,
-    ).toBe('grafana');
+    expect(repository.save.mock.calls[0][0].key.value).toBe('grafana');
   });
 
   it('says a key the team already has is taken', async () => {
@@ -178,9 +176,7 @@ describe('UpdateSkillHandler', () => {
       outcome: 'updated',
       id: 'skill_1',
     });
-    expect(
-      (repository.save.mock.calls[0] as [SkillDefinition])[0].files.fields,
-    ).toEqual(files);
+    expect(repository.save.mock.calls[0][0].files.fields).toEqual(files);
   });
 
   it('points at the key when a request changes it', async () => {
@@ -229,9 +225,7 @@ describe('DeleteSkillHandler', () => {
     const { remove, repository } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect(
-      (repository.save.mock.calls[0] as [SkillDefinition])[0].isDeleted,
-    ).toBe(true);
+    expect(repository.save.mock.calls[0][0].isDeleted).toBe(true);
   });
 
   it('will not delete a skill that a station enables', async () => {

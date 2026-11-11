@@ -290,7 +290,8 @@ export const heldOutPendingFor = (
 
   return (
     !picked?.heldOutGain &&
-    picked?.heldOutReplayId != null &&
+    picked !== undefined &&
+    picked.heldOutReplayId !== null &&
     [picked.heldOutReplayId, scores.seed.heldOutReplayId].some(unended)
   );
 };

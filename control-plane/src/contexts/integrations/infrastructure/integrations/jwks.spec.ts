@@ -1,4 +1,5 @@
 import { generateKeyPairSync } from 'node:crypto';
+
 import { UNLISTED_FOR_WORKSPACE } from '@identity/application/ports/workspace-outbound-scope.port';
 import { JwksCache } from '@integrations/infrastructure/integrations/jwks';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';

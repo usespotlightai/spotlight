@@ -5,6 +5,7 @@ import {
   useQuery,
 } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
+
 import type { JournalledRun, RunJournal } from '@/lib/inbox';
 import type { JournalDemand } from '@/lib/journal-demand';
 
@@ -53,7 +54,7 @@ const shownOf = (
 
 const NONE: readonly JournalledRun[] = [];
 
-const settled = (query: UseQueryResult<unknown>): boolean =>
+const settled = (query: UseQueryResult): boolean =>
   !query.isPending || query.errorUpdateCount > 0;
 
 export function useRunJournals(

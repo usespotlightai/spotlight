@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { EDITOR_NAMES, type EditorApp } from '@/lib/editor';
 import { choice, type PageArgs, pageStory } from '@/stories/application';
 

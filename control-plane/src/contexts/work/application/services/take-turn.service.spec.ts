@@ -208,7 +208,7 @@ const turning = (over: Turning = {}) => {
     },
     files,
     new RunRouting(
-      { placementsAt: async () => [] } as never,
+      { placementsAt: async () => [] },
       { runIdFor: async () => RunId.of('run_2') },
       clock,
     ),

@@ -18,14 +18,14 @@ export function PlanHeredoc({ entry, width }: PlanHeredocProps) {
         </PlanRow>
         {entry.lines.map((line, at) =>
           'hidden' in line ? (
-            // biome-ignore lint/suspicious/noArrayIndexKey: lines keep their order
+            // oxlint-disable-next-line react/no-array-index-key -- lines keep their order
             <PlanRow key={at} depth={1}>
               <span className="text-muted-foreground">
                 # ({lines(line.hidden)} unchanged hidden)
               </span>
             </PlanRow>
           ) : (
-            // biome-ignore lint/suspicious/noArrayIndexKey: lines keep their order
+            // oxlint-disable-next-line react/no-array-index-key -- lines keep their order
             <PlanRow key={at} mark={line.mark} depth={1} toned>
               {line.text || ' '}
             </PlanRow>

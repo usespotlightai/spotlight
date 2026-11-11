@@ -17,7 +17,7 @@ export function PersonAvatar({
   size = 'sm',
   className,
 }: PersonAvatarProps) {
-  const [initial] = [...person.name.trim()];
+  const [initial] = Array.from(person.name.trim());
 
   return (
     <Avatar

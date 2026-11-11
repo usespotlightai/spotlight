@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
+
 import { Toaster } from '@/components/ui/toast';
 import { storedTheme } from '@/hooks/useTheme';
 import { client } from '@/lib/api/client.gen';
@@ -16,7 +17,9 @@ import { refuseStrayFileDrops } from '@/lib/file-drops';
 import { retryQuery } from '@/lib/query-retry';
 import { withSentRequest } from '@/lib/request-failure';
 import { reloadOnStaleBuild } from '@/lib/stale-build';
+
 import App from './App.tsx';
+
 import './index.css';
 
 const root = document.getElementById('root');
@@ -57,7 +60,7 @@ const render = () =>
 
 const REPORTING_WAIT_MS = 1000;
 
-Promise.race([
+void Promise.race([
   startErrorReporting().catch(() => undefined),
   new Promise((resolve) => setTimeout(resolve, REPORTING_WAIT_MS)),
 ]).finally(render);

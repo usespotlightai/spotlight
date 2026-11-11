@@ -266,7 +266,7 @@ describe('MoveTaskHandler', () => {
       move('station_4', lines(), tasks(taskAt('station_2'))),
     ).rejects.toMatchObject({
       kind: 'invalid',
-      message: expect.stringContaining('from Triage to Spec'),
+      message: expect.stringContaining('from Triage to Spec') as unknown,
     });
     expect(saved).toBeUndefined();
     expect(dispatched).toEqual([]);
@@ -325,7 +325,7 @@ describe('MoveTaskHandler', () => {
         }),
       ),
     ).rejects.toMatchObject({
-      refusal: expect.any(TeamMembershipRequiredError),
+      refusal: expect.any(TeamMembershipRequiredError) as unknown,
     });
     expect(saved).toBeUndefined();
   });

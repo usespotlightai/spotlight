@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+
 import { versionedWriteViolations } from './versioned-writes';
 import { described } from './violation';
 

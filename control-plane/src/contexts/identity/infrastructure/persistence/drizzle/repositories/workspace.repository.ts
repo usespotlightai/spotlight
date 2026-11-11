@@ -32,7 +32,7 @@ const isSlugCollision = (error: unknown): boolean =>
   error !== null &&
   'code' in error &&
   (error as { code?: string }).code === UNIQUE_VIOLATION &&
-  String((error as { constraint?: string }).constraint ?? '').includes('slug');
+  ((error as { constraint?: string }).constraint ?? '').includes('slug');
 
 @Injectable()
 export class DrizzleWorkspaceRepository implements WorkspaceRepository {

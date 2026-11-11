@@ -7,10 +7,10 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ListRunChangeStacksHandler
-  implements
-    QueryHandlerPort<ListRunChangeStacksQuery, RunChangeStacksDto | null>
-{
+export class ListRunChangeStacksHandler implements QueryHandlerPort<
+  ListRunChangeStacksQuery,
+  RunChangeStacksDto | null
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly stacks: ChangeStackReaderPort,

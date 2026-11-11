@@ -29,7 +29,8 @@ export const failedReactionOf = (error: unknown): HappeningsReaction | null => {
       case 'not-allowed':
       case 'not-found':
         return failed(false, error.message);
-      default:
+      case 'internal':
+      case 'upstream-error':
         return null;
     }
   }

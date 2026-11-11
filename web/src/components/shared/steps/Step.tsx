@@ -1,4 +1,5 @@
 import { type ReactNode, useId } from 'react';
+
 import { Collapsible } from '@/components/shared/Collapsible';
 
 type StepProps = {

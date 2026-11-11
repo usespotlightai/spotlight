@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { type MoveEnd, transitionMove } from '@/lib/transition';
 
 type FakeAnimation = {

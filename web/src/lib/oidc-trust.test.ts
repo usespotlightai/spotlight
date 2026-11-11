@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { describeIssued, type OidcTrust, trustNote } from '@/lib/oidc-trust';
 
 const GITHUB_ACTIONS_ISSUER = 'https://token.actions.githubusercontent.com';

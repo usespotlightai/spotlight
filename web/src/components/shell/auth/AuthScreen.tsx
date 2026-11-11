@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { LogoLockup } from '@/components/shared/brand/LogoLockup';
 import { cn } from '@/lib/utils';
 

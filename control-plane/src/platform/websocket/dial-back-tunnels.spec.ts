@@ -1,6 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
+
 import type { HttpAdapterHost } from '@nestjs/core';
 import { DialBackTunnels } from '@platform/websocket/dial-back-tunnels';
 import type {
@@ -72,7 +73,11 @@ afterEach(async () => {
 const failures: Error[] = [];
 
 afterEach(() => {
-  expect(failures.splice(0)).toEqual([]);
+  const failed = failures.splice(0);
+
+  if (failed.length > 0) {
+    throw new AggregateError(failed, 'A dial-back failed');
+  }
 });
 
 const instance = async (directoryAt: (address: string) => TunnelDirectory) => {
@@ -119,7 +124,9 @@ const host = async (
     `${tunnelAt.replace('http', 'ws')}/tunnel/host_1`,
   );
   tunnel.on('message', (data) => {
-    const { stream } = JSON.parse(data.toString()) as { stream: string };
+    const { stream } = JSON.parse((data as Buffer).toString()) as {
+      stream: string;
+    };
     const back = new WebSocket(
       `${dialBackAt().replace('http', 'ws')}/tunnel/host_1/${stream}`,
     );
@@ -137,14 +144,21 @@ const host = async (
   return tunnel;
 };
 
-const echoes = async (stream: Duplex | null) => {
-  expect(stream).not.toBeNull();
+const HELLO = 'SSH-2.0-OpenSSH\r\n';
+
+const echoed = async (stream: Duplex | null): Promise<string | null> => {
+  if (!stream) {
+    return null;
+  }
+
   const answered = new Promise<string>((done) =>
-    stream?.once('data', (data: Buffer) => done(data.toString())),
+    stream.once('data', (data: Buffer) => done(data.toString())),
   );
-  stream?.write('SSH-2.0-OpenSSH\r\n');
-  await expect(answered).resolves.toBe('SSH-2.0-OpenSSH\r\n');
-  stream?.destroy();
+  stream.write(HELLO);
+  const answer = await answered;
+  stream.destroy();
+
+  return answer;
 };
 
 const claimed = (directory: TunnelDirectory) =>
@@ -160,7 +174,9 @@ describe('DialBackTunnels across instances', () => {
     await host(a.address, () => b.address);
     await claimed(at(a.address));
 
-    await echoes(await b.tunnels.open('host_1', { sandboxId: 'sandbox_a' }));
+    expect(
+      await echoed(await b.tunnels.open('host_1', { sandboxId: 'sandbox_a' })),
+    ).toBe(HELLO);
   });
 
   it('forwards a dial-back that reaches the instance which did not ask', async () => {
@@ -170,7 +186,9 @@ describe('DialBackTunnels across instances', () => {
     await host(a.address, () => a.address);
     await claimed(at(a.address));
 
-    await echoes(await b.tunnels.open('host_1', { sandboxId: 'sandbox_a' }));
+    expect(
+      await echoed(await b.tunnels.open('host_1', { sandboxId: 'sandbox_a' })),
+    ).toBe(HELLO);
   });
 
   it('opens a stream on its own tunnel when the dial-back reaches the other instance', async () => {
@@ -180,7 +198,9 @@ describe('DialBackTunnels across instances', () => {
     await host(a.address, () => b.address);
     await claimed(at(a.address));
 
-    await echoes(await a.tunnels.open('host_1', { sandboxId: 'sandbox_a' }));
+    expect(
+      await echoed(await a.tunnels.open('host_1', { sandboxId: 'sandbox_a' })),
+    ).toBe(HELLO);
   });
 
   it('answers nothing when no instance has the tunnel', async () => {
@@ -230,7 +250,9 @@ describe('DialBackTunnels across instances', () => {
       expect(await at(a.address).ownerOfPeer('host_1')).not.toBeNull(),
     );
 
-    await echoes(await a.tunnels.open('host_1', { sandboxId: 'sandbox_a' }));
+    expect(
+      await echoed(await a.tunnels.open('host_1', { sandboxId: 'sandbox_a' })),
+    ).toBe(HELLO);
   });
 
   it('answers the opens that wait when it closes', async () => {

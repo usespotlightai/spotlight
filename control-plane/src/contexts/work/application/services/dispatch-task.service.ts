@@ -83,7 +83,7 @@ export class DispatchTask implements TaskDispatching {
       task,
       line,
       harnesses: this.harnesses.current(),
-      ready: ready.map(ReadySkillMapper.toReady),
+      ready: ready.map((each) => ReadySkillMapper.toReady(each)),
       profiles: await this.ordering.profilesAt(line, station ?? null),
     });
 

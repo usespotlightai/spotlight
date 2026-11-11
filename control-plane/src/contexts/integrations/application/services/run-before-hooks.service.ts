@@ -8,13 +8,13 @@ import type { RunAttemptsPort } from '@integrations/application/ports/run-attemp
 import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import { hookMatches } from '@integrations/application/services/hook-matching';
 import type { HookSteps } from '@integrations/application/services/hook-steps.service';
-import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { HookStepOutcome } from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';

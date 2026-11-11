@@ -38,12 +38,12 @@ import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
-import type { TaskDto } from '@work/application/dto/task.dto';
 import type {
   TaskRunDto,
   TeamRunDto,
 } from '@work/application/dto/task-run.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
+import type { TaskDto } from '@work/application/dto/task.dto';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import {
   ListTasksQuery,
@@ -62,10 +62,6 @@ import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.
 import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.request.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
-import {
-  TaskPageResponseDto,
-  TaskResponseDto,
-} from '@work/presentation/http/dto/task.response.dto';
 import { SendMessageRequestDto } from '@work/presentation/http/dto/task-run.request.dto';
 import {
   LatestRunResponseDto,
@@ -77,13 +73,17 @@ import {
   TeamRunResponseDto,
 } from '@work/presentation/http/dto/task-run.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
+import {
+  TaskPageResponseDto,
+  TaskResponseDto,
+} from '@work/presentation/http/dto/task.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { NoteHttpMapper } from '@work/presentation/http/mappers/note.http.mapper';
-import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
+import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
 import { ApiPageQuery, pageRequestOf } from '@work/presentation/http/paging';
 
 @ApiTags('tasks')
@@ -148,7 +148,7 @@ export class TaskController {
       throw new NotFoundException();
     }
 
-    return mapPage(tasks, TaskHttpMapper.toResponse);
+    return mapPage(tasks, (each) => TaskHttpMapper.toResponse(each));
   }
 
   @Get('tasks/:taskId')
@@ -201,7 +201,7 @@ export class TaskController {
       Page<TeamRunDto>
     >(new ListTeamRunsQuery(teamId, user.id, pageRequestOf(before, limit)));
 
-    return mapPage(runs, TaskRunHttpMapper.teamToResponse);
+    return mapPage(runs, (each) => TaskRunHttpMapper.teamToResponse(each));
   }
 
   @Get('runs/:runId')
@@ -281,7 +281,7 @@ export class TaskController {
       found.taskId,
       found.title,
       found.description,
-      found.attachments.map(AttachmentHttpMapper.toResponse),
+      found.attachments.map((each) => AttachmentHttpMapper.toResponse(each)),
       found.station
         ? new RunStationResponseDto(
             found.station.id,
@@ -385,7 +385,7 @@ export class TaskController {
       new ListTaskRunsQuery(taskId, user.id),
     );
 
-    return runs.map(TaskRunHttpMapper.toResponse);
+    return runs.map((each) => TaskRunHttpMapper.toResponse(each));
   }
 
   @Get('tasks/:taskId/trace')

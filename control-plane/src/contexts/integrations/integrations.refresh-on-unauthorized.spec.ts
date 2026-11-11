@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type {
   TeamWorkspaceMembership,
@@ -138,7 +139,7 @@ const asJson = (body: unknown, status = 200) =>
   });
 
 const formOf = (init?: RequestInit) =>
-  new URLSearchParams(String(init?.body ?? ''));
+  new URLSearchParams((init?.body as string | undefined) ?? '');
 
 class FakeLinear {
   issued = 1;
@@ -147,6 +148,7 @@ class FakeLinear {
   tokenCalls = 0;
   apiCalls = 0;
   registrations = 0;
+  readonly redirectUris: unknown[] = [];
   answersUnauthorized = false;
   readonly challenges = new Map<string, string>();
   readonly verifiers: string[] = [];
@@ -157,12 +159,14 @@ class FakeLinear {
     input: string | URL | Request,
     init?: RequestInit,
   ): Promise<Response> => {
-    const url = String(input);
+    const url = input instanceof Request ? input.url : input.toString();
 
     if (url === 'https://linear.app/oauth/register') {
       this.registrations++;
-      const registration = JSON.parse(String(init?.body ?? '{}'));
-      expect(registration.redirect_uris).toEqual([CALLBACK]);
+      const registration = JSON.parse(
+        (init?.body as string | undefined) ?? '{}',
+      ) as { redirect_uris?: string[] };
+      this.redirectUris.push(registration.redirect_uris);
       return asJson({ client_id: 'dcr-client', client_secret: 'dcr-secret' });
     }
 
@@ -697,6 +701,7 @@ describe('OAuth that recovers from a token the service does not accept', () => {
     await comment();
 
     expect(linear.registrations).toBe(1);
+    expect(linear.redirectUris).toEqual([[CALLBACK]]);
     expect(linear.tokenCalls).toBe(1);
     expect(registrations.stored?.clientId.value).toBe('dcr-client');
   });

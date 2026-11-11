@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import type { Expansion } from '@/components/shared/nested-table/ExpandingRow';
 
 type ClampedCellProps = {

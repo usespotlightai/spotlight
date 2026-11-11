@@ -39,7 +39,9 @@ import { Mark } from '@work/domain/value-objects/mark.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { AppModule } from '@/app.module';
+
 import { mapOf, projectStations } from './support/stations';
 
 describe('a pull request reviewed from GitHub (e2e)', () => {
@@ -92,7 +94,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
       by: changeActorIn(),
       workspaceId: WorkspaceId.of(workspaceId),
       teamId: TeamId.of(workspaceId),
-      // biome-ignore lint/style/noNonNullAssertion: Spotlight has a built-in review line
+      // oxlint-disable-next-line typescript/no-non-null-assertion -- Spotlight has a built-in review line
       line: opening!,
       harness: HarnessId.of('claude-code'),
       newId: () => `${workspaceId}_${++next}`,
@@ -104,7 +106,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
       line.stations.map((each) => each.id.value),
     );
     const stored = await lines.find(line.id);
-    // biome-ignore lint/style/noNonNullAssertion: the built-in review line has reviews
+    // oxlint-disable-next-line typescript/no-non-null-assertion -- the built-in review line has reviews
     expect(stored?.reviews?.equals(line.reviews!)).toBe(true);
 
     const marks = [{ kind: REVIEW_MARK, value: pull }];
@@ -145,7 +147,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
 
     const [task] = await tasks.findByCorrelation(
       WorkspaceId.of(workspaceId),
-      // biome-ignore lint/style/noNonNullAssertion: correlation keys with a mark are not null
+      // oxlint-disable-next-line typescript/no-non-null-assertion -- correlation keys with a mark are not null
       CorrelationKeys.of({ marks: [Mark.review(PullRequestUrl.of(pull))] })!,
     );
 

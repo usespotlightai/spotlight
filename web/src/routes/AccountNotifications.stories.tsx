@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { notificationsPath } from '@/lib/notifications';
 import { SLUG } from '@/mocks/world';
 import { type PageArgs, pageStory } from '@/stories/application';

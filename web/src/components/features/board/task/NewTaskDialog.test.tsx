@@ -3,11 +3,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { NewTaskDialog } from '@/components/features/board/task/NewTaskDialog';
 import type { NewTask } from '@/lib/task';
 
-const created = vi.fn();
-const uploaded = vi.fn();
+const created = vi.fn<(...args: unknown[]) => unknown>();
+const uploaded = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: (input: unknown) => uploaded(input),

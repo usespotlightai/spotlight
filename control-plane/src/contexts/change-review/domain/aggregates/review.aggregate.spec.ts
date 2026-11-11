@@ -1,8 +1,8 @@
+import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import {
   Review,
   type ReviewVerdict,
 } from '@change-review/domain/aggregates/review.aggregate';
-import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
@@ -11,7 +11,6 @@ import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
-
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

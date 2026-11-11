@@ -27,7 +27,7 @@ export class ToolInputs {
     for (const name of Object.keys(fields)) {
       if (!provided.inputs.some((input) => input.name === name)) {
         throw new InvalidToolInputsError(
-          `${provided.tool} takes no input called ${name}`,
+          `${provided.tool.value} takes no input called ${name}`,
         );
       }
     }
@@ -38,7 +38,7 @@ export class ToolInputs {
       if (isUnset(value)) {
         if (input.required) {
           throw new InvalidToolInputsError(
-            `${provided.tool} needs its ${input.name} input`,
+            `${provided.tool.value} needs its ${input.name} input`,
           );
         }
 
@@ -50,7 +50,7 @@ export class ToolInputs {
 
       if (problem) {
         throw new InvalidToolInputsError(
-          `${provided.tool} takes ${input.name}, and ${
+          `${provided.tool.value} takes ${input.name}, and ${
             problem.at.isRoot
               ? JSON.stringify(coerced)
               : FieldPath.of([input.name, ...problem.at.segments]).rendered

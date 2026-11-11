@@ -6,8 +6,8 @@ import { ConnectionOwner } from '@integrations/domain/value-objects/connection-o
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
-import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';

@@ -1,4 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query';
+
 import { AgentConfigFilters } from '@/components/features/insights/changes/AgentConfigFilters';
 import { AgentConfigScatter } from '@/components/features/insights/changes/AgentConfigScatter';
 import { AgentConfigTable } from '@/components/features/insights/changes/AgentConfigTable';
@@ -12,8 +13,8 @@ import {
   type InsightsCandidates,
   stationReplayedPoints,
 } from '@/lib/insights-candidates';
-import type { AgentConfigsNarrowed } from '@/lib/insights-changes';
 import {
+  type AgentConfigsNarrowed,
   agentConfigPoints,
   type InsightsAgentConfigs,
   lowerIsBetter,

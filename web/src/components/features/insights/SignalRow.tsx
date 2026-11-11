@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
+
 import { SignalDumbbell } from '@/components/features/insights/SignalDumbbell';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
   LEAD_CELL,
@@ -10,6 +10,7 @@ import {
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   formatSignal,
   type SignalReading,

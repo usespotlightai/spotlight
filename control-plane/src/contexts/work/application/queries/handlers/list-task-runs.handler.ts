@@ -8,9 +8,10 @@ import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import type { RunAccess } from '@work/application/services/run-access.service';
 
-export class ListTaskRunsHandler
-  implements QueryHandlerPort<ListTaskRunsQuery, TaskRunDto[]>
-{
+export class ListTaskRunsHandler implements QueryHandlerPort<
+  ListTaskRunsQuery,
+  TaskRunDto[]
+> {
   constructor(
     private readonly runs: RunReaderPort,
     private readonly access: RunAccess,
@@ -23,7 +24,7 @@ export class ListTaskRunsHandler
         UserId.of(query.viewerId),
       );
 
-      return (found ?? []).map(TaskRunMapper.summaryToDto);
+      return (found ?? []).map((each) => TaskRunMapper.summaryToDto(each));
     } catch (error) {
       rethrowAsApplicationError(error);
     }

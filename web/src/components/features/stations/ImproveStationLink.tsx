@@ -1,4 +1,5 @@
 import { MousePointer2 } from 'lucide-react';
+
 import { PillLink } from '@/components/shared/PillLink';
 import type { TargetStation } from '@/lib/chat';
 import type { PillSize, PillVariant } from '@/lib/pill';

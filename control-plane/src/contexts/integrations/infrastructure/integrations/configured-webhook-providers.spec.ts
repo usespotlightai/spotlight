@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+
 import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type {
   DefinedIntegration,

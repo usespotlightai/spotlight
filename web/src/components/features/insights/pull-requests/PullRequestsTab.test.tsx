@@ -8,6 +8,7 @@ import {
   useSearchParams,
 } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { PullRequestsTab } from '@/components/features/insights/pull-requests/PullRequestsTab';
 import { paramsOf, viewOf } from '@/lib/insights';
 import type {
@@ -117,37 +118,38 @@ const SUMMARY = {
   depth: [{ rounds: '1', spotlight: 2, people: 1 }],
 } as unknown as InsightsPullRequests;
 
-const pullRequest = (over: Partial<InsightsPullRequest>): InsightsPullRequest =>
-  ({
-    pullRequest: 'https://github.com/acme/api/pull/7',
-    repository: 'acme/api',
-    number: 7,
-    title: 'Retry failed uploads',
-    author: 'spotlight[bot]',
-    authorIsBot: true,
-    by: 'spotlight',
-    taskId: 'task_7',
-    reviewTaskIds: [],
-    type: 'fix',
-    state: 'merged',
-    openedAt: '2026-09-29T08:00:00.000Z',
-    closedAt: '2026-09-29T12:00:00.000Z',
-    firstReviewAt: null,
-    toMergeMs: 4 * 3_600_000,
-    inReviewMs: null,
-    reviews: 0,
-    reviewRounds: 1,
-    reviewComments: 2,
-    isRevert: false,
-    reverted: false,
-    revertedBy: null,
-    additions: 10,
-    deletions: 2,
-    changedFiles: 1,
-    spend: { amount: 1.5, currency: 'USD' },
-    unpriced: 0,
-    ...over,
-  }) as InsightsPullRequest;
+const pullRequest = (
+  over: Partial<InsightsPullRequest>,
+): InsightsPullRequest => ({
+  pullRequest: 'https://github.com/acme/api/pull/7',
+  repository: 'acme/api',
+  number: 7,
+  title: 'Retry failed uploads',
+  author: 'spotlight[bot]',
+  authorIsBot: true,
+  by: 'spotlight',
+  taskId: 'task_7',
+  reviewTaskIds: [],
+  type: 'fix',
+  state: 'merged',
+  openedAt: '2026-09-29T08:00:00.000Z',
+  closedAt: '2026-09-29T12:00:00.000Z',
+  firstReviewAt: null,
+  toMergeMs: 4 * 3_600_000,
+  inReviewMs: null,
+  reviews: 0,
+  reviewRounds: 1,
+  reviewComments: 2,
+  isRevert: false,
+  reverted: false,
+  revertedBy: null,
+  additions: 10,
+  deletions: 2,
+  changedFiles: 1,
+  spend: { amount: 1.5, currency: 'USD' },
+  unpriced: 0,
+  ...over,
+});
 
 const LIST = {
   period: { name: '30d' },

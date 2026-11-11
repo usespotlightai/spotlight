@@ -9,8 +9,8 @@ import { KeyOverlay } from '@platform/storage/key-overlay';
 import type { S3Clients } from '@platform/storage/s3-clients';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
 import { describe, expect, it, vi } from 'vitest';
 

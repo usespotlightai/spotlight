@@ -8,9 +8,10 @@ import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class DeregisterHostHandler
-  implements CommandHandlerPort<DeregisterHostCommand, HostDeregisteredDto>
-{
+export class DeregisterHostHandler implements CommandHandlerPort<
+  DeregisterHostCommand,
+  HostDeregisteredDto
+> {
   constructor(
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly hosts: RunnerHostRepository,

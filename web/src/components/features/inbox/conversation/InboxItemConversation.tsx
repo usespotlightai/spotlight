@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router';
+
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxItemBriefing } from '@/components/features/inbox/conversation/InboxItemBriefing';
 import { InboxItemFooter } from '@/components/features/inbox/conversation/InboxItemFooter';

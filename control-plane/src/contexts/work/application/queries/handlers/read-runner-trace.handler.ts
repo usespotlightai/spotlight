@@ -12,9 +12,10 @@ import type { ReadRunnerTraceQuery } from '@work/application/queries/read-runner
 import type { HistoryAccesses } from '@work/application/services/history-accesses.service';
 import { TraceAccess } from '@work/domain/services/trace-access';
 
-export class ReadRunnerTraceHandler
-  implements QueryHandlerPort<ReadRunnerTraceQuery, TaskTraceDto | null>
-{
+export class ReadRunnerTraceHandler implements QueryHandlerPort<
+  ReadRunnerTraceQuery,
+  TaskTraceDto | null
+> {
   constructor(
     private readonly accesses: HistoryAccesses,
     private readonly traces: RunnerTraceReaderPort,

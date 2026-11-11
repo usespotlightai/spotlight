@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { authClient } from '@/lib/authClient';
 import { Login } from '@/routes/Login';
 
@@ -34,7 +35,7 @@ describe('Login', () => {
     signInSocial.mockResolvedValue({
       data: { redirect: true },
       error: null,
-    } as never);
+    });
     const user = userEvent.setup();
     renderPage();
 

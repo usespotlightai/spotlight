@@ -3,8 +3,7 @@ import type { ScopedRemoval } from '@insights/domain/repositories/scoped-removal
 import type { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
-export interface StationAlertStateRepository
-  extends ScopedRemoval<StationAlertState> {
+export interface StationAlertStateRepository extends ScopedRemoval<StationAlertState> {
   add(alertState: StationAlertState): Promise<void>;
 
   save(alertState: StationAlertState): Promise<void>;

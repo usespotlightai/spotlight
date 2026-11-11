@@ -1,6 +1,6 @@
 import type { StateName } from '@configuration/domain/value-objects/state-name.vo';
-import type { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import type { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
+import type { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import type { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';

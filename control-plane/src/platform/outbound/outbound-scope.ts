@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+
 import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 
 type Scope = { readonly hosts: HostAllowList; readonly refusal: string };

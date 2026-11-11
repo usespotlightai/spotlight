@@ -8,6 +8,7 @@ import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -77,7 +78,7 @@ describe('IntegrationConnection', () => {
     expect(JSON.stringify({ token: connection.accessToken })).not.toContain(
       'xoxb',
     );
-    expect(`${connection.accessToken}`).not.toContain('xoxb');
+    expect(String(connection.accessToken)).not.toContain('xoxb');
   });
 
   it('is not a happening to read one back from where it was stored', () => {
@@ -170,7 +171,7 @@ describe('IntegrationConnection', () => {
         version: 0,
         connectedAt: new Date('2026-09-01T00:00:00.000Z'),
       }),
-    ).toThrow();
+    ).toThrow(InconsistentStateError);
   });
 
   it('announces whose connection it is, and in which workspace', () => {
@@ -223,9 +224,9 @@ describe('IntegrationConnection', () => {
   });
 
   it('cannot be claimed without a refresh token', () => {
-    expect(() =>
-      rehydrated({ refreshToken: null }).claimRefresh(NOW),
-    ).toThrow();
+    expect(() => rehydrated({ refreshToken: null }).claimRefresh(NOW)).toThrow(
+      InconsistentStateError,
+    );
   });
 
   it('drops the claim once refreshed, failed or released', () => {
@@ -296,6 +297,6 @@ describe('IntegrationConnection', () => {
         version: 1,
         connectedAt: new Date('2026-09-01T00:00:00.000Z'),
       }),
-    ).toThrow();
+    ).toThrow(InconsistentStateError);
   });
 });

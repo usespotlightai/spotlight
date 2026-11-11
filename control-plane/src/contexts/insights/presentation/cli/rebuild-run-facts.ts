@@ -1,4 +1,6 @@
+// oxlint-disable no-console -- a command-line tool reports on the terminal
 import { parseArgs } from 'node:util';
+
 import type { RebuiltRunFacts } from '@insights/application/services/rebuild-run-facts.service';
 import { openRunFactsRebuild } from '@insights/insights.run-facts-rebuild';
 

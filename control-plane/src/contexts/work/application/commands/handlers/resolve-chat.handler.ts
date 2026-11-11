@@ -7,9 +7,10 @@ import type { ResolveChatCommand } from '@work/application/commands/chat.command
 import type { ChatLoader } from '@work/application/services/chat-loader.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 
-export class ResolveChatHandler
-  implements CommandHandlerPort<ResolveChatCommand, void>
-{
+export class ResolveChatHandler implements CommandHandlerPort<
+  ResolveChatCommand,
+  void
+> {
   constructor(
     private readonly loader: ChatLoader,
     private readonly chats: ChatRepository,

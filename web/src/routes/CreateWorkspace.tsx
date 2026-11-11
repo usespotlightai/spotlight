@@ -6,6 +6,7 @@ import {
   useState,
 } from 'react';
 import { useNavigate } from 'react-router';
+
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { AuthTitle } from '@/components/shell/auth/AuthTitle';

@@ -1,6 +1,7 @@
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { $getRoot, $isElementNode, type LexicalNode } from 'lexical';
 import { useEffect } from 'react';
+
 import { $isReferenceNode } from '@/components/shared/chat-input/ReferenceNode';
 import type { Reference, Written } from '@/lib/chat-input';
 

@@ -42,7 +42,7 @@ export class DrizzleOAuth2ClientRegistrations
       )
       .limit(1);
 
-    return found ? await this.rehydrate(found) : null;
+    return found ? this.rehydrate(found) : null;
   }
 
   async save(registration: OAuth2ClientRegistration): Promise<void> {

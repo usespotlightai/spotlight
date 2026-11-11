@@ -37,8 +37,10 @@ interface ScoreFields {
   readonly version: number;
 }
 
-interface ScoreState
-  extends Omit<ScoreFields, 'fingerprint' | 'rubricVersion'> {
+interface ScoreState extends Omit<
+  ScoreFields,
+  'fingerprint' | 'rubricVersion'
+> {
   readonly fingerprint: ConfigFingerprint | null;
   readonly rubricVersion: RubricVersion | null;
 }

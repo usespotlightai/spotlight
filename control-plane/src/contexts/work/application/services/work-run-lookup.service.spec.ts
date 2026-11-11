@@ -3,10 +3,7 @@ import type {
   RunChanges,
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
-import type {
-  RunFacts,
-  RunFactsPort,
-} from '@runs/application/ports/run-facts.port';
+import type { RunFacts } from '@runs/application/ports/run-facts.port';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -17,10 +14,7 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type {
-  DispatchedFor,
-  DispatchedRunsPort,
-} from '@work/application/ports/dispatched-runs.port';
+import type { DispatchedFor } from '@work/application/ports/dispatched-runs.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
@@ -128,7 +122,7 @@ const lookingUp = (seen: Seen) => {
   const facts = seen.facts === undefined ? factsOf() : seen.facts;
 
   return new WorkRunLookup(
-    { of: async () => (facts ? [facts] : []) } as unknown as RunFactsPort,
+    { of: async () => (facts ? [facts] : []) },
     {
       leasedBy: async () =>
         seen.leased && facts ? { ...facts, manifest: [], pins: [] } : null,
@@ -142,7 +136,7 @@ const lookingUp = (seen: Seen) => {
               for: seen.for ?? taskAt('implementation'),
               briefedMemories: { briefed: [], omitted: [] },
             },
-    } as unknown as DispatchedRunsPort,
+    },
     { find: async () => null } as unknown as TaskRepository,
     {
       find: async () => ({ teamId: TEAM, repositories: [WEB] }),
@@ -360,7 +354,7 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
 
   it('names each file the run changed once, in the repository it lies in', async () => {
     const changed = await new WorkRunLookup(
-      { of: async () => [factsOf()] } as unknown as RunFactsPort,
+      { of: async () => [factsOf()] },
       {} as RunLeasesPort,
       {
         of: async () => ({
@@ -368,7 +362,7 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
           for: taskAt('implementation'),
           briefedMemories: { briefed: [], omitted: [] },
         }),
-      } as unknown as DispatchedRunsPort,
+      },
       { find: async () => null } as unknown as TaskRepository,
       {} as ChatRepository,
       {

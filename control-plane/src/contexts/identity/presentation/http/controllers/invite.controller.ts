@@ -46,6 +46,11 @@ import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
 
+const textOf = (raw: unknown): string =>
+  typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean'
+    ? String(raw)
+    : '';
+
 const listed = (raw: unknown): string[] =>
   Array.isArray(raw) ? raw.map(String) : [];
 
@@ -111,7 +116,7 @@ export class WorkspaceInviteController {
     const outcomes = await this.inviting.invite({
       slug,
       emails: listed(body.emails),
-      role: String(body.role ?? ''),
+      role: textOf(body.role),
       teamIds: listed(body.teamIds),
       viewerId: user.id,
     });

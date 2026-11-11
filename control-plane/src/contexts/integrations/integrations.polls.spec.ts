@@ -123,7 +123,7 @@ const polling = (
     {
       everywhere: async () => [config(file)],
     } as unknown as DefinedIntegrationsPort,
-    runtimeWith({ run } as unknown as HttpOutbound),
+    runtimeWith({ run }),
     {
       find: async () => ({
         id: TEAM,
@@ -134,7 +134,7 @@ const polling = (
     } as unknown as TeamDirectoryPort,
     callAuthFor(injection),
     cursors,
-    new WorkDeliveryReactions({ react } as HappeningReactionsPort),
+    new WorkDeliveryReactions({ react }),
     { now: () => NOW } as ClockPort,
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );

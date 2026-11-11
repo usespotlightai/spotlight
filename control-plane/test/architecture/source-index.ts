@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
+
 import ts from 'typescript';
 
 export const SOURCE_ROOT = resolve(__dirname, '..', '..', 'src');
@@ -14,7 +15,7 @@ const ALIASES: readonly (readonly [string, string])[] = Object.entries(
 )
   .map(([alias, [folder]]): readonly [string, string] => [
     alias.replace(/\*$/, ''),
-    (folder as string).replace(/^\.\/src\//, '').replace(/\*$/, ''),
+    folder.replace(/^\.\/src\//, '').replace(/\*$/, ''),
   ])
   .sort(([one], [other]) => other.length - one.length);
 

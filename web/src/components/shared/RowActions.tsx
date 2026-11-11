@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+
 import { RowActionsTrigger } from '@/components/shared/RowActionsTrigger';
 import {
   DropdownMenu,

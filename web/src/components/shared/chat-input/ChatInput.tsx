@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react';
 import { type CSSProperties, type ReactNode, useRef } from 'react';
+
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import { ChatEditor } from '@/components/shared/chat-input/ChatEditor';
 import { ChatInputArea } from '@/components/shared/chat-input/ChatInputArea';

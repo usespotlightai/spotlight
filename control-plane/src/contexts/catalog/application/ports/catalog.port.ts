@@ -28,5 +28,4 @@ export interface CatalogCallsPort {
 }
 
 export interface CatalogPort
-  extends CatalogEntitlementsPort,
-    CatalogCallsPort {}
+  extends CatalogEntitlementsPort, CatalogCallsPort {}

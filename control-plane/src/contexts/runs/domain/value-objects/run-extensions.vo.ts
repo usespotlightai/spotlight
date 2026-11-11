@@ -35,7 +35,7 @@ export class RunExtensions {
       }
     }
 
-    return new RunExtensions(structuredClone(raw) as JsonObject);
+    return new RunExtensions(structuredClone(raw));
   }
 
   get isEmpty(): boolean {
@@ -43,6 +43,6 @@ export class RunExtensions {
   }
 
   get value(): JsonObject {
-    return structuredClone(this.blocks) as JsonObject;
+    return structuredClone(this.blocks);
   }
 }

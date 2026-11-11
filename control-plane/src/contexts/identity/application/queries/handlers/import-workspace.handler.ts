@@ -7,9 +7,10 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ImportWorkspaceHandler
-  implements QueryHandlerPort<ImportWorkspaceQuery, WorkspaceResourceDto | null>
-{
+export class ImportWorkspaceHandler implements QueryHandlerPort<
+  ImportWorkspaceQuery,
+  WorkspaceResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IdentityResourcesPort,

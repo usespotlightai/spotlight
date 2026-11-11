@@ -28,7 +28,7 @@ export function ReplayedPointTip({
           ],
           ['Cost per run', spentIn(point.cost, currency)],
           ...(point.heldOut
-            ? ([['Held out', `${point.heldOut}`]] as [string, string][])
+            ? ([['Held out', point.heldOut]] as [string, string][])
             : []),
           ...(point.frontier
             ? ([['Best for the cost', 'Yes']] as [string, string][])

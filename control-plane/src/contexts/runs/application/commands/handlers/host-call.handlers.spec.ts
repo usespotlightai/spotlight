@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import type {
   HostCredentials,
   RunnerAuthenticatorPort,
@@ -221,7 +222,7 @@ describe('ClaimHostCallHandler', () => {
       [30_000, 10_000],
     ]) {
       expect(
-        await hosting({ next: expiringIn(left as number) }).claim.execute(
+        await hosting({ next: expiringIn(left) }).claim.execute(
           new ClaimHostCallCommand(POOL, HOST),
         ),
       ).toMatchObject({ outcome: 'claimed', call: { timeoutMs } });

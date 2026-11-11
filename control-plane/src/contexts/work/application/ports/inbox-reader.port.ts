@@ -6,8 +6,8 @@ import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
-import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
+import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { Progress } from '@work/domain/value-objects/progress';

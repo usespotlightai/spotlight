@@ -1,6 +1,6 @@
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
-import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
 import { InvalidWorkingCopyArchiveTransitionError } from '@runs/domain/exceptions/invalid-working-copy-archive-transition.error';
+import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
 import { WorkingCopyArchiveNotUploadedError } from '@runs/domain/exceptions/working-copy-archive-not-uploaded.error';
 import type { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import type { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';

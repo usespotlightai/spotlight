@@ -3,7 +3,6 @@ import {
   RedisOutboundLimits,
 } from '@integrations/infrastructure/outbound/outbound-limits';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { Redis } from 'ioredis';
 import RedisMock from 'ioredis-mock';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
@@ -113,7 +112,7 @@ describe('RedisOutboundLimits', () => {
     onTestFinished(() => {
       vi.useRealTimers();
     });
-    const redis = new RedisMock() as unknown as Redis;
+    const redis = new RedisMock();
     await redis.flushall();
     const { waits } = clock(0);
     const one = new RedisOutboundLimits(redis, 2, quiet(), waits);

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+
 import { useMarkInboxChatRead } from '@/hooks/api/useMarkInboxChatRead';
 import type { Chat } from '@/lib/chat';
 

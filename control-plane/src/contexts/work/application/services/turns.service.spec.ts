@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  RunFacts,
-  RunFactsPort,
-} from '@runs/application/ports/run-facts.port';
+
+import type { RunFacts } from '@runs/application/ports/run-facts.port';
 import type {
   RunTurnsPort,
   TurnFacts,
@@ -183,7 +181,7 @@ const turning = (
       },
       forgetSuspendedBefore: forget,
     } satisfies TurnRetakesPort,
-    { of: async () => over.facts ?? [] } as unknown as RunFactsPort,
+    { of: async () => over.facts ?? [] },
     { resume, cancel } as unknown as RunsPort,
     {
       find: async () => ({
@@ -205,7 +203,7 @@ const turning = (
     clock,
     { generate: () => randomUUID() },
     { count, inSpan: vi.fn(), measure: vi.fn() } as never,
-    { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error } as never,
+    { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error },
   );
   const tick = async (now: Date) => {
     clock.at = now;

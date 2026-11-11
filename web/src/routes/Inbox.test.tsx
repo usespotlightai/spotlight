@@ -2,16 +2,17 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { Inbox } from '@/routes/Inbox';
 
-const waiting = vi.fn();
+const waiting = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const refetch = vi.fn();
 const resolve = vi.fn();
 const reopen = vi.fn();
-const resolvedOnes = vi.fn();
-const moreResolved = vi.fn();
-const resolvedPending = vi.fn();
+const resolvedOnes = vi.fn<(...args: unknown[]) => unknown>();
+const moreResolved = vi.fn<(...args: unknown[]) => unknown>();
+const resolvedPending = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
@@ -215,7 +216,10 @@ describe('Inbox', () => {
 
       expect(resolve).toHaveBeenCalledWith({
         slug: 'acme',
-        entry: expect.objectContaining({ kind: 'chat', id: 'chat_1' }),
+        entry: expect.objectContaining({
+          kind: 'chat',
+          id: 'chat_1',
+        }) as unknown,
       });
     });
   });
@@ -228,7 +232,7 @@ describe('Inbox', () => {
 
       expect(resolve).toHaveBeenCalledWith({
         slug: 'acme',
-        entry: expect.objectContaining({ id: 'task_1:0' }),
+        entry: expect.objectContaining({ id: 'task_1:0' }) as unknown,
       });
     });
 
@@ -248,7 +252,7 @@ describe('Inbox', () => {
 
       expect(reopen).toHaveBeenCalledWith({
         slug: 'acme',
-        entry: expect.objectContaining({ id: 'notice_1' }),
+        entry: expect.objectContaining({ id: 'notice_1' }) as unknown,
       });
     });
 

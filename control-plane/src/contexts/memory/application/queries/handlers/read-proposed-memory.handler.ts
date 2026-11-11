@@ -9,9 +9,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export class ReadProposedMemoryHandler
-  implements QueryHandlerPort<ReadProposedMemoryQuery, ProposedMemoryDto>
-{
+export class ReadProposedMemoryHandler implements QueryHandlerPort<
+  ReadProposedMemoryQuery,
+  ProposedMemoryDto
+> {
   constructor(
     private readonly loader: RunnerMemoryLoader,
     private readonly drafts: MemoryDraftRepository,

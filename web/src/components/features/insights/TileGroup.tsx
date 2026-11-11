@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 

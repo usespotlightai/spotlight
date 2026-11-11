@@ -1,4 +1,5 @@
 import { MessageSquare } from 'lucide-react';
+
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
 import { ResolveToggle } from '@/components/features/inbox/ResolveToggle';
 import { useMarkInboxChatRead } from '@/hooks/api/useMarkInboxChatRead';

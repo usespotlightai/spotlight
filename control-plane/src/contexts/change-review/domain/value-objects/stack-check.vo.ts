@@ -42,7 +42,8 @@ export const checkStatusAt = (
       return waitExpiredAt(check, now) ? 'skipped' : 'waiting';
     case 'redrafting':
       return 'waiting';
-    default:
+    case 'checked':
+    case 'skipped':
       return check.status;
   }
 };

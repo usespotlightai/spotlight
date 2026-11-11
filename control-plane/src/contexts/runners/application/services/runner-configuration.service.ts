@@ -37,9 +37,11 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
     ]);
 
     return {
-      trusts: trusts.map(RunnerResourceMapper.configuredTrust),
-      pools: pools.map(RunnerResourceMapper.configuredPool),
-      egresses: egresses.map(RunnerResourceMapper.configuredEgress),
+      trusts: trusts.map((each) => RunnerResourceMapper.configuredTrust(each)),
+      pools: pools.map((each) => RunnerResourceMapper.configuredPool(each)),
+      egresses: egresses.map((each) =>
+        RunnerResourceMapper.configuredEgress(each),
+      ),
       declared: declared ? await this.declaration(declared) : null,
     };
   }

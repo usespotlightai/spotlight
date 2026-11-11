@@ -1,4 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
@@ -234,7 +235,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
 
     const where = slug
       ? `${this.base}/w/${slug}/settings/team/${teamId.value}/integrations`
-      : `${this.base}`;
+      : this.base;
 
     return `${where}?connected=${encodeURIComponent(integration.value)}`;
   }

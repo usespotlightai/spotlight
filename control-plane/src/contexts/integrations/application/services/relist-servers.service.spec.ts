@@ -1,5 +1,4 @@
 import type { RefreshIntegrationSpecCommand } from '@integrations/application/commands/refresh-integration-spec.command';
-import type { ListedServersPort } from '@integrations/application/ports/listed-servers.port';
 import { RelistServers } from '@integrations/application/services/relist-servers.service';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
@@ -11,9 +10,7 @@ import { IntegrationDefinitionId } from '@integrations/domain/value-objects/inte
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -68,10 +65,10 @@ const relisting = (
   const execute = vi.fn(async (_command: RefreshIntegrationSpecCommand) => {});
   const log = { error: vi.fn() } as unknown as LoggerPort;
   const servers = new RelistServers(
-    { listedBefore } as ListedServersPort,
+    { listedBefore },
     definitions,
-    { execute } as CommandHandlerPort<RefreshIntegrationSpecCommand, void>,
-    { inTransaction: (work) => work() } as TransactionPort,
+    { execute },
+    { inTransaction: (work) => work() },
     { now: () => NOW } as ClockPort,
     log,
     TEN_MINUTES,

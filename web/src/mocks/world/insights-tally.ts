@@ -41,7 +41,7 @@ export const pullRequestsClosedIn = (
 ): readonly HistoryTask[] =>
   tasksOfTeam(teamId).filter(
     (task) =>
-      task.pullRequest?.closedAt != null &&
+      typeof task.pullRequest?.closedAt === 'number' &&
       within(task.pullRequest.closedAt, window),
   );
 
@@ -166,7 +166,7 @@ export const versionChangesOf = (teamId: string): VersionChange[] => {
 
   return profilesOfTeam(teamId).flatMap((profile) =>
     profile.versions.slice(1).flatMap((version, at) => {
-      const previous = profile.versions[at] as Version;
+      const previous = profile.versions[at];
       const first = runs
         .filter((run) => run.fingerprint === version.fingerprint)
         .reduce<HistoryRun | null>(

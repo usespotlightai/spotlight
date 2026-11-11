@@ -7,8 +7,8 @@ import { TerraformStateLockNotYoursError } from '@configuration/domain/exception
 import { TerraformStateLockedError } from '@configuration/domain/exceptions/terraform-state-locked.error';
 import { TerraformStateSerialBehindError } from '@configuration/domain/exceptions/terraform-state-serial-behind.error';
 import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
-import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
+import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
 import { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
@@ -97,12 +97,13 @@ describe('TerraformState', () => {
     const locked = opened().lockAs(lock('a'));
 
     expect(() => locked.lockAs(lock('b'))).toThrow(TerraformStateLockedError);
-
-    try {
-      locked.lockAs(lock('b'));
-    } catch (error) {
-      expect((error as TerraformStateLockedError).holder.id.value).toBe('a');
-    }
+    expect(() => locked.lockAs(lock('b'))).toThrow(
+      expect.objectContaining({
+        holder: expect.objectContaining({
+          id: expect.objectContaining({ value: 'a' }) as unknown,
+        }) as unknown,
+      }),
+    );
   });
 
   it('refuses the same lock ID from another principal', () => {

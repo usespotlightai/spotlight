@@ -10,9 +10,10 @@ import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.v
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ListMembersHandler
-  implements QueryHandlerPort<ListMembersQuery, MemberDto[] | null>
-{
+export class ListMembersHandler implements QueryHandlerPort<
+  ListMembersQuery,
+  MemberDto[] | null
+> {
   constructor(
     private readonly teams: TeamRepository,
     private readonly workspaces: WorkspaceRepository,

@@ -10,9 +10,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ImportSkillHandler
-  implements QueryHandlerPort<ImportSkillQuery, SkillResourceDto | null>
-{
+export class ImportSkillHandler implements QueryHandlerPort<
+  ImportSkillQuery,
+  SkillResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,
@@ -42,7 +43,7 @@ export class ImportSkillHandler
         DefinedSkillKey.of(address.key),
       );
 
-      return record ? this.views.of(record) : null;
+      return record ? await this.views.of(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

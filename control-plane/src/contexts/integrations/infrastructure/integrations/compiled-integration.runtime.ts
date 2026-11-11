@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { ToolCallInputs } from '@integrations/application/dto/declared-tool.dto';
 import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
@@ -26,8 +27,8 @@ import {
   readinessFailureAfter,
 } from '@integrations/domain/services/notice-posting';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
-import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
@@ -154,7 +155,10 @@ const failedUsing = (tool: string, server: string, error: unknown): Error =>
     : mcpFailureOf(`using ${tool}`, server, error);
 
 type CallableTool = Omit<ResolvedTool, 'attempt'> & {
-  call(inputs: ToolCallInputs, callAuth: CallAuth): Promise<ToolOutput>;
+  readonly call: (
+    inputs: ToolCallInputs,
+    callAuth: CallAuth,
+  ) => Promise<ToolOutput>;
 };
 
 export class CompiledIntegrationRuntime implements IntegrationRuntimePort {

@@ -1,5 +1,6 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { eq, inArray } from 'drizzle-orm';
+
 import * as schema from './schema';
 
 export const deleteRunsOf = async (

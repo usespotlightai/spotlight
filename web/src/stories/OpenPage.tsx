@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
+
 import { scenario, setOpenPage } from '@/mocks/scenario';
 import { ownedByPage } from '@/mocks/shell';
 import { movedTo } from '@/stories/visit';

@@ -1,6 +1,6 @@
 import type { OidcTrustSpec } from '@identity/domain/aggregates/oidc-trust.aggregate';
-import type { WorkspaceDefinition } from '@identity/domain/aggregates/workspace.aggregate';
 import type { TokenSpec } from '@identity/domain/aggregates/workspace-token.aggregate';
+import type { WorkspaceDefinition } from '@identity/domain/aggregates/workspace.aggregate';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';

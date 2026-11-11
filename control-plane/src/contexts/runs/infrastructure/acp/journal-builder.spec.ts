@@ -24,7 +24,7 @@ const read = (...data: (string | null)[]) => {
 const nowhere = { locations: [], input: null, output: null, change: null };
 
 const withoutTime = (builder: JournalBuilder) =>
-  builder.steps().map(({ ms, startedAt, ...step }) => step);
+  builder.steps().map(({ ms: _ms, startedAt: _startedAt, ...step }) => step);
 
 describe('JournalBuilder', () => {
   it('puts the chunks of one message back together', () => {

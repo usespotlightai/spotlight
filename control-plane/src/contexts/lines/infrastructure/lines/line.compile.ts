@@ -406,7 +406,7 @@ const placed = (definition: LineFields, flaw: PlanFlaw): FieldPath => {
         flaw.reaction,
         ...REACTION_FIELDS[flaw.rule],
       ]);
-    default:
+    case 'line':
       return FieldPath.of(flaw.rule ? [flaw.rule] : []);
   }
 };

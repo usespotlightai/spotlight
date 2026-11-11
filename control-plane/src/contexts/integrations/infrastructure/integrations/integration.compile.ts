@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import type { ExpressionErrorDto } from '@integrations/application/dto/expression-check.dto';
 import type {
   IntegrationCompilerPort,
@@ -9,8 +10,8 @@ import {
   INTEGRATIONS,
   integrationAt,
 } from '@integrations/application/rendering/integration-problems';
-import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
+import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import {
   type ApprovalOverride,
   generatedTools,
@@ -29,9 +30,9 @@ import { DeclaredHappening } from '@integrations/domain/value-objects/declared-h
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
-import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { IntegrationLogo } from '@integrations/domain/value-objects/integration-logo.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { Opening } from '@integrations/domain/value-objects/opening.vo';
@@ -73,11 +74,11 @@ import {
   type Structured,
   type Templated,
 } from '@integrations/infrastructure/integrations/templating';
-import { ExpressionError } from '@platform/expressions/expression.errors';
 import type {
   Expression,
   ExpressionEnginePort,
 } from '@platform/expressions/expression-engine.port';
+import { ExpressionError } from '@platform/expressions/expression.errors';
 import type { NamedType, SchemaFields } from '@platform/expressions/scope';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -644,9 +645,7 @@ class Compiler {
 
   request(request: RequestFile, at: Place): RequestIR {
     const place = at.adding(
-      this.hinting && request.response
-        ? { response: request.response as SchemaFields }
-        : {},
+      this.hinting && request.response ? { response: request.response } : {},
     );
 
     return {
@@ -1006,7 +1005,7 @@ export const compileIntegration = (
   const path = addressOf(file);
   const hintWarnings = hintProblemsOf(path, file);
   const hinting = hintWarnings.length === 0;
-  const typeOrder = orderedTypes(file.types as Record<string, Shape>).order;
+  const typeOrder = orderedTypes(file.types).order;
   const compiler = new Compiler(expressions, path, hinting);
   compiler.warnings.push(...hintWarnings);
 
@@ -1014,23 +1013,18 @@ export const compileIntegration = (
     hinting ? additions : {};
   const root = Place.root().adding(
     hinted({
-      types: typeOrder.map(
-        (name): NamedType => [name, file.types[name] as SchemaFields],
-      ),
+      types: typeOrder.map((name): NamedType => [
+        name,
+        file.types[name] as SchemaFields,
+      ]),
     }),
   );
   const hooked = root
     .to('webhook')
-    .adding(
-      hinted(
-        file.webhook?.shape ? { body: file.webhook.shape as SchemaFields } : {},
-      ),
-    );
+    .adding(hinted(file.webhook?.shape ? { body: file.webhook.shape } : {}));
   const polled = root
     .to('poll')
-    .adding(
-      hinted(file.poll?.shape ? { body: file.poll.shape as SchemaFields } : {}),
-    );
+    .adding(hinted(file.poll?.shape ? { body: file.poll.shape } : {}));
   const key = IntegrationKey.of(file.integration);
 
   const webhook: WebhookIR | null = file.webhook
@@ -1464,7 +1458,7 @@ const hintProblemsOf = (
   const problems = shapes.flatMap(([shape, at]) =>
     hintProblems(shape, at, known),
   );
-  const { cycle } = orderedTypes(file.types as Record<string, Shape>);
+  const { cycle } = orderedTypes(file.types);
 
   return [
     ...problems,

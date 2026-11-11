@@ -97,7 +97,9 @@ const taskItemFields = (
   teamId: item.teamId,
   title: item.title,
   description: item.description,
-  attachments: item.attachments.map(AttachmentHttpMapper.toResponse),
+  attachments: item.attachments.map((each) =>
+    AttachmentHttpMapper.toResponse(each),
+  ),
   station: stationLabelOf(item.station),
   stationColor: item.stationColor,
   stationPosition: item.stationPosition,
@@ -555,7 +557,7 @@ export class InboxController {
       throw new NotFoundException();
     }
 
-    return runs.map(RunJournalHttpMapper.runToResponse);
+    return runs.map((each) => RunJournalHttpMapper.runToResponse(each));
   }
 
   @Get('tasks/:taskId/journal/:runId')
@@ -582,6 +584,6 @@ export class InboxController {
       throw new NotFoundException();
     }
 
-    return entries.map(RunJournalHttpMapper.toResponse);
+    return entries.map((each) => RunJournalHttpMapper.toResponse(each));
   }
 }

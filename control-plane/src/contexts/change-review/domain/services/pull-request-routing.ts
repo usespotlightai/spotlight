@@ -1,5 +1,5 @@
-import type { Review } from '@change-review/domain/aggregates/review.aggregate';
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import type { Review } from '@change-review/domain/aggregates/review.aggregate';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';

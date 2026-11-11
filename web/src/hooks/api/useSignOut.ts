@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { unsubscribeFromPush } from '@/lib/api';
 import { authClient } from '@/lib/authClient';
 import { currentPushSubscription } from '@/lib/notifications';

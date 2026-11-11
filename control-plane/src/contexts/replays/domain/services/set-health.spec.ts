@@ -167,7 +167,7 @@ describe('setHealthOf', () => {
 
   it('reads saturation only off a whole-set live replay of the live config as it is now', () => {
     const partial = replayedAs(
-      started('replay_part', PLAIN, 1, false, [SET.runs[0] as RunId]),
+      started('replay_part', PLAIN, 1, false, [SET.runs[0]]),
       () => 'completed',
     );
 

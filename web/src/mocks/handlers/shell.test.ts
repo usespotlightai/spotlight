@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { getWorkspace, listMemberWorkspaces, listTeamLines } from '@/lib/api';
 import { setOpenPage } from '@/mocks/scenario';
 import { serveMockApi } from '@/mocks/testing';

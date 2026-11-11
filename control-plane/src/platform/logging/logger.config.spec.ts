@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import { noteRefusal, type Refusal } from '@platform/http/refusal';
 import { buildLogging } from '@platform/logging/logger.config';
 import pinoHttp, { type Options } from 'pino-http';
@@ -73,7 +74,10 @@ async function request(
   }
 
   const raw = chunks.join('');
-  return { raw, lines: chunks.map((chunk) => JSON.parse(chunk)) };
+  return {
+    raw,
+    lines: chunks.map((chunk) => JSON.parse(chunk) as Record<string, unknown>),
+  };
 }
 
 describe('logger config', () => {
@@ -90,7 +94,7 @@ describe('logger config', () => {
     expect(raw).not.toContain(ISSUED_TOKEN);
     expect(lines[lines.length - 1]).toMatchObject({
       req: { headers: { 'user-agent': 'curl/8' } },
-      res: { headers: { 'x-request-id': expect.any(String) } },
+      res: { headers: { 'x-request-id': expect.any(String) as unknown } },
     });
   });
 

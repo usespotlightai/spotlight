@@ -1,11 +1,4 @@
 import type {
-  InsightsCostDto,
-  InsightsFlowDto,
-  InsightsOverviewDto,
-  InsightsPeopleDto,
-  InsightsStationsDto,
-} from '@insights/application/dto/insights.dto';
-import type {
   InsightsAgentConfigsDto,
   InsightsChangesDto,
 } from '@insights/application/dto/insights-changes.dto';
@@ -17,6 +10,13 @@ import type {
 import type { InsightsShippingDto } from '@insights/application/dto/insights-shipping.dto';
 import type { InsightsToolsDto } from '@insights/application/dto/insights-tools.dto';
 import type { InsightsTracesDto } from '@insights/application/dto/insights-traces.dto';
+import type {
+  InsightsCostDto,
+  InsightsFlowDto,
+  InsightsOverviewDto,
+  InsightsPeopleDto,
+  InsightsStationsDto,
+} from '@insights/application/dto/insights.dto';
 import type { StationAlertDto } from '@insights/application/dto/station-alert.dto';
 import { ListInsightsPullRequestsQuery } from '@insights/application/queries/list-insights-pull-requests.query';
 import { ListInsightsTracesQuery } from '@insights/application/queries/list-insights-traces.query';

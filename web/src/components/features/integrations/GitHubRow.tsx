@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router';
+
 import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
 import { GitHubDetails } from '@/components/features/integrations/GitHubDetails';
 import { IntegrationRowFrame } from '@/components/features/integrations/IntegrationRowFrame';

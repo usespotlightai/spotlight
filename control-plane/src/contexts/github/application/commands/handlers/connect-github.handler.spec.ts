@@ -90,7 +90,7 @@ describe('ConnectGitHubHandler', () => {
 
     expect(await handler.execute(command())).toBe('ws_1');
 
-    const [saved] = save.mock.calls[0] as [GitHubConnection];
+    const [saved] = save.mock.calls[0];
     expect(saved.installation).toEqual(GitHubInstallation.of('81234567'));
   });
 

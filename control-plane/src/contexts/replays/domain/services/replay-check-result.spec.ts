@@ -1,5 +1,5 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import {
   aSet,
   BY,

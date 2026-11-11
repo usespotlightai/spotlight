@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
 import { ReflectionNoticeWording } from '@replays/application/rendering/reflection-notice';
 import { SearchResultWording } from '@replays/application/rendering/search-result-notice';
 import {

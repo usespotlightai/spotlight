@@ -5,8 +5,8 @@ import { StackCheckVersionConflictError } from '@change-review/domain/exceptions
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
+import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/stack-check.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';

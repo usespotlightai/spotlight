@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -12,7 +13,14 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import {
+  type Answer,
+  openApp,
+  type Problem,
+  served,
+  TEST_USER_HEADER,
+} from './support/app';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -104,11 +112,16 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
 
 conformsAsResource({ kind: 'hook', open: seated });
 
+interface Hook {
+  readonly id: string;
+  readonly signing: unknown;
+}
+
 describe('a hook, created through the resource API (e2e)', () => {
   let app: INestApplication;
   let fixture: ResourceFixture;
 
-  const create = (body: unknown) =>
+  const create = async (body: unknown): Promise<Answer<Problem & Hook>> =>
     served(app)
       .post(fixture.collection)
       .set(TEST_USER_HEADER, fixture.admin)
@@ -156,7 +169,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     expect(made.body.errors).toEqual([
       expect.objectContaining({
         path: 'match.tools',
-        message: expect.stringMatching(/grafana.dashboard/),
+        message: expect.stringMatching(/grafana\.dashboard/) as unknown,
       }),
     ]);
   });
@@ -174,11 +187,11 @@ describe('a hook, created through the resource API (e2e)', () => {
           fixture.collection.split('/')[5] ?? '',
         ),
       );
-    const removed = await served(app)
+    const removed = (await served(app)
       .put(`/api/v1/resources/integrations/${integration?.id}`)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${integration?.version}"`)
-      .send({ ...GRAFANA, tools: {} });
+      .send({ ...GRAFANA, tools: {} })) as Answer<Problem>;
 
     expect(removed.status).toBe(409);
     expect(removed.body.detail).toMatch(/used by the hook grafana-reads/);
@@ -196,7 +209,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     expect(made.body.errors).toEqual([
       expect.objectContaining({
         path: 'steps[0].request.url',
-        message: expect.stringMatching(/audit.example.com/),
+        message: expect.stringMatching(/audit\.example\.com/) as unknown,
       }),
     ]);
   });
@@ -223,14 +236,14 @@ describe('a hook, created through the resource API (e2e)', () => {
   });
 
   it('checks a hook expression at plan, suggesting what was meant', async () => {
-    const checked = await served(app)
+    const checked = (await served(app)
       .post('/api/v1/expressions/check')
       .set(TEST_USER_HEADER, fixture.admin)
       .send({
         position: 'hook.when',
         expression: "event.inputz.query != ''",
         definition: { ...GRAFANA_READS, signing: { secretVersion: 1 } },
-      });
+      })) as Answer<Problem>;
 
     expect(checked.status).toBe(200);
     expect(checked.body.errors).toEqual([

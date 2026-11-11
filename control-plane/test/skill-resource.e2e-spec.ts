@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -17,6 +18,7 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
@@ -135,10 +137,10 @@ describe('a skill, created through the resource API (e2e)', () => {
 
     expect(ready).toEqual([
       expect.objectContaining({
-        skill: expect.objectContaining({ key: 'grafana' }),
+        skill: expect.objectContaining({ key: 'grafana' }) as unknown,
         files: expect.arrayContaining([
           expect.objectContaining({ path: 'queries/latency.promql' }),
-        ]),
+        ]) as unknown,
       }),
     ]);
   });
@@ -150,13 +152,16 @@ describe('a skill, created through the resource API (e2e)', () => {
     });
 
     expect(rejected.status).toBe(422);
-    expect(rejected.body.errors).toEqual([
+    expect((rejected.body as { errors: unknown[] }).errors).toEqual([
       expect.objectContaining({ path: 'files["../escape.sh"]' }),
     ]);
   });
 
   it('will not be deleted while a station enables it', async () => {
-    const made = await create(GRAFANA);
+    const skill = (await create(GRAFANA)).body as {
+      id: string;
+      version: number;
+    };
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const lineId = randomUUID();
     const stationId = randomUUID();
@@ -181,14 +186,14 @@ describe('a skill, created through the resource API (e2e)', () => {
       .values({ stationId, skill: 'grafana', position: 0 });
 
     const rejected = await served(app)
-      .delete(fixture.item(made.body.id))
+      .delete(fixture.item(skill.id))
       .set(TEST_USER_HEADER, fixture.admin)
-      .set('If-Match', `"${made.body.version}"`);
+      .set('If-Match', `"${skill.version}"`);
 
     expect(rejected.status).toBe(409);
     expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
-      detail: expect.stringContaining('delivery/implementation'),
+      detail: expect.stringContaining('delivery/implementation') as unknown,
     });
     expect(
       await db

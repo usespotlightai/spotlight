@@ -4,9 +4,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
 import type { RunWorks } from '@work/application/services/run-works.service';
 
-export class AckMessagesHandler
-  implements CommandHandlerPort<AckMessagesCommand, void>
-{
+export class AckMessagesHandler implements CommandHandlerPort<
+  AckMessagesCommand,
+  void
+> {
   constructor(
     private readonly works: RunWorks,
     private readonly clock: ClockPort,

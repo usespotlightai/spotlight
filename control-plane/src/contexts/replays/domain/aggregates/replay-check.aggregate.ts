@@ -1,5 +1,5 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
 import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
 import {

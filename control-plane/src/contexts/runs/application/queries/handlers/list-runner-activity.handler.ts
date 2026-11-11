@@ -9,10 +9,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ListRunnerActivityHandler
-  implements
-    QueryHandlerPort<ListRunnerActivityQuery, RunnerActivityDto[] | null>
-{
+export class ListRunnerActivityHandler implements QueryHandlerPort<
+  ListRunnerActivityQuery,
+  RunnerActivityDto[] | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly activity: RunnerActivityReaderPort,

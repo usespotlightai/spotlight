@@ -78,6 +78,7 @@ export function RunNetwork({
               <Tooltip>
                 <TooltipTrigger
                   render={
+                    // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the trigger renders this button around its children
                     <button
                       type="button"
                       className="cursor-default rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/70"

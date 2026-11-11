@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+
 import { BeforeAfter } from '@/components/features/insights/changes/BeforeAfter';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import { ScrollArea } from '@/components/ui/scroll-area';

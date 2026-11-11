@@ -32,6 +32,7 @@ export function PoolEgress({
     <Tooltip>
       <TooltipTrigger
         render={
+          // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the trigger renders this button around its children
           <button
             type="button"
             className="min-w-0 cursor-default truncate rounded-sm text-left text-muted-foreground text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/70"

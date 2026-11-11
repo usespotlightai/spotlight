@@ -52,7 +52,7 @@ export class Voice {
     run?: string | null;
     source?: string | null;
   }): Voice {
-    if (input.source != null && input.kind !== 'world') {
+    if ((input.source ?? null) !== null && input.kind !== 'world') {
       throw new InvalidVoiceError(
         `with a source belongs to the world, not to ${input.kind}`,
       );
@@ -82,7 +82,9 @@ export class Voice {
 
       return Voice.world(
         input.author ? UserId.of(input.author) : null,
-        input.source == null ? null : IntegrationName.of(input.source),
+        input.source === undefined || input.source === null
+          ? null
+          : IntegrationName.of(input.source),
       );
     }
 

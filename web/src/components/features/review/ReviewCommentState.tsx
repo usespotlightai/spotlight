@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react';
+
 import type { ReviewComment } from '@/lib/review';
 import { cn } from '@/lib/utils';
 

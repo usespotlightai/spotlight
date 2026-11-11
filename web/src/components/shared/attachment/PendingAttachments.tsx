@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+
 import { PendingAttachmentChip } from '@/components/shared/attachment/PendingAttachmentChip';
 import type { PendingAttachment } from '@/lib/attachment';
 import { cn } from '@/lib/utils';

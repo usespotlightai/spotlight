@@ -13,11 +13,7 @@ import {
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
-import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
-import type {
-  ExpectedWorkload,
-  WorkloadTokensPort,
-} from '@shared-kernel/application/ports/workload-tokens.port';
+import type { ExpectedWorkload } from '@shared-kernel/application/ports/workload-tokens.port';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
@@ -70,13 +66,13 @@ const authenticating = (
         input.trust === undefined ? aTrust() : input.trust,
       ),
     } as unknown as RunnerTrustRepository,
-    { verify } as WorkloadTokensPort,
+    { verify },
     { isOpen } as unknown as WorkspaceReaderPort,
     {
       issue: () => ({ token: 'unused', hash: 'unused' }),
       hash: (token: string) =>
         token === POOL_TOKEN ? 'a'.repeat(64) : 'f'.repeat(64),
-    } as TokenIssuer,
+    },
     recorder.scope,
   );
 
@@ -93,7 +89,10 @@ describe('RunnerAuthenticator', () => {
       await expect(
         authenticating().authenticator.authenticate(pooled),
       ).resolves.toEqual({
-        source: expect.objectContaining({ kind: 'pool', id: POOL_ID.value }),
+        source: expect.objectContaining({
+          kind: 'pool',
+          id: POOL_ID.value,
+        }) as unknown,
         workspaceId: WorkspaceId.of('ws_1'),
       });
     });
@@ -137,7 +136,10 @@ describe('RunnerAuthenticator', () => {
       const { authenticator, verify } = authenticating();
 
       await expect(authenticator.authenticate(trusted)).resolves.toEqual({
-        source: expect.objectContaining({ kind: 'trust', id: TRUST_ID.value }),
+        source: expect.objectContaining({
+          kind: 'trust',
+          id: TRUST_ID.value,
+        }) as unknown,
         workspaceId: WorkspaceId.of('ws_1'),
       });
       expect(verify).toHaveBeenCalledWith(WORKLOAD_TOKEN, {

@@ -244,7 +244,7 @@ const waitingDeferralsFor = async (
 
   return new Map(
     [...trails].flatMap(([taskId, notes]) => {
-      const waiting = deferralWaitingIn(notes, notes[0]?.currentRunId != null);
+      const waiting = deferralWaitingIn(notes, (notes[0]?.currentRunId ?? null) !== null);
 
       return waiting ? [[taskId, waiting.position] as const] : [];
     }),

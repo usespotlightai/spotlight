@@ -7,9 +7,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class EditReviewCommentHandler
-  implements CommandHandlerPort<EditReviewCommentCommand, void>
-{
+export class EditReviewCommentHandler implements CommandHandlerPort<
+  EditReviewCommentCommand,
+  void
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly comments: ReviewCommentRepository,

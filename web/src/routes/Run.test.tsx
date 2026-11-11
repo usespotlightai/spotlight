@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import type { TeamRun } from '@/lib/run';
 import { progressOfState } from '@/mocks/world/run-progress';
 import { Run } from '@/routes/Run';
@@ -11,10 +12,10 @@ import { write } from '@/test/lexical';
 const runs = vi.fn();
 const runsFailing = vi.fn();
 const refetchRuns = vi.fn();
-const conversation = vi.fn();
+const conversation = vi.fn<() => Record<string, unknown> | undefined>();
 const conversationFailing = vi.fn();
 const refetchConversation = vi.fn();
-const journal = vi.fn();
+const journal = vi.fn<(...args: unknown[]) => unknown>();
 const journalFailing = vi.fn();
 
 vi.mock('@/hooks/api/useTeamRuns', () => ({

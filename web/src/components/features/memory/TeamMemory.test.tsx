@@ -8,6 +8,7 @@ import {
   useNavigate,
 } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { TeamMemory } from '@/components/features/memory/TeamMemory';
 import type { TeamMemory as Memory, MemoryFilter } from '@/lib/memory';
 
@@ -129,7 +130,7 @@ function Where() {
   return (
     <>
       <output aria-label="Where">{location.search}</output>
-      <button type="button" onClick={() => navigate('?memory=memory_2')}>
+      <button type="button" onClick={() => void navigate('?memory=memory_2')}>
         Follow a link to memory_2
       </button>
     </>
@@ -289,7 +290,7 @@ describe('TeamMemory', () => {
           stationId: 'station_build',
           repository: 'acme/api',
           paths: ['src/uploads.ts'],
-        }),
+        }) as unknown,
       },
       expect.anything(),
     );

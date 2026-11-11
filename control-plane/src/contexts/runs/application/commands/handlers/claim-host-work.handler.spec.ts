@@ -1,8 +1,4 @@
-import type {
-  HostCredentials,
-  RunnerAuthenticatorPort,
-} from '@runners/application/ports/runner-authenticator.port';
-import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
+import type { HostCredentials } from '@runners/application/ports/runner-authenticator.port';
 import type {
   RunnersPort,
   StartedRunner,
@@ -30,7 +26,6 @@ import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -98,7 +93,7 @@ const pulling = (
     sleep: async (ms: number) => {
       now = new Date(now.getTime() + ms);
     },
-  } as ClockPort;
+  };
   const answers: StartedRunner[] = [
     over.started ?? {
       outcome: 'started',
@@ -192,9 +187,9 @@ const pulling = (
     authenticate: vi.fn(async () => null),
   } satisfies SandboxesPort;
   const handler = new ClaimHostWorkHandler(
-    authenticator as RunnerAuthenticatorPort,
+    authenticator,
     runners as unknown as RunnersPort,
-    heartbeats as RunnerClaimantsPort,
+    heartbeats,
     runs,
     { next: claimNext } as unknown as RunClaims,
     checks,

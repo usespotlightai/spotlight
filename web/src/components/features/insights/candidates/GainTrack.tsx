@@ -1,4 +1,5 @@
 import { useContext } from 'react';
+
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { GainScale } from '@/lib/insights-candidates';
 import type { GainEstimate } from '@/lib/replay';

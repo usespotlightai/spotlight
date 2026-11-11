@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { Button } from '@/components/ui/button';
 

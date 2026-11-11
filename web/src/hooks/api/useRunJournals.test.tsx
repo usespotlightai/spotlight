@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+
 import { type JournalSource, useRunJournals } from '@/hooks/api/useRunJournals';
 import type { RunJournal } from '@/lib/inbox';
 

@@ -1,6 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { ChevronDown, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
+
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { DropIndicator } from '@/components/features/board/task/DropIndicator';
 import { Disclosure } from '@/components/shell/layout/Disclosure';

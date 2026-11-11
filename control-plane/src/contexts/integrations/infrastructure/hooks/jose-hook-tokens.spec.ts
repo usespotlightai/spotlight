@@ -1,12 +1,14 @@
 import { generateKeyPairSync } from 'node:crypto';
+
 import { JoseHookTokens } from '@integrations/infrastructure/hooks/jose-hook-tokens';
 import { createLocalJWKSet, jwtVerify } from 'jose';
 import { describe, expect, it } from 'vitest';
 
 const pemOf = (curve: string) =>
-  generateKeyPairSync('ec', { namedCurve: curve })
-    .privateKey.export({ type: 'pkcs8', format: 'pem' })
-    .toString();
+  generateKeyPairSync('ec', { namedCurve: curve }).privateKey.export({
+    type: 'pkcs8',
+    format: 'pem',
+  });
 
 const ISSUER = 'https://spotlight.example.com/api';
 

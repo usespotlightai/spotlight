@@ -312,7 +312,7 @@ const chatsWhere = (
       cursorAt: sortableTime(chat.resolvedAt),
       lastAt:
         sql<Date>`(select max("chat_message"."at") from "chat_message" where "chat_message"."chat_id" = "chat"."id")`.mapWith(
-          (value) => new Date(value),
+          (value: string) => new Date(value),
         ),
       openProposals:
         sql<number>`(select count(*) from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" = 'proposed' and "chat_message"."proposal"->>'state' = 'open')`.mapWith(

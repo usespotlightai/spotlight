@@ -31,8 +31,8 @@ import {
 } from '@replays/application/services/replays.fake-spec';
 import { SearchFindings } from '@replays/application/services/search-findings.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
-import { StartSearch } from '@replays/application/services/start-search.service';
 import { StartSearchReplays } from '@replays/application/services/start-search-replays.service';
+import { StartSearch } from '@replays/application/services/start-search.service';
 import { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
@@ -71,7 +71,6 @@ import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
@@ -356,7 +355,7 @@ const propose = (
     ),
   );
 
-const theSearch = (): Search => [...memory.searches.values()][0] as Search;
+const theSearch = (): Search => [...memory.searches.values()][0];
 
 const replayed = async (
   replayId: string,
@@ -753,9 +752,7 @@ describe('a stalled search looking into why', () => {
 
     const set = [...memory.sets.values()][0];
 
-    await refreshingFor(memory, suppliers).refreshBefore(
-      set?.id as ReplaySetId,
-    );
+    await refreshingFor(memory, suppliers).refreshBefore(set?.id);
 
     const refreshed = [...memory.sets.values()][0];
 
@@ -1134,7 +1131,7 @@ describe('DeleteSearches', () => {
     );
 
     expect(deleted?.runToCancel?.value).toBe(run);
-    await deleting().cancelRunOf(deleted as SearchDeleted);
+    await deleting().cancelRunOf(deleted);
     expect(suppliers.dispatch.cancelledSearchRuns).toEqual([run]);
   });
 

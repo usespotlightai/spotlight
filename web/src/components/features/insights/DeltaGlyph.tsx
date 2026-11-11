@@ -1,4 +1,5 @@
 import { Triangle } from 'lucide-react';
+
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { ShownDelta } from '@/lib/insights';
 import { cn } from '@/lib/utils';

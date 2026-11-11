@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+
 import type { LogFields } from '@shared-kernel/application/ports/logger.port';
 
 const context = new AsyncLocalStorage<LogFields>();

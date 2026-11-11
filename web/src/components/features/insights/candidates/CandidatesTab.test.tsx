@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { CandidatesTab } from '@/components/features/insights/candidates/CandidatesTab';
 import type { InsightsPeriod } from '@/lib/insights';
 import { stationNamesOf } from '@/lib/insights';

@@ -255,11 +255,11 @@ describe('a definition that is not valid', () => {
       },
       {
         at: 'actions.broken.request.method',
-        reason: expect.any(String),
+        reason: expect.any(String) as unknown,
       },
       {
         at: 'actions.broken.request.url',
-        reason: expect.any(String),
+        reason: expect.any(String) as unknown,
       },
     ]);
   });
@@ -382,7 +382,7 @@ describe('the positions an expression is written at', () => {
 
   it('names the variables of each, what it returns and the variables that the definition adds', () => {
     expect(listed('integration.webhook.events[*].when')).toEqual({
-      position: expect.anything(),
+      position: expect.anything() as unknown,
       returns: 'bool',
       addedVariables: ['item'],
       variables: [

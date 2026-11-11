@@ -65,8 +65,13 @@ const joined = (...parts: string[]): string =>
     .map((part) => (part.startsWith(':') ? `{${part.slice(1)}}` : part))
     .join('/')}`;
 
-const pathsOf = (metadata: unknown): string[] =>
-  Array.isArray(metadata) ? metadata : [String(metadata ?? '')];
+const pathsOf = (metadata: unknown): string[] => {
+  if (Array.isArray(metadata)) {
+    return metadata as string[];
+  }
+
+  return [typeof metadata === 'string' ? metadata : ''];
+};
 
 export const routesOf = (app: INestApplication): Route[] => {
   const reflector = app.get(Reflector);
@@ -85,7 +90,7 @@ export const routesOf = (app: INestApplication): Route[] => {
 
       return scanner.getAllMethodNames(prototype).flatMap((name) => {
         const handler = prototype[name];
-        const own = Reflect.getMetadata(PATH_METADATA, handler);
+        const own: unknown = Reflect.getMetadata(PATH_METADATA, handler);
 
         if (own === undefined) {
           return [];
@@ -176,11 +181,14 @@ export const documentsByAudience = (
     routes.map((route) => [`${route.method} ${route.path}`, route]),
   );
   const paths = Object.fromEntries(
-    AUDIENCES.map((audience) => [audience, {} as OpenAPIObject['paths']]),
+    AUDIENCES.map((audience) => [audience, {}]),
   ) as Record<Audience, OpenAPIObject['paths']>;
 
   for (const [path, operations] of Object.entries(document.paths)) {
-    for (const [method, operation] of Object.entries(operations)) {
+    for (const [method, operation] of Object.entries(operations) as [
+      string,
+      unknown,
+    ][]) {
       const route = byOperation.get(`${method} ${path}`);
 
       if (!route) {

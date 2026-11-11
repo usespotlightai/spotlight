@@ -3,14 +3,15 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { InboxItem } from '@/routes/InboxItem';
 import { pressEnter, write } from '@/test/lexical';
 
 const answer = vi.fn();
 const markInboxItemRead = vi.fn();
 const waiting = vi.fn();
-const viewer = vi.fn();
-const journal = vi.fn();
+const viewer = vi.fn<(...args: unknown[]) => unknown>();
+const journal = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const journalFailing = vi.fn();
 
@@ -141,7 +142,7 @@ const renderItem = (itemId = 'task_1:0') =>
 function Switch({ to }: { to: string }) {
   const navigate = useNavigate();
   return (
-    <button type="button" onClick={() => navigate(to)}>
+    <button type="button" onClick={() => void navigate(to)}>
       switch
     </button>
   );

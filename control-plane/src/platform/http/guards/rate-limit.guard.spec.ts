@@ -45,7 +45,7 @@ describe('RateLimitGuard', () => {
   let redis: Redis;
 
   beforeEach(async () => {
-    redis = new RedisMock() as unknown as Redis;
+    redis = new RedisMock();
     await redis.flushall();
   });
 

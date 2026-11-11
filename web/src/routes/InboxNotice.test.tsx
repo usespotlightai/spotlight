@@ -2,13 +2,14 @@ import { render, screen, within } from '@testing-library/react';
 import { act } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { GONE_FROM_INBOX } from '@/lib/inbox';
 import { InboxNotice } from '@/routes/InboxNotice';
 
 const waiting = vi.fn();
 const failing = vi.fn();
 const resolve = vi.fn();
-const resolving = vi.fn();
+const resolving = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
@@ -169,7 +170,9 @@ describe('InboxNotice', () => {
 
       expect(resolve).not.toHaveBeenCalled();
 
-      act(() => vi.advanceTimersByTime(3000));
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
 
       expect(resolve).toHaveBeenCalledTimes(1);
       expect(resolve).toHaveBeenCalledWith({
@@ -181,12 +184,16 @@ describe('InboxNotice', () => {
     it('leaves it open once you unresolve it while you read it', () => {
       const { rerender } = renderNotice();
 
-      act(() => vi.advanceTimersByTime(3000));
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
       waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
       rerender(noticeAt());
       waiting.mockReturnValue([notice({ unread: false })]);
       rerender(noticeAt());
-      act(() => vi.advanceTimersByTime(5000));
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
 
       expect(resolve).toHaveBeenCalledTimes(1);
     });
@@ -194,9 +201,13 @@ describe('InboxNotice', () => {
     it('leaves it open when you leave it within a few seconds', () => {
       const { unmount } = renderNotice();
 
-      act(() => vi.advanceTimersByTime(2000));
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
       unmount();
-      act(() => vi.advanceTimersByTime(5000));
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
 
       expect(resolve).not.toHaveBeenCalled();
     });
@@ -205,7 +216,9 @@ describe('InboxNotice', () => {
       waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
       renderNotice();
 
-      act(() => vi.advanceTimersByTime(5000));
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
 
       expect(resolve).not.toHaveBeenCalled();
     });

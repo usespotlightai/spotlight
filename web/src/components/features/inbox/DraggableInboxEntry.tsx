@@ -1,4 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
+
 import { InboxEntryRow } from '@/components/features/inbox/InboxEntryRow';
 import { entryKey, type InboxEntry, reopenable, resolvable } from '@/lib/inbox';
 import { cn } from '@/lib/utils';

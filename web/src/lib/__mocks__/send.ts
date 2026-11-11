@@ -1,8 +1,10 @@
 import { getResponse } from 'msw';
+
 import { handlers } from '@/mocks/handlers';
 
 const abortedBy = (signal: AbortSignal) =>
   new Promise<never>((_, reject) => {
+    // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- rejects with the abort reason, as fetch does
     signal.addEventListener('abort', () => reject(signal.reason), {
       once: true,
     });

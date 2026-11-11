@@ -18,9 +18,10 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export class ClaimRunHandler
-  implements CommandHandlerPort<ClaimRunCommand, ClaimedWorkDto | null>
-{
+export class ClaimRunHandler implements CommandHandlerPort<
+  ClaimRunCommand,
+  ClaimedWorkDto | null
+> {
   constructor(
     private readonly runs: RunRepository,
     private readonly claims: RunClaims,

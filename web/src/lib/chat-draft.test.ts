@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import type { HarnessResponseDto } from '@/lib/api';
 import {
   type ChatDraft,

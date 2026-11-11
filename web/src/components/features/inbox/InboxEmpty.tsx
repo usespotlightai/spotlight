@@ -1,4 +1,5 @@
 import { InboxIcon } from 'lucide-react';
+
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useWorkspace } from '@/hooks/api/useWorkspace';

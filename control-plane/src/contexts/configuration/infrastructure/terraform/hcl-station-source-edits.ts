@@ -16,7 +16,6 @@ import {
   type LineDefinitionJudge,
   type LineDefinitionStation,
 } from '@lines/application/contracts/line-definition.contract';
-import type { HclLiteral } from '@platform/hcl/hcl.parse';
 import {
   editedHclBlock,
   type HclEditErrorCode,
@@ -24,6 +23,7 @@ import {
   type HclGuardedBlock,
   type HclReferenceRule,
 } from '@platform/hcl/hcl-edit';
+import type { HclLiteral } from '@platform/hcl/hcl.parse';
 
 const TERRAFORM_FILE = '.tf';
 
@@ -128,25 +128,23 @@ const literalIn = <T extends object>(
 };
 
 const fieldsOf = (request: StationSourceEditRequest): readonly HclField[] => [
-  ...request.fields.map(
-    (name): HclField => ({
-      name,
-      expected: literalIn(request.seed, name, UNSET[name]),
-      desired: literalIn(request.candidate, name, UNSET[name]),
-      unset: UNSET[name],
-      ...(REFERENCES[name] ? { references: REFERENCES[name] } : {}),
-      ...(FILE_FIELDS.has(name)
-        ? {
-            freshFile: stationFileOf(
-              request.teamKey,
-              request.lineKey.value,
-              request.stationKey.value,
-              name,
-            ),
-          }
-        : {}),
-    }),
-  ),
+  ...request.fields.map((name): HclField => ({
+    name,
+    expected: literalIn(request.seed, name, UNSET[name]),
+    desired: literalIn(request.candidate, name, UNSET[name]),
+    unset: UNSET[name],
+    ...(REFERENCES[name] ? { references: REFERENCES[name] } : {}),
+    ...(FILE_FIELDS.has(name)
+      ? {
+          freshFile: stationFileOf(
+            request.teamKey,
+            request.lineKey.value,
+            request.stationKey.value,
+            name,
+          ),
+        }
+      : {}),
+  })),
   ...GUARDED.map(({ from, unset }): HclField => {
     const was = literalIn(request.seed, from, unset);
 
@@ -170,8 +168,8 @@ const judgeOf = (seed: LineDefinitionStation): HclGuardedBlock => {
 
   return {
     type: 'judge',
-    expected: Object.fromEntries([
-      ...JUDGE_FIELDS.map((field) => [
+    expected: Object.fromEntries<HclLiteral>([
+      ...JUDGE_FIELDS.map((field): [string, HclLiteral] => [
         terraformAttributeOf(field),
         literalIn(judge, field, null),
       ]),

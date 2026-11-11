@@ -41,7 +41,7 @@ export function JudgeStatistics({
             detail={stat.detail}
             tooltip={stat.note}
             visual={
-              stat.gauge != null && (
+              typeof stat.gauge === 'number' && (
                 <MeterBar
                   share={stat.gauge}
                   marker={minAgreement}

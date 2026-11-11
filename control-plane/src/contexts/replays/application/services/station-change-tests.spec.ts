@@ -276,7 +276,7 @@ describe('StationChangeTests', () => {
 
     expect(await asked()).toMatchObject({
       code: 'set-too-small',
-      reason: expect.stringMatching(/Minimum tasks required: \d+$/),
+      reason: expect.stringMatching(/Minimum tasks required: \d+$/) as unknown,
     });
 
     memory.sets.clear();
@@ -336,7 +336,7 @@ describe('StationChangeTests', () => {
 
     expect(await asked()).toMatchObject({
       code: 'request-limit',
-      reason: expect.stringMatching(/Maximum requests a day: 3$/),
+      reason: expect.stringMatching(/Maximum requests a day: 3$/) as unknown,
     });
   });
 

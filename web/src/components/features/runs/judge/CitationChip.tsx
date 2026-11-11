@@ -1,5 +1,6 @@
 import { FileDiff, Footprints } from 'lucide-react';
 import type { ReactNode } from 'react';
+
 import type { Citation } from '@/lib/judge';
 import { cn } from '@/lib/utils';
 

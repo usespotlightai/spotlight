@@ -47,8 +47,8 @@ describe('Release', () => {
   it('orders the same after it travels as JSON in an event payload', () => {
     const travelled = (raw: string): Release =>
       Object.assign(
-        Object.create(Release.prototype),
-        JSON.parse(JSON.stringify(Release.of(raw))),
+        Object.create(Release.prototype) as Release,
+        JSON.parse(JSON.stringify(Release.of(raw))) as unknown,
       );
 
     expect(travelled('v1.0.0').isOlderThan(Release.of('v1.0.0-rc.1'))).toBe(

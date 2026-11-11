@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+
 import {
   TERRAFORM_STATE_BODIES,
   type TerraformStateBodiesPort,
@@ -28,12 +29,21 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
 const TOKEN_HEADER = 'spotlight-workspace-token';
+
+interface State {
+  readonly serial: number;
+}
+
+interface Problem {
+  readonly message: string;
+}
 
 const kept = () => {
   const bodies = new Map<string, Uint8Array>();
@@ -49,7 +59,7 @@ const kept = () => {
       }
     },
     removeForWorkspace: async (workspaceId) => {
-      for (const key of [...bodies.keys()]) {
+      for (const key of bodies.keys()) {
         if (key.startsWith(`${workspaceId.value}/`)) {
           bodies.delete(key);
         }
@@ -103,7 +113,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
         .set(TEST_USER_HEADER, seat.owner)
         .set('Idempotency-Key', randomUUID())
         .send({ name, scopes })
-    ).headers[TOKEN_HEADER] as string;
+    ).headers[TOKEN_HEADER];
 
   const basic = (token: string) =>
     `Basic ${Buffer.from(`terraform:${token}`).toString('base64')}`;
@@ -200,7 +210,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
       .orderBy(schema.terraformStateVersion.number);
 
     expect(read.status).toBe(200);
-    expect(JSON.parse(read.text).serial).toBe(2);
+    expect((JSON.parse(read.text) as State).serial).toBe(2);
     expect(versions).toEqual([
       { number: 1, serial: 1 },
       { number: 2, serial: 2 },
@@ -300,7 +310,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
 
     expect(statuses.every((each) => each === 200 || each === 409)).toBe(true);
     expect(kept.length).toBeGreaterThan(0);
-    expect(kept).toContain(JSON.parse(read.text).serial);
+    expect(kept).toContain((JSON.parse(read.text) as State).serial);
   });
 
   it.each([
@@ -317,11 +327,13 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
       const answers = await Promise.all(
         ['a', 'b', 'c', 'd'].map((id) => as(tokens.plan).lock(id)),
       );
-      const statuses = answers.map(({ status }) => status).sort();
+      const statuses = answers
+        .map(({ status }) => status)
+        .sort((a, b) => a - b);
 
       expect(statuses).toEqual([200, 423, 423, 423]);
       for (const refused of answers.filter(({ status }) => status === 423)) {
-        expect(refused.body.ID).toMatch(/^[abcd]$/);
+        expect((refused.body as { ID: string }).ID).toMatch(/^[abcd]$/);
       }
     },
   );
@@ -389,9 +401,9 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
     const behind = await configure.write(stateOf(4));
 
     expect(foreign.status).toBe(409);
-    expect(foreign.body.message).toContain('lineage');
+    expect((foreign.body as Problem).message).toContain('lineage');
     expect(behind.status).toBe(409);
-    expect(behind.body.message).toContain('serial 5');
+    expect((behind.body as Problem).message).toContain('serial 5');
     expect((await configure.write(stateOf(5))).status).toBe(200);
 
     const diverged = await configure.write(
@@ -399,7 +411,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
     );
 
     expect(diverged.status).toBe(409);
-    expect(diverged.body.message).toContain('other content');
+    expect((diverged.body as Problem).message).toContain('other content');
   });
 
   it('audits each write and each forced unlock, but not a run’s own lock', async () => {
@@ -437,19 +449,19 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
         {
           released: 'forced',
           lock: 'plan-2',
-          heldBy: expect.stringMatching(/^token:/),
+          heldBy: expect.stringMatching(/^token:/) as unknown,
           operation: 'OperationTypeApply',
         },
       ],
       [
         'updated',
         'default',
-        { version: 2, serial: 2, lineage: expect.any(String) },
+        { version: 2, serial: 2, lineage: expect.any(String) as unknown },
       ],
       [
         'created',
         'default',
-        { version: 1, serial: 1, lineage: expect.any(String) },
+        { version: 1, serial: 1, lineage: expect.any(String) as unknown },
       ],
     ]);
   });
@@ -520,6 +532,8 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
       await app.get(EventDelivery).drain(2_000);
       return kept().length === 100;
     });
-    expect(JSON.parse((await as(tokens.plan).read()).text).serial).toBe(102);
+    expect(
+      (JSON.parse((await as(tokens.plan).read()).text) as State).serial,
+    ).toBe(102);
   }, 60_000);
 });

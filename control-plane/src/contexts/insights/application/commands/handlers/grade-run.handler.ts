@@ -18,9 +18,10 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class GradeRunHandler
-  implements CommandHandlerPort<GradeRunCommand, void>
-{
+export class GradeRunHandler implements CommandHandlerPort<
+  GradeRunCommand,
+  void
+> {
   constructor(
     private readonly access: InsightsAccess,
     private readonly terms: GradingTermsOf,

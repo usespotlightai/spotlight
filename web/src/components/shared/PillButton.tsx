@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { type PillSize, type PillVariant, pillClass } from '@/lib/pill';
 

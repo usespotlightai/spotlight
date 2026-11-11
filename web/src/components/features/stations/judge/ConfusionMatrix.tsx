@@ -52,6 +52,7 @@ export function ConfusionMatrix({
     >
       <thead>
         <tr>
+          {/* oxlint-disable-next-line jsx-a11y/control-has-associated-label -- an empty corner cell of the matrix */}
           <td />
           <th
             scope="colgroup"
@@ -60,6 +61,7 @@ export function ConfusionMatrix({
           >
             People
           </th>
+          {/* oxlint-disable-next-line jsx-a11y/control-has-associated-label -- an empty corner cell of the matrix */}
           <td />
         </tr>
         <tr>
@@ -97,6 +99,7 @@ export function ConfusionMatrix({
                 const people = confusion.labels[column] ?? '';
 
                 return (
+                  // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the cell holds its count and tooltip
                   <td
                     key={people}
                     data-agree={agree}
@@ -136,6 +139,7 @@ export function ConfusionMatrix({
               {totals.get(label)?.people ?? 0}
             </td>
           ))}
+          {/* oxlint-disable-next-line jsx-a11y/control-has-associated-label -- an empty corner cell of the matrix */}
           <td />
         </tr>
       </tbody>

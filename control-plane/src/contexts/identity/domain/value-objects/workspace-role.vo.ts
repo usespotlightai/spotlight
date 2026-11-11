@@ -26,7 +26,7 @@ export class WorkspaceRole {
     const known = WorkspaceRole.all.find((role) => role.value === named);
 
     if (!known) {
-      throw new InvalidWorkspaceRoleError(raw.trim());
+      throw new InvalidWorkspaceRoleError(raw.trim(), WORKSPACE_ROLES);
     }
 
     return known;

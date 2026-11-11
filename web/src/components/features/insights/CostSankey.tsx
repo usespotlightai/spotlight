@@ -1,6 +1,7 @@
 import { Waypoints } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Sankey, Tooltip } from 'recharts';
+
 import { CostFlowTable } from '@/components/features/insights/CostFlowTable';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
@@ -141,7 +142,7 @@ const TipContent = ({
           flow?.source && flow.target
             ? `${flow.source.name} → ${flow.target.name}`
             : hovered.name,
-        rows: [['Spend', spentIn(Number(hovered.value ?? 0), currency)]],
+        rows: [['Spend', spentIn(hovered.value ?? 0, currency)]],
       }}
     />
   );

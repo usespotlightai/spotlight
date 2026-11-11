@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
@@ -44,6 +45,7 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 import { trailsFor } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
@@ -413,7 +415,9 @@ describe('a pull request merged while a run works on the task (e2e)', () => {
     await merged(task);
 
     await finished(task);
-    await eventually(async () => (await runOf(runId)).stopRequested);
+    expect(
+      await eventually(async () => (await runOf(runId)).stopRequested),
+    ).toBe(true);
   });
 
   it('finishes the task over a pending tool approval and tells the run to stop', async () => {
@@ -424,7 +428,9 @@ describe('a pull request merged while a run works on the task (e2e)', () => {
     await merged(task);
 
     await finished(task);
-    await eventually(async () => (await runOf(runId)).stopRequested);
+    expect(
+      await eventually(async () => (await runOf(runId)).stopRequested),
+    ).toBe(true);
   });
 
   it('finishes a task once its run has ended, as before', async () => {

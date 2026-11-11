@@ -133,7 +133,7 @@ describe('factsOf with a symbol index', () => {
     const facts = factsWith(
       [
         added('api/runs.go', ['r.Get("/teams/{team}/runs", list)']),
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: source code that the test reads
+        // oxlint-disable-next-line no-template-curly-in-string -- source code that the test reads
         added('web/api.ts', ['fetch(`/api/teams/${team}/runs`)']),
       ],
       {
@@ -573,10 +573,10 @@ describe('test pairing through resolved imports', () => {
       factsWith(DIFF, {
         files: [
           {
-            ...(review as IndexedFile),
+            ...review,
             symbols: [symbol('threadsOf', 1, { endLine: 5 })],
           },
-          test as IndexedFile,
+          test,
         ],
       }).links,
     ).toEqual([]);

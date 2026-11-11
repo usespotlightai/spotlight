@@ -345,7 +345,7 @@ const deliveryIn = (teamId: string, window: Window) => {
   );
   const reviewed = tasks.filter(
     (task) =>
-      task.pullRequest?.firstReviewAt != null &&
+      typeof task.pullRequest?.firstReviewAt === 'number' &&
       within(task.pullRequest.firstReviewAt, window),
   );
   const merged = mergedIn(teamId, window);
@@ -742,7 +742,8 @@ const flowOfCost = (runs: readonly HistoryRun[]) => {
 
 const cacheOf = (runs: readonly HistoryRun[]) => {
   const counted = runs.flatMap((run) =>
-    run.tokens?.input != null && run.tokens.cacheRead != null
+    typeof run.tokens?.input === 'number' &&
+    typeof run.tokens.cacheRead === 'number'
       ? [run.tokens]
       : [],
   );
@@ -782,12 +783,10 @@ export const costOf = (
       ...flowOfCost(runs),
       cache: cacheOf(runs),
       cacheByStation: distinct(runs.map((run) => run.stationId))
-        .map(
-          (stationId): StationCacheUseResponseDto => ({
-            stationId,
-            ...cacheOf(runs.filter((run) => run.stationId === stationId)),
-          }),
-        )
+        .map((stationId): StationCacheUseResponseDto => ({
+          stationId,
+          ...cacheOf(runs.filter((run) => run.stationId === stationId)),
+        }))
         .sort((one, other) => (other.input ?? -1) - (one.input ?? -1)),
     },
     spendChange: changeOf(

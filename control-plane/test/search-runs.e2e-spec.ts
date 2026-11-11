@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -19,6 +20,7 @@ import {
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
@@ -361,7 +363,9 @@ describe('a search run claimed by a runner', () => {
     });
 
     expect(run.spec).toEqual({
-      command: expect.objectContaining({ args: expect.any(Array) }),
+      command: expect.objectContaining({
+        args: expect.any(Array) as unknown,
+      }) as unknown,
       briefing: queued.briefing,
       handover: { options: [], noteLimit: 0 },
       resume: { key: `replays/search-${runId}` },
@@ -502,7 +506,7 @@ describe('a search run reading its station’s history', () => {
     );
 
     expect(answer.status).toBe(404);
-    expect(answer.body.runs).toBeUndefined();
+    expect((answer.body as { runs?: unknown }).runs).toBeUndefined();
   });
 
   it('reads the trace of a task it may see at the station it searches, and of no held-out task or task worked elsewhere', async () => {
@@ -596,9 +600,9 @@ describe('a search run ending', () => {
             owner: 'replays',
             kind: 'search',
             id: queued.searchId,
-          }),
+          }) as unknown,
           listed: false,
-        }),
+        }) as unknown,
       },
     ]);
 

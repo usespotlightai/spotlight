@@ -34,9 +34,8 @@ export type DispatchKind = DispatchSubject['kind'];
 export const taskOfDispatch = (subject: DispatchSubject): TaskId | null =>
   subject.kind === 'chat' ? null : subject.taskId;
 
-export const stationOfDispatch = (
-  subject: DispatchSubject,
-): StationId | null => (subject.kind === 'chat' ? null : subject.stationId);
+export const stationOfDispatch = (subject: DispatchSubject): StationId | null =>
+  subject.kind === 'chat' ? null : subject.stationId;
 
 export const trialRepositoryNamed = (
   repositories: readonly TrialRepository[],

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+
 import { useMarkInboxItemRead } from '@/hooks/api/useMarkInboxItemRead';
 import { useMarkInboxRequestRead } from '@/hooks/api/useMarkInboxRequestRead';
 import type { InboxItemView } from '@/lib/inbox';
@@ -7,8 +8,8 @@ export function useMarkReadOnView(
   slug: string | undefined,
   item: InboxItemView | undefined,
 ) {
-  const markItemRead = useMarkInboxItemRead();
-  const markRequestRead = useMarkInboxRequestRead();
+  const { mutate: markItemRead } = useMarkInboxItemRead();
+  const { mutate: markRequestRead } = useMarkInboxRequestRead();
   const seen = useRef<string | null>(null);
 
   useEffect(() => {
@@ -21,9 +22,9 @@ export function useMarkReadOnView(
     seen.current = at;
 
     if (item.inboxRequest) {
-      markRequestRead.mutate({ slug, requestId: item.id });
+      markRequestRead({ slug, requestId: item.id });
     } else {
-      markItemRead.mutate({ slug, itemId: item.id });
+      markItemRead({ slug, itemId: item.id });
     }
-  }, [slug, item, markItemRead.mutate, markRequestRead.mutate]);
+  }, [slug, item, markItemRead, markRequestRead]);
 }

@@ -8,9 +8,10 @@ import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dt
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class DeleteHostHandler
-  implements CommandHandlerPort<DeleteHostCommand, HostDeletedDto | null>
-{
+export class DeleteHostHandler implements CommandHandlerPort<
+  DeleteHostCommand,
+  HostDeletedDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly hosts: RunnerHostRepository,

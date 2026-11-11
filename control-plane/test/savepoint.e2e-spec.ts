@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
+
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 let database: TestDatabase;

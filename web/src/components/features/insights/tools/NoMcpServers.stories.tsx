@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { NoMcpServers } from '@/components/features/insights/tools/NoMcpServers';
 
 const meta = {

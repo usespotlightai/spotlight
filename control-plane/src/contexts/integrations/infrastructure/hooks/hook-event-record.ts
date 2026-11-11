@@ -1,8 +1,8 @@
-import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HookEventFacts,
   type HookEventFields,
 } from '@integrations/domain/value-objects/hook-event-facts.vo';
+import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -112,7 +112,7 @@ const textsAt = (record: HookEventRecord, on: HookEventName, field: string) => {
   const value = record[field];
 
   return Array.isArray(value) && value.every((each) => typeof each === 'string')
-    ? (value as string[])
+    ? value
     : unreadable(on, field);
 };
 

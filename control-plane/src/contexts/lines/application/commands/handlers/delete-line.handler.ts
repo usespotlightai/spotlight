@@ -14,9 +14,10 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
-export class DeleteLineHandler
-  implements CommandHandlerPort<DeleteLineCommand, ResourceDeleted | null>
-{
+export class DeleteLineHandler implements CommandHandlerPort<
+  DeleteLineCommand,
+  ResourceDeleted | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly lines: LineRepository,

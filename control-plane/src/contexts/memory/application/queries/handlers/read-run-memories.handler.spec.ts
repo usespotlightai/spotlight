@@ -7,11 +7,11 @@ import { ReadRunMemoriesQuery } from '@memory/application/queries/read-run-memor
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
-import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
-import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';

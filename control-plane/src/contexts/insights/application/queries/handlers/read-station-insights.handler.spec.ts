@@ -74,24 +74,22 @@ const reading = async (member = true) => {
       requested.push([...fingerprints]);
       const known = fingerprints.filter((each) => each in CONFIGS);
 
-      return known.map(
-        (fingerprint, index): ConfigInOrder => ({
-          fingerprint,
-          config: CONFIGS[fingerprint] as StationConfigView,
-          changes:
-            index === 0 || known[index - 1] === fingerprint
-              ? []
-              : [
-                  {
-                    part: 'model',
-                    name: null,
-                    kind: 'changed',
-                    was: CONFIGS[known[index - 1] ?? '']?.model ?? null,
-                    now: CONFIGS[fingerprint]?.model ?? null,
-                  },
-                ],
-        }),
-      );
+      return known.map((fingerprint, index): ConfigInOrder => ({
+        fingerprint,
+        config: CONFIGS[fingerprint],
+        changes:
+          index === 0 || known[index - 1] === fingerprint
+            ? []
+            : [
+                {
+                  part: 'model',
+                  name: null,
+                  kind: 'changed',
+                  was: CONFIGS[known[index - 1] ?? '']?.model ?? null,
+                  now: CONFIGS[fingerprint]?.model ?? null,
+                },
+              ],
+      }));
     },
   };
   const access = new InsightsAccess({
@@ -413,7 +411,7 @@ describe('reading how a station’s runs turned out', () => {
         merged: 1,
         cost: { amount: 1.5, currency: 'USD' },
         medianMs: 20_000,
-      }),
+      }) as unknown,
     });
   });
 
@@ -611,11 +609,11 @@ describe('reading how a station’s runs turned out', () => {
         endedAt: at(2),
       }),
     );
-    await opened('7', SECOND_CONFIG, at(1));
-    await opened('8', SECOND_CONFIG, at(3));
-    await opened('9', SECOND_CONFIG, at(2));
-    await opened('10', FIRST_CONFIG, at(1), { stationId: 'station_2' });
-    await opened('11', FIRST_CONFIG, at(1), { teamId: TeamId.of('team_2') });
+    opened('7', SECOND_CONFIG, at(1));
+    opened('8', SECOND_CONFIG, at(3));
+    opened('9', SECOND_CONFIG, at(2));
+    opened('10', FIRST_CONFIG, at(1), { stationId: 'station_2' });
+    opened('11', FIRST_CONFIG, at(1), { teamId: TeamId.of('team_2') });
 
     const insights = await reader.read();
 

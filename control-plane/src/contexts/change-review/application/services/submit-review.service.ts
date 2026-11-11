@@ -1,6 +1,6 @@
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
-import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';

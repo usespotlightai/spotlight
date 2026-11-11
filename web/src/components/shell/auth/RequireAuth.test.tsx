@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { RequireAuth } from '@/components/shell/auth/RequireAuth';
 import { useSession } from '@/hooks/api/useSession';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';

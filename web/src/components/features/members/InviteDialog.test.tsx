@@ -1,9 +1,13 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { InviteDialog } from '@/components/features/members/InviteDialog';
 
-const invite = vi.fn();
+const invite =
+  vi.fn<
+    (input: unknown, options: { onSuccess: (data?: unknown) => void }) => void
+  >();
 const mutationState = vi.fn();
 
 vi.mock('@/hooks/api/useInviteToWorkspace', () => ({

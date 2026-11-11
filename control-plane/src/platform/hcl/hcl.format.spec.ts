@@ -15,9 +15,9 @@ const DOCUMENT = {
   nothing: null,
   empty: {},
   none: [],
-  // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+  // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
   expression: 'a ${{ event.issue }} %{ if } \\ " \u0001 \t \r\n end',
-  // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+  // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
   description: 'Comment on an issue ${x}\n  when %{y} asks\n\tso\nEOT\n',
   trailing: 'one line\n',
   list: ['a', 'b\nc', 1, false, {}, []],
@@ -65,7 +65,7 @@ const WRITTEN = {
       [],
       [
         attribute('a', 1),
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+        // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
         attribute('description', 'Two\nlines ${not} %{this}\n'),
         attribute('bb', 2),
       ],
@@ -75,7 +75,7 @@ const WRITTEN = {
     block('locals', [], [attribute('text', 'a\n  EOT\nb\n')]),
   ]),
   escaped: formatHcl([
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+    // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
     block('locals', [], [attribute('text', '${a} %{b} "c" \\ \t\u0001')]),
   ]),
   file: formatHcl([
@@ -97,7 +97,7 @@ const WRITTEN = {
               'main_feed',
               'integration',
             ),
-            // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+            // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
             '.comment "${x}"',
           ),
         ]),
@@ -154,6 +154,7 @@ describe('formatHcl', () => {
         '  a           = 1',
         '  description = <<EOT',
         'Two',
+        // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
         'lines $${not} %%{this}',
         'EOT',
         '  bb          = 2',
@@ -187,6 +188,7 @@ describe('formatHcl', () => {
 
   it('escapes what a quoted string cannot contain, and interpolation', () => {
     expect(WRITTEN.escaped).toContain(
+      // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       'text = "$${a} %%{b} \\"c\\" \\\\ \\t\\u0001"',
     );
   });
@@ -201,14 +203,14 @@ describe('formatHcl', () => {
 
   it('reads a file beside the module', () => {
     expect(WRITTEN.file).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+      // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       'prompt = file("${path.module}/files/core/\\"x\\".md")',
     );
   });
 
   it('interpolates an expression into text, escaping the text around it', () => {
     expect(WRITTEN.template).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+      // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       'tools = ["${example_integration.main_feed.integration}.comment \\"$${x}\\""]',
     );
   });

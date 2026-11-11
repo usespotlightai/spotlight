@@ -8,10 +8,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ListWorkspaceInvitesHandler
-  implements
-    QueryHandlerPort<ListWorkspaceInvitesQuery, WorkspaceInviteDto[] | null>
-{
+export class ListWorkspaceInvitesHandler implements QueryHandlerPort<
+  ListWorkspaceInvitesQuery,
+  WorkspaceInviteDto[] | null
+> {
   constructor(
     private readonly administration: WorkspaceAdministration,
     private readonly invites: InviteReaderPort,

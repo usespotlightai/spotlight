@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -12,6 +13,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
@@ -240,7 +242,9 @@ describe('a person moving a task by hand', () => {
 
     const denied = await moving(taskId, SHIP).expect(422);
 
-    expect(denied.body.message).toContain('from Build to Ship');
+    expect((denied.body as { message: string }).message).toContain(
+      'from Build to Ship',
+    );
     expect(
       (await app.get(DrizzleTaskRepository).find(TaskId.of(taskId)))?.stationId
         .value,
@@ -252,6 +256,6 @@ describe('a person moving a task by hand', () => {
 
     const parked = await moving(taskId, BACKLOG).expect(200);
 
-    expect(parked.body.stationId).toBe(BACKLOG);
+    expect((parked.body as { stationId: string }).stationId).toBe(BACKLOG);
   });
 });

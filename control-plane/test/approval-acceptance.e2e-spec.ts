@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   RUN_ACCEPTANCE,
   type RunAcceptancePort,
@@ -21,7 +22,8 @@ import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import type { HumanActionKind } from '@work/domain/value-objects/human-action-kind';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { aDispatch, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
@@ -71,7 +73,16 @@ const runOf = (name: RunName): RunId => {
   return runId;
 };
 
-const insights = (tab: string, query = 'period=7d') =>
+interface Insights {
+  readonly stations: readonly { readonly tally: unknown }[];
+  readonly load: unknown;
+  readonly matched: number;
+}
+
+const insights = async (
+  tab: string,
+  query = 'period=7d',
+): Promise<Answer<Insights>> =>
   served(app)
     .get(`/api/teams/${team.teamId.value}/insights/${tab}?${query}`)
     .set(TEST_USER_HEADER, team.owner.value);

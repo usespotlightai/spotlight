@@ -12,8 +12,9 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { eq } from 'drizzle-orm';
+import { DrizzleQueryError, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 
@@ -158,7 +159,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
 
     await expect(
       database.db.delete(schema.user).where(eq(schema.user.id, 'user_left')),
-    ).rejects.toThrow();
+    ).rejects.toThrow(DrizzleQueryError);
     expect((await readBack(invite)).invitedBy?.value).toBe('user_left');
   });
 

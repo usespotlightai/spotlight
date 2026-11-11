@@ -7,8 +7,8 @@ import type {
   WrittenHookMatch,
   WrittenHookSigning,
 } from '@integrations/application/ports/hook-resources.port';
-import { HOOK_ON_FAILURES } from '@integrations/domain/value-objects/hook.vo';
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
+import { HOOK_ON_FAILURES } from '@integrations/domain/value-objects/hook.vo';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 
@@ -62,7 +62,7 @@ export class HookMatchDto {
 export class HookRequestDto {
   @ApiProperty({
     example: 'https://dba.acme.dev/review',
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+    // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
     description: 'Where the request goes; may contain ${{ }} expressions',
   })
   readonly url: string;
@@ -77,7 +77,7 @@ export class HookRequestDto {
 
   @ApiPropertyOptional({
     description:
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+      // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
       'The JSON body, any JSON value; strings may contain ${{ }} expressions. Left out, Spotlight sends the event, task and run',
     oneOf: [
       { type: 'object', additionalProperties: true },
@@ -123,7 +123,7 @@ export class HookStepDto {
     additionalProperties: {},
     example: {
       channel: 'C024BE91L',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+      // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
       text: 'Agent searched ${{ event.inputs.query }}',
     },
     description: 'The inputs the step sends to its tool',

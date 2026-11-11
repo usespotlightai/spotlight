@@ -30,9 +30,10 @@ const ruleOf = (rule: AlertRule) => {
   };
 };
 
-export class ReadStationAlertHandler
-  implements QueryHandlerPort<ReadStationAlertQuery, StationAlertDto>
-{
+export class ReadStationAlertHandler implements QueryHandlerPort<
+  ReadStationAlertQuery,
+  StationAlertDto
+> {
   constructor(
     private readonly access: InsightsAccess,
     private readonly facts: StationFactsPort,

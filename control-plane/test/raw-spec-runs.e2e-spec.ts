@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { deleteRunsOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
@@ -45,10 +47,12 @@ afterAll(async () => {
 
 describe('a run ordered with a raw spec (e2e)', () => {
   it('queues it as the workspace’s own run, carrying on in a working copy the workspace owns', async () => {
-    const queued = await ordered({ resume: { key: 'nightly' } }).expect(201);
-    const again = await ordered({
+    const queued = (await ordered({ resume: { key: 'nightly' } }).expect(
+      201,
+    )) as Answer<{ readonly id: string }>;
+    const again = (await ordered({
       resume: { key: 'workspace/nightly' },
-    }).expect(201);
+    }).expect(201)) as Answer<{ readonly id: string }>;
 
     for (const id of [queued.body.id, again.body.id]) {
       expect(await runRow(id)).toMatchObject({
@@ -65,7 +69,9 @@ describe('a run ordered with a raw spec (e2e)', () => {
   it('refuses a key another owner carries on in', async () => {
     const taskKey = `work/task-${randomUUID()}`;
 
-    const refused = await ordered({ resume: { key: taskKey } }).expect(409);
+    const refused = (await ordered({ resume: { key: taskKey } }).expect(
+      409,
+    )) as Answer<{ readonly message: string }>;
 
     expect(refused.body.message).toBe(
       `Working copy ${taskKey} belongs to work Spotlight orders. A run you order can only carry on its own working copies.`,
@@ -85,7 +91,9 @@ describe('a run ordered with a raw spec (e2e)', () => {
       ['extensions', { extensions: { replay: {} } }],
       ['injectedSecrets', { injectedSecrets: ['GITHUB_TOKEN'] }],
     ] as const) {
-      const refused = await ordered(asked).expect(422);
+      const refused = (await ordered(asked).expect(422)) as Answer<{
+        readonly message: string;
+      }>;
 
       expect(refused.body.message).toBe(
         `Run spec must not ask for ${field}, which only Spotlight orders.`,

@@ -8,10 +8,10 @@ import type { RunJournalReaderPort } from '@work/application/ports/run-journal-r
 import type { ListTaskJournalRunsQuery } from '@work/application/queries/read-task-journal.query';
 import type { RunAccess } from '@work/application/services/run-access.service';
 
-export class ListTaskJournalRunsHandler
-  implements
-    QueryHandlerPort<ListTaskJournalRunsQuery, JournalledRunDto[] | null>
-{
+export class ListTaskJournalRunsHandler implements QueryHandlerPort<
+  ListTaskJournalRunsQuery,
+  JournalledRunDto[] | null
+> {
   constructor(
     private readonly journals: RunJournalReaderPort,
     private readonly access: RunAccess,
@@ -26,7 +26,7 @@ export class ListTaskJournalRunsHandler
         UserId.of(query.viewerId),
       );
 
-      return runs?.map(RunJournalMapper.runToDto) ?? null;
+      return runs?.map((each) => RunJournalMapper.runToDto(each)) ?? null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

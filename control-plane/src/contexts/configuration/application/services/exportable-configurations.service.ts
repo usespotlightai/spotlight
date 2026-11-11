@@ -50,11 +50,13 @@ export class ExportableConfigurations {
       workspaceSlug: workspace.slug,
       resources: [
         ExportableResourceMapper.workspace(workspace),
-        ...secrets.map(ExportableResourceMapper.secret),
-        ...oidcTrusts.map(ExportableResourceMapper.oidcTrust),
-        ...runners.trusts.map(ExportableResourceMapper.trust),
-        ...runners.egresses.map(ExportableResourceMapper.egress),
-        ...runners.pools.map(ExportableResourceMapper.pool),
+        ...secrets.map((each) => ExportableResourceMapper.secret(each)),
+        ...oidcTrusts.map((each) => ExportableResourceMapper.oidcTrust(each)),
+        ...runners.trusts.map((each) => ExportableResourceMapper.trust(each)),
+        ...runners.egresses.map((each) =>
+          ExportableResourceMapper.egress(each),
+        ),
+        ...runners.pools.map((each) => ExportableResourceMapper.pool(each)),
         ...(runners.declared
           ? [ExportableResourceMapper.declared(runners.declared)]
           : []),

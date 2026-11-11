@@ -2,13 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { TOO_MANY_ATTEMPTS } from '@/lib/device';
 import { AuthorizeDevice } from '@/routes/AuthorizeDevice';
 
-const device = vi.fn();
-const session = vi.fn();
+const device = vi.fn<(...args: unknown[]) => unknown>();
+const session = vi.fn<(...args: unknown[]) => unknown>();
 const decide = vi.fn();
-const signIn = vi.fn();
+const signIn = vi.fn<(...args: unknown[]) => unknown>();
 const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useDeviceCode', () => ({

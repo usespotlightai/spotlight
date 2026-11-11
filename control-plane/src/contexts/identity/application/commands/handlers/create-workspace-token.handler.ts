@@ -34,13 +34,10 @@ const rejected = (created: ResourceCreated): WorkspaceTokenCreatedDto => ({
   token: null,
 });
 
-export class CreateWorkspaceTokenHandler
-  implements
-    CommandHandlerPort<
-      CreateWorkspaceTokenCommand,
-      WorkspaceTokenCreatedDto | null
-    >
-{
+export class CreateWorkspaceTokenHandler implements CommandHandlerPort<
+  CreateWorkspaceTokenCommand,
+  WorkspaceTokenCreatedDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: IdentityDefinitionsPort,

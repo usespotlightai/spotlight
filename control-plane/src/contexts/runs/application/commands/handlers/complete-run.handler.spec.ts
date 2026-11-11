@@ -196,7 +196,7 @@ describe('CompleteRunHandler', () => {
       completing(async (run) => void saved.push(run), {
         run: suspended,
       }).execute(reviewing),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Cannot hand over run run_1');
     expect(saved).toEqual([]);
   });
 

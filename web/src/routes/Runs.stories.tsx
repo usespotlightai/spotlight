@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { type PageArgs, pageStory } from '@/stories/application';
 
 const meta = {

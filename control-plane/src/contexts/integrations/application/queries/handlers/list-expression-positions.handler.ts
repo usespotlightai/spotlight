@@ -3,13 +3,10 @@ import type { ExpressionChecksPort } from '@integrations/application/ports/expre
 import type { ListExpressionPositionsQuery } from '@integrations/application/queries/list-expression-positions.query';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ListExpressionPositionsHandler
-  implements
-    QueryHandlerPort<
-      ListExpressionPositionsQuery,
-      readonly ExpressionPositionDto[]
-    >
-{
+export class ListExpressionPositionsHandler implements QueryHandlerPort<
+  ListExpressionPositionsQuery,
+  readonly ExpressionPositionDto[]
+> {
   constructor(private readonly checks: ExpressionChecksPort) {}
 
   async execute(): Promise<readonly ExpressionPositionDto[]> {

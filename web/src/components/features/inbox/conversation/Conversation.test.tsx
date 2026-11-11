@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
+
 import {
   Conversation,
   type Deciding,
@@ -190,9 +191,7 @@ describe('Conversation', () => {
     const closing = screen.getAllByText('How the run went');
     expect(closing).toHaveLength(1);
     expect(
-      screen
-        .getByText('Done')
-        .compareDocumentPosition(closing[0] as HTMLElement) &
+      screen.getByText('Done').compareDocumentPosition(closing[0]) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });

@@ -5,7 +5,6 @@ import type {
 import type {
   HostSummary,
   LiveRunnerSummary,
-  RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
 import { ListRunnersHandler } from '@runners/application/queries/handlers/list-runners.handler';
 import { ListRunnersQuery } from '@runners/application/queries/list-runners.query';
@@ -84,7 +83,7 @@ const listing = (
       readyToRun: vi.fn(),
       hasEgressCapableRunner: vi.fn(),
       supportedModels: vi.fn(),
-    } as RunnerReaderPort,
+    },
     clock(),
   );
 

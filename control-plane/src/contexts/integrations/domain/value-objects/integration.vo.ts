@@ -147,7 +147,7 @@ export class Integration {
 
     for (const provided of tools) {
       if (provided.backing.action !== null) {
-        actions.forTool(provided.backing.action, `tool ${provided.tool}`);
+        actions.forTool(provided.backing.action, `tool ${provided.tool.value}`);
       }
     }
 

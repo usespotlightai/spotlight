@@ -1,9 +1,9 @@
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
+import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
 import {
   Decision,
   type ProposedDecision,
 } from '@change-review/domain/entities/decision.entity';
-import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
@@ -510,7 +510,7 @@ describe('a decision set, disputed', () => {
   ) =>
     set.dispute({
       id: DecisionDisputeId.of(over.id ?? 'dispute_1'),
-      decisionId: over.decisionId ?? (set.decisions[1]?.id as DecisionId),
+      decisionId: over.decisionId ?? set.decisions[1]?.id,
       path: FilePath.of(over.path ?? 'src/uploads.ts'),
       by: MAYA,
       reason: over.reason ?? ' The client retries twice already. ',
@@ -533,7 +533,7 @@ describe('a decision set, disputed', () => {
         path: FilePath.of('src/uploads.ts'),
       }),
     );
-    expect(first?.id.equals(second?.id as DecisionId)).toBe(false);
+    expect(first?.id.equals(second?.id)).toBe(false);
   });
 
   it('records every dispute, as a thread of replies', () => {
@@ -560,7 +560,7 @@ describe('a decision set, disputed', () => {
 
   it('knows no decision a later run replaced', () => {
     const earlier = decided();
-    const stale = earlier.decisions[1]?.id as DecisionId;
+    const stale = earlier.decisions[1]?.id;
     const replaced = generating(
       earlier.requestGeneration(SECOND, NOW),
       SECOND,

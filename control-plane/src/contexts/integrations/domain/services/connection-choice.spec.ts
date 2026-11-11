@@ -2,8 +2,8 @@ import { IntegrationConnection } from '@integrations/domain/aggregates/integrati
 import { ConnectionChoice } from '@integrations/domain/services/connection-choice';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
-import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';

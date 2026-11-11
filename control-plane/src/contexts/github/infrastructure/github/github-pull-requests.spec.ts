@@ -40,7 +40,9 @@ const repository = (over: { open?: boolean; taken?: boolean } = {}) =>
     sent.push({
       url,
       method: init.method ?? 'GET',
-      body: init.body ? JSON.parse(String(init.body)) : {},
+      body: init.body
+        ? (JSON.parse(init.body as string) as Record<string, unknown>)
+        : {},
     });
 
     if (url.endsWith('/repos/acme/api')) {

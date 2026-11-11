@@ -1,10 +1,14 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ChatComposer } from '@/components/features/agent/ChatComposer';
 import type { Chat } from '@/lib/chat';
 import { pressEnter, textOf, write } from '@/test/lexical';
 
-const sent = vi.fn();
+const sent =
+  vi.fn<
+    (input: unknown, options: { onSuccess: (data?: unknown) => void }) => void
+  >();
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({

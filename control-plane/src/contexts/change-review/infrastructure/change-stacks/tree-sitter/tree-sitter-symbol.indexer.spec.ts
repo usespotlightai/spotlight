@@ -92,7 +92,7 @@ describe('TreeSitterSymbolIndexer', () => {
       ]),
       source('web/src/api.ts', [
         'export const read = (team: string, run: string) =>',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: source code that the test reads
+        // oxlint-disable-next-line no-template-curly-in-string -- source code that the test reads
         '  fetch(`/api/teams/${team}/runs/${run}/change-stacks`);',
       ]),
     );
@@ -442,7 +442,7 @@ describe('TreeSitterSymbolIndexer', () => {
     const [main, outputs] = await indexed(
       source('infra/main.tf', [
         'variable "region" { default = "eu-west-1" }',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: source code being read
+        // oxlint-disable-next-line no-template-curly-in-string -- source code being read
         'locals { name = "logs-${var.region}" }',
         'resource "aws_s3_bucket" "logs" {',
         '  bucket = local.name',

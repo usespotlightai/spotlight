@@ -1,4 +1,5 @@
 import { DragOverlay } from '@dnd-kit/core';
+
 import { InboxEntryRow } from '@/components/features/inbox/InboxEntryRow';
 import type { InboxEntry } from '@/lib/inbox';
 

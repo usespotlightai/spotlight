@@ -6,9 +6,10 @@ import type { ReadSecretQuery } from '@secrets/application/queries/read-secret.q
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadSecretHandler
-  implements QueryHandlerPort<ReadSecretQuery, SecretResourceDto | null>
-{
+export class ReadSecretHandler implements QueryHandlerPort<
+  ReadSecretQuery,
+  SecretResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: SecretResourcesPort,

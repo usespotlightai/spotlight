@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import {
   INTEGRATION_CONNECTIONS,
@@ -42,6 +43,7 @@ import {
   it,
   vi,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
@@ -57,9 +59,9 @@ const LINEAR = {
         method: 'POST',
         url: 'https://api.linear.app/graphql',
         auth: { secrets: ['secret.LINEAR_API_KEY'] },
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
         body: { body: '${{ inputs.body }}' },
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
         capture: { url: '${{ response.url }}' },
       },
     },
@@ -69,7 +71,7 @@ const LINEAR = {
       action: 'comment',
       description: 'Comment on the Linear issue',
       inputs: { body: { required: true } },
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+      // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
       output: '${{ capture.url }}',
     },
   },
@@ -135,6 +137,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
   beforeAll(async () => {
     vi.stubEnv(
       'SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS',
+      // oxlint-disable-next-line node/no-process-env -- extends the allow list the e2e environment sets
       [process.env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS, 'api.linear.app']
         .filter(Boolean)
         .join(','),
@@ -148,7 +151,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
             env.SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK,
           );
 
-          return Object.assign(Object.create(guard), {
+          return Object.assign(Object.create(guard) as OutboundGuard, {
             fetch: (url: string | URL | Request, init?: RequestInit) =>
               hostOf(url) === 'api.linear.app'
                 ? fetch(url, init)
@@ -170,14 +173,10 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     seat = await seatTeam(db, workspaceId);
     fetch.mockClear();
 
-    expect(
-      (
-        await post(
-          `/api/v1/resources/teams/${workspaceId}/integrations`,
-          LINEAR,
-        )
-      ).status,
-    ).toBe(201);
+    await post(
+      `/api/v1/resources/teams/${workspaceId}/integrations`,
+      LINEAR,
+    ).expect(201);
   });
 
   afterEach(async () => {

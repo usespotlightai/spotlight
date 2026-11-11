@@ -17,9 +17,10 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
-export class UpdateSkillHandler
-  implements CommandHandlerPort<UpdateSkillCommand, ResourceUpdated | null>
-{
+export class UpdateSkillHandler implements CommandHandlerPort<
+  UpdateSkillCommand,
+  ResourceUpdated | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly compiler: SkillCompilerPort,

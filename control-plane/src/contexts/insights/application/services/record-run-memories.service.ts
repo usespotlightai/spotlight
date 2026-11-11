@@ -49,7 +49,10 @@ export class RecordRunMemories {
         load: () => this.records.of(runId),
         fresh: () => RunRecord.empty(runId, workspaceId, taskId),
         change: (record) =>
-          record.recordMemories(via, event.memories.map(MemoryReference.of)),
+          record.recordMemories(
+            via,
+            event.memories.map((raw) => MemoryReference.of(raw)),
+          ),
       }),
     );
   }

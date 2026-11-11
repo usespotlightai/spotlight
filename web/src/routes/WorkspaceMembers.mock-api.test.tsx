@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
+
 import { acceptInvite } from '@/lib/api';
 import { membersPath } from '@/lib/members';
 import { api, noContent } from '@/mocks/http';

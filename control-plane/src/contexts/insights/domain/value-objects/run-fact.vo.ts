@@ -161,6 +161,7 @@ export class RunFact implements RunFactParts {
     const checked = known(this.checkedAt);
 
     return new RunFact({
+      // oxlint-disable-next-line typescript/no-misused-spread -- rebuilds it from its fields
       ...this,
       supersededAt: known(this.supersededAt) ? this.supersededAt : null,
       checks: checked ? this.checks : null,

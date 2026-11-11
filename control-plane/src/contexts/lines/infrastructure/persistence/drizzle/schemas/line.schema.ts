@@ -1,6 +1,21 @@
 import { STATION_KINDS } from '@lines/domain/entities/station.entity';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { sql } from 'drizzle-orm';
+import {
+  boolean,
+  check,
+  foreignKey,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  unique,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
 export interface ReviewsRow {
   readonly start: string;
@@ -68,21 +83,6 @@ export interface StationAlertRow {
   readonly over: number;
 }
 
-import { sql } from 'drizzle-orm';
-import {
-  boolean,
-  check,
-  foreignKey,
-  index,
-  integer,
-  jsonb,
-  pgEnum,
-  pgTable,
-  primaryKey,
-  text,
-  unique,
-  uniqueIndex,
-} from 'drizzle-orm/pg-core';
 
 export const stationKind = pgEnum('station_kind', STATION_KINDS);
 

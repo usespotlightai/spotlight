@@ -79,9 +79,11 @@ const unreplayableReasonOf = (row: EntryRow) => {
     return null;
   }
   if (!isUnreplayableReason(row.unreplayableReason)) {
+    const reason: string = row.unreplayableReason;
+
     throw new InconsistentStateError(
       'replay entry',
-      `could not be replayed for a reason no longer known, ${row.unreplayableReason}`,
+      `could not be replayed for a reason no longer known, ${reason}`,
     );
   }
   return row.unreplayableReason;

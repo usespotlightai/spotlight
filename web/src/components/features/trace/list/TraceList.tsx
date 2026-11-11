@@ -1,6 +1,7 @@
 import { Binoculars } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { TraceHead } from '@/components/features/trace/list/TraceHead';
 import { TraceListSkeleton } from '@/components/features/trace/list/TraceListSkeleton';
@@ -83,7 +84,7 @@ export function TraceList({
     );
 
   const discuss = () =>
-    navigate(teamSectionPath(slug, teamId, 'agent'), {
+    void navigate(teamSectionPath(slug, teamId, 'agent'), {
       state: {
         trail,
         traces: worked

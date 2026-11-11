@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { acceptInvite } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 

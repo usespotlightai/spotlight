@@ -1,4 +1,5 @@
 import { Binoculars } from 'lucide-react';
+
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useTaskRuns } from '@/hooks/api/useTaskRuns';
 import { taskTracePath } from '@/lib/task';

@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { CostSankey } from '@/components/features/insights/CostSankey';
 import type { SankeyShown } from '@/lib/insights';
 

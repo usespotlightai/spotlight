@@ -1,8 +1,8 @@
 import { ACTS_AS } from '@integrations/domain/value-objects/acts-as.vo';
 import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
-import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { IntegrationLogo } from '@integrations/domain/value-objects/integration-logo.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/provided-tool.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
@@ -23,7 +23,7 @@ const WITHIN = /^\d+s$/;
 const EXPRESSION = /^\s*\$\{\{(.+)\}\}\s*$/s;
 
 const expression = z.string().refine((written) => EXPRESSION.test(written), {
-  // biome-ignore lint/suspicious/noTemplateCurlyInString: how an expression is written in the file
+  // oxlint-disable-next-line no-template-curly-in-string -- how an expression is written in the file
   message: 'must be an expression, written as ${{ ... }}',
 });
 
@@ -88,7 +88,7 @@ const asymmetricSchema = z.object({
 });
 
 const jwtSchema = z.object({
-  jwks: z.string().url(),
+  jwks: z.url(),
   header: z.string().optional(),
   audience: z.string().optional(),
   issuer: z.string().optional(),
@@ -241,9 +241,9 @@ const specToolsSchema = z
 
 const openapiSchema = z
   .object({
-    url: z.string().url().optional(),
+    url: z.url().optional(),
     document: z.record(z.string(), z.unknown()).optional(),
-    baseUrl: z.string().url().optional(),
+    baseUrl: z.url().optional(),
     revision: z.string().min(1).optional(),
     auth: requestAuthSchema.optional(),
     tools: specToolsSchema,
@@ -254,7 +254,7 @@ const openapiSchema = z
   );
 
 const graphqlSchema = z.object({
-  url: z.string().url(),
+  url: z.url(),
   document: z.string().min(1).optional(),
   revision: z.string().min(1).optional(),
   depth: z.number().int().min(1).max(5).optional(),
@@ -263,7 +263,7 @@ const graphqlSchema = z.object({
 });
 
 const mcpSchema = z.object({
-  url: z.string().url(),
+  url: z.url(),
   auth: requestAuthSchema.optional(),
   tools: specToolsSchema,
 });
@@ -361,17 +361,17 @@ const connectionSchema = z.object({
           discover: z.literal(true),
           scopes: z.array(scope).default([]),
           identity: expression.optional(),
-          resource: z.string().url().optional(),
+          resource: z.url().optional(),
         })
         .strict(),
       z.object({
         discover: z.literal(false).default(false),
-        authorize: z.string().url(),
-        token: z.string().url(),
+        authorize: z.url(),
+        token: z.url(),
         scopes: z.array(scope).default([]),
         identity: expression.optional(),
-        registration: z.string().url().optional(),
-        resource: z.string().url().optional(),
+        registration: z.url().optional(),
+        resource: z.url().optional(),
       }),
     ])
     .optional(),

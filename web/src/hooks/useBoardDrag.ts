@@ -4,6 +4,7 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type DroppableContainer,
   PointerSensor,
   pointerWithin,
   rectIntersection,
@@ -11,6 +12,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { useState } from 'react';
+
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useDragGuard } from '@/hooks/useDragGuard';
 import type { StationResponseDto } from '@/lib/api';
@@ -19,8 +21,12 @@ import { mayLand, type Task } from '@/lib/task';
 
 const HOLD = 6;
 
-const kindOf = (collision: Collision) =>
-  collision.data?.droppableContainer?.data?.current?.kind;
+const kindOf = (collision: Collision): unknown => {
+  const container = collision.data?.droppableContainer as
+    | DroppableContainer
+    | undefined;
+  return container?.data.current?.kind;
+};
 
 const dropping: CollisionDetection = (args) => {
   const under = pointerWithin(args);

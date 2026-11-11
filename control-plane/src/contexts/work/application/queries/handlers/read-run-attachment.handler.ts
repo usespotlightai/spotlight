@@ -7,9 +7,10 @@ import type {
 import type { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attachment.query';
 import type { RunWorks } from '@work/application/services/run-works.service';
 
-export class ReadRunAttachmentHandler
-  implements QueryHandlerPort<ReadRunAttachmentQuery, AttachmentContent | null>
-{
+export class ReadRunAttachmentHandler implements QueryHandlerPort<
+  ReadRunAttachmentQuery,
+  AttachmentContent | null
+> {
   constructor(
     private readonly works: RunWorks,
     private readonly files: AttachmentStorePort,

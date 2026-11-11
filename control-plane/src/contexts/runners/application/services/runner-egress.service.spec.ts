@@ -6,7 +6,6 @@ import {
   anEgress,
   EGRESS_ID,
 } from '@runners/domain/aggregates/egress.fake-spec';
-import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
   aPushPool,
@@ -14,9 +13,10 @@ import {
   hashOf,
   STARTED_AT,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
-import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';

@@ -80,7 +80,9 @@ export class ProfileSettings {
     return new ProfileSettings(
       Object.freeze([...input.rules]),
       Object.freeze([...input.mcpServers]),
-      deepFrozen(JSON.parse(JSON.stringify(input.native))),
+      deepFrozen(
+        JSON.parse(JSON.stringify(input.native)) as Record<string, unknown>,
+      ),
     );
   }
 

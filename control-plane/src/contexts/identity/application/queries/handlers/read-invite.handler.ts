@@ -7,9 +7,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
-export class ReadInviteHandler
-  implements QueryHandlerPort<ReadInviteQuery, InvitePreviewDto | null>
-{
+export class ReadInviteHandler implements QueryHandlerPort<
+  ReadInviteQuery,
+  InvitePreviewDto | null
+> {
   constructor(
     private readonly invites: InviteReaderPort,
     private readonly tokens: TokenIssuer,

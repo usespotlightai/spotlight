@@ -1,6 +1,6 @@
 import type { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';

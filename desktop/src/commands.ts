@@ -50,14 +50,11 @@ export const tabMenu = (
       click: () => send('previous-tab'),
     },
     { type: 'separator' },
-    ...Array.from(
-      { length: 8 },
-      (_, at): MenuItemConstructorOptions => ({
-        label: `Tab ${at + 1}`,
-        accelerator: `CmdOrCtrl+${at + 1}`,
-        click: () => send(`tab-${at + 1}`),
-      }),
-    ),
+    ...Array.from({ length: 8 }, (_, at): MenuItemConstructorOptions => ({
+      label: `Tab ${at + 1}`,
+      accelerator: `CmdOrCtrl+${at + 1}`,
+      click: () => send(`tab-${at + 1}`),
+    })),
     {
       label: 'Last Tab',
       accelerator: 'CmdOrCtrl+9',

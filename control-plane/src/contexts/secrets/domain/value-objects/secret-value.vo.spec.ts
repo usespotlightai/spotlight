@@ -1,4 +1,5 @@
 import { inspect } from 'node:util';
+
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { isSecret } from '@shared-kernel/domain/value-objects/secret';
 import { describe, expect, it } from 'vitest';
@@ -14,7 +15,7 @@ describe('SecretValue', () => {
     expect(String(value)).toBe('[secret]');
     expect(JSON.stringify({ value })).toBe('{"value":"[secret]"}');
     expect(inspect({ value })).not.toContain('lin_api_1');
-    expect(`${value}`).not.toContain('lin_api_1');
+    expect(String(value)).not.toContain('lin_api_1');
   });
 
   it('is a secret, so no event can carry it', () => {

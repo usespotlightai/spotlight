@@ -10,9 +10,10 @@ import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ImportLineHandler
-  implements QueryHandlerPort<ImportLineQuery, LineResourceDto | null>
-{
+export class ImportLineHandler implements QueryHandlerPort<
+  ImportLineQuery,
+  LineResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,
@@ -39,7 +40,7 @@ export class ImportLineHandler
 
       const record = await this.resources.at(team.id, LineKey.of(address.key));
 
-      return record ? this.views.of(record) : null;
+      return record ? await this.views.of(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

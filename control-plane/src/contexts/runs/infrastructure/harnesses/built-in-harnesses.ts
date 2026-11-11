@@ -107,7 +107,7 @@ const CLAUDE_CODE: Definition = {
   ],
   versionProbe: ['node', '-e', CLAUDE_CLI_VERSION],
   env: {
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+    // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
     CLAUDE_CONFIG_DIR: '${SPOTLIGHT_STATE_DIR}/claude',
     CLAUDE_CODE_ENABLE_TELEMETRY: '1',
     CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: '1',
@@ -115,7 +115,7 @@ const CLAUDE_CODE: Definition = {
     OTEL_METRICS_EXPORTER: 'none',
     OTEL_LOGS_EXPORTER: 'none',
     OTEL_EXPORTER_OTLP_PROTOCOL: 'http/json',
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+    // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
     OTEL_EXPORTER_OTLP_ENDPOINT: '${SPOTLIGHT_TELEMETRY_URL}',
     OTEL_TRACES_EXPORT_INTERVAL: '1000',
   },
@@ -144,7 +144,7 @@ const CODEX: Definition = {
   executable: 'codex-acp',
   args: [],
   env: {
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+    // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
     CODEX_HOME: '${SPOTLIGHT_STATE_DIR}/codex',
   },
   configEnv: 'CODEX_CONFIG',
@@ -155,7 +155,7 @@ const CODEX: Definition = {
     'sh',
     '-c',
     'curl -sf https://api.openai.com/v1/models ' +
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the shell
+      // oxlint-disable-next-line no-template-curly-in-string -- expanded by the shell
       '-H "authorization: Bearer ${CODEX_API_KEY:-$OPENAI_API_KEY}" | ' +
       'jq -r ".data[].id" | grep -E "^(gpt|o[0-9]|codex)"',
   ],
@@ -170,7 +170,7 @@ const OPENCODE: Definition = {
   executable: 'opencode',
   args: ['acp'],
   env: {
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+    // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
     OPENCODE_DB: '${SPOTLIGHT_STATE_DIR}/opencode.db',
     OPENCODE_DISABLE_AUTOUPDATE: '1',
   },

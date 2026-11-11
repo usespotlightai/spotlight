@@ -37,19 +37,18 @@ const EMPTY: InboxStore = {
   made: 0,
 };
 
-export const inboxStore = perWorld(
-  (kind): InboxStore =>
-    kind === 'empty'
-      ? { ...structuredClone(EMPTY), entries: freshInbox() }
-      : {
-          entries: seedInbox(),
-          scores: seedRunScores(ALL_RUN_IDS),
-          alerts: seedAlerts(),
-          codeReviews: seedCodeReviews(),
-          decisions: seedDecisions(),
-          memoryReviews: seedMemoryReviews(),
-          made: 0,
-        },
+export const inboxStore = perWorld((kind): InboxStore =>
+  kind === 'empty'
+    ? { ...structuredClone(EMPTY), entries: freshInbox() }
+    : {
+        entries: seedInbox(),
+        scores: seedRunScores(ALL_RUN_IDS),
+        alerts: seedAlerts(),
+        codeReviews: seedCodeReviews(),
+        decisions: seedDecisions(),
+        memoryReviews: seedMemoryReviews(),
+        made: 0,
+      },
 );
 
 export const nextId = (prefix: string): string => {

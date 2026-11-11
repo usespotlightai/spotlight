@@ -1,5 +1,6 @@
 import { Inbox } from 'lucide-react';
 import { Link } from 'react-router';
+
 import { Pill } from '@/components/shared/Pill';
 import { ProgressState } from '@/components/shared/ProgressState';
 import type { Task } from '@/lib/task';

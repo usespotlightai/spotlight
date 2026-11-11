@@ -365,9 +365,7 @@ export const describeProblem = (problem: StackProblem): string => {
   return remedy ? `${problem.message}; ${remedy}` : problem.message;
 };
 
-export class ChatCompletionsChangeStackGenerator
-  implements ChangeStackGeneratorPort
-{
+export class ChatCompletionsChangeStackGenerator implements ChangeStackGeneratorPort {
   constructor(
     private readonly endpoint: ModelEndpoint | null,
     private readonly fetch: Fetch = globalThis.fetch,

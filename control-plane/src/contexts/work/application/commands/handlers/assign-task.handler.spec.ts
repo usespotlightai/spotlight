@@ -163,7 +163,7 @@ describe('AssignTaskHandler', () => {
         new AssignTaskCommand('team_1', 'task_1', 'user_2', 'user_bystander'),
       ),
     ).rejects.toMatchObject({
-      refusal: expect.any(TeamMembershipRequiredError),
+      refusal: expect.any(TeamMembershipRequiredError) as unknown,
     });
     expect(saved).toBeUndefined();
   });

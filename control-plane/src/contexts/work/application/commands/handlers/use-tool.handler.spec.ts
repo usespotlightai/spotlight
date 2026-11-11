@@ -567,7 +567,7 @@ describe('UseToolHandler', () => {
         useTool('catalog.web-search', { query: 'queues' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
-        message: expect.stringContaining('entitlement_expired'),
+        message: expect.stringContaining('entitlement_expired') as unknown,
       });
       expect(called).toEqual([]);
     });
@@ -580,7 +580,7 @@ describe('UseToolHandler', () => {
       await expect(
         useTool('catalog.web-search', { query: 'queues' }),
       ).rejects.toMatchObject({
-        message: expect.stringContaining('entitlement_expired'),
+        message: expect.stringContaining('entitlement_expired') as unknown,
       });
     });
 
@@ -610,7 +610,9 @@ describe('UseToolHandler', () => {
   it('resolves no tool for a run that its task detached', async () => {
     const { useTool, called } = using(claimed(), { task: added() });
 
-    await expect(useTool('pull-request')).rejects.toThrow();
+    await expect(useTool('pull-request')).rejects.toThrow(
+      'is used on what a run works',
+    );
     expect(called).toEqual([]);
   });
 
@@ -812,13 +814,13 @@ describe('UseToolHandler', () => {
       approval: NEEDS_APPROVAL,
     });
 
-    await expect(
-      useTool('linear.comment', { body: 'Fixed.' }),
-    ).rejects.toThrow();
+    await expect(useTool('linear.comment', { body: 'Fixed.' })).rejects.toThrow(
+      "needs a person's approval",
+    );
     const asked = current().notes.length;
-    await expect(
-      useTool('linear.comment', { body: 'Fixed.' }),
-    ).rejects.toThrow();
+    await expect(useTool('linear.comment', { body: 'Fixed.' })).rejects.toThrow(
+      "needs a person's approval",
+    );
 
     expect(current().notes).toHaveLength(asked);
   });
@@ -875,7 +877,7 @@ describe('UseToolHandler', () => {
 
       await expect(
         useTool('linear.comment', { body: 'Fixed.' }),
-      ).rejects.toThrow();
+      ).rejects.toThrow("needs a person's approval");
 
       expect(lastAsked(current)?.askedOf?.equals(ALICE)).toBe(true);
       expect(lastAsked(current)?.because).toBe(NEEDS_APPROVAL.because);
@@ -896,7 +898,7 @@ describe('UseToolHandler', () => {
           useTool('linear.comment', { body: 'Fixed.' }),
         ).rejects.toMatchObject({
           kind: 'not-allowed',
-          message: expect.stringContaining('Alice blocks it'),
+          message: expect.stringContaining('Alice blocks it') as unknown,
         });
         expect(called).toEqual([]);
         expect(current().notes).toHaveLength(before);
@@ -1579,7 +1581,7 @@ describe('UseToolHandler', () => {
         useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({
         kind: 'conflict',
-        message: expect.stringContaining("haven't connected Linear"),
+        message: expect.stringContaining("haven't connected Linear") as unknown,
       });
 
       const asked = current().notes[current().notes.length - 1];
@@ -1600,11 +1602,11 @@ describe('UseToolHandler', () => {
 
       await expect(
         useTool('linear.comment', { body: 'Fixed.' }),
-      ).rejects.toThrow();
+      ).rejects.toThrow('acts as the person who started this task');
       const once = current().notes.length;
       await expect(
         useTool('linear.comment', { body: 'Fixed.' }),
-      ).rejects.toThrow();
+      ).rejects.toThrow('acts as the person who started this task');
 
       expect(current().notes.length).toBe(once);
     });
@@ -1618,7 +1620,7 @@ describe('UseToolHandler', () => {
         useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
-        message: expect.stringContaining('nobody started this task'),
+        message: expect.stringContaining('nobody started this task') as unknown,
       });
       expect(called).toEqual([]);
       expect(current().awaitingReview).toBe(false);
@@ -1651,7 +1653,9 @@ describe('UseToolHandler', () => {
         useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
-        message: expect.stringContaining('already waiting on someone'),
+        message: expect.stringContaining(
+          'already waiting on someone',
+        ) as unknown,
       });
       expect(called).toEqual([]);
       expect(current().notes.some((each) => each.connectionAsk !== null)).toBe(
@@ -1668,7 +1672,7 @@ describe('UseToolHandler', () => {
         useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
-        message: expect.stringContaining('no longer on the team'),
+        message: expect.stringContaining('no longer on the team') as unknown,
       });
       expect(called).toEqual([]);
     });

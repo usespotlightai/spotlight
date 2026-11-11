@@ -16,10 +16,10 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
-export class ExchangeWorkloadTokenHandler
-  implements
-    CommandHandlerPort<ExchangeWorkloadTokenCommand, IssuedTokenDto | null>
-{
+export class ExchangeWorkloadTokenHandler implements CommandHandlerPort<
+  ExchangeWorkloadTokenCommand,
+  IssuedTokenDto | null
+> {
   constructor(
     private readonly trusts: OidcTrustRepository,
     private readonly tokens: WorkspaceTokenRepository,

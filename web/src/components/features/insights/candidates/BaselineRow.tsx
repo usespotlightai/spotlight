@@ -1,10 +1,10 @@
 import { ChevronSpace } from '@/components/shared/nested-table/ExpandToggle';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   OUTER_DIVIDER,
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { formatCount } from '@/lib/insights';
 import {
   type CandidatesSet,

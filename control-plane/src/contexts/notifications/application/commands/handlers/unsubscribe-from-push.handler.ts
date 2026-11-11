@@ -5,9 +5,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class UnsubscribeFromPushHandler
-  implements CommandHandlerPort<UnsubscribeFromPushCommand, boolean>
-{
+export class UnsubscribeFromPushHandler implements CommandHandlerPort<
+  UnsubscribeFromPushCommand,
+  boolean
+> {
   constructor(private readonly subscriptions: PushSubscriptionRepository) {}
 
   async execute(command: UnsubscribeFromPushCommand): Promise<boolean> {

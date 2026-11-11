@@ -7,11 +7,11 @@ import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
-import { APPROVAL_STATUSES } from '@work/domain/value-objects/approval.vo';
 import {
   APPROVAL_SUBJECT_KINDS,
   type ApprovalSubjectKind,
 } from '@work/domain/value-objects/approval-subject.vo';
+import { APPROVAL_STATUSES } from '@work/domain/value-objects/approval.vo';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
 import type { Progress } from '@work/domain/value-objects/progress';

@@ -3,10 +3,7 @@ import type { StationDeletionGuardPort } from '@lines/application/ports/station-
 import { ApplyLines } from '@lines/application/services/apply-lines.service';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -21,7 +18,7 @@ const existingLine = (): Line => {
     by: changeActorIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
-    line: BUILT_IN_LINES[0] as LineOpening,
+    line: BUILT_IN_LINES[0],
     harness: HarnessId.of('dev'),
     newId: () => `id_${++next}`,
   });
@@ -40,7 +37,7 @@ const existingLine = (): Line => {
 
 const deleting = (tasks: number) => {
   const line = existingLine();
-  const save = vi.fn(async (_: Line) => {});
+  const save = vi.fn<(line: Line) => Promise<void>>(async () => {});
   const warn = vi.fn();
   const tally = async () =>
     line.stations.map((each) => ({ stationId: each.id, tasks }));
@@ -71,7 +68,7 @@ describe('DeleteTeamLines', () => {
 
     await service.deleteForTeam(TEAM);
 
-    expect((save.mock.calls[0] as [Line])[0].isDeleted).toBe(true);
+    expect(save.mock.calls[0][0].isDeleted).toBe(true);
   });
 
   it('keeps a line that still has tasks, and says so', async () => {

@@ -1,4 +1,5 @@
 import { createContext, type ReactNode, useContext } from 'react';
+
 import type { FileChange, LineRange } from '@/lib/changes';
 
 export interface MemoriesRun {
@@ -12,9 +13,9 @@ export interface RunSidePanel {
   readonly lines: LineRange | null;
   readonly memories: MemoriesRun | null;
   readonly sidePanel: ReactNode;
-  open(file: FileChange, lines?: LineRange): void;
-  openMemories(run: MemoriesRun): void;
-  close(): void;
+  readonly open: (file: FileChange, lines?: LineRange) => void;
+  readonly openMemories: (run: MemoriesRun) => void;
+  readonly close: () => void;
 }
 
 const CLOSED: RunSidePanel = {

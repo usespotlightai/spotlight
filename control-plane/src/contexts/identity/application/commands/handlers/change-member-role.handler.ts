@@ -6,9 +6,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ChangeMemberRoleHandler
-  implements CommandHandlerPort<ChangeMemberRoleCommand, boolean>
-{
+export class ChangeMemberRoleHandler implements CommandHandlerPort<
+  ChangeMemberRoleCommand,
+  boolean
+> {
   constructor(private readonly workspaces: WorkspaceRepository) {}
 
   async execute(command: ChangeMemberRoleCommand): Promise<boolean> {

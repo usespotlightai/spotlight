@@ -11,9 +11,10 @@ import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-h
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
-export class ReplyToReviewCommentHandler
-  implements CommandHandlerPort<ReplyToReviewCommentCommand, void>
-{
+export class ReplyToReviewCommentHandler implements CommandHandlerPort<
+  ReplyToReviewCommentCommand,
+  void
+> {
   constructor(
     private readonly runs: RunLoader,
     private readonly tasks: TaskRepository,

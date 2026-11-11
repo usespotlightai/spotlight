@@ -1,14 +1,15 @@
 import { useParams, useSearchParams } from 'react-router';
+
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { StationTrend } from '@/components/features/insights/StationTrend';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   LEAD_CELL,
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { TallyCountedResponseDto } from '@/lib/api';
 import {

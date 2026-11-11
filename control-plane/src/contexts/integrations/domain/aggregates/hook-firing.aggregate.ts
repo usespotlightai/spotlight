@@ -8,13 +8,12 @@ import type {
   CausalChain,
   CauseLink,
 } from '@integrations/domain/value-objects/causal-chain.vo';
-import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import {
   HookEvent,
   type HookEventName,
 } from '@integrations/domain/value-objects/hook-event.vo';
-import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import type { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
@@ -23,6 +22,7 @@ import type {
   HookStepOutcome,
   WaitingHookStep,
 } from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';

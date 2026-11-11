@@ -14,6 +14,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { pushSchema } from 'drizzle-kit/api';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
@@ -199,7 +200,7 @@ describe('DrizzleNetworkCallRepository', () => {
     expect(expiring?.id).toEqual(expired.id);
     expect(more).toEqual([]);
 
-    await calls.save((expiring as NetworkCall).expire(NOW));
+    await calls.save(expiring.expire(NOW));
 
     const stored = await database.db
       .select({
@@ -265,7 +266,7 @@ describe('DrizzleNetworkCallRepository', () => {
     const [completed] = await calls.completedBy(later(1_000), 10);
     expect(completed?.id).toEqual(waited.id);
 
-    await calls.save((completed as NetworkCall).purge(later(1_000 + week)));
+    await calls.save(completed.purge(later(1_000 + week)));
 
     expect(await calls.find(waited.id)).toBeNull();
   });

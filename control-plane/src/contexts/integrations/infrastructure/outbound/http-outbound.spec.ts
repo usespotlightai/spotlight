@@ -586,7 +586,9 @@ describe('HttpOutbound, a secret injected in the query', () => {
 
   it('says why a call never arrived without the key in what it says', async () => {
     const fetch = vi.fn(async (url: string | URL | Request) => {
-      throw new TypeError(`fetch failed for ${String(url)}`);
+      throw new TypeError(
+        `fetch failed for ${url instanceof Request ? url.url : url.toString()}`,
+      );
     });
     const out = new HttpOutbound(
       allowingOutbound(['maps.googleapis.com']),

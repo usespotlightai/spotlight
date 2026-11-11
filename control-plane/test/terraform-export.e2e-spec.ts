@@ -1,11 +1,9 @@
 import { randomUUID } from 'node:crypto';
+
 import type { ExportableResourceDto } from '@configuration/application/dto/exportable-configuration.dto';
 import { CONFIGURATION } from '@configuration/presentation/terraform/exportable-configuration.fake-spec';
 import { workspaceTerraform } from '@configuration/presentation/terraform/terraform-configuration';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import { blockOf } from '@platform/hcl/hcl-block.fake-spec';
 import {
@@ -24,6 +22,7 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { definitionOf } from './support/line-definition';
 import { deleteRunnersOf } from './support/runners';
@@ -40,7 +39,7 @@ const PROVISION_SECRET = `whsec_${Buffer.from('s'.repeat(32)).toString('base64')
 
 const HOOK_SECRET = `whsec_${Buffer.from('h'.repeat(32)).toString('base64')}`;
 
-const BUILT_IN = definitionOf(BUILT_IN_LINES[0] as LineOpening);
+const BUILT_IN = definitionOf(BUILT_IN_LINES[0]);
 
 const PROMPTED = BUILT_IN.stations.find(
   (station) => station.prompt !== undefined,
@@ -126,7 +125,7 @@ const AUDIT = {
       name: 'record',
       request: {
         url: 'https://127.0.0.1/events',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: a hook expression
+        // oxlint-disable-next-line no-template-curly-in-string -- a hook expression
         body: { tool: '${{ event.tool }}' },
       },
     },
@@ -137,6 +136,14 @@ const AUDIT = {
 interface Written {
   readonly path: string;
   readonly content: string;
+}
+
+interface Exported {
+  readonly files: readonly Written[];
+}
+
+interface Created {
+  readonly id: string;
 }
 
 describe('a workspace exported as Terraform (e2e)', () => {
@@ -171,7 +178,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
     expect(answered.status).toBe(200);
 
-    return answered.body.files;
+    return (answered.body as Exported).files;
   };
 
   const fileOf = (files: readonly Written[], path: string): string =>
@@ -244,10 +251,11 @@ describe('a workspace exported as Terraform (e2e)', () => {
         body,
       );
 
-      expect(created.status, `${kind}: ${JSON.stringify(created.body)}`).toBe(
-        201,
-      );
-      made[kind] = created.body.id;
+      if (created.status !== 201) {
+        throw new Error(`${kind}: ${JSON.stringify(created.body)}`);
+      }
+
+      made[kind] = (created.body as Created).id;
     }
   });
 
@@ -288,7 +296,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
     const imports = fileOf(files, 'imports.tf');
 
     expect(files.map((each) => each.path)).toEqual(
-      [...files.map((each) => each.path)].sort(),
+      files.map((each) => each.path).sort(),
     );
     expect(files.map((each) => each.path)).toEqual(
       expect.arrayContaining([
@@ -349,12 +357,12 @@ describe('a workspace exported as Terraform (e2e)', () => {
       `workspace_id = spotlight_workspace.${workspaceId}.id`,
       'team_id = spotlight_team.team.id',
       'skills    = [spotlight_skill.team_grafana.key]',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+      // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       'tools     = ["${spotlight_integration.team_linear.integration}.comment"]',
       'profile   = spotlight_harness_profile.team_careful.key',
       'runners = ["build-1", "vpc-internal"]',
       '  repository {\n    name  = "acme/api"\n    image = "ghcr.io/acme/api:main"\n    setup = "npm ci"\n  }\n',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+      // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       'secrets = ["secret.${spotlight_secret.linear_api_key.name}"]',
       'trusts       = [spotlight_runner_trust.production.key]',
       'pools        = [spotlight_runner_pool.ephemeral.key]',
@@ -387,6 +395,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
         '      request = {',
         '        url = "https://127.0.0.1/events"',
         '        body = {',
+        // oxlint-disable-next-line no-template-curly-in-string -- the HCL escape of a hook expression
         '          tool = "$${{ event.tool }}"',
         '        }',
         '      }',
@@ -441,20 +450,20 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
     const main = moduleOf(await exported());
 
-    for (const id of [made.secret, unversioned.body.id]) {
-      const answered = await as(seat.owner).get(
-        `/api/v1/resources/secrets/${id}`,
-      );
+    for (const id of [made.secret, (unversioned.body as Created).id]) {
+      const answered = (
+        await as(seat.owner).get(`/api/v1/resources/secrets/${id}`)
+      ).body as { name: string; valueWoVersion: number | null };
       const block = blockOf(
         main,
-        `resource "spotlight_secret" "${answered.body.name.toLowerCase()}"`,
+        `resource "spotlight_secret" "${answered.name.toLowerCase()}"`,
       );
 
       expect(block).toMatch(/\n {2}value_wo += var\.secret_/);
       expect(block.match(/value_wo_version += (\d+)/)?.[1] ?? null).toBe(
-        answered.body.valueWoVersion === null
+        answered.valueWoVersion === null
           ? null
-          : String(answered.body.valueWoVersion),
+          : String(answered.valueWoVersion),
       );
     }
   });
@@ -489,16 +498,21 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ['skills', made.skill],
       ['integrations', made.integration],
     ]) {
-      const read = await as(seat.owner).get(
-        `/api/v1/resources/${collection}/${id}`,
-      );
+      const read = (
+        await as(seat.owner).get(`/api/v1/resources/${collection}/${id}`)
+      ).body as {
+        key: string;
+        files: object;
+        definition: object;
+        version: number;
+      };
       const body =
         collection === 'skills'
-          ? { key: read.body.key, files: read.body.files }
-          : read.body.definition;
+          ? { key: read.key, files: read.files }
+          : read.definition;
       const written = await as(seat.owner).put(
         `/api/v1/resources/${collection}/${id}`,
-        read.body.version,
+        read.version,
         body,
       );
 
@@ -521,7 +535,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       );
 
     expect(answered.status).toBe(200);
-    expect(answered.body.files).toEqual(await exported());
+    expect((answered.body as Exported).files).toEqual(await exported());
   });
 
   it('answers each kind of resource as HCL, after the import block that adopts it', async () => {
@@ -550,8 +564,8 @@ describe('a workspace exported as Terraform (e2e)', () => {
         `/api/v1/resources/${collection}/${id}/hcl`,
       );
 
-      expect(answered.status, collection).toBe(200);
-      expect(answered.body.hcl).toMatch(
+      expect(answered.status, `${collection} as HCL`).toBe(200);
+      expect((answered.body as { hcl: string }).hcl).toMatch(
         new RegExp(
           `import {\\n  to = ${type}\\.[^\\n]+\\n[\\s\\S]*\\nresource "${type}" `,
         ),
@@ -564,7 +578,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       `/api/v1/resources/skills/${made.skill}/hcl`,
     );
 
-    expect(answered.body.files.map((each: Written) => each.path)).toEqual([
+    expect((answered.body as Exported).files.map((each) => each.path)).toEqual([
       'skills/team/grafana/SKILL.md',
       'skills/team/grafana/queries/latency.promql',
     ]);
@@ -602,10 +616,10 @@ describe('a workspace exported as Terraform (e2e)', () => {
     async () => {
       const files = await exported();
 
-      for (const { path, content } of files) {
-        if (path.endsWith('.tf')) {
-          expect(formattedByTerraform(content)).toBe(content);
-        }
+      for (const { content } of files.filter(({ path }) =>
+        path.endsWith('.tf'),
+      )) {
+        expect(formattedByTerraform(content)).toBe(content);
       }
     },
   );
@@ -834,11 +848,11 @@ describe('the configuration the export spec renders (e2e)', () => {
       ).toBe(201);
 
       if (each.kind === 'team') {
-        teams.set(each.key, created.body.id);
+        teams.set(each.key, (created.body as Created).id);
       }
 
       if (each.kind === 'egress') {
-        egresses.set(each.id, created.body.id);
+        egresses.set(each.id, (created.body as Created).id);
       }
     }
 
@@ -846,26 +860,27 @@ describe('the configuration the export spec renders (e2e)', () => {
       .get(`/api/v1/resources/workspaces/${workspaceId}/export`)
       .set(TEST_USER_HEADER, seat.owner);
 
-    expect(exported.body.files).toEqual(
+    expect((exported.body as Exported).files).toEqual(
       workspaceTerraform({
         workspaceId,
         workspaceSlug: workspaceId,
         resources: [
           ...CONFIGURATION.resources.map((each) => {
-            switch (each.kind) {
-              case 'workspace':
-                return {
-                  ...each,
-                  id: workspaceId,
-                  address: workspaceId,
-                  slug: workspaceId,
-                  name: workspaceId,
-                };
-              case 'workspace-runners':
-                return { ...each, address: workspaceId };
-              default:
-                return each;
+            if (each.kind === 'workspace') {
+              return {
+                ...each,
+                id: workspaceId,
+                address: workspaceId,
+                slug: workspaceId,
+                name: workspaceId,
+              };
             }
+
+            if (each.kind === 'workspace-runners') {
+              return { ...each, address: workspaceId };
+            }
+
+            return each;
           }),
           {
             kind: 'team',

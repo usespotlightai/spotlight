@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
+
 import { useSession } from '@/hooks/api/useSession';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
 import { reportAs } from '@/lib/error-reporting';

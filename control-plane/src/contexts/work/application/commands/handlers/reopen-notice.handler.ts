@@ -5,9 +5,10 @@ import type { ReopenNoticeCommand } from '@work/application/commands/reopen-noti
 import type { NoticeLoader } from '@work/application/services/notice-loader.service';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
 
-export class ReopenNoticeHandler
-  implements CommandHandlerPort<ReopenNoticeCommand, void>
-{
+export class ReopenNoticeHandler implements CommandHandlerPort<
+  ReopenNoticeCommand,
+  void
+> {
   constructor(
     private readonly loader: NoticeLoader,
     private readonly notices: NoticeRepository,

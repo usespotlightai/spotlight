@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
+
 import { app, type Session } from 'electron';
 
 export const freeName = (

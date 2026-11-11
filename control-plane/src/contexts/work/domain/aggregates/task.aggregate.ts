@@ -70,15 +70,15 @@ import { openSetupList } from '@work/domain/services/setup-list';
 import { takesUpRun } from '@work/domain/services/taking-up';
 import { anyUnread } from '@work/domain/services/unread';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
+import type { ApprovalCheck } from '@work/domain/value-objects/approval-check';
+import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
+import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import {
   Approval,
   type ApprovalDecision,
   type ApprovalEdits,
 } from '@work/domain/value-objects/approval.vo';
-import type { ApprovalCheck } from '@work/domain/value-objects/approval-check';
-import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
-import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
-import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';

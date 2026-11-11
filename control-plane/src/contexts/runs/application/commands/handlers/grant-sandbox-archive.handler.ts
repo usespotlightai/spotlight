@@ -6,10 +6,10 @@ import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class GrantSandboxArchiveHandler
-  implements
-    CommandHandlerPort<GrantSandboxArchiveCommand, ArchiveGrantDto | null>
-{
+export class GrantSandboxArchiveHandler implements CommandHandlerPort<
+  GrantSandboxArchiveCommand,
+  ArchiveGrantDto | null
+> {
   constructor(
     private readonly sandboxes: SandboxArchives,
     private readonly grants: ArchiveGrants,

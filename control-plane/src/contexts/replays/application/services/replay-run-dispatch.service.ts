@@ -6,8 +6,8 @@ import {
   type ReplayRunOwner,
 } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import { ReplayRunDecisionVersionConflictError } from '@replays/domain/exceptions/replay-run-decision-version-conflict.error';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/replay-run-decision.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';

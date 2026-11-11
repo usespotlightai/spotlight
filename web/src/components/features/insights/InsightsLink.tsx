@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
+
 import {
   type InsightsFilter,
   type InsightsTab,

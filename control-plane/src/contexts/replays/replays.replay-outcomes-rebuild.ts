@@ -1,15 +1,15 @@
 import { parseDatabaseEnv } from '@platform/config/env';
 import { createDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
 import { ReplayOutcomesRebuild } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes-rebuild';
+import { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { Pool } from 'pg';
 
 export interface ReplayOutcomesRebuildSession {
   readonly outcomes: ReplayOutcomesRebuild;
-  close(): Promise<void>;
+  readonly close: () => Promise<void>;
 }
 
 const READ_ONLY: DomainEventDispatcher = {

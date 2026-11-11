@@ -1,6 +1,6 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import {
   AT,

@@ -1,4 +1,5 @@
 import { Package } from 'lucide-react';
+
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';

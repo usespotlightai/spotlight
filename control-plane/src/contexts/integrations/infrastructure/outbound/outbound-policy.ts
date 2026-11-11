@@ -15,13 +15,13 @@ export class OutboundPolicy {
   readonly fetch: Fetch;
 
   constructor(private readonly guard: OutboundGuard) {
-    this.fetch = (async (url: Parameters<Fetch>[0], init?: RequestInit) => {
+    this.fetch = async (url: Parameters<Fetch>[0], init?: RequestInit) => {
       try {
         return await guard.fetch(url, init);
       } catch (error) {
         throw egressBlocked(error);
       }
-    }) as Fetch;
+    };
   }
 
   allow(url: string): void {

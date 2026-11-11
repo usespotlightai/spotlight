@@ -1,3 +1,4 @@
+import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import { IntegrationLogo } from '@integrations/domain/value-objects/integration-logo.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -18,16 +19,26 @@ describe('IntegrationLogo', () => {
   });
 
   it('refuses any other address or document', () => {
-    expect(() => IntegrationLogo.of('http://example.com/logo.svg')).toThrow();
-    expect(() => IntegrationLogo.of('javascript:alert(1)')).toThrow();
-    expect(() => IntegrationLogo.of('data:text/html;base64,PGI+')).toThrow();
-    expect(() => IntegrationLogo.of('data:image/svg+xml,<svg/>')).toThrow();
-    expect(() => IntegrationLogo.of('<svg/>')).toThrow();
+    expect(() => IntegrationLogo.of('http://example.com/logo.svg')).toThrow(
+      InvalidIntegrationPartError,
+    );
+    expect(() => IntegrationLogo.of('javascript:alert(1)')).toThrow(
+      InvalidIntegrationPartError,
+    );
+    expect(() => IntegrationLogo.of('data:text/html;base64,PGI+')).toThrow(
+      InvalidIntegrationPartError,
+    );
+    expect(() => IntegrationLogo.of('data:image/svg+xml,<svg/>')).toThrow(
+      InvalidIntegrationPartError,
+    );
+    expect(() => IntegrationLogo.of('<svg/>')).toThrow(
+      InvalidIntegrationPartError,
+    );
   });
 
   it('refuses a logo that is too long', () => {
     expect(() =>
       IntegrationLogo.of(`data:image/png;base64,${'A'.repeat(70_000)}`),
-    ).toThrow();
+    ).toThrow(InvalidIntegrationPartError);
   });
 });

@@ -290,6 +290,8 @@ const hiddenBecause = (calibration: JudgeCalibration): string => {
       return 'Agreement cannot be measured while all scores are the same.';
     case 'unreadable-rubric':
       return 'The rubric names a scale that cannot be read.';
+    case 'no-judge':
+    case null:
     default:
       return 'This station has no judge.';
   }

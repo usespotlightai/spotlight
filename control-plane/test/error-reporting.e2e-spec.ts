@@ -10,6 +10,7 @@ import {
   requestDataIntegration,
 } from '@sentry/nestjs';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
 import { openApp, served } from './support/app';
 
 type SentEnvelope = [unknown, [{ type: string }, unknown][]];
@@ -38,11 +39,13 @@ describe('error reporting', () => {
     });
 
     it('tells the web app that it reports nothing', async () => {
-      const { body } = await served(app)
-        .get('/api/error-reporting')
-        .expect(200);
+      const answer = await served(app).get('/api/error-reporting').expect(200);
 
-      expect(body).toEqual({ dsn: null, environment: null, release: null });
+      expect(answer.body).toEqual({
+        dsn: null,
+        environment: null,
+        release: null,
+      });
     });
   });
 
@@ -51,18 +54,24 @@ describe('error reporting', () => {
     let app: INestApplication;
 
     beforeAll(async () => {
-      vi.stubEnv('SENTRY_DSN', 'https://server@sentry.invalid/1');
+      const sentryEnv = {
+        SENTRY_DSN: 'https://server@sentry.invalid/1',
+        SENTRY_ENVIRONMENT: 'e2e',
+        SPOTLIGHT_RELEASE: 'v9.9.9',
+      };
+
+      for (const [name, value] of Object.entries(sentryEnv)) {
+        vi.stubEnv(name, value);
+      }
       vi.stubEnv('SENTRY_WEB_DSN', 'https://browser@sentry.invalid/2');
-      vi.stubEnv('SENTRY_ENVIRONMENT', 'e2e');
-      vi.stubEnv('SPOTLIGHT_RELEASE', 'v9.9.9');
 
       init({
-        ...sentryOptions(process.env),
+        ...sentryOptions(sentryEnv),
         defaultIntegrations: false,
         integrations: [httpIntegration(), requestDataIntegration()],
         transport: () => ({
           send: async (envelope) => {
-            envelopes.push(envelope as unknown as SentEnvelope);
+            envelopes.push(envelope);
             return {};
           },
           flush: async () => true,
@@ -76,7 +85,7 @@ describe('error reporting', () => {
               if (key === 'SENTRY_ENVIRONMENT' && failing) {
                 throw new Error('the settings could not be read');
               }
-              return Reflect.get(target, key);
+              return Reflect.get(target, key) as unknown;
             },
           }),
         ),
@@ -99,11 +108,9 @@ describe('error reporting', () => {
       );
 
     it('gives the web app its DSN, environment and release', async () => {
-      const { body } = await served(app)
-        .get('/api/error-reporting')
-        .expect(200);
+      const answer = await served(app).get('/api/error-reporting').expect(200);
 
-      expect(body).toEqual({
+      expect(answer.body).toEqual({
         dsn: 'https://browser@sentry.invalid/2',
         environment: 'e2e',
         release: 'v9.9.9',

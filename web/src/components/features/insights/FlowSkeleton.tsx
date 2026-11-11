@@ -1,8 +1,8 @@
 import { WAIT_SERIES } from '@/components/features/insights/chart-series';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { InsightsTileSkeleton } from '@/components/features/insights/InsightsTileSkeleton';
-import { WAIT_ROW_HEIGHT } from '@/components/features/insights/StationWaits';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
+import { WAIT_ROW_HEIGHT } from '@/components/features/insights/StationWaits';
 import { TileGroup } from '@/components/features/insights/TileGroup';
 import { ChartSkeleton } from '@/components/shared/skeleton/ChartSkeleton';
 import { DELIVERY_NOTE, WAITS_NOTE } from '@/lib/insights';

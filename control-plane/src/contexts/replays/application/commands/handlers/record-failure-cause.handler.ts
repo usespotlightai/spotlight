@@ -11,19 +11,28 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
+const shownAs = (raw: unknown): string => {
+  if (raw === undefined || raw === null) {
+    return '';
+  }
+
+  return typeof raw === 'string' ? raw : JSON.stringify(raw);
+};
+
 const taskOf = (raw: unknown): TaskId => {
   const id = typeof raw === 'string' ? raw.trim() : '';
 
   if (!id) {
-    throw new UnknownSearchTaskError(String(raw ?? ''));
+    throw new UnknownSearchTaskError(shownAs(raw));
   }
 
   return TaskId.of(id);
 };
 
-export class RecordFailureCauseHandler
-  implements CommandHandlerPort<RecordFailureCauseCommand, FailureCauseRecorded>
-{
+export class RecordFailureCauseHandler implements CommandHandlerPort<
+  RecordFailureCauseCommand,
+  FailureCauseRecorded
+> {
   constructor(
     private readonly searchRuns: SearchRunDispatching,
     private readonly searches: SearchRepository,

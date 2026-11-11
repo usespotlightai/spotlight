@@ -1314,7 +1314,9 @@ export class Run extends EventRecorder {
         return { run: this.requestStop(now), was: 'claimed', started };
       case 'suspended':
         return { run: this.endedAsItPaused(now), was: 'suspended', started };
-      default:
+      case 'cancelled':
+      case 'completed':
+      case 'failed':
         return { run: this, was: 'ended', started };
     }
   }

@@ -47,7 +47,7 @@ export class DrizzleStationDeletionGuard implements StationDeletionGuardPort {
 
     return rows.map((row) => ({
       stationId: StationId.of(row.stationId),
-      tasks: Number(row.tasks),
+      tasks: row.tasks,
     }));
   }
 

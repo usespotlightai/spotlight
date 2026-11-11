@@ -3,6 +3,7 @@ import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { useInboxNotifier } from '@/hooks/useInboxNotifier';
 import {
   queriesTouchedBy,
@@ -69,7 +70,7 @@ const watching = () => {
     wrapper: wrapperOf(client),
   });
 
-  return { invalidated, view, stream: streams[0] as Stream };
+  return { invalidated, view, stream: streams[0] };
 };
 
 describe('useLiveStream', () => {
@@ -162,7 +163,9 @@ describe('useLiveStream', () => {
     act(() => stream.send('error'));
     expect(streams).toHaveLength(1);
 
-    act(() => vi.advanceTimersByTime(REOPEN_MS));
+    act(() => {
+      vi.advanceTimersByTime(REOPEN_MS);
+    });
 
     expect(stream.closed).toBe(true);
     expect(streams).toHaveLength(2);
@@ -178,7 +181,7 @@ describe('useLiveStream', () => {
     expect(streams).toHaveLength(2);
     expect(stream.closed).toBe(false);
 
-    const next = streams[1] as Stream;
+    const next = streams[1];
     act(() => next.send('ready'));
 
     expect(stream.closed).toBe(true);
@@ -200,7 +203,7 @@ describe('useLiveStream', () => {
     );
     expect(streams).toHaveLength(2);
 
-    act(() => (streams[1] as Stream).send('ready'));
+    act(() => streams[1].send('ready'));
 
     expect(stream.closed).toBe(true);
     expect(invalidated.mock.calls).toEqual([[]]);
@@ -214,7 +217,7 @@ describe('useLiveStream', () => {
 
     stream.readyState = Stream.CLOSED;
     act(() => stream.send('error'));
-    act(() => (streams[1] as Stream).send('ready'));
+    act(() => streams[1].send('ready'));
 
     expect(streams).toHaveLength(2);
     expect(invalidated.mock.calls).toEqual([[]]);

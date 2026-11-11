@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
+
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { useBrowserPush } from '@/hooks/useBrowserNotifications';
 import { desktopApp } from '@/lib/desktop';

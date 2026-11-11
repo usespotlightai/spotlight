@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import { usePushKey } from '@/hooks/api/usePushKey';
 import { subscribeToPush, unsubscribeFromPush } from '@/lib/api';
 import { desktopApp } from '@/lib/desktop';

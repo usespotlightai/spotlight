@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { StationAlertCard } from '@/components/features/inbox/alerts/StationAlertCard';
 import type { StationAlertFiring } from '@/lib/station-alert';
 

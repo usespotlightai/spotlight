@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
@@ -41,22 +43,24 @@ describe('setting up the team a workspace starts with (e2e)', () => {
         survey: { jobFunction: 'engineering' },
       })
       .expect(201);
-    const teamId = created.body.teams[0].id as string;
+    const made = created.body as { id: string; teams: { id: string }[] };
+    const teamId = made.teams[0].id;
 
     const workspace = await eventually(async () => {
-      const { body } = await read(`workspaces/${slug}`).expect(200);
+      const body = (await read(`workspaces/${slug}`).expect(200)).body as {
+        setupStatus: string;
+        teams: { id: string }[];
+      };
 
       return body.setupStatus === 'done' && body;
     });
 
-    expect(workspace.teams.map((each: { id: string }) => each.id)).toEqual([
-      teamId,
-    ]);
+    expect(workspace.teams.map((each) => each.id)).toEqual([teamId]);
 
     await eventually(async () => {
-      const { body } = await read(
-        `teams/${teamId}/configuration/onboarding`,
-      ).expect(200);
+      const body = (
+        await read(`teams/${teamId}/configuration/onboarding`).expect(200)
+      ).body as { provisioning: string };
 
       return body.provisioning === 'done';
     });
@@ -71,7 +75,7 @@ describe('setting up the team a workspace starts with (e2e)', () => {
       .innerJoin(schema.taskNote, eq(schema.taskNote.taskId, schema.task.id))
       .where(
         and(
-          eq(schema.task.workspaceId, created.body.id),
+          eq(schema.task.workspaceId, made.id),
           eq(schema.taskNote.form, 'setup'),
         ),
       );

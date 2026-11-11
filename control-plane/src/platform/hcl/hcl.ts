@@ -1,4 +1,4 @@
-// biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform interpolation
+// oxlint-disable-next-line no-template-curly-in-string -- a Terraform interpolation
 const MODULE_PATH = '${path.module}';
 
 export class HclExpression {
@@ -90,7 +90,7 @@ const ESCAPED: Readonly<Record<string, string>> = {
   '\t': '\\t',
 };
 
-// biome-ignore lint/suspicious/noControlCharactersInRegex: HCL escapes control characters
+// oxlint-disable-next-line no-control-regex -- HCL escapes control characters
 const NEEDS_ESCAPE = /\$\{|%\{|[\\"\u0000-\u001f\u007f]/g;
 
 const escapedLiteral = (text: string): string =>

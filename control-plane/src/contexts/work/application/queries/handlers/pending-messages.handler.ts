@@ -6,9 +6,10 @@ import { Attached } from '@work/application/rendering/attached';
 import type { RunWorks } from '@work/application/services/run-works.service';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 
-export class PendingMessagesHandler
-  implements QueryHandlerPort<PendingMessagesQuery, PendingMessageDto[]>
-{
+export class PendingMessagesHandler implements QueryHandlerPort<
+  PendingMessagesQuery,
+  PendingMessageDto[]
+> {
   constructor(private readonly works: RunWorks) {}
 
   async execute(query: PendingMessagesQuery): Promise<PendingMessageDto[]> {

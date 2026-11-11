@@ -1,4 +1,5 @@
 import ts from 'typescript';
+
 import { AGGREGATE_TABLE_NAMES } from './aggregate-versions';
 import {
   SNAPSHOT_FOREIGN_KEYS,
@@ -310,12 +311,12 @@ const rawWrites = (file: SourceFile): string[] => {
             ...template.templateSpans.map((span) => span.literal.text),
           ];
       const named = [...texts.join(' ').matchAll(RAW_WRITE)].map(
-        ([, name]) => name as string,
+        ([, name]) => name,
       );
       const interpolated = ts.isNoSubstitutionTemplateLiteral(template)
         ? []
         : template.templateSpans.flatMap((span, index) =>
-            RAW_WRITE_BEFORE_TABLE.test(texts[index] as string)
+            RAW_WRITE_BEFORE_TABLE.test(texts[index])
               ? [tables.get(span.expression.getText())?.name ?? []].flat()
               : [],
           );
@@ -391,10 +392,10 @@ const unexplainedTables = (): Violation[] =>
     ...Object.entries(TABLE_WRITERS).map(([table, { why }]) => [table, why]),
     ...Object.entries(LIBRARY_TABLES),
   ]
-    .filter(([, why]) => !isOneLine(why as string))
+    .filter(([, why]) => !isOneLine(why))
     .map(([table]) => ({
       key: `${table}: declared without a one-line reason`,
-      at: table as string,
+      at: table,
     }));
 
 const childrenWrittenApart = (): Violation[] =>

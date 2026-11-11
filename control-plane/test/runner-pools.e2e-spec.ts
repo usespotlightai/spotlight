@@ -1,15 +1,13 @@
 import { createHash, createHmac, randomInt, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import {
   CHANGE_STACK_READER,
   type ChangeStackReaderPort,
 } from '@change-review/application/ports/change-stack-reader.port';
 import { checkReasonText } from '@change-review/application/rendering/check-reason.text';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -33,7 +31,8 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
 import { definitionOf } from './support/line-definition';
@@ -59,6 +58,37 @@ const tokenOf = (seed: string): string => `${seed.repeat(8)}${RUN}`;
 
 const sha256Of = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
+
+interface Pool {
+  readonly id: string;
+  readonly version: number;
+  readonly workspaceId: string;
+  readonly errors: readonly unknown[];
+}
+
+interface Claim {
+  readonly work: unknown;
+  readonly token: string;
+  readonly runnerId: string;
+  readonly reason: string;
+}
+
+interface RunnerClaim {
+  readonly run: { readonly id: string };
+  readonly check: { readonly runId: string };
+}
+
+interface Fleet {
+  readonly hosts: readonly unknown[];
+  readonly runners: readonly unknown[];
+}
+
+interface ProvisionCall {
+  readonly data: {
+    readonly runId: string;
+    readonly runner: { readonly token: string };
+  };
+}
 
 interface Provisioned {
   readonly headers: IncomingMessage['headers'];
@@ -239,7 +269,7 @@ describe('runner pools (e2e)', () => {
       await heartbeat(token).expect(200);
       const runId = await queue([['linux']]);
 
-      const claimed = await claimWith(token).expect(200);
+      const claimed = (await claimWith(token).expect(200)) as Answer<Claim>;
 
       expect(claimed.body.work).toMatchObject({
         kind: 'run',
@@ -270,7 +300,7 @@ describe('runner pools (e2e)', () => {
         .set(TEST_USER_HEADER, owner)
         .set('Idempotency-Key', randomUUID())
         .send({
-          ...definitionOf(BUILT_IN_LINES[0] as LineOpening),
+          ...definitionOf(BUILT_IN_LINES[0]),
           repositories: [{ name: 'acme/widgets', image: WIDGETS }],
         })
         .expect(201);
@@ -281,11 +311,11 @@ describe('runner pools (e2e)', () => {
         .expect(200);
 
       expect(required.body).toEqual({
-        host: { release: null, minimum: expect.any(String) },
-        runner: { minimum: expect.any(String) },
+        host: { release: null, minimum: expect.any(String) as unknown },
+        runner: { minimum: expect.any(String) as unknown },
         harnesses: expect.arrayContaining([
           expect.objectContaining({ id: 'claude-code' }),
-        ]),
+        ]) as unknown,
         images: [WIDGETS],
       });
       await http()
@@ -301,14 +331,16 @@ describe('runner pools (e2e)', () => {
       const inWidgets = await queue([], WIDGETS);
 
       await claimWith(token, HOST, DEFAULT_IMAGE).expect(204);
-      const unreported = await claimWith(
+      const unreported = (await claimWith(
         token,
         HOST,
         'ghcr.io/acme/elsewhere:1',
-      ).expect(409);
+      ).expect(409)) as Answer<Claim>;
       expect(unreported.body.reason).toBe('image-unreported');
 
-      const supported = await claimWith(token, HOST, WIDGETS).expect(200);
+      const supported = (await claimWith(token, HOST, WIDGETS).expect(
+        200,
+      )) as Answer<Claim>;
 
       expect(supported.body.work).toMatchObject({
         kind: 'run',
@@ -319,7 +351,9 @@ describe('runner pools (e2e)', () => {
 
       await claimWith(token, HOST, WIDGETS).expect(204);
 
-      const inDefaultImage = await claimWith(token).expect(200);
+      const inDefaultImage = (await claimWith(token).expect(
+        200,
+      )) as Answer<Claim>;
 
       expect(inDefaultImage.body.work).toMatchObject({
         kind: 'run',
@@ -328,8 +362,10 @@ describe('runner pools (e2e)', () => {
     });
 
     it('issues a token Terraform does not store when none is given', async () => {
-      const made = await create({ key: 'ephemeral' }).expect(201);
-      const issued = made.headers[POOL_TOKEN_HEADER.toLowerCase()] as string;
+      const made = (await create({ key: 'ephemeral' }).expect(
+        201,
+      )) as Answer<Pool>;
+      const issued = made.headers[POOL_TOKEN_HEADER.toLowerCase()];
       await queue();
 
       expect(issued).toEqual(expect.any(String));
@@ -364,20 +400,20 @@ describe('runner pools (e2e)', () => {
 
     it('rotates its token in place: the pool keeps its id, the old token stops working at once, and a claimed run finishes', async () => {
       const old = tokenOf('d');
-      const made = await create({
+      const made = (await create({
         key: 'ephemeral',
         token: old,
         tokenVersion: 1,
-      }).expect(201);
+      }).expect(201)) as Answer<Pool>;
       await heartbeat(old).expect(200);
       const runId = await queue();
-      const claimed = await claimWith(old).expect(200);
+      const claimed = (await claimWith(old).expect(200)) as Answer<Claim>;
 
-      const rotated = await update(made.body.id, made.body.version, {
+      const rotated = (await update(made.body.id, made.body.version, {
         key: 'ephemeral',
         token: tokenOf('e'),
         tokenVersion: 2,
-      }).expect(200);
+      }).expect(200)) as Answer<Pool>;
 
       expect(rotated.body).toMatchObject({ id: made.body.id, tokenVersion: 2 });
       await claimWith(old).expect(401);
@@ -390,16 +426,16 @@ describe('runner pools (e2e)', () => {
     });
 
     it('does not rotate its token without a new one', async () => {
-      const made = await create({
+      const made = (await create({
         key: 'ephemeral',
         token: tokenOf('f'),
         tokenVersion: 1,
-      }).expect(201);
+      }).expect(201)) as Answer<Pool>;
 
-      const rejected = await update(made.body.id, made.body.version, {
+      const rejected = (await update(made.body.id, made.body.version, {
         key: 'ephemeral',
         tokenVersion: 2,
-      }).expect(422);
+      }).expect(422)) as Answer<Pool>;
       await queue();
 
       expect(rejected.body.errors).toEqual([
@@ -411,31 +447,33 @@ describe('runner pools (e2e)', () => {
 
     it('uses up a token it rotates away from, so no pool, itself included, can use it again', async () => {
       const old = tokenOf('aged');
-      const made = await create({
+      const made = (await create({
         key: 'ephemeral',
         token: old,
         tokenVersion: 1,
-      }).expect(201);
-      const rotated = await update(made.body.id, made.body.version, {
+      }).expect(201)) as Answer<Pool>;
+      const rotated = (await update(made.body.id, made.body.version, {
         key: 'ephemeral',
         token: tokenOf('rotated'),
         tokenVersion: 2,
-      }).expect(200);
+      }).expect(200)) as Answer<Pool>;
 
-      const back = await update(made.body.id, rotated.body.version, {
+      const back = (await update(made.body.id, rotated.body.version, {
         key: 'ephemeral',
         token: old,
         tokenVersion: 3,
-      }).expect(422);
-      const elsewhere = await create({ key: 'sandboxes', token: old }).expect(
+      }).expect(422)) as Answer<Pool>;
+      const elsewhere = (await create({ key: 'sandboxes', token: old }).expect(
         422,
-      );
+      )) as Answer<Pool>;
 
       for (const rejected of [back, elsewhere]) {
         expect(rejected.body.errors).toEqual([
           expect.objectContaining({
             path: 'token',
-            message: expect.stringContaining('Each pool token is single-use'),
+            message: expect.stringContaining(
+              'Each pool token is single-use',
+            ) as unknown,
           }),
         ]);
       }
@@ -444,48 +482,58 @@ describe('runner pools (e2e)', () => {
 
     it('uses up the token of a deleted pool, so the pool that replaces it cannot use it', async () => {
       const token = tokenOf('deleted');
-      const made = await create({ key: 'ephemeral', token }).expect(201);
+      const made = (await create({ key: 'ephemeral', token }).expect(
+        201,
+      )) as Answer<Pool>;
       await http()
         .delete(`/api/v1/resources/runner-pools/${made.body.id}`)
         .set(TEST_USER_HEADER, owner)
         .set('If-Match', `"${made.body.version}"`)
         .expect(204);
 
-      const replaced = await create({ key: 'ephemeral', token }).expect(422);
+      const replaced = (await create({ key: 'ephemeral', token }).expect(
+        422,
+      )) as Answer<Pool>;
 
       expect(replaced.body.errors).toEqual([
         expect.objectContaining({
           path: 'token',
-          message: expect.stringContaining('Each pool token is single-use'),
+          message: expect.stringContaining(
+            'Each pool token is single-use',
+          ) as unknown,
         }),
       ]);
     });
 
     it('rejects the token of a live pool as in use, but lets that pool use it again', async () => {
       const token = tokenOf('used');
-      const holder = await create({
+      const holder = (await create({
         key: 'ephemeral',
         token,
         tokenVersion: 1,
-      }).expect(201);
-      const other = await create({
+      }).expect(201)) as Answer<Pool>;
+      const other = (await create({
         key: 'sandboxes',
         token: tokenOf('other'),
         tokenVersion: 1,
-      }).expect(201);
+      }).expect(201)) as Answer<Pool>;
 
-      const created = await create({ key: 'burst', token }).expect(422);
-      const rotated = await update(other.body.id, other.body.version, {
+      const created = (await create({ key: 'burst', token }).expect(
+        422,
+      )) as Answer<Pool>;
+      const rotated = (await update(other.body.id, other.body.version, {
         key: 'sandboxes',
         token,
         tokenVersion: 2,
-      }).expect(422);
+      }).expect(422)) as Answer<Pool>;
 
       for (const rejected of [created, rotated]) {
         expect(rejected.body.errors).toEqual([
           expect.objectContaining({
             path: 'token',
-            message: expect.stringContaining('is in use by another pool'),
+            message: expect.stringContaining(
+              'is in use by another pool',
+            ) as unknown,
           }),
         ]);
       }
@@ -500,25 +548,31 @@ describe('runner pools (e2e)', () => {
       const token = tokenOf('raced');
 
       const answers = await Promise.all(
-        ['ephemeral', 'sandboxes'].map((key) => create({ key, token })),
+        ['ephemeral', 'sandboxes'].map(
+          async (key) => (await create({ key, token })) as Answer<Pool>,
+        ),
       );
 
-      expect(answers.map((each) => each.status).sort()).toEqual([201, 422]);
+      expect(answers.map((each) => each.status).sort((a, b) => a - b)).toEqual([
+        201, 422,
+      ]);
       expect(answers.find((each) => each.status === 422)?.body.errors).toEqual([
         expect.objectContaining({
           path: 'token',
-          message: expect.stringContaining('is in use by another pool'),
+          message: expect.stringContaining(
+            'is in use by another pool',
+          ) as unknown,
         }),
       ]);
     });
 
     it('rejects a used token by the ledger’s key alone, as it would a use that races past the check', async () => {
       const token = tokenOf('ledgered');
-      const made = await create({
+      const made = (await create({
         key: 'ephemeral',
         token,
         tokenVersion: 1,
-      }).expect(201);
+      }).expect(201)) as Answer<Pool>;
       await update(made.body.id, made.body.version, {
         key: 'ephemeral',
         token: tokenOf('moved'),
@@ -546,11 +600,11 @@ describe('runner pools (e2e)', () => {
     it('stores only the sha256 of each used token, never the token', async () => {
       const first = tokenOf('first');
       const second = tokenOf('second');
-      const made = await create({
+      const made = (await create({
         key: 'ephemeral',
         token: first,
         tokenVersion: 1,
-      }).expect(201);
+      }).expect(201)) as Answer<Pool>;
       await update(made.body.id, made.body.version, {
         key: 'ephemeral',
         token: second,
@@ -570,34 +624,31 @@ describe('runner pools (e2e)', () => {
 
     it('tells an autoscaler what waits for it, per label', async () => {
       const token = tokenOf('g');
-      const made = await create({
+      const made = (await create({
         key: 'ephemeral',
         labels: ['linux', 'gpu'],
         token,
         maxRuns: 3,
-      }).expect(201);
+      }).expect(201)) as Answer<Pool>;
       await queue([['linux']]);
       await queue([['gpu']]);
       await queue([['arm']]);
       await heartbeat(token).expect(200);
       await claimWith(token).expect(200);
 
-      const queued = await http()
+      const queued = (await http()
         .get(`/api/pools/${made.body.id}/queue`)
         .set('Authorization', `Bearer ${token}`)
-        .expect(200);
+        .expect(200)) as Answer<{ readonly labels: Record<string, number> }>;
 
       expect(queued.body).toEqual({
         pending: 1,
         running: 1,
         capacity: 2,
-        labels: expect.objectContaining({}),
+        labels: expect.objectContaining({}) as unknown,
       });
       expect(
-        Object.values(queued.body.labels as Record<string, number>).reduce(
-          (sum, each) => sum + each,
-          0,
-        ),
+        Object.values(queued.body.labels).reduce((sum, each) => sum + each, 0),
       ).toBe(1);
       await http()
         .get(`/api/pools/${randomUUID()}/queue`)
@@ -662,9 +713,9 @@ describe('runner pools (e2e)', () => {
     it('keeps the workspace from being deleted, and is audited as Spotlight’s configuration', async () => {
       await create({ key: 'ephemeral', token: tokenOf('h') }).expect(201);
 
-      const workspace = await http()
+      const workspace = (await http()
         .get(`/api/v1/resources/workspaces/${workspaceId}`)
-        .set(TEST_USER_HEADER, owner);
+        .set(TEST_USER_HEADER, owner)) as Answer<{ readonly version: number }>;
       const rejected = await http()
         .delete(`/api/v1/resources/workspaces/${workspaceId}`)
         .set(TEST_USER_HEADER, owner)
@@ -690,7 +741,9 @@ describe('runner pools (e2e)', () => {
   describe('a host', () => {
     it('is recorded at its first heartbeat, and updated after', async () => {
       const token = tokenOf('j');
-      const pool = await create({ key: 'ephemeral', token }).expect(201);
+      const pool = (await create({ key: 'ephemeral', token }).expect(
+        201,
+      )) as Answer<Pool>;
 
       const first = await heartbeat(token).expect(200);
       const created = await hostRow();
@@ -762,7 +815,7 @@ describe('runner pools (e2e)', () => {
       const outdated = await claimWith(token).expect(409);
       expect(outdated.body).toMatchObject({
         reason: 'host-outdated',
-        message: expect.stringContaining('spotlight host update'),
+        message: expect.stringContaining('spotlight host update') as unknown,
       });
     });
 
@@ -791,9 +844,9 @@ describe('runner pools (e2e)', () => {
       const token = tokenOf('s');
       const other = tokenOf('t');
       await create({ key: 'ephemeral', token }).expect(201);
-      const taking = await create({ key: 'sandboxes', token: other }).expect(
+      const taking = (await create({ key: 'sandboxes', token: other }).expect(
         201,
-      );
+      )) as Answer<Pool>;
       await heartbeat(token).expect(200);
       const silentSince = new Date(Date.now() - 91_000);
       await db
@@ -818,10 +871,12 @@ describe('runner pools (e2e)', () => {
 
     it('is deleted once the pool it came in by is deleted, leaving its runner on the Runners page with no pool to name', async () => {
       const token = tokenOf('u');
-      const pool = await create({ key: 'ephemeral', token }).expect(201);
+      const pool = (await create({ key: 'ephemeral', token }).expect(
+        201,
+      )) as Answer<Pool>;
       await heartbeat(token).expect(200);
       await queue();
-      const claimed = await claimWith(token).expect(200);
+      const claimed = (await claimWith(token).expect(200)) as Answer<Claim>;
 
       await http()
         .delete(`/api/v1/resources/runner-pools/${pool.body.id}`)
@@ -830,10 +885,10 @@ describe('runner pools (e2e)', () => {
         .expect(204);
 
       await eventually(async () => (await hostRow()) === null);
-      const fleet = await http()
+      const fleet = (await http()
         .get(`/api/workspaces/${workspaceId}/runners`)
         .set(TEST_USER_HEADER, owner)
-        .expect(200);
+        .expect(200)) as Answer<Fleet>;
 
       expect(fleet.body.hosts).toEqual([]);
       expect(fleet.body.runners).toEqual([
@@ -907,12 +962,12 @@ describe('runner pools (e2e)', () => {
       await create({ key: 'ephemeral', token }).expect(201);
       await heartbeat(token, HOST, []).expect(200);
       await queue();
-      const claimed = await claimWith(token).expect(200);
+      const claimed = (await claimWith(token).expect(200)) as Answer<Claim>;
 
-      const fleet = await http()
+      const fleet = (await http()
         .get(`/api/workspaces/${workspaceId}/runners`)
         .set(TEST_USER_HEADER, owner)
-        .expect(200);
+        .expect(200)) as Answer<Fleet>;
 
       expect(fleet.body).toEqual({
         hosts: [
@@ -943,9 +998,9 @@ describe('runner pools (e2e)', () => {
                 unavailableReason: null,
               },
             ],
-            firstHeartbeatAt: expect.any(String),
-            onlineSince: expect.any(String),
-            lastHeartbeatAt: expect.any(String),
+            firstHeartbeatAt: expect.any(String) as unknown,
+            onlineSince: expect.any(String) as unknown,
+            lastHeartbeatAt: expect.any(String) as unknown,
             online: true,
           },
         ],
@@ -956,8 +1011,8 @@ describe('runner pools (e2e)', () => {
             hostId: HOST,
             image: DEFAULT_IMAGE,
             harnesses: ['dev'],
-            startedAt: expect.any(String),
-            lastHeartbeatAt: expect.any(String),
+            startedAt: expect.any(String) as unknown,
+            lastHeartbeatAt: expect.any(String) as unknown,
           },
         ],
       });
@@ -979,9 +1034,9 @@ describe('runner pools (e2e)', () => {
         const [call] = await eventually(async () =>
           endpoint.calls.length > 0 ? endpoint.calls : null,
         );
-        const signed = `${call?.headers['webhook-id']}.${call?.headers['webhook-timestamp']}.${call?.body}`;
+        const signed = `${String(call?.headers['webhook-id'])}.${String(call?.headers['webhook-timestamp'])}.${call?.body}`;
         const key = Buffer.from(SECRET.slice('whsec_'.length), 'base64');
-        const sent = JSON.parse(call?.body ?? '{}');
+        const sent = JSON.parse(call?.body ?? '{}') as ProvisionCall;
 
         expect(call?.headers['webhook-signature']).toBe(
           `v1,${createHmac('sha256', key).update(signed).digest('base64')}`,
@@ -993,16 +1048,16 @@ describe('runner pools (e2e)', () => {
           image: null,
         });
 
-        const oneRun = sent.data.runner.token as string;
+        const oneRun = sent.data.runner.token;
         await http()
           .post('/api/runners/register')
           .set('Authorization', `Bearer ${oneRun}`)
           .send({ harnesses: HARNESSES })
           .expect(201);
-        const claimed = await http()
+        const claimed = (await http()
           .post('/api/runners/claim')
           .set('Authorization', `Bearer ${oneRun}`)
-          .expect(201);
+          .expect(201)) as Answer<RunnerClaim>;
 
         expect(claimed.body.run.id).toBe(runId);
       } finally {
@@ -1039,12 +1094,15 @@ describe('runner pools (e2e)', () => {
 
         await eventually(async () =>
           endpoint.calls.some(
-            (call) => JSON.parse(call.body).data.runId === plain,
+            (call) =>
+              (JSON.parse(call.body) as ProvisionCall).data.runId === plain,
           ),
         );
 
         expect(
-          endpoint.calls.map((call) => JSON.parse(call.body).data.runId),
+          endpoint.calls.map(
+            (call) => (JSON.parse(call.body) as ProvisionCall).data.runId,
+          ),
         ).not.toContain(withSecrets);
         const [waiting] = await db
           .select({
@@ -1098,8 +1156,11 @@ describe('runner pools (e2e)', () => {
         steps
           .map((each) => [
             each.type,
-            JSON.parse(Buffer.from(each.data ?? '', 'base64').toString('utf8'))
-              .failure,
+            (
+              JSON.parse(
+                Buffer.from(each.data ?? '', 'base64').toString('utf8'),
+              ) as { readonly failure: string }
+            ).failure,
             each.seq,
           ])
           .sort((a, b) => Number(b[2]) - Number(a[2])),
@@ -1126,7 +1187,7 @@ describe('runner pools (e2e)', () => {
         const [call] = await eventually(async () =>
           endpoint.calls.length > 0 ? endpoint.calls : null,
         );
-        const sent = JSON.parse(call?.body ?? '{}');
+        const sent = JSON.parse(call?.body ?? '{}') as ProvisionCall;
 
         expect(sent.data).toMatchObject({
           kind: 'check',
@@ -1135,16 +1196,16 @@ describe('runner pools (e2e)', () => {
         });
         expect(sent.data).not.toHaveProperty('taskId');
 
-        const oneRun = sent.data.runner.token as string;
+        const oneRun = sent.data.runner.token;
         await http()
           .post('/api/runners/register')
           .set('Authorization', `Bearer ${oneRun}`)
           .send({ harnesses: HARNESSES })
           .expect(201);
-        const claimed = await http()
+        const claimed = (await http()
           .post('/api/runners/claim')
           .set('Authorization', `Bearer ${oneRun}`)
-          .expect(201);
+          .expect(201)) as Answer<RunnerClaim>;
 
         expect(claimed.body).toMatchObject({
           kind: 'check',
@@ -1209,7 +1270,7 @@ describe('runner pools (e2e)', () => {
         status: 'skipped',
         reason: expect.stringContaining(
           'Spotlight couldn’t provision a runner to check the layers.',
-        ),
+        ) as unknown,
       });
     }, 30_000);
 

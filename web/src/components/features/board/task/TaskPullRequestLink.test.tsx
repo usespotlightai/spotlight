@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+
 import { TaskPullRequestLink } from '@/components/features/board/task/TaskPullRequestLink';
 
 const DOCS = 'https://github.com/acme/docs/pull/3';

@@ -1,6 +1,8 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+
 import ts from 'typescript';
+
 import { reachableFrom } from './context-dependencies';
 import {
   DOMAIN_EVENT_OWNERS,

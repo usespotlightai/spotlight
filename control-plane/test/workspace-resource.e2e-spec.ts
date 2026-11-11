@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
@@ -18,6 +19,7 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
@@ -25,6 +27,10 @@ import {
 } from './support/resource-conformance';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
+
+type WorkspaceBody = { id: string; version: number; outboundHosts: string[] };
+
+type Rejection = { errors: unknown[] };
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
@@ -126,7 +132,8 @@ describe('a workspace, created through the resource API (e2e)', () => {
   });
 
   it('is owned by whoever created it, and has no team yet', async () => {
-    const made = await as(fixture.admin).create(fixture.valid);
+    const made = (await as(fixture.admin).create(fixture.valid))
+      .body as WorkspaceBody;
     const db = app.get<DrizzleDatabase>(DRIZZLE);
 
     expect(
@@ -136,76 +143,83 @@ describe('a workspace, created through the resource API (e2e)', () => {
           role: schema.workspaceMember.role,
         })
         .from(schema.workspaceMember)
-        .where(eq(schema.workspaceMember.workspaceId, made.body.id)),
+        .where(eq(schema.workspaceMember.workspaceId, made.id)),
     ).toEqual([{ userId: fixture.admin, role: 'owner' }]);
     expect(
       await db
         .select()
         .from(schema.team)
-        .where(eq(schema.team.workspaceId, made.body.id)),
+        .where(eq(schema.team.workspaceId, made.id)),
     ).toEqual([]);
   });
 
   it('keeps the slug it was created with', async () => {
-    const made = await as(fixture.admin).create(fixture.valid);
-    const moved = await as(fixture.admin).put(made.body.id, made.body.version, {
+    const made = (await as(fixture.admin).create(fixture.valid))
+      .body as WorkspaceBody;
+    const moved = await as(fixture.admin).put(made.id, made.version, {
       name: 'Acme',
       slug: `${fixture.address}-elsewhere`,
     });
 
     expect(moved.status).toBe(422);
-    expect(moved.body.errors).toEqual([
+    expect((moved.body as Rejection).errors).toEqual([
       expect.objectContaining({ path: 'slug' }),
     ]);
   });
 
   it('keeps the outbound hosts it is given, through every way it is read', async () => {
-    const made = await as(fixture.admin).create({
+    const created = await as(fixture.admin).create({
       ...fixture.valid,
       outboundHosts: ['API.example.com', '*.acme.io'],
     });
+    const made = created.body as WorkspaceBody;
 
-    expect(made.status).toBe(201);
-    expect(made.body.outboundHosts).toEqual(['*.acme.io', 'api.example.com']);
+    expect(created.status).toBe(201);
+    expect(made.outboundHosts).toEqual(['*.acme.io', 'api.example.com']);
 
     const read = await served(app)
-      .get(fixture.item(made.body.id))
+      .get(fixture.item(made.id))
       .set(TEST_USER_HEADER, fixture.admin);
 
-    expect(read.body.outboundHosts).toEqual(['*.acme.io', 'api.example.com']);
+    expect((read.body as WorkspaceBody).outboundHosts).toEqual([
+      '*.acme.io',
+      'api.example.com',
+    ]);
 
-    const cleared = await as(fixture.admin).put(
-      made.body.id,
-      made.body.version,
-      { ...fixture.valid, outboundHosts: [] },
-    );
+    const cleared = await as(fixture.admin).put(made.id, made.version, {
+      ...fixture.valid,
+      outboundHosts: [],
+    });
 
     expect(cleared.status).toBe(200);
     expect(cleared.body).toMatchObject({
-      version: made.body.version + 1,
+      version: made.version + 1,
       outboundHosts: [],
     });
 
     const relisted = await as(fixture.admin).put(
-      made.body.id,
-      cleared.body.version,
+      made.id,
+      (cleared.body as WorkspaceBody).version,
       { ...fixture.valid, outboundHosts: ['hooks.example.com'] },
     );
     const imported = await served(app)
       .get(fixture.importing(fixture.address))
       .set(TEST_USER_HEADER, fixture.admin);
 
-    expect(relisted.body.outboundHosts).toEqual(['hooks.example.com']);
+    expect((relisted.body as WorkspaceBody).outboundHosts).toEqual([
+      'hooks.example.com',
+    ]);
     expect(imported.body).toMatchObject({
-      id: made.body.id,
+      id: made.id,
       outboundHosts: ['hooks.example.com'],
     });
   });
 
   it('starts with no outbound hosts of its own', async () => {
-    const made = await as(fixture.admin).create(fixture.valid);
+    const made = (await as(fixture.admin).create(fixture.valid))
+      .body as WorkspaceBody;
 
-    expect(made.body.outboundHosts).toEqual([]);
+    expect(made.outboundHosts).toEqual([]);
   });
 
   it('points at an outbound host it cannot read, and creates nothing', async () => {
@@ -215,50 +229,49 @@ describe('a workspace, created through the resource API (e2e)', () => {
     });
 
     expect(rejected.status).toBe(422);
-    expect(rejected.body.errors).toEqual([
+    expect((rejected.body as Rejection).errors).toEqual([
       expect.objectContaining({ path: 'outboundHosts[1]' }),
     ]);
   });
 
   it('will not be deleted while it has a team', async () => {
-    const made = await as(fixture.admin).create(fixture.valid);
+    const made = (await as(fixture.admin).create(fixture.valid))
+      .body as WorkspaceBody;
 
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const teamId = randomUUID();
 
     await db.insert(schema.team).values({
       id: teamId,
-      workspaceId: made.body.id,
+      workspaceId: made.id,
       key: 'core',
       name: 'Core',
       origin: 'configuration',
     });
     await db
       .insert(schema.teamMember)
-      .values({ workspaceId: made.body.id, teamId, userId: fixture.admin });
+      .values({ workspaceId: made.id, teamId, userId: fixture.admin });
 
-    const rejected = await as(fixture.admin).delete(
-      made.body.id,
-      made.body.version,
-    );
+    const rejected = await as(fixture.admin).delete(made.id, made.version);
 
     expect(rejected.status).toBe(409);
     expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
-      detail: expect.stringContaining('core'),
+      detail: expect.stringContaining('core') as unknown,
     });
   });
 
   it('will not be deleted under a team even past the check before writing', async () => {
-    const made = await as(fixture.admin).create(fixture.valid);
+    const made = (await as(fixture.admin).create(fixture.valid))
+      .body as WorkspaceBody;
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const workspaces = app.get(DrizzleWorkspaceRepository);
     const teamId = randomUUID();
-    const existing = await workspaces.find(WorkspaceId.of(made.body.id));
+    const existing = await workspaces.find(WorkspaceId.of(made.id));
 
     await db.insert(schema.team).values({
       id: teamId,
-      workspaceId: made.body.id,
+      workspaceId: made.id,
       key: 'core',
       name: 'Core',
       origin: 'configuration',
@@ -268,7 +281,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
       workspaces.save(
         existing?.delete(
           Dependents.none(),
-          changeActorIn(made.body.id),
+          changeActorIn(made.id),
         ) as Workspace,
       ),
     ).rejects.toThrow(WorkspaceInUseError);

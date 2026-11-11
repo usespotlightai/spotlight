@@ -77,7 +77,7 @@ const issued = () => {
 };
 
 const tokens = () => {
-  const save = vi.fn(async (_: WorkspaceToken) => {});
+  const save = vi.fn<(token: WorkspaceToken) => Promise<void>>(async () => {});
 
   return {
     save,
@@ -127,7 +127,7 @@ describe('an issued token as a resource', () => {
       outcome: 'invalid',
       problems: [
         expect.objectContaining({
-          reason: expect.stringContaining('Spotlight issued'),
+          reason: expect.stringContaining('Spotlight issued') as unknown,
         }),
       ],
     });
@@ -137,7 +137,7 @@ describe('an issued token as a resource', () => {
 
 describe('DeleteOidcTrustHandler', () => {
   const deleting = (scopes: string[]) => {
-    const save = vi.fn(async (_: OidcTrust) => {});
+    const save = vi.fn<(trust: OidcTrust) => Promise<void>>(async () => {});
     const handler = new DeleteOidcTrustHandler(
       {
         permissionsIn: vi.fn(async () => ({

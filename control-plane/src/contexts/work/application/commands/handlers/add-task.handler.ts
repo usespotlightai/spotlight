@@ -14,9 +14,10 @@ import { Placement } from '@work/domain/services/placement';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 
-export class AddTaskHandler
-  implements CommandHandlerPort<AddTaskCommand, string>
-{
+export class AddTaskHandler implements CommandHandlerPort<
+  AddTaskCommand,
+  string
+> {
   constructor(
     private readonly placements: TaskPlacementsPort,
     private readonly lines: LineLoader,

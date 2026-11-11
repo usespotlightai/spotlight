@@ -46,6 +46,7 @@ const plainly = (value: Record<string, unknown> | undefined): string | null => {
     if (typeof entry === 'object') {
       return JSON.stringify(entry);
     }
+    // oxlint-disable-next-line typescript/no-base-to-string -- every object was serialised above; what is left is a primitive
     return String(entry);
   }
 

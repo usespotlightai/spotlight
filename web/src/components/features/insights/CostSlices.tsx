@@ -1,14 +1,15 @@
 import { useState } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   LEAD_CELL,
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { Segmented } from '@/components/shared/Segmented';
 import { spentIn } from '@/lib/inbox';
 import {

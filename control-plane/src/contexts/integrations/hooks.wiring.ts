@@ -126,9 +126,9 @@ import { HookTaskNotes } from '@integrations/infrastructure/acl/hook-task-notes.
 import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks.adapter';
 import { RunAttempts } from '@integrations/infrastructure/acl/run-attempts.adapter';
 import { TasksForHooks } from '@integrations/infrastructure/acl/tasks-for-hooks.adapter';
-import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
 import { HookCompiler } from '@integrations/infrastructure/hooks/hook-compiler';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
+import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
 import { JoseHookTokens } from '@integrations/infrastructure/hooks/jose-hook-tokens';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DrizzleHookDefinitionsReader } from '@integrations/infrastructure/persistence/drizzle/readers/hook-definitions.reader';

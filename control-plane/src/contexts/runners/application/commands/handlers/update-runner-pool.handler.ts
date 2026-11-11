@@ -31,9 +31,10 @@ import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 
-export class UpdateRunnerPoolHandler
-  implements CommandHandlerPort<UpdateRunnerPoolCommand, ResourceUpdated | null>
-{
+export class UpdateRunnerPoolHandler implements CommandHandlerPort<
+  UpdateRunnerPoolCommand,
+  ResourceUpdated | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,

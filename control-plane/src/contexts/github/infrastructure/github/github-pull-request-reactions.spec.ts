@@ -1,4 +1,3 @@
-import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubPullRequestReactions } from '@github/infrastructure/github/github-pull-request-reactions';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -26,7 +25,7 @@ const reacting = (
     const request = {
       url,
       method: init.method ?? 'GET',
-      body: init.body ? JSON.parse(String(init.body)) : null,
+      body: init.body ? (JSON.parse(init.body as string) as unknown) : null,
     };
     requests.push(request);
     const { status, body } = answer(request);
@@ -39,7 +38,7 @@ const reacting = (
   const reactions = new GitHubPullRequestReactions(
     {
       credential: async () => ({ username: 'x-access-token', password: 'app' }),
-    } as unknown as RepositoryAccessPort,
+    },
     fetch,
   );
 

@@ -5,6 +5,8 @@ import type {
   ProblemSeverity,
 } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
+const SERVER_ERROR: number = HttpStatus.INTERNAL_SERVER_ERROR;
+
 export interface FieldError {
   readonly path: string;
   readonly message: string;
@@ -76,7 +78,7 @@ export class ProblemException extends HttpException {
   static withStatus(status: number, detail: string): ProblemException {
     const [slug, title] =
       TITLES[status] ??
-      (status >= HttpStatus.INTERNAL_SERVER_ERROR
+      (status >= SERVER_ERROR
         ? ['internal-error', 'The server failed']
         : ['error', 'The request failed']);
 

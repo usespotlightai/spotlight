@@ -70,7 +70,7 @@ const tasks = (found: Task | null = existing()) =>
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => found),
-    remove: vi.fn(),
+    remove: vi.fn<TaskRepository['remove']>(),
     placementsAt: vi.fn(async () => []),
     findByCorrelation: vi.fn(async () => []),
     holdingMark: vi.fn(async () => []),
@@ -144,7 +144,7 @@ describe('DeleteTaskHandler', () => {
       new DeleteTaskCommand('team_1', 'task_1', 'user_1'),
     );
 
-    const removed = stored.remove.mock.calls[0]?.[0] as Task;
+    const removed = stored.remove.mock.calls[0]?.[0];
     expect(removed.pullEvents().map((each) => each.kind)).toContain(
       'task.deleted',
     );
@@ -183,7 +183,7 @@ describe('DeleteTaskHandler', () => {
         inOneTransaction(),
       ).execute(new DeleteTaskCommand('team_1', 'task_1', 'user_1')),
     ).rejects.toMatchObject({
-      refusal: expect.any(TeamMembershipRequiredError),
+      refusal: expect.any(TeamMembershipRequiredError) as unknown,
     });
     expect(stored.remove).not.toHaveBeenCalled();
   });

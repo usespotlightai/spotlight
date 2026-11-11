@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { AgentWorking } from '@/components/features/agent/AgentWorking';
 import { ChatEmpty } from '@/components/features/agent/ChatEmpty';
 import { ChatPersonMessage } from '@/components/features/agent/ChatPersonMessage';
@@ -64,7 +65,7 @@ export function ChatThread({
 
             return (
               <Turn
-                // biome-ignore lint/suspicious/noArrayIndexKey: the turns come in order and their order does not change
+                // oxlint-disable-next-line react/no-array-index-key -- the turns come in order and their order does not change
                 key={at}
                 ref={sight(runsOfTurn(turn))}
                 className={cn(at > 0 && 'mt-6')}
@@ -85,7 +86,7 @@ export function ChatThread({
                   <ol className="mt-6 flex flex-col gap-6">
                     {turn.moments.map((moment, place) => (
                       <li
-                        // biome-ignore lint/suspicious/noArrayIndexKey: the position of a moment identifies it, because new moments go only at the end
+                        // oxlint-disable-next-line react/no-array-index-key -- the position of a moment identifies it, because new moments go only at the end
                         key={place}
                         className={cn(
                           moment.kind === 'proposed' &&

@@ -1,4 +1,5 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
+
 import { type OnboardingResponseDto, readOnboarding } from '@/lib/api';
 import { setupStatusPollFor } from '@/lib/setup-status';
 

@@ -17,9 +17,7 @@ interface Account {
 
 type Looked<T> = T | 'missing' | 'failed';
 
-export class GitHubInstallationAdministration
-  implements InstallationAdministrationPort
-{
+export class GitHubInstallationAdministration implements InstallationAdministrationPort {
   constructor(
     private readonly env: Env,
     private readonly accounts: LinkedAccountsPort,

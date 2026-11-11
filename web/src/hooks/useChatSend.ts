@@ -1,4 +1,5 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
+
 import type { Outgoing } from '@/lib/chat-input';
 
 type ChatSend = {
@@ -27,7 +28,7 @@ export function useChatSend({
   const unsendable = disabled || empty || uploading || pending;
   const stopping = !disabled && running && empty ? (onStop ?? null) : null;
 
-  const send = (event?: FormEvent) => {
+  const send = (event?: SubmitEvent) => {
     event?.preventDefault();
 
     if (!unsendable) {

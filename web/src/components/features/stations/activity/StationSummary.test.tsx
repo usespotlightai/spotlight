@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
+
 import { StationSummary } from '@/components/features/stations/activity/StationSummary';
 import type { StationRunOutcomes, StationTally } from '@/lib/station-insights';
 

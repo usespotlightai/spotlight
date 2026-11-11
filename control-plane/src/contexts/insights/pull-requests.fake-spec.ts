@@ -52,14 +52,14 @@ export const observedOf = (
   over: Partial<ObservedPullRequest> = {},
 ): ObservedPullRequest => {
   const {
-    firstReviewAt,
-    firstUnblockingReviewAt,
-    firstApprovedAt,
-    humanReviewedAt,
-    reviews,
-    reviewRounds,
+    firstReviewAt: _firstReviewAt,
+    firstUnblockingReviewAt: _firstUnblockingReviewAt,
+    firstApprovedAt: _firstApprovedAt,
+    humanReviewedAt: _humanReviewedAt,
+    reviews: _reviews,
+    reviewRounds: _reviewRounds,
     reviewComments,
-    botActivity,
+    botActivity: _botActivity,
     ...facts
   } = seenOf();
 

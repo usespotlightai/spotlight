@@ -11,9 +11,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
-export class ClaimHostCallHandler
-  implements CommandHandlerPort<ClaimHostCallCommand, HostCallClaimDto>
-{
+export class ClaimHostCallHandler implements CommandHandlerPort<
+  ClaimHostCallCommand,
+  HostCallClaimDto
+> {
   constructor(
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly runners: RunnersPort,

@@ -49,6 +49,7 @@ const reviewOf = (
     label: review.label?.trim() || null,
     pullRequest: PullRequestUrl.of(review.pullRequest),
     author: review.author?.trim() || null,
+    // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare -- a stored payload may lack it, and then it is outside
     outside: review.outside !== false,
     draft: review.draft,
     branch: review.branch ? Branch.of(review.branch) : null,
@@ -63,7 +64,9 @@ export const HappenedMapper = {
   toReceivedHappening(happened: Happened): ReceivedHappening | null {
     const correlationKeys = CorrelationKeys.of({
       branch: happened.correlationKeys.branch,
-      marks: happened.correlationKeys.marks.map(HappenedMapper.markOf),
+      marks: happened.correlationKeys.marks.map((each) =>
+        HappenedMapper.markOf(each),
+      ),
     });
 
     if (!correlationKeys) {
@@ -93,7 +96,7 @@ export const HappenedMapper = {
             title: opens.title,
             description: opens.description,
             assignEmail: opens.assignEmail,
-            marks: opens.marks.map(HappenedMapper.markOf),
+            marks: opens.marks.map((each) => HappenedMapper.markOf(each)),
             review: reviewOf(opens.review),
           }
         : null,

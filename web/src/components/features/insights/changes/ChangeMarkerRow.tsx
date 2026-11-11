@@ -3,11 +3,11 @@ import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { ClampedCell } from '@/components/shared/nested-table/ClampedCell';
 import { ExpandingRow } from '@/components/shared/nested-table/ExpandingRow';
 import { ExpandToggle } from '@/components/shared/nested-table/ExpandToggle';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useBeforeAfterPanel } from '@/lib/before-after-panel';
 import { formatCount, formatStation, type StationNames } from '@/lib/insights';

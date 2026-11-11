@@ -1,4 +1,5 @@
 import type { SVGProps } from 'react';
+
 import { CursorLogo, VscodeLogo } from '@/components/shared/icons';
 import type { EditorApp } from '@/lib/editor';
 import { cn } from '@/lib/utils';

@@ -24,7 +24,7 @@ export class JobFunction {
     const named = raw.trim().toLowerCase();
 
     if (!isJobFunction(named)) {
-      throw new InvalidJobFunctionError(raw.trim());
+      throw new InvalidJobFunctionError(raw.trim(), JOB_FUNCTIONS);
     }
 
     return new JobFunction(named);

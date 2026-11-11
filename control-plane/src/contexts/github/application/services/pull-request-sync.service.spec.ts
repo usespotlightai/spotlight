@@ -180,7 +180,7 @@ class ConnectionsInMemory implements GitHubConnectionRepository {
   });
   readonly dispatched: DomainEvent[] = [];
 
-  async of(_: WorkspaceId) {
+  async of() {
     return this.connection;
   }
 

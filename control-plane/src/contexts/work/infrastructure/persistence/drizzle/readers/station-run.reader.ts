@@ -75,7 +75,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       .from(dispatch)
       .innerJoin(workStation, eq(workStation.stationId, dispatch.stationId))
       .where(
-        and(eq(dispatch.id, runId), eq(dispatch.kind, 'task'), ended) as SQL,
+        and(eq(dispatch.id, runId), eq(dispatch.kind, 'task'), ended),
       )
       .limit(1);
 

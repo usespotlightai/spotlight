@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { RunsPort } from '@runs/application/ports/runs.port';
@@ -13,6 +14,7 @@ import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/driz
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { aDispatch } from './support/runs';
 import * as schema from './support/schema';

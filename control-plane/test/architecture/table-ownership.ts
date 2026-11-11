@@ -1,4 +1,5 @@
 import ts from 'typescript';
+
 import { SNAPSHOT_FOREIGN_KEYS } from './drizzle-snapshot';
 import { DRIZZLE_TABLES, tableNamed } from './drizzle-tables';
 import {
@@ -48,7 +49,7 @@ const sqlTextsOf = (file: SourceFile): { node: ts.Node; text: string }[] => [
       const argument = call.arguments[0];
 
       return argument && ts.isStringLiteralLike(argument)
-        ? [{ node: call as ts.Node, text: argument.text }]
+        ? [{ node: call, text: argument.text }]
         : [];
     }),
 ];

@@ -22,10 +22,10 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class CreateRunnerTrustHandler
-  implements
-    CommandHandlerPort<CreateRunnerTrustCommand, ResourceCreated | null>
-{
+export class CreateRunnerTrustHandler implements CommandHandlerPort<
+  CreateRunnerTrustCommand,
+  ResourceCreated | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,

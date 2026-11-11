@@ -13,7 +13,7 @@ const idsAt = (tasks: readonly Task[], stationId: string): string[] =>
 
 const following = (order: readonly string[], taskId: string) => {
   const at = order.indexOf(taskId);
-  return at <= 0 ? null : (order[at - 1] as string);
+  return at <= 0 ? null : order[at - 1];
 };
 
 export const landingFor = (
@@ -33,7 +33,7 @@ export const landingFor = (
     const rest = taskIdsAt.filter((each) => each !== taskId);
     return {
       stationId: over.stationId,
-      afterTaskId: rest.length === 0 ? null : (rest[rest.length - 1] as string),
+      afterTaskId: rest.length === 0 ? null : rest[rest.length - 1],
     };
   }
 
@@ -46,7 +46,7 @@ export const landingFor = (
   if (moving.stationId !== over.stationId) {
     return {
       stationId: over.stationId,
-      afterTaskId: to === 0 ? null : (taskIdsAt[to - 1] as string),
+      afterTaskId: to === 0 ? null : taskIdsAt[to - 1],
     };
   }
 

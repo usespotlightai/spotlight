@@ -33,7 +33,7 @@ export class OutsideTaskNotices implements OutboundTaskNotifier {
             pullRequest ? { ...view, pullRequest: pullRequest.value } : view,
             event,
           )
-        ).map(HappenedMapper.markOf)
+        ).map((each) => HappenedMapper.markOf(each))
       : [];
   }
 }
