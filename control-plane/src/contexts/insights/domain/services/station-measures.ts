@@ -38,7 +38,7 @@ export const measuredFor = (
   switch (measure) {
     case 'sent_back_rate':
     case 'accepted_rate':
-      return (fact) => fact.firstHumanAction !== null;
+      return (fact) => fact.resolution !== 'other';
     case 'checks_failed_rate':
       return (fact) => fact.checks === 'passed' || fact.checks === 'failed';
     case 'merged_rate':
@@ -63,9 +63,9 @@ export const measureOf = (
 
   switch (measure) {
     case 'sent_back_rate':
-      return rateOf(tally.sentBack, tally.runs);
+      return rateOf(tally.resolutions.sentBack, tally.runs);
     case 'accepted_rate':
-      return rateOf(tally.accepted, tally.runs);
+      return rateOf(tally.resolutions.accepted, tally.runs);
     case 'failed_rate':
       return rateOf(tally.failed, tally.runs);
     case 'checks_failed_rate':

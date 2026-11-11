@@ -5,9 +5,13 @@ import {
   countedColumnsOf,
   type FingerprintGroup,
   hasRuns,
+  outcomePartsOf,
+  outcomeTone,
   recentRuns,
   runSpent,
+  type StationRunOutcome,
   stationTableColumns,
+  resolutionLabel,
 } from '@/lib/station-insights';
 
 describe('runSpent', () => {
@@ -157,5 +161,60 @@ describe('configFingerprint', () => {
 
   it('has no fingerprint before any run carried a config', () => {
     expect(configFingerprint([group(null, null)])).toBeNull();
+  });
+});
+
+describe('outcomePartsOf', () => {
+  it('shows each resolution the server counted, with its share, in a fixed order', () => {
+    expect(
+      outcomePartsOf({
+        resolutions: {
+          accepted: 2,
+          sentBack: 1,
+          movedOn: 3,
+          failed: 1,
+          other: 1,
+        },
+        resolutionShares: {
+          accepted: 0.25,
+          sentBack: 0.125,
+          movedOn: 0.375,
+          failed: 0.125,
+          other: 0.125,
+        },
+      }).map((part) => [part.label, part.tone, part.count, part.share]),
+    ).toEqual([
+      ['Accepted', 'done', 2, 0.25],
+      ['Moved on', 'movedOn', 3, 0.375],
+      ['Sent back', 'sentBack', 1, 0.125],
+      ['Failed, no answer', 'failed', 1, 0.125],
+      ['Other', 'quiet', 1, 0.125],
+    ]);
+  });
+});
+
+describe('outcomeTone', () => {
+  it('takes a run’s tone from its resolution, not from how it ended', () => {
+    const run = (
+      resolution: StationRunOutcome['resolution'],
+      ending: StationRunOutcome['ending'],
+    ) => ({ resolution, ending }) as StationRunOutcome;
+
+    expect(outcomeTone(run('accepted', 'failed'))).toBe('done');
+    expect(outcomeTone(run('moved-on', 'completed'))).toBe('movedOn');
+    expect(outcomeTone(run('other', 'exhausted'))).toBe('quiet');
+    expect(outcomeTone(run('failed', 'failed'))).toBe('failed');
+    expect(outcomeTone(run('sent-back', 'completed'))).toBe('sentBack');
+  });
+
+  it('labels a run by its resolution, and by how it ended when the resolution is other', () => {
+    const run = (
+      resolution: StationRunOutcome['resolution'],
+      ending: StationRunOutcome['ending'],
+    ) => ({ resolution, ending }) as StationRunOutcome;
+
+    expect(resolutionLabel(run('accepted', 'failed'))).toBe('Accepted');
+    expect(resolutionLabel(run('moved-on', 'completed'))).toBe('Moved on');
+    expect(resolutionLabel(run('other', 'stopped'))).toBe('Stopped');
   });
 });

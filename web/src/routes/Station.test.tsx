@@ -227,6 +227,14 @@ const TALLY = {
   checksFailed: 2,
   accepted: 28,
   sentBack: 3,
+  resolutions: { accepted: 28, sentBack: 3, movedOn: 0, failed: 1, other: 10 },
+  resolutionShares: {
+    accepted: 28 / 42,
+    sentBack: 3 / 42,
+    movedOn: 0,
+    failed: 1 / 42,
+    other: 10 / 42,
+  },
   cancelled: 0,
   passed: 0,
   merged: 20,
@@ -242,6 +250,7 @@ const run = (runId: string, ending: string) => ({
   taskId: `task_${runId}`,
   endedAt: new Date().toISOString(),
   ending,
+  resolution: ending === 'failed' ? 'failed' : 'other',
   failure: null,
   visit: 1,
   usage: null,
@@ -573,7 +582,9 @@ describe('Station', () => {
 
       expect(tiles).toHaveLength(4);
       expect(tiles[0]).toBe('Runs42');
-      expect(tiles[1]).toMatch(/^Outcomes67% accepted7% ?sent back2% ?failed$/);
+      expect(tiles[1]).toMatch(
+        /^Outcomes67% accepted7% ?sent back2% ?failed, no answer$/,
+      );
       expect(tiles[2]).toMatch(/^Cost/);
       expect(tiles[3]).toMatch(/^Median run/);
       expect(

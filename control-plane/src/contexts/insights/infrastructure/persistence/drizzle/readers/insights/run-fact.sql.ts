@@ -3,6 +3,7 @@ import type { GroupCounts } from '@insights/domain/services/change-verdict';
 import type { TallyCounts } from '@insights/domain/services/run-tally';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
+import type { RunResolution } from '@insights/domain/value-objects/run-resolution';
 import { runFact } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { type SQL, sql } from 'drizzle-orm';
 
@@ -16,7 +17,8 @@ export const ran = sql`${runFact.ran}`;
 
 export const priced = sql`${ran} and ${runFact.cost} is not null and coalesce(${runFact.currency}, '') <> ''`;
 
-export const sentBack = sql`${ran} and ${runFact.firstHumanAction} = 'sent-back'`;
+export const withResolution = (resolution: RunResolution): SQL =>
+  sql`${ran} and ${runFact.resolution} = ${resolution}`;
 
 export const textArray = (values: readonly string[]): SQL =>
   sql`array[${sql.join(
@@ -137,8 +139,11 @@ export const tallyColumns = sql`
   ${counted(sql`${runFact.ending} = 'stopped'`)} as stopped,
   ${counted(sql`${ran} and ${runFact.checks} = 'passed'`)} as checks_passed,
   ${counted(sql`${ran} and ${runFact.checks} = 'failed'`)} as checks_failed,
-  ${counted(sql`${ran} and ${runFact.firstHumanAction} = 'accepted'`)} as accepted,
-  ${counted(sentBack)} as sent_back,
+  ${counted(withResolution('accepted'))} as accepted,
+  ${counted(withResolution('sent-back'))} as sent_back,
+  ${counted(withResolution('moved-on'))} as moved_on,
+  ${counted(withResolution('failed'))} as failed_resolution,
+  ${counted(withResolution('other'))} as other_resolution,
   ${counted(sql`${ran} and ${runFact.passedTo} is not null`)} as passed,
   count(distinct ${runFact.taskId}) filter (where ${ran} and ${runFact.pullRequestState} = 'merged')::int as merged,
   ${spendColumns},
@@ -154,6 +159,9 @@ export interface TallyColumns extends SpendRow {
   readonly checks_failed: number;
   readonly accepted: number;
   readonly sent_back: number;
+  readonly moved_on: number;
+  readonly failed_resolution: number;
+  readonly other_resolution: number;
   readonly passed: number;
   readonly merged: number;
   readonly median_ms: number | null;
@@ -167,8 +175,13 @@ export const tallyCountsOf = (row: TallyColumns): TallyCounts => ({
   stopped: row.stopped,
   checksPassed: row.checks_passed,
   checksFailed: row.checks_failed,
-  accepted: row.accepted,
-  sentBack: row.sent_back,
+  resolutions: {
+    accepted: row.accepted,
+    sentBack: row.sent_back,
+    movedOn: row.moved_on,
+    failed: row.failed_resolution,
+    other: row.other_resolution,
+  },
   passed: row.passed,
   merged: row.merged,
   cost: spendOf(row),
@@ -181,13 +194,13 @@ export const tallyCountsOf = (row: TallyColumns): TallyCounts => ({
 const finished = sql`${ran} and ${runFact.pullRequestState} is not null and ${runFact.pullRequestState} <> 'open'`;
 
 export const measuredColumns = sql`
-  ${counted(sql`${ran} and ${runFact.firstHumanAction} is not null`)} as acted,
+  ${counted(sql`${ran} and ${runFact.resolution} <> 'other'`)} as decided,
   ${counted(finished)} as finished,
   count(distinct ${runFact.taskId}) filter (where ${finished})::int as finished_tasks,
   ${counted(sql`${ran} and ${runFact.usageRecorded}`)} as usage_recorded`;
 
 export interface GroupColumns extends TallyColumns {
-  readonly acted: number;
+  readonly decided: number;
   readonly finished: number;
   readonly finished_tasks: number;
   readonly usage_recorded: number;
@@ -196,7 +209,7 @@ export interface GroupColumns extends TallyColumns {
 export const groupCountsOfRow = (row: GroupColumns): GroupCounts => ({
   tally: tallyCountsOf(row),
   measured: {
-    acted: row.acted,
+    decided: row.decided,
     finished: row.finished,
     finishedTasks: row.finished_tasks,
     usageRecorded: row.usage_recorded,

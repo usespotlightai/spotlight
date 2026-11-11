@@ -1,6 +1,8 @@
 import type {
   RunTallyDto,
   TallyRatesDto,
+  ResolutionCountsDto,
+  ResolutionSharesDto,
 } from '@insights/application/dto/read-model.dto';
 import type {
   RunOutcomeDto,
@@ -16,6 +18,7 @@ import { CHECK_VERDICTS } from '@insights/domain/value-objects/check-verdict';
 import { TASK_ACTIONS } from '@insights/domain/value-objects/human-action.vo';
 import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
+import { RUN_RESOLUTIONS } from '@insights/domain/value-objects/run-resolution';
 import {
   RunFailureSummaryResponseDto,
   TaskFailureSummaryResponseDto,
@@ -103,6 +106,13 @@ export class StationRunOutcomeResponseDto {
   readonly ending: string;
 
   @ApiProperty({
+    enum: RUN_RESOLUTIONS,
+    description:
+      'What came of the run: failed, sent back, accepted, moved on to another station, or other',
+  })
+  readonly resolution: string;
+
+  @ApiProperty({
     nullable: true,
     type: String,
     example: 'exited',
@@ -153,6 +163,7 @@ export class StationRunOutcomeResponseDto {
     this.taskId = outcome.taskId;
     this.endedAt = outcome.endedAt;
     this.ending = outcome.ending;
+    this.resolution = outcome.resolution;
     this.failure = outcome.failure;
     this.visit = outcome.visit;
     this.usage = outcome.usage ? new RunUsageResponseDto(outcome.usage) : null;
@@ -180,6 +191,92 @@ export class MoneyResponseDto {
   }
 }
 
+export class ResolutionCountsResponseDto {
+  @ApiProperty({ example: 6, description: 'Runs whose resolution is accepted' })
+  readonly accepted: number;
+
+  @ApiProperty({
+    example: 3,
+    description: 'Runs whose resolution is sent back',
+  })
+  readonly sentBack: number;
+
+  @ApiProperty({ example: 2, description: 'Runs whose resolution is moved on' })
+  readonly movedOn: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Runs that ended Failed and no person accepted or sent back',
+  })
+  readonly failed: number;
+
+  @ApiProperty({ example: 1, description: 'Runs whose resolution is other' })
+  readonly other: number;
+
+  constructor(counts: ResolutionCountsDto) {
+    this.accepted = counts.accepted;
+    this.sentBack = counts.sentBack;
+    this.movedOn = counts.movedOn;
+    this.failed = counts.failed;
+    this.other = counts.other;
+  }
+}
+
+export class ResolutionSharesResponseDto {
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.5,
+    description:
+      'Runs whose resolution is accepted, of the runs; none where none ran',
+  })
+  readonly accepted: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.5,
+    description:
+      'Runs whose resolution is sent back, of the runs; none where none ran',
+  })
+  readonly sentBack: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.5,
+    description:
+      'Runs whose resolution is moved on, of the runs; none where none ran',
+  })
+  readonly movedOn: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.5,
+    description:
+      'Runs that ended Failed and no person accepted or sent back, of the runs; none where none ran',
+  })
+  readonly failed: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.5,
+    description:
+      'Runs whose resolution is other, of the runs; none where none ran',
+  })
+  readonly other: number | null;
+
+  constructor(shares: ResolutionSharesDto) {
+    this.accepted = shares.accepted;
+    this.sentBack = shares.sentBack;
+    this.movedOn = shares.movedOn;
+    this.failed = shares.failed;
+    this.other = shares.other;
+  }
+}
+
 export class RunTallyResponseDto {
   @ApiProperty({
     example: 12,
@@ -193,7 +290,10 @@ export class RunTallyResponseDto {
   })
   readonly cancelled: number;
 
-  @ApiProperty({ example: 2 })
+  @ApiProperty({
+    example: 2,
+    description: 'Runs that ended Failed, whatever a person did next',
+  })
   readonly failed: number;
 
   @ApiProperty({
@@ -214,16 +314,16 @@ export class RunTallyResponseDto {
   readonly checksFailed: number;
 
   @ApiProperty({
-    example: 6,
-    description: 'Runs that a person accepted or approved first',
+    type: ResolutionCountsResponseDto,
+    description: 'Runs by resolution; the resolutions add up to the runs',
   })
-  readonly accepted: number;
+  readonly resolutions: ResolutionCountsResponseDto;
 
   @ApiProperty({
-    example: 3,
-    description: 'Runs that a person sent back first',
+    type: ResolutionSharesResponseDto,
+    description: 'Each resolution as a fraction of the runs',
   })
-  readonly sentBack: number;
+  readonly resolutionShares: ResolutionSharesResponseDto;
 
   @ApiProperty({
     example: 2,
@@ -281,8 +381,10 @@ export class RunTallyResponseDto {
     this.stopped = tally.stopped;
     this.checksPassed = tally.checksPassed;
     this.checksFailed = tally.checksFailed;
-    this.accepted = tally.accepted;
-    this.sentBack = tally.sentBack;
+    this.resolutions = new ResolutionCountsResponseDto(tally.resolutions);
+    this.resolutionShares = new ResolutionSharesResponseDto(
+      tally.resolutionShares,
+    );
     this.passed = tally.passed;
     this.merged = tally.merged;
     this.cost = tally.cost ? new MoneyResponseDto(tally.cost) : null;
@@ -306,14 +408,6 @@ export class TallyRatesResponseDto {
   @ApiProperty({
     nullable: true,
     type: Number,
-    example: 0.5,
-    description: 'Runs a person accepted as a fraction of the runs that ran',
-  })
-  readonly accepted: number | null;
-
-  @ApiProperty({
-    nullable: true,
-    type: Number,
     example: 0.33,
     description: 'Merged tasks as a fraction of the runs that ran',
   })
@@ -321,7 +415,6 @@ export class TallyRatesResponseDto {
 
   constructor(rates: TallyRatesDto) {
     this.checksPassed = rates.checksPassed;
-    this.accepted = rates.accepted;
     this.merged = rates.merged;
   }
 }

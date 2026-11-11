@@ -1,7 +1,9 @@
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
 import {
+  type ClassifiedRun,
   dispositionOf,
   effectiveEndingOf,
+  resolutionOf,
 } from '@insights/domain/services/run-classification';
 import { type RunSize, sizeOf } from '@insights/domain/services/run-size';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
@@ -12,6 +14,7 @@ import type { RunDisposition } from '@insights/domain/value-objects/run-disposit
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type { RunMemories } from '@insights/domain/value-objects/run-memories.vo';
+import type { RunResolution } from '@insights/domain/value-objects/run-resolution';
 import type { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import type { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import type { StationPass } from '@insights/domain/value-objects/station-pass.vo';
@@ -135,12 +138,22 @@ export class RunFact implements RunFactParts {
   }
 
   get disposition(): RunDisposition {
-    return dispositionOf({
+    return dispositionOf(this.classified);
+  }
+
+  get resolution(): RunResolution {
+    return resolutionOf(this.classified);
+  }
+
+  private get classified(): ClassifiedRun {
+    return {
       ending: this.ending,
       asked: this.end.asked,
       firstHumanAction: this.firstHumanAction,
       approvalAnsweredAt: this.approvalAnsweredAt,
-    });
+      passed: this.passed !== null,
+      merged: this.merged,
+    };
   }
 
   get merged(): boolean {

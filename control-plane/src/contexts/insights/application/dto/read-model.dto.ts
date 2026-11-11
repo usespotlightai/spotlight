@@ -20,6 +20,8 @@ import type {
   TallyCounted,
   TallyRates,
   TallySeen,
+  ResolutionCounts,
+  ResolutionShares,
 } from '@insights/domain/services/run-tally';
 import type { SignalReading } from '@insights/domain/services/station-ranking';
 import type { DayTally } from '@insights/domain/services/station-reports';
@@ -39,6 +41,10 @@ export type CoverageDto = Coverage;
 export type TrendPointDto = TrendPoint;
 
 export type RunTallyDto = RunTally;
+
+export type ResolutionCountsDto = ResolutionCounts;
+
+export type ResolutionSharesDto = ResolutionShares;
 
 export type TallyRatesDto = TallyRates;
 

@@ -11,6 +11,10 @@ import type {
 import { world } from '@/mocks/world';
 import { hookFailuresAt, runFailuresOf } from '@/mocks/world/insights';
 import { type HistoryRun, history } from '@/mocks/world/insights-history';
+import {
+  runResolutionOf,
+  resolutionTallyOf,
+} from '@/mocks/world/insights-measures';
 import { profileOf } from '@/mocks/world/insights-profiles';
 import { historyTaskOf, visitOf } from '@/mocks/world/past-work';
 import { storyOf } from '@/mocks/world/run-stories';
@@ -70,6 +74,7 @@ const outcomeOf = (run: HistoryRun): StationRunOutcomeResponseDto => ({
   taskId: run.taskId,
   endedAt: run.endedAt ?? new Date(run.at).toISOString(),
   ending: run.ending,
+  resolution: runResolutionOf(run),
   failure: run.failure,
   visit: visitOf(run.runId),
   usage: usageOf(run),
@@ -156,8 +161,7 @@ const tallyOf = (
     stopped: count((run) => run.ending === 'stopped'),
     checksPassed: count((run) => run.checks === 'passed'),
     checksFailed: count((run) => run.checks === 'failed'),
-    accepted: count((run) => run.firstHumanAction?.kind === 'accepted'),
-    sentBack: count((run) => run.firstHumanAction?.kind === 'sent-back'),
+    ...resolutionTallyOf(runs),
     passed: count((run) => run.passed !== null),
     merged: new Set(
       runs
@@ -200,7 +204,6 @@ const groupOf = (
         tally.checksPassed,
         tally.checksPassed + tally.checksFailed,
       ),
-      accepted: rateOf(tally.accepted, tally.runs),
       merged: rateOf(tally.merged, tally.runs),
     },
     firstDay: dayOf(oldest.endedAt),

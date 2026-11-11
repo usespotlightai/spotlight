@@ -2,6 +2,7 @@ import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict'
 import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
+import type { RunResolution } from '@insights/domain/value-objects/run-resolution';
 
 export interface RunUsageDto {
   readonly ms: number | null;
@@ -18,6 +19,7 @@ export interface RunOutcomeDto {
   readonly fingerprint: string | null;
   readonly endedAt: string;
   readonly ending: RunEnding;
+  readonly resolution: RunResolution;
   readonly failure: string | null;
   readonly visit: number;
   readonly usage: RunUsageDto | null;
@@ -40,6 +42,7 @@ export const runOutcomeOf = (record: RunFact): RunOutcomeDto => {
     fingerprint: end.fingerprint,
     endedAt: end.endedAt.toISOString(),
     ending: record.ending,
+    resolution: record.resolution,
     failure: end.failure,
     visit: end.visit,
     usage: usage

@@ -25,6 +25,7 @@ import type {
   RunTally,
   TallyCounted,
   TallyDeltas,
+  ResolutionDeltas,
   TallySeen,
 } from '@insights/domain/services/run-tally';
 import type { StationWorthImproving } from '@insights/domain/services/station-ranking';
@@ -43,6 +44,8 @@ export type DeltaDto = Delta;
 export type HeadlineDeltasDto = HeadlineDeltas;
 
 export type TallyDeltasDto = TallyDeltas;
+
+export type ResolutionDeltasDto = ResolutionDeltas;
 
 export type HumanLoadDeltasDto = HumanLoadDeltas;
 

@@ -53,10 +53,60 @@ describe('runTally', () => {
       stopped: 1,
       checksPassed: 1,
       checksFailed: 1,
-      accepted: 1,
-      sentBack: 1,
+      resolutions: {
+        accepted: 1,
+        sentBack: 1,
+        movedOn: 0,
+        failed: 0,
+        other: 3,
+      },
       passed: 0,
       merged: 0,
+    });
+  });
+
+  it('gives each run one resolution, what a person did first, a merge accepting only a completed run that stayed at its station', () => {
+    const tally = tallyWith(
+      [
+        endedRecord('run_1', { taskId: 'task_1' }),
+        endedRecord('run_2', { taskId: 'task_2' }).passTo(
+          StationPass.of(StationId.of('station_2'), AT),
+        ),
+        endedRecord('run_3', { taskId: 'task_3' }).recordAction(
+          HumanAction.of('started', AT),
+        ),
+        endedRecord('run_4', { taskId: 'task_4', ending: 'stopped' }),
+        endedRecord('run_5', { taskId: 'task_5' }).recordAction(
+          HumanAction.of('sent-back', AT),
+        ),
+        endedRecord('run_6', { taskId: 'task_6', ending: 'failed' }),
+        endedRecord('run_7', { taskId: 'task_7' }),
+        endedRecord('run_8', {
+          taskId: 'task_8',
+          ending: 'failed',
+        }).recordAction(HumanAction.of('accepted', AT)),
+      ],
+      [merged('task_1'), merged('task_2'), merged('task_4'), merged('task_5')],
+    );
+
+    expect(tally).toMatchObject({
+      runs: 8,
+      failed: 2,
+      resolutions: {
+        accepted: 2,
+        sentBack: 1,
+        movedOn: 2,
+        failed: 1,
+        other: 2,
+      },
+      resolutionShares: {
+        accepted: 0.25,
+        sentBack: 0.125,
+        movedOn: 0.25,
+        failed: 0.125,
+        other: 0.25,
+      },
+      merged: 4,
     });
   });
 
@@ -95,7 +145,13 @@ describe('runTally', () => {
       runs: 1,
       cancelled: 1,
       failed: 1,
-      accepted: 0,
+      resolutions: {
+        accepted: 0,
+        sentBack: 0,
+        movedOn: 0,
+        failed: 1,
+        other: 0,
+      },
       cost: { amount: 0.5, currency: 'USD' },
       medianMs: 40_000,
       p90Ms: 40_000,
@@ -179,8 +235,20 @@ describe('runTally', () => {
       stopped: 0,
       checksPassed: 0,
       checksFailed: 0,
-      accepted: 0,
-      sentBack: 0,
+      resolutions: {
+        accepted: 0,
+        sentBack: 0,
+        movedOn: 0,
+        failed: 0,
+        other: 0,
+      },
+      resolutionShares: {
+        accepted: null,
+        sentBack: null,
+        movedOn: null,
+        failed: null,
+        other: null,
+      },
       passed: 0,
       merged: 0,
       cost: null,
@@ -246,22 +314,21 @@ describe('tallySeenOf', () => {
 });
 
 describe('tallyRatesOf', () => {
-  it('shares checks passed among runs checked, and acceptances and merges among runs', () => {
+  it('shares checks passed among runs checked, and merges among runs', () => {
     const tally = tallyWith(
       [
         endedRecord('run_1', { taskId: 'task_1' })
           .recordCheck('passed', AT)
           .recordAction(HumanAction.of('accepted', AT)),
-        endedRecord('run_2').recordCheck('failed', AT),
-        endedRecord('run_3'),
-        endedRecord('run_4'),
+        endedRecord('run_2', { taskId: 'task_2' }).recordCheck('failed', AT),
+        endedRecord('run_3', { taskId: 'task_3' }),
+        endedRecord('run_4', { taskId: 'task_4' }),
       ],
       [merged('task_1')],
     );
 
     expect(tallyRatesOf(tally)).toEqual({
       checksPassed: 0.5,
-      accepted: 0.25,
       merged: 0.25,
     });
   });
@@ -269,7 +336,6 @@ describe('tallyRatesOf', () => {
   it('has no shares where nothing ran or nothing was checked', () => {
     expect(tallyRatesOf(tallyWith([], []))).toEqual({
       checksPassed: null,
-      accepted: null,
       merged: null,
     });
   });

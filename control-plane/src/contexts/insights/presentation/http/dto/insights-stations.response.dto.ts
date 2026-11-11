@@ -2,6 +2,7 @@ import type {
   InsightsStationsDto,
   StationReportDto,
   TallyDeltasDto,
+  ResolutionDeltasDto,
 } from '@insights/application/dto/insights.dto';
 import type {
   DayTallyDto,
@@ -20,6 +21,52 @@ import {
 import { RunTallyResponseDto } from '@insights/presentation/http/dto/station-insights.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
+export class ResolutionDeltasResponseDto {
+  @ApiProperty({
+    type: DeltaResponseDto,
+    nullable: true,
+    description: 'Runs whose resolution is accepted against the period before',
+  })
+  readonly accepted: DeltaResponseDto | null;
+
+  @ApiProperty({
+    type: DeltaResponseDto,
+    nullable: true,
+    description: 'Runs whose resolution is sent back against the period before',
+  })
+  readonly sentBack: DeltaResponseDto | null;
+
+  @ApiProperty({
+    type: DeltaResponseDto,
+    nullable: true,
+    description: 'Runs whose resolution is moved on against the period before',
+  })
+  readonly movedOn: DeltaResponseDto | null;
+
+  @ApiProperty({
+    type: DeltaResponseDto,
+    nullable: true,
+    description:
+      'Runs that ended Failed and no person accepted or sent back, against the period before',
+  })
+  readonly failed: DeltaResponseDto | null;
+
+  @ApiProperty({
+    type: DeltaResponseDto,
+    nullable: true,
+    description: 'Runs whose resolution is other against the period before',
+  })
+  readonly other: DeltaResponseDto | null;
+
+  constructor(changes: ResolutionDeltasDto) {
+    this.accepted = deltaResponseOf(changes.accepted);
+    this.sentBack = deltaResponseOf(changes.sentBack);
+    this.movedOn = deltaResponseOf(changes.movedOn);
+    this.failed = deltaResponseOf(changes.failed);
+    this.other = deltaResponseOf(changes.other);
+  }
+}
+
 export class TallyDeltasResponseDto {
   @ApiProperty({
     type: DeltaResponseDto,
@@ -36,18 +83,10 @@ export class TallyDeltasResponseDto {
   readonly failed: DeltaResponseDto | null;
 
   @ApiProperty({
-    type: DeltaResponseDto,
-    nullable: true,
-    description: 'Accepted runs against the period before',
+    type: ResolutionDeltasResponseDto,
+    description: 'Runs by resolution against the period before',
   })
-  readonly accepted: DeltaResponseDto | null;
-
-  @ApiProperty({
-    type: DeltaResponseDto,
-    nullable: true,
-    description: 'Runs sent back against the period before',
-  })
-  readonly sentBack: DeltaResponseDto | null;
+  readonly resolutions: ResolutionDeltasResponseDto;
 
   @ApiProperty({
     type: DeltaResponseDto,
@@ -74,8 +113,7 @@ export class TallyDeltasResponseDto {
   constructor(changes: TallyDeltasDto) {
     this.runs = deltaResponseOf(changes.runs);
     this.failed = deltaResponseOf(changes.failed);
-    this.accepted = deltaResponseOf(changes.accepted);
-    this.sentBack = deltaResponseOf(changes.sentBack);
+    this.resolutions = new ResolutionDeltasResponseDto(changes.resolutions);
     this.merged = deltaResponseOf(changes.merged);
     this.cost = deltaResponseOf(changes.cost);
     this.median = deltaResponseOf(changes.median);

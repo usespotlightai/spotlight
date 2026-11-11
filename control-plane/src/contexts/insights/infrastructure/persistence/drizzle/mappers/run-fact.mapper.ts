@@ -47,6 +47,7 @@ export const rowOfFact = (fact: RunFact): RunFactRow => {
     beganAt: fact.end.beganAt,
     endedAs: fact.end.ending,
     ending: fact.ending,
+    resolution: fact.resolution,
     ran: fact.ran,
     ranAConfig: fact.end.ranAConfig,
     size: fact.size,

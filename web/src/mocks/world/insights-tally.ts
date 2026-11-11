@@ -17,6 +17,7 @@ import {
   distinct,
   emptyTally,
   MEASURES,
+  resolutionTallyOf,
   quantile,
   type Reading,
   shareOf,
@@ -87,8 +88,7 @@ export const tallyOf = (runs: readonly HistoryRun[]): RunTallyResponseDto => {
     stopped: count((run) => run.ending === 'stopped'),
     checksPassed: count((run) => run.checks === 'passed'),
     checksFailed: count((run) => run.checks === 'failed'),
-    accepted: count((run) => run.firstHumanAction?.kind === 'accepted'),
-    sentBack: count((run) => run.firstHumanAction?.kind === 'sent-back'),
+    ...resolutionTallyOf(runs),
     passed: count((run) => run.passed !== null),
     merged: mergedTasksOf(runs),
     cost: moneyOf(spendOf(runs)),
@@ -110,7 +110,7 @@ const readingOf = (
   runs: readonly HistoryRun[],
 ): Reading => {
   const tally = tallyOf(runs);
-  const asked = runs.filter((run) => run.firstHumanAction !== null).length;
+  const decided = tally.runs - tally.resolutions.other;
   const checked = tally.checksPassed + tally.checksFailed;
   const tasks = distinct(runs.map((run) => run.taskId)).length;
   const finishedTasks = distinct(
@@ -125,9 +125,15 @@ const readingOf = (
 
   switch (measure) {
     case 'sent_back_rate':
-      return { value: shareOf(tally.sentBack, tally.runs), measured: asked };
+      return {
+        value: shareOf(tally.resolutions.sentBack, decided),
+        measured: decided,
+      };
     case 'accepted_rate':
-      return { value: shareOf(tally.accepted, tally.runs), measured: asked };
+      return {
+        value: shareOf(tally.resolutions.accepted, decided),
+        measured: decided,
+      };
     case 'checks_failed_rate':
       return { value: shareOf(tally.checksFailed, checked), measured: checked };
     case 'failed_rate':

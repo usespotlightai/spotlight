@@ -125,12 +125,13 @@ describe('the insights view in the address', () => {
     expect(
       viewOf(
         new URLSearchParams(
-          'tab=traces&pullRequestState=merged&humanAction=sent-back&asked=true&taskIds=a,b&model=~default&repository=none',
+          'tab=traces&pullRequestState=merged&humanAction=sent-back&resolution=moved-on&asked=true&taskIds=a,b&model=~default&repository=none',
         ),
       ).filter,
     ).toEqual({
       pullRequestState: 'merged',
       humanAction: 'sent-back',
+      resolution: 'moved-on',
       asked: 'true',
       taskIds: 'a,b',
       model: '~default',
@@ -139,7 +140,7 @@ describe('the insights view in the address', () => {
     expect(
       viewOf(
         new URLSearchParams(
-          'tab=traces&pullRequestState=lost&humanAction=shrugged&asked=no',
+          'tab=traces&pullRequestState=lost&humanAction=shrugged&resolution=merged&asked=no',
         ),
       ).filter,
     ).toEqual({});
@@ -462,6 +463,7 @@ describe('cost', () => {
     expect(formatFilterValue('dismissedServer', 'linear')).toBe('linear');
     expect(formatFilterValue('taskIds', 'task_1,task_2')).toBe('2 tasks');
     expect(formatFilterValue('humanAction', 'sent-back')).toBe('Sent back');
+    expect(formatFilterValue('resolution', 'failed')).toBe('Failed, no answer');
     expect(formatFilterValue('pullRequestState', 'merged')).toBe('Merged');
   });
 
@@ -514,8 +516,14 @@ const teamTally = (
   stopped: 0,
   checksPassed: 0,
   checksFailed: 0,
-  accepted: 4,
-  sentBack: 0,
+  resolutions: { accepted: 4, sentBack: 0, movedOn: 0, failed: 2, other: 4 },
+  resolutionShares: {
+    accepted: 0.4,
+    sentBack: 0,
+    movedOn: 0,
+    failed: 0.2,
+    other: 0.4,
+  },
   passed: 0,
   merged: 0,
   cost: { amount: 5, currency: 'USD' },
@@ -534,8 +542,13 @@ describe('tallyTiles', () => {
       {
         runs: change(0.25),
         failed: change(-0.5, 'good'),
-        accepted: change(0),
-        sentBack: change(0),
+        resolutions: {
+          accepted: change(0),
+          sentBack: change(0),
+          movedOn: change(0),
+          failed: change(0),
+          other: change(0),
+        },
         merged: change(0),
         cost: change(0),
         median: change(0),
@@ -554,6 +567,10 @@ describe('tallyTiles', () => {
       value: '2',
       detail: '20% of runs',
       delta: { tone: 'good' },
+    });
+    expect(tiles[2]?.drill).toEqual({
+      tab: 'traces',
+      filter: { resolution: 'accepted' },
     });
   });
 });

@@ -49,7 +49,7 @@ interface Rates {
 }
 
 const ratesOf = (tally: TallyCounts, taskFailures: number): Rates => ({
-  'sent-back': rateOf(tally.sentBack, tally.runs),
+  'sent-back': rateOf(tally.resolutions.sentBack, tally.runs),
   'checks-failed': rateOf(
     tally.checksFailed,
     tally.checksPassed + tally.checksFailed,

@@ -78,8 +78,8 @@ const outcomesOf = (
   { counts, answered }: AgentConfigCounts,
   judge: JudgeRate | null,
 ): Record<OutcomeMeasure, number | null> => ({
-  accepted: rateOf(tally.accepted, counts.measured.acted),
-  sent_back: rateOf(tally.sentBack, counts.measured.acted),
+  accepted: rateOf(tally.resolutions.accepted, counts.measured.decided),
+  sent_back: rateOf(tally.resolutions.sentBack, counts.measured.decided),
   passed: rateOf(tally.passed, answered),
   checks_passed: rateOf(
     tally.checksPassed,

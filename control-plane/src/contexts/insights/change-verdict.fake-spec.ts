@@ -11,7 +11,7 @@ export const groupCountsOfFacts = (facts: readonly RunFact[]): GroupCounts => {
   return {
     tally,
     measured: {
-      acted: ran.filter((each) => each.firstHumanAction !== null).length,
+      decided: ran.filter(measuredFor('accepted_rate')).length,
       finished: finished.length,
       finishedTasks: new Set(finished.map((each) => each.taskId.value)).size,
       usageRecorded: ran.filter((each) => each.usage !== null).length,

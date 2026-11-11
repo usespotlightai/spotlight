@@ -49,6 +49,7 @@ import { INSIGHTS_PERIODS } from '@insights/domain/value-objects/insights-period
 import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
 import { PULL_REQUEST_TYPES } from '@insights/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
+import { RUN_RESOLUTIONS } from '@insights/domain/value-objects/run-resolution';
 import {
   DEFAULT_TRACE_RANGE,
   TRACE_RANGES,
@@ -594,6 +595,12 @@ export class TeamInsightsController {
     description: 'Only runs that a person acted on first in this way',
   })
   @ApiQuery({
+    name: 'resolution',
+    required: false,
+    enum: RUN_RESOLUTIONS,
+    description: 'Only runs that ran and have this resolution',
+  })
+  @ApiQuery({
     name: 'asked',
     required: false,
     type: Boolean,
@@ -633,6 +640,7 @@ export class TeamInsightsController {
           dismissedServer: queryValue(query.dismissedServer),
           pullRequestState: queryValue(query.pullRequestState),
           humanAction: queryValue(query.humanAction),
+          resolution: queryValue(query.resolution),
           asked: queryValue(query.asked),
         }),
       ),

@@ -28,6 +28,7 @@ CREATE TYPE "public"."pull_request_type" AS ENUM('feature', 'fix', 'refactor', '
 CREATE TYPE "public"."review_round_bucket" AS ENUM('0', '1', '2', '3+');--> statement-breakpoint
 CREATE TYPE "public"."run_record_checks" AS ENUM('passed', 'failed', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."run_record_ending" AS ENUM('completed', 'failed', 'stopped', 'exhausted', 'cancelled', 'superseded');--> statement-breakpoint
+CREATE TYPE "public"."run_resolution" AS ENUM('accepted', 'sent-back', 'moved-on', 'failed', 'other');--> statement-breakpoint
 CREATE TYPE "public"."run_size" AS ENUM('small', 'medium', 'large');--> statement-breakpoint
 CREATE TYPE "public"."score_kind" AS ENUM('yes-no', 'number', 'claims');--> statement-breakpoint
 CREATE TYPE "public"."score_source" AS ENUM('judge', 'person');--> statement-breakpoint
@@ -698,6 +699,7 @@ CREATE TABLE "run_fact" (
 	"began_at" timestamp (3) with time zone NOT NULL,
 	"ended_as" "run_record_ending" NOT NULL,
 	"ending" "run_record_ending" NOT NULL,
+	"resolution" "run_resolution" NOT NULL,
 	"ran" boolean NOT NULL,
 	"ran_a_config" boolean NOT NULL,
 	"size" "run_size",

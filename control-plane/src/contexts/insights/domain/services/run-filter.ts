@@ -16,6 +16,10 @@ import {
   RUN_ENDINGS,
   type RunEnding,
 } from '@insights/domain/value-objects/run-ending';
+import {
+  RUN_RESOLUTIONS,
+  type RunResolution,
+} from '@insights/domain/value-objects/run-resolution';
 
 export const MAX_FILTERED_TASKS = 200;
 
@@ -46,6 +50,7 @@ export interface RunFilterInput {
   readonly dismissedServer: Narrowing;
   readonly pullRequestState: string | null;
   readonly humanAction: string | null;
+  readonly resolution: string | null;
   readonly asked: boolean;
 }
 
@@ -70,6 +75,7 @@ export interface RunFilter {
   readonly dismissedServer: Narrowing;
   readonly pullRequestState: PullRequestState | null;
   readonly humanAction: TaskAction | null;
+  readonly resolution: RunResolution | null;
   readonly askedWithin: Window | null;
 }
 
@@ -192,6 +198,7 @@ export const runFilterOf = (
     'pull request state',
   ),
   humanAction: oneOf(TASK_ACTIONS, input.humanAction, 'human action'),
+  resolution: oneOf(RUN_RESOLUTIONS, input.resolution, 'resolution'),
   askedWithin: input.asked ? period : null,
 });
 
@@ -211,4 +218,5 @@ export const narrowsEndedOnly = (filter: RunFilter): boolean =>
   filter.dismissedServer.kind !== 'any' ||
   filter.pullRequestState !== null ||
   filter.humanAction !== null ||
+  filter.resolution !== null ||
   filter.askedWithin !== null;

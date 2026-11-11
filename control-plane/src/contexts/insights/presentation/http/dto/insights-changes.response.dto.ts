@@ -227,7 +227,8 @@ export class AgentConfigOutcomesResponseDto {
     nullable: true,
     type: Number,
     example: 0.6,
-    description: 'Share of runs that a person accepted or approved first',
+    description:
+      'Runs whose resolution is accepted, of the runs whose resolution is not other',
   })
   readonly accepted: number | null;
 
@@ -235,7 +236,8 @@ export class AgentConfigOutcomesResponseDto {
     nullable: true,
     type: Number,
     example: 0.2,
-    description: 'Share of runs that a person sent back first',
+    description:
+      'Runs whose resolution is sent back, of the runs whose resolution is not other',
   })
   readonly sent_back: number | null;
 

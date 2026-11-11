@@ -189,7 +189,13 @@ describe('the team’s memory on Insights (e2e)', () => {
         byName: 'Ada',
       }),
     ]);
-    expect(answer.body.withMemories).toMatchObject({ runs: 2, accepted: 1 });
-    expect(answer.body.withoutMemories).toMatchObject({ runs: 1, accepted: 0 });
+    expect(answer.body.withMemories).toMatchObject({
+      runs: 2,
+      resolutions: { accepted: 1 },
+    });
+    expect(answer.body.withoutMemories).toMatchObject({
+      runs: 1,
+      resolutions: { accepted: 0 },
+    });
   });
 });

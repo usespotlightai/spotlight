@@ -1,4 +1,5 @@
 import type {
+  StationRunOutcomeResponseDto,
   DeltaResponseDto,
   InsightsPeriodResponseDto,
   MeasureVerdictResponseDto,
@@ -158,6 +159,62 @@ export const NO_CHANGE: DeltaResponseDto = {
   tone: 'flat',
 };
 
+type ResolvedRun = {
+  readonly ending: string;
+  readonly firstHumanAction: { readonly kind: string } | null;
+  readonly passed: unknown;
+  readonly pullRequestState: string | null;
+};
+
+type Resolution = StationRunOutcomeResponseDto['resolution'];
+
+export const runResolutionOf = (run: ResolvedRun): Resolution => {
+  const action = run.firstHumanAction?.kind;
+
+  if (action === 'sent-back') {
+    return 'sent-back';
+  }
+  if (action === 'accepted') {
+    return 'accepted';
+  }
+  if (run.ending === 'failed') {
+    return 'failed';
+  }
+  if (run.ending !== 'completed') {
+    return 'other';
+  }
+  if (run.passed !== null || action === 'started') {
+    return 'moved-on';
+  }
+
+  return run.pullRequestState === 'merged' ? 'accepted' : 'other';
+};
+
+export const resolutionTallyOf = (
+  runs: readonly ResolvedRun[],
+): Pick<RunTallyResponseDto, 'resolutions' | 'resolutionShares'> => {
+  const countOf = (resolution: Resolution) =>
+    runs.filter((run) => runResolutionOf(run) === resolution).length;
+  const resolutions = {
+    accepted: countOf('accepted'),
+    sentBack: countOf('sent-back'),
+    movedOn: countOf('moved-on'),
+    failed: countOf('failed'),
+    other: countOf('other'),
+  };
+
+  return {
+    resolutions,
+    resolutionShares: {
+      accepted: shareOf(resolutions.accepted, runs.length),
+      sentBack: shareOf(resolutions.sentBack, runs.length),
+      movedOn: shareOf(resolutions.movedOn, runs.length),
+      failed: shareOf(resolutions.failed, runs.length),
+      other: shareOf(resolutions.other, runs.length),
+    },
+  };
+};
+
 export const emptyTally = (): RunTallyResponseDto => ({
   runs: 0,
   cancelled: 0,
@@ -166,8 +223,7 @@ export const emptyTally = (): RunTallyResponseDto => ({
   stopped: 0,
   checksPassed: 0,
   checksFailed: 0,
-  accepted: 0,
-  sentBack: 0,
+  ...resolutionTallyOf([]),
   passed: 0,
   merged: 0,
   cost: null,

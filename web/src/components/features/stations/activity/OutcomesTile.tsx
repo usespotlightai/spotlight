@@ -2,7 +2,7 @@ import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { TONE_FILL } from '@/components/features/stations/activity/outcome-tones';
 import { formatShare, type ShownDelta } from '@/lib/insights';
 import {
-  OTHER_OUTCOME_NOTE,
+  OUTCOME_NOTE,
   OUTCOMES_TITLE,
   type OutcomePart,
   outcomePartsOf,
@@ -15,7 +15,7 @@ type OutcomeKey = OutcomePart['key'] | 'merged';
 type OutcomesTileProps = {
   tally: Pick<
     StationTally,
-    'runs' | 'accepted' | 'sentBack' | 'failed' | 'merged'
+    'runs' | 'resolutions' | 'resolutionShares' | 'merged'
   >;
   changes?: Partial<Record<OutcomeKey, ShownDelta | null>>;
 };
@@ -23,14 +23,17 @@ type OutcomesTileProps = {
 const runsOf = (count: number): string =>
   `${count} ${count === 1 ? 'run' : 'runs'}`;
 
+const tasksOf = (count: number): string =>
+  `${count} ${count === 1 ? 'task' : 'tasks'}`;
+
 export function OutcomesTile({ tally, changes }: OutcomesTileProps) {
   const parts = outcomePartsOf(tally);
   const [accepted, ...rest] = parts;
   const keyed = rest.filter((part) => part.key !== 'other' && part.count > 0);
-  const counted = (count: number, key: OutcomeKey) => {
+  const withChange = (shown: string, key: OutcomeKey) => {
     const change = changes?.[key]?.shown;
 
-    return `${count} of ${runsOf(tally.runs)}${change ? `, ${change}` : ''}`;
+    return change ? `${shown}, ${change}` : shown;
   };
 
   return (
@@ -42,11 +45,11 @@ export function OutcomesTile({ tally, changes }: OutcomesTileProps) {
         rows: [
           ...parts.map((part): [string, string] => [
             part.label,
-            counted(part.count, part.key),
+            withChange(`${part.count} of ${runsOf(tally.runs)}`, part.key),
           ]),
-          ['Merged', counted(tally.merged, 'merged')],
+          ['Merged', withChange(tasksOf(tally.merged), 'merged')],
         ],
-        body: OTHER_OUTCOME_NOTE,
+        body: OUTCOME_NOTE,
       }}
       visual={
         <span data-slot="outcome-parts" className="flex flex-col gap-1.5">

@@ -16,8 +16,8 @@ import {
   isCurrent,
   msOf,
   ran,
-  sentBack,
   spreadOver,
+  withResolution,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
   ofTeamHumanActions,
@@ -104,7 +104,7 @@ const runsIn = async (
       ${isCurrent} as is_current,
       count(distinct ${runFact.taskId}) filter (where ${ran})::int as tasks,
       ${counted(ran)} as runs,
-      ${counted(sentBack)} as sent_back
+      ${counted(withResolution('sent-back'))} as sent_back
     from ${factsInPeriod(team)}
     group by ${isCurrent}
   `);

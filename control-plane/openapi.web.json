@@ -13660,6 +13660,17 @@
               "superseded"
             ]
           },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "sent-back",
+              "moved-on",
+              "failed",
+              "other"
+            ],
+            "description": "What came of the run: failed, sent back, accepted, moved on to another station, or other"
+          },
           "failure": {
             "type": "string",
             "nullable": true,
@@ -13728,6 +13739,7 @@
           "taskId",
           "endedAt",
           "ending",
+          "resolution",
           "failure",
           "visit",
           "usage",
@@ -13735,6 +13747,85 @@
           "firstHumanAction",
           "passed",
           "pullRequestState"
+        ]
+      },
+      "ResolutionCountsResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "number",
+            "example": 6,
+            "description": "Runs whose resolution is accepted"
+          },
+          "sentBack": {
+            "type": "number",
+            "example": 3,
+            "description": "Runs whose resolution is sent back"
+          },
+          "movedOn": {
+            "type": "number",
+            "example": 2,
+            "description": "Runs whose resolution is moved on"
+          },
+          "failed": {
+            "type": "number",
+            "example": 1,
+            "description": "Runs that ended Failed and no person accepted or sent back"
+          },
+          "other": {
+            "type": "number",
+            "example": 1,
+            "description": "Runs whose resolution is other"
+          }
+        },
+        "required": [
+          "accepted",
+          "sentBack",
+          "movedOn",
+          "failed",
+          "other"
+        ]
+      },
+      "ResolutionSharesResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.5,
+            "description": "Runs whose resolution is accepted, of the runs; none where none ran"
+          },
+          "sentBack": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.5,
+            "description": "Runs whose resolution is sent back, of the runs; none where none ran"
+          },
+          "movedOn": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.5,
+            "description": "Runs whose resolution is moved on, of the runs; none where none ran"
+          },
+          "failed": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.5,
+            "description": "Runs that ended Failed and no person accepted or sent back, of the runs; none where none ran"
+          },
+          "other": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.5,
+            "description": "Runs whose resolution is other, of the runs; none where none ran"
+          }
+        },
+        "required": [
+          "accepted",
+          "sentBack",
+          "movedOn",
+          "failed",
+          "other"
         ]
       },
       "MoneyResponseDto": {
@@ -13769,7 +13860,8 @@
           },
           "failed": {
             "type": "number",
-            "example": 2
+            "example": 2,
+            "description": "Runs that ended Failed, whatever a person did next"
           },
           "failedRate": {
             "type": "number",
@@ -13790,15 +13882,21 @@
             "type": "number",
             "example": 1
           },
-          "accepted": {
-            "type": "number",
-            "example": 6,
-            "description": "Runs that a person accepted or approved first"
+          "resolutions": {
+            "description": "Runs by resolution; the resolutions add up to the runs",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResolutionCountsResponseDto"
+              }
+            ]
           },
-          "sentBack": {
-            "type": "number",
-            "example": 3,
-            "description": "Runs that a person sent back first"
+          "resolutionShares": {
+            "description": "Each resolution as a fraction of the runs",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResolutionSharesResponseDto"
+              }
+            ]
           },
           "passed": {
             "type": "number",
@@ -13851,8 +13949,8 @@
           "stopped",
           "checksPassed",
           "checksFailed",
-          "accepted",
-          "sentBack",
+          "resolutions",
+          "resolutionShares",
           "passed",
           "merged",
           "cost",
@@ -13871,12 +13969,6 @@
             "example": 0.89,
             "description": "Runs whose checks passed as a fraction of the runs checked; none where none were"
           },
-          "accepted": {
-            "type": "number",
-            "nullable": true,
-            "example": 0.5,
-            "description": "Runs a person accepted as a fraction of the runs that ran"
-          },
           "merged": {
             "type": "number",
             "nullable": true,
@@ -13886,7 +13978,6 @@
         },
         "required": [
           "checksPassed",
-          "accepted",
           "merged"
         ]
       },

@@ -1,5 +1,5 @@
 {
-  "id": "f9937cf7-0286-47ca-9c5b-e51dee117129",
+  "id": "28cc866c-7755-4268-b927-cf7f427b4b0d",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -5612,6 +5612,13 @@
         "ending": {
           "name": "ending",
           "type": "run_record_ending",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resolution": {
+          "name": "resolution",
+          "type": "run_resolution",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
@@ -19150,6 +19157,17 @@
         "exhausted",
         "cancelled",
         "superseded"
+      ]
+    },
+    "public.run_resolution": {
+      "name": "run_resolution",
+      "schema": "public",
+      "values": [
+        "accepted",
+        "sent-back",
+        "moved-on",
+        "failed",
+        "other"
       ]
     },
     "public.run_size": {

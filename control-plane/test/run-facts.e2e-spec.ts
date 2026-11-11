@@ -599,6 +599,31 @@ describe('run facts', () => {
     });
   });
 
+  it('stores each run’s resolution and follows it as its task’s pull request merges and people act', async () => {
+    await records.add(ended('run_1', 'task_1'));
+    await records.add(ended('run_2', 'task_2'));
+    await records.add(ended('run_3', 'task_3'));
+    await pullRequests.add(opened('task_1', TEAM));
+
+    expect(await factOf('run_1')).toMatchObject({ resolution: 'other' });
+
+    await pullRequests.save(mergedOnGitHub(await pullRequestOf()));
+    await records.save(
+      ((await records.of(RunId.of('run_2'))) as RunRecord).passTo(
+        StationPass.of(StationId.of('station_2'), at(0.4)),
+      ),
+    );
+    await records.save(
+      ((await records.of(RunId.of('run_3'))) as RunRecord).recordAction(
+        HumanAction.of('sent-back', at(0.4)),
+      ),
+    );
+
+    expect(await factOf('run_1')).toMatchObject({ resolution: 'accepted' });
+    expect(await factOf('run_2')).toMatchObject({ resolution: 'moved-on' });
+    expect(await factOf('run_3')).toMatchObject({ resolution: 'sent-back' });
+  });
+
   it('follows a superseding, a pass and a dismissal received after the run ended', async () => {
     await records.add(ended('run_1', 'task_1'));
     const recorded = (await records.of(RunId.of('run_1'))) as RunRecord;
@@ -612,6 +637,7 @@ describe('run facts', () => {
 
     expect(await factOf('run_1')).toMatchObject({
       ending: 'superseded',
+      resolution: 'other',
       supersededAt: at(0.5),
       passedTo: 'station_2',
       dismissals: [{ tool: 'merge', server: null, at: at(0.3).toISOString() }],
@@ -777,6 +803,7 @@ describe('run facts', () => {
             dismissedServer: { kind: 'any' },
             pullRequestState: null,
             humanAction: null,
+            resolution: null,
             asked: false,
           },
           window,

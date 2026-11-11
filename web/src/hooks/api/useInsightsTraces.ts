@@ -6,6 +6,7 @@ import type {
   RunEnding,
   RunFilter,
   RunHumanAction,
+  RunResolution,
   RunPullRequestState,
 } from '@/lib/insights';
 import { rangeOf } from '@/lib/range';
@@ -38,6 +39,7 @@ export function useInsightsTraces(
             | RunPullRequestState
             | undefined,
           humanAction: filter.humanAction as RunHumanAction | undefined,
+          resolution: filter.resolution as RunResolution | undefined,
           asked: filter.asked === 'true' ? true : undefined,
         },
         throwOnError: true,
