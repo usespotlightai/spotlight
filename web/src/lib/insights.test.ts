@@ -516,6 +516,8 @@ const teamTally = (
   checksFailed: 0,
   accepted: 4,
   sentBack: 0,
+  movedOn: 0,
+  otherOutcome: 0,
   passed: 0,
   merged: 0,
   cost: { amount: 5, currency: 'USD' },

@@ -2,6 +2,7 @@ import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome
 import {
   dispositionOf,
   effectiveEndingOf,
+  outcomeOf,
 } from '@insights/domain/services/run-classification';
 import { type RunSize, sizeOf } from '@insights/domain/services/run-size';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
@@ -12,6 +13,7 @@ import type { RunDisposition } from '@insights/domain/value-objects/run-disposit
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type { RunMemories } from '@insights/domain/value-objects/run-memories.vo';
+import type { RunOutcome } from '@insights/domain/value-objects/run-outcome';
 import type { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import type { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import type { StationPass } from '@insights/domain/value-objects/station-pass.vo';
@@ -141,6 +143,19 @@ export class RunFact implements RunFactParts {
       firstHumanAction: this.firstHumanAction,
       approvalAnsweredAt: this.approvalAnsweredAt,
     });
+  }
+
+  get outcome(): RunOutcome {
+    return outcomeOf({
+      ending: this.ending,
+      firstHumanAction: this.firstHumanAction,
+      passed: this.passed !== null,
+      merged: this.merged,
+    });
+  }
+
+  get decided(): boolean {
+    return this.firstHumanAction !== null || this.outcome === 'accepted';
   }
 
   get merged(): boolean {

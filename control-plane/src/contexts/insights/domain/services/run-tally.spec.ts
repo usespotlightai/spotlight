@@ -27,7 +27,7 @@ const tallyWith = (
 ) => runTally(factsWith(records, pullRequests));
 
 describe('runTally', () => {
-  it('counts how the runs ended and what people did next, never counting an answered approval as accepting or sending back', () => {
+  it('counts how the runs ended and what people did next, never counting an answered approval as accepting or sending back, nor a failed run as sent back', () => {
     const tally = tallyWith(
       [
         endedRecord('run_1', { ending: 'failed', failure: 'exited' })
@@ -54,9 +54,42 @@ describe('runTally', () => {
       checksPassed: 1,
       checksFailed: 1,
       accepted: 1,
-      sentBack: 1,
+      sentBack: 0,
+      movedOn: 0,
+      otherOutcome: 3,
       passed: 0,
       merged: 0,
+    });
+  });
+
+  it('gives each run one outcome, a merge accepting only a completed run that stayed at its station', () => {
+    const tally = tallyWith(
+      [
+        endedRecord('run_1', { taskId: 'task_1' }),
+        endedRecord('run_2', { taskId: 'task_2' }).passTo(
+          StationPass.of(StationId.of('station_2'), AT),
+        ),
+        endedRecord('run_3', { taskId: 'task_3' }).recordAction(
+          HumanAction.of('started', AT),
+        ),
+        endedRecord('run_4', { taskId: 'task_4', ending: 'stopped' }),
+        endedRecord('run_5', { taskId: 'task_5' }).recordAction(
+          HumanAction.of('sent-back', AT),
+        ),
+        endedRecord('run_6', { taskId: 'task_6', ending: 'failed' }),
+        endedRecord('run_7', { taskId: 'task_7' }),
+      ],
+      [merged('task_1'), merged('task_2'), merged('task_4'), merged('task_5')],
+    );
+
+    expect(tally).toMatchObject({
+      runs: 7,
+      accepted: 1,
+      sentBack: 1,
+      movedOn: 2,
+      failed: 1,
+      otherOutcome: 2,
+      merged: 4,
     });
   });
 
@@ -181,6 +214,8 @@ describe('runTally', () => {
       checksFailed: 0,
       accepted: 0,
       sentBack: 0,
+      movedOn: 0,
+      otherOutcome: 0,
       passed: 0,
       merged: 0,
       cost: null,
@@ -252,9 +287,9 @@ describe('tallyRatesOf', () => {
         endedRecord('run_1', { taskId: 'task_1' })
           .recordCheck('passed', AT)
           .recordAction(HumanAction.of('accepted', AT)),
-        endedRecord('run_2').recordCheck('failed', AT),
-        endedRecord('run_3'),
-        endedRecord('run_4'),
+        endedRecord('run_2', { taskId: 'task_2' }).recordCheck('failed', AT),
+        endedRecord('run_3', { taskId: 'task_3' }),
+        endedRecord('run_4', { taskId: 'task_4' }),
       ],
       [merged('task_1')],
     );

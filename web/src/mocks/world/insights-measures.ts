@@ -158,6 +158,54 @@ export const NO_CHANGE: DeltaResponseDto = {
   tone: 'flat',
 };
 
+type OutcomeRun = {
+  readonly ending: string;
+  readonly firstHumanAction: { readonly kind: string } | null;
+  readonly passed: unknown;
+  readonly pullRequestState: string | null;
+};
+
+type RunOutcome = 'accepted' | 'sentBack' | 'movedOn' | 'failed' | 'other';
+
+const runOutcomeOf = (run: OutcomeRun): RunOutcome => {
+  const action = run.firstHumanAction?.kind;
+
+  if (run.ending === 'failed') {
+    return 'failed';
+  }
+  if (action === 'sent-back') {
+    return 'sentBack';
+  }
+  if (action === 'accepted') {
+    return 'accepted';
+  }
+  if (run.ending !== 'completed') {
+    return 'other';
+  }
+  if (run.passed !== null || action === 'started') {
+    return 'movedOn';
+  }
+
+  return run.pullRequestState === 'merged' ? 'accepted' : 'other';
+};
+
+export const outcomeCountsOf = (
+  runs: readonly OutcomeRun[],
+): Pick<
+  RunTallyResponseDto,
+  'accepted' | 'sentBack' | 'movedOn' | 'otherOutcome'
+> => {
+  const endedAs = (outcome: RunOutcome) =>
+    runs.filter((run) => runOutcomeOf(run) === outcome).length;
+
+  return {
+    accepted: endedAs('accepted'),
+    sentBack: endedAs('sentBack'),
+    movedOn: endedAs('movedOn'),
+    otherOutcome: endedAs('other'),
+  };
+};
+
 export const emptyTally = (): RunTallyResponseDto => ({
   runs: 0,
   cancelled: 0,
@@ -168,6 +216,8 @@ export const emptyTally = (): RunTallyResponseDto => ({
   checksFailed: 0,
   accepted: 0,
   sentBack: 0,
+  movedOn: 0,
+  otherOutcome: 0,
   passed: 0,
   merged: 0,
   cost: null,

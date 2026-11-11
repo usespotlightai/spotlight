@@ -35,7 +35,7 @@ export const formatEnding = (ending: Ending): string => ENDINGS[ending];
 const endedBadly = (ending: Ending): boolean =>
   ending === 'failed' || ending === 'exhausted';
 
-export type OutcomeTone = 'done' | 'sentBack' | 'failed' | 'quiet';
+export type OutcomeTone = 'done' | 'movedOn' | 'sentBack' | 'failed' | 'quiet';
 
 export const outcomeTone = (run: StationRunOutcome): OutcomeTone => {
   if (endedBadly(run.ending)) {
@@ -173,7 +173,7 @@ export const SUMMARY_COLUMNS: readonly SummaryColumn[] = [
 export const OUTCOMES_TITLE = 'Outcomes';
 
 export type OutcomePart = {
-  readonly key: 'accepted' | 'sentBack' | 'failed' | 'other';
+  readonly key: 'accepted' | 'movedOn' | 'sentBack' | 'failed' | 'other';
   readonly label: string;
   readonly tone: OutcomeTone;
   readonly count: number;
@@ -182,48 +182,32 @@ export type OutcomePart = {
 
 type OutcomeTally = Pick<
   StationTally,
-  'runs' | 'accepted' | 'sentBack' | 'failed' | 'merged'
+  'runs' | 'accepted' | 'movedOn' | 'sentBack' | 'failed' | 'otherOutcome'
 >;
 
-export const OTHER_OUTCOME_NOTE =
-  'Other: no answer yet, or the run stopped or was cancelled.';
+export const OUTCOME_NOTE =
+  'Accepted: a person accepted the run, or its pull request merged while the task stayed at the station. Moved on: the task went to another station. Other: stopped, ran out, replaced by a later run, or no answer yet.';
 
 export const outcomePartsOf = (tally: OutcomeTally): OutcomePart[] => {
-  const share = (count: number) => (tally.runs > 0 ? count / tally.runs : null);
-  const other = Math.max(
-    0,
-    tally.runs - tally.accepted - tally.sentBack - tally.failed,
-  );
+  const part = (
+    key: OutcomePart['key'],
+    label: string,
+    tone: OutcomeTone,
+    count: number,
+  ): OutcomePart => ({
+    key,
+    label,
+    tone,
+    count,
+    share: tally.runs > 0 ? count / tally.runs : null,
+  });
 
   return [
-    {
-      key: 'accepted',
-      label: 'Accepted',
-      tone: 'done',
-      count: tally.accepted,
-      share: share(tally.accepted),
-    },
-    {
-      key: 'sentBack',
-      label: 'Sent back',
-      tone: 'sentBack',
-      count: tally.sentBack,
-      share: share(tally.sentBack),
-    },
-    {
-      key: 'failed',
-      label: 'Failed',
-      tone: 'failed',
-      count: tally.failed,
-      share: share(tally.failed),
-    },
-    {
-      key: 'other',
-      label: 'Other',
-      tone: 'quiet',
-      count: other,
-      share: share(other),
-    },
+    part('accepted', 'Accepted', 'done', tally.accepted),
+    part('movedOn', 'Moved on', 'movedOn', tally.movedOn),
+    part('sentBack', 'Sent back', 'sentBack', tally.sentBack),
+    part('failed', 'Failed', 'failed', tally.failed),
+    part('other', 'Other', 'quiet', tally.otherOutcome),
   ];
 };
 

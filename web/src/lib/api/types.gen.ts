@@ -5225,13 +5225,21 @@ export type RunTallyResponseDto = {
   checksPassed: number;
   checksFailed: number;
   /**
-   * Runs that a person accepted or approved first
+   * Runs that did not fail or get sent back, that a person accepted first, or that completed, stayed at the station and had their pull request merged
    */
   accepted: number;
   /**
-   * Runs that a person sent back first
+   * Runs that did not fail and that a person sent back first
    */
   sentBack: number;
+  /**
+   * Runs that completed and passed their task to another station, or whose task a person moved to another station
+   */
+  movedOn: number;
+  /**
+   * Runs with no other outcome: stopped, exhausted, superseded, or with no answer yet. With accepted, sent back, moved on and failed, it adds up to the runs
+   */
+  otherOutcome: number;
   /**
    * Runs that passed their task to another station
    */

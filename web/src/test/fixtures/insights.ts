@@ -168,6 +168,8 @@ const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => {
     checksFailed: 0,
     accepted: 0,
     sentBack: 0,
+    movedOn: 0,
+    otherOutcome: 0,
     passed: 0,
     merged: 0,
     cost: null,

@@ -2,6 +2,7 @@ import type { TeamInPeriod } from '@insights/application/ports/insights-reader.p
 import type { GroupCounts } from '@insights/domain/services/change-verdict';
 import type { TallyCounts } from '@insights/domain/services/run-tally';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
+import type { RunOutcome } from '@insights/domain/value-objects/run-outcome';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 import { runFact } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { type SQL, sql } from 'drizzle-orm';
@@ -17,6 +18,19 @@ export const ran = sql`${runFact.ran}`;
 export const priced = sql`${ran} and ${runFact.cost} is not null and coalesce(${runFact.currency}, '') <> ''`;
 
 export const sentBack = sql`${ran} and ${runFact.firstHumanAction} = 'sent-back'`;
+
+const outcome = sql`case
+  when ${runFact.ending} = 'failed' then 'failed'
+  when ${runFact.firstHumanAction} = 'sent-back' then 'sent-back'
+  when ${runFact.firstHumanAction} = 'accepted' then 'accepted'
+  when ${runFact.ending} <> 'completed' then 'other'
+  when ${runFact.passedTo} is not null or ${runFact.firstHumanAction} = 'started' then 'moved-on'
+  when ${runFact.pullRequestState} = 'merged' then 'accepted'
+  else 'other'
+end`;
+
+const endedAs = (each: RunOutcome): SQL =>
+  sql`${ran} and ${outcome} = ${each}`;
 
 export const textArray = (values: readonly string[]): SQL =>
   sql`array[${sql.join(
@@ -137,8 +151,10 @@ export const tallyColumns = sql`
   ${counted(sql`${runFact.ending} = 'stopped'`)} as stopped,
   ${counted(sql`${ran} and ${runFact.checks} = 'passed'`)} as checks_passed,
   ${counted(sql`${ran} and ${runFact.checks} = 'failed'`)} as checks_failed,
-  ${counted(sql`${ran} and ${runFact.firstHumanAction} = 'accepted'`)} as accepted,
-  ${counted(sentBack)} as sent_back,
+  ${counted(endedAs('accepted'))} as accepted,
+  ${counted(endedAs('sent-back'))} as sent_back,
+  ${counted(endedAs('moved-on'))} as moved_on,
+  ${counted(endedAs('other'))} as other_outcome,
   ${counted(sql`${ran} and ${runFact.passedTo} is not null`)} as passed,
   count(distinct ${runFact.taskId}) filter (where ${ran} and ${runFact.pullRequestState} = 'merged')::int as merged,
   ${spendColumns},
@@ -154,6 +170,8 @@ export interface TallyColumns extends SpendRow {
   readonly checks_failed: number;
   readonly accepted: number;
   readonly sent_back: number;
+  readonly moved_on: number;
+  readonly other_outcome: number;
   readonly passed: number;
   readonly merged: number;
   readonly median_ms: number | null;
@@ -169,6 +187,8 @@ export const tallyCountsOf = (row: TallyColumns): TallyCounts => ({
   checksFailed: row.checks_failed,
   accepted: row.accepted,
   sentBack: row.sent_back,
+  movedOn: row.moved_on,
+  otherOutcome: row.other_outcome,
   passed: row.passed,
   merged: row.merged,
   cost: spendOf(row),
@@ -181,7 +201,7 @@ export const tallyCountsOf = (row: TallyColumns): TallyCounts => ({
 const finished = sql`${ran} and ${runFact.pullRequestState} is not null and ${runFact.pullRequestState} <> 'open'`;
 
 export const measuredColumns = sql`
-  ${counted(sql`${ran} and ${runFact.firstHumanAction} is not null`)} as acted,
+  ${counted(sql`${ran} and (${runFact.firstHumanAction} is not null or ${outcome} = 'accepted')`)} as acted,
   ${counted(finished)} as finished,
   count(distinct ${runFact.taskId}) filter (where ${finished})::int as finished_tasks,
   ${counted(sql`${ran} and ${runFact.usageRecorded}`)} as usage_recorded`;

@@ -10,6 +10,7 @@ import {
   spendDeltaOf,
 } from '@insights/domain/value-objects/delta.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
+import type { RunOutcome } from '@insights/domain/value-objects/run-outcome';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 
 export interface RunTally {
@@ -22,6 +23,8 @@ export interface RunTally {
   readonly checksFailed: number;
   readonly accepted: number;
   readonly sentBack: number;
+  readonly movedOn: number;
+  readonly otherOutcome: number;
   readonly passed: number;
   readonly merged: number;
   readonly cost: Money | null;
@@ -46,6 +49,8 @@ export const runTally = (facts: readonly RunFact[]): RunTally => {
   );
 
   const failed = count(ran, (each) => each.ending === 'failed');
+  const endedAs = (outcome: RunOutcome) =>
+    count(ran, (each) => each.outcome === outcome);
 
   return {
     runs: ran.length,
@@ -55,8 +60,10 @@ export const runTally = (facts: readonly RunFact[]): RunTally => {
     stopped: count(ran, (each) => each.ending === 'stopped'),
     checksPassed: count(ran, (each) => each.checks === 'passed'),
     checksFailed: count(ran, (each) => each.checks === 'failed'),
-    accepted: count(ran, (each) => each.firstHumanAction?.accepts === true),
-    sentBack: count(ran, (each) => each.firstHumanAction?.sendsBack === true),
+    accepted: endedAs('accepted'),
+    sentBack: endedAs('sent-back'),
+    movedOn: endedAs('moved-on'),
+    otherOutcome: endedAs('other'),
     passed: count(ran, (each) => each.passed !== null),
     merged: new Set(
       ran.filter((each) => each.merged).map((each) => each.taskId.value),
@@ -80,6 +87,8 @@ export const NO_RUNS: TallyCounts = {
   checksFailed: 0,
   accepted: 0,
   sentBack: 0,
+  movedOn: 0,
+  otherOutcome: 0,
   passed: 0,
   merged: 0,
   cost: null,
@@ -99,6 +108,8 @@ export const tallyOf = (counts: TallyCounts): RunTally => ({
   checksFailed: counts.checksFailed,
   accepted: counts.accepted,
   sentBack: counts.sentBack,
+  movedOn: counts.movedOn,
+  otherOutcome: counts.otherOutcome,
   passed: counts.passed,
   merged: counts.merged,
   cost: counts.cost,

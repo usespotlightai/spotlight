@@ -2,6 +2,7 @@ import type { HumanAction } from '@insights/domain/value-objects/human-action.vo
 import type { RunDisposition } from '@insights/domain/value-objects/run-disposition';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
+import type { RunOutcome } from '@insights/domain/value-objects/run-outcome';
 
 export const effectiveEndingOf = (
   end: RunEnd,
@@ -37,4 +38,31 @@ export const dispositionOf = (run: DecidedRun): RunDisposition => {
   }
 
   return 'other';
+};
+
+export interface ConcludedRun {
+  readonly ending: RunEnding;
+  readonly firstHumanAction: HumanAction | null;
+  readonly passed: boolean;
+  readonly merged: boolean;
+}
+
+export const outcomeOf = (run: ConcludedRun): RunOutcome => {
+  if (run.ending === 'failed') {
+    return 'failed';
+  }
+  if (run.firstHumanAction?.sendsBack) {
+    return 'sent-back';
+  }
+  if (run.firstHumanAction?.accepts) {
+    return 'accepted';
+  }
+  if (run.ending !== 'completed') {
+    return 'other';
+  }
+  if (run.passed || run.firstHumanAction?.kind === 'started') {
+    return 'moved-on';
+  }
+
+  return run.merged ? 'accepted' : 'other';
 };

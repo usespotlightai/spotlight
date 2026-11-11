@@ -38,7 +38,7 @@ export const measuredFor = (
   switch (measure) {
     case 'sent_back_rate':
     case 'accepted_rate':
-      return (fact) => fact.firstHumanAction !== null;
+      return (fact) => fact.decided;
     case 'checks_failed_rate':
       return (fact) => fact.checks === 'passed' || fact.checks === 'failed';
     case 'merged_rate':

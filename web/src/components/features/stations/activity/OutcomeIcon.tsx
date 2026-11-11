@@ -1,5 +1,6 @@
 import {
   CircleArrowLeft,
+  CircleArrowRight,
   CircleCheck,
   CircleSlash,
   CircleX,
@@ -11,6 +12,7 @@ import { cn } from '@/lib/utils';
 
 const ICONS = {
   done: CircleCheck,
+  movedOn: CircleArrowRight,
   sentBack: CircleArrowLeft,
   failed: CircleX,
   quiet: CircleSlash,

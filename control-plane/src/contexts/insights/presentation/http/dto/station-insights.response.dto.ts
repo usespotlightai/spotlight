@@ -215,15 +215,30 @@ export class RunTallyResponseDto {
 
   @ApiProperty({
     example: 6,
-    description: 'Runs that a person accepted or approved first',
+    description:
+      'Runs that did not fail or get sent back, that a person accepted first, or that completed, stayed at the station and had their pull request merged',
   })
   readonly accepted: number;
 
   @ApiProperty({
     example: 3,
-    description: 'Runs that a person sent back first',
+    description: 'Runs that did not fail and that a person sent back first',
   })
   readonly sentBack: number;
+
+  @ApiProperty({
+    example: 2,
+    description:
+      'Runs that completed and passed their task to another station, or whose task a person moved to another station',
+  })
+  readonly movedOn: number;
+
+  @ApiProperty({
+    example: 1,
+    description:
+      'Runs with no other outcome: stopped, exhausted, superseded, or with no answer yet. With accepted, sent back, moved on and failed, it adds up to the runs',
+  })
+  readonly otherOutcome: number;
 
   @ApiProperty({
     example: 2,
@@ -283,6 +298,8 @@ export class RunTallyResponseDto {
     this.checksFailed = tally.checksFailed;
     this.accepted = tally.accepted;
     this.sentBack = tally.sentBack;
+    this.movedOn = tally.movedOn;
+    this.otherOutcome = tally.otherOutcome;
     this.passed = tally.passed;
     this.merged = tally.merged;
     this.cost = tally.cost ? new MoneyResponseDto(tally.cost) : null;
