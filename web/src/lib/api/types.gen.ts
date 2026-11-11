@@ -2661,6 +2661,14 @@ export type NoteResponseDto = {
    */
   coAuthors: Array<InboxAuthorResponseDto>;
   /**
+   * The integration it came from, where the world outside wrote it
+   */
+  source: string | null;
+  /**
+   * The station the task moves to when the run in progress ends, where it arrived during that run
+   */
+  deferredTo: string | null;
+  /**
    * The tool call this asks a person to approve, where it is one
    */
   approval: InboxApprovalResponseDto | null;

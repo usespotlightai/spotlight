@@ -47,9 +47,8 @@ describe('TaskNoteBody.deferredMove', () => {
   it('says a run worked on the task, where it moves once the run ends, and then what arrived', () => {
     expect(
       TaskNoteBody.deferredMove(
-        'The checks failed on the pull request.',
-        null,
         StationName.of('Implementation'),
+        TaskNoteBody.of('The checks failed on the pull request.'),
       ).value,
     ).toBe(
       [

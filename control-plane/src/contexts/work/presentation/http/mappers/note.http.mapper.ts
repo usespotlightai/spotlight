@@ -33,6 +33,8 @@ export const NoteHttpMapper = {
       note.coAuthors.map(
         (each) => new InboxAuthorResponseDto(each.id, each.name, each.image),
       ),
+      note.source,
+      note.deferredTo,
       note.approval ? new InboxApprovalResponseDto(note.approval) : null,
       note.failure ? new InboxFailureResponseDto(note.failure) : null,
       note.connection ? new InboxConnectionResponseDto(note.connection) : null,

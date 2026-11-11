@@ -835,7 +835,9 @@ export const storyNoteOf = (
   script: NoteScript,
 ): StoryNote => {
   const station = run.station;
-  const fromPerson = script.kind === 'answered' || script.kind === 'message';
+  const fromWorld = script.source !== undefined;
+  const fromPerson =
+    !fromWorld && (script.kind === 'answered' || script.kind === 'message');
   const at =
     script.minutesIn !== undefined
       ? Date.parse(run.startedAt) + script.minutesIn * MINUTE_MS
@@ -844,16 +846,18 @@ export const storyNoteOf = (
   return {
     kind: script.kind,
     form: script.form ?? 'words',
-    voice: fromPerson ? 'person' : 'station',
+    voice: fromWorld ? 'world' : fromPerson ? 'person' : 'station',
     station: station?.name ?? '',
     stationColor: station?.color ?? '',
     stationPosition: station?.position ?? 0,
-    runId: fromPerson ? null : run.id,
+    runId: fromPerson || fromWorld ? null : run.id,
     body: script.body,
     attachments: [],
     at: new Date(at).toISOString(),
     author: script.author ?? null,
     coAuthors: [],
+    source: script.source ?? null,
+    deferredTo: script.deferredTo ?? null,
     approval: script.approval ? structuredClone(script.approval) : null,
     failure: script.failure ?? null,
     connection: null,

@@ -1,6 +1,8 @@
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidVoiceError } from '@work/domain/exceptions/invalid-voice.error';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -45,6 +47,16 @@ describe('Voice', () => {
     expect(world.author?.value).toBe('user_1');
   });
 
+  it('is the world speaking through the integration it came from', () => {
+    const world = Voice.fromHappening(Happening.of('github.check_run.failed'));
+
+    expect(world.source?.value).toBe('github');
+    expect(world.equals(Voice.world(null, IntegrationName.of('slack')))).toBe(
+      false,
+    );
+    expect(Voice.station().source).toBeNull();
+  });
+
   describe('read back from storage', () => {
     it('takes the three back apart', () => {
       expect(Voice.of({ kind: 'person', author: 'user_1' }).isPerson).toBe(
@@ -61,6 +73,18 @@ describe('Voice', () => {
 
     it('rejects a person nobody can name', () => {
       expect(() => Voice.of({ kind: 'person' })).toThrow(InvalidVoiceError);
+    });
+
+    it('takes back the integration the world spoke through', () => {
+      expect(Voice.of({ kind: 'world', source: 'slack' }).source?.value).toBe(
+        'slack',
+      );
+    });
+
+    it('rejects a source on a voice that is not the world’s', () => {
+      expect(() =>
+        Voice.of({ kind: 'person', author: 'user_1', source: 'slack' }),
+      ).toThrow(InvalidVoiceError);
     });
 
     it('rejects a name on a voice the station spoke', () => {

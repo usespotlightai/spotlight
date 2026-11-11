@@ -826,7 +826,9 @@ describe('DispatchTask', () => {
 
     const run = queued[0];
 
-    expect(ordered[0]?.briefedTask?.equals(dispatched.briefed)).toBe(true);
+    expect(
+      ordered[0]?.briefedTask?.equals(dispatched.briefedOn(lineWith(station))),
+    ).toBe(true);
     expect(ordered[0]?.briefedTask?.title).toBe('Drain the queue');
     expect(written(run).briefing).toContain('## Drain the queue');
   });

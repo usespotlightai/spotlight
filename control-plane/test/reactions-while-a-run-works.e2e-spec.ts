@@ -41,6 +41,7 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+import { trailsFor } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
@@ -51,8 +52,8 @@ import { createTeam } from './support/team';
 
 const RUNNER = RunnerId.of('runner_reactions');
 const CHANGES_REQUESTED = 'github.pull_request.changes-requested';
-const DEFERRED_MOVE_TO_CODE_REVIEW =
-  'This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nChanges were requested on the pull request.';
+const CHANGES_ASKED_FOR = 'Changes were requested on the pull request.';
+const DEFERRED_MOVE_TO_CODE_REVIEW = `This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\n${CHANGES_ASKED_FOR}`;
 
 let app: INestApplication;
 let db: DrizzleDatabase;
@@ -70,6 +71,15 @@ const stationKeyed = (key: string) => {
 
   return station;
 };
+
+const trailOf = async (id: TaskId) =>
+  (
+    await trailsFor(
+      db,
+      { find: async () => null, findMany: async () => new Map() },
+      [id.value],
+    )
+  ).get(id.value) ?? [];
 
 const found = async (id: TaskId): Promise<Task> => {
   const task = await tasks.find(id);
@@ -289,7 +299,10 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
     expect(after.currentRunId).toEqual(runId);
     expect(after.deferredMoveTo).toEqual(stationKeyed('code-review').id);
     expect(after.notes[after.notes.length - 1]?.body.value).toBe(
-      DEFERRED_MOVE_TO_CODE_REVIEW,
+      CHANGES_ASKED_FOR,
+    );
+    expect(after.notes[after.notes.length - 1]?.voice.source?.value).toBe(
+      'github',
     );
     expect((await runOf(runId)).state).toBe('queued');
   });
@@ -307,6 +320,29 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
       DEFERRED_MOVE_TO_CODE_REVIEW,
     ]);
     expect((await runOf(runId)).stopRequested).toBe(false);
+  });
+
+  it('shows the inbox where the move waits, and where the message came from', async () => {
+    const { task } = await workingAt('implementation');
+
+    await changesRequested(task);
+
+    const trail = await trailOf(task.id);
+    const last = trail[trail.length - 1];
+    expect(last?.source).toBe('github');
+    expect(last?.deferredTo).toBe(stationKeyed('code-review').name.value);
+  });
+
+  it('shows the inbox no waiting move once the run has passed the task on', async () => {
+    const { task, runId } = await workingAt('spec');
+    await claimed(runId);
+    await changesRequested(task);
+
+    await endedPassingTo(runId, 'implementation');
+
+    const trail = await trailOf(task.id);
+    expect(trail.some((note) => note.source === 'github')).toBe(true);
+    expect(trail.every((note) => note.deferredTo === null)).toBe(true);
   });
 
   it('lets the run’s own pass-on win, and drops the deferred move', async () => {
@@ -428,7 +464,7 @@ describe('a happening while the current run of the task waits on a person (e2e)'
       after.notes.slice(-2).map((each) => [each.kind, each.body.value]),
     ).toEqual([
       ['asked', 'Which queue should I drain?'],
-      ['message', DEFERRED_MOVE_TO_CODE_REVIEW],
+      ['message', CHANGES_ASKED_FOR],
     ]);
     expect((await runOf(runId)).state).toBe('suspended');
   });

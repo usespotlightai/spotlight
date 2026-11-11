@@ -38,6 +38,8 @@ const note = (failure: InboxNote['failure']): InboxNote => ({
   at: asked,
   author: null,
   coAuthors: [],
+  source: null,
+  deferredTo: null,
   readAt: null,
   approval: null,
   failure,

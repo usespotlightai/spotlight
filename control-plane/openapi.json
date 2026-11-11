@@ -27830,6 +27830,18 @@
               "$ref": "#/components/schemas/InboxAuthorResponseDto"
             }
           },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "github",
+            "description": "The integration it came from, where the world outside wrote it"
+          },
+          "deferredTo": {
+            "type": "string",
+            "nullable": true,
+            "example": "Implementation",
+            "description": "The station the task moves to when the run in progress ends, where it arrived during that run"
+          },
           "approval": {
             "nullable": true,
             "description": "The tool call this asks a person to approve, where it is one",
@@ -27875,6 +27887,8 @@
           "at",
           "author",
           "coAuthors",
+          "source",
+          "deferredTo",
           "approval",
           "failure",
           "connection"

@@ -207,12 +207,12 @@ describe('ReactionFor.happened', () => {
     expect(outcome.kind !== 'nothing' && outcome.line.id).toEqual(LINE.id);
   });
 
-  it('notes what arrived while a run was in progress on the task, and where it moves once the run ends', () => {
+  it('notes only what arrived while a run was in progress on the task', () => {
     const anchor = Anchor.of({ body: 'This retries forever.' });
     const outcome = reaction(handed('station_1'), commented, anchor);
 
     expect(outcome.kind === 'deferredMove' && outcome.body.value).toBe(
-      'This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nThis retries forever.',
+      'This retries forever.',
     );
     expect(outcome.kind === 'deferredMove' && outcome.anchor).toBe(anchor);
   });
@@ -220,8 +220,8 @@ describe('ReactionFor.happened', () => {
   it('defers a comment with no anchor as the summary of what happened', () => {
     const outcome = reaction(handed('station_1'), commented);
 
-    expect(outcome.kind === 'deferredMove' && outcome.body.value).toContain(
-      'moves to Code Review when the run ends.\n\nThe pull request was commented on.',
+    expect(outcome.kind === 'deferredMove' && outcome.body.value).toBe(
+      'The pull request was commented on.',
     );
   });
 

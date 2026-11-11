@@ -860,11 +860,12 @@ describe('ReactToHappenings', () => {
       await receive(COMMENTED, handed('station_1'), 'This retries forever.');
 
       expect(saved?.notes.map((each) => each.body.value)).toEqual([
-        'This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\ncompose.yml:22\nThis retries forever.',
+        'compose.yml:22\nThis retries forever.',
       ]);
       expect(saved?.notes[0]?.station).toEqual(
         StationName.of('Implementation'),
       );
+      expect(saved?.notes[0]?.voice.source?.value).toBe('github');
       expect(saved?.notes[0]?.reviewComment?.value).toBe('PRRC_kwDO');
       expect(saved?.unacknowledged).toHaveLength(1);
       expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
@@ -874,8 +875,8 @@ describe('ReactToHappenings', () => {
       await receive(COMMENTED, handed('station_1'), null);
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
-      expect(saved?.notes[0]?.body.value).toContain(
-        'moves to Code Review when the run ends.\n\nThe pull request was commented.',
+      expect(saved?.notes[0]?.body.value).toBe(
+        'The pull request was commented.',
       );
       expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
       expect(dispatched).toHaveLength(0);

@@ -69,6 +69,8 @@ export interface InboxNote {
   readonly at: Date;
   readonly author: InboxAuthor | null;
   readonly coAuthors: readonly InboxAuthor[];
+  readonly source: string | null;
+  readonly deferredTo: string | null;
   readonly readAt: Date | null;
   readonly approval: InboxApproval | null;
   readonly failure: InboxFailure | null;

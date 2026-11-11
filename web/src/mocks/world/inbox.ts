@@ -493,6 +493,8 @@ const setupItem = (createdAt: string, resolved: boolean): InboxConversation => {
         at: createdAt,
         author: null,
         coAuthors: [],
+        source: null,
+        deferredTo: null,
         approval: null,
         failure: null,
         connection: null,

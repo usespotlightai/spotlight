@@ -76,7 +76,7 @@ const withBriefing = () =>
 
 describe('BriefedTask', () => {
   it('takes what a briefing reads from the task', () => {
-    const briefed = withBriefing().briefed;
+    const briefed = withBriefing().briefedOn(line);
 
     expect(briefed.stationId.value).toBe('station_1');
     expect(briefed.title).toBe('Fix the queue');
@@ -88,7 +88,7 @@ describe('BriefedTask', () => {
   });
 
   it('reads back as it was stored', () => {
-    const briefed = withBriefing().briefed;
+    const briefed = withBriefing().briefedOn(line);
     const read = BriefedTask.rehydrate(
       JSON.parse(JSON.stringify(briefed.parts)),
     );
@@ -99,7 +99,7 @@ describe('BriefedTask', () => {
 
   it('reads back what was briefed though a task could no longer say it today', () => {
     const parts = {
-      ...withBriefing().briefed.parts,
+      ...withBriefing().briefedOn(line).parts,
       title: 'x'.repeat(10_000),
       notes: [{ station: '', body: '', attachments: [] }],
     };
