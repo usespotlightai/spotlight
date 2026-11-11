@@ -11,9 +11,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 
-export class HostRequirementsHandler
-  implements QueryHandlerPort<HostRequirementsQuery, HostRequirementsDto | null>
-{
+export class HostRequirementsHandler implements QueryHandlerPort<
+  HostRequirementsQuery,
+  HostRequirementsDto | null
+> {
   constructor(
     private readonly launch: HarnessLaunchPort,
     private readonly authenticator: RunnerAuthenticatorPort,

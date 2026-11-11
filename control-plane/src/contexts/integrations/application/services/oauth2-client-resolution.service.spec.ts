@@ -1,8 +1,6 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import type { OAuth2ClientRegistrarPort } from '@integrations/application/ports/oauth2-client-registrar.port';
 import { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
 import type { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
-import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
@@ -39,8 +37,8 @@ const resolving = (configured = '{}') => {
       },
       ofTeam: async () => [],
       remove: async () => {},
-    } as OAuth2ClientRegistrationRepository,
-    { register } as OAuth2ClientRegistrarPort,
+    },
+    { register },
     {
       find: async (id: TeamId) => ({
         id,

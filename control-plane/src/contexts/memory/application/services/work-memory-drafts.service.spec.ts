@@ -1,7 +1,6 @@
 import { MemoryDraftingError } from '@memory/application/errors/memory-drafting.error';
 import type {
   KnownMemory,
-  MemoryDrafterPort,
   MemoryDraftRequest,
 } from '@memory/application/ports/memory-drafter.port';
 import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
@@ -18,11 +17,11 @@ import type {
 } from '@memory/application/ports/work.port';
 import { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import { WorkMemoryDrafts } from '@memory/application/services/work-memory-drafts.service';
-import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
-import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
@@ -202,7 +201,7 @@ const working = (input: {
         return REJECTIONS;
       },
     } satisfies RejectedMemoriesPort,
-    { available: true, draft } as MemoryDrafterPort,
+    { available: true, draft },
     {
       generate: () => {
         ids += 1;

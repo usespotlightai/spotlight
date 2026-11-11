@@ -1,4 +1,5 @@
 import { HttpResponse, type RequestHandler } from 'msw';
+
 import type {
   ConnectGitHubRequestDto,
   ConnectIntegrationRequestDto,

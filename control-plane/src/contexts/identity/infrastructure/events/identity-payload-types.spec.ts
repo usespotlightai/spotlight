@@ -1,5 +1,6 @@
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { OidcTrustCreated } from '@identity/domain/events/oidc-trust-created.event';
 import { OidcTrustDeleted } from '@identity/domain/events/oidc-trust-deleted.event';
 import { OidcTrustUpdated } from '@identity/domain/events/oidc-trust-updated.event';
@@ -241,7 +242,10 @@ describe('IDENTITY_PAYLOAD_TYPES', () => {
     for (const file of readdirSync(folder).filter(
       (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
     )) {
-      const loaded: Record<string, unknown> = await import(join(folder, file));
+      const loaded = (await import(join(folder, file))) as Record<
+        string,
+        unknown
+      >;
 
       events.push(
         ...Object.values(loaded).filter(

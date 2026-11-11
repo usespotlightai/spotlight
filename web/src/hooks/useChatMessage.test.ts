@@ -1,11 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { LexicalEditor } from 'lexical';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { useChatMessage } from '@/hooks/useChatMessage';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
 import type { SharedAttachment } from '@/lib/shared-draft';
 
-const uploaded = vi.fn();
+const uploaded = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: (input: unknown) => uploaded(input),
@@ -95,6 +96,25 @@ describe('useChatMessage in a shared draft', () => {
     expect(result.current.images[0]?.imageSource).toEqual({
       url: '/api/workspaces/acme/attachments/att_2',
     });
+  });
+});
+
+describe('useChatMessage clearing a sent draft', () => {
+  it('clears the draft when it is sent', () => {
+    const { rerender, update } = watched(synced('task-draft:a', 3, true));
+
+    rerender({ shared: synced('task-draft:a', 4, true) });
+
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the next draft alone after a switch from a sent draft', () => {
+    const { rerender, update } = watched(synced('task-draft:a', 3, true));
+
+    rerender({ shared: synced('task-draft:b', 0, false) });
+    rerender({ shared: synced('task-draft:b', 2, true) });
+
+    expect(update).not.toHaveBeenCalled();
   });
 });
 

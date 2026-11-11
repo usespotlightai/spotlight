@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
 } from 'react';
+
 import { $spacedReferences } from '@/components/shared/chat-input/ReferenceNode';
 import { DRAFT_SENT } from '@/components/shared/chat-input/SharedWriting';
 import { useAttachments } from '@/hooks/useAttachments';
@@ -129,18 +130,16 @@ export function useChatMessage(
 
     return [
       ...files.attachments.filter((each) => !handedOver.has(each.key)),
-      ...(sharedAttachments ?? []).map(
-        (each): PendingAttachment => ({
-          key: each.key,
-          name: each.name,
-          size: each.size,
-          imageSource:
-            byKey.get(each.key)?.imageSource ??
-            uploadedImage(slug, each.id, each.image),
-          state: 'ready',
-          id: each.id,
-        }),
-      ),
+      ...(sharedAttachments ?? []).map((each): PendingAttachment => ({
+        key: each.key,
+        name: each.name,
+        size: each.size,
+        imageSource:
+          byKey.get(each.key)?.imageSource ??
+          uploadedImage(slug, each.id, each.image),
+        state: 'ready',
+        id: each.id,
+      })),
     ];
   }, [files.attachments, sharedAttachments, handedOver, slug]);
   const included = attachments.filter(

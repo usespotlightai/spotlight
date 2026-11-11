@@ -50,11 +50,8 @@ export const aLeasedRun = (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'keep the working copy',
       handover: { options: [], noteLimit: 4_000 },
-      resume: {
-        ...(over.session === null
-          ? {}
-          : { sessionId: over.session ?? 'session_1' }),
-      },
+      resume:
+        over.session === null ? {} : { sessionId: over.session ?? 'session_1' },
       ...(over.restoresWorkingCopy === false ? {} : { startingPoint: true }),
     }),
   }).claim(claimer(RunnerId.of(over.runner ?? 'runner_1')), CLAIMED_AT);

@@ -4,8 +4,8 @@ import type {
 } from '@integrations/application/ports/tasks-for-hooks.port';
 import type { QueueHookFirings } from '@integrations/application/services/queue-hook-firings.service';
 import type { ToolUsedFields } from '@integrations/domain/value-objects/hook-event-facts.vo';
-import { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
 import type { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
 import type { DispatchEndedIntegrationEvent } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import type { TaskMovedIntegrationEvent } from '@shared-kernel/application/integration-events/task-moved.integration-event';

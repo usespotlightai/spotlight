@@ -16,7 +16,7 @@ export function CitedHunk({ hunk }: { hunk: Hunk }) {
           <pre className="px-3 py-1.5 font-mono text-xs leading-5">
             {hunk.lines.map((line, at) => (
               <span
-                // biome-ignore lint/suspicious/noArrayIndexKey: the position of a line identifies it, because the lines of a hunk are fixed
+                // oxlint-disable-next-line react/no-array-index-key -- the position of a line identifies it, because the lines of a hunk are fixed
                 key={at}
                 className={cn(
                   'block',

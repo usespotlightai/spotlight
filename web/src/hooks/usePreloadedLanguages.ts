@@ -4,6 +4,7 @@ import {
   type SupportedLanguages,
 } from '@pierre/diffs';
 import { useEffect } from 'react';
+
 import { DIFF_THEMES } from '@/lib/diff';
 
 const languagesOf = (paths: readonly string[]): SupportedLanguages[] => [
@@ -22,7 +23,7 @@ export function usePreloadedLanguages(paths: readonly string[]): void {
     // A failure here has no effect, because each diff requests its language when it mounts.
     void preloadHighlighter({
       themes: DIFF_THEMES,
-      langs: langs.split(' ') as SupportedLanguages[],
+      langs: langs.split(' '),
     }).catch(() => undefined);
   }, [langs]);
 }

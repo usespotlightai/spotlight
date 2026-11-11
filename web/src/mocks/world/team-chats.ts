@@ -630,7 +630,6 @@ const seededChats = (): Record<string, ChatRecord[]> => ({
   [GROWTH_ID]: [onboardingChat()].map(takenUp),
 });
 
-export const teamChats = perWorld(
-  (kind): Record<string, ChatRecord[]> =>
-    kind === 'empty' ? { [PLATFORM_ID]: [], [GROWTH_ID]: [] } : seededChats(),
+export const teamChats = perWorld((kind): Record<string, ChatRecord[]> =>
+  kind === 'empty' ? { [PLATFORM_ID]: [], [GROWTH_ID]: [] } : seededChats(),
 );

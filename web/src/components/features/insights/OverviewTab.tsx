@@ -3,11 +3,11 @@ import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRuns } from '@/components/features/insights/NoRuns';
 import { OutputAgainstCost } from '@/components/features/insights/OutputAgainstCost';
-import { OverviewSkeleton } from '@/components/features/insights/OverviewSkeleton';
 import {
   OVERVIEW_LAYOUT,
   SEVEN_TILES,
 } from '@/components/features/insights/overview-layout';
+import { OverviewSkeleton } from '@/components/features/insights/OverviewSkeleton';
 import { WorthImprovingList } from '@/components/features/insights/WorthImprovingList';
 import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
 import {

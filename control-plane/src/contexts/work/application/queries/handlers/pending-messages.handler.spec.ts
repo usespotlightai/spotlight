@@ -34,7 +34,7 @@ describe('PendingMessagesHandler', () => {
     expect(pending).toEqual([
       {
         position: 2,
-        body: expect.stringContaining('Use the staging queue.'),
+        body: expect.stringContaining('Use the staging queue.') as unknown,
         attachments: [
           { id: 'att_1', path: '.spotlight/attachments/att_1/queue.png' },
         ],

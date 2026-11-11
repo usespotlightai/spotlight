@@ -1,5 +1,6 @@
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+
 import { tableAccessIn, tableOwnershipViolations } from './table-ownership';
 import { described } from './violation';
 

@@ -1,8 +1,8 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 
 export const ATTACHMENT_STORE = Symbol('ATTACHMENT_STORE');
 

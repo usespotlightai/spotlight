@@ -1,18 +1,15 @@
 import { ResendInviteHandler } from '@identity/application/commands/handlers/resend-invite.handler';
 import { ResendInviteCommand } from '@identity/application/commands/resend-invite.command';
-import type {
-  InviteMailPort,
-  InviteToSend,
-} from '@identity/application/ports/invite-mail.port';
+import type { InviteToSend } from '@identity/application/ports/invite-mail.port';
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { InviteSending } from '@identity/application/services/invite-sending.service';
 import { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
 import { Team } from '@identity/domain/aggregates/team.aggregate';
-import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
+import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
-import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
+import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
@@ -83,8 +80,10 @@ const sentInvite = (
 const resending = (
   over: { role?: WorkspaceRole; invite?: WorkspaceInvite | null } = {},
 ) => {
-  const save = vi.fn(async (_: WorkspaceInvite) => {});
-  const send = vi.fn(async (_: InviteToSend) => {});
+  const save = vi.fn<(invite: WorkspaceInvite) => Promise<void>>(
+    async () => {},
+  );
+  const send = vi.fn<(sending: InviteToSend) => Promise<void>>(async () => {});
 
   const handler = new ResendInviteHandler(
     new WorkspaceAdministration({
@@ -104,7 +103,7 @@ const resending = (
           image: null,
         }),
       } as unknown as PersonReaderPort,
-      { send } as InviteMailPort,
+      { send },
       { warn: vi.fn() } as unknown as LoggerPort,
     ),
     {

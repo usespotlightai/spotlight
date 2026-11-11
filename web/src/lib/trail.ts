@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import { useLocation } from 'react-router';
+
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 
 type TrailState = { trail?: BreadcrumbSegment[] };

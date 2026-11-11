@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
 import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
 import { DrizzleWorkspaceRoles } from '@identity/infrastructure/persistence/drizzle/readers/workspace-roles.reader';
@@ -15,6 +16,7 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { createTeam } from './support/team';
 

@@ -6,9 +6,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ListHappeningsHandler
-  implements QueryHandlerPort<ListHappeningsQuery, HappeningDto[] | null>
-{
+export class ListHappeningsHandler implements QueryHandlerPort<
+  ListHappeningsQuery,
+  HappeningDto[] | null
+> {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
     private readonly providers: WebhookProviders,

@@ -1,4 +1,5 @@
-import { Cell, Pie, PieChart } from 'recharts';
+import { Pie, PieChart } from 'recharts';
+
 import { sliceFill } from '@/components/features/insights/chart-series';
 
 const DONUT_SIZE = 120;
@@ -20,7 +21,7 @@ export function SliceDonut({ slices, slot }: SliceDonutProps) {
     <div aria-hidden data-slot={slot} className="shrink-0">
       <PieChart width={DONUT_SIZE} height={DONUT_SIZE}>
         <Pie
-          data={[...slices]}
+          data={slices.map((slice, at) => ({ ...slice, fill: sliceFill(at) }))}
           dataKey="value"
           innerRadius={DONUT_SIZE / 2 - DONUT_RING}
           outerRadius={DONUT_SIZE / 2}
@@ -29,11 +30,7 @@ export function SliceDonut({ slices, slot }: SliceDonutProps) {
           stroke="var(--card)"
           strokeWidth={1}
           isAnimationActive={false}
-        >
-          {slices.map((slice, at) => (
-            <Cell key={slice.key} fill={sliceFill(at)} />
-          ))}
-        </Pie>
+        />
       </PieChart>
     </div>
   );

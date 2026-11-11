@@ -15,9 +15,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class HostHeartbeatHandler
-  implements CommandHandlerPort<HostHeartbeatCommand, HostHeartbeatDto>
-{
+export class HostHeartbeatHandler implements CommandHandlerPort<
+  HostHeartbeatCommand,
+  HostHeartbeatDto
+> {
   constructor(
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly hosts: RunnerHostRepository,

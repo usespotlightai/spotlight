@@ -4,6 +4,7 @@ import type { MemoryReviewDto } from '@memory/application/dto/memory-review.dto'
 import { ReadMemoryReviewQuery } from '@memory/application/queries/read-memory-review.query';
 import {
   ApproveMemoriesRequestDto,
+  type ApprovedMemoryRequestDto,
   MemoryReviewResponseDto,
 } from '@memory/presentation/http/dto/memory-review.response.dto';
 import {
@@ -32,10 +33,12 @@ import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 
 const approvedIn = (body: ApproveMemoriesRequestDto | undefined) =>
-  (Array.isArray(body?.memories) ? body.memories : []).map((each) => ({
-    id: typeof each?.id === 'string' ? each.id : '',
-    ...(typeof each?.body === 'string' ? { body: each.body } : {}),
-  }));
+  (Array.isArray(body?.memories) ? body.memories : []).map(
+    (each: ApprovedMemoryRequestDto | undefined) => ({
+      id: typeof each?.id === 'string' ? each.id : '',
+      ...(typeof each?.body === 'string' ? { body: each.body } : {}),
+    }),
+  );
 
 @ApiTags('memories')
 @ApiUnauthorizedResponse({ description: 'No valid session' })

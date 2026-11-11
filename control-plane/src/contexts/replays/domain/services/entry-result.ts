@@ -104,7 +104,8 @@ const checkedBy = (
             reasons: [reasonOf('check-skipped', NO_CHECK_ASKED)],
           }
         : ABSENT;
-    default:
+    case 'checking':
+    case 'generating':
       return ABSENT;
   }
 };
@@ -161,7 +162,9 @@ export const resultOf = (facts: EntryFacts, scoring: Scoring): EntryResult => {
       return ended(null, reasonOf('run-stopped'));
     case 'asked':
       return ended(false, reasonOf('asked-a-person'));
-    default:
+    case 'completed':
+    case 'not-run':
+    case 'unreplayable':
       break;
   }
 

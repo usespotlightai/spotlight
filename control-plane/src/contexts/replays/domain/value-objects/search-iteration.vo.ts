@@ -6,7 +6,7 @@ import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import type { ReflectionResult } from '@replays/domain/value-objects/reflection-result';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
+import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
 import type { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -342,7 +342,7 @@ export class SearchIteration {
 
   replayEnded(
     replayId: ReplayId,
-    end: ReplayStopReason,
+    end: ReplayEndState,
     charge: ReplayCharge,
     improved: boolean,
   ): SearchIteration {

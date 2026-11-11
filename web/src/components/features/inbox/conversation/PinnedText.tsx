@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { FadingScroll } from '@/components/shared/FadingScroll';
 
 export function PinnedText({ children }: { children: ReactNode }) {

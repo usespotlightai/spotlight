@@ -79,9 +79,11 @@ const unreplayableReasonOf = (row: EntryRow) => {
     return null;
   }
   if (!isUnreplayableReason(row.unreplayableReason)) {
+    const reason: string = row.unreplayableReason;
+
     throw new InconsistentStateError(
       'replay entry',
-      `could not be replayed for a reason no longer known, ${row.unreplayableReason}`,
+      `could not be replayed for a reason no longer known, ${reason}`,
     );
   }
   return row.unreplayableReason;
@@ -293,6 +295,7 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
     startedAt: row.startedAt,
     endedAt: row.endedAt,
     stoppedAt: row.stoppedAt,
+    stoppedBecause: row.stoppedBecause,
     version: row.version,
   });
 
@@ -538,6 +541,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       startedAt: aggregate.startedAt,
       endedAt: aggregate.endedAt,
       stoppedAt: aggregate.stoppedAt,
+      stoppedBecause: aggregate.stoppedBecause,
     };
   }
 

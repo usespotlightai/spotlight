@@ -10,10 +10,10 @@ import {
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class CheckExpressionHandler
-  implements
-    QueryHandlerPort<CheckExpressionQuery, CheckedExpression | Forbidden>
-{
+export class CheckExpressionHandler implements QueryHandlerPort<
+  CheckExpressionQuery,
+  CheckedExpression | Forbidden
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly checks: ExpressionChecksPort,

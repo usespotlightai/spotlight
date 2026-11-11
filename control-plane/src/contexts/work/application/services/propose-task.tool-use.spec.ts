@@ -127,7 +127,7 @@ describe('ProposeTaskToolUse', () => {
       proposed: 'Back off exponentially',
       line: 'delivery',
       station: 'backlog',
-      next: expect.stringContaining('The person decides'),
+      next: expect.stringContaining('The person decides') as unknown,
     });
   });
 

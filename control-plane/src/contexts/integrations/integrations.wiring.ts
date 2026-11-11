@@ -1118,11 +1118,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   { provide: OAUTH2_NONCES, useClass: DrizzleOAuth2SpentNonceLedger },
 
-  {
-    provide: OAuth2NonceCookie,
-    inject: [ENV],
-    useFactory: (env: Env) => OAuth2NonceCookie.forPublicUrl(publicUrlOf(env)),
-  },
+  OAuth2NonceCookie,
 
   {
     provide: IntegrationReader,

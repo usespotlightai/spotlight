@@ -8,6 +8,7 @@ import {
 } from '@replays/domain/value-objects/judging-attempt';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class RecordReplayVerdict {
@@ -45,7 +46,12 @@ export class RecordReplayVerdict {
 
   failed(run: RunId, failure: Unjudged): Promise<void> {
     return this.changing(run, (replay, now) =>
-      replay.recordJudgingFailure(run, failure, now),
+      replay.recordJudgingFailure(
+        run,
+        failure,
+        now,
+        ChangeActor.spotlight(replay.workspaceId),
+      ),
     );
   }
 

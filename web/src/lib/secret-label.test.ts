@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { secretLabel } from '@/lib/secret-label';
 
 describe('secretLabel', () => {

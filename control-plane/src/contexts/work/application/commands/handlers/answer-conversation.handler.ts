@@ -18,9 +18,10 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 
 const ATTEMPTS = 3;
 
-export class AnswerConversationHandler
-  implements CommandHandlerPort<AnswerConversationCommand, void>
-{
+export class AnswerConversationHandler implements CommandHandlerPort<
+  AnswerConversationCommand,
+  void
+> {
   constructor(
     private readonly conversations: ConversationLoader,
     private readonly tasks: TaskRepository,

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { useSignIn } from '@/hooks/api/useSignIn';
 import { authClient } from '@/lib/authClient';
 
@@ -29,7 +30,7 @@ describe('useSignIn', () => {
     signInSocial.mockResolvedValue({
       data: { url: 'https://github.com/login/oauth/authorize', redirect: true },
       error: null,
-    } as never);
+    });
 
     const { result } = renderHook(() => useSignIn(), { wrapper });
     result.current.mutate();
@@ -45,7 +46,7 @@ describe('useSignIn', () => {
     signInSocial.mockResolvedValue({
       data: { url: 'https://github.com/login/oauth/authorize', redirect: true },
       error: null,
-    } as never);
+    });
 
     const { result } = renderHook(() => useSignIn('/invites/tok-123'), {
       wrapper,
@@ -63,7 +64,7 @@ describe('useSignIn', () => {
     signInSocial.mockResolvedValue({
       data: null,
       error: { message: 'GitHub is not reachable', status: 502 },
-    } as never);
+    });
 
     const { result } = renderHook(() => useSignIn(), { wrapper });
     result.current.mutate();

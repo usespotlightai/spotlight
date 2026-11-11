@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+
 import { TerminalSpinner } from '@/components/shared/TerminalSpinner';
 import type { ApprovalStatus } from '@/lib/approval-status';
 

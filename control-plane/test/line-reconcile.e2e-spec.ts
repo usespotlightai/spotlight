@@ -1,11 +1,9 @@
 import { randomUUID } from 'node:crypto';
+
 import { CreateLineCommand } from '@lines/application/commands/create-line.command';
 import { UpdateLineCommand } from '@lines/application/commands/update-line.command';
 import type { Line } from '@lines/domain/aggregates/line.aggregate';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
@@ -23,12 +21,14 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { AppModule } from '@/app.module';
+
 import { definitionOf, type LineDefinition } from './support/line-definition';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
-const DELIVERY = definitionOf(BUILT_IN_LINES[0] as LineOpening);
+const DELIVERY = definitionOf(BUILT_IN_LINES[0]);
 
 const withDesign = (line: LineDefinition): LineDefinition => ({
   ...line,

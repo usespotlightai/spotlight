@@ -91,7 +91,7 @@ describe('StopRunHandler', () => {
 
     await expect(
       handler.execute(new StopRunCommand('run_1', 'someone_else')),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Run run_1 is not one you may stop.');
     expect(runs.requestStop).not.toHaveBeenCalled();
   });
 
@@ -104,7 +104,7 @@ describe('StopRunHandler', () => {
     await expect(
       handler.execute(new StopRunCommand('run_1', 'user_1')),
     ).rejects.toMatchObject({
-      refusal: expect.any(TeamMembershipRequiredError),
+      refusal: expect.any(TeamMembershipRequiredError) as unknown,
     });
     expect(runs.requestStop).not.toHaveBeenCalled();
   });
@@ -122,7 +122,7 @@ describe('StopRunHandler', () => {
 
     await expect(
       handler.execute(new StopRunCommand('run_1', 'user_1')),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Run run_1 has ended. It cannot be stopped.');
     expect(take).not.toHaveBeenCalled();
   });
 });

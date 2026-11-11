@@ -1,5 +1,5 @@
-import { periodOf } from '@insights/application/dto/insights.dto';
 import type { InsightsToolsDto } from '@insights/application/dto/insights-tools.dto';
+import { periodOf } from '@insights/application/dto/insights.dto';
 import type { DefinedSkillsPort } from '@insights/application/ports/defined-skills.port';
 import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
 import type { ReadInsightsToolsQuery } from '@insights/application/queries/read-insights-tools.query';
@@ -14,9 +14,10 @@ import { toolInsightsFrom } from '@insights/domain/services/tool-insights';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadInsightsToolsHandler
-  implements QueryHandlerPort<ReadInsightsToolsQuery, InsightsToolsDto>
-{
+export class ReadInsightsToolsHandler implements QueryHandlerPort<
+  ReadInsightsToolsQuery,
+  InsightsToolsDto
+> {
   constructor(
     private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,

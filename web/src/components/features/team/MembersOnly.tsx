@@ -1,4 +1,5 @@
 import { Lock } from 'lucide-react';
+
 import { EmptyState } from '@/components/shared/EmptyState';
 
 type MembersOnlyProps = {

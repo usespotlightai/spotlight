@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react';
+
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { MAX_MEMORY_BODY } from '@/lib/memory';
 

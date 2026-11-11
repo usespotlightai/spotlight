@@ -1,11 +1,11 @@
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
-import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   pullRequestMerged,
   pullRequestOpening,
   taskMoved,
   usedTool,
 } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
+import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HookMatch,
   pathPattern,

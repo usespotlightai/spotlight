@@ -1,14 +1,14 @@
 import type { ReplayCharge } from '@replays/domain/services/replay-charge';
 import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
+import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class SearchReplay {
   private constructor(
     readonly replayId: ReplayId,
     readonly started: boolean,
-    readonly end: ReplayStopReason | null,
+    readonly end: ReplayEndState | null,
     readonly spent: Money | null,
     readonly unpriced: number,
   ) {}
@@ -20,7 +20,7 @@ export class SearchReplay {
   static rehydrate(input: {
     replayId: ReplayId;
     started: boolean;
-    end: ReplayStopReason | null;
+    end: ReplayEndState | null;
     spent: Money | null;
     unpriced: number;
   }): SearchReplay {
@@ -74,7 +74,7 @@ export class SearchReplay {
         );
   }
 
-  endedAs(end: ReplayStopReason, charge: ReplayCharge): SearchReplay {
+  endedAs(end: ReplayEndState, charge: ReplayCharge): SearchReplay {
     return this.end === null
       ? new SearchReplay(
           this.replayId,

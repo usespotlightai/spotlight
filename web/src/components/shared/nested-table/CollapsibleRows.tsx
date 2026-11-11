@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { useCollapsible } from '@/hooks/useCollapsible';
 
 type CollapsibleRowsProps = {

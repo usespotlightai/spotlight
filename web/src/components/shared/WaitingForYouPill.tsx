@@ -1,4 +1,5 @@
 import { Inbox } from 'lucide-react';
+
 import { Pill } from '@/components/shared/Pill';
 
 export function WaitingForYouPill() {

@@ -20,9 +20,7 @@ interface Listed {
 }
 
 @Injectable()
-export class GitHubInstallationRepositories
-  implements InstallationRepositoriesPort
-{
+export class GitHubInstallationRepositories implements InstallationRepositoriesPort {
   constructor(
     @Inject(REPOSITORY_ACCESS)
     private readonly access: RepositoryAccessPort,

@@ -87,12 +87,12 @@ export const formatPullRequestState = (
 ): string => (state ? PULL_REQUEST_STATES[state] : '–');
 
 export const runSpent = (usage: StationRunOutcome['usage']): string =>
-  usage?.cost != null && usage.currency
+  usage !== null && usage.cost !== null && usage.currency
     ? spentIn(usage.cost, usage.currency)
     : '–';
 
 export const formatRunDuration = (usage: StationRunOutcome['usage']): string =>
-  usage?.ms != null ? formatShortDuration(usage.ms) : '–';
+  usage !== null && usage.ms !== null ? formatShortDuration(usage.ms) : '–';
 
 const formatCost = (cost: MoneyResponseDto | null): string =>
   cost ? spentIn(cost.amount, cost.currency) : '–';

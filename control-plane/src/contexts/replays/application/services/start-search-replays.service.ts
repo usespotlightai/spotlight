@@ -1,8 +1,8 @@
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { SearchReplaysPlanned } from '@replays/domain/events/search-replays-planned.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';

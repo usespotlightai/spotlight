@@ -7,9 +7,9 @@ import type {
   HookRecord,
   WrittenHookStep,
 } from '@integrations/application/ports/hook-resources.port';
-import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { Hook } from '@integrations/domain/value-objects/hook.vo';
 
 const stepView = (step: WrittenHookStep): HookStepView =>
   'call' in step

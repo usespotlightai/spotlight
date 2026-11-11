@@ -16,9 +16,10 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
-export class UpdateLineHandler
-  implements CommandHandlerPort<UpdateLineCommand, ResourceUpdated | null>
-{
+export class UpdateLineHandler implements CommandHandlerPort<
+  UpdateLineCommand,
+  ResourceUpdated | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly compiler: LineCompilerPort,

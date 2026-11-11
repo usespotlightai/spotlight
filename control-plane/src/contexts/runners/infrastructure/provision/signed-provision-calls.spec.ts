@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+
 import { scopedTo } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import type { ProvisionCall } from '@runners/application/ports/provision-calls.port';
@@ -35,6 +36,9 @@ const calling = (
   egress: null,
 });
 
+const sentData = (sent: { body: string }) =>
+  (JSON.parse(sent.body) as { data: Record<string, unknown> }).data;
+
 const calls = (
   answer: () => Promise<Response>,
   settings: { hosts?: string[]; workspaceHosts?: string[] } = {},
@@ -53,7 +57,7 @@ const calls = (
         ),
         scope: scopedTo(...(settings.workspaceHosts ?? [])),
       },
-      fetch as unknown as typeof globalThis.fetch,
+      fetch,
     ),
   };
 };
@@ -128,12 +132,12 @@ describe('SignedProvisionCalls', () => {
       RequestInit & { body: string },
     ];
 
-    expect(JSON.parse(sent.body).data).toMatchObject({
+    expect(sentData(sent)).toMatchObject({
       kind: 'check',
       stackId: 'stack_1',
       runId: 'run_1',
     });
-    expect(JSON.parse(sent.body).data).not.toHaveProperty('taskId');
+    expect(sentData(sent)).not.toHaveProperty('taskId');
   });
 
   it('names no image when the work requests the default one', async () => {
@@ -148,7 +152,7 @@ describe('SignedProvisionCalls', () => {
       RequestInit & { body: string },
     ];
 
-    expect(JSON.parse(sent.body).data.image).toBeNull();
+    expect(sentData(sent).image).toBeNull();
   });
 
   it('gives the runner the egress to go out through and its proxy credential', async () => {
@@ -170,7 +174,7 @@ describe('SignedProvisionCalls', () => {
       RequestInit & { body: string },
     ];
 
-    expect(JSON.parse(sent.body).data.runner).toEqual({
+    expect(sentData(sent).runner).toEqual({
       id: 'runner_1',
       token: 'one-run-token',
       egress: {

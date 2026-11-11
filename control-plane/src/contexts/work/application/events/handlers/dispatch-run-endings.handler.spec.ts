@@ -123,7 +123,7 @@ describe('DispatchRunEndings', () => {
 
 describe('DropUnorderedRun', () => {
   it('lets the task drop a run its dispatch refused, and leaves one it no longer holds', async () => {
-    const save = vi.fn(async (_: Task) => {});
+    const save = vi.fn<(task: Task) => Promise<void>>(async () => {});
     const dropped = { currentRunId: null } as unknown as Task;
     const holding = {
       hasCurrentRun: () => true,

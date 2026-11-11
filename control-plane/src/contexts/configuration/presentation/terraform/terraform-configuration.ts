@@ -633,7 +633,7 @@ const replacedAt = (
   }
 
   if (Array.isArray(value) && typeof step === 'number') {
-    return value.map((each, at) =>
+    return (value as unknown[]).map((each, at) =>
       at === step ? replacedAt(each, rest, by) : each,
     );
   }

@@ -9,7 +9,6 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { SendChatMessageCommand } from '@work/application/commands/chat.commands';
 import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
 import type { ChatLoader } from '@work/application/services/chat-loader.service';
-import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
@@ -48,7 +47,7 @@ const sendMessage = async (model?: string | null, effort?: string | null) => {
       takenIn: async () => undefined,
     } as unknown as FilesLoader,
     { shared: async () => [] } as unknown as TracesLoader,
-    { takenUp: async (chat: Chat) => chat } as unknown as ChatDispatching,
+    { takenUp: async (chat: Chat) => chat },
     { now: () => NOW } as ClockPort,
     { inTransaction: (work: () => Promise<void>) => work() } as TransactionPort,
   ).execute(

@@ -29,9 +29,7 @@ const storedAs = (connection: IntegrationConnection, version: number) =>
     version,
   });
 
-export class InMemoryIntegrationConnections
-  implements IntegrationConnectionRepository
-{
+export class InMemoryIntegrationConnections implements IntegrationConnectionRepository {
   readonly #stored = new Map<string, IntegrationConnection>();
   readonly saved: IntegrationConnection[] = [];
   readonly events: DomainEvent[] = [];

@@ -2,8 +2,8 @@ import type { LinesPort } from '@replays/application/ports/lines.port';
 import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -98,6 +98,7 @@ export class RecordLineChange {
           oracle.stop(
             this.clock.now(),
             ChangeActor.spotlight(oracle.workspaceId),
+            'stale',
           ),
         );
       }

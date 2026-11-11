@@ -29,7 +29,7 @@ export const call = (
       accept: 'application/vnd.github+json',
       'x-github-api-version': '2022-11-28',
       'content-type': 'application/json',
-      ...init.headers,
+      ...Object.fromEntries(new Headers(init.headers)),
     },
   }).catch((error: unknown) => {
     throw new GitHubUnansweredError(`${init.method ?? 'GET'} ${path}`, error);

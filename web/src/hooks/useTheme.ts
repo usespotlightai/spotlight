@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+
 import { desktopApp } from '@/lib/desktop';
 
 export type Theme = 'light' | 'dark' | 'system';

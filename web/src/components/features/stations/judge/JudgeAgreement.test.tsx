@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { JudgeAgreement } from '@/components/features/stations/judge/JudgeAgreement';
 import type { StationJudgeAgreement } from '@/lib/judge';
 import { JUDGE_AGREEMENT } from '@/test/fixtures/station';
@@ -54,10 +55,10 @@ const withFewPairs = (): StationJudgeAgreement => ({
   },
   versions: [
     {
-      ...(CURRENT as NonNullable<typeof CURRENT>),
+      ...CURRENT,
       judged: 3,
       agreement: {
-        ...(CURRENT as NonNullable<typeof CURRENT>).agreement,
+        ...CURRENT.agreement,
         pairs: 3,
         measured: false,
         pairsProgress: 0.3,

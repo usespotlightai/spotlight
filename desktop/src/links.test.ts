@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { deepLinkIn, navigationOf, originOf, pageOf } from './links';
 
 const ORIGIN = 'https://app.usespotlight.ai';

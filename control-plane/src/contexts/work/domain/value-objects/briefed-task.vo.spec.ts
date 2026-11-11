@@ -10,7 +10,10 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
+import {
+  BriefedTask,
+  type BriefedTaskParts,
+} from '@work/domain/value-objects/briefed-task.vo';
 import {
   lineMapOf,
   stationOf,
@@ -76,7 +79,7 @@ const withBriefing = () =>
 
 describe('BriefedTask', () => {
   it('takes what a briefing reads from the task', () => {
-    const briefed = withBriefing().briefed;
+    const briefed = withBriefing().briefedOn(line);
 
     expect(briefed.stationId.value).toBe('station_1');
     expect(briefed.title).toBe('Fix the queue');
@@ -88,9 +91,9 @@ describe('BriefedTask', () => {
   });
 
   it('reads back as it was stored', () => {
-    const briefed = withBriefing().briefed;
+    const briefed = withBriefing().briefedOn(line);
     const read = BriefedTask.rehydrate(
-      JSON.parse(JSON.stringify(briefed.parts)),
+      JSON.parse(JSON.stringify(briefed.parts)) as BriefedTaskParts,
     );
 
     expect(read.equals(briefed)).toBe(true);
@@ -99,7 +102,7 @@ describe('BriefedTask', () => {
 
   it('reads back what was briefed though a task could no longer say it today', () => {
     const parts = {
-      ...withBriefing().briefed.parts,
+      ...withBriefing().briefedOn(line).parts,
       title: 'x'.repeat(10_000),
       notes: [{ station: '', body: '', attachments: [] }],
     };

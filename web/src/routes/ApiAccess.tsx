@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useParams } from 'react-router';
+
 import { OidcTrustsSection } from '@/components/features/oidc-trusts/OidcTrustsSection';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';

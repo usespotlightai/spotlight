@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { emailsPath } from '@/lib/emails';
 import { SLUG } from '@/mocks/world';
 import { choice, type PageArgs, pageStory } from '@/stories/application';

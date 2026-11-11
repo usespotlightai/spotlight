@@ -1,4 +1,5 @@
 import { useContext } from 'react';
+
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { GainScale } from '@/lib/insights-candidates';
 import type { GainEstimate } from '@/lib/replay';
@@ -38,6 +39,10 @@ export function GainTrack({ gain }: { gain: GainEstimate | null }) {
         className="flex min-w-0 cursor-default items-center gap-3"
       >
         <span aria-hidden className="relative h-4 min-w-16 flex-1">
+          <span
+            className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2"
+            style={{ background: 'var(--chart-grid)' }}
+          />
           <span className="absolute inset-y-0 left-1/2 w-px bg-foreground/35" />
           <span
             className="absolute inset-y-0.5 w-0 border-foreground/25 border-l border-dashed"

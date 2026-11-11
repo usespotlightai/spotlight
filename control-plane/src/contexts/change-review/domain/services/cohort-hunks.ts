@@ -206,7 +206,7 @@ export const withHunksMovedInto = (
   );
   const loses = (l: number) =>
     l !== target &&
-    remaining[l]?.emptied === false &&
+    !remaining[l]?.emptied &&
     (cohort.layers[l]?.hunks.some((entry) => moving.has(entry.hunk)) ?? false);
   const leavesStaleDependency = cohort.layers.some(
     (layer, l) =>
@@ -240,7 +240,7 @@ export const withHunksMovedInto = (
   const arriving = new Set<string>(added);
   const reassigned = (l: number, question: ProposedQuestion) =>
     l !== target &&
-    (remaining[l]?.emptied === true ||
+    (remaining[l]?.emptied ||
       (l < target && question.hunks.some((hunk) => arriving.has(hunk))));
   const shownBefore = (l: number, question: ProposedQuestion) => {
     const shownAt = shownHunks(cohort.layers, l);

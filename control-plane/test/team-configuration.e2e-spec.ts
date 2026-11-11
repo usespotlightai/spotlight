@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -12,10 +13,13 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 
 type Body = Record<string, unknown> & { id: string; version: number };
+
+type Problem = { type: string; detail: string };
 
 const SKILL = {
   key: 'grafana',
@@ -95,9 +99,11 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
           .set('Idempotency-Key', randomUUID())
           .send(body);
 
-        expect(answer.status, JSON.stringify(answer.body)).toBe(201);
+        expect(answer.status, `created: ${JSON.stringify(answer.body)}`).toBe(
+          201,
+        );
 
-        return answer.body;
+        return answer.body as Body;
       },
       read: (path: string) =>
         http.get(`/api/v1/resources/${path}`).set(TEST_USER_HEADER, owner),
@@ -202,10 +208,10 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
       api().delete(`integrations/${integration.id}`, integration.version),
     ]);
 
-    expect(rejections.map((each) => [each.status, each.body.type])).toEqual(
-      rejections.map(() => [409, 'urn:spotlight:problem:in-use']),
-    );
-    expect(rejections[1]?.body.detail).toMatch(
+    expect(
+      rejections.map((each) => [each.status, (each.body as Problem).type]),
+    ).toEqual(rejections.map(() => [409, 'urn:spotlight:problem:in-use']));
+    expect((rejections[1]?.body as Problem | undefined)?.detail).toMatch(
       /line delivery, skill grafana, integration linear|integration linear, line delivery, skill grafana/,
     );
 
@@ -225,10 +231,10 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
     });
 
     for (const [path, version] of [
-      [`lines/${line.id}`, updated.body.version],
+      [`lines/${line.id}`, (updated.body as Body).version],
       [`skills/${skill.id}`, skill.version],
       [`integrations/${integration.id}`, integration.version],
-      [`teams/${team.id}`, renamed.body.version],
+      [`teams/${team.id}`, (renamed.body as Body).version],
       [`workspaces/${workspace.id}`, workspace.version],
     ] as const) {
       const deleted = await api().delete(path, version);
@@ -256,7 +262,8 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
 
     expect(created.status).toBe(201);
 
-    const teamId = created.body.teams[0].id as string;
+    const made = created.body as { id: string; teams: { id: string }[] };
+    const teamId = made.teams[0].id;
     const lines = await eventually(
       () =>
         db
@@ -269,29 +276,32 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
       api().read(`${path}/import?address=${encodeURIComponent(address)}`);
 
     const workspace = await imported('workspaces', slug);
-    const team = await imported(`workspaces/${created.body.id}/teams`, 'core');
+    const team = await imported(`workspaces/${made.id}/teams`, 'core');
 
-    expect(workspace.body).toMatchObject({ id: created.body.id, slug });
+    expect(workspace.body).toMatchObject({ id: made.id, slug });
     expect(team.body).toMatchObject({ id: teamId, key: 'core' });
     expect(lines.length).toBeGreaterThan(0);
 
     for (const { key } of lines) {
-      const line = await imported(
-        `workspaces/${created.body.id}/lines`,
-        `core/${key}`,
-      );
+      const line = await imported(`workspaces/${made.id}/lines`, `core/${key}`);
+      const read = line.body as Body & { definition: object };
 
       expect(line.status).toBe(200);
       expect(line.body).toMatchObject({ key, address: `core/${key}` });
 
       const unchanged = await api().update(
-        `lines/${line.body.id}`,
-        line.body.version,
-        line.body.definition,
+        `lines/${read.id}`,
+        read.version,
+        read.definition,
       );
 
-      expect(unchanged.status, JSON.stringify(unchanged.body)).toBe(200);
-      expect(unchanged.body.definition).toEqual(line.body.definition);
+      expect(
+        unchanged.status,
+        `unchanged: ${JSON.stringify(unchanged.body)}`,
+      ).toBe(200);
+      expect((unchanged.body as { definition: object }).definition).toEqual(
+        read.definition,
+      );
     }
   });
 });

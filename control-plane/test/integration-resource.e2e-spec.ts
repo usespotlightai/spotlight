@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   DEFINED_INTEGRATIONS,
   type DefinedIntegrationsPort,
@@ -21,7 +22,14 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import {
+  type Answer,
+  openApp,
+  type Problem,
+  served,
+  TEST_USER_HEADER,
+} from './support/app';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -90,6 +98,12 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
 
 conformsAsResource({ kind: 'integration', open: seated });
 
+interface Made {
+  readonly id: string;
+  readonly version: number;
+  readonly teamId: string;
+}
+
 describe('an integration, created through the resource API (e2e)', () => {
   let app: INestApplication;
   let fixture: ResourceFixture;
@@ -138,7 +152,7 @@ describe('an integration, created through the resource API (e2e)', () => {
       .values({ stationId, tool, position: 0 });
   };
 
-  const create = (body: unknown) =>
+  const create = async (body: unknown): Promise<Answer<Made>> =>
     served(app)
       .post(fixture.collection)
       .set(TEST_USER_HEADER, fixture.admin)
@@ -174,7 +188,7 @@ describe('an integration, created through the resource API (e2e)', () => {
     ).toEqual([
       expect.objectContaining({
         integration: 'linear',
-        definition: expect.objectContaining({ name: 'Linear' }),
+        definition: expect.objectContaining({ name: 'Linear' }) as unknown,
       }),
     ]);
     expect(
@@ -188,11 +202,11 @@ describe('an integration, created through the resource API (e2e)', () => {
 
   it('keeps the integration name it was created with', async () => {
     const made = await create(LINEAR);
-    const moved = await served(app)
+    const moved = (await served(app)
       .put(fixture.item(made.body.id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${made.body.version}"`)
-      .send({ ...LINEAR, integration: 'slack' });
+      .send({ ...LINEAR, integration: 'slack' })) as Answer<Problem>;
 
     expect(moved.status).toBe(422);
     expect(moved.body.errors).toEqual([
@@ -216,7 +230,7 @@ describe('an integration, created through the resource API (e2e)', () => {
       expect(rejected.status).toBe(409);
       expect(rejected.body).toMatchObject({
         type: 'urn:spotlight:problem:in-use',
-        detail: expect.stringContaining('delivery/implementation'),
+        detail: expect.stringContaining('delivery/implementation') as unknown,
       });
     }
   });

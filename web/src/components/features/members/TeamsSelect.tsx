@@ -1,4 +1,5 @@
 import { ChevronsUpDown } from 'lucide-react';
+
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -64,7 +65,7 @@ export function TeamsSelect({
             key={team.id}
             checked={chosen.has(team.id)}
             closeOnClick={false}
-            onCheckedChange={(checked) => toggle(team.id, Boolean(checked))}
+            onCheckedChange={(checked) => toggle(team.id, checked)}
           >
             <span className="truncate">{team.name}</span>
           </DropdownMenuCheckboxItem>

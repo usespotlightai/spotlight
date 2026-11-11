@@ -18,7 +18,9 @@ export class PendingJobWorker implements OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
     await this.#ticking;
-    await Promise.all(this.jobs.map((source) => source.idle?.()));
+    await Promise.all(
+      this.jobs.map((source) => source.idle?.() ?? Promise.resolve()),
+    );
   }
 
   @Interval(EVERY_MS)

@@ -15,9 +15,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
-export class DeleteSecretHandler
-  implements CommandHandlerPort<DeleteSecretCommand, ResourceDeleted | null>
-{
+export class DeleteSecretHandler implements CommandHandlerPort<
+  DeleteSecretCommand,
+  ResourceDeleted | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly secrets: SecretRepository,

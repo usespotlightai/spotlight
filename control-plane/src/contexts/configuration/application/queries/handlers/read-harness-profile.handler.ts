@@ -7,10 +7,10 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadHarnessProfileHandler
-  implements
-    QueryHandlerPort<ReadHarnessProfileQuery, HarnessProfileResourceDto | null>
-{
+export class ReadHarnessProfileHandler implements QueryHandlerPort<
+  ReadHarnessProfileQuery,
+  HarnessProfileResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: HarnessProfileResourcesPort,
@@ -35,7 +35,7 @@ export class ReadHarnessProfileHandler
         return null;
       }
 
-      return this.views.of(record);
+      return await this.views.of(record);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

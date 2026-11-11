@@ -7,13 +7,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ListRunnerTrustResourcesHandler
-  implements
-    QueryHandlerPort<
-      ListRunnerTrustResourcesQuery,
-      readonly RunnerTrustResourceDto[] | null
-    >
-{
+export class ListRunnerTrustResourcesHandler implements QueryHandlerPort<
+  ListRunnerTrustResourcesQuery,
+  readonly RunnerTrustResourceDto[] | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: RunnerResourcesPort,
@@ -29,8 +26,8 @@ export class ListRunnerTrustResourcesHandler
       );
 
       return permissions
-        ? (await this.resources.trustsIn(permissions.workspaceId)).map(
-            RunnerResourceMapper.trust,
+        ? (await this.resources.trustsIn(permissions.workspaceId)).map((each) =>
+            RunnerResourceMapper.trust(each),
           )
         : null;
     } catch (error) {

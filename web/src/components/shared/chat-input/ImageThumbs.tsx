@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+
 import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
 import type { ImageAttachment } from '@/lib/attachment';
 import { cn } from '@/lib/utils';

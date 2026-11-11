@@ -6,9 +6,10 @@ import type { InboxRequestLoader } from '@work/application/services/inbox-reques
 import { InboxRequestVersionConflictError } from '@work/domain/exceptions/inbox-request-version-conflict.error';
 import type { InboxRequestRepository } from '@work/domain/repositories/inbox-request.repository';
 
-export class ResolveInboxRequestHandler
-  implements CommandHandlerPort<ResolveInboxRequestCommand, void>
-{
+export class ResolveInboxRequestHandler implements CommandHandlerPort<
+  ResolveInboxRequestCommand,
+  void
+> {
   constructor(
     private readonly loader: InboxRequestLoader,
     private readonly inboxRequests: InboxRequestRepository,

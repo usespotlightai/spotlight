@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { comparedRows, type MeasureVerdict } from '@/lib/tally-comparison';
 
 const verdict = (over: Partial<MeasureVerdict>): MeasureVerdict => ({

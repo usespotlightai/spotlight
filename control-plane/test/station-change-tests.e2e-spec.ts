@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -20,6 +21,7 @@ import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+
 import { dueNow, policyAt, scheduleOf } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import { writtenStation } from './support/replays';
@@ -230,8 +232,8 @@ describe('the improve-station chat testing its change', () => {
     expect(schedule?.searchedTasks.length).toBeGreaterThan(0);
     expect(schedule?.requests).toHaveLength(1);
 
-    const id = search?.id as string;
-    const seed = search?.seedReplay.replayId as string;
+    const id = search?.id;
+    const seed = search?.seedReplay.replayId;
 
     await drained(() => ({ score: 2, cost: 0.1 }));
     expect(await replayEnded(seed)).toBe('finished');
@@ -277,7 +279,9 @@ describe('the improve-station chat testing its change', () => {
         addresseeId: null,
         headline:
           'Spotlight opened a config pull request for the Build station',
-        externalUrl: expect.stringMatching(/^https:\/\/github\.com\//),
+        externalUrl: expect.stringMatching(
+          /^https:\/\/github\.com\//,
+        ) as unknown,
       }),
     ]);
   }, 300_000);
@@ -290,7 +294,7 @@ describe('the improve-station chat testing its change', () => {
       refusal: 'pull-request-open',
       reason:
         'A config pull request for the station is open. A person must merge or close it first.',
-      next: expect.stringContaining('Terraform diff'),
+      next: expect.stringContaining('Terraform diff') as unknown,
     });
   });
 
@@ -306,12 +310,10 @@ describe('the improve-station chat testing its change', () => {
     expect(answer).toMatchObject({ started: true, mode: 'test' });
 
     const search = await requestedAt(POLISH);
-    const id = search?.id as string;
+    const id = search?.id;
 
     await drained(() => ({ score: 4, cost: 0.1 }));
-    expect(await replayEnded(search?.seedReplay.replayId as string)).toBe(
-      'finished',
-    );
+    expect(await replayEnded(search?.seedReplay.replayId)).toBe('finished');
     await proposalReplayOf(id);
     await drained(() => ({ score: 1, cost: 0.1 }));
     await eventually(async () => {
@@ -380,14 +382,12 @@ describe('the improve-station chat testing its change', () => {
     expect(answer).toMatchObject({ started: true, mode: 'search' });
 
     const search = await requestedAt(POLISH);
-    const id = search?.id as string;
+    const id = search?.id;
 
     expect(search?.iterations).toBe(3);
 
     await drained(() => ({ score: 2, cost: 0.1 }));
-    expect(await replayEnded(search?.seedReplay.replayId as string)).toBe(
-      'finished',
-    );
+    expect(await replayEnded(search?.seedReplay.replayId)).toBe('finished');
 
     const proposed = await proposalReplayOf(id);
     const [first] = await db
@@ -458,7 +458,7 @@ describe('the improve-station chat testing its change', () => {
       ),
     ).toMatchObject({
       outcome: 'joined',
-      next: expect.stringContaining('iteration 2 of 3'),
+      next: expect.stringContaining('iteration 2 of 3') as unknown,
     });
 
     await endedSearchRun(agent, false, 19);
@@ -500,7 +500,7 @@ describe('the improve-station chat testing its change', () => {
     await db
       .update(schema.replaySearch)
       .set({ state: 'finished', pick: null })
-      .where(eq(schema.replaySearch.id, last?.id as string));
+      .where(eq(schema.replaySearch.id, last?.id));
 
     expect(
       await tested(await improving(POLISH), await polishChange('pending')),
@@ -513,7 +513,7 @@ describe('the improve-station chat testing its change', () => {
     await db
       .update(schema.replaySearch)
       .set({ state: last?.state, pick: last?.pick ?? null })
-      .where(eq(schema.replaySearch.id, last?.id as string));
+      .where(eq(schema.replaySearch.id, last?.id));
   });
 
   it('refuses a fourth requested test of the station on the same day', async () => {
@@ -524,7 +524,7 @@ describe('the improve-station chat testing its change', () => {
       expect(
         await tested(await improving(POLISH), await polishChange(name)),
       ).toMatchObject({ outcome: 'started' });
-      await turnedOff((await requestedAt(POLISH))?.id as string);
+      await turnedOff((await requestedAt(POLISH))?.id);
     }
 
     expect(
@@ -546,7 +546,9 @@ describe('the improve-station chat testing its change', () => {
     ).toMatchObject({
       started: false,
       refusal: 'ceiling-too-low',
-      reason: expect.stringMatching(/^The search ceiling is too low/),
+      reason: expect.stringMatching(
+        /^The search ceiling is too low/,
+      ) as unknown,
     });
   });
 
@@ -564,10 +566,10 @@ describe('the improve-station chat testing its change', () => {
       score: repeat === 1 ? 5 : 1,
       cost: 0.01,
     }));
-    expect(await replayEnded(calibrating?.seedReplay.replayId as string)).toBe(
+    expect(await replayEnded(calibrating?.seedReplay.replayId)).toBe(
       'finished',
     );
-    await turnedOff(calibrating?.id as string);
+    await turnedOff(calibrating?.id);
     await freshRequests(POLISH);
 
     const noisy = await tested(
@@ -575,12 +577,12 @@ describe('the improve-station chat testing its change', () => {
       await polishChange('noisy'),
     );
 
-    await turnedOff((await requestedAt(POLISH))?.id as string);
+    await turnedOff((await requestedAt(POLISH))?.id);
 
     expect(noisy).toMatchObject({
       started: false,
       refusal: 'noisy',
-      reason: expect.stringMatching(/^Success moves too much/),
+      reason: expect.stringMatching(/^Success moves too much/) as unknown,
     });
   }, 300_000);
 
@@ -598,7 +600,7 @@ describe('the improve-station chat testing its change', () => {
       refusal: 'monthly-ceiling',
       reason: expect.stringMatching(
         /^The searches of the line reached their monthly ceiling\. Next month starts: \d{4}-\d{2}-01$/,
-      ),
+      ) as unknown,
     });
   });
 
@@ -641,7 +643,7 @@ describe('the improve-station chat testing its change', () => {
       refusal: 'set-too-small',
       reason: expect.stringMatching(
         /^The replay set of the station has too few tasks to measure a change\. Minimum tasks required: \d+$/,
-      ),
+      ) as unknown,
     });
   });
 

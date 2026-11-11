@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+
 import { TooltipNoteContent } from '@/components/shared/TooltipNoteContent';
 import type { TipPlacement } from '@/hooks/useCursorTooltip';
 import type { TooltipNote } from '@/lib/tooltip-note';

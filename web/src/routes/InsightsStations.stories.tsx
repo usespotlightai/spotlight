@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { insightsPath } from '@/lib/insights';
 import { PLATFORM_ID, SLUG } from '@/mocks/world';
 import { PLATFORM_LINES } from '@/mocks/world/platform';

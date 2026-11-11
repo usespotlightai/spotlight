@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -10,6 +11,7 @@ import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp } from './support/app';
 import { eventually } from './support/eventually';
 import { aDispatch } from './support/runs';
@@ -153,7 +155,7 @@ describe('a task run whose order the catalog refuses (e2e)', () => {
     expect(notes).toEqual([
       expect.objectContaining({
         runId,
-        body: expect.stringContaining('requires the Team plan'),
+        body: expect.stringContaining('requires the Team plan') as unknown,
       }),
     ]);
   });

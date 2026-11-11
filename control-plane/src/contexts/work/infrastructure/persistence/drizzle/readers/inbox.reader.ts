@@ -67,12 +67,14 @@ import {
   type ConversationMark,
   conversationsAmong,
   failureIn,
+  latestRunsAtCurrentStation,
   type MarkedConversation,
   marksFor,
   newestNotesFor,
   noteKey,
   notesAt,
   stationsPerLine,
+  type TaskPlace,
   trailsFor,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
@@ -169,9 +171,11 @@ const taskRowsWhere = (
       originStationName: origin.name,
       originColor: origin.color,
       originPosition: origin.position,
+      currentStationId: task.stationId,
       currentStationName: workStation.name,
       currentStationColor: workStation.color,
       currentStationPosition: workStation.position,
+      revision: task.revision,
       createdAt: task.createdAt,
       finishedAt: task.finishedAt,
       working: task.currentRunId,
@@ -242,9 +246,11 @@ const requestsWhere = (
       title: task.title,
       description: task.description,
       createdAt: task.createdAt,
+      currentStationId: task.stationId,
       currentStationName: workStation.name,
       currentStationColor: workStation.color,
       currentStationPosition: workStation.position,
+      revision: task.revision,
     })
     .from(inboxRequest)
     .leftJoin(
@@ -308,7 +314,7 @@ const chatsWhere = (
       cursorAt: sortableTime(chat.resolvedAt),
       lastAt:
         sql<Date>`(select max("chat_message"."at") from "chat_message" where "chat_message"."chat_id" = "chat"."id")`.mapWith(
-          (value) => new Date(value),
+          (value: string) => new Date(value),
         ),
       openProposals:
         sql<number>`(select count(*) from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" = 'proposed' and "chat_message"."proposal"->>'state' = 'open')`.mapWith(
@@ -338,10 +344,21 @@ type ChatRow = Awaited<ReturnType<typeof chatsWhere>>[number];
 
 type TaskRow = Awaited<ReturnType<typeof tasksWhere>>[number];
 
+const placeOf = (row: {
+  readonly taskId: string;
+  readonly currentStationId: string;
+  readonly revision: number;
+}): TaskPlace => ({
+  taskId: row.taskId,
+  stationId: row.currentStationId,
+  revision: row.revision,
+});
+
 interface TaskContext {
   readonly stationCounts: ReadonlyMap<string, number>;
   readonly attached: ReadonlyMap<string, { own: readonly AttachmentSummary[] }>;
   readonly briefings: ReadonlyMap<string, string>;
+  readonly latestRuns: ReadonlyMap<string, string>;
 }
 
 const positionsOf = (
@@ -408,6 +425,7 @@ const conversationItem = (
       name: row.currentStationName,
       color: row.currentStationColor,
       position: row.currentStationPosition,
+      latestRunId: row.working ?? context.latestRuns.get(row.taskId) ?? null,
     },
     createdAt: row.createdAt,
     askedAt: lastNote?.at ?? last?.at ?? opening.at,
@@ -904,7 +922,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
     rows: readonly TaskRow[],
     conversations: readonly MarkedConversation<ConversationMark>[],
   ): Promise<TaskContext> {
-    const [stationCounts, attached, briefings] = await Promise.all([
+    const [stationCounts, attached, briefings, latestRuns] = await Promise.all([
       stationsPerLine(
         this.db,
         rows.map((row) => row.lineId),
@@ -919,9 +937,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
           each.from.runId ? [each.from.runId] : [],
         ),
       ),
+      latestRunsAtCurrentStation(this.db, rows.map(placeOf)),
     ]);
 
-    return { stationCounts, attached, briefings };
+    return { stationCounts, attached, briefings, latestRuns };
   }
 
   private async requestItems(
@@ -942,7 +961,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       return [];
     }
 
-    const [attached, stationCounts] = await Promise.all([
+    const [attached, stationCounts, latestRuns] = await Promise.all([
       attachmentsFor(
         this.db,
         attending.map((row) => row.taskId),
@@ -951,6 +970,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         this.db,
         attending.map((row) => row.lineId),
       ),
+      latestRunsAtCurrentStation(this.db, attending.map(placeOf)),
     ]);
 
     return attending.map((row) => {
@@ -974,7 +994,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
           stationPosition: currentStation.position,
           stationCount: stationCounts.get(row.lineId) ?? 1,
           originStation: currentStation,
-          currentStation,
+          currentStation: {
+            ...currentStation,
+            latestRunId: latestRuns.get(row.taskId) ?? null,
+          },
           createdAt: row.createdAt,
           askedAt: row.requestOpenedAt,
           resolved: row.resolvedAt !== null,

@@ -49,6 +49,9 @@ const SEED: LineDefinitionStation = {
   },
 };
 
+const fmtClean = (text: string) =>
+  !TERRAFORM_INSTALLED || formattedByTerraform(text) === text;
+
 const editedTo = (now: Partial<LineDefinitionStation>) =>
   new HclStationSourceEdits().edited({
     file: LINE,
@@ -93,10 +96,8 @@ describe('editing a line Spotlight exported', () => {
           '    ends      = true\n\n    model = "gpt-5"\n\n    judge {',
         ),
     );
-    if (TERRAFORM_INSTALLED) {
-      expect(formattedByTerraform(LINE.content)).toBe(LINE.content);
-      expect(formattedByTerraform(line)).toBe(line);
-    }
+    expect(fmtClean(LINE.content)).toBe(true);
+    expect(fmtClean(line)).toBe(true);
   });
 
   it('changes tools, skills and the profile the export wrote as references, keeping references where the export has the resource', async () => {
@@ -109,15 +110,13 @@ describe('editing a line Spotlight exported', () => {
 
     expect(edited.ok).toBe(true);
     expect(line).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+      // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       '    tools     = ["github.comment", "${spotlight_integration.core_linear.integration}.comment"]\n',
     );
     expect(line).toContain(
       '    skills    = ["catalog.research@1.0.0", spotlight_skill.core_grafana.key]\n',
     );
     expect(line).toContain('    profile   = "bold"\n');
-    if (TERRAFORM_INSTALLED) {
-      expect(formattedByTerraform(line)).toBe(line);
-    }
+    expect(fmtClean(line)).toBe(true);
   });
 });

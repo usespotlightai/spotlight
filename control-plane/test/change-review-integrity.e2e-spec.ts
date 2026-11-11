@@ -3,8 +3,8 @@ import { TeamDeletionReactions } from '@change-review/application/events/handler
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
-import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -27,9 +27,9 @@ import { DrizzleChangeStackReader } from '@change-review/infrastructure/persiste
 import { DrizzleChangeStackRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.repository';
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
 import { DrizzleQuestionAnswerRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/question-answer.repository';
-import { DrizzleReviewRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review.repository';
 import { DrizzleReviewCommentRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review-comment.repository';
 import { DrizzleReviewDeliveries } from '@change-review/infrastructure/persistence/drizzle/repositories/review-deliveries.repository';
+import { DrizzleReviewRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review.repository';
 import { DrizzleRunChangeChecksReader } from '@change-review/infrastructure/persistence/drizzle/repositories/run-change-checks.reader';
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -43,6 +43,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 const NOW = new Date('2026-11-07T10:00:00.000Z');

@@ -21,6 +21,6 @@ export const violates = (
 
   return (
     raised?.code === code &&
-    String(raised.constraint ?? '').includes(constraint)
+    (raised.constraint ?? '').includes(constraint)
   );
 };

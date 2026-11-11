@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   MEMBER_DIRECTORY,
   type MemberDirectoryPort,
@@ -13,9 +14,15 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
+
+interface Emails {
+  readonly signInEmail: string;
+  readonly additional: { id: string; email: string; status: string }[];
+}
 
 describe('additional emails (e2e)', () => {
   let app: INestApplication;
@@ -68,7 +75,7 @@ describe('additional emails (e2e)', () => {
     expect(sent[sent.length - 1]?.to).toBe(slack);
 
     const listed = (await as(seat.owner).get('/api/me/emails').expect(200))
-      .body;
+      .body as Emails;
 
     expect(listed.additional).toEqual([
       expect.objectContaining({ email: slack, status: 'pending' }),
@@ -84,8 +91,9 @@ describe('additional emails (e2e)', () => {
   });
 
   it('refuses the sign-in email', async () => {
-    const signIn = (await as(seat.owner).get('/api/me/emails').expect(200)).body
-      .signInEmail;
+    const signIn = (
+      (await as(seat.owner).get('/api/me/emails').expect(200)).body as Emails
+    ).signInEmail;
 
     await as(seat.owner).post('/api/me/emails', { email: signIn }).expect(422);
   });
@@ -114,8 +122,9 @@ describe('additional emails (e2e)', () => {
   });
 
   it('stops matching a removed address', async () => {
-    const [email] = (await as(seat.owner).get('/api/me/emails').expect(200))
-      .body.additional;
+    const [email] = (
+      (await as(seat.owner).get('/api/me/emails').expect(200)).body as Emails
+    ).additional;
 
     await as(seat.owner).delete(`/api/me/emails/${email.id}`).expect(204);
     await as(seat.member).delete(`/api/me/emails/${email.id}`).expect(404);
@@ -130,7 +139,7 @@ describe('additional emails (e2e)', () => {
         .post('/api/me/emails', { email: again })
         .expect(200);
       await as(seat.owner)
-        .delete(`/api/me/emails/${answer.body.id}`)
+        .delete(`/api/me/emails/${(answer.body as { id: string }).id}`)
         .expect(204);
     };
 

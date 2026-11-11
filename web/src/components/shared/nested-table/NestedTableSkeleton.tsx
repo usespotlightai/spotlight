@@ -1,11 +1,11 @@
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   LEAD_CELL,
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import type { NestedHeading } from '@/lib/nested-table';
 import { cn } from '@/lib/utils';
@@ -39,7 +39,6 @@ export function NestedTableSkeleton({
       >
         {Array.from({ length: rows }, (_, row) => (
           <li
-            // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
             key={row}
             aria-hidden
             className={cn(

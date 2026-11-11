@@ -21,9 +21,10 @@ import { stationsWorthImprovingFrom } from '@insights/domain/services/station-ra
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadInsightsOverviewHandler
-  implements QueryHandlerPort<ReadInsightsOverviewQuery, InsightsOverviewDto>
-{
+export class ReadInsightsOverviewHandler implements QueryHandlerPort<
+  ReadInsightsOverviewQuery,
+  InsightsOverviewDto
+> {
   constructor(
     private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,

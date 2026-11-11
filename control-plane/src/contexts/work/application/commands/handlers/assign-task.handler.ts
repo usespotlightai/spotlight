@@ -10,9 +10,10 @@ import type { WorkAccess } from '@work/application/services/work-access.service'
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
-export class AssignTaskHandler
-  implements CommandHandlerPort<AssignTaskCommand, void>
-{
+export class AssignTaskHandler implements CommandHandlerPort<
+  AssignTaskCommand,
+  void
+> {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly access: WorkAccess,

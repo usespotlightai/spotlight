@@ -1,11 +1,11 @@
 import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import type { StationConfigs } from '@replays/application/services/station-configs.service';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { needsBaseline } from '@replays/domain/services/baseline';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -53,6 +53,11 @@ export class EnsureCheckBaselines implements PendingJobsPort {
     }
 
     if (!replay) {
+      return;
+    }
+
+    if (!check.wantsBaselineFor(replay)) {
+      await this.checks.save(check.markBaselineUnavailable());
       return;
     }
 

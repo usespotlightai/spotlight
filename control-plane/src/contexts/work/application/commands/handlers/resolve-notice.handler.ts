@@ -5,9 +5,10 @@ import type { ResolveNoticeCommand } from '@work/application/commands/resolve-no
 import type { NoticeLoader } from '@work/application/services/notice-loader.service';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
 
-export class ResolveNoticeHandler
-  implements CommandHandlerPort<ResolveNoticeCommand, void>
-{
+export class ResolveNoticeHandler implements CommandHandlerPort<
+  ResolveNoticeCommand,
+  void
+> {
   constructor(
     private readonly loader: NoticeLoader,
     private readonly notices: NoticeRepository,

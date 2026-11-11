@@ -46,18 +46,16 @@ export function RepositorySpotlightShare({
       header: 'Repository',
       cell: (repository) => repository.repository,
     },
-    ...weeks.map(
-      (week): InsightsColumn<Repository> => ({
-        id: week,
-        header: formatDay(week),
-        numeric: true,
-        cell: (repository) =>
-          weekCell(
-            repository,
-            repository.weeks.find((each) => each.week === week),
-          ),
-      }),
-    ),
+    ...weeks.map((week): InsightsColumn<Repository> => ({
+      id: week,
+      header: formatDay(week),
+      numeric: true,
+      cell: (repository) =>
+        weekCell(
+          repository,
+          repository.weeks.find((each) => each.week === week),
+        ),
+    })),
     {
       id: 'merged',
       header: 'Merged',

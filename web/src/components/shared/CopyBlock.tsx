@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+
 import { CodeBlock } from '@/components/shared/CodeBlock';
 import { CopyIcon } from '@/components/shared/CopyIcon';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ export function CopyBlock({ text, label, focused, onCopy }: CopyBlockProps) {
         title={label}
         className="absolute top-1.5 right-1.5 text-muted-foreground"
         onClick={() => {
-          copy(text);
+          void copy(text);
           onCopy?.();
         }}
       >

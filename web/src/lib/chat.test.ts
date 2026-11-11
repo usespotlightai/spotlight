@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   type ChatMessage,
   chatPath,
@@ -25,21 +26,20 @@ const message = (over: Partial<ChatMessage>): ChatMessage => ({
   ...over,
 });
 
-const step = (over: Partial<JournalStep>): JournalStep =>
-  ({
-    kind: 'tool',
-    text: 'src/queue.ts',
-    status: 'completed',
-    tool: 'read',
-    detail: null,
-    ms: 10,
-    startedAt: '2026-09-14T09:00:01.000Z',
-    locations: [],
-    input: null,
-    output: null,
-    change: null,
-    ...over,
-  }) as JournalStep;
+const step = (over: Partial<JournalStep>): JournalStep => ({
+  kind: 'tool',
+  text: 'src/queue.ts',
+  status: 'completed',
+  tool: 'read',
+  detail: null,
+  ms: 10,
+  startedAt: '2026-09-14T09:00:01.000Z',
+  locations: [],
+  input: null,
+  output: null,
+  change: null,
+  ...over,
+});
 
 const journal = (steps: JournalStep[]): RunJournal =>
   ({ runId: 'run_1', attempt: 1, steps }) as unknown as RunJournal;

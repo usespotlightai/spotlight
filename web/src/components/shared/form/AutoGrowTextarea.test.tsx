@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 
 const measured = (element: HTMLElement, sizes: Record<string, number>) => {

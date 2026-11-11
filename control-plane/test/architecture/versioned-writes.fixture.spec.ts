@@ -1,5 +1,6 @@
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+
 import { versionedWritesIn } from './versioned-writes';
 
 const PATH = 'contexts/work/infrastructure/persistence/fixture.ts';

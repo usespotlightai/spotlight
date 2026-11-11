@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+
 import { NestedHeadings } from '@/components/shared/nested-table/NestedHeadings';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useColumnWidths } from '@/hooks/useColumnWidths';

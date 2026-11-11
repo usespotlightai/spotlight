@@ -6,12 +6,12 @@ import { ExternalPillLink } from '@/components/shared/ExternalPillLink';
 import { ClampedCell } from '@/components/shared/nested-table/ClampedCell';
 import { ExpandingRow } from '@/components/shared/nested-table/ExpandingRow';
 import { ExpandToggle } from '@/components/shared/nested-table/ExpandToggle';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   OUTER_DIVIDER,
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   Tooltip,
   TooltipContent,
@@ -92,6 +92,7 @@ export function CandidateComparisonRow({
             {costNote ? (
               <Tooltip>
                 <TooltipTrigger
+                  // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the trigger renders this button around its children
                   render={<button type="button" className="outline-none" />}
                 >
                   {cost}

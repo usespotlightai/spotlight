@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 
 const drawn = (share: number) => {

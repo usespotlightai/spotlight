@@ -1,6 +1,5 @@
 import { DeleteIntegrationCommand } from '@integrations/application/commands/delete-integration.command';
 import { DeleteIntegrationHandler } from '@integrations/application/commands/handlers/delete-integration.handler';
-import type { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
@@ -48,7 +47,7 @@ describe('DeleteIntegrationHandler', () => {
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
 
-    const [saved] = repository.save.mock.calls[0] as [IntegrationDefinition];
+    const [saved] = repository.save.mock.calls[0];
 
     expect(saved.isDeleted).toBe(true);
   });

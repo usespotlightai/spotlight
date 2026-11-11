@@ -13,10 +13,11 @@ import type {
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
-import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { Voice } from '@work/domain/value-objects/voice.vo';
 
 export const TASK_NOTE_KINDS = [
@@ -235,6 +236,12 @@ export class TaskNote {
           this.connectionAsk,
         )
       : this;
+  }
+
+  toldOn(line: LineMap | null): TaskNoteBody {
+    const to = this.deferredMove ? line?.stationAt(this.deferredMove.to) : null;
+
+    return to ? TaskNoteBody.deferredMove(to.name, this.body) : this.body;
   }
 
   acknowledge(at: Date): TaskNote {

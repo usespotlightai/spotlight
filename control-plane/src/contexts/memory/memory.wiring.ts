@@ -81,31 +81,31 @@ import { TeamMemoryLoader } from '@memory/application/services/team-memory-loade
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { WorkMemoryDrafts } from '@memory/application/services/work-memory-drafts.service';
 import {
-  MEMORIES,
-  type MemoryRepository,
-} from '@memory/domain/repositories/memory.repository';
-import {
   MEMORY_DRAFTS,
   type MemoryDraftRepository,
 } from '@memory/domain/repositories/memory-draft.repository';
+import {
+  MEMORIES,
+  type MemoryRepository,
+} from '@memory/domain/repositories/memory.repository';
 import { Lines } from '@memory/infrastructure/acl/lines.adapter';
 import { People } from '@memory/infrastructure/acl/people.adapter';
 import { Reviews } from '@memory/infrastructure/acl/reviews.adapter';
 import { Work } from '@memory/infrastructure/acl/work.adapter';
 import { ChatCompletionsMemoryDrafter } from '@memory/infrastructure/drafting/chat-completions-memory.drafter';
 import { MEMORY_PAYLOAD_TYPES } from '@memory/infrastructure/events/memory-payload-types';
-import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import { DrizzleMemoryListing } from '@memory/infrastructure/persistence/drizzle/repositories/memory-listing.reader';
 import { DrizzleMemoryRelevance } from '@memory/infrastructure/persistence/drizzle/repositories/memory-relevance.reader';
 import { DrizzleMemoryUses } from '@memory/infrastructure/persistence/drizzle/repositories/memory-uses.ledger';
+import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
 import { DrizzleTeamMemoryUse } from '@memory/infrastructure/persistence/drizzle/repositories/team-memory-use.reader';
 import { memorySubscribers } from '@memory/presentation/events/memory.subscribers';
 import { MemoryReviewController } from '@memory/presentation/http/controllers/memory-review.controller';
 import { RunMemoriesController } from '@memory/presentation/http/controllers/run-memories.controller';
-import { RunnerMemoryController } from '@memory/presentation/http/controllers/runner-memory.controller';
 import { RunnerMemoryFilesController } from '@memory/presentation/http/controllers/runner-memory-files.controller';
+import { RunnerMemoryController } from '@memory/presentation/http/controllers/runner-memory.controller';
 import { TeamMemoryController } from '@memory/presentation/http/controllers/team-memory.controller';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';

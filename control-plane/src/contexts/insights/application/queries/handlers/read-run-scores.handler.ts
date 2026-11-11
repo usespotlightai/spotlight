@@ -7,9 +7,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ReadRunScoresHandler
-  implements QueryHandlerPort<ReadRunScoresQuery, RunScoresDto>
-{
+export class ReadRunScoresHandler implements QueryHandlerPort<
+  ReadRunScoresQuery,
+  RunScoresDto
+> {
   constructor(
     private readonly access: InsightsAccess,
     private readonly views: RunScoresViews,

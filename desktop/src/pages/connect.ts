@@ -50,10 +50,13 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-form.addEventListener('submit', async (event) => {
-  event.preventDefault();
-
+const save = async () => {
   if (!(await bridge.save(input.value))) {
     said('The address must use https, such as https://spotlight.example.com.');
   }
+};
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  void save();
 });

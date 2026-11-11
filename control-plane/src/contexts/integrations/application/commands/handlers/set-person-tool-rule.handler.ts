@@ -12,9 +12,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class SetPersonToolRuleHandler
-  implements CommandHandlerPort<SetPersonToolRuleCommand, boolean>
-{
+export class SetPersonToolRuleHandler implements CommandHandlerPort<
+  SetPersonToolRuleCommand,
+  boolean
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly defined: DefinedIntegrationsPort,

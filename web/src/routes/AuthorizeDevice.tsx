@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from 'react-router';
+
 import { DecideDevice } from '@/components/features/devices/DecideDevice';
 import { EnterUserCode } from '@/components/features/devices/EnterUserCode';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';

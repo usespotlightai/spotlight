@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import { API_PREFIX } from '@platform/http/routes';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -8,6 +9,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { requestedByChat, requestedBySpec } from './support/runs';
 import * as schema from './support/schema';

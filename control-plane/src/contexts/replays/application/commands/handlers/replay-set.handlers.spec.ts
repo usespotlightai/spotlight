@@ -154,7 +154,7 @@ describe('KeepReplaySets', () => {
     expect(memory.schedules.size).toBe(0);
 
     const [created] = memory.sets.values();
-    await keeping().onSetCreated(created?.id as ReplaySetId);
+    await keeping().onSetCreated(created?.id);
     expect(memory.schedules.size).toBe(1);
 
     memory.schedules.clear();
@@ -280,9 +280,10 @@ describe('RefreshReplaySets', () => {
     expect(memory.sets.get('set_1')?.refreshedAt).toBeNull();
 
     const search = await memory.searchRepository.find(SEARCH_ID);
-    await memory.searchRepository.save(
-      search?.turnOff(NOW) ?? expect.unreachable(),
-    );
+    if (!search) {
+      throw new Error('the search is missing');
+    }
+    await memory.searchRepository.save(search.turnOff(NOW));
     await refreshing().processDue();
 
     expect(runsOfSet()).toEqual(['run_1']);
@@ -351,7 +352,7 @@ describe('RefreshReplaySets', () => {
       await memory.replayRepository.add(
         replayFor(set, `replay_busy_${at}`, 'candidate_busy', null)
           .reserving(slots(1), () => RunId.of(`busy_run_${at}`))
-          .stop(NOW, BY),
+          .stop(NOW, BY, 'search-ended'),
       );
     }
     await memory.setRepository.add(unrefreshed());
@@ -367,7 +368,7 @@ describe('RefreshReplaySets', () => {
     await memory.replayRepository.add(
       aReplay({ count: 1 })
         .reserving(slots(1), () => RunId.of('replay_run_1'))
-        .stop(NOW, BY),
+        .stop(NOW, BY, 'search-ended'),
     );
     suppliers.trialableRuns.recent = [recent('run_1')];
 

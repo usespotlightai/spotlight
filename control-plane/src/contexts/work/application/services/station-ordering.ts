@@ -29,8 +29,8 @@ import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
-import type { Station } from '@work/domain/value-objects/station.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 
 export interface Ordered {
   readonly station: Station | null;
@@ -106,7 +106,7 @@ export class StationOrdering {
       at,
       line,
       harnesses: this.harnesses.current(),
-      ready: ready.map(ReadySkillMapper.toReady),
+      ready: ready.map((each) => ReadySkillMapper.toReady(each)),
       profiles: await this.profilesAt(line, station),
       denied:
         station && catalog ? readying.denied(station, catalog.denied) : [],

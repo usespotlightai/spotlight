@@ -147,13 +147,15 @@ const provisioning = (
   );
   const release = vi.fn(async () => {});
   const checks = {
-    awaiting: vi.fn(async (_workspaceId: WorkspaceId, _at: Date, page) =>
-      page.skip === 0 ? (waitingChecks.awaiting ?? []) : [],
+    awaiting: vi.fn<CheckProvisioningPort['awaiting']>(
+      async (_workspaceId, _at, page) =>
+        page.skip === 0 ? (waitingChecks.awaiting ?? []) : [],
     ),
-    reserve: vi.fn(async (_check: CheckWorkId, _runner: RunnerId, _pool, at) =>
-      waitingChecks.reserves === false
-        ? null
-        : new Date(at.getTime() + 5 * 60_000),
+    reserve: vi.fn<CheckProvisioningPort['reserve']>(
+      async (_check, _runner, _pool, at) =>
+        waitingChecks.reserves === false
+          ? null
+          : new Date(at.getTime() + 5 * 60_000),
     ),
     unreserve: vi.fn(async () => {}),
     failed: vi.fn(async () => {}),
@@ -259,7 +261,9 @@ describe('ProvisionWork', () => {
       new Error('the provision secret does not open here'),
     );
 
-    await expect(provisioner.due()).rejects.toThrow();
+    await expect(provisioner.due()).rejects.toThrow(
+      'the provision secret does not open',
+    );
 
     expect(checks.unreserve).toHaveBeenCalledWith(
       CheckWorkId.of('stack_1'),

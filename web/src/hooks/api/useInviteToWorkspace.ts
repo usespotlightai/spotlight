@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { inviteKeys } from '@/hooks/api/useWorkspaceInvites';
 import { workspaceMemberKeys } from '@/hooks/api/useWorkspaceMembers';
 import { type InviteToWorkspaceRequestDto, inviteToWorkspace } from '@/lib/api';
@@ -25,10 +26,10 @@ export function useInviteToWorkspace(slug: string | undefined) {
       );
     },
     onSettled: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: inviteKeys.forWorkspace(slug),
       });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: workspaceMemberKeys.forWorkspace(slug),
       });
     },

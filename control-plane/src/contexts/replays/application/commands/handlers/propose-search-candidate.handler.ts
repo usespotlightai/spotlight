@@ -39,10 +39,10 @@ interface Proposal {
   readonly validated: Extract<ValidatedCandidate, { ok: true }>;
 }
 
-export class ProposeSearchCandidateHandler
-  implements
-    CommandHandlerPort<ProposeSearchCandidateCommand, SearchCandidateProposed>
-{
+export class ProposeSearchCandidateHandler implements CommandHandlerPort<
+  ProposeSearchCandidateCommand,
+  SearchCandidateProposed
+> {
   constructor(
     private readonly people: PeoplePort,
     private readonly lines: LinesPort,

@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+
 import type {
   ReplayedCandidateResponseDto,
   ReplayedCandidatesResponseDto,
@@ -53,7 +54,7 @@ export type ReplayedPoint = {
 const formatHeldOutScore = (candidate: SetCandidate): string | null => {
   const heldOut = candidate.heldOut;
 
-  return heldOut?.score == null
+  return heldOut === null || heldOut.score === null
     ? null
     : `${formatPercent(heldOut.score)} ${formatHeldOutRuns(heldOut.runs)}`;
 };

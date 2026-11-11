@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { restorable, type WindowState } from './window-state';
 
 const LAPTOP = { x: 0, y: 25, width: 1512, height: 920 };

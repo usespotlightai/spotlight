@@ -26,8 +26,8 @@ import { workAccessSeeing } from '@work/application/services/work-access.fake-sp
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import {
   lineMapOf,
   stationOf,
@@ -89,7 +89,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
       harness: station.harness.value,
       priority: station.position,
       brief: TaskBriefing.brief({
-        task: task.briefed,
+        task: task.briefedOn(line),
         line,
         skills: [],
         listedIn: null,
@@ -334,7 +334,7 @@ describe('AddTaskHandler', () => {
         }),
       ),
     ).rejects.toMatchObject({
-      refusal: expect.any(TeamMembershipRequiredError),
+      refusal: expect.any(TeamMembershipRequiredError) as unknown,
     });
     expect(added).toBeUndefined();
   });

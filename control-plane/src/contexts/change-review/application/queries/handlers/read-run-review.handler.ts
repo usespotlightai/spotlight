@@ -51,14 +51,18 @@ const stateOf = (
     case 'posted':
     case 'failed':
       return state;
-    default:
+    case 'sending':
+    case 'submitted':
+    case 'deleted':
+    case 'discarded':
       return 'sending';
   }
 };
 
-export class ReadRunReviewHandler
-  implements QueryHandlerPort<ReadRunReviewQuery, RunReviewDto>
-{
+export class ReadRunReviewHandler implements QueryHandlerPort<
+  ReadRunReviewQuery,
+  RunReviewDto
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly reader: ReviewReaderPort,
@@ -101,28 +105,26 @@ export class ReadRunReviewHandler
 
       return {
         pullRequest: task.pullRequest?.value ?? null,
-        comments: comments.map(
-          ({ view, author }): ReviewCommentDto => ({
-            id: view.id,
-            repository: view.repository,
-            path: view.path,
-            side: view.side,
-            line: view.line,
-            startLine: view.startLine,
-            body: view.body,
-            authorName: author.name.value,
-            authorLogin: author.login,
-            authorImage: imageOf(author),
-            viewerIsAuthor: author.userId?.equals(by) ?? false,
-            isAgentAuthored: author.kind === 'agent',
-            replyTo: view.replyTo,
-            state: stateOf(view.state),
-            failure: failureOf(view),
-            url: view.url,
-            createdAt: view.createdAt.toISOString(),
-            editedAt: view.editedAt?.toISOString() ?? null,
-          }),
-        ),
+        comments: comments.map(({ view, author }): ReviewCommentDto => ({
+          id: view.id,
+          repository: view.repository,
+          path: view.path,
+          side: view.side,
+          line: view.line,
+          startLine: view.startLine,
+          body: view.body,
+          authorName: author.name.value,
+          authorLogin: author.login,
+          authorImage: imageOf(author),
+          viewerIsAuthor: author.userId?.equals(by) ?? false,
+          isAgentAuthored: author.kind === 'agent',
+          replyTo: view.replyTo,
+          state: stateOf(view.state),
+          failure: failureOf(view),
+          url: view.url,
+          createdAt: view.createdAt.toISOString(),
+          editedAt: view.editedAt?.toISOString() ?? null,
+        })),
         reviews: await Promise.all(
           reviews.map(async (review): Promise<ReviewDto> => {
             const author = authorOf(review);

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { listMyEmails } from '@/lib/api';
 
 export const myEmailKeys = {

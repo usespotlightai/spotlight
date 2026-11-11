@@ -14,10 +14,18 @@ export const CLI_CLIENT_ID = 'spotlight-cli';
 
 const DEVICE_CODE_PATH = '/device/code';
 
+const fieldOf = (body: unknown, field: string): unknown =>
+  typeof body === 'object' && body !== null
+    ? (body as Record<string, unknown>)[field]
+    : undefined;
+
 const refusesClientChosenFields = createAuthMiddleware(async (ctx) => {
+  const body: unknown = ctx.body;
+
   if (
     ctx.path === DEVICE_CODE_PATH &&
-    (ctx.body?.user_id !== undefined || ctx.body?.scope !== undefined)
+    (fieldOf(body, 'user_id') !== undefined ||
+      fieldOf(body, 'scope') !== undefined)
   ) {
     throw new APIError('BAD_REQUEST', {
       error: 'invalid_request',

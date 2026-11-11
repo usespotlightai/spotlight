@@ -7,7 +7,6 @@ import type {
   SecretRecord,
   SecretResourcesPort,
 } from '@secrets/application/ports/secret-resources.port';
-import type { SecretSourceKind } from '@secrets/domain/value-objects/secret-source.vo';
 import { secret } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
@@ -18,7 +17,7 @@ const recordOf = (row: typeof secret.$inferSelect): SecretRecord => ({
   workspaceId: WorkspaceId.of(row.workspaceId),
   name: row.name,
   source: {
-    kind: row.source as SecretSourceKind,
+    kind: row.source,
     secretId: row.sourceSecretId,
     field: row.sourceField,
   },

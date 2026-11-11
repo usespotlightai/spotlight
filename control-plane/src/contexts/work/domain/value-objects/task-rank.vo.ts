@@ -5,7 +5,7 @@ const BASE = DIGITS.length;
 const RANK = /^[0-9a-z]+$/;
 
 const digitAt = (value: string, index: number, beyond: number): number =>
-  index < value.length ? DIGITS.indexOf(value[index] as string) : beyond;
+  index < value.length ? DIGITS.indexOf(value[index]) : beyond;
 
 const midstring = (before: string, after: string): string => {
   let prefix = '';

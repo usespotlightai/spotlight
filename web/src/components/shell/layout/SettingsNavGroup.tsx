@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { SidebarHeading } from '@/components/shell/layout/SidebarHeading';
 
 type SettingsNavGroupProps = {

@@ -8,8 +8,8 @@ import { RunStopRequested } from '@runs/domain/events/run-stop-requested.event';
 import { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-transition.error';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
-import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
+import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
@@ -429,6 +429,6 @@ describe('the turn of a run that holds it', () => {
     ).toThrow(InconsistentStateError);
     expect(() =>
       Run.rehydrate({ ...stored(pending()), claimedBy: RUNNER }),
-    ).toThrow();
+    ).toThrow('is suspended yet still');
   });
 });

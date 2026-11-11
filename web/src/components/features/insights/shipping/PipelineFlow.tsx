@@ -1,5 +1,6 @@
 import { Pause, Play } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { PipelineFlowChart } from '@/components/features/insights/shipping/PipelineFlowChart';

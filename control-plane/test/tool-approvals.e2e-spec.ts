@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -18,6 +19,7 @@ import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { aRunOf } from './support/run-ended';
 import { createTeam } from './support/team';
@@ -62,6 +64,9 @@ const readBack = async (task: Task): Promise<Task> => {
   return found;
 };
 
+const withCurrentRun = (task: Task, runId: RunId): Task =>
+  Task.rehydrate({ ...task, currentRunId: runId });
+
 describe('an approval a run asked for', () => {
   const asking = async (subject: ApprovalSubject = CALL) => {
     const { list, owner } = await createTeam(
@@ -88,7 +93,7 @@ describe('an approval a run asked for', () => {
     const closed = await readBack(list);
 
     await tasks.save(
-      Task.rehydrate({ ...closed, currentRunId: runId }).clearFor(
+      withCurrentRun(closed, runId).clearFor(
         subject,
         NEEDED,
         {
@@ -203,10 +208,7 @@ describe('an approval a run asked for', () => {
       'Approved.',
     );
 
-    const { task: claimed, check } = Task.rehydrate({
-      ...approved,
-      currentRunId: runId,
-    }).clearFor(
+    const { task: claimed, check } = withCurrentRun(approved, runId).clearFor(
       CALL,
       NEEDED,
       {
@@ -250,10 +252,7 @@ describe('an approval a run asked for', () => {
     );
 
     const claiming = async () =>
-      Task.rehydrate({
-        ...(await readBack(task)),
-        currentRunId: runId,
-      }).clearFor(
+      withCurrentRun(await readBack(task), runId).clearFor(
         CALL,
         NEEDED,
         {
@@ -364,7 +363,7 @@ describe('an approval a run asked for', () => {
     const closed = await readBack(list);
 
     await tasks.save(
-      Task.rehydrate({ ...closed, currentRunId: runId }).clearFor(
+      withCurrentRun(closed, runId).clearFor(
         CALL,
         NEEDED,
         {

@@ -10,9 +10,10 @@ import type { TeamWorkAccess } from '@change-review/application/services/team-wo
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadTaskDecisionsHandler
-  implements QueryHandlerPort<ReadTaskDecisionsQuery, TaskDecisionsDto | null>
-{
+export class ReadTaskDecisionsHandler implements QueryHandlerPort<
+  ReadTaskDecisionsQuery,
+  TaskDecisionsDto | null
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly decisions: DecisionReaderPort,

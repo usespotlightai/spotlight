@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router';
+
 import { CostSlices } from '@/components/features/insights/CostSlices';
 
 const repositories = Array.from({ length: 12 }, (_, at) => ({

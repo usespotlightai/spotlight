@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import type { DiffFile, DiffHunk } from '@/lib/change-stack';
 import {
   drafts,

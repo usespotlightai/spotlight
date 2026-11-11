@@ -37,7 +37,7 @@ describe('LatencyHistogram', () => {
     const histogram = LatencyHistogram.timing([200]);
 
     for (const percent of [0, -5, 101, Number.NaN]) {
-      expect(() => histogram.percentile(percent)).toThrowError(
+      expect(() => histogram.percentile(percent)).toThrow(
         InvalidLatencyHistogramError,
       );
     }

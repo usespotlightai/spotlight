@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -21,7 +22,8 @@ import { TakeTurn } from '@work/application/services/take-turn.service';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq, ne } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
 import { aDispatch, requestedByTask } from './support/runs';
@@ -40,6 +42,7 @@ interface InboxItem {
   readonly taskId: string;
   readonly progress: string | null;
   readonly runId: string | null;
+  readonly currentStation: { readonly latestRunId: string | null };
 }
 
 const HOST = `host-paused-${randomUUID().slice(0, 8)}`;
@@ -206,8 +209,8 @@ const inboxItemOf = (taskId: string): Promise<InboxItem> =>
           .get(`/api/workspaces/${team.slug}/inbox`)
           .set(TEST_USER_HEADER, team.owner.value)
           .expect(200)
-      ).body.items as InboxItem[]
-    ).find((each) => each.kind === 'task' && each.taskId === taskId),
+      ).body as { readonly items: InboxItem[] }
+    ).items.find((each) => each.kind === 'task' && each.taskId === taskId),
   );
 
 const runIn = (runId: string, state: string) =>
@@ -389,7 +392,10 @@ describe('a run that asks a person', () => {
     });
     expect(requeued?.workingCopyKey).toBe(`work/task-${taskId}`);
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
-    expect((await inboxItemOf(taskId)).progress).toBe('queued');
+    expect(await inboxItemOf(taskId)).toMatchObject({
+      progress: 'queued',
+      currentStation: { latestRunId: runId },
+    });
 
     const second = await claimed(runId);
     expect(second).not.toBe(first);
@@ -417,7 +423,7 @@ describe('a run that asks a person', () => {
       journal
         .filter((each) => each.runId === runId)
         .map((each) => each.attempt)
-        .sort(),
+        .sort((a, b) => a - b),
     ).toEqual([1, 2]);
 
     await runner(second)
@@ -654,7 +660,9 @@ describe('a message in a run chat', () => {
     expect(dispatched?.stationId).toBe(DEPLOY);
     expect(queued?.workingCopyKey).toBe(`work/task-${taskId}`);
     expect(queued?.spec).toMatchObject({
-      briefing: expect.stringContaining('Deploy the docs with it too.'),
+      briefing: expect.stringContaining(
+        'Deploy the docs with it too.',
+      ) as unknown,
       resume: { sessionId: 'session_1' },
     });
 
@@ -673,11 +681,11 @@ describe('a message in a run chat', () => {
       .send({ stationId: BACKLOG, revision: 0 })
       .expect(200);
 
-    const rejected = await http()
+    const rejected = (await http()
       .post(`/api/teams/${team.teamId.value}/runs/${runId}/messages`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ body: 'Drain it after all.' })
-      .expect(409);
+      .expect(409)) as Answer<{ readonly message: string }>;
 
     expect(rejected.body.message).toContain('has moved on from that station');
     expect((await taskRow(taskId))?.currentRunId).toBeNull();

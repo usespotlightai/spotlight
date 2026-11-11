@@ -31,7 +31,7 @@ export const LineHttpMapper = {
       dto.id,
       dto.key,
       dto.name,
-      dto.stations.map(LineHttpMapper.stationToResponse),
+      dto.stations.map((each) => LineHttpMapper.stationToResponse(each)),
       dto.reactions.map(
         (each) => new ReactionResponseDto(each.happening, each.from, each.to),
       ),

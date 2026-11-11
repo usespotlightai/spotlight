@@ -1,4 +1,5 @@
 import { MousePointer2 } from 'lucide-react';
+
 import { EmptyState } from '@/components/shared/EmptyState';
 
 export function ChatEmpty() {

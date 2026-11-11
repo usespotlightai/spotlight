@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react';
+
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
   type InsightsColumn,

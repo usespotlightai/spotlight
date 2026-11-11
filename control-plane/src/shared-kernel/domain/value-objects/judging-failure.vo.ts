@@ -16,6 +16,7 @@ const ONCE_MORE = Retry.backoff({
 const JUDGING_FAILURES = {
   'no-evidence': Retry.never(),
   'request-failed': AGAIN,
+  'insufficient-credits': Retry.never(),
   unreadable: ONCE_MORE,
   ungrounded: ONCE_MORE,
   errored: AGAIN,

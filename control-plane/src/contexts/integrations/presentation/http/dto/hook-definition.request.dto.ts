@@ -1,8 +1,8 @@
+import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HOOK_ON_FAILURES,
   Hook,
 } from '@integrations/domain/value-objects/hook.vo';
-import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HookMatchDto,
   HookOidcDto,

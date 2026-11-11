@@ -1,8 +1,8 @@
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ReplayCheckVersionConflictError } from '@replays/domain/exceptions/replay-check-version-conflict.error';
 import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
@@ -42,14 +42,15 @@ import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
 import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/drizzle/repositories/candidate.repository';
-import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleReplayCheckRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-check.repository';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
+import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 let database: TestDatabase;
@@ -106,7 +107,7 @@ const travelled = (search: Search): Search => {
   const runs = searchRunIds();
 
   return search
-    .recordReplayStopReason(SEED, 'finished', charged(5), NOW, runs, true)
+    .recordReplayEndState(SEED, 'finished', charged(5), NOW, runs, true)
     .queueRun(RunId.of('search_run_1'))
     .acceptProposal(RunId.of('search_run_1'), {
       candidateId: CandidateId.of('candidate_terse'),
@@ -126,7 +127,7 @@ const travelled = (search: Search): Search => {
       later(1),
       runs,
     )
-    .recordReplayStopReason(
+    .recordReplayEndState(
       ReplayId.of('replay_terse'),
       'finished',
       charged(2.5),
@@ -220,7 +221,7 @@ describe('DrizzleSearchRepository', () => {
       () => ReplayId.of('held_out_terse'),
       later(4),
     );
-    search = search.recordReplayStopReason(
+    search = search.recordReplayEndState(
       ReplayId.of('held_out_terse'),
       'ceiling-reached',
       charged(1),

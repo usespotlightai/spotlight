@@ -6,7 +6,7 @@ export function JudgeClaims({ claims }: { claims: readonly string[] }) {
     >
       {claims.map((claim, at) => (
         <li
-          // biome-ignore lint/suspicious/noArrayIndexKey: the position of a claim in the judge's list identifies it
+          // oxlint-disable-next-line react/no-array-index-key -- the position of a claim in the judge's list identifies it
           key={at}
           data-slot="judge-claim"
         >

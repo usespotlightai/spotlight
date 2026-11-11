@@ -1,4 +1,5 @@
 import { Inbox } from 'lucide-react';
+
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { inboxItemPath } from '@/lib/inbox';
 import type { Review } from '@/lib/run';

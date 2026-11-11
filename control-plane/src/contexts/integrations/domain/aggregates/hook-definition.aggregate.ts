@@ -8,11 +8,11 @@ import {
   providesTool,
 } from '@integrations/domain/services/hook-allowances';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
-import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
+import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';

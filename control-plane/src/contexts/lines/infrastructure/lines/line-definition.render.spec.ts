@@ -2,9 +2,9 @@ import type { LineDefinition } from '@lines/application/contracts/line-definitio
 import type { Line } from '@lines/domain/aggregates/line.aggregate';
 import { createLine } from '@lines/domain/services/reconcile-line';
 import { LineSearchPolicy } from '@lines/domain/value-objects/search-policy.vo';
-import { compileLine } from '@lines/infrastructure/lines/line.compile';
 import { renderLine } from '@lines/infrastructure/lines/line-definition.render';
 import type { LineFields } from '@lines/infrastructure/lines/line-definition.schema';
+import { compileLine } from '@lines/infrastructure/lines/line.compile';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';

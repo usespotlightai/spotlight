@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ToolsTab } from '@/components/features/insights/tools/ToolsTab';
 import { stationNamesOf } from '@/lib/insights';
 import type { InsightsTools } from '@/lib/insights-tools';

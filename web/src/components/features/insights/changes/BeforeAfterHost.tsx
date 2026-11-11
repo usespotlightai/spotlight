@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo, useState } from 'react';
+
 import { BeforeAfterPanel } from '@/components/features/insights/changes/BeforeAfterPanel';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { useDelayedValue } from '@/hooks/useDelayedValue';

@@ -13,9 +13,7 @@ import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
-export class SetupPullRequestToolUse
-  implements BuiltInToolUse<ChatToolContext>
-{
+export class SetupPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
   readonly tool = SETUP_PULL_REQUEST;
 
   constructor(

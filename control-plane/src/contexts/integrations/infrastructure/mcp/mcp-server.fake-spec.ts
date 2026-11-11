@@ -5,6 +5,7 @@ import {
   type ServerResponse,
 } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ElicitResultSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -135,61 +136,63 @@ export const fakeMcpServer = async (
   let started = 0;
   let origin = '';
 
-  const http = createServer(async (request, reply) => {
-    const path = new URL(request.url ?? '/', origin).pathname;
-    const authorization = headerOf(request, 'authorization');
+  const http = createServer((request, reply) => {
+    void (async () => {
+      const path = new URL(request.url ?? '/', origin).pathname;
+      const authorization = headerOf(request, 'authorization');
 
-    received.push({
-      method: request.method ?? 'GET',
-      path,
-      authorization,
-      apiKey: headerOf(request, 'x-api-key'),
-      key: new URL(request.url ?? '/', origin).searchParams.get('key'),
-    });
-
-    if (path !== PATH) {
-      if (!(await options.other?.(request, reply, origin))) {
-        reply.writeHead(404).end();
-      }
-
-      return;
-    }
-
-    if (options.token && authorization !== `Bearer ${options.token}`) {
-      reply
-        .writeHead(401, {
-          'www-authenticate': `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource${PATH}"`,
-        })
-        .end();
-      return;
-    }
-
-    const id = headerOf(request, 'mcp-session-id');
-    const existing = id ? sessions.get(id) : undefined;
-
-    if (id && !existing) {
-      reply.writeHead(404).end();
-      return;
-    }
-
-    const transport =
-      existing ??
-      new StreamableHTTPServerTransport({
-        sessionIdGenerator: randomUUID,
-        onsessioninitialized: (opened) => {
-          sessions.set(opened, transport);
-        },
+      received.push({
+        method: request.method ?? 'GET',
+        path,
+        authorization,
+        apiKey: headerOf(request, 'x-api-key'),
+        key: new URL(request.url ?? '/', origin).searchParams.get('key'),
       });
 
-    if (!existing) {
-      started += 1;
-      await registered(
-        new McpServer({ name: 'tracker', version: '1.0.0' }),
-        called,
-      ).connect(transport);
-    }
+      if (path !== PATH) {
+        if (!(await options.other?.(request, reply, origin))) {
+          reply.writeHead(404).end();
+        }
 
-    await transport.handleRequest(request, reply);
+        return;
+      }
+
+      if (options.token && authorization !== `Bearer ${options.token}`) {
+        reply
+          .writeHead(401, {
+            'www-authenticate': `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource${PATH}"`,
+          })
+          .end();
+        return;
+      }
+
+      const id = headerOf(request, 'mcp-session-id');
+      const existing = id ? sessions.get(id) : undefined;
+
+      if (id && !existing) {
+        reply.writeHead(404).end();
+        return;
+      }
+
+      const transport =
+        existing ??
+        new StreamableHTTPServerTransport({
+          sessionIdGenerator: randomUUID,
+          onsessioninitialized: (opened) => {
+            sessions.set(opened, transport);
+          },
+        });
+
+      if (!existing) {
+        started += 1;
+        await registered(
+          new McpServer({ name: 'tracker', version: '1.0.0' }),
+          called,
+        ).connect(transport);
+      }
+
+      await transport.handleRequest(request, reply);
+    })();
   });
 
   await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', resolve));

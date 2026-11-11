@@ -148,7 +148,7 @@ export class ExpressionChecks implements ExpressionChecksPort {
 
     if (this.remembered.size > REMEMBERED) {
       const [oldest] = this.remembered.keys();
-      this.remembered.delete(oldest as string);
+      this.remembered.delete(oldest);
     }
 
     return compiled;

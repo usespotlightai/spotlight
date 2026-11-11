@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react';
+
 import type { ShownStep } from '@/lib/journal-step';
 import { cn } from '@/lib/utils';
 

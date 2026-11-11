@@ -8,10 +8,10 @@ import type { AttachmentStorePort } from '@work/application/ports/attachment-sto
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 
-export class GrantAttachmentUploadHandler
-  implements
-    CommandHandlerPort<GrantAttachmentUploadCommand, AttachmentUploadDto | null>
-{
+export class GrantAttachmentUploadHandler implements CommandHandlerPort<
+  GrantAttachmentUploadCommand,
+  AttachmentUploadDto | null
+> {
   constructor(
     private readonly access: WorkAccess,
     private readonly files: AttachmentStorePort,

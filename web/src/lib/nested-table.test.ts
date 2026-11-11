@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { columnTemplate } from '@/lib/nested-table';
 
 const HEADINGS = [

@@ -47,7 +47,7 @@ export class DrizzleTeamMemoryUse implements TeamMemoryUsePort {
       .orderBy(desc(memory.retiredAt));
 
     return {
-      activeCount: Number(active?.memories ?? 0),
+      activeCount: active?.memories ?? 0,
       flagged: retired.flatMap((row) => {
         if (!row.at) {
           return [];

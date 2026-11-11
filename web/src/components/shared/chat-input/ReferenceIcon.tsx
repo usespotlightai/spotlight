@@ -5,6 +5,7 @@ import {
   type LucideIcon,
   MousePointer2,
 } from 'lucide-react';
+
 import { isCode, type Reference } from '@/lib/chat-input';
 import { cn } from '@/lib/utils';
 

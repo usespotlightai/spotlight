@@ -130,13 +130,11 @@ export class LineSearchBudget extends EventRecorder {
     );
     const notStartedYet = kept
       .filter((each) => !isStarted(each))
-      .map(
-        (each): SpendingSearch => ({
-          isActive: true,
-          spent: Money.none(each.ceiling.currency),
-          budget: { ceiling: each.ceiling },
-        }),
-      );
+      .map((each): SpendingSearch => ({
+        isActive: true,
+        spent: Money.none(each.ceiling.currency),
+        budget: { ceiling: each.ceiling },
+      }));
 
     if (!fitsMonthAfter(policy, [...startedThisMonth, ...notStartedYet])) {
       throw new MonthlyCeilingReachedError(this.state.lineId);

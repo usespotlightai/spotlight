@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+
 import { Language, type Node, Parser } from '@vscode/tree-sitter-wasm';
 
 interface HclSpan {
@@ -216,9 +217,7 @@ const literalOf = (node: Node, text: string): HclLiteral | undefined => {
         .filter((each) => each.type === 'expression')
         .map((each) => literalOf(each, text));
 
-      return items.every((each) => each !== undefined)
-        ? (items as HclLiteral[])
-        : undefined;
+      return items.every((each) => each !== undefined) ? items : undefined;
     }
     default:
       return undefined;
@@ -285,7 +284,7 @@ const fileOf = (node: Node): ParsedValue | null => {
   }
 
   if (argument.type === 'quoted_template' && isModulePath(argument)) {
-    const rest = namedOf(argument)[2] as Node;
+    const rest = namedOf(argument)[2];
 
     return {
       kind: 'file',

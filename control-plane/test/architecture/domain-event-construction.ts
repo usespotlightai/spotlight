@@ -1,4 +1,5 @@
 import ts from 'typescript';
+
 import { DECLARED_EVENTS, isDomainEventsPath } from './domain-event-kinds';
 import {
   descendants,

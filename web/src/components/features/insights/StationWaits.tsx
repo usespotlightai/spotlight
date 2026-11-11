@@ -6,6 +6,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
 import { WAIT_SERIES } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { StationWaitsTable } from '@/components/features/insights/StationWaitsTable';

@@ -1,4 +1,5 @@
 import { generateKeyPairSync } from 'node:crypto';
+
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { GitHubInstallationAdministration } from '@github/infrastructure/github/github-installation.administration';
 import type { Env } from '@platform/config/env.schema';
@@ -12,7 +13,7 @@ const env = {
   GITHUB_APP_PRIVATE_KEY: privateKey.export({
     type: 'pkcs1',
     format: 'pem',
-  }) as string,
+  }),
 } as Env;
 
 const LEON = UserId.of('user_leon');
@@ -31,7 +32,7 @@ const PERSONAL = {
 
 const github = (routes: Record<string, Answer>) => {
   const fetching = vi.fn(async (url: string) => {
-    const path = String(url).replace('https://api.github.com', '');
+    const path = url.replace('https://api.github.com', '');
     const answer = routes[path] ?? { status: 404, body: {} };
 
     return {

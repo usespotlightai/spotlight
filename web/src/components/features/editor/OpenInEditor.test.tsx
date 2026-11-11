@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { OpenInEditor } from '@/components/features/editor/OpenInEditor';
 import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
 
@@ -46,7 +47,9 @@ describe.each(presentations)('%s', (_, renderControl) => {
 
     fireEvent.click(screen.getByRole('link', { name: 'Open in VS Code' }));
     expect(screen.queryByText('Set up this computer once')).toBeNull();
-    act(() => vi.advanceTimersByTime(2_000));
+    act(() => {
+      vi.advanceTimersByTime(2_000);
+    });
 
     expect(screen.getByText('Set up this computer once')).toBeInTheDocument();
     expect(

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   CHANGE_STACK_GENERATOR,
   type ChangeStackGeneratorPort,
@@ -53,6 +54,7 @@ import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
@@ -353,9 +355,10 @@ const anOriginal = async (title: string): Promise<Original> => {
   });
   await new DrizzleRunJournal(new DrizzleContext(db)).append(
     RunAttempt.of(RunId.of(runId), 1),
-    changing(1, 'Drained it.', 'drainInOrder()').map(
-      (each): JournalEntry => ({ ...each, at: new Date(each.at) }),
-    ),
+    changing(1, 'Drained it.', 'drainInOrder()').map((each): JournalEntry => ({
+      ...each,
+      at: new Date(each.at),
+    })),
   );
   await app.get(DrizzleRunRecordRepository).add(
     RunRecord.empty(RunId.of(runId), team.workspaceId, TaskId.of(taskId))

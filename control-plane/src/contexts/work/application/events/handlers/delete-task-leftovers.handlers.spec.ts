@@ -16,7 +16,9 @@ describe('a deleted task’s inbox requests', () => {
     const requests = ['one', 'two'].map(
       (id) => ({ id }) as unknown as InboxRequest,
     );
-    const remove = vi.fn(async (_: InboxRequest) => {});
+    const remove = vi.fn<(inboxRequest: InboxRequest) => Promise<void>>(
+      async () => {},
+    );
     const ofTask = vi.fn(async () => requests);
 
     await new DeleteTaskInboxRequests({
@@ -31,7 +33,7 @@ describe('a deleted task’s inbox requests', () => {
 
 describe('a deleted task’s shared draft', () => {
   it('forgets what its editors kept', async () => {
-    const forget = vi.fn(async (_: TaskId) => {});
+    const forget = vi.fn<(taskId: TaskId) => Promise<void>>(async () => {});
 
     await new DeleteTaskDraft({
       forget,

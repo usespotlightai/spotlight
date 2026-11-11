@@ -1,10 +1,10 @@
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
   FLAGGED_HEADINGS,

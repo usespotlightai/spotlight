@@ -1,4 +1,3 @@
-import type { DecisionGeneratorPort } from '@change-review/application/ports/decision-generator.port';
 import type {
   RunReasoning,
   WorkPort,
@@ -73,7 +72,7 @@ const working = (
   const service = new WorkDecisionSets(
     sets,
     { reasoning: async () => reasoning } as unknown as WorkPort,
-    { available: true, generate } as DecisionGeneratorPort,
+    { available: true, generate },
     {
       generate: () => {
         ids += 1;
@@ -166,7 +165,7 @@ describe('generating the decisions a run made', () => {
         },
       } as unknown as DecisionSetRepository,
       {} as WorkPort,
-      { available: true, generate: vi.fn() } as DecisionGeneratorPort,
+      { available: true, generate: vi.fn() },
       { generate: () => 'decision_1' },
       { inTransaction: <T>(work: () => Promise<T>) => work() },
       { now: () => NOW, sleep: async () => undefined },
@@ -179,7 +178,7 @@ describe('generating the decisions a run made', () => {
     await service.idle();
 
     expect(error).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(Error) }),
+      expect.objectContaining({ err: expect.any(Error) as unknown }),
       'Generating decisions: reading a leased job',
     );
   });

@@ -1,6 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { type LucideIcon, X } from 'lucide-react';
+
 import { TAB_SLIDE, tabFrame } from '@/components/shell/tabs/app-tab-look';
 import { type AppTab, NEW_TAB_TITLE } from '@/lib/app-tabs';
 import { cn } from '@/lib/utils';

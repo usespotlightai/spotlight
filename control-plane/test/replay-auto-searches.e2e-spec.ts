@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   STATION_ALERT_FIRED,
   type StationAlertFiredIntegrationEvent,
 } from '@shared-kernel/application/integration-events/station-alert-fired.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { describe, expect, it } from 'vitest';
+
 import { autoSearched } from './support/app';
 import {
   activeSearchAt,
@@ -111,7 +113,7 @@ describe('searches Spotlight starts on its own', () => {
       ].filter((each) => each !== null),
     ).toEqual(['monthly-ceiling']);
 
-    await turnedOff(started[0]?.id as string);
+    await turnedOff(started[0]?.id);
   }, 120_000);
 
   it('starts exactly one search when an alert fires on a station that is also due on schedule', async () => {
@@ -136,7 +138,7 @@ describe('searches Spotlight starts on its own', () => {
 
     expect(active.map((each) => each.trigger)).toEqual(['alert']);
 
-    await turnedOff(active[0]?.id as string);
+    await turnedOff(active[0]?.id);
   }, 120_000);
 
   it('starts a search when a station alert fires, once the cooldown ended, before the period ends', async () => {
@@ -157,7 +159,7 @@ describe('searches Spotlight starts on its own', () => {
       stationId: BUILD,
     };
 
-    await delivered(fired as unknown as DomainEvent);
+    await delivered(fired);
 
     const alerted = await scheduleOf(searchedAt());
 
@@ -170,9 +172,9 @@ describe('searches Spotlight starts on its own', () => {
 
     expect(started?.trigger).toBe('alert');
     expect((await scheduleOf(searchedAt()))?.alertPendingSince).toBeNull();
-    expect((await searchOf(started?.id as string)).trigger).toBe('alert');
+    expect((await searchOf(started?.id)).trigger).toBe('alert');
 
-    await turnedOff(started?.id as string);
+    await turnedOff(started?.id);
   }, 120_000);
 
   it('never holds out a task that an earlier automatic search of the station searched on', async () => {

@@ -1,5 +1,6 @@
 import { Check, CircleDashed, X } from 'lucide-react';
 import type { ReactNode } from 'react';
+
 import { Pill } from '@/components/shared/Pill';
 import { type AnswerVerdict, VERDICT_LABELS } from '@/lib/change-stack';
 

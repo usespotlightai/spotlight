@@ -17,9 +17,10 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
-export class MoveTaskHandler
-  implements CommandHandlerPort<MoveTaskCommand, void>
-{
+export class MoveTaskHandler implements CommandHandlerPort<
+  MoveTaskCommand,
+  void
+> {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly placements: TaskPlacementsPort,

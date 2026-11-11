@@ -1,4 +1,5 @@
 import { useParams } from 'react-router';
+
 import { InboxItemConversation } from '@/components/features/inbox/conversation/InboxItemConversation';
 import { InboxGone } from '@/components/features/inbox/InboxGone';
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';

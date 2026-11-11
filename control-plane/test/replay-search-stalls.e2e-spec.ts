@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
+
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { eq, inArray } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { TEST_USER_HEADER } from './support/app';
+
+import { type Answer, type Problem, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import {
@@ -99,26 +101,28 @@ describe('a search for a better station config, when it stalls or loses its stat
         },
       );
 
-    const heldOut = await causing(heldOutTasks[0] as string, 'task').expect(
+    const heldOut = (await causing(heldOutTasks[0], 'task').expect(
       404,
-    );
-    const unknown = await causing('task_unknown', 'task').expect(404);
+    )) as Answer<Problem>;
+    const unknown = (await causing('task_unknown', 'task').expect(
+      404,
+    )) as Answer<Problem>;
 
     expect(heldOut.body.detail.replace(heldOutTasks[0], '<task>')).toBe(
       unknown.body.detail.replace('task_unknown', '<task>'),
     );
-    await causing(first?.taskId as string, 'luck').expect(422);
+    await causing(first?.taskId, 'luck').expect(422);
     await proposing(reflecting, {
       name: 'late',
       hypothesis: 'Proposed while looking into why.',
       station: await liveBlock(),
     }).expect(409);
 
-    await causing(first?.taskId as string, 'config').expect(201);
+    await causing(first?.taskId, 'config').expect(201);
     expect(
       (
         await causing(
-          first?.taskId as string,
+          first?.taskId,
           'judge',
           'Drop the line of the rubric that requires tests.',
         ).expect(201)
@@ -128,12 +132,10 @@ describe('a search for a better station config, when it stalls or loses its stat
       cause: 'judge',
       replayRunId: first?.replayRunId,
     });
-    await causing(
-      second?.taskId as string,
-      'task',
-      'Take it out of the set.',
-    ).expect(201);
-    await causing(third?.taskId as string, 'check').expect(201);
+    await causing(second?.taskId, 'task', 'Take it out of the set.').expect(
+      201,
+    );
+    await causing(third?.taskId, 'check').expect(201);
 
     await endedSearchRun(reflecting);
     await eventually(
@@ -157,7 +159,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     ]);
     expect(
       (await replayRow(seedReplayId))?.id === seedReplayId &&
-        (await entryOf(first?.replayRunId as string))?.replayId,
+        (await entryOf(first?.replayRunId))?.replayId,
     ).toBe(seedReplayId);
 
     const notice = await eventually(
@@ -207,8 +209,8 @@ describe('a search for a better station config, when it stalls or loses its stat
         await owner()
           .get(`/api/workspaces/${team.slug}/inbox?state=resolved`)
           .expect(200)
-      ).body.items as InboxEntry[]
-    ).find((each) => each.id === notice?.id);
+      ).body as { readonly items: InboxEntry[] }
+    ).items.find((each) => each.id === notice?.id);
 
     expect(resolved).toMatchObject({ unread: false, resolved: true });
 
@@ -217,13 +219,13 @@ describe('a search for a better station config, when it stalls or loses its stat
     await db
       .update(schema.notice)
       .set({ createdAt: longAgo, resolvedAt: longAgo })
-      .where(eq(schema.notice.id, notice?.id as string));
+      .where(eq(schema.notice.id, notice?.id));
 
     expect(
       (
         (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
-          .body.items as InboxEntry[]
-      ).some((each) => each.id === notice?.id),
+          .body as { readonly items: InboxEntry[] }
+      ).items.some((each) => each.id === notice?.id),
     ).toBe(false);
     expect(
       (
@@ -231,8 +233,8 @@ describe('a search for a better station config, when it stalls or loses its stat
           await owner()
             .get(`/api/workspaces/${team.slug}/inbox?state=resolved`)
             .expect(200)
-        ).body.items as InboxEntry[]
-      ).some((each) => each.id === notice?.id),
+        ).body as { readonly items: InboxEntry[] }
+      ).items.some((each) => each.id === notice?.id),
     ).toBe(true);
   }, 120_000);
 
@@ -297,7 +299,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     ).toMatchObject({ outcome: 'declined' });
     await eventually(
       async () =>
-        await subscriberDone('replays.advise-on-search-stalled-outside-config'),
+        subscriberDone('replays.advise-on-search-stalled-outside-config'),
       WITHIN,
     );
     expect(

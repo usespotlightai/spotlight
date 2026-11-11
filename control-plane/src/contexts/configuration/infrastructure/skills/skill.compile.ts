@@ -4,11 +4,11 @@ import type {
 } from '@configuration/application/ports/skill-compiler.port';
 import { SKILLS } from '@configuration/application/rendering/skill-problems';
 import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
-import type { Skill } from '@configuration/domain/value-objects/skill.vo';
 import {
   SkillFiles,
   skillFileProblem,
 } from '@configuration/domain/value-objects/skill-files.vo';
+import type { Skill } from '@configuration/domain/value-objects/skill.vo';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
 import { madeBy, problemsIn } from '@platform/definitions/definition-schema';
 import { z } from 'zod';

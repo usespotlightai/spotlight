@@ -32,6 +32,7 @@ export function TokenAccessField({
 
       <div className="flex flex-col gap-0.5">
         {TOKEN_LEVELS.map((each) => (
+          // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- the label wraps its input and names it with the text beside it
           <label
             key={each.id}
             className={cn(CHOICE, level === each.id && 'bg-muted')}
@@ -56,6 +57,7 @@ export function TokenAccessField({
 
       <div className="flex flex-col gap-0.5 border-border border-t-[0.5px] pt-1.5">
         {GRANTS.map((each) => (
+          // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- the label wraps its input and names it with the text beside it
           <label key={each.id} className={CHOICE}>
             <input
               type="checkbox"

@@ -31,7 +31,7 @@ export class SearchInterval {
     }
 
     const [, amount, unit] = written as unknown as [string, string, string];
-    const milliseconds = Number(amount) * (UNITS[unit] as number);
+    const milliseconds = Number(amount) * UNITS[unit];
 
     if (milliseconds < SHORTEST || milliseconds > LONGEST) {
       throw new InvalidSearchIntervalError('must be from 1h to 365d');

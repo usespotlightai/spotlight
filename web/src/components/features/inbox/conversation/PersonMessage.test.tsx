@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
 
 describe('PersonMessage', () => {

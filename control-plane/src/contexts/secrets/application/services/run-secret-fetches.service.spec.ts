@@ -182,7 +182,11 @@ describe('RunSecretFetches', () => {
     });
 
     expect(
-      grants.all.map((each) => [each.runId.value, each.host.value]).sort(),
+      grants.all
+        .map((each) => [each.runId.value, each.host.value])
+        .sort(([runA, hostA], [runB, hostB]) =>
+          runA === runB ? hostA.localeCompare(hostB) : runA.localeCompare(runB),
+        ),
     ).toEqual([
       ['run_1', 'mcp.linear.app'],
       ['run_1', 'sentry.io'],

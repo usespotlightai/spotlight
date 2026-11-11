@@ -28,14 +28,14 @@ describe('HarnessCommand', () => {
 
     const command = HarnessCommand.of({
       executable: 'agent',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+      // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
       env: { AGENT_STATE_DIR: '${SPOTLIGHT_STATE_DIR}/agent' },
     });
 
     expect(command.started()).toEqual({
       executable: 'agent',
       args: [],
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+      // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
       env: { AGENT_STATE_DIR: '${SPOTLIGHT_STATE_DIR}/agent' },
     });
   });

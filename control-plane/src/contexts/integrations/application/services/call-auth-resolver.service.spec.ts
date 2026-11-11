@@ -10,8 +10,8 @@ import type { IntegrationConnectionRepository } from '@integrations/domain/repos
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
-import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+
 import { fitToWidth, measured } from '@/lib/textFit';
 
 export function Shortened({

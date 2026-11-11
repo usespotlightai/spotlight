@@ -4,8 +4,7 @@ import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-re
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface PullRequestRecordRepository
-  extends ScopedRemoval<PullRequestRecord> {
+export interface PullRequestRecordRepository extends ScopedRemoval<PullRequestRecord> {
   at(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,

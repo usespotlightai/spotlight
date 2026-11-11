@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
+
 import { RequireAuth } from './components/shell/auth/RequireAuth.tsx';
 import { RequireGuest } from './components/shell/auth/RequireGuest.tsx';
 import { DesktopHandoff } from './components/shell/DesktopHandoff.tsx';

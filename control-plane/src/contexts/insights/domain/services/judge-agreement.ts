@@ -124,7 +124,7 @@ const ranksOf = (values: readonly number[]): number[] => {
   const order = values
     .map((value, at) => ({ value, at }))
     .sort((one, other) => one.value - other.value);
-  const ranks = new Array<number>(values.length).fill(0);
+  const ranks = Array.from({ length: values.length }, () => 0);
   let from = 0;
 
   while (from < order.length) {
@@ -191,9 +191,7 @@ export const spearman = (pairs: readonly ScorePair[]): number | null =>
         ranksOf(pairs.map((each) => each.human)),
       );
 
-export const meanAbsoluteError = (
-  pairs: readonly ScorePair[],
-): number | null =>
+export const meanAbsoluteError = (pairs: readonly ScorePair[]): number | null =>
   pairs.length === 0
     ? null
     : meanOf(pairs.map((each) => Math.abs(each.judge - each.human)));

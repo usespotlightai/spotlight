@@ -18,7 +18,7 @@ export class InMemoryRunStream implements RunStreamPort {
     }
 
     for (const event of events) {
-      for (const listener of [...listeners]) {
+      for (const listener of Array.from(listeners)) {
         listener(event);
       }
     }

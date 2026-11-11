@@ -14,6 +14,6 @@ docker compose -f compose.yml -f compose.test.yml up -d   # adds the e2e databas
 docker compose exec -T control-plane npm run test:e2e
 docker compose -f compose.yml -f compose.test.yml --profile pgbouncer up -d   # adds PgBouncer in front of it
 docker compose exec -T -e SPOTLIGHT_E2E_POOLER_URL=postgres://postgres:postgres@pgbouncer:6432/postgres control-plane npm run test:e2e   # e2e through PgBouncer, as CI runs it
-docker compose exec -T control-plane npm run check       # biome
+docker compose exec -T control-plane npm run check       # oxfmt and type-aware oxlint
 docker compose exec -T control-plane npm run openapi:generate   # writes openapi.json (web) and openapi.<audience>.json per audience
 ```

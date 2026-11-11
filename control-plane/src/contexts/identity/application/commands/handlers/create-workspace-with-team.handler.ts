@@ -14,9 +14,10 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class CreateWorkspaceWithTeamHandler
-  implements CommandHandlerPort<CreateWorkspaceWithTeamCommand, WorkspaceDto>
-{
+export class CreateWorkspaceWithTeamHandler implements CommandHandlerPort<
+  CreateWorkspaceWithTeamCommand,
+  WorkspaceDto
+> {
   private readonly registration: WorkspaceRegistration;
 
   constructor(

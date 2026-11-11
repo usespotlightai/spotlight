@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
+
 import { ChatRow } from '@/components/features/agent/ChatRow';
 import type { ChatSummary } from '@/lib/chat';
 

@@ -208,15 +208,21 @@ func checkAnswer(result string) string {
 		drained = `"candidate":{"result":"failed","successRate":0,"reason":"Checks failed: npm test"}`
 	}
 	undecided := `null`
+	stopped := ``
 	if result == "undecided" {
 		undecided = `"too-few-scored"`
+	}
+	if result == "stopped" {
+		result = "undecided"
+		undecided = `"stopped"`
+		stopped = `"stoppedBecause":"insufficient-credits",`
 	}
 
 	return `{"id":"check_1","replayId":"replay_1","scoringPinnedToLive":["check","judge"],
   "result":"` + result + `","undecidedBecause":` + undecided + `,"taskCount":3,"compared":3,
   "threshold":{"maxRegressions":0,"minGain":0.05,"ceiling":{"amount":10,"currency":"USD"}},
   "repeats":3,"gain":{"gain":-0.3333,"low":-1,"high":0,"significance":"within-noise","minGain":0.05,"tasks":3},
-  "candidate":{"state":"finished","entries":9,"scored":9,"succeeded":6,"successRate":0.6667,"interval":{"rate":0.6667,"low":0.3333,"high":1},"tasksScored":3,"spent":{"amount":1.5,"currency":"USD"}},
+  "candidate":{"state":"finished",` + stopped + `"entries":9,"scored":9,"succeeded":6,"successRate":0.6667,"interval":{"rate":0.6667,"low":0.3333,"high":1},"tasksScored":3,"spent":{"amount":1.5,"currency":"USD"}},
   "baseline":{"state":"finished","entries":3,"scored":3,"succeeded":3,"successRate":1,"interval":{"rate":1,"low":1,"high":1},"tasksScored":3,"spent":{"amount":1.2,"currency":"USD"}},
   "tasks":[
     {"taskId":"task_2","originalRunId":"run_2","title":"Drain the queue","regressed":` + strconv.FormatBool(result == "failed") + `,
@@ -339,6 +345,22 @@ func TestCheckPassesOnceTheCheckPassesAndSendsNoThreshold(t *testing.T) {
 	}
 }
 
+func TestCheckSaysHowFarTheReplayGotOnlyWhenItMoves(t *testing.T) {
+	s := &checkServer{t: t, result: []string{"running", "running", "passed"}}
+	server := s.serve()
+	defer server.Close()
+
+	got := runCheck(t, map[string]string{urlVar: server.URL, tokenVar: token}, planFixture(t))
+
+	line := "core/delivery/build: replaying, 2 of 3 tasks done with the plan, 2 of 3 with the live config\n"
+	if strings.Count(got.errOut, line) != 1 {
+		t.Fatalf("progress written to stderr:\n%s", got.errOut)
+	}
+	if strings.Contains(got.out, "replaying,") {
+		t.Fatalf("progress leaked into the report:\n%s", got.out)
+	}
+}
+
 func TestCheckReplaysEachRunAsOftenAsRequestedAndSaysWhenTheGainIsWithinNoise(t *testing.T) {
 	s := &checkServer{t: t, result: []string{"passed"}}
 	server := s.serve()
@@ -402,6 +424,7 @@ func TestCheckExitsByTheWorstResult(t *testing.T) {
 		"passed":    {results: []string{"passed"}, want: 0, contains: "PASSED"},
 		"failed":    {results: []string{"failed"}, want: regressedExit, contains: "1 of 3 tasks regressed (at most 0 may)"},
 		"undecided": {results: []string{"undecided"}, want: undecidedExit, contains: "fewer than half the tasks were scored on both sides"},
+		"stopped":   {results: []string{"stopped"}, want: undecidedExit, contains: "undecided: the replay was stopped; the replay of the plan stopped because the judge model account has insufficient credits"},
 		"timed out": {results: nil, want: undecidedExit, contains: "still running after 1m0s"},
 		"conflict": {
 			post: func(w http.ResponseWriter) bool {

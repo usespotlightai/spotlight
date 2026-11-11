@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
 import { connect } from 'node:net';
+
 import {
   SESSION_READER,
   type SessionReaderPort,
@@ -13,6 +14,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
@@ -66,6 +68,11 @@ describe('sandbox editors (e2e)', () => {
     readonly holder: string;
   }
 
+  interface Asked {
+    readonly stream: string;
+    readonly sandboxId: string;
+  }
+
   const owner = () => ({ [TEST_USER_HEADER]: team.owner.value });
 
   const asking = (
@@ -76,7 +83,8 @@ describe('sandbox editors (e2e)', () => {
   const lease = async (
     body: Record<string, string> = { task: taskId() },
     headers?: Record<string, string>,
-  ): Promise<Ticket> => (await asking(body, headers).expect(201)).body;
+  ): Promise<Ticket> =>
+    (await asking(body, headers).expect(201)).body as Ticket;
 
   const editor = (ticket: Ticket, headers: Record<string, string> = owner()) =>
     socket(
@@ -244,8 +252,10 @@ describe('sandbox editors (e2e)', () => {
       authorization: `Bearer ${poolToken}`,
     });
     await opening(tunnel);
-    const asked = new Promise<{ stream: string; sandboxId: string }>((done) =>
-      tunnel.once('message', (data) => done(JSON.parse(data.toString()))),
+    const asked = new Promise<Asked>((done) =>
+      tunnel.once('message', (data: Buffer) =>
+        done(JSON.parse(data.toString()) as Asked),
+      ),
     );
 
     const ssh = editor(await lease());
@@ -260,11 +270,15 @@ describe('sandbox editors (e2e)', () => {
       .set('Authorization', `Bearer ${poolToken}`)
       .send({ host, image: IMAGE })
       .expect(200);
-    expect(claimed.body.work.kind).toBe('sandbox');
-    await heartbeat([claimed.body.sandboxId]).expect(200);
+    const answer = claimed.body as {
+      sandboxId: string;
+      work: { kind: string };
+    };
+    expect(answer.work.kind).toBe('sandbox');
+    await heartbeat([answer.sandboxId]).expect(200);
 
     const { stream, sandboxId } = await asked;
-    expect(sandboxId).toBe(claimed.body.sandboxId);
+    expect(sandboxId).toBe(answer.sandboxId);
 
     const back = socket(`/api/hosts/${host}/tunnel/${stream}`, {
       authorization: `Bearer ${poolToken}`,

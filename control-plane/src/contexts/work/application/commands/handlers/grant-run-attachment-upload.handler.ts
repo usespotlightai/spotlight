@@ -10,13 +10,10 @@ import type { AttachmentStorePort } from '@work/application/ports/attachment-sto
 import { NotAllowedForIsolatedRunError } from '@work/domain/exceptions/not-allowed-for-isolated-run.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 
-export class GrantRunAttachmentUploadHandler
-  implements
-    CommandHandlerPort<
-      GrantRunAttachmentUploadCommand,
-      AttachmentUploadDto | null
-    >
-{
+export class GrantRunAttachmentUploadHandler implements CommandHandlerPort<
+  GrantRunAttachmentUploadCommand,
+  AttachmentUploadDto | null
+> {
   constructor(
     private readonly leases: RunLeasesPort,
     private readonly files: AttachmentStorePort,

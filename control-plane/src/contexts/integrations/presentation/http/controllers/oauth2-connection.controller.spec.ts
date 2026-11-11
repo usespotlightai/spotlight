@@ -47,7 +47,7 @@ const controlling = (viewer: AuthenticatedUser | null = ADMIN) => {
   return {
     controller: new OAuth2ConnectionController(
       { execute } as unknown as CommandBus,
-      new OAuth2NonceCookie(true),
+      new OAuth2NonceCookie(),
     ),
     viewer,
     execute,

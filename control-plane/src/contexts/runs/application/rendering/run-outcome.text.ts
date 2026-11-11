@@ -14,7 +14,11 @@ export const runOutcomeText = (outcome: RunOutcome): string | null => {
       return `No runner finished the run after ${outcome.attempts} attempts.`;
     case 'timed-out':
       return `Sandbox stopped at the host's time limit. No runner finished the run after ${outcome.attempts} attempts.`;
-    default:
+    case undefined:
+    case 'cancelled':
+    case 'exited':
+    case 'refused':
+    case 'unprepared':
       return outcome.detail;
   }
 };

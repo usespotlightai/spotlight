@@ -1,8 +1,8 @@
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { MemoryTab } from '@/components/features/insights/memory/MemoryTab';
 import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
-import { ToolsAndSkillsSkeleton } from '@/components/features/insights/ToolsAndSkillsSkeleton';
 import { ToolsTab } from '@/components/features/insights/tools/ToolsTab';
+import { ToolsAndSkillsSkeleton } from '@/components/features/insights/ToolsAndSkillsSkeleton';
 import { useInsightsMemory } from '@/hooks/api/useInsightsMemory';
 import { useInsightsTools } from '@/hooks/api/useInsightsTools';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';

@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { NavLink } from 'react-router';
+
 import { cn } from '@/lib/utils';
 
 type SidebarLinkProps = {

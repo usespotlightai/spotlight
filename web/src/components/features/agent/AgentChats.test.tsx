@@ -2,13 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { AgentChats } from '@/components/features/agent/AgentChats';
 import type { ChatSummary } from '@/lib/chat';
 
-const chats = vi.fn();
+const chats = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const refetch = vi.fn();
-const older = vi.fn();
+const older = vi.fn<(...args: unknown[]) => unknown>();
 const load = vi.fn();
 
 vi.mock('@/hooks/api/useChats', () => ({

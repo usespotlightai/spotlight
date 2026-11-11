@@ -291,7 +291,10 @@ describe('RUNS_EVENT_MAPPERS', () => {
         endedBy: 'cancellation',
         outcome: 'cancelled',
         started: true,
-        requester: expect.objectContaining({ kind: 'search', id: 'search_1' }),
+        requester: expect.objectContaining({
+          kind: 'search',
+          id: 'search_1',
+        }) as unknown,
       }),
     ]);
     expect(

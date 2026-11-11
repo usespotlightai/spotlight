@@ -77,8 +77,8 @@ const median = (values: readonly number[]): number | null => {
   const middle = Math.floor(sorted.length / 2);
 
   return sorted.length % 2 === 0
-    ? ((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2
-    : (sorted[middle] as number);
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle];
 };
 
 const mean = (values: readonly number[]): number | null =>

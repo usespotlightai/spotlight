@@ -1,11 +1,11 @@
 import { RevokeInviteHandler } from '@identity/application/commands/handlers/revoke-invite.handler';
 import { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
 import { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
-import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
+import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
-import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
+import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
@@ -47,7 +47,9 @@ const created = (workspaceId = 'ws_1') =>
 const revoking = (
   over: { role?: WorkspaceRole; invite?: WorkspaceInvite | null } = {},
 ) => {
-  const save = vi.fn(async (_: WorkspaceInvite) => {});
+  const save = vi.fn<(invite: WorkspaceInvite) => Promise<void>>(
+    async () => {},
+  );
 
   const handler = new RevokeInviteHandler(
     new WorkspaceAdministration({

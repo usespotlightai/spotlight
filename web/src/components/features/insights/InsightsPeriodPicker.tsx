@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router';
+
 import { RangePicker } from '@/components/shared/RangePicker';
 import { asPeriod, PERIOD_RANGES, paramsOf, viewOf } from '@/lib/insights';
 

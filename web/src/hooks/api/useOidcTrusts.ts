@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { listWorkspaceOidcTrusts } from '@/lib/api';
 
 const oidcTrustKeys = {

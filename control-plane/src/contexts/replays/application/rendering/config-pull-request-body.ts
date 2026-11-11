@@ -152,7 +152,7 @@ const describeGain = (where: string, gain: ShownGain | null): string | null => {
       return `On the ${where} tasks it gained ${range} on the live config, more than the ${percent(gain.minGain)}-point gain the line counts as real.`;
     case 'worse':
       return `On the ${where} tasks it lost ${range} against the live config.`;
-    default:
+    case 'within-noise':
       return `On the ${where} tasks the difference, ${range}, is within noise: it is not clearly more than the ${percent(gain.minGain)}-point gain the line counts as real.`;
   }
 };
@@ -183,7 +183,7 @@ const describeOverfit = (facts: ConfigPullRequestFacts): string | null => {
       return `Its gain showed only on the tasks the search could see: ${points(searched.gain)} points on the searched tasks, but ${points(heldOut.gain)} points on the held-out tasks the search never showed its agent. It may fit the searched tasks rather than work better in general, so weigh that before merging.`;
     case 'too-few-held-out':
       return `It gained ${points(searched.gain)} points on the searched tasks, but only ${plural(heldOut.tasks, 'held-out task')} scored on both sides, too few to tell whether the gain also shows on tasks the search never showed its agent.`;
-    default:
+    case null:
       return null;
   }
 };

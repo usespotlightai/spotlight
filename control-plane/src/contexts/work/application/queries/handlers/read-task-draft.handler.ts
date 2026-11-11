@@ -7,9 +7,10 @@ import type {
 } from '@work/application/ports/task-draft-states.port';
 import type { ReadTaskDraftQuery } from '@work/application/queries/task-draft.queries';
 
-export class ReadTaskDraftHandler
-  implements QueryHandlerPort<ReadTaskDraftQuery, StoredDraft>
-{
+export class ReadTaskDraftHandler implements QueryHandlerPort<
+  ReadTaskDraftQuery,
+  StoredDraft
+> {
   constructor(private readonly states: TaskDraftStatesPort) {}
 
   async execute(query: ReadTaskDraftQuery): Promise<StoredDraft> {

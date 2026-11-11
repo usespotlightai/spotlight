@@ -2527,6 +2527,16 @@ export type InboxStationResponseDto = {
   position: number;
 };
 
+export type InboxCurrentStationResponseDto = {
+  name: string;
+  color: string;
+  position: number;
+  /**
+   * The task’s latest run at this station since it arrived there, or null if it has none there yet
+   */
+  latestRunId: string | null;
+};
+
 export type InboxFailureResponseDto = {
   /**
    * Where the failure came from: the run, or the hook that failed
@@ -2651,6 +2661,14 @@ export type NoteResponseDto = {
    */
   coAuthors: Array<InboxAuthorResponseDto>;
   /**
+   * The integration it came from, where the world outside wrote it
+   */
+  source: string | null;
+  /**
+   * The station the task moves to when the run in progress ends, where it arrived during that run
+   */
+  deferredTo: string | null;
+  /**
    * The tool call this asks a person to approve, where it is one
    */
   approval: InboxApprovalResponseDto | null;
@@ -2698,7 +2716,7 @@ export type InboxItemResponseDto = {
   /**
    * Where the task is now, which is where it ended up
    */
-  currentStation: InboxStationResponseDto;
+  currentStation: InboxCurrentStationResponseDto;
   createdAt: string;
   askedAt: string;
   /**
@@ -2880,7 +2898,7 @@ export type InboxItemViewResponseDto = {
   /**
    * Where the task is now, which is where it ended up
    */
-  currentStation: InboxStationResponseDto;
+  currentStation: InboxCurrentStationResponseDto;
   createdAt: string;
   askedAt: string;
   /**
@@ -4573,6 +4591,10 @@ export type IntegrationViewResponseDto = {
    */
   integration: string;
   name: string;
+  /**
+   * The mark of the integration, as a base64 image data URI or an https address. Null where its definition names none
+   */
+  logo: string | null;
   /**
    * Where the integration is defined
    */
@@ -7779,6 +7801,10 @@ export type ReplayCheckSideResponseDto = {
    */
   tasksScored: number;
   spent: MoneyResponseDto | null;
+  /**
+   * Why this side’s replay stopped: superseded by a later check of the same pull request, insufficient credits for the judge model, the search that ran it ended, or the live config moved on so it went stale
+   */
+  stoppedBecause: 'superseded' | 'insufficient-credits' | 'search-ended' | 'stale' | null;
 };
 
 export type ReplayCheckTaskSideResponseDto = {

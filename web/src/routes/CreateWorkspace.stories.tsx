@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { type PageArgs, pageStory, toggle } from '@/stories/application';
 
 type CreateWorkspaceArgs = {

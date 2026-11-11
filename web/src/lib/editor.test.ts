@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { editorLink, editorSetupSteps, sandboxAlias } from '@/lib/editor';
 
 describe('sandboxAlias', () => {

@@ -1,6 +1,6 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/entities/replay-entry.entity';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCeilingReached } from '@replays/domain/events/replay-ceiling-reached.event';
@@ -94,6 +94,7 @@ const stateOf = (replay: Replay): Parameters<typeof Replay.rehydrate>[0] => ({
   startedAt: replay.startedAt,
   endedAt: replay.endedAt,
   stoppedAt: replay.stoppedAt,
+  stoppedBecause: replay.stoppedBecause,
   version: replay.version,
 });
 
@@ -136,7 +137,9 @@ describe('Replay', () => {
 
       expect(baseline.servesAsBaseline).toBe(true);
       expect(concludedAll(baseline).servesAsBaseline).toBe(true);
-      expect(baseline.stop(NOW, BY).servesAsBaseline).toBe(false);
+      expect(baseline.stop(NOW, BY, 'search-ended').servesAsBaseline).toBe(
+        false,
+      );
       expect(
         aReplay({ count: 2, candidate: candidateOf('live') }).servesAsBaseline,
       ).toBe(false);
@@ -568,7 +571,7 @@ describe('Replay', () => {
         new ReplayEnded(inProgress.id, inProgress.workspaceId, null, 'deleted'),
       ]);
 
-      const stopped = inProgress.stop(NOW, BY);
+      const stopped = inProgress.stop(NOW, BY, 'search-ended');
       stopped.pullEvents();
       expect(stopped.delete().pullEvents()).toEqual([
         new ReplayDeleted(
@@ -713,7 +716,7 @@ describe('Replay', () => {
     it('runs nothing more, and requests its runs in flight to be stopped', () => {
       const replay = reserved(aReplay({ count: 3 }), 2)
         .confirm(run(0), FINGERPRINT, NOW)
-        .stop(later(1), BY);
+        .stop(later(1), BY, 'search-ended');
 
       expect(replay.current).toBe('stopped');
       expect(replay.entries.map((each) => each.ending)).toEqual([
@@ -736,7 +739,7 @@ describe('Replay', () => {
 
     it('still records what its stopped runs did', () => {
       const replay = ranToEnd(
-        reserved(aReplay({ count: 1 }), 1).stop(later(1), BY),
+        reserved(aReplay({ count: 1 }), 1).stop(later(1), BY, 'search-ended'),
         run(0),
         'completed',
         1,
@@ -754,16 +757,20 @@ describe('Replay', () => {
         1,
       );
 
-      expect(() => finished.stop(NOW, BY)).toThrow(ReplayEndedError);
+      expect(() => finished.stop(NOW, BY, 'search-ended')).toThrow(
+        ReplayEndedError,
+      );
     });
 
     it('is stopped once, though its runs are still stopping', () => {
       const stopping = reserved(aReplay({ count: 1 }), 1)
         .confirm(run(0), FINGERPRINT, NOW)
-        .stop(NOW, BY);
+        .stop(NOW, BY, 'search-ended');
 
       expect(stopping.isInProgress).toBe(true);
-      expect(() => stopping.stop(NOW, BY)).toThrow(ReplayEndedError);
+      expect(() => stopping.stop(NOW, BY, 'search-ended')).toThrow(
+        ReplayEndedError,
+      );
     });
 
     it('may be stopped once it reached its ceiling, staying ceiling-reached and stopping the runs still running', () => {
@@ -779,11 +786,13 @@ describe('Replay', () => {
       );
       over.pullEvents();
 
-      const stopped = over.stop(NOW, BY);
+      const stopped = over.stop(NOW, BY, 'search-ended');
 
       expect(stopped.current).toBe('ceiling-reached');
       expect(stopped.stoppedAt).toEqual(NOW);
-      expect(() => stopped.stop(NOW, BY)).toThrow(ReplayEndedError);
+      expect(() => stopped.stop(NOW, BY, 'search-ended')).toThrow(
+        ReplayEndedError,
+      );
       expect(stopped.pullEvents()).toEqual([
         new ReplayStopped(stopped.id, stopped.workspaceId, stopped.teamId, [
           run(1),
@@ -896,7 +905,7 @@ describe('Replay', () => {
     it('finishes, unscored, when its judge could not judge, rather than waiting for ever', () => {
       const replay = done(judging())
         .recordReview(run(0), passed, null, later(62_000))
-        .recordJudgingFailure(run(0), 'interrupted', later(63_000));
+        .recordJudgingFailure(run(0), 'interrupted', later(63_000), BY);
 
       expect(replay.current).toBe('finished');
       expect(replay.entries[0]?.succeeded).toBeNull();
@@ -936,7 +945,7 @@ describe('Replay', () => {
     it('requests no more judging once stopped, leaving such entries unscored', () => {
       const stopped = done(judging())
         .recordReview(run(0), generating, null, later(62_000))
-        .stop(later(62_500), BY);
+        .stop(later(62_500), BY, 'search-ended');
       stopped.pullEvents();
 
       const reviewed = stopped.recordReview(
@@ -1034,7 +1043,9 @@ describe('Replay', () => {
       expect(endedEvents(replay)).toEqual([
         new ReplayEnded(replay.id, replay.workspaceId, SEARCH, 'finished'),
       ]);
-      expect(() => replay.stop(NOW, BY)).toThrow(ReplayEndedError);
+      expect(() => replay.stop(NOW, BY, 'search-ended')).toThrow(
+        ReplayEndedError,
+      );
       expect(endedEvents(replay.delete())).toEqual([]);
     });
 
@@ -1058,7 +1069,7 @@ describe('Replay', () => {
     it('says it was stopped once, though its stopped runs end later', () => {
       let replay = reserved(aReplay({ count: 2 }), 1)
         .confirm(run(0), FINGERPRINT, NOW)
-        .stop(NOW, BY);
+        .stop(NOW, BY, 'search-ended');
 
       expect(endedEvents(replay)).toEqual([
         new ReplayEnded(replay.id, replay.workspaceId, null, 'stopped'),

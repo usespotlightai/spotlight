@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { addHostPath } from '@/lib/runner';
 import { SLUG } from '@/mocks/world';
 import { type PageArgs, pageStory, toggle } from '@/stories/application';

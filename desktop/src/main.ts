@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+
 import {
   app,
   BrowserWindow,
@@ -12,6 +13,7 @@ import {
   shell,
 } from 'electron';
 import { autoUpdater } from 'electron-updater';
+
 import { type Command, tabMenu } from './commands';
 import { withContextMenu } from './context-menu';
 import { saveDownloadsToDownloads } from './downloads';
@@ -59,6 +61,7 @@ let origin = settings.origin();
 
 const checkForUpdates = () => {
   autoUpdater.checkForUpdatesAndNotify().catch((error: unknown) => {
+    // oxlint-disable-next-line no-console -- the main process logs to its terminal
     console.warn('Spotlight could not check for updates', error);
   });
 };
@@ -80,7 +83,7 @@ const opened = (url: string) => {
     case 'outside':
       void shell.openExternal(url);
       return false;
-    default:
+    case 'blocked':
       return false;
   }
 };

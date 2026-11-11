@@ -51,7 +51,9 @@ export const ChatHttpMapper = {
               : null,
             message.runId,
             message.takenUpBy,
-            message.attachments.map(AttachmentHttpMapper.toResponse),
+            message.attachments.map((each) =>
+              AttachmentHttpMapper.toResponse(each),
+            ),
             message.traces.map(
               (each) => new ChatTraceResponseDto(each.taskId, each.title),
             ),

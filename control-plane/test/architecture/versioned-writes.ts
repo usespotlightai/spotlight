@@ -1,4 +1,5 @@
 import ts from 'typescript';
+
 import {
   type DrizzleTable,
   tableBindingsOf,
@@ -245,14 +246,14 @@ const namedRawWrites = (
   text: string,
 ): Violation[] => [
   ...[...text.matchAll(RAW_WRITE)].flatMap(([, keyword, name]) => {
-    const table = tableNamed(name as string);
+    const table = tableNamed(name);
 
     return table?.versioned
-      ? [violation(file, node, rawWriteOf(keyword as string), table)]
+      ? [violation(file, node, rawWriteOf(keyword), table)]
       : [];
   }),
   ...[...text.matchAll(RAW_UPSERT)].flatMap(([, name]) => {
-    const table = tableNamed(name as string);
+    const table = tableNamed(name);
 
     return table?.versioned ? [violation(file, node, 'upsert', table)] : [];
   }),
@@ -269,7 +270,7 @@ const interpolatedRawWrites = (
   ];
 
   return template.templateSpans.flatMap((span, index) => {
-    const keyword = (texts[index] as string).match(RAW_WRITE_BEFORE_TABLE)?.[1];
+    const keyword = texts[index].match(RAW_WRITE_BEFORE_TABLE)?.[1];
     const table = isTableReference(span.expression)
       ? tables.get(span.expression.getText())
       : undefined;

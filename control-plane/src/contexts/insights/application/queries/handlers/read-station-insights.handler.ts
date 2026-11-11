@@ -31,9 +31,10 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ReadStationInsightsHandler
-  implements QueryHandlerPort<ReadStationInsightsQuery, StationInsightsDto>
-{
+export class ReadStationInsightsHandler implements QueryHandlerPort<
+  ReadStationInsightsQuery,
+  StationInsightsDto
+> {
   constructor(
     private readonly access: InsightsAccess,
     private readonly facts: StationFactsPort,

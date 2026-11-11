@@ -16,8 +16,8 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { InAudience } from '@platform/http/decorators/in-audience.decorator';
-import type { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 import { resourceListOf } from '@platform/http/dto/resource-list.response.dto';
+import type { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 import {
   ApiProblemResponse,
   ConventionalApiController,

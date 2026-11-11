@@ -1,6 +1,6 @@
+import { STATION_COLUMN } from '@/components/features/stations/station-column';
 import { StationPane } from '@/components/features/stations/StationPane';
 import { StationTabSkeleton } from '@/components/features/stations/StationTabSkeleton';
-import { STATION_COLUMN } from '@/components/features/stations/station-column';
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';

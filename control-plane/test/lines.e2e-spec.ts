@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterEach, beforeEach, describe, it } from 'vitest';
+
 import { openApp, served } from './support/app';
 
 describe('LineController (e2e)', () => {

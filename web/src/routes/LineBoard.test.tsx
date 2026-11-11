@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { LineBoard } from '@/routes/LineBoard';
 
 const line = {
@@ -20,7 +21,7 @@ const line = {
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
 }));
-const lined = vi.fn();
+const lined = vi.fn<(...args: unknown[]) => unknown>();
 const linesFailing = vi.fn();
 const refetchLines = vi.fn();
 
@@ -81,7 +82,7 @@ const tasks = [
 
 const added = vi.fn();
 const moved = vi.fn();
-const listed = vi.fn();
+const listed = vi.fn<(...args: unknown[]) => unknown>();
 const tasksFailing = vi.fn();
 const refetchTasks = vi.fn();
 

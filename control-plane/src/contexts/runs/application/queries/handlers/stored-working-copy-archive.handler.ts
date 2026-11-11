@@ -10,10 +10,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export class StoredWorkingCopyArchiveHandler
-  implements
-    QueryHandlerPort<StoredWorkingCopyArchiveQuery, WorkingCopyArchiveAnswer>
-{
+export class StoredWorkingCopyArchiveHandler implements QueryHandlerPort<
+  StoredWorkingCopyArchiveQuery,
+  WorkingCopyArchiveAnswer
+> {
   constructor(
     private readonly runs: RunRepository,
     private readonly archives: WorkingCopyArchiveRepository,

@@ -1,4 +1,5 @@
 import { Archive, ArchiveX } from 'lucide-react';
+
 import {
   Tooltip,
   TooltipContent,
@@ -28,6 +29,7 @@ export function ResolveToggle({ slug, entry }: ResolveToggleProps) {
   return (
     <Tooltip>
       <TooltipTrigger
+        // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the trigger renders this button around its children
         render={<button type="button" />}
         aria-label={label}
         disabled={resolve.isPending || reopen.isPending}

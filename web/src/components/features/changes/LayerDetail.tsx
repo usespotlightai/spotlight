@@ -2,6 +2,7 @@ import { useVirtualizer } from '@pierre/diffs/react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+
 import { LayerFileCard } from '@/components/features/changes/LayerFileCard';
 import { LayerQuestions } from '@/components/features/changes/LayerQuestions';
 import { Button } from '@/components/ui/button';
@@ -66,7 +67,6 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
     setCollapsedFiles(collapsedFilesFor(located, files));
   }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new layer starts at the top
   useEffect(() => {
     virtualizer?.scrollTo({ top: 0 });
   }, [virtualizer, layer.id]);

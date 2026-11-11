@@ -57,8 +57,15 @@ const asking = (
     reasoning,
   });
 
-const bodyOf = (requests: { init: RequestInit }[]) =>
-  JSON.parse(String(requests[0]?.init.body));
+interface SentRequest {
+  readonly model: string;
+  readonly max_completion_tokens: number;
+  readonly response_format: unknown;
+  readonly reasoning_effort?: string;
+}
+
+const bodyOf = (requests: { init: RequestInit }[]): SentRequest =>
+  JSON.parse(requests[0]?.init.body as string) as SentRequest;
 
 describe('requesting JSON from a chat completions endpoint', () => {
   it('posts to the endpoint’s chat completions path', async () => {

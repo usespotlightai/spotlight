@@ -1,13 +1,14 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { StepAnchorsContext } from '@/lib/step-anchors';
 import { claimsScoresOf, runScoresOf } from '@/test/fixtures/run-scores';
 
-const scores = vi.fn();
+const scores = vi.fn<(...args: unknown[]) => unknown>();
 const scoresFailing = vi.fn();
-const scoresError = vi.fn();
+const scoresError = vi.fn<(...args: unknown[]) => unknown>();
 const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useRunScores', () => ({

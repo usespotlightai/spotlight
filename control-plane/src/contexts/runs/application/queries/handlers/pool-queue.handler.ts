@@ -8,9 +8,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class PoolQueueHandler
-  implements QueryHandlerPort<PoolQueueQuery, PoolQueueDto | null>
-{
+export class PoolQueueHandler implements QueryHandlerPort<
+  PoolQueueQuery,
+  PoolQueueDto | null
+> {
   constructor(
     private readonly pools: RunnerPoolsPort,
     private readonly queued: QueuedPlacementsPort,

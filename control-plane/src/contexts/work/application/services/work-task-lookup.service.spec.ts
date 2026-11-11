@@ -38,7 +38,7 @@ const line = deliveryLineOf({
 const task = () =>
   Task.add({
     line,
-    // biome-ignore lint/style/noNonNullAssertion: the delivery line has an entry
+    // oxlint-disable-next-line typescript/no-non-null-assertion -- the delivery line has an entry
     at: line.entry!.id,
     title: TaskTitle.of('Retry uploads'),
     rank: TaskRank.of('i'),

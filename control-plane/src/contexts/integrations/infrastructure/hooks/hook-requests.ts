@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import { OutboundHostsUnreadError } from '@identity/application/errors/outbound-hosts-unread.error';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';

@@ -33,6 +33,8 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 
+const SERVER_ERROR: number = HttpStatus.INTERNAL_SERVER_ERROR;
+
 type LoggableRequest = {
   method?: string;
   url?: string;
@@ -73,7 +75,7 @@ export class ProblemFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const problem = this.explained(exception, problemOf(exception));
 
-    if (problem.status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (problem.status >= SERVER_ERROR) {
       if (!(exception instanceof ApplicationError)) {
         this.reports.report(exception, { source: 'http' });
       }
@@ -93,7 +95,7 @@ export class ProblemFilter implements ExceptionFilter {
     const adapter = this.adapterHost.httpAdapter;
     const response = http.getResponse<unknown>();
 
-    if (problem.status < HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (problem.status < SERVER_ERROR) {
       noteRefusal(response, {
         type: problem.type,
         error: exception instanceof Error ? exception.name : typeof exception,

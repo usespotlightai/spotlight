@@ -14,9 +14,10 @@ import {
 } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
+
+import { TAB_SLIDE } from '@/components/shell/tabs/app-tab-look';
 import { AppTabGhost } from '@/components/shell/tabs/AppTabGhost';
 import { AppTabItem } from '@/components/shell/tabs/AppTabItem';
-import { TAB_SLIDE } from '@/components/shell/tabs/app-tab-look';
 import { Button } from '@/components/ui/button';
 import { type AppTab, tabIconOf } from '@/lib/app-tabs';
 

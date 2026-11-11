@@ -8,9 +8,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ReadRunNetworkHandler
-  implements QueryHandlerPort<ReadRunNetworkQuery, RunNetworkDto | null>
-{
+export class ReadRunNetworkHandler implements QueryHandlerPort<
+  ReadRunNetworkQuery,
+  RunNetworkDto | null
+> {
   constructor(
     private readonly runs: RunViewing,
     private readonly events: RunJournalEntryReaderPort,

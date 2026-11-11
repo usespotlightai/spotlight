@@ -46,7 +46,12 @@ const through = (
   runId: string,
   value: number,
   baseline: number | null = null,
-) => ({ value, baseline, runId: RunId.of(runId), taskId: expect.anything() });
+) => ({
+  value,
+  baseline,
+  runId: RunId.of(runId),
+  taskId: expect.anything() as unknown,
+});
 
 const sentBack = (runId: string, hour: number) =>
   endedRecord(runId, {

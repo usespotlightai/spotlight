@@ -6,10 +6,10 @@ import type { ReadRunnerTrustQuery } from '@runners/application/queries/runner-r
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadRunnerTrustHandler
-  implements
-    QueryHandlerPort<ReadRunnerTrustQuery, RunnerTrustResourceDto | null>
-{
+export class ReadRunnerTrustHandler implements QueryHandlerPort<
+  ReadRunnerTrustQuery,
+  RunnerTrustResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: RunnerResourcesPort,

@@ -17,8 +17,8 @@ import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerp
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
-import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -32,7 +32,6 @@ import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence
 import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/drizzle/repositories/score.repository';
 import { scoreFactOf } from '@insights/runs.fake-spec';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -42,6 +41,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { projectedInsights } from './support/insights-facts';
 
@@ -154,7 +154,7 @@ beforeAll(async () => {
     dispatch: async (events: readonly DomainEvent[]) => {
       dispatched.push(...events);
     },
-  } as unknown as DomainEventDispatcher;
+  };
   judgings = new DrizzleJudgingRepository(context, dispatcher);
   scores = new DrizzleScoreRepository(context, dispatcher);
   const projected = projectedInsights(context);
@@ -455,7 +455,7 @@ describe('judge scores at many stations, read at once', () => {
     const read = await facts.judgedAtStations({
       workspaceId: ELSEWHERE,
       teamId: TEAM,
-      stations: [...stations, stations[0] as (typeof stations)[number]],
+      stations: [...stations, stations[0]],
       last: 3,
     });
 
@@ -486,7 +486,7 @@ describe('judge scores at many stations, read at once', () => {
         .sort(),
     );
     expect(read.find((each) => each.id.value === 'judge_many_a_4')).toEqual(
-      scoreFactOf(added[4] as Score),
+      scoreFactOf(added[4]),
     );
     expect(
       await facts.judgedAtStations({
@@ -560,7 +560,7 @@ describe('how often the judge agrees with people', () => {
       release = resolve;
     });
     const recording = new RecordJudgeScore(
-      Object.assign(Object.create(scores), {
+      Object.assign(Object.create(scores) as typeof scores, {
         judgeOf: async (runId: RunId, rubricVersion: RubricVersion) => {
           loading();
           await released;

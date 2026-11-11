@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { connectionKeys } from '@/hooks/api/useIntegrationConnections';
 import { type SetToolRuleRequestDto, setMyToolRule } from '@/lib/api';
 

@@ -12,8 +12,8 @@ import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-t
 import { RunActsOnlyOnItselfError } from '@runs/domain/exceptions/run-acts-only-on-itself.error';
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
-import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
+import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import { RunApiGrant } from '@runs/domain/value-objects/run-api-grant.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
@@ -1059,7 +1059,7 @@ describe('Run', () => {
         queued()
           .claim(claimer(runner()), noon)
           .timedOut(RunnerId.of('elsewhere'), noon),
-      ).toThrow();
+      ).toThrow('is claimed by runner');
     });
 
     it('says so when it is exhausted', () => {
@@ -1075,8 +1075,8 @@ describe('Run', () => {
         .filter((each) => each instanceof RunExhausted);
 
       expect(raised).toHaveLength(1);
-      expect((raised[0] as RunExhausted).attempt.number).toBe(3);
-      expect((raised[0] as RunExhausted).failure).toBe('runner-lost');
+      expect(raised[0].attempt.number).toBe(3);
+      expect(raised[0].failure).toBe('runner-lost');
     });
 
     it('leaves the run it was completed from with nothing to announce', () => {
@@ -1265,7 +1265,7 @@ describe('Run', () => {
         .pullEvents()
         .filter((each) => each instanceof RunEnded);
       expect(completed).toHaveLength(1);
-      expect((completed[0] as RunEnded).claimedBy).toBeNull();
+      expect(completed[0].claimedBy).toBeNull();
     });
 
     it('records the failure and releases the runner reserved for it while it still has tries left', () => {

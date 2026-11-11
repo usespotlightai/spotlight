@@ -11,7 +11,7 @@ export class CheckExpressionRequestDto {
   @ApiProperty({
     example: 'body.type == "Issue"',
     description:
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: how an expression is written in a definition
+      // oxlint-disable-next-line no-template-curly-in-string -- how an expression is written in a definition
       'The CEL expression alone, without ${{ }}; a templated attribute is checked one ${{ }} at a time',
   })
   readonly expression!: string;

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import {
@@ -16,10 +17,10 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
 import { eventually } from './eventually';
 
 interface KeptAt {
@@ -54,7 +55,7 @@ export const runEnded = async (
     asked: false,
   };
 
-  await subscriber.handle(ended as unknown as DomainEvent);
+  await subscriber.handle(ended);
 };
 
 const keptSetOf = async (

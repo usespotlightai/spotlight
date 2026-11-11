@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import { useMatch } from 'react-router';
+
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { TeamLines } from '@/components/shell/layout/TeamLines';

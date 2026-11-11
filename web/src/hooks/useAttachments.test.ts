@@ -1,9 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { useAttachments } from '@/hooks/useAttachments';
 import { MAX_ATTACHMENT_BYTES } from '@/lib/attachment';
 
-const uploaded = vi.fn();
+const uploaded = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: (input: unknown) => uploaded(input),
@@ -21,11 +22,13 @@ describe('useAttachments', () => {
     uploaded.mockResolvedValue({ id: 'att_1' });
     const { result } = renderHook(() => useAttachments('acme'));
 
-    act(() => result.current.add([text()]));
+    act(() => {
+      result.current.add([text()]);
+    });
 
     expect(uploaded).toHaveBeenCalledWith({
       slug: 'acme',
-      file: expect.any(File),
+      file: expect.any(File) as File,
     });
     expect(result.current.uploading).toBe(true);
     expect(result.current.ids).toEqual([]);
@@ -38,7 +41,9 @@ describe('useAttachments', () => {
     uploaded.mockRejectedValue(new Error('failed'));
     const { result } = renderHook(() => useAttachments('acme'));
 
-    act(() => result.current.add([text()]));
+    act(() => {
+      result.current.add([text()]);
+    });
 
     await waitFor(() =>
       expect(result.current.attachments[0]).toMatchObject({
@@ -54,7 +59,9 @@ describe('useAttachments', () => {
     const large = text();
     Object.defineProperty(large, 'size', { value: MAX_ATTACHMENT_BYTES + 1 });
 
-    act(() => result.current.add([large]));
+    act(() => {
+      result.current.add([large]);
+    });
 
     expect(uploaded).not.toHaveBeenCalled();
     expect(result.current.attachments[0]).toMatchObject({
@@ -68,7 +75,9 @@ describe('useAttachments', () => {
     const { result } = renderHook(() => useAttachments('acme'));
     const picture = image();
 
-    act(() => result.current.add([picture, text()]));
+    act(() => {
+      result.current.add([picture, text()]);
+    });
 
     const [shot, notes] = result.current.attachments;
     expect(shot?.imageSource).toEqual({ blob: picture });
@@ -88,7 +97,9 @@ describe('useAttachments', () => {
     );
     const { result } = renderHook(() => useAttachments('acme'));
 
-    act(() => result.current.add([text()]));
+    act(() => {
+      result.current.add([text()]);
+    });
     act(() => result.current.clear());
     await act(async () => land({ id: 'att_1' }));
 

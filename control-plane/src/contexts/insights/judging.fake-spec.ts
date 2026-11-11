@@ -7,8 +7,8 @@ import type { ScoreRepository } from '@insights/domain/repositories/score.reposi
 import { Citation } from '@insights/domain/value-objects/citation.vo';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
-import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';

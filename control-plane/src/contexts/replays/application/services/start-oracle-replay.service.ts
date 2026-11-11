@@ -2,12 +2,12 @@ import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
 import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import {
   type OracleAnswered,
   oracleAnswerOf,

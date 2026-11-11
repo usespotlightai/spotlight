@@ -52,9 +52,10 @@ const criteriaOf = (listing: MemoryListing): MemoryCriteria => {
   };
 };
 
-export class ListTeamMemoriesHandler
-  implements QueryHandlerPort<ListTeamMemoriesQuery, TeamMemoryDto[]>
-{
+export class ListTeamMemoriesHandler implements QueryHandlerPort<
+  ListTeamMemoriesQuery,
+  TeamMemoryDto[]
+> {
   constructor(
     private readonly access: MemoryAccess,
     private readonly listing: MemoryListingPort,

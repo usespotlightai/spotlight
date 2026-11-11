@@ -1,7 +1,7 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ActivityPeriodPicker } from '@/components/features/stations/activity/ActivityPeriodPicker';
-import { StationTabs } from '@/components/features/stations/StationTabs';
 import { STATION_COLUMN } from '@/components/features/stations/station-column';
+import { StationTabs } from '@/components/features/stations/StationTabs';
 import { PageTitle } from '@/components/shared/PageTitle';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { type StationTab, stationShare } from '@/lib/station';

@@ -8,6 +8,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Link } from 'react-router';
+
 import { SettingsNavGroup } from '@/components/shell/layout/SettingsNavGroup';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { ScrollArea } from '@/components/ui/scroll-area';

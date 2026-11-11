@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { verifyEmailPath } from '@/lib/emails';
 import { type PageArgs, pageStory } from '@/stories/application';
 

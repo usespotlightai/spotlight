@@ -144,7 +144,7 @@ describe('LineSearchPolicy', () => {
       ),
     ).toEqual({
       field: 'ceiling',
-      reason: expect.stringContaining('monthly_ceiling, 50 USD'),
+      reason: expect.stringContaining('monthly_ceiling, 50 USD') as unknown,
     });
     expect(
       LineSearchPolicy.DEFAULT.overrideProblem(
@@ -160,7 +160,7 @@ describe('LineSearchPolicy', () => {
       ),
     ).toEqual({
       field: 'cooldown',
-      reason: expect.stringContaining('period, 1d'),
+      reason: expect.stringContaining('period, 1d') as unknown,
     });
     expect(
       LineSearchPolicy.DEFAULT.overrideProblem(

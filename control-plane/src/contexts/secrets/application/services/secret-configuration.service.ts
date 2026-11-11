@@ -11,8 +11,8 @@ export class SecretConfiguration implements SecretConfigurationPort {
   constructor(private readonly secrets: SecretRepository) {}
 
   async in(workspaceId: WorkspaceId): Promise<readonly SecretView[]> {
-    return (await this.secrets.inWorkspace(workspaceId)).map(
-      SecretResourceMapper.configured,
+    return (await this.secrets.inWorkspace(workspaceId)).map((each) =>
+      SecretResourceMapper.configured(each),
     );
   }
 

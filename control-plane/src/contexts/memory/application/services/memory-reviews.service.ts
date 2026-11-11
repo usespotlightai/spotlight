@@ -27,34 +27,32 @@ export class MemoryReviews {
     const person = lookUpOnce(this.people);
 
     const memories = await Promise.all(
-      proposals.map(
-        async (proposal): Promise<ProposedMemoryDto> => ({
-          id: proposal.id.value,
-          kind: proposal.kind,
-          body: proposal.body.value,
-          source: proposal.source,
-          proposedBy: proposal.proposedBy,
-          state: proposal.state,
-          scope: proposal.scope.level,
-          repository: proposal.scope.repository?.value ?? null,
-          paths: proposal.scope.paths.map((each) => each.value),
-          supersedes: proposal.supersedes?.value ?? null,
-          decision: proposal.decision && {
-            by: proposal.decision.by.value,
-            name: (await person(proposal.decision.by)).name,
-            at: proposal.decision.at.toISOString(),
-          },
-          harness,
-          steps: (steps ?? []).filter((each) =>
-            proposal.provenance.steps.includes(each.index),
-          ),
-          notes: await provenanceNotes(
-            notes ?? [],
-            proposal.provenance.notes,
-            person,
-          ),
-        }),
-      ),
+      proposals.map(async (proposal): Promise<ProposedMemoryDto> => ({
+        id: proposal.id.value,
+        kind: proposal.kind,
+        body: proposal.body.value,
+        source: proposal.source,
+        proposedBy: proposal.proposedBy,
+        state: proposal.state,
+        scope: proposal.scope.level,
+        repository: proposal.scope.repository?.value ?? null,
+        paths: proposal.scope.paths.map((each) => each.value),
+        supersedes: proposal.supersedes?.value ?? null,
+        decision: proposal.decision && {
+          by: proposal.decision.by.value,
+          name: (await person(proposal.decision.by)).name,
+          at: proposal.decision.at.toISOString(),
+        },
+        harness,
+        steps: (steps ?? []).filter((each) =>
+          proposal.provenance.steps.includes(each.index),
+        ),
+        notes: await provenanceNotes(
+          notes ?? [],
+          proposal.provenance.notes,
+          person,
+        ),
+      })),
     );
 
     return { taskId: draft.taskId.value, runId: runId.value, memories };

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 
 const LINES = 'QUESTION 1: Which repository?\nQUESTION 2: Which channel?';

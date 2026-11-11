@@ -2,13 +2,14 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { AddHost } from '@/routes/AddHost';
 
-const role = vi.fn();
-const creating = vi.fn();
+const role = vi.fn<(...args: unknown[]) => unknown>();
+const creating = vi.fn<() => Record<string, unknown> | undefined>();
 const create = vi.fn();
-const fleet = vi.fn();
-const pools = vi.fn();
+const fleet = vi.fn<(...args: unknown[]) => unknown>();
+const pools = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useRunnerPools', () => ({
   useRunnerPools: () => ({ data: pools(), isPending: false }),
@@ -53,7 +54,7 @@ vi.mock('@/hooks/api/useCreateRunnerPool', async (actual) => ({
 const collapsed = (step: string): boolean =>
   screen
     .getByRole('heading', { name: step })
-    .parentElement?.querySelector('[inert]') != null;
+    .parentElement?.querySelector('[inert]') instanceof Element;
 
 const page = () => (
   <MemoryRouter initialEntries={['/w/acme/settings/runners/new']}>
@@ -190,10 +191,14 @@ describe('AddHost', () => {
 
     expect(collapsed('Add the machine to the my-computer pool')).toBe(false);
 
-    act(() => vi.advanceTimersByTime(1_900));
+    act(() => {
+      vi.advanceTimersByTime(1_900);
+    });
     expect(collapsed('Add the machine to the my-computer pool')).toBe(false);
 
-    act(() => vi.advanceTimersByTime(100));
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
     expect(collapsed('Add the machine to the my-computer pool')).toBe(true);
     expect(collapsed('Wait for the host to connect')).toBe(false);
   });
@@ -234,7 +239,9 @@ describe('AddHost', () => {
     await person.click(screen.getByRole('button', { name: 'Create a pool' }));
     expect(collapsed('Create a pool')).toBe(false);
 
-    act(() => vi.advanceTimersByTime(2_000));
+    act(() => {
+      vi.advanceTimersByTime(2_000);
+    });
 
     expect(collapsed('Create a pool')).toBe(true);
     expect(collapsed('Wait for the host to connect')).toBe(false);

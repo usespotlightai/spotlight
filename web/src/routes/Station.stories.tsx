@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { type JudgeShape, judgeShape } from '@/mocks/world/station-judge';
 import { choice, type PageArgs, pageStory } from '@/stories/application';
 

@@ -7,7 +7,6 @@ import { UpdateWorkspaceCommand } from '@identity/application/commands/update-wo
 import type { Dependent } from '@identity/application/ports/dependents.port';
 import type { WorkspaceOutboundHostsPort } from '@identity/application/ports/workspace-outbound-hosts.port';
 import { DependentsRegistry } from '@identity/application/services/dependents-registry.service';
-import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
@@ -83,7 +82,7 @@ describe('CreateWorkspaceHandler', () => {
       replayed: false,
     });
 
-    const [added] = stored.add.mock.calls[0] as [Workspace];
+    const [added] = stored.add.mock.calls[0];
 
     expect(added.roleOf(OWNER)?.isOwner).toBe(true);
     expect(keys.recordCreated).toHaveBeenCalledWith(
@@ -152,7 +151,7 @@ describe('UpdateWorkspaceHandler', () => {
       id: 'ws_1',
     });
 
-    const [saved] = stored.save.mock.calls[0] as [Workspace];
+    const [saved] = stored.save.mock.calls[0];
 
     expect(saved.name.value).toBe('Acme Inc');
   });
@@ -162,7 +161,7 @@ describe('UpdateWorkspaceHandler', () => {
 
     await update({ ...ACME, outboundHosts: ['api.example.com'] });
 
-    const [saved] = stored.save.mock.calls[0] as [Workspace];
+    const [saved] = stored.save.mock.calls[0];
 
     expect(saved.outboundHosts.entries).toEqual(['api.example.com']);
   });
@@ -257,7 +256,7 @@ describe('DeleteWorkspaceHandler', () => {
     const { remove, stored } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((stored.save.mock.calls[0] as [Workspace])[0].isDeleted).toBe(true);
+    expect(stored.save.mock.calls[0][0].isDeleted).toBe(true);
   });
 
   it('will not delete a workspace that still has a team', async () => {
@@ -265,7 +264,7 @@ describe('DeleteWorkspaceHandler', () => {
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
-      reason: expect.stringContaining('core'),
+      reason: expect.stringContaining('core') as unknown,
     });
     expect(stored.save).not.toHaveBeenCalled();
   });
@@ -275,7 +274,7 @@ describe('DeleteWorkspaceHandler', () => {
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
-      reason: expect.stringContaining('token ci'),
+      reason: expect.stringContaining('token ci') as unknown,
     });
     expect(stored.save).not.toHaveBeenCalled();
   });
@@ -285,7 +284,7 @@ describe('DeleteWorkspaceHandler', () => {
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
-      reason: expect.stringContaining('OIDC trust github-main'),
+      reason: expect.stringContaining('OIDC trust github-main') as unknown,
     });
     expect(stored.save).not.toHaveBeenCalled();
   });
@@ -295,7 +294,9 @@ describe('DeleteWorkspaceHandler', () => {
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
-      reason: expect.stringContaining('tokens issued by a deleted OIDC trust'),
+      reason: expect.stringContaining(
+        'tokens issued by a deleted OIDC trust',
+      ) as unknown,
     });
     expect(stored.save).not.toHaveBeenCalled();
   });
@@ -307,7 +308,7 @@ describe('DeleteWorkspaceHandler', () => {
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
-      reason: expect.stringContaining('secret LINEAR_API_KEY'),
+      reason: expect.stringContaining('secret LINEAR_API_KEY') as unknown,
     });
     expect(stored.save).not.toHaveBeenCalled();
   });

@@ -43,8 +43,11 @@ jobs:
       - name: Known vulnerabilities in production dependencies
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Lint and format check
-        run: npx biome ci .
+      - name: Format check
+        run: npx oxfmt --check
+
+      - name: Lint
+        run: npx oxlint --format github
 
       - name: Unused code and dependencies
         run: npm run knip

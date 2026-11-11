@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { GradeRun } from '@/components/features/inbox/grades/GradeRun';
 import {
   claimsScoresOf,
@@ -8,11 +9,11 @@ import {
   runScoresOf,
 } from '@/test/fixtures/run-scores';
 
-const scores = vi.fn();
+const scores = vi.fn<(...args: unknown[]) => unknown>();
 const scoresFailing = vi.fn();
-const scoresError = vi.fn();
+const scoresError = vi.fn<(...args: unknown[]) => unknown>();
 const mutate = vi.fn();
-const gradePending = vi.fn();
+const gradePending = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useRunScores', () => ({
   useRunScores: () => ({
@@ -233,8 +234,8 @@ describe('GradeRun', () => {
 
     showing();
 
-    const saving = screen.getByRole('status');
-    expect(saving).toHaveTextContent('Saving…');
+    const saving = screen.getByText('Saving…');
+    expect(saving).toHaveAttribute('role', 'status');
     expect(saving.parentElement).toContainElement(
       screen.getByRole('heading', {
         name: 'Does this run meet the rubric?',

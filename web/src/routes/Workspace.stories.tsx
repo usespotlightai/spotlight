@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { THEME_STORAGE_KEY } from '@/hooks/useTheme';
 import { APP_TABS_KEY } from '@/lib/app-tabs';
 import { inboxPath } from '@/lib/inbox';

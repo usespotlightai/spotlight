@@ -42,6 +42,7 @@ const SCREENSHOT = Attachment.rehydrate({
 const message = (position: number, body: string, files: Attachment[] = []) => ({
   position: { value: position },
   body: { value: body },
+  toldOn: () => ({ value: body }),
   attachments: files,
 });
 
@@ -164,7 +165,7 @@ describe('RunWorks, finding the repository a run’s change is checked in', () =
 
     expect(await checked.repositoryForCheck(RUN, 'api')).toEqual({
       workspaceId: WorkspaceId.of('ws_1'),
-      repository: expect.objectContaining({ value: 'acme/api' }),
+      repository: expect.objectContaining({ value: 'acme/api' }) as unknown,
     });
     expect(await checked.repositoryForCheck(RUN, 'web')).toBeNull();
   });

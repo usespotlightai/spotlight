@@ -182,11 +182,9 @@ export type MembersWorld = {
   previews: InvitePreview[];
 };
 
-export const membersWorld = perWorld(
-  (kind): MembersWorld => ({
-    people: structuredClone(PEOPLE),
-    invites: kind === 'empty' ? [] : structuredClone(INVITES),
-    ended: {},
-    previews: kind === 'empty' ? [] : structuredClone(PREVIEWS),
-  }),
-);
+export const membersWorld = perWorld((kind): MembersWorld => ({
+  people: structuredClone(PEOPLE),
+  invites: kind === 'empty' ? [] : structuredClone(INVITES),
+  ended: {},
+  previews: kind === 'empty' ? [] : structuredClone(PREVIEWS),
+}));

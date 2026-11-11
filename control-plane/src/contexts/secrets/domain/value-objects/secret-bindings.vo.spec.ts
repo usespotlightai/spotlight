@@ -38,14 +38,14 @@ describe('SecretBindings', () => {
     });
   });
 
-  it('rejects a query location with no parameter, or one no URL can spell plainly', () => {
-    for (const name of [undefined, '', 'api key', 'key=1', 'k&x', 'ключ']) {
+  it.each([undefined, '', 'api key', 'key=1', 'k&x', 'ключ'])(
+    'rejects a query location with no parameter, or one no URL can spell plainly: %s',
+    (name) => {
       expect(
         invalidAt([{ host: 'maps.googleapis.com', location: 'query', name }]),
-        String(name),
       ).toEqual(['bindings', 0, 'name']);
-    }
-  });
+    },
+  );
 
   it('rejects a location that is neither a header nor a query parameter', () => {
     expect(
@@ -64,28 +64,30 @@ describe('SecretBindings', () => {
     expect(bindings.forUrl(new URL('https://linear.app/'))).toBeNull();
   });
 
-  it('rejects a host written as a URL, with a port, or as a pattern', () => {
-    for (const host of [
-      'https://api.linear.app',
-      'api.linear.app:443',
-      'api.linear.app/graphql',
-      '*.linear.app',
-      'localhost',
-      '',
-    ]) {
-      expect(invalidAt([{ host }]), host).toEqual(['bindings', 0, 'host']);
-    }
-  });
+  it.each([
+    'https://api.linear.app',
+    'api.linear.app:443',
+    'api.linear.app/graphql',
+    '*.linear.app',
+    'localhost',
+    '',
+  ])(
+    'rejects a host written as a URL, with a port, or as a pattern: %s',
+    (host) => {
+      expect(invalidAt([{ host }])).toEqual(['bindings', 0, 'host']);
+    },
+  );
 
-  it('rejects a header that is not one, or that frames the request', () => {
-    for (const name of ['x api key', 'host', 'Content-Length', 'x-\nkey']) {
-      expect(invalidAt([{ host: 'api.linear.app', name }]), name).toEqual([
+  it.each(['x api key', 'host', 'Content-Length', 'x-\nkey'])(
+    'rejects a header that is not one, or that frames the request: %s',
+    (name) => {
+      expect(invalidAt([{ host: 'api.linear.app', name }])).toEqual([
         'bindings',
         0,
         'name',
       ]);
-    }
-  });
+    },
+  );
 
   it('rejects a prefix that could break the header', () => {
     expect(

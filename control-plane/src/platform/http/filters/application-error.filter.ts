@@ -17,6 +17,8 @@ import {
 } from '@shared-kernel/application/errors/application-error';
 import { TranslatedDomainError } from '@shared-kernel/application/errors/translated-domain-error';
 
+const SERVER_ERROR: number = HttpStatus.INTERNAL_SERVER_ERROR;
+
 const AS_HTTP: Record<
   ApplicationErrorKind,
   (message: string) => HttpException
@@ -36,7 +38,7 @@ export class ApplicationErrorFilter extends BaseExceptionFilter {
   override catch(exception: ApplicationError, host: ArgumentsHost): void {
     const http = httpExceptionOf(exception);
 
-    if (http.getStatus() < HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (http.getStatus() < SERVER_ERROR) {
       noteRefusal(host.switchToHttp().getResponse(), {
         kind: exception.kind,
         error: (exception instanceof TranslatedDomainError

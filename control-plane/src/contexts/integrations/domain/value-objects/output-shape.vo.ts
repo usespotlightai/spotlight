@@ -117,7 +117,7 @@ const inferred = (value: unknown, depth: number, budget: Budget): ShapeNode => {
     kind: 'object',
     fields: keys.sort().map((name) => ({
       name,
-      shape: inferred((value as JsonObject)[name], depth + 1, budget),
+      shape: inferred(value[name], depth + 1, budget),
       optional: false,
     })),
   };
@@ -211,7 +211,7 @@ const merged = (one: ShapeNode, other: ShapeNode): ShapeNode => {
     if (at < 0) {
       choices.push(each);
     } else {
-      choices[at] = alike(choices[at] as ShapeNode, each);
+      choices[at] = alike(choices[at], each);
     }
   }
 
@@ -219,9 +219,7 @@ const merged = (one: ShapeNode, other: ShapeNode): ShapeNode => {
     return UNKNOWN;
   }
 
-  return choices.length === 1
-    ? (choices[0] as ShapeNode)
-    : { kind: 'oneOf', shapes: choices };
+  return choices.length === 1 ? choices[0] : { kind: 'oneOf', shapes: choices };
 };
 
 const bounded = (node: ShapeNode, depth: number, budget: Budget): ShapeNode => {
@@ -252,7 +250,12 @@ const bounded = (node: ShapeNode, depth: number, budget: Budget): ShapeNode => {
             kind: 'oneOf',
             shapes: node.shapes.map((each) => bounded(each, depth, budget)),
           };
-    default:
+    case 'boolean':
+    case 'nothing':
+    case 'null':
+    case 'number':
+    case 'string':
+    case 'unknown':
       return node;
   }
 };
@@ -279,7 +282,10 @@ const schemaOf = (node: ShapeNode): JsonObject => {
       };
     case 'oneOf':
       return { anyOf: node.shapes.map(schemaOf) };
-    default:
+    case 'boolean':
+    case 'null':
+    case 'number':
+    case 'string':
       return { type: node.kind };
   }
 };
@@ -299,7 +305,7 @@ const read = (raw: unknown, depth: number): ShapeNode => {
   }
 
   if (raw.kind === 'nothing' || isScalar(raw.kind)) {
-    return { kind: raw.kind } as ShapeNode;
+    return { kind: raw.kind };
   }
 
   if (raw.kind === 'list' || raw.kind === 'record') {

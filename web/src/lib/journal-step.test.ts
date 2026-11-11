@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import type { JournalStep } from '@/lib/inbox';
 import { shownStep, stretchesOf } from '@/lib/journal-step';
 

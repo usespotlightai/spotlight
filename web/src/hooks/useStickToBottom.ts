@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+
 import { togglesDisclosure } from '@/lib/disclosure';
 
 const NEAR = 80;
@@ -43,7 +44,6 @@ export function useStickToBottom<T extends HTMLElement>(jump?: unknown) {
     };
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a change of jump is the signal to go to the bottom
   useEffect(() => {
     const el = ref.current;
     if (!el) {

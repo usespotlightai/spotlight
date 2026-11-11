@@ -29,6 +29,9 @@ import {
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 
+// oxlint-disable-next-line typescript/no-base-to-string -- the request body is unvalidated JSON, and the command checks the text
+const textOf = (value: unknown): string => String(value ?? '');
+
 @ApiTags('notifications')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('me')
@@ -72,9 +75,9 @@ export class NotificationsController {
     await this.commandBus.execute<SubscribeToPushCommand, void>(
       new SubscribeToPushCommand(
         user.id,
-        String(body?.endpoint ?? ''),
-        String(body?.keys?.p256dh ?? ''),
-        String(body?.keys?.auth ?? ''),
+        textOf(body?.endpoint),
+        textOf(body?.keys?.p256dh),
+        textOf(body?.keys?.auth),
       ),
     );
   }
@@ -97,7 +100,7 @@ export class NotificationsController {
     const removed = await this.commandBus.execute<
       UnsubscribeFromPushCommand,
       boolean
-    >(new UnsubscribeFromPushCommand(user.id, String(body?.endpoint ?? '')));
+    >(new UnsubscribeFromPushCommand(user.id, textOf(body?.endpoint)));
 
     if (!removed) {
       throw new NotFoundException();

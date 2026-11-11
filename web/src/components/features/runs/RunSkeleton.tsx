@@ -1,8 +1,8 @@
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { TurnsSkeleton } from '@/components/features/inbox/conversation/TurnsSkeleton';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
-import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { ChatInputSkeleton } from '@/components/shared/chat-input/ChatInputSkeleton';
+import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';

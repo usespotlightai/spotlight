@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
@@ -7,14 +8,13 @@ import {
 } from '@work/application/ports/notices.port';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { watchedLive } from './support/live';
+import { E2E_REDIS_URL, watchedLive } from './support/live';
 import { createTeam } from './support/team';
 
 type Team = Awaited<ReturnType<typeof createTeam>>;
-
-const REDIS_URL = process.env.SPOTLIGHT_E2E_REDIS_URL;
 
 const teamIn = (app: INestApplication) =>
   createTeam(
@@ -80,17 +80,17 @@ describe('live changes on one instance', () => {
   });
 });
 
-describe.skipIf(!REDIS_URL)('live changes across two instances', () => {
+describe.skipIf(!E2E_REDIS_URL)('live changes across two instances', () => {
   let first: INestApplication;
   let second: INestApplication;
   let team: Team;
 
   beforeAll(async () => {
     first = await openApp((module) => module, {
-      env: { REDIS_URL },
+      env: { REDIS_URL: E2E_REDIS_URL },
     });
     second = await openApp((module) => module, {
-      env: { REDIS_URL },
+      env: { REDIS_URL: E2E_REDIS_URL },
       sharingDatabaseOf: first,
     });
     team = await teamIn(first);

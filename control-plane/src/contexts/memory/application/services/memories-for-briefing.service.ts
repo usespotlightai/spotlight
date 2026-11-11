@@ -47,10 +47,7 @@ const contextOf = (briefing: BriefedContext): RunContext => ({
   repositories: briefing.repositories,
 });
 
-const folderAt = (
-  runContext: RunContext,
-  laid: boolean,
-): MemoryFolder | null =>
+const folderAt = (runContext: RunContext, laid: boolean): MemoryFolder | null =>
   laid
     ? {
         path: MEMORY_FOLDER,

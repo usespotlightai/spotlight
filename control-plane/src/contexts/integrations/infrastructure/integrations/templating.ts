@@ -91,6 +91,6 @@ export const requiredValueOf = (
 };
 
 export const asJson = (value: unknown): string =>
-  JSON.stringify(value, (_key, each) =>
+  JSON.stringify(value, (_key, each: unknown) =>
     typeof each === 'bigint' ? Number(each) : each,
   );

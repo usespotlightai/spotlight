@@ -1,10 +1,10 @@
 import { RunnerHeartbeats } from '@runners/application/services/runner-heartbeats.service';
-import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import {
   aRunner,
   aTrust,
   STARTED_AT,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerVersionConflictError } from '@runners/domain/exceptions/runner-version-conflict.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';

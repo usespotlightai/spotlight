@@ -33,7 +33,9 @@ const briefedWith = (
   memories.filter((memory) => activeAt(memory, run.at) && matches(memory, run));
 
 const recalled = (run: HistoryRun): boolean =>
-  [...run.runId].reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % 9 < 2;
+  Array.from(run.runId).reduce((sum, letter) => sum + letter.charCodeAt(0), 0) %
+    9 <
+  2;
 
 const flaggedOf = (memory: MemoryRecord): FlaggedMemoryResponseDto | null =>
   memory.retirement?.by && !memory.retirement.supersededBy

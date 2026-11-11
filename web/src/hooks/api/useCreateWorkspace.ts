@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { noop, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { workspaceQuery } from '@/hooks/api/useWorkspace';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import {
@@ -42,7 +43,7 @@ export function useCreateWorkspace() {
     onSuccess: (workspace) =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: workspaceKeys.all }),
-        queryClient.prefetchQuery(workspaceQuery(workspace.slug)),
+        queryClient.query(workspaceQuery(workspace.slug)).catch(noop),
       ]),
   });
 }

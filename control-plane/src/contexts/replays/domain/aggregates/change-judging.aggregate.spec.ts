@@ -110,6 +110,18 @@ describe('ChangeJudging', () => {
     expect(event?.failure.code).toBe('unreadable');
   });
 
+  it('fails at once, without retrying, when the judge has insufficient credits', () => {
+    const broke = {
+      judged: false,
+      failure: 'insufficient-credits',
+    } as const;
+    const failed = requested().leaseJob(NOW).recordJudgment(broke, NOW);
+    const [event] = failed.pullEvents() as ChangeJudgingFailed[];
+
+    expect(failed.hasPendingJob).toBe(false);
+    expect(event?.failure.code).toBe('insufficient-credits');
+  });
+
   it('can be judged again only once it was judged', () => {
     expect(() => requested().requeued(NOW)).toThrow(InvalidJudgingError);
   });

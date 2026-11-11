@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+
 import { decrypt, encrypt } from '@secrets/infrastructure/crypto/envelope';
 import { aadFor } from '@secrets/infrastructure/crypto/key-context';
 import type {

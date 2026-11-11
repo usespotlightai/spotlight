@@ -42,8 +42,8 @@ const sharedLengths = (
     for (let now = after.length - 1; now >= 0; now -= 1) {
       row[now] =
         before[old] === after[now]
-          ? (below[now + 1] as number) + 1
-          : Math.max(below[now] as number, row[now + 1] as number);
+          ? below[now + 1] + 1
+          : Math.max(below[now], row[now + 1]);
     }
   }
 
@@ -88,7 +88,7 @@ const middleEdits = (
       push('-', previous);
       old += 1;
     } else {
-      push('+', added as string);
+      push('+', added);
       now += 1;
     }
   }
@@ -140,9 +140,9 @@ const span = (start: number, count: number): string =>
 const headerOf = (edits: readonly Edit[]): string => {
   const olds = edits.filter((each) => each.sign !== '+');
   const nows = edits.filter((each) => each.sign !== '-');
-  const first = edits[0] as Edit;
-  const oldStart = olds.length > 0 ? (olds[0] as Edit).old + 1 : first.old;
-  const newStart = nows.length > 0 ? (nows[0] as Edit).now + 1 : first.now;
+  const first = edits[0];
+  const oldStart = olds.length > 0 ? olds[0].old + 1 : first.old;
+  const newStart = nows.length > 0 ? nows[0].now + 1 : first.now;
 
   return `@@ -${span(oldStart, olds.length)} +${span(newStart, nows.length)} @@`;
 };

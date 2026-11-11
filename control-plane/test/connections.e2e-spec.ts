@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import {
   INTEGRATION_CONNECTIONS,
@@ -9,6 +10,8 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import type { INestApplication } from '@nestjs/common';
+import { ENV } from '@platform/config/config.constants';
+import type { Env } from '@platform/config/env.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -29,7 +32,8 @@ import {
   it,
   vi,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -49,7 +53,7 @@ const LINEAR = {
         method: 'POST',
         url: 'https://api.linear.app/graphql',
         auth: { oauth2: { connection: true } },
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- the file's own expression syntax
         body: { body: '${{ inputs.body }}' },
       },
     },
@@ -62,6 +66,13 @@ const LINEAR = {
     },
   },
 };
+
+interface Connections {
+  readonly mine: readonly { readonly tools: unknown }[];
+  readonly people:
+    | readonly { readonly name: string; readonly linkedAccount: string }[]
+    | null;
+}
 
 describe('each person’s own connections (e2e)', () => {
   let app: INestApplication;
@@ -133,11 +144,9 @@ describe('each person’s own connections (e2e)', () => {
     workspaceId = `connections-${randomUUID().slice(0, 8)}`;
     seat = await seatTeam(db, workspaceId);
 
-    const made = await as(seat.owner).post(
-      `/api/v1/resources/teams/${workspaceId}/integrations`,
-      LINEAR,
-    );
-    expect(made.status).toBe(201);
+    await as(seat.owner)
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, LINEAR)
+      .expect(201);
   });
 
   afterEach(async () => {
@@ -160,16 +169,16 @@ describe('each person’s own connections (e2e)', () => {
   });
 
   it('lets a member who is no admin begin connecting their own account, returning to where they started', async () => {
-    const started = await as(seat.member).post(
+    const started = (await as(seat.member).post(
       `/api/teams/${workspaceId}/integrations/linear/connect`,
       { actsAs: 'requester', returnTo: `/w/${workspaceId}/inbox/task_1` },
-    );
+    )) as Answer<{ readonly url: string }>;
 
     expect(started.status).toBe(201);
     const url = new URL(started.body.url);
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
 
-    const state = new OAuth2State(process.env.BETTER_AUTH_SECRET ?? '').open(
+    const state = new OAuth2State(app.get<Env>(ENV).BETTER_AUTH_SECRET).open(
       url.searchParams.get('state') ?? '',
     );
     expect(state).toMatchObject({
@@ -192,12 +201,12 @@ describe('each person’s own connections (e2e)', () => {
     await connect(seat.member, '@bea');
     await connect(seat.owner, '@ada');
 
-    const theirs = await as(seat.member).get(
+    const theirs = (await as(seat.member).get(
       `/api/teams/${workspaceId}/connections`,
-    );
-    const roster = await as(seat.owner).get(
+    )) as Answer<Connections>;
+    const roster = (await as(seat.owner).get(
       `/api/teams/${workspaceId}/connections`,
-    );
+    )) as Answer<Connections>;
 
     expect(theirs.status).toBe(200);
     expect(theirs.body.mine).toEqual([
@@ -205,12 +214,7 @@ describe('each person’s own connections (e2e)', () => {
     ]);
     expect(theirs.body.people).toBeNull();
     expect(
-      roster.body.people.map(
-        (each: { name: string; linkedAccount: string }) => [
-          each.name,
-          each.linkedAccount,
-        ],
-      ),
+      roster.body.people?.map((each) => [each.name, each.linkedAccount]),
     ).toEqual(
       expect.arrayContaining([
         ['Ada', '@ada'],
@@ -227,16 +231,14 @@ describe('each person’s own connections (e2e)', () => {
     const gone = await as(seat.member).delete(
       `/api/teams/${workspaceId}/integrations/linear/connections/mine`,
     );
-    const roster = await as(seat.owner).get(
+    const roster = (await as(seat.owner).get(
       `/api/teams/${workspaceId}/connections`,
-    );
+    )) as Answer<Connections>;
 
     expect(gone.status).toBe(204);
-    expect(
-      roster.body.people.map(
-        (each: { linkedAccount: string }) => each.linkedAccount,
-      ),
-    ).toEqual(['@ada']);
+    expect(roster.body.people?.map((each) => each.linkedAccount)).toEqual([
+      '@ada',
+    ]);
   });
 
   it('lets a person set a rule for calls made with their own connection, and carries it to the tool', async () => {
@@ -248,12 +250,12 @@ describe('each person’s own connections (e2e)', () => {
       (await as(seat.member).put(rule, { rule: 'needs-approval' })).status,
     ).toBe(204);
 
-    const theirs = await as(seat.member).get(
+    const theirs = (await as(seat.member).get(
       `/api/teams/${workspaceId}/connections`,
-    );
-    const mine = await as(seat.owner).get(
+    )) as Answer<Connections>;
+    const mine = (await as(seat.owner).get(
       `/api/teams/${workspaceId}/connections`,
-    );
+    )) as Answer<Connections>;
     expect(theirs.body.mine[0].tools).toEqual([
       { tool: 'linear.comment', rule: 'needs-approval' },
     ]);

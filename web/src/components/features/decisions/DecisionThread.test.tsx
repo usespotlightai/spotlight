@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
+
 import { DecisionThread } from '@/components/features/decisions/DecisionThread';
 import type { Decision } from '@/lib/decision';
 

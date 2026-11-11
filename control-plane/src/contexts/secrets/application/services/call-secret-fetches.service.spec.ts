@@ -121,7 +121,7 @@ describe('CallSecretFetches', () => {
         secret: 'SLACK_USER_TOKEN',
         reason: expect.stringContaining(
           'Secrets SLACK_USER_TOKEN and SLACK_BOT_TOKEN are both injected in authorization',
-        ),
+        ) as unknown,
       },
     ]);
   });

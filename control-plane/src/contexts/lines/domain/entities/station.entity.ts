@@ -102,7 +102,8 @@ export abstract class Station {
         return new Backlog(...ends);
       case 'completed':
         return new Completed(...ends);
-      default:
+      case undefined:
+      case 'work':
         return new WorkStation(
           ...ends,
           input.harness ?? null,

@@ -1,4 +1,5 @@
 import { Lightbulb } from 'lucide-react';
+
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
 import { ResolveToggle } from '@/components/features/inbox/ResolveToggle';
 import { type InboxNotice, noticePath, noticePreviewOf } from '@/lib/inbox';

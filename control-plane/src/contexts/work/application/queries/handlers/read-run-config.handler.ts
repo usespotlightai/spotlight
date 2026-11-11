@@ -14,9 +14,10 @@ import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 const configOf = (run: RanConfig): StationConfig =>
   StationConfig.rehydrate(run.parts, run.fingerprint);
 
-export class ReadRunConfigHandler
-  implements QueryHandlerPort<ReadRunConfigQuery, RunConfigDto | null>
-{
+export class ReadRunConfigHandler implements QueryHandlerPort<
+  ReadRunConfigQuery,
+  RunConfigDto | null
+> {
   constructor(
     private readonly runs: RunReaderPort,
     private readonly access: RunAccess,

@@ -1,10 +1,10 @@
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { MEMORY_COMPARISON_HEADINGS } from '@/lib/insights-memory';
 import { comparedRows, type MeasureVerdict } from '@/lib/tally-comparison';
 import { cn } from '@/lib/utils';

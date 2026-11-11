@@ -1,7 +1,6 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -22,7 +21,6 @@ import {
   type ChannelAnswer,
   ChannelChats,
 } from '@work/application/services/channel-chats.service';
-import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
@@ -144,10 +142,10 @@ const channels = ({
     HarnessId.of('claude-code'),
     {
       takenUp: vi.fn(async (chat: Chat) => chat),
-    } as unknown as ChatDispatching,
+    },
     { notify } satisfies ChannelNoticesPort,
     { now: () => NOW } as ClockPort,
-    { generate: () => 'chat_1' } as IdGeneratorPort,
+    { generate: () => 'chat_1' },
     { info: vi.fn(), warn } as unknown as LoggerPort,
   );
 

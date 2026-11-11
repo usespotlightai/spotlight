@@ -1,6 +1,7 @@
 import type { DragEndEvent } from '@dnd-kit/core';
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { OPEN_DROP, RESOLVED_DROP, useInboxDrag } from '@/hooks/useInboxDrag';
 import type { InboxEntry } from '@/lib/inbox';
 

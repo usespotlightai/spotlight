@@ -8,8 +8,8 @@ import type {
 } from '@work/application/ports/station-config-candidates.port';
 import type { CandidateLines } from '@work/application/services/candidate-lines.service';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import type { Station } from '@work/domain/value-objects/station.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 
 const UNSTARTABLE: ValidatedStationConfig = {
   ok: false,

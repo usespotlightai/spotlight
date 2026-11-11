@@ -101,7 +101,7 @@ const finishedWithNothing = (requestedBy?: string): Search =>
   aSearch({
     set: aSet(10),
     ...(requestedBy ? { requestedBy } : {}),
-  }).recordReplayStopReason(
+  }).recordReplayEndState(
     ReplayId.of('replay_seed'),
     'ceiling-reached',
     { spent: Money.of(1, 'USD'), unpriced: 0 },
@@ -113,7 +113,7 @@ const finishedWithNothing = (requestedBy?: string): Search =>
 const withOtherCandidate = (): Search => {
   const runIds = searchRunIds();
   const taken = aSearch({ set: aSet(10), requestedBy: 'user_asking' })
-    .recordReplayStopReason(
+    .recordReplayEndState(
       ReplayId.of('replay_seed'),
       'finished',
       { spent: Money.of(1, 'USD'), unpriced: 0 },
@@ -122,7 +122,7 @@ const withOtherCandidate = (): Search => {
       true,
     )
     .requestsTaken(() => ReplayId.of('replay_asked'), NOW, runIds)
-    .recordReplayStopReason(
+    .recordReplayEndState(
       ReplayId.of('replay_asked'),
       'finished',
       { spent: Money.of(1, 'USD'), unpriced: 0 },
@@ -193,7 +193,7 @@ describe('PickSearchCandidates', () => {
 
     const declined = memory.events.filter(
       (each) => each instanceof SearchPickDeclined,
-    ) as SearchPickDeclined[];
+    );
 
     expect(memory.searches.get(search.id.value)?.pick).toEqual({
       outcome: 'declined',
@@ -201,7 +201,7 @@ describe('PickSearchCandidates', () => {
     });
     expect(declined).toHaveLength(1);
 
-    await noticing().pickDeclined(declined[0] as SearchPickDeclined);
+    await noticing().pickDeclined(declined[0]);
 
     expect(noticed).toEqual([]);
     expect(advised).toEqual([]);

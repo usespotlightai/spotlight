@@ -1,7 +1,4 @@
-import {
-  GetSecretValueCommand,
-  type SecretsManagerClient,
-} from '@aws-sdk/client-secrets-manager';
+import { GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
 import type { SecretReference } from '@secrets/application/ports/secret-source.port';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
@@ -25,7 +22,7 @@ const setUp = (answer: () => Promise<unknown>) => {
     send,
     source: new AwsSecretsManagerSource({
       send,
-    } as unknown as Pick<SecretsManagerClient, 'send'>),
+    }),
   };
 };
 

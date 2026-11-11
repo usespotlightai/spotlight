@@ -1,12 +1,16 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { useChatDraft } from '@/hooks/useChatDraft';
 import { UPLOAD_MAX_AGE_MS } from '@/lib/chat-draft';
 import { toast } from '@/lib/toast';
 
 const STORAGE = 'spotlight.chat-drafts.acme';
 
-const stored = () => JSON.parse(localStorage.getItem(STORAGE) ?? '{}');
+const stored = () =>
+  JSON.parse(localStorage.getItem(STORAGE) ?? '{}') as {
+    new: Record<string, unknown>;
+  };
 
 const attachment = (uploadedAt = Date.now()) => ({
   key: 'k1',
@@ -17,7 +21,11 @@ const attachment = (uploadedAt = Date.now()) => ({
   uploadedAt,
 });
 
-const flushed = () => act(() => vi.advanceTimersByTime(500));
+const flushed = () => {
+  act(() => {
+    vi.advanceTimersByTime(500);
+  });
+};
 
 beforeEach(() => {
   localStorage.clear();

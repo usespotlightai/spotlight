@@ -30,9 +30,10 @@ import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 
-export class StartChatHandler
-  implements CommandHandlerPort<StartChatCommand, string | null>
-{
+export class StartChatHandler implements CommandHandlerPort<
+  StartChatCommand,
+  string | null
+> {
   constructor(
     private readonly access: WorkAccess,
     private readonly chats: ChatRepository,

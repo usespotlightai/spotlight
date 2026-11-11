@@ -5,16 +5,16 @@ import type {
 import type { CheckedExpression } from '@integrations/application/ports/expression-checks.port';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import {
-  checkedAgainst,
-  type Returns,
-} from '@integrations/infrastructure/hooks/hook.compile';
-import { hookSchema } from '@integrations/infrastructure/hooks/hook.schema';
-import {
   ANY_EVENT,
   ANY_STEP,
   firingScope,
   steppingScope,
 } from '@integrations/infrastructure/hooks/hook-scopes';
+import {
+  checkedAgainst,
+  type Returns,
+} from '@integrations/infrastructure/hooks/hook.compile';
+import { hookSchema } from '@integrations/infrastructure/hooks/hook.schema';
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
 import type {
   Declared,

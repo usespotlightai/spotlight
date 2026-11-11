@@ -139,7 +139,7 @@ const agentConfigOf = (
   runs: readonly HistoryRun[],
   judged: boolean,
 ): AgentConfigOutcomeResponseDto => {
-  const first = runs[0] as HistoryRun;
+  const first = runs[0];
   const tally = tallyOf(runs);
   const costPerRun = costPerRunOf(runs);
   const judge = judged ? judgeOf(runs) : null;

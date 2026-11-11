@@ -23,9 +23,10 @@ import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export class CreateLineHandler
-  implements CommandHandlerPort<CreateLineCommand, ResourceCreated | null>
-{
+export class CreateLineHandler implements CommandHandlerPort<
+  CreateLineCommand,
+  ResourceCreated | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,

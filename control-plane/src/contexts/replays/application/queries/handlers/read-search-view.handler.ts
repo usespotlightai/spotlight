@@ -10,9 +10,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
-export class ReadSearchViewHandler
-  implements QueryHandlerPort<ReadSearchViewQuery, SearchViewDto>
-{
+export class ReadSearchViewHandler implements QueryHandlerPort<
+  ReadSearchViewQuery,
+  SearchViewDto
+> {
   constructor(
     private readonly searchRuns: SearchRunDispatching,
     private readonly visibilities: SearchVisibilities,

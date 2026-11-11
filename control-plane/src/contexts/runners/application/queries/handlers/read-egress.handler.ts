@@ -6,9 +6,10 @@ import type { ReadEgressQuery } from '@runners/application/queries/runner-resour
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadEgressHandler
-  implements QueryHandlerPort<ReadEgressQuery, EgressResourceDto | null>
-{
+export class ReadEgressHandler implements QueryHandlerPort<
+  ReadEgressQuery,
+  EgressResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: RunnerResourcesPort,

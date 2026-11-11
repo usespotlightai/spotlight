@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 const paired = (candidate: readonly number[], baseline: readonly number[]) =>
   candidate.map((each, at) => ({
     candidate: each,
-    baseline: baseline[at] as number,
+    baseline: baseline[at],
   }));
 
 describe('gainEstimateOf', () => {

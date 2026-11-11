@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { CHANGE_REVIEW_PAYLOAD_TYPES } from '@change-review/infrastructure/events/change-review-payload-types';
 import { describe, expect, it } from 'vitest';
 
@@ -20,9 +21,10 @@ describe('CHANGE_REVIEW_PAYLOAD_TYPES', () => {
       for (const file of readdirSync(within).filter(
         (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
       )) {
-        const loaded: Record<string, unknown> = await import(
-          join(within, file)
-        );
+        const loaded = (await import(join(within, file))) as Record<
+          string,
+          unknown
+        >;
 
         for (const [name, value] of Object.entries(loaded)) {
           if (

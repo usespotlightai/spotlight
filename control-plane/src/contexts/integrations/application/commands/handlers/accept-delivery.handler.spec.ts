@@ -27,10 +27,7 @@ const provider = (
     happenings: [],
     verifies: vi.fn(async (delivered: Delivered) => verifies(delivered)),
     delivery: (delivered: Delivered) =>
-      String(
-        (delivered.headers as Record<string, string>)['x-delivery'] ??
-          'unnamed',
-      ),
+      (delivered.headers as Record<string, string>)['x-delivery'] ?? 'unnamed',
     routes: async () => null,
     read: async () => [],
     ...over,

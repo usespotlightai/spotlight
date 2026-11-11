@@ -68,7 +68,7 @@ export class ArrivalDeliveries {
     const outcomes = await Promise.allSettled(
       subscriptions.map((each) => this.pushedTo(each, payload, item.personId)),
     );
-    const failures = outcomes.flatMap((each) =>
+    const failures = outcomes.flatMap((each): unknown[] =>
       each.status === 'rejected' ? [each.reason] : [],
     );
 

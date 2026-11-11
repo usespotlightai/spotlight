@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   listInsightsPullRequests,
   listInsightsTraces,
@@ -306,7 +307,7 @@ describe('the task journal and the run conversations tell one story', () => {
       ),
     ).toEqual(
       expect.arrayContaining(
-        run.notes.map((note) =>
+        run.notes.map((note): unknown =>
           expect.objectContaining({ body: note.body, at: note.at }),
         ),
       ),

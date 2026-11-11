@@ -12,9 +12,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
-export class UnlockTerraformStateHandler
-  implements CommandHandlerPort<UnlockTerraformStateCommand, StateChanged>
-{
+export class UnlockTerraformStateHandler implements CommandHandlerPort<
+  UnlockTerraformStateCommand,
+  StateChanged
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly states: TerraformStateRepository,

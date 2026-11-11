@@ -189,9 +189,7 @@ const peoplePullRequests = (
       (weekend ? 0.1 : (PEOPLE_RATE[repository] ?? 0)) + draw(),
     );
     for (let each = 0; each < count; each += 1) {
-      const [title, type] = PEOPLE_TITLES[
-        titleAt % PEOPLE_TITLES.length
-      ] as readonly [string, PullRequestType];
+      const [title, type] = PEOPLE_TITLES[titleAt % PEOPLE_TITLES.length];
       titleAt += 1;
       const openedAt = day + (8 + draw() * 9) * HOUR_MS;
       const rounds = Math.floor(draw() * 3.4);
@@ -630,7 +628,7 @@ const shownOf = (fact: PullRequestFact): InsightsPullRequestResponseDto => {
     deletions: fact.deletions,
     changedFiles: fact.changedFiles,
     spend:
-      spend?.amount == null
+      typeof spend?.amount !== 'number'
         ? null
         : { amount: spend.amount, currency: CURRENCY },
     unpriced: spend?.unpriced ?? 0,

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useParams } from 'react-router';
+
 import {
   type BreadcrumbSegment,
   Breadcrumbs,

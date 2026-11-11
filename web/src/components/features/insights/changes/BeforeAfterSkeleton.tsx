@@ -16,11 +16,7 @@ export function BeforeAfterSkeleton() {
       </div>
       <div className="flex flex-col gap-2">
         {Array.from({ length: ROWS }, (_, at) => (
-          <SkeletonLine
-            // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
-            key={at}
-            className="w-full text-xs"
-          />
+          <SkeletonLine key={at} className="w-full text-xs" />
         ))}
       </div>
       <div className="flex gap-2">

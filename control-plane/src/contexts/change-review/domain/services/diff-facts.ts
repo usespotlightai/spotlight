@@ -85,7 +85,7 @@ export const connectedGroups = (
     while (parent.get(top) !== top) {
       top = parent.get(top) ?? top;
     }
-    for (let at = hunk; at !== top; ) {
+    for (let at = hunk; at !== top;) {
       const next = parent.get(at) ?? top;
       parent.set(at, top);
       at = next;

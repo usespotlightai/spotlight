@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router';
+
 import { useSession } from '@/hooks/api/useSession';
 
 export function RequireGuest() {

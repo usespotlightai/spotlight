@@ -33,8 +33,6 @@ export type EmailsWorld = {
   additional: UserEmailResponseDto[];
 };
 
-export const emailsWorld = perWorld(
-  (kind): EmailsWorld => ({
-    additional: kind === 'empty' ? [] : structuredClone(EMAILS),
-  }),
-);
+export const emailsWorld = perWorld((kind): EmailsWorld => ({
+  additional: kind === 'empty' ? [] : structuredClone(EMAILS),
+}));

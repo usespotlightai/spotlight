@@ -37,7 +37,7 @@ const reflection = (
     reflectedOn: tasks,
     causes: causes.map((cause, at) =>
       FailureCause.of({
-        task: tasks[at] as ReflectedTask,
+        task: tasks[at],
         cause,
         evidence: 'It shows.',
         suggestion: null,

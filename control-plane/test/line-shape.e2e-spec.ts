@@ -1,10 +1,8 @@
 import { randomUUID } from 'node:crypto';
+
 import { CreateLineCommand } from '@lines/application/commands/create-line.command';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
@@ -21,11 +19,13 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { AppModule } from '@/app.module';
+
 import { definitionOf } from './support/line-definition';
 import { seatTeam } from './support/team';
 
-const BUILT_IN = BUILT_IN_LINES[0] as LineOpening;
+const BUILT_IN = BUILT_IN_LINES[0];
 
 const shapeOf = (line: Line) =>
   line.stations.map((station) => ({
@@ -38,7 +38,7 @@ const shapeOf = (line: Line) =>
     ends: station.routes.ends,
     passesTo: station.routes.stations
       .map((id) => line.stationAt(id)?.name.value)
-      .sort(),
+      .sort((a, b) => (a ?? '').localeCompare(b ?? '')),
   }));
 
 const reactionsOf = (line: Line) =>

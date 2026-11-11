@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -15,6 +16,7 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 let database: TestDatabase;
@@ -29,7 +31,7 @@ beforeAll(async () => {
   reader = new DrizzleChatReader(
     database.db,
     { find: async () => null } as never,
-    { progressOf: async () => [] } as never,
+    { progressOf: async () => [] },
   );
 }, 60_000);
 

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
@@ -6,6 +7,7 @@ import {
   type ProcessedEventsPort,
 } from '@work/application/ports/processed-events.port';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp } from './support/app';
 
 describe('processed events, stored in the database (e2e)', () => {
