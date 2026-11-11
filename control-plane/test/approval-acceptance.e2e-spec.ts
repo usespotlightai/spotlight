@@ -228,8 +228,7 @@ describe('a run a person decided a tool approval for (e2e)', () => {
     expect(stations.status).toBe(200);
     expect(stations.body.stations[0].tally).toMatchObject({
       runs: 5,
-      accepted: 2,
-      sentBack: 2,
+      resolutions: expect.objectContaining({ accepted: 2, sentBack: 2 }),
     });
     expect(people.status).toBe(200);
     expect(people.body.load).toMatchObject({

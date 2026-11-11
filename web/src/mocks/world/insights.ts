@@ -16,6 +16,7 @@ import type {
   StationWorthImprovingResponseDto,
   TallyDeltasResponseDto,
 } from '@/lib/api';
+import { tallyCountOf } from '@/lib/station-insights';
 import { world } from '@/mocks/world';
 import { type HistoryRun, tasksOfTeam } from '@/mocks/world/insights-history';
 import {
@@ -412,8 +413,13 @@ const tallyChangesOf = (
     return {
       runs: NO_CHANGE,
       failed: NO_CHANGE,
-      accepted: NO_CHANGE,
-      sentBack: NO_CHANGE,
+      resolutions: {
+        accepted: NO_CHANGE,
+        sentBack: NO_CHANGE,
+        movedOn: NO_CHANGE,
+        failed: NO_CHANGE,
+        other: NO_CHANGE,
+      },
       merged: NO_CHANGE,
       cost: NO_CHANGE,
       median: NO_CHANGE,
@@ -437,18 +443,25 @@ const tallyChangesOf = (
       'down',
       'points',
     ),
-    accepted: compare(
-      rate(is.accepted, is.runs),
-      rate(was.accepted, was.runs),
-      'up',
-      'points',
-    ),
-    sentBack: compare(
-      rate(is.sentBack, is.runs),
-      rate(was.sentBack, was.runs),
-      'down',
-      'points',
-    ),
+    resolutions: {
+      accepted: compare(
+        is.resolutions.accepted,
+        was.resolutions.accepted,
+        'up',
+      ),
+      sentBack: compare(
+        is.resolutions.sentBack,
+        was.resolutions.sentBack,
+        'down',
+      ),
+      movedOn: compare(
+        is.resolutions.movedOn,
+        was.resolutions.movedOn,
+        'neither',
+      ),
+      failed: compare(is.resolutions.failed, was.resolutions.failed, 'down'),
+      other: compare(is.resolutions.other, was.resolutions.other, 'neither'),
+    },
     merged: compare(is.merged, was.merged, 'up'),
     cost: compare(costPerRunOf(now), costPerRunOf(before), 'down'),
     median: compare(is.medianMs, was.medianMs, 'down'),
@@ -458,8 +471,8 @@ const tallyChangesOf = (
 const seenOf = (runs: readonly HistoryRun[]) => {
   const tally = tallyOf(runs);
   return {
-    accepted: tally.accepted > 0,
-    sentBack: tally.sentBack > 0,
+    accepted: tally.resolutions.accepted > 0,
+    sentBack: tally.resolutions.sentBack > 0,
     merged: tally.merged > 0,
   };
 };
@@ -552,7 +565,7 @@ export const stationsOf = (
     teamChanges: tallyChangesOf(now, before),
     teamSeen: seenOf(now),
     teamCounted: Object.fromEntries(
-      COUNTED.map((key) => [key, team[key] > 0]),
+      COUNTED.map((key) => [key, tallyCountOf(team, key) > 0]),
     ) as InsightsStationsResponseDto['teamCounted'],
     teamTrend: now.length === 0 ? [] : trendOf(now, span),
     stations: reports,

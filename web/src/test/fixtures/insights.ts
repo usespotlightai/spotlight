@@ -17,6 +17,7 @@ import {
   type Delta,
   type InsightsStations,
 } from '@/lib/insights';
+import { tallyCountOf } from '@/lib/station-insights';
 import { onGitHub } from '@/mocks/world/repositories';
 import { LINE_SEARCH } from '@/mocks/world/stations';
 import { SLUG, TEAM_ID, WORKSPACE } from '@/test/fixtures/team';
@@ -154,9 +155,20 @@ const NO_CHANGE = change(0);
 const wave = (at: number, low: number, high: number): number =>
   Math.round(low + ((Math.sin(at / 2.3) + 1) / 2) * (high - low));
 
-const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => {
+type TallyOver = Partial<RunTallyResponseDto> & {
+  readonly accepted?: number;
+  readonly sentBack?: number;
+};
+
+const tally = ({
+  accepted = 0,
+  sentBack = 0,
+  ...over
+}: TallyOver): RunTallyResponseDto => {
   const runs = over.runs ?? 0;
   const failed = over.failed ?? 0;
+  const other = runs - accepted - sentBack - failed;
+  const share = (count: number) => (runs > 0 ? count / runs : null);
 
   return {
     runs,
@@ -166,10 +178,14 @@ const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => {
     stopped: 0,
     checksPassed: 0,
     checksFailed: 0,
-    accepted: 0,
-    sentBack: 0,
-    movedOn: 0,
-    otherOutcome: 0,
+    resolutions: { accepted, sentBack, movedOn: 0, failed, other },
+    resolutionShares: {
+      accepted: share(accepted),
+      sentBack: share(sentBack),
+      movedOn: share(0),
+      failed: share(failed),
+      other: share(other),
+    },
     passed: 0,
     merged: 0,
     cost: null,
@@ -184,8 +200,13 @@ const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => {
 const TALLY_UNCHANGED: TallyDeltasResponseDto = {
   runs: NO_CHANGE,
   failed: NO_CHANGE,
-  accepted: NO_CHANGE,
-  sentBack: NO_CHANGE,
+  resolutions: {
+    accepted: NO_CHANGE,
+    sentBack: NO_CHANGE,
+    movedOn: NO_CHANGE,
+    failed: NO_CHANGE,
+    other: NO_CHANGE,
+  },
   merged: NO_CHANGE,
   cost: NO_CHANGE,
   median: NO_CHANGE,
@@ -193,7 +214,7 @@ const TALLY_UNCHANGED: TallyDeltasResponseDto = {
 
 const report = (
   stationId: string,
-  now: Partial<RunTallyResponseDto>,
+  now: TallyOver,
   over: Partial<InsightsStations['stations'][number]> = {},
 ) => ({
   lineId: LINE_ID,
@@ -321,7 +342,10 @@ const countedOf = (
   reports: readonly InsightsStations['stations'][number][],
 ): InsightsStations['teamCounted'] =>
   Object.fromEntries(
-    COUNTED.map((key) => [key, reports.some((each) => each.tally[key] > 0)]),
+    COUNTED.map((key) => [
+      key,
+      reports.some((each) => tallyCountOf(each.tally, key) > 0),
+    ]),
   ) as InsightsStations['teamCounted'];
 
 const STATIONS: InsightsStations = {
@@ -345,8 +369,13 @@ const STATIONS: InsightsStations = {
   teamChanges: {
     runs: change(0.25),
     failed: change(null, 'bad'),
-    accepted: change(null, 'good'),
-    sentBack: change(null, 'bad'),
+    resolutions: {
+      accepted: change(null, 'bad'),
+      sentBack: change(null, 'bad'),
+      movedOn: change(null, 'bad'),
+      failed: change(null, 'bad'),
+      other: change(null, 'bad'),
+    },
     merged: change(null, 'good'),
     cost: null,
     median: null,

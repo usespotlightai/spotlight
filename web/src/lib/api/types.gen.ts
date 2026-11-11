@@ -5173,6 +5173,10 @@ export type StationRunOutcomeResponseDto = {
   endedAt: string;
   ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   /**
+   * What came of the run: failed, sent back, accepted, moved on to another station, or other
+   */
+  resolution: 'accepted' | 'sent-back' | 'moved-on' | 'failed' | 'other';
+  /**
    * Why it failed, where it did
    */
   failure: string | null;
@@ -5199,6 +5203,52 @@ export type StationRunOutcomeResponseDto = {
   pullRequestState: 'open' | 'merged' | 'closed' | null;
 };
 
+export type ResolutionCountsResponseDto = {
+  /**
+   * Runs whose resolution is accepted
+   */
+  accepted: number;
+  /**
+   * Runs whose resolution is sent back
+   */
+  sentBack: number;
+  /**
+   * Runs whose resolution is moved on
+   */
+  movedOn: number;
+  /**
+   * Runs that ended Failed and no person accepted or sent back
+   */
+  failed: number;
+  /**
+   * Runs whose resolution is other
+   */
+  other: number;
+};
+
+export type ResolutionSharesResponseDto = {
+  /**
+   * Runs whose resolution is accepted, of the runs; none where none ran
+   */
+  accepted: number | null;
+  /**
+   * Runs whose resolution is sent back, of the runs; none where none ran
+   */
+  sentBack: number | null;
+  /**
+   * Runs whose resolution is moved on, of the runs; none where none ran
+   */
+  movedOn: number | null;
+  /**
+   * Runs that ended Failed and no person accepted or sent back, of the runs; none where none ran
+   */
+  failed: number | null;
+  /**
+   * Runs whose resolution is other, of the runs; none where none ran
+   */
+  other: number | null;
+};
+
 export type MoneyResponseDto = {
   amount: number;
   currency: string;
@@ -5213,6 +5263,9 @@ export type RunTallyResponseDto = {
    * Runs cancelled before they ran
    */
   cancelled: number;
+  /**
+   * Runs that ended Failed, whatever a person did next
+   */
   failed: number;
   /**
    * Failed runs as a fraction of the runs; none where none ran
@@ -5225,21 +5278,13 @@ export type RunTallyResponseDto = {
   checksPassed: number;
   checksFailed: number;
   /**
-   * Runs that did not fail or get sent back, that a person accepted first, or that completed, stayed at the station and had their pull request merged
+   * Runs by resolution; the resolutions add up to the runs
    */
-  accepted: number;
+  resolutions: ResolutionCountsResponseDto;
   /**
-   * Runs that did not fail and that a person sent back first
+   * Each resolution as a fraction of the runs
    */
-  sentBack: number;
-  /**
-   * Runs that completed and passed their task to another station, or whose task a person moved to another station
-   */
-  movedOn: number;
-  /**
-   * Runs with no other outcome: stopped, exhausted, superseded, or with no answer yet. With accepted, sent back, moved on and failed, it adds up to the runs
-   */
-  otherOutcome: number;
+  resolutionShares: ResolutionSharesResponseDto;
   /**
    * Runs that passed their task to another station
    */
@@ -5275,10 +5320,6 @@ export type TallyRatesResponseDto = {
    * Runs whose checks passed as a fraction of the runs checked; none where none were
    */
   checksPassed: number | null;
-  /**
-   * Runs a person accepted as a fraction of the runs that ran
-   */
-  accepted: number | null;
   /**
    * Merged tasks as a fraction of the runs that ran
    */
@@ -5929,7 +5970,7 @@ export type DayOutputResponseDto = {
 
 export type SignalReadingResponseDto = {
   /**
-   * sent-back: share of runs that a person sent back first; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run
+   * sent-back: share of runs whose resolution is sent back; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run
    */
   signal: 'sent-back' | 'checks-failed' | 'run-failures' | 'task-failures' | 'cost';
   /**
@@ -6124,6 +6165,29 @@ export type InsightsFlowResponseDto = {
   flow: FlowResponseDto;
 };
 
+export type ResolutionDeltasResponseDto = {
+  /**
+   * Runs whose resolution is accepted against the period before
+   */
+  accepted: DeltaResponseDto | null;
+  /**
+   * Runs whose resolution is sent back against the period before
+   */
+  sentBack: DeltaResponseDto | null;
+  /**
+   * Runs whose resolution is moved on against the period before
+   */
+  movedOn: DeltaResponseDto | null;
+  /**
+   * Runs that ended Failed and no person accepted or sent back, against the period before
+   */
+  failed: DeltaResponseDto | null;
+  /**
+   * Runs whose resolution is other against the period before
+   */
+  other: DeltaResponseDto | null;
+};
+
 export type TallyDeltasResponseDto = {
   /**
    * Runs against the period before
@@ -6134,13 +6198,9 @@ export type TallyDeltasResponseDto = {
    */
   failed: DeltaResponseDto | null;
   /**
-   * Accepted runs against the period before
+   * Runs by resolution against the period before
    */
-  accepted: DeltaResponseDto | null;
-  /**
-   * Runs sent back against the period before
-   */
-  sentBack: DeltaResponseDto | null;
+  resolutions: ResolutionDeltasResponseDto;
   /**
    * Merged tasks against the period before
    */
@@ -6260,7 +6320,7 @@ export type HumanLoadResponseDto = {
   toAnswer: SpreadResponseDto;
   unanswered: number;
   /**
-   * Runs that a person sent back first
+   * Runs whose resolution is sent back
    */
   sentBack: number;
   sentBackRate: number | null;
@@ -6810,11 +6870,11 @@ export type SizeBoundResponseDto = {
 
 export type AgentConfigOutcomesResponseDto = {
   /**
-   * Share of runs that a person accepted or approved first
+   * Runs whose resolution is accepted, of the runs whose resolution is not other
    */
   accepted: number | null;
   /**
-   * Share of runs that a person sent back first
+   * Runs whose resolution is sent back, of the runs whose resolution is not other
    */
   sent_back: number | null;
   /**

@@ -32,21 +32,31 @@ const ENDINGS: Record<Ending, string> = {
 
 export const formatEnding = (ending: Ending): string => ENDINGS[ending];
 
-const endedBadly = (ending: Ending): boolean =>
-  ending === 'failed' || ending === 'exhausted';
-
 export type OutcomeTone = 'done' | 'movedOn' | 'sentBack' | 'failed' | 'quiet';
 
-export const outcomeTone = (run: StationRunOutcome): OutcomeTone => {
-  if (endedBadly(run.ending)) {
-    return 'failed';
-  }
-  if (run.firstHumanAction?.kind === 'sent-back') {
-    return 'sentBack';
-  }
-
-  return run.ending === 'completed' ? 'done' : 'quiet';
+const RESOLUTION_TONES: Record<StationRunOutcome['resolution'], OutcomeTone> = {
+  accepted: 'done',
+  'moved-on': 'movedOn',
+  'sent-back': 'sentBack',
+  failed: 'failed',
+  other: 'quiet',
 };
+
+export const outcomeTone = (run: StationRunOutcome): OutcomeTone =>
+  RESOLUTION_TONES[run.resolution];
+
+const RESOLUTION_LABELS: Record<StationRunOutcome['resolution'], string> = {
+  accepted: 'Accepted',
+  'moved-on': 'Moved on',
+  'sent-back': 'Sent back',
+  failed: 'Failed',
+  other: 'Other',
+};
+
+export const resolutionLabel = (run: StationRunOutcome): string =>
+  run.resolution === 'other'
+    ? formatEnding(run.ending)
+    : RESOLUTION_LABELS[run.resolution];
 
 const CHECKS: Record<NonNullable<StationRunOutcome['checks']>, string> = {
   passed: 'Checks passed',
@@ -108,13 +118,21 @@ export type TallyColumn = {
   readonly render: (tally: StationTally) => string;
 };
 
+export const tallyCountOf = (
+  tally: StationTally,
+  counted: keyof TallyCounted,
+): number =>
+  counted === 'accepted' || counted === 'sentBack'
+    ? tally.resolutions[counted]
+    : tally[counted];
+
 const countColumn = (
   label: string,
   counted: keyof TallyCounted,
 ): TallyColumn => ({
   label,
   counted,
-  render: (tally) => `${tally[counted]}`,
+  render: (tally) => `${tallyCountOf(tally, counted)}`,
 });
 
 const TALLY_COLUMNS: readonly TallyColumn[] = [
@@ -180,36 +198,28 @@ export type OutcomePart = {
   readonly share: number | null;
 };
 
-type OutcomeTally = Pick<
-  StationTally,
-  'runs' | 'accepted' | 'movedOn' | 'sentBack' | 'failed' | 'otherOutcome'
->;
+type OutcomeTally = Pick<StationTally, 'resolutions' | 'resolutionShares'>;
 
 export const OUTCOME_NOTE =
-  'Accepted: a person accepted the run, or its pull request merged while the task stayed at the station. Moved on: the task went to another station. Other: stopped, ran out, replaced by a later run, or no answer yet.';
+  'Accepted: a person accepted the run, or its pull request merged while the task stayed at the station. Moved on: the task went to another station, or a person started it. Failed, no answer: the run failed and no person accepted it or sent it back. Other: stopped, ran out, replaced by a later run, or no answer yet.';
 
-export const outcomePartsOf = (tally: OutcomeTally): OutcomePart[] => {
-  const part = (
-    key: OutcomePart['key'],
-    label: string,
-    tone: OutcomeTone,
-    count: number,
-  ): OutcomePart => ({
-    key,
-    label,
-    tone,
-    count,
-    share: tally.runs > 0 ? count / tally.runs : null,
-  });
+const OUTCOME_PARTS: readonly Omit<OutcomePart, 'count' | 'share'>[] = [
+  { key: 'accepted', label: RESOLUTION_LABELS.accepted, tone: 'done' },
+  { key: 'movedOn', label: RESOLUTION_LABELS['moved-on'], tone: 'movedOn' },
+  { key: 'sentBack', label: RESOLUTION_LABELS['sent-back'], tone: 'sentBack' },
+  { key: 'failed', label: 'Failed, no answer', tone: 'failed' },
+  { key: 'other', label: RESOLUTION_LABELS.other, tone: 'quiet' },
+];
 
-  return [
-    part('accepted', 'Accepted', 'done', tally.accepted),
-    part('movedOn', 'Moved on', 'movedOn', tally.movedOn),
-    part('sentBack', 'Sent back', 'sentBack', tally.sentBack),
-    part('failed', 'Failed', 'failed', tally.failed),
-    part('other', 'Other', 'quiet', tally.otherOutcome),
-  ];
-};
+export const outcomePartsOf = ({
+  resolutions,
+  resolutionShares,
+}: OutcomeTally): OutcomePart[] =>
+  OUTCOME_PARTS.map((part) => ({
+    ...part,
+    count: resolutions[part.key],
+    share: resolutionShares[part.key],
+  }));
 
 const newestLive = (
   groups: readonly FingerprintGroup[],

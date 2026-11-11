@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import type { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
 import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
@@ -7,9 +10,13 @@ import type { ScopedRemoval } from '@insights/domain/repositories/scoped-removal
 import { runFilterOf } from '@insights/domain/services/run-filter';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import {
+  HumanAction,
+  type HumanActionKind,
+} from '@insights/domain/value-objects/human-action.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { MemoryReference } from '@insights/domain/value-objects/run-memories.vo';
 import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
@@ -42,7 +49,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
@@ -71,6 +78,7 @@ const ended = (
     workspaceId?: WorkspaceId;
     teamId?: TeamId;
     endedHoursAgo?: number;
+    ending?: RunEnding;
   } = {},
 ): RunRecord =>
   RunRecord.empty(RunId.of(runId), options.workspaceId ?? WORKSPACE).recordEnd(
@@ -93,7 +101,7 @@ const ended = (
       queuedAt: at((options.endedHoursAgo ?? 1) + 0.5),
       startedAt: at((options.endedHoursAgo ?? 1) + 0.25),
       endedAt: at(options.endedHoursAgo ?? 1),
-      ending: 'completed',
+      ending: options.ending ?? 'completed',
       failure: null,
       visit: 1,
       asked: false,
@@ -599,6 +607,88 @@ describe('run facts', () => {
     });
   });
 
+  it('stores each run’s resolution and follows it as its task’s pull request merges and people act', async () => {
+    await records.add(ended('run_1', 'task_1'));
+    await records.add(ended('run_2', 'task_2'));
+    await records.add(ended('run_3', 'task_3'));
+    await pullRequests.add(opened('task_1', TEAM));
+
+    expect(await factOf('run_1')).toMatchObject({ resolution: 'other' });
+
+    await pullRequests.save(mergedOnGitHub(await pullRequestOf()));
+    await records.save(
+      ((await records.of(RunId.of('run_2'))) as RunRecord).passTo(
+        StationPass.of(StationId.of('station_2'), at(0.4)),
+      ),
+    );
+    await records.save(
+      ((await records.of(RunId.of('run_3'))) as RunRecord).recordAction(
+        HumanAction.of('sent-back', at(0.4)),
+      ),
+    );
+
+    expect(await factOf('run_1')).toMatchObject({ resolution: 'accepted' });
+    expect(await factOf('run_2')).toMatchObject({ resolution: 'moved-on' });
+    expect(await factOf('run_3')).toMatchObject({ resolution: 'sent-back' });
+  });
+
+  it('backfills the resolution each stored run would get from its fact', async () => {
+    const act = async (runId: string, kind: HumanActionKind) =>
+      records.save(
+        ((await records.of(RunId.of(runId))) as RunRecord).recordAction(
+          HumanAction.of(kind, at(0.4)),
+        ),
+      );
+    const RUNS: [string, RunEnding][] = [
+      ['run_1', 'completed'],
+      ['run_2', 'completed'],
+      ['run_3', 'failed'],
+      ['run_4', 'failed'],
+      ['run_5', 'stopped'],
+      ['run_6', 'exhausted'],
+      ['run_7', 'completed'],
+      ['run_8', 'completed'],
+      ['run_9', 'completed'],
+      ['run_10', 'completed'],
+      ['run_11', 'cancelled'],
+    ];
+    for (const [runId, ending] of RUNS) {
+      await records.add(ended(runId, `task_${runId}`, { ending }));
+    }
+    await pullRequests.add(opened('task_run_1', TEAM));
+    await pullRequests.save(mergedOnGitHub(await pullRequestOf()));
+    await act('run_2', 'started');
+    await act('run_3', 'accepted');
+    await act('run_4', 'parked');
+    await act('run_7', 'sent-back');
+    await act('run_8', 'answered');
+    await records.save(
+      ((await records.of(RunId.of('run_9'))) as RunRecord).passTo(
+        StationPass.of(StationId.of('station_2'), at(0.4)),
+      ),
+    );
+    await records.save(
+      ((await records.of(RunId.of('run_10'))) as RunRecord).supersededByItsTask(
+        at(0.4),
+      ),
+    );
+    const resolutions = async () =>
+      (await allFacts()).map((each) => [each.runId, each.resolution]);
+    const stored = await resolutions();
+    const backfill = readFileSync(
+      join(__dirname, '../drizzle/20261111152011_backfill_run_resolution.sql'),
+      'utf8',
+    );
+
+    await database.db.update(runFact).set({ resolution: 'failed' });
+    await database.db.execute(sql.raw(backfill));
+
+    expect(new Set(stored.map(([, resolution]) => resolution))).toEqual(
+      new Set(['accepted', 'sent-back', 'moved-on', 'failed', 'other']),
+    );
+    expect(await resolutions()).toEqual(stored);
+  });
+
   it('follows a superseding, a pass and a dismissal received after the run ended', async () => {
     await records.add(ended('run_1', 'task_1'));
     const recorded = (await records.of(RunId.of('run_1'))) as RunRecord;
@@ -612,6 +702,7 @@ describe('run facts', () => {
 
     expect(await factOf('run_1')).toMatchObject({
       ending: 'superseded',
+      resolution: 'other',
       supersededAt: at(0.5),
       passedTo: 'station_2',
       dismissals: [{ tool: 'merge', server: null, at: at(0.3).toISOString() }],

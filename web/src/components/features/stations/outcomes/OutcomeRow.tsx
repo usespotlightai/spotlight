@@ -1,4 +1,3 @@
-import { toneLabel } from '@/components/features/stations/activity/outcome-tones';
 import { OutcomeIcon } from '@/components/features/stations/activity/OutcomeIcon';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import {
@@ -18,6 +17,7 @@ import {
   outcomeTone,
   runSpent,
   type StationRunOutcome,
+  resolutionLabel,
 } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
@@ -35,7 +35,7 @@ export function OutcomeRow({ run, to }: OutcomeRowProps) {
           to={to}
           className="shrink-0 text-foreground outline-none after:absolute after:inset-0"
         >
-          {toneLabel(run)}
+          {resolutionLabel(run)}
         </TrailLink>
 
         {run.failure && (

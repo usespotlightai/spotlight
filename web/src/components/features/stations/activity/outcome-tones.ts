@@ -1,9 +1,4 @@
-import {
-  formatEnding,
-  type OutcomeTone,
-  outcomeTone,
-  type StationRunOutcome,
-} from '@/lib/station-insights';
+import type { OutcomeTone } from '@/lib/station-insights';
 
 export const TONE_FILL: Record<OutcomeTone, string> = {
   done: 'bg-outcome-done',
@@ -19,10 +14,4 @@ export const TONE_INK: Record<OutcomeTone, string> = {
   sentBack: 'text-outcome-sent-back',
   failed: 'text-outcome-failed',
   quiet: 'text-muted-foreground',
-};
-
-export const toneLabel = (run: StationRunOutcome): string => {
-  const tone = outcomeTone(run);
-
-  return tone === 'sentBack' ? 'Sent back' : formatEnding(run.ending);
 };

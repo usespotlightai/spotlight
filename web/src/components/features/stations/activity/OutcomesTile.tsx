@@ -15,13 +15,7 @@ type OutcomeKey = OutcomePart['key'] | 'merged';
 type OutcomesTileProps = {
   tally: Pick<
     StationTally,
-    | 'runs'
-    | 'accepted'
-    | 'movedOn'
-    | 'sentBack'
-    | 'failed'
-    | 'otherOutcome'
-    | 'merged'
+    'runs' | 'resolutions' | 'resolutionShares' | 'merged'
   >;
   changes?: Partial<Record<OutcomeKey, ShownDelta | null>>;
 };

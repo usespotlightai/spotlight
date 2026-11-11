@@ -57,6 +57,27 @@
       "when": 1794391042377,
       "tag": "20261111095722_replay_stop_causes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794410408111,
+      "tag": "20261111152008_run_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794410411592,
+      "tag": "20261111152011_backfill_run_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794410499870,
+      "tag": "20261111152139_run_resolution_required",
+      "breakpoints": true
     }
   ]
 }

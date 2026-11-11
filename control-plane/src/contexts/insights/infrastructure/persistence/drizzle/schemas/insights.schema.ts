@@ -15,6 +15,7 @@ import {
 import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
 import { PULL_REQUEST_TYPES } from '@insights/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
+import { RUN_RESOLUTIONS } from '@insights/domain/value-objects/run-resolution';
 import { SCORE_KINDS } from '@insights/domain/value-objects/score-scale.vo';
 import { SCORE_SOURCES } from '@insights/domain/value-objects/score-source';
 import type {
@@ -107,6 +108,7 @@ export interface StoredReason {
 
 export const runRecordEnding = pgEnum('run_record_ending', RUN_ENDINGS);
 export const runRecordChecks = pgEnum('run_record_checks', CHECK_VERDICTS);
+export const runResolution = pgEnum('run_resolution', RUN_RESOLUTIONS);
 export const humanAction = pgEnum('human_action', TASK_ACTIONS);
 export const pullRequestState = pgEnum(
   'pull_request_state',
@@ -211,6 +213,7 @@ export const runFact = pgTable(
     beganAt: timestamptz('began_at').notNull(),
     endedAs: runRecordEnding('ended_as').notNull(),
     ending: runRecordEnding('ending').notNull(),
+    resolution: runResolution('resolution').notNull(),
     ran: boolean('ran').notNull(),
     ranAConfig: boolean('ran_a_config').notNull(),
     size: runSize('size'),

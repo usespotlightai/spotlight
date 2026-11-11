@@ -1,14 +1,15 @@
+import { TONE_FILL } from '@/components/features/stations/activity/outcome-tones';
 import {
-  TONE_FILL,
-  toneLabel,
-} from '@/components/features/stations/activity/outcome-tones';
-import { outcomeTone, type StationRunOutcome } from '@/lib/station-insights';
+  outcomeTone,
+  type StationRunOutcome,
+  resolutionLabel,
+} from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 const summaryOf = (runs: readonly StationRunOutcome[]): string => {
   const counts = new Map<string, number>();
   for (const run of runs) {
-    const shown = toneLabel(run);
+    const shown = resolutionLabel(run);
     counts.set(shown, (counts.get(shown) ?? 0) + 1);
   }
 
@@ -32,7 +33,7 @@ export function RunStrip({ runs }: { runs: readonly StationRunOutcome[] }) {
       {latest.map((run) => (
         <span
           key={run.runId}
-          title={toneLabel(run)}
+          title={resolutionLabel(run)}
           className={cn(
             'h-full max-w-2 flex-1 rounded-[2px]',
             TONE_FILL[outcomeTone(run)],

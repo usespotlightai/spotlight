@@ -854,8 +854,13 @@ describe('the team’s insights (e2e)', () => {
       stationId: team.stationId.value,
       tally: {
         runs: 1,
-        accepted: 0,
-        sentBack: 0,
+        resolutions: {
+          accepted: 0,
+          sentBack: 0,
+          movedOn: 1,
+          failed: 0,
+          other: 0,
+        },
         passed: 1,
         merged: 1,
         medianMs: 58 * MINUTE,

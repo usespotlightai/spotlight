@@ -166,9 +166,19 @@ function PeriodSummary({
                         key={OUTCOMES_TITLE}
                         tally={report.tally}
                         changes={{
-                          accepted: shownDeltaOf(report.changes.accepted),
-                          sentBack: shownDeltaOf(report.changes.sentBack),
-                          failed: shownDeltaOf(report.changes.failed),
+                          accepted: shownDeltaOf(
+                            report.changes.resolutions.accepted,
+                          ),
+                          movedOn: shownDeltaOf(
+                            report.changes.resolutions.movedOn,
+                          ),
+                          sentBack: shownDeltaOf(
+                            report.changes.resolutions.sentBack,
+                          ),
+                          failed: shownDeltaOf(
+                            report.changes.resolutions.failed,
+                          ),
+                          other: shownDeltaOf(report.changes.resolutions.other),
                           merged: shownDeltaOf(report.changes.merged),
                         }}
                       />,

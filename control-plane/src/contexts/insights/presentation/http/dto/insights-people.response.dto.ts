@@ -37,7 +37,7 @@ export class HumanLoadResponseDto {
 
   @ApiProperty({
     example: 4,
-    description: 'Runs that a person sent back first',
+    description: 'Runs whose resolution is sent back',
   })
   readonly sentBack: number;
 

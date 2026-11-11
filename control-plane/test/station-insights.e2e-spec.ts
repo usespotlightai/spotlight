@@ -553,7 +553,13 @@ describe('how a station’s runs turned out', () => {
       runs: 1,
       cancelled: 0,
       stopped: 1,
-      otherOutcome: 1,
+      resolutions: {
+        accepted: 0,
+        sentBack: 0,
+        movedOn: 0,
+        failed: 0,
+        other: 1,
+      },
       cost: { amount: 0.4, currency: 'USD' },
     });
     expect(outcomes.groups[3]?.tally).toMatchObject({
@@ -561,7 +567,7 @@ describe('how a station’s runs turned out', () => {
       cancelled: 0,
       stopped: 0,
       checksPassed: 1,
-      accepted: 1,
+      resolutions: expect.objectContaining({ accepted: 1 }),
       merged: 1,
       cost: { amount: 0.4, currency: 'USD' },
     });
@@ -569,8 +575,13 @@ describe('how a station’s runs turned out', () => {
       runs: 1,
       failed: 1,
       checksFailed: 1,
-      accepted: 0,
-      sentBack: 0,
+      resolutions: {
+        accepted: 0,
+        sentBack: 1,
+        movedOn: 0,
+        failed: 0,
+        other: 0,
+      },
       merged: 1,
     });
     expect(outcomes.inForce).toEqual({

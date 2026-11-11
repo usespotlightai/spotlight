@@ -10,7 +10,7 @@ import {
   spendDeltaOf,
 } from '@insights/domain/value-objects/delta.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
-import type { RunOutcome } from '@insights/domain/value-objects/run-outcome';
+import type { RunResolution } from '@insights/domain/value-objects/run-resolution';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 
 export interface RunTally {
@@ -21,10 +21,8 @@ export interface RunTally {
   readonly stopped: number;
   readonly checksPassed: number;
   readonly checksFailed: number;
-  readonly accepted: number;
-  readonly sentBack: number;
-  readonly movedOn: number;
-  readonly otherOutcome: number;
+  readonly resolutions: ResolutionCounts;
+  readonly resolutionShares: ResolutionShares;
   readonly passed: number;
   readonly merged: number;
   readonly cost: Money | null;
@@ -32,6 +30,22 @@ export interface RunTally {
   readonly mixedCurrencies: boolean;
   readonly medianMs: number | null;
   readonly p90Ms: number | null;
+}
+
+export interface ResolutionCounts {
+  readonly accepted: number;
+  readonly sentBack: number;
+  readonly movedOn: number;
+  readonly failed: number;
+  readonly other: number;
+}
+
+export interface ResolutionShares {
+  readonly accepted: number | null;
+  readonly sentBack: number | null;
+  readonly movedOn: number | null;
+  readonly failed: number | null;
+  readonly other: number | null;
 }
 
 const count = (
@@ -47,23 +61,23 @@ export const runTally = (facts: readonly RunFact[]): RunTally => {
       ? []
       : [each.usage.ms],
   );
+  const countOf = (resolution: RunResolution) =>
+    count(ran, (each) => each.resolution === resolution);
 
-  const failed = count(ran, (each) => each.ending === 'failed');
-  const endedAs = (outcome: RunOutcome) =>
-    count(ran, (each) => each.outcome === outcome);
-
-  return {
+  return tallyOf({
     runs: ran.length,
     cancelled: count(facts, (each) => !each.ran),
-    failed,
-    failedRate: rateOf(failed, ran.length),
+    failed: count(ran, (each) => each.ending === 'failed'),
     stopped: count(ran, (each) => each.ending === 'stopped'),
     checksPassed: count(ran, (each) => each.checks === 'passed'),
     checksFailed: count(ran, (each) => each.checks === 'failed'),
-    accepted: endedAs('accepted'),
-    sentBack: endedAs('sent-back'),
-    movedOn: endedAs('moved-on'),
-    otherOutcome: endedAs('other'),
+    resolutions: {
+      accepted: countOf('accepted'),
+      sentBack: countOf('sent-back'),
+      movedOn: countOf('moved-on'),
+      failed: countOf('failed'),
+      other: countOf('other'),
+    },
     passed: count(ran, (each) => each.passed !== null),
     merged: new Set(
       ran.filter((each) => each.merged).map((each) => each.taskId.value),
@@ -73,10 +87,10 @@ export const runTally = (facts: readonly RunFact[]): RunTally => {
     mixedCurrencies: spending.mixedCurrencies,
     medianMs: medianOf(took),
     p90Ms: percentileOf(took, 90),
-  };
+  });
 };
 
-export type TallyCounts = Omit<RunTally, 'failedRate'>;
+export type TallyCounts = Omit<RunTally, 'failedRate' | 'resolutionShares'>;
 
 export const NO_RUNS: TallyCounts = {
   runs: 0,
@@ -85,10 +99,7 @@ export const NO_RUNS: TallyCounts = {
   stopped: 0,
   checksPassed: 0,
   checksFailed: 0,
-  accepted: 0,
-  sentBack: 0,
-  movedOn: 0,
-  otherOutcome: 0,
+  resolutions: { accepted: 0, sentBack: 0, movedOn: 0, failed: 0, other: 0 },
   passed: 0,
   merged: 0,
   cost: null,
@@ -106,10 +117,14 @@ export const tallyOf = (counts: TallyCounts): RunTally => ({
   stopped: counts.stopped,
   checksPassed: counts.checksPassed,
   checksFailed: counts.checksFailed,
-  accepted: counts.accepted,
-  sentBack: counts.sentBack,
-  movedOn: counts.movedOn,
-  otherOutcome: counts.otherOutcome,
+  resolutions: counts.resolutions,
+  resolutionShares: {
+    accepted: rateOf(counts.resolutions.accepted, counts.runs),
+    sentBack: rateOf(counts.resolutions.sentBack, counts.runs),
+    movedOn: rateOf(counts.resolutions.movedOn, counts.runs),
+    failed: rateOf(counts.resolutions.failed, counts.runs),
+    other: rateOf(counts.resolutions.other, counts.runs),
+  },
   passed: counts.passed,
   merged: counts.merged,
   cost: counts.cost,
@@ -119,11 +134,18 @@ export const tallyOf = (counts: TallyCounts): RunTally => ({
   p90Ms: counts.p90Ms,
 });
 
+export interface ResolutionDeltas {
+  readonly accepted: Delta | null;
+  readonly sentBack: Delta | null;
+  readonly movedOn: Delta | null;
+  readonly failed: Delta | null;
+  readonly other: Delta | null;
+}
+
 export interface TallyDeltas {
   readonly runs: Delta | null;
   readonly failed: Delta | null;
-  readonly accepted: Delta | null;
-  readonly sentBack: Delta | null;
+  readonly resolutions: ResolutionDeltas;
   readonly merged: Delta | null;
   readonly cost: Delta | null;
   readonly median: Delta | null;
@@ -138,14 +160,28 @@ export const tallyDeltasOf = (
     better: 'down',
     unit: 'percent',
   }),
-  accepted: deltaOf(now.accepted, before.accepted, {
-    better: 'up',
-    unit: 'percent',
-  }),
-  sentBack: deltaOf(now.sentBack, before.sentBack, {
-    better: 'down',
-    unit: 'percent',
-  }),
+  resolutions: {
+    accepted: deltaOf(now.resolutions.accepted, before.resolutions.accepted, {
+      better: 'up',
+      unit: 'percent',
+    }),
+    sentBack: deltaOf(now.resolutions.sentBack, before.resolutions.sentBack, {
+      better: 'down',
+      unit: 'percent',
+    }),
+    movedOn: deltaOf(now.resolutions.movedOn, before.resolutions.movedOn, {
+      better: 'neither',
+      unit: 'percent',
+    }),
+    failed: deltaOf(now.resolutions.failed, before.resolutions.failed, {
+      better: 'down',
+      unit: 'percent',
+    }),
+    other: deltaOf(now.resolutions.other, before.resolutions.other, {
+      better: 'neither',
+      unit: 'percent',
+    }),
+  },
   merged: deltaOf(now.merged, before.merged, {
     better: 'up',
     unit: 'percent',
@@ -164,14 +200,13 @@ export interface TallySeen {
 }
 
 export const tallySeenOf = (now: RunTally, before: RunTally): TallySeen => ({
-  accepted: now.accepted > 0 || before.accepted > 0,
-  sentBack: now.sentBack > 0 || before.sentBack > 0,
+  accepted: now.resolutions.accepted > 0 || before.resolutions.accepted > 0,
+  sentBack: now.resolutions.sentBack > 0 || before.resolutions.sentBack > 0,
   merged: now.merged > 0 || before.merged > 0,
 });
 
 export interface TallyRates {
   readonly checksPassed: number | null;
-  readonly accepted: number | null;
   readonly merged: number | null;
 }
 
@@ -180,7 +215,6 @@ export const tallyRatesOf = (tally: RunTally): TallyRates => ({
     tally.checksPassed,
     tally.checksPassed + tally.checksFailed,
   ),
-  accepted: rateOf(tally.accepted, tally.runs),
   merged: rateOf(tally.merged, tally.runs),
 });
 
@@ -205,8 +239,8 @@ export const tallyCountedOf = (tally: RunTally): TallyCounted => ({
   stopped: tally.stopped > 0,
   checksPassed: tally.checksPassed > 0,
   checksFailed: tally.checksFailed > 0,
-  accepted: tally.accepted > 0,
-  sentBack: tally.sentBack > 0,
+  accepted: tally.resolutions.accepted > 0,
+  sentBack: tally.resolutions.sentBack > 0,
   passed: tally.passed > 0,
   merged: tally.merged > 0,
   cancelled: tally.cancelled > 0,

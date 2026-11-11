@@ -2,7 +2,7 @@ import type { HumanAction } from '@insights/domain/value-objects/human-action.vo
 import type { RunDisposition } from '@insights/domain/value-objects/run-disposition';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
-import type { RunOutcome } from '@insights/domain/value-objects/run-outcome';
+import type { RunResolution } from '@insights/domain/value-objects/run-resolution';
 
 export const effectiveEndingOf = (
   end: RunEnd,
@@ -12,14 +12,38 @@ export const effectiveEndingOf = (
     ? 'superseded'
     : end.ending;
 
-export interface DecidedRun {
-  readonly ending: RunEnding | null;
+export interface ClassifiedRun {
+  readonly ending: RunEnding;
   readonly asked: boolean;
   readonly firstHumanAction: HumanAction | null;
   readonly approvalAnsweredAt: Date | null;
+  readonly passed: boolean;
+  readonly merged: boolean;
 }
 
-export const dispositionOf = (run: DecidedRun): RunDisposition => {
+export const resolutionOf = (run: ClassifiedRun): RunResolution => {
+  if (run.firstHumanAction?.sendsBack) {
+    return 'sent-back';
+  }
+  if (run.firstHumanAction?.accepts) {
+    return 'accepted';
+  }
+  if (run.ending === 'failed') {
+    return 'failed';
+  }
+  if (run.ending !== 'completed') {
+    return 'other';
+  }
+  if (run.passed || run.firstHumanAction?.kind === 'started') {
+    return 'moved-on';
+  }
+
+  return run.merged ? 'accepted' : 'other';
+};
+
+export type AnsweredRun = Omit<ClassifiedRun, 'passed' | 'merged'>;
+
+export const dispositionOf = (run: AnsweredRun): RunDisposition => {
   if (run.firstHumanAction?.accepts) {
     return 'accepted';
   }
@@ -38,31 +62,4 @@ export const dispositionOf = (run: DecidedRun): RunDisposition => {
   }
 
   return 'other';
-};
-
-export interface ConcludedRun {
-  readonly ending: RunEnding;
-  readonly firstHumanAction: HumanAction | null;
-  readonly passed: boolean;
-  readonly merged: boolean;
-}
-
-export const outcomeOf = (run: ConcludedRun): RunOutcome => {
-  if (run.ending === 'failed') {
-    return 'failed';
-  }
-  if (run.firstHumanAction?.sendsBack) {
-    return 'sent-back';
-  }
-  if (run.firstHumanAction?.accepts) {
-    return 'accepted';
-  }
-  if (run.ending !== 'completed') {
-    return 'other';
-  }
-  if (run.passed || run.firstHumanAction?.kind === 'started') {
-    return 'moved-on';
-  }
-
-  return run.merged ? 'accepted' : 'other';
 };

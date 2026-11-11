@@ -1,4 +1,5 @@
 import type {
+  StationRunOutcomeResponseDto,
   DeltaResponseDto,
   InsightsPeriodResponseDto,
   MeasureVerdictResponseDto,
@@ -158,51 +159,59 @@ export const NO_CHANGE: DeltaResponseDto = {
   tone: 'flat',
 };
 
-type OutcomeRun = {
+type ResolvedRun = {
   readonly ending: string;
   readonly firstHumanAction: { readonly kind: string } | null;
   readonly passed: unknown;
   readonly pullRequestState: string | null;
 };
 
-type RunOutcome = 'accepted' | 'sentBack' | 'movedOn' | 'failed' | 'other';
+type Resolution = StationRunOutcomeResponseDto['resolution'];
 
-const runOutcomeOf = (run: OutcomeRun): RunOutcome => {
+export const runResolutionOf = (run: ResolvedRun): Resolution => {
   const action = run.firstHumanAction?.kind;
 
-  if (run.ending === 'failed') {
-    return 'failed';
-  }
   if (action === 'sent-back') {
-    return 'sentBack';
+    return 'sent-back';
   }
   if (action === 'accepted') {
     return 'accepted';
+  }
+  if (run.ending === 'failed') {
+    return 'failed';
   }
   if (run.ending !== 'completed') {
     return 'other';
   }
   if (run.passed !== null || action === 'started') {
-    return 'movedOn';
+    return 'moved-on';
   }
 
   return run.pullRequestState === 'merged' ? 'accepted' : 'other';
 };
 
-export const outcomeCountsOf = (
-  runs: readonly OutcomeRun[],
-): Pick<
-  RunTallyResponseDto,
-  'accepted' | 'sentBack' | 'movedOn' | 'otherOutcome'
-> => {
-  const endedAs = (outcome: RunOutcome) =>
-    runs.filter((run) => runOutcomeOf(run) === outcome).length;
+export const resolutionTallyOf = (
+  runs: readonly ResolvedRun[],
+): Pick<RunTallyResponseDto, 'resolutions' | 'resolutionShares'> => {
+  const countOf = (resolution: Resolution) =>
+    runs.filter((run) => runResolutionOf(run) === resolution).length;
+  const resolutions = {
+    accepted: countOf('accepted'),
+    sentBack: countOf('sent-back'),
+    movedOn: countOf('moved-on'),
+    failed: countOf('failed'),
+    other: countOf('other'),
+  };
 
   return {
-    accepted: endedAs('accepted'),
-    sentBack: endedAs('sentBack'),
-    movedOn: endedAs('movedOn'),
-    otherOutcome: endedAs('other'),
+    resolutions,
+    resolutionShares: {
+      accepted: shareOf(resolutions.accepted, runs.length),
+      sentBack: shareOf(resolutions.sentBack, runs.length),
+      movedOn: shareOf(resolutions.movedOn, runs.length),
+      failed: shareOf(resolutions.failed, runs.length),
+      other: shareOf(resolutions.other, runs.length),
+    },
   };
 };
 
@@ -214,10 +223,7 @@ export const emptyTally = (): RunTallyResponseDto => ({
   stopped: 0,
   checksPassed: 0,
   checksFailed: 0,
-  accepted: 0,
-  sentBack: 0,
-  movedOn: 0,
-  otherOutcome: 0,
+  ...resolutionTallyOf([]),
   passed: 0,
   merged: 0,
   cost: null,

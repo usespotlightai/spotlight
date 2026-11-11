@@ -1043,17 +1043,17 @@ export const tallyTiles = (
   ...counted(
     'accepted',
     'Accepted',
-    now.accepted,
+    now.resolutions.accepted,
     seen.accepted,
-    changes.accepted,
+    changes.resolutions.accepted,
     { tab: 'traces', filter: { ...filter, outcome: 'accepted' } },
   ),
   ...counted(
     'sent-back',
     'Sent back',
-    now.sentBack,
+    now.resolutions.sentBack,
     seen.sentBack,
-    changes.sentBack,
+    changes.resolutions.sentBack,
   ),
   ...counted('merged', 'Merged', now.merged, seen.merged, changes.merged),
   {

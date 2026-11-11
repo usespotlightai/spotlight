@@ -10,9 +10,11 @@ import {
   AlertRule,
 } from '@insights/domain/value-objects/alert-rule.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
 import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { describe, expect, it } from 'vitest';
 
 type Records = readonly RunRecord[];
@@ -175,7 +177,7 @@ describe('readingOf, among measured runs', () => {
     over: 2,
   });
 
-  it('reads accepted and sent-back rates only from runs a person acted on', () => {
+  it('reads accepted and sent-back rates only from runs with a resolution other than other', () => {
     const reading = readingOf(
       FALLING,
       [
@@ -189,6 +191,22 @@ describe('readingOf, among measured runs', () => {
     );
 
     expect(reading).toEqual(through('run_4', 1, 1));
+  });
+
+  it('counts a run accepted by its merge and one handed to another station as measured', () => {
+    const reading = readingOf(
+      AlertRule.of({ measure: 'accepted_rate', below: 0.6, over: 2 }),
+      [
+        endedRecord('run_3', { taskId: 'task_3', endedAt: at(3) }),
+        endedRecord('run_2', { taskId: 'task_2', endedAt: at(2) }).passTo(
+          StationPass.of(StationId.of('station_2'), at(2)),
+        ),
+        endedRecord('run_1', { taskId: 'task_1', endedAt: at(1) }),
+      ],
+      [taskPullRequestOf('task_1', { openedAt: at(1), closedAt: at(1) })],
+    );
+
+    expect(reading).toEqual(through('run_2', 0.5));
   });
 
   it('reads the merged rate only from runs whose pull request merged or closed', () => {

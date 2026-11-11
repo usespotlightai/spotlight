@@ -1,0 +1,1 @@
+ALTER TABLE "run_fact" ALTER COLUMN "resolution" SET NOT NULL;
