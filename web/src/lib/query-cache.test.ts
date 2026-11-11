@@ -48,6 +48,14 @@ describe('persistOptions', () => {
     expect(persisted(queryClient)).toEqual([]);
   });
 
+  it('leaves out queries that found nothing, such as a signed-out session', () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['inbox'], ['item']);
+    queryClient.setQueryData(['auth', 'session'], null);
+
+    expect(persisted(queryClient)).toEqual([['inbox']]);
+  });
+
   it('keeps a cache across builds of the same API', () => {
     expect(persistOptions('api_1').buster).toBe(persistOptions('api_1').buster);
   });
