@@ -41,7 +41,7 @@ export function TeamsSelect({
         aria-label={`Teams: ${shown}`}
         disabled={disabled}
         className={cn(
-          'flex h-8 min-w-0 items-center gap-2 rounded-full border border-border bg-card px-3 text-left text-xs outline-none transition-colors hover:bg-accent disabled:opacity-50 data-[popup-open]:bg-accent',
+          'flex h-8 min-w-0 items-center gap-2 rounded-md border border-border bg-card px-3 text-left text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 data-[popup-open]:bg-accent',
           className,
         )}
       >
@@ -59,7 +59,11 @@ export function TeamsSelect({
         />
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" sideOffset={6} className="min-w-48">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-max min-w-[max(var(--anchor-width),12rem)] max-w-(--available-width)"
+      >
         {teams.map((team) => (
           <DropdownMenuCheckboxItem
             key={team.id}
