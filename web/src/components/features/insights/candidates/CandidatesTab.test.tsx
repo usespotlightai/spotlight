@@ -92,6 +92,18 @@ const row = (name: string) =>
     .getByText(name)
     .closest('[data-slot="replayed-candidate"]') as HTMLElement;
 
+const withPrompt = (name: string, was: string, now: string): unknown =>
+  JSON.parse(JSON.stringify(CANDIDATES), (_key, value) =>
+    value?.name === name && Array.isArray(value.changes)
+      ? {
+          ...value,
+          changes: value.changes.map((each: { part: string }) =>
+            each.part === 'prompt' ? { ...each, was, now } : each,
+          ),
+        }
+      : value,
+  );
+
 beforeEach(() => {
   answer.candidates = queried(CANDIDATES);
   answer.lines = LINES;
@@ -310,6 +322,37 @@ describe('the Candidates tab', () => {
       'data-expanded',
       'true',
     );
+
+    await userEvent.click(name);
+    expect(name).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('shows a changed prompt as a diff under its row', async () => {
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(80);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(48);
+    answer.candidates = queried(
+      withPrompt(
+        'sonnet-terse-prompt',
+        'Review it.\nBe thorough.',
+        'Review it.\nBe brief.',
+      ),
+    );
+    showing();
+
+    const detail = row('sonnet-terse-prompt').querySelector(
+      '[data-slot="row-detail"]',
+    ) as HTMLElement;
+    expect(within(detail).getByText('Be thorough.')).toBeInTheDocument();
+    expect(within(detail).getByText('Be brief.')).toBeInTheDocument();
+    expect(
+      row('opus-with-migrations-skill').querySelector(
+        '[data-slot="row-detail"]',
+      ),
+    ).toBeNull();
+
+    const name = screen.getByRole('button', { name: 'sonnet-terse-prompt' });
+    await userEvent.click(name);
+    expect(row('sonnet-terse-prompt')).toHaveAttribute('data-expanded', 'true');
 
     await userEvent.click(name);
     expect(name).toHaveAttribute('aria-expanded', 'false');
