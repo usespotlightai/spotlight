@@ -1,7 +1,7 @@
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
-import { WithTooltip } from '@/components/shared/WithTooltip';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { type CandidatesSet, replayedTasksOf } from '@/lib/insights-candidates';
-import { healthReadingsOf } from '@/lib/replay-words';
+import { type HealthReading, healthReadingsOf } from '@/lib/replay-words';
 import type { TooltipNote } from '@/lib/tooltip-note';
 
 type SetSummaryProps = {
@@ -9,6 +9,20 @@ type SetSummaryProps = {
 };
 
 const NOT_RUN = new Set(['unknown', 'pending']);
+
+const reading = (each: HealthReading): string => `${each.label}: ${each.text}`;
+
+const warningNote = (warnings: readonly HealthReading[]): TooltipNote => {
+  const [only] = warnings;
+
+  return warnings.length === 1 && only
+    ? { title: only.label, body: only.advice, rows: only.rows }
+    : {
+        title: 'Replay set warnings',
+        body: warnings.map((each) => `${each.label}. ${each.advice}`).join(' '),
+        list: { title: 'Warnings', items: warnings.map(reading) },
+      };
+};
 
 export function SetSummary({ set }: SetSummaryProps) {
   const readings = healthReadingsOf(set.health, set.health.minGain);
@@ -33,12 +47,15 @@ export function SetSummary({ set }: SetSummaryProps) {
       </span>
 
       {first && (
-        <WithTooltip tooltip={warnings.map((each) => each.advice).join(' ')}>
-          <span data-slot="set-warning" className="text-outcome-failed">
-            {first.label}: {first.text}
-            {warnings.length > 1 && `, and ${warnings.length - 1} more`}
-          </span>
-        </WithTooltip>
+        <span data-slot="set-warning" className="flex items-center gap-1.5">
+          <WarningTooltip
+            tone="warning"
+            label="Replay set warnings"
+            tooltip={warningNote(warnings)}
+          />
+          {reading(first)}
+          {warnings.length > 1 && `, and ${warnings.length - 1} more`}
+        </span>
       )}
 
       {set.stationGone && <span>Station gone</span>}
