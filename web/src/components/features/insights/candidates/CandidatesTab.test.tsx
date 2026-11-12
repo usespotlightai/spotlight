@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CandidatesTab } from '@/components/features/insights/candidates/CandidatesTab';
 import type { InsightsPeriod } from '@/lib/insights';
 import { stationNamesOf } from '@/lib/insights';
+import type { InsightsCandidates } from '@/lib/insights-candidates';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
 type Queried = {
@@ -92,17 +93,29 @@ const row = (name: string) =>
     .getByText(name)
     .closest('[data-slot="replayed-candidate"]') as HTMLElement;
 
-const withPrompt = (name: string, was: string, now: string): unknown =>
-  JSON.parse(JSON.stringify(CANDIDATES), (_key, value) =>
-    value?.name === name && Array.isArray(value.changes)
-      ? {
-          ...value,
-          changes: value.changes.map((each: { part: string }) =>
-            each.part === 'prompt' ? { ...each, was, now } : each,
-          ),
-        }
-      : value,
-  );
+const withPrompt = (
+  name: string,
+  was: string,
+  now: string,
+): InsightsCandidates => ({
+  ...CANDIDATES,
+  stations: CANDIDATES.stations.map((station) => ({
+    ...station,
+    sets: station.sets.map((set) => ({
+      ...set,
+      candidates: set.candidates.map((each) =>
+        each.name === name
+          ? {
+              ...each,
+              changes: each.changes.map((change) =>
+                change.part === 'prompt' ? { ...change, was, now } : change,
+              ),
+            }
+          : each,
+      ),
+    })),
+  })),
+});
 
 beforeEach(() => {
   answer.candidates = queried(CANDIDATES);
