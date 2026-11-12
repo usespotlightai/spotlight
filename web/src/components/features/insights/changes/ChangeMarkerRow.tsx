@@ -8,8 +8,10 @@ import {
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { RowDetail } from '@/components/shared/nested-table/RowDetail';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useBeforeAfterPanel } from '@/lib/before-after-panel';
+import { hasTextDiff } from '@/lib/config-plan';
 import { formatCount, formatStation, type StationNames } from '@/lib/insights';
 import { type ChangeMarker, changeKey } from '@/lib/insights-changes';
 import { formatDay } from '@/lib/judge';
@@ -33,6 +35,7 @@ export function ChangeMarkerRow({
   const panel = useBeforeAfterPanel();
   const shown =
     panel.shown !== null && changeKey(panel.shown) === changeKey(marker);
+  const wide = hasTextDiff(marker.changes);
 
   return (
     <ExpandingRow slot="change-marker" className={ROW_DIVIDER}>
@@ -64,7 +67,7 @@ export function ChangeMarkerRow({
             {formatStation(names, marker.stationId)}
           </InsightsLink>
 
-          <ClampedCell expansion={expansion}>
+          <ClampedCell expansion={expansion} pinned={wide}>
             {marker.changes.length > 0 ? (
               <ConfigPlan changes={marker.changes} />
             ) : (
@@ -90,6 +93,12 @@ export function ChangeMarkerRow({
           >
             Impact
           </button>
+
+          {wide && (
+            <RowDetail className="col-[4/-1]">
+              <ConfigPlan changes={marker.changes} />
+            </RowDetail>
+          )}
         </>
       )}
     </ExpandingRow>

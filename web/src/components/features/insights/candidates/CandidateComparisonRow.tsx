@@ -12,11 +12,13 @@ import {
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { RowDetail } from '@/components/shared/nested-table/RowDetail';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { hasTextDiff } from '@/lib/config-plan';
 import { formatCount } from '@/lib/insights';
 import {
   changeLinkOf,
@@ -41,6 +43,7 @@ export function CandidateComparisonRow({
 }: CandidateComparisonRowProps) {
   const { shown } = candidate;
   const changes = configChangesOf(candidate.changes);
+  const wide = hasTextDiff(changes);
   const link = changeLinkOf(candidate);
   const cost = formatCostPerRun(shown.costPerRun, candidate.currency);
   const costNote = costBasisNote(candidate);
@@ -69,7 +72,7 @@ export function CandidateComparisonRow({
             </div>
           </div>
 
-          <ClampedCell expansion={expansion}>
+          <ClampedCell expansion={expansion} pinned={wide}>
             {changes.length > 0 && <ConfigPlan changes={changes} />}
           </ClampedCell>
 
@@ -124,6 +127,12 @@ export function CandidateComparisonRow({
             </ExternalPillLink>
           ) : (
             <span className="hidden @4xl:block @lg:group-data-compact/nested:block" />
+          )}
+
+          {wide && (
+            <RowDetail className="col-[2/-1]">
+              <ConfigPlan changes={changes} />
+            </RowDetail>
           )}
         </>
       )}

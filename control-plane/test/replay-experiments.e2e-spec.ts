@@ -676,7 +676,13 @@ describe('a candidate', () => {
       live?.config.fingerprint,
     );
     expect(changed?.ok && changed.changes).toEqual([
-      { part: 'prompt', name: null, kind: 'changed', was: null, now: null },
+      {
+        part: 'prompt',
+        name: null,
+        kind: 'changed',
+        was: station.prompt,
+        now: 'Build it, then drain the queue.',
+      },
     ]);
     expect(await candidates.validate(DELIVERY, BUILD, station)).toEqual({
       ok: true,

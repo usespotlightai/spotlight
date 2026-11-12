@@ -1303,7 +1303,13 @@ describe('DispatchTask, the tools a run is told about', () => {
       );
 
       expect(after.changesFrom(before)).toEqual([
-        { part: 'prompt', name: null, kind: 'added', was: null, now: null },
+        {
+          part: 'prompt',
+          name: null,
+          kind: 'added',
+          was: null,
+          now: 'Be brief.',
+        },
         {
           part: 'effort',
           name: null,

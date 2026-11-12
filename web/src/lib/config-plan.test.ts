@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { configPlan, planTextLines } from '@/lib/config-plan';
+import { configPlan, hasTextDiff, planTextLines } from '@/lib/config-plan';
 import type { ConfigChange } from '@/lib/station-config';
 
 const change = (over: Partial<ConfigChange>): ConfigChange => ({
@@ -86,5 +86,26 @@ describe('planTextLines', () => {
       { mark: 'removed', text: 'g' },
       { mark: 'added', text: 'G' },
     ]);
+  });
+});
+
+describe('hasTextDiff', () => {
+  it('finds a change that runs over more than one line', () => {
+    expect(
+      hasTextDiff([
+        change({ was: 'sonnet', now: 'opus' }),
+        change({ part: 'prompt', was: 'One.\nTwo.', now: 'One.\nThree.' }),
+      ]),
+    ).toBe(true);
+  });
+
+  it('leaves out changes that fit on one line or show no text', () => {
+    expect(
+      hasTextDiff([
+        change({ was: 'sonnet', now: 'opus' }),
+        change({ part: 'prompt' }),
+        change({ part: 'skill', name: 'grafana', kind: 'added' }),
+      ]),
+    ).toBe(false);
   });
 });

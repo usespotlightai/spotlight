@@ -42251,7 +42251,7 @@
           "was": {
             "type": "string",
             "nullable": true,
-            "description": "What it was, where it can be shown; prompts, skills and rubrics are compared but not shown"
+            "description": "What it was, where it can be shown; the prompt is shown in full, skills and rubrics are compared but not shown"
           },
           "now": {
             "type": "string",
