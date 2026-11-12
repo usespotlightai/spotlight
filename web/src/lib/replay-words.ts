@@ -2,7 +2,6 @@ import type {
   GainEstimateResponseDto,
   ReplayedCandidateResponseDto,
   ReplaySetHealthResponseDto,
-  SetNoiseResponseDto,
 } from '@/lib/api';
 import { formatPercent } from '@/lib/judge';
 import type { TooltipNote } from '@/lib/tooltip-note';
@@ -64,6 +63,8 @@ export const formatGainSignificance = (
 
 const formatMinGain = (minGain: number): string => `+${formatPoints(minGain)}`;
 
+const MIN_GAIN_LABEL = 'Minimum real gain';
+
 const noiseReason = (gain: GainEstimateResponseDto): string =>
   gain.low < 0 && gain.high > 0
     ? 'It could be chance. Its likely range runs from a loss to a gain.'
@@ -91,15 +92,12 @@ export const gainSignificanceNote = (
       'Likely range',
       `${signedPoints(gain.low)} to ${signedPoints(gain.high)} pts`,
     ],
-    ['Counts from', formatMinGain(gain.minGain)],
+    [MIN_GAIN_LABEL, formatMinGain(gain.minGain)],
     ['Tasks compared', counted(gain.tasks, 'task', 'tasks')],
   ],
 });
 
 const NOISE_UNMEASURED = 'Not measured';
-
-const formatNoise = (noise: SetNoiseResponseDto): string =>
-  `Success moved ${formatPoints(noise.spread)} between ${noise.repeats} repeats`;
 
 const NOISE_LABEL = 'Noise';
 
@@ -119,6 +117,7 @@ export type HealthReading = {
   readonly text: string;
   readonly tone: HealthTone;
   readonly advice: string;
+  readonly rows?: TooltipNote['rows'];
 };
 
 const formatChanges = (count: number): string =>
@@ -145,15 +144,26 @@ const noiseReading = (
     };
   }
 
-  const minimum = `Minimum real gain: ${formatMinGain(minGain)}`;
+  const spread = formatPoints(noise.spread);
+  const minimum = formatMinGain(minGain);
+  const measured = `The live config replayed each run ${noise.repeats} times, unchanged. Its success moved ${spread} between repeats.`;
 
   return {
     ...base,
-    text: formatNoise(noise),
+    text: spread,
     tone: noise.noisyInOneRepeat ? 'bad' : 'good',
+    rows: [
+      ['Repeats', noise.repeats.toLocaleString()],
+      ['Success per repeat', noise.perRepeat.map(formatPercent).join(', ')],
+      [
+        'Tasks that flipped',
+        counted(noise.flippedTasks.length, 'task', 'tasks'),
+      ],
+      [MIN_GAIN_LABEL, minimum],
+    ],
     advice: noise.noisyInOneRepeat
-      ? `One repeat can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. ${minimum}`
-      : `Noise is within the line’s minimum real gain. A gain of that size is unlikely to be chance. ${minimum}`,
+      ? `${measured} If a search replays each run once, it can’t tell a ${minimum} gain from chance. Search with more repeats per run, or raise the line’s minimum real gain.`
+      : `${measured} If a search replays each run once, it can tell a ${minimum} gain from chance.`,
   };
 };
 

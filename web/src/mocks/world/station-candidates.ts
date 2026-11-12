@@ -22,7 +22,17 @@ const STATIONS = (): Readonly<
           setId: 'set_billing_work',
           stationGone: false,
           health: {
-            noise: null,
+            noise: {
+              replayId: 'replay_live_4',
+              fingerprint:
+                'c4e19b07d2a85f3e6b1c90d7a4f2e8b5c3d1a9f7e5b3c1d9a7f5e3b1c9d7a5f3',
+              repeats: 3,
+              perRepeat: [0.7, 0.71, 0.73],
+              spread: 0.03,
+              flippedTasks: [],
+              measuredAt: hoursAgo(48.8),
+              noisyInOneRepeat: false,
+            },
             saturation: {
               replayId: 'replay_live_4',
               rate: 0.71,
@@ -1096,7 +1106,17 @@ const STATIONS = (): Readonly<
           setId: 'set_review_money',
           stationGone: false,
           health: {
-            noise: null,
+            noise: {
+              replayId: 'replay_review_live_2',
+              fingerprint:
+                '7d2c94e1b8a35f6c0e9d4b2a7f1c8e5d3b9a6f2c4e7d1b8a5c3f9e2d6b4a1c7e',
+              repeats: 3,
+              perRepeat: [0.62, 0.71, 0.74],
+              spread: 0.12,
+              flippedTasks: ['task_review_3', 'task_review_6'],
+              measuredAt: hoursAgo(97.7),
+              noisyInOneRepeat: true,
+            },
             saturation: {
               replayId: 'replay_review_live_2',
               rate: 0.71,
