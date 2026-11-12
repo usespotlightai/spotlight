@@ -2,7 +2,6 @@ import type {
   GainEstimateResponseDto,
   ReplayedCandidateResponseDto,
   ReplaySetHealthResponseDto,
-  SetNoiseResponseDto,
 } from '@/lib/api';
 import { formatPercent } from '@/lib/judge';
 import type { TooltipNote } from '@/lib/tooltip-note';
@@ -102,9 +101,6 @@ const NOISE_UNMEASURED = 'Not measured';
 
 const NOISE_LABEL = 'Noise';
 
-const formatNoise = (noise: SetNoiseResponseDto): string =>
-  formatPoints(noise.spread);
-
 export const formatHeldOutRuns = (runs: number): string =>
   `of ${counted(runs, 'held-out run', 'held-out runs')}`;
 
@@ -154,7 +150,7 @@ const noiseReading = (
 
   return {
     ...base,
-    text: formatNoise(noise),
+    text: spread,
     tone: noise.noisyInOneRepeat ? 'bad' : 'good',
     rows: [
       ['Repeats', noise.repeats.toLocaleString()],

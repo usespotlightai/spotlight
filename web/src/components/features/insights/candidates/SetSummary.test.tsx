@@ -20,7 +20,7 @@ describe('SetSummary', () => {
       screen.getByRole('img', { name: 'Replay set warnings' }),
     ).toBeInTheDocument();
     expect(document.body).toHaveTextContent(
-      'Warnings: Noise: 13 pts, Judge agreeing with itself:',
+      /Noise: The live config replayed each run 3 times, unchanged\..* Judge agreeing with itself: The verdicts are partly chance\./,
     );
   });
 
@@ -42,7 +42,9 @@ describe('SetSummary', () => {
     );
 
     expect(warning()).toBeNull();
-    expect(document.body).toHaveTextContent('Noise: 13 pts');
+    expect(document.body).toHaveTextContent(
+      'Replay set health. Noise: 13 pts.',
+    );
   });
 
   it('explains a single warning with its measurements', () => {
@@ -54,7 +56,7 @@ describe('SetSummary', () => {
 
     expect(warning()).toBe('Noise: 13 pts');
     expect(document.body).toHaveTextContent(
-      /moved 13 pts between repeats\. If a search replays each run once, it can’t tell a \+\d+ pts gain from chance\..*Success per repeat: 50%, 58%, 63%/,
+      /moved 13 pts between repeats\. If a search replays each run once, it can’t tell a \+5 pts gain from chance\..*Success per repeat: 50%, 58%, 63%/,
     );
   });
 

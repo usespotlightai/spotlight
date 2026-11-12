@@ -19,8 +19,7 @@ const warningNote = (warnings: readonly HealthReading[]): TooltipNote => {
     ? { title: only.label, body: only.advice, rows: only.rows }
     : {
         title: 'Replay set warnings',
-        body: warnings.map((each) => `${each.label}. ${each.advice}`).join(' '),
-        list: { title: 'Warnings', items: warnings.map(reading) },
+        rows: warnings.map((each) => [each.label, each.advice]),
       };
 };
 
