@@ -25,7 +25,7 @@ export class StationChangeResponseDto {
     nullable: true,
     type: String,
     description:
-      'What it was, where it can be shown; prompts, skills and rubrics are compared but not shown',
+      'What it was, where it can be shown; the prompt is shown in full, skills and rubrics are compared but not shown',
   })
   readonly was: string | null;
 

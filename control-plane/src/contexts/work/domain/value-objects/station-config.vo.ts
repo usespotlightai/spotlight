@@ -123,7 +123,6 @@ const valueChange = (
   part: ConfigPart,
   was: string | null,
   now: string | null,
-  shown = true,
 ): ConfigChange[] => {
   if (was === now) {
     return [];
@@ -137,8 +136,8 @@ const valueChange = (
       part,
       name: null,
       kind,
-      was: shown ? was : null,
-      now: shown ? now : null,
+      was,
+      now,
     },
   ];
 };
@@ -283,7 +282,7 @@ export class StationConfig {
     const now = this.parts;
 
     return [
-      ...valueChange('prompt', was.prompt, now.prompt, false),
+      ...valueChange('prompt', was.prompt, now.prompt),
       ...valueChange('harness', was.harness, now.harness),
       ...valueChange('model', was.model, now.model),
       ...valueChange('effort', was.effort, now.effort),

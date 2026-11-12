@@ -8423,7 +8423,7 @@ export type StationChangeResponseDto = {
   name: string | null;
   kind: 'added' | 'removed' | 'changed';
   /**
-   * What it was, where it can be shown; prompts, skills and rubrics are compared but not shown
+   * What it was, where it can be shown; the prompt is shown in full, skills and rubrics are compared but not shown
    */
   was: string | null;
   now: string | null;
