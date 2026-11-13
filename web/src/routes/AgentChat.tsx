@@ -9,7 +9,11 @@ import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
-import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
+import { THREAD_COLUMN } from '@/components/shared/thread-column';
+import {
+  type BreadcrumbSegment,
+  Breadcrumbs,
+} from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useChat } from '@/hooks/api/useChat';
 import { useChatJournal } from '@/hooks/api/useChatJournal';
@@ -19,7 +23,47 @@ import { useAgentChatTrail } from '@/hooks/useAgentChatTrail';
 import { notFound } from '@/lib/error';
 import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, loading } from '@/lib/query';
+import { useTabTitle } from '@/lib/tab-title';
 import { TrailContext, useTrail } from '@/lib/trail';
+
+type ChatNotLoadedProps = {
+  error: unknown;
+  trail: readonly BreadcrumbSegment[];
+  retrying: boolean;
+  onRetry: () => void;
+};
+
+function ChatNotLoaded({
+  error,
+  trail,
+  retrying,
+  onRetry,
+}: ChatNotLoadedProps) {
+  if (notFound(error)) {
+    return (
+      <PageNotice title={<Breadcrumbs segments={trail} />}>
+        <p className="text-muted-foreground text-sm">
+          This team has no chat at that address.
+        </p>
+      </PageNotice>
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PageHeader title={<Breadcrumbs segments={trail} />} />
+
+      <div className={THREAD_COLUMN}>
+        <CouldNotLoad
+          what="The chat"
+          retrying={retrying}
+          onRetry={onRetry}
+          className="py-16 [@media(max-height:520px)]:py-4"
+        />
+      </div>
+    </div>
+  );
+}
 
 export function AgentChat() {
   const { slug, teamId, chatId } = useParams();
@@ -39,6 +83,8 @@ export function AgentChat() {
     useAgentChatTrail(slug, teamId, chat?.title),
   );
 
+  useTabTitle(chat ? undefined : 'Chat');
+
   if (!slug || !teamId) {
     return null;
   }
@@ -49,19 +95,12 @@ export function AgentChat() {
 
   if (failed(thread)) {
     return (
-      <PageNotice>
-        {notFound(thread.error) ? (
-          <p className="text-muted-foreground text-sm">
-            This team has no chat at that address.
-          </p>
-        ) : (
-          <CouldNotLoad
-            what="The chat"
-            retrying={thread.isFetching}
-            onRetry={() => void thread.refetch()}
-          />
-        )}
-      </PageNotice>
+      <ChatNotLoaded
+        error={thread.error}
+        trail={trail}
+        retrying={thread.isFetching}
+        onRetry={() => void thread.refetch()}
+      />
     );
   }
 

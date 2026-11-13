@@ -26,15 +26,19 @@ export function useTabIndicator(
 
       const marked = tab?.querySelector<HTMLElement>('[data-tab-label]') ?? tab;
 
-      setIndicator((was) =>
-        marked
-          ? {
-              left: marked.offsetLeft,
-              width: marked.offsetWidth,
-              ready: was !== null,
-            }
-          : null,
-      );
+      setIndicator((was) => {
+        if (!marked) {
+          return null;
+        }
+
+        const left = marked.offsetLeft;
+        const width = marked.offsetWidth;
+        const ready = was !== null;
+
+        return was?.left === left && was.width === width && was.ready === ready
+          ? was
+          : { left, width, ready };
+      });
     };
 
     measure();

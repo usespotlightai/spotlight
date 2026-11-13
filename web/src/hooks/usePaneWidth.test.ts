@@ -87,6 +87,29 @@ describe('usePaneWidth', () => {
     expect(result.current.width).toBe(320);
   });
 
+  it('resolves a percentage max width against the room around the pane', () => {
+    const { result } = renderHook(() => usePaneWidth(PANE));
+    const room = document.body.appendChild(document.createElement('div'));
+    const shown = room.appendChild(document.createElement('div'));
+    const handle = shown.appendChild(document.createElement('div'));
+    shown.style.maxWidth = '50%';
+    Object.defineProperty(room, 'clientWidth', { value: 800 });
+
+    for (let i = 0; i < 10; i += 1) {
+      act(() => {
+        result.current.handleProps.onKeyDown({
+          key: 'ArrowRight',
+          currentTarget: handle,
+          preventDefault: () => {},
+        } as never);
+      });
+    }
+
+    expect(result.current.width).toBe(400);
+    expect(window.localStorage.getItem(PANE.storageKey)).toBe('400');
+    room.remove();
+  });
+
   it('describes itself with the label the pane gave', () => {
     const { result } = renderHook(() => usePaneWidth(PANE));
 

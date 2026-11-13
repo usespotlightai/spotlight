@@ -27,50 +27,65 @@ export function RunRow({
   const waits = waitsOnPerson(run);
   const status = runStatus(run);
 
+  const title = taskTitle ?? run.station?.name ?? 'Unknown station';
+
   return (
     <li
       className={cn(
-        'relative flex h-9 min-w-0 items-center gap-2 rounded-md text-sm transition-colors hover:bg-accent',
+        'relative flex min-w-0 items-start gap-2 rounded-md py-2 text-sm transition-colors hover:bg-accent @xl/pane:h-9 @xl/pane:items-center @xl/pane:py-0',
         gutter ? 'px-3' : 'px-2',
       )}
     >
       {gutter && <span className="w-4 shrink-0" aria-hidden />}
 
-      {run.station ? (
-        <StationIcon
-          share={stationShare(run.station.position, run.station.count)}
-          color={run.station.color}
-        />
-      ) : (
-        <span className="size-4 shrink-0" aria-hidden />
-      )}
-
-      <TrailLink
-        to={to}
-        className="min-w-0 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md"
-      >
-        {taskTitle ?? run.station?.name ?? 'Unknown station'}
-      </TrailLink>
-
-      {taskTitle && run.station && (
-        <span className="shrink-0 truncate text-muted-foreground text-xs">
-          {run.station.name}
-        </span>
-      )}
-
-      <span className="ml-auto flex shrink-0 items-center gap-2">
-        <RunPendingMarker run={run} reviewTo={reviewTo} inTrail={inTrail} />
-
-        {run.progress && <ProgressState progress={run.progress} />}
-
-        {status && !waits && (
-          <span className="text-muted-foreground text-xs">{status}</span>
+      <span className="flex h-5 shrink-0 items-center @xl/pane:h-auto">
+        {run.station ? (
+          <StationIcon
+            share={stationShare(run.station.position, run.station.count)}
+            color={run.station.color}
+          />
+        ) : (
+          <span className="size-4 shrink-0" aria-hidden />
         )}
-
-        <span className="w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
-          {since(run.startedAt)}
-        </span>
       </span>
+
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 @xl/pane:flex-nowrap">
+        <TrailLink
+          to={to}
+          title={title}
+          className={cn(
+            'min-w-0 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md',
+            taskTitle && 'basis-full @xl/pane:basis-auto',
+          )}
+        >
+          {title}
+        </TrailLink>
+
+        <div className="flex min-w-0 grow flex-wrap items-center gap-x-2 gap-y-1 @xl/pane:contents">
+          {taskTitle && run.station && (
+            <span
+              title={run.station.name}
+              className="min-w-[6rem] truncate text-muted-foreground text-xs @xl/pane:min-w-0 @xl/pane:shrink-0"
+            >
+              {run.station.name}
+            </span>
+          )}
+
+          <span className="ml-auto flex shrink-0 items-center gap-2">
+            <RunPendingMarker run={run} reviewTo={reviewTo} inTrail={inTrail} />
+
+            {run.progress && <ProgressState progress={run.progress} />}
+
+            {status && !waits && (
+              <span className="text-muted-foreground text-xs">{status}</span>
+            )}
+
+            <span className="shrink-0 text-right text-muted-foreground text-xs tabular-nums @xl/pane:w-20">
+              {since(run.startedAt)}
+            </span>
+          </span>
+        </div>
+      </div>
     </li>
   );
 }

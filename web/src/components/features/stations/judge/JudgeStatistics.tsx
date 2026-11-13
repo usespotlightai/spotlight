@@ -20,10 +20,10 @@ export function JudgeStatistics({
     <div data-slot="judge-statistics">
       <InsightsTiles
         label="Agreement with people"
-        className={stats.length === 0 ? 'grid-cols-1 sm:grid-cols-1' : ''}
+        className={stats.length === 0 ? 'grid-cols-1 @xl/pane:grid-cols-1' : ''}
       >
         <InsightsTile
-          className={leads ? 'max-sm:col-span-2' : undefined}
+          className={leads ? '@max-xl/pane:col-span-2' : undefined}
           label={pairs.label}
           value={pairs.value}
           detail={pairs.detail}
@@ -35,7 +35,7 @@ export function JudgeStatistics({
         {stats.map((stat) => (
           <InsightsTile
             key={stat.label}
-            className={leads ? 'max-sm:odd:last:col-span-1' : undefined}
+            className={leads ? '@max-xl/pane:odd:last:col-span-1' : undefined}
             label={stat.label}
             value={stat.value}
             detail={stat.detail}

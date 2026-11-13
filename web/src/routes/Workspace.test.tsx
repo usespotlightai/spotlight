@@ -1,10 +1,11 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { APP_TABS_KEY } from '@/lib/app-tabs';
 import { Workspace } from '@/routes/Workspace';
 import { quietBrowser } from '@/test/signed-in';
 
@@ -80,17 +81,53 @@ const acme = {
   teams: [{ id: 'team_1', name: 'Platform' }],
 };
 
+function WindowAddress() {
+  const { pathname } = useLocation();
+
+  return <p>Window at {pathname}</p>;
+}
+
+const pages = (
+  <>
+    <Route index element={<p>section slot</p>} />
+    <Route
+      path="team/:teamId/runs"
+      element={
+        <>
+          <p>runs slot</p>
+          <Link to="settings">Open the run settings</Link>
+        </>
+      }
+    />
+    <Route path="team/:teamId/runs/settings" element={<p>run settings</p>} />
+    <Route path="settings/*" element={<p>settings slot</p>} />
+    <Route path="inbox" element={<p>inbox slot</p>} />
+  </>
+);
+
 const renderAt = (slug: string, rest = '') =>
   render(
     <MemoryRouter initialEntries={[`/w/${slug}${rest}`]}>
       <Routes>
-        <Route path="/w/:slug" element={<Workspace />}>
-          <Route index element={<p>section slot</p>} />
-          <Route path="team/:teamId/runs" element={<p>runs slot</p>} />
-          <Route path="settings/*" element={<p>settings slot</p>} />
+        <Route path="/w/:slug" element={<Workspace pages={pages} />}>
+          {pages}
         </Route>
       </Routes>
+      <WindowAddress />
     </MemoryRouter>,
+  );
+
+const splitTabs = () =>
+  localStorage.setItem(
+    `${APP_TABS_KEY}.acme-inc`,
+    JSON.stringify({
+      tabs: [
+        { id: 'a', path: '/w/acme-inc', title: 'Home' },
+        { id: 'b', path: '/w/acme-inc/team/team_1/runs', title: 'Runs' },
+      ],
+      activeId: 'a',
+      splitId: 'b',
+    }),
   );
 
 beforeEach(() => {
@@ -107,6 +144,47 @@ beforeEach(() => {
 quietBrowser();
 
 describe('Workspace', () => {
+  it('shows the split tab beside the tab at the address', () => {
+    loaded(acme);
+    splitTabs();
+
+    renderAt('acme-inc');
+
+    expect(screen.getByText('section slot')).toBeInTheDocument();
+    expect(screen.getByText('runs slot')).toBeInTheDocument();
+  });
+
+  it('focuses the pane that is clicked, and the address follows it', async () => {
+    const user = userEvent.setup();
+    loaded(acme);
+    splitTabs();
+
+    renderAt('acme-inc');
+    await user.click(
+      screen.getByRole('link', { name: 'Open the run settings' }),
+    );
+
+    expect(screen.getByText('run settings')).toBeInTheDocument();
+    expect(screen.getByText('section slot')).toBeInTheDocument();
+    expect(
+      screen.getByText('Window at /w/acme-inc/team/team_1/runs/settings'),
+    ).toBeInTheDocument();
+  });
+
+  it('opens a sidebar link in the focused pane', async () => {
+    const user = userEvent.setup();
+    loaded(acme);
+    splitTabs();
+
+    renderAt('acme-inc');
+    await user.click(screen.getByText('runs slot'));
+    await user.click(screen.getByRole('link', { name: /Inbox/ }));
+
+    expect(screen.getByText('section slot')).toBeInTheDocument();
+    expect(screen.queryByText('runs slot')).not.toBeInTheDocument();
+    expect(screen.getByText('inbox slot')).toBeInTheDocument();
+  });
+
   it('says the workspace is being set up, in place of the sidebar and page', () => {
     loaded(acme);
     mockSettingUp.mockReturnValue(true);
@@ -330,5 +408,54 @@ describe('Workspace', () => {
 
     const runners = screen.getByRole('link', { name: /Runners/ });
     expect(runners).toHaveTextContent('2');
+  });
+  describe('on a narrow screen', () => {
+    beforeEach(() => {
+      vi.spyOn(window, 'matchMedia').mockImplementation(
+        (query) =>
+          ({
+            matches: query === '(width < 48rem)',
+            addEventListener: () => {},
+            removeEventListener: () => {},
+          }) as unknown as MediaQueryList,
+      );
+    });
+
+    afterEach(() => {
+      vi.mocked(window.matchMedia).mockRestore();
+    });
+
+    const columnOf = (text: string) =>
+      screen.getByText(text).closest('section')?.parentElement?.parentElement;
+
+    it('shows only the focused tab of a split', async () => {
+      const user = userEvent.setup();
+      loaded(acme);
+      splitTabs();
+
+      renderAt('acme-inc');
+
+      expect(columnOf('section slot')).not.toHaveClass('max-md:hidden');
+      expect(columnOf('runs slot')).toHaveClass('max-md:hidden');
+
+      await user.click(screen.getByRole('button', { name: 'Runs' }));
+
+      expect(columnOf('runs slot')).not.toHaveClass('max-md:hidden');
+      expect(columnOf('section slot')).toHaveClass('max-md:hidden');
+    });
+
+    it('keeps the hidden tab of a split mounted', async () => {
+      const user = userEvent.setup();
+      loaded(acme);
+      splitTabs();
+
+      renderAt('acme-inc');
+      const runs = await screen.findByText('runs slot');
+
+      await user.click(screen.getByRole('button', { name: 'Runs' }));
+      await user.click(screen.getByRole('button', { name: 'Home' }));
+
+      expect(screen.getByText('runs slot')).toBe(runs);
+    });
   });
 });

@@ -45,7 +45,7 @@ export function StationSelect({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Station"
-        className="group/station flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
+        className="group/station flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
       >
         <StationIcon
           share={shareOf(value)}

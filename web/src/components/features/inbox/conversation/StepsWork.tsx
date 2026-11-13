@@ -26,7 +26,12 @@ export function StepsWork({ steps, live }: StepsWorkProps) {
 export function StepsWorkPending({ count }: { count: number }) {
   return (
     <div className="py-1.5" aria-busy="true">
-      <DisclosureToggle open={false} onToggle={() => {}} disabled>
+      <DisclosureToggle
+        open={false}
+        onToggle={() => {}}
+        disabled
+        className="pointer-coarse:min-h-8"
+      >
         {stepsLabel('Loading', count)}
       </DisclosureToggle>
     </div>

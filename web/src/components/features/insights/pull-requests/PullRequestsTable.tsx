@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react';
+import { useRef } from 'react';
 
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
@@ -6,6 +7,7 @@ import {
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { useElementWidth } from '@/hooks/useElementWidth';
 import { formatCount, formatDurationOrNone, formatSpend } from '@/lib/insights';
 import {
   formatAuthor,
@@ -16,6 +18,25 @@ import {
 } from '@/lib/insights-pull-requests';
 import { since } from '@/lib/since';
 import { taskPath } from '@/lib/task';
+
+const ROOMY_WIDTH = 1312;
+
+const REVIEW_COLUMNS: InsightsColumn<InsightsPullRequest>[] = [
+  {
+    id: 'rounds',
+    header: 'Rounds',
+    size: 'max-content',
+    numeric: true,
+    cell: (pullRequest) => formatCount(pullRequest.reviewRounds),
+  },
+  {
+    id: 'comments',
+    header: 'Comments',
+    size: 'max-content',
+    numeric: true,
+    cell: (pullRequest) => formatCount(pullRequest.reviewComments),
+  },
+];
 
 type PullRequestsTableProps = {
   slug: string;
@@ -28,20 +49,23 @@ export function PullRequestsTable({
   teamId,
   pullRequests,
 }: PullRequestsTableProps) {
+  const frame = useRef<HTMLDivElement>(null);
+  const roomy = useElementWidth(frame) >= ROOMY_WIDTH;
+
   const writtenBy = (pullRequest: InsightsPullRequest) => {
     if (pullRequest.by === 'spotlight' && pullRequest.taskId) {
       return (
-        <span className="flex items-center gap-2">
+        <span className="flex min-w-0 items-center gap-2">
           <TrailLink
             to={taskPath(slug, teamId, pullRequest.taskId)}
-            className="hover:underline"
+            className="truncate hover:underline"
           >
             {formatAuthor('spotlight')}
           </TrailLink>
           <InsightsLink
             tab="traces"
             filter={{ taskId: pullRequest.taskId }}
-            className="text-muted-foreground"
+            className="shrink-0 text-muted-foreground"
           >
             Runs
           </InsightsLink>
@@ -50,14 +74,17 @@ export function PullRequestsTable({
     }
 
     const reviewTask = pullRequest.reviewTaskIds[0];
+    const author = pullRequest.author ?? 'Someone';
 
     return (
-      <span className="flex items-center gap-2">
-        {pullRequest.author ?? 'Someone'}
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="truncate" title={author}>
+          {author}
+        </span>
         {reviewTask && (
           <TrailLink
             to={taskPath(slug, teamId, reviewTask)}
-            className="text-muted-foreground hover:underline"
+            className="truncate text-muted-foreground hover:underline"
           >
             Spotlight review
           </TrailLink>
@@ -70,7 +97,7 @@ export function PullRequestsTable({
     {
       id: 'pull-request',
       header: 'Pull request',
-      size: 'minmax(18rem,1fr)',
+      size: 'minmax(16rem,1fr)',
       cell: (pullRequest) => (
         <a
           href={pullRequest.pullRequest}
@@ -93,7 +120,12 @@ export function PullRequestsTable({
       size: 'max-content',
       cell: (pullRequest) => pullRequest.repository,
     },
-    { id: 'by', header: 'Written by', size: 'max-content', cell: writtenBy },
+    {
+      id: 'by',
+      header: 'Written by',
+      size: 'minmax(0,10rem)',
+      cell: writtenBy,
+    },
     {
       id: 'type',
       header: 'Type',
@@ -130,20 +162,7 @@ export function PullRequestsTable({
       numeric: true,
       cell: (pullRequest) => formatDurationOrNone(pullRequest.inReviewMs),
     },
-    {
-      id: 'rounds',
-      header: 'Rounds',
-      size: 'max-content',
-      numeric: true,
-      cell: (pullRequest) => formatCount(pullRequest.reviewRounds),
-    },
-    {
-      id: 'comments',
-      header: 'Comments',
-      size: 'max-content',
-      numeric: true,
-      cell: (pullRequest) => formatCount(pullRequest.reviewComments),
-    },
+    ...(roomy ? REVIEW_COLUMNS : []),
     {
       id: 'size',
       header: 'Size',
@@ -162,11 +181,17 @@ export function PullRequestsTable({
   ];
 
   return (
-    <InsightsTable
-      label="Pull requests"
-      columns={columns}
-      rows={pullRequests}
-      rowKey={(pullRequest) => pullRequest.pullRequest}
-    />
+    <div
+      ref={frame}
+      className="[contain-intrinsic-size:auto_40rem] [content-visibility:auto]"
+    >
+      <InsightsTable
+        key={roomy ? 'roomy' : 'narrow'}
+        label="Pull requests"
+        columns={columns}
+        rows={pullRequests}
+        rowKey={(pullRequest) => pullRequest.pullRequest}
+      />
+    </div>
   );
 }

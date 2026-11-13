@@ -6,6 +6,7 @@ import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton
 import { InboxRequestPage } from '@/components/features/inbox/InboxRequestPage';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
+import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { useInboxItem } from '@/hooks/api/useInbox';
 import { useInboxItemRefresh } from '@/hooks/api/useInboxItemRefresh';
 import { useMarkReadOnView } from '@/hooks/api/useMarkReadOnView';
@@ -13,6 +14,7 @@ import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useClearedParam } from '@/hooks/useClearedParam';
 import { useInboxItemTrail } from '@/hooks/useInboxItemTrail';
 import { notFound } from '@/lib/error';
+import { inboxPath } from '@/lib/inbox';
 import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, loading } from '@/lib/query';
 import { useTrail } from '@/lib/trail';
@@ -39,7 +41,13 @@ export function InboxItem() {
 
   if (failed(found) && !notFound(found.error)) {
     return (
-      <PageNotice>
+      <PageNotice
+        title={
+          <Breadcrumbs
+            segments={[{ label: 'Inbox', to: inboxPath(slug ?? '') }]}
+          />
+        }
+      >
         <CouldNotLoad
           what="The message"
           retrying={found.isFetching}

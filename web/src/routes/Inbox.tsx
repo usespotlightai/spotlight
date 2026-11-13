@@ -1,5 +1,6 @@
 import { DndContext } from '@dnd-kit/core';
-import { useParams } from 'react-router';
+import type { ReactNode } from 'react';
+import { useMatch, useParams, useResolvedPath } from 'react-router';
 
 import { InboxDragOverlay } from '@/components/features/inbox/InboxDragOverlay';
 import { InboxDropZone } from '@/components/features/inbox/InboxDropZone';
@@ -21,7 +22,7 @@ import { OPEN_DROP, RESOLVED_DROP, useInboxDrag } from '@/hooks/useInboxDrag';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { useTimedFlag } from '@/hooks/useTimedFlag';
 import { entryKey, inboxPath } from '@/lib/inbox';
-import { loading } from '@/lib/query';
+import { failed, loading } from '@/lib/query';
 import { TrailContext } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
@@ -36,13 +37,25 @@ const LIST_PANE = {
   max: 520,
   initial: 340,
   label: 'Resize the inbox list',
+  property: '--inbox-list-width',
+};
+
+const resolvedCount = (
+  resolved: ReturnType<typeof useResolvedInbox>,
+  shown: number,
+): ReactNode => {
+  if (resolved.isPending) {
+    return <SkeletonLine className="w-2" />;
+  }
+
+  return resolved.data && `${shown}${resolved.more.available ? '+' : ''}`;
 };
 
 export function Inbox() {
   const { slug } = useParams();
+  const listing = useMatch(useResolvedPath('.').pathname);
   const inbox = useInbox(slug);
   const {
-    width: listWidth,
     resizing: listResizing,
     paneRef: listRef,
     handleProps: listHandle,
@@ -65,6 +78,10 @@ export function Inbox() {
     ...(resolvedInbox.data ?? []).filter((each) => !opened.has(entryKey(each))),
   ];
   const drag = useInboxDrag(slug, entries);
+  const nothingToList =
+    failed(inbox) ||
+    (inbox.data?.length === 0 && resolvedInbox.data?.length === 0);
+  const showsOutlet = !listing || nothingToList;
 
   if (!slug) {
     return null;
@@ -85,8 +102,10 @@ export function Inbox() {
         >
           <div
             ref={listRef}
-            style={{ width: listWidth }}
-            className="relative flex shrink-0 flex-col border-r-[0.5px] border-border"
+            className={cn(
+              'relative w-full shrink-0 flex-col @3xl/pane:flex @3xl/pane:w-(--inbox-list-width) @3xl/pane:border-r-[0.5px] @3xl/pane:border-border',
+              showsOutlet ? 'hidden' : 'flex',
+            )}
           >
             <PageHeader
               title={<Breadcrumbs segments={[{ label: 'Inbox' }]} />}
@@ -131,14 +150,7 @@ export function Inbox() {
                         slug={slug}
                         label="Resolved"
                         entries={done}
-                        count={
-                          resolvedInbox.isPending ? (
-                            <SkeletonLine className="w-2" />
-                          ) : (
-                            resolvedInbox.data &&
-                            `${done.length}${resolvedInbox.more.available ? '+' : ''}`
-                          )
-                        }
+                        count={resolvedCount(resolvedInbox, done.length)}
                         {...section(RESOLVED)}
                         after={
                           <ShowMore
@@ -156,10 +168,22 @@ export function Inbox() {
               <InboxDragOverlay slug={slug} entry={drag.dragged} />
             </DndContext>
 
-            <PaneHandle {...listHandle} edge="right" resizing={listResizing} />
+            <PaneHandle
+              {...listHandle}
+              edge="right"
+              resizing={listResizing}
+              className="hidden @3xl/pane:block"
+            />
           </div>
 
-          <PageOutlet what="The message" centered />
+          <div
+            className={cn(
+              'min-w-0 flex-1 flex-col @3xl/pane:flex',
+              showsOutlet ? 'flex' : 'hidden',
+            )}
+          >
+            <PageOutlet what="The message" centered />
+          </div>
         </div>
       </FileDropZone>
     </TrailContext>

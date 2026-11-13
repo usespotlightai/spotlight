@@ -10,7 +10,7 @@ export function DecisionButton({
   return (
     <PillButton
       className={cn(
-        'h-7 min-w-18 rounded-md px-3 text-sm shadow-xs',
+        'h-7 min-w-18 rounded-md px-3 text-sm shadow-xs pointer-coarse:h-9',
         className,
       )}
       {...props}

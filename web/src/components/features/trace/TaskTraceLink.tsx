@@ -20,7 +20,7 @@ export function TaskTraceLink({ slug, teamId, taskId }: TaskTraceLinkProps) {
   return (
     <TrailLink
       to={taskTracePath(slug, teamId, taskId)}
-      className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent"
+      className="flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent"
     >
       <Binoculars
         className="size-4 shrink-0 text-muted-foreground"

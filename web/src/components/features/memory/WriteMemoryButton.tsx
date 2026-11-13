@@ -11,7 +11,11 @@ export function WriteMemoryButton({ size }: { size?: PillSize }) {
   return (
     <PillButton
       size={size}
-      className={size === 'regular' ? undefined : 'h-7 px-3 text-sm'}
+      className={
+        size === 'regular'
+          ? undefined
+          : 'h-7 w-7 px-0 text-sm @md/pane:w-auto @md/pane:px-3'
+      }
       onClick={() =>
         setParams(
           (was) => {
@@ -27,7 +31,11 @@ export function WriteMemoryButton({ size }: { size?: PillSize }) {
         aria-hidden
         className={size === 'regular' ? undefined : 'size-3.5'}
       />
-      Write a memory
+      {size === 'regular' ? (
+        'Write a memory'
+      ) : (
+        <span className="sr-only @md/pane:not-sr-only">Write a memory</span>
+      )}
     </PillButton>
   );
 }

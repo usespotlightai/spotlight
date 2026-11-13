@@ -49,7 +49,7 @@ export function RunMemoriesDetail({
           type="button"
           onClick={onClose}
           aria-label="Close the run’s memories"
-          className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="relative flex size-5 shrink-0 pointer-coarse:after:absolute pointer-coarse:after:-inset-2 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="size-3.5" aria-hidden />
         </button>

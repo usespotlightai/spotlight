@@ -2,6 +2,7 @@ import { Waypoints } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Sankey, Tooltip } from 'recharts';
 
+import { CostFlowList } from '@/components/features/insights/CostFlowList';
 import { CostFlowTable } from '@/components/features/insights/CostFlowTable';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
@@ -222,9 +223,7 @@ export function CostSankey({ shown, currency }: CostSankeyProps) {
     return null;
   }
 
-  const table = (
-    <CostFlowTable rows={flowLinkRows(shown)} currency={currency} />
-  );
+  const rows = flowLinkRows(shown);
   const narrow = width > 0 && width < NARROW;
 
   return (
@@ -236,14 +235,14 @@ export function CostSankey({ shown, currency }: CostSankeyProps) {
           title="Where the spend goes"
           description={COST_SANKEY_NOTE}
         >
-          {table}
+          <CostFlowList rows={rows} currency={currency} />
         </InsightsCard>
       ) : (
         <InsightsCard
           flat
           title="Where the spend goes"
           description={COST_SANKEY_NOTE}
-          table={table}
+          table={<CostFlowTable rows={rows} currency={currency} />}
           tableHeight="max-h-[296px]"
           chartIcon={Waypoints}
         >

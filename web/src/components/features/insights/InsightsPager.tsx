@@ -27,6 +27,7 @@ export function InsightsPager({
         type="button"
         variant="outline"
         size="icon-xs"
+        className="pointer-coarse:size-9"
         aria-label="Previous page"
         disabled={page <= 1}
         onClick={() => onPage(page - 1)}
@@ -37,6 +38,7 @@ export function InsightsPager({
         type="button"
         variant="outline"
         size="icon-xs"
+        className="pointer-coarse:size-9"
         aria-label="Next page"
         disabled={page >= lastPage}
         onClick={() => onPage(page + 1)}

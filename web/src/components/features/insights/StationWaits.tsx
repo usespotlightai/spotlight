@@ -1,16 +1,10 @@
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Bar, BarChart, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { WAIT_SERIES } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { StationWaitsTable } from '@/components/features/insights/StationWaitsTable';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
+import { ResponsiveChart } from '@/components/shared/chart/ResponsiveChart';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import {
   formatDuration,
@@ -98,10 +92,7 @@ export function StationWaits({
 
         <div className="[&_*:focus:not(:focus-visible)]:outline-none">
           <div {...cursor.area}>
-            <ResponsiveContainer
-              width="100%"
-              height={rows.length * WAIT_ROW_HEIGHT + 16}
-            >
+            <ResponsiveChart height={rows.length * WAIT_ROW_HEIGHT + 16}>
               <BarChart
                 data={rows}
                 layout="vertical"
@@ -133,7 +124,7 @@ export function StationWaits({
                   />
                 ))}
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveChart>
           </div>
         </div>
       </figure>

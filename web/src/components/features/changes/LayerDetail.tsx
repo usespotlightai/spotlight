@@ -104,7 +104,7 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
   return (
     <div
       ref={content}
-      className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-8 py-8"
+      className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-5 @md/pane:px-6 @xl/pane:px-8 @xl/pane:py-8"
     >
       <header className="flex flex-col gap-2">
         <h2 className="font-medium text-foreground text-lg">{layer.title}</h2>
@@ -151,11 +151,12 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
           <Button
             variant="outline"
             size="sm"
-            className="rounded-full bg-card"
+            title={previous.layer.title}
+            className="min-w-0 max-w-1/2 rounded-full bg-card"
             onClick={() => onPick(previous.layer.id)}
           >
             <ArrowLeft aria-hidden />
-            {previous.layer.title}
+            <span className="truncate">{previous.layer.title}</span>
           </Button>
         ) : (
           <span />
@@ -165,10 +166,11 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
           <Button
             variant="outline"
             size="sm"
-            className="rounded-full bg-card"
+            title={next.layer.title}
+            className="min-w-0 max-w-1/2 rounded-full bg-card"
             onClick={() => onPick(next.layer.id)}
           >
-            {next.layer.title}
+            <span className="truncate">{next.layer.title}</span>
             <ArrowRight aria-hidden />
           </Button>
         )}

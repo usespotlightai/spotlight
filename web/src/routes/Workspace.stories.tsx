@@ -17,6 +17,7 @@ import {
 type ShellArgs = {
   readonly showing: 'inbox' | 'not-found' | 'settings' | 'setting-up';
   readonly tabs: boolean;
+  readonly split: boolean;
 };
 
 const OPEN_TABS = {
@@ -36,9 +37,12 @@ const OPEN_TABS = {
   activeId: 'tab_inbox',
 };
 
-const openTabs = () => {
+const openTabs = (split: boolean) => {
   try {
-    localStorage.setItem(`${APP_TABS_KEY}.${SLUG}`, JSON.stringify(OPEN_TABS));
+    localStorage.setItem(
+      `${APP_TABS_KEY}.${SLUG}`,
+      JSON.stringify(split ? { ...OPEN_TABS, splitId: 'tab_runs' } : OPEN_TABS),
+    );
   } catch {}
 };
 
@@ -52,15 +56,15 @@ const meta = {
       return inboxPath(SLUG);
     },
     scope: ({ showing }) => (showing === 'settings' ? 'page' : 'app'),
-    world: ({ showing, tabs }) => {
-      if (tabs) {
-        openTabs();
+    world: ({ showing, tabs, split }) => {
+      if (tabs || split) {
+        openTabs(split);
       }
       if (showing === 'setting-up') {
         settingsWorld().settingUp.push(WORKSPACE.id);
       }
     },
-    args: { showing: 'inbox', tabs: false },
+    args: { showing: 'inbox', tabs: false, split: false },
     argTypes: {
       showing: choice('Showing', {
         inbox: 'Inbox',
@@ -69,6 +73,7 @@ const meta = {
         'setting-up': 'Setting up',
       }),
       tabs: toggle('Open tabs'),
+      split: toggle('Split view'),
     },
   }),
 } satisfies Meta<PageArgs & ShellArgs>;
@@ -76,6 +81,10 @@ const meta = {
 export default meta;
 
 export const Shell: StoryObj<typeof meta> = {};
+
+export const SplitView: StoryObj<typeof meta> = {
+  args: { split: true },
+};
 
 const openThemeMenu = (theme: 'light' | 'dark'): StoryObj<typeof meta> => ({
   beforeEach: () => {

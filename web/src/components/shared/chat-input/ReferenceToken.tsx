@@ -13,7 +13,7 @@ export function ReferenceToken({ reference }: { reference: Reference }) {
       data-kind={reference.kind}
       title={state?.state === 'failed' ? state.problem : undefined}
       className={cn(
-        'mx-0.5 inline-flex items-baseline gap-1 align-baseline',
+        'relative mx-0.5 inline-flex items-baseline gap-1 align-baseline in-[a]:pointer-coarse:after:absolute in-[a]:pointer-coarse:after:-inset-x-1 in-[a]:pointer-coarse:after:-inset-y-2.5',
         uploading && 'animate-pulse opacity-60',
       )}
     >

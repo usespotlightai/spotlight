@@ -2,13 +2,13 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 
 import { ChartTip } from '@/components/shared/chart/ChartTip';
+import { ResponsiveChart } from '@/components/shared/chart/ResponsiveChart';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import {
   formatDay,
@@ -18,6 +18,8 @@ import {
   sharesOn,
   type TrendPoint,
 } from '@/lib/judge';
+
+const TREND_HEIGHT = 176;
 
 const scoreOf = (kind: ScoreKind, value: number | null): string =>
   sharesOn(kind) ? formatPercent(value) : formatStat(value);
@@ -78,9 +80,9 @@ export function JudgeTrend({
         </span>
       </figcaption>
 
-      <div className="flex h-44 flex-col [&_*:focus:not(:focus-visible)]:outline-none">
-        <div {...cursor.area} className="flex-1">
-          <ResponsiveContainer width="100%" height="100%">
+      <div className="[&_*:focus:not(:focus-visible)]:outline-none">
+        <div {...cursor.area}>
+          <ResponsiveChart height={TREND_HEIGHT}>
             <LineChart
               data={[...trend]}
               margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
@@ -128,7 +130,7 @@ export function JudgeTrend({
                 isAnimationActive={false}
               />
             </LineChart>
-          </ResponsiveContainer>
+          </ResponsiveChart>
         </div>
       </div>
     </figure>

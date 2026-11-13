@@ -8,6 +8,7 @@ import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ShowMore } from '@/components/shared/ShowMore';
+import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useChats } from '@/hooks/api/useChats';
 import {
@@ -20,6 +21,7 @@ import {
 } from '@/lib/chat';
 import { failed, loading } from '@/lib/query';
 import { useForwardTrail } from '@/lib/trail';
+import { cn } from '@/lib/utils';
 
 const LIST = 'flex flex-col gap-0.5';
 
@@ -41,8 +43,8 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
-        <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
+      <ScrollArea className="min-h-16 flex-1" contentClassName="min-h-full">
+        <div className={cn(THREAD_COLUMN, 'flex flex-col')}>
           {loading(chats) && (
             <ol role="status" aria-label="Loading the chats" className={LIST}>
               <ChatRowSkeleton />
@@ -54,7 +56,7 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
               what="Chats"
               retrying={chats.isFetching}
               onRetry={() => void chats.refetch()}
-              className="py-16"
+              className="py-16 [@media(max-height:520px)]:py-4"
             />
           )}
 
@@ -62,7 +64,7 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
             <EmptyState
               icon={MousePointer2}
               title="No chats yet"
-              className="self-center py-16"
+              className="self-center py-16 [@media(max-height:520px)]:py-4"
             >
               Say what you want to work on. The agent helps shape it into tasks.
             </EmptyState>

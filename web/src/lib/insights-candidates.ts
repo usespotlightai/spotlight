@@ -256,13 +256,13 @@ export const candidateHeadings = (
   extent: number,
 ): readonly NestedHeading[] => [
   { label: 'Config', indent: 'inner', tooltip: CONFIG_NOTE },
-  { label: 'What changed', size: 'minmax(9rem,1fr)' },
+  { label: 'What changed', size: 'minmax(7rem,1fr)' },
   { label: 'Source', tooltip: SOURCES_NOTE },
   { label: 'Candidate', numeric: true },
   { label: 'Live', numeric: true },
   {
     label: 'Gain over live',
-    size: 'minmax(10rem,1.2fr)',
+    size: 'minmax(8rem,1fr)',
     tooltip: gainNote(extent),
   },
   { label: 'Cost per run', numeric: true },

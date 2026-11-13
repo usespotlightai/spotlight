@@ -45,17 +45,23 @@ export function HostRow({
           selected ? 'bg-selected' : HOST_ROW_HOVER,
         )}
       >
-        {selectable && (
-          <RowCheckbox
-            label={`Select ${host.name}`}
-            selected={selected}
-            onSelectedChange={onSelectedChange}
-          />
-        )}
+        <span className="min-w-0 truncate text-foreground" title={host.name}>
+          {selectable && (
+            <span className="absolute inset-y-0 -left-9 w-9">
+              <RowCheckbox
+                label={`Select ${host.name}`}
+                selected={selected}
+                onSelectedChange={onSelectedChange}
+              />
+            </span>
+          )}
+          {host.name}
+        </span>
 
-        <span className="min-w-0 truncate text-foreground">{host.name}</span>
-
-        <span className="min-w-0 truncate text-muted-foreground text-xs">
+        <span
+          title={sourceLabel(host.source)}
+          className="min-w-0 truncate text-muted-foreground text-xs"
+        >
           {sourceLabel(host.source)}
         </span>
 
@@ -67,7 +73,10 @@ export function HostRow({
 
         <HostReleaseCell host={host} />
 
-        <span className="truncate text-right text-muted-foreground text-xs tabular-nums">
+        <span
+          title={heartbeatAt(host)}
+          className="truncate text-right text-muted-foreground text-xs tabular-nums"
+        >
           {heartbeatAt(host)}
         </span>
       </div>

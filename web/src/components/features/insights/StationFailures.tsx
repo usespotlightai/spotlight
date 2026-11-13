@@ -26,7 +26,7 @@ export function StationFailures({
   const both = report.runFailures.length > 0 && report.taskFailures.length > 0;
 
   return (
-    <div className={cn('grid gap-4', both && 'sm:grid-cols-2')}>
+    <div className={cn('grid gap-4', both && '@3xl/pane:grid-cols-2')}>
       {report.runFailures.length > 0 && (
         <div className="flex min-w-0 flex-col gap-1">
           {both && (
@@ -42,6 +42,7 @@ export function StationFailures({
               return {
                 key: failure.failure ?? 'without-failure',
                 count: failure.runs,
+                title: shown,
                 label:
                   only && failure.runIds.length === 1 ? (
                     <TrailLink
@@ -82,6 +83,10 @@ export function StationFailures({
               return {
                 key: `${failure.source}:${failure.code}`,
                 count: failure.occurrences,
+                title:
+                  failure.maxInARow > 1
+                    ? `${shown}, ${failure.maxInARow} in a row`
+                    : shown,
                 label: (
                   <>
                     {only && failure.taskIds.length === 1 ? (

@@ -70,14 +70,11 @@ export function OutcomesTile({ tally, changes }: OutcomesTileProps) {
           {keyed.length > 0 && (
             <span className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-muted-foreground text-xs">
               {keyed.map((part) => (
-                <span
-                  key={part.key}
-                  className="flex items-center gap-1 whitespace-nowrap"
-                >
+                <span key={part.key} className="flex items-start gap-1">
                   <span
                     aria-hidden
                     className={cn(
-                      'size-1.5 rounded-full',
+                      'mt-[calc((1lh-0.375rem)/2)] size-1.5 shrink-0 rounded-full',
                       TONE_FILL[part.tone],
                     )}
                   />

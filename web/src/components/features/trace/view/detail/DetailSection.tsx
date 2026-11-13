@@ -18,7 +18,7 @@ export function DetailSection({
       className="gap-1"
       action={
         copy && (
-          <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover/section:opacity-100">
+          <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover/section:opacity-100 pointer-coarse:opacity-100">
             <DetailCopy text={copy} of={title.toLowerCase()} />
           </span>
         )

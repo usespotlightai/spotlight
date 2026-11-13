@@ -9,6 +9,13 @@ sb.mock(import('../src/hooks/api/useSession.ts'));
 sb.mock(import('../src/hooks/api/useCreateWorkspaceToken.ts'), { spy: true });
 
 const preview: Preview = {
+  decorators: [
+    (Story) => (
+      <div className="@container/pane">
+        <Story />
+      </div>
+    ),
+  ],
   parameters: {
     layout: 'fullscreen',
     options: {

@@ -64,7 +64,9 @@ export function SubmitReviewButton() {
       <PopoverTrigger
         render={
           <Button size="sm" className="rounded-full">
-            Finish review
+            <span>
+              Finish <span className="@max-2xl/pane:sr-only">review</span>
+            </span>
             {pending > 0 && (
               <span className="rounded-full bg-primary-foreground/20 px-1.5 text-[11px] tabular-nums">
                 {pending}
@@ -74,7 +76,10 @@ export function SubmitReviewButton() {
         }
       />
 
-      <PopoverContent align="end" className="flex w-96 flex-col gap-3 p-3">
+      <PopoverContent
+        align="end"
+        className="flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-3 p-3"
+      >
         <div className="flex flex-col gap-0.5">
           <h2 className="font-medium text-foreground text-sm">
             Finish your review

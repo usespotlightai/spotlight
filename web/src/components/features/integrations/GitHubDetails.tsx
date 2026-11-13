@@ -24,8 +24,8 @@ export function GitHubDetails({
       <FactRow>
         <dt className={FACT_LABEL}>App</dt>
         <dd className={FACT_VALUE}>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex min-w-0 flex-col">
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+            <div className="flex min-w-0 flex-1 basis-40 flex-col">
               <span
                 className={
                   installed ? 'text-foreground' : 'text-muted-foreground'

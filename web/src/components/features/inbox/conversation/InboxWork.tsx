@@ -18,13 +18,21 @@ export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
     <StepsDisclosure
       steps={steps}
       label={
-        <>
-          <span>
-            {ms > 0 ? `Worked for ${formatShortDuration(ms)}` : 'Worked'} ·{' '}
+        <span className="flex flex-wrap items-center gap-x-1.5">
+          <span className="whitespace-nowrap">
+            {ms > 0 ? `Worked for ${formatShortDuration(ms)}` : 'Worked'} ·
+          </span>{' '}
+          <span className="whitespace-nowrap">
             {steps.length} {steps.length === 1 ? 'step' : 'steps'}
-            {attempts > 1 && ` over ${attempts} attempts`}
-            {spent && ' ·'}
-          </span>
+            {attempts === 1 && spent && ' ·'}
+          </span>{' '}
+          {attempts > 1 && (
+            <>
+              <span className="whitespace-nowrap">
+                over {attempts} attempts{spent && ' ·'}
+              </span>{' '}
+            </>
+          )}
           {spent && (
             <span
               className="flex items-center gap-1"
@@ -34,7 +42,7 @@ export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
               {counted(spent.used)}/{counted(spent.size)}
             </span>
           )}
-        </>
+        </span>
       }
     >
       <RunChanges journals={journals} />

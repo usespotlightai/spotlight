@@ -34,9 +34,11 @@ import { skillPath } from '@/lib/skills';
 import { cn } from '@/lib/utils';
 
 const SHARE_CELL =
-  'col-span-full flex min-w-0 items-center gap-3 @4xl:col-span-1';
+  "flex min-w-0 flex-col items-start pl-(--cell-indent,0.5rem) before:text-muted-foreground before:text-xs before:content-['Share_read'] @4xl:col-span-1 @4xl:block @4xl:pl-0 @4xl:before:hidden";
 
-const SHARE_FIGURE = 'w-12 shrink-0 text-right';
+const SHARE_LINE = 'flex min-w-0 items-center gap-3';
+
+const SHARE_FIGURE = 'shrink-0 @4xl:w-12 @4xl:text-right';
 
 function Given({
   counts,
@@ -92,7 +94,7 @@ export function SkillRows({
             : undefined
         }
         cells={
-          <>
+          <div className="contents [--cell-indent:1.375rem]">
             <NestedCell heading="Runs">{formatCount(teamRuns)}</NestedCell>
             <NestedCell heading="Runs given">
               <Given counts={skill}>
@@ -109,31 +111,33 @@ export function SkillRows({
                 {formatCount(skill.used)}
               </InsightsLink>
             </NestedCell>
-            <span className={SHARE_CELL}>
-              <SkillWeeksChart
-                weeks={skill.weeks}
-                max={max}
-                onWeek={(week) =>
-                  void navigate(
-                    insightsPath(slug, teamId, {
-                      tab: 'traces',
-                      period,
-                      filter: skillUsedFilter(skill.key, { week }),
-                      page: 1,
-                    }),
-                  )
-                }
-              />
-              <span className={SHARE_FIGURE}>
-                <SkillTrendMark
-                  rate={skill.usedRate}
-                  used={skill.used}
-                  runs={teamRuns}
-                  trend={skill.trend}
+            <span className={cn('col-span-full', SHARE_CELL)}>
+              <span className={SHARE_LINE}>
+                <SkillWeeksChart
+                  weeks={skill.weeks}
+                  max={max}
+                  onWeek={(week) =>
+                    void navigate(
+                      insightsPath(slug, teamId, {
+                        tab: 'traces',
+                        period,
+                        filter: skillUsedFilter(skill.key, { week }),
+                        page: 1,
+                      }),
+                    )
+                  }
                 />
+                <span className={SHARE_FIGURE}>
+                  <SkillTrendMark
+                    rate={skill.usedRate}
+                    used={skill.used}
+                    runs={teamRuns}
+                    trend={skill.trend}
+                  />
+                </span>
               </span>
             </span>
-          </>
+          </div>
         }
       >
         {skill.defined ? (
@@ -186,14 +190,20 @@ export function SkillRows({
                 {formatCount(station.used)}
               </NestedCell>
               <span className={SHARE_CELL}>
-                <span aria-hidden className="shrink-0" style={{ width }} />
-                <span className={SHARE_FIGURE}>
-                  <SkillTrendMark
-                    rate={station.usedRate}
-                    used={station.used}
-                    runs={station.runs}
-                    trend={station.trend}
+                <span className={SHARE_LINE}>
+                  <span
+                    aria-hidden
+                    className="hidden shrink-0 @4xl:block"
+                    style={{ width }}
                   />
+                  <span className={SHARE_FIGURE}>
+                    <SkillTrendMark
+                      rate={station.usedRate}
+                      used={station.used}
+                      runs={station.runs}
+                      trend={station.trend}
+                    />
+                  </span>
                 </span>
               </span>
             </li>

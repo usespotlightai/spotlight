@@ -5,6 +5,7 @@ import { RunConversation } from '@/components/features/runs/RunConversation';
 import { RunFooter } from '@/components/features/runs/RunFooter';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
@@ -59,7 +60,7 @@ export function RunThread({
       <PageHeader title={<Breadcrumbs segments={trail} />} />
 
       {failed(conversationQuery) || !conversation ? (
-        <div className="mx-auto w-full max-w-3xl px-8 py-8">
+        <div className={THREAD_COLUMN}>
           <CouldNotLoad
             what="The run’s conversation"
             retrying={conversationQuery.isFetching}

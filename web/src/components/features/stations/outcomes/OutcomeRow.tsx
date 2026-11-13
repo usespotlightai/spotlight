@@ -39,11 +39,17 @@ export function OutcomeRow({ run, to }: OutcomeRowProps) {
         </TrailLink>
 
         {run.failure && (
-          <span className="relative flex">
+          <span className="relative hidden @4xl:flex @lg:group-data-compact/nested:flex">
             <InfoTooltip tooltip={run.failure} />
           </span>
         )}
       </span>
+
+      {run.failure && (
+        <p className="col-span-full pl-(--cell-indent,0.5rem) text-muted-foreground text-xs @4xl:hidden @lg:group-data-compact/nested:hidden">
+          {run.failure}
+        </p>
+      )}
 
       <NestedCell heading="Visit" numeric={false}>
         {run.visit}

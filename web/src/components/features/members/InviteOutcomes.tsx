@@ -31,14 +31,14 @@ export function InviteOutcomes({ outcomes }: InviteOutcomesProps) {
           {outcomes.map((each) => (
             <li
               key={each.email}
-              className="flex min-h-8 items-center justify-between gap-3 py-1 text-sm"
+              className="flex min-h-8 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-1 text-sm"
             >
-              <span className="min-w-0 truncate text-foreground">
+              <span className="min-w-0 break-all text-foreground">
                 {each.email}
               </span>
               <span
                 className={cn(
-                  'min-w-0 text-right',
+                  'min-w-0',
                   each.outcome === 'not-sent'
                     ? 'text-destructive'
                     : 'text-muted-foreground',

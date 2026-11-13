@@ -9,8 +9,8 @@ export function GradeRunSkeleton() {
     <DecisionCard role="status" aria-label="Loading the run to grade">
       <DecisionHeader title={<DecisionTitleSkeleton className="w-56" />} />
       <div className="flex flex-col">
-        <SkeletonLine className="w-80 text-sm" />
-        <SkeletonLine className="w-64 text-sm" />
+        <SkeletonLine className="w-80 max-w-full text-sm" />
+        <SkeletonLine className="w-64 max-w-full text-sm" />
       </div>
       <div className="flex gap-2">
         <PillSkeleton className="w-10" />

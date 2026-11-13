@@ -1,6 +1,10 @@
 import { MoreHorizontal } from 'lucide-react';
 
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
+import {
+  TASK_LAYOUT,
+  TASK_PROPERTIES,
+} from '@/components/features/board/task/TaskLayout';
 import { RunRowSkeleton } from '@/components/features/runs/RunRowSkeleton';
 import { PropertySkeleton } from '@/components/shared/skeleton/PropertySkeleton';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
@@ -38,8 +42,8 @@ export function TaskSkeleton({
       />
 
       <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
-        <div className="mx-auto flex w-full max-w-5xl gap-10 px-8 py-8">
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <div className={TASK_LAYOUT}>
+          <div className="flex min-w-0 flex-col gap-3">
             <SkeletonLine className="w-2/5 font-semibold text-2xl leading-8 tracking-tight" />
 
             <div className="text-sm leading-6">
@@ -47,23 +51,9 @@ export function TaskSkeleton({
                 <SkeletonLine key={width} className={width} />
               ))}
             </div>
-
-            <div className="pt-4">
-              <section className="flex flex-col gap-3 border-border border-t pt-6">
-                <h2 className="font-semibold text-foreground text-sm">
-                  Activity
-                </h2>
-
-                <ul className="flex flex-col gap-0.5">
-                  {Array.from({ length: ACTIVITY }, (_, at) => (
-                    <RunRowSkeleton key={at} />
-                  ))}
-                </ul>
-              </section>
-            </div>
           </div>
 
-          <div className="sticky top-8 hidden w-56 shrink-0 flex-col gap-4 self-start lg:flex">
+          <div className={TASK_PROPERTIES}>
             <section className="flex flex-col gap-1.5">
               <h2 className="px-2 font-medium text-muted-foreground text-xs">
                 Properties
@@ -75,6 +65,20 @@ export function TaskSkeleton({
                 lead={<Skeleton className="size-4 rounded-full" />}
                 width="w-20"
               />
+            </section>
+          </div>
+
+          <div className="min-w-0 pt-4">
+            <section className="flex flex-col gap-3 border-border border-t pt-6">
+              <h2 className="font-semibold text-foreground text-sm">
+                Activity
+              </h2>
+
+              <ul className="flex flex-col gap-0.5">
+                {Array.from({ length: ACTIVITY }, (_, at) => (
+                  <RunRowSkeleton key={at} />
+                ))}
+              </ul>
             </section>
           </div>
         </div>

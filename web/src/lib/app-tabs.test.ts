@@ -6,11 +6,18 @@ import {
   closed,
   moved,
   newTabPath,
+  focused,
   opened,
+  panesOf,
+  placeAt,
+  placed,
+  selected,
+  storableTabs,
   storedTabs,
   tabIconOf,
   titled,
   visited,
+  withoutPane,
 } from '@/lib/app-tabs';
 
 const TEAMS = [
@@ -86,6 +93,14 @@ describe('visited and titled', () => {
       title: 'Insights',
     });
     expect(next.tabs[0]).toBe(three.tabs[0]);
+  });
+
+  it('keep what the page was opened with', () => {
+    const state = { prompt: 'Set up our configuration as code.' };
+    const place = placeAt('/w/acme/team/team_1/agent', state);
+
+    expect(visited(three, place).tabs[1]?.state).toBe(state);
+    expect(placeAt('/w/acme/inbox', null)).toEqual({ path: '/w/acme/inbox' });
   });
 });
 
@@ -167,15 +182,189 @@ describe('storedTabs', () => {
     const trail = [{ label: 'Platform', to: '/w/acme/team/team_1' }];
     const stored = JSON.stringify({
       tabs: [
-        { id: 'a', path: '/w/acme/inbox', title: 'Inbox', trail },
-        { id: 'b', path: '/w/acme/settings', title: null, trail: [{}] },
+        { id: 'a', path: '/w/acme/inbox', title: 'Inbox', state: { trail } },
+        {
+          id: 'b',
+          path: '/w/acme/settings',
+          title: null,
+          state: { trail: [{}] },
+        },
       ],
       activeId: 'a',
     });
 
     const [first, second] = storedTabs(stored, 'new', here).tabs;
 
-    expect(first?.trail).toEqual(trail);
+    expect(first?.state).toEqual({ trail });
     expect(second).toEqual({ id: 'b', path: '/w/acme/settings', title: null });
+  });
+});
+
+describe('storableTabs', () => {
+  it('keeps only the trail of what each tab was opened with', () => {
+    const trail = [{ label: 'Platform', to: '/w/acme/team/team_1' }];
+    const tabs: AppTabs = {
+      ...three,
+      tabs: [
+        { ...inbox, state: { trail, prompt: 'Set up.' } },
+        { ...three.tabs[1], state: { prompt: 'Set up.' } },
+        three.tabs[2],
+      ],
+    };
+
+    expect(storableTabs(tabs).tabs).toEqual([
+      { ...inbox, state: { trail } },
+      three.tabs[1],
+      three.tabs[2],
+    ]);
+  });
+});
+
+describe('placed', () => {
+  const split: AppTabs = {
+    ...three,
+    activeId: 'a',
+    splitId: 'b',
+    splitSide: 'right',
+  };
+
+  it('shows a dropped tab on that side and focuses it', () => {
+    expect(placed(three, 'c', 'right')).toEqual({
+      tabs: three.tabs,
+      activeId: 'c',
+      splitId: 'b',
+      splitSide: 'left',
+    });
+    expect(panesOf(placed(three, 'c', 'left'))).toEqual({
+      left: 'c',
+      right: 'b',
+    });
+  });
+
+  it('moves the active tab to the right and shows its neighbour on the left', () => {
+    expect(panesOf(placed(three, 'b', 'right'))).toEqual({
+      left: 'c',
+      right: 'b',
+    });
+  });
+
+  it('swaps the two sides', () => {
+    expect(panesOf(placed(split, 'b', 'left'))).toEqual({
+      left: 'b',
+      right: 'a',
+    });
+    expect(panesOf(placed(split, 'a', 'right'))).toEqual({
+      left: 'b',
+      right: 'a',
+    });
+  });
+
+  it('replaces the tab on the side it is dropped on', () => {
+    expect(panesOf(placed(split, 'c', 'right'))).toEqual({
+      left: 'a',
+      right: 'c',
+    });
+    expect(panesOf(placed(split, 'c', 'left'))).toEqual({
+      left: 'c',
+      right: 'b',
+    });
+  });
+
+  it('changes nothing for a tab already on that side, the only tab, or a tab it does not know', () => {
+    expect(placed(split, 'a', 'left')).toBe(split);
+    expect(placed(split, 'b', 'right')).toBe(split);
+    expect(placed(three, 'b', 'left')).toBe(three);
+    expect(placed(three, 'x', 'right')).toBe(three);
+
+    const one: AppTabs = { tabs: [inbox], activeId: 'a' };
+    expect(placed(one, 'a', 'right')).toBe(one);
+  });
+});
+
+describe('split view', () => {
+  const split: AppTabs = {
+    ...three,
+    activeId: 'a',
+    splitId: 'b',
+    splitSide: 'right',
+  };
+
+  it('focuses the other pane and keeps both panes where they are', () => {
+    const next = focused(split, 'b');
+
+    expect(next).toMatchObject({ activeId: 'b', splitId: 'a' });
+    expect(panesOf(next)).toEqual(panesOf(split));
+    expect(focused(split, 'c')).toBe(split);
+  });
+
+  it('opens a selected tab in the focused pane, or focuses the other pane', () => {
+    expect(panesOf(selected(split, 'c'))).toEqual({ left: 'c', right: 'b' });
+    expect(panesOf(selected(focused(split, 'b'), 'c'))).toEqual({
+      left: 'a',
+      right: 'c',
+    });
+    expect(selected(split, 'b')).toEqual(focused(split, 'b'));
+  });
+
+  it('gives the whole view to the other pane when the focused tab closes', () => {
+    expect(closed(split, 'a')).toEqual({
+      tabs: [three.tabs[1], three.tabs[2]],
+      activeId: 'b',
+    });
+  });
+
+  it('ends the split view when the other tab closes', () => {
+    expect(closed(split, 'b')).toEqual({
+      tabs: [three.tabs[0], three.tabs[2]],
+      activeId: 'a',
+    });
+  });
+
+  it('keeps the split view when another tab closes or opens', () => {
+    expect(closed(split, 'c')).toMatchObject({ activeId: 'a', splitId: 'b' });
+    expect(panesOf(opened(split, 'd', '/w/acme/inbox'))).toEqual({
+      left: 'd',
+      right: 'b',
+    });
+  });
+
+  it('changes the tab it is asked to', () => {
+    const place = { path: '/w/acme/team/team_1/runs/run_1' };
+
+    expect(visited(split, place, 'b').tabs[1]?.path).toBe(place.path);
+    expect(titled(split, 'Run', 'b').tabs[1]?.title).toBe('Run');
+  });
+
+  it('restores the split view and focuses the pane at the address', () => {
+    const stored = JSON.stringify(split);
+
+    expect(storedTabs(stored, 'new', { path: '/w/acme/inbox' })).toEqual(split);
+    expect(
+      storedTabs(stored, 'new', { path: '/w/acme/team/team_1/runs' }),
+    ).toEqual(focused(split, 'b'));
+  });
+});
+
+describe('withoutPane', () => {
+  const split: AppTabs = {
+    ...three,
+    activeId: 'a',
+    splitId: 'b',
+    splitSide: 'right',
+  };
+
+  it('gives the whole view to the other pane and keeps both tabs', () => {
+    expect(withoutPane(split, 'right')).toEqual({
+      tabs: three.tabs,
+      activeId: 'a',
+    });
+    expect(withoutPane(split, 'left')).toEqual({
+      tabs: three.tabs,
+      activeId: 'b',
+    });
+  });
+
+  it('changes nothing without a split view', () => {
+    expect(withoutPane(three, 'left')).toBe(three);
   });
 });

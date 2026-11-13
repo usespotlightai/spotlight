@@ -4,7 +4,10 @@ import { cn } from '@/lib/utils';
 
 const MIN_WIDTH = 0.4;
 
-export const LABEL_ROOM = 128;
+export const LABEL_ROOM = 'var(--label-room)';
+
+export const TIMELINE =
+  '[--names:min(var(--names-wanted),55cqw)] [--label-room:3.5rem] @md/trace:[--names:min(var(--names-wanted),50cqw)] @md/trace:[--label-room:8rem]';
 
 const fills: Record<TraceNode['category'], string> = {
   agent: 'bg-primary',
@@ -42,7 +45,9 @@ export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {
       >
         {formatShortDuration(node.ms)}
         {node.cost !== null && (
-          <span className="pl-3">∑{spentOn(node.cost)}</span>
+          <span className="hidden pl-3 @md/trace:inline">
+            ∑{spentOn(node.cost)}
+          </span>
         )}
       </span>
     </div>

@@ -20,7 +20,9 @@ export function StatusDot({ tone, children }: StatusDotProps) {
         aria-hidden
         className={cn('size-1.5 shrink-0 rounded-full', DOTS[tone])}
       />
-      <span className="truncate">{children}</span>
+      <span title={children} className="truncate">
+        {children}
+      </span>
     </span>
   );
 }

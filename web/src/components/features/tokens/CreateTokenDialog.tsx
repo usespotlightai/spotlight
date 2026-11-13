@@ -108,7 +108,7 @@ export function CreateTokenDialog({
       onOpenChange={onOpenChange}
       onOpenChangeComplete={(open) => !open && reset()}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="flex flex-col sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create a token</DialogTitle>
           <DialogDescription>
@@ -117,67 +117,69 @@ export function CreateTokenDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={submit} className="contents">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={nameId} className={LABEL}>
-              Name
-            </label>
-            <FieldInput
-              id={nameId}
-              name="name"
-              required
-              autoFocus
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="terraform"
-              maxLength={LONGEST_NAME}
-              disabled={busy}
-              value={name}
-              onChange={(event) => {
-                setName(sanitizeSlug(event.target.value));
-                if (create.isError) create.reset();
-              }}
-            />
-          </div>
+        <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col gap-4">
+          <div className="-m-1 flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain p-1">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={nameId} className={LABEL}>
+                Name
+              </label>
+              <FieldInput
+                id={nameId}
+                name="name"
+                required
+                autoFocus
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="terraform"
+                maxLength={LONGEST_NAME}
+                disabled={busy}
+                value={name}
+                onChange={(event) => {
+                  setName(sanitizeSlug(event.target.value));
+                  if (create.isError) create.reset();
+                }}
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={descriptionId} className={LABEL}>
-              What it is for{' '}
-              <span className="font-normal text-muted-foreground">
-                (optional)
-              </span>
-            </label>
-            <FieldInput
-              id={descriptionId}
-              name="description"
-              autoComplete="off"
-              placeholder="Applies the platform repository from CI"
-              maxLength={LONGEST_DESCRIPTION}
-              disabled={busy}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={descriptionId} className={LABEL}>
+                What it is for{' '}
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </label>
+              <FieldInput
+                id={descriptionId}
+                name="description"
+                autoComplete="off"
+                placeholder="Applies the platform repository from CI"
+                maxLength={LONGEST_DESCRIPTION}
+                disabled={busy}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </div>
 
-          <TokenAccessField
-            level={level}
-            grants={grants}
-            disabled={busy}
-            onLevel={setLevel}
-            onGrant={grant}
-          />
-
-          <div className="flex items-center justify-between gap-3">
-            <span className={LABEL}>Expires after</span>
-            <ChoiceSelect
-              label="Expires after"
-              choices={LIFETIMES}
-              value={lifetime}
-              placeholder="Never"
-              onChange={setLifetime}
+            <TokenAccessField
+              level={level}
+              grants={grants}
               disabled={busy}
-              className="w-32"
+              onLevel={setLevel}
+              onGrant={grant}
             />
+
+            <div className="flex items-center justify-between gap-3">
+              <span className={LABEL}>Expires after</span>
+              <ChoiceSelect
+                label="Expires after"
+                choices={LIFETIMES}
+                value={lifetime}
+                placeholder="Never"
+                onChange={setLifetime}
+                disabled={busy}
+                className="w-32"
+              />
+            </div>
           </div>
 
           <DialogFooter>

@@ -6,12 +6,14 @@ type StackRepositoryPillsProps = {
   stacks: readonly ChangeStack[];
   stack: ChangeStack;
   onChange: (repository: string) => void;
+  className?: string;
 };
 
 export function StackRepositoryPills({
   stacks,
   stack,
   onChange,
+  className,
 }: StackRepositoryPillsProps) {
   if (stacks.length <= 1) {
     return null;
@@ -25,6 +27,7 @@ export function StackRepositoryPills({
       }))}
       current={repositoryOf(stack)}
       onChange={onChange}
+      className={className}
     />
   );
 }

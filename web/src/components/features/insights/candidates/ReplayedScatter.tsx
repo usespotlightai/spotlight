@@ -1,11 +1,4 @@
-import {
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Scatter, ScatterChart, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { ReplayedLegend } from '@/components/features/insights/candidates/ReplayedLegend';
 import {
@@ -14,6 +7,7 @@ import {
 } from '@/components/features/insights/candidates/ReplayedPointMark';
 import { ReplayedPointTip } from '@/components/features/insights/candidates/ReplayedPointTip';
 import { PointLabels } from '@/components/shared/chart/PointLabels';
+import { ResponsiveChart } from '@/components/shared/chart/ResponsiveChart';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { useDotHover } from '@/hooks/useDotHover';
 import { AXIS_TITLE, costTick } from '@/lib/chart';
@@ -77,7 +71,7 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
         className="min-w-0 flex-1 [&_*:focus:not(:focus-visible)]:outline-none"
       >
         <div {...cursor.area}>
-          <ResponsiveContainer width="100%" height={HEIGHT}>
+          <ResponsiveChart height={HEIGHT}>
             <ScatterChart margin={{ top: 20, right: 4, bottom: 4, left: 0 }}>
               <XAxis
                 type="number"
@@ -151,7 +145,7 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
                   .map(labelOf)}
               />
             </ScatterChart>
-          </ResponsiveContainer>
+          </ResponsiveChart>
         </div>
       </div>
       <figcaption className="pl-14">

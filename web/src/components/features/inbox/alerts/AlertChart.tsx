@@ -2,7 +2,6 @@ import {
   Line,
   LineChart,
   ReferenceLine,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -10,6 +9,7 @@ import {
 
 import { AlertChartLegend } from '@/components/features/inbox/alerts/AlertChartLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
+import { ResponsiveChart } from '@/components/shared/chart/ResponsiveChart';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { formatDay } from '@/lib/judge';
 import {
@@ -89,7 +89,7 @@ export function AlertChart({ alert }: { alert: StationAlertFiring }) {
     <figure data-slot="alert-chart" className="flex flex-col gap-2">
       <div className="[&_*:focus:not(:focus-visible)]:outline-none">
         <div {...cursor.area}>
-          <ResponsiveContainer width="100%" height={ALERT_CHART_HEIGHT}>
+          <ResponsiveChart height={ALERT_CHART_HEIGHT}>
             <LineChart
               data={[...alert.series]}
               title={formatRule(alert)}
@@ -149,7 +149,7 @@ export function AlertChart({ alert }: { alert: StationAlertFiring }) {
                 isAnimationActive={false}
               />
             </LineChart>
-          </ResponsiveContainer>
+          </ResponsiveChart>
         </div>
       </div>
       <AlertChartLegend alert={alert} />

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 
 import { TaskActions } from '@/components/features/board/task/TaskActions';
+import { TASK_LAYOUT } from '@/components/features/board/task/TaskLayout';
 import { TaskProperties } from '@/components/features/board/task/TaskProperties';
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
@@ -56,8 +57,8 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
       />
 
       <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
-        <div className="mx-auto flex w-full max-w-5xl gap-10 px-8 py-8">
-          <main className="flex min-w-0 flex-1 flex-col gap-3">
+        <div className={TASK_LAYOUT}>
+          <main className="flex min-w-0 flex-col gap-3">
             <PageTitle>{task.title}</PageTitle>
 
             {task.description ? (
@@ -73,13 +74,13 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
             )}
 
             <AttachmentTiles attachments={task.attachments} />
-
-            <div className="pt-4">
-              <TaskActivity slug={slug} teamId={teamId} taskId={task.id} />
-            </div>
           </main>
 
           <TaskProperties slug={slug} teamId={teamId} task={task} line={line} />
+
+          <div className="min-w-0 pt-4">
+            <TaskActivity slug={slug} teamId={teamId} taskId={task.id} />
+          </div>
         </div>
       </ScrollArea>
     </>

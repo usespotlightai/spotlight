@@ -5,21 +5,17 @@ import {
   type DragOverEvent,
   type DragStartEvent,
   type DroppableContainer,
-  PointerSensor,
   pointerWithin,
   rectIntersection,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core';
 import { useState } from 'react';
 
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useDragGuard } from '@/hooks/useDragGuard';
+import { useDragSensors } from '@/hooks/useDragSensors';
 import type { StationResponseDto } from '@/lib/api';
 import { type Landing, landingFor } from '@/lib/dragging';
 import { mayLand, type Task } from '@/lib/task';
-
-const HOLD = 6;
 
 const kindOf = (collision: Collision): unknown => {
   const container = collision.data?.droppableContainer as
@@ -50,9 +46,7 @@ export function useBoardDrag(board: Board) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [landing, setLanding] = useState<Landing | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: HOLD } }),
-  );
+  const sensors = useDragSensors();
 
   const clear = () => {
     setDraggedId(null);

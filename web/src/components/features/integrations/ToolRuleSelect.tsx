@@ -37,7 +37,7 @@ export function ToolRuleSelect({
       <DropdownMenuTrigger
         aria-label={`Rule for ${tool}`}
         disabled={disabled}
-        className="flex h-7 items-center gap-2 rounded-md px-2 text-foreground text-sm outline-none transition-colors hover:bg-accent disabled:opacity-50 data-[popup-open]:bg-accent"
+        className="flex h-7 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-2 text-foreground text-sm outline-none transition-colors hover:bg-accent disabled:opacity-50 data-[popup-open]:bg-accent"
       >
         {shown.label}
         <ChevronsUpDown

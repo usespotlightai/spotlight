@@ -8,7 +8,9 @@ import { KIND_DESCRIPTIONS, KIND_LABELS, type MemoryKind } from '@/lib/memory';
 export function MemoryKindLabel({ kind }: { kind: MemoryKind }) {
   return (
     <Tooltip>
-      <TooltipTrigger render={<span />}>{KIND_LABELS[kind]}</TooltipTrigger>
+      <TooltipTrigger render={<span title={KIND_LABELS[kind]} />}>
+        {KIND_LABELS[kind]}
+      </TooltipTrigger>
       <TooltipContent className="max-w-64">
         {KIND_DESCRIPTIONS[kind]}
       </TooltipContent>

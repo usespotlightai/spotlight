@@ -45,7 +45,7 @@ export function JudgeAgreementSkeleton() {
           <TabSection level={3} title={COVERAGE_SKELETON_TITLE}>
             <div className="flex flex-col gap-3">
               <Skeleton className="h-2 w-full rounded-full" />
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 @xl/pane:grid-cols-4">
                 {COVERAGE_PARTS.map((part) => (
                   <div key={part.key} className="flex flex-col gap-0.5">
                     <span className="text-muted-foreground text-xs">
