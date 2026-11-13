@@ -52,6 +52,7 @@ import type { DispatchRunEndings } from '@work/application/events/handlers/dispa
 import type { DropUnorderedRun } from '@work/application/events/handlers/drop-unordered-run.handler';
 import type { EnqueueOrderedRun } from '@work/application/events/handlers/enqueue-ordered-run.handler';
 import type { NotifyChannel } from '@work/application/events/handlers/notify-channel.handler';
+import type { NotifyOutsideToolsOfNotices } from '@work/application/events/handlers/notify-outside-tools-of-notices.handler';
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import type { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
@@ -75,6 +76,8 @@ import type { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
 import type { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
+import type { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
+import type { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
@@ -118,6 +121,7 @@ export const workSubscribers = (reactions: {
   welcoming: WelcomeTeam;
   acceptances: ProposalAcceptances;
   outsideTools: NotifyOutsideTools;
+  outsideNotices: NotifyOutsideToolsOfNotices;
   taskRuns: OrderTaskRun;
   detachedRuns: CancelDetachedRun;
   chatRuns: OrderChatRun;
@@ -237,6 +241,18 @@ export const workSubscribers = (reactions: {
     'work.notify-outside-tools',
     NOTICED_TASK_EVENT_KINDS,
     (event) => reactions.outsideTools.on(event),
+    { callsOut: true },
+  ),
+  subscribing<InboxRequestOpened>(
+    'work.notify-outside-tools.inbox-request-opened',
+    ['inbox-request.opened'],
+    (event) => reactions.outsideTools.onInboxRequestOpened(event),
+    { callsOut: true },
+  ),
+  subscribing<NoticeRaised>(
+    'work.notify-outside-tools.notice-raised',
+    ['notice.raised'],
+    (event) => reactions.outsideNotices.on(event),
     { callsOut: true },
   ),
   subscribing<TaskRunAssigned>(
