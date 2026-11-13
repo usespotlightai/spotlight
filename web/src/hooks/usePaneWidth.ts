@@ -124,6 +124,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     width,
     resizing,
     paneRef,
+    resize,
     handleProps: {
       role: 'separator' as const,
       'aria-orientation': 'vertical' as const,

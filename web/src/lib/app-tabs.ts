@@ -28,6 +28,15 @@ export type AppTab = {
 export type AppTabs = {
   readonly tabs: readonly AppTab[];
   readonly activeId: string;
+  readonly splitId?: string;
+  readonly splitSide?: SplitSide;
+};
+
+export type SplitSide = 'left' | 'right';
+
+export type Panes = {
+  readonly left: string;
+  readonly right?: string;
 };
 
 export type Place = {
@@ -43,27 +52,105 @@ const firstTabs = (id: string, place: Place): AppTabs => ({
   activeId: id,
 });
 
-const changeActive = (
+const changeTab = (
   tabs: AppTabs,
+  id: string | undefined,
   change: (tab: AppTab) => AppTab,
 ): AppTabs => ({
   ...tabs,
-  tabs: tabs.tabs.map((tab) => (tab.id === tabs.activeId ? change(tab) : tab)),
+  tabs: tabs.tabs.map((tab) => (tab.id === id ? change(tab) : tab)),
 });
 
-export const visited = (tabs: AppTabs, place: Place): AppTabs =>
-  changeActive(tabs, (tab) => ({ id: tab.id, title: tab.title, ...place }));
+export const visited = (
+  tabs: AppTabs,
+  place: Place,
+  id: string | undefined = tabs.activeId,
+): AppTabs =>
+  changeTab(tabs, id, (tab) => ({ id: tab.id, title: tab.title, ...place }));
 
-export const titled = (tabs: AppTabs, title: string): AppTabs =>
-  changeActive(tabs, (tab) => (tab.title === title ? tab : { ...tab, title }));
+export const titled = (
+  tabs: AppTabs,
+  title: string,
+  id: string | undefined = tabs.activeId,
+): AppTabs =>
+  changeTab(tabs, id, (tab) => (tab.title === title ? tab : { ...tab, title }));
 
 export const opened = (tabs: AppTabs, id: string, path: string): AppTabs => ({
+  ...tabs,
   tabs: [...tabs.tabs, { id, path, title: null }],
   activeId: id,
 });
 
-export const selected = (tabs: AppTabs, id: string): AppTabs =>
-  tabs.tabs.some((tab) => tab.id === id) ? { ...tabs, activeId: id } : tabs;
+const opposite = (side: SplitSide): SplitSide =>
+  side === 'left' ? 'right' : 'left';
+
+const shownSideBySide = (
+  tabs: readonly AppTab[],
+  activeId: string,
+  splitId: string | undefined,
+  splitSide: SplitSide = 'right',
+): AppTabs =>
+  splitId && splitId !== activeId
+    ? { tabs, activeId, splitId, splitSide }
+    : { tabs, activeId };
+
+export const panesOf = (tabs: AppTabs): Panes => {
+  if (tabs.splitId === undefined) {
+    return { left: tabs.activeId };
+  }
+
+  return tabs.splitSide === 'left'
+    ? { left: tabs.splitId, right: tabs.activeId }
+    : { left: tabs.activeId, right: tabs.splitId };
+};
+
+export const focused = (tabs: AppTabs, id: string): AppTabs =>
+  id === tabs.splitId
+    ? shownSideBySide(
+        tabs.tabs,
+        id,
+        tabs.activeId,
+        opposite(tabs.splitSide ?? 'right'),
+      )
+    : tabs;
+
+export const selected = (tabs: AppTabs, id: string): AppTabs => {
+  if (!tabs.tabs.some((tab) => tab.id === id)) {
+    return tabs;
+  }
+
+  return id === tabs.splitId ? focused(tabs, id) : { ...tabs, activeId: id };
+};
+
+const neighbourOf = (tabs: AppTabs, id: string): AppTab | undefined => {
+  const at = tabs.tabs.findIndex((tab) => tab.id === id);
+  const rest = tabs.tabs.filter((tab) => tab.id !== id);
+
+  return rest[Math.min(at, rest.length - 1)];
+};
+
+export const placed = (tabs: AppTabs, id: string, side: SplitSide): AppTabs => {
+  const panes = panesOf(tabs);
+  const there = panes[side];
+  const other = opposite(side);
+
+  if (!tabs.tabs.some((tab) => tab.id === id) || there === id) {
+    return tabs;
+  }
+
+  const stays =
+    panes[other] === id
+      ? (there ?? neighbourOf(tabs, id)?.id)
+      : (panes[other] ?? tabs.activeId);
+
+  return stays ? shownSideBySide(tabs.tabs, id, stays, other) : tabs;
+};
+
+export const withoutPane = (tabs: AppTabs, side: SplitSide): AppTabs => {
+  const kept = panesOf(tabs)[opposite(side)];
+
+  return kept ? shownSideBySide(tabs.tabs, kept, undefined) : tabs;
+};
 
 export const moved = (tabs: AppTabs, id: string, to: string): AppTabs => {
   const from = tabs.tabs.findIndex((tab) => tab.id === id);
@@ -82,19 +169,24 @@ export const moved = (tabs: AppTabs, id: string, to: string): AppTabs => {
 };
 
 export const closed = (tabs: AppTabs, id: string): AppTabs => {
-  const at = tabs.tabs.findIndex((tab) => tab.id === id);
+  const neighbour = neighbourOf(tabs, id);
 
-  if (at === -1 || tabs.tabs.length === 1) {
+  if (!neighbour || !tabs.tabs.some((tab) => tab.id === id)) {
     return tabs;
   }
 
   const rest = tabs.tabs.filter((tab) => tab.id !== id);
-  const neighbour = rest[Math.min(at, rest.length - 1)];
 
-  return {
-    tabs: rest,
-    activeId: tabs.activeId === id ? neighbour.id : tabs.activeId,
-  };
+  if (id === tabs.activeId) {
+    return shownSideBySide(rest, tabs.splitId ?? neighbour.id, undefined);
+  }
+
+  return shownSideBySide(
+    rest,
+    tabs.activeId,
+    id === tabs.splitId ? undefined : tabs.splitId,
+    tabs.splitSide,
+  );
 };
 
 const TEAM_PATTERNS = [
@@ -175,15 +267,28 @@ export const storedTabs = (
     const parsed = JSON.parse(stored ?? 'null') as {
       tabs?: unknown;
       activeId?: unknown;
+      splitId?: unknown;
+      splitSide?: unknown;
     } | null;
     const tabs = Array.isArray(parsed?.tabs)
       ? parsed.tabs.map(tabOf).filter((tab): tab is AppTab => tab !== null)
       : [];
     const showing = tabs.find((tab) => tab.path === here.path);
-    const active =
-      showing ?? tabs.find((tab) => tab.id === parsed?.activeId) ?? tabs[0];
+    const active = tabs.find((tab) => tab.id === parsed?.activeId) ?? tabs[0];
+    const split = tabs.find((tab) => tab.id === parsed?.splitId);
 
-    return active ? { tabs, activeId: active.id } : firstTabs(id, here);
+    if (!active) {
+      return firstTabs(id, here);
+    }
+
+    const remembered = shownSideBySide(
+      tabs,
+      active.id,
+      split?.id,
+      parsed?.splitSide === 'left' ? 'left' : 'right',
+    );
+
+    return showing ? selected(remembered, showing.id) : remembered;
   } catch {
     return firstTabs(id, here);
   }

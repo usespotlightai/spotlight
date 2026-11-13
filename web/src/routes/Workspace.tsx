@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { type ReactNode, useCallback, useState } from 'react';
 import { Link, useMatch, useParams } from 'react-router';
 
 import { SettingUpWorkspace } from '@/components/features/onboarding/SettingUpWorkspace';
@@ -11,6 +11,9 @@ import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
 import { SidebarSlide } from '@/components/shell/layout/SidebarSlide';
 import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
 import { AppTabStrip } from '@/components/shell/tabs/AppTabStrip';
+import { SplitDropZones } from '@/components/shell/tabs/SplitDropZones';
+import { TabDrag } from '@/components/shell/tabs/TabDrag';
+import { TabPane } from '@/components/shell/tabs/TabPane';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
@@ -27,7 +30,11 @@ import { TabTitleContext } from '@/lib/tab-title';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_URL_PREFIX, workspacePath } from '@/lib/workspace';
 
-export function Workspace() {
+type WorkspaceProps = {
+  pages: ReactNode;
+};
+
+export function Workspace({ pages }: WorkspaceProps) {
   const { slug } = useParams();
   const workspace = useWorkspace(slug);
   const inSettings = Boolean(useMatch('/w/:slug/settings/*'));
@@ -45,12 +52,36 @@ export function Workspace() {
     <AppTabStrip
       tabs={tabs.tabs}
       activeId={tabs.activeId}
+      splitId={tabs.splitId}
       onSelect={tabs.select}
       onClose={tabs.close}
-      onMove={tabs.move}
       onOpen={tabs.open}
     />
   );
+  const paneOf = (id: string | undefined) => {
+    const tab = tabs.tabs.find((each) => each.id === id);
+
+    return (
+      tab && (
+        <TabPane
+          key={tab.id}
+          tab={tab}
+          pages={pages}
+          focused={tab.id === tabs.activeId}
+          onFocus={() => tabs.focus(tab.id)}
+          onVisit={tabs.visit}
+          onTitle={tabs.titleFor(tab.id)}
+        />
+      )
+    );
+  };
+  const drag = {
+    tabs: tabs.tabs,
+    activeId: tabs.activeId,
+    canPlace: tabs.canPlace,
+    onMove: tabs.move,
+    onPlace: tabs.place,
+  };
 
   if (!slug) {
     return null;
@@ -58,25 +89,29 @@ export function Workspace() {
 
   if (loading(workspace)) {
     return (
-      <DashboardLayout tabs={strip}>
-        <TabTitleContext value={tabs.report}>
-          <PageOutlet />
-        </TabTitleContext>
-      </DashboardLayout>
+      <TabDrag {...drag}>
+        <DashboardLayout tabs={strip}>
+          <TabTitleContext value={tabs.titleFor(tabs.activeId)}>
+            <PageOutlet />
+          </TabTitleContext>
+        </DashboardLayout>
+      </TabDrag>
     );
   }
 
   if (failed(workspace)) {
     return (
-      <DashboardLayout tabs={strip}>
-        <PageNotice>
-          <CouldNotLoad
-            what="The workspace"
-            retrying={workspace.isFetching}
-            onRetry={() => void workspace.refetch()}
-          />
-        </PageNotice>
-      </DashboardLayout>
+      <TabDrag {...drag}>
+        <DashboardLayout tabs={strip}>
+          <PageNotice>
+            <CouldNotLoad
+              what="The workspace"
+              retrying={workspace.isFetching}
+              onRetry={() => void workspace.refetch()}
+            />
+          </PageNotice>
+        </DashboardLayout>
+      </TabDrag>
     );
   }
 
@@ -108,36 +143,51 @@ export function Workspace() {
   }
 
   return (
-    <DashboardLayout
-      sidebar={
-        <SidebarSlide key={inSettings ? 'settings' : 'app'} from={slideFrom}>
-          {inSettings ? (
-            <SettingsSidebar
-              slug={slug}
-              back={leftAt ?? workspacePath(slug)}
-              workspace={workspace.data}
-            />
-          ) : (
-            <WorkspaceSidebar
-              slug={slug}
-              workspace={workspace.data}
-              onSearch={() => setSearching(true)}
-            />
-          )}
-        </SidebarSlide>
-      }
-      tabs={strip}
-    >
-      <TabTitleContext value={tabs.report}>
-        <PageOutlet />
-      </TabTitleContext>
+    <TabDrag {...drag}>
+      <DashboardLayout
+        sidebar={
+          <SidebarSlide key={inSettings ? 'settings' : 'app'} from={slideFrom}>
+            {inSettings ? (
+              <SettingsSidebar
+                slug={slug}
+                back={leftAt ?? workspacePath(slug)}
+                workspace={workspace.data}
+              />
+            ) : (
+              <WorkspaceSidebar
+                slug={slug}
+                workspace={workspace.data}
+                onSearch={() => setSearching(true)}
+              />
+            )}
+          </SidebarSlide>
+        }
+        tabs={strip}
+        focused={tabs.panes.left === tabs.activeId ? 'main' : 'split'}
+        onCollapse={(section) =>
+          tabs.hidePane(section === 'main' ? 'left' : 'right')
+        }
+        split={
+          tabs.panes.right && (
+            <>
+              {paneOf(tabs.panes.right)}
+              <SplitDropZones sides={['right']} />
+            </>
+          )
+        }
+      >
+        {paneOf(tabs.panes.left)}
+        <SplitDropZones
+          sides={tabs.panes.right ? ['left'] : ['left', 'right']}
+        />
 
-      <CommandPalette
-        slug={slug}
-        workspace={workspace.data}
-        open={searching}
-        onOpenChange={setSearching}
-      />
-    </DashboardLayout>
+        <CommandPalette
+          slug={slug}
+          workspace={workspace.data}
+          open={searching}
+          onOpenChange={setSearching}
+        />
+      </DashboardLayout>
+    </TabDrag>
   );
 }

@@ -6,11 +6,16 @@ import {
   closed,
   moved,
   newTabPath,
+  focused,
   opened,
+  panesOf,
+  placed,
+  selected,
   storedTabs,
   tabIconOf,
   titled,
   visited,
+  withoutPane,
 } from '@/lib/app-tabs';
 
 const TEAMS = [
@@ -177,5 +182,154 @@ describe('storedTabs', () => {
 
     expect(first?.trail).toEqual(trail);
     expect(second).toEqual({ id: 'b', path: '/w/acme/settings', title: null });
+  });
+});
+
+describe('placed', () => {
+  const split: AppTabs = {
+    ...three,
+    activeId: 'a',
+    splitId: 'b',
+    splitSide: 'right',
+  };
+
+  it('shows a dropped tab on that side and focuses it', () => {
+    expect(placed(three, 'c', 'right')).toEqual({
+      tabs: three.tabs,
+      activeId: 'c',
+      splitId: 'b',
+      splitSide: 'left',
+    });
+    expect(panesOf(placed(three, 'c', 'left'))).toEqual({
+      left: 'c',
+      right: 'b',
+    });
+  });
+
+  it('moves the active tab to the right and shows its neighbour on the left', () => {
+    expect(panesOf(placed(three, 'b', 'right'))).toEqual({
+      left: 'c',
+      right: 'b',
+    });
+  });
+
+  it('swaps the two sides', () => {
+    expect(panesOf(placed(split, 'b', 'left'))).toEqual({
+      left: 'b',
+      right: 'a',
+    });
+    expect(panesOf(placed(split, 'a', 'right'))).toEqual({
+      left: 'b',
+      right: 'a',
+    });
+  });
+
+  it('replaces the tab on the side it is dropped on', () => {
+    expect(panesOf(placed(split, 'c', 'right'))).toEqual({
+      left: 'a',
+      right: 'c',
+    });
+    expect(panesOf(placed(split, 'c', 'left'))).toEqual({
+      left: 'c',
+      right: 'b',
+    });
+  });
+
+  it('changes nothing for a tab already on that side, the only tab, or a tab it does not know', () => {
+    expect(placed(split, 'a', 'left')).toBe(split);
+    expect(placed(split, 'b', 'right')).toBe(split);
+    expect(placed(three, 'b', 'left')).toBe(three);
+    expect(placed(three, 'x', 'right')).toBe(three);
+
+    const one: AppTabs = { tabs: [inbox], activeId: 'a' };
+    expect(placed(one, 'a', 'right')).toBe(one);
+  });
+});
+
+describe('split view', () => {
+  const split: AppTabs = {
+    ...three,
+    activeId: 'a',
+    splitId: 'b',
+    splitSide: 'right',
+  };
+
+  it('focuses the other pane and keeps both panes where they are', () => {
+    const next = focused(split, 'b');
+
+    expect(next).toMatchObject({ activeId: 'b', splitId: 'a' });
+    expect(panesOf(next)).toEqual(panesOf(split));
+    expect(focused(split, 'c')).toBe(split);
+  });
+
+  it('opens a selected tab in the focused pane, or focuses the other pane', () => {
+    expect(panesOf(selected(split, 'c'))).toEqual({ left: 'c', right: 'b' });
+    expect(panesOf(selected(focused(split, 'b'), 'c'))).toEqual({
+      left: 'a',
+      right: 'c',
+    });
+    expect(selected(split, 'b')).toEqual(focused(split, 'b'));
+  });
+
+  it('gives the whole view to the other pane when the focused tab closes', () => {
+    expect(closed(split, 'a')).toEqual({
+      tabs: [three.tabs[1], three.tabs[2]],
+      activeId: 'b',
+    });
+  });
+
+  it('ends the split view when the other tab closes', () => {
+    expect(closed(split, 'b')).toEqual({
+      tabs: [three.tabs[0], three.tabs[2]],
+      activeId: 'a',
+    });
+  });
+
+  it('keeps the split view when another tab closes or opens', () => {
+    expect(closed(split, 'c')).toMatchObject({ activeId: 'a', splitId: 'b' });
+    expect(panesOf(opened(split, 'd', '/w/acme/inbox'))).toEqual({
+      left: 'd',
+      right: 'b',
+    });
+  });
+
+  it('changes the tab it is asked to', () => {
+    const place = { path: '/w/acme/team/team_1/runs/run_1' };
+
+    expect(visited(split, place, 'b').tabs[1]?.path).toBe(place.path);
+    expect(titled(split, 'Run', 'b').tabs[1]?.title).toBe('Run');
+  });
+
+  it('restores the split view and focuses the pane at the address', () => {
+    const stored = JSON.stringify(split);
+
+    expect(storedTabs(stored, 'new', { path: '/w/acme/inbox' })).toEqual(split);
+    expect(
+      storedTabs(stored, 'new', { path: '/w/acme/team/team_1/runs' }),
+    ).toEqual(focused(split, 'b'));
+  });
+});
+
+describe('withoutPane', () => {
+  const split: AppTabs = {
+    ...three,
+    activeId: 'a',
+    splitId: 'b',
+    splitSide: 'right',
+  };
+
+  it('gives the whole view to the other pane and keeps both tabs', () => {
+    expect(withoutPane(split, 'right')).toEqual({
+      tabs: three.tabs,
+      activeId: 'a',
+    });
+    expect(withoutPane(split, 'left')).toEqual({
+      tabs: three.tabs,
+      activeId: 'b',
+    });
+  });
+
+  it('changes nothing without a split view', () => {
+    expect(withoutPane(three, 'left')).toBe(three);
   });
 });

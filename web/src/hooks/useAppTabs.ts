@@ -8,13 +8,18 @@ import {
   closed,
   moved,
   newTabPath,
+  focused,
   opened,
+  panesOf,
   type Place,
+  placed,
+  type SplitSide,
   selected,
   storedTabs,
   titled,
   trailOf,
   visited,
+  withoutPane,
 } from '@/lib/app-tabs';
 import type { ReportTitle } from '@/lib/tab-title';
 import type { Team } from '@/lib/team';
@@ -26,6 +31,40 @@ const readTabs = (storageKey: string, here: Place): AppTabs => {
   } catch {}
   return visited(storedTabs(stored, crypto.randomUUID(), here), here);
 };
+
+type Change = (next: (tabs: AppTabs) => AppTabs) => void;
+
+function useTitleReports(change: Change) {
+  const reports = useRef(new Map<string, ReportTitle>());
+
+  return useCallback(
+    (id: string): ReportTitle => {
+      const known = reports.current.get(id);
+      if (known) {
+        return known;
+      }
+
+      let titles: { title: string }[] = [];
+      const report: ReportTitle = (title) => {
+        const entry = { title };
+        titles = [...titles, entry];
+        change((current) => titled(current, title, id));
+
+        return () => {
+          titles = titles.filter((each) => each !== entry);
+          const top = titles.at(-1);
+          if (top) {
+            change((current) => titled(current, top.title, id));
+          }
+        };
+      };
+      reports.current.set(id, report);
+
+      return report;
+    },
+    [change],
+  );
+}
 
 const placeOf = (
   pathname: string,
@@ -50,7 +89,6 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
     state,
     tabs: readTabs(storageKey, here),
   }));
-  const titles = useRef<{ title: string }[]>([]);
 
   let tabs = shown.tabs;
   if (shown.storageKey !== storageKey) {
@@ -61,9 +99,8 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
     setShown({ ...shown, path: here.path, state, tabs });
   }
 
-  const change = useCallback(
-    (next: (tabs: AppTabs) => AppTabs) =>
-      setShown((current) => ({ ...current, tabs: next(current.tabs) })),
+  const change = useCallback<Change>(
+    (next) => setShown((current) => ({ ...current, tabs: next(current.tabs) })),
     [],
   );
 
@@ -73,46 +110,47 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
     } catch {}
   }, [shown]);
 
-  const report = useCallback<ReportTitle>(
-    (title) => {
-      const entry = { title };
-      titles.current = [...titles.current, entry];
-      change((current) => titled(current, title));
-
-      return () => {
-        titles.current = titles.current.filter((each) => each !== entry);
-        const top = titles.current.at(-1);
-        if (top) {
-          change((current) => titled(current, top.title));
-        }
-      };
-    },
+  const titleFor = useTitleReports(change);
+  const visit = useCallback(
+    (id: string, place: Place) =>
+      change((current) => visited(current, place, id)),
     [change],
   );
 
-  const show = (next: AppTabs) => {
+  const show = (next: AppTabs, replace = false) => {
     change(() => next);
     const tab = activeTabOf(next);
-    void navigate(tab.path, { state: tab.trail ? { trail: tab.trail } : null });
+    void navigate(tab.path, {
+      replace,
+      state: tab.trail ? { trail: tab.trail } : null,
+    });
+  };
+
+  const apply = (next: AppTabs) => {
+    if (next.activeId === tabs.activeId) {
+      change(() => next);
+    } else {
+      show(next);
+    }
   };
 
   return {
     tabs: tabs.tabs,
     activeId: tabs.activeId,
-    report,
-    select: (id: string) => {
-      if (id !== tabs.activeId) {
-        show(selected(tabs, id));
+    splitId: tabs.splitId,
+    panes: panesOf(tabs),
+    titleFor,
+    visit,
+    focus: (id: string) => {
+      if (id === tabs.splitId) {
+        show(focused(tabs, id), true);
       }
     },
-    close: (id: string) => {
-      const next = closed(tabs, id);
-      if (next.activeId === tabs.activeId) {
-        change(() => next);
-      } else {
-        show(next);
-      }
-    },
+    select: (id: string) => apply(selected(tabs, id)),
+    close: (id: string) => apply(closed(tabs, id)),
+    canPlace: (id: string, side: SplitSide) => placed(tabs, id, side) !== tabs,
+    place: (id: string, side: SplitSide) => apply(placed(tabs, id, side)),
+    hidePane: (side: SplitSide) => apply(withoutPane(tabs, side)),
     move: (id: string, to: string) =>
       change((current) => moved(current, id, to)),
     open: () =>
