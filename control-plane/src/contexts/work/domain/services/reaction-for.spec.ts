@@ -148,6 +148,23 @@ const paused = (stationId: string) =>
     voice: Voice.station(RUN),
   });
 
+const approving = (stationId: string) =>
+  handed(stationId).putToAPerson(RUN, {
+    line: null,
+    body: TaskNoteBody.of('Approve linear.comment?'),
+    at: NOW,
+    voice: Voice.station(RUN),
+    form: 'approval',
+    approval: Approval.request(
+      ApprovalSubject.toolCall(
+        ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+      ),
+      StationId.of(stationId),
+      ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+      null,
+    ),
+  });
+
 const API = PullRequestUrl.of('https://github.com/acme/api/pull/7');
 const DOCS = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
 
@@ -218,6 +235,36 @@ describe('ReactionFor.happened', () => {
 
     expect(released.stationId.value).toBe('station_1');
     expect(released.deferredMoveTo?.value).toBe('station_2');
+    expect(released.moveHeldTo).toBeNull();
+  });
+
+  it('moves a task whose run waits on a question once its held move is released', () => {
+    const toReview = Task.rehydrate({
+      ...openedTwo().assignRun(RUN, LINE),
+      ownedPullRequests: [
+        OwnedPullRequest.of(API, NOW),
+        OwnedPullRequest.of(DOCS, NOW),
+      ],
+    });
+    const held = (
+      toReview.reactTo(
+        reaction(toReview, { ...commented, closedPullRequest: API }),
+        ON,
+      ) as Task
+    ).putToAPerson(RUN, {
+      line: null,
+      body: TaskNoteBody.of('Which queue should I drain?'),
+      at: NOW,
+      voice: Voice.station(RUN),
+    });
+    const released = held
+      .pullRequestClosed(API, NOW, { line: LINE, ranksAtHeldMove: [] })
+      .pullRequestClosed(DOCS, NOW, { line: LINE, ranksAtHeldMove: [] });
+
+    expect(released.stationId.value).toBe('station_2');
+    expect(released.currentRunId).toBeNull();
+    expect(released.awaitingReview).toBe(false);
+    expect(released.deferredMoveTo).toBeNull();
     expect(released.moveHeldTo).toBeNull();
   });
 
@@ -334,10 +381,10 @@ describe('ReactionFor.happened', () => {
     expect(destination(outcome)).toEqual(LINE.completed.id);
   });
 
-  it('defers a move while the current run of the task waits on a person', () => {
+  it('moves a task whose current run waits on a person', () => {
     const outcome = reaction(paused('station_1'), commented);
 
-    expect(outcome.kind).toBe('deferredMove');
+    expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
   });
 
@@ -361,24 +408,15 @@ describe('ReactionFor.happened', () => {
     expect(destination(outcome)).toEqual(LINE.completed.id);
   });
 
-  it('finishes a task whose run waits on a tool approval when the pull request merges', () => {
-    const asking = handed('station_2').putToAPerson(RUN, {
-      line: null,
-      body: TaskNoteBody.of('Approve linear.comment?'),
-      at: NOW,
-      voice: Voice.station(RUN),
-      form: 'approval',
-      approval: Approval.request(
-        ApprovalSubject.toolCall(
-          ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
-        ),
-        StationId.of('station_2'),
-        ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
-        null,
-      ),
-    });
+  it('defers a move for a task whose run waits on a tool approval', () => {
+    const outcome = reaction(approving('station_1'), commented);
 
-    const outcome = reaction(asking, merged);
+    expect(outcome.kind).toBe('deferredMove');
+    expect(destination(outcome)).toEqual(StationId.of('station_2'));
+  });
+
+  it('finishes a task whose run waits on a tool approval when the pull request merges', () => {
+    const outcome = reaction(approving('station_2'), merged);
 
     expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(LINE.completed.id);

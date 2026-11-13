@@ -101,6 +101,10 @@ export class Attachment {
     return this.contentType.startsWith('image/');
   }
 
+  get video(): boolean {
+    return this.contentType.startsWith('video/');
+  }
+
   equals(other: Attachment): boolean {
     return (
       this.id.equals(other.id) &&

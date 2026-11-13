@@ -14,15 +14,16 @@ import (
 
 	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/control"
+	"usespotlight.ai/data-plane/credentials"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/install"
 	"usespotlight.ai/data-plane/host/internal/pool"
 	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/sandbox/docker"
+	"usespotlight.ai/data-plane/login"
 )
 
 const (
-	defaultURL      = "https://app.usespotlight.ai"
 	defaultCapacity = "5"
 	pullWait        = 30 * time.Minute
 )
@@ -127,11 +128,11 @@ func settle(file *config.File, f initFlags, tty *console.Terminal, version strin
 		return answer, err
 	}
 
-	url, err := value("Spotlight URL", "url", f.url, "SPOTLIGHT_URL", defaultURL)
+	url, err := value("Spotlight URL", "url", f.url, "SPOTLIGHT_URL", loginAddress())
 	if err != nil {
 		return err
 	}
-	if err := file.Set("SPOTLIGHT_URL", url); err != nil {
+	if err := file.Set("SPOTLIGHT_URL", credentials.WithScheme(url)); err != nil {
 		return err
 	}
 
@@ -281,7 +282,7 @@ func serveIt(out io.Writer, version string, cfg config.Config, noService bool) e
 	}
 
 	if noService {
-		fmt.Fprintln(out, "\nStart the host with: spotlight host")
+		fmt.Fprintln(out, "\nStart the host with: spotlight host serve")
 		return nil
 	}
 
@@ -293,4 +294,11 @@ func serveIt(out io.Writer, version string, cfg config.Config, noService bool) e
 		return err
 	}
 	return install.Service{Binary: binary, Config: config.Path()}.Install(out)
+}
+
+func loginAddress() string {
+	if address := login.Suggested(); address != "" {
+		return address
+	}
+	return credentials.DefaultAddress
 }

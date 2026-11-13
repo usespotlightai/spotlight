@@ -59,7 +59,7 @@ const NOTICE: Declared = {
   },
 };
 
-export const SUBJECT_VARIABLES = {
+const SUBJECT_VARIABLES = {
   task: ['ask', 'task'],
   chat: ['chat', 'reply'],
   'inbox-request': ['request', 'task'],
@@ -69,7 +69,7 @@ export const SUBJECT_VARIABLES = {
 export type SubjectVariable<Subject extends BindingSubject> =
   (typeof SUBJECT_VARIABLES)[Subject][number];
 
-export const TOOL_VARIABLES = ['inputs', 'task'] as const;
+const TOOL_VARIABLES = ['inputs', 'task'] as const;
 
 export type ToolVariable = (typeof TOOL_VARIABLES)[number];
 

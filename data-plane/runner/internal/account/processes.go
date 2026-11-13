@@ -10,10 +10,12 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"usespotlight.ai/data-plane/protocol"
 )
 
 // Do not stop the processes of a person's editor between runs.
-const EditorSession = "SPOTLIGHT_EDITOR_SESSION=1"
+const EditorSession = protocol.EditorSessionVar + "=1"
 
 const (
 	procRoot   = "/proc"

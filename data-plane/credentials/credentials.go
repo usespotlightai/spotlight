@@ -47,8 +47,34 @@ func Path(env func(string) string) (string, error) {
 	return filepath.Join(home, ".config", "spotlight", fileName), nil
 }
 
+// SeveralLogins is the error of Choose when no address is given and there are logins for more than one.
+type SeveralLogins struct {
+	Addresses []string
+}
+
+func (e SeveralLogins) Error() string {
+	return fmt.Sprintf("there are logins for %s. Say which one with --url, or set %s", strings.Join(e.Addresses, ", "), URLVar)
+}
+
+// WithScheme gives an address without a scheme https://.
+func WithScheme(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || strings.Contains(raw, "://") {
+		return raw
+	}
+	return "https://" + raw
+}
+
+// Command is the command with --url for the address, which it leaves out for the default address.
+func Command(command, address string) string {
+	if address == DefaultAddress {
+		return command
+	}
+	return command + " --url " + address
+}
+
 func Address(raw string) (string, error) {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
+	parsed, err := url.Parse(WithScheme(raw))
 	if err != nil || parsed.Hostname() == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
 		return "", fmt.Errorf("%q is not a Spotlight address. Use a URL such as https://app.usespotlight.ai", raw)
 	}
@@ -136,11 +162,7 @@ func Choose(env func(string) string, given string) (string, error) {
 		}
 	}
 
-	path, err := Path(env)
-	if err != nil {
-		return DefaultAddress, nil
-	}
-	file, err := Load(path)
+	file, err := Saved(env)
 	if err != nil {
 		return "", err
 	}
@@ -151,8 +173,17 @@ func Choose(env func(string) string, given string) (string, error) {
 	case 1:
 		return addresses[0], nil
 	default:
-		return "", fmt.Errorf("there are logins for %s. Say which one with --url, or set %s", strings.Join(addresses, ", "), URLVar)
+		return "", SeveralLogins{Addresses: addresses}
 	}
+}
+
+// Saved is the credentials file of this computer. Without a home folder, it is empty.
+func Saved(env func(string) string) (*File, error) {
+	path, err := Path(env)
+	if err != nil {
+		return &File{}, nil
+	}
+	return Load(path)
 }
 
 func (f *File) Addresses() []string {

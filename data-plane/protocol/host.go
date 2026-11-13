@@ -4,6 +4,9 @@ const TrustHeader = "Spotlight-Trust"
 
 const RunTimeoutVar = "SPOTLIGHT_RUN_TIMEOUT"
 
+// EditorSessionVar marks the processes of a person's editor in a sandbox.
+const EditorSessionVar = "SPOTLIGHT_EDITOR_SESSION"
+
 type HostRequirements struct {
 	Host      HostRequirement   `json:"host"`
 	Runner    RunnerRequirement `json:"runner"`
