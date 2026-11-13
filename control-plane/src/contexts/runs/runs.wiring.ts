@@ -193,6 +193,7 @@ import {
 } from '@runs/application/queries/egress.queries';
 import { ActiveRunsHandler } from '@runs/application/queries/handlers/active-runs.handler';
 import { AuthorizeRunnerHandler } from '@runs/application/queries/handlers/authorize-runner.handler';
+import { HarnessKeysHandler } from '@runs/application/queries/handlers/harness-keys.handler';
 import { HostRequirementsHandler } from '@runs/application/queries/handlers/host-requirements.handler';
 import {
   HarnessCatalogueHandler,
@@ -204,7 +205,10 @@ import { ReadRunNetworkHandler } from '@runs/application/queries/handlers/read-r
 import { RunStopRequestedHandler } from '@runs/application/queries/handlers/run-stop-requested.handler';
 import { StoredSandboxArchiveHandler } from '@runs/application/queries/handlers/stored-sandbox-archive.handler';
 import { StoredWorkingCopyArchiveHandler } from '@runs/application/queries/handlers/stored-working-copy-archive.handler';
-import { HostRequirementsQuery } from '@runs/application/queries/host.queries';
+import {
+  HarnessKeysQuery,
+  HostRequirementsQuery,
+} from '@runs/application/queries/host.queries';
 import {
   HarnessCatalogueQuery,
   ListHarnessesQuery,
@@ -222,6 +226,7 @@ import { ArchiveHolders } from '@runs/application/services/archive-holders.servi
 import { ClaimGate } from '@runs/application/services/claim-gate.service';
 import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
+import { HeldHarnessKeys } from '@runs/application/services/held-harness-keys.service';
 import { HoldStartingPoints } from '@runs/application/services/hold-starting-points.service';
 import { HookTraces } from '@runs/application/services/hook-traces.service';
 import { LongPoll } from '@runs/application/services/long-poll';
@@ -317,6 +322,11 @@ import { WarmSandboxesWorker } from '@runs/presentation/workers/warm-sandboxes.w
 import { WorkingCopyArchivesWorker } from '@runs/presentation/workers/working-copy-archives.worker';
 import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import {
+  DEFINED_SECRETS,
+  type DefinedSecretsPort,
+} from '@secrets/application/ports/defined-secrets.port';
+import { HOST_SECRET_FETCHES } from '@secrets/application/ports/host-secret-fetches.port';
+import {
   RUN_GRANTS,
   type RunGrantsPort,
 } from '@secrets/application/ports/run-grants.port';
@@ -376,13 +386,21 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   { provide: RUN_REPOSITORY, useExisting: DrizzleRunRepository },
 
   {
+    provide: HeldHarnessKeys,
+    inject: [HARNESS_LAUNCH, DEFINED_SECRETS],
+    useFactory: (launch: HarnessLaunchPort, secrets: DefinedSecretsPort) =>
+      new HeldHarnessKeys(launch, secrets),
+  },
+
+  {
     provide: RUNS,
-    inject: [RUN_REPOSITORY, CONTENT_HASH, CLOCK],
+    inject: [RUN_REPOSITORY, CONTENT_HASH, CLOCK, HeldHarnessKeys],
     useFactory: (
       runs: RunRepository,
       hash: ContentHashPort,
       clock: ClockPort,
-    ) => new Runs(runs, hash, clock),
+      harnessKeys: HeldHarnessKeys,
+    ) => new Runs(runs, hash, clock, harnessKeys),
   },
 
   {
@@ -844,6 +862,13 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     RUNNER_AUTHENTICATOR,
     LINE_IMAGES,
     CONTROL_PLANE_RELEASE,
+    HeldHarnessKeys,
+  ]),
+
+  ...bindQueryHandler(HarnessKeysQuery, HarnessKeysHandler, [
+    RUNNER_AUTHENTICATOR,
+    HeldHarnessKeys,
+    HOST_SECRET_FETCHES,
   ]),
 
   ...bindQueryHandler(PoolQueueQuery, PoolQueueHandler, [

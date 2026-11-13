@@ -175,6 +175,47 @@ export class EgressSecretsResponseDto {
   }
 }
 
+export class HarnessKeysResponseDto {
+  @ApiProperty({
+    type: [String],
+    example: [],
+    description: 'Always empty: the probe allows no extra host',
+  })
+  readonly extraAllowedHosts: readonly string[];
+
+  @ApiProperty({
+    type: [String],
+    example: ['api.anthropic.com'],
+    description:
+      'The hosts the harness keys are bound to. Egress decrypts only these hosts',
+  })
+  readonly bound: readonly string[];
+
+  @ApiProperty({
+    type: [FetchedSecretResponseDto],
+    description:
+      'Each harness key the workspace holds, for each host it is bound to. A value Spotlight stores is sealed to the recipient with an empty run id',
+  })
+  readonly secrets: readonly FetchedSecretResponseDto[];
+
+  @ApiProperty({
+    type: [DeniedSecretResponseDto],
+    description: 'The harness keys that egress does not get, and why',
+  })
+  readonly denied: readonly DeniedSecretResponseDto[];
+
+  constructor(
+    bound: readonly string[],
+    secrets: readonly FetchedSecretResponseDto[],
+    denied: readonly DeniedSecretResponseDto[],
+  ) {
+    this.extraAllowedHosts = [];
+    this.bound = bound;
+    this.secrets = secrets;
+    this.denied = denied;
+  }
+}
+
 export class EgressAuthorizationResponseDto {
   @ApiProperty({ example: 'runner_1' })
   readonly runnerId: string;

@@ -1,6 +1,7 @@
 import { InvalidRunSpecError } from '@runs/domain/exceptions/invalid-run-spec.error';
 import type { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import type { WarmCheckout } from '@runs/domain/value-objects/warm-line.vo';
+import { distinct } from '@shared-kernel/domain/distinct';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -100,6 +101,7 @@ export interface RunSpecParts {
   readonly harnessSetup?: RunHarnessSetup;
   readonly settingFiles?: readonly string[];
   readonly injectedSecrets?: readonly string[];
+  readonly harnessKeys?: readonly string[];
   readonly spotlightApi?: boolean;
 }
 
@@ -120,6 +122,7 @@ export const RUN_SPEC_FIELDS = [
   'harnessSetup',
   'settingFiles',
   'injectedSecrets',
+  'harnessKeys',
   'spotlightApi',
 ] as const satisfies readonly (keyof RunSpecParts)[];
 
@@ -246,6 +249,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.injectedSecrets?.length
     ? { injectedSecrets: [...parts.injectedSecrets] }
     : {}),
+  ...(parts.harnessKeys?.length ? { harnessKeys: [...parts.harnessKeys] } : {}),
   ...(parts.spotlightApi ? { spotlightApi: true } : {}),
 });
 
@@ -383,6 +387,14 @@ export class RunSpec {
       }
     }
 
+    for (const key of parts.harnessKeys ?? []) {
+      if (!isSecretName(key)) {
+        throw new InvalidRunSpecError(
+          'must name each harness key that egress injects for it',
+        );
+      }
+    }
+
     for (const attachment of parts.attachments ?? []) {
       if (!attachment.path || outside(attachment.path)) {
         throw new InvalidRunSpecError(
@@ -460,9 +472,34 @@ export class RunSpec {
         });
   }
 
+  wearingHarnessKeys(keys: readonly SecretName[]): RunSpec {
+    if (keys.length === 0) {
+      return this;
+    }
+
+    return RunSpec.of({
+      ...this.parts,
+      command: {
+        ...this.parts.command,
+        env: {
+          ...this.parts.command.env,
+          ...Object.fromEntries(keys.map((key) => [key.value, key.standIn])),
+        },
+      },
+      harnessKeys: keys.map((key) => key.value),
+    });
+  }
+
+  get harnessKeys(): readonly SecretName[] {
+    return (this.parts.harnessKeys ?? []).map((each) => SecretName.of(each));
+  }
+
   get injectedSecrets(): readonly SecretName[] {
-    return (this.parts.injectedSecrets ?? []).map((each) =>
-      SecretName.of(each),
+    return distinct(
+      [
+        ...(this.parts.injectedSecrets ?? []),
+        ...(this.parts.harnessKeys ?? []),
+      ].map((each) => SecretName.of(each)),
     );
   }
 

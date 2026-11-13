@@ -32,16 +32,16 @@ func Interactive() bool {
 	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
 }
 
-// OpenDashboard shows this machine's host and the CLI's login, and runs spotlight commands on them.
-func OpenDashboard(version string) error {
+// OpenDashboard shows this machine's host and the CLI's login, and runs spotlight commands on them. A setUpFor opens the guided host set-up first, at that address when it is not empty.
+func OpenDashboard(version string, setUpFor *string) error {
 	binary, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("find the spotlight binary: %w", err)
 	}
 	if !personal() {
-		return dashboard.Run(localHost{version: version, binary: binary}, nil, nil, version)
+		return dashboard.Run(localHost{version: version, binary: binary}, nil, nil, nil, version, nil)
 	}
-	return dashboard.Run(localHost{version: version, binary: binary}, localAccount{version: version}, localEditors{}, version)
+	return dashboard.Run(localHost{version: version, binary: binary}, localAccount{version: version}, localEditors{}, localSetup{version: version}, version, setUpFor)
 }
 
 type localEditors struct{}

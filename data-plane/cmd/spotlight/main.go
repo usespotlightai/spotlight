@@ -108,7 +108,7 @@ func run(args []string, out, errs io.Writer) int {
 		return 0
 	}
 	if len(args) == 0 && !inRun() && host.Interactive() {
-		if err := host.OpenDashboard(version); err != nil {
+		if err := host.OpenDashboard(version, nil); err != nil {
 			fmt.Fprintln(errs, "spotlight:", err)
 			return 1
 		}

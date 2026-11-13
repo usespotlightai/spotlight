@@ -1357,6 +1357,72 @@ export type HostRequirementsResponseDto = {
    * The images this workspace’s lines name; a host serves those its allow-list allows, beside its default
    */
   images: Array<string>;
+  /**
+   * The harness keys this workspace holds as secrets, sorted. Egress injects them for each run of a harness that uses them, and the host gets them for its image probe from POST /api/hosts/harness-keys
+   */
+  harnessKeys: Array<string>;
+};
+
+export type HarnessKeysRequestDto = {
+  /**
+   * The X25519 public key that the egress of the host’s image probe holds, in base64; values Spotlight stores are sealed to it
+   */
+  recipient: string;
+};
+
+export type ExternalSecretRefResponseDto = {
+  kind: 'aws-secrets-manager';
+  secretId: string;
+  field: string | null;
+};
+
+export type FetchedSecretResponseDto = {
+  secret: string;
+  /**
+   * The one host that egress injects it for
+   */
+  host: string;
+  /**
+   * Whether egress injects it in a request header or in a query parameter
+   */
+  location: 'header' | 'query';
+  /**
+   * The header or query parameter that contains its stand-in
+   */
+  name: string;
+  prefix: string;
+  /**
+   * The value, sealed to the recipient for this run; null when egress reads it in its own network
+   */
+  sealed: string | null;
+  /**
+   * Where egress reads the value with its host’s own identity; null when Spotlight sealed it
+   */
+  externalRef: ExternalSecretRefResponseDto | null;
+};
+
+export type DeniedSecretResponseDto = {
+  secret: string;
+  reason: string;
+};
+
+export type HarnessKeysResponseDto = {
+  /**
+   * Always empty: the probe allows no extra host
+   */
+  extraAllowedHosts: Array<string>;
+  /**
+   * The hosts the harness keys are bound to. Egress decrypts only these hosts
+   */
+  bound: Array<string>;
+  /**
+   * Each harness key the workspace holds, for each host it is bound to. A value Spotlight stores is sealed to the recipient with an empty run id
+   */
+  secrets: Array<FetchedSecretResponseDto>;
+  /**
+   * The harness keys that egress does not get, and why
+   */
+  denied: Array<DeniedSecretResponseDto>;
 };
 
 export type ClaimHostWorkRequestDto = {
@@ -1488,42 +1554,6 @@ export type RedeemCallSecretsRequestDto = {
    * The X25519 public key to seal the values to, 32 bytes in base64
    */
   recipient: string;
-};
-
-export type ExternalSecretRefResponseDto = {
-  kind: 'aws-secrets-manager';
-  secretId: string;
-  field: string | null;
-};
-
-export type FetchedSecretResponseDto = {
-  secret: string;
-  /**
-   * The one host that egress injects it for
-   */
-  host: string;
-  /**
-   * Whether egress injects it in a request header or in a query parameter
-   */
-  location: 'header' | 'query';
-  /**
-   * The header or query parameter that contains its stand-in
-   */
-  name: string;
-  prefix: string;
-  /**
-   * The value, sealed to the recipient for this run; null when egress reads it in its own network
-   */
-  sealed: string | null;
-  /**
-   * Where egress reads the value with its host’s own identity; null when Spotlight sealed it
-   */
-  externalRef: ExternalSecretRefResponseDto | null;
-};
-
-export type DeniedSecretResponseDto = {
-  secret: string;
-  reason: string;
 };
 
 export type SpotlightApiResponseDto = {
@@ -12059,6 +12089,36 @@ export type HostRequirementsResponses = {
 };
 
 export type HostRequirementsResponse = HostRequirementsResponses[keyof HostRequirementsResponses];
+
+export type FetchHarnessKeysData = {
+  body: HarnessKeysRequestDto;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path?: never;
+  query?: never;
+  url: '/hosts/harness-keys';
+};
+
+export type FetchHarnessKeysErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
+   */
+  401: unknown;
+  /**
+   * The recipient is not an X25519 public key
+   */
+  422: unknown;
+};
+
+export type FetchHarnessKeysResponses = {
+  200: HarnessKeysResponseDto;
+};
+
+export type FetchHarnessKeysResponse = FetchHarnessKeysResponses[keyof FetchHarnessKeysResponses];
 
 export type ClaimHostWorkData = {
   body: ClaimHostWorkRequestDto;

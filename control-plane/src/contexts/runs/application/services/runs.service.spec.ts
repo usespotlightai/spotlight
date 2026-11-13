@@ -2,6 +2,8 @@ import type { LineView } from '@lines/application/contracts/line-view.contract';
 import type { LinesPort } from '@lines/application/ports/lines.port';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import { REMOTE_VIA_GIT_PROXY } from '@runs/application/contracts/run-spec.contract';
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import { HeldHarnessKeys } from '@runs/application/services/held-harness-keys.service';
 import { Runs } from '@runs/application/services/runs.service';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer } from '@runs/domain/aggregates/run.fake-spec';
@@ -96,7 +98,20 @@ const lineViewOf = (over: Partial<LineView>): LineView =>
     ...over,
   }) as LineView;
 
-const inMemory = () => {
+const harnessKeys = (held: readonly string[] = []) =>
+  new HeldHarnessKeys(
+    {
+      catalogue: () => [
+        {
+          id: 'claude-code',
+          harnessKeys: ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN'],
+        },
+      ],
+    } as unknown as HarnessLaunchPort,
+    { namesIn: async () => held },
+  );
+
+const inMemory = (held: readonly string[] = []) => {
   const stored = new Map<string, Run>();
   const runs = {
     findById: async (id: RunId) => stored.get(id.value) ?? null,
@@ -117,6 +132,7 @@ const inMemory = () => {
       runs,
       { sha256: (text) => `sha:${text.length}:${text}` },
       { now: () => NOW, sleep: async () => {} },
+      harnessKeys(held),
     ),
   };
 };
@@ -228,6 +244,40 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     ).resolves.toMatchObject({ outcome: 'refused' });
   });
 
+  it('has egress inject each harness key the workspace holds, and gives the harness its stand-in', async () => {
+    const { runs, stored } = inMemory(['ANTHROPIC_API_KEY', 'LINEAR_API_KEY']);
+
+    await runs.enqueue(ORDER);
+
+    const run = stored.get('run_1');
+    expect(run?.spec.value.command.env).toEqual({
+      ANTHROPIC_API_KEY: 'spotlight-egress:ANTHROPIC_API_KEY',
+    });
+    expect(run?.spec.injectedSecrets.map((each) => each.value)).toEqual([
+      'ANTHROPIC_API_KEY',
+    ]);
+    expect(run?.injectsSecrets).toBe(true);
+  });
+
+  it('changes nothing when the workspace holds none of the harness’s keys', async () => {
+    const { runs, stored } = inMemory(['LINEAR_API_KEY']);
+
+    await runs.enqueue(ORDER);
+
+    expect(stored.get('run_1')?.spec.value).toEqual(ORDER.spec);
+  });
+
+  it('gives a run that keeps to itself its harness keys', async () => {
+    const { runs, stored } = inMemory(['CLAUDE_CODE_OAUTH_TOKEN']);
+
+    await expect(runs.enqueue(ISOLATED)).resolves.toEqual({
+      outcome: 'enqueued',
+    });
+    expect(
+      stored.get('run_1')?.spec.injectedSecrets.map((each) => each.value),
+    ).toEqual(['CLAUDE_CODE_OAUTH_TOKEN']);
+  });
+
   it('does nothing when the same order comes again', async () => {
     const { runs, stored } = inMemory();
 
@@ -322,6 +372,7 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
       } as unknown as RunRepository,
       { sha256: (text) => text },
       { now: () => NOW, sleep: async () => {} },
+      harnessKeys(),
     );
 
     expect(await racing.cancel(RunId.of('run_1'), 'Moved on.')).toEqual({
@@ -346,6 +397,7 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
       } as unknown as RunRepository,
       { sha256: (text) => text },
       { now: () => NOW, sleep: async () => {} },
+      harnessKeys(),
     );
 
     expect(await racing.cancelIfQueued(RunId.of('run_1'), 'Stopped.')).toEqual({

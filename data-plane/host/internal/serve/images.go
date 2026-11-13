@@ -224,7 +224,7 @@ func (h *Host) serve(claiming, serving context.Context, each *served, stop func(
 
 func judgedUnder(required protocol.HostRequirements) string {
 	harnesses, _ := json.Marshal(required.Harnesses)
-	return required.Runner.Minimum + "\x00" + string(harnesses)
+	return required.Runner.Minimum + "\x00" + string(harnesses) + "\x00" + strings.Join(required.HarnessKeys, ",")
 }
 
 func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
@@ -244,6 +244,7 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 	judging := judgedUnder(h.required)
 	unchanged := each.id == pulled.ID && each.unavailableReason == "" && each.judged == judging
 	candidates := h.required.Harnesses
+	held := h.required.HarnessKeys
 	minimum := h.required.Runner.Minimum
 	h.mu.Unlock()
 
@@ -251,7 +252,7 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 		return h.snapshot(each), nil
 	}
 
-	report, err := h.found(ctx, pulled.ID, candidates)
+	report, err := h.found(ctx, pulled.ID, candidates, held)
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -276,8 +277,8 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 			"release", each.release, "harnesses", each.harnesses)
 	}
 	if each.unavailableReason == "" && len(candidates) > 0 && len(each.harnesses) == 0 {
-		h.log.Warn("the runner image holds no harness, so it runs checks but no agent run; install a harness in an image built from it",
-			"image", each.image, "examples", images.HarnessExamples)
+		h.log.Warn("the runner image holds no harness, so it runs checks but no agent run; run spotlight host init in a terminal to build one with a harness",
+			"image", each.image)
 	}
 
 	return examinedOf(each), nil
@@ -352,7 +353,7 @@ func (h *Host) fetched(ctx context.Context, image string) (sandbox.Image, error)
 	return h.engine.Inspect(ctx, image)
 }
 
-func (h *Host) found(ctx context.Context, image string, candidates []protocol.HarnessProbe) (protocol.Registration, error) {
+func (h *Host) found(ctx context.Context, image string, candidates []protocol.HarnessProbe, held []string) (protocol.Registration, error) {
 	encoded, err := json.Marshal(candidates)
 	if err != nil {
 		return protocol.Registration{}, err
@@ -362,8 +363,17 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.Ha
 	defer cancel()
 
 	env, harnessKeys := standInsFor(h.now().SandboxEnv)
-	sidecar, err := h.egressSidecar(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", nil, harnessKeys,
-		probeEgressWait)
+	env = withWorkspaceKeys(env, held)
+	var credential *protocol.HostCredential
+	if len(held) > 0 {
+		found, err := h.pool.Credential()
+		if err != nil {
+			return protocol.Registration{}, fmt.Errorf("read the host's credential for the harness keys: %w", err)
+		}
+		credential = &found
+	}
+	sidecar, err := h.egressSidecar(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID},
+		egressCredential{host: credential}, nil, harnessKeys, probeEgressWait)
 	defer sidecar.close()
 	if err != nil {
 		return protocol.Registration{}, fmt.Errorf("start the probe's egress: %w", err)

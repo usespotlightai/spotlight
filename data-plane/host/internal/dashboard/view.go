@@ -37,6 +37,8 @@ func (m model) View() tea.View {
 		body = m.helpView(height)
 	case m.mode == loggingIn:
 		body = m.loginBody()
+	case m.mode == settingUp:
+		body = m.setupBody()
 	case m.screen == settingsScreen:
 		body = m.settingsBody(height)
 	case m.screen == logScreen:
@@ -69,6 +71,8 @@ func (m model) header() []string {
 	switch {
 	case m.mode == loggingIn:
 		left += s.faint.Render("  /  ") + s.text.Render("log in")
+	case m.mode == settingUp:
+		left += s.faint.Render("  /  ") + s.text.Render("set up a host")
 	case m.screen == settingsScreen:
 		left += s.faint.Render("  /  ") + s.text.Render("settings")
 	case m.screen == logScreen:
