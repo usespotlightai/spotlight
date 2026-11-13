@@ -464,7 +464,7 @@ describe('ChangeStack with facts from the code', () => {
   const factsWith = (links: HunkLink[]) =>
     StackFacts.of({ hunks: [], links, imports: [] });
 
-  it('rejects a stack that separates a hunk from what it uses, or puts it first', () => {
+  it('rejects a stack that separates a hunk from what it uses', () => {
     const apart = (): string[] => {
       try {
         generating(factsWith(USES)).propose(
@@ -482,26 +482,22 @@ describe('ChangeStack with facts from the code', () => {
       return [];
     };
 
-    const early = (): string[] => {
-      try {
-        generating(factsWith(USES)).propose(
-          [invitations([layer('API', ['h2', 'h3']), layer('Model', ['h1'])])],
-          LATER,
-        );
-      } catch (error) {
-        return (error as InvalidChangeStackError).problems.map(
-          (each) => each.message,
-        );
-      }
-      return [];
-    };
-
     expect(apart()).toEqual([
       'h2 uses Invitation from h1, so they belong in the same cohort',
     ]);
-    expect(early()).toEqual([
-      'h2 uses Invitation from h1, so it cannot come in an earlier layer than h1',
-    ]);
+  });
+
+  it('puts a layer that comes before what it uses after it', () => {
+    const ready = generating(factsWith(USES)).propose(
+      [invitations([layer('API', ['h2', 'h3']), layer('Model', ['h1'])])],
+      LATER,
+    );
+
+    expect(
+      ready.cohorts[0]?.layers.map((each) =>
+        each.hunks.map((entry) => entry.hunk),
+      ),
+    ).toEqual([['h1'], ['h2', 'h3']]);
   });
 
   it('works out what a layer depends on from the facts, alongside what was proposed', () => {

@@ -198,7 +198,7 @@ describe('withHunksMovedInto', () => {
     ]);
   });
 
-  it('keeps a note in place while its layer still changes the file, and copies it nowhere', () => {
+  it('keeps a note in place while its layer still changes the file, and copies it to the layer the hunk moves into', () => {
     const moved = withHunksMovedInto(
       DIFF,
       cohort([layer(['h1', 'h2']), layer(['h3'])]),
@@ -208,7 +208,10 @@ describe('withHunksMovedInto', () => {
 
     expect(moved?.layers.map((each) => each.notes)).toEqual([
       [{ path: 'src/a.ts', note: 'h1, h2 change src/a.ts' }],
-      [{ path: 'src/b.ts', note: 'h3 change src/b.ts' }],
+      [
+        { path: 'src/b.ts', note: 'h3 change src/b.ts' },
+        { path: 'src/a.ts', note: 'h1, h2 change src/a.ts' },
+      ],
     ]);
   });
 

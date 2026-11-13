@@ -150,12 +150,21 @@ describe('StackOutline', () => {
     ]);
   });
 
-  it('refuses to part hunks the code links, and joins of unconnected hunks without a reason', () => {
+  it('refuses joins of unconnected hunks without a reason, as they stand after the link repair', () => {
     expect(problemsOf([cohort(['h1', 'h2']), cohort(['h3'])])).toEqual([
-      'h3 uses invite from h1, so they belong in the same cohort',
-      'cohort 1 joins hunks the code does not connect (h1 | h2) without saying why',
+      'cohort 1 joins hunks the code does not connect (h1, h3 | h2) without saying why',
     ]);
     expect(problemsOf([cohort(['h1', 'h2', 'h3'], 'One feature')])).toEqual([]);
+  });
+
+  it('puts hunks the code links into one cohort when that leaves no other problem', () => {
+    const outline = StackOutline.validate({
+      diff: DIFF,
+      facts: FACTS,
+      cohorts: [cohort(['h1']), cohort(['h2', 'h3'], 'One feature')],
+    });
+
+    expect(outline.map((each) => each.hunks)).toEqual([['h1', 'h3'], ['h2']]);
   });
 
   it('parts out a cohort’s own hunks, links and imports', () => {
@@ -341,6 +350,74 @@ describe('StackOutline', () => {
           ],
         },
       ],
+    });
+  });
+
+  describe('in two steps', () => {
+    const WHOLE = cohort(['h1', 'h2', 'h3'], 'One feature');
+    const PART = stackPartOf(DIFF, FACTS, WHOLE.hunks);
+    const step = (title: string, hunks: string[]) => ({
+      title,
+      summary: title,
+      dependsOn: [],
+      hunks: hunks.map((hunk) => ({ hunk })),
+    });
+    const PLAN = StackOutline.planned(PART, WHOLE, [
+      step('Route invitations', ['h3']),
+      step('Add invitations', ['h1', 'h2']),
+    ]);
+
+    it('repairs a plan of layers before any note is written', () => {
+      expect(
+        PLAN.layers.map((layer) => [
+          layer.title,
+          layer.hunks.map((entry) => entry.hunk),
+        ]),
+      ).toEqual([
+        ['Add invitations', ['h1', 'h2']],
+        ['Route invitations', ['h3']],
+      ]);
+    });
+
+    it('asks again for a layer whose notes leave out one of its files', () => {
+      expect(
+        StackOutline.detailProblems(PART, PLAN, 1, {
+          notes: [{ path: 'src/invite.ts', note: 'Not this layer' }],
+          questions: [],
+        }).map((each) => each.message),
+      ).toEqual(['layer 2 has no note on src/routes.ts']);
+    });
+
+    it('keeps only the notes on a layer’s own files and the questions its layers show', () => {
+      const detailed = StackOutline.detailed(PART, PLAN, [
+        {
+          notes: [{ path: 'src/invite.ts', note: 'Adds invitations' }],
+          questions: [
+            { question: 'Who may invite?', answer: 'Admins.', hunks: ['h3'] },
+          ],
+        },
+        {
+          notes: [
+            { path: 'src/routes.ts', note: 'Routes them' },
+            { path: 'src/invite.ts', note: 'Not this layer' },
+          ],
+          questions: [
+            {
+              question: 'What answers a member?',
+              answer: '409.',
+              hunks: ['h1', 'h3'],
+            },
+          ],
+        },
+      ]);
+
+      expect(detailed.layers.map((layer) => layer.notes)).toEqual([
+        [{ path: 'src/invite.ts', note: 'Adds invitations' }],
+        [{ path: 'src/routes.ts', note: 'Routes them' }],
+      ]);
+      expect(detailed.layers.map((layer) => layer.questions.length)).toEqual([
+        0, 1,
+      ]);
     });
   });
 });

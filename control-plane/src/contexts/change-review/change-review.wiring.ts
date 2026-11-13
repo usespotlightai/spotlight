@@ -192,6 +192,7 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
 import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
+import { MODEL_PRICES, type ModelPrices } from '@platform/llm/model-prices';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   RUNNERS,
@@ -336,26 +337,26 @@ const adapters: Provider[] = [
   { provide: PATCH_WRITER, useClass: GitPatchWriter },
   {
     provide: CHANGE_STACK_GENERATOR,
-    inject: [ENV],
-    useFactory: (env: Env) =>
+    inject: [ENV, MODEL_PRICES],
+    useFactory: (env: Env, prices: ModelPrices) =>
       new ChatCompletionsChangeStackGenerator(
-        modelEndpointOf(env, env.CHANGE_STACK_MODEL),
+        modelEndpointOf(env, env.CHANGE_STACK_MODEL, prices),
       ),
   },
   {
     provide: DECISION_GENERATOR,
-    inject: [ENV],
-    useFactory: (env: Env) =>
+    inject: [ENV, MODEL_PRICES],
+    useFactory: (env: Env, prices: ModelPrices) =>
       new ChatCompletionsDecisionGenerator(
-        modelEndpointOf(env, env.DECISIONS_MODEL),
+        modelEndpointOf(env, env.DECISIONS_MODEL, prices),
       ),
   },
   {
     provide: ANSWER_GRADER,
-    inject: [ENV],
-    useFactory: (env: Env) =>
+    inject: [ENV, MODEL_PRICES],
+    useFactory: (env: Env, prices: ModelPrices) =>
       new ChatCompletionsAnswerGrader(
-        modelEndpointOf(env, env.CHANGE_STACK_MODEL),
+        modelEndpointOf(env, env.CHANGE_STACK_MODEL, prices),
       ),
   },
   {

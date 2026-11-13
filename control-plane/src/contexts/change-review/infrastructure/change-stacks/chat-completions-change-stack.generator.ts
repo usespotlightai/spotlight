@@ -4,23 +4,33 @@ import type {
   ChangeStackGeneratorPort,
   CohortLayersRequest,
   GeneratedChangeStack,
+  GeneratedLayerDetails,
+  GeneratedLayerPlan,
   GeneratedLayers,
   GeneratedOutline,
+  LayerDetailsRequest,
 } from '@change-review/application/ports/change-stack-generator.port';
 import type {
   StackProblem,
   StackProblemCode,
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import {
+  connectedGroups,
   type DiffFacts,
   linkFact,
   placedHunks,
 } from '@change-review/domain/services/diff-facts';
 import type { PreviousStack } from '@change-review/domain/services/previous-stack';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
-import type { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { stackPartOf } from '@change-review/domain/services/stack-part';
+import {
+  changedLinesOf,
+  type Diff,
+  type DiffHunk,
+} from '@change-review/domain/value-objects/diff.vo';
 import {
   COHORT_KINDS,
+  LAYER_LINES,
   type DraftedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import {
@@ -60,20 +70,25 @@ const COHORT = {
   kind: z.enum(COHORT_KINDS),
   title: z.string(),
   intent: z.string(),
-  joinedBecause: z.string().nullable(),
 };
+
+const JOINED_BECAUSE = { joinedBecause: z.string().nullable() };
 
 const STACK = new JsonSchema(
   'change_stack',
   z.object({
-    cohorts: z.array(z.object({ ...COHORT, layers: z.array(LAYER) })),
+    cohorts: z.array(
+      z.object({ ...COHORT, layers: z.array(LAYER), ...JOINED_BECAUSE }),
+    ),
   }),
 );
 
 const OUTLINE = new JsonSchema(
   'change_stack_outline',
   z.object({
-    cohorts: z.array(z.object({ ...COHORT, hunks: z.array(z.string()) })),
+    cohorts: z.array(
+      z.object({ ...COHORT, hunks: z.array(z.string()), ...JOINED_BECAUSE }),
+    ),
   }),
 );
 
@@ -82,12 +97,23 @@ const LAYERS = new JsonSchema(
   z.object({ layers: z.array(LAYER) }),
 );
 
+const PLAN = new JsonSchema(
+  'cohort_layer_plan',
+  z.object({ layers: z.array(LAYER.omit({ files: true, questions: true })) }),
+);
+
+const DETAILS = new JsonSchema(
+  'layer_details',
+  LAYER.pick({ files: true, questions: true }),
+);
+
 const PURPOSE =
   'so a reviewer can understand a large diff in minutes instead of reading files in alphabetical order';
 
 const COHORTS = `- Cohorts are independent pieces of work. Two changes belong to the same cohort when one exists to serve the other or both serve one purpose. Changes that merely look alike, sit in the same file, or follow the same pattern are not reasons to group them. When in doubt, split: a cohort that wrongly joins unrelated work misleads the reviewer, while two cohorts that could have been one cost little.`;
 
-const LAYERS_ARE = `- Layers are the ordered steps within one cohort, in the order a thoughtful senior engineer would walk someone through it: foundations first (schema, types, domain), then what builds on them (services, APIs), then what uses those (UI, wiring). A contract, the code implementing it and its tests belong in one layer, not three.`;
+const LAYERS_ARE = `- Layers are the ordered steps within one cohort, in the order a thoughtful senior engineer would walk someone through it: foundations first (schema, types, domain), then what builds on them (services, APIs), then what uses those (UI, wiring). A test belongs in the layer of the code it tests.
+- A reviewer reads one layer at a time, so keep each layer to about ${LAYER_LINES} changed lines or fewer. Each hunk's heading gives its changed lines. Split a larger step into several layers, such as one for each table, service, endpoint or screen. A layer that holds most of a large cohort is a failure, because the reviewer then has no order to follow. A layer may be larger only when its hunks cannot work apart.`;
 
 const SET_ASIDE = `Lockfiles, generated files, snapshots, whole-file renames and formatting-only changes have already been set aside, and Spotlight places them itself. Other changes that need no review of their own go in a cohort of kind "incidental". Everything else is kind "change".`;
 
@@ -100,7 +126,7 @@ const COHORT_FACTS = `- "uses": the hunk uses something another hunk defines, so
 - A file marked "migration" belongs in layer 1 of its cohort.
 - "uses, unchanged": code the hunk uses that this diff leaves as it was. It links the hunk to nothing, but says which part of the codebase the hunk works with.`;
 
-const JOINED = `- Hunks nothing connects are separate pieces of work. Join them in one cohort only when they plainly serve one purpose the code does not show, and then say why in the cohort's joinedBecause; otherwise leave joinedBecause null.`;
+const JOINED = `- Hunks nothing connects are separate pieces of work. Join them in one cohort only when they plainly serve one purpose the code does not show, and then say why in the cohort's joinedBecause; otherwise leave joinedBecause null. After the diff, Spotlight lists the groups of hunks the code connects. A cohort of kind "change" that holds hunks of more than one group is refused unless its joinedBecause says which one purpose they serve. Do not split one plain purpose into many small cohorts only because the code does not connect its hunks: keep them together and give the reason.`;
 
 const HUNKS = 'The diff is split into hunks, each with an id such as h7.';
 
@@ -178,6 +204,43 @@ ${HUNKS} Rules the layers must follow:
 
 ${rules('Place every hunk shown exactly once, as a range of one layer. Never invent a hunk id.', LAYER_RULES)}`;
 
+const [DEPENDENCY_RULE, BECAUSE_RULE, TITLE_RULE, FILES_RULE, QUESTIONS_RULE] =
+  LAYER_RULES;
+
+const PLAN_SYSTEM = `You order one cohort of a change stack into layers, ${PURPOSE}. The cohort is fixed: it holds exactly the hunks shown, and other cohorts hold the rest of the change. Another step writes the file notes and the questions of each layer later, so give only the layers, their hunks and their dependencies.
+
+${LAYERS_ARE}
+
+${FACTS}
+
+${COHORT_FACTS}
+
+${HUNKS} Rules the layers must follow:
+
+${rules(
+  'Place every hunk shown exactly once, as a range of one layer. Never invent a hunk id.',
+  [DEPENDENCY_RULE, BECAUSE_RULE, TITLE_RULE].filter(
+    (each) => each !== undefined,
+  ),
+)}`;
+
+const DETAILS_SYSTEM = `You write the file notes and the review questions of one layer of a change stack, ${PURPOSE}. The layers are fixed: the plan shows every layer of the cohort and its hunks, and the diff shows the hunks of the layer to write for.
+
+${HUNKS} Rules the notes and questions must follow:
+
+${rules(
+  'Write only for the layer the prompt names.',
+  [FILES_RULE, QUESTIONS_RULE].filter((each) => each !== undefined),
+)}`;
+
+const planOf = (plan: LayerDetailsRequest['plan'], layer: number): string =>
+  plan
+    .map(
+      (each, at) =>
+        `${at + 1}. ${each.title}${at === layer ? ' (the layer to write for)' : ''}: ${each.summary} Hunks: ${each.hunks.map((entry) => entry.hunk).join(', ')}`,
+    )
+    .join('\n');
+
 const problemsPrompt = (
   problems: ChangeStackGenerationRequest['problems'],
   of: string,
@@ -192,6 +255,27 @@ const layersOf = (layers: readonly z.infer<typeof LAYER>[]): DraftedLayer[] =>
     hunks: ranges,
     notes: files,
   }));
+
+const placedIn = (facts: DiffFacts): number => placedHunks(facts).length;
+
+const sizeOf = (hunk: DiffHunk): string => {
+  const { added, removed } = changedLinesOf(hunk);
+  return `+${added.length} −${removed.length}`;
+};
+
+const linesIn = (diff: Diff, facts: DiffFacts): number => {
+  const placed = new Set<string>(placedHunks(facts));
+
+  return diff.hunks
+    .filter((hunk) => placed.has(hunk.id))
+    .reduce((total, hunk) => {
+      const { added, removed } = changedLinesOf(hunk);
+      return total + added.length + removed.length;
+    }, 0);
+};
+
+const toPlace = (diff: Diff, facts: DiffFacts): string =>
+  `${placedIn(facts)} hunks and ${linesIn(diff, facts)} changed lines to place`;
 
 const described = (diff: Diff, facts: DiffFacts): string => {
   const known = new Map(facts.hunks.map((each) => [each.hunk, each]));
@@ -219,7 +303,7 @@ const described = (diff: Diff, facts: DiffFacts): string => {
           const used = uses(hunk.id);
 
           return [
-            `### ${hunk.id}`,
+            `### ${hunk.id} (${sizeOf(hunk)})`,
             defines.length > 0 ? `defines: ${defines.join(', ')}` : null,
             ...used,
             outside.length > 0
@@ -236,7 +320,29 @@ const described = (diff: Diff, facts: DiffFacts): string => {
     .join('\n\n');
 };
 
-const placedIn = (facts: DiffFacts): number => placedHunks(facts).length;
+export const connectionsPrompt = (facts: DiffFacts): string | null => {
+  const linkable = facts.hunks
+    .filter((each) => each.linkable)
+    .map((each) => each.hunk);
+  const groups = connectedGroups(linkable, facts.links);
+
+  if (groups.length < 2) {
+    return null;
+  }
+
+  const linked = groups.filter((group) => group.length > 1);
+  const alone = groups.filter((group) => group.length === 1).flat();
+
+  return [
+    `The code connects the hunks it can read into ${groups.length} groups. A cohort of kind "change" with hunks of more than one group needs a joinedBecause. Hunks not named here are in files the code facts do not cover, so they can go in any cohort.`,
+    ...linked.map((group, at) => `group ${at + 1}: ${group.join(', ')}`),
+    alone.length > 0
+      ? `one group each, connected to no other hunk: ${alone.join(', ')}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+};
 
 const MAX_OUTPUT_LINES = 25;
 
@@ -385,8 +491,9 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
   }: ChangeStackGenerationRequest): Promise<GeneratedChangeStack> {
     const { answer, usage } = await this.request(STACK, SYSTEM, [
       repository ? `Repository: ${repository.value}` : null,
-      `The diff, as ${placedIn(facts)} hunks to place:`,
+      `The diff, as ${toPlace(diff, facts)}:`,
       described(diff, facts),
+      connectionsPrompt(facts),
       previous ? previousStackPrompt(previous, facts, 'stack') : null,
       redraft ? redraftPrompt(redraft) : null,
       problemsPrompt(problems, 'stack for this diff'),
@@ -410,8 +517,9 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
   }: ChangeStackGenerationRequest): Promise<GeneratedOutline> {
     const { answer, usage } = await this.request(OUTLINE, OUTLINE_SYSTEM, [
       repository ? `Repository: ${repository.value}` : null,
-      `The diff, as ${placedIn(facts)} hunks to place:`,
+      `The diff, as ${toPlace(diff, facts)}:`,
       described(diff, facts),
+      connectionsPrompt(facts),
       previous ? previousStackPrompt(previous, facts, 'cohorts') : null,
       problemsPrompt(problems, 'set of cohorts for this diff'),
     ]);
@@ -433,7 +541,7 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
     const { answer, usage } = await this.request(LAYERS, LAYERS_SYSTEM, [
       repository ? `Repository: ${repository.value}` : null,
       `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
-      `The cohort's diff, as ${placedIn(part.facts)} hunks to place:`,
+      `The cohort's diff, as ${toPlace(part.diff, part.facts)}:`,
       described(part.diff, part.facts),
       previous ? previousStackPrompt(previous, part.facts, 'layers') : null,
       redraft ? redraftPrompt(redraft) : null,
@@ -441,6 +549,61 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
     ]);
 
     return { layers: layersOf(answer.layers), usage };
+  }
+
+  async layerPlan({
+    part,
+    repository,
+    cohort,
+    problems,
+    redraft,
+    previous,
+  }: CohortLayersRequest): Promise<GeneratedLayerPlan> {
+    const { answer, usage } = await this.request(PLAN, PLAN_SYSTEM, [
+      repository ? `Repository: ${repository.value}` : null,
+      `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
+      `The cohort's diff, as ${toPlace(part.diff, part.facts)}:`,
+      described(part.diff, part.facts),
+      previous ? previousStackPrompt(previous, part.facts, 'layers') : null,
+      redraft ? redraftPrompt(redraft) : null,
+      problemsPrompt(problems, 'set of layers for this cohort'),
+    ]);
+
+    return {
+      layers: answer.layers.map(({ ranges, ...layer }) => ({
+        ...layer,
+        hunks: ranges,
+      })),
+      usage,
+    };
+  }
+
+  async layerDetails({
+    part,
+    repository,
+    cohort,
+    plan,
+    layer,
+    problems,
+  }: LayerDetailsRequest): Promise<GeneratedLayerDetails> {
+    const shown = stackPartOf(
+      part.diff,
+      part.facts,
+      plan[layer]?.hunks.map((entry) => entry.hunk) ?? [],
+    );
+    const { answer, usage } = await this.request(DETAILS, DETAILS_SYSTEM, [
+      repository ? `Repository: ${repository.value}` : null,
+      `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
+      `The cohort's layers:\n${planOf(plan, layer)}`,
+      `Write the notes and questions of layer ${layer + 1}. Its diff:`,
+      described(shown.diff, shown.facts),
+      problemsPrompt(problems, `answer for layer ${layer + 1}`),
+    ]);
+
+    return {
+      details: { notes: answer.files, questions: answer.questions },
+      usage,
+    };
   }
 
   private async request<T>(

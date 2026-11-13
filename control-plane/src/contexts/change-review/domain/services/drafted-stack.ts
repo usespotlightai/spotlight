@@ -25,6 +25,8 @@ const hunkIn = (raw: string, where: string, unknown: Unknown): HunkId[] => {
   return [hunk];
 };
 
+const RENAME = / \(renamed from [^)]*\)$/;
+
 const layersIn = (
   layers: readonly DraftedLayer[],
   where: string,
@@ -37,6 +39,10 @@ const layersIn = (
         hunk,
       })),
     ),
+    notes: layer.notes.map((each) => ({
+      ...each,
+      path: each.path.trim().replace(RENAME, ''),
+    })),
     questions: layer.questions.map((each) => ({
       ...each,
       hunks: each.hunks.flatMap((hunk) => HunkId.parsed(hunk) ?? []),

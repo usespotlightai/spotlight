@@ -118,6 +118,15 @@ describe('factsOf with a symbol index', () => {
             ],
           }),
           file('src/page.tsx', {
+            imports: [
+              {
+                local: 'Invite',
+                imported: 'Invite',
+                specifier: './invite',
+                resolved: ['src/invite.ts'],
+                project: true,
+              },
+            ],
             references: [{ name: 'resend', line: 1, through: 'invite' }],
           }),
         ],
@@ -127,6 +136,50 @@ describe('factsOf with a symbol index', () => {
     expect(facts.links).toEqual([
       { kind: 'uses', from: 'h2', to: 'h1', because: ['resend'] },
     ]);
+  });
+
+  it('draws no method link to a file the caller neither imports nor shares a package with', () => {
+    const facts = factsWith(
+      [
+        added('src/invite.ts', ['class Invite {', '  resend() {}', '}']),
+        added('src/page.tsx', ['invite.resend();']),
+      ],
+      {
+        files: [
+          file('src/invite.ts', {
+            symbols: [
+              symbol('Invite', 1, { kind: 'class' }),
+              symbol('resend', 2, { kind: 'method', exportedAs: [] }),
+            ],
+          }),
+          file('src/page.tsx', {
+            references: [{ name: 'resend', line: 1, through: 'invite' }],
+          }),
+        ],
+      },
+    );
+
+    expect(facts.links).toEqual([]);
+  });
+
+  it('draws no link from product code to a test file', () => {
+    const facts = factsWith(
+      [
+        added('src/invite.test.ts', ['export const saved = 1;']),
+        added('src/invite.ts', ['saved;']),
+      ],
+      {
+        files: [
+          file('src/invite.test.ts', { symbols: [symbol('saved', 1)] }),
+          file('src/invite.ts', {
+            scope: ['src/invite.ts', 'src/invite.test.ts'],
+            references: [{ name: 'saved', line: 1, through: null }],
+          }),
+        ],
+      },
+    );
+
+    expect(facts.links.filter((each) => each.kind === 'uses')).toEqual([]);
   });
 
   it('links a call to the route it calls', () => {

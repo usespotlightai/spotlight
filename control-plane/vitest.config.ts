@@ -25,6 +25,7 @@ const E2E_ENV = {
   SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: '127.0.0.1',
   SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: 'true',
   S3_BUCKET: 'files',
+  LLM_PRICES: 'none',
   SPOTLIGHT_LONG_POLL_MS: String(E2E_LONG_POLL_MS),
 };
 
@@ -63,7 +64,11 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/**/*.spec.ts', 'test/architecture/**/*.spec.ts'],
+          include: [
+            'src/**/*.spec.ts',
+            'test/architecture/**/*.spec.ts',
+            'bench/**/*.spec.ts',
+          ],
           restoreMocks: true,
         },
       },

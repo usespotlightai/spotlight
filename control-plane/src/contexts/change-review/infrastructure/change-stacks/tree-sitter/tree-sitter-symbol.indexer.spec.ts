@@ -1,7 +1,7 @@
 import type { DiffSource } from '@change-review/application/ports/diff-reader.port';
 import type { IndexedFile } from '@change-review/domain/value-objects/symbol-index.vo';
 import { TreeSitterSymbolIndexer } from '@change-review/infrastructure/change-stacks/tree-sitter/tree-sitter-symbol.indexer';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const indexer = new TreeSitterSymbolIndexer();
 
@@ -19,6 +19,27 @@ const symbolsOf = (file: IndexedFile | undefined) =>
   file?.symbols.map(({ name, kind, line }) => [name, kind, line]);
 
 describe('TreeSitterSymbolIndexer', () => {
+  it('indexes the same with several indexers that start at once', async () => {
+    vi.resetModules();
+    const { TreeSitterSymbolIndexer: Fresh } =
+      await import('@change-review/infrastructure/change-stacks/tree-sitter/tree-sitter-symbol.indexer');
+    const sources = [
+      source('src/invite.ts', ['export const invite = () => 1;']),
+      source('runner/invite.go', ['package runner', 'func Invite() {}']),
+      source('app/invite.py', ['def invite():', '    return 1']),
+    ];
+    const names = (files: readonly IndexedFile[]) =>
+      files.map((file) => file.symbols.map((each) => each.name));
+
+    const together = await Promise.all(
+      [1, 2, 3, 4].map(() => new Fresh().index(sources)),
+    );
+
+    for (const each of together) {
+      expect(names(each.files)).toEqual([['invite'], ['Invite'], ['invite']]);
+    }
+  });
+
   it('reads what a TypeScript file defines, exports and imports', async () => {
     const [routes, invite] = await indexed(
       source('src/routes.tsx', [

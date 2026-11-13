@@ -125,6 +125,16 @@ export const connectedGroups = (
 export const placedHunks = (facts: DiffFacts): HunkId[] =>
   facts.hunks.filter((each) => !each.incidental).map((each) => each.hunk);
 
+export const definitionsOf = (
+  facts: DiffFacts,
+): ((hunk: HunkId) => readonly string[]) => {
+  const defined = new Map<string, readonly string[]>(
+    facts.hunks.map((each) => [each.hunk, each.defines]),
+  );
+
+  return (hunk) => defined.get(hunk) ?? [];
+};
+
 const MAX_DEFINERS = 3;
 
 const MIN_MOVED_LINES = 3;
@@ -213,21 +223,24 @@ export const factsOf = (
   const moves: HunkLink[] = substantive.flatMap((source) => {
     const block = movedBlockOf(source.hunk);
 
-    return block === null
-      ? []
-      : additions
-          .filter(
+    const targets =
+      block === null
+        ? []
+        : additions.filter(
             (target) =>
               target.hunk.id !== source.hunk.id &&
               target.text.length >= block.length &&
               target.text.includes(block),
-          )
-          .map((target) => ({
-            kind: 'moves' as const,
-            from: target.hunk.id,
-            to: source.hunk.id,
-            because: [`${source.file.path} → ${target.file.path}`],
-          }));
+          );
+
+    return targets.length !== 1
+      ? []
+      : targets.map((target) => ({
+          kind: 'moves' as const,
+          from: target.hunk.id,
+          to: source.hunk.id,
+          because: [`${source.file.path} → ${target.file.path}`],
+        }));
   });
 
   const movedHunks = new Set(moves.flatMap(({ from, to }) => [from, to]));

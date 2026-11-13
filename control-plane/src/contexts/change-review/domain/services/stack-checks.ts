@@ -67,6 +67,12 @@ const noteProblems = (
   return problems;
 };
 
+export const layerNoteProblems = (
+  diff: Diff,
+  layer: ProposedLayer,
+  at: string,
+): string[] => noteProblems(diff, layer, at, true);
+
 const layerProblems = (
   diff: Diff,
   cohort: ProposedCohort,

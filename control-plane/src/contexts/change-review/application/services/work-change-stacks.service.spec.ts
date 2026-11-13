@@ -129,6 +129,12 @@ const working = (
     layers: async () => {
       throw new Error('A diff this small is not split');
     },
+    layerPlan: async () => {
+      throw new Error('A diff this small is not split');
+    },
+    layerDetails: async () => {
+      throw new Error('A diff this small is not split');
+    },
   };
   const clock = { now: () => now, sleep: async () => undefined };
 

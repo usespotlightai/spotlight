@@ -5,6 +5,7 @@ import {
   factProblems,
 } from '@change-review/domain/services/fact-rules';
 import { mergedByLayer } from '@change-review/domain/services/layer-dependencies';
+import { withLayersInOrder } from '@change-review/domain/services/layer-order';
 import {
   movedGroups,
   withMovedCodeTogether,
@@ -17,6 +18,7 @@ import {
   shapeProblems,
 } from '@change-review/domain/services/stack-checks';
 import { stackPartsOf } from '@change-review/domain/services/stack-part';
+import { withTestsBesideTheirCode } from '@change-review/domain/services/test-placement';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
   type LayerDependency,
@@ -125,11 +127,21 @@ const repaired = (
 
   return cohorts.map((cohort) => {
     const counted = cohort.kind === 'change';
+    const ordered = withLayersInOrder(
+      partOf,
+      cohort,
+      counted ? budget : Number.POSITIVE_INFINITY,
+    );
+    const tests = withTestsBesideTheirCode(
+      partOf,
+      ordered.cohort,
+      counted ? ordered.layerBudget : Number.POSITIVE_INFINITY,
+    );
     const repair = withMovedCodeTogether(
       partOf,
       moved,
-      cohort,
-      counted ? budget : Number.POSITIVE_INFINITY,
+      tests.cohort,
+      counted ? tests.layerBudget : Number.POSITIVE_INFINITY,
     );
 
     if (counted) {

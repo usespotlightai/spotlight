@@ -117,6 +117,8 @@ export const envSchema = databaseSchema
     DECISIONS_MODEL: unsetWhenEmpty(z.string().min(1)),
     MEMORIES_MODEL: unsetWhenEmpty(z.string().min(1)),
     JUDGE_MODEL: unsetWhenEmpty(z.string().min(1)),
+    LLM_PRICES: z.enum(['models.dev', 'none']).default('models.dev'),
+    LLM_PRICES_URL: z.url().default('https://models.dev/api.json'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .refine(

@@ -32,6 +32,22 @@ describe('DraftedStack', () => {
     ]);
   });
 
+  it('reads a note on a renamed file by the path the file has now', () => {
+    expect(
+      DraftedStack.layers([
+        {
+          ...layer(['h1']),
+          notes: [
+            {
+              path: 'src/new.ts (renamed from src/old.ts)',
+              note: 'Renames it',
+            },
+          ],
+        },
+      ])[0]?.notes,
+    ).toEqual([{ path: 'src/new.ts', note: 'Renames it' }]);
+  });
+
   it('reports every placed hunk that names no hunk, so the model can mend it', () => {
     expect(
       problemsOf(() =>
