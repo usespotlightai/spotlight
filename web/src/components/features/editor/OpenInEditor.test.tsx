@@ -7,12 +7,30 @@ import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
 
 const task = { kind: 'task', id: 'task_1' } as const;
 
+const connection = vi.hoisted(() => ({
+  watched: [] as boolean[],
+  answer: { data: undefined as boolean | undefined },
+}));
+
+vi.mock('@/hooks/api/useEditorConnection', () => ({
+  useEditorConnection: (
+    _target: unknown,
+    _slug: string,
+    since: number | null,
+  ) => {
+    connection.watched.push(since !== null);
+    return connection.answer;
+  },
+}));
+
 const VSCODE_LINK =
   'vscode://vscode-remote/ssh-remote+task-task_1.acme.spotlight/workspace';
 
 const stayOnPage = (event: MouseEvent) => event.preventDefault();
 
 beforeEach(() => {
+  connection.watched = [];
+  connection.answer = { data: undefined };
   localStorage.clear();
   document.addEventListener('click', stayOnPage);
   vi.spyOn(document, 'hasFocus').mockReturnValue(true);
@@ -32,7 +50,7 @@ const presentations = [
   ],
 ] as const;
 
-describe.each(presentations)('%s', (_, renderControl) => {
+describe.each(presentations)('%s', (name, renderControl) => {
   it('links the workspace of the task in VS Code', () => {
     renderControl();
 
@@ -80,6 +98,139 @@ describe.each(presentations)('%s', (_, renderControl) => {
     });
 
     expect(screen.queryByText('Set up this computer once')).toBeNull();
+  });
+
+  it('watches for the editor connection after the click only', () => {
+    vi.useFakeTimers();
+    renderControl();
+
+    expect(connection.watched.every((each) => !each)).toBe(true);
+    fireEvent.click(screen.getByRole('link', { name: 'Open in VS Code' }));
+
+    expect(connection.watched.at(-1)).toBe(true);
+  });
+
+  it('shows that the editor did not connect when no connection comes in 20 seconds', () => {
+    vi.useFakeTimers();
+    connection.answer = { data: false };
+    renderControl();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open in VS Code' }));
+    act(() => {
+      window.dispatchEvent(new Event('blur'));
+      vi.advanceTimersByTime(19_999);
+    });
+    expect(
+      screen.queryByText('VS Code did not connect to Spotlight'),
+    ).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+
+    expect(
+      screen.getByText('VS Code did not connect to Spotlight'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/If a Spotlight login page opened in your browser/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(`spotlight login --url ${window.location.origin}`),
+    ).toBeInTheDocument();
+  });
+
+  it('shows nothing once the editor connects', () => {
+    vi.useFakeTimers();
+    const { rerender } = renderControl();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open in VS Code' }));
+    act(() => {
+      window.dispatchEvent(new Event('blur'));
+      vi.advanceTimersByTime(5_000);
+    });
+    connection.answer = { data: true };
+    rerender(
+      name === 'OpenInEditor' ? (
+        <OpenInEditor slug="acme" target={task} />
+      ) : (
+        <OpenInEditorRow slug="acme" target={task} />
+      ),
+    );
+    act(() => {
+      vi.advanceTimersByTime(20_000);
+    });
+
+    expect(
+      screen.queryByText('VS Code did not connect to Spotlight'),
+    ).toBeNull();
+  });
+
+  it('says nothing of the connection while Spotlight cannot answer', () => {
+    vi.useFakeTimers();
+    renderControl();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open in VS Code' }));
+    act(() => {
+      window.dispatchEvent(new Event('blur'));
+      vi.advanceTimersByTime(30_000);
+    });
+
+    expect(
+      screen.queryByText('VS Code did not connect to Spotlight'),
+    ).toBeNull();
+  });
+
+  it('closes the setup once the editor connects after all', async () => {
+    vi.useFakeTimers();
+    const { rerender } = renderControl();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open in VS Code' }));
+    act(() => {
+      vi.advanceTimersByTime(2_000);
+    });
+    expect(screen.getByText('Set up this computer once')).toBeInTheDocument();
+
+    connection.answer = { data: true };
+    rerender(
+      name === 'OpenInEditor' ? (
+        <OpenInEditor slug="acme" target={task} />
+      ) : (
+        <OpenInEditorRow slug="acme" target={task} />
+      ),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(screen.queryByText('Set up this computer once')).toBeNull();
+  });
+
+  it('stops watching after 10 minutes and shows nothing then', () => {
+    vi.useFakeTimers();
+    const { rerender } = renderControl();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open in VS Code' }));
+    act(() => {
+      window.dispatchEvent(new Event('blur'));
+      vi.advanceTimersByTime(5_000);
+    });
+    connection.answer = { data: true };
+    rerender(
+      name === 'OpenInEditor' ? (
+        <OpenInEditor slug="acme" target={task} />
+      ) : (
+        <OpenInEditorRow slug="acme" target={task} />
+      ),
+    );
+    connection.answer = { data: undefined };
+    act(() => {
+      vi.advanceTimersByTime(10 * 60_000);
+    });
+
+    expect(connection.watched.at(-1)).toBe(false);
+    expect(
+      screen.queryByText('VS Code did not connect to Spotlight'),
+    ).toBeNull();
   });
 });
 

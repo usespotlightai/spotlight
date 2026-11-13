@@ -282,6 +282,12 @@ export class Sandbox extends EventRecorder {
     return holder.isEditor && this.isHeldBy(holder);
   }
 
+  holdsAnEditorAt(now: Date): boolean {
+    return this.state.leases.some(
+      (each) => each.isForEditor && !each.expiredAt(now),
+    );
+  }
+
   get isIdle(): boolean {
     return this.state.idleSince !== null;
   }

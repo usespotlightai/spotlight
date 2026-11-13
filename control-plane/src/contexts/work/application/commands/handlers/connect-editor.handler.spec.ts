@@ -4,11 +4,10 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  ConnectEditorCommand,
-  type EditorTarget,
-} from '@work/application/commands/connect-editor.command';
+import { ConnectEditorCommand } from '@work/application/commands/connect-editor.command';
 import { ConnectEditorHandler } from '@work/application/commands/handlers/connect-editor.handler';
+import type { EditorTarget } from '@work/application/dto/editor-connection.dto';
+import { EditorTargets } from '@work/application/services/editor-targets.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
@@ -41,7 +40,7 @@ const setUp = () => {
     now: NOW,
     newId: () => 'chat_1',
   });
-  const access = {
+  const workspaces = {
     mayView: vi.fn(
       async (viewer: UserId, workspaceId: WorkspaceId) =>
         viewer.value !== OUTSIDER && workspaceId.equals(WORKSPACE),
@@ -74,16 +73,20 @@ const setUp = () => {
   } as unknown as ChatRepository;
   const leases = {
     hold: vi.fn(async () => ({ sandboxId: 'sandbox_1', holder: 'conn_1' })),
-  } satisfies EditorLeasesPort;
-  const handler = new ConnectEditorHandler(tasks, chats, leases, {
+  } satisfies Pick<EditorLeasesPort, 'hold'>;
+  const access = {
     ...workAccessSeeing((_, viewer) => viewer.value !== OUTSIDER, {
       onTeam: (_, viewer) => viewer.value !== CAL,
     }),
     seesWorkspace: (workspaceId: WorkspaceId, viewer: UserId) =>
-      access.mayView(viewer, workspaceId),
+      workspaces.mayView(viewer, workspaceId),
     memberWorkspaceAt: async (slug: string, viewer: UserId) =>
-      (await access.inWorkspace(slug, viewer))?.workspaceId ?? null,
-  } as unknown as WorkAccess);
+      (await workspaces.inWorkspace(slug, viewer))?.workspaceId ?? null,
+  } as unknown as WorkAccess;
+  const handler = new ConnectEditorHandler(
+    new EditorTargets(tasks, chats, access),
+    leases as unknown as EditorLeasesPort,
+  );
 
   return {
     leases,

@@ -1,25 +1,43 @@
 import { CopyIconAction } from '@/components/shared/CopyIconAction';
-import { EDITOR_NAMES, type EditorApp, editorSetupSteps } from '@/lib/editor';
+import {
+  EDITOR_NAMES,
+  type EditorApp,
+  type EditorSetupReason,
+  editorSetupSteps,
+} from '@/lib/editor';
 
 type EditorSetupProps = {
   app: EditorApp;
+  reason: EditorSetupReason;
   origin: string;
 };
 
-export function EditorSetup({ app, origin }: EditorSetupProps) {
+export function EditorSetup({ app, reason, origin }: EditorSetupProps) {
   const name = EDITOR_NAMES[app];
 
   return (
     <div className="flex w-80 flex-col gap-3 p-2">
-      <div className="flex flex-col gap-1">
-        <p className="font-medium text-foreground text-sm">
-          Set up this computer once
-        </p>
-        <p className="text-muted-foreground text-xs leading-5">
-          If {name} did not open, this computer needs the Spotlight CLI, an SSH
-          configuration and a longer connect timeout.
-        </p>
-      </div>
+      {reason === 'not-connected' ? (
+        <div className="flex flex-col gap-1">
+          <p className="font-medium text-foreground text-sm">
+            {name} did not connect to Spotlight
+          </p>
+          <p className="text-muted-foreground text-xs leading-5">
+            If a Spotlight login page opened in your browser, please approve it.
+            If not, make sure that each step below is done.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1">
+          <p className="font-medium text-foreground text-sm">
+            Set up this computer once
+          </p>
+          <p className="text-muted-foreground text-xs leading-5">
+            If {name} did not open, this computer needs the Spotlight CLI, an
+            SSH configuration and a longer connect timeout.
+          </p>
+        </div>
+      )}
 
       <ol className="flex flex-col gap-2.5">
         {editorSetupSteps(origin, app).map((step, at) => (

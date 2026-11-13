@@ -7,4 +7,6 @@ interface EditorLease {
 
 export interface EditorLeasesPort {
   hold(workspaceId: string, key: string): Promise<EditorLease>;
+
+  isHeld(workspaceId: string, key: string): Promise<boolean>;
 }

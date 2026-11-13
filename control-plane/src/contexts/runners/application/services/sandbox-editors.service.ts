@@ -36,6 +36,10 @@ export class SandboxEditors implements EditorSessionsPort {
     throw new SandboxDrainedError(key);
   }
 
+  isHeld(workspaceId: string, key: string): Promise<boolean> {
+    return this.sandboxes.heldByAnEditor(workspaceId, key, this.clock.now());
+  }
+
   admits(connection: EditorConnectionDto): Promise<boolean> {
     return this.sandboxes.heldByEditor(
       connection.sandboxId,

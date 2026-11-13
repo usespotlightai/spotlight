@@ -21,16 +21,17 @@ import (
 var errStopped = errors.New("stopped")
 
 type cli struct {
-	env      func(string) string
-	in       io.Reader
-	out      io.Writer
-	errs     io.Writer
-	version  string
-	binary   func() (string, error)
-	system   string
-	terminal func() *console.Terminal
-	login    func(ctx context.Context, given string) (string, error)
-	waitHint time.Duration
+	env         func(string) string
+	in          io.Reader
+	out         io.Writer
+	errs        io.Writer
+	version     string
+	binary      func() (string, error)
+	system      string
+	terminal    func() *console.Terminal
+	login       func(ctx context.Context, given string) (string, error)
+	deviceLogin func(ctx context.Context, address string, out io.Writer) (string, error)
+	waitHint    time.Duration
 }
 
 func Main(args []string, version string) int {
@@ -49,6 +50,9 @@ func Main(args []string, version string) int {
 		waitHint: 10 * time.Second,
 		login: func(ctx context.Context, given string) (string, error) {
 			return login.LogIn(ctx, given, version)
+		},
+		deviceLogin: func(ctx context.Context, address string, out io.Writer) (string, error) {
+			return login.ForEditor(ctx, address, version, out)
 		},
 	}
 

@@ -193,6 +193,8 @@ export const workHandlers: RequestHandler[] = [
     },
   ),
 
+  api.get('/editor-connections', () => json({ connected: false })),
+
   api.get('/teams/:teamId/runs', ({ params, request }) =>
     json(pageOf(teamRunsOf(String(params.teamId)), request, (run) => run.id)),
   ),

@@ -18,6 +18,8 @@ export interface EditorSandboxesPort {
 
   heldByEditor(sandboxId: string, holder: string, at: Date): Promise<boolean>;
 
+  heldByAnEditor(workspaceId: string, key: string, at: Date): Promise<boolean>;
+
   releaseEditor(sandboxId: string, holder: string, at: Date): Promise<void>;
 
   stateOf(sandboxId: string): Promise<EditorSandbox | null>;

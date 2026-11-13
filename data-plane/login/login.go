@@ -192,12 +192,34 @@ func sleep(ctx context.Context, wait time.Duration) error {
 	}
 }
 
+func ForEditor(ctx context.Context, address, version string, out io.Writer) (string, error) {
+	request, err := newClient(version).start(ctx, address)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Fprintf(out, "Open this page to log in to %s:\n  %s\n", address, request.Page)
+	fmt.Fprintf(out, "Check that the page shows the code %s.\n", request.Code)
+	if request.Open() == nil {
+		fmt.Fprintln(out, "Opened the page in your browser.")
+	}
+	fmt.Fprintln(out, "Waiting for you to approve the login in the browser.")
+
+	user, err := request.Wait(ctx)
+	if err != nil {
+		return "", err
+	}
+	fmt.Fprintf(out, "Logged in to %s as %s.\n", address, user)
+
+	return credentials.Stored(os.Getenv, address)
+}
+
 func browse(page string) error {
 	var command *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
+	switch {
+	case runtime.GOOS == "darwin":
 		command = exec.Command("open", page)
-	case "linux":
+	case runtime.GOOS == "linux" && (os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""):
 		command = exec.Command("xdg-open", page)
 	default:
 		return errors.ErrUnsupported
