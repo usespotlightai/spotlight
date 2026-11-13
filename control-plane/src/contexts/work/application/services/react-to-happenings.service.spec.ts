@@ -16,6 +16,7 @@ import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
@@ -32,6 +33,9 @@ import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import { Approval } from '@work/domain/value-objects/approval.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import {
   deliveryLineOf,
@@ -47,6 +51,8 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -886,6 +892,31 @@ describe('ReactToHappenings', () => {
       return task;
     };
 
+    const approving = (stationId: string) => {
+      const task = taskAt(stationId)
+        .assignRun(RunId.of('run_1'), line())
+        .putToAPerson(RunId.of('run_1'), {
+          line: null,
+          body: TaskNoteBody.of('Approve linear.comment?'),
+          at: NOW,
+          voice: Voice.station(RunId.of('run_1')),
+          form: 'approval',
+          approval: Approval.request(
+            ApprovalSubject.toolCall(
+              ToolCall.of(
+                Tool.of('linear.comment'),
+                ToolInputs.of({ body: 'x' }),
+              ),
+            ),
+            StationId.of(stationId),
+            ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+            null,
+          ),
+        });
+      task.pullEvents();
+      return task;
+    };
+
     it('leaves the task where it is and its current run', async () => {
       await receive(COMMENTED, handed('station_1'), 'This retries forever.');
 
@@ -923,20 +954,25 @@ describe('ReactToHappenings', () => {
       expect(dispatched).toHaveLength(0);
     });
 
-    it('defers the move while the current run of the task waits on a person', async () => {
+    it('moves the task while the current run of the task waits on a person', async () => {
       await receive(COMMENTED, paused('station_1'), 'This retries forever.');
+
+      expect(saved?.stationId).toEqual(StationId.of('station_2'));
+      expect(saved?.awaitingReview).toBe(false);
+      expect(saved?.deferredMoveTo).toBeNull();
+      expect(saved?.pullEvents().map((each) => each.kind)).toContain(
+        'task.run-detached',
+      );
+      expect(dispatched).toHaveLength(1);
+    });
+
+    it('defers the move while the current run of the task waits on a tool approval', async () => {
+      await receive(COMMENTED, approving('station_1'), 'This retries forever.');
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
       expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
-      expect(saved?.awaitingReview).toBe(true);
-      expect(saved?.notes.map((each) => each.kind)).toEqual([
-        'asked',
-        'message',
-      ]);
+      expect(saved?.decisionPending).toBe(true);
       expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
-      expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
-        'task.noted',
-      ]);
       expect(dispatched).toHaveLength(0);
     });
 
@@ -998,15 +1034,21 @@ describe('ReactToHappenings', () => {
         expect(dispatched).toHaveLength(0);
       });
 
-      it('finishes a paused task even with a move deferred before it', async () => {
-        await receive(COMMENTED, paused('station_1'), 'This retries forever.');
-        expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
+      it('finishes a task whose run waits on a tool approval, even with a move deferred before it', async () => {
+        await receive(
+          CHANGES_REQUESTED,
+          approving('station_2'),
+          'Handle the empty case.',
+        );
+        expect(saved?.deferredMoveTo).toEqual(StationId.of('station_1'));
 
         await receive(MERGED, saved as Task);
 
         expect(saved?.stationId).toEqual(StationId.of('station_3'));
         expect(saved?.finished).toBe(true);
-        expect(saved?.awaitingReview).toBe(false);
+        expect(saved?.currentRunId).toBeNull();
+        expect(saved?.decisionPending).toBe(false);
+        expect(dispatched).toHaveLength(0);
       });
 
       it('finishes a task that has no current run, as before', async () => {

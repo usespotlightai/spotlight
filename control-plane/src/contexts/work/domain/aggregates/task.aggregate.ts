@@ -444,7 +444,7 @@ export class Task extends EventRecorder {
   react(line: LineMap, to: StationId, rank: TaskRank, newNote: NewNote): Task {
     if (!this.movableByHappeningTo(line, to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has a run in progress. A happening can move it only to the completed station.`,
+        `Task ${this.id.value} has a run in progress. A happening can move it only to the completed station, or while its run waits on a person's answer to a question.`,
       );
     }
 
@@ -454,7 +454,15 @@ export class Task extends EventRecorder {
   }
 
   movableByHappeningTo(line: LineMap, to: StationId): boolean {
-    return !this.running || line.completed.id.equals(to);
+    return (
+      !this.running || line.completed.id.equals(to) || this.waitsOnAQuestion
+    );
+  }
+
+  private get waitsOnAQuestion(): boolean {
+    const asked = this.openConversationNote;
+
+    return this.awaitingReview && !asked?.approval && !asked?.connectionAsk;
   }
 
   deferMove(line: LineMap, to: StationId, newNote: NewNote): Task {

@@ -2611,10 +2611,30 @@ describe('Task and the happenings received while it has a current run', () => {
       ]);
     });
 
-    it('cannot be moved by a happening to a station other than the completed one', () => {
-      expect(() => paused().react(LINE, SPEC, TaskRank.of('m'), world)).toThrow(
-        InvalidTaskTransitionError,
-      );
+    it('is moved by a happening, closing the question and detaching its run', () => {
+      const moved = paused().react(LINE, SPEC, TaskRank.of('m'), world);
+
+      expect(moved.stationId).toEqual(SPEC);
+      expect(moved.currentRunId).toBeNull();
+      expect(moved.awaitingReview).toBe(false);
+      expect(moved.openConversation).toBeNull();
+      expect(detached(moved)).toEqual([RUN]);
+    });
+
+    it('cannot be moved by a happening while it waits on a tool approval', () => {
+      const approving = assigned().clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+        ),
+        ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+        { ...newNote, voice: Voice.station(RUN) },
+        RUN,
+        null,
+      ).task;
+
+      expect(() =>
+        approving.react(LINE, SPEC, TaskRank.of('m'), world),
+      ).toThrow(InvalidTaskTransitionError);
     });
 
     it('is finished by a happening while it waits on a tool approval', () => {
