@@ -100,7 +100,7 @@ const NO_ENDINGS: Record<ReplayEnding, number> = {
 
 const REGRESSED_AT = 0.9;
 
-const ROUNDING = 1e-6;
+const ROUNDING = 1e-5;
 
 const GRID = 2048;
 
@@ -143,57 +143,60 @@ const successOf = (repeats: readonly EntryOutcome[]): number | null => {
 };
 
 interface Tally {
-  readonly succeeded: number;
-  readonly judged: number;
+  readonly successes: number;
+  readonly trials: number;
 }
 
 const tallyOf = (repeats: readonly EntryOutcome[]): Tally => {
   const judged = judgedIn(repeats);
 
   return {
-    succeeded: judged.filter((each) => each.succeeded).length,
-    judged: judged.length,
+    successes: judged.filter((each) => each.succeeded).length,
+    trials: judged.length,
   };
 };
 
-const scoreTallyOf = (verdicts: readonly OutcomeVerdict[]): Tally => ({
-  succeeded: verdicts.reduce(
-    (sum, each) => sum + JudgeScale.of(each.scale).shareOf(each.value),
-    0,
-  ),
-  judged: verdicts.length,
+const scoreTallyOf = (
+  scale: JudgeScale,
+  verdicts: readonly OutcomeVerdict[],
+): Tally => ({
+  successes: verdicts.reduce((sum, each) => sum + scale.shareOf(each.value), 0),
+  trials: verdicts.length,
 });
 
-const likelihoodOf = (tally: Tally): readonly number[] =>
-  Array.from({ length: GRID }, (_, at) => {
+const posteriorOf = (tally: Tally): readonly number[] => {
+  const logLikelihoods = Array.from({ length: GRID }, (_, at) => {
     const rate = (at + 0.5) / GRID;
 
     return (
-      rate ** tally.succeeded * (1 - rate) ** (tally.judged - tally.succeeded)
+      tally.successes * Math.log(rate) +
+      (tally.trials - tally.successes) * Math.log(1 - rate)
     );
   });
+  const peak = Math.max(...logLikelihoods);
+  const likelihoods = logLikelihoods.map((each) => Math.exp(each - peak));
+  const total = likelihoods.reduce((sum, each) => sum + each, 0);
+
+  return likelihoods.map((each) => each / total);
+};
 
 export const chanceWorse = (candidate: Tally, baseline: Tally): number => {
-  const ours = likelihoodOf(candidate);
-  const theirs = likelihoodOf(baseline);
+  const ours = posteriorOf(candidate);
+  const theirs = posteriorOf(baseline);
   let oursBelow = 0;
-  let oursTotal = 0;
-  let theirsTotal = 0;
   let worse = 0;
 
   for (let at = 0; at < GRID; at += 1) {
     worse += theirs[at] * (oursBelow + ours[at] / 2);
     oursBelow += ours[at];
-    oursTotal += ours[at];
-    theirsTotal += theirs[at];
   }
 
-  return worse / (oursTotal * theirsTotal);
+  return worse;
 };
 
 const clearlyWorse = (candidate: Tally, baseline: Tally): boolean =>
-  candidate.judged > 0 &&
-  baseline.judged > 0 &&
+  candidate.trials > 0 &&
+  baseline.trials > 0 &&
   chanceWorse(candidate, baseline) > REGRESSED_AT + ROUNDING;
 
 export const taskSuccessesOf = (
@@ -315,13 +318,15 @@ const scoresOf = (
     return { delta: null, uncompared: null, worse: false };
   }
 
+  const scale = JudgeScale.of(first.scale);
+
   return {
     delta: delta(
       mean(ours.map((each) => each.value)),
       mean(theirs.map((each) => each.value)),
     ),
     uncompared: null,
-    worse: clearlyWorse(scoreTallyOf(ours), scoreTallyOf(theirs)),
+    worse: clearlyWorse(scoreTallyOf(scale, ours), scoreTallyOf(scale, theirs)),
   };
 };
 
