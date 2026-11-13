@@ -51,7 +51,16 @@ export class NotifyTeam {
         form: notice.form,
         headline: notice.headline,
         points: notice.points,
-        link: await this.links.notice(notice.workspaceId, notice.id),
+        link: await this.links
+          .notice(notice.workspaceId, notice.id)
+          .catch((error: unknown) => {
+            this.log.warn(
+              { notice: notice.id, error },
+              'Spotlight could not link to a notice',
+            );
+
+            return null;
+          }),
         externalLink: notice.externalLink,
       },
     };

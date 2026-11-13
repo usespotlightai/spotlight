@@ -139,7 +139,25 @@ const raised = (input: Partial<TeamNoticeDto> = {}): TeamNoticeDto => ({
   ...input,
 });
 
-const notifying = (definition = SLACK) => {
+const UNLINKABLE = async (): Promise<string | null> => {
+  throw new Error('database is down');
+};
+
+const linksOf = (linked: boolean): WebInboxLinks => {
+  const links = new WebInboxLinks(
+    { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
+    taskLinks,
+  );
+
+  if (!linked) {
+    links.inboxRequest = UNLINKABLE;
+    links.notice = UNLINKABLE;
+  }
+
+  return links;
+};
+
+const notifying = (definition = SLACK, linked = true) => {
   const run = vi.fn(
     async (
       _action: unknown,
@@ -158,10 +176,7 @@ const notifying = (definition = SLACK) => {
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run }),
     callAuthFor(injecting().injection),
-    new WebInboxLinks(
-      { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
-      taskLinks,
-    ),
+    linksOf(linked),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   ] as const;
 
@@ -244,6 +259,25 @@ describe('inbox requests and notices sent to integrations', () => {
         label: 'Review the pull request',
       },
     });
+  });
+
+  it('posts an inbox request and a notice without a link when Spotlight cannot link to them', async () => {
+    const { tasks, notices, run, warn } = notifying(SLACK, false);
+
+    await tasks.notifyRequest(finished(), { id: 'request_1', form: 'grade' });
+    await notices.notify(raised());
+
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls[0]?.[1]).toMatchObject({ request: { link: null } });
+    expect(run.mock.calls[1]?.[1]).toMatchObject({ notice: { link: null } });
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ request: 'request_1' }),
+      'Spotlight could not link to an inbox request',
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ notice: 'notice_1' }),
+      'Spotlight could not link to a notice',
+    );
   });
 
   it('posts a notice that has no outside link', async () => {

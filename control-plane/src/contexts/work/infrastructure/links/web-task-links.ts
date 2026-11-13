@@ -8,22 +8,26 @@ export class WebTaskLinks implements TaskLinksPort {
   }
 
   taskPage(slug: string, teamId: string, taskId: string): string {
-    return `${this.base}/w/${slug}/team/${teamId}/tasks/${taskId}`;
+    return this.page('w', slug, 'team', teamId, 'tasks', taskId);
   }
 
   conversationPage(slug: string, conversationId: string): string {
-    return `${this.base}/w/${slug}/inbox/${conversationId}`;
+    return this.page('w', slug, 'inbox', conversationId);
   }
 
   chatPage(slug: string, teamId: string, chatId: string): string {
-    return `${this.base}/w/${slug}/team/${teamId}/agent/${chatId}`;
+    return this.page('w', slug, 'team', teamId, 'agent', chatId);
   }
 
   inboxRequestPage(slug: string, inboxRequestId: string): string {
-    return `${this.base}/w/${slug}/inbox/${inboxRequestId}`;
+    return this.page('w', slug, 'inbox', inboxRequestId);
   }
 
   noticePage(slug: string, noticeId: string): string {
-    return `${this.base}/w/${slug}/inbox/notices/${noticeId}`;
+    return this.page('w', slug, 'inbox', 'notices', noticeId);
+  }
+
+  private page(...segments: readonly string[]): string {
+    return [this.base, ...segments.map(encodeURIComponent)].join('/');
   }
 }
