@@ -8,8 +8,11 @@ import type { RepositoryName } from '@change-review/domain/value-objects/reposit
 import type {
   DraftedCohort,
   DraftedLayer,
+  DraftedLayerDetails,
+  DraftedLayerPlan,
   DraftedOutline,
   OutlinedCohort,
+  ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
@@ -48,6 +51,25 @@ export interface GeneratedLayers {
   readonly usage: ModelCall | null;
 }
 
+export interface GeneratedLayerPlan {
+  readonly layers: readonly DraftedLayerPlan[];
+  readonly usage: ModelCall | null;
+}
+
+export interface LayerDetailsRequest {
+  readonly part: StackPart;
+  readonly repository: RepositoryName | null;
+  readonly cohort: OutlinedCohort;
+  readonly plan: readonly ProposedLayer[];
+  readonly layer: number;
+  readonly problems: readonly StackProblem[];
+}
+
+export interface GeneratedLayerDetails {
+  readonly details: DraftedLayerDetails;
+  readonly usage: ModelCall | null;
+}
+
 export interface ChangeStackGeneratorPort {
   readonly available: boolean;
 
@@ -58,4 +80,8 @@ export interface ChangeStackGeneratorPort {
   outline(request: ChangeStackGenerationRequest): Promise<GeneratedOutline>;
 
   layers(request: CohortLayersRequest): Promise<GeneratedLayers>;
+
+  layerPlan(request: CohortLayersRequest): Promise<GeneratedLayerPlan>;
+
+  layerDetails(request: LayerDetailsRequest): Promise<GeneratedLayerDetails>;
 }

@@ -13,6 +13,8 @@ export const needsFileNotes = (kind: CohortKind): boolean => kind === 'change';
 
 export const MAX_QUESTIONS = 2;
 
+export const LAYER_LINES = 400;
+
 export const MAX_PROSE = 2_000;
 
 export const asksQuestions = (kind: CohortKind): boolean => kind === 'change';
@@ -117,6 +119,10 @@ export interface DraftedLayer extends Omit<
     readonly hunks: readonly string[];
   }[];
 }
+
+export type DraftedLayerPlan = Omit<DraftedLayer, 'notes' | 'questions'>;
+
+export type DraftedLayerDetails = Pick<DraftedLayer, 'notes' | 'questions'>;
 
 export interface DraftedCohort extends Omit<ProposedCohort, 'layers'> {
   readonly layers: readonly DraftedLayer[];

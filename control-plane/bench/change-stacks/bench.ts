@@ -147,12 +147,12 @@ const recording = () => {
     if (Array.isArray(fields.problems)) {
       problems.push(...fields.problems.map(String));
     }
-    if (fields.err !== undefined) {
-      failures.push(
-        fields.err instanceof Error
-          ? fields.err.message
-          : JSON.stringify(fields.err),
-      );
+    for (const error of [fields.err, fields.error]) {
+      if (error !== undefined) {
+        failures.push(
+          error instanceof Error ? error.message : JSON.stringify(error),
+        );
+      }
     }
   };
 
@@ -702,6 +702,8 @@ const NO_MODEL: ChangeStackGeneratorPort = {
   generate: () => Promise.reject(new Error('A recheck calls no model')),
   outline: () => Promise.reject(new Error('A recheck calls no model')),
   layers: () => Promise.reject(new Error('A recheck calls no model')),
+  layerPlan: () => Promise.reject(new Error('A recheck calls no model')),
+  layerDetails: () => Promise.reject(new Error('A recheck calls no model')),
 };
 
 const recheck = async (file: string, verbose: boolean): Promise<void> => {

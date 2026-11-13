@@ -231,6 +231,7 @@ export const indexedFacts = (
     if (
       !definer ||
       definer === user ||
+      (!testing(file.path) && testing(target.path)) ||
       (target.side === 'before' && stillDefined(target, symbol))
     ) {
       return;
@@ -318,6 +319,11 @@ export const indexedFacts = (
 
   for (const file of index.files) {
     const byLocal = new Map(file.imports.map((each) => [each.local, each]));
+    const near = new Set([
+      file.path,
+      ...file.scope,
+      ...file.imports.flatMap((each) => each.resolved),
+    ]);
 
     for (const reference of file.references) {
       const user = hunkAt(file, reference.line);
@@ -365,7 +371,9 @@ export const indexedFacts = (
         continue;
       }
 
-      const candidates = methods.get(`${file.side}:${reference.name}`) ?? [];
+      const candidates = (
+        methods.get(`${file.side}:${reference.name}`) ?? []
+      ).filter((each) => near.has(each.file.path));
       const definers = new Set(candidates.map((each) => each.hunk));
 
       if (

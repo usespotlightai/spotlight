@@ -223,21 +223,24 @@ export const factsOf = (
   const moves: HunkLink[] = substantive.flatMap((source) => {
     const block = movedBlockOf(source.hunk);
 
-    return block === null
-      ? []
-      : additions
-          .filter(
+    const targets =
+      block === null
+        ? []
+        : additions.filter(
             (target) =>
               target.hunk.id !== source.hunk.id &&
               target.text.length >= block.length &&
               target.text.includes(block),
-          )
-          .map((target) => ({
-            kind: 'moves' as const,
-            from: target.hunk.id,
-            to: source.hunk.id,
-            because: [`${source.file.path} → ${target.file.path}`],
-          }));
+          );
+
+    return targets.length !== 1
+      ? []
+      : targets.map((target) => ({
+          kind: 'moves' as const,
+          from: target.hunk.id,
+          to: source.hunk.id,
+          because: [`${source.file.path} → ${target.file.path}`],
+        }));
   });
 
   const movedHunks = new Set(moves.flatMap(({ from, to }) => [from, to]));

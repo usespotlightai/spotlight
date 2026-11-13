@@ -131,16 +131,16 @@ describe('withLayersInOrder', () => {
     ]);
   });
 
-  it('moves a hunk forward into the layer of the code it uses when the layers depend on each other', () => {
+  it('pulls what a hunk uses back into its layer when the layers depend on each other', () => {
     const repair = ordered(
       [link('uses', 'h1', 'h2'), link('uses', 'h4', 'h3')],
       cohort([layer(['h1', 'h3']), layer(['h2', 'h4'])]),
     );
 
-    expect(hunksOf(repair.cohort)).toEqual([['h3'], ['h2', 'h4', 'h1']]);
+    expect(hunksOf(repair.cohort)).toEqual([['h1', 'h3', 'h2'], ['h4']]);
   });
 
-  it('moves the users of a moved hunk after it too', () => {
+  it('pulls back what the pulled hunks use too', () => {
     const repair = ordered(
       [
         link('uses', 'h1', 'h2'),
@@ -150,17 +150,32 @@ describe('withLayersInOrder', () => {
       cohort([layer(['h1', 'h4']), layer(['h2', 'h3'])]),
     );
 
-    expect(hunksOf(repair.cohort)).toEqual([['h2', 'h3', 'h1', 'h4']]);
+    expect(hunksOf(repair.cohort)).toEqual([['h1', 'h4', 'h2'], ['h3']]);
   });
 
   it('empties no more layers than it may', () => {
-    const proposed = cohort([layer(['h1']), layer(['h2', 'h3'])]);
-    const links = [link('uses', 'h1', 'h2'), link('uses', 'h3', 'h1')];
+    const proposed = cohort([layer(['h1']), layer(['h2'])]);
+    const links = [link('uses', 'h1', 'h2'), link('uses', 'h2', 'h1')];
 
     expect(ordered(links, proposed, 0).cohort).toBe(proposed);
-    expect(hunksOf(ordered(links, proposed, 1).cohort)).toEqual([
-      ['h2', 'h3', 'h1'],
-    ]);
+    expect(hunksOf(ordered(links, proposed, 1).cohort)).toEqual([['h1', 'h2']]);
+  });
+
+  it('puts a test back into the layer of the code it covers', () => {
+    const repair = ordered(
+      [link('tests', 'h1', 'h2')],
+      cohort([layer(['h2']), layer(['h3']), layer(['h1'])]),
+    );
+
+    expect(hunksOf(repair.cohort)).toEqual([['h2', 'h1'], ['h3']]);
+  });
+
+  it('leaves code that is only moved apart to the moved-code repair', () => {
+    const proposed = cohort([layer(['h1']), layer(['h2'])]);
+
+    expect(ordered([link('moves', 'h2', 'h1')], proposed).cohort).toBe(
+      proposed,
+    );
   });
 
   it('leaves a proposal with any other problem to the model', () => {

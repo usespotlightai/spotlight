@@ -178,6 +178,12 @@ describe('layerCohort', () => {
       layers: [layerOf('h1'), layerOf('h2')],
       usage: null,
     }),
+    layerPlan: async () => {
+      throw new Error('not used');
+    },
+    layerDetails: async () => {
+      throw new Error('not used');
+    },
   };
   const twoLayers: StackCohort = {
     id: CohortId.at(1),

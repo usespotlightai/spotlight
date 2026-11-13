@@ -295,6 +295,34 @@ const generating = (
       }
       return { layers: answer, usage };
     },
+    layerPlan: async (request) => {
+      layered.push(request);
+      const answer = over.layers?.(request) ?? new Error('No layers');
+
+      if (answer instanceof Error) {
+        throw answer;
+      }
+      return {
+        layers: answer.map(({ notes: _, questions: __, ...layer }) => layer),
+        usage,
+      };
+    },
+    layerDetails: async (request) => {
+      const answer =
+        over.layers?.({ ...request, redraft: null, previous: null }) ??
+        new Error('No layers');
+
+      if (answer instanceof Error) {
+        throw answer;
+      }
+      return {
+        details: {
+          notes: answer.flatMap((layer) => layer.notes),
+          questions: [],
+        },
+        usage,
+      };
+    },
   };
 
   const service = new GenerateChangeStack(
@@ -511,7 +539,7 @@ describe('GenerateChangeStack', () => {
   });
 
   describe('for a diff too large for one call', () => {
-    it('outlines the cohorts, then layers each cohort from only its own hunks', async () => {
+    it('outlines the cohorts, then plans the layers of each large cohort from only its own hunks and writes each layer apart', async () => {
       const { service, requests, outlined, layered } = generating({
         outlines: [HALVES],
         layers: oneLayer,
@@ -537,7 +565,7 @@ describe('GenerateChangeStack', () => {
       expect(ready.cohorts[0]?.joinedBecause).toBe(
         'One feature the code does not show',
       );
-      expect(ready.usage).toMatchObject({ calls: 3, outputTokens: 600 });
+      expect(ready.usage).toMatchObject({ calls: 5, outputTokens: 1_000 });
     });
 
     it('outlines a diff with few hunks but more changed lines than one call should hold', async () => {
@@ -627,7 +655,27 @@ describe('GenerateChangeStack', () => {
       const left = await service.generated(stack);
 
       expect(left.state).toBe('generating');
-      expect(left.usage.calls).toBe(2);
+      expect(left.usage.calls).toBe(3);
+    });
+
+    it('asks again for only the cohort that broke its rules, and keeps the others', async () => {
+      let broken = 0;
+      const { service } = generating({
+        outlines: [HALVES],
+        layers: (request) => {
+          if (request.cohort.title === 'Second half' && broken < 3) {
+            broken += 1;
+            return oneLayer(request).map((layer) => ({ ...layer, notes: [] }));
+          }
+          return oneLayer(request);
+        },
+      });
+      const stack = await service.begin(RUN, LARGE_INPUT);
+
+      const left = await service.generated(stack);
+
+      expect(left.state).toBe('ready');
+      expect(left.usage.calls).toBe(7);
     });
 
     it('fails the stack where a cohort keeps breaking its rules', async () => {

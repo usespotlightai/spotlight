@@ -5,6 +5,7 @@ import { RepositoryName } from '@change-review/domain/value-objects/repository-n
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import {
   ChatCompletionsChangeStackGenerator,
+  connectionsPrompt,
   describeProblem,
   previousStackPrompt,
   redraftPrompt,
@@ -111,6 +112,58 @@ describe('describeProblem', () => {
     ).toBe(
       'cohort 1 joins changes the code does not connect (h1 | h2); split it, or set joinedBecause',
     );
+  });
+});
+
+describe('connectionsPrompt', () => {
+  const hunk = (id: string, linkable = true) => ({
+    hunk: HunkId.of(id),
+    path: `src/${id}.ts`,
+    fileClass: 'source' as const,
+    incidental: false,
+    renamed: false,
+    moved: false,
+    linkable,
+    defines: [],
+    outside: [],
+  });
+  const uses = (from: string, to: string) => ({
+    kind: 'uses' as const,
+    from: HunkId.of(from),
+    to: HunkId.of(to),
+    because: ['invite'],
+  });
+
+  it('lists the groups of hunks the code connects, without the hunks it cannot read', () => {
+    expect(
+      connectionsPrompt({
+        hunks: [
+          hunk('h1'),
+          hunk('h2'),
+          hunk('h3'),
+          hunk('h4'),
+          hunk('h5', false),
+        ],
+        links: [uses('h2', 'h1')],
+        imports: [],
+      }),
+    ).toBe(
+      [
+        'The code connects the hunks it can read into 3 groups. A cohort of kind "change" with hunks of more than one group needs a joinedBecause. Hunks not named here are in files the code facts do not cover, so they can go in any cohort.',
+        'group 1: h1, h2',
+        'one group each, connected to no other hunk: h3, h4',
+      ].join('\n'),
+    );
+  });
+
+  it('says nothing when the code connects every hunk it can read', () => {
+    expect(
+      connectionsPrompt({
+        hunks: [hunk('h1'), hunk('h2'), hunk('h3', false)],
+        links: [uses('h2', 'h1')],
+        imports: [],
+      }),
+    ).toBeNull();
   });
 });
 
@@ -331,6 +384,12 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
     expect(cohorts[0]?.hunks).toEqual(['h1']);
     const body = sentBody(requests);
     expect(body.response_format.json_schema.name).toBe('change_stack_outline');
+    expect(
+      Object.keys(
+        body.response_format.json_schema.schema.properties.cohorts.items
+          .properties,
+      ),
+    ).toEqual(['kind', 'title', 'intent', 'hunks', 'joinedBecause']);
     expect(body.reasoning_effort).toBe('medium');
     expect(body.messages[0].content).toContain(
       'Place every hunk exactly once, in the hunks of one cohort.',
@@ -408,6 +467,83 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
     );
     expect(body.messages[1].content).toContain(
       "The cohort's diff, as 1 hunks and 2 changed lines to place:",
+    );
+  });
+
+  const COHORT = {
+    kind: 'change' as const,
+    title: 'Invitations',
+    intent: 'Let admins invite people.',
+    joinedBecause: null,
+    hunks: [HunkId.of('h1')],
+  };
+  const PART = { diff: DIFF, facts: factsOf(DIFF, new PatternCodeReading()) };
+
+  it('requests only the layers, their hunks and dependencies for a plan', async () => {
+    const { files: _, questions: __, ...planned } = COHORTS[0]?.layers[0] ?? {};
+    const { requests, fetch } = answer({ layers: [planned] });
+
+    const { layers } = await new ChatCompletionsChangeStackGenerator(
+      ENDPOINT,
+      fetch,
+    ).layerPlan({ part: PART, repository: null, cohort: COHORT, problems: [] });
+
+    expect(layers).toEqual([
+      {
+        title: 'Add invite',
+        summary: 'The function',
+        dependsOn: [],
+        hunks: [{ hunk: 'h1' }],
+      },
+    ]);
+    const body = sentBody(requests);
+    expect(body.response_format.json_schema.name).toBe('cohort_layer_plan');
+    expect(body.messages[0].content).toContain(
+      'Another step writes the file notes',
+    );
+    expect(body.messages[0].content).not.toContain('"questions"');
+  });
+
+  it('requests the notes and questions of one layer, with the plan and only that layer’s diff', async () => {
+    const { requests, fetch } = answer({
+      files: [{ path: 'src/invite.ts', note: 'Adds the function.' }],
+      questions: [],
+    });
+
+    const { details } = await new ChatCompletionsChangeStackGenerator(
+      ENDPOINT,
+      fetch,
+    ).layerDetails({
+      part: PART,
+      repository: null,
+      cohort: COHORT,
+      plan: [
+        {
+          title: 'Add invite',
+          summary: 'The function.',
+          dependsOn: [],
+          hunks: [{ hunk: HunkId.of('h1') }],
+          notes: [],
+          questions: [],
+        },
+      ],
+      layer: 0,
+      problems: [
+        { code: 'shape', message: 'layer 1 has no note on src/invite.ts' },
+      ],
+    });
+
+    expect(details.notes).toEqual([
+      { path: 'src/invite.ts', note: 'Adds the function.' },
+    ]);
+    const body = sentBody(requests);
+    expect(body.response_format.json_schema.name).toBe('layer_details');
+    expect(body.messages[1].content).toContain(
+      '1. Add invite (the layer to write for): The function. Hunks: h1',
+    );
+    expect(body.messages[1].content).toContain('### h1');
+    expect(body.messages[1].content).toContain(
+      'A previous answer for layer 1 had these problems',
     );
   });
 });

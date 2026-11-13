@@ -191,6 +191,21 @@ describe('factsOf, further', () => {
     expect(facts.hunks.map((each) => each.moved)).toEqual([true, true]);
   });
 
+  it('does not count lines that several changes add as a move', () => {
+    const imports = [
+      'import type {',
+      '  DiffFacts,',
+      "} from '@change-review/domain/services/diff-facts';",
+    ];
+    const facts = factsFor(
+      file('src/a.ts', [], imports),
+      file('src/b.ts', imports),
+      file('src/c.ts', imports),
+    );
+
+    expect(facts.links.filter((each) => each.kind === 'moves')).toEqual([]);
+  });
+
   it('does not count a few repeated lines as a move', () => {
     const facts = factsFor(
       file('src/a.ts', [], ['}', '']),

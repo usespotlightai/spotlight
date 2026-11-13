@@ -98,6 +98,12 @@ const generator: ChangeStackGeneratorPort = {
   layers: async () => {
     throw new Error('A diff this small is not split');
   },
+  layerPlan: async () => {
+    throw new Error('A diff this small is not split');
+  },
+  layerDetails: async () => {
+    throw new Error('A diff this small is not split');
+  },
   generate: async ({ diff }) => ({
     usage: {
       inputTokens: 1_000,

@@ -285,13 +285,39 @@ const walk = (grammar: Grammar, root: Node): Walked => {
   };
 };
 
+const WASM_DIRECTORY = path.dirname(
+  require.resolve('@vscode/tree-sitter-wasm'),
+);
+
+// Parser.init sets up one WASM module per process, so every indexer shares one load.
+let loading: Promise<Map<string, Language>> | null = null;
+
+const languages = (): Promise<Map<string, Language>> => {
+  loading ??= (async () => {
+    await Parser.init({
+      locateFile: (file: string) => path.join(WASM_DIRECTORY, file),
+    });
+
+    const loaded = await Promise.all(
+      [...new Set(GRAMMARS.map((grammar) => grammar.wasm))].map(
+        async (wasm) =>
+          [
+            wasm,
+            await Language.load(path.resolve(WASM_DIRECTORY, wasm)),
+          ] as const,
+      ),
+    );
+
+    return new Map(loaded);
+  })().catch((error: unknown) => {
+    loading = null;
+    throw error;
+  });
+
+  return loading;
+};
+
 export class TreeSitterSymbolIndexer implements SymbolIndexerPort {
-  private readonly directory = path.dirname(
-    require.resolve('@vscode/tree-sitter-wasm'),
-  );
-
-  private loading: Promise<Map<string, Language>> | null = null;
-
   async index(sources: readonly DiffSource[]): Promise<SymbolIndex> {
     const readable = sources.flatMap((source) => {
       const grammar = GRAMMARS.find(({ extensions }) =>
@@ -307,12 +333,12 @@ export class TreeSitterSymbolIndexer implements SymbolIndexerPort {
       return { files: [] };
     }
 
-    const languages = await this.languages();
+    const loaded = await languages();
     const parser = new Parser();
 
     try {
       const walked = readable.flatMap(({ source, grammar }) => {
-        const language = languages.get(grammar.wasm);
+        const language = loaded.get(grammar.wasm);
 
         if (!language) {
           return [];
@@ -386,30 +412,5 @@ export class TreeSitterSymbolIndexer implements SymbolIndexerPort {
     } finally {
       parser.delete();
     }
-  }
-
-  private languages(): Promise<Map<string, Language>> {
-    this.loading ??= (async () => {
-      await Parser.init({
-        locateFile: (file: string) => path.join(this.directory, file),
-      });
-
-      const loaded = await Promise.all(
-        [...new Set(GRAMMARS.map((grammar) => grammar.wasm))].map(
-          async (wasm) =>
-            [
-              wasm,
-              await Language.load(path.resolve(this.directory, wasm)),
-            ] as const,
-        ),
-      );
-
-      return new Map(loaded);
-    })().catch((error: unknown) => {
-      this.loading = null;
-      throw error;
-    });
-
-    return this.loading;
   }
 }
