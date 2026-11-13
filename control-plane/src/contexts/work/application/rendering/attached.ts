@@ -9,7 +9,7 @@ const placed = (attachment: Attachment): string =>
   `${PLACED}${attachment.id.value}/${attachment.name}`;
 
 const VIDEO_HINT =
-  'To see a video, make a folder, extract frames into it as images with `ffmpeg` (for example `ffmpeg -i <video> -vf fps=1 <folder>/%03d.png`) and read those images. `ffprobe <video>` gives the duration and frame size.';
+  'To see a video, first get its duration with `ffprobe "<video>"`. Then make a folder, extract at most 60 frames into it as images with `ffmpeg` and read those images. For example: `ffmpeg -i "<video>" -vf fps=1 -frames:v 60 "<folder>/%03d.png"`. For a long video, use a lower rate, such as `fps=1/10`. Put quotes around paths, because attachment names can contain spaces.';
 
 const KB = 1024;
 const MB = KB * KB;
