@@ -208,6 +208,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
     return reviseReplay(
       this.replays,
       this.transaction,
+      this.clock,
       () => this.replays.find(replay.id),
       (fresh) => change(fresh, this.clock.now()),
     );

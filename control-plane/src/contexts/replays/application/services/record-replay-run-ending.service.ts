@@ -1,5 +1,8 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
-import { reviseReplay } from '@replays/application/services/replay-revisions';
+import {
+  readOnce,
+  reviseReplay,
+} from '@replays/application/services/replay-revisions';
 import { replayAskedAPerson } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/replay-run-decision.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -41,19 +44,17 @@ export class RecordReplayRunEnding {
       next: event.next,
       at: event.endedAt,
     });
+    const stacks = readOnce(() => this.changes.stacksOf(run));
 
     await reviseReplay(
       this.replays,
       this.transaction,
+      this.clock,
       () => this.replays.ranAs(run),
       async (replay) =>
         replay
           .recordRunEnd(run, runEnd)
-          .recordReview(
-            run,
-            ...reviewOf(await this.changes.stacksOf(run)),
-            this.clock.now(),
-          ),
+          .recordReview(run, ...reviewOf(await stacks()), this.clock.now()),
     );
   }
 }

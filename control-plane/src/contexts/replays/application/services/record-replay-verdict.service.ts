@@ -75,6 +75,7 @@ export class RecordReplayVerdict {
     await reviseReplay(
       this.replays,
       this.transaction,
+      this.clock,
       () => this.replays.ranAs(run),
       (replay) => change(replay, this.clock.now()),
     );

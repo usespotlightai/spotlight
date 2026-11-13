@@ -1,5 +1,8 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
-import { reviseReplay } from '@replays/application/services/replay-revisions';
+import {
+  readOnce,
+  reviseReplay,
+} from '@replays/application/services/replay-revisions';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import {
   ChangeChecks,
@@ -20,32 +23,28 @@ export class RecordReplayChangeReview {
 
   async reviewed(runId: string): Promise<void> {
     const run = RunId.of(runId);
+    const stacks = readOnce(() => this.changes.stacksOf(run));
 
     await reviseReplay(
       this.replays,
       this.transaction,
+      this.clock,
       () => this.replays.ranAs(run),
       async (replay) =>
-        replay.recordReview(
-          run,
-          ...reviewOf(await this.changes.stacksOf(run)),
-          this.clock.now(),
-        ),
+        replay.recordReview(run, ...reviewOf(await stacks()), this.clock.now()),
     );
   }
 
   async rechecked(runId: string): Promise<void> {
     const run = RunId.of(runId);
+    const rechecks = readOnce(() => this.changes.rechecksOf(run));
 
     await reviseReplay(
       this.replays,
       this.transaction,
+      this.clock,
       () => this.replays.ranAs(run),
-      async (replay) =>
-        replay.recheck(
-          run,
-          ChangeChecks.of(await this.changes.rechecksOf(run)),
-        ),
+      async (replay) => replay.recheck(run, ChangeChecks.of(await rechecks())),
     );
   }
 
@@ -53,6 +52,7 @@ export class RecordReplayChangeReview {
     await reviseReplay(
       this.replays,
       this.transaction,
+      this.clock,
       () => this.replays.find(replayId),
       (replay) => replay.recheck(run, ChangeChecks.of([])),
     );

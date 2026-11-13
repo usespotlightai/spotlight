@@ -14,7 +14,10 @@ import { RecordReplayChangeReview } from '@replays/application/services/record-r
 import { RecordReplayRunEnding } from '@replays/application/services/record-replay-run-ending.service';
 import { RecordReplayRunUsage } from '@replays/application/services/record-replay-run-usage.service';
 import { RecordReplayVerdict } from '@replays/application/services/record-replay-verdict.service';
-import { REPLAY_REVISION_ATTEMPTS } from '@replays/application/services/replay-revisions';
+import {
+  REPLAY_REVISION_ATTEMPTS,
+  REPLAY_REVISION_PAUSE_MS,
+} from '@replays/application/services/replay-revisions';
 import {
   CLOCK,
   FakeChangeReview,
@@ -60,7 +63,10 @@ import {
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { REPLAY_RUNS_AT_ONCE } from '@replays/domain/services/replay-dispatch';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
+import {
+  ChangeChecks,
+  type StackStatus,
+} from '@replays/domain/value-objects/change-checks.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -564,12 +570,25 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
       throw new ReplayVersionConflictError(replay.id.value);
     };
 
+    const pauses: number[] = [];
+    const clock = {
+      now: CLOCK.now,
+      sleep: async (ms: number) => {
+        pauses.push(ms);
+      },
+    };
+
     await expect(
-      new RecordReplayRunUsage(repository, TRANSACTION, CLOCK).usageRecorded(
+      new RecordReplayRunUsage(repository, TRANSACTION, clock).usageRecorded(
         usageOf(run),
       ),
     ).rejects.toBeInstanceOf(ReplayVersionConflictError);
     expect(saves).toBe(REPLAY_REVISION_ATTEMPTS);
+    expect(pauses).toHaveLength(REPLAY_REVISION_ATTEMPTS - 1);
+    pauses.forEach((ms, index) => {
+      expect(ms).toBeGreaterThanOrEqual(0);
+      expect(ms).toBeLessThan((index + 1) * REPLAY_REVISION_PAUSE_MS);
+    });
   });
 
   it('hand any other failure back to the outbox at once', async () => {
@@ -931,6 +950,82 @@ describe('scoring a replayed task', () => {
 
     expect(entry()?.reasons.map((each) => each.code)).toEqual(['unjudged']);
     expect(memory.replays.get('replay_1')?.current).toBe('finished');
+  });
+
+  const checkFailed = (): StackStatus => ({
+    repository: 'api',
+    state: 'failed',
+    skip: null,
+    failedAt: ['the whole change'],
+    spent: ModelSpent.of([], 0),
+  });
+
+  const dropsAJob = () =>
+    JudgeVerdict.of({
+      scale: 'yes-no',
+      value: 0,
+      claimResults: null,
+      claims: [],
+      passThreshold: 1,
+      model: 'judge/model',
+      referenced: true,
+      reasons: [
+        { text: 'It drops a job.', steps: [2], hunks: [], claim: null },
+      ],
+      guidance: null,
+    });
+
+  const conflictingOnce = (otherDelivery: () => Promise<void>) => {
+    const repository = memory.replayRepository;
+    const save = repository.save;
+    let saves = 0;
+    repository.save = async (replay) => {
+      saves += 1;
+      if (saves > 1) {
+        return save(replay);
+      }
+      const ours = repository.save;
+      repository.save = save;
+      await otherDelivery();
+      repository.save = ours;
+      throw new ReplayVersionConflictError(replay.id.value);
+    };
+    return () => saves;
+  };
+
+  it('records a change review on top of a verdict another delivery saved first, and reads the run’s stacks once', async () => {
+    const run = await started();
+    await completed(run);
+    changes.stacks.set(run, [checkFailed()]);
+    let reads = 0;
+    const stacksOf = changes.stacksOf.bind(changes);
+    changes.stacksOf = (each) => {
+      reads += 1;
+      return stacksOf(each);
+    };
+    const saves = conflictingOnce(() =>
+      judging().judged(RunId.of(run), dropsAJob()),
+    );
+
+    await reviewing().reviewed(run);
+
+    expect(saves()).toBe(2);
+    expect(reads).toBe(1);
+    expect(entry()?.checks?.failedAt).toEqual(['the whole change']);
+    expect(entry()?.verdict?.referenced).toBe(true);
+  });
+
+  it('records the judge’s verdict on top of a change review another delivery saved first', async () => {
+    const run = await started();
+    await completed(run);
+    changes.stacks.set(run, [checkFailed()]);
+    const saves = conflictingOnce(() => reviewing().reviewed(run));
+
+    await judging().judged(RunId.of(run), dropsAJob());
+
+    expect(saves()).toBe(2);
+    expect(entry()?.verdict?.referenced).toBe(true);
+    expect(entry()?.checks?.failedAt).toEqual(['the whole change']);
   });
 
   it('takes the judge’s verdict as the entry’s result', async () => {

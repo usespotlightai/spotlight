@@ -42,6 +42,7 @@ export class RecordReplayRunUsage {
     await reviseReplay(
       this.replays,
       this.transaction,
+      this.clock,
       () => this.replays.ranAs(run),
       (replay) => replay.measure(run, measures, this.clock.now()),
     );
