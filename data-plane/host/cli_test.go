@@ -72,7 +72,7 @@ func TestValidationReadsTheFileNotTheShell(t *testing.T) {
 	path := settled(t, ready)
 	t.Setenv("SPOTLIGHT_CAPACITY", "5")
 
-	if err := changeSettings(new(bytes.Buffer), "dev", "set", []string{"capacity=abc"}); err == nil {
+	if err := changeSettings(nil, new(bytes.Buffer), "dev", "set", []string{"capacity=abc"}); err == nil {
 		t.Fatal("a bad capacity is saved because the shell sets a good one")
 	}
 	if saved(t, path) != ready {
@@ -97,7 +97,7 @@ func TestSetsAndUnsetsSettingsByTheirFriendlyKeys(t *testing.T) {
 	path := settled(t, ready)
 	var out bytes.Buffer
 
-	if err := changeSettings(&out, "dev", "set", []string{"capacity=8", "SPOTLIGHT_RUN_TIMEOUT=2h"}); err != nil {
+	if err := changeSettings(nil, &out, "dev", "set", []string{"capacity=8", "SPOTLIGHT_RUN_TIMEOUT=2h"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := saved(t, path); !strings.Contains(got, "SPOTLIGHT_CAPACITY=8\n") || !strings.Contains(got, "SPOTLIGHT_RUN_TIMEOUT=2h\n") {
@@ -112,7 +112,7 @@ func TestSetsAndUnsetsSettingsByTheirFriendlyKeys(t *testing.T) {
 		t.Errorf("get %q, %v", out.String(), err)
 	}
 
-	if err := changeSettings(&out, "dev", "unset", []string{"run-timeout"}); err != nil {
+	if err := changeSettings(nil, &out, "dev", "unset", []string{"run-timeout"}); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(saved(t, path), "RUN_TIMEOUT") {
@@ -120,10 +120,30 @@ func TestSetsAndUnsetsSettingsByTheirFriendlyKeys(t *testing.T) {
 	}
 }
 
+func TestSetsAValueFromStdin(t *testing.T) {
+	path := settled(t, ready)
+	var out bytes.Buffer
+
+	if err := changeSettings(strings.NewReader("new-token\n"), &out, "dev", "set", []string{"token", "--stdin"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := saved(t, path); !strings.Contains(got, "SPOTLIGHT_POOL_TOKEN=new-token\n") {
+		t.Errorf("saved:\n%s", got)
+	}
+	for _, args := range [][]string{{"token=x", "--stdin"}, {"token", "capacity", "--stdin"}} {
+		if err := changeSettings(strings.NewReader("x"), &out, "dev", "set", args); err == nil {
+			t.Errorf("%v took a value from stdin", args)
+		}
+	}
+	if err := changeSettings(strings.NewReader("x"), &out, "dev", "unset", []string{"token", "--stdin"}); err == nil {
+		t.Error("unset took --stdin")
+	}
+}
+
 func TestAnInvalidValueChangesNothing(t *testing.T) {
 	path := settled(t, ready)
 
-	err := changeSettings(new(bytes.Buffer), "dev", "set", []string{"capacity=8", "run-timeout=soon"})
+	err := changeSettings(nil, new(bytes.Buffer), "dev", "set", []string{"capacity=8", "run-timeout=soon"})
 	if err == nil || !strings.Contains(err.Error(), `run-timeout: "soon"`) {
 		t.Fatalf("error %v", err)
 	}
@@ -189,7 +209,7 @@ func TestALiveSettingReloadsTheRunningHost(t *testing.T) {
 	caught := signalled(t)
 	var out bytes.Buffer
 
-	if err := changeSettings(&out, "dev", "set", []string{"capacity=8", "image=runner:2"}); err != nil {
+	if err := changeSettings(nil, &out, "dev", "set", []string{"capacity=8", "image=runner:2"}); err != nil {
 		t.Fatal(err)
 	}
 	if sig := received(t, caught); sig != syscall.SIGHUP {
@@ -204,7 +224,7 @@ func TestASettingThatNeedsARestartRestartsWhenTheSandboxesFinish(t *testing.T) {
 	settled(t, ready)
 	caught := signalled(t)
 
-	if err := changeSettings(new(bytes.Buffer), "dev", "set", []string{"capacity=8", "url=https://other.test"}); err != nil {
+	if err := changeSettings(nil, new(bytes.Buffer), "dev", "set", []string{"capacity=8", "url=https://other.test"}); err != nil {
 		t.Fatal(err)
 	}
 	if sig := received(t, caught); sig != syscall.SIGUSR1 {

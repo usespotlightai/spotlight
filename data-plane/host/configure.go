@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"strings"
 	"text/tabwriter"
 
@@ -24,9 +23,9 @@ func configure(version string, args []string) error {
 	case "get":
 		return getSetting(os.Stdout, rest)
 	case "set":
-		return changeSettings(os.Stdout, version, "set", rest)
+		return changeSettings(os.Stdin, os.Stdout, version, "set", rest)
 	case "unset":
-		return changeSettings(os.Stdout, version, "unset", rest)
+		return changeSettings(os.Stdin, os.Stdout, version, "unset", rest)
 	case "keys":
 		return listKeys(os.Stdout)
 	default:
@@ -51,14 +50,7 @@ func shown(values map[string]string) []listed {
 			settings = append(settings, listed{Key: setting.Key, Env: setting.Env, Value: value})
 		}
 	}
-	var others []string
-	for env := range values {
-		if config.KeyOf(env) == env {
-			others = append(others, env)
-		}
-	}
-	slices.Sort(others)
-	for _, env := range others {
+	for _, env := range config.Others(values) {
 		settings = append(settings, listed{Key: env, Env: env, Value: values[env]})
 	}
 	return settings
@@ -118,7 +110,7 @@ func getSetting(out io.Writer, args []string) error {
 	return nil
 }
 
-func changeSettings(out io.Writer, version, verb string, args []string) error {
+func changeSettings(in io.Reader, out io.Writer, version, verb string, args []string) error {
 	shown := configSetHelp
 	if verb == "unset" {
 		shown = configUnsetHelp
@@ -126,9 +118,23 @@ func changeSettings(out io.Writer, version, verb string, args []string) error {
 
 	flags := flag.NewFlagSet("config "+verb, flag.ContinueOnError)
 	now := flags.Bool("now", false, "")
+	fromStdin := new(bool)
+	if verb == "set" {
+		fromStdin = flags.Bool("stdin", false, "")
+	}
 	pairs, err := parse(flags, args)
 	if err != nil || len(pairs) == 0 {
 		return fmt.Errorf("%s", shown.Synopsis())
+	}
+	if *fromStdin {
+		if len(pairs) != 1 || strings.Contains(pairs[0], "=") {
+			return fmt.Errorf("--stdin takes one key and reads its value\n%s", shown.Synopsis())
+		}
+		value, err := io.ReadAll(in)
+		if err != nil {
+			return err
+		}
+		pairs[0] += "=" + strings.TrimRight(string(value), "\r\n")
 	}
 
 	file, err := config.Open(config.Path())

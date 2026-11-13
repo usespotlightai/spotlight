@@ -32,7 +32,7 @@ func (s Service) Install(out io.Writer) error {
 	case "darwin":
 		return s.launchd(out)
 	default:
-		return fmt.Errorf("installing a service on %s is not supported; run `spotlight host` under your own supervisor", runtime.GOOS)
+		return fmt.Errorf("installing a service on %s is not supported; run `spotlight host serve` under your own supervisor", runtime.GOOS)
 	}
 }
 
@@ -231,7 +231,7 @@ func Logs(follow bool, lines int) (*exec.Cmd, error) {
 
 func installedPath() (string, error) {
 	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
-		return "", fmt.Errorf("a service on %s is not supported; run `spotlight host` under your own supervisor", runtime.GOOS)
+		return "", fmt.Errorf("a service on %s is not supported; run `spotlight host serve` under your own supervisor", runtime.GOOS)
 	}
 	path, ok := Installed()
 	if !ok {
@@ -291,7 +291,7 @@ func SystemdUnit(s Service, system bool) string {
 		"Wants=network-online.target",
 		"",
 		"[Service]",
-		"ExecStart=" + commandQuoted(s.Binary) + " host",
+		"ExecStart=" + commandQuoted(s.Binary) + " host serve",
 		"Environment=" + settingQuoted("SPOTLIGHT_HOST_CONFIG="+s.Config),
 		"ExecReload=/bin/kill -HUP $MAINPID",
 		"Restart=always",
@@ -320,7 +320,7 @@ func LaunchdPlist(s Service, logs string) string {
 <plist version="1.0">
 <dict>
   <key>Label</key><string>` + label + `</string>
-  <key>ProgramArguments</key><array><string>` + escaped(s.Binary) + `</string><string>host</string></array>
+  <key>ProgramArguments</key><array><string>` + escaped(s.Binary) + `</string><string>host</string><string>serve</string></array>
   <key>EnvironmentVariables</key>
   <dict>
     <key>SPOTLIGHT_HOST_CONFIG</key><string>` + escaped(s.Config) + `</string>

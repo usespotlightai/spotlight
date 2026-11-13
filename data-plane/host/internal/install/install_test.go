@@ -14,7 +14,7 @@ func TestTheSystemdUnitRestartsTheHostAndLetsItsSandboxesStopInTime(t *testing.T
 	unit := install.SystemdUnit(host, true)
 
 	for _, want := range []string{
-		`ExecStart="/usr/local/bin/spotlight" host`,
+		`ExecStart="/usr/local/bin/spotlight" host serve`,
 		`Environment="SPOTLIGHT_HOST_CONFIG=/etc/spotlight/host.env"`,
 		"ExecReload=/bin/kill -HUP $MAINPID",
 		"Restart=always",
@@ -38,7 +38,7 @@ func TestTheLaunchdAgentIsAPlistThatKeepsTheHostAlive(t *testing.T) {
 	if err := xml.Unmarshal([]byte(plist), new(struct{})); err != nil {
 		t.Fatalf("not well-formed: %v\n%s", err, plist)
 	}
-	for _, want := range []string{"<key>KeepAlive</key><true/>", "<string>/Users/a&amp;b/bin/spotlight</string><string>host</string>", "SPOTLIGHT_HOST_CONFIG"} {
+	for _, want := range []string{"<key>KeepAlive</key><true/>", "<string>/Users/a&amp;b/bin/spotlight</string><string>host</string><string>serve</string>", "SPOTLIGHT_HOST_CONFIG"} {
 		if !strings.Contains(plist, want) {
 			t.Errorf("the agent lacks %q", want)
 		}
@@ -49,7 +49,7 @@ func TestTheSystemdUnitSurvivesAPathSystemdWouldOtherwiseExpand(t *testing.T) {
 	unit := install.SystemdUnit(install.Service{Binary: "/opt/my $tools/spotlight", Config: "/etc/50%$HOME.env"}, true)
 
 	for _, want := range []string{
-		`ExecStart="/opt/my $$tools/spotlight" host`,
+		`ExecStart="/opt/my $$tools/spotlight" host serve`,
 		`Environment="SPOTLIGHT_HOST_CONFIG=/etc/50%%$HOME.env"`,
 	} {
 		if !strings.Contains(unit, want) {

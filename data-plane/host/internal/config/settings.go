@@ -12,41 +12,53 @@ import (
 type Setting struct {
 	Key    string
 	Env    string
+	Group  string
 	Live   bool
 	Secret bool
 }
 
+const (
+	GroupConnection = "connection"
+	GroupSandboxes  = "sandboxes"
+	GroupEgress     = "egress"
+	GroupHost       = "host"
+	GroupTelemetry  = "telemetry"
+	GroupOther      = "other"
+)
+
+var Groups = []string{GroupConnection, GroupSandboxes, GroupEgress, GroupHost, GroupTelemetry, GroupOther}
+
 var Settings = []Setting{
-	{Key: "url", Env: envURL},
-	{Key: "token", Env: envPoolToken, Secret: true},
-	{Key: "trust", Env: envTrust},
-	{Key: "oidc-token-file", Env: envTokenFile},
-	{Key: "name", Env: envName, Live: true},
-	{Key: "capacity", Env: envCapacity, Live: true},
-	{Key: "image", Env: envImage, Live: true},
-	{Key: "registry-config", Env: envRegistry},
-	{Key: "run-timeout", Env: envRunTimeout, Live: true},
-	{Key: "sandbox-url", Env: envSandboxURL, Live: true},
-	{Key: "sandbox-env", Env: envSandboxEnv, Live: true},
-	{Key: "sandbox-pass", Env: envPass, Live: true},
-	{Key: "sandbox-network", Env: envNetwork, Live: true},
-	{Key: "sandbox-hosts", Env: envHosts, Live: true},
-	{Key: "egress-image", Env: envEgressImg, Live: true},
-	{Key: "egress-allow", Env: envEgressOK, Live: true},
-	{Key: "egress-secret-allow", Env: envSecretAllow, Live: true},
-	{Key: "egress-env", Env: envEgressEnv, Live: true},
-	{Key: "egress-pass", Env: envEgressPass, Live: true},
-	{Key: "egress-ca-bundle", Env: envCABundle, Live: true},
-	{Key: "auto-update", Env: envAutoUpdate, Live: true},
-	{Key: "log-level", Env: "LOG_LEVEL"},
-	{Key: "state", Env: envState},
-	{Key: "docker-host", Env: envDocker},
-	{Key: "releases-url", Env: envReleases},
-	{Key: "health-addr", Env: telemetry.HealthVar},
-	{Key: "sentry-dsn", Env: "SENTRY_DSN"},
-	{Key: "sentry-environment", Env: "SENTRY_ENVIRONMENT"},
-	{Key: "traces-sampler", Env: telemetry.SamplerVar},
-	{Key: "traces-sampler-arg", Env: telemetry.SamplerArgVar},
+	{Key: "url", Env: envURL, Group: GroupConnection},
+	{Key: "token", Env: envPoolToken, Group: GroupConnection, Secret: true},
+	{Key: "trust", Env: envTrust, Group: GroupConnection},
+	{Key: "oidc-token-file", Env: envTokenFile, Group: GroupConnection},
+	{Key: "name", Env: envName, Group: GroupConnection, Live: true},
+	{Key: "capacity", Env: envCapacity, Group: GroupSandboxes, Live: true},
+	{Key: "image", Env: envImage, Group: GroupSandboxes, Live: true},
+	{Key: "registry-config", Env: envRegistry, Group: GroupSandboxes},
+	{Key: "run-timeout", Env: envRunTimeout, Group: GroupSandboxes, Live: true},
+	{Key: "sandbox-url", Env: envSandboxURL, Group: GroupSandboxes, Live: true},
+	{Key: "sandbox-env", Env: envSandboxEnv, Group: GroupSandboxes, Live: true},
+	{Key: "sandbox-pass", Env: envPass, Group: GroupSandboxes, Live: true},
+	{Key: "sandbox-network", Env: envNetwork, Group: GroupSandboxes, Live: true},
+	{Key: "sandbox-hosts", Env: envHosts, Group: GroupSandboxes, Live: true},
+	{Key: "egress-image", Env: envEgressImg, Group: GroupEgress, Live: true},
+	{Key: "egress-allow", Env: envEgressOK, Group: GroupEgress, Live: true},
+	{Key: "egress-secret-allow", Env: envSecretAllow, Group: GroupEgress, Live: true},
+	{Key: "egress-env", Env: envEgressEnv, Group: GroupEgress, Live: true},
+	{Key: "egress-pass", Env: envEgressPass, Group: GroupEgress, Live: true},
+	{Key: "egress-ca-bundle", Env: envCABundle, Group: GroupEgress, Live: true},
+	{Key: "auto-update", Env: envAutoUpdate, Group: GroupHost, Live: true},
+	{Key: "log-level", Env: "LOG_LEVEL", Group: GroupHost},
+	{Key: "state", Env: envState, Group: GroupHost},
+	{Key: "docker-host", Env: envDocker, Group: GroupHost},
+	{Key: "releases-url", Env: envReleases, Group: GroupHost},
+	{Key: "health-addr", Env: telemetry.HealthVar, Group: GroupHost},
+	{Key: "sentry-dsn", Env: "SENTRY_DSN", Group: GroupTelemetry},
+	{Key: "sentry-environment", Env: "SENTRY_ENVIRONMENT", Group: GroupTelemetry},
+	{Key: "traces-sampler", Env: telemetry.SamplerVar, Group: GroupTelemetry},
+	{Key: "traces-sampler-arg", Env: telemetry.SamplerArgVar, Group: GroupTelemetry},
 }
 
 var variable = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
@@ -59,7 +71,7 @@ func Lookup(key string) (Setting, error) {
 		}
 	}
 	if variable.MatchString(key) {
-		return Setting{Key: key, Env: key}, nil
+		return Setting{Key: key, Env: key, Group: GroupOther}, nil
 	}
 
 	return Setting{}, fmt.Errorf("%q is not a host setting; `spotlight host config keys` lists them", key)
@@ -72,6 +84,18 @@ func KeyOf(env string) string {
 		}
 	}
 	return env
+}
+
+// Others names the variables in values that the table does not name, in order.
+func Others(values map[string]string) []string {
+	var others []string
+	for env := range values {
+		if KeyOf(env) == env {
+			others = append(others, env)
+		}
+	}
+	slices.Sort(others)
+	return others
 }
 
 func Mask(value string) string {

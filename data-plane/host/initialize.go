@@ -281,7 +281,7 @@ func serveIt(out io.Writer, version string, cfg config.Config, noService bool) e
 	}
 
 	if noService {
-		fmt.Fprintln(out, "\nStart the host with: spotlight host")
+		fmt.Fprintln(out, "\nStart the host with: spotlight host serve")
 		return nil
 	}
 
