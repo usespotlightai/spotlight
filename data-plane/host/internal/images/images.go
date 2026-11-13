@@ -79,8 +79,6 @@ func (a Allowed) Disallowed(named []string) []string {
 	return disallowed
 }
 
-const HarnessExamples = "https://github.com/usespotlightai/spotlight/tree/main/.docker/runner/examples"
-
 var (
 	publishedRelease = regexp.MustCompile(`^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-rc\.(0|[1-9]\d*))?$`)
 	patternShape     = regexp.MustCompile(`^[a-z0-9][a-z0-9._:/@-]*$`)

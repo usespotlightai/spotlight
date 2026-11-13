@@ -23,6 +23,7 @@ import {
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { bearerIn, TRUST_HEADER } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
@@ -32,13 +33,19 @@ import {
   RecordHostCallResponseCommand,
 } from '@runs/application/commands/host-call.commands';
 import { ClaimHostWorkCommand } from '@runs/application/commands/runner.commands';
+import type { HarnessKeysDto } from '@runs/application/dto/harness-keys.dto';
 import type {
   HostCallClaimDto,
   RecordHostCallResponseDto,
 } from '@runs/application/dto/host-call.dto';
 import type { HostRequirementsDto } from '@runs/application/dto/host-requirements.dto';
 import type { HostClaimDto } from '@runs/application/dto/host.dto';
-import { HostRequirementsQuery } from '@runs/application/queries/host.queries';
+import {
+  HarnessKeysQuery,
+  HostRequirementsQuery,
+} from '@runs/application/queries/host.queries';
+import { HarnessKeysRequestDto } from '@runs/presentation/http/dto/egress.request.dto';
+import { HarnessKeysResponseDto } from '@runs/presentation/http/dto/egress.response.dto';
 import { HarnessProbeResponseDto } from '@runs/presentation/http/dto/harness-probe.response.dto';
 import {
   ClaimHostCallRequestDto,
@@ -58,6 +65,7 @@ import {
   WarmSandboxResponseDto,
 } from '@runs/presentation/http/dto/runner.response.dto';
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
+import { EgressSecretsHttpMapper } from '@runs/presentation/http/mappers/egress-secrets.http.mapper';
 import { HostCallResponseHttpMapper } from '@runs/presentation/http/mappers/host-call-response.http.mapper';
 
 interface Answerable {
@@ -118,7 +126,43 @@ export class HostWorkController {
           ),
       ),
       required.images,
+      required.harnessKeys,
     );
+  }
+
+  @Post('harness-keys')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'fetchHarnessKeys',
+    summary:
+      'The harness keys of the host’s workspace, for the egress of its image probe',
+    description:
+      'Called by a host before it probes an image for models, with the credential it claims runs with. The response holds each harness key that the workspace holds as a secret, for each host it is bound to. Values that Spotlight stores come back sealed to the recipient, bound to an empty run id. For a value in an external store, the response gives the external reference that egress reads. Spotlight grants nothing to a run.',
+  })
+  @ApiOkResponse({ type: HarnessKeysResponseDto })
+  @ApiUnprocessableEntityResponse({
+    description: 'The recipient is not an X25519 public key',
+  })
+  async harnessKeys(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers(TRUST_HEADER) trust: string | undefined,
+    @Body() body: HarnessKeysRequestDto,
+  ): Promise<HarnessKeysResponseDto> {
+    const fetched = await this.queryBus.execute<
+      HarnessKeysQuery,
+      HarnessKeysDto
+    >(
+      new HarnessKeysQuery(
+        { bearer: bearerIn(authorization), trust },
+        typeof body?.recipient === 'string' ? body.recipient : '',
+      ),
+    );
+
+    if (fetched.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
+    }
+
+    return EgressSecretsHttpMapper.toHarnessKeysResponse(fetched);
   }
 
   @Post('claim')

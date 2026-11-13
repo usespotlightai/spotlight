@@ -163,7 +163,7 @@ services:
   runner-claude-code:
     image: spotlight-runner:dev-claude-code
     build:
-      context: .docker/runner/examples
+      context: data-plane/host/internal/harnesses/dockerfiles
       dockerfile: claude-code.Dockerfile
       additional_contexts:
         base: service:runner
@@ -175,7 +175,7 @@ services:
   runner-codex:
     image: spotlight-runner:dev-codex
     build:
-      context: .docker/runner/examples
+      context: data-plane/host/internal/harnesses/dockerfiles
       dockerfile: codex.Dockerfile
       additional_contexts:
         base: service:runner-claude-code
@@ -187,7 +187,7 @@ services:
   runner-cursor:
     image: spotlight-runner:dev-cursor
     build:
-      context: .docker/runner/examples
+      context: data-plane/host/internal/harnesses/dockerfiles
       dockerfile: cursor.Dockerfile
       additional_contexts:
         base: service:runner-codex
@@ -199,7 +199,7 @@ services:
   runner-harnesses:
     image: spotlight-runner:dev-harnesses
     build:
-      context: .docker/runner/examples
+      context: data-plane/host/internal/harnesses/dockerfiles
       dockerfile: opencode.Dockerfile
       additional_contexts:
         base: service:runner-cursor

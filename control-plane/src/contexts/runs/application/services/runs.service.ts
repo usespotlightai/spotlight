@@ -11,6 +11,7 @@ import type {
   StopRequest,
 } from '@runs/application/ports/runs.port';
 import { canonicalOrder } from '@runs/application/services/canonical-order';
+import type { HeldHarnessKeys } from '@runs/application/services/held-harness-keys.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.error';
 import { InvalidRunSpecError } from '@runs/domain/exceptions/invalid-run-spec.error';
@@ -37,6 +38,7 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -49,6 +51,7 @@ export class Runs implements RunsPort {
     private readonly runs: RunRepository,
     private readonly hash: ContentHashPort,
     private readonly clock: ClockPort,
+    private readonly harnessKeys: HeldHarnessKeys,
   ) {}
 
   async enqueue(order: RunOrderContract): Promise<RunEnqueueing> {
@@ -59,7 +62,14 @@ export class Runs implements RunsPort {
       return ENQUEUED;
     }
 
-    const queued = this.queued(order, fingerprint);
+    const queued = this.queued(
+      order,
+      fingerprint,
+      await this.harnessKeys.of(
+        WorkspaceId.of(order.workspaceId),
+        HarnessId.of(order.harness),
+      ),
+    );
 
     if (!(queued instanceof Run)) {
       return queued;
@@ -82,6 +92,7 @@ export class Runs implements RunsPort {
   private queued(
     order: RunOrderContract,
     fingerprint: string,
+    harnessKeys: readonly SecretName[],
   ): Run | RunEnqueueing {
     try {
       return Run.enqueue({
@@ -112,7 +123,9 @@ export class Runs implements RunsPort {
           order.placement.labelGroups,
           order.placement.image ? RunnerImage.of(order.placement.image) : null,
         ),
-        spec: RunSpecMapper.received(order.spec),
+        spec: RunSpecMapper.received(order.spec).wearingHarnessKeys(
+          harnessKeys,
+        ),
         orderFingerprint: fingerprint,
         refusal: order.refusal,
         now: this.clock.now(),

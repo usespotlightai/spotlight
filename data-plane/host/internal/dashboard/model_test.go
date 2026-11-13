@@ -156,7 +156,8 @@ func settle(m model, cmd tea.Cmd) model {
 	case logLineMsg, logEndedMsg:
 		m, _ = update(m, msg)
 		return m
-	case statusMsg, settingsMsg, loginsMsg, editorsMsg, ranMsg, loginStartedMsg, loginDoneMsg, loginPageMsg:
+	case statusMsg, settingsMsg, loginsMsg, editorsMsg, ranMsg, loginStartedMsg, loginDoneMsg, loginPageMsg,
+		setupLoadedMsg, setupHeldMsg, setupStepMsg, buildLineMsg:
 		m, next := update(m, msg)
 		return settle(m, next)
 	default:
@@ -188,7 +189,11 @@ func update(m model, msg tea.Msg) (model, tea.Cmd) {
 }
 
 func started(host *fakeHost) model {
-	m := newModel(host, host, host, "20261113-01")
+	return startedWith(host, nil)
+}
+
+func startedWith(host *fakeHost, setup Setup) model {
+	m := newModel(host, host, host, setup, "20261113-01")
 	m = settle(m, m.check())
 	m = settle(m, m.loadLogins())
 	m = settle(m, m.loadEditors())
@@ -281,7 +286,7 @@ func TestServiceActionsNeedAnInstalledService(t *testing.T) {
 }
 
 func TestInitWaitsForTheFirstCheck(t *testing.T) {
-	m := newModel(&fakeHost{}, &fakeHost{}, &fakeHost{}, "dev")
+	m := newModel(&fakeHost{}, &fakeHost{}, &fakeHost{}, nil, "dev")
 	if slices.Contains(footerKeys(m), "i") {
 		t.Fatal("init shows before the host is checked")
 	}
@@ -992,7 +997,7 @@ func TestTheChooserStillLogsInWithA(t *testing.T) {
 
 func TestTheChooserWaitsForTheLogins(t *testing.T) {
 	host := &fakeHost{status: notInstalled()}
-	m := newModel(host, host, host, "dev")
+	m := newModel(host, host, host, nil, "dev")
 	m = settle(m, m.check())
 	m = settle(m, m.loadEditors())
 	if m.firstRun() {
@@ -1015,7 +1020,7 @@ func TestAHostOfRootSaysToUseSudo(t *testing.T) {
 
 func TestUnderSudoThePersonsLinesAreHidden(t *testing.T) {
 	host := &fakeHost{status: serving(0)}
-	m := newModel(host, nil, nil, "dev")
+	m := newModel(host, nil, nil, nil, "dev")
 	m = settle(m, m.check())
 	m = settle(m, m.loadLogins())
 	m = sized(settle(m, m.loadEditors()), 100, 30)

@@ -503,7 +503,7 @@ func (c *Client) Attachment(
 		url.PathEscape(runID), url.PathEscape(attachmentID),
 	)
 
-	response, err := c.send(ctx, http.MethodGet, path, nil)
+	response, err := c.send(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return fmt.Errorf("fetch an attachment: %w", err)
 	}
@@ -643,6 +643,16 @@ func (c *Client) FetchRunSecrets(ctx context.Context, recipient string) (protoco
 	return fetched, nil
 }
 
+func (c *Client) FetchHarnessKeys(ctx context.Context, recipient string) (protocol.EgressSecrets, error) {
+	var fetched protocol.EgressSecrets
+	body := protocol.EgressSecretsRequest{Recipient: recipient}
+	if err := c.do(ctx, http.MethodPost, "/api/hosts/harness-keys", body, &fetched); err != nil {
+		return protocol.EgressSecrets{}, fmt.Errorf("fetch the harness keys: %w", err)
+	}
+
+	return fetched, nil
+}
+
 func (c *Client) AuthorizeEgress(ctx context.Context, proxyCredential string) (protocol.EgressAuthorizeResponse, error) {
 	var authorized protocol.EgressAuthorizeResponse
 	body := protocol.EgressAuthorizeRequest{ProxyCredential: proxyCredential}
@@ -698,26 +708,42 @@ func (c *Client) Request(ctx context.Context, method, path string, in, out any) 
 }
 
 func (c *Client) request(ctx context.Context, method, path string, in, out any) (int, error) {
-	response, err := c.send(ctx, method, path, in)
-	if err != nil {
+	response, err := c.exchange(ctx, method, path, nil, in, out)
+	if response == nil {
 		return 0, err
+	}
+	return response.StatusCode, err
+}
+
+func (c *Client) RequestWith(ctx context.Context, method, path string, headers http.Header, in, out any) (http.Header, error) {
+	response, err := c.exchange(ctx, method, path, headers, in, out)
+	if response == nil {
+		return nil, err
+	}
+	return response.Header, err
+}
+
+func (c *Client) exchange(ctx context.Context, method, path string, headers http.Header, in, out any) (*http.Response, error) {
+	response, err := c.send(ctx, method, path, headers, in)
+	if err != nil {
+		return nil, err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode >= 300 {
-		return response.StatusCode, rejection(method, path, response)
+		return response, rejection(method, path, response)
 	}
 
 	if out != nil && response.StatusCode != http.StatusNoContent {
 		if err := json.NewDecoder(response.Body).Decode(out); err != nil {
-			return response.StatusCode, fmt.Errorf("%s %s: %w", method, path, err)
+			return response, fmt.Errorf("%s %s: %w", method, path, err)
 		}
 	}
 
-	return response.StatusCode, nil
+	return response, nil
 }
 
-func (c *Client) send(ctx context.Context, method, path string, in any) (*http.Response, error) {
+func (c *Client) send(ctx context.Context, method, path string, headers http.Header, in any) (*http.Response, error) {
 	var body io.Reader
 	if in != nil {
 		encoded, err := json.Marshal(in)
@@ -734,6 +760,11 @@ func (c *Client) send(ctx context.Context, method, path string, in any) (*http.R
 	request, err := http.NewRequestWithContext(ctx, method, target.String(), body)
 	if err != nil {
 		return nil, err
+	}
+	for name, values := range headers {
+		for _, value := range values {
+			request.Header.Add(name, value)
+		}
 	}
 	if err := c.credential.Authorize(request); err != nil {
 		return nil, err
