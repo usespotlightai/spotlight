@@ -166,6 +166,7 @@ import { RequestReplayRejudging } from '@replays/application/services/request-re
 import { RequestReplaySideBySideJudging } from '@replays/application/services/request-replay-side-by-side-judging.service';
 import { RequestSideBySideJudging } from '@replays/application/services/request-side-by-side-judging.service';
 import { SearchFindings } from '@replays/application/services/search-findings.service';
+import { SearchReplaysToReuse } from '@replays/application/services/search-replays-to-reuse.service';
 import { SearchRunDispatch } from '@replays/application/services/search-run-dispatch.service';
 import { SearchSchedules } from '@replays/application/services/search-schedules.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
@@ -178,6 +179,7 @@ import { StartSearch } from '@replays/application/services/start-search.service'
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import { StationChangeTests } from '@replays/application/services/station-change-tests.service';
 import { StationConfigs } from '@replays/application/services/station-configs.service';
+import { StopFailedChecks } from '@replays/application/services/stop-failed-checks.service';
 import { StopSupersededChecks } from '@replays/application/services/stop-superseded-checks.service';
 import { TestStationChange } from '@replays/application/services/test-station-change.service';
 import { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
@@ -645,6 +647,23 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
+    provide: StopFailedChecks,
+    inject: [
+      DrizzleReplayCheckRepository,
+      DrizzleReplayRepository,
+      CheckEvaluations,
+      CLOCK,
+      TRANSACTION,
+    ],
+    useFactory: (
+      checks: DrizzleReplayCheckRepository,
+      replays: DrizzleReplayRepository,
+      evaluations: CheckEvaluations,
+      clock: ClockPort,
+      transaction: TransactionPort,
+    ) => new StopFailedChecks(checks, replays, evaluations, clock, transaction),
+  },
+  {
     provide: StopSupersededChecks,
     inject: [
       DrizzleReplayCheckRepository,
@@ -712,6 +731,14 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ) => new SetHealths(configs, replays, candidates),
   },
   {
+    provide: SearchReplaysToReuse,
+    inject: [DrizzleReplayRepository, DrizzleCandidateRepository],
+    useFactory: (
+      replays: DrizzleReplayRepository,
+      candidates: DrizzleCandidateRepository,
+    ) => new SearchReplaysToReuse(replays, candidates),
+  },
+  {
     provide: CheckEvaluations,
     inject: [DrizzleReplayRepository, DrizzleReplaySetRepository],
     useFactory: (
@@ -726,6 +753,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     LiveCandidates,
     StartCheckReplays,
     CheckEvaluations,
+    SearchReplaysToReuse,
     DrizzleReplaySetRepository,
     DrizzleReplayCheckRepository,
     IDEMPOTENT_CREATES,
@@ -1861,6 +1889,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       StartSearchReplays,
       StartCheckReplays,
       StopSupersededChecks,
+      StopFailedChecks,
       NoticeSearchResults,
       PickSearchCandidates,
       SearchSchedules,
@@ -1901,6 +1930,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       startingSearchReplays: StartSearchReplays,
       startingCheckReplays: StartCheckReplays,
       stoppingSupersededChecks: StopSupersededChecks,
+      stoppingFailedChecks: StopFailedChecks,
       noticingResults: NoticeSearchResults,
       picking: PickSearchCandidates,
       schedules: SearchSchedules,
@@ -1941,6 +1971,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           startingSearchReplays,
           startingCheckReplays,
           stoppingSupersededChecks,
+          stoppingFailedChecks,
           noticingResults,
           picking,
           schedules,

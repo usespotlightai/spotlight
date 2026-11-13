@@ -20,8 +20,10 @@ import {
   snapshotsFor,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { SearchReplaysToReuse } from '@replays/application/services/search-replays-to-reuse.service';
 import { StartCheckReplays } from '@replays/application/services/start-check-replays.service';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
+import { StopFailedChecks } from '@replays/application/services/stop-failed-checks.service';
 import { StopSupersededChecks } from '@replays/application/services/stop-superseded-checks.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
@@ -29,15 +31,23 @@ import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
+import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import {
   aSet,
   BY,
+  candidateOf,
+  HASHES,
   LIVE_FINGERPRINT,
   LIVE_HASHES,
   NOW,
+  ranToEnd,
   replayedAs,
+  replayFor,
+  runIds,
   STATION,
+  SEARCH_ID,
   sha256,
+  slots,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -161,6 +171,10 @@ const start = async (
       TRANSACTION,
     ),
     evaluations(),
+    new SearchReplaysToReuse(
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
     memory.setRepository,
     checks,
     FRESH,
@@ -222,6 +236,8 @@ const idOf = (started: ReplayCheckStartedOutcome): string => {
 
 const checkOf = (id: string): ReplayCheck =>
   checks.stored.get(id) as ReplayCheck;
+
+const ownReplayOf = (id: string): ReplayId => checkOf(id).replayId as ReplayId;
 
 const wantedBaselines = () =>
   memory.events.filter(
@@ -298,7 +314,7 @@ describe('StartReplayCheckHandler', () => {
       }),
     );
     const check = checkOf(id);
-    const replay = memory.replays.get(check.replayId.value);
+    const replay = memory.replays.get(check.replayId?.value ?? '');
     const candidate = memory.candidates.get(
       check.candidateId.value,
     ) as Candidate;
@@ -359,8 +375,8 @@ describe('StartReplayCheckHandler', () => {
     const first = idOf(await start());
 
     memory.replays.set(
-      checkOf(first).replayId.value,
-      (memory.replays.get(checkOf(first).replayId.value) as Replay).stop(
+      ownReplayOf(first).value,
+      (memory.replays.get(ownReplayOf(first).value) as Replay).stop(
         NOW,
         BY,
         'search-ended',
@@ -430,7 +446,7 @@ describe('StartReplayCheckHandler', () => {
     expect((await read(two)).baselineReplayId).toBe(baselines[0]?.id.value);
 
     await finished(baselines[0].id);
-    await finished(checkOf(two).replayId, false);
+    await finished(ownReplayOf(two), false);
     expect((await read(two)).result).toBe('failed');
   });
 
@@ -549,7 +565,8 @@ describe('EnsureCheckBaselines', () => {
 
     await ensuring();
     expect(baselines()).toHaveLength(1);
-    expect(baselines()[0]?.ceiling.amount).toBe(7.5);
+    expect(baselines()[0]?.repeats).toBe(3);
+    expect(baselines()[0]?.ceiling.amount).toBe(22.5);
     expect(checkOf(id).baseline).toBe('awaiting');
 
     await ensuring();
@@ -571,7 +588,7 @@ describe('EnsureCheckBaselines', () => {
     });
 
     await ensuring();
-    await finished(checkOf(id).replayId);
+    await finished(ownReplayOf(id));
 
     expect(baselines()).toHaveLength(0);
     expect(checkOf(id).baseline).toBe('unavailable');
@@ -584,7 +601,7 @@ describe('EnsureCheckBaselines', () => {
   it('starts no baseline for a check whose replay stopped, which reads as stopped', async () => {
     keptAtStation();
     const id = idOf(await start());
-    const replay = memory.replays.get(checkOf(id).replayId.value) as Replay;
+    const replay = memory.replays.get(ownReplayOf(id).value) as Replay;
     await memory.replayRepository.save(replay.stop(NOW, BY, 'search-ended'));
 
     await ensuring();
@@ -604,7 +621,7 @@ describe('EnsureCheckBaselines', () => {
     await ensuring();
     await ensuring();
     memory.replays.delete(baselines()[0]?.id.value ?? '');
-    await finished(checkOf(id).replayId);
+    await finished(ownReplayOf(id));
 
     expect(await read(id)).toMatchObject({
       result: 'undecided',
@@ -632,7 +649,7 @@ describe('ReadReplayCheckHandler', () => {
       scoringPinnedToLive: ['check', 'runners'],
       taskCount: 3,
     });
-    expect(check.replayId.value).toBeTruthy();
+    expect(check.replayId?.value).toBeTruthy();
     expect((await read(id)).tasks).toEqual([
       expect.objectContaining({
         regressed: false,
@@ -691,7 +708,7 @@ describe('StopSupersededChecks', () => {
   };
 
   const replayOf = (id: string) =>
-    memory.replays.get(checkOf(id).replayId.value) as Replay;
+    memory.replays.get(ownReplayOf(id).value) as Replay;
 
   it('stops the replay of an earlier check of the same pull request once a later change of it starts a check', async () => {
     keptAtStation();
@@ -728,5 +745,158 @@ describe('StopSupersededChecks', () => {
     await stoppingSuperseded();
 
     expect(replayOf(only).current).not.toBe('stopped');
+  });
+});
+
+describe('StartReplayCheckHandler, after a search', () => {
+  const searched = (
+    set: ReplaySet,
+    subsets: readonly (readonly RunId[])[],
+  ): void => {
+    memory.candidates.set('candidate_live', candidateOf('live'));
+    memory.candidates.set('candidate_searched', candidateOf('searched'));
+    memory.replays.set(
+      'replay_seed',
+      replayedAs(
+        replayFor(set, 'replay_seed', 'candidate_live', null, true, 3),
+        () => 'completed',
+      ),
+    );
+    subsets.forEach((runs, index) =>
+      memory.replays.set(
+        `replay_searched_${index}`,
+        replayedAs(
+          replayFor(
+            set,
+            `replay_searched_${index}`,
+            'candidate_searched',
+            runs,
+            false,
+            1,
+            SEARCH_ID,
+            'replay_seed',
+          ),
+          () => 'completed',
+        ),
+      ),
+    );
+  };
+
+  const plannedAsSearched = (): void => {
+    const planned = suppliers.configs.validate;
+
+    suppliers.configs.validate = async (...input) => {
+      const found = await planned(...input);
+
+      return found?.ok ? { ...found, hashes: HASHES } : found;
+    };
+  };
+
+  beforeEach(plannedAsSearched);
+
+  it('takes a search’s replays of the same config as its result, against the search’s seed, and replays nothing once they cover every run', async () => {
+    const set = keptAtStation();
+    const [first, second, third] = set.runs as [RunId, RunId, RunId];
+    searched(set, [[first, second], [third]]);
+    const before = memory.replays.size;
+
+    const id = idOf(await start());
+    const check = checkOf(id);
+    const shown = await read(id);
+
+    expect(check.replayId).toBeNull();
+    expect(check.reused?.seed.value).toBe('replay_seed');
+    expect(check.reused?.runs.map((each) => each.value).sort()).toEqual(
+      set.runs.map((each) => each.value).sort(),
+    );
+    expect(memory.replays.size).toBe(before);
+    expect(wantedBaselines()).toHaveLength(0);
+    expect(shown.result).toBe('passed');
+    expect(shown.baselineReplayId).toBe('replay_seed');
+    expect([...shown.reusedReplayIds].sort()).toEqual([
+      'replay_searched_0',
+      'replay_searched_1',
+    ]);
+    expect(shown.tasks).toHaveLength(3);
+    expect(shown.candidate.spent?.amount).toBe(0);
+  });
+
+  it('replays only the runs no search replayed, against the search’s seed', async () => {
+    const set = keptAtStation();
+    const [first, second, third] = set.runs as [RunId, RunId, RunId];
+    searched(set, [[first, second]]);
+
+    const id = idOf(await start());
+    const own = memory.replays.get(ownReplayOf(id).value) as Replay;
+
+    expect(own.runSubset?.map((each) => each.value)).toEqual([third.value]);
+    expect(own.pairwiseReferenceId?.value).toBe('replay_seed');
+    expect(wantedBaselines()).toHaveLength(0);
+    expect((await read(id)).result).toBe('running');
+
+    await finished(own.id);
+
+    const shown = await read(id);
+
+    expect(shown.result).toBe('passed');
+    expect(shown.taskCount).toBe(3);
+  });
+
+  it('answers with the search’s replays rather than an earlier check of the change that replayed it afresh', async () => {
+    const set = keptAtStation();
+    suppliers.lines.threshold = threshold(0);
+    const fresh = idOf(await start());
+
+    await startingBaselines();
+    for (const each of [...memory.replays.values()].filter(
+      (replay) => replay.baseline,
+    )) {
+      await finished(each.id);
+    }
+    await finished(ownReplayOf(fresh), false);
+    expect((await read(fresh)).result).toBe('failed');
+
+    searched(set, [set.runs]);
+    const again = idOf(await start());
+
+    expect(again).not.toBe(fresh);
+    expect(checkOf(again).attempt).toBe(2);
+    expect((await read(again)).result).toBe('passed');
+  });
+});
+
+describe('StopFailedChecks', () => {
+  it('stops the rest of a check’s replay once more tasks regressed than its threshold allows', async () => {
+    suppliers.lines.threshold = threshold(0);
+    const set = keptAtStation();
+    const id = idOf(await start());
+
+    await startingBaselines();
+    const baseline = [...memory.replays.values()].find(
+      (each) => each.baseline,
+    ) as Replay;
+    await finished(baseline.id);
+
+    const own = (memory.replays.get(ownReplayOf(id).value) as Replay).reserving(
+      slots(set.runs.length),
+      runIds(),
+    );
+    const [entry] = own.entries;
+    const run = entry?.run as RunId;
+    memory.replays.set(own.id.value, ranToEnd(own, run, 'failed', 1));
+
+    await new StopFailedChecks(
+      checks,
+      memory.replayRepository,
+      evaluations(),
+      CLOCK,
+      TRANSACTION,
+    ).concluded(new ReplayEntryConcluded(own.id, set.workspaceId, set.id, run));
+
+    const stopped = memory.replays.get(own.id.value) as Replay;
+
+    expect(stopped.wasStopped).toBe(true);
+    expect(stopped.stoppedBecause).toBe('check-failed');
+    expect((await read(id)).result).toBe('failed');
   });
 });

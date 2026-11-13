@@ -6,6 +6,7 @@ import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import type { SearchReplaysToReuse } from '@replays/application/services/search-replays-to-reuse.service';
 import type { StartCheckReplays } from '@replays/application/services/start-check-replays.service';
 import type {
   LiveConfig,
@@ -34,6 +35,7 @@ import { PlannedReference } from '@replays/domain/value-objects/planned-referenc
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import type { ReusedReplays } from '@replays/domain/value-objects/reused-replays.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import {
@@ -96,6 +98,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     private readonly snapshots: LiveCandidates,
     private readonly replaying: StartCheckReplays,
     private readonly evaluations: CheckEvaluations,
+    private readonly toReuse: SearchReplaysToReuse,
     private readonly sets: ReplaySetRepository,
     private readonly checks: ReplayCheckRepository,
     private readonly creates: IdempotentCreatesPort,
@@ -180,7 +183,13 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
       return prepared;
     }
 
-    const reusable = await this.reusable(gated, prepared, planned);
+    const reused = await this.toReuse.for({
+      set: gated.set,
+      candidate: prepared.validated.hashes,
+      live: prepared.validated.liveHashes,
+      repeats: planned.repeats,
+    });
+    const reusable = await this.reusable(gated, prepared, planned, reused);
     const candidate = reusable
       ? null
       : this.candidateOf(gated, prepared, planned);
@@ -298,6 +307,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     gated: Gated,
     { validated }: Prepared,
     planned: Planned,
+    reused: ReusedReplays | null,
   ): Promise<ReplayCheckId | null> {
     const { set, threshold } = gated;
     const setEntries = set.digestOfEntries((text) => this.hash.sha256(text));
@@ -316,6 +326,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
           planned.repeats,
           evaluation.result,
           planned.reference,
+          reused,
         )
       ) {
         return each.id;
@@ -349,7 +360,10 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     gated: Gated,
     { scored, validated }: Prepared,
     planned: Planned,
-    made: { readonly candidate: Candidate; readonly by: ChangeActor },
+    made: {
+      readonly candidate: Candidate;
+      readonly by: ChangeActor;
+    },
   ): Promise<string> {
     const set = await this.sets.locked(gated.set.id);
 
@@ -369,7 +383,14 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
       setEntries: set.digestOfEntries((text) => this.hash.sha256(text)),
       attempt: ReplayCheck.nextAttemptAfter(earlier, change),
       candidateId: made.candidate.id,
+      setRuns: set.runs,
       replayId: ReplayId.of(this.ids.generate()),
+      reused: await this.toReuse.for({
+        set,
+        candidate: validated.hashes,
+        live: validated.liveHashes,
+        repeats: planned.repeats,
+      }),
       reference: planned.reference,
       liveFingerprint: validated.changedFrom.from,
       candidateFingerprint: validated.fingerprint,

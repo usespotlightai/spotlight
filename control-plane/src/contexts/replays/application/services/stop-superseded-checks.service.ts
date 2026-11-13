@@ -28,7 +28,7 @@ export class StopSupersededChecks {
     );
 
     for (const earlier of ofPullRequest) {
-      if (check.supersedes(earlier)) {
+      if (check.supersedes(earlier) && earlier.replayId) {
         await this.stop(earlier.replayId);
       }
     }

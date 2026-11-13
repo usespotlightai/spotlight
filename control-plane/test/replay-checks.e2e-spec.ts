@@ -4,12 +4,27 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
+import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
+import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
+import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
+import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import { ReusedReplays } from '@replays/domain/value-objects/reused-replays.vo';
+import { SetEntriesDigest } from '@replays/domain/value-objects/set-entries-digest.vo';
+import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
+import { DrizzleReplayCheckRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-check.repository';
+import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
 import {
   WORKING_COPY_ARCHIVE_STORE,
   type WorkingCopyArchiveStorePort,
 } from '@runs/application/ports/working-copy-archive-store.port';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
@@ -911,6 +926,74 @@ describe('a replay check', () => {
       .body as { id: string; replayCheck: unknown }[];
     expect(lines.find((each) => each.id === DELIVERY)?.replayCheck).toEqual(
       LIVE_CHECK,
+    );
+  });
+});
+
+describe('a stored replay check', () => {
+  it('keeps the search replays it reuses, and no replay of its own when they cover every run', async () => {
+    const checks = app.get(DrizzleReplayCheckRepository);
+    const set = (await app
+      .get(DrizzleReplaySetRepository)
+      .find(ReplaySetId.of(keptSetId))) as ReplaySet;
+    const [first, ...rest] = set.runs as [RunId, ...RunId[]];
+    const reused = ReusedReplays.of({
+      seed: ReplayId.of(randomUUID()),
+      parts: [
+        { replayId: ReplayId.of(randomUUID()), runs: [first] },
+        { replayId: ReplayId.of(randomUUID()), runs: rest },
+      ],
+    });
+    const started = ReplayCheck.start({
+      id: ReplayCheckId.of(randomUUID()),
+      station: set.station,
+      stationKey: 'build',
+      setId: set.id,
+      setEntries: SetEntriesDigest.of('f'.repeat(64)),
+      attempt: 99,
+      candidateId: CandidateId.of(randomUUID()),
+      replayId: ReplayId.of(randomUUID()),
+      setRuns: set.runs,
+      reused,
+      reference: PlannedReference.of({ pullRequest: 4242 }),
+      liveFingerprint: StationFingerprint.of('a'.repeat(64)),
+      candidateFingerprint: StationFingerprint.of('b'.repeat(64)),
+      liveHashes: StationHashes.of({
+        behaviour: 'c'.repeat(64),
+        scoring: 'd'.repeat(64),
+      }),
+      candidateHashes: StationHashes.of({
+        behaviour: 'e'.repeat(64),
+        scoring: 'd'.repeat(64),
+      }),
+      threshold: ReplayThreshold.of({
+        maxRegressions: 0,
+        ceiling: 5,
+        currency: 'USD',
+        minGain: 0.1,
+      }),
+      repeats: 1,
+      scoringPinnedToLive: [],
+      createdAt: new Date(),
+      by: ChangeActor.spotlight(set.workspaceId),
+    });
+
+    await checks.add(started);
+
+    const found = await checks.find(started.id);
+
+    expect(found?.replayId).toBeNull();
+    expect(found?.reused?.seed.value).toBe(reused.seed.value);
+    expect(
+      found?.reused?.parts.map((each) => [
+        each.replayId.value,
+        each.runs.map((run) => run.value),
+      ]),
+    ).toEqual(
+      reused.parts.map((each) => [
+        each.replayId.value,
+        each.runs.map((run) => run.value),
+      ]),
     );
   });
 });

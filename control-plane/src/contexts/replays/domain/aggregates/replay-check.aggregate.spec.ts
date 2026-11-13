@@ -21,6 +21,8 @@ import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo'
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import { ReusedReplays } from '@replays/domain/value-objects/reused-replays.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
@@ -31,6 +33,8 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
     setId: ReplaySetId.of('set_1'),
     candidateId: CandidateId.of('candidate_planned'),
     replayId: ReplayId.of('replay_1'),
+    setRuns: aSet(2).runs,
+    reused: null,
     setEntries: ENTRIES,
     attempt: 1,
     reference: PlannedReference.of({ pullRequest: 42 }),
@@ -107,6 +111,7 @@ describe('ReplayCheck', () => {
         1,
         result,
         OWN,
+        null,
       );
 
     expect(reusable('running')).toBe(true);
@@ -122,6 +127,7 @@ describe('ReplayCheck', () => {
         1,
         'passed',
         OWN,
+        null,
       ),
     ).toBe(false);
     expect(
@@ -133,6 +139,7 @@ describe('ReplayCheck', () => {
         1,
         'passed',
         OWN,
+        null,
       ),
     ).toBe(false);
     expect(ReplayCheck.nextAttemptAfter([check], check.change)).toBe(
@@ -153,6 +160,7 @@ describe('ReplayCheck', () => {
         1,
         'passed',
         OWN,
+        null,
       ),
     ).toBe(false);
     expect(
@@ -164,6 +172,7 @@ describe('ReplayCheck', () => {
         1,
         'passed',
         OWN,
+        null,
       ),
     ).toBe(false);
   });
@@ -189,6 +198,7 @@ describe('ReplayCheck', () => {
         1,
         result,
         reference,
+        null,
       );
     const ofCommit = started({
       setId: SET.id,
@@ -208,6 +218,7 @@ describe('ReplayCheck', () => {
         1,
         'running',
         other,
+        null,
       ),
     ).toBe(true);
   });
@@ -234,6 +245,7 @@ describe('ReplayCheck', () => {
         3,
         'passed',
         OWN,
+        null,
       ),
     ).toBe(true);
     expect(
@@ -245,6 +257,7 @@ describe('ReplayCheck', () => {
         1,
         'passed',
         OWN,
+        null,
       ),
     ).toBe(false);
     expect(() => started({ repeats: 0 })).toThrow(InvalidReplayCheckError);
@@ -261,7 +274,16 @@ describe('ReplayCheck', () => {
     });
 
     expect(
-      check.reusableFor(check.change, SET.id, ENTRIES, wider, 1, 'passed', OWN),
+      check.reusableFor(
+        check.change,
+        SET.id,
+        ENTRIES,
+        wider,
+        1,
+        'passed',
+        OWN,
+        null,
+      ),
     ).toBe(true);
     for (const minGain of [0, -0.1, 1.5, Number.NaN]) {
       expect(() =>
@@ -322,5 +344,102 @@ describe('ReplayCheck', () => {
         minGain: 0.05,
       }).allows(2),
     ).toBe(true);
+  });
+});
+
+describe('ReplayCheck, reusing a search’s replays', () => {
+  const [FIRST, SECOND] = SET.runs as [RunId, RunId];
+  const reusing = (...runs: RunId[]) =>
+    ReusedReplays.of({
+      seed: ReplayId.of('replay_seed'),
+      parts: [{ replayId: ReplayId.of('replay_searched'), runs }],
+    });
+
+  it('replays nothing of its own when the reused replays cover every run of its set', () => {
+    expect(
+      started({ reused: reusing(FIRST, SECOND), setRuns: SET.runs }).replayId,
+    ).toBeNull();
+  });
+
+  it('replays only the runs the reused replays miss, against the search’s seed', () => {
+    const check = started({ reused: reusing(FIRST), setRuns: SET.runs });
+
+    expect(check.replayId?.value).toBe('replay_1');
+    expect(check.runSubsetIn(SET.runs)).toEqual([SECOND]);
+    expect(check.pairwiseReferenceFor(ReplayId.of('replay_live'))?.value).toBe(
+      'replay_seed',
+    );
+    expect(check.needsOwnBaseline).toBe(false);
+  });
+
+  it('refuses to reuse replays of runs outside its set', () => {
+    expect(() =>
+      started({ reused: reusing(FIRST, SECOND), setRuns: [FIRST] }),
+    ).toThrow(InvalidReplayCheckError);
+  });
+
+  it('measures against the seed once its own runs are known, and has no baseline once a reused replay is gone', () => {
+    const check = started({ reused: reusing(FIRST), setRuns: SET.runs });
+
+    expect(
+      check.settleReusedBaseline({ seed: true, reused: true, own: false })
+        .baseline,
+    ).toBe('awaiting');
+    expect(
+      check.settleReusedBaseline({ seed: true, reused: true, own: true })
+        .baseline,
+    ).toBe('found');
+    expect(
+      check.settleReusedBaseline({ seed: true, reused: false, own: true })
+        .baseline,
+    ).toBe('unavailable');
+    expect(
+      check.settleReusedBaseline({ seed: false, reused: true, own: true })
+        .baseline,
+    ).toBe('unavailable');
+  });
+
+  it('is reused for the same change only while it reuses the same search replays', () => {
+    const check = started({ reused: reusing(FIRST), setRuns: SET.runs });
+    const reusableWith = (reused: ReusedReplays | null) =>
+      check.reusableFor(
+        check.change,
+        check.setId,
+        ENTRIES,
+        check.threshold,
+        1,
+        'passed',
+        OWN,
+        reused,
+      );
+
+    expect(reusableWith(reusing(FIRST))).toBe(true);
+    expect(reusableWith(reusing(FIRST, SECOND))).toBe(false);
+    expect(reusableWith(null)).toBe(true);
+    expect(
+      started().reusableFor(
+        check.change,
+        check.setId,
+        ENTRIES,
+        check.threshold,
+        1,
+        'passed',
+        OWN,
+        reusing(FIRST),
+      ),
+    ).toBe(false);
+  });
+
+  it('measures against a baseline of at least three attempts, at a ceiling scaled to match', () => {
+    const check = started();
+
+    expect(check.baselineRepeats).toBe(3);
+    expect(check.baselineCeiling.amount).toBe(30);
+    expect(started({ repeats: 4 }).baselineRepeats).toBe(4);
+  });
+
+  it('stops its own replay once it has failed', () => {
+    expect(started().stopsItsReplayOn('failed')).toBe(true);
+    expect(started().stopsItsReplayOn('running')).toBe(false);
   });
 });

@@ -151,7 +151,7 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
   const missed = searching.split.searchedRuns[0]?.value;
   const searched = [
     replayedAs(
-      replayFor(set, 'replay_seed', 'candidate_live', null, true),
+      replayFor(set, 'replay_seed', 'candidate_live', null, true, 3),
       () => 'completed',
       2,
     ),

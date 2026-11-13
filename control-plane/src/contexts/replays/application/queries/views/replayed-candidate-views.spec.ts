@@ -146,7 +146,7 @@ describe('replayedCandidatesView', () => {
     expect(set.baseline).toMatchObject({
       replayId: 'replay_seed',
       state: 'finished',
-      scored: 10,
+      scored: 30,
       successRate: 1,
       costPerRun: 2,
       currency: 'USD',
@@ -288,13 +288,13 @@ describe('replayedCandidatesView', () => {
       chartStatus: 'priced',
     });
     expect(candidateNamed('terse').search?.seed.scored).toBe(
-      world.search.split.searched.length,
+      world.search.split.searched.length * 3,
     );
   });
 
   it('rates a candidate on the compared runs beside the baseline, apart from its overall rate', () => {
     const partial = replayedAs(
-      replayFor(aSet(5), 'replay_partial', 'candidate_live', null, true),
+      replayFor(aSet(5), 'replay_partial', 'candidate_live', null, true, 3),
       () => 'completed',
       2,
     );

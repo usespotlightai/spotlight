@@ -209,6 +209,11 @@ func checkAnswer(result string) string {
 	}
 	undecided := `null`
 	stopped := ``
+	replays := `"replayId":"replay_1","reusedReplayIds":[]`
+	if result == "reused" {
+		result = "passed"
+		replays = `"replayId":null,"reusedReplayIds":["replay_searched","replay_held_out"]`
+	}
 	if result == "undecided" {
 		undecided = `"too-few-scored"`
 	}
@@ -218,7 +223,7 @@ func checkAnswer(result string) string {
 		stopped = `"stoppedBecause":"insufficient-credits",`
 	}
 
-	return `{"id":"check_1","replayId":"replay_1","scoringPinnedToLive":["check","judge"],
+	return `{"id":"check_1",` + replays + `,"scoringPinnedToLive":["check","judge"],
   "result":"` + result + `","undecidedBecause":` + undecided + `,"taskCount":3,"compared":3,
   "threshold":{"maxRegressions":0,"minGain":0.05,"ceiling":{"amount":10,"currency":"USD"}},
   "repeats":3,"gain":{"gain":-0.3333,"low":-1,"high":0,"significance":"within-noise","minGain":0.05,"tasks":3},
@@ -394,6 +399,22 @@ func TestCheckReplaysEachRunAsOftenAsRequestedAndSaysWhenTheGainIsWithinNoise(t 
 
 	if bad := runCheck(t, env, planFixture(t), "--repeats", "6"); bad.code != errorExit || !strings.Contains(bad.errOut, "--repeats") {
 		t.Fatalf("--repeats 6 answered %d: %s", bad.code, bad.errOut)
+	}
+}
+
+func TestCheckSaysWhenItReusesASearchsReplays(t *testing.T) {
+	s := &checkServer{t: t, result: []string{"reused"}}
+	server := s.serve()
+	defer server.Close()
+
+	env := map[string]string{urlVar: server.URL, tokenVar: token, "GITHUB_STEP_SUMMARY": filepath.Join(t.TempDir(), "summary.md")}
+	got := runCheck(t, env, withoutUnknowns(t, planFixture(t)))
+
+	if got.code != 0 {
+		t.Fatalf("code = %d, out:\n%s%s", got.code, got.out, got.errOut)
+	}
+	if want := "reuses a search's replays of the same config, against the search's live baseline"; !strings.Contains(got.out, want) {
+		t.Fatalf("output lacks %q:\n%s", want, got.out)
 	}
 }
 
