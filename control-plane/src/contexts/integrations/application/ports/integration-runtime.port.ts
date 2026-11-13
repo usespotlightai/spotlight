@@ -89,6 +89,7 @@ export type ActionResult =
   | { readonly kind: 'nothing-to-do' };
 
 export interface TaskPayload {
+  readonly kind: 'task';
   readonly task: TaskView;
   readonly ask: {
     readonly body: string;
@@ -106,6 +107,7 @@ interface ProposalView {
 }
 
 export interface ChatPayload {
+  readonly kind: 'chat';
   readonly chat: { readonly marks: Readonly<Record<string, string>> };
   readonly reply: {
     readonly body: string;
@@ -114,7 +116,34 @@ export interface ChatPayload {
   };
 }
 
-export type NoticePayload = TaskPayload | ChatPayload;
+export interface InboxRequestPayload {
+  readonly kind: 'inbox-request';
+  readonly task: TaskView;
+  readonly request: {
+    readonly form: string;
+    readonly link: string | null;
+  };
+}
+
+export interface TeamNoticePayload {
+  readonly kind: 'notice';
+  readonly notice: {
+    readonly form: string;
+    readonly headline: string;
+    readonly points: readonly string[];
+    readonly link: string | null;
+    readonly externalLink: {
+      readonly url: string;
+      readonly label: string;
+    } | null;
+  };
+}
+
+export type PostPayload =
+  | TaskPayload
+  | ChatPayload
+  | InboxRequestPayload
+  | TeamNoticePayload;
 
 export type PostResult =
   | { readonly kind: 'posted'; readonly marks: readonly TaskMark[] }
@@ -172,7 +201,7 @@ export interface IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     event: string,
-    payload: NoticePayload,
+    payload: PostPayload,
     callAuth: CallAuth,
   ): Promise<readonly PostResult[]>;
 

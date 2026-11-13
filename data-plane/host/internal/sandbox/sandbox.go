@@ -13,6 +13,12 @@ var (
 	ErrInUse   = errors.New("the image is in use")
 )
 
+type Build struct {
+	Tag        string
+	Dockerfile []byte
+	Args       map[string]string
+}
+
 type Image struct {
 	ID      string
 	Tags    []string

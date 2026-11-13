@@ -684,6 +684,207 @@ on:
       ]);
     });
 
+    describe('read by a binding', () => {
+      const POSTED = (body: string, on: string) => `integration: slack
+actions:
+  post:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      body: '\${{ {"text": ${body}} }}'
+${on ? `on:\n${on}` : ''}`;
+      const bound = (event: string, to = '"C1"') => `  ${event}:
+    - action: post
+      to:
+        channel: '\${{ ${to} }}'
+`;
+      const warnedAt = (text: string) =>
+        warnings(text).map((each) => [each.field.rendered, each.reason]);
+
+      it('warns about what another kind of event gives, where the binding reads it', () => {
+        expect(
+          warnedAt(
+            POSTED('notice.headline', bound('notice.raised', 'task.title')),
+          ),
+        ).toEqual([
+          [
+            'on["notice.raised"][0].to.channel',
+            'does not check: Unknown variable: task. A notice event has no such variable',
+          ],
+        ]);
+      });
+
+      it('warns about what another kind of event gives, in an action only that binding names', () => {
+        expect(warnedAt(POSTED('ask.body', bound('notice.raised')))).toEqual([
+          [
+            'actions.post.request.body',
+            'does not check: Unknown variable: ask. A notice event has no such variable',
+          ],
+        ]);
+      });
+
+      it('checks an action for each kind of event whose bindings name it', () => {
+        expect(
+          warnedAt(
+            POSTED(
+              'ask.body',
+              bound('task.asked') + bound('inbox-request.opened'),
+            ),
+          ),
+        ).toEqual([
+          [
+            'actions.post.request.body',
+            'does not check: Unknown variable: ask. An inbox request event has no such variable',
+          ],
+        ]);
+      });
+
+      it('lets an action read what every event that calls it gives', () => {
+        expect(
+          warnedAt(
+            POSTED(
+              'task.title',
+              bound('task.asked') + bound('inbox-request.opened'),
+            ),
+          ),
+        ).toEqual([]);
+      });
+
+      it('warns about what another kind of event gives, in a mark', () => {
+        expect(
+          warnedAt(
+            POSTED(
+              'task.title',
+              `${bound('inbox-request.opened')}      mark:
+        - kind: slack.message
+          value: '\${{ ask.body }}'
+`,
+            ),
+          ),
+        ).toEqual([
+          [
+            'on["inbox-request.opened"][0].mark[0].value',
+            'does not check: Unknown variable: ask. An inbox request event has no such variable',
+          ],
+        ]);
+      });
+
+      it('says nothing of the event about a misspelled field', () => {
+        expect(
+          warnedAt(POSTED('notice.headlin', bound('notice.raised'))),
+        ).toEqual([
+          [
+            'actions.post.request.body',
+            expect.not.stringContaining('notice event') as unknown,
+          ],
+        ]);
+      });
+
+      it('warns about the inputs of a tool, which a binding does not give', () => {
+        const tooled = `${POSTED('inputs.text', bound('task.asked'))}tools:
+  post:
+    description: Post a message
+    action: post
+    inputs:
+      text:
+        type: string
+`;
+
+        expect(warnedAt(tooled)).toEqual([
+          [
+            'actions.post.request.body',
+            'does not check: Unknown variable: inputs. A task event has no such variable',
+          ],
+        ]);
+      });
+
+      it('lets an action that nothing calls read what any caller gives', () => {
+        expect(warnedAt(POSTED('ask.body', ''))).toEqual([]);
+      });
+    });
+
+    describe('read by a tool or a schedule', () => {
+      const ACTED = (body: string, more: string) => `integration: slack
+actions:
+  post:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      body: '\${{ {"text": ${body}} }}'
+${more}`;
+      const TOOL = `tools:
+  post:
+    description: Post a message
+    action: post
+    inputs:
+      text:
+        type: string
+`;
+      const warnedAt = (text: string) =>
+        warnings(text).map((each) => [each.field.rendered, each.reason]);
+
+      it('lets a tool’s action read the task and the inputs', () => {
+        expect(warnedAt(ACTED('task.title + inputs.text', TOOL))).toEqual([]);
+      });
+
+      it('warns about what a tool does not give, in its action', () => {
+        expect(warnedAt(ACTED('ask.body', TOOL))).toEqual([
+          [
+            'actions.post.request.body',
+            'does not check: Unknown variable: ask. A tool has no such variable',
+          ],
+        ]);
+      });
+
+      it('warns about what a tool does not give, in its output', () => {
+        expect(
+          warnedAt(
+            ACTED(
+              'inputs.text',
+              TOOL.replace(
+                '    inputs:',
+                `    output: '\${{ target.channel }}'\n    inputs:`,
+              ),
+            ),
+          ),
+        ).toEqual([
+          ['tools.post.output', 'does not check: Unknown variable: target'],
+        ]);
+      });
+
+      it('warns about the headers of a response, which a tool’s output does not see', () => {
+        expect(
+          warnedAt(
+            ACTED(
+              'inputs.text',
+              TOOL.replace(
+                '    inputs:',
+                `    output: '\${{ headers.etag }}'\n    inputs:`,
+              ),
+            ),
+          ),
+        ).toEqual([
+          ['tools.post.output', 'does not check: Unknown variable: headers'],
+        ]);
+      });
+
+      it('warns about what a schedule does not give, in its action', () => {
+        expect(
+          warnedAt(
+            ACTED(
+              'task.title',
+              "schedule:\n  cron: '0 9 * * 1'\n  action: post\n",
+            ),
+          ),
+        ).toEqual([
+          [
+            'actions.post.request.body',
+            'does not check: Unknown variable: task. A schedule has no such variable',
+          ],
+        ]);
+      });
+    });
+
     it('warns about a raised word reading a name no lookup captured', () => {
       expect(
         warnings(
@@ -1786,6 +1987,83 @@ on:
         ],
       ],
     );
+  });
+
+  it.each([
+    ['inbox-request.opened', 'An inbox request event has no files'],
+    ['notice.raised', 'A notice event has no files'],
+  ])('is not sent for %s, which has no files', (event, why) => {
+    expect(refused(ACTION.replace('  task.asked:', `  ${event}:`))).toEqual([
+      [`on.${event}.0.action`, expect.stringContaining(why)],
+    ]);
+  });
+
+  it('reads a notice where it posts it', () => {
+    expect(
+      warned(`integration: slack
+actions:
+  post:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      body: '\${{ {"text": notice.headline + notice.points.join(" ")} }}'
+on:
+  notice.raised:
+    - action: post
+      to:
+        channel: '\${{ notice.form == "ended" ? "C1" : "C2" }}'
+`),
+    ).toEqual([]);
+  });
+
+  it('reads an inbox request where it posts it', () => {
+    expect(
+      warned(`integration: slack
+actions:
+  post:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      body: '\${{ {"text": request.form + " " + task.title} }}'
+on:
+  inbox-request.opened:
+    - action: post
+      to:
+        channel: '\${{ task.marks["slack.channel"] }}'
+      routes:
+        delivery: C1
+      mark:
+        - kind: slack.message
+          value: '\${{ "1" }}'
+`),
+    ).toEqual([]);
+  });
+
+  it('refuses mark and routes on a notice event, which has no task', () => {
+    expect(
+      refused(`integration: slack
+actions:
+  post:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      body: '\${{ {"text": notice.headline} }}'
+on:
+  notice.raised:
+    - action: post
+      to:
+        channel: '\${{ "C1" }}'
+      routes:
+        delivery: C2
+`),
+    ).toEqual([
+      [
+        'on.notice.raised.0',
+        expect.stringContaining(
+          'A notice event has no task to mark and no line to route by',
+        ),
+      ],
+    ]);
   });
 
   it('is sent only by an event, not by a tool', () => {

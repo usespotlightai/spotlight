@@ -57,6 +57,7 @@ const (
 	cleanupBudget   = time.Minute
 	sweepEvery      = 5 * time.Minute
 	deliverWait     = 5 * time.Minute
+	deliverCheck    = 250 * time.Millisecond
 	placeWait       = 10 * time.Minute
 	placePoll       = 500 * time.Millisecond
 	retryFloor      = 2 * time.Second
@@ -66,6 +67,7 @@ const (
 
 type Pool interface {
 	Requirements(ctx context.Context) (protocol.HostRequirements, error)
+	Credential() (protocol.HostCredential, error)
 	Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Assignment, error)
 	ClaimCall(ctx context.Context) (*protocol.HostCall, error)
 	RecordCallResponse(ctx context.Context, id string, response protocol.HostCallResponse) error
@@ -975,16 +977,21 @@ func (h *Host) handedOver(ctx context.Context, id string, gone <-chan struct{}, 
 	if every <= 0 {
 		every = leaseEvery
 	}
-	ticker := time.NewTicker(every)
-	defer ticker.Stop()
+	signalAgain := time.NewTicker(every)
+	defer signalAgain.Stop()
+	check := time.NewTicker(min(every, deliverCheck))
+	defer check.Stop()
 	limit := time.NewTimer(deliverWait)
 	defer limit.Stop()
 
-	for {
+	signal := func() {
 		if err := h.engine.Signal(ctx, id, "SIGUSR1"); err != nil && ctx.Err() == nil {
 			log.Warn("could not signal the sandbox", "error", err)
 		}
+	}
+	signal()
 
+	for {
 		select {
 		case <-ctx.Done():
 			return nil
@@ -992,11 +999,12 @@ func (h *Host) handedOver(ctx context.Context, id string, gone <-chan struct{}, 
 			return nil
 		case <-limit.C:
 			return fmt.Errorf("the runner did not take its assignment within %s", deliverWait)
-		case <-ticker.C:
-		}
-
-		if _, err := h.engine.Read(ctx, id, AssignmentPath); errors.Is(err, os.ErrNotExist) {
-			return nil
+		case <-signalAgain.C:
+			signal()
+		case <-check.C:
+			if _, err := h.engine.Read(ctx, id, AssignmentPath); errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
 		}
 	}
 }

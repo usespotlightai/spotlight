@@ -76,7 +76,9 @@ import type { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event
 import type { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import type { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import type { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
+import type { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
 import type { NoticeRaised } from '@work/domain/events/notice-raised.event';
+import type { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
@@ -89,6 +91,27 @@ import type { TaskMoved } from '@work/domain/events/task-moved.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { TaskPassed } from '@work/domain/events/task-passed.event';
 import type { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
+
+const inboxRequestOpened = (
+  event: InboxRequestOpened | InboxRequestReopened,
+): InboxRequestOpenedIntegrationEvent => ({
+  kind: INBOX_REQUEST_OPENED,
+  inboxRequestId: event.inboxRequestId.value,
+  workspaceId: event.workspaceId.value,
+  taskId: event.taskId.value,
+  at: event.at.toISOString(),
+});
+
+const noticeRaised = (
+  event: NoticeRaised | NoticeReopened,
+): NoticeRaisedIntegrationEvent => ({
+  kind: NOTICE_RAISED,
+  noticeId: event.noticeId.value,
+  workspaceId: event.workspaceId.value,
+  teamId: event.teamId.value,
+  addressee: event.addressee?.value ?? null,
+  at: event.at.toISOString(),
+});
 
 export const WORK_EVENT_MAPPERS = [
   mapping<DispatchBriefed>(
@@ -253,25 +276,8 @@ export const WORK_EVENT_MAPPERS = [
       at: event.at.toISOString(),
     }),
   ),
-  mapping<InboxRequestOpened>(
-    'inbox-request.opened',
-    (event): InboxRequestOpenedIntegrationEvent => ({
-      kind: INBOX_REQUEST_OPENED,
-      inboxRequestId: event.inboxRequestId.value,
-      workspaceId: event.workspaceId.value,
-      taskId: event.taskId.value,
-      at: event.at.toISOString(),
-    }),
-  ),
-  mapping<NoticeRaised>(
-    'notice.raised',
-    (event): NoticeRaisedIntegrationEvent => ({
-      kind: NOTICE_RAISED,
-      noticeId: event.noticeId.value,
-      workspaceId: event.workspaceId.value,
-      teamId: event.teamId.value,
-      addressee: event.addressee?.value ?? null,
-      at: event.at.toISOString(),
-    }),
-  ),
+  mapping<InboxRequestOpened>('inbox-request.opened', inboxRequestOpened),
+  mapping<InboxRequestReopened>('inbox-request.reopened', inboxRequestOpened),
+  mapping<NoticeRaised>('notice.raised', noticeRaised),
+  mapping<NoticeReopened>('notice.reopened', noticeRaised),
 ] as const;

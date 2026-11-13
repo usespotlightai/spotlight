@@ -8,6 +8,9 @@ const PLACED = '.spotlight/attachments/';
 const placed = (attachment: Attachment): string =>
   `${PLACED}${attachment.id.value}/${attachment.name}`;
 
+const VIDEO_HINT =
+  'To see a video, first get its duration with `ffprobe "<video>"`. Then make a folder, extract at most 60 frames into it as images with `ffmpeg` and read those images. For example: `ffmpeg -i "<video>" -vf fps=1 -frames:v 60 "<folder>/%03d.png"`. For a long video, use a lower rate, such as `fps=1/10`. Put quotes around paths, because attachment names can contain spaces.';
+
 const KB = 1024;
 const MB = KB * KB;
 
@@ -44,15 +47,21 @@ export const Attached = {
   },
 
   listed(attachments: readonly Attachment[]): string | null {
-    return attachments.length > 0
-      ? [
-          'Attached, in the workspace:',
-          ...attachments.map(
-            (each) =>
-              `- \`${placed(each)}\` (${each.contentType}, ${sized(each.size)})`,
-          ),
-        ].join('\n')
-      : null;
+    if (attachments.length === 0) {
+      return null;
+    }
+
+    const listing = [
+      'Attached, in the workspace:',
+      ...attachments.map(
+        (each) =>
+          `- \`${placed(each)}\` (${each.contentType}, ${sized(each.size)})`,
+      ),
+    ].join('\n');
+
+    return attachments.some((each) => each.video)
+      ? `${listing}\n\n${VIDEO_HINT}`
+      : listing;
   },
 
   beside(body: string, attachments: readonly Attachment[]): string {

@@ -15,6 +15,7 @@ import {
 } from '@runs/application/queries/handlers/list-harnesses.handler';
 import { HostRequirementsQuery } from '@runs/application/queries/host.queries';
 import { ListHarnessesQuery } from '@runs/application/queries/list-harnesses.query';
+import { HeldHarnessKeys } from '@runs/application/services/held-harness-keys.service';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -28,6 +29,7 @@ const launch = {
       efforts: ['low', 'high'],
       discovery: ['claude --version'],
       versionProbe: [],
+      harnessKeys: ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'],
     },
   ],
 } as unknown as HarnessLaunchPort;
@@ -104,11 +106,14 @@ describe('listing harnesses for a workspace', () => {
           authenticator,
           { namedIn } satisfies LineImagesPort,
           { release },
+          new HeldHarnessKeys(launch, {
+            namesIn: async () => ['LINEAR_API_KEY', 'ANTHROPIC_API_KEY'],
+          }),
         ),
       };
     };
 
-    it('tells an authenticated host the control plane’s release, the least host and runner releases, the harnesses to look for and the images its workspace’s lines name', async () => {
+    it('tells an authenticated host the control plane’s release, the least host and runner releases, the harnesses to look for, the images its workspace’s lines name and the harness keys its workspace holds', async () => {
       const { subject, namedIn } = requirements();
 
       expect(
@@ -121,6 +126,7 @@ describe('listing harnesses for a workspace', () => {
         runnerMinimum: MIN_RUNNER_RELEASE,
         harnesses: [expect.objectContaining({ id: 'claude-code', models: [] })],
         images: ['ghcr.io/acme/widgets:1'],
+        harnessKeys: ['ANTHROPIC_API_KEY'],
       });
       expect(namedIn).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
     });

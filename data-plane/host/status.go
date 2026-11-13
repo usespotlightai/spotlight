@@ -18,7 +18,16 @@ import (
 	"usespotlight.ai/data-plane/host/internal/sandbox/docker"
 )
 
+const (
+	checkSettings  = "settings"
+	checkService   = "service"
+	checkSpotlight = "spotlight"
+	checkRuntime   = "runtime"
+	checkImage     = "image"
+)
+
 type check struct {
+	Name    string `json:"name"`
 	Level   string `json:"-"`
 	Status  string `json:"status"`
 	Message string `json:"message"`
@@ -27,6 +36,7 @@ type check struct {
 
 type report struct {
 	Config  string `json:"config"`
+	Name    string `json:"name,omitempty"`
 	Service struct {
 		Installed bool   `json:"installed"`
 		Unit      string `json:"unit,omitempty"`
@@ -72,45 +82,45 @@ func inspect(ctx context.Context, version string) report {
 	var r report
 	r.Config = config.Path()
 	r.Settings = []listed{}
-	add := func(level, message, fix string) {
+	add := func(name, level, message, fix string) {
 		names := map[string]string{passed: "passed", warned: "warning", failed: "failed"}
-		r.Checks = append(r.Checks, check{Level: level, Status: names[level], Message: message, Fix: fix})
+		r.Checks = append(r.Checks, check{Name: name, Level: level, Status: names[level], Message: message, Fix: fix})
 	}
 
 	file, err := config.Open(r.Config)
 	if err != nil {
-		add(failed, err.Error(), "")
+		add(checkSettings, failed, err.Error(), "")
 		return r
 	}
 	values := file.Values()
 	r.Settings = shown(values)
 
 	cfg, invalid := config.Load(version)
-	r.Sandboxes.Capacity = cfg.Capacity
+	r.Name, r.Sandboxes.Capacity = cfg.Name, cfg.Capacity
 	if unit, installed := install.Installed(); installed {
 		r.Service.Unit, r.Service.Installed = unit, true
 	}
 	if r.Service.Process, err = config.Serving(cfg.State); err != nil {
-		add(warned, err.Error(), "")
+		add(checkService, warned, err.Error(), "")
 	}
 	r.Service.Running = r.Service.Process != 0
 
 	switch {
 	case len(values) == 0:
-		add(failed, "There are no settings in "+r.Config+".", "spotlight host init")
+		add(checkSettings, failed, "There are no settings in "+r.Config+".", "spotlight host init")
 		return r
 	case invalid != nil:
-		add(failed, "The settings have problems: "+config.Friendly(invalid).Error(), "spotlight host config set KEY=VALUE")
+		add(checkSettings, failed, "The settings have problems: "+config.Friendly(invalid).Error(), "spotlight host config set KEY=VALUE")
 	default:
-		add(passed, "The settings are valid.", "")
+		add(checkSettings, passed, "The settings are valid.", "")
 	}
 
 	switch {
 	case r.Service.Running:
 	case r.Service.Installed:
-		add(failed, "The service is installed but the host does not run.", "spotlight host start, then spotlight host logs")
+		add(checkService, failed, "The service is installed but the host does not run.", "spotlight host start, then spotlight host logs")
 	default:
-		add(failed, "The host does not run, and it is not installed as a service.", "spotlight host init")
+		add(checkService, failed, "The host does not run, and it is not installed as a service.", "spotlight host init")
 	}
 
 	if invalid == nil {
@@ -119,30 +129,33 @@ func inspect(ctx context.Context, version string) report {
 			id = "status"
 		}
 		if claims, err := pool.New(cfg.URL, cfg.Credential(), id); err != nil {
-			add(failed, fmt.Sprintf("Cannot reach Spotlight at %s: %v", cfg.URL, err), "")
+			add(checkSpotlight, failed, fmt.Sprintf("Cannot reach Spotlight at %s: %v", cfg.URL, err), "")
 		} else if _, err := claims.Requirements(ctx); errors.Is(err, control.ErrUnauthorized) {
-			add(failed, fmt.Sprintf("Spotlight at %s does not accept the credential.", cfg.URL),
+			add(checkSpotlight, failed, fmt.Sprintf("Spotlight at %s does not accept the credential.", cfg.URL),
 				"copy a token from Settings → Runners → Add a host, then: spotlight host config set token=TOKEN")
 		} else if err != nil {
-			add(failed, fmt.Sprintf("Cannot reach Spotlight at %s: %v", cfg.URL, err), "check the url and this machine's network")
+			add(checkSpotlight, failed, fmt.Sprintf("Cannot reach Spotlight at %s: %v", cfg.URL, err), "check the url and this machine's network")
 		} else {
-			add(passed, fmt.Sprintf("Spotlight at %s accepts the credential.", cfg.URL), "")
+			add(checkSpotlight, passed, fmt.Sprintf("Spotlight at %s accepts the credential.", cfg.URL), "")
 		}
 	}
 
 	if engine, err := docker.Connect(cfg.DockerHost); err != nil {
-		add(failed, "No container runtime answers: "+err.Error(), "start Docker or Podman, or set docker-host")
-	} else if runtime, err := engine.Describe(ctx); err != nil {
-		add(failed, "The container runtime does not answer: "+err.Error(), "start Docker or Podman, or set docker-host")
+		add(checkRuntime, failed, "No container runtime answers: "+err.Error(), "start Docker or Podman, or set docker-host")
 	} else {
-		add(passed, "The container runtime answers ("+runtime+").", "")
-		if running, err := runningSandboxes(ctx, cfg); err == nil {
-			r.Sandboxes.Running = &running
+		defer engine.Close()
+		if runtime, err := engine.Describe(ctx); err != nil {
+			add(checkRuntime, failed, "The container runtime does not answer: "+err.Error(), "start Docker or Podman, or set docker-host")
+		} else {
+			add(checkRuntime, passed, "The container runtime answers ("+runtime+").", "")
+			if running, err := runningSandboxes(ctx, cfg); err == nil {
+				r.Sandboxes.Running = &running
+			}
 		}
 	}
 
 	if strings.HasPrefix(cfg.Images.Default, config.Image+":") {
-		add(warned, "The default image "+cfg.Images.Default+" holds no harness, so this host runs checks but no agent run.",
+		add(checkImage, warned, "The default image "+cfg.Images.Default+" holds no harness, so this host runs checks but no agent run.",
 			"build an image FROM it with a harness, then: spotlight host config set image=IMAGE")
 	}
 
@@ -154,16 +167,7 @@ func (r report) print(out io.Writer) {
 	fmt.Fprintln(table, paint(bold, "Spotlight host"))
 	fmt.Fprintf(table, "  Settings\t%s\n", r.Config)
 
-	service := "not installed"
-	switch {
-	case r.Service.Running && r.Service.Installed:
-		service = fmt.Sprintf("running (process %d, %s)", r.Service.Process, r.Service.Unit)
-	case r.Service.Running:
-		service = fmt.Sprintf("running (process %d), not as a service", r.Service.Process)
-	case r.Service.Installed:
-		service = "stopped (" + r.Service.Unit + ")"
-	}
-	fmt.Fprintf(table, "  Service\t%s\n", service)
+	fmt.Fprintf(table, "  Service\t%s\n", r.service())
 
 	if r.Sandboxes.Running != nil {
 		fmt.Fprintf(table, "  Sandboxes\t%d of %d running\n", *r.Sandboxes.Running, r.Sandboxes.Capacity)
@@ -188,5 +192,18 @@ func (r report) print(out io.Writer) {
 		if each.Fix != "" {
 			fmt.Fprintf(out, "      %s\n", each.Fix)
 		}
+	}
+}
+
+func (r report) service() string {
+	switch {
+	case r.Service.Running && r.Service.Installed:
+		return fmt.Sprintf("running (process %d, %s)", r.Service.Process, r.Service.Unit)
+	case r.Service.Running:
+		return fmt.Sprintf("running (process %d), not as a service", r.Service.Process)
+	case r.Service.Installed:
+		return "stopped (" + r.Service.Unit + ")"
+	default:
+		return "not installed"
 	}
 }

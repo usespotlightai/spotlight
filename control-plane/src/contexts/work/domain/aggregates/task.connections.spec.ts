@@ -111,6 +111,25 @@ describe('Task connection asks', () => {
     expect(task.pullEvents()).toEqual([expect.any(TaskAsked)]);
   });
 
+  it('keeps its station against a happening while it waits on a connection', () => {
+    const task = asked();
+
+    expect(
+      task.movableByHappeningTo(line, StationId.of('station_backlog')),
+    ).toBe(false);
+    expect(() =>
+      task.react(line, StationId.of('station_backlog'), TaskRank.of('a'), {
+        line: null,
+        body: TaskNoteBody.of('The checks failed.'),
+        at: NOW,
+        voice: Voice.world(),
+      }),
+    ).toThrow(InvalidTaskTransitionError);
+    expect(
+      task.movableByHappeningTo(line, StationId.of('station_completed')),
+    ).toBe(true);
+  });
+
   it('does not ask twice while it already waits on that person for that connection', () => {
     const task = asked();
 

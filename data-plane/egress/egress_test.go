@@ -25,8 +25,14 @@ import (
 )
 
 type fakeFetcher struct {
-	answers []error
-	calls   int
+	answers     []error
+	calls       int
+	harnessKeys int
+}
+
+func (r *fakeFetcher) FetchHarnessKeys(context.Context, string) (protocol.EgressSecrets, error) {
+	r.harnessKeys++
+	return protocol.EgressSecrets{Secrets: []protocol.FetchedSecret{{Secret: "ANTHROPIC_API_KEY"}}}, nil
 }
 
 func (r *fakeFetcher) FetchRunSecrets(context.Context, string) (protocol.EgressSecrets, error) {
@@ -49,7 +55,7 @@ func TestTriesAgainWhileTheControlPlaneCannotAnswer(t *testing.T) {
 		&control.ResponseError{Status: http.StatusBadGateway, Err: errors.New("bad gateway")},
 	}}
 
-	if fetched := fetchedBy(context.Background(), fetcher, "key", quiet); fetched.RunID != "run_1" || fetcher.calls != 3 {
+	if fetched := fetchedBy(context.Background(), fetcher.FetchRunSecrets, "key", quiet); fetched.RunID != "run_1" || fetcher.calls != 3 {
 		t.Errorf("fetched %+v after %d calls", fetched, fetcher.calls)
 	}
 }
@@ -57,7 +63,7 @@ func TestTriesAgainWhileTheControlPlaneCannotAnswer(t *testing.T) {
 func TestGoesOutInjectingNothingWhenTheControlPlaneDoesNotAccept(t *testing.T) {
 	fetcher := &fakeFetcher{answers: []error{&control.ResponseError{Status: http.StatusUnauthorized, Err: control.ErrUnauthorized}}}
 
-	if fetched := fetchedBy(context.Background(), fetcher, "key", quiet); fetched.RunID != "" || fetcher.calls != 1 {
+	if fetched := fetchedBy(context.Background(), fetcher.FetchRunSecrets, "key", quiet); fetched.RunID != "" || fetcher.calls != 1 {
 		t.Errorf("fetched %+v after %d calls", fetched, fetcher.calls)
 	}
 }
@@ -97,13 +103,32 @@ func TestRejectsAConfigWithNoControlPlaneOrProxyCredential(t *testing.T) {
 func TestFetchesNothingWithoutAToken(t *testing.T) {
 	connected := false
 	fetched, err := fetchSecretsFor(context.Background(), protocol.EgressConfig{URL: "http://control-plane:3000"}, "key",
-		func(string, string) (SecretFetcher, error) {
+		func(string, control.Credential) (SecretFetcher, error) {
 			connected = true
 			return &fakeFetcher{}, nil
 		}, quiet)
 
 	if err != nil || connected || fetched.RunID != "" {
 		t.Errorf("fetched %+v (connected %v): %v", fetched, connected, err)
+	}
+}
+
+func TestAProbeFetchesTheHarnessKeysWithTheHostCredential(t *testing.T) {
+	fetcher := &fakeFetcher{}
+	var authorized *http.Request
+	config := protocol.EgressConfig{URL: "http://control-plane:3000", Host: &protocol.HostCredential{Authorization: "Bearer pool", Trust: "trust_1"}}
+
+	fetched, err := fetchSecretsFor(context.Background(), config, "key",
+		func(_ string, credential control.Credential) (SecretFetcher, error) {
+			authorized = httptest.NewRequest(http.MethodPost, "/", nil)
+			return fetcher, credential.Authorize(authorized)
+		}, quiet)
+
+	if err != nil || fetcher.harnessKeys != 1 || fetcher.calls != 0 || len(fetched.Secrets) != 1 {
+		t.Fatalf("fetched %+v (%d harness key calls, %d run calls): %v", fetched, fetcher.harnessKeys, fetcher.calls, err)
+	}
+	if authorized.Header.Get("Authorization") != "Bearer pool" || authorized.Header.Get(protocol.TrustHeader) != "trust_1" {
+		t.Errorf("authorized with %v", authorized.Header)
 	}
 }
 

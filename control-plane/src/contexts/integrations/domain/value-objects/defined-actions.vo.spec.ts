@@ -19,21 +19,29 @@ describe('DefinedActions', () => {
   });
 
   it('lets no tool or schedule name an action that uploads files', () => {
-    expect(() => UPLOADING.forTool('attach', 'tool linear.attach')).toThrow(
-      /names the action attach, which uploads files. Only an event in on sends files/,
+    expect(() =>
+      UPLOADING.calledBy('attach', 'tool', 'tool linear.attach'),
+    ).toThrow(
+      /names the action attach, which uploads files. A tool has no files/,
     );
-    expect(() => UPLOADING.forSchedule('attach', 'schedule')).toThrow(
-      /which uploads files/,
+    expect(() => UPLOADING.calledBy('attach', 'schedule', 'schedule')).toThrow(
+      /A schedule has no files/,
     );
-    expect(UPLOADING.forTool('post', 'tool linear.post').name).toBe('post');
+    expect(UPLOADING.calledBy('post', 'tool', 'tool linear.post').name).toBe(
+      'post',
+    );
   });
 
   it('lets only a binding on an event that has files name an action that uploads them', () => {
-    expect(() => UPLOADING.forBinding('attach', 'chat', 'binding')).toThrow(
+    expect(() => UPLOADING.calledBy('attach', 'chat', 'binding')).toThrow(
       /A chat event has no files/,
     );
-    expect(UPLOADING.forBinding('attach', 'task', 'binding').name).toBe(
-      'attach',
+    expect(() =>
+      UPLOADING.calledBy('attach', 'inbox-request', 'binding'),
+    ).toThrow(/An inbox request event has no files/);
+    expect(() => UPLOADING.calledBy('attach', 'notice', 'binding')).toThrow(
+      /A notice event has no files/,
     );
+    expect(UPLOADING.calledBy('attach', 'task', 'binding').name).toBe('attach');
   });
 });

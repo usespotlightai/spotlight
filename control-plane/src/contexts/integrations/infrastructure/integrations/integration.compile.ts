@@ -18,13 +18,20 @@ import {
 } from '@integrations/domain/services/generated-tools';
 import { readsASecret } from '@integrations/domain/services/secret-reads';
 import {
+  ACTION_CALLERS,
+  type ActionCaller,
+} from '@integrations/domain/value-objects/action-caller.vo';
+import {
   Action,
   type ActionFields,
 } from '@integrations/domain/value-objects/action.vo';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
-import { Binding } from '@integrations/domain/value-objects/binding.vo';
+import {
+  type BindableEvents,
+  Binding,
+} from '@integrations/domain/value-objects/binding.vo';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
@@ -86,6 +93,8 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { BINDABLE_CHAT_EVENTS } from '@work/application/contracts/bindable-chat-events.contract';
+import { BINDABLE_INBOX_REQUEST_EVENTS } from '@work/application/contracts/bindable-inbox-request-events.contract';
+import { BINDABLE_NOTICE_EVENTS } from '@work/application/contracts/bindable-notice-events.contract';
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
 
 interface Freshness {
@@ -334,6 +343,13 @@ const actionFieldsOf = (name: string, action: ActionFile): ActionFields => ({
   headers: Object.keys(action.request.headers),
   url: action.request.url,
 });
+
+const BINDABLE: BindableEvents = {
+  task: BINDABLE_TASK_EVENTS,
+  chat: BINDABLE_CHAT_EVENTS,
+  'inbox-request': BINDABLE_INBOX_REQUEST_EVENTS,
+  notice: BINDABLE_NOTICE_EVENTS,
+};
 
 const doubted = (error: ExpressionErrorDto): string =>
   error.suggestion
@@ -1084,9 +1100,34 @@ export const compileIntegration = (
     inputsOf.set(tool.action, typed);
   }
 
+  const subjectOf = new Map(
+    Object.keys(file.on).map((event) => [
+      event,
+      Binding.aboutOf(event, BINDABLE),
+    ]),
+  );
+  const callersOf = new Map<string, Set<ActionCaller>>();
+  const calls = (action: string, by: ActionCaller) =>
+    callersOf.set(action, (callersOf.get(action) ?? new Set()).add(by));
+  for (const [event, listed] of Object.entries(file.on)) {
+    const about = subjectOf.get(event);
+    if (about) {
+      for (const { action } of listed) {
+        calls(action, about);
+      }
+    }
+  }
+  for (const tool of Object.values(file.tools)) {
+    calls(tool.action, 'tool');
+  }
+  if (file.schedule) {
+    calls(file.schedule.action, 'schedule');
+  }
+
   const actions = new Map<string, ActionIR>();
   for (const [name, action] of Object.entries(file.actions)) {
     const inputs = inputsOf.get(name);
+    const callers = callersOf.get(name);
 
     actions.set(
       name,
@@ -1096,7 +1137,12 @@ export const compileIntegration = (
         root
           .to('actions')
           .each(name)
-          .adding(inputs ? { inputs } : {}),
+          .adding({
+            ...(inputs ? { inputs } : {}),
+            ...(callers
+              ? { calls: ACTION_CALLERS.filter((by) => callers.has(by)) }
+              : {}),
+          }),
         FieldPath.of(['actions', name]),
       ),
     );
@@ -1121,7 +1167,7 @@ export const compileIntegration = (
     const placed = root.to('tools').each(name);
 
     compiler.part(FieldPath.of(['tools', name, 'action']), () =>
-      defined?.forTool(tool.action, at),
+      defined?.calledBy(tool.action, 'tool', at),
     );
 
     tools.set(name, {
@@ -1223,7 +1269,7 @@ export const compileIntegration = (
           CronExpression.of(written.cron, cronCalendar),
         );
         const action = compiler.part(FieldPath.of(['schedule', 'action']), () =>
-          defined?.forSchedule(written.action, 'schedule'),
+          defined?.calledBy(written.action, 'schedule', 'schedule'),
         );
 
         return cron && action ? Schedule.of({ cron, action }) : null;
@@ -1233,19 +1279,26 @@ export const compileIntegration = (
   const bindings: Binding[] = [];
   const on: OnBindingIR[] = Object.entries(file.on).flatMap(([event, listed]) =>
     listed.map((binding, at) => {
-      const place = root.to('on').each(event).each(at);
+      const about = subjectOf.get(event);
+      const place = root
+        .to('on')
+        .each(event)
+        .each(at)
+        .adding(about ? { calls: [about] } : {});
       const bound = compiler.part(FieldPath.of(['on', event, at]), () =>
         Binding.of({
           event,
           action: binding.action,
-          known: { task: BINDABLE_TASK_EVENTS, chat: BINDABLE_CHAT_EVENTS },
+          known: BINDABLE,
+          marked: binding.mark.length > 0,
+          routed: Object.keys(binding.routes).length > 0,
         }),
       );
       const action = compiler.part(
         FieldPath.of(['on', event, at, 'action']),
         () =>
           bound
-            ? defined?.forBinding(
+            ? defined?.calledBy(
                 binding.action,
                 bound.about,
                 `binding on ${event}`,

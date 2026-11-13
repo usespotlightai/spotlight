@@ -32,6 +32,10 @@ type Engine struct {
 
 var _ sandbox.Engine = (*Engine)(nil)
 
+func (e *Engine) Close() {
+	e.http.CloseIdleConnections()
+}
+
 func Connect(dockerHost string) (*Engine, error) {
 	if dockerHost == "" {
 		dockerHost = found()
@@ -158,6 +162,54 @@ func (e *Engine) Pull(ctx context.Context, image, auth string) error {
 		}
 		if progress.Error != "" {
 			return fmt.Errorf("pull image %s: %s", image, progress.Error)
+		}
+	}
+}
+
+func (e *Engine) Build(ctx context.Context, build sandbox.Build, progress func(string)) error {
+	var buildContext bytes.Buffer
+	archive := tar.NewWriter(&buildContext)
+	if err := archive.WriteHeader(&tar.Header{Name: "Dockerfile", Mode: 0o644, Size: int64(len(build.Dockerfile))}); err != nil {
+		return err
+	}
+	if _, err := archive.Write(build.Dockerfile); err != nil {
+		return err
+	}
+	if err := archive.Close(); err != nil {
+		return err
+	}
+
+	args, err := json.Marshal(build.Args)
+	if err != nil {
+		return err
+	}
+	query := url.Values{"t": {build.Tag}, "buildargs": {string(args)}, "rm": {"1"}, "forcerm": {"1"}}
+	response, err := e.send(ctx, http.MethodPost, "/build?"+query.Encode(), &buildContext, "application/x-tar")
+	if err != nil {
+		return fmt.Errorf("build image %s: %w", build.Tag, err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode >= 300 {
+		return fmt.Errorf("build image %s: %w", build.Tag, failure(response))
+	}
+
+	decoder := json.NewDecoder(response.Body)
+	for {
+		var step struct {
+			Stream string `json:"stream"`
+			Error  string `json:"error"`
+		}
+		if err := decoder.Decode(&step); errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("build image %s: %w", build.Tag, err)
+		}
+		if step.Error != "" {
+			return fmt.Errorf("build image %s: %s", build.Tag, strings.TrimSpace(step.Error))
+		}
+		if line := strings.TrimSpace(step.Stream); line != "" && progress != nil {
+			progress(line)
 		}
 	}
 }

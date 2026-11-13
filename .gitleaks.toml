@@ -9,9 +9,12 @@ regexes = [
   '''^S9\+m23g9lI8X4VNFd0ayFXJH7P14Q3GZGsNvjCglc/Q=$''',
   '''^xoxb-encrypted-\d+$''',
   '''^CURSOR_API_KEY=cursor(-test)?$''',
+  '''^XAI_API_KEY=xai(-test)?$''',
   '''^abc123def456$''',
   '''^spl_0123456789abcd$''',
   '''^Zq8mV2xR7tLk4NcW1pHs9dYb3fGj6aEu$''',
   '''^BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U$''',
   '''^tBHItJI5svbpez7KI4CCXg$''',
+  '''^spotlight-egress:[A-Z][A-Z0-9_]*$''',
+  '''^XAI_API_KEY=xai(-test)?$''',
 ]

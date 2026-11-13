@@ -317,6 +317,7 @@ describe('runner pools (e2e)', () => {
           expect.objectContaining({ id: 'claude-code' }),
         ]) as unknown,
         images: [WIDGETS],
+        harnessKeys: [],
       });
       await http()
         .get('/api/hosts/requirements')
@@ -815,7 +816,7 @@ describe('runner pools (e2e)', () => {
       const outdated = await claimWith(token).expect(409);
       expect(outdated.body).toMatchObject({
         reason: 'host-outdated',
-        message: expect.stringContaining('spotlight host update') as unknown,
+        message: expect.stringContaining('spotlight update') as unknown,
       });
     });
 

@@ -52,6 +52,7 @@ const LINEAR = {
         body: { query: e('inputs.issue'), urgent: e('inputs.urgent') },
       },
     },
+    note: { request: { url: 'https://api.linear.app/graphql' } },
   },
   tools: {
     comment: {
@@ -63,7 +64,7 @@ const LINEAR = {
   on: {
     'task.opened': [
       {
-        action: 'comment',
+        action: 'note',
         to: { thread: e('task.marks["slack.thread"] + ask.bdoy') },
       },
     ],
@@ -162,6 +163,25 @@ describe('checking an expression where a definition contains it', () => {
         message: 'No such key: bdoy',
         span: { start: 4, end: 8 },
         suggestion: 'ask.body',
+      },
+    ]);
+  });
+
+  it('checks a binding against what its event gives', () => {
+    const noticed = {
+      ...LINEAR,
+      on: {
+        'notice.raised': [{ action: 'note', to: { channel: e('"C1"') } }],
+      },
+    };
+    const channel = 'integration.on["notice.raised"][0].to.channel';
+
+    expect(checked(channel, 'notice.headline', noticed).errors).toEqual([]);
+    expect(checked(channel, 'task.title', noticed).errors).toEqual([
+      {
+        message: 'Unknown variable: task. A notice event has no such variable',
+        span: expect.anything() as unknown,
+        suggestion: null,
       },
     ]);
   });
@@ -390,7 +410,63 @@ describe('the positions an expression is written at', () => {
         { name: 'headers', type: 'dyn', fields: [] },
         { name: 'raw', type: 'string', fields: [] },
       ],
+      calls: [],
     });
+  });
+
+  it('names what can call the expression, and what each caller gives', () => {
+    expect(listed('integration.on[*][*].to[*]')?.calls).toEqual([
+      { by: 'task', variables: ['ask', 'task'] },
+      { by: 'chat', variables: ['chat', 'reply'] },
+      { by: 'inbox-request', variables: ['request', 'task'] },
+      { by: 'notice', variables: ['notice'] },
+    ]);
+    expect(listed('integration.actions[*].request.body')?.calls).toEqual([
+      { by: 'task', variables: ['ask', 'task', 'target', 'uploaded'] },
+      { by: 'chat', variables: ['chat', 'reply', 'target', 'uploaded'] },
+      {
+        by: 'inbox-request',
+        variables: ['request', 'task', 'target', 'uploaded'],
+      },
+      { by: 'notice', variables: ['notice', 'target', 'uploaded'] },
+      { by: 'tool', variables: ['inputs', 'task'] },
+      { by: 'schedule', variables: [] },
+    ]);
+    expect(
+      listed('integration.on[*][*].mark[*].value')?.calls.map(({ by }) => by),
+    ).toEqual(['task', 'inbox-request']);
+    expect(listed('integration.tools[*].output')?.calls).toEqual([
+      { by: 'tool', variables: ['inputs', 'task'] },
+    ]);
+    expect(listed('integration.tools[*].inputs[*].default')?.calls).toEqual([]);
+  });
+
+  it('lists only the variables that a caller of the position gives', () => {
+    const names = (written: string) =>
+      listed(written)?.variables.map(({ name }) => name);
+
+    expect(names('integration.tools[*].output')).toEqual([
+      'capture',
+      'connection',
+      'response',
+      'status',
+      'task',
+    ]);
+    expect(names('integration.actions[*].uploads.each')).toEqual([
+      'ask',
+      'target',
+      'task',
+    ]);
+    expect(names('integration.on[*][*].mark[*].value')).toEqual([
+      'ask',
+      'capture',
+      'connection',
+      'request',
+      'response',
+      'target',
+      'task',
+      'uploaded',
+    ]);
   });
 
   it('describes the fields Spotlight shapes', () => {
@@ -413,7 +489,24 @@ describe('the positions an expression is written at', () => {
   it('builds a position’s scope once, however often it is checked', () => {
     const [position] = EXPRESSION_POSITIONS;
 
-    expect(position?.seen({})).toBe(position?.scope);
+    expect(position?.seenByAll({})).toBe(position?.scope);
+  });
+
+  it('gives every check of one caller the same scope', () => {
+    const posted = EXPRESSION_POSITIONS.find(
+      (each) =>
+        each.position.rendered === 'integration.actions[*].request.body',
+    );
+    const [first] = posted?.seen({ calls: ['notice'] }) ?? [];
+    const [again] = posted?.seen({ calls: ['notice'] }) ?? [];
+
+    expect(first?.scope.names).toEqual([
+      'connection',
+      'notice',
+      'target',
+      'uploaded',
+    ]);
+    expect(again?.scope).toBe(first?.scope);
   });
 
   describe('against every expression an integration can contain', () => {
