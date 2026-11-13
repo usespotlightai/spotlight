@@ -1,6 +1,9 @@
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import type { Action } from '@integrations/domain/value-objects/action.vo';
-import type { BindingSubject } from '@integrations/domain/value-objects/binding.vo';
+import {
+  type BindingSubject,
+  EVENT_ABOUT,
+} from '@integrations/domain/value-objects/binding.vo';
 
 export class DefinedActions {
   private constructor(private readonly actions: ReadonlyMap<string, Action>) {}
@@ -41,13 +44,13 @@ export class DefinedActions {
   }
 
   forBinding(name: string, about: BindingSubject, by: string): Action {
-    return about === 'chat'
-      ? this.withoutUploads(
+    return about === 'task'
+      ? this.named(name, by)
+      : this.withoutUploads(
           name,
           by,
-          'A chat event has no files. Please name an action without uploads',
-        )
-      : this.named(name, by);
+          `${EVENT_ABOUT[about]} has no files. Please name an action without uploads`,
+        );
   }
 
   has(name: string): boolean {

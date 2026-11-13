@@ -19,8 +19,10 @@ import type { DispatchRefused } from '@work/domain/events/dispatch-refused.event
 import type { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import type { InboxRequestMarkedRead } from '@work/domain/events/inbox-request-marked-read.event';
 import type { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
+import type { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
 import type { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import type { NoticeRaised } from '@work/domain/events/notice-raised.event';
+import type { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import type { NoticeResolved } from '@work/domain/events/notice-resolved.event';
 import type { ProposalAcceptanceFailed } from '@work/domain/events/proposal-acceptance-failed.event';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
@@ -89,6 +91,7 @@ type TaskEvent =
   | TaskApprovalClaimed
   | TaskTurnAwaited
   | InboxRequestOpened
+  | InboxRequestReopened
   | TaskActedOn
   | TaskAnswered
   | TaskAsked
@@ -113,7 +116,7 @@ type DispatchEvent =
   | DispatchRefused
   | DispatchSuperseded;
 
-type InboxEvent = NoticeRaised | NoticeResolved;
+type InboxEvent = NoticeRaised | NoticeReopened | NoticeResolved;
 
 const CHAT_KINDS = [
   'chat.ci-set-up',
@@ -147,6 +150,7 @@ const TASK_KINDS = [
   'task.approval-claimed',
   'task.turn-awaited',
   'inbox-request.opened',
+  'inbox-request.reopened',
   'task.acted-on',
   'task.answered',
   'task.asked',
@@ -173,7 +177,7 @@ const DISPATCH_KINDS = [
   'dispatch.superseded',
 ];
 
-const INBOX_KINDS = ['notice.resolved', 'notice.raised'];
+const INBOX_KINDS = ['notice.resolved', 'notice.raised', 'notice.reopened'];
 
 export const WORK_CHANGE_NOTICES: readonly ChangeNoticeMapper[] = [
   noticing<ChatEvent>('work.chat-changed', CHAT_KINDS, (event) =>

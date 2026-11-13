@@ -614,9 +614,9 @@ type Plan = (
   repeat: number,
 ) => { score: number; cost: number };
 
-const SETTLE_CHECKS = 50;
-
 const SETTLE_PAUSE_MS = 200;
+
+const SETTLE_WITHIN_MS = 20_000;
 
 const unsettledReplayEntries = async () =>
   db
@@ -639,7 +639,9 @@ const unsettledReplayEntries = async () =>
     );
 
 const settled = async (): Promise<boolean> => {
-  for (let check = 0; check < SETTLE_CHECKS; check += 1) {
+  const deadline = Date.now() + SETTLE_WITHIN_MS;
+
+  while (Date.now() < deadline) {
     await judged();
     await app.get(DispatchReplayRuns).processDue();
 
@@ -653,7 +655,7 @@ const settled = async (): Promise<boolean> => {
     await new Promise((resolve) => setTimeout(resolve, SETTLE_PAUSE_MS));
   }
 
-  return true;
+  throw new Error('the replay entries never settled');
 };
 
 const REPLAY_STARTS = [

@@ -14,6 +14,10 @@ import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
 import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
+import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
+import { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
+import { NoticeRaised } from '@work/domain/events/notice-raised.event';
+import { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
@@ -29,6 +33,8 @@ import {
   DispatchEnding,
   type DispatchOutcome,
 } from '@work/domain/value-objects/dispatch-ending.vo';
+import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
+import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -188,6 +194,56 @@ describe('WORK_EVENT_MAPPERS', () => {
         source: 'hook:notify',
         code: 'loop',
         occurrences: 3,
+        at: '2026-09-26T09:00:00.000Z',
+      },
+    ]);
+  });
+
+  it.each([
+    ['opened', InboxRequestOpened],
+    ['reopened', InboxRequestReopened],
+  ] as const)('publishes an inbox request that %s', (_, Opened) => {
+    expect(
+      published(
+        new Opened(
+          InboxRequestId.of('request_1'),
+          WORKSPACE,
+          TASK,
+          new Date('2026-09-26T09:00:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.inbox-request-opened.v1',
+        inboxRequestId: 'request_1',
+        workspaceId: 'ws_1',
+        taskId: 'task_1',
+        at: '2026-09-26T09:00:00.000Z',
+      },
+    ]);
+  });
+
+  it.each([
+    ['raised', NoticeRaised],
+    ['reopened', NoticeReopened],
+  ] as const)('publishes a notice that was %s', (_, Raised) => {
+    expect(
+      published(
+        new Raised(
+          NoticeId.of('notice_1'),
+          WORKSPACE,
+          TeamId.of('team_1'),
+          null,
+          new Date('2026-09-26T09:00:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.notice-raised.v1',
+        noticeId: 'notice_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        addressee: null,
         at: '2026-09-26T09:00:00.000Z',
       },
     ]);

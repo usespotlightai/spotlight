@@ -39,6 +39,10 @@ const taskLinks: TaskLinksPort = {
     `https://app.example/w/${slug}/inbox/${conversationId}`,
   chatPage: (slug, teamId, chatId) =>
     `https://app.example/w/${slug}/team/${teamId}/agent/${chatId}`,
+  inboxRequestPage: (slug, inboxRequestId) =>
+    `https://app.example/w/${slug}/inbox/${inboxRequestId}`,
+  noticePage: (slug, noticeId) =>
+    `https://app.example/w/${slug}/inbox/notices/${noticeId}`,
 };
 
 const channelNotices = (...args: ConstructorParameters<typeof NotifyChannel>) =>

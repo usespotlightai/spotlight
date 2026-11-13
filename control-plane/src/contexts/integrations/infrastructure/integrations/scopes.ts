@@ -40,6 +40,23 @@ const REPLY: Declared = {
   },
 };
 
+const REQUEST: Declared = {
+  schema: {
+    form: 'string',
+    link: 'dyn',
+  },
+};
+
+const NOTICE: Declared = {
+  schema: {
+    form: 'string',
+    headline: 'string',
+    points: 'list<string>',
+    link: 'dyn',
+    externalLink: 'dyn',
+  },
+};
+
 export const DELIVERED = Scope.of({
   body: OUTSIDE,
   headers: OUTSIDE,
@@ -58,6 +75,8 @@ export const ACTING = Scope.of({
   ask: ASK,
   chat: CHAT,
   reply: REPLY,
+  request: REQUEST,
+  notice: NOTICE,
   target: 'map<string, string>',
   connection: 'string',
   uploaded: 'list',
@@ -68,6 +87,8 @@ export const ADDRESSING = Scope.of({
   ask: ASK,
   chat: CHAT,
   reply: REPLY,
+  request: REQUEST,
+  notice: NOTICE,
 });
 
 const NOTE_FILE: Declared = {
@@ -84,6 +105,8 @@ export const UPLOADING = Scope.of({
   ask: ASK,
   chat: CHAT,
   reply: REPLY,
+  request: REQUEST,
+  notice: NOTICE,
   target: 'map<string, string>',
 });
 

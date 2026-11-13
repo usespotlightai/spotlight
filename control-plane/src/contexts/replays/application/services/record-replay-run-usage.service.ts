@@ -1,3 +1,4 @@
+import { reviseReplay } from '@replays/application/services/replay-revisions';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import {
   EntryMeasures,
@@ -25,34 +26,25 @@ export class RecordReplayRunUsage {
     private readonly clock: ClockPort,
   ) {}
 
-  usageRecorded(event: ReplayRunUsageReceived): Promise<void> {
+  async usageRecorded(event: ReplayRunUsageReceived): Promise<void> {
     const run = RunId.of(event.runId);
-
-    return this.transaction.inTransaction(async () => {
-      const replay = await this.replays.ranAs(run);
-
-      if (!replay) {
-        return;
-      }
-
-      const measured = replay.measure(
-        run,
-        EntryMeasures.of({
-          ms: event.ms,
-          steps: event.steps,
-          changedLines: event.changedLines,
-          cost:
-            event.cost !== null && event.currency
-              ? Money.of(event.cost, event.currency)
-              : null,
-          tokens: event.tokens,
-        }),
-        this.clock.now(),
-      );
-
-      if (measured !== replay) {
-        await this.replays.save(measured);
-      }
+    const measures = EntryMeasures.of({
+      ms: event.ms,
+      steps: event.steps,
+      changedLines: event.changedLines,
+      cost:
+        event.cost !== null && event.currency
+          ? Money.of(event.cost, event.currency)
+          : null,
+      tokens: event.tokens,
     });
+
+    await reviseReplay(
+      this.replays,
+      this.transaction,
+      this.clock,
+      () => this.replays.ranAs(run),
+      (replay) => replay.measure(run, measures, this.clock.now()),
+    );
   }
 }
