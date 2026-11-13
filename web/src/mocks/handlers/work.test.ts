@@ -85,7 +85,10 @@ describe('the mock work area', () => {
       throwOnError: true,
     });
 
-    expect(data.stacks.map((stack) => stack.repository)).toEqual(['acme/api']);
+    expect(data.stacks.map((stack) => stack.repository)).toEqual([
+      'acme/api',
+      'acme/worker',
+    ]);
     expect(data.stacks[0]?.files.map((each) => each.path)).toContain(
       'src/db/pool.ts',
     );
