@@ -2611,10 +2611,66 @@ describe('Task and the happenings received while it has a current run', () => {
       ]);
     });
 
-    it('cannot be moved by a happening to a station other than the completed one', () => {
-      expect(() => paused().react(LINE, SPEC, TaskRank.of('m'), world)).toThrow(
+    it('is moved by a happening, closing the question and detaching its run', () => {
+      const moved = paused().react(LINE, SPEC, TaskRank.of('m'), world);
+
+      expect(moved.stationId).toEqual(SPEC);
+      expect(moved.currentRunId).toBeNull();
+      expect(moved.awaitingReview).toBe(false);
+      expect(moved.openConversation).toBeNull();
+      expect(detached(moved)).toEqual([RUN]);
+    });
+
+    it('cannot be moved by a happening while it waits on a tool approval', () => {
+      const approving = assigned().clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+        ),
+        ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+        { ...newNote, voice: Voice.station(RUN) },
+        RUN,
+        null,
+      ).task;
+
+      expect(() =>
+        approving.react(LINE, SPEC, TaskRank.of('m'), world),
+      ).toThrow(InvalidTaskTransitionError);
+    });
+
+    it('cannot be moved by a happening while it waits on a tool approval asked after an answered question', () => {
+      const answered = paused().answer(NotePosition.of(0), {
+        ...newNote,
+        voice: Voice.person(UserId.of('user_1')),
+      });
+      const approving = answered.clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+        ),
+        ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+        { ...newNote, voice: Voice.station(RUN) },
+        RUN,
+        null,
+      ).task;
+
+      expect(approving.openConversation?.from).toEqual(NotePosition.of(0));
+      expect(approving.decisionPending).toBe(true);
+      expect(() =>
+        approving.react(LINE, SPEC, TaskRank.of('m'), world),
+      ).toThrow(InvalidTaskTransitionError);
+    });
+
+    it('takes no late answer once a happening has moved it, and stays where it moved', () => {
+      const moved = paused().react(LINE, SPEC, TaskRank.of('m'), world);
+      const late = { ...newNote, voice: Voice.person(UserId.of('user_1')) };
+
+      expect(() => moved.answer(NotePosition.of(0), late)).toThrow(
         InvalidTaskTransitionError,
       );
+      expect(() => moved.receiveMessage(RUN, late, HERE)).toThrow(
+        InvalidTaskTransitionError,
+      );
+      expect(moved.stationId).toEqual(SPEC);
+      expect(moved.awaitingReview).toBe(false);
     });
 
     it('is finished by a happening while it waits on a tool approval', () => {

@@ -3,7 +3,10 @@ import { IntegrationTaskViewMapper } from '@integrations/infrastructure/acl/inte
 import type { BindableTaskEvent } from '@work/application/contracts/bindable-task-events.contract';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
-import type { TaskNoticesPort } from '@work/application/ports/task-notices.port';
+import type {
+  InboxRequestNoticeDto,
+  TaskNoticesPort,
+} from '@work/application/ports/task-notices.port';
 
 export class TaskNotices implements TaskNoticesPort {
   constructor(private readonly notices: NotifyTask) {}
@@ -13,5 +16,15 @@ export class TaskNotices implements TaskNoticesPort {
     event: BindableTaskEvent,
   ): Promise<readonly TaskMark[]> {
     return this.notices.notify(IntegrationTaskViewMapper.toView(task), event);
+  }
+
+  notifyRequest(
+    task: IntegrationTaskViewDto,
+    request: InboxRequestNoticeDto,
+  ): Promise<readonly TaskMark[]> {
+    return this.notices.notifyRequest(IntegrationTaskViewMapper.toView(task), {
+      id: request.id,
+      form: request.form,
+    });
   }
 }

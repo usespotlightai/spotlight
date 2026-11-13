@@ -42,6 +42,7 @@ export class NotifyChannel {
     }
 
     const payload: ChatPayload = {
+      kind: 'chat',
       chat: { marks: notice.marks },
       reply: {
         body: notice.body,

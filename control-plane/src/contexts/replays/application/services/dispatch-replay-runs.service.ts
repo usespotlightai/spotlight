@@ -1,3 +1,4 @@
+import { reviseReplay } from '@replays/application/services/replay-revisions';
 import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
 import type { ReplayRunOwner } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
@@ -204,20 +205,12 @@ export class DispatchReplayRuns implements PendingJobsPort {
     replay: Replay,
     change: (fresh: Replay, now: Date) => Replay,
   ): Promise<Replay | null> {
-    return this.transaction.inTransaction(async () => {
-      const fresh = await this.replays.find(replay.id);
-
-      if (!fresh) {
-        return null;
-      }
-
-      const changed = change(fresh, this.clock.now());
-
-      if (changed !== fresh) {
-        await this.replays.save(changed);
-      }
-
-      return changed;
-    });
+    return reviseReplay(
+      this.replays,
+      this.transaction,
+      this.clock,
+      () => this.replays.find(replay.id),
+      (fresh) => change(fresh, this.clock.now()),
+    );
   }
 }

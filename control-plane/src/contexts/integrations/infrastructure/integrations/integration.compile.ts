@@ -86,6 +86,8 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { BINDABLE_CHAT_EVENTS } from '@work/application/contracts/bindable-chat-events.contract';
+import { BINDABLE_INBOX_REQUEST_EVENTS } from '@work/application/contracts/bindable-inbox-request-events.contract';
+import { BINDABLE_NOTICE_EVENTS } from '@work/application/contracts/bindable-notice-events.contract';
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
 
 interface Freshness {
@@ -1238,7 +1240,14 @@ export const compileIntegration = (
         Binding.of({
           event,
           action: binding.action,
-          known: { task: BINDABLE_TASK_EVENTS, chat: BINDABLE_CHAT_EVENTS },
+          known: {
+            task: BINDABLE_TASK_EVENTS,
+            chat: BINDABLE_CHAT_EVENTS,
+            'inbox-request': BINDABLE_INBOX_REQUEST_EVENTS,
+            notice: BINDABLE_NOTICE_EVENTS,
+          },
+          marked: binding.mark.length > 0,
+          routed: Object.keys(binding.routes).length > 0,
         }),
       );
       const action = compiler.part(

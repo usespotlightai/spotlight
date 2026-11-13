@@ -32,6 +32,12 @@ describe('DefinedActions', () => {
     expect(() => UPLOADING.forBinding('attach', 'chat', 'binding')).toThrow(
       /A chat event has no files/,
     );
+    expect(() =>
+      UPLOADING.forBinding('attach', 'inbox-request', 'binding'),
+    ).toThrow(/An inbox request event has no files/);
+    expect(() => UPLOADING.forBinding('attach', 'notice', 'binding')).toThrow(
+      /A notice event has no files/,
+    );
     expect(UPLOADING.forBinding('attach', 'task', 'binding').name).toBe(
       'attach',
     );

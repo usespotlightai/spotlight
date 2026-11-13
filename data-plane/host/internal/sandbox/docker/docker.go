@@ -32,6 +32,10 @@ type Engine struct {
 
 var _ sandbox.Engine = (*Engine)(nil)
 
+func (e *Engine) Close() {
+	e.http.CloseIdleConnections()
+}
+
 func Connect(dockerHost string) (*Engine, error) {
 	if dockerHost == "" {
 		dockerHost = found()

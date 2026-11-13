@@ -1,4 +1,8 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
+import {
+  readOnce,
+  reviseReplay,
+} from '@replays/application/services/replay-revisions';
 import { replayAskedAPerson } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/replay-run-decision.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -32,32 +36,25 @@ export class RecordReplayRunEnding {
   async ended(event: ReplayRunEnded): Promise<void> {
     const run = RunId.of(event.runId);
     const asked = replayAskedAPerson(event, await this.decisions.find(run));
-
-    return this.transaction.inTransaction(async () => {
-      const replay = await this.replays.ranAs(run);
-
-      if (!replay) {
-        return;
-      }
-
-      const now = this.clock.now();
-      const ended = replay
-        .recordRunEnd(
-          run,
-          RunEnd.of({
-            result: event.outcome,
-            failure: event.failure,
-            stopped: event.stopped,
-            asked,
-            next: event.next,
-            at: event.endedAt,
-          }),
-        )
-        .recordReview(run, ...reviewOf(await this.changes.stacksOf(run)), now);
-
-      if (ended !== replay) {
-        await this.replays.save(ended);
-      }
+    const runEnd = RunEnd.of({
+      result: event.outcome,
+      failure: event.failure,
+      stopped: event.stopped,
+      asked,
+      next: event.next,
+      at: event.endedAt,
     });
+    const stacks = readOnce(() => this.changes.stacksOf(run));
+
+    await reviseReplay(
+      this.replays,
+      this.transaction,
+      this.clock,
+      () => this.replays.ranAs(run),
+      async (replay) =>
+        replay
+          .recordRunEnd(run, runEnd)
+          .recordReview(run, ...reviewOf(await stacks()), this.clock.now()),
+    );
   }
 }

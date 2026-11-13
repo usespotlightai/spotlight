@@ -89,6 +89,7 @@ func runningSandboxes(ctx context.Context, cfg config.Config) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer engine.Close()
 	runners, err := engine.Running(ctx, serve.LabelHost, id, serve.LabelRunner)
 	return len(runners), err
 }
@@ -134,7 +135,7 @@ func restartHost(out io.Writer, cfg config.Config, pid int, now bool) error {
 		if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
 			return fmt.Errorf("stop the host (process %d): %w", pid, err)
 		}
-		fmt.Fprintln(out, "Stopped the host. It is not a service, so start it again yourself: spotlight host")
+		fmt.Fprintln(out, "Stopped the host. It is not a service, so start it again yourself: spotlight host serve")
 		return nil
 	}
 

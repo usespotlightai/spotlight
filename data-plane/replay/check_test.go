@@ -569,6 +569,33 @@ func TestCheckFallsBackToTheLoginForTheAddress(t *testing.T) {
 	}
 }
 
+func TestCheckUsesTheOneLoginWithoutAnAddress(t *testing.T) {
+	s := &checkServer{t: t, result: []string{"passed"}}
+	server := s.serve()
+	defer server.Close()
+
+	t.Setenv(credentials.DirVar, t.TempDir())
+	loggedIn(t, server.URL, token)
+
+	got := runCheck(t, map[string]string{credentials.DirVar: os.Getenv(credentials.DirVar)}, withoutUnknowns(t, planFixture(t)))
+	if got.code != 0 {
+		t.Fatalf("code = %d\n%s%s", got.code, got.out, got.errOut)
+	}
+	if len(s.tokens) == 0 || s.tokens[0] != "Bearer "+token {
+		t.Fatalf("tokens = %v, want the login's token", s.tokens)
+	}
+}
+
+func TestCheckWithATokenNeedsTheAddress(t *testing.T) {
+	t.Setenv(credentials.DirVar, t.TempDir())
+	loggedIn(t, "https://staging.example.com", token)
+
+	got := runCheck(t, map[string]string{credentials.DirVar: os.Getenv(credentials.DirVar), tokenVar: token}, withoutUnknowns(t, planFixture(t)))
+	if got.code == 0 || !strings.Contains(got.errOut, "set "+urlVar) {
+		t.Fatalf("code = %d\n%s%s", got.code, got.out, got.errOut)
+	}
+}
+
 func withoutUnknowns(t *testing.T, plan []byte) []byte {
 	t.Helper()
 

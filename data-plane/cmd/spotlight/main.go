@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"usespotlight.ai/data-plane/agent"
+	"usespotlight.ai/data-plane/credentials"
 	"usespotlight.ai/data-plane/egress"
 	"usespotlight.ai/data-plane/help"
 	"usespotlight.ai/data-plane/host"
@@ -51,12 +53,11 @@ var agentSections = []help.Section{
 }
 
 var operatorSections = []help.Section{
-	{Title: "Start here", Paths: []string{"login", "host init"}},
-	{Title: "Hosts", Paths: []string{"host", "host status", "host config", "host logs", "host update"}},
-	{Title: "Editors", Paths: []string{"ssh setup", "ssh proxy"}},
-	{Title: "Replays", Paths: []string{"replay", "replay check"}},
-	{Title: "Account", Paths: []string{"logout"}},
-	{Title: "Other", Paths: []string{"version", "help"}},
+	{Title: "Your login", Paths: []string{"login", "logout", "token"}},
+	{Title: "Open tasks in VS Code or Cursor", Paths: []string{"ssh setup", "ssh proxy"}},
+	{Title: "Run agents on this computer", Paths: []string{"host init", "host", "host status", "host config", "host logs"}},
+	{Title: "Check station changes", Paths: []string{"replay", "replay check"}},
+	{Title: "Other", Paths: []string{"status", "update", "version", "help"}},
 }
 
 var sandboxSection = help.Section{Title: "Started by the host", Paths: []string{"runner", "egress"}}
@@ -64,6 +65,14 @@ var sandboxSection = help.Section{Title: "Started by the host", Paths: []string{
 func inRun() bool {
 	return os.Getenv(protocol.AgentAPIURLVar) != ""
 }
+
+func inEditorSession() bool {
+	return os.Getenv(protocol.EditorSessionVar) != ""
+}
+
+const editorSessionNote = `This terminal is in the sandbox of a Spotlight task.
+Run spotlight login, spotlight ssh setup and the host commands on your own computer.
+Agent commands work only in a run. To see them: spotlight help --all`
 
 func root(all bool) help.Root {
 	footer := []string{"Run spotlight <command> --help for flags and examples."}
@@ -79,9 +88,10 @@ func root(all bool) help.Root {
 		return help.Root{Summary: "Commands for this Spotlight run.", Sections: agentSections, Footer: append(footer, "Docs: "+help.DocsBase+"agent-commands")}
 	default:
 		return help.Root{
-			Summary:  "Spotlight command line: hosts for your runs, replays, and your login.",
+			Summary:  "Spotlight command line: your login, editors, hosts for your runs, and replays.",
 			Sections: operatorSections,
 			Footer: append(footer,
+				"In a terminal, spotlight without a command opens a dashboard for this computer: your login, editors and host.",
 				"Run spotlight help --all for the commands that agents use in a run.",
 				"Docs: "+help.DocsBase+"spotlight-command"),
 		}
@@ -93,6 +103,17 @@ func main() {
 }
 
 func run(args []string, out, errs io.Writer) int {
+	if len(args) == 0 && !inRun() && inEditorSession() {
+		fmt.Fprintln(out, editorSessionNote)
+		return 0
+	}
+	if len(args) == 0 && !inRun() && host.Interactive() {
+		if err := host.OpenDashboard(version); err != nil {
+			fmt.Fprintln(errs, "spotlight:", err)
+			return 1
+		}
+		return 0
+	}
 	if len(args) == 0 {
 		fmt.Fprintln(out, commands.RenderRoot(root(false)))
 		return 0
@@ -123,6 +144,10 @@ func run(args []string, out, errs io.Writer) int {
 	switch args[0] {
 	case "host":
 		return host.Main(args[1:], version)
+	case "update":
+		return host.Update(args[1:], version)
+	case "status":
+		return host.Home(args[1:], version)
 	case "runner":
 		return runner.Main(args[1:], version)
 	case "egress":
@@ -130,7 +155,13 @@ func run(args []string, out, errs io.Writer) int {
 	case "replay":
 		return replay.Main(args[1:], version)
 	case "login":
-		return login.Main(args[1:], version)
+		address, code := login.Main(args[1:], version)
+		if code == 0 {
+			if next := loginNext(address); next != "" {
+				fmt.Fprintln(out, next)
+			}
+		}
+		return code
 	case "logout":
 		return login.Logout(args[1:], version)
 	case "token":
@@ -215,11 +246,18 @@ func unknown(parent string, args []string, errs io.Writer) int {
 	return 1
 }
 
+func loginNext(address string) string {
+	if ssh.Inspect(os.Getenv, runtime.GOOS).Configured {
+		return ""
+	}
+	return "Next: to open tasks in VS Code or Cursor, run: " + credentials.Command("spotlight ssh setup", address)
+}
+
 func roleOf(command string) string {
 	switch command {
 	case "host", "runner", "egress", "replay":
 		return command
-	case "login", "logout", "token", "ssh":
+	case "login", "logout", "token", "ssh", "update", "status":
 		return "login"
 	default:
 		return "agent"
