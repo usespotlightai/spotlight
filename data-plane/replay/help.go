@@ -31,7 +31,7 @@ var checkHelp = help.Command{
 		{Name: "json", Usage: "Print the report as JSON."},
 	},
 	Env: []help.Flag{
-		{Name: urlVar, Usage: "The Spotlight address. Required."},
+		{Name: urlVar, Usage: "The Spotlight address. Without it, the address of your one login. Required with " + tokenVar + " or " + trustVar + "."},
 		{Name: tokenVar, Usage: "A workspace token that can plan."},
 		{Name: trustVar, Usage: "An OIDC trust. The command exchanges the CI job's OIDC token through it."},
 		{Name: "SPOTLIGHT_OIDC_TOKEN", Usage: "The OIDC token to exchange. Default: a token from GitHub Actions."},

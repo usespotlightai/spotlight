@@ -336,7 +336,7 @@ func TestCancelStopsTheLoginCleanly(t *testing.T) {
 	}
 }
 
-func TestTheAddressComesFromTheFlagThenTheEnvironmentThenTheDefault(t *testing.T) {
+func TestTheAddressComesFromTheFlagThenTheEnvironmentThenTheOneLoginThenTheDefault(t *testing.T) {
 	for _, each := range []struct {
 		env  string
 		args []string
@@ -485,5 +485,20 @@ func TestLoginWithoutATerminalUsesTheDefaultAddress(t *testing.T) {
 	c, _, _, _ := testClient(t, map[string]string{credentials.DirVar: t.TempDir()})
 	if address, err := c.loginAddress(""); err != nil || address != credentials.DefaultAddress {
 		t.Fatalf("address %q, %v", address, err)
+	}
+}
+
+func TestLogoutEndsTheOneLoginWithoutAnAddress(t *testing.T) {
+	s, address := serve(t)
+	dir := t.TempDir()
+	putLogins(t, dir, map[string]credentials.Login{address: {Token: sessionToken}})
+
+	c, out, _, _ := testClient(t, map[string]string{credentials.DirVar: dir})
+	if err := c.logout(context.Background(), nil); err != nil {
+		t.Fatalf("logout: %v", err)
+	}
+
+	if len(s.signedOut) != 1 || !strings.Contains(out.String(), "Logged out of "+address+".") {
+		t.Fatalf("output %q, signed out %v", out.String(), s.signedOut)
 	}
 }

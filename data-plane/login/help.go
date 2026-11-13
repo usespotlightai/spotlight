@@ -7,7 +7,7 @@ var loginHelp = help.Command{
 	Summary: "Log in to Spotlight in the browser.",
 	Usage:   []string{"spotlight login [--url <address>] [--no-browser]"},
 	Flags: []help.Flag{
-		{Name: "url", Value: "<address>", Usage: "The Spotlight address. Default: " + urlVar + ", else " + defaultAddress + "."},
+		{Name: "url", Value: "<address>", Usage: "The Spotlight address. Default: " + urlVar + ", else the address of your one login, else " + defaultAddress + "."},
 		{Name: "no-browser", Usage: "Do not open the browser."},
 	},
 	Env: []help.Flag{
@@ -18,7 +18,7 @@ var loginHelp = help.Command{
 		{Command: "spotlight login"},
 		{Comment: "On a machine without a browser", Command: "spotlight login --no-browser"},
 	},
-	Notes: []string{"The CLI and the Terraform provider then act as you."},
+	Notes: []string{"The CLI then acts as you. spotlight token prints the login's token for Terraform."},
 	Docs:  "spotlight-command#spotlight-login",
 }
 
@@ -26,7 +26,7 @@ var logoutHelp = help.Command{
 	Path:     "logout",
 	Summary:  "End the session, and remove the login for the address.",
 	Usage:    []string{"spotlight logout [--url <address>]"},
-	Flags:    []help.Flag{{Name: "url", Value: "<address>", Usage: "The Spotlight address. Default: " + urlVar + ", else " + defaultAddress + "."}},
+	Flags:    []help.Flag{{Name: "url", Value: "<address>", Usage: "The Spotlight address. Default: " + urlVar + ", else the address of your one login, else " + defaultAddress + "."}},
 	Examples: []help.Example{{Command: "spotlight logout"}},
 	Docs:     "spotlight-command#spotlight-logout",
 }
@@ -35,7 +35,7 @@ var tokenHelp = help.Command{
 	Path:    "token",
 	Summary: "Print a token for Spotlight, as for Terraform's http backend.",
 	Usage:   []string{"spotlight token [--url <address>]"},
-	Flags:   []help.Flag{{Name: "url", Value: "<address>", Usage: "The Spotlight address. Default: " + urlVar + ", else " + defaultAddress + "."}},
+	Flags:   []help.Flag{{Name: "url", Value: "<address>", Usage: "The Spotlight address. Default: " + urlVar + ", else the address of your one login, else " + defaultAddress + "."}},
 	Env: []help.Flag{
 		{Name: tokenVar, Usage: "A workspace token. Printed as it is."},
 		{Name: trustVar, Usage: "An OIDC trust's id. The CI job's OIDC token is exchanged through it for a short-lived token."},

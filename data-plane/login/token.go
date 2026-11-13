@@ -37,8 +37,15 @@ func Token(args []string, version string) int {
 }
 
 func (c *client) token(ctx context.Context, args []string) error {
-	set := flag.NewFlagSet(tokenHelp.Path, flag.ContinueOnError)
-	address, err := c.address(set, args)
+	given, err := c.given(flag.NewFlagSet(tokenHelp.Path, flag.ContinueOnError), args)
+	if err != nil {
+		return err
+	}
+	if token := strings.TrimSpace(c.env(tokenVar)); token != "" {
+		_, err = fmt.Fprintln(c.out, token)
+		return err
+	}
+	address, err := credentials.Choose(c.env, given)
 	if err != nil {
 		return err
 	}
@@ -66,7 +73,7 @@ func (c *client) chosenToken(ctx context.Context, address string) (string, error
 		return "", err
 	}
 	if stored == "" {
-		return "", fmt.Errorf("no token for %s. Run spotlight login, or set %s, or %s in CI", address, tokenVar, trustVar)
+		return "", fmt.Errorf("no token for %s. Run %s, or set %s, or %s in CI", address, loginHint(address), tokenVar, trustVar)
 	}
 
 	return stored, nil

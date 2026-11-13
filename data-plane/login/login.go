@@ -215,6 +215,14 @@ func browse(page string) error {
 }
 
 func (c *client) address(set *flag.FlagSet, args []string) (string, error) {
+	given, err := c.given(set, args)
+	if err != nil {
+		return "", err
+	}
+	return credentials.Choose(c.env, given)
+}
+
+func (c *client) given(set *flag.FlagSet, args []string) (string, error) {
 	set.SetOutput(io.Discard)
 	given := set.String("url", "", "the Spotlight address")
 
@@ -229,15 +237,14 @@ func (c *client) address(set *flag.FlagSet, args []string) (string, error) {
 		return "", fmt.Errorf("%s", shown.Synopsis())
 	}
 
-	raw := *given
-	if raw == "" {
-		raw = c.env(urlVar)
-	}
-	if raw == "" {
-		raw = defaultAddress
-	}
+	return *given, nil
+}
 
-	return credentials.Address(raw)
+func loginHint(address string) string {
+	if address == defaultAddress {
+		return "spotlight login"
+	}
+	return "spotlight login --url " + address
 }
 
 func (c *client) login(ctx context.Context, args []string) (string, error) {
