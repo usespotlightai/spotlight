@@ -238,6 +238,36 @@ describe('ReactionFor.happened', () => {
     expect(released.moveHeldTo).toBeNull();
   });
 
+  it('moves a task whose run waits on a question once its held move is released', () => {
+    const toReview = Task.rehydrate({
+      ...openedTwo().assignRun(RUN, LINE),
+      ownedPullRequests: [
+        OwnedPullRequest.of(API, NOW),
+        OwnedPullRequest.of(DOCS, NOW),
+      ],
+    });
+    const held = (
+      toReview.reactTo(
+        reaction(toReview, { ...commented, closedPullRequest: API }),
+        ON,
+      ) as Task
+    ).putToAPerson(RUN, {
+      line: null,
+      body: TaskNoteBody.of('Which queue should I drain?'),
+      at: NOW,
+      voice: Voice.station(RUN),
+    });
+    const released = held
+      .pullRequestClosed(API, NOW, { line: LINE, ranksAtHeldMove: [] })
+      .pullRequestClosed(DOCS, NOW, { line: LINE, ranksAtHeldMove: [] });
+
+    expect(released.stationId.value).toBe('station_2');
+    expect(released.currentRunId).toBeNull();
+    expect(released.awaitingReview).toBe(false);
+    expect(released.deferredMoveTo).toBeNull();
+    expect(released.moveHeldTo).toBeNull();
+  });
+
   it('drops a held move once a pull request of the task reopens', () => {
     const before = openedTwo();
     const held = before.reactTo(reaction(before, mergedOf(API)), ON) as Task;

@@ -460,9 +460,9 @@ export class Task extends EventRecorder {
   }
 
   private get waitsOnAQuestion(): boolean {
-    const asked = this.openConversationNote;
+    const asked = this.pendingAsk;
 
-    return this.awaitingReview && !asked?.approval && !asked?.connectionAsk;
+    return asked !== null && !asked.approval && !asked.connectionAsk;
   }
 
   deferMove(line: LineMap, to: StationId, newNote: NewNote): Task {
@@ -1180,11 +1180,17 @@ export class Task extends EventRecorder {
   }
 
   get decisionPending(): boolean {
-    const asked = [...this.notes]
-      .reverse()
-      .find((note) => note.kind === 'asked');
+    return Boolean(this.pendingAsk?.approval);
+  }
 
-    return this.awaitingReview && Boolean(asked?.approval);
+  private get pendingAsk(): TaskNote | null {
+    if (!this.awaitingReview) {
+      return null;
+    }
+
+    return (
+      [...this.notes].reverse().find((note) => note.kind === 'asked') ?? null
+    );
   }
 
   closeConversation(newNote: NewNote): Task {
