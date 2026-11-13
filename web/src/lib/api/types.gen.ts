@@ -4624,6 +4624,17 @@ export type ExpressionDeclarationResponseDto = {
   fields: Array<ExpressionDeclarationResponseDto>;
 };
 
+export type ExpressionCallResponseDto = {
+  /**
+   * What calls the expression: a binding of a task, chat, inbox-request or notice event, a tool, or a schedule
+   */
+  by: 'task' | 'chat' | 'inbox-request' | 'notice' | 'tool' | 'schedule';
+  /**
+   * The variables that depend on what calls the expression, and that this caller gives
+   */
+  variables: Array<string>;
+};
+
 export type ExpressionPositionResponseDto = {
   /**
    * Where an expression is written, with [*] for any list index or map key; a check names the concrete attribute and resolves it against the supplied definition
@@ -4641,6 +4652,10 @@ export type ExpressionPositionResponseDto = {
    * What the definition adds here: item where the event has a forEach, the names its lookup captures, the inputs of the tools that do the action
    */
   addedVariables: Array<'item' | 'captures' | 'inputs'>;
+  /**
+   * What can call an expression here, each with the variables it gives. The expression is checked for each caller that the definition has: a binding for the events whose bindings name it, a tool or a schedule for the actions they name. Where the definition has no such caller, it is checked against all of them. Empty where the variables do not depend on what calls the expression
+   */
+  calls: Array<ExpressionCallResponseDto>;
 };
 
 export type HappeningResponseDto = {

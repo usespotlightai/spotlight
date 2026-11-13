@@ -5,9 +5,11 @@ import {
   type ExpressionDeclarationDto,
   type ExpressionErrorDto,
   type ExpressionPositionDto,
+  type ExpressionCallDto,
   type ExpressionSpanDto,
   type ExpressionWarningDto,
 } from '@integrations/application/dto/expression-check.dto';
+import { ACTION_CALLERS } from '@integrations/domain/value-objects/action-caller.vo';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ExpressionSpanResponseDto {
@@ -126,6 +128,30 @@ export class ExpressionDeclarationResponseDto {
   }
 }
 
+export class ExpressionCallResponseDto {
+  @ApiProperty({
+    enum: [...ACTION_CALLERS],
+    example: 'notice',
+    description:
+      'What calls the expression: a binding of a task, chat, inbox-request or notice event, a tool, or a schedule',
+  })
+  readonly by: string;
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['notice', 'target', 'uploaded'],
+    description:
+      'The variables that depend on what calls the expression, and that this caller gives',
+  })
+  readonly variables: readonly string[];
+
+  constructor(call: ExpressionCallDto) {
+    this.by = call.by;
+    this.variables = call.variables;
+  }
+}
+
 export class ExpressionPositionResponseDto {
   @ApiProperty({
     example: 'integration.webhook.events[*].when',
@@ -159,6 +185,14 @@ export class ExpressionPositionResponseDto {
   })
   readonly addedVariables: readonly string[];
 
+  @ApiProperty({
+    type: ExpressionCallResponseDto,
+    isArray: true,
+    description:
+      'What can call an expression here, each with the variables it gives. The expression is checked for each caller that the definition has: a binding for the events whose bindings name it, a tool or a schedule for the actions they name. Where the definition has no such caller, it is checked against all of them. Empty where the variables do not depend on what calls the expression',
+  })
+  readonly calls: readonly ExpressionCallResponseDto[];
+
   constructor(position: ExpressionPositionDto) {
     this.position = position.position.rendered;
     this.returns = position.returns;
@@ -166,5 +200,8 @@ export class ExpressionPositionResponseDto {
       (each) => new ExpressionDeclarationResponseDto(each),
     );
     this.addedVariables = position.addedVariables;
+    this.calls = position.calls.map(
+      (each) => new ExpressionCallResponseDto(each),
+    );
   }
 }

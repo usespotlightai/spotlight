@@ -1,4 +1,5 @@
 import type { ExpressionErrorDto } from '@integrations/application/dto/expression-check.dto';
+import { CALLER_ABOUT } from '@integrations/domain/value-objects/action-caller.vo';
 import type {
   Additions,
   ExpressionPosition,
@@ -8,6 +9,7 @@ import {
   positionOf,
 } from '@integrations/infrastructure/integrations/expression-positions';
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
+import type { Scope } from '@platform/expressions/scope';
 import {
   ANY_SEGMENT,
   FieldPath,
@@ -75,7 +77,41 @@ export class Place {
       field: captured.field,
       message: `shadows the built-in ${captured.name}`,
     }));
-    const checked = expressions.check(source, position.seen(this.additions));
+    const results = position.seen(this.additions).map((seen) => ({
+      by: seen.by,
+      ...this.typed(expressions, source, seen.scope),
+    }));
+    const shown = results.find((each) => each.errors.length > 0) ?? results[0];
+    const by = shown.errors.length > 0 ? shown.by : null;
+    const unbound =
+      by === null
+        ? null
+        : this.typed(expressions, source, position.seenByAll(this.additions));
+
+    if (unbound !== null && unbound.errors.length > 0) {
+      return { ...unbound, warnings };
+    }
+
+    return {
+      type: shown.type,
+      errors:
+        by !== null
+          ? shown.errors.map((error) => ({
+              ...error,
+              message: `${error.message}. ${CALLER_ABOUT[by]} has no such variable`,
+              suggestion: null,
+            }))
+          : shown.errors,
+      warnings,
+    };
+  }
+
+  private typed(
+    expressions: ExpressionEnginePort,
+    source: string,
+    scope: Scope,
+  ): Omit<CheckResult, 'warnings'> {
+    const checked = expressions.check(source, scope);
 
     if (!checked.valid) {
       return {
@@ -87,18 +123,16 @@ export class Place {
             suggestion: checked.suggestion,
           },
         ],
-        warnings,
       };
     }
 
-    const problem = position.problem(checked.type);
+    const problem = this.position.problem(checked.type);
 
     return {
       type: checked.type,
       errors: problem
         ? [{ message: problem, span: extentOf(source), suggestion: null }]
         : [],
-      warnings,
     };
   }
 
