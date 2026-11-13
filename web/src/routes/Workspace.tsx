@@ -163,6 +163,7 @@ export function Workspace({ pages }: WorkspaceProps) {
           </SidebarSlide>
         }
         tabs={strip}
+        panesKey={`${tabs.panes.left}:${tabs.panes.right}`}
         focused={tabs.panes.left === tabs.activeId ? 'main' : 'split'}
         onCollapse={(section) =>
           tabs.hidePane(section === 'main' ? 'left' : 'right')

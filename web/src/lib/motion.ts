@@ -15,3 +15,12 @@ export const canAnimate = (
   element !== null &&
   typeof element.animate === 'function' &&
   !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+export const SPRING_MS = 350;
+
+export const SPRING = 'duration-350 ease-spring motion-reduce:transition-none';
+
+export const springMs = (): number =>
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ? 0
+    : SPRING_MS;

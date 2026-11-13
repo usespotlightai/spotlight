@@ -1,17 +1,20 @@
 import { type ReactNode, useState } from 'react';
 
+import { CollapsibleSidebar } from '@/components/shell/layout/CollapsibleSidebar';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
-import { SidebarToggle } from '@/components/shell/layout/SidebarToggle';
-import { useCollapsedSidebar } from '@/hooks/useCollapsedSidebar';
+import { useSidebarCollapsed } from '@/hooks/useCollapsedSidebar';
 import { useDragToClose } from '@/hooks/useDragToClose';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
+import { useSettling } from '@/hooks/useSettling';
 import { framesWindow } from '@/lib/desktop';
+import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 type DashboardLayoutProps = {
   sidebar?: ReactNode;
   tabs?: ReactNode;
   split?: ReactNode;
+  panesKey?: string;
   focused?: SectionName;
   onCollapse?: (section: SectionName) => void;
   children?: ReactNode;
@@ -19,9 +22,11 @@ type DashboardLayoutProps = {
 
 type SectionName = 'main' | 'split';
 
+type Closing = { section: SectionName; panesKey?: string };
+
 const SPLIT_CLOSES_AT_PX = 160;
 
-const SIDEBAR_CLOSES_AT_PX = 96;
+const MAIN_KEEPS_PX = 328;
 
 const SPLIT_PANE = {
   storageKey: 'spotlight.split-width',
@@ -30,145 +35,81 @@ const SPLIT_PANE = {
   initial: 560,
   label: 'Resize split view',
   edge: 'left' as const,
+  property: '--split-width',
 };
 
 const PANE_SECTION =
-  'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-clip rounded-lg border-[0.5px] border-border bg-surface shadow-pane transition-[border-color,opacity] data-focused:border-foreground/25 data-collapsing:opacity-40';
+  'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-clip rounded-lg border-[0.5px] border-border bg-surface shadow-pane data-focused:border-foreground/25 data-collapsing:opacity-40';
 
 export function DashboardLayout({
   sidebar,
   tabs,
   split,
+  panesKey,
   focused = 'main',
   onCollapse,
   children,
 }: DashboardLayoutProps) {
-  const [collapsing, setCollapsing] = useState<SectionName | null>(null);
-  const [closingSidebar, setClosingSidebar] = useState(false);
-  const { width, resizing, handleProps, paneRef, resize } = usePaneWidth();
-  const sidebarState = useCollapsedSidebar(paneRef);
-  const { collapsed, peeking } = sidebarState;
-  const hidden = collapsed && !peeking;
-  const sidebarHandle = useDragToClose({
-    width,
-    direction: 1,
-    paneRef,
-    handleProps,
-    resize,
-    closingAt: (wanted) => (wanted < SIDEBAR_CLOSES_AT_PX ? true : null),
-    onClosing: (closing) => setClosingSidebar(closing ?? false),
-    onClose: sidebarState.collapse,
+  const collapsed = useSidebarCollapsed();
+  const desktop = framesWindow();
+  const [dragging, setDragging] = useState<SectionName | null>(null);
+  const [closing, setClosing] = useSettling<Closing>((done) => {
+    if (done.panesKey === panesKey) {
+      onCollapse?.(done.section);
+    }
   });
-  const toggle = (
-    <SidebarToggle
-      collapsed={collapsed}
-      onToggle={collapsed ? sidebarState.expand : sidebarState.collapse}
-    />
-  );
+  const closingSection =
+    closing?.panesKey === panesKey ? (closing?.section ?? null) : null;
+  const shows = (section: SectionName) =>
+    dragging === section || closingSection === section || undefined;
 
   return (
     <div
       className={cn(
-        'flex h-svh bg-background',
-        framesWindow() && 'bg-background/40',
-        resizing && 'cursor-col-resize select-none',
+        'flex h-svh overflow-clip bg-background',
+        desktop && 'bg-background/40',
       )}
     >
-      {collapsed && (
-        <div
-          aria-hidden
-          data-slot="sidebar-backdrop"
-          onClick={sidebarState.unpeek}
-          className={cn(
-            'fixed inset-0 z-40 hidden bg-black/10 transition-opacity duration-200 supports-backdrop-filter:backdrop-blur-xs md:block',
-            peeking ? 'opacity-100' : 'pointer-events-none opacity-0',
-          )}
-        />
-      )}
+      <CollapsibleSidebar>{sidebar}</CollapsibleSidebar>
 
-      {collapsed && (
-        <div
-          aria-hidden
-          data-slot="sidebar-peek"
-          onPointerEnter={sidebarState.peek}
-          className="fixed inset-y-0 left-0 z-40 hidden w-2 md:block"
-        />
-      )}
-
-      <aside
-        ref={paneRef}
-        style={{ width }}
-        inert={hidden || undefined}
-        data-collapsed={collapsed || undefined}
-        data-peeking={peeking || undefined}
-        className={cn(
-          'relative hidden shrink-0 flex-col overflow-hidden px-3 py-2 transition-opacity md:flex',
-          closingSidebar && 'opacity-40',
-          collapsed &&
-            'fixed top-11 bottom-2 left-2 z-50 rounded-lg border-[0.5px] border-border bg-background shadow-lg transition-[translate,opacity] duration-200 ease-out',
-          hidden &&
-            'pointer-events-none -translate-x-[calc(100%+1rem)] opacity-0',
-        )}
-      >
-        {framesWindow() && !collapsed && (
-          <div
-            data-slot="window-buttons"
-            className="flex h-8 shrink-0 items-center pl-[4.25rem]"
-          >
-            {sidebar && toggle}
-          </div>
-        )}
-        {sidebar}
-      </aside>
-
-      <div
-        className={cn(
-          'flex min-w-0 flex-1 flex-col p-2',
-          !collapsed && 'md:pl-0',
-        )}
-      >
+      <div className="flex min-w-0 flex-1 flex-col p-2 md:pl-0">
         <div
           className={cn(
-            'flex min-w-0 items-start gap-1.5',
-            collapsed && framesWindow() && 'md:pl-[4.5rem]',
+            'flex min-w-0 items-start transition-[padding]',
+            SPRING,
+            sidebar &&
+              collapsed &&
+              (desktop ? 'md:pl-[6.625rem]' : 'md:pl-[2.125rem]'),
           )}
         >
-          {sidebar && collapsed && (
-            <div
-              className="relative z-50 hidden pb-2 md:block"
-              onPointerEnter={sidebarState.peek}
-            >
-              {toggle}
-            </div>
-          )}
           <div className="min-w-0 flex-1">{tabs}</div>
         </div>
 
         <div className="relative flex min-h-0 flex-1 gap-2">
-          {!collapsed && (
-            <PaneHandle
-              {...handleProps}
-              {...sidebarHandle}
-              edge="left"
-              resizing={resizing}
-              className="hidden md:block"
-            />
-          )}
-
-          <section
-            data-focused={(split && focused === 'main') || undefined}
-            data-collapsing={collapsing === 'main' || undefined}
-            className={PANE_SECTION}
+          <div
+            inert={closingSection === 'main' || undefined}
+            className={cn(
+              'flex min-w-0 flex-1 justify-end [clip-path:inset(-2rem_-2rem_-2rem_0)]',
+              closingSection === 'main' &&
+                cn('-mr-2 transition-[margin]', SPRING),
+            )}
           >
-            {children}
-          </section>
+            <section
+              data-focused={(split && focused === 'main') || undefined}
+              data-collapsing={shows('main')}
+              className={cn(PANE_SECTION, split && 'min-w-80')}
+            >
+              {children}
+            </section>
+          </div>
 
           {split && (
             <SplitSection
               focused={focused === 'split'}
-              collapsing={collapsing}
-              onCollapsing={setCollapsing}
-              onCollapse={(section) => onCollapse?.(section)}
+              closing={closingSection}
+              collapsing={shows('split')}
+              onDragging={setDragging}
+              onClose={(section) => setClosing({ section, panesKey })}
             >
               {split}
             </SplitSection>
@@ -181,25 +122,30 @@ export function DashboardLayout({
 
 type SplitSectionProps = {
   focused: boolean;
-  collapsing: SectionName | null;
-  onCollapsing: (section: SectionName | null) => void;
-  onCollapse: (section: SectionName) => void;
+  closing: SectionName | null;
+  collapsing: true | undefined;
+  onDragging: (section: SectionName | null) => void;
+  onClose: (section: SectionName) => void;
   children: ReactNode;
 };
 
 function SplitSection({
   focused,
+  closing,
   collapsing,
-  onCollapsing,
-  onCollapse,
+  onDragging,
+  onClose,
   children,
 }: SplitSectionProps) {
-  const { width, resizing, handleProps, paneRef, resize } =
+  const { width, min, resizing, handleProps, paneRef, resize } =
     usePaneWidth<HTMLDivElement>(SPLIT_PANE);
-  const closingHandle = useDragToClose<SectionName>({
+  const dragHandle = useDragToClose<SectionName>({
     width,
+    min,
+    max: (room) => room - MAIN_KEEPS_PX,
     direction: -1,
     paneRef,
+    property: '--split-drag',
     handleProps,
     resize,
     closingAt: (wanted, room) => {
@@ -209,31 +155,43 @@ function SplitSection({
 
       return wanted > room - SPLIT_CLOSES_AT_PX ? 'main' : null;
     },
-    onClosing: onCollapsing,
-    onClose: onCollapse,
+    onClosing: onDragging,
+    onClose,
   });
 
   return (
     <div
       ref={paneRef}
-      style={{ width }}
-      className="relative hidden max-w-[calc(100%-20rem)] shrink-0 flex-col md:flex"
+      inert={closing === 'split' || undefined}
+      data-resizing={resizing || undefined}
+      className={cn(
+        'relative hidden max-w-[max(calc(100%-20.5rem),var(--split-drag,0px))] shrink-0 flex-col md:flex',
+        closing === 'split' && '-ml-2 w-0',
+        closing === 'main' && 'w-full max-w-none',
+        !closing && 'w-[var(--split-drag,var(--split-width))]',
+        !resizing && cn('transition-[width,margin]', SPRING),
+      )}
     >
       <PaneHandle
         {...handleProps}
-        {...closingHandle}
+        {...dragHandle}
         edge="left"
         resizing={resizing}
         className="-left-2"
       />
 
-      <section
-        data-focused={focused || undefined}
-        data-collapsing={collapsing === 'split' || undefined}
-        className={PANE_SECTION}
-      >
-        {children}
-      </section>
+      <div className="flex min-h-0 min-w-0 flex-1 [clip-path:inset(-2rem_0_-2rem_-2rem)]">
+        <section
+          data-focused={focused || undefined}
+          data-collapsing={collapsing}
+          className={cn(
+            PANE_SECTION,
+            (resizing || closing === 'split') && 'min-w-80',
+          )}
+        >
+          {children}
+        </section>
+      </div>
     </div>
   );
 }

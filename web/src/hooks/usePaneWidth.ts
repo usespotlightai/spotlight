@@ -2,6 +2,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -24,6 +25,7 @@ const WORKSPACE_SIDEBAR: Pane = {
   max: 320,
   initial: 224,
   label: 'Resize sidebar',
+  property: '--sidebar-width',
 };
 
 const readStoredWidth = (pane: Pane): number => {
@@ -53,6 +55,12 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   const origin = useRef<{ x: number; width: number } | null>(null);
   const last = useRef(width);
   const paneRef = useRef<T | null>(null);
+
+  useLayoutEffect(() => {
+    if (pane.property && !resizing) {
+      paneRef.current?.style.setProperty(pane.property, `${width}px`);
+    }
+  }, [pane.property, width, resizing]);
 
   useEffect(() => {
     if (!resizing) {
@@ -99,11 +107,19 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     show(origin.current.width + direction * (event.clientX - origin.current.x));
   };
 
-  const onPointerUp = (event: PointerEvent<HTMLElement>) => {
+  const finish = () => {
+    if (!origin.current) {
+      return;
+    }
+
     origin.current = null;
     setResizing(false);
     setWidth(last.current);
     store(pane, last.current);
+  };
+
+  const onPointerUp = (event: PointerEvent<HTMLElement>) => {
+    finish();
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
@@ -122,6 +138,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
 
   return {
     width,
+    min: pane.min,
     resizing,
     paneRef,
     resize,
@@ -136,6 +153,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
       onPointerDown,
       onPointerMove,
       onPointerUp,
+      onLostPointerCapture: finish,
       onKeyDown,
       onDoubleClick: () => resize(pane.initial),
     },

@@ -1,17 +1,28 @@
+import type { Ref } from 'react';
+
 import { Button } from '@/components/ui/button';
 
 type SidebarToggleProps = {
+  ref?: Ref<HTMLButtonElement>;
   collapsed: boolean;
+  controls: string;
   onToggle: () => void;
 };
 
-export function SidebarToggle({ collapsed, onToggle }: SidebarToggleProps) {
+export function SidebarToggle({
+  ref,
+  collapsed,
+  controls,
+  onToggle,
+}: SidebarToggleProps) {
   return (
     <Button
+      ref={ref}
       variant="ghost"
       size="icon-sm"
       aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      aria-pressed={!collapsed}
+      aria-expanded={!collapsed}
+      aria-controls={controls}
       onClick={onToggle}
       className="shrink-0 text-muted-foreground"
     >
