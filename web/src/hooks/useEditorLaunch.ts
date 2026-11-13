@@ -27,7 +27,8 @@ export type EditorSetupState = {
 function useConnectionWatch(target: SandboxTarget, slug: string) {
   const [since, setSince] = useState<number | null>(null);
   const [overdue, setOverdue] = useState(false);
-  const connected = useEditorConnection(target, slug, since).data === true;
+  const answer = useEditorConnection(target, slug, since).data;
+  const watching = since !== null;
 
   useEffect(() => {
     if (since === null) {
@@ -47,7 +48,8 @@ function useConnectionWatch(target: SandboxTarget, slug: string) {
   }, [since]);
 
   return {
-    overdue: overdue && since !== null && !connected,
+    connected: watching && answer === true,
+    overdue: overdue && watching && answer === false,
     start: () => {
       setOverdue(false);
       setSince(Date.now());
@@ -75,7 +77,7 @@ export function useEditorLaunch(slug: string, target: SandboxTarget) {
   };
 
   const setup: EditorSetupState = {
-    open: missed || watch.overdue,
+    open: (missed && !watch.connected) || watch.overdue,
     reason: missed ? 'not-opened' : 'not-connected',
     app: tried ?? preferred,
     close: () => {

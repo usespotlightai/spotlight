@@ -112,6 +112,7 @@ describe.each(presentations)('%s', (name, renderControl) => {
 
   it('shows that the editor did not connect when no connection comes in 20 seconds', () => {
     vi.useFakeTimers();
+    connection.answer = { data: false };
     renderControl();
 
     fireEvent.click(screen.getByRole('link', { name: 'Open in VS Code' }));
@@ -162,6 +163,46 @@ describe.each(presentations)('%s', (name, renderControl) => {
     expect(
       screen.queryByText('VS Code did not connect to Spotlight'),
     ).toBeNull();
+  });
+
+  it('says nothing of the connection while Spotlight cannot answer', () => {
+    vi.useFakeTimers();
+    renderControl();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open in VS Code' }));
+    act(() => {
+      window.dispatchEvent(new Event('blur'));
+      vi.advanceTimersByTime(30_000);
+    });
+
+    expect(
+      screen.queryByText('VS Code did not connect to Spotlight'),
+    ).toBeNull();
+  });
+
+  it('closes the setup once the editor connects after all', async () => {
+    vi.useFakeTimers();
+    const { rerender } = renderControl();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open in VS Code' }));
+    act(() => {
+      vi.advanceTimersByTime(2_000);
+    });
+    expect(screen.getByText('Set up this computer once')).toBeInTheDocument();
+
+    connection.answer = { data: true };
+    rerender(
+      name === 'OpenInEditor' ? (
+        <OpenInEditor slug="acme" target={task} />
+      ) : (
+        <OpenInEditorRow slug="acme" target={task} />
+      ),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(screen.queryByText('Set up this computer once')).toBeNull();
   });
 
   it('stops watching after 10 minutes and shows nothing then', () => {
