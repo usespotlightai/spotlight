@@ -21,6 +21,7 @@ const UNORDERABLE = [
   'restore',
   'extensions',
   'injectedSecrets',
+  'harnessKeys',
 ] as const;
 
 export interface OrderedSpec {
@@ -285,6 +286,12 @@ const read = (raw: unknown): RunSpec => {
     (each) => stringAt(each, 'the secrets that egress injects for it'),
   );
 
+  const harnessKeys = optionalListAt(
+    input.harnessKeys,
+    'the harness keys that egress injects for it',
+    (each) => stringAt(each, 'the harness keys that egress injects for it'),
+  );
+
   const settingFiles = optionalListAt(
     input.settingFiles,
     'where its harness stores settings',
@@ -331,6 +338,7 @@ const read = (raw: unknown): RunSpec => {
     ...(harnessSetup ? { harnessSetup } : {}),
     ...(settingFiles ? { settingFiles } : {}),
     ...(injectedSecrets ? { injectedSecrets } : {}),
+    ...(harnessKeys ? { harnessKeys } : {}),
     ...(spotlightApi ? { spotlightApi } : {}),
   });
 };

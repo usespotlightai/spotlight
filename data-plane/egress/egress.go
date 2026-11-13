@@ -40,6 +40,17 @@ const (
 
 type SecretFetcher interface {
 	FetchRunSecrets(ctx context.Context, recipient string) (protocol.EgressSecrets, error)
+	FetchHarnessKeys(ctx context.Context, recipient string) (protocol.EgressSecrets, error)
+}
+
+type hostCredential protocol.HostCredential
+
+func (c hostCredential) Authorize(request *http.Request) error {
+	request.Header.Set("Authorization", c.Authorization)
+	if c.Trust != "" {
+		request.Header.Set(protocol.TrustHeader, c.Trust)
+	}
+	return nil
 }
 
 type CallSecretRedeemer interface {
@@ -105,8 +116,8 @@ func run() error {
 		return err
 	}
 
-	fetched, err := fetchSecretsFor(ctx, config, key.Recipient(), func(url, token string) (SecretFetcher, error) {
-		return control.New(url, token)
+	fetched, err := fetchSecretsFor(ctx, config, key.Recipient(), func(url string, credential control.Credential) (SecretFetcher, error) {
+		return control.Authorized(url, credential)
 	}, log)
 	if err != nil {
 		return err
@@ -221,18 +232,27 @@ func readConfig(path string) (protocol.EgressConfig, error) {
 
 func fetchSecretsFor(
 	ctx context.Context, config protocol.EgressConfig, recipient string,
-	connect func(url, token string) (SecretFetcher, error), log *slog.Logger,
+	connect func(url string, credential control.Credential) (SecretFetcher, error), log *slog.Logger,
 ) (protocol.EgressSecrets, error) {
-	if config.Token == "" {
+	var credential control.Credential
+	switch {
+	case config.Token != "":
+		credential = control.Bearer(config.Token)
+	case config.Host != nil:
+		credential = hostCredential(*config.Host)
+	default:
 		return protocol.EgressSecrets{}, nil
 	}
 
-	fetcher, err := connect(config.URL, config.Token)
+	fetcher, err := connect(config.URL, credential)
 	if err != nil {
 		return protocol.EgressSecrets{}, err
 	}
 
-	return fetchedBy(ctx, fetcher, recipient, log), nil
+	if config.Token == "" {
+		return fetchedBy(ctx, fetcher.FetchHarnessKeys, recipient, log), nil
+	}
+	return fetchedBy(ctx, fetcher.FetchRunSecrets, recipient, log), nil
 }
 
 func withRunHosts(
@@ -241,13 +261,15 @@ func withRunHosts(
 	return allowed.With(append(append([]string{controlPlane}, fetched.ExtraAllowedHosts...), sandboxHosts...)...)
 }
 
-func fetchedBy(ctx context.Context, fetcher SecretFetcher, recipient string, log *slog.Logger) protocol.EgressSecrets {
+func fetchedBy(
+	ctx context.Context, fetch func(context.Context, string) (protocol.EgressSecrets, error), recipient string, log *slog.Logger,
+) protocol.EgressSecrets {
 	budget, cancel := context.WithTimeout(ctx, fetchBudget)
 	defer cancel()
 
 	backoff := fetchFloor
 	for {
-		fetched, err := fetcher.FetchRunSecrets(budget, recipient)
+		fetched, err := fetch(budget, recipient)
 		if err == nil {
 			return fetched
 		}
@@ -258,10 +280,10 @@ func fetchedBy(ctx context.Context, fetcher SecretFetcher, recipient string, log
 			return protocol.EgressSecrets{}
 		}
 
-		log.Warn("could not fetch the run's secrets, still trying", "error", err, "retryIn", backoff)
+		log.Warn("could not fetch the secrets to inject, still trying", "error", err, "retryIn", backoff)
 		select {
 		case <-budget.Done():
-			log.Error("gave up fetching the run's secrets; the sandbox goes out with no injected secrets", "error", err)
+			log.Error("gave up fetching the secrets to inject; the sandbox goes out with none", "error", err)
 			return protocol.EgressSecrets{}
 		case <-time.After(backoff):
 		}

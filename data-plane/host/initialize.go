@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/term"
+
 	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/credentials"
@@ -31,7 +33,7 @@ const (
 type initFlags struct {
 	url, token, trust, tokenFile, image, name string
 	capacity                                  int
-	noService, yes                            bool
+	noService, yes, tokenStdin                bool
 	given                                     map[string]bool
 }
 
@@ -47,11 +49,37 @@ func initialize(version string, args []string) error {
 	flags.StringVar(&f.name, "name", "", "")
 	flags.BoolVar(&f.noService, "no-service", false, "")
 	flags.BoolVar(&f.yes, "yes", false, "")
+	flags.BoolVar(&f.tokenStdin, "token-stdin", false, "")
 	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
 		return fmt.Errorf("%s", initHelp.Synopsis())
 	}
 	f.given = map[string]bool{}
 	flags.Visit(func(each *flag.Flag) { f.given[each.Name] = true })
+
+	if onlyURL(f.given) && personal() && Interactive() && !connected() {
+		address := ""
+		if f.given["url"] {
+			parsed, err := credentials.Address(f.url)
+			if err != nil {
+				return err
+			}
+			address = parsed
+		}
+		return OpenDashboard(version, &address)
+	}
+	if f.tokenStdin {
+		if f.given["token"] {
+			return errors.New("give the token with --token or --token-stdin, not both")
+		}
+		if term.IsTerminal(int(os.Stdin.Fd())) {
+			return errors.New("--token-stdin reads the token from a pipe, as in: printf %s \"$POOL_TOKEN\" | spotlight host init --token-stdin")
+		}
+		token, err := io.ReadAll(io.LimitReader(os.Stdin, 4096))
+		if err != nil {
+			return fmt.Errorf("read the token from stdin: %w", err)
+		}
+		f.token, f.given["token"] = strings.TrimSpace(string(token)), true
+	}
 
 	var tty *console.Terminal
 	if !f.yes {
@@ -100,9 +128,7 @@ func initialize(version string, args []string) error {
 
 	if strings.HasPrefix(cfg.Images.Default, config.Image+":") {
 		fmt.Printf("\n%s The runner image holds no harness, so this host runs checks but no agent run.\n", mark(warned))
-		fmt.Println("  Build an image FROM it with Claude Code, Codex, Cursor or OpenCode, as in:")
-		fmt.Println("  https://github.com/usespotlightai/spotlight/tree/main/.docker/runner/examples")
-		fmt.Println("  Then: spotlight host config set image=IMAGE")
+		fmt.Println("  Run spotlight host init in a terminal, without flags, to build an image with Claude Code, Codex, Cursor or OpenCode.")
 	}
 	return nil
 }
@@ -253,6 +279,10 @@ func pull(out io.Writer, cfg config.Config) error {
 	if err != nil {
 		return fmt.Errorf("no container runtime answers; start Docker or Podman, then run this again: %w", err)
 	}
+	if local, err := engine.Inspect(context.Background(), image); err == nil && len(local.Digests) == 0 {
+		console.Step(out, "Uses "+image+", built on this machine")
+		return nil
+	}
 	auth, err := registry.From(cfg.Registry).For(image)
 	if err != nil {
 		return err
@@ -294,6 +324,19 @@ func serveIt(out io.Writer, version string, cfg config.Config, noService bool) e
 		return err
 	}
 	return install.Service{Binary: binary, Config: config.Path()}.Install(out)
+}
+
+func onlyURL(given map[string]bool) bool {
+	return len(given) == 0 || len(given) == 1 && given["url"]
+}
+
+func connected() bool {
+	file, err := config.Open(config.Path())
+	if err != nil {
+		return false
+	}
+	saved := file.Values()
+	return saved["SPOTLIGHT_POOL_TOKEN"] != "" || saved["SPOTLIGHT_TRUST"] != ""
 }
 
 func loginAddress() string {
