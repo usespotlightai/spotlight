@@ -14,6 +14,7 @@ import (
 func outsideARun(t *testing.T) {
 	t.Setenv(protocol.AgentAPIURLVar, "")
 	t.Setenv(protocol.AgentAPITokenVar, "")
+	t.Setenv(protocol.EditorSessionVar, "")
 }
 
 func inARun(t *testing.T, manifest string) {
@@ -62,7 +63,7 @@ func TestBareSpotlightListsThePersonsCommands(t *testing.T) {
 	outsideARun(t)
 
 	code, out, _ := ran()
-	if code != 0 || !strings.Contains(out, "host init") || strings.Contains(out, "handover") {
+	if code != 0 || !strings.Contains(out, "host init") || !strings.Contains(out, "token") || strings.Contains(out, "handover") {
 		t.Fatalf("exit %d, printed\n%s", code, out)
 	}
 	if !strings.Contains(out, "spotlight help --all") {
@@ -159,5 +160,24 @@ func TestPrintsTheVersion(t *testing.T) {
 		if code, out, _ := ran(args...); code != 0 || out != "dev\n" {
 			t.Errorf("%q: exit %d, printed %q", args, code, out)
 		}
+	}
+}
+
+func TestBareSpotlightInAnEditorSessionSaysWhereItIs(t *testing.T) {
+	outsideARun(t)
+	t.Setenv(protocol.EditorSessionVar, "1")
+
+	code, out, _ := ran()
+	if code != 0 || out != editorSessionNote+"\n" {
+		t.Fatalf("exit %d, printed\n%s", code, out)
+	}
+}
+
+func TestHostInARunPrintsItsHelp(t *testing.T) {
+	inARun(t, `[]`)
+
+	code, out, _ := ran("host")
+	if code != 0 || !strings.Contains(out, "spotlight host init") {
+		t.Fatalf("exit %d, printed\n%s", code, out)
 	}
 }

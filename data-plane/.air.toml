@@ -5,7 +5,7 @@ tmp_dir = "tmp"
   # Build, then mv. If you overwrite a binary that runs, the write fails with "text file busy".
   cmd = "go build -o /tmp/spotlight.next ./cmd/spotlight && mv /tmp/spotlight.next /tmp/spotlight"
   entrypoint = "/tmp/spotlight"
-  args_bin = ["host"]
+  args_bin = ["host", "serve"]
   include_dir = ["cmd", "host", "control", "protocol"]
   include_ext = ["go"]
   exclude_regex = ["_test\\.go"]

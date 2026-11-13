@@ -21,6 +21,9 @@ const (
 	Reset  = "\033[0m"
 )
 
+// StoppedExit is the exit code of a command that Ctrl-C or SIGTERM stopped.
+const StoppedExit = 130
+
 func Colored(out io.Writer) bool {
 	file, ok := out.(*os.File)
 	if !ok || os.Getenv("NO_COLOR") != "" {
