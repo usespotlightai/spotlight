@@ -172,7 +172,7 @@ export class HostWorkController {
     if (claimed.outcome === 'host-outdated') {
       throw new ConflictException({
         reason: 'host-outdated',
-        message: `This host is on release ${claimed.release}. Minimum release required: ${claimed.minimum}. Update it with: spotlight host update`,
+        message: `This host is on release ${claimed.release}. Minimum release required: ${claimed.minimum}. Update it with: spotlight update`,
       });
     }
 

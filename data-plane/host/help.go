@@ -6,20 +6,30 @@ const docs = "spotlight-command"
 
 var hostHelp = help.Command{
 	Path:    "host",
+	Group:   true,
 	Summary: "Run sandboxes for your workspace's runs and checks on this machine.",
-	Usage:   []string{"spotlight host", "spotlight host <command> [flags]"},
+	Usage:   []string{"spotlight host <command> [flags]"},
 	Examples: []help.Example{
 		{Comment: "Connect this machine and install the host as a service", Command: "spotlight host init"},
 		{Command: "spotlight host status"},
-		{Command: "spotlight host logs -f"},
+		{Comment: "Open the dashboard for the host and the login", Command: "spotlight"},
 	},
-	Notes: []string{"Without a command, the host serves in the foreground until SIGINT or SIGTERM. The service runs it this way."},
+	Notes: []string{
+		"Without a command, it prints this help. The service runs spotlight host serve.",
+	},
+	Docs: docs + "#spotlight-host",
+}
+
+var serveHelp = help.Command{
+	Path:    "host serve",
+	Summary: "Serve in the foreground until SIGINT or SIGTERM. The service runs it this way.",
+	Usage:   []string{"spotlight host serve"},
 	Exits: []help.Exit{
 		{Code: 0, Means: "Stopped on SIGINT or SIGTERM."},
 		{Code: 1, Means: "A configuration or runtime error."},
 		{Code: 3, Means: "Spotlight refused the host. The service does not restart it."},
 	},
-	Docs: docs + "#spotlight-host",
+	Docs: docs + "#spotlight-host-serve",
 }
 
 var initHelp = help.Command{
@@ -81,11 +91,15 @@ var configGetHelp = help.Command{
 var configSetHelp = help.Command{
 	Path:    "host config set",
 	Summary: "Change settings, and apply them to the running host.",
-	Usage:   []string{"spotlight host config set <key>=<value>... [--now]"},
-	Flags:   []help.Flag{{Name: "now", Usage: "Restart at once if a setting needs a restart. Default: restart when the sandboxes finish."}},
+	Usage:   []string{"spotlight host config set <key>=<value>... [--now]", "spotlight host config set <key> --stdin [--now]"},
+	Flags: []help.Flag{
+		{Name: "now", Usage: "Restart at once if a setting needs a restart. Default: restart when the sandboxes finish."},
+		{Name: "stdin", Usage: "Read the value of the one key from stdin, so that a secret is not in the command line."},
+	},
 	Examples: []help.Example{
 		{Command: "spotlight host config set capacity=8"},
 		{Command: "spotlight host config set image=ghcr.io/acme/runner:2 --now"},
+		{Command: "spotlight host config set token --stdin < token.txt"},
 	},
 	Docs: docs + "#spotlight-host-config",
 }
@@ -159,18 +173,18 @@ var uninstallHelp = help.Command{
 }
 
 var updateHelp = help.Command{
-	Path:    "host update",
+	Path:    "update",
 	Summary: "Replace this binary with a release.",
-	Usage:   []string{"spotlight host update [<release>]"},
+	Usage:   []string{"spotlight update [<release>]"},
 	Examples: []help.Example{
-		{Comment: "Update to the release of the control plane", Command: "spotlight host update"},
-		{Command: "spotlight host update 20261020-01"},
+		{Comment: "Update to the release of the control plane", Command: "spotlight update"},
+		{Command: "spotlight update 20261020-01"},
 	},
-	Notes: []string{"Default release: the release of the control plane. A running host restarts on the new binary when its sandboxes finish."},
-	Docs:  docs + "#spotlight-host",
+	Notes: []string{"Default release: the release of the Spotlight that this computer's host serves. Without a host, name a release. A running host restarts on the new binary when its sandboxes finish."},
+	Docs:  docs + "#spotlight-update",
 }
 
 var Commands = []help.Command{
-	hostHelp, initHelp, statusHelp, configHelp, configGetHelp, configSetHelp, configUnsetHelp, configKeysHelp,
-	startHelp, stopHelp, reloadHelp, restartHelp, logsHelp, uninstallHelp, updateHelp,
+	hostHelp, serveHelp, initHelp, statusHelp, configHelp, configGetHelp, configSetHelp, configUnsetHelp, configKeysHelp,
+	startHelp, stopHelp, reloadHelp, restartHelp, logsHelp, uninstallHelp, updateHelp, homeHelp,
 }

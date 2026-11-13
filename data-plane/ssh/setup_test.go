@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"usespotlight.ai/data-plane/console"
+	"usespotlight.ai/data-plane/login"
 )
 
 type setupRun struct {
@@ -382,5 +386,95 @@ func TestSetupFindsTheEditorsOfEachSystem(t *testing.T) {
 		if strings.Join(got, "\n") != strings.Join(each.want, "\n") {
 			t.Errorf("%s %v: found %q, want %q", each.system, each.env, got, each.want)
 		}
+	}
+}
+
+func TestSetupLogsInFirstWhenThereIsNoLogin(t *testing.T) {
+	for _, each := range []struct {
+		args      []string
+		wantGiven string
+	}{
+		{nil, ""},
+		{[]string{"--url", "https://staging.example.com"}, "https://staging.example.com"},
+	} {
+		setup := newSetup(t, "/usr/local/bin/spotlight")
+		setup.cli.terminal = func() *console.Terminal { return console.New(strings.NewReader(""), io.Discard) }
+		var given []string
+		setup.cli.login = func(_ context.Context, address string) (string, error) {
+			given = append(given, address)
+			setup.login(t, map[string]string{"https://staging.example.com": "me@example.com"})
+			return "https://staging.example.com", nil
+		}
+
+		setup.run(t, append(each.args, "--no-editor-timeout")...)
+
+		if len(given) != 1 || given[0] != each.wantGiven {
+			t.Errorf("args %v: logged in with %q", each.args, given)
+		}
+		if managed := setup.read(t, "spotlight", "config"); !strings.Contains(managed, "--url https://staging.example.com %h") {
+			t.Errorf("args %v: managed config\n%s", each.args, managed)
+		}
+		for _, want := range []string{"The editor connects to sandboxes as you, so log in first.", "✓ Logged in to https://staging.example.com as me@example.com."} {
+			if !strings.Contains(setup.out.String(), want) {
+				t.Errorf("args %v: printed\n%s", each.args, setup.out.String())
+			}
+		}
+	}
+}
+
+func TestSetupWritesNothingWhenTheLoginFails(t *testing.T) {
+	setup := newSetup(t, "/usr/local/bin/spotlight")
+	setup.cli.terminal = func() *console.Terminal { return console.New(strings.NewReader(""), io.Discard) }
+	setup.cli.login = func(context.Context, string) (string, error) {
+		return "", errors.New("the login was denied in the browser")
+	}
+
+	if code := setup.cli.main(context.Background(), []string{"setup"}); code != 1 {
+		t.Fatalf("setup exited %d", code)
+	}
+	if got := setup.errs.String(); !strings.Contains(got, "nothing was written, because the login failed: the login was denied in the browser") {
+		t.Errorf("stderr %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(setup.home, ".ssh")); !os.IsNotExist(err) {
+		t.Errorf("setup wrote ~/.ssh: %v", err)
+	}
+}
+
+func TestSetupWritesNothingWhenTheLoginStops(t *testing.T) {
+	setup := newSetup(t, "/usr/local/bin/spotlight")
+	setup.cli.terminal = func() *console.Terminal { return console.New(strings.NewReader(""), io.Discard) }
+	setup.cli.login = func(context.Context, string) (string, error) {
+		return "", login.ErrStopped
+	}
+
+	if code := setup.cli.main(context.Background(), []string{"setup"}); code != console.StoppedExit {
+		t.Fatalf("setup exited %d", code)
+	}
+	if got := setup.errs.String(); got != "Stopped. Nothing was written.\n" {
+		t.Errorf("stderr %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(setup.home, ".ssh")); !os.IsNotExist(err) {
+		t.Errorf("setup wrote ~/.ssh: %v", err)
+	}
+}
+
+func TestInspectSaysWhatSetupSetUp(t *testing.T) {
+	setup := newSetup(t, "/usr/local/bin/spotlight")
+	setup.editor(t, "Code", "{\n  \"remote.SSH.connectTimeout\": 600\n}\n")
+	setup.editor(t, "Cursor", "{\n  \"remote.SSH.connectTimeout\": 20\n}\n")
+
+	if got := Inspect(setup.cli.env, "linux"); got.Configured || len(got.Editors) != 2 {
+		t.Fatalf("before setup: %+v", got)
+	}
+
+	setup.run(t, "--no-editor-timeout")
+
+	got := Inspect(setup.cli.env, "linux")
+	want := Setup{Configured: true, Editors: []Editor{
+		{Name: "VS Code", Ready: true, Message: "VS Code waits 600 seconds for a connection."},
+		{Name: "Cursor", Message: "Cursor waits 20 seconds for a connection. A stopped sandbox can take minutes to start."},
+	}}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("inspect\n%+v\nwant\n%+v", got, want)
 	}
 }

@@ -9,7 +9,7 @@ import type {
   ActionResult,
   CallAuth,
   IntegrationRuntimePort,
-  NoticePayload,
+  PostPayload,
   PollResult,
   PostResult,
   RefreshResult,
@@ -27,6 +27,10 @@ import {
   readinessFailureAfter,
 } from '@integrations/domain/services/notice-posting';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import {
+  isAboutATask,
+  type TaskBindingSubject,
+} from '@integrations/domain/value-objects/binding.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
@@ -87,6 +91,19 @@ const serviceErrorOf = (result: OutboundResult): ServiceError => ({
   status: result.status,
   output: asJson(result.response ?? null).slice(0, MAX_OUTPUT_CHARS),
 });
+
+const bindingsOf = (payload: PostPayload): Bindings => {
+  switch (payload.kind) {
+    case 'task':
+      return { task: taskBinding(payload.task), ask: payload.ask };
+    case 'inbox-request':
+      return { task: taskBinding(payload.task), request: payload.request };
+    case 'chat':
+      return { chat: payload.chat, reply: payload.reply };
+    case 'notice':
+      return { notice: payload.notice };
+  }
+};
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -160,6 +177,11 @@ type CallableTool = Omit<ResolvedTool, 'attempt'> & {
     callAuth: CallAuth,
   ) => Promise<ToolOutput>;
 };
+
+const aboutATask = (
+  payload: PostPayload,
+): payload is Extract<PostPayload, { kind: TaskBindingSubject }> =>
+  isAboutATask(payload.kind);
 
 export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   readonly #read = new WeakMap<
@@ -262,7 +284,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     event: string,
-    payload: NoticePayload,
+    payload: PostPayload,
     callAuth: CallAuth,
   ): Promise<readonly PostResult[]> {
     const readable = this.find(definitions, integration.key);
@@ -283,7 +305,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   private async posted(
     readable: ReadableIntegration,
     binding: OnBindingIR,
-    payload: NoticePayload,
+    payload: PostPayload,
     callAuth: CallAuth,
   ): Promise<readonly PostResult[]> {
     const action = readable.actions.get(binding.action);
@@ -292,10 +314,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return [{ kind: 'unaddressed' }];
     }
 
-    const against =
-      'task' in payload
-        ? { task: taskBinding(payload.task), ask: payload.ask }
-        : { chat: payload.chat, reply: payload.reply };
+    const against = bindingsOf(payload);
     const target: Record<string, string> = {};
 
     for (const each of binding.to) {
@@ -305,7 +324,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       }
     }
 
-    if (!target.channel && 'task' in payload) {
+    if (!target.channel && aboutATask(payload)) {
       const routed = binding.routes.get(payload.task.line.value);
       if (routed) {
         target.channel = routed;
@@ -391,17 +410,17 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   private async uploaded(
     uploads: UploadsIR,
     bindings: Bindings,
-    payload: NoticePayload,
+    payload: PostPayload,
     callAuth: CallAuth,
   ): Promise<Uploads> {
     const listed = value(uploads.each, bindings);
-    const files = 'task' in payload ? payload.ask.attachments : [];
+    const files = payload.kind === 'task' ? payload.ask.attachments : [];
     const ids = new Set(
       (Array.isArray(listed) ? listed : []).map((item) => fieldOf(item, 'id')),
     );
     const chosen = files.filter((file) => ids.has(file.id));
 
-    if (chosen.length === 0 || !('task' in payload)) {
+    if (chosen.length === 0 || payload.kind !== 'task') {
       return { uploaded: [], failed: null };
     }
 

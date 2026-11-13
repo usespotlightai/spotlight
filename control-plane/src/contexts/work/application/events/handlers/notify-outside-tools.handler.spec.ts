@@ -10,11 +10,16 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import type { OutboundTaskNotifier } from '@work/application/services/outside-task-notices.service';
+import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
+import type { InboxRequestRepository } from '@work/domain/repositories/inbox-request.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
+import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
 import {
   lineMapOf,
   stationOf,
@@ -64,13 +69,26 @@ const handed = () =>
     newId: () => 'task_1',
   });
 
+const gradeRequest = (task: Task) =>
+  InboxRequest.create({
+    id: InboxRequestId.of('request_1'),
+    workspaceId: WORKSPACE,
+    taskId: task.id,
+    form: 'grade',
+    about: InboxRequestSubject.of('decision_set_1'),
+    now: new Date('2026-09-17T09:30:00.000Z'),
+  });
+
 const notifying = (
   marks: readonly Mark[] = [],
   markedTask: Task | null = null,
+  requestOf: (task: Task) => InboxRequest | null = gradeRequest,
 ) => {
   const task = handed();
+  const request = requestOf(task);
   const save = vi.fn<(task: Task) => Promise<void>>(async () => {});
   const notify = vi.fn(async () => marks);
+  const notifyRequest = vi.fn(async () => marks);
   const handler = new NotifyOutsideTools(
     {
       find: async () => task,
@@ -80,13 +98,22 @@ const notifying = (
       holdingMark: async () => [],
       save,
     } as unknown as TaskRepository,
-    { notify } satisfies OutboundTaskNotifier,
+    { find: async () => request } as unknown as InboxRequestRepository,
+    { notify, notifyRequest } satisfies OutboundTaskNotifier,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     { now: () => new Date('2026-09-17T10:00:00.000Z'), sleep: async () => {} },
   );
 
-  return { handler, task, save, notify };
+  return { handler, task, request, save, notify, notifyRequest };
 };
+
+const opened = (task: Task) =>
+  new InboxRequestOpened(
+    InboxRequestId.of('request_1'),
+    WORKSPACE,
+    task.id,
+    new Date('2026-09-17T09:30:00.000Z'),
+  );
 
 describe('NotifyOutsideTools', () => {
   it('tells outside tools a person is being asked', async () => {
@@ -192,5 +219,43 @@ describe('NotifyOutsideTools', () => {
     );
 
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it('tells outside tools of a request waiting in the inbox', async () => {
+    const { handler, task, request, notifyRequest } = notifying();
+
+    await handler.onInboxRequestOpened(opened(task));
+
+    expect(notifyRequest).toHaveBeenCalledWith(task, request);
+  });
+
+  it('records the marks a tool hands back for an inbox request onto its task', async () => {
+    const { handler, task, save } = notifying([
+      Mark.of('slack.thread', '170.9'),
+    ]);
+
+    await handler.onInboxRequestOpened(opened(task));
+
+    expect(save.mock.calls[0]?.[0].marks.map((each) => each.kind)).toContain(
+      'slack.thread',
+    );
+  });
+
+  it('keeps quiet about an inbox request resolved before the tools heard of it', async () => {
+    const { handler, task, notifyRequest } = notifying([], null, (each) =>
+      gradeRequest(each).resolve(new Date('2026-09-17T09:40:00.000Z')),
+    );
+
+    await handler.onInboxRequestOpened(opened(task));
+
+    expect(notifyRequest).not.toHaveBeenCalled();
+  });
+
+  it('keeps quiet about an inbox request that no longer exists', async () => {
+    const { handler, task, notifyRequest } = notifying([], null, () => null);
+
+    await handler.onInboxRequestOpened(opened(task));
+
+    expect(notifyRequest).not.toHaveBeenCalled();
   });
 });

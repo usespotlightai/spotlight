@@ -16,7 +16,14 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const LINEAR = IntegrationKey.of('linear');
-const KNOWN = { task: ['task.opened', 'task.asked'], chat: [] };
+const KNOWN = {
+  task: ['task.opened', 'task.asked'],
+  chat: [],
+  'inbox-request': [],
+  notice: [],
+};
+
+const UNMARKED = { known: KNOWN, marked: false, routed: false };
 
 const declared = (happening: string, label = 'Issue completed') =>
   DeclaredHappening.of({
@@ -99,7 +106,7 @@ describe('Integration', () => {
       key: LINEAR,
       actions: DefinedActions.of([actionNamed('post')]),
       bindings: [
-        Binding.of({ event: 'task.asked', action: 'post', known: KNOWN }),
+        Binding.of({ event: 'task.asked', action: 'post', ...UNMARKED }),
       ],
     });
 
@@ -112,7 +119,7 @@ describe('Integration', () => {
       Integration.of({
         key: LINEAR,
         bindings: [
-          Binding.of({ event: 'task.asked', action: 'post', known: KNOWN }),
+          Binding.of({ event: 'task.asked', action: 'post', ...UNMARKED }),
         ],
       }),
     ).toThrow(/names undefined action post/);

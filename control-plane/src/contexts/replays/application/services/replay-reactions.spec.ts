@@ -15,6 +15,10 @@ import { RecordReplayRunEnding } from '@replays/application/services/record-repl
 import { RecordReplayRunUsage } from '@replays/application/services/record-replay-run-usage.service';
 import { RecordReplayVerdict } from '@replays/application/services/record-replay-verdict.service';
 import {
+  REPLAY_REVISION_ATTEMPTS,
+  REPLAY_REVISION_PAUSE_MS,
+} from '@replays/application/services/replay-revisions';
+import {
   CLOCK,
   FakeChangeReview,
   FakeInsights,
@@ -56,9 +60,13 @@ import {
   STATION,
   slots,
 } from '@replays/domain/replays.fake-spec';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { REPLAY_RUNS_AT_ONCE } from '@replays/domain/services/replay-dispatch';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
+import {
+  ChangeChecks,
+  type StackStatus,
+} from '@replays/domain/value-objects/change-checks.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -242,14 +250,13 @@ describe('DispatchReplayRuns when Work fails', () => {
     expect(second?.fingerprint).not.toBeNull();
   });
 
-  it('counts no failure when Work queued the run but another write changed the replay first, and confirms it on the next turn', async () => {
-    await memory.replayRepository.add(aReplay({ count: 1 }));
+  const conflictingFrom = (first: number, count: number) => {
     const repository = memory.replayRepository;
     const save = repository.save;
     let saves = 0;
     repository.save = async (replay) => {
       saves += 1;
-      if (saves === 2) {
+      if (saves >= first && saves < first + count) {
         throw new ReplayVersionConflictError(replay.id.value);
       }
       return save(replay);
@@ -274,6 +281,31 @@ describe('DispatchReplayRuns when Work fails', () => {
         },
         error: () => {},
       },
+    );
+
+    return { dispatcher, warned, noted };
+  };
+
+  it('confirms a run Work queued on the replay another write changed first, in the same turn', async () => {
+    await memory.replayRepository.add(aReplay({ count: 1 }));
+    const { dispatcher, warned, noted } = conflictingFrom(2, 1);
+
+    await dispatcher.processDue();
+
+    expect(warned).toEqual([]);
+    expect(noted).toEqual([]);
+    expect(suppliers.dispatch.dispatched).toHaveLength(1);
+    expect(memory.replays.get('replay_1')?.entries[0]).toMatchObject({
+      queued: true,
+      queueAttempts: 0,
+    });
+  });
+
+  it(`counts no failure when the replay changed under the confirmation ${REPLAY_REVISION_ATTEMPTS} times in a row, and confirms it on the next turn`, async () => {
+    await memory.replayRepository.add(aReplay({ count: 1 }));
+    const { dispatcher, warned, noted } = conflictingFrom(
+      2,
+      REPLAY_REVISION_ATTEMPTS,
     );
 
     await dispatcher.processDue();
@@ -425,6 +457,36 @@ describe('RecordLineChange', () => {
   });
 });
 
+const usageOf = (runId: string) => ({
+  runId,
+  ms: 60_000,
+  steps: 12,
+  changedLines: 4,
+  cost: 0.5,
+  currency: 'USD',
+  tokens: { input: 10, output: 5, cacheRead: null, cacheWrite: null },
+});
+
+const endedOf = (runId: string) => ({
+  runId,
+  outcome: 'completed' as const,
+  failure: null,
+  stopped: false,
+  askedAPerson: false,
+  handsOver: false,
+  next: 'ship',
+  endedAt: CLOCK.now(),
+});
+
+const endingOf = (replays: ReplayRepository) =>
+  new RecordReplayRunEnding(
+    replays,
+    new InMemoryReplayRunDecisions(),
+    new FakeChangeReview(),
+    TRANSACTION,
+    CLOCK,
+  );
+
 describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
   it('record a replay run’s end and usage on its entry, whichever comes first', async () => {
     await memory.replayRepository.add(aReplay({ count: 1 }));
@@ -465,6 +527,85 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
     expect(replay?.current).toBe('finished');
     expect(replay?.entries[0]?.ending).toBe('completed');
     expect(replay?.spent.amount).toBe(0.5);
+  });
+
+  it('record a run’s end on top of usage another delivery saved first, without handing the delivery back', async () => {
+    await memory.replayRepository.add(aReplay({ count: 1 }));
+    await dispatching().processDue();
+    const run = memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
+    const repository = memory.replayRepository;
+    const save = repository.save;
+    const usage = new RecordReplayRunUsage(
+      { ...repository, save },
+      TRANSACTION,
+      CLOCK,
+    );
+    let saves = 0;
+    repository.save = async (replay) => {
+      saves += 1;
+      if (saves === 1) {
+        await usage.usageRecorded(usageOf(run));
+        throw new ReplayVersionConflictError(replay.id.value);
+      }
+      return save(replay);
+    };
+
+    await endingOf(repository).ended(endedOf(run));
+
+    const replay = memory.replays.get('replay_1');
+    expect(saves).toBe(2);
+    expect(replay?.current).toBe('finished');
+    expect(replay?.entries[0]?.ending).toBe('completed');
+    expect(replay?.spent.amount).toBe(0.5);
+  });
+
+  it(`hand the delivery back to the outbox once the replay changed under them ${REPLAY_REVISION_ATTEMPTS} times in a row`, async () => {
+    await memory.replayRepository.add(aReplay({ count: 1 }));
+    await dispatching().processDue();
+    const run = memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
+    const repository = memory.replayRepository;
+    let saves = 0;
+    repository.save = async (replay) => {
+      saves += 1;
+      throw new ReplayVersionConflictError(replay.id.value);
+    };
+
+    const pauses: number[] = [];
+    const clock = {
+      now: CLOCK.now,
+      sleep: async (ms: number) => {
+        pauses.push(ms);
+      },
+    };
+
+    await expect(
+      new RecordReplayRunUsage(repository, TRANSACTION, clock).usageRecorded(
+        usageOf(run),
+      ),
+    ).rejects.toBeInstanceOf(ReplayVersionConflictError);
+    expect(saves).toBe(REPLAY_REVISION_ATTEMPTS);
+    expect(pauses).toHaveLength(REPLAY_REVISION_ATTEMPTS - 1);
+    pauses.forEach((ms, index) => {
+      expect(ms).toBeGreaterThanOrEqual(0);
+      expect(ms).toBeLessThan((index + 1) * REPLAY_REVISION_PAUSE_MS);
+    });
+  });
+
+  it('hand any other failure back to the outbox at once', async () => {
+    await memory.replayRepository.add(aReplay({ count: 1 }));
+    await dispatching().processDue();
+    const run = memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
+    const repository = memory.replayRepository;
+    let saves = 0;
+    repository.save = async () => {
+      saves += 1;
+      throw new Error('the database is gone');
+    };
+
+    await expect(endingOf(repository).ended(endedOf(run))).rejects.toThrow(
+      'the database is gone',
+    );
+    expect(saves).toBe(1);
   });
 
   it('pass over a run no replay handed out', async () => {
@@ -809,6 +950,82 @@ describe('scoring a replayed task', () => {
 
     expect(entry()?.reasons.map((each) => each.code)).toEqual(['unjudged']);
     expect(memory.replays.get('replay_1')?.current).toBe('finished');
+  });
+
+  const checkFailed = (): StackStatus => ({
+    repository: 'api',
+    state: 'failed',
+    skip: null,
+    failedAt: ['the whole change'],
+    spent: ModelSpent.of([], 0),
+  });
+
+  const dropsAJob = () =>
+    JudgeVerdict.of({
+      scale: 'yes-no',
+      value: 0,
+      claimResults: null,
+      claims: [],
+      passThreshold: 1,
+      model: 'judge/model',
+      referenced: true,
+      reasons: [
+        { text: 'It drops a job.', steps: [2], hunks: [], claim: null },
+      ],
+      guidance: null,
+    });
+
+  const conflictingOnce = (otherDelivery: () => Promise<void>) => {
+    const repository = memory.replayRepository;
+    const save = repository.save;
+    let saves = 0;
+    repository.save = async (replay) => {
+      saves += 1;
+      if (saves > 1) {
+        return save(replay);
+      }
+      const ours = repository.save;
+      repository.save = save;
+      await otherDelivery();
+      repository.save = ours;
+      throw new ReplayVersionConflictError(replay.id.value);
+    };
+    return () => saves;
+  };
+
+  it('records a change review on top of a verdict another delivery saved first, and reads the run’s stacks once', async () => {
+    const run = await started();
+    await completed(run);
+    changes.stacks.set(run, [checkFailed()]);
+    let reads = 0;
+    const stacksOf = changes.stacksOf.bind(changes);
+    changes.stacksOf = (each) => {
+      reads += 1;
+      return stacksOf(each);
+    };
+    const saves = conflictingOnce(() =>
+      judging().judged(RunId.of(run), dropsAJob()),
+    );
+
+    await reviewing().reviewed(run);
+
+    expect(saves()).toBe(2);
+    expect(reads).toBe(1);
+    expect(entry()?.checks?.failedAt).toEqual(['the whole change']);
+    expect(entry()?.verdict?.referenced).toBe(true);
+  });
+
+  it('records the judge’s verdict on top of a change review another delivery saved first', async () => {
+    const run = await started();
+    await completed(run);
+    changes.stacks.set(run, [checkFailed()]);
+    const saves = conflictingOnce(() => reviewing().reviewed(run));
+
+    await judging().judged(RunId.of(run), dropsAJob());
+
+    expect(saves()).toBe(2);
+    expect(entry()?.verdict?.referenced).toBe(true);
+    expect(entry()?.checks?.failedAt).toEqual(['the whole change']);
   });
 
   it('takes the judge’s verdict as the entry’s result', async () => {
