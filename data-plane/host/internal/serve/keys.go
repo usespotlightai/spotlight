@@ -1,23 +1,13 @@
 package serve
 
 import (
+	"slices"
 	"strings"
+
+	"usespotlight.ai/data-plane/host/internal/harnesses"
 
 	"usespotlight.ai/data-plane/protocol"
 )
-
-type harnessKey struct {
-	host   string
-	header string
-	prefix string
-}
-
-var knownHarnessKeys = map[string]harnessKey{
-	"ANTHROPIC_API_KEY":       {host: "api.anthropic.com", header: "x-api-key"},
-	"CLAUDE_CODE_OAUTH_TOKEN": {host: "api.anthropic.com", header: "authorization", prefix: "Bearer "},
-	"OPENAI_API_KEY":          {host: "api.openai.com", header: "authorization", prefix: "Bearer "},
-	"CODEX_API_KEY":           {host: "api.openai.com", header: "authorization", prefix: "Bearer "},
-}
 
 func standInsFor(sandboxEnv []string) ([]string, []protocol.HarnessKey) {
 	env := make([]string, 0, len(sandboxEnv))
@@ -25,7 +15,7 @@ func standInsFor(sandboxEnv []string) ([]string, []protocol.HarnessKey) {
 
 	for _, entry := range sandboxEnv {
 		name, value, _ := strings.Cut(entry, "=")
-		key, known := knownHarnessKeys[name]
+		key, known := harnesses.KeyNamed(name)
 		if !known || value == "" {
 			env = append(env, entry)
 			continue
@@ -33,9 +23,32 @@ func standInsFor(sandboxEnv []string) ([]string, []protocol.HarnessKey) {
 
 		env = append(env, name+"="+protocol.StandInPrefix+name)
 		keys = append(keys, protocol.HarnessKey{
-			Name: name, Host: key.host, Header: key.header, Prefix: key.prefix, Value: value,
+			Name: name, Host: key.Host, Header: key.Header, Prefix: key.Prefix, Value: value,
 		})
 	}
 
 	return env, keys
+}
+
+func withWorkspaceKeys(env, held []string) []string {
+	given := map[string]string{}
+	for _, entry := range env {
+		name, value, _ := strings.Cut(entry, "=")
+		given[name] = value
+	}
+	wanted := map[string]string{}
+	for _, name := range held {
+		if given[name] == "" {
+			wanted[name] = protocol.StandInPrefix + name
+		}
+	}
+	wanted = protocol.WithoutShadowedHarnessKeys(wanted, func(name string) string { return given[name] })
+
+	for _, name := range held {
+		if standIn, ok := wanted[name]; ok {
+			env = append(slices.DeleteFunc(env, func(entry string) bool { return strings.HasPrefix(entry, name+"=") }), name+"="+standIn)
+			delete(wanted, name)
+		}
+	}
+	return env
 }

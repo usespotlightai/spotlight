@@ -13,9 +13,10 @@ import (
 )
 
 type Client struct {
-	control *control.Client
-	base    string
-	host    string
+	control    *control.Client
+	credential control.Credential
+	base       string
+	host       string
 }
 
 func New(baseURL string, credential control.Credential, host string) (*Client, error) {
@@ -24,7 +25,21 @@ func New(baseURL string, credential control.Credential, host string) (*Client, e
 		return nil, err
 	}
 
-	return &Client{control: client, base: baseURL, host: host}, nil
+	return &Client{control: client, credential: credential, base: baseURL, host: host}, nil
+}
+
+func (c *Client) Credential() (protocol.HostCredential, error) {
+	request, err := http.NewRequest(http.MethodPost, c.base, nil)
+	if err != nil {
+		return protocol.HostCredential{}, err
+	}
+	if err := c.credential.Authorize(request); err != nil {
+		return protocol.HostCredential{}, err
+	}
+	return protocol.HostCredential{
+		Authorization: request.Header.Get("Authorization"),
+		Trust:         request.Header.Get(protocol.TrustHeader),
+	}, nil
 }
 
 func (c *Client) ForRun(assignment protocol.Assignment) (serve.RunClient, error) {

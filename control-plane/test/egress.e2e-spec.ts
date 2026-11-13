@@ -29,6 +29,10 @@ const IMAGE = 'ghcr.io/acme/runner:main';
 
 const VALUE = 'lin_api_e2e_egress';
 
+const ANTHROPIC = 'sk-ant-e2e-harness-key';
+
+const OPENROUTER = 'sk-or-e2e-harness-key';
+
 const TOKEN = `${'e'.repeat(8)}${randomUUID().replaceAll('-', '')}`;
 
 interface Fetched {
@@ -75,7 +79,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     return id;
   };
 
-  const claimed = async () => {
+  const claimed = async (harness = 'dev') => {
     await http()
       .put(`/api/hosts/${HOST}`)
       .set('Authorization', `Bearer ${TOKEN}`)
@@ -90,7 +94,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
           {
             image: IMAGE,
             isDefault: true,
-            harnesses: [{ id: 'dev', models: [] }],
+            harnesses: [{ id: harness, models: [] }],
           },
         ],
       })
@@ -114,6 +118,20 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       .post('/api/egress/secrets')
       .set('Authorization', `Bearer ${token}`)
       .send({ recipient: with_ });
+
+  const fetchHarnessKeys = (token: string, with_: string) =>
+    http()
+      .post('/api/hosts/harness-keys')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ recipient: with_ });
+
+  const setHarnessKey = (name: string, host: string, value: string) =>
+    setSecret({
+      name,
+      bindings: [{ host, name: 'x-api-key' }],
+      valueWo: value,
+      valueWoVersion: 1,
+    });
 
   beforeAll(async () => {
     app = await openApp();
@@ -172,6 +190,109 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       .where(eq(schema.secretDataKey.workspaceId, workspaceId));
     await deleteRunnersOf(db, workspaceId);
     await unseat();
+  });
+
+  it('gives a run of a harness each harness key its workspace holds: a stand-in for the harness, and the key for egress, sealed to the run', async () => {
+    await setHarnessKey('ANTHROPIC_API_KEY', 'api.anthropic.com', ANTHROPIC);
+    const ordered = (await http()
+      .post(`/api/workspaces/${workspaceId}/runs`)
+      .set(TEST_USER_HEADER, owner)
+      .send({
+        harness: 'claude-code',
+        spec: {
+          briefing: 'do the thing',
+          handover: { options: [], noteLimit: 0 },
+        },
+      })
+      .expect(201)) as Answer<{ readonly id: string }>;
+    const runId = ordered.body.id;
+
+    const [row] = await db
+      .select({ spec: schema.run.spec })
+      .from(schema.run)
+      .where(eq(schema.run.id, runId));
+    expect(row?.spec).toMatchObject({
+      command: {
+        env: { ANTHROPIC_API_KEY: 'spotlight-egress:ANTHROPIC_API_KEY' },
+      },
+      harnessKeys: ['ANTHROPIC_API_KEY'],
+    });
+
+    const work = await claimed('claude-code');
+    const to = recipient();
+    const fetched = (await fetchSecrets(work.egressToken, to.written).expect(
+      200,
+    )) as Answer<Fetched>;
+
+    expect(work.work.run.id).toBe(runId);
+    expect(fetched.body).toMatchObject({
+      runId,
+      bound: ['api.anthropic.com'],
+      secrets: [{ secret: 'ANTHROPIC_API_KEY', host: 'api.anthropic.com' }],
+      denied: [],
+    });
+    expect(
+      opened(fetched.body.secrets[0].sealed, to, runId, 'ANTHROPIC_API_KEY'),
+    ).toBe(ANTHROPIC);
+  });
+
+  it('tells a host which harness keys its workspace holds, and seals them to its probe’s egress for no run, granting nothing', async () => {
+    await setHarnessKey('OPENROUTER_API_KEY', 'openrouter.ai', OPENROUTER);
+    await setHarnessKey('ANTHROPIC_API_KEY', 'api.anthropic.com', ANTHROPIC);
+    const to = recipient();
+
+    const required = await http()
+      .get('/api/hosts/requirements')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .expect(200);
+    const fetched = (await fetchHarnessKeys(TOKEN, to.written).expect(
+      200,
+    )) as Answer<Fetched>;
+
+    expect(required.body).toMatchObject({
+      harnessKeys: ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY'],
+    });
+    expect(fetched.body).toEqual({
+      extraAllowedHosts: [],
+      bound: ['api.anthropic.com', 'openrouter.ai'],
+      secrets: [
+        expect.objectContaining({
+          secret: 'ANTHROPIC_API_KEY',
+          host: 'api.anthropic.com',
+          location: 'header',
+          name: 'x-api-key',
+          externalRef: null,
+        }),
+        expect.objectContaining({
+          secret: 'OPENROUTER_API_KEY',
+          host: 'openrouter.ai',
+        }),
+      ],
+      denied: [],
+    });
+    expect(JSON.stringify(fetched.body)).not.toContain(ANTHROPIC);
+    expect(
+      opened(fetched.body.secrets[0].sealed, to, '', 'ANTHROPIC_API_KEY'),
+    ).toBe(ANTHROPIC);
+    expect(
+      opened(fetched.body.secrets[1].sealed, to, '', 'OPENROUTER_API_KEY'),
+    ).toBe(OPENROUTER);
+    await expect(
+      db
+        .select()
+        .from(schema.runGrants)
+        .where(eq(schema.runGrants.workspaceId, workspaceId)),
+    ).resolves.toEqual([]);
+  });
+
+  it('seals no harness key to what is not a key, nor for a host it does not know', async () => {
+    await setHarnessKey('ANTHROPIC_API_KEY', 'api.anthropic.com', ANTHROPIC);
+
+    await fetchHarnessKeys(TOKEN, 'not-a-key').expect(422);
+    await fetchHarnessKeys(
+      `${'u'.repeat(8)}${randomUUID().replaceAll('-', '')}`,
+      recipient().written,
+    ).expect(401);
   });
 
   it('hands the host a credential for egress apart from the runner’s own', async () => {

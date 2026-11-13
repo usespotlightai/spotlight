@@ -19,6 +19,7 @@ export interface HarnessCatalogueEntry {
   readonly efforts: readonly string[];
   readonly discovery: readonly string[];
   readonly versionProbe: readonly string[];
+  readonly harnessKeys: readonly string[];
 }
 
 export interface SkillsHome {

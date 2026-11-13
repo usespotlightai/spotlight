@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os/exec"
 
@@ -39,6 +40,24 @@ type Approval struct {
 // Editors is what spotlight ssh setup set up, so that VS Code and Cursor open task workspaces.
 type Editors interface {
 	Inspect() EditorSetup
+}
+
+// Setup is what the guided host set-up asks of Spotlight, through the login at an address, and of this machine.
+type Setup interface {
+	Workspaces(ctx context.Context, address string) ([]Workspace, error)
+	HeldKeys(ctx context.Context, address, workspace string) ([]string, error)
+	SaveKey(ctx context.Context, address, workspace, name, value string) error
+	MakePool(ctx context.Context, address, workspace, name, token, idempotencyKey string) error
+	Build(ctx context.Context, harnesses []string, progress func(string)) (string, error)
+	SuggestedName() string
+}
+
+var ErrPoolNameTaken = errors.New("the workspace has a pool with this name")
+
+type Workspace struct {
+	ID   string
+	Name string
+	Slug string
 }
 
 type EditorSetup struct {
@@ -96,11 +115,14 @@ func (s Setting) hidden() bool {
 	return s.Secret || s.Group == config.GroupOther
 }
 
-func Run(host Host, account Account, editors Editors, version string) error {
-	final, err := tea.NewProgram(newModel(host, account, editors, version)).Run()
+func Run(host Host, account Account, editors Editors, setup Setup, version string, setUpFor *string) error {
+	start := newModel(host, account, editors, setup, version)
+	start.setUpFirst = setUpFor
+	final, err := tea.NewProgram(start).Run()
 	if done, ok := final.(model); ok {
 		done.logs.stream.stop()
 		done.login.cancel()
+		done.setupView.cancel()
 	}
 	return err
 }

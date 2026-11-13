@@ -645,6 +645,7 @@ type pool struct {
 	revoke       chan struct{}
 	offered      chan protocol.HostClaim
 	named        []string
+	harnessKeys  []string
 	minimum      string
 	release      string
 	unoffer      bool
@@ -677,15 +678,20 @@ func newPool() *pool {
 	}
 }
 
+func (p *pool) Credential() (protocol.HostCredential, error) {
+	return protocol.HostCredential{Authorization: "Bearer pool-token"}, nil
+}
+
 func (p *pool) Requirements(context.Context) (protocol.HostRequirements, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	return protocol.HostRequirements{
-		Host:      protocol.HostRequirement{Release: p.release},
-		Runner:    protocol.RunnerRequirement{Minimum: p.minimumOr()},
-		Harnesses: []protocol.HarnessProbe{{ID: "claude-code", Executable: "claude"}},
-		Images:    slices.Clone(p.named),
+		Host:        protocol.HostRequirement{Release: p.release},
+		Runner:      protocol.RunnerRequirement{Minimum: p.minimumOr()},
+		Harnesses:   []protocol.HarnessProbe{{ID: "claude-code", Executable: "claude"}},
+		Images:      slices.Clone(p.named),
+		HarnessKeys: slices.Clone(p.harnessKeys),
 	}, nil
 }
 
@@ -2338,7 +2344,7 @@ func TestPullsTheEgressImageOnceAndRunsEveryEgressFromIt(t *testing.T) {
 func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
-	opts.SandboxEnv = []string{"ANTHROPIC_API_KEY=sk-test", "CURSOR_API_KEY=cursor-test", "GIT_AUTHOR=spotlight"}
+	opts.SandboxEnv = []string{"ANTHROPIC_API_KEY=sk-test", "XAI_API_KEY=xai-test", "GIT_AUTHOR=spotlight"}
 	serving(t, opts, engine, pool)
 
 	pool.work <- assignment("runner_1")
@@ -2359,7 +2365,7 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	}
 
 	sandboxed := engine.sandbox(engine.workSandboxes()[0])
-	for _, want := range []string{"ANTHROPIC_API_KEY=spotlight-egress:ANTHROPIC_API_KEY", "CURSOR_API_KEY=cursor-test", "GIT_AUTHOR=spotlight"} {
+	for _, want := range []string{"ANTHROPIC_API_KEY=spotlight-egress:ANTHROPIC_API_KEY", "XAI_API_KEY=xai-test", "GIT_AUTHOR=spotlight"} {
 		if !slices.Contains(sandboxed.Env, want) {
 			t.Errorf("the sandbox lacks %s: %v", want, sandboxed.Env)
 		}
@@ -2394,6 +2400,41 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	}
 	if !probed || !probeEgress {
 		t.Errorf("probed %v behind an egress %v", probed, probeEgress)
+	}
+}
+
+func TestTheProbeGetsTheWorkspaceHarnessKeysThroughItsEgress(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	pool.harnessKeys = []string{"CLAUDE_CODE_OAUTH_TOKEN"}
+	opts := options(t)
+	opts.SandboxEnv = []string{"GIT_AUTHOR=spotlight"}
+	serving(t, opts, engine, pool)
+
+	probe := func() (sandbox.Spec, sandbox.Spec, bool) {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		var probed, egress sandbox.Spec
+		for _, spec := range engine.started {
+			if len(spec.Args) > 0 && spec.Args[0] == "harnesses" {
+				probed = spec
+			}
+		}
+		for _, spec := range engine.egresses {
+			if spec.Labels[serve.LabelRunner] == "" {
+				egress = spec
+			}
+		}
+		return probed, egress, probed.Image != "" && egress.Image != ""
+	}
+	eventually(t, "a probe behind an egress", func() bool { _, _, done := probe(); return done })
+
+	probed, egress, _ := probe()
+	if !slices.Contains(probed.Env, "CLAUDE_CODE_OAUTH_TOKEN=spotlight-egress:CLAUDE_CODE_OAUTH_TOKEN") {
+		t.Errorf("the probe ran with %v", probed.Env)
+	}
+	config := egressConfigIn(t, egress)
+	if config.Token != "" || config.Host == nil || config.Host.Authorization != "Bearer pool-token" {
+		t.Errorf("the probe's egress got %+v", config)
 	}
 }
 

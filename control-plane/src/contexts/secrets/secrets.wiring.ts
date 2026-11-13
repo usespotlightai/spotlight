@@ -23,6 +23,7 @@ import { UpdateSecretCommand } from '@secrets/application/commands/update-secret
 import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import { CREDENTIAL_ENCRYPTION } from '@secrets/application/ports/credential-encryption.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
+import { HOST_SECRET_FETCHES } from '@secrets/application/ports/host-secret-fetches.port';
 import { RUN_GRANTS } from '@secrets/application/ports/run-grants.port';
 import { RUN_SECRET_FETCHES } from '@secrets/application/ports/run-secret-fetches.port';
 import { SECRET_CONFIGURATION } from '@secrets/application/ports/secret-configuration.port';
@@ -47,10 +48,12 @@ import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secr
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
 import { CallSecretFetches } from '@secrets/application/services/call-secret-fetches.service';
 import { DeleteWorkspaceSecrets } from '@secrets/application/services/delete-workspace-secrets.service';
+import { HostSecretFetches } from '@secrets/application/services/host-secret-fetches.service';
 import { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.service';
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
 import { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import { RunSecretFetches } from '@secrets/application/services/run-secret-fetches.service';
+import { SealedSecrets } from '@secrets/application/services/sealed-secrets';
 import { SecretConfiguration } from '@secrets/application/services/secret-configuration.service';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
@@ -220,14 +223,25 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
     ) => new RunSecretFetches(secrets, changes, sources, sealing),
   },
   {
-    provide: CALL_SECRET_FETCHES,
-    inject: [SECRETS, SecretSources, SECRET_SEALING, LOGGER],
+    provide: SealedSecrets,
+    inject: [SECRETS, SecretSources, SECRET_SEALING],
     useFactory: (
       secrets: SecretRepository,
       sources: SecretSources,
       sealing: SecretSealingPort,
-      logger: LoggerPort,
-    ) => new CallSecretFetches(secrets, sources, sealing, logger),
+    ) => new SealedSecrets(secrets, sources, sealing),
+  },
+  {
+    provide: CALL_SECRET_FETCHES,
+    inject: [SealedSecrets, LOGGER],
+    useFactory: (sealed: SealedSecrets, logger: LoggerPort) =>
+      new CallSecretFetches(sealed, logger),
+  },
+  {
+    provide: HOST_SECRET_FETCHES,
+    inject: [SealedSecrets, LOGGER],
+    useFactory: (sealed: SealedSecrets, logger: LoggerPort) =>
+      new HostSecretFetches(sealed, logger),
   },
   { provide: SECRET_USES, useFactory: () => new SecretUsesRegistry() },
   {
