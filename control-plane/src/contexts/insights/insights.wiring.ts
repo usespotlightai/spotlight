@@ -176,6 +176,7 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
 import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
+import { MODEL_PRICES, type ModelPrices } from '@platform/llm/model-prices';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
@@ -276,15 +277,17 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: JUDGE,
-    inject: [ENV],
-    useFactory: (env: Env) =>
-      new ChatCompletionsJudge(modelEndpointOf(env, env.JUDGE_MODEL)),
+    inject: [ENV, MODEL_PRICES],
+    useFactory: (env: Env, prices: ModelPrices) =>
+      new ChatCompletionsJudge(modelEndpointOf(env, env.JUDGE_MODEL, prices)),
   },
   {
     provide: SIDE_BY_SIDE_JUDGE,
-    inject: [ENV],
-    useFactory: (env: Env) =>
-      new ChatCompletionsSideBySideJudge(modelEndpointOf(env, env.JUDGE_MODEL)),
+    inject: [ENV, MODEL_PRICES],
+    useFactory: (env: Env, prices: ModelPrices) =>
+      new ChatCompletionsSideBySideJudge(
+        modelEndpointOf(env, env.JUDGE_MODEL, prices),
+      ),
   },
   DrizzleRunFacts,
   DrizzlePullRequestFacts,

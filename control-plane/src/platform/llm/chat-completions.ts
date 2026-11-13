@@ -1,3 +1,9 @@
+import {
+  costOf,
+  type ModelPrices,
+  PRICE_CURRENCY,
+} from '@platform/llm/model-prices';
+import type { ModelCost } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { z } from 'zod';
 
 const MAX_WAIT_MS = 10 * 60 * 1000;
@@ -15,6 +21,7 @@ export interface ModelEndpoint {
   readonly apiKey: string | undefined;
   readonly model: string;
   readonly supportsReasoningEffort: boolean;
+  readonly prices?: ModelPrices;
 }
 
 const PAYMENT_REQUIRED = 402;
@@ -55,6 +62,8 @@ interface Completion {
   readonly usage?: {
     readonly prompt_tokens?: number;
     readonly completion_tokens?: number;
+    readonly prompt_tokens_details?: { readonly cached_tokens?: number };
+    readonly cost?: number;
   };
   readonly error?: { readonly message?: string };
 }
@@ -62,7 +71,7 @@ interface Completion {
 interface CompletionUsage {
   readonly inputTokens: number | null;
   readonly outputTokens: number | null;
-  readonly cost: null;
+  readonly cost: ModelCost | null;
 }
 
 export interface StructuredCompletion<T> {
@@ -73,14 +82,46 @@ export interface StructuredCompletion<T> {
 const counted = (raw: unknown): number | null =>
   typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : null;
 
-const usageOf = (completion: Completion): CompletionUsage | null =>
-  completion.usage
-    ? {
-        inputTokens: counted(completion.usage.prompt_tokens),
-        outputTokens: counted(completion.usage.completion_tokens),
-        cost: null,
-      }
-    : null;
+const REPORTED_COST_HEADER = 'x-litellm-response-cost';
+
+const reportedCost = (
+  completion: Completion,
+  headers: Headers,
+): ModelCost | null => {
+  const header = headers.get(REPORTED_COST_HEADER);
+  const amount =
+    counted(completion.usage?.cost) ??
+    (header === null ? null : counted(Number(header)));
+
+  return amount === null ? null : { amount, currency: PRICE_CURRENCY };
+};
+
+const usageOf = (
+  completion: Completion,
+  headers: Headers,
+  endpoint: ModelEndpoint,
+): CompletionUsage | null => {
+  if (!completion.usage) {
+    return null;
+  }
+
+  const tokens = {
+    inputTokens: counted(completion.usage.prompt_tokens),
+    outputTokens: counted(completion.usage.completion_tokens),
+    cachedInputTokens: counted(
+      completion.usage.prompt_tokens_details?.cached_tokens,
+    ),
+  };
+  const price = endpoint.prices?.priceOf(endpoint.baseUrl, endpoint.model);
+
+  return {
+    inputTokens: tokens.inputTokens,
+    outputTokens: tokens.outputTokens,
+    cost:
+      reportedCost(completion, headers) ??
+      (price ? costOf(price, tokens) : null),
+  };
+};
 
 const strictSchema = (schema: unknown): unknown =>
   Array.isArray(schema)
@@ -168,7 +209,7 @@ export const requestJson = async <T>(request: {
   if (choice?.finish_reason !== 'stop' || !choice.message?.content) {
     throw new ModelEmptyCompletionError(
       choice?.finish_reason ?? completion.error?.message ?? 'no answer',
-      usageOf(completion),
+      usageOf(completion, response.headers, endpoint),
     );
   }
 
@@ -177,12 +218,12 @@ export const requestJson = async <T>(request: {
   try {
     return {
       answer: request.responseSchema.schema.parse(JSON.parse(content)),
-      usage: usageOf(completion),
+      usage: usageOf(completion, response.headers, endpoint),
     };
   } catch (error) {
     throw new ModelEmptyCompletionError(
       `the answer doesn't match the expected shape (${error instanceof Error ? error.message : String(error)})`,
-      usageOf(completion),
+      usageOf(completion, response.headers, endpoint),
     );
   }
 };

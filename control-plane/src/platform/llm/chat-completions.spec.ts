@@ -5,6 +5,7 @@ import {
   ModelRequestError,
   requestJson,
 } from '@platform/llm/chat-completions';
+import { type ModelPrices, NO_PRICES } from '@platform/llm/model-prices';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -163,5 +164,73 @@ describe('requesting JSON from a chat completions endpoint', () => {
     await expect(asking(fetch)).rejects.toBeInstanceOf(
       ModelEmptyCompletionError,
     );
+  });
+});
+
+describe('the cost of a chat completion', () => {
+  const usageOf = (usage: object, headers: Record<string, string> = {}) =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          { finish_reason: 'stop', message: { content: '{"ok":true}' } },
+        ],
+        usage,
+      }),
+      { status: 200, headers },
+    );
+
+  const PRICED: ModelPrices = {
+    priceOf: (baseUrl, model) =>
+      baseUrl === ENDPOINT.baseUrl && model === ENDPOINT.model
+        ? { input: 1, output: 10, cachedInput: 0.1, above: [] }
+        : null,
+    refresh: async () => undefined,
+  };
+
+  it('takes the cost the endpoint reports in the usage', async () => {
+    const { fetch } = answering(
+      usageOf({ prompt_tokens: 10, completion_tokens: 2, cost: 0.004 }),
+    );
+
+    const { usage } = await asking(fetch, { prices: PRICED });
+
+    expect(usage?.cost).toEqual({ amount: 0.004, currency: 'USD' });
+  });
+
+  it('takes the cost a LiteLLM proxy reports in a header', async () => {
+    const { fetch } = answering(
+      usageOf(
+        { prompt_tokens: 10, completion_tokens: 2 },
+        { 'x-litellm-response-cost': '0.0021' },
+      ),
+    );
+
+    const { usage } = await asking(fetch);
+
+    expect(usage?.cost).toEqual({ amount: 0.0021, currency: 'USD' });
+  });
+
+  it('prices the tokens, cached input at its own rate, when the endpoint reports no cost', async () => {
+    const { fetch } = answering(
+      usageOf({
+        prompt_tokens: 1_000_000,
+        completion_tokens: 100_000,
+        prompt_tokens_details: { cached_tokens: 500_000 },
+      }),
+    );
+
+    const { usage } = await asking(fetch, { prices: PRICED });
+
+    expect(usage?.cost?.amount).toBeCloseTo(0.5 + 0.05 + 1);
+  });
+
+  it('leaves a call unpriced when nothing knows its price', async () => {
+    const { fetch } = answering(
+      usageOf({ prompt_tokens: 10, completion_tokens: 2 }),
+    );
+
+    const { usage } = await asking(fetch, { prices: NO_PRICES });
+
+    expect(usage?.cost).toBeNull();
   });
 });

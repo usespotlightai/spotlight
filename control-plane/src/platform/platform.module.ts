@@ -44,6 +44,9 @@ import { InMemoryLiveFeed } from '@platform/live/in-memory-live-feed';
 import { LIVE_FEED } from '@platform/live/live-feed.port';
 import { LIVE_RANDOM, LiveStreams } from '@platform/live/live-streams';
 import { RedisLiveFeed } from '@platform/live/redis-live-feed';
+import { ModelPriceRefresh } from '@platform/llm/model-price-refresh';
+import { MODEL_PRICES, NO_PRICES } from '@platform/llm/model-prices';
+import { ModelsDevPrices } from '@platform/llm/models-dev.prices';
 import { LoggingModule } from '@platform/logging/logging.module';
 import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
 import { OutboundCalls } from '@platform/outbound/outbound-calls';
@@ -136,6 +139,15 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
       useFactory: (hosts: HostAllowList, env: Env) =>
         new OutboundGuard(hosts, env.SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK),
     },
+    {
+      provide: MODEL_PRICES,
+      inject: [ENV],
+      useFactory: (env: Env) =>
+        env.LLM_PRICES === 'models.dev'
+          ? new ModelsDevPrices(env.LLM_PRICES_URL)
+          : NO_PRICES,
+    },
+    ModelPriceRefresh,
     ExpressionFailures,
     OutboxGauges,
     ReadinessGauges,
@@ -204,6 +216,7 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     },
   ],
   exports: [
+    MODEL_PRICES,
     DEPLOYMENT_HOSTS,
     OutboundGuard,
     RedisConnection,

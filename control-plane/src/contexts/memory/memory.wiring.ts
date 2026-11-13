@@ -116,6 +116,7 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
 import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
+import { MODEL_PRICES, type ModelPrices } from '@platform/llm/model-prices';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
@@ -373,10 +374,10 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   { provide: REJECTED_MEMORIES, useClass: DrizzleRejectedMemories },
   {
     provide: MEMORY_DRAFTER,
-    inject: [ENV],
-    useFactory: (env: Env) =>
+    inject: [ENV, MODEL_PRICES],
+    useFactory: (env: Env, prices: ModelPrices) =>
       new ChatCompletionsMemoryDrafter(
-        modelEndpointOf(env, env.MEMORIES_MODEL),
+        modelEndpointOf(env, env.MEMORIES_MODEL, prices),
       ),
   },
   {
