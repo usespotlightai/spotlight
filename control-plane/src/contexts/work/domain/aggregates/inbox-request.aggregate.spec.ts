@@ -62,6 +62,32 @@ describe('InboxRequest', () => {
     expect(reopened.reopen(LATER)).toBe(reopened);
   });
 
+  it('records nothing of a reopening resolved before it was published', () => {
+    const resolvedAgain = created()
+      .resolve(NOW)
+      .reopen(LATER)
+      .resolve(LATER)
+      .pullEvents()
+      .map((each) => each.kind);
+
+    expect(resolvedAgain).not.toContain('inbox-request.reopened');
+  });
+
+  it('records that it opened, and that it reopened', () => {
+    expect(
+      created()
+        .pullEvents()
+        .map((each) => each.kind),
+    ).toEqual(['inbox-request.opened']);
+    expect(
+      created()
+        .resolve(NOW)
+        .reopen(LATER)
+        .pullEvents()
+        .map((each) => each.kind),
+    ).toEqual(['inbox-request.resolved', 'inbox-request.reopened']);
+  });
+
   it('is read by each person for themselves, once', () => {
     const read = created().readBy(ADA, LATER);
 

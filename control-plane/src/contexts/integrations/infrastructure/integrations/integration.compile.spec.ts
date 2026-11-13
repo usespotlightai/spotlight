@@ -1747,6 +1747,83 @@ on:
     );
   });
 
+  it.each([
+    ['inbox-request.opened', 'An inbox request event has no files'],
+    ['notice.raised', 'A notice event has no files'],
+  ])('is not sent for %s, which has no files', (event, why) => {
+    expect(refused(ACTION.replace('  task.asked:', `  ${event}:`))).toEqual([
+      [`on.${event}.0.action`, expect.stringContaining(why)],
+    ]);
+  });
+
+  it('reads a notice where it posts it', () => {
+    expect(
+      warned(`integration: slack
+actions:
+  post:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      body: '\${{ {"text": notice.headline + notice.points.join(" ")} }}'
+on:
+  notice.raised:
+    - action: post
+      to:
+        channel: '\${{ notice.form == "ended" ? "C1" : "C2" }}'
+`),
+    ).toEqual([]);
+  });
+
+  it('reads an inbox request where it posts it', () => {
+    expect(
+      warned(`integration: slack
+actions:
+  post:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      body: '\${{ {"text": request.form + " " + task.title} }}'
+on:
+  inbox-request.opened:
+    - action: post
+      to:
+        channel: '\${{ task.marks["slack.channel"] }}'
+      routes:
+        delivery: C1
+      mark:
+        - kind: slack.message
+          value: '\${{ "1" }}'
+`),
+    ).toEqual([]);
+  });
+
+  it('refuses mark and routes on a notice event, which has no task', () => {
+    expect(
+      refused(`integration: slack
+actions:
+  post:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      body: '\${{ {"text": notice.headline} }}'
+on:
+  notice.raised:
+    - action: post
+      to:
+        channel: '\${{ "C1" }}'
+      routes:
+        delivery: C2
+`),
+    ).toEqual([
+      [
+        'on.notice.raised.0',
+        expect.stringContaining(
+          'A notice event has no task to mark and no line to route by',
+        ),
+      ],
+    ]);
+  });
+
   it('is sent only by an event, not by a tool', () => {
     expect(
       refused(

@@ -18,6 +18,7 @@ import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool
 import { LIFECYCLE_HOOKS } from '@work/application/ports/lifecycle-hooks.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
+import { TEAM_NOTICES } from '@work/application/ports/team-notices.port';
 import { WorkModule } from '@work/work.module';
 
 const BINDINGS = contextBindings([
@@ -26,6 +27,7 @@ const BINDINGS = contextBindings([
   HOOK_CONFIGS,
   TASK_NOTICES,
   CHANNEL_NOTICES,
+  TEAM_NOTICES,
   INTEGRATION_TOOL_CALLS,
   LIFECYCLE_HOOKS,
 ]);

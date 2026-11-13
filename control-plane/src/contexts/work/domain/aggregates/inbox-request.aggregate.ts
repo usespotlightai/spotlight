@@ -6,6 +6,7 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { InboxRequestMarkedRead } from '@work/domain/events/inbox-request-marked-read.event';
 import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
+import { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
 import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import {
   INBOX_REQUEST_FORMS,
@@ -67,7 +68,14 @@ export class InboxRequest extends EventRecorder {
       null,
       0,
     );
-    created.opened(input.now);
+    created.record(
+      new InboxRequestOpened(
+        created.id,
+        created.workspaceId,
+        created.taskId,
+        input.now,
+      ),
+    );
 
     return created;
   }
@@ -218,7 +226,11 @@ export class InboxRequest extends EventRecorder {
 
     const resolved = this.with(
       { resolvedAt: now },
-      (event) => !(event instanceof InboxRequestOpened),
+      (event) =>
+        !(
+          event instanceof InboxRequestOpened ||
+          event instanceof InboxRequestReopened
+        ),
     );
 
     resolved.record(
@@ -246,15 +258,16 @@ export class InboxRequest extends EventRecorder {
       this.version,
     );
     reopened.inheritEvents(this);
-    reopened.opened(now);
+    reopened.record(
+      new InboxRequestReopened(
+        reopened.id,
+        reopened.workspaceId,
+        reopened.taskId,
+        now,
+      ),
+    );
 
     return reopened;
-  }
-
-  private opened(at: Date): void {
-    this.record(
-      new InboxRequestOpened(this.id, this.workspaceId, this.taskId, at),
-    );
   }
 
   private with(

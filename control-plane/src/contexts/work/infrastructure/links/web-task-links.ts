@@ -18,4 +18,12 @@ export class WebTaskLinks implements TaskLinksPort {
   chatPage(slug: string, teamId: string, chatId: string): string {
     return `${this.base}/w/${slug}/team/${teamId}/agent/${chatId}`;
   }
+
+  inboxRequestPage(slug: string, inboxRequestId: string): string {
+    return `${this.base}/w/${slug}/inbox/${inboxRequestId}`;
+  }
+
+  noticePage(slug: string, noticeId: string): string {
+    return `${this.base}/w/${slug}/inbox/notices/${noticeId}`;
+  }
 }

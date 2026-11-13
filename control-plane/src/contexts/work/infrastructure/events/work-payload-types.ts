@@ -13,8 +13,10 @@ import { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
 import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import { InboxRequestMarkedRead } from '@work/domain/events/inbox-request-marked-read.event';
 import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
+import { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
 import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import { NoticeRaised } from '@work/domain/events/notice-raised.event';
+import { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import { NoticeResolved } from '@work/domain/events/notice-resolved.event';
 import { ProposalAcceptanceFailed } from '@work/domain/events/proposal-acceptance-failed.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
@@ -272,7 +274,9 @@ export const WORK_PAYLOAD_TYPES = [
   TaskAssigned,
   TaskConversationReopened,
   InboxRequestOpened,
+  InboxRequestReopened,
   NoticeRaised,
+  NoticeReopened,
   NoticeResolved,
   InboxRequestResolved,
   InboxRequestMarkedRead,

@@ -19,12 +19,15 @@ const later = (ms: number) => new Date(NOW.getTime() + ms);
 
 const PERSON = UserId.of('user_1');
 
-const created = (subject = 'replay-search search_1 iteration 3') =>
+const created = (
+  subject = 'replay-search search_1 iteration 3',
+  addressee: UserId | null = PERSON,
+) =>
   Notice.create({
     id: NoticeId.of('notice_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
-    addressee: PERSON,
+    addressee,
     form: 'ended',
     subject: NoticeSubject.of(subject),
     link: NoticeLink.of({
@@ -43,6 +46,14 @@ const created = (subject = 'replay-search search_1 iteration 3') =>
   });
 
 describe('Notice', () => {
+  it('is open to the team only while open and addressed to nobody', () => {
+    const unaddressed = created(undefined, null);
+
+    expect(unaddressed.openToTeam).toBe(true);
+    expect(created().openToTeam).toBe(false);
+    expect(unaddressed.resolve(later(1)).openToTeam).toBe(false);
+  });
+
   it('is created open, for one person only', () => {
     const notice = created();
 
@@ -59,7 +70,7 @@ describe('Notice', () => {
     expect(open.reopen(later(4))).toBe(open);
   });
 
-  it('records that it was raised, resolved and raised again when it reopens', () => {
+  it('records that it was raised, resolved and reopened', () => {
     const open = created();
     expect(open.pullEvents().map((each) => each.kind)).toEqual([
       'notice.raised',
@@ -69,7 +80,7 @@ describe('Notice', () => {
 
     expect(reopened.pullEvents().map((each) => each.kind)).toEqual([
       'notice.resolved',
-      'notice.raised',
+      'notice.reopened',
     ]);
   });
 
