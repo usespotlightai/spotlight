@@ -1,6 +1,7 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import {
   ProvidedTool,
   type ProvidedToolInput,
@@ -98,5 +99,32 @@ describe('ProvidedTool', () => {
     expect(() =>
       provided([input({ schema: InputSchema.ofType('number'), stdin: true })]),
     ).toThrow(InvalidIntegrationError);
+  });
+
+  it('is enabled on a mark of its own integration', () => {
+    const tool = ProvidedTool.of({
+      integration: IntegrationKey.of('linear'),
+      name: 'comment',
+      description: 'Comment on the issue.',
+      backing: ToolBacking.action('comment'),
+      enabledOnMark: MarkKind.of('linear.issue'),
+    });
+
+    expect(tool.enabledOnMark?.value).toBe('linear.issue');
+    expect(provided([]).enabledOnMark).toBeNull();
+  });
+
+  it('rejects a mark of another integration', () => {
+    expect(() =>
+      ProvidedTool.of({
+        integration: IntegrationKey.of('linear'),
+        name: 'comment',
+        description: 'Comment on the issue.',
+        backing: ToolBacking.action('comment'),
+        enabledOnMark: MarkKind.of('sentry.issue'),
+      }),
+    ).toThrow(
+      /only on a mark of its own integration, whose kind starts with linear\./,
+    );
   });
 });

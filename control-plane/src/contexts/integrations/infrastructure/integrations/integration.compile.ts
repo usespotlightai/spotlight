@@ -1291,6 +1291,24 @@ export const compileIntegration = (
   ): ApprovalNeeded | null =>
     written ? ApprovalNeeded.of(written, `tools.${name}.approval`) : null;
 
+  const raisedMarks = new Set([
+    ...[...(file.webhook?.events ?? []), ...(file.poll?.events ?? [])].flatMap(
+      (event) => event.raise.marks.map((mark) => mark.kind),
+    ),
+    ...Object.values(file.on).flatMap((listed) =>
+      listed.flatMap((binding) => binding.mark.map((mark) => mark.kind)),
+    ),
+  ]);
+
+  for (const [name, tool] of Object.entries(file.tools)) {
+    if (tool.enabledOnMark && !raisedMarks.has(tool.enabledOnMark)) {
+      compiler.warn(
+        FieldPath.of(['tools', name, 'enabledOnMark']),
+        `names ${tool.enabledOnMark}, but no event or binding of the integration marks a task with it`,
+      );
+    }
+  }
+
   const providedTools = [...tools.values()].map((tool) =>
     compiler.part(FieldPath.of(['tools', tool.name]), () =>
       ProvidedTool.of({
@@ -1299,6 +1317,7 @@ export const compileIntegration = (
         description: file.tools[tool.name]?.description ?? '',
         backing: ToolBacking.action(file.tools[tool.name]?.action ?? ''),
         approval: approvalOf(file.tools[tool.name]?.approval, tool.name),
+        enabledOnMark: enabledOnMarkOf(file.tools[tool.name]?.enabledOnMark),
         inputs: tool.inputs.map((input) => ({
           name: input.name,
           schema: input.schema,
@@ -1418,6 +1437,9 @@ export const compileIntegration = (
 };
 
 const isPresent = <T>(each: T | null): each is T => each !== null;
+
+const enabledOnMarkOf = (written: string | undefined): MarkKind | null =>
+  written ? MarkKind.of(written) : null;
 
 const hintProblemsOf = (
   path: string,

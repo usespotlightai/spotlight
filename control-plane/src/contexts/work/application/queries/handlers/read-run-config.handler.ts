@@ -35,7 +35,12 @@ export class ReadRunConfigHandler implements QueryHandlerPort<
       }
 
       if (!found.ran) {
-        return { fingerprint: null, config: null, changedSince: null };
+        return {
+          fingerprint: null,
+          config: null,
+          changedSince: null,
+          toolsOnMarks: found.toolsOnMarks,
+        };
       }
 
       const ran = configOf(found.ran);
@@ -53,6 +58,7 @@ export class ReadRunConfigHandler implements QueryHandlerPort<
                 changes: ran.changesFrom(before),
               }
             : null,
+        toolsOnMarks: found.toolsOnMarks,
       };
     } catch (error) {
       rethrowAsApplicationError(error);

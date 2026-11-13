@@ -77,6 +77,7 @@ export interface RunConfigView extends RanConfig {
 export interface RunConfigSummary {
   readonly ran: RanConfig | null;
   readonly before: RunConfigView | null;
+  readonly toolsOnMarks: readonly string[];
 }
 
 export const RUN_READER = Symbol('RUN_READER');

@@ -910,6 +910,47 @@ tools:
     ).toBe('It posts publicly, under the team’s name.');
   });
 
+  describe('a tool enabled on a mark', () => {
+    const ENABLED = PROVIDING.replace(
+      '    action: comment\n',
+      '    action: comment\n    enabledOnMark: linear.issue\n',
+    );
+
+    it('reads the mark a task carries to enable it', () => {
+      const compiled = read(`${ENABLED}webhook:\n${VERIFY}${EVENTS}`);
+
+      expect(compiled.ok && compiled.warnings).toEqual([]);
+      expect(
+        compiled.ok &&
+          compiled.readable.integration.writtenTool(
+            ToolName.of('linear.comment'),
+          )?.enabledOnMark?.value,
+      ).toBe('linear.issue');
+    });
+
+    it('warns where nothing of the integration marks a task with it', () => {
+      const compiled = read(ENABLED);
+
+      expect(
+        compiled.ok && compiled.warnings.map((each) => dottedOf(each.field)),
+      ).toEqual(['tools.comment.enabledOnMark']);
+    });
+
+    it('rejects a mark of another integration', () => {
+      expect(
+        complaining(
+          ENABLED.replace(
+            'enabledOnMark: linear.issue',
+            'enabledOnMark: sentry.issue',
+          ),
+          'tools.comment',
+        ).map((each) => each.reason),
+      ).toContainEqual(
+        expect.stringContaining('only on a mark of its own integration'),
+      );
+    });
+  });
+
   it('rejects an approval that says nothing about why', () => {
     expect(
       problems(

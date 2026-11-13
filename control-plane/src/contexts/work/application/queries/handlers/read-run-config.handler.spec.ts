@@ -55,10 +55,13 @@ describe('ReadRunConfigHandler', () => {
   });
 
   it('answers no config for a run that recorded none', async () => {
-    expect(await reading({ ran: null, before: null })).toEqual({
+    expect(
+      await reading({ ran: null, before: null, toolsOnMarks: [] }),
+    ).toEqual({
       fingerprint: null,
       config: null,
       changedSince: null,
+      toolsOnMarks: [],
     });
   });
 
@@ -66,6 +69,7 @@ describe('ReadRunConfigHandler', () => {
     const found = await reading({
       ran: configured('run_2', 'b', { effort: 'xhigh' }),
       before: configured('run_1', 'a'),
+      toolsOnMarks: [],
     });
 
     expect(found?.fingerprint).toBe('b'.repeat(64));
@@ -89,8 +93,20 @@ describe('ReadRunConfigHandler', () => {
     const found = await reading({
       ran: configured('run_2', 'a'),
       before: configured('run_1', 'a'),
+      toolsOnMarks: [],
     });
 
     expect(found?.changedSince).toBeNull();
+  });
+
+  it('names the tools the run had from its task’s marks, apart from its config', async () => {
+    const found = await reading({
+      ran: configured('run_2', 'a'),
+      before: null,
+      toolsOnMarks: ['sentry.get-issue'],
+    });
+
+    expect(found?.toolsOnMarks).toEqual(['sentry.get-issue']);
+    expect(found?.config?.tools).not.toContain('sentry.get-issue');
   });
 });

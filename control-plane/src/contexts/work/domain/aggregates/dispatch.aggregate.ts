@@ -2,6 +2,7 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
 import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
@@ -31,6 +32,7 @@ interface DispatchState {
   readonly briefing: string | null;
   readonly briefedMemories: BriefedMemories;
   readonly configuredAs: StationConfig | null;
+  readonly toolsOnMarks: readonly Tool[];
   readonly orderedAt: Date;
   readonly enqueued: boolean;
   readonly refused: DispatchRefusal | null;
@@ -47,6 +49,7 @@ type Ordering = Pick<
   readonly briefedTask?: BriefedTask | null;
   readonly briefing?: string | null;
   readonly briefedMemories?: BriefedMemories;
+  readonly toolsOnMarks?: readonly Tool[];
   readonly now: Date;
 };
 
@@ -55,6 +58,20 @@ const problemOf = (state: DispatchState): string | null => {
 
   if (state.configuredAs && !station) {
     return 'records a station config but works at no station';
+  }
+
+  if (state.toolsOnMarks.length > 0 && state.subject.kind !== 'task') {
+    return 'records tools enabled on its task’s marks but works no task';
+  }
+
+  if (
+    state.toolsOnMarks.some(
+      (each, at) =>
+        state.configuredAs?.lists(each) ||
+        state.toolsOnMarks.findIndex((other) => other.equals(each)) !== at,
+    )
+  ) {
+    return 'records a tool enabled on its task’s marks twice, or one its station config lists';
   }
 
   if (state.subject.kind === 'trial' && !state.configuredAs) {
@@ -161,6 +178,7 @@ export class Dispatch extends EventRecorder {
       briefing: input.briefing ?? null,
       briefedMemories: input.briefedMemories ?? BriefedMemories.none(),
       configuredAs: input.configuredAs,
+      toolsOnMarks: input.toolsOnMarks ?? [],
       orderedAt: input.now,
       enqueued: false,
       refused,
@@ -228,6 +246,10 @@ export class Dispatch extends EventRecorder {
 
   get configuredAs(): StationConfig | null {
     return this.state.configuredAs;
+  }
+
+  get toolsOnMarks(): readonly Tool[] {
+    return this.state.toolsOnMarks;
   }
 
   get orderedAt(): Date {

@@ -12,4 +12,5 @@ export interface RunConfigDto {
     readonly fingerprint: string;
     readonly changes: readonly ConfigChangeShape[];
   } | null;
+  readonly toolsOnMarks: readonly string[];
 }

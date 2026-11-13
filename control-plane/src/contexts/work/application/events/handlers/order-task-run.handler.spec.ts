@@ -6,6 +6,7 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
@@ -109,6 +110,7 @@ const ORDERED: OrderedRun = {
   briefedTask: null,
   briefedMemories: BriefedMemories.none(),
   configuredAs: null,
+  toolsOnMarks: [],
 };
 
 const ordering = (
@@ -158,6 +160,18 @@ describe('OrderTaskRun', () => {
     expect(dispatch?.pullEvents().map((each) => each.kind)).toEqual([
       'dispatch.ordered',
     ]);
+  });
+
+  it('records the tools the task’s marks enabled for the run', async () => {
+    const { handler, task, added } = ordering({
+      ordered: { ...ORDERED, toolsOnMarks: [Tool.of('sentry.get-issue')] },
+    });
+
+    await handler.on(handed(task));
+
+    expect(
+      added.mock.calls[0]?.[0]?.toolsOnMarks.map((each) => each.value),
+    ).toEqual(['sentry.get-issue']);
   });
 
   it('orders nothing twice', async () => {

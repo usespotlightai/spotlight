@@ -4,6 +4,7 @@ import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo'
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
+import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
@@ -95,5 +96,35 @@ describe('OfferedTools', () => {
     expect(acting.takesPersonRuleFor(SEARCH)).toBe(true);
     expect(acting.takesPersonRuleFor(ToolName.of('linear.other'))).toBe(false);
     expect(team.takesPersonRuleFor(COMMENT)).toBe(false);
+  });
+
+  it('names the written tools enabled on any of the mark kinds', () => {
+    const offered = OfferedTools.generatedFor(
+      Integration.of({
+        key: LINEAR,
+        actions: DefinedActions.of([actionNamed('post')]),
+        writtenTools: [
+          ProvidedTool.of({
+            integration: LINEAR,
+            name: 'comment',
+            description: 'comment',
+            backing: ToolBacking.action('post'),
+            enabledOnMark: MarkKind.of('linear.issue'),
+          }),
+          tool('close', ToolBacking.action('post')),
+        ],
+      }),
+      [],
+    );
+
+    expect(
+      offered
+        .enabledOnMarks([
+          MarkKind.of('git.pull-request'),
+          MarkKind.of('linear.issue'),
+        ])
+        .map((each) => each.value),
+    ).toEqual(['linear.comment']);
+    expect(offered.enabledOnMarks([MarkKind.of('linear.team')])).toEqual([]);
   });
 });

@@ -7,6 +7,7 @@ import type { ActsAsKind } from '@integrations/domain/value-objects/acts-as.vo';
 import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
+import type { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
@@ -134,6 +135,15 @@ export class IntegrationReader implements ToolDeclarationsPort {
         ? [offeredBy(compiled.readable.integration, defined)]
         : [];
     });
+  }
+
+  enabledOnMarks(
+    definitions: readonly DefinedIntegration[],
+    kinds: readonly MarkKind[],
+  ): readonly ToolName[] {
+    return this.offered(definitions).flatMap((each) =>
+      each.enabledOnMarks(kinds),
+    );
   }
 
   async providedTool(

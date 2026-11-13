@@ -121,12 +121,14 @@ const ran = async (
     parts = PARTS,
     state = 'completed',
     reviewing = null,
+    toolsOnMarks = [],
     at,
   }: {
     fingerprint?: string | null;
     parts?: StationConfigParts;
     state?: RunState;
     reviewing?: string | null;
+    toolsOnMarks?: readonly string[];
     at: Date;
   },
 ) => {
@@ -156,8 +158,8 @@ const ran = async (
     endedAt: ended ? at : null,
     ...(state === 'suspended' ? aTurn() : {}),
   });
-  await db.insert(schema.dispatch).values(
-    aDispatch({
+  await db.insert(schema.dispatch).values({
+    ...aDispatch({
       runId,
       workspaceId: 'ws_1',
       teamId: teamOf.get(stationId) ?? null,
@@ -179,7 +181,8 @@ const ran = async (
       endedAt: ended ? at : null,
       outcome: state === 'failed' ? 'failed' : 'completed',
     }),
-  );
+    toolsOnMarks,
+  });
 
   return { runId, taskId };
 };
@@ -494,6 +497,34 @@ describe('the station config a run ran with', () => {
 
     expect(found?.ran?.fingerprint).toBe('1'.repeat(64));
     expect(found?.before?.runId).toBe(before.runId);
+  });
+});
+
+describe('the tools a run had because of its task’s marks', () => {
+  it('come back with the run, apart from its station config', async () => {
+    const { stationId } = await lineOf('team_marked');
+    const { runId } = await ran(stationId, {
+      toolsOnMarks: ['sentry.get-issue'],
+      at: new Date(),
+    });
+
+    const found = await dispatches.find(RunId.of(runId));
+    const read = (await runReader.configFor(RunId.of(runId)))?.found;
+
+    expect(found?.toolsOnMarks.map((each) => each.value)).toEqual([
+      'sentry.get-issue',
+    ]);
+    expect(read?.toolsOnMarks).toEqual(['sentry.get-issue']);
+    expect(read?.ran?.parts.tools).toEqual([]);
+  });
+
+  it('are none for a run its task’s marks gave no tools', async () => {
+    const { stationId } = await lineOf('team_unmarked');
+    const { runId } = await ran(stationId, { at: new Date() });
+
+    expect(
+      (await runReader.configFor(RunId.of(runId)))?.found.toolsOnMarks,
+    ).toEqual([]);
   });
 });
 

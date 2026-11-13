@@ -14,6 +14,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { DispatchVersionConflictError } from '@work/domain/exceptions/dispatch-version-conflict.error';
@@ -157,6 +158,7 @@ const toDispatch = (row: Row): Dispatch =>
     briefing: row.briefing,
     briefedMemories: BriefedMemories.of(row.briefedMemories),
     configuredAs: configOf(row),
+    toolsOnMarks: row.toolsOnMarks.map((each) => Tool.of(each)),
     orderedAt: row.orderedAt,
     enqueued: row.enqueued,
     refused: row.refused,
@@ -197,6 +199,7 @@ export class DrizzleDispatchRepository implements DispatchRepository {
           briefedMemories: added.briefedMemories.value,
           stationConfig: added.configuredAs?.parts ?? null,
           stationFingerprint: added.configuredAs?.fingerprint ?? null,
+          toolsOnMarks: added.toolsOnMarks.map((each) => each.value),
           orderedAt: added.orderedAt,
           version: added.version,
           ...changing(added),

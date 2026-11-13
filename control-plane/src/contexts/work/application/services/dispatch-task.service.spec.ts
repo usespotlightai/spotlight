@@ -68,10 +68,11 @@ import {
   stationWith,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
 
@@ -271,12 +272,17 @@ const BUILT_IN: BuiltInSkillsPort = {
 
 let providedTools: DeclaredTool[] = [];
 let providedRequested: string[] = [];
+let toolsOnMarks: Record<string, string[]> = {};
 
 const integrations = {
   provided: async (_line: unknown, tools: readonly Tool[]) => {
     providedRequested = tools.map((each) => each.value);
     return providedTools;
   },
+  toolsOnMarks: async (_line: unknown, marks: readonly Mark[]) =>
+    marks.flatMap((each) =>
+      (toolsOnMarks[each.kind] ?? []).map((tool) => Tool.of(tool)),
+    ),
 } as unknown as TeamIntegrations;
 
 let readySkills: ReadySkillFolder[] = [];
@@ -1060,6 +1066,7 @@ describe('DispatchTask, the tools a run is told about', () => {
 
   beforeEach(() => {
     queued = [];
+    ordered = [];
     providedTools = [];
     providedRequested = [];
   });
@@ -1125,6 +1132,60 @@ describe('DispatchTask, the tools a run is told about', () => {
 
     expect(manifest()).toEqual([]);
     expect(enabledTools(queued[0])).toEqual([]);
+  });
+
+  describe('a tool its integration enables on a mark', () => {
+    const issue = DeclaredTool.of({
+      tool: Tool.of('sentry.get-issue'),
+      description: 'Read a Sentry issue.',
+      providedBy: 'Sentry',
+    });
+
+    beforeEach(() => {
+      toolsOnMarks = { 'sentry.issue': ['sentry.get-issue'] };
+      providedTools = [issue];
+    });
+
+    afterEach(() => {
+      toolsOnMarks = {};
+    });
+
+    it('is described to a run on a task with the mark, though the station does not name it', async () => {
+      const station = triage({ tools: ['pull-request'] });
+
+      await dispatch(
+        station,
+        task(station.id.value).markedBy(Mark.of('sentry.issue', '4507'), NOW),
+      );
+
+      expect(providedRequested).toEqual(['pull-request', 'sentry.get-issue']);
+      expect(manifest().map((each) => each.name)).toEqual([
+        'pull-request',
+        'sentry.get-issue',
+      ]);
+      expect(written(queued[0]).briefing).toContain('Sentry (1)');
+      expect(ordered[0]?.toolsOnMarks.map((each) => each.value)).toEqual([
+        'sentry.get-issue',
+      ]);
+    });
+
+    it('is described once where the station also names it', async () => {
+      const station = triage({ tools: ['sentry.get-issue'] });
+
+      await dispatch(
+        station,
+        task(station.id.value).markedBy(Mark.of('sentry.issue', '4507'), NOW),
+      );
+
+      expect(manifest().map((each) => each.name)).toEqual(['sentry.get-issue']);
+      expect(ordered[0]?.toolsOnMarks).toEqual([]);
+    });
+
+    it('is not described to a run on a task without the mark', async () => {
+      await dispatch(triage({ tools: ['pull-request'] }));
+
+      expect(manifest().map((each) => each.name)).toEqual(['pull-request']);
+    });
   });
 
   describe('what the team has learned', () => {

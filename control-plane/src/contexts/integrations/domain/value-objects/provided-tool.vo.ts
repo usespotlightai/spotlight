@@ -1,6 +1,7 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import type { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
@@ -32,6 +33,7 @@ export class ProvidedTool {
     readonly inputs: readonly ProvidedToolInput[],
     readonly backing: ToolBacking,
     readonly approval: ApprovalNeeded | null,
+    readonly enabledOnMark: MarkKind | null,
   ) {}
 
   static of(input: {
@@ -41,6 +43,7 @@ export class ProvidedTool {
     inputs?: readonly ProvidedToolInput[];
     backing: ToolBacking;
     approval?: ApprovalNeeded | null;
+    enabledOnMark?: MarkKind | null;
   }): ProvidedTool {
     const name = input.name.trim();
     const description = input.description.trim();
@@ -95,6 +98,15 @@ export class ProvidedTool {
       throw invalid('pipes in an input that is not text');
     }
 
+    if (
+      input.enabledOnMark &&
+      !input.enabledOnMark.belongsTo(input.integration)
+    ) {
+      throw invalid(
+        `can be enabled only on a mark of its own integration, whose kind starts with ${input.integration.value}.`,
+      );
+    }
+
     return new ProvidedTool(
       input.integration,
       name,
@@ -102,6 +114,7 @@ export class ProvidedTool {
       inputs,
       input.backing,
       input.approval ?? null,
+      input.enabledOnMark ?? null,
     );
   }
 

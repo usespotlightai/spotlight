@@ -4,6 +4,7 @@ import type {
   PreparedHarness,
   SkillsHome,
 } from '@runs/application/ports/harness-launch.port';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
@@ -81,18 +82,23 @@ export class StationOrdering {
     private readonly hash: ContentHashPort,
   ) {}
 
-  ordered(line: LineMap, at: OrderedAt): Promise<Ordered | null> {
-    return this.orderedAs(line, at, RunReadying.asATaskRun);
+  ordered(
+    line: LineMap,
+    at: OrderedAt,
+    toolsOnMarks: readonly Tool[],
+  ): Promise<Ordered | null> {
+    return this.orderedAs(line, at, RunReadying.asATaskRun, toolsOnMarks);
   }
 
   orderedForTrial(line: LineMap, at: OrderedAt): Promise<Ordered | null> {
-    return this.orderedAs(line, at, RunReadying.asATrial);
+    return this.orderedAs(line, at, RunReadying.asATrial, []);
   }
 
   private async orderedAs(
     line: LineMap,
     at: OrderedAt,
     readying: RunReadying,
+    toolsOnMarks: readonly Tool[],
   ): Promise<Ordered | null> {
     const station = line.stationAt(at.stationId) ?? null;
     const teamSkills = station
@@ -110,6 +116,7 @@ export class StationOrdering {
       profiles: await this.profilesAt(line, station),
       denied:
         station && catalog ? readying.denied(station, catalog.denied) : [],
+      toolsOnMarks,
     });
 
     if (!order) {

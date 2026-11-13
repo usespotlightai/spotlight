@@ -1,5 +1,5 @@
 {
-  "id": "2f2a9a4e-27a0-476b-9371-eeef7d1e1bb2",
+  "id": "d5f72ef2-9723-46cb-b1ce-4f4d1c231856",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -17058,6 +17058,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "tools_on_marks": {
+          "name": "tools_on_marks",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "ordered_at": {
           "name": "ordered_at",

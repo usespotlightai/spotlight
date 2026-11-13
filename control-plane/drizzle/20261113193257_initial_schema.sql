@@ -2080,6 +2080,7 @@ CREATE TABLE "dispatch" (
 	"briefed_memories" jsonb DEFAULT '{"briefed":[],"omitted":[]}'::jsonb NOT NULL,
 	"station_config" jsonb,
 	"station_fingerprint" text,
+	"tools_on_marks" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"ordered_at" timestamp (3) with time zone NOT NULL,
 	"enqueued" boolean DEFAULT false NOT NULL,
 	"refused" "dispatch_refusal",

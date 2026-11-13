@@ -2,6 +2,7 @@ import type { DefinedIntegrationsPort } from '@integrations/application/ports/de
 import type { ToolDeclarationsPort } from '@integrations/application/ports/tool-declarations.port';
 import { ProvidedTools } from '@integrations/application/services/provided-tools.service';
 import { InferredOutputSchema } from '@integrations/domain/aggregates/inferred-output-schema.aggregate';
+import type { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { TeamIntegrations } from '@integrations/infrastructure/acl/team-integrations.adapter';
 import { InMemoryInferredOutputSchemas } from '@integrations/integrations.inferred.fake-spec';
@@ -21,6 +22,18 @@ const declared = (tool: string, over: Partial<ToolDeclaration> = {}) => ({
   ...over,
 });
 
+const integrationsOf = (
+  declarations: ToolDeclarationsPort,
+  schemas = new InMemoryInferredOutputSchemas(),
+) =>
+  new TeamIntegrations(
+    new ProvidedTools(
+      { ofTeam: async () => [] } as unknown as DefinedIntegrationsPort,
+      declarations,
+      schemas,
+    ),
+  );
+
 const providing = async (declarations: readonly ToolDeclaration[]) => {
   const schemas = new InMemoryInferredOutputSchemas();
 
@@ -35,12 +48,9 @@ const providing = async (declarations: readonly ToolDeclaration[]) => {
     );
   }
 
-  return new TeamIntegrations(
-    new ProvidedTools(
-      { ofTeam: async () => [] } as unknown as DefinedIntegrationsPort,
-      { declared: async () => declarations } satisfies ToolDeclarationsPort,
-      schemas,
-    ),
+  return integrationsOf(
+    { declared: async () => declarations, enabledOnMarks: () => [] },
+    schemas,
   ).provided(
     TEAM,
     declarations.map((each) => each.tool),
@@ -61,5 +71,20 @@ describe('TeamIntegrations', () => {
       additionalProperties: false,
     });
     expect(search?.inferredOutput).toBeNull();
+  });
+
+  it('names the tools enabled on the given mark kinds', async () => {
+    let asked: readonly MarkKind[] = [];
+
+    const tools = await integrationsOf({
+      declared: async () => [],
+      enabledOnMarks: (_definitions, kinds) => {
+        asked = kinds;
+        return [ToolName.of('sentry.get-issue')];
+      },
+    }).toolsOnMarks(TEAM, ['sentry.issue']);
+
+    expect(tools).toEqual(['sentry.get-issue']);
+    expect(asked.map((each) => each.value)).toEqual(['sentry.issue']);
   });
 });

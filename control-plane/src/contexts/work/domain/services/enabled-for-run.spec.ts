@@ -181,4 +181,41 @@ describe('skillsForTools', () => {
     expect(skillsForTools([declared('pull-request')])).toEqual([]);
     expect(skillsForTools([])).toEqual([]);
   });
+
+  describe('the tools a task’s marks enable', () => {
+    it('adds them to the run’s tools, after the station’s, and keeps the station’s apart', () => {
+      const enabled = enabledAt(
+        station(['pull-request']),
+        [],
+        [],
+        [Tool.of('sentry.get-issue'), Tool.of('sentry.get-issue')],
+      );
+
+      expect(values(enabled.stationTools)).toEqual(['pull-request']);
+      expect(values(enabled.toolsOnMarks)).toEqual(['sentry.get-issue']);
+      expect(values(enabled.tools)).toEqual([
+        'pull-request',
+        'sentry.get-issue',
+      ]);
+    });
+
+    it('enables a tool once where the station also enables it', () => {
+      const enabled = enabledAt(
+        station(['sentry.get-issue']),
+        [],
+        [],
+        [Tool.of('sentry.get-issue')],
+      );
+
+      expect(values(enabled.tools)).toEqual(['sentry.get-issue']);
+      expect(enabled.toolsOnMarks).toEqual([]);
+    });
+
+    it('enables only the station’s tools for a task without marks', () => {
+      const enabled = enabledAt(station(['pull-request']), [], []);
+
+      expect(values(enabled.stationTools)).toEqual(['pull-request']);
+      expect(values(enabled.tools)).toEqual(['pull-request']);
+    });
+  });
 });

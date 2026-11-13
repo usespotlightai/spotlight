@@ -179,6 +179,7 @@ export class DispatchChat implements ChatDispatching {
         omitted: memories.omitted,
       }),
       configuredAs: null,
+      toolsOnMarks: [],
     };
   }
 

@@ -29541,12 +29541,23 @@
                 "$ref": "#/components/schemas/ConfigChangedSinceResponseDto"
               }
             ]
+          },
+          "toolsOnMarks": {
+            "example": [
+              "sentry.get-issue"
+            ],
+            "description": "The tools the run had because its task had a mark they are enabled on, and that its station config does not list",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "fingerprint",
           "config",
-          "changedSince"
+          "changedSince",
+          "toolsOnMarks"
         ]
       },
       "LatestRunResponseDto": {

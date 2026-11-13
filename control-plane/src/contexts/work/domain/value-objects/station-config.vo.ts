@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
@@ -235,6 +236,10 @@ export class StationConfig {
     readonly parts: StationConfigParts,
     readonly fingerprint: string,
   ) {}
+
+  lists(tool: Tool): boolean {
+    return this.parts.tools.includes(tool.value);
+  }
 
   static canonical(parts: StationConfigParts): string {
     return canonicalText(ordered(parts));
