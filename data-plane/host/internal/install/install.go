@@ -32,7 +32,7 @@ func (s Service) Install(out io.Writer) error {
 	case "darwin":
 		return s.launchd(out)
 	default:
-		return fmt.Errorf("installing a service on %s is not supported; run `spotlight host serve` under your own supervisor", runtime.GOOS)
+		return fmt.Errorf("installing a service on %s is not supported; run spotlight host serve under your own supervisor", runtime.GOOS)
 	}
 }
 
@@ -231,7 +231,7 @@ func Logs(follow bool, lines int) (*exec.Cmd, error) {
 
 func installedPath() (string, error) {
 	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
-		return "", fmt.Errorf("a service on %s is not supported; run `spotlight host serve` under your own supervisor", runtime.GOOS)
+		return "", fmt.Errorf("a service on %s is not supported; run spotlight host serve under your own supervisor", runtime.GOOS)
 	}
 	path, ok := Installed()
 	if !ok {

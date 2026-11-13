@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"io"
 	"os/exec"
 
@@ -12,6 +13,7 @@ import (
 // Host is what the dashboard needs from the machine. Each action runs a spotlight host command through Run, or through Attach when the command needs the terminal.
 type Host interface {
 	Run(args []string, input string) (string, error)
+	Update() (string, error)
 	Attach(args []string) *exec.Cmd
 	Status() Status
 	Settings() ([]Setting, error)
@@ -22,14 +24,24 @@ type Host interface {
 // Account is the CLI's login on this machine, which spotlight login and spotlight logout change.
 type Account interface {
 	Logins() ([]Login, error)
-	Login() *exec.Cmd
+	Address() string
+	Login(ctx context.Context, address string) (Approval, error)
 	Logout(address string) (string, error)
+}
+
+// Approval is a login that waits until the person approves it on its page.
+type Approval struct {
+	Address string
+	Page    string
+	Code    string
+	Open    func() error
+	Wait    func(ctx context.Context) (string, error)
 }
 
 // Editors is what spotlight ssh setup set up, so that VS Code and Cursor open task workspaces.
 type Editors interface {
 	Editors() EditorSetup
-	Setup() *exec.Cmd
+	Setup(address string, timeout bool) (string, error)
 }
 
 type EditorSetup struct {
@@ -50,6 +62,7 @@ type Login struct {
 
 type Status struct {
 	SetUp     bool
+	AsRoot    bool
 	Name      string
 	Service   Service
 	Sandboxes Sandboxes

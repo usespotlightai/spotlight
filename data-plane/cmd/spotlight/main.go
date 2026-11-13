@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"usespotlight.ai/data-plane/agent"
+	"usespotlight.ai/data-plane/credentials"
 	"usespotlight.ai/data-plane/egress"
 	"usespotlight.ai/data-plane/help"
 	"usespotlight.ai/data-plane/host"
@@ -53,9 +55,9 @@ var agentSections = []help.Section{
 var operatorSections = []help.Section{
 	{Title: "Your login", Paths: []string{"login", "logout", "token"}},
 	{Title: "Open tasks in VS Code or Cursor", Paths: []string{"ssh setup", "ssh proxy"}},
-	{Title: "Run agents on this computer", Paths: []string{"host init", "host", "host status", "host config", "host logs", "host update"}},
+	{Title: "Run agents on this computer", Paths: []string{"host init", "host", "host status", "host config", "host logs"}},
 	{Title: "Check station changes", Paths: []string{"replay", "replay check"}},
-	{Title: "Other", Paths: []string{"version", "help"}},
+	{Title: "Other", Paths: []string{"status", "update", "version", "help"}},
 }
 
 var sandboxSection = help.Section{Title: "Started by the host", Paths: []string{"runner", "egress"}}
@@ -130,7 +132,7 @@ func run(args []string, out, errs io.Writer) int {
 	if !found {
 		return unknown("", args, errs)
 	}
-	if help.Wanted(args) || (command.Group && len(rest) == 0) || (command.Path == "host" && len(rest) == 0 && (host.Interactive() || inRun())) {
+	if help.Wanted(args) || (command.Group && len(rest) == 0) || (command.Path == "host" && len(rest) == 0) {
 		return helpFor(args, out, errs)
 	}
 	if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") && len(commands.Children(command.Path)) > 0 {
@@ -142,6 +144,10 @@ func run(args []string, out, errs io.Writer) int {
 	switch args[0] {
 	case "host":
 		return host.Main(args[1:], version)
+	case "update":
+		return host.Update(args[1:], version)
+	case "status":
+		return host.Home(args[1:], version)
 	case "runner":
 		return runner.Main(args[1:], version)
 	case "egress":
@@ -149,7 +155,7 @@ func run(args []string, out, errs io.Writer) int {
 	case "replay":
 		return replay.Main(args[1:], version)
 	case "login":
-		return login.Main(args[1:], version)
+		return login.Main(args[1:], version, loginNext)
 	case "logout":
 		return login.Logout(args[1:], version)
 	case "token":
@@ -234,11 +240,22 @@ func unknown(parent string, args []string, errs io.Writer) int {
 	return 1
 }
 
+func loginNext(address string) string {
+	if ssh.Inspect(os.Getenv, runtime.GOOS).Configured {
+		return ""
+	}
+	setup := "spotlight ssh setup"
+	if address != credentials.DefaultAddress {
+		setup += " --url " + address
+	}
+	return "Next: to open tasks in VS Code or Cursor, run: " + setup
+}
+
 func roleOf(command string) string {
 	switch command {
 	case "host", "runner", "egress", "replay":
 		return command
-	case "login", "logout", "token", "ssh":
+	case "login", "logout", "token", "ssh", "update", "status":
 		return "login"
 	default:
 		return "agent"

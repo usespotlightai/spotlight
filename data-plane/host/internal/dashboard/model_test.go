@@ -1,7 +1,10 @@
 package dashboard
 
 import (
+	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"slices"
@@ -24,15 +27,51 @@ type fakeHost struct {
 
 	logins    []Login
 	loggedOut []string
+	address   string
+	loginErr  error
+	waitErr   error
+	loginsAt  []string
 
 	editors EditorSetup
+	setups  []string
 }
 
 func (f *fakeHost) Editors() EditorSetup { return f.editors }
-func (f *fakeHost) Setup() *exec.Cmd     { return exec.Command("true") }
+
+func (f *fakeHost) Update() (string, error) {
+	f.ran = append(f.ran, []string{"update"})
+	return "spotlight update: already on release dev", nil
+}
+func (f *fakeHost) Setup(address string, timeout bool) (string, error) {
+	f.setups = append(f.setups, fmt.Sprint(address, " ", timeout))
+	return "  Open a task in VS Code or Cursor from Spotlight.", nil
+}
 
 func (f *fakeHost) Logins() ([]Login, error) { return f.logins, nil }
-func (f *fakeHost) Login() *exec.Cmd         { return exec.Command("true") }
+func (f *fakeHost) Address() string          { return f.address }
+
+func (f *fakeHost) Login(_ context.Context, address string) (Approval, error) {
+	f.loginsAt = append(f.loginsAt, address)
+	if f.loginErr != nil {
+		return Approval{}, f.loginErr
+	}
+	if !strings.Contains(address, "://") {
+		address = "https://" + address
+	}
+	return Approval{
+		Address: address,
+		Page:    address + "/device?user_code=ABCDEFGH",
+		Code:    "ABCD-EFGH",
+		Open:    func() error { return nil },
+		Wait: func(context.Context) (string, error) {
+			if f.waitErr != nil {
+				return "", f.waitErr
+			}
+			f.logins = append(f.logins, Login{Address: address, User: "leon@example.com"})
+			return "leon@example.com", nil
+		},
+	}, nil
+}
 
 func (f *fakeHost) Logout(address string) (string, error) {
 	f.loggedOut = append(f.loggedOut, address)
@@ -107,6 +146,42 @@ func press(m model, names ...string) (model, tea.Cmd) {
 		m = next.(model)
 	}
 	return m, cmd
+}
+
+func settle(m model, cmd tea.Cmd) model {
+	if cmd == nil {
+		return m
+	}
+	switch msg := cmd().(type) {
+	case tea.BatchMsg:
+		for _, each := range msg {
+			m = settle(m, each)
+		}
+		return m
+	case statusMsg, settingsMsg, loginsMsg, editorsMsg, ranMsg, loginStartedMsg, loginDoneMsg:
+		m, next := update(m, msg)
+		return settle(m, next)
+	default:
+		return m
+	}
+}
+
+func loginStarted(t *testing.T, m model, cmd tea.Cmd) (model, tea.Cmd) {
+	t.Helper()
+	msgs := []tea.Msg{cmd()}
+	if batch, ok := msgs[0].(tea.BatchMsg); ok {
+		msgs = nil
+		for _, each := range batch {
+			msgs = append(msgs, each())
+		}
+	}
+	for _, msg := range msgs {
+		if started, ok := msg.(loginStartedMsg); ok {
+			return update(m, started)
+		}
+	}
+	t.Fatalf("no login started in %v", msgs)
+	return m, nil
 }
 
 func update(m model, msg tea.Msg) (model, tea.Cmd) {
@@ -208,7 +283,7 @@ func TestStartsAStoppedHostWithoutAsking(t *testing.T) {
 }
 
 func TestServiceActionsNeedAnInstalledService(t *testing.T) {
-	host := &fakeHost{status: notInstalled()}
+	host := &fakeHost{status: notInstalled(), editors: EditorSetup{Configured: true}}
 	m := started(host)
 	if keys := footerKeys(m); !slices.Contains(keys, "i") || slices.Contains(keys, "s") || slices.Contains(keys, "r") {
 		t.Fatalf("footer keys %v", keys)
@@ -233,13 +308,77 @@ func TestInitWaitsForTheFirstCheck(t *testing.T) {
 }
 
 func TestLogsInWhenThereIsNoLogin(t *testing.T) {
-	m := started(&fakeHost{status: notInstalled()})
+	m := started(&fakeHost{status: notInstalled(), editors: EditorSetup{Configured: true}})
 	if !strings.Contains(screenText(m), "account     ○ not logged in") || !slices.Contains(footerKeys(m), "a") {
 		t.Fatalf("view:\n%s", screenText(m))
 	}
-	m, cmd := press(m, "a")
-	if m.running != "spotlight login" || cmd == nil {
-		t.Fatalf("running = %q", m.running)
+	m, _ = press(m, "a")
+	if m.mode != loggingIn || !strings.Contains(screenText(m), "address     app.usespotlight.ai") {
+		t.Fatalf("mode %v view:\n%s", m.mode, screenText(m))
+	}
+}
+
+func TestLogsInInsideTheDashboard(t *testing.T) {
+	host := &fakeHost{status: notInstalled(), editors: EditorSetup{Configured: true}, address: "https://staging.usespotlight.ai"}
+	m, _ := press(sized(started(host), 100, 30), "a")
+	if m.login.input.Value() != "staging.usespotlight.ai" {
+		t.Fatalf("address %q", m.login.input.Value())
+	}
+
+	m, cmd := press(m, "enter")
+	if m.login.step != startingStep || !strings.Contains(screenText(m), "Asking Spotlight for a login code") {
+		t.Fatalf("view:\n%s", screenText(m))
+	}
+	m, wait := loginStarted(t, m, cmd)
+	view := screenText(m)
+	for _, want := range []string{"page        https://staging.usespotlight.ai/device?user_code=ABCDEFGH", "code        ABCD-EFGH", "The page is open in your browser.", "o open the page", "esc stop"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("view lacks %q:\n%s", want, view)
+		}
+	}
+
+	m, _ = press(m, "o")
+	m = settle(m, wait)
+	if m.mode != browsing || !m.loggedIn("https://staging.usespotlight.ai") {
+		t.Fatalf("mode %v logins %v", m.mode, m.logins)
+	}
+	if view := screenText(m); !strings.Contains(view, "✓ spotlight login   Logged in to staging.usespotlight.ai as leon@example.com.") || !strings.Contains(view, "● leon@example.com") {
+		t.Errorf("view:\n%s", view)
+	}
+}
+
+func TestAFailedLoginKeepsTheAddressToCorrect(t *testing.T) {
+	host := &fakeHost{status: notInstalled(), editors: EditorSetup{Configured: true}, loginErr: errors.New("Spotlight at https://app.usespotlight.ai did not give a device code. It answered 404, so it may not be a Spotlight address.")}
+	m, cmd := press(sized(started(host), 80, 30), "a", "enter")
+	m = settle(m, cmd)
+	view := screenText(m)
+	if m.login.step != addressStep || !strings.Contains(view, "✗ Spotlight at https://app.usespotlight.ai did not give a device") || !strings.Contains(view, "may not be a Spotlight address.") {
+		t.Fatalf("view:\n%s", view)
+	}
+
+	host.loginErr = nil
+	m, _ = press(m, "esc", "a")
+	for range len("app.usespotlight.ai") {
+		m, _ = press(m, "backspace")
+	}
+	m, cmd = press(m, "s", "t", "a", "g", "i", "n", "g", "enter")
+	m = settle(m, cmd)
+	if got := host.loginsAt[len(host.loginsAt)-1]; got != "staging" || m.mode != browsing {
+		t.Fatalf("logged in at %q, mode %v", got, m.mode)
+	}
+}
+
+func TestEscStopsTheLoginAndALateApprovalIsIgnored(t *testing.T) {
+	host := &fakeHost{status: notInstalled(), editors: EditorSetup{Configured: true}}
+	m, cmd := press(started(host), "a", "enter")
+	m, wait := loginStarted(t, m, cmd)
+	m, _ = press(m, "esc")
+	if m.mode != browsing || m.login.ctx.Err() == nil {
+		t.Fatalf("mode %v", m.mode)
+	}
+	m = settle(m, wait)
+	if m.last != nil || len(m.logins) != 0 {
+		t.Fatalf("a stopped login was kept: %+v %v", m.last, m.logins)
 	}
 }
 
@@ -677,7 +816,9 @@ func TestLastLineDropsTheMarkAndPrefix(t *testing.T) {
 }
 
 func TestAMachineWithoutAHostShowsOneCalmLine(t *testing.T) {
-	m := sized(started(&fakeHost{status: Status{Name: "Leon-MBP.fritz.box", Checks: []Check{{Name: "settings", Level: console.Failed, Message: "There are no settings."}}}}), 80, 30)
+	host := &fakeHost{status: Status{Name: "Leon-MBP.fritz.box", Checks: []Check{{Name: "settings", Level: console.Failed, Message: "There are no settings."}}}}
+	host.logins = []Login{{Address: "https://app.usespotlight.ai", User: "leon@example.com"}}
+	m := sized(started(host), 80, 30)
 	view := screenText(m)
 	for _, want := range []string{"host        ○ not set up on this computer", "editors     ○ not set up for VS Code or Cursor"} {
 		if !strings.Contains(view, want) {
@@ -710,9 +851,58 @@ func TestEditorsShowWhatSshSetupSetUp(t *testing.T) {
 		}
 	}
 
-	m, cmd := press(m, "e")
-	if m.running != "spotlight ssh setup" || cmd == nil {
-		t.Fatalf("running = %q", m.running)
+	m, _ = press(m, "e")
+	if m.mode != loggingIn {
+		t.Fatalf("e does not log in first: mode %v", m.mode)
+	}
+}
+
+func TestEditorsSetUpAsksForTheTimeoutOfSlowEditors(t *testing.T) {
+	host := &fakeHost{
+		status:  serving(0),
+		address: "https://app.usespotlight.ai",
+		logins:  []Login{{Address: "https://app.usespotlight.ai", User: "leon@example.com"}},
+		editors: EditorSetup{Configured: true, Editors: []Editor{{Name: "VS Code", Ready: true}, {Name: "Cursor"}}},
+	}
+	m, _ := press(started(host), "e")
+	if m.mode != asking || !strings.HasPrefix(m.question.text, "Let Cursor wait up to 10 minutes to connect?") {
+		t.Fatalf("mode %v question %+v", m.mode, m.question)
+	}
+	if keys := footerKeys(m); !slices.Equal(keys, []string{"y", "n", "esc"}) {
+		t.Errorf("footer keys %v", keys)
+	}
+
+	m, cmd := press(m, "n")
+	if m.running != "spotlight ssh setup" {
+		t.Fatalf("running %q", m.running)
+	}
+	m = settle(m, cmd)
+	if !slices.Equal(host.setups, []string{"https://app.usespotlight.ai false"}) {
+		t.Fatalf("setups %v", host.setups)
+	}
+	if view := screenText(m); !strings.Contains(view, "✓ spotlight ssh setup   Open a task in VS Code or Cursor from Spotlight.") {
+		t.Errorf("view:\n%s", view)
+	}
+
+	m, _ = press(m, "e", "esc")
+	if m.mode != browsing || len(host.setups) != 1 {
+		t.Fatalf("esc did not cancel: mode %v setups %v", m.mode, host.setups)
+	}
+}
+
+func TestTheEditorsChoiceLogsInThenSetsUpSsh(t *testing.T) {
+	host := &fakeHost{status: notInstalled()}
+	m, _ := press(sized(started(host), 100, 30), "enter")
+	if m.mode != loggingIn {
+		t.Fatalf("mode %v", m.mode)
+	}
+	m, cmd := press(m, "enter")
+	m = settle(m, cmd)
+	if !slices.Equal(host.setups, []string{"https://app.usespotlight.ai false"}) {
+		t.Fatalf("setups %v", host.setups)
+	}
+	if m.mode != browsing || m.firstRun() {
+		t.Fatalf("mode %v first run %v", m.mode, m.firstRun())
 	}
 }
 
@@ -768,5 +958,102 @@ func TestTheFooterKeepsKeysAndQuitWhenItIsNarrow(t *testing.T) {
 	footer := strings.Split(screenText(m), "\n")[29]
 	if !strings.Contains(footer, "? keys   q quit") || !strings.Contains(footer, "s stop") || strings.Contains(footer, "…") {
 		t.Errorf("footer %q", footer)
+	}
+}
+
+func TestAComputerWithNothingSetUpAsksWhatItIsFor(t *testing.T) {
+	m := sized(started(&fakeHost{status: notInstalled()}), 80, 30)
+	view := screenText(m)
+	for _, want := range []string{"What do you want to do here?", "▌ Open tasks in VS Code or Cursor", "spotlight ssh setup", "Run agents on this computer", "spotlight host init", "spotlight login"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("view lacks %q:\n%s", want, view)
+		}
+	}
+	if keys := footerKeys(m); !slices.Equal(keys, []string{"↑↓", "enter", ":", "?", "q"}) {
+		t.Errorf("footer keys %v", keys)
+	}
+
+	m, cmd := press(m, "down", "enter")
+	if m.running != "spotlight host init" || cmd == nil {
+		t.Fatalf("running = %q", m.running)
+	}
+}
+
+func TestTheChooserKeepsTheKeysOfEachLine(t *testing.T) {
+	m, _ := press(started(&fakeHost{status: notInstalled()}), "a")
+	if m.mode != loggingIn {
+		t.Fatalf("mode %v", m.mode)
+	}
+}
+
+func TestTheChooserWaitsForTheLogins(t *testing.T) {
+	host := &fakeHost{status: notInstalled()}
+	m := newModel(host, host, host, "dev")
+	m = deliver(m, m.check())
+	m = deliver(m, m.loadEditors())
+	if m.firstRun() {
+		t.Fatal("the chooser shows before the logins are read")
+	}
+}
+
+func TestAHostOfRootSaysToUseSudo(t *testing.T) {
+	status := notInstalled()
+	status.AsRoot = true
+	m := sized(started(&fakeHost{status: status}), 80, 30)
+	view := screenText(m)
+	if !strings.Contains(view, "host        ○ belongs to root · to manage it, run: sudo spotlight") || strings.Contains(view, "What do you want") {
+		t.Errorf("view:\n%s", view)
+	}
+	if slices.Contains(footerKeys(m), "i") {
+		t.Errorf("footer keys %v", footerKeys(m))
+	}
+}
+
+func TestUnderSudoThePersonsLinesAreHidden(t *testing.T) {
+	host := &fakeHost{status: serving(0)}
+	m := newModel(host, nil, nil, "dev")
+	m = deliver(m, m.check())
+	m = deliver(m, m.loadLogins())
+	m = sized(deliver(m, m.loadEditors()), 100, 30)
+	view := screenText(m)
+	if strings.Contains(view, "account") || strings.Contains(view, "editors") || !strings.Contains(view, "● serving") {
+		t.Errorf("view:\n%s", view)
+	}
+	if keys := footerKeys(m); slices.Contains(keys, "a") || slices.Contains(keys, "e") {
+		t.Errorf("footer keys %v", keys)
+	}
+}
+
+func TestUpdateRunsSpotlightUpdateAfterAsking(t *testing.T) {
+	host := &fakeHost{status: serving(0)}
+	m, _ := press(started(host), "u")
+	if m.mode != asking {
+		t.Fatalf("mode %v", m.mode)
+	}
+	m, cmd := press(m, "y")
+	if m.running != "spotlight update" {
+		t.Fatalf("running %q", m.running)
+	}
+	deliver(m, cmd)
+	if len(host.ran) != 1 || host.ranArgs(0) != "update" {
+		t.Fatalf("ran %v", host.ran)
+	}
+
+	if m, _ := press(started(&fakeHost{status: notInstalled(), editors: EditorSetup{Configured: true}}), "u"); m.mode == asking {
+		t.Error("u asks to update a computer without a host")
+	}
+}
+
+func TestAnAttachedCommandWaitsForEnterAfterItEnds(t *testing.T) {
+	var out bytes.Buffer
+	run := paused{cmd: exec.Command("echo", "Connected."), shown: "spotlight host init"}
+	run.SetStdin(strings.NewReader("\n"))
+	run.SetStdout(&out)
+	run.SetStderr(&out)
+	if err := run.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); got != clearScreen+"$ spotlight host init\n\nConnected.\n\nPress Enter to go back to spotlight." {
+		t.Errorf("printed %q", got)
 	}
 }

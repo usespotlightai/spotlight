@@ -99,12 +99,23 @@ func Path() string {
 		return path
 	}
 	if os.Geteuid() == 0 {
-		return "/etc/spotlight/host.env"
+		return SystemPath
 	}
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		return filepath.Join(home, ".spotlight", "host.env")
 	}
-	return "/etc/spotlight/host.env"
+	return SystemPath
+}
+
+const SystemPath = "/etc/spotlight/host.env"
+
+// RootHost says if root has a host on this computer that this user's commands do not reach.
+func RootHost() bool {
+	if os.Geteuid() == 0 || strings.TrimSpace(os.Getenv(EnvConfig)) != "" {
+		return false
+	}
+	_, err := os.Stat(SystemPath)
+	return err == nil
 }
 
 func Load(version string) (Config, error) {

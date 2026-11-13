@@ -14,6 +14,7 @@ import (
 
 	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/control"
+	"usespotlight.ai/data-plane/credentials"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/install"
 	"usespotlight.ai/data-plane/host/internal/pool"
@@ -127,9 +128,12 @@ func settle(file *config.File, f initFlags, tty *console.Terminal, version strin
 		return answer, err
 	}
 
-	url, err := value("Spotlight URL", "url", f.url, "SPOTLIGHT_URL", defaultURL)
+	url, err := value("Spotlight URL", "url", f.url, "SPOTLIGHT_URL", loginAddress())
 	if err != nil {
 		return err
+	}
+	if url != "" && !strings.Contains(url, "://") {
+		url = "https://" + url
 	}
 	if err := file.Set("SPOTLIGHT_URL", url); err != nil {
 		return err
@@ -293,4 +297,12 @@ func serveIt(out io.Writer, version string, cfg config.Config, noService bool) e
 		return err
 	}
 	return install.Service{Binary: binary, Config: config.Path()}.Install(out)
+}
+
+func loginAddress() string {
+	address, err := credentials.Choose(os.Getenv, "")
+	if err != nil {
+		return defaultURL
+	}
+	return address
 }

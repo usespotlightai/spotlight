@@ -98,7 +98,7 @@ export class HostResponseDto {
     type: String,
     nullable: true,
     example:
-      'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight host update',
+      'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight update',
     description:
       'Why the control plane gives this host no work, or null when it gives it work',
   })

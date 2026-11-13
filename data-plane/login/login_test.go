@@ -158,7 +158,7 @@ func loggingIn(t *testing.T, address string, args ...string) ran {
 
 	dir := t.TempDir()
 	c, out, at, opened := testClient(t, map[string]string{credentials.DirVar: dir, urlVar: address})
-	err := c.login(context.Background(), args)
+	_, err := c.login(context.Background(), args)
 
 	return ran{out: out.String(), err: err, clock: at, opened: *opened, credDir: dir}
 }
@@ -206,7 +206,6 @@ func TestLoginPollsUntilApprovedAndKeepsTheLogin(t *testing.T) {
 		"https://spotlight.test/device?user_code=WDJBMJHT",
 		"WDJB-MJHT",
 		"Logged in to " + address + " as person@example.com.",
-		"Next: to open tasks in VS Code or Cursor, run: spotlight ssh setup --url " + address,
 	} {
 		if !strings.Contains(got.out, want) {
 			t.Errorf("output %q, want %q in it", got.out, want)
@@ -329,7 +328,7 @@ func TestCancelStopsTheLoginCleanly(t *testing.T) {
 	defer cancel()
 	at.cancel, at.after = cancel, 1
 
-	if err := c.login(ctx, nil); !errors.Is(err, errStopped) {
+	if _, err := c.login(ctx, nil); !errors.Is(err, ErrStopped) {
 		t.Fatalf("err = %v, want it stopped", err)
 	}
 	if logins := stored(t, dir); len(logins) != 0 {
@@ -440,5 +439,51 @@ func putLogins(t *testing.T, dir string, logins map[string]credentials.Login) {
 	}
 	if err := file.Save(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestLoginAsksForTheAddressWhenNoneIsKnown(t *testing.T) {
+	dir := t.TempDir()
+	c, _, _, _ := testClient(t, map[string]string{credentials.DirVar: dir})
+	var asked []string
+	c.ask = func(question, shown string) (string, error) {
+		asked = append(asked, question+" ["+shown+"]")
+		return "app.staging.usespotlight.ai", nil
+	}
+
+	address, err := c.loginAddress("")
+	if err != nil || address != "https://app.staging.usespotlight.ai" {
+		t.Fatalf("address %q, %v", address, err)
+	}
+	if len(asked) != 1 || asked[0] != "Spotlight address [https://app.usespotlight.ai]" {
+		t.Errorf("asked %v", asked)
+	}
+}
+
+func TestLoginUsesTheOneSavedAddressWithoutAsking(t *testing.T) {
+	dir := t.TempDir()
+	c, _, _, _ := testClient(t, map[string]string{credentials.DirVar: dir})
+	c.ask = func(string, string) (string, error) {
+		t.Fatal("asked for the address")
+		return "", nil
+	}
+	path, _ := credentials.Path(c.env)
+	file, _ := credentials.Load(path)
+	if err := file.Put("https://app.staging.usespotlight.ai", credentials.Login{Token: "t", User: "me@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	if address, err := c.loginAddress(""); err != nil || address != "https://app.staging.usespotlight.ai" {
+		t.Fatalf("address %q, %v", address, err)
+	}
+}
+
+func TestLoginWithoutATerminalUsesTheDefaultAddress(t *testing.T) {
+	c, _, _, _ := testClient(t, map[string]string{credentials.DirVar: t.TempDir()})
+	if address, err := c.loginAddress(""); err != nil || address != credentials.DefaultAddress {
+		t.Fatalf("address %q, %v", address, err)
 	}
 }

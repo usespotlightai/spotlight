@@ -265,7 +265,7 @@ describe('Runners', () => {
 
   it('says the control plane gives a host on an old release no work, and how to update it', async () => {
     const reason =
-      'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight host update';
+      'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight update';
     listing([host({ release: 'v0.4.3', unavailableReason: reason })]);
 
     renderPage();

@@ -72,7 +72,9 @@ func (k keymap) all() []action {
 func (m model) keymap() keymap {
 	switch m.mode {
 	case asking:
-		return keymap{shown: answerActions()}
+		return keymap{shown: m.answerActions()}
+	case loggingIn:
+		return keymap{shown: m.loginKeys()}
 	case commanding:
 		return keymap{shown: paletteKeys()}
 	case helping:
@@ -89,6 +91,9 @@ func (m model) keymap() keymap {
 	case logScreen:
 		return keymap{shown: m.logActions(), hidden: m.viewActions()}
 	default:
+		if m.firstRun() {
+			return keymap{shown: slices.Concat(chooserKeys(), m.viewActions()), hidden: slices.Concat(m.hostActions(), m.accountActions(), m.editorActions())}
+		}
 		return keymap{shown: slices.Concat(m.hostActions(), m.accountActions(), m.editorActions(), m.viewActions())}
 	}
 }
@@ -169,14 +174,12 @@ func (m model) hostActions() []action {
 			do: func(m model) (tea.Model, tea.Cmd) { return m.run("reload") },
 		},
 		{
-			name: "update", keys: []string{"u"}, section: sectionHost,
-			help: "update to the release of the control plane", command: shownCommand([]string{"update"}),
-			do: func(m model) (tea.Model, tea.Cmd) {
-				return m.ask("Replace this binary with the release of the control plane?", running("update"))
-			},
+			name: "update", keys: []string{"u"}, section: sectionHost, disabled: !m.setUp(),
+			help: "update to the release of the control plane", command: updateCommand(),
+			do: model.update,
 		},
 		{
-			name: "set up a host", keys: []string{"i"}, label: "set up a host", section: sectionHost, disabled: !known || installed,
+			name: "set up a host", keys: []string{"i"}, label: "set up a host", section: sectionHost, disabled: !known || installed || m.status.AsRoot,
 			help: "connect this machine and install the service", command: shownCommand([]string{"init"}),
 			do: func(m model) (tea.Model, tea.Cmd) { return m.attach("init") },
 		},
@@ -288,11 +291,14 @@ func (m model) logActions() []action {
 	}
 }
 
-func answerActions() []action {
-	return []action{
-		{keys: []string{"y", "enter"}, label: "yes", do: func(m model) (tea.Model, tea.Cmd) { return m.answer(true) }},
-		{keys: []string{"n", "esc"}, label: "no", do: func(m model) (tea.Model, tea.Cmd) { return m.answer(false) }},
+func (m model) answerActions() []action {
+	yes := action{keys: []string{"y", "enter"}, label: "yes", do: func(m model) (tea.Model, tea.Cmd) { return m.answer(true) }}
+	no := action{keys: []string{"n", "esc"}, label: "no", do: func(m model) (tea.Model, tea.Cmd) { return m.answer(false) }}
+	if m.question == nil || m.question.no == nil {
+		return []action{yes, no}
 	}
+	no.keys = []string{"n"}
+	return []action{yes, no, {keys: []string{"esc"}, label: "cancel", do: model.dismiss}}
 }
 
 func paletteKeys() []action {
@@ -360,6 +366,15 @@ func (m model) paletteActions() []action {
 			all = append(all, action{
 				name: "log out of " + shownAddress(login.Address), command: logoutCommand(login.Address),
 				do: func(m model) (tea.Model, tea.Cmd) { return m.logOut(login.Address) },
+			})
+		}
+		for _, login := range m.logins {
+			if m.editors == nil {
+				break
+			}
+			all = append(all, action{
+				name: "set up editors for " + shownAddress(login.Address), command: editorsCommand() + " --url " + login.Address,
+				do: func(m model) (tea.Model, tea.Cmd) { return m.setUpEditorsFor(login.Address) },
 			})
 		}
 	}

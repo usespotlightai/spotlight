@@ -26,7 +26,7 @@ func Main(args []string, version string) int {
 	var err error
 
 	if len(args) == 0 {
-		err = run(version)
+		err = fmt.Errorf("%s", hostHelp.Synopsis())
 	} else {
 		switch rest := args[1:]; args[0] {
 		case "serve":
@@ -49,12 +49,6 @@ func Main(args []string, version string) int {
 			err = logs(rest)
 		case "uninstall":
 			err = uninstall(version, rest)
-		case "update":
-			if len(rest) > 1 {
-				err = fmt.Errorf("%s", updateHelp.Synopsis())
-			} else {
-				err = updateBinary(version, rest)
-			}
 		default:
 			err = fmt.Errorf("no command %q\n%s", "host "+args[0], hostHelp.Synopsis())
 		}
@@ -181,6 +175,19 @@ func run(version string) error {
 	return nil
 }
 
+// Update replaces this binary with a release: spotlight update.
+func Update(args []string, version string) int {
+	if len(args) > 1 {
+		fmt.Fprintln(os.Stderr, updateHelp.Synopsis())
+		return 1
+	}
+	if err := updateBinary(version, args); err != nil {
+		fmt.Fprintln(os.Stderr, "spotlight update:", err)
+		return 1
+	}
+	return 0
+}
+
 func updateBinary(version string, args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -194,8 +201,11 @@ func updateBinary(version string, args []string) error {
 	if len(args) == 1 {
 		release = args[0]
 	} else {
+		if _, err := os.Stat(config.Path()); err != nil {
+			return errors.New("this computer has no host settings, so Spotlight cannot be asked for its release. Name a release: spotlight update <release>")
+		}
 		if loaded != nil {
-			return fmt.Errorf("%s can't reach the control plane, so name a release (spotlight host update <release>): %w",
+			return fmt.Errorf("%s can't reach the control plane, so name a release (spotlight update <release>): %w",
 				config.Path(), loaded)
 		}
 		id, err := config.HostID(cfg.State)
@@ -211,12 +221,12 @@ func updateBinary(version string, args []string) error {
 			return err
 		}
 		if release = required.Host.Release; release == "" {
-			return fmt.Errorf("the control plane at %s doesn't name a release; name one: spotlight host update <release>", cfg.URL)
+			return fmt.Errorf("the control plane at %s doesn't name a release; name one: spotlight update <release>", cfg.URL)
 		}
 	}
 
 	if release == version {
-		fmt.Println("spotlight host: already on release", release)
+		fmt.Println("spotlight update: already on release", release)
 		return nil
 	}
 
@@ -225,12 +235,12 @@ func updateBinary(version string, args []string) error {
 		return fmt.Errorf("find the host binary: %w", err)
 	}
 
-	fmt.Printf("spotlight host: downloading release %s\n", release)
+	fmt.Printf("spotlight update: downloading release %s\n", release)
 	if err := binary.To(ctx, release); err != nil {
 		return err
 	}
 
-	fmt.Printf("spotlight host: %s is now release %s. A running host restarts on it when its sandboxes finish.\n",
+	fmt.Printf("spotlight update: %s is now release %s. A running host restarts on it when its sandboxes finish.\n",
 		binary.Path, release)
 	return nil
 }

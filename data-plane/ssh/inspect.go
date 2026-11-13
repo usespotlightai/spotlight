@@ -8,22 +8,22 @@ import (
 
 // Setup is what spotlight ssh setup set up on this computer for its user.
 type Setup struct {
-	Configured bool
-	Editors    []Editor
+	Configured bool     `json:"configured"`
+	Editors    []Editor `json:"editors"`
 }
 
 type Editor struct {
-	Name    string
-	Ready   bool
-	Message string
+	Name    string `json:"name"`
+	Ready   bool   `json:"ready"`
+	Message string `json:"message"`
 }
 
 func Inspect(env func(string) string, system string) Setup {
 	home := env("HOME")
 	if home == "" {
-		return Setup{}
+		return Setup{Editors: []Editor{}}
 	}
-	setup := Setup{Configured: configured(home)}
+	setup := Setup{Configured: configured(home), Editors: []Editor{}}
 	for _, each := range editors(system, env) {
 		state := readEditorTimeout(each)
 		switch {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"os/signal"
 	"runtime"
 	"syscall"
@@ -16,6 +15,7 @@ import (
 	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/credentials"
 	"usespotlight.ai/data-plane/help"
+	"usespotlight.ai/data-plane/login"
 )
 
 const stoppedExit = 130
@@ -31,7 +31,7 @@ type cli struct {
 	binary   func() (string, error)
 	system   string
 	terminal func() *console.Terminal
-	login    func(address string) error
+	login    func(ctx context.Context, given string) (string, error)
 	waitHint time.Duration
 }
 
@@ -50,14 +50,8 @@ func Main(args []string, version string) int {
 		terminal: console.Open,
 		waitHint: 10 * time.Second,
 	}
-	c.login = func(address string) error {
-		binary, err := c.binary()
-		if err != nil {
-			return err
-		}
-		login := exec.Command(binary, "login", "--url", address)
-		login.Stdin, login.Stdout, login.Stderr = os.Stdin, os.Stdout, os.Stderr
-		return login.Run()
+	c.login = func(ctx context.Context, given string) (string, error) {
+		return login.LogIn(ctx, given, version)
 	}
 
 	return c.main(ctx, args)
@@ -71,7 +65,7 @@ func (c cli) main(ctx context.Context, args []string) int {
 
 	switch args[0] {
 	case "setup":
-		return c.exit(setupHelp.Path, c.setup(args[1:]))
+		return c.exit(setupHelp.Path, c.setup(ctx, args[1:]))
 	case "proxy":
 		return c.exit(proxyHelp.Path, c.proxy(ctx, args[1:]))
 	default:
@@ -93,6 +87,11 @@ func (c cli) exit(command string, err error) int {
 }
 
 func (c cli) parse(shown help.Command, args []string, flags func(*flag.FlagSet)) (string, []string, error) {
+	address, _, positional, err := c.parseGiven(shown, args, flags)
+	return address, positional, err
+}
+
+func (c cli) parseGiven(shown help.Command, args []string, flags func(*flag.FlagSet)) (string, bool, []string, error) {
 	set := flag.NewFlagSet(shown.Path, flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	given := set.String("url", "", "the Spotlight address")
@@ -103,7 +102,7 @@ func (c cli) parse(shown help.Command, args []string, flags func(*flag.FlagSet))
 	var positional []string
 	for {
 		if err := set.Parse(args); err != nil {
-			return "", nil, fmt.Errorf("%s", shown.Synopsis())
+			return "", false, nil, fmt.Errorf("%s", shown.Synopsis())
 		}
 		if set.NArg() == 0 {
 			break
@@ -114,10 +113,10 @@ func (c cli) parse(shown help.Command, args []string, flags func(*flag.FlagSet))
 
 	address, err := credentials.Choose(c.env, *given)
 	if err != nil {
-		return "", nil, err
+		return "", false, nil, err
 	}
 
-	return address, positional, nil
+	return address, *given != "" || c.env(credentials.URLVar) != "", positional, nil
 }
 
 func loginCommand(address string) string {

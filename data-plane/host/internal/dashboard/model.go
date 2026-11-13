@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -12,7 +13,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-const refreshEvery = 5 * time.Second
+const (
+	refreshEvery = 5 * time.Second
+	stoppedCode  = 130
+)
 
 type screen int
 
@@ -31,6 +35,7 @@ const (
 	helping
 	editing
 	filtering
+	loggingIn
 )
 
 type outcome struct {
@@ -42,6 +47,7 @@ type outcome struct {
 type question struct {
 	text string
 	do   func(model) (tea.Model, tea.Cmd)
+	no   func(model) (tea.Model, tea.Cmd)
 }
 
 type (
@@ -108,8 +114,10 @@ type model struct {
 	last     *outcome
 	question *question
 
-	logins     []Login
-	loginsNote string
+	logins       []Login
+	loginsNote   string
+	loginsLoaded bool
+	choice       int
 
 	editorSetup *EditorSetup
 	helpTop     int
@@ -117,6 +125,7 @@ type model struct {
 	logs     logView
 	settings settingsView
 	palette  paletteView
+	login    loginView
 }
 
 func newInput(placeholder string) textinput.Model {
@@ -146,6 +155,7 @@ func newModel(host Host, account Account, editors Editors, version string) model
 		},
 		settings: settingsView{input: newInput(""), filter: newInput("filter the settings")},
 		palette:  paletteView{input: newInput("type a command")},
+		login:    newLoginView(),
 	}
 	m.sizeLog()
 	return m
@@ -180,6 +190,9 @@ func (m model) loadSettings() tea.Cmd {
 
 func (m model) loadLogins() tea.Cmd {
 	account := m.account
+	if account == nil {
+		return nil
+	}
 	return func() tea.Msg {
 		logins, err := account.Logins()
 		return loginsMsg{logins: logins, err: err}
@@ -195,7 +208,7 @@ func (m model) loadEditors() tea.Cmd {
 }
 
 func (m model) busy() bool {
-	return m.running != "" || m.status == nil
+	return m.running != "" || m.status == nil || m.waitingForLogin()
 }
 
 func (m *model) spin() tea.Cmd {
@@ -220,6 +233,10 @@ func logoutCommand(address string) string {
 
 func editorsCommand() string {
 	return "spotlight ssh setup"
+}
+
+func updateCommand() string {
+	return "spotlight update"
 }
 
 func (m model) run(args ...string) (tea.Model, tea.Cmd) {
@@ -254,9 +271,15 @@ func (m model) hand(shown string, cmd *exec.Cmd) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.running, m.mode = shown, browsing
-	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+	return m, tea.Exec(paused{cmd: cmd, shown: shown}, func(err error) tea.Msg {
 		out := ""
-		if err != nil {
+		var exit *exec.ExitError
+		switch {
+		case errors.As(err, &exit) && (exit.ExitCode() == stoppedCode || exit.ExitCode() == -1):
+			out = "stopped"
+		case errors.As(err, &exit):
+			out = fmt.Sprintf("exited with code %d", exit.ExitCode())
+		case err != nil:
 			out = err.Error()
 		}
 		return ranMsg{command: shown, output: out, failed: err != nil}
@@ -286,12 +309,60 @@ func (m model) askWhenBusy(action string, args ...string) (tea.Model, tea.Cmd) {
 	}
 }
 
-func (m model) logIn() (tea.Model, tea.Cmd) {
-	return m.hand(loginCommand(), m.account.Login())
+func (m model) update() (tea.Model, tea.Cmd) {
+	return m.ask("Replace this binary with the release of the control plane?", func(m model) (tea.Model, tea.Cmd) {
+		host := m.host
+		return m.start(updateCommand(), host.Update)
+	})
+}
+
+func (m model) choose(text string, yes, no func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
+	if m.running != "" {
+		return m, nil
+	}
+	m.question, m.mode = &question{text: text, do: yes, no: no}, asking
+	return m, nil
 }
 
 func (m model) setUpEditors() (tea.Model, tea.Cmd) {
-	return m.hand(editorsCommand(), m.editors.Setup())
+	if m.running != "" || m.editors == nil {
+		return m, nil
+	}
+	if m.account == nil {
+		return m.setUpEditorsFor("")
+	}
+	address := m.account.Address()
+	switch {
+	case address == "" && len(m.logins) > 1:
+		return m.openPaletteWith("set up editors for ")
+	case address == "" || !m.loggedIn(address):
+		return m.logInThen(model.setUpEditorsFor)
+	}
+	return m.setUpEditorsFor(address)
+}
+
+func (m model) setUpEditorsFor(address string) (tea.Model, tea.Cmd) {
+	run := func(timeout bool) func(model) (tea.Model, tea.Cmd) {
+		return func(m model) (tea.Model, tea.Cmd) {
+			editors := m.editors
+			return m.start(editorsCommand(), func() (string, error) { return editors.Setup(address, timeout) })
+		}
+	}
+	var slow []string
+	if m.editorSetup != nil {
+		for _, each := range m.editorSetup.Editors {
+			if !each.Ready {
+				slow = append(slow, each.Name)
+			}
+		}
+	}
+	if len(slow) == 0 {
+		return run(false)(m)
+	}
+	return m.choose(
+		fmt.Sprintf("Let %s wait up to 10 minutes to connect? A stopped sandbox can take minutes to start.", strings.Join(slow, " and ")),
+		run(true), run(false),
+	)
 }
 
 func (m model) logOut(address string) (tea.Model, tea.Cmd) {
@@ -357,11 +428,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.checkAgain(), m.loadSettings(), m.loadLogins(), m.loadEditors())
 
 	case loginsMsg:
-		m.logins, m.loginsNote = msg.logins, ""
+		m.logins, m.loginsNote, m.loginsLoaded = msg.logins, "", true
 		if msg.err != nil {
 			m.loginsNote = msg.err.Error()
 		}
 		return m, nil
+
+	case loginStartedMsg:
+		return m.loginStarted(msg)
+
+	case loginDoneMsg:
+		return m.loginDone(msg)
 
 	case editorsMsg:
 		setup := EditorSetup(msg)
@@ -412,6 +489,7 @@ func (m *model) sizeLog() {
 	for _, input := range []*textinput.Model{&m.palette.input, &m.logs.filter, &m.settings.filter, &m.settings.input} {
 		input.SetWidth(max(m.width-len(gutter)*2-2, 1))
 	}
+	m.login.input.SetWidth(max(m.width-len(gutter)*2-labelColumn-1, 1))
 	m.helpTop = min(m.helpTop, m.lastHelpTop())
 	m.logs.scroll.SetWidth(m.width)
 	m.logs.scroll.SetHeight(max(m.bodyHeight()-1, 1))
@@ -459,6 +537,10 @@ func (m model) typeInto(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case editing:
 		m.settings.input, cmd = m.settings.input.Update(msg)
+	case loggingIn:
+		if m.login.step == addressStep {
+			m.login.input, cmd = m.login.input.Update(msg)
+		}
 	case filtering:
 		filter := m.filter()
 		before := filter.Value()
@@ -484,9 +566,18 @@ func (m model) press(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) answer(yes bool) (tea.Model, tea.Cmd) {
-	if yes && m.question != nil {
+	switch {
+	case m.question == nil:
+	case yes:
 		return m.question.do(m)
+	case m.question.no != nil:
+		return m.question.no(m)
 	}
+	m.question, m.mode = nil, browsing
+	return m, nil
+}
+
+func (m model) dismiss() (tea.Model, tea.Cmd) {
 	m.question, m.mode = nil, browsing
 	return m, nil
 }

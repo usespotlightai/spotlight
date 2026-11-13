@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 
 	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/credentials"
+	"usespotlight.ai/data-plane/login"
 )
 
 const (
@@ -27,9 +29,9 @@ type check struct {
 	fix   string
 }
 
-func (c cli) setup(args []string) error {
+func (c cli) setup(ctx context.Context, args []string) error {
 	var printed, setTimeout, keepTimeout bool
-	address, positional, err := c.parse(setupHelp, args, func(set *flag.FlagSet) {
+	address, explicit, positional, err := c.parseGiven(setupHelp, args, func(set *flag.FlagSet) {
 		set.BoolVar(&printed, "print", false, "show the configuration")
 		set.BoolVar(&setTimeout, "editor-timeout", false, "set the editor connect timeout")
 		set.BoolVar(&keepTimeout, "no-editor-timeout", false, "keep the editor connect timeout")
@@ -44,6 +46,11 @@ func (c cli) setup(args []string) error {
 	binary, err := c.binary()
 	if err != nil {
 		return fmt.Errorf("could not find the path of this spotlight binary: %w", err)
+	}
+	if !printed {
+		if address, err = c.loggedIn(ctx, address, explicit); err != nil {
+			return err
+		}
 	}
 	managed := managedConfig(binary, address)
 
@@ -87,17 +94,14 @@ func (c cli) setup(args []string) error {
 }
 
 func (c cli) loginCheck(address string) check {
-	login, found, err := c.savedLogin(address)
-	if err == nil && !found && c.offerLogin(address) {
-		login, found, err = c.savedLogin(address)
-	}
+	saved, found, err := c.savedLogin(address)
 	switch {
 	case err != nil:
 		return check{level: console.Failed, text: "Sorry, the logins cannot be read: " + err.Error()}
 	case !found:
 		return check{level: console.Warned, text: "There is no login for " + address + ".", fix: loginCommand(address)}
-	case login.User != "":
-		return check{level: console.Passed, text: "Logged in to " + address + " as " + login.User + "."}
+	case saved.User != "":
+		return check{level: console.Passed, text: "Logged in to " + address + " as " + saved.User + "."}
 	default:
 		return check{level: console.Passed, text: "Logged in to " + address + "."}
 	}
@@ -112,21 +116,43 @@ func (c cli) savedLogin(address string) (credentials.Login, bool, error) {
 	if err != nil {
 		return credentials.Login{}, false, err
 	}
-	login, found := file.Login(address)
-	return login, found, nil
+	saved, found := file.Login(address)
+	return saved, found, nil
 }
 
-func (c cli) offerLogin(address string) bool {
-	if c.terminal == nil || c.login == nil {
+func (c cli) loggedIn(ctx context.Context, address string, explicit bool) (string, error) {
+	_, found, err := c.savedLogin(address)
+	if err != nil || found || c.login == nil || !c.interactive() {
+		return address, err
+	}
+
+	given := ""
+	if explicit {
+		given = address
+	}
+	fmt.Fprintln(c.out, "The editor connects to sandboxes as you, so log in first.")
+	logged, err := c.login(ctx, given)
+	if errors.Is(err, login.ErrStopped) {
+		fmt.Fprintln(c.errs, "Stopped. Nothing was written.")
+		return "", errStopped
+	}
+	if err != nil {
+		return "", fmt.Errorf("nothing was written, because the login failed: %w", err)
+	}
+	fmt.Fprintln(c.out)
+	return logged, nil
+}
+
+func (c cli) interactive() bool {
+	if c.terminal == nil {
 		return false
 	}
 	tty := c.terminal()
 	if tty == nil {
 		return false
 	}
-	asked := tty.Confirm("There is no login for " + address + ". The editor connects as you. Log in now?")
 	tty.Close()
-	return asked && c.login(address) == nil
+	return true
 }
 
 func (c cli) editorChecks(home string, setTimeout, keepTimeout bool) []check {

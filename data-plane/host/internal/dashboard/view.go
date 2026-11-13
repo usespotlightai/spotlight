@@ -35,6 +35,8 @@ func (m model) View() tea.View {
 		body = m.paletteBody(height)
 	case m.mode == helping:
 		body = m.helpView(height)
+	case m.mode == loggingIn:
+		body = m.loginBody()
 	case m.screen == settingsScreen:
 		body = m.settingsBody(height)
 	case m.screen == logScreen:
@@ -64,10 +66,12 @@ func (m model) header() []string {
 	if m.setUp() && m.status.Name != "" {
 		left += "  " + s.lit.Render(m.status.Name)
 	}
-	switch m.screen {
-	case settingsScreen:
+	switch {
+	case m.mode == loggingIn:
+		left += s.faint.Render("  /  ") + s.text.Render("log in")
+	case m.screen == settingsScreen:
 		left += s.faint.Render("  /  ") + s.text.Render("settings")
-	case logScreen:
+	case m.screen == logScreen:
 		left += s.faint.Render("  /  ") + s.text.Render("log")
 	}
 
@@ -93,10 +97,16 @@ func (m model) overviewBody(height int) []string {
 	if m.status == nil {
 		return []string{"", gutter + m.spinner.View() + " " + s.dim.Render("Checking this computer")}
 	}
+	if m.firstRun() {
+		return m.chooserBody()
+	}
 	if !m.status.SetUp {
 		lines := []string{""}
 		lines = append(lines, m.accountLines()...)
 		lines = append(lines, m.editorLines()...)
+		if m.status.AsRoot {
+			return append(lines, gutter+m.label("host")+s.faint.Render("○")+s.dim.Render(" belongs to root · to manage it, run: sudo spotlight"))
+		}
 		return append(lines, gutter+m.label("host")+s.faint.Render("○")+s.dim.Render(" not set up on this computer"))
 	}
 
@@ -147,6 +157,9 @@ func (m model) detail(level, message, fix string) []string {
 }
 
 func (m model) accountLines() []string {
+	if m.account == nil {
+		return nil
+	}
 	return []string{gutter + m.label("account") + m.accountLine()}
 }
 

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -386,29 +388,54 @@ func TestSetupFindsTheEditorsOfEachSystem(t *testing.T) {
 	}
 }
 
-func TestSetupOffersToLogInWhenThereIsNoLogin(t *testing.T) {
-	for answer, loggedIn := range map[string]bool{"y\n": true, "n\n": false} {
+func TestSetupLogsInFirstWhenThereIsNoLogin(t *testing.T) {
+	for _, each := range []struct {
+		args      []string
+		wantGiven string
+	}{
+		{nil, ""},
+		{[]string{"--url", "https://staging.example.com"}, "https://staging.example.com"},
+	} {
 		setup := newSetup(t, "/usr/local/bin/spotlight")
-		var asked bytes.Buffer
-		setup.cli.terminal = func() *console.Terminal { return console.New(strings.NewReader(answer), &asked) }
-		var logins []string
-		setup.cli.login = func(address string) error {
-			logins = append(logins, address)
-			setup.login(t, map[string]string{address: "me@example.com"})
-			return nil
+		setup.cli.terminal = func() *console.Terminal { return console.New(strings.NewReader(""), io.Discard) }
+		var given []string
+		setup.cli.login = func(_ context.Context, address string) (string, error) {
+			given = append(given, address)
+			setup.login(t, map[string]string{"https://staging.example.com": "me@example.com"})
+			return "https://staging.example.com", nil
 		}
 
-		setup.run(t, "--url", "https://staging.example.com")
+		setup.run(t, append(each.args, "--no-editor-timeout")...)
 
-		if !strings.Contains(asked.String(), "There is no login for https://staging.example.com. The editor connects as you. Log in now? (y/N)") {
-			t.Errorf("asked %q", asked.String())
+		if len(given) != 1 || given[0] != each.wantGiven {
+			t.Errorf("args %v: logged in with %q", each.args, given)
 		}
-		if got := len(logins) == 1; got != loggedIn {
-			t.Errorf("answer %q: logged in %v, want %v", answer, logins, loggedIn)
+		if managed := setup.read(t, "spotlight", "config"); !strings.Contains(managed, "--url https://staging.example.com %h") {
+			t.Errorf("args %v: managed config\n%s", each.args, managed)
 		}
-		if got := strings.Contains(setup.out.String(), "✓ Logged in to https://staging.example.com as me@example.com."); got != loggedIn {
-			t.Errorf("answer %q printed\n%s", answer, setup.out.String())
+		for _, want := range []string{"The editor connects to sandboxes as you, so log in first.", "✓ Logged in to https://staging.example.com as me@example.com."} {
+			if !strings.Contains(setup.out.String(), want) {
+				t.Errorf("args %v: printed\n%s", each.args, setup.out.String())
+			}
 		}
+	}
+}
+
+func TestSetupWritesNothingWhenTheLoginStops(t *testing.T) {
+	setup := newSetup(t, "/usr/local/bin/spotlight")
+	setup.cli.terminal = func() *console.Terminal { return console.New(strings.NewReader(""), io.Discard) }
+	setup.cli.login = func(context.Context, string) (string, error) {
+		return "", errors.New("the login was denied in the browser")
+	}
+
+	if code := setup.cli.main(context.Background(), []string{"setup"}); code != 1 {
+		t.Fatalf("setup exited %d", code)
+	}
+	if got := setup.errs.String(); !strings.Contains(got, "nothing was written, because the login failed: the login was denied in the browser") {
+		t.Errorf("stderr %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(setup.home, ".ssh")); !os.IsNotExist(err) {
+		t.Errorf("setup wrote ~/.ssh: %v", err)
 	}
 }
 

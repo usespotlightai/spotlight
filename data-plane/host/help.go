@@ -14,13 +14,7 @@ var hostHelp = help.Command{
 		{Comment: "Open the dashboard for the host and the login", Command: "spotlight"},
 	},
 	Notes: []string{
-		"Without a command in a terminal, it prints this help.",
-		"Without a command and without a terminal, it serves in the foreground, as spotlight host serve does.",
-	},
-	Exits: []help.Exit{
-		{Code: 0, Means: "Stopped on SIGINT or SIGTERM."},
-		{Code: 1, Means: "A configuration or runtime error."},
-		{Code: 3, Means: "Spotlight refused the host. The service does not restart it."},
+		"Without a command, it prints this help. The service runs spotlight host serve.",
 	},
 	Docs: docs + "#spotlight-host",
 }
@@ -178,18 +172,18 @@ var uninstallHelp = help.Command{
 }
 
 var updateHelp = help.Command{
-	Path:    "host update",
+	Path:    "update",
 	Summary: "Replace this binary with a release.",
-	Usage:   []string{"spotlight host update [<release>]"},
+	Usage:   []string{"spotlight update [<release>]"},
 	Examples: []help.Example{
-		{Comment: "Update to the release of the control plane", Command: "spotlight host update"},
-		{Command: "spotlight host update 20261020-01"},
+		{Comment: "Update to the release of the control plane", Command: "spotlight update"},
+		{Command: "spotlight update 20261020-01"},
 	},
-	Notes: []string{"Default release: the release of the control plane. A running host restarts on the new binary when its sandboxes finish."},
-	Docs:  docs + "#spotlight-host",
+	Notes: []string{"Default release: the release of the Spotlight that this computer's host serves. Without a host, name a release. A running host restarts on the new binary when its sandboxes finish."},
+	Docs:  docs + "#spotlight-update",
 }
 
 var Commands = []help.Command{
 	hostHelp, serveHelp, initHelp, statusHelp, configHelp, configGetHelp, configSetHelp, configUnsetHelp, configKeysHelp,
-	startHelp, stopHelp, reloadHelp, restartHelp, logsHelp, uninstallHelp, updateHelp,
+	startHelp, stopHelp, reloadHelp, restartHelp, logsHelp, uninstallHelp, updateHelp, homeHelp,
 }
