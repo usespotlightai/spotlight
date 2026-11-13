@@ -5,6 +5,7 @@ import type {
   SecretSealingPort,
 } from '@secrets/application/ports/secret-sealing.port';
 import { CallSecretFetches } from '@secrets/application/services/call-secret-fetches.service';
+import { SealedSecrets } from '@secrets/application/services/sealed-secrets';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
@@ -94,9 +95,11 @@ const setUp = async () => {
 
   return {
     fetches: new CallSecretFetches(
-      secrets,
-      new SecretSources(store, aws),
-      new SealedInTheOpen(),
+      new SealedSecrets(
+        secrets,
+        new SecretSources(store, aws),
+        new SealedInTheOpen(),
+      ),
       logger,
     ),
     aws,

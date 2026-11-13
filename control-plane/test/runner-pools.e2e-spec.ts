@@ -317,6 +317,7 @@ describe('runner pools (e2e)', () => {
           expect.objectContaining({ id: 'claude-code' }),
         ]) as unknown,
         images: [WIDGETS],
+        harnessKeys: [],
       });
       await http()
         .get('/api/hosts/requirements')

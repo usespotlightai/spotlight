@@ -12,16 +12,22 @@ const (
 )
 
 type EgressConfig struct {
-	URL         string       `json:"url"`
-	Token       string       `json:"token,omitempty"`
-	Credential  string       `json:"credential"`
-	Allow       []string     `json:"allow,omitempty"`
-	SecretAllow []string     `json:"secretAllow,omitempty"`
-	HarnessKeys []HarnessKey `json:"harnessKeys,omitempty"`
-	Send        *HostCall    `json:"send,omitempty"`
-	SendSecrets *CallSecrets `json:"sendSecrets,omitempty"`
+	URL         string          `json:"url"`
+	Token       string          `json:"token,omitempty"`
+	Host        *HostCredential `json:"host,omitempty"`
+	Credential  string          `json:"credential"`
+	Allow       []string        `json:"allow,omitempty"`
+	SecretAllow []string        `json:"secretAllow,omitempty"`
+	HarnessKeys []HarnessKey    `json:"harnessKeys,omitempty"`
+	Send        *HostCall       `json:"send,omitempty"`
+	SendSecrets *CallSecrets    `json:"sendSecrets,omitempty"`
 	// Do not merge SandboxHosts into Allow: an empty Allow lets every host through.
 	SandboxHosts []string `json:"sandboxHosts,omitempty"`
+}
+
+type HostCredential struct {
+	Authorization string `json:"authorization"`
+	Trust         string `json:"trust,omitempty"`
 }
 
 type HarnessKey struct {

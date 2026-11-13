@@ -447,3 +447,41 @@ func TestExecGivesAStreamToACommandInTheSandboxWithAVolumeMounted(t *testing.T) 
 		t.Errorf("exec in a missing sandbox answered %v", err)
 	}
 }
+
+func TestABuildTagsAnImageFromADockerfileAndItsArguments(t *testing.T) {
+	engine, err := Connect("")
+	if err != nil {
+		t.Skip("no container runtime: ", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	if _, err := engine.Describe(ctx); err != nil {
+		t.Skip("container runtime unreachable: ", err)
+	}
+	if err := engine.Pull(ctx, "busybox:1.35", ""); err != nil {
+		t.Skip("cannot pull a test image: ", err)
+	}
+
+	const tag = "spotlight-build-test:latest"
+	t.Cleanup(func() { _ = engine.Remove(context.Background(), tag) })
+
+	var steps []string
+	err = engine.Build(ctx, sandbox.Build{
+		Tag:        tag,
+		Dockerfile: []byte("ARG BASE\nFROM ${BASE}\nRUN echo built > /built\n"),
+		Args:       map[string]string{"BASE": "busybox:1.35"},
+	}, func(line string) { steps = append(steps, line) })
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if _, err := engine.Inspect(ctx, tag); err != nil || len(steps) == 0 {
+		t.Errorf("inspect after %d steps: %v", len(steps), err)
+	}
+
+	err = engine.Build(ctx, sandbox.Build{Tag: tag, Dockerfile: []byte("FROM busybox:1.35\nRUN exit 3\n")}, nil)
+	if err == nil {
+		t.Error("a failing step built")
+	}
+}

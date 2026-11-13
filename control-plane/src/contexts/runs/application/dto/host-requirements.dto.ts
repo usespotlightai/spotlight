@@ -6,4 +6,5 @@ export interface HostRequirementsDto {
   readonly runnerMinimum: string;
   readonly harnesses: readonly HarnessDto[];
   readonly images: readonly string[];
+  readonly harnessKeys: readonly string[];
 }

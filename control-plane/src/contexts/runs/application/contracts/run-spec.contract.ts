@@ -101,5 +101,6 @@ export interface RunSpecShape {
   readonly harnessSetup?: HarnessSetupShape;
   readonly settingFiles?: readonly string[];
   readonly injectedSecrets?: readonly string[];
+  readonly harnessKeys?: readonly string[];
   readonly spotlightApi?: boolean;
 }

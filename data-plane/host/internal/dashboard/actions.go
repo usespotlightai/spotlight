@@ -75,6 +75,8 @@ func (m model) keymap() keymap {
 		return keymap{shown: m.answerActions()}
 	case loggingIn:
 		return keymap{shown: m.loginKeys()}
+	case settingUp:
+		return keymap{shown: m.setupKeys()}
 	case commanding:
 		return keymap{shown: paletteKeys()}
 	case helping:
@@ -182,8 +184,8 @@ func (m model) hostActions() []action {
 		},
 		{
 			name: "set up a host", keys: []string{"i"}, label: "set up a host", section: sectionHost, disabled: !known || installed || m.status.AsRoot,
-			help: "connect this machine and install the service", command: shownCommand(hosting("init")),
-			do: func(m model) (tea.Model, tea.Cmd) { return m.attach(hosting("init")...) },
+			help: "pick the agents, keep their keys in Spotlight, build the image and install the service", command: setupCommand(),
+			do: model.setUpHost,
 		},
 	}
 }
@@ -370,6 +372,15 @@ func (m model) paletteActions() []action {
 			all = append(all, action{
 				name: "log out of " + shownAddress(login.Address), command: shownCommand([]string{"logout", "--url", login.Address}),
 				do: func(m model) (tea.Model, tea.Cmd) { return m.logOut(login.Address) },
+			})
+		}
+		for _, login := range m.logins.all {
+			if m.setup == nil || m.status == nil || m.status.Service.Installed || m.status.AsRoot {
+				break
+			}
+			all = append(all, action{
+				name: "set up a host for " + shownAddress(login.Address), command: setupCommand(),
+				do: func(m model) (tea.Model, tea.Cmd) { return m.setUpHostFor(login.Address) },
 			})
 		}
 		for _, login := range m.logins.all {
