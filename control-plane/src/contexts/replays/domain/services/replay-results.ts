@@ -7,8 +7,10 @@ import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
 import type {
   EntryOutcome,
+  OutcomeVerdict,
   ReplayOutcome,
 } from '@replays/domain/value-objects/replay-outcome.vo';
+import { JudgeScale } from '@shared-kernel/domain/value-objects/judge-scale.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReplayTotals {
@@ -66,6 +68,7 @@ type ScoreUncompared = (typeof SCORES_UNCOMPARED)[number];
 interface ScoreComparison {
   readonly delta: number | null;
   readonly uncompared: ScoreUncompared | null;
+  readonly worse: boolean;
 }
 
 const median = (values: readonly number[]): number | null => {
@@ -97,9 +100,9 @@ const NO_ENDINGS: Record<ReplayEnding, number> = {
 
 const REGRESSED_AT = 0.9;
 
-const ROUNDING = 1e-9;
+const ROUNDING = 1e-6;
 
-const SCORE_EPSILON = 0.01;
+const GRID = 2048;
 
 const within = (
   entries: readonly EntryOutcome[],
@@ -153,38 +156,45 @@ const tallyOf = (repeats: readonly EntryOutcome[]): Tally => {
   };
 };
 
-const logGamma = (whole: number): number => {
-  let sum = 0;
+const scoreTallyOf = (verdicts: readonly OutcomeVerdict[]): Tally => ({
+  succeeded: verdicts.reduce(
+    (sum, each) => sum + JudgeScale.of(each.scale).shareOf(each.value),
+    0,
+  ),
+  judged: verdicts.length,
+});
 
-  for (let factor = 2; factor < whole; factor += 1) {
-    sum += Math.log(factor);
-  }
+const likelihoodOf = (tally: Tally): readonly number[] =>
+  Array.from({ length: GRID }, (_, at) => {
+    const rate = (at + 0.5) / GRID;
 
-  return sum;
-};
-
-const logBeta = (one: number, other: number): number =>
-  logGamma(one) + logGamma(other) - logGamma(one + other);
+    return (
+      rate ** tally.succeeded * (1 - rate) ** (tally.judged - tally.succeeded)
+    );
+  });
 
 export const chanceWorse = (candidate: Tally, baseline: Tally): number => {
-  const ourSuccesses = 1 + candidate.succeeded;
-  const ourFailures = 1 + candidate.judged - candidate.succeeded;
-  const theirSuccesses = 1 + baseline.succeeded;
-  const theirFailures = 1 + baseline.judged - baseline.succeeded;
-  let chance = 0;
+  const ours = likelihoodOf(candidate);
+  const theirs = likelihoodOf(baseline);
+  let oursBelow = 0;
+  let oursTotal = 0;
+  let theirsTotal = 0;
+  let worse = 0;
 
-  for (let each = 0; each < theirSuccesses; each += 1) {
-    chance +=
-      Math.exp(
-        logBeta(ourSuccesses + each, ourFailures + theirFailures) -
-          logBeta(1 + each, theirFailures) -
-          logBeta(ourSuccesses, ourFailures),
-      ) /
-      (theirFailures + each);
+  for (let at = 0; at < GRID; at += 1) {
+    worse += theirs[at] * (oursBelow + ours[at] / 2);
+    oursBelow += ours[at];
+    oursTotal += ours[at];
+    theirsTotal += theirs[at];
   }
 
-  return chance;
+  return worse / (oursTotal * theirsTotal);
 };
+
+const clearlyWorse = (candidate: Tally, baseline: Tally): boolean =>
+  candidate.judged > 0 &&
+  baseline.judged > 0 &&
+  chanceWorse(candidate, baseline) > REGRESSED_AT + ROUNDING;
 
 export const taskSuccessesOf = (
   replay: ReplayOutcome,
@@ -293,16 +303,16 @@ const scoresOf = (
   const [first] = every;
 
   if (ours.length === 0 || theirs.length === 0 || !first) {
-    return { delta: null, uncompared: 'unjudged' };
+    return { delta: null, uncompared: 'unjudged', worse: false };
   }
   if (candidate.rubric !== baseline.rubric) {
-    return { delta: null, uncompared: 'other-rubric' };
+    return { delta: null, uncompared: 'other-rubric', worse: false };
   }
   if (every.some((each) => each.referenced !== first.referenced)) {
-    return { delta: null, uncompared: 'other-reference' };
+    return { delta: null, uncompared: 'other-reference', worse: false };
   }
   if (every.some((each) => each.scale !== first.scale)) {
-    return { delta: null, uncompared: null };
+    return { delta: null, uncompared: null, worse: false };
   }
 
   return {
@@ -311,18 +321,9 @@ const scoresOf = (
       mean(theirs.map((each) => each.value)),
     ),
     uncompared: null,
+    worse: clearlyWorse(scoreTallyOf(ours), scoreTallyOf(theirs)),
   };
 };
-
-const regressedFrom = (
-  candidate: Tally,
-  baseline: Tally,
-  scoreDelta: number | null,
-): boolean =>
-  (candidate.judged > 0 &&
-    baseline.judged > 0 &&
-    chanceWorse(candidate, baseline) > REGRESSED_AT + ROUNDING) ||
-  (scoreDelta !== null && scoreDelta < -SCORE_EPSILON);
 
 export const pairOutcomeOf = (
   repeats: readonly EntryOutcome[],
@@ -413,7 +414,7 @@ export const taskComparisons = (
         scoreUncompared: scores.uncompared,
         regressed:
           concluded &&
-          regressedFrom(tallyOf(repeats), tallyOf(theirs), scores.delta),
+          (clearlyWorse(tallyOf(repeats), tallyOf(theirs)) || scores.worse),
         pair: pairOutcomeOf(repeats),
       };
     })

@@ -58,6 +58,12 @@ export class JudgeScale {
       : claimResults === null;
   }
 
+  shareOf(value: number): number {
+    return this.kind === 'number'
+      ? (value - LOWEST) / (HIGHEST - LOWEST)
+      : value;
+  }
+
   passes(value: number, passThreshold: number): boolean {
     switch (this.kind) {
       case 'yes-no':
