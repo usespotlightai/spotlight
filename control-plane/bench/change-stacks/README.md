@@ -15,7 +15,7 @@ npm run bench:change-stacks -- run --env ../.env --label baseline
 
 The model endpoint comes from `LLM_BASE_URL`, `LLM_API_KEY` (or `OPENROUTER_API_KEY`) and `LLM_SUPPORTS_REASONING_EFFORT`, as in the control plane. The default endpoint is OpenRouter.
 
-Each run writes `results/<label>-<time>.json`. The folder is not in git.
+Each run writes `results/<label>-<time>.json`, and the model drafts of each sample in `results/<label>-<time>.drafts.json`. The folder is not in git.
 
 ## Compare two runs
 
@@ -25,6 +25,14 @@ npm run bench:change-stacks -- show results/split-hunks-….json pr-540
 ```
 
 `show` prints the layers of each draft of one case, with their size.
+
+## Recheck drafts without the model
+
+```bash
+npm run bench:change-stacks -- recheck results/split-hunks-….json --verbose
+```
+
+`recheck` checks the recorded drafts of a run again with the current code and calls no model. It counts the drafts that the code refused when they were drafted, the drafts it refuses now, and the reasons. Use it to test a change to the checks or the repairs at no cost.
 
 ## The corpus
 
@@ -36,14 +44,14 @@ Size buckets count the changed lines of the hunks the model places: small below 
 
 Only layers of `change` cohorts count. Lines are added plus removed lines.
 
-| Measure | Meaning | Better |
-| --- | --- | --- |
-| ready | Drafts that became a ready stack | Higher |
-| biggest layer | The largest layer's share of the reviewed lines | Lower |
-| effective layers | (Σ lines)² / Σ lines², the number of equal layers that would give the same spread | Higher |
-| over 400 lines | Layers with more than 400 changed lines | Lower |
-| floor (biggest hunk) | The largest hunk's share of the placed lines. No layer can be smaller than this | Lower |
-| cost / ready | What all drafts cost, divided by the ready stacks. A failed draft costs too | Lower |
+| Measure              | Meaning                                                                           | Better |
+| -------------------- | --------------------------------------------------------------------------------- | ------ |
+| ready                | Drafts that became a ready stack                                                  | Higher |
+| biggest layer        | The largest layer's share of the reviewed lines                                   | Lower  |
+| effective layers     | (Σ lines)² / Σ lines², the number of equal layers that would give the same spread | Higher |
+| over 400 lines       | Layers with more than 400 changed lines                                           | Lower  |
+| floor (biggest hunk) | The largest hunk's share of the placed lines. No layer can be smaller than this   | Lower  |
+| cost / ready         | What all drafts cost, divided by the ready stacks. A failed draft costs too       | Lower  |
 
 A cost is the cost the endpoint reports. Otherwise the benchmark prices the tokens from the models.dev catalog (`LLM_PRICES_URL`), the same way the control plane does. A model the catalog does not know is unpriced, and the run says how many calls had no price.
 

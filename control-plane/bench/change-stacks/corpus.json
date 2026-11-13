@@ -1,20 +1,94 @@
-{"cases":[
-{"name":"pr-620","commit":"8f059bf43ee4a8c11cc1992057dc61413d8506f6","title":"feat: show what a changed prompt was changed to (#620)"},
-{"name":"pr-608","commit":"2648121528750aca34b83851c3480d7875bb4391","title":"perf: render a reload from the saved cache (#608)"},
-{"name":"pr-601","commit":"4c95b1e132f074d777ca77fb5aa9a2131b17581d","title":"feat: show the logo an integration's definition names (#601)"},
-{"name":"pr-610","commit":"e96ec23dfb08d47840e03733015251d38c1c71eb","title":"feat: log why an OAuth2 connection does not begin or finish (#610)"},
-{"name":"pr-594","commit":"d8f70c987f01a0249fb16b412e189cfebbc5104b","title":"fix: Show sent messages and clear the composer at once (#594)"},
-{"name":"pr-600","commit":"1c1900c5898782c24333a4ba57a42fa571a4fe47","title":"feat: stop replay checks that waste agent runs, and say why in CI (#600)"},
-{"name":"pr-593","commit":"10f9ac5f600ac8423714b1846a286def0686748e","title":"fix: finish a task when its pull request merges during a run (#593)"},
-{"name":"pr-500","commit":"79b855fcaea61c26b08016beac626b4df6a08597","title":"feat: show a question's images in Slack through an action upload step (#500)"},
-{"name":"pr-609","commit":"068e7eaa478904b04b1756f0b303e20776c6788e","title":"fix: count station outcomes by one stored resolution per run (#609)"},
-{"name":"pr-606","commit":"0639cf094c062bea428a1bd10ed3c99e165953be","title":"perf: cut sequential database round trips on hot routes (#606)"},
-{"name":"pr-442","commit":"f3df1c44edb48974f9c5180fec61fef347b5ea21","title":"feat: Persist agent composer drafts across tabs and reloads (#442)"},
-{"name":"pr-497","commit":"8e4a93efdffec921e1a8b66c4a6f44cae60089ac","title":"fix: generate change stacks for large diffs (#497)"},
-{"name":"pr-538","commit":"e3d0c015229821cfb7758483c8da9aa9607219b1","title":"feat: revise a task's change stack from its previous stack, and carry quiz answers (#538)"},
-{"name":"pr-560","commit":"8cee79af6e6022093a6b1edfa3300a886486cd1d","title":"feat: Wait for an agent's background work before a run ends (#560)"},
-{"name":"pr-342","commit":"cbf827a723410487b0bef84af049fdeff700fef0","title":"feat: Configure a host with spotlight host init and config, in place of env prefixes and sed (#342)"},
-{"name":"pr-495","commit":"b4c013b5961e1a2ea0653baa0291225554b2dc42","title":"feat: ask reviewers questions about each layer of a change stack (#495)"},
-{"name":"pr-616","commit":"43d5b283ce837542eb331419138cccafa77ab6c3","title":"feat: let a workspace and its teams show an uploaded avatar (#616)"},
-{"name":"pr-530","commit":"995f581c2a0588deb48b63f6f920185e7f591361","title":"fix: Word removed symbols as removals and keep moved code in one layer in change stacks (#530)"}
-]}
+{
+  "cases": [
+    {
+      "name": "pr-620",
+      "commit": "8f059bf43ee4a8c11cc1992057dc61413d8506f6",
+      "title": "feat: show what a changed prompt was changed to (#620)"
+    },
+    {
+      "name": "pr-608",
+      "commit": "2648121528750aca34b83851c3480d7875bb4391",
+      "title": "perf: render a reload from the saved cache (#608)"
+    },
+    {
+      "name": "pr-601",
+      "commit": "4c95b1e132f074d777ca77fb5aa9a2131b17581d",
+      "title": "feat: show the logo an integration's definition names (#601)"
+    },
+    {
+      "name": "pr-610",
+      "commit": "e96ec23dfb08d47840e03733015251d38c1c71eb",
+      "title": "feat: log why an OAuth2 connection does not begin or finish (#610)"
+    },
+    {
+      "name": "pr-594",
+      "commit": "d8f70c987f01a0249fb16b412e189cfebbc5104b",
+      "title": "fix: Show sent messages and clear the composer at once (#594)"
+    },
+    {
+      "name": "pr-600",
+      "commit": "1c1900c5898782c24333a4ba57a42fa571a4fe47",
+      "title": "feat: stop replay checks that waste agent runs, and say why in CI (#600)"
+    },
+    {
+      "name": "pr-593",
+      "commit": "10f9ac5f600ac8423714b1846a286def0686748e",
+      "title": "fix: finish a task when its pull request merges during a run (#593)"
+    },
+    {
+      "name": "pr-500",
+      "commit": "79b855fcaea61c26b08016beac626b4df6a08597",
+      "title": "feat: show a question's images in Slack through an action upload step (#500)"
+    },
+    {
+      "name": "pr-609",
+      "commit": "068e7eaa478904b04b1756f0b303e20776c6788e",
+      "title": "fix: count station outcomes by one stored resolution per run (#609)"
+    },
+    {
+      "name": "pr-606",
+      "commit": "0639cf094c062bea428a1bd10ed3c99e165953be",
+      "title": "perf: cut sequential database round trips on hot routes (#606)"
+    },
+    {
+      "name": "pr-442",
+      "commit": "f3df1c44edb48974f9c5180fec61fef347b5ea21",
+      "title": "feat: Persist agent composer drafts across tabs and reloads (#442)"
+    },
+    {
+      "name": "pr-497",
+      "commit": "8e4a93efdffec921e1a8b66c4a6f44cae60089ac",
+      "title": "fix: generate change stacks for large diffs (#497)"
+    },
+    {
+      "name": "pr-538",
+      "commit": "e3d0c015229821cfb7758483c8da9aa9607219b1",
+      "title": "feat: revise a task's change stack from its previous stack, and carry quiz answers (#538)"
+    },
+    {
+      "name": "pr-560",
+      "commit": "8cee79af6e6022093a6b1edfa3300a886486cd1d",
+      "title": "feat: Wait for an agent's background work before a run ends (#560)"
+    },
+    {
+      "name": "pr-342",
+      "commit": "cbf827a723410487b0bef84af049fdeff700fef0",
+      "title": "feat: Configure a host with spotlight host init and config, in place of env prefixes and sed (#342)"
+    },
+    {
+      "name": "pr-495",
+      "commit": "b4c013b5961e1a2ea0653baa0291225554b2dc42",
+      "title": "feat: ask reviewers questions about each layer of a change stack (#495)"
+    },
+    {
+      "name": "pr-616",
+      "commit": "43d5b283ce837542eb331419138cccafa77ab6c3",
+      "title": "feat: let a workspace and its teams show an uploaded avatar (#616)"
+    },
+    {
+      "name": "pr-530",
+      "commit": "995f581c2a0588deb48b63f6f920185e7f591361",
+      "title": "fix: Word removed symbols as removals and keep moved code in one layer in change stacks (#530)"
+    }
+  ]
+}

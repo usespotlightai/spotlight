@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
+import type { ChangeStackGeneratorPort } from '@change-review/application/ports/change-stack-generator.port';
 import { exceedsOneCall } from '@change-review/application/services/cohort-layering';
 import { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
@@ -21,6 +22,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+import { type CheckedDraft, problemsOf, RecordingGenerator } from './drafts';
 import {
   type DiffShape,
   diffShape,
@@ -46,7 +48,8 @@ const BUCKETS: readonly SizeBucket[] = ['small', 'medium', 'large'];
 const USAGE = `Usage:
   npm run bench:change-stacks -- run [--label <name>] [--cases <a,b>] [--repeats <n>] [--concurrency <n>] [--model <id>] [--env <file>]
   npm run bench:change-stacks -- compare <before.json> <after.json>
-  npm run bench:change-stacks -- show <result.json> <case>`;
+  npm run bench:change-stacks -- show <result.json> <case>
+  npm run bench:change-stacks -- recheck <result.json> [--verbose]`;
 
 interface CorpusCase {
   readonly name: string;
@@ -71,6 +74,12 @@ interface Sample {
   readonly costUsd: number;
   readonly unpriced: number;
   readonly stack: StackShape | null;
+}
+
+interface SampleDrafts {
+  readonly case: string;
+  readonly repeat: number;
+  readonly drafts: readonly CheckedDraft[];
 }
 
 interface CaseSummary {
@@ -133,14 +142,23 @@ const kindOf = (problem: string): string =>
 
 const recording = () => {
   const problems: string[] = [];
+  const failures: string[] = [];
   const kept = (fields: Record<string, unknown>) => {
     if (Array.isArray(fields.problems)) {
       problems.push(...fields.problems.map(String));
+    }
+    if (fields.err !== undefined) {
+      failures.push(
+        fields.err instanceof Error
+          ? fields.err.message
+          : JSON.stringify(fields.err),
+      );
     }
   };
 
   return {
     problems,
+    failures,
     logger: {
       debug: () => undefined,
       info: () => undefined,
@@ -247,27 +265,28 @@ const endpointOf = (
   };
 };
 
-const sampled = async (
-  endpoint: ModelEndpoint,
-  each: CorpusCase,
-  diff: string,
-  repeat: number,
-): Promise<{ sample: Sample; diff: DiffShape }> => {
-  const stacks = memoryStacks();
-  const log = recording();
-  const service = new GenerateChangeStack(
+const serviceOf = (
+  stacks: ChangeStackRepository,
+  generator: ChangeStackGeneratorPort,
+  logger: ReturnType<typeof recording>['logger'],
+) =>
+  new GenerateChangeStack(
     stacks,
-    new ChatCompletionsChangeStackGenerator(endpoint),
+    generator,
     new GitDiffReader(),
     new PatternCodeReading(),
     new TreeSitterSymbolIndexer(),
     { generate: () => randomUUID() },
     CLOCK,
-    log.logger,
+    logger,
   );
-  const started = Date.now();
 
-  let stack = await service.begin(
+const begun = (
+  service: GenerateChangeStack,
+  each: CorpusCase,
+  diff: string,
+): Promise<ChangeStack> =>
+  service.begin(
     {
       id: RunId.of(`bench-${randomUUID()}`),
       taskId: null,
@@ -283,9 +302,25 @@ const sampled = async (
       request: null,
     },
   );
+
+const sampled = async (
+  endpoint: ModelEndpoint,
+  each: CorpusCase,
+  diff: string,
+  repeat: number,
+): Promise<{ sample: Sample; diff: DiffShape; drafts: SampleDrafts }> => {
+  const stacks = memoryStacks();
+  const log = recording();
+  const generator = new RecordingGenerator(
+    new ChatCompletionsChangeStackGenerator(endpoint),
+  );
+  const service = serviceOf(stacks, generator, log.logger);
+  const started = Date.now();
+
+  let stack = await begun(service, each, diff);
   const hunks = hunksOf(stack);
   const placed = placedOf(stack);
-  const split = exceedsOneCall(stack.facts);
+  const split = exceedsOneCall(stack.diff, stack.facts);
   let error: string | null = null;
 
   for (
@@ -304,12 +339,13 @@ const sampled = async (
 
   return {
     diff: diffShape(hunks, placed),
+    drafts: { case: each.name, repeat, drafts: generator.drafts },
     sample: {
       case: each.name,
       repeat,
       state: stack.state,
       failure: stack.failure,
-      error,
+      error: error ?? log.failures[log.failures.length - 1] ?? null,
       problems: log.problems,
       split,
       seconds: (Date.now() - started) / 1000,
@@ -559,10 +595,17 @@ const run = async (values: Record<string, string | undefined>) => {
     `${label}-${startedAt.replace(/[:.]/g, '-')}.json`,
   );
   writeFileSync(file, `${JSON.stringify(result, null, 2)}\n`);
+  writeFileSync(
+    draftsFileOf(file),
+    JSON.stringify(outcomes.map((o) => o.drafts)),
+  );
 
   printed(result);
   console.log(`\nWrote ${file}`);
 };
+
+const draftsFileOf = (file: string): string =>
+  file.replace(/\.json$/, '.drafts.json');
 
 const loaded = (file: string): BenchResult =>
   JSON.parse(readFileSync(resolve(file), 'utf8')) as BenchResult;
@@ -654,6 +697,99 @@ const show = (file: string, name: string): void => {
   }
 };
 
+const NO_MODEL: ChangeStackGeneratorPort = {
+  available: true,
+  generate: () => Promise.reject(new Error('A recheck calls no model')),
+  outline: () => Promise.reject(new Error('A recheck calls no model')),
+  layers: () => Promise.reject(new Error('A recheck calls no model')),
+};
+
+const recheck = async (file: string, verbose: boolean): Promise<void> => {
+  const recorded = JSON.parse(
+    readFileSync(draftsFileOf(resolve(file)), 'utf8'),
+  ) as SampleDrafts[];
+  const corpus = JSON.parse(readFileSync(CORPUS, 'utf8')) as {
+    cases: CorpusCase[];
+  };
+  const service = serviceOf(memoryStacks(), NO_MODEL, recording().logger);
+  const tally = new Map<
+    string,
+    {
+      drafts: number;
+      refusedThen: number;
+      refusedNow: number;
+      fixed: number;
+      broken: number;
+    }
+  >();
+  const kinds = new Map<string, { problems: number; drafts: number }>();
+
+  for (const each of corpus.cases) {
+    const mine = recorded.filter((sample) => sample.case === each.name);
+
+    if (mine.length === 0) {
+      continue;
+    }
+
+    const stack = await begun(service, each, diffOf(each));
+
+    for (const sample of mine) {
+      for (const [at, draft] of sample.drafts.entries()) {
+        const now = problemsOf(stack.diff, stack.facts, draft);
+        const seen = tally.get(draft.kind) ?? {
+          drafts: 0,
+          refusedThen: 0,
+          refusedNow: 0,
+          fixed: 0,
+          broken: 0,
+        };
+        const then = draft.problems.length > 0;
+
+        tally.set(draft.kind, {
+          drafts: seen.drafts + 1,
+          refusedThen: seen.refusedThen + (then ? 1 : 0),
+          refusedNow: seen.refusedNow + (now.length > 0 ? 1 : 0),
+          fixed: seen.fixed + (then && now.length === 0 ? 1 : 0),
+          broken: seen.broken + (!then && now.length > 0 ? 1 : 0),
+        });
+
+        const named = now.map(kindOf);
+        for (const kind of new Set(named)) {
+          const counted = kinds.get(kind) ?? { problems: 0, drafts: 0 };
+          kinds.set(kind, {
+            problems: counted.problems + named.filter((k) => k === kind).length,
+            drafts: counted.drafts + 1,
+          });
+        }
+
+        if (verbose && now.length > 0) {
+          console.log(
+            `\n${sample.case} #${sample.repeat} draft ${at + 1} (${draft.kind}):`,
+          );
+          for (const problem of now.slice(0, 8)) {
+            console.log(`  ${problem}`);
+          }
+          if (now.length > 8) {
+            console.log(`  … and ${now.length - 8} more`);
+          }
+        }
+      }
+    }
+  }
+
+  console.log('\nDrafts the current code refuses:');
+  console.table(
+    [...tally.entries()].map(([kind, seen]) => ({ draft: kind, ...seen })),
+  );
+  if (kinds.size > 0) {
+    console.table(
+      [...kinds.entries()]
+        .sort(([, a], [, b]) => b.drafts - a.drafts)
+        .map(([kind, seen]) => ({ problem: kind, ...seen })),
+    );
+  }
+};
+
 const main = async (): Promise<void> => {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -664,6 +800,7 @@ const main = async (): Promise<void> => {
       concurrency: { type: 'string' },
       model: { type: 'string' },
       env: { type: 'string' },
+      verbose: { type: 'boolean' },
       help: { type: 'boolean' },
     },
   });
@@ -678,6 +815,8 @@ const main = async (): Promise<void> => {
     await run(values as Record<string, string | undefined>);
   } else if (command === 'compare' && rest[0] && rest[1]) {
     compare(rest[0], rest[1]);
+  } else if (command === 'recheck' && rest[0]) {
+    await recheck(rest[0], values.verbose === true);
   } else if (command === 'show' && rest[0] && rest[1]) {
     show(rest[0], rest[1]);
   } else {
