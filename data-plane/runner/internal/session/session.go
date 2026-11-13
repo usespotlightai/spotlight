@@ -323,7 +323,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 
 	opts.checkEgress(ctx, journal)
 
-	env := granted(run.Spec.Command.Env, channel, state, telemetry.URL, usesAPI(run.Spec, opts.ControlPlane))
+	env := granted(protocol.WithoutShadowedHarnessKeys(run.Spec.Command.Env, os.Getenv), channel, state, telemetry.URL, usesAPI(run.Spec, opts.ControlPlane))
 	maps.Copy(env, opts.ProxyEnv)
 
 	harness, err := acp.Start(ctx, acp.Options{

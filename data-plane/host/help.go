@@ -36,12 +36,14 @@ var initHelp = help.Command{
 	Path:    "host init",
 	Summary: "Connect this machine to Spotlight, and install the host as a service.",
 	Usage: []string{
-		"spotlight host init [--url <address>] [--token <token>] [flags]",
+		"spotlight host init",
+		"spotlight host init [--url <address>] [--token <token> | --token-stdin] [flags]",
 		"spotlight host init --trust <id> --oidc-token-file <path> [flags]",
 	},
 	Flags: []help.Flag{
 		{Name: "url", Value: "<address>", Usage: "The Spotlight address. Default: https://app.usespotlight.ai."},
 		{Name: "token", Value: "<token>", Usage: "The pool's token, from the Runners page."},
+		{Name: "token-stdin", Usage: "Read the pool's token from stdin."},
 		{Name: "trust", Value: "<id>", Usage: "A runner trust. Use it in place of --token."},
 		{Name: "oidc-token-file", Value: "<path>", Usage: "The file with the OIDC token that the trust exchanges."},
 		{Name: "capacity", Value: "<n>", Usage: "How many sandboxes can run at the same time. Default: 5."},
@@ -51,11 +53,14 @@ var initHelp = help.Command{
 		{Name: "yes", Usage: "Ask nothing. Use the flags, the saved settings and the defaults."},
 	},
 	Examples: []help.Example{
-		{Comment: "Answer each question in the terminal", Command: "spotlight host init"},
+		{Comment: "Pick the agents, keep their keys in Spotlight and build the image, in the terminal", Command: "spotlight host init"},
 		{Command: "spotlight host init --token $POOL_TOKEN --capacity 8 --yes"},
 	},
-	Notes: []string{"If a terminal is attached and --yes is not set, init asks for each value that no flag gives."},
-	Docs:  docs + "#spotlight-host-init",
+	Notes: []string{
+		"With no flags in a terminal, init logs in, makes a pull pool for this host, keeps each agent's key as a workspace secret, and builds the image with the agents. That needs a workspace admin.",
+		"With flags and a terminal, and without --yes, init asks for each value that no flag gives.",
+	},
+	Docs: docs + "#spotlight-host-init",
 }
 
 var statusHelp = help.Command{

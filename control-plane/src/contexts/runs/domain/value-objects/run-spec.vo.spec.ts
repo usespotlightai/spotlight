@@ -4,6 +4,7 @@ import {
   RunSpec,
   type RunSpecParts,
 } from '@runs/domain/value-objects/run-spec.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -31,6 +32,49 @@ describe('RunSpec', () => {
     ).toThrow(InvalidRunSpecError);
   });
 
+  it('gives the harness a stand-in for each harness key it wears, and has egress inject each', () => {
+    const worn = RunSpec.of(
+      parts({
+        command: {
+          executable: 'claude-agent-acp',
+          args: [],
+          env: { ANTHROPIC_MODEL: 'claude-sonnet-5', ANTHROPIC_API_KEY: 'x' },
+        },
+        injectedSecrets: ['LINEAR_API_KEY', 'ANTHROPIC_API_KEY'],
+      }),
+    ).wearingHarnessKeys([
+      SecretName.of('ANTHROPIC_API_KEY'),
+      SecretName.of('CLAUDE_CODE_OAUTH_TOKEN'),
+    ]);
+
+    expect(worn.value.command.env).toEqual({
+      ANTHROPIC_MODEL: 'claude-sonnet-5',
+      ANTHROPIC_API_KEY: 'spotlight-egress:ANTHROPIC_API_KEY',
+      CLAUDE_CODE_OAUTH_TOKEN: 'spotlight-egress:CLAUDE_CODE_OAUTH_TOKEN',
+    });
+    expect(worn.harnessKeys.map((each) => each.value)).toEqual([
+      'ANTHROPIC_API_KEY',
+      'CLAUDE_CODE_OAUTH_TOKEN',
+    ]);
+    expect(worn.injectedSecrets.map((each) => each.value)).toEqual([
+      'LINEAR_API_KEY',
+      'ANTHROPIC_API_KEY',
+      'CLAUDE_CODE_OAUTH_TOKEN',
+    ]);
+  });
+
+  it('stays as it is when it wears no harness key', () => {
+    const spec = RunSpec.of(parts());
+
+    expect(spec.wearingHarnessKeys([])).toBe(spec);
+  });
+
+  it('names harness keys only by secret names', () => {
+    expect(() => RunSpec.of(parts({ harnessKeys: ['anthropic key'] }))).toThrow(
+      InvalidRunSpecError,
+    );
+  });
+
   it('carries on its conversation only once there is one', () => {
     const afresh = RunSpec.of(parts());
     const continuing = RunSpec.of(parts({ resume: { sessionId: 's_1' } }));
@@ -52,6 +96,9 @@ describe('RunSpec', () => {
     expect(
       actsBeyondItselfIn(parts({ resume: { resumeSession: true } })),
     ).not.toBeNull();
+    expect(
+      actsBeyondItselfIn(parts({ harnessKeys: ['ANTHROPIC_API_KEY'] })),
+    ).toBeNull();
   });
 
   it('keeps that the run reports the diff it leaves', () => {

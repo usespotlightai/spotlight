@@ -62,6 +62,7 @@ interface Definition {
   readonly efforts: readonly string[];
   readonly discovery: readonly string[];
   readonly versionProbe: readonly string[];
+  readonly harnessKeys: readonly string[];
   readonly skills: SkillsHome;
   readonly profile: ProfileTranslator;
 }
@@ -106,6 +107,7 @@ const CLAUDE_CODE: Definition = {
       '-H "$auth" -H "anthropic-version: 2023-06-01" | jq -r ".data[].id"',
   ],
   versionProbe: ['node', '-e', CLAUDE_CLI_VERSION],
+  harnessKeys: ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN'],
   env: {
     // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
     CLAUDE_CONFIG_DIR: '${SPOTLIGHT_STATE_DIR}/claude',
@@ -134,6 +136,7 @@ const CURSOR: Definition = {
   effortBinding: { kind: 'model-bracket' },
   discovery: ['cursor-agent', 'models'],
   versionProbe: ['cursor-agent', '--version'],
+  harnessKeys: ['CURSOR_API_KEY'],
   skills: BRIEFED_SKILLS,
   profile: cursorProfile,
 };
@@ -160,6 +163,7 @@ const CODEX: Definition = {
       'jq -r ".data[].id" | grep -E "^(gpt|o[0-9]|codex)"',
   ],
   versionProbe: ['codex-acp', 'cli', '-V'],
+  harnessKeys: ['CODEX_API_KEY', 'OPENAI_API_KEY'],
   skills: BRIEFED_SKILLS,
   profile: codexProfile,
 };
@@ -181,6 +185,7 @@ const OPENCODE: Definition = {
   effortBinding: { kind: 'session-option', id: 'effort' },
   discovery: ['opencode', 'models'],
   versionProbe: ['opencode', '--version'],
+  harnessKeys: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY'],
   skills: { directory: '.opencode/skills', readByHarness: true },
   profile: opencodeProfile,
 };
@@ -326,6 +331,7 @@ export class BuiltInHarnesses
       efforts: def.efforts,
       discovery: def.discovery,
       versionProbe: def.versionProbe,
+      harnessKeys: def.harnessKeys,
     }));
   }
 

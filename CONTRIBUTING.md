@@ -46,7 +46,7 @@ Compose also runs `db`, `migrate` (applies migrations before the control plane
 starts), `storage-bucket`, `tunnel`, and `host`: a `spotlight host` serving the
 dev pool, which starts sandboxes from the `spotlight-runner:dev-harnesses` image
 on the compose network. That image is `spotlight-runner:dev` with the example
-harness images of `.docker/runner/examples/` built on top of it, one after the
+harness images of `data-plane/host/internal/harnesses/dockerfiles/` built on top of it, one after the
 other. It reloads on edits to `data-plane/`; the images do not, so rebuild them
 with `docker compose build runner runner-claude-code runner-codex runner-cursor runner-harnesses`
 after changing the runner or agent commands.
@@ -102,9 +102,9 @@ see.
 
 ## Releases
 
-The runner image (`.docker/runner/Dockerfile`) holds no harness. Each team
-builds its own image `FROM` it with the harness its subscription covers.
-`.docker/runner/examples/` has one example Dockerfile for each harness, with
+The runner image (`.docker/runner/Dockerfile`) holds no harness. `spotlight host init`
+builds an image `FROM` it on the host with the harnesses the person picks.
+`data-plane/host/internal/harnesses/dockerfiles/` has the Dockerfile for each harness, with
 `BASE`, `CLAUDE_CODE_VERSION`, `CLAUDE_AGENT_ACP_VERSION`,
 `CODEX_ACP_VERSION` and `OPENCODE_VERSION` as build arguments. No image with a harness is published.
 
