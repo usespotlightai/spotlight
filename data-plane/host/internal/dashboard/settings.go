@@ -102,11 +102,11 @@ func (m model) saveSetting() (tea.Model, tea.Cmd) {
 		if row.hidden() {
 			shown = row.Key + "=•••"
 		}
-		return m.runShown(shownCommand([]string{"config", "set", shown}), value, "config", "set", row.Key, "--stdin")
+		return m.runShown(shownCommand(hosting("config", "set", shown)), value, hosting("config", "set", row.Key, "--stdin")...)
 	case row.hidden():
 		return m, nil
 	case row.Set:
-		return m.run("config", "unset", row.Key)
+		return m.run(hosting("config", "unset", row.Key)...)
 	}
 	return m, nil
 }
@@ -116,5 +116,5 @@ func (m model) unsetSelected() (tea.Model, tea.Cmd) {
 	if !ok || !row.Set {
 		return m, nil
 	}
-	return m.run("config", "unset", row.Key)
+	return m.run(hosting("config", "unset", row.Key)...)
 }

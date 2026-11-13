@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"usespotlight.ai/data-plane/console"
+	"usespotlight.ai/data-plane/login"
 )
 
 type setupRun struct {
@@ -421,7 +422,7 @@ func TestSetupLogsInFirstWhenThereIsNoLogin(t *testing.T) {
 	}
 }
 
-func TestSetupWritesNothingWhenTheLoginStops(t *testing.T) {
+func TestSetupWritesNothingWhenTheLoginFails(t *testing.T) {
 	setup := newSetup(t, "/usr/local/bin/spotlight")
 	setup.cli.terminal = func() *console.Terminal { return console.New(strings.NewReader(""), io.Discard) }
 	setup.cli.login = func(context.Context, string) (string, error) {
@@ -432,6 +433,24 @@ func TestSetupWritesNothingWhenTheLoginStops(t *testing.T) {
 		t.Fatalf("setup exited %d", code)
 	}
 	if got := setup.errs.String(); !strings.Contains(got, "nothing was written, because the login failed: the login was denied in the browser") {
+		t.Errorf("stderr %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(setup.home, ".ssh")); !os.IsNotExist(err) {
+		t.Errorf("setup wrote ~/.ssh: %v", err)
+	}
+}
+
+func TestSetupWritesNothingWhenTheLoginStops(t *testing.T) {
+	setup := newSetup(t, "/usr/local/bin/spotlight")
+	setup.cli.terminal = func() *console.Terminal { return console.New(strings.NewReader(""), io.Discard) }
+	setup.cli.login = func(context.Context, string) (string, error) {
+		return "", login.ErrStopped
+	}
+
+	if code := setup.cli.main(context.Background(), []string{"setup"}); code != console.StoppedExit {
+		t.Fatalf("setup exited %d", code)
+	}
+	if got := setup.errs.String(); got != "Stopped. Nothing was written.\n" {
 		t.Errorf("stderr %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(setup.home, ".ssh")); !os.IsNotExist(err) {

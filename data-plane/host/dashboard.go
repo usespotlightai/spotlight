@@ -41,14 +41,12 @@ func OpenDashboard(version string) error {
 	if !personal() {
 		return dashboard.Run(localHost{version: version, binary: binary}, nil, nil, version)
 	}
-	return dashboard.Run(localHost{version: version, binary: binary}, localAccount{binary: binary, version: version}, localEditors{binary: binary}, version)
+	return dashboard.Run(localHost{version: version, binary: binary}, localAccount{version: version}, localEditors{}, version)
 }
 
-type localEditors struct {
-	binary string
-}
+type localEditors struct{}
 
-func (e localEditors) Editors() dashboard.EditorSetup {
+func (e localEditors) Inspect() dashboard.EditorSetup {
 	setup := ssh.Inspect(os.Getenv, runtime.GOOS)
 	shown := dashboard.EditorSetup{Configured: setup.Configured}
 	for _, each := range setup.Editors {
@@ -57,24 +55,7 @@ func (e localEditors) Editors() dashboard.EditorSetup {
 	return shown
 }
 
-func (e localEditors) Setup(address string, timeout bool) (string, error) {
-	args := []string{"ssh", "setup", "--no-editor-timeout"}
-	if timeout {
-		args[2] = "--editor-timeout"
-	}
-	if address != "" {
-		args = append(args, "--url", address)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, e.binary, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	out, err := cmd.CombinedOutput()
-	return strings.TrimSpace(string(out)), err
-}
-
 type localAccount struct {
-	binary  string
 	version string
 }
 
@@ -87,7 +68,7 @@ func (a localAccount) Logins() ([]dashboard.Login, error) {
 	return logins, err
 }
 
-func (a localAccount) Address() string {
+func (a localAccount) SuggestedAddress() string {
 	return login.Suggested()
 }
 
@@ -99,13 +80,6 @@ func (a localAccount) Login(ctx context.Context, address string) (dashboard.Appr
 	return dashboard.Approval{Address: request.Address, Page: request.Page, Code: request.Code, Open: request.Open, Wait: request.Wait}, nil
 }
 
-func (a localAccount) Logout(address string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, a.binary, "logout", "--url", address).CombinedOutput()
-	return strings.TrimSpace(string(out)), err
-}
-
 type localHost struct {
 	version string
 	binary  string
@@ -114,24 +88,18 @@ type localHost struct {
 func (h localHost) Run(args []string, input string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, h.binary, append([]string{"host"}, args...)...)
+	cmd := exec.CommandContext(ctx, h.binary, args...)
 	cmd.Stdin = strings.NewReader(input)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() != nil {
-		err = fmt.Errorf("spotlight host %s did not finish in %s", strings.Join(args, " "), commandTimeout)
+		err = fmt.Errorf("spotlight %s did not finish in %s", strings.Join(args, " "), commandTimeout)
 	}
 	return strings.TrimSpace(string(out)), err
 }
 
-func (h localHost) Update() (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, h.binary, "update").CombinedOutput()
-	return strings.TrimSpace(string(out)), err
-}
-
 func (h localHost) Attach(args []string) *exec.Cmd {
-	return exec.Command(h.binary, append([]string{"host"}, args...)...)
+	return exec.Command(h.binary, args...)
 }
 
 func (h localHost) ConfigPath() string {

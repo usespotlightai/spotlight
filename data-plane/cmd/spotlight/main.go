@@ -132,7 +132,7 @@ func run(args []string, out, errs io.Writer) int {
 	if !found {
 		return unknown("", args, errs)
 	}
-	if help.Wanted(args) || (command.Group && len(rest) == 0) || (command.Path == "host" && len(rest) == 0) {
+	if help.Wanted(args) || (command.Group && len(rest) == 0) {
 		return helpFor(args, out, errs)
 	}
 	if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") && len(commands.Children(command.Path)) > 0 {
@@ -155,7 +155,13 @@ func run(args []string, out, errs io.Writer) int {
 	case "replay":
 		return replay.Main(args[1:], version)
 	case "login":
-		return login.Main(args[1:], version, loginNext)
+		address, code := login.Main(args[1:], version)
+		if code == 0 {
+			if next := loginNext(address); next != "" {
+				fmt.Fprintln(out, next)
+			}
+		}
+		return code
 	case "logout":
 		return login.Logout(args[1:], version)
 	case "token":
@@ -244,11 +250,7 @@ func loginNext(address string) string {
 	if ssh.Inspect(os.Getenv, runtime.GOOS).Configured {
 		return ""
 	}
-	setup := "spotlight ssh setup"
-	if address != credentials.DefaultAddress {
-		setup += " --url " + address
-	}
-	return "Next: to open tasks in VS Code or Cursor, run: " + setup
+	return "Next: to open tasks in VS Code or Cursor, run: " + credentials.Command("spotlight ssh setup", address)
 }
 
 func roleOf(command string) string {

@@ -47,8 +47,9 @@ func (c cli) setup(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("could not find the path of this spotlight binary: %w", err)
 	}
+	var saved credentials.Login
 	if !printed {
-		if address, err = c.loggedIn(ctx, address, explicit); err != nil {
+		if address, saved, err = c.loggedIn(ctx, address, explicit); err != nil {
 			return err
 		}
 	}
@@ -86,19 +87,16 @@ func (c cli) setup(ctx context.Context, args []string) error {
 		checks = append(checks, check{level: console.Passed, text: userShown + " includes " + managedShown + "."})
 	}
 
-	checks = append(checks, c.loginCheck(address))
+	checks = append(checks, loginCheck(address, saved))
 	checks = append(checks, c.editorChecks(home, setTimeout, keepTimeout)...)
 
 	c.report(address, binary, checks)
 	return nil
 }
 
-func (c cli) loginCheck(address string) check {
-	saved, found, err := c.savedLogin(address)
+func loginCheck(address string, saved credentials.Login) check {
 	switch {
-	case err != nil:
-		return check{level: console.Failed, text: "Sorry, the logins cannot be read: " + err.Error()}
-	case !found:
+	case saved.Token == "":
 		return check{level: console.Warned, text: "There is no login for " + address + ".", fix: loginCommand(address)}
 	case saved.User != "":
 		return check{level: console.Passed, text: "Logged in to " + address + " as " + saved.User + "."}
@@ -107,23 +105,19 @@ func (c cli) loginCheck(address string) check {
 	}
 }
 
-func (c cli) savedLogin(address string) (credentials.Login, bool, error) {
-	path, err := credentials.Path(c.env)
+func (c cli) savedLogin(address string) (credentials.Login, error) {
+	file, err := credentials.Saved(c.env)
 	if err != nil {
-		return credentials.Login{}, false, nil
+		return credentials.Login{}, err
 	}
-	file, err := credentials.Load(path)
-	if err != nil {
-		return credentials.Login{}, false, err
-	}
-	saved, found := file.Login(address)
-	return saved, found, nil
+	saved, _ := file.Login(address)
+	return saved, nil
 }
 
-func (c cli) loggedIn(ctx context.Context, address string, explicit bool) (string, error) {
-	_, found, err := c.savedLogin(address)
-	if err != nil || found || c.login == nil || !c.interactive() {
-		return address, err
+func (c cli) loggedIn(ctx context.Context, address string, explicit bool) (string, credentials.Login, error) {
+	saved, err := c.savedLogin(address)
+	if err != nil || saved.Token != "" || c.login == nil || !c.interactive() {
+		return address, saved, err
 	}
 
 	given := ""
@@ -134,13 +128,14 @@ func (c cli) loggedIn(ctx context.Context, address string, explicit bool) (strin
 	logged, err := c.login(ctx, given)
 	if errors.Is(err, login.ErrStopped) {
 		fmt.Fprintln(c.errs, "Stopped. Nothing was written.")
-		return "", errStopped
+		return "", saved, errStopped
 	}
 	if err != nil {
-		return "", fmt.Errorf("nothing was written, because the login failed: %w", err)
+		return "", saved, fmt.Errorf("nothing was written, because the login failed: %w", err)
 	}
 	fmt.Fprintln(c.out)
-	return logged, nil
+	saved, err = c.savedLogin(logged)
+	return logged, saved, err
 }
 
 func (c cli) interactive() bool {

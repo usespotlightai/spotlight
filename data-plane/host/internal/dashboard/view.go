@@ -166,13 +166,13 @@ func (m model) accountLines() []string {
 func (m model) accountLine() string {
 	s := m.style
 	switch {
-	case m.loginsNote != "":
-		return s.bad.Render(m.loginsNote)
-	case len(m.logins) == 0:
+	case m.logins.note != "":
+		return s.bad.Render(m.logins.note)
+	case len(m.logins.all) == 0:
 		return s.faint.Render("○") + s.dim.Render(" not logged in")
 	}
 	var shown []string
-	for _, login := range m.logins {
+	for _, login := range m.logins.all {
 		who := s.lit.Render(login.User)
 		if login.User == "" {
 			who = s.text.Render("logged in")
@@ -501,4 +501,29 @@ func (m model) fit(lines []string) string {
 		lines[i] = ansi.Truncate(line, m.width, "…")
 	}
 	return strings.Join(lines, "\n")
+}
+
+func sentence(text string) string {
+	if text == "" || strings.ContainsAny(text[len(text)-1:], ".!?") {
+		return text
+	}
+	return text + "."
+}
+
+func (m model) wrapped(lead string, render func(...string) string, text string) []string {
+	return m.wrappedAt(strings.Repeat(" ", labelColumn)+lead, render, text)
+}
+
+func (m model) wrappedAt(lead string, render func(...string) string, text string) []string {
+	indent := strings.Repeat(" ", ansi.StringWidth(lead))
+	room := max(m.width-len(gutter)*2-ansi.StringWidth(lead), 20)
+	var lines []string
+	for i, line := range strings.Split(ansi.Wrap(text, room, " /"), "\n") {
+		first := indent
+		if i == 0 {
+			first = lead
+		}
+		lines = append(lines, gutter+first+render(line))
+	}
+	return lines
 }

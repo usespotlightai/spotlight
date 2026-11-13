@@ -1,34 +1,35 @@
 package dashboard
 
 import (
+	"slices"
+
 	tea "charm.land/bubbletea/v2"
 )
 
 type choice struct {
-	title, detail, command string
-	do                     func(model) (tea.Model, tea.Cmd)
+	title, detail, key string
 }
 
 func choices() []choice {
 	return []choice{
-		{
-			title: "Open tasks in VS Code or Cursor", detail: "Log in, then set up ssh.",
-			command: editorsCommand(), do: model.setUpEditors,
-		},
-		{
-			title: "Run agents on this computer", detail: "Connect it to Spotlight as a host.",
-			command: shownCommand([]string{"init"}), do: func(m model) (tea.Model, tea.Cmd) { return m.attach("init") },
-		},
-		{
-			title: "Manage Spotlight with Terraform or replays", detail: "Log in, so Terraform and replays act as you.",
-			command: loginCommand(), do: model.logIn,
-		},
+		{title: "Open tasks in VS Code or Cursor", detail: "Log in, then set up ssh.", key: "e"},
+		{title: "Run agents on this computer", detail: "Connect it to Spotlight as a host.", key: "i"},
+		{title: "Manage Spotlight with Terraform or replays", detail: "Log in, so Terraform and replays act as you.", key: "a"},
 	}
+}
+
+func (m model) chosen(each choice) action {
+	for _, candidate := range slices.Concat(m.hostActions(), m.accountActions(), m.editorActions()) {
+		if slices.Contains(candidate.keys, each.key) {
+			return candidate
+		}
+	}
+	return action{}
 }
 
 func (m model) firstRun() bool {
 	return m.status != nil && !m.status.SetUp && !m.status.AsRoot &&
-		m.account != nil && m.loginsLoaded && len(m.logins) == 0 && m.loginsNote == "" &&
+		m.account != nil && m.logins.loaded && len(m.logins.all) == 0 && m.logins.note == "" &&
 		m.editors != nil && m.editorSetup != nil && !m.editorSetup.Configured
 }
 
@@ -42,7 +43,12 @@ func chooserKeys() []action {
 	return []action{
 		{keys: []string{"up", "k"}, keyLabel: "↑↓", label: "choose", do: move(-1)},
 		{keys: []string{"down", "j"}, do: move(1)},
-		{keys: []string{"enter"}, label: "start", do: func(m model) (tea.Model, tea.Cmd) { return choices()[m.choice].do(m) }},
+		{keys: []string{"enter"}, label: "start", do: func(m model) (tea.Model, tea.Cmd) {
+			if chosen := m.chosen(choices()[m.choice]); chosen.do != nil && !chosen.disabled {
+				return chosen.do(m)
+			}
+			return m, nil
+		}},
 	}
 }
 
@@ -61,7 +67,7 @@ func (m model) chooserBody() []string {
 		}
 		lines = append(lines,
 			gutter+marker+title,
-			m.spread(gutter+"    "+s.dim.Render(each.detail), s.faint.Render(each.command)+gutter),
+			m.spread(gutter+"    "+s.dim.Render(each.detail), s.faint.Render(m.chosen(each).command)+gutter),
 		)
 	}
 	return lines

@@ -20,10 +20,10 @@ import (
 	"usespotlight.ai/data-plane/host/internal/pool"
 	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/sandbox/docker"
+	"usespotlight.ai/data-plane/login"
 )
 
 const (
-	defaultURL      = "https://app.usespotlight.ai"
 	defaultCapacity = "5"
 	pullWait        = 30 * time.Minute
 )
@@ -132,10 +132,7 @@ func settle(file *config.File, f initFlags, tty *console.Terminal, version strin
 	if err != nil {
 		return err
 	}
-	if url != "" && !strings.Contains(url, "://") {
-		url = "https://" + url
-	}
-	if err := file.Set("SPOTLIGHT_URL", url); err != nil {
+	if err := file.Set("SPOTLIGHT_URL", credentials.WithScheme(url)); err != nil {
 		return err
 	}
 
@@ -300,9 +297,8 @@ func serveIt(out io.Writer, version string, cfg config.Config, noService bool) e
 }
 
 func loginAddress() string {
-	address, err := credentials.Choose(os.Getenv, "")
-	if err != nil {
-		return defaultURL
+	if address := login.Suggested(); address != "" {
+		return address
 	}
-	return address
+	return credentials.DefaultAddress
 }

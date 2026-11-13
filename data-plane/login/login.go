@@ -14,7 +14,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
-	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -24,6 +23,7 @@ import (
 
 	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/credentials"
+	"usespotlight.ai/data-plane/help"
 )
 
 const (
@@ -35,11 +35,10 @@ const (
 	defaultEvery   = 5 * time.Second
 	slowDownStep   = 5 * time.Second
 	answerTime     = 30 * time.Second
-	stoppedExit    = 130
 )
 
 // ErrStopped is the error of a login that Ctrl-C or SIGTERM stopped.
-var ErrStopped = errors.New("stopped. No login was kept")
+var ErrStopped = errors.New("stopped")
 
 type client struct {
 	env     func(string) string
@@ -73,21 +72,19 @@ type session struct {
 	} `json:"user"`
 }
 
-// Main runs spotlight login, then prints what next says for the address it logged in to.
-func Main(args []string, version string, next func(address string) string) int {
+// Main runs spotlight login. It returns the address it logged in to, and the exit code.
+func Main(args []string, version string) (string, int) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	address, err := newClient(version).login(ctx, args)
-	if errors.As(err, &notSpotlight{}) {
+	switch {
+	case errors.As(err, &notSpotlight{}):
 		err = fmt.Errorf("%w. To log in to another address, run: spotlight login --url <address>", err)
+	case errors.Is(err, ErrStopped):
+		err = fmt.Errorf("%w. No login was kept", err)
 	}
-	if err == nil && next != nil {
-		if line := next(address); line != "" {
-			fmt.Println(line)
-		}
-	}
-	return exit("spotlight login", err)
+	return address, exit("spotlight login", err)
 }
 
 // Request is a login that waits for its approval in the browser.
@@ -101,7 +98,7 @@ type Request struct {
 
 // Start asks Spotlight at the address for a login code. The address can be without https://.
 func Start(ctx context.Context, address, version string) (*Request, error) {
-	normalized, err := normalized(address)
+	normalized, err := credentials.Address(address)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +173,7 @@ func exit(command string, err error) int {
 		return 0
 	case errors.Is(err, ErrStopped):
 		fmt.Fprintln(os.Stderr, command+":", err)
-		return stoppedExit
+		return console.StoppedExit
 	default:
 		fmt.Fprintln(os.Stderr, command+":", err)
 		return 1
@@ -214,37 +211,16 @@ func browse(page string) error {
 	return nil
 }
 
-func (c *client) address(set *flag.FlagSet, args []string) (string, error) {
-	given, err := c.given(set, args)
-	if err != nil {
-		return "", err
-	}
-	return credentials.Choose(c.env, given)
-}
-
-func (c *client) given(set *flag.FlagSet, args []string) (string, error) {
+func (c *client) given(shown help.Command, args []string) (string, error) {
+	set := flag.NewFlagSet(shown.Path, flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	given := set.String("url", "", "the Spotlight address")
 
 	if err := set.Parse(args); err != nil || set.NArg() > 0 {
-		shown := loginHelp
-		switch set.Name() {
-		case logoutHelp.Path:
-			shown = logoutHelp
-		case tokenHelp.Path:
-			shown = tokenHelp
-		}
 		return "", fmt.Errorf("%s", shown.Synopsis())
 	}
 
 	return *given, nil
-}
-
-func loginHint(address string) string {
-	if address == defaultAddress {
-		return "spotlight login"
-	}
-	return "spotlight login --url " + address
 }
 
 func (c *client) login(ctx context.Context, args []string) (string, error) {
@@ -264,56 +240,29 @@ func (c *client) login(ctx context.Context, args []string) (string, error) {
 }
 
 func (c *client) loginAddress(given string) (string, error) {
-	if given == "" {
-		given = c.env(urlVar)
-	}
-	if given != "" {
-		return credentials.Address(given)
-	}
-
-	saved, err := c.savedAddresses()
-	if err != nil {
-		return "", err
-	}
+	address, err := credentials.Choose(c.env, given)
+	var several credentials.SeveralLogins
 	switch {
-	case len(saved) == 1:
-		return saved[0], nil
-	case c.ask == nil && len(saved) == 0:
-		return defaultAddress, nil
-	case c.ask == nil:
-		return "", fmt.Errorf("there are logins for %s. Say which one with --url", strings.Join(saved, ", "))
+	case c.ask == nil || given != "" || c.env(urlVar) != "":
+		return address, err
+	case errors.As(err, &several):
+	case err != nil:
+		return "", err
+	default:
+		saved, err := credentials.Saved(c.env)
+		if err != nil || len(saved.Addresses()) > 0 {
+			return address, err
+		}
 	}
 
 	answer, err := c.ask("Spotlight address", defaultAddress)
 	if err != nil {
 		return "", err
 	}
-	return normalized(answer)
-}
-
-func normalized(answer string) (string, error) {
-	answer = strings.TrimSpace(answer)
-	if answer == "" {
-		answer = defaultAddress
-	}
-	if !strings.Contains(answer, "://") {
-		answer = "https://" + answer
+	if strings.TrimSpace(answer) == "" {
+		return defaultAddress, nil
 	}
 	return credentials.Address(answer)
-}
-
-func (c *client) savedAddresses() ([]string, error) {
-	path, err := credentials.Path(c.env)
-	if err != nil {
-		return nil, nil
-	}
-	file, err := credentials.Load(path)
-	if err != nil {
-		return nil, err
-	}
-	saved := file.Addresses()
-	slices.Sort(saved)
-	return saved, nil
 }
 
 func (c *client) logIn(ctx context.Context, address string, noBrowser bool) error {
@@ -514,7 +463,11 @@ func (c *client) user(ctx context.Context, address, token string) (string, error
 }
 
 func (c *client) logout(ctx context.Context, args []string) error {
-	address, err := c.address(flag.NewFlagSet("logout", flag.ContinueOnError), args)
+	given, err := c.given(logoutHelp, args)
+	if err != nil {
+		return err
+	}
+	address, err := credentials.Choose(c.env, given)
 	if err != nil {
 		return err
 	}

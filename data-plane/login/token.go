@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,7 +36,7 @@ func Token(args []string, version string) int {
 }
 
 func (c *client) token(ctx context.Context, args []string) error {
-	given, err := c.given(flag.NewFlagSet(tokenHelp.Path, flag.ContinueOnError), args)
+	given, err := c.given(tokenHelp, args)
 	if err != nil {
 		return err
 	}
@@ -60,10 +59,6 @@ func (c *client) token(ctx context.Context, args []string) error {
 }
 
 func (c *client) chosenToken(ctx context.Context, address string) (string, error) {
-	if token := strings.TrimSpace(c.env(tokenVar)); token != "" {
-		return token, nil
-	}
-
 	if trust := strings.TrimSpace(c.env(trustVar)); trust != "" {
 		return c.exchanged(ctx, address, trust)
 	}
@@ -73,7 +68,7 @@ func (c *client) chosenToken(ctx context.Context, address string) (string, error
 		return "", err
 	}
 	if stored == "" {
-		return "", fmt.Errorf("no token for %s. Run %s, or set %s, or %s in CI", address, loginHint(address), tokenVar, trustVar)
+		return "", fmt.Errorf("no token for %s. Run %s, or set %s, or %s in CI", address, credentials.Command("spotlight login", address), tokenVar, trustVar)
 	}
 
 	return stored, nil

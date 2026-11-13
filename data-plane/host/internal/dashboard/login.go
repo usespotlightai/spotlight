@@ -2,14 +2,12 @@ package dashboard
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/credentials"
@@ -47,7 +45,15 @@ type (
 		user    string
 		err     error
 	}
+	loginPageMsg struct {
+		attempt int
+		opened  bool
+	}
 )
+
+func loginCommand() string {
+	return "spotlight login"
+}
 
 func newLoginView() loginView {
 	return loginView{input: newInput(shownAddress(credentials.DefaultAddress)), cancel: func() {}}
@@ -63,7 +69,7 @@ func (m model) logInThen(then func(model, string) (tea.Model, tea.Cmd)) (tea.Mod
 	}
 	m.question, m.mode = nil, loggingIn
 	m.login.step, m.login.note, m.login.then = addressStep, "", then
-	m.login.input.SetValue(strings.TrimPrefix(m.account.Address(), "https://"))
+	m.login.input.SetValue(strings.TrimPrefix(m.account.SuggestedAddress(), "https://"))
 	m.login.input.CursorEnd()
 	return m, m.login.input.Focus()
 }
@@ -114,8 +120,8 @@ func (m model) loginDone(msg loginDoneMsg) (tea.Model, tea.Cmd) {
 	address := m.login.approval.Address
 	m.mode = browsing
 	m.last = &outcome{command: loginCommand(), output: fmt.Sprintf("Logged in to %s as %s.", shownAddress(address), msg.user)}
-	m.logins = append(slices.DeleteFunc(slices.Clone(m.logins), func(each Login) bool { return each.Address == address }), Login{Address: address, User: msg.user})
-	reload := m.loadLogins()
+	m.logins.all = append(slices.DeleteFunc(slices.Clone(m.logins.all), func(each Login) bool { return each.Address == address }), Login{Address: address, User: msg.user})
+	reload := m.reloadLogins()
 	if m.login.then == nil {
 		return m, reload
 	}
@@ -126,17 +132,7 @@ func (m model) loginDone(msg loginDoneMsg) (tea.Model, tea.Cmd) {
 func (m model) loginFailed(err error) (tea.Model, tea.Cmd) {
 	m.login.cancel()
 	m.login.step, m.login.note = addressStep, sentence(err.Error())
-	if errors.Is(err, context.Canceled) {
-		m.login.note = ""
-	}
 	return m, m.login.input.Focus()
-}
-
-func sentence(text string) string {
-	if text == "" || strings.ContainsAny(text[len(text)-1:], ".!?") {
-		return text
-	}
-	return text + "."
 }
 
 func (m model) endLogin() (tea.Model, tea.Cmd) {
@@ -148,10 +144,22 @@ func (m model) endLogin() (tea.Model, tea.Cmd) {
 }
 
 func (m model) openLoginPage() (tea.Model, tea.Cmd) {
-	if open := m.login.approval.Open; open != nil {
-		m.login.opened = open() == nil
+	open, attempt := m.login.approval.Open, m.login.attempt
+	if open == nil {
+		return m, nil
+	}
+	return m, func() tea.Msg { return loginPageMsg{attempt: attempt, opened: open() == nil} }
+}
+
+func (m model) loginPageOpened(msg loginPageMsg) (tea.Model, tea.Cmd) {
+	if msg.attempt == m.login.attempt {
+		m.login.opened = msg.opened
 	}
 	return m, nil
+}
+
+func (m model) logOut(address string) (tea.Model, tea.Cmd) {
+	return m.ask("Log out of "+shownAddress(address)+"?", runs("logout", "--url", address), nil)
 }
 
 func (m model) waitingForLogin() bool {
@@ -159,7 +167,7 @@ func (m model) waitingForLogin() bool {
 }
 
 func (m model) loggedIn(address string) bool {
-	return slices.ContainsFunc(m.logins, func(each Login) bool { return each.Address == address })
+	return slices.ContainsFunc(m.logins.all, func(each Login) bool { return each.Address == address })
 }
 
 func (m model) loginKeys() []action {
@@ -208,24 +216,6 @@ func (m model) loginBody() []string {
 			"",
 			gutter+m.spinner.View()+" "+s.text.Render(waiting),
 		)
-	}
-	return lines
-}
-
-func (m model) wrapped(lead string, render func(...string) string, text string) []string {
-	return m.wrappedAt(strings.Repeat(" ", labelColumn)+lead, render, text)
-}
-
-func (m model) wrappedAt(lead string, render func(...string) string, text string) []string {
-	indent := strings.Repeat(" ", ansi.StringWidth(lead))
-	room := max(m.width-len(gutter)*2-ansi.StringWidth(lead), 20)
-	var lines []string
-	for i, line := range strings.Split(ansi.Wrap(text, room, " /"), "\n") {
-		first := indent
-		if i == 0 {
-			first = lead
-		}
-		lines = append(lines, gutter+first+render(line))
 	}
 	return lines
 }

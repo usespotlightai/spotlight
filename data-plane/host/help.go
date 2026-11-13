@@ -6,6 +6,7 @@ const docs = "spotlight-command"
 
 var hostHelp = help.Command{
 	Path:    "host",
+	Group:   true,
 	Summary: "Run sandboxes for your workspace's runs and checks on this machine.",
 	Usage:   []string{"spotlight host <command> [flags]"},
 	Examples: []help.Example{

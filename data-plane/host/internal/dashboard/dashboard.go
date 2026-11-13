@@ -10,10 +10,9 @@ import (
 	"usespotlight.ai/data-plane/host/internal/config"
 )
 
-// Host is what the dashboard needs from the machine. Each action runs a spotlight host command through Run, or through Attach when the command needs the terminal.
+// Host is what the dashboard needs from the machine. Each action runs a spotlight command through Run, or through Attach when the command needs the terminal.
 type Host interface {
 	Run(args []string, input string) (string, error)
-	Update() (string, error)
 	Attach(args []string) *exec.Cmd
 	Status() Status
 	Settings() ([]Setting, error)
@@ -24,9 +23,8 @@ type Host interface {
 // Account is the CLI's login on this machine, which spotlight login and spotlight logout change.
 type Account interface {
 	Logins() ([]Login, error)
-	Address() string
+	SuggestedAddress() string
 	Login(ctx context.Context, address string) (Approval, error)
-	Logout(address string) (string, error)
 }
 
 // Approval is a login that waits until the person approves it on its page.
@@ -40,8 +38,7 @@ type Approval struct {
 
 // Editors is what spotlight ssh setup set up, so that VS Code and Cursor open task workspaces.
 type Editors interface {
-	Editors() EditorSetup
-	Setup(address string, timeout bool) (string, error)
+	Inspect() EditorSetup
 }
 
 type EditorSetup struct {
@@ -103,6 +100,7 @@ func Run(host Host, account Account, editors Editors, version string) error {
 	final, err := tea.NewProgram(newModel(host, account, editors, version)).Run()
 	if done, ok := final.(model); ok {
 		done.logs.stream.stop()
+		done.login.cancel()
 	}
 	return err
 }

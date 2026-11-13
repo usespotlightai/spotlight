@@ -63,7 +63,7 @@ func TestRunPassesTheInputOnStdin(t *testing.T) {
 	if err := os.WriteFile(binary, []byte("#!/bin/sh\nread value\necho \"$1 $2 got $value\"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	out, err := localHost{binary: binary}.Run([]string{"config"}, "secret\n")
+	out, err := localHost{binary: binary}.Run([]string{"host", "config"}, "secret\n")
 	if err != nil || out != "host config got secret" {
 		t.Fatalf("out %q, %v", out, err)
 	}

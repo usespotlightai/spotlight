@@ -18,8 +18,6 @@ import (
 	"usespotlight.ai/data-plane/login"
 )
 
-const stoppedExit = 130
-
 var errStopped = errors.New("stopped")
 
 type cli struct {
@@ -49,9 +47,9 @@ func Main(args []string, version string) int {
 		system:   runtime.GOOS,
 		terminal: console.Open,
 		waitHint: 10 * time.Second,
-	}
-	c.login = func(ctx context.Context, given string) (string, error) {
-		return login.LogIn(ctx, given, version)
+		login: func(ctx context.Context, given string) (string, error) {
+			return login.LogIn(ctx, given, version)
+		},
 	}
 
 	return c.main(ctx, args)
@@ -79,7 +77,7 @@ func (c cli) exit(command string, err error) int {
 	case err == nil:
 		return 0
 	case errors.Is(err, errStopped):
-		return stoppedExit
+		return console.StoppedExit
 	default:
 		fmt.Fprintf(c.errs, "spotlight %s: %s\n", command, err)
 		return 1
@@ -120,9 +118,5 @@ func (c cli) parseGiven(shown help.Command, args []string, flags func(*flag.Flag
 }
 
 func loginCommand(address string) string {
-	if address == credentials.DefaultAddress {
-		return "spotlight login"
-	}
-
-	return "spotlight login --url " + address
+	return credentials.Command("spotlight login", address)
 }

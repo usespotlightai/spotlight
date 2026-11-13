@@ -118,7 +118,7 @@ func (m model) editorActions() []action {
 		name: "set up editors", keys: []string{"e"}, section: sectionEditors, command: editorsCommand(),
 		help: "set up ssh for VS Code and Cursor", disabled: m.editors == nil, do: model.setUpEditors,
 	}
-	if setup := m.editorSetup; setup != nil && (!setup.Configured || slices.ContainsFunc(setup.Editors, func(each Editor) bool { return !each.Ready })) {
+	if setup := m.editorSetup; setup != nil && (!setup.Configured || len(setup.waiting()) > 0) {
 		editors.label = "editors"
 	}
 	return []action{editors}
@@ -126,13 +126,13 @@ func (m model) editorActions() []action {
 
 func (m model) accountActions() []action {
 	account := action{keys: []string{"a"}, section: sectionAccount, help: "log in, or log out", disabled: m.account == nil}
-	switch len(m.logins) {
+	switch len(m.logins.all) {
 	case 0:
 		account.name, account.label, account.command = "log in", "log in", loginCommand()
 		account.do = model.logIn
 	case 1:
-		address := m.logins[0].Address
-		account.name, account.label, account.command = "log out", "log out", logoutCommand(address)
+		address := m.logins.all[0].Address
+		account.name, account.label, account.command = "log out", "log out", shownCommand([]string{"logout", "--url", address})
 		account.do = func(m model) (tea.Model, tea.Cmd) { return m.logOut(address) }
 	default:
 		account.label = "log out"
@@ -148,40 +148,42 @@ func (m model) hostActions() []action {
 
 	toggle := action{
 		name: "start", keys: []string{"s"}, label: "start", section: sectionHost, disabled: !installed,
-		help: "start or stop the service", command: shownCommand([]string{"start"}),
-		do: func(m model) (tea.Model, tea.Cmd) { return m.run("start") },
+		help: "start or stop the service", command: shownCommand(hosting("start")),
+		do: func(m model) (tea.Model, tea.Cmd) { return m.run(hosting("start")...) },
 	}
 	if serving {
-		toggle.name, toggle.label, toggle.command = "stop", "stop", shownCommand([]string{"stop"})
-		toggle.do = func(m model) (tea.Model, tea.Cmd) { return m.askWhenBusy("Stop the host", "stop") }
+		toggle.name, toggle.label, toggle.command = "stop", "stop", shownCommand(hosting("stop"))
+		toggle.do = func(m model) (tea.Model, tea.Cmd) { return m.askWhenBusy("Stop the host", hosting("stop")...) }
 	}
 
 	return []action{
 		toggle,
 		{
 			name: "restart", keys: []string{"r"}, label: "restart", section: sectionHost, disabled: !installed,
-			help: "restart after the running sandboxes finish", command: shownCommand([]string{"restart"}),
-			do: func(m model) (tea.Model, tea.Cmd) { return m.run("restart") },
+			help: "restart after the running sandboxes finish", command: shownCommand(hosting("restart")),
+			do: func(m model) (tea.Model, tea.Cmd) { return m.run(hosting("restart")...) },
 		},
 		{
 			name: "restart now", keys: []string{"R"}, section: sectionHost, disabled: !installed,
-			help: "restart at once", command: shownCommand([]string{"restart", "--now"}),
-			do: func(m model) (tea.Model, tea.Cmd) { return m.askWhenBusy("Restart at once", "restart", "--now") },
+			help: "restart at once", command: shownCommand(hosting("restart", "--now")),
+			do: func(m model) (tea.Model, tea.Cmd) {
+				return m.askWhenBusy("Restart at once", hosting("restart", "--now")...)
+			},
 		},
 		{
-			name: "reload env files", keys: []string{"o"}, section: sectionHost,
-			help: "reload host.env, sandbox.env and egress.env", command: shownCommand([]string{"reload"}),
-			do: func(m model) (tea.Model, tea.Cmd) { return m.run("reload") },
+			name: "reload env files", keys: []string{"o"}, section: sectionHost, disabled: !installed,
+			help: "reload host.env, sandbox.env and egress.env", command: shownCommand(hosting("reload")),
+			do: func(m model) (tea.Model, tea.Cmd) { return m.run(hosting("reload")...) },
 		},
 		{
 			name: "update", keys: []string{"u"}, section: sectionHost, disabled: !m.setUp(),
-			help: "update to the release of the control plane", command: updateCommand(),
+			help: "update to the release of the control plane", command: shownCommand([]string{"update"}),
 			do: model.update,
 		},
 		{
 			name: "set up a host", keys: []string{"i"}, label: "set up a host", section: sectionHost, disabled: !known || installed || m.status.AsRoot,
-			help: "connect this machine and install the service", command: shownCommand([]string{"init"}),
-			do: func(m model) (tea.Model, tea.Cmd) { return m.attach("init") },
+			help: "connect this machine and install the service", command: shownCommand(hosting("init")),
+			do: func(m model) (tea.Model, tea.Cmd) { return m.attach(hosting("init")...) },
 		},
 	}
 }
@@ -360,15 +362,17 @@ func (m model) paletteActions() []action {
 			all = append(all, each)
 		}
 	}
-	if len(m.logins) > 1 {
+	if len(m.logins.all) > 0 {
 		all = append(all, action{name: "log in", command: loginCommand(), do: model.logIn})
-		for _, login := range m.logins {
+	}
+	if len(m.logins.all) > 1 {
+		for _, login := range m.logins.all {
 			all = append(all, action{
-				name: "log out of " + shownAddress(login.Address), command: logoutCommand(login.Address),
+				name: "log out of " + shownAddress(login.Address), command: shownCommand([]string{"logout", "--url", login.Address}),
 				do: func(m model) (tea.Model, tea.Cmd) { return m.logOut(login.Address) },
 			})
 		}
-		for _, login := range m.logins {
+		for _, login := range m.logins.all {
 			if m.editors == nil {
 				break
 			}

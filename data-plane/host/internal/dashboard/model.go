@@ -7,16 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"usespotlight.ai/data-plane/console"
+
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 )
 
-const (
-	refreshEvery = 5 * time.Second
-	stoppedCode  = 130
-)
+const refreshEvery = 5 * time.Second
 
 type screen int
 
@@ -64,6 +63,7 @@ type (
 	loginsMsg struct {
 		logins []Login
 		err    error
+		load   int
 	}
 	editorsMsg EditorSetup
 )
@@ -86,6 +86,13 @@ type settingsView struct {
 	editing string
 	input   textinput.Model
 	filter  textinput.Model
+}
+
+type loginsView struct {
+	all    []Login
+	note   string
+	loaded bool
+	load   int
 }
 
 type paletteView struct {
@@ -114,10 +121,8 @@ type model struct {
 	last     *outcome
 	question *question
 
-	logins       []Login
-	loginsNote   string
-	loginsLoaded bool
-	choice       int
+	logins loginsView
+	choice int
 
 	editorSetup *EditorSetup
 	helpTop     int
@@ -157,7 +162,7 @@ func newModel(host Host, account Account, editors Editors, version string) model
 		palette:  paletteView{input: newInput("type a command")},
 		login:    newLoginView(),
 	}
-	m.sizeLog()
+	m.resize()
 	return m
 }
 
@@ -189,14 +194,19 @@ func (m model) loadSettings() tea.Cmd {
 }
 
 func (m model) loadLogins() tea.Cmd {
-	account := m.account
+	account, load := m.account, m.logins.load
 	if account == nil {
 		return nil
 	}
 	return func() tea.Msg {
 		logins, err := account.Logins()
-		return loginsMsg{logins: logins, err: err}
+		return loginsMsg{logins: logins, err: err, load: load}
 	}
+}
+
+func (m *model) reloadLogins() tea.Cmd {
+	m.logins.load++
+	return m.loadLogins()
 }
 
 func (m model) loadEditors() tea.Cmd {
@@ -204,7 +214,7 @@ func (m model) loadEditors() tea.Cmd {
 	if editors == nil {
 		return nil
 	}
-	return func() tea.Msg { return editorsMsg(editors.Editors()) }
+	return func() tea.Msg { return editorsMsg(editors.Inspect()) }
 }
 
 func (m model) busy() bool {
@@ -220,23 +230,11 @@ func (m *model) spin() tea.Cmd {
 }
 
 func shownCommand(args []string) string {
-	return strings.Join(append([]string{"spotlight host"}, args...), " ")
+	return strings.Join(append([]string{"spotlight"}, args...), " ")
 }
 
-func loginCommand() string {
-	return "spotlight login"
-}
-
-func logoutCommand(address string) string {
-	return "spotlight logout --url " + address
-}
-
-func editorsCommand() string {
-	return "spotlight ssh setup"
-}
-
-func updateCommand() string {
-	return "spotlight update"
+func hosting(args ...string) []string {
+	return append([]string{"host"}, args...)
 }
 
 func (m model) run(args ...string) (tea.Model, tea.Cmd) {
@@ -270,12 +268,12 @@ func (m model) hand(shown string, cmd *exec.Cmd) (tea.Model, tea.Cmd) {
 	if m.running != "" {
 		return m, nil
 	}
-	m.running, m.mode = shown, browsing
+	m.running, m.question, m.mode = shown, nil, browsing
 	return m, tea.Exec(paused{cmd: cmd, shown: shown}, func(err error) tea.Msg {
 		out := ""
 		var exit *exec.ExitError
 		switch {
-		case errors.As(err, &exit) && (exit.ExitCode() == stoppedCode || exit.ExitCode() == -1):
+		case errors.As(err, &exit) && (exit.ExitCode() == console.StoppedExit || exit.ExitCode() == -1):
 			out = "stopped"
 		case errors.As(err, &exit):
 			out = fmt.Sprintf("exited with code %d", exit.ExitCode())
@@ -286,15 +284,15 @@ func (m model) hand(shown string, cmd *exec.Cmd) (tea.Model, tea.Cmd) {
 	})
 }
 
-func (m model) ask(text string, do func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
+func (m model) ask(text string, yes, no func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
 	if m.running != "" {
 		return m, nil
 	}
-	m.question, m.mode = &question{text: text, do: do}, asking
+	m.question, m.mode = &question{text: text, do: yes, no: no}, asking
 	return m, nil
 }
 
-func running(args ...string) func(model) (tea.Model, tea.Cmd) {
+func runs(args ...string) func(model) (tea.Model, tea.Cmd) {
 	return func(m model) (tea.Model, tea.Cmd) { return m.run(args...) }
 }
 
@@ -303,73 +301,14 @@ func (m model) askWhenBusy(action string, args ...string) (tea.Model, tea.Cmd) {
 	case 0:
 		return m.run(args...)
 	case 1:
-		return m.ask(action+"? This stops its running sandbox.", running(args...))
+		return m.ask(action+"? This stops its running sandbox.", runs(args...), nil)
 	default:
-		return m.ask(fmt.Sprintf("%s? This stops its %d running sandboxes.", action, busy), running(args...))
+		return m.ask(fmt.Sprintf("%s? This stops its %d running sandboxes.", action, busy), runs(args...), nil)
 	}
 }
 
 func (m model) update() (tea.Model, tea.Cmd) {
-	return m.ask("Replace this binary with the release of the control plane?", func(m model) (tea.Model, tea.Cmd) {
-		host := m.host
-		return m.start(updateCommand(), host.Update)
-	})
-}
-
-func (m model) choose(text string, yes, no func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
-	if m.running != "" {
-		return m, nil
-	}
-	m.question, m.mode = &question{text: text, do: yes, no: no}, asking
-	return m, nil
-}
-
-func (m model) setUpEditors() (tea.Model, tea.Cmd) {
-	if m.running != "" || m.editors == nil {
-		return m, nil
-	}
-	if m.account == nil {
-		return m.setUpEditorsFor("")
-	}
-	address := m.account.Address()
-	switch {
-	case address == "" && len(m.logins) > 1:
-		return m.openPaletteWith("set up editors for ")
-	case address == "" || !m.loggedIn(address):
-		return m.logInThen(model.setUpEditorsFor)
-	}
-	return m.setUpEditorsFor(address)
-}
-
-func (m model) setUpEditorsFor(address string) (tea.Model, tea.Cmd) {
-	run := func(timeout bool) func(model) (tea.Model, tea.Cmd) {
-		return func(m model) (tea.Model, tea.Cmd) {
-			editors := m.editors
-			return m.start(editorsCommand(), func() (string, error) { return editors.Setup(address, timeout) })
-		}
-	}
-	var slow []string
-	if m.editorSetup != nil {
-		for _, each := range m.editorSetup.Editors {
-			if !each.Ready {
-				slow = append(slow, each.Name)
-			}
-		}
-	}
-	if len(slow) == 0 {
-		return run(false)(m)
-	}
-	return m.choose(
-		fmt.Sprintf("Let %s wait up to 10 minutes to connect? A stopped sandbox can take minutes to start.", strings.Join(slow, " and ")),
-		run(true), run(false),
-	)
-}
-
-func (m model) logOut(address string) (tea.Model, tea.Cmd) {
-	return m.ask("Log out of "+shownAddress(address)+"?", func(m model) (tea.Model, tea.Cmd) {
-		account := m.account
-		return m.start(logoutCommand(address), func() (string, error) { return account.Logout(address) })
-	})
+	return m.ask("Replace this binary with the release of the control plane?", runs("update"), nil)
 }
 
 func (m model) sandboxes() int {
@@ -383,7 +322,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.sizeLog()
+		m.resize()
 		return m, nil
 
 	case spinner.TickMsg:
@@ -425,12 +364,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ranMsg:
 		result := outcome(msg)
 		m.running, m.last, m.logs.retry = "", &result, true
-		return m, tea.Batch(m.checkAgain(), m.loadSettings(), m.loadLogins(), m.loadEditors())
+		return m, tea.Batch(m.checkAgain(), m.loadSettings(), m.reloadLogins(), m.loadEditors())
 
 	case loginsMsg:
-		m.logins, m.loginsNote, m.loginsLoaded = msg.logins, "", true
+		if msg.load != m.logins.load {
+			return m, nil
+		}
+		m.logins.all, m.logins.note, m.logins.loaded = msg.logins, "", true
 		if msg.err != nil {
-			m.loginsNote = msg.err.Error()
+			m.logins.note = msg.err.Error()
 		}
 		return m, nil
 
@@ -439,6 +381,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case loginDoneMsg:
 		return m.loginDone(msg)
+
+	case loginPageMsg:
+		return m.loginPageOpened(msg)
 
 	case editorsMsg:
 		setup := EditorSetup(msg)
@@ -485,7 +430,7 @@ func (m *model) followAgain() tea.Cmd {
 	return m.logs.stream.next()
 }
 
-func (m *model) sizeLog() {
+func (m *model) resize() {
 	for _, input := range []*textinput.Model{&m.palette.input, &m.logs.filter, &m.settings.filter, &m.settings.input} {
 		input.SetWidth(max(m.width-len(gutter)*2-2, 1))
 	}

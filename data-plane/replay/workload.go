@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -195,37 +194,21 @@ func problemOf(status int, body []byte) string {
 	return fmt.Sprintf("Spotlight answered %d", status)
 }
 
-func oneLogin(env func(string) string) (string, error) {
-	path, err := credentials.Path(env)
-	if err != nil {
-		return "", nil
-	}
-	file, err := credentials.Load(path)
-	if err != nil {
-		return "", fmt.Errorf("read the logins: %w", err)
-	}
-	switch addresses := file.Addresses(); len(addresses) {
-	case 0:
-		return "", nil
-	case 1:
-		return addresses[0], nil
-	default:
-		slices.Sort(addresses)
-		return "", fmt.Errorf("there are logins for %s. Set %s to the one to check the plan with", strings.Join(addresses, ", "), urlVar)
-	}
-}
-
 func checkAPI(env func(string) string, version string, now func() time.Time) (*api, error) {
 	base := env(urlVar)
 	if base == "" && env(tokenVar) == "" && env(trustVar) == "" {
-		address, err := oneLogin(env)
+		address, err := credentials.Choose(env, "")
+		var several credentials.SeveralLogins
+		if errors.As(err, &several) {
+			return nil, fmt.Errorf("there are logins for %s. Set %s to the one to check the plan with", strings.Join(several.Addresses, ", "), urlVar)
+		}
 		if err != nil {
 			return nil, err
 		}
 		base = address
 	}
 	if base == "" {
-		return nil, fmt.Errorf("set %s, and %s or %s, or log in with spotlight login, to check a plan\n%s", urlVar, tokenVar, trustVar, checkHelp.Synopsis())
+		return nil, fmt.Errorf("set %s with %s or %s, to check a plan\n%s", urlVar, tokenVar, trustVar, checkHelp.Synopsis())
 	}
 
 	if token := env(tokenVar); token != "" {

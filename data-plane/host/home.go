@@ -100,11 +100,7 @@ func hostSetUp(r report) bool {
 }
 
 func savedLogins() ([]homeLogin, error) {
-	path, err := credentials.Path(os.Getenv)
-	if err != nil {
-		return nil, nil
-	}
-	file, err := credentials.Load(path)
+	file, err := credentials.Saved(os.Getenv)
 	if err != nil {
 		return nil, err
 	}
