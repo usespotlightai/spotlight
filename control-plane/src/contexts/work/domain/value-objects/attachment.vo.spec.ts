@@ -115,4 +115,9 @@ describe('Attachment', () => {
     expect(file().image).toBe(true);
     expect(file({ contentType: 'application/pdf' }).image).toBe(false);
   });
+
+  it('is a video only where its content type says so', () => {
+    expect(file({ contentType: 'video/quicktime' }).video).toBe(true);
+    expect(file().video).toBe(false);
+  });
 });

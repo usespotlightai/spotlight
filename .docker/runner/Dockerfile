@@ -1,5 +1,9 @@
 ARG GO_VERSION=1.26
 
+ARG FFMPEG_IMAGE=mwader/static-ffmpeg:9.0.2-1@sha256:f5d100184884eb3e82b0eb14bb5ebf98da99826ac824989720297fb9ef21c822
+
+FROM ${FFMPEG_IMAGE} AS ffmpeg
+
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-bookworm AS build
 WORKDIR /src
 COPY data-plane/go.mod data-plane/go.sum ./
@@ -37,6 +41,7 @@ RUN arch="${TARGETARCH:-$(dpkg --print-architecture)}" \
     && unzip -q "${zip}" terraform -d /usr/local/bin \
     && rm "${zip}" \
     && terraform version
+COPY --from=ffmpeg /ffmpeg /ffprobe /usr/local/bin/
 COPY --from=build /out/spotlight /usr/local/bin/
 ENV SPOTLIGHT_AGENT_USER=agent \
     SPOTLIGHT_WORKSPACE=/workspace \
