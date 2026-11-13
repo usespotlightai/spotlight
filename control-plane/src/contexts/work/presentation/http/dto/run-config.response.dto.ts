@@ -44,6 +44,14 @@ export class RunConfigResponseDto {
   @ApiProperty({ nullable: true, type: () => ConfigChangedSinceResponseDto })
   readonly changedSince: ConfigChangedSinceResponseDto | null;
 
+  @ApiProperty({
+    type: [String],
+    example: ['sentry.get-issue'],
+    description:
+      'The tools the run had because its task had a mark they are enabled on, and that its station config does not list',
+  })
+  readonly toolsOnMarks: string[];
+
   constructor(from: RunConfigDto) {
     this.fingerprint = from.fingerprint;
     this.config = from.config
@@ -52,5 +60,6 @@ export class RunConfigResponseDto {
     this.changedSince = from.changedSince
       ? new ConfigChangedSinceResponseDto(from.changedSince)
       : null;
+    this.toolsOnMarks = [...from.toolsOnMarks];
   }
 }

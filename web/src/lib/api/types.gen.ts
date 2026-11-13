@@ -3247,6 +3247,10 @@ export type RunConfigResponseDto = {
   fingerprint: string | null;
   config: StationConfigResponseDto | null;
   changedSince: ConfigChangedSinceResponseDto | null;
+  /**
+   * The tools the run had because its task had a mark they are enabled on, and that its station config does not list
+   */
+  toolsOnMarks: Array<string>;
 };
 
 export type LatestRunResponseDto = {

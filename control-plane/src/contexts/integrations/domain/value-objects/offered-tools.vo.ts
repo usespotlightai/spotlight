@@ -1,6 +1,7 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
+import type { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 
@@ -90,6 +91,14 @@ export class OfferedTools {
         : [];
 
     return new OfferedTools(integration, written, generated, generatedFrom);
+  }
+
+  enabledOnMarks(kinds: readonly MarkKind[]): readonly ToolName[] {
+    return this.written
+      .filter((each) =>
+        kinds.some((kind) => each.enabledOnMark?.equals(kind) ?? false),
+      )
+      .map((each) => each.tool);
   }
 
   get all(): readonly ToolName[] {

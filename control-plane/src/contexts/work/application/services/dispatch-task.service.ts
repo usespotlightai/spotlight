@@ -111,18 +111,20 @@ export class DispatchTask implements TaskDispatching {
     line: LineMap;
     runId: RunId;
   }): Promise<OrderedRun | null> {
-    const found = await this.ordering.ordered(line, taskOrderedAt(task, line));
+    const found = await this.ordering.ordered(
+      line,
+      taskOrderedAt(task, line),
+      await this.integrations.toolsOnMarks(line, task.marks),
+    );
 
     if (!found) {
       this.notDispatched(task, line, 'station-has-no-order', runId);
       return null;
     }
 
-    const provided = await this.integrations.provided(
-      line,
-      found.order.enabled.tools,
-    );
-    const described = describedTools(found.order.enabled.tools, [
+    const tools = found.order.enabled.tools;
+    const provided = await this.integrations.provided(line, tools);
+    const described = describedTools(tools, [
       ...provided,
       ...found.catalogTools,
     ]);
@@ -198,6 +200,7 @@ export class DispatchTask implements TaskDispatching {
         omitted: memories.omitted,
       }),
       configuredAs: this.ordering.configuredAs(ordered, line),
+      toolsOnMarks: order.enabled.toolsOnMarks,
     };
   }
 

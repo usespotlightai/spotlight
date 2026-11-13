@@ -8,4 +8,9 @@ export interface TeamIntegrationsPort {
     teamId: TeamId,
     tools: readonly string[],
   ): Promise<readonly ToolDeclaration[]>;
+
+  toolsOnMarks(
+    teamId: TeamId,
+    kinds: readonly string[],
+  ): Promise<readonly string[]>;
 }

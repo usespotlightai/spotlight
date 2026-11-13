@@ -71,7 +71,7 @@ export const stationConfigOf = (
           ),
         ),
       })),
-      tools: order.enabled.tools.map((each) => each.value),
+      tools: order.enabled.stationTools.map((each) => each.value),
       decisions: station.decisions,
       memories: station.memories,
       ...(station.judge

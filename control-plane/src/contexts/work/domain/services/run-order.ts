@@ -3,6 +3,7 @@ import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.v
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import {
   type EnabledForRun,
@@ -51,6 +52,7 @@ interface Ordering {
   ready: readonly ReadySkill[];
   profiles: readonly ReadyProfile[];
   denied?: readonly DeniedCatalogItem[];
+  toolsOnMarks?: readonly Tool[];
 }
 
 export const orderAt = ({
@@ -60,6 +62,7 @@ export const orderAt = ({
   ready,
   profiles,
   denied = [],
+  toolsOnMarks = [],
 }: Ordering & { at: OrderedAt }): RunOrder | null => {
   const station = line.stationAt(at.stationId);
 
@@ -73,7 +76,7 @@ export const orderAt = ({
     return null;
   }
 
-  const enabled = enabledAt(station, ready, profiles);
+  const enabled = enabledAt(station, ready, profiles, toolsOnMarks);
   const refusals = [...denied, ...enabled.refusals];
 
   return {

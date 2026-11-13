@@ -1,3 +1,4 @@
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { isDottedName } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
@@ -17,6 +18,10 @@ export class MarkKind {
     }
 
     return new MarkKind(named);
+  }
+
+  belongsTo(integration: IntegrationKey): boolean {
+    return this.value.slice(0, this.value.indexOf('.')) === integration.value;
   }
 
   equals(other: MarkKind): boolean {

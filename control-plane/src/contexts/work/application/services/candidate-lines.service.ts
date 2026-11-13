@@ -71,11 +71,11 @@ export class CandidateLines {
     line: LineMap,
     station: Station,
   ): Promise<StationConfig | null> {
-    const ordered = await this.ordering.ordered(line, {
-      stationId: station.id,
-      resume: Resume.of({}),
-      checkouts: [],
-    });
+    const ordered = await this.ordering.ordered(
+      line,
+      { stationId: station.id, resume: Resume.of({}), checkouts: [] },
+      [],
+    );
     return ordered ? this.ordering.configuredAs(ordered, line) : null;
   }
 }

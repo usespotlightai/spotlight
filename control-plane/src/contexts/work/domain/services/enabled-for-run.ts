@@ -14,6 +14,8 @@ import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
 import type { Station } from '@work/domain/value-objects/station.vo';
 
 export interface EnabledForRun {
+  readonly stationTools: readonly Tool[];
+  readonly toolsOnMarks: readonly Tool[];
   readonly tools: readonly Tool[];
   readonly builtInSkills: readonly SkillKey[];
   readonly teamSkills: readonly ReadySkill[];
@@ -44,14 +46,19 @@ export const enabledAt = (
   station: Station,
   ready: readonly ReadySkill[],
   profiles: readonly ReadyProfile[],
+  onMarks: readonly Tool[] = [],
 ): EnabledForRun => {
   const teamSkills = station.skills.flatMap((key) =>
     ready.filter((skill) => skill.key.equals(key)),
   );
-  const tools = distinct([
+  const stationTools = distinct([
     ...station.tools,
     ...teamSkills.flatMap((skill) => skill.tools),
   ]);
+  const toolsOnMarks = distinct(onMarks).filter(
+    (each) => !stationTools.some((tool) => tool.equals(each)),
+  );
+  const tools = [...stationTools, ...toolsOnMarks];
   const builtInSkills = distinct([
     HANDING_OVER,
     ...tools.flatMap((tool) => {
@@ -60,9 +67,11 @@ export const enabledAt = (
     }),
   ]);
 
-  const pinned = tools.filter((each) => each.origin === 'catalog');
+  const pinned = stationTools.filter((each) => each.origin === 'catalog');
 
   return {
+    stationTools,
+    toolsOnMarks,
     tools,
     builtInSkills,
     teamSkills,

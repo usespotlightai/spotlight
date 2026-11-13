@@ -381,6 +381,7 @@ export class DrizzleRunReader implements RunReaderPort {
         orderedAt: dispatch.orderedAt,
         fingerprint: dispatch.stationFingerprint,
         parts: dispatch.stationConfig,
+        toolsOnMarks: dispatch.toolsOnMarks,
         workspaceId: dispatch.workspaceId,
       })
       .from(dispatch)
@@ -402,7 +403,10 @@ export class DrizzleRunReader implements RunReaderPort {
         : null;
 
     if (!ran || !found.stationId || found.kind !== 'task') {
-      return { workspaceId, found: { ran, before: null } };
+      return {
+        workspaceId,
+        found: { ran, before: null, toolsOnMarks: found.toolsOnMarks },
+      };
     }
 
     const [earlier] = await this.db
@@ -426,7 +430,11 @@ export class DrizzleRunReader implements RunReaderPort {
 
     return {
       workspaceId,
-      found: { ran, before: earlier ? configured(earlier) : null },
+      found: {
+        ran,
+        before: earlier ? configured(earlier) : null,
+        toolsOnMarks: found.toolsOnMarks,
+      },
     };
   }
 }

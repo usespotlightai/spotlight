@@ -4,6 +4,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { RunOrder } from '@work/domain/services/run-order';
 import { stationConfigOf } from '@work/domain/services/station-config-of';
 import {
@@ -27,7 +28,7 @@ const ORDER = {
   harness: HarnessId.of('claude-code'),
   model: null,
   effort: null,
-  enabled: { profile: null, tools: [] },
+  enabled: { profile: null, stationTools: [], toolsOnMarks: [], tools: [] },
 } as unknown as RunOrder;
 
 const RUBRIC = 'A good run changes only what the task requests.\n';
@@ -44,11 +45,8 @@ const station = (
     ...over,
   });
 
-const configured = (at: Station) =>
-  stationConfigOf(
-    { station: at, line: LINE, order: ORDER, folders: [] },
-    sha256,
-  );
+const configured = (at: Station, order: RunOrder = ORDER) =>
+  stationConfigOf({ station: at, line: LINE, order, folders: [] }, sha256);
 
 describe('stationConfigOf', () => {
   it('configures the judge by its rubric hash, sample and minimum agreement', () => {
@@ -95,6 +93,32 @@ describe('stationConfigOf', () => {
         }),
       ).parts.judge?.rubricHash,
     );
+  });
+
+  it('lists only the station’s tools, not those its task’s marks enable', () => {
+    const PULL_REQUEST = Tool.of('pull-request');
+    const ISSUE = Tool.of('sentry.get-issue');
+    const unmarked = configured(station(), {
+      ...ORDER,
+      enabled: {
+        profile: null,
+        stationTools: [PULL_REQUEST],
+        toolsOnMarks: [],
+        tools: [PULL_REQUEST],
+      },
+    } as unknown as RunOrder);
+    const marked = configured(station(), {
+      ...ORDER,
+      enabled: {
+        profile: null,
+        stationTools: [PULL_REQUEST],
+        toolsOnMarks: [ISSUE],
+        tools: [PULL_REQUEST, ISSUE],
+      },
+    } as unknown as RunOrder);
+
+    expect(marked.parts.tools).toEqual(['pull-request']);
+    expect(marked.fingerprint).toBe(unmarked.fingerprint);
   });
 
   it('configures no judge on a station without one', () => {

@@ -1,3 +1,4 @@
+import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -72,6 +73,43 @@ describe('IntegrationReader', () => {
         ['linear.comment', 'sentry.comment'],
       ),
     ).toEqual([]);
+  });
+
+  it('names the tools the team’s integrations enable on the marks given', () => {
+    const ENABLING = `${WHOLE}actions:
+  get:
+    request:
+      method: GET
+      url: https://api.linear.app/issues/\${{ inputs.issue }}
+tools:
+  get-issue:
+    action: get
+    description: Read the issue.
+    enabledOnMark: linear.issue
+    inputs:
+      issue:
+        default: '\${{ task.marks["linear.issue"] }}'
+  get-other:
+    action: get
+    description: Read the other issue.
+    inputs:
+      issue:
+        required: true
+`;
+    const reader = new IntegrationReader(expressions, operationsContaining());
+
+    const named = (kinds: readonly string[]) =>
+      reader
+        .enabledOnMarks(
+          [defined(ENABLING)],
+          kinds.map((each) => MarkKind.of(each)),
+        )
+        .map((each) => each.value);
+
+    expect(named(['linear.issue', 'git.pull-request'])).toEqual([
+      'linear.get-issue',
+    ]);
+    expect(named(['linear.team'])).toEqual([]);
   });
 
   it('keeps reading past a definition that will not', () => {

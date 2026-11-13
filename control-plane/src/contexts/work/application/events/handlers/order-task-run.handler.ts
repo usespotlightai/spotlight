@@ -42,6 +42,7 @@ export class OrderTaskRun {
         stationId: task.stationId,
       },
       configuredAs: ordered?.configuredAs ?? null,
+      toolsOnMarks: ordered?.toolsOnMarks ?? [],
       briefedTask: ordered?.briefedTask ?? null,
       briefing: ordered?.order.spec.briefing ?? null,
       briefedMemories: ordered?.briefedMemories,

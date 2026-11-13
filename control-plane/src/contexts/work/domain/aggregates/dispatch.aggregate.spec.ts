@@ -5,6 +5,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { InvalidDispatchTransitionError } from '@work/domain/exceptions/invalid-dispatch-transition.error';
@@ -178,6 +179,49 @@ describe('Dispatch', () => {
     ).toThrow(InvalidDispatchTransitionError);
   });
 
+  it('records the tools its task’s marks enabled only for a task’s run', () => {
+    const ISSUE = Tool.of('sentry.get-issue');
+
+    expect(
+      Dispatch.ordered({
+        ...ordering(),
+        toolsOnMarks: [ISSUE],
+        order: runOrderOf(RUN),
+      }).toolsOnMarks,
+    ).toEqual([ISSUE]);
+    expect(ordered().toolsOnMarks).toEqual([]);
+    expect(() =>
+      Dispatch.ordered({
+        ...ordering(CHAT),
+        toolsOnMarks: [ISSUE],
+        order: runOrderOf(RUN),
+      }),
+    ).toThrow(InvalidDispatchTransitionError);
+  });
+
+  it('records a tool its task’s marks enabled once, and never one its station config lists', () => {
+    const ISSUE = Tool.of('sentry.get-issue');
+
+    expect(() =>
+      Dispatch.ordered({
+        ...ordering(),
+        toolsOnMarks: [ISSUE, Tool.of('sentry.get-issue')],
+        order: runOrderOf(RUN),
+      }),
+    ).toThrow(InvalidDispatchTransitionError);
+    expect(() =>
+      Dispatch.ordered({
+        ...ordering(),
+        configuredAs: StationConfig.rehydrate(
+          { ...CONFIG.parts, tools: ['sentry.get-issue'] },
+          CONFIG.fingerprint,
+        ),
+        toolsOnMarks: [ISSUE],
+        order: runOrderOf(RUN),
+      }),
+    ).toThrow(InvalidDispatchTransitionError);
+  });
+
   it('says which memories it was briefed with once its run exists, and keeps no order after that', () => {
     const enqueued = ordered(TASK, MEMORIES);
     enqueued.pullEvents();
@@ -295,6 +339,7 @@ describe('Dispatch', () => {
       briefing: null,
       briefedMemories: BriefedMemories.none(),
       configuredAs: null,
+      toolsOnMarks: [],
       orderedAt: NOW,
       enqueued: true,
       refused: null,

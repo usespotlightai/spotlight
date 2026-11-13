@@ -10,6 +10,7 @@ import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.v
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
@@ -22,6 +23,7 @@ export interface OrderedRun {
   readonly briefedTask: BriefedTask | null;
   readonly briefedMemories: BriefedMemories;
   readonly configuredAs: StationConfig | null;
+  readonly toolsOnMarks: readonly Tool[];
 }
 
 export const runOrderOf = (parts: {
