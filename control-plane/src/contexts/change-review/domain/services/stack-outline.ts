@@ -9,6 +9,7 @@ import {
 } from '@change-review/domain/services/diff-facts';
 import { DraftedStack } from '@change-review/domain/services/drafted-stack';
 import { factProblems } from '@change-review/domain/services/fact-rules';
+import { withLinkedHunksInOneCohort } from '@change-review/domain/services/linked-cohorts';
 import {
   changeLayerCount,
   cohortHeaderProblems,
@@ -110,16 +111,21 @@ export const StackOutline = {
       input.facts,
       DraftedStack.outline(input.cohorts),
     );
-    const problems = [
-      ...outlineShapeProblems(input.diff, input.facts, cohorts),
-      ...factProblems(cohorts.map(asOneLayer), input.facts),
+    const problemsOf = (each: readonly OutlinedCohort[]) => [
+      ...outlineShapeProblems(input.diff, input.facts, each),
+      ...factProblems(each.map(asOneLayer), input.facts),
     ];
+    const problems = problemsOf(cohorts);
+    const repaired =
+      problems.length > 0
+        ? withLinkedHunksInOneCohort(input.diff, input.facts, cohorts)
+        : cohorts;
 
-    if (problems.length > 0) {
+    if (problems.length > 0 && problemsOf(repaired).length > 0) {
       throw new InvalidChangeStackError(problems);
     }
 
-    return cohorts.map((cohort) => ({
+    return repaired.map((cohort) => ({
       ...cohort,
       joinedBecause: cohort.joinedBecause?.trim() || null,
     }));

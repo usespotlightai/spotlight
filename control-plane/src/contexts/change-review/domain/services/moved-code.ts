@@ -4,14 +4,11 @@ import {
   type DiffFacts,
 } from '@change-review/domain/services/diff-facts';
 import { placementsOf } from '@change-review/domain/services/hunk-placements';
-import { keptQuestions } from '@change-review/domain/services/shown-questions';
+import { keepsEveryQuestion } from '@change-review/domain/services/shown-questions';
 import { cohortProblems } from '@change-review/domain/services/stack-checks';
 import type { StackParts } from '@change-review/domain/services/stack-part';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
-import type {
-  ProposedCohort,
-  ProposedQuestion,
-} from '@change-review/domain/value-objects/stack-cohort.vo';
+import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 const MAX_COMBINATIONS = 64;
@@ -70,14 +67,6 @@ const splitIn = (
     : null;
 };
 
-const questionKey = (question: ProposedQuestion): string =>
-  JSON.stringify([question.question, question.answer, question.hunks]);
-
-const shownQuestions = (cohort: ProposedCohort): Set<string> =>
-  new Set(
-    cohort.layers.flatMap((_, l) => keptQuestions(cohort, l).map(questionKey)),
-  );
-
 const withGroupsMoved = (
   diff: Diff,
   cohort: ProposedCohort,
@@ -125,7 +114,6 @@ export const withMovedCodeTogether = (
     return unchanged;
   }
 
-  const shown = shownQuestions(cohort);
   const best = groups
     .reduce<HunkId[][]>(
       (all, group) =>
@@ -143,14 +131,11 @@ export const withMovedCodeTogether = (
         cohort.layers.length - candidate.layers.length <= layerBudget,
     )
     .sort((a, b) => b.layers.length - a.layers.length)
-    .find((candidate) => {
-      const stillShown = shownQuestions(candidate);
-
-      return (
-        [...shown].every((question) => stillShown.has(question)) &&
-        cohortProblems(part.diff, part.facts, candidate).length === 0
-      );
-    });
+    .find(
+      (candidate) =>
+        keepsEveryQuestion(cohort, candidate) &&
+        cohortProblems(part.diff, part.facts, candidate).length === 0,
+    );
 
   return best
     ? {

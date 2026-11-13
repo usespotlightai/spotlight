@@ -15,7 +15,10 @@ import type { PreviousStack } from '@change-review/domain/services/previous-stac
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
 import { StackOutline } from '@change-review/domain/services/stack-outline';
 import { stackPartOf } from '@change-review/domain/services/stack-part';
-import type { Diff } from '@change-review/domain/value-objects/diff.vo';
+import {
+  changedLinesOf,
+  type Diff,
+} from '@change-review/domain/value-objects/diff.vo';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
   OutlinedCohort,
@@ -26,8 +29,19 @@ import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.
 
 const MAX_HUNKS_PER_CALL = 80;
 
-export const exceedsOneCall = (facts: DiffFacts): boolean =>
-  placedHunks(facts).length > MAX_HUNKS_PER_CALL;
+const MAX_LINES_PER_CALL = 1_500;
+
+export const exceedsOneCall = (diff: Diff, facts: DiffFacts): boolean => {
+  const placed = new Set<string>(placedHunks(facts));
+  const lines = diff.hunks
+    .filter((hunk) => placed.has(hunk.id))
+    .reduce((total, hunk) => {
+      const { added, removed } = changedLinesOf(hunk);
+      return total + added.length + removed.length;
+    }, 0);
+
+  return placed.size > MAX_HUNKS_PER_CALL || lines > MAX_LINES_PER_CALL;
+};
 
 export type CohortLayering =
   | {

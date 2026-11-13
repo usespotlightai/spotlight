@@ -163,13 +163,13 @@ const withInheritedNotes = (
 ): FileNote[] => {
   const all = [...notes];
 
-  for (const { note } of inherited.filter((each) => each.leaves)) {
+  for (const { note, leaves } of inherited) {
     const at = all.findIndex((each) => each.path === note.path);
     const present = all[at];
 
     if (!present) {
       all.push(note);
-    } else if (present.note !== note.note) {
+    } else if (leaves && present.note !== note.note) {
       all[at] = { ...present, note: `${present.note}\n\n${note.note}` };
     }
   }
@@ -182,6 +182,7 @@ export const withHunksMovedInto = (
   cohort: ProposedCohort,
   hunks: readonly HunkId[],
   target: number,
+  definesOf?: (hunk: HunkId) => readonly string[],
 ): ProposedCohort | null => {
   const targetLayer = cohort.layers[target];
 
@@ -208,22 +209,53 @@ export const withHunksMovedInto = (
     l !== target &&
     !remaining[l]?.emptied &&
     (cohort.layers[l]?.hunks.some((entry) => moving.has(entry.hunk)) ?? false);
-  const leavesStaleDependency = cohort.layers.some(
-    (layer, l) =>
-      loses(l) &&
-      (cohort.layers.some(
-        (other, m) =>
-          m !== l && other.dependsOn.some((each) => each.layer === l + 1),
-      ) ||
-        (l > target &&
-          layer.dependsOn.some(
-            (each) => each.layer > target + 1 && each.layer <= l,
-          ))),
-  );
-
-  if (leavesStaleDependency) {
+  const mayCiteMovedCode = (layer: ProposedLayer, l: number): boolean =>
+    cohort.layers.some(
+      (other, m) =>
+        m !== l && other.dependsOn.some((each) => each.layer === l + 1),
+    ) ||
+    (l > target &&
+      layer.dependsOn.some(
+        (each) => each.layer > target + 1 && each.layer <= l,
+      ));
+  if (
+    !definesOf &&
+    cohort.layers.some((layer, l) => loses(l) && mayCiteMovedCode(layer, l))
+  ) {
     return null;
   }
+
+  const movedSymbols = cohort.layers.map((layer, l) => {
+    if (!definesOf || !loses(l)) {
+      return new Set<string>();
+    }
+
+    const staying = new Set(
+      layer.hunks
+        .filter((entry) => !moving.has(entry.hunk))
+        .flatMap((entry) => definesOf(entry.hunk)),
+    );
+
+    return new Set(
+      layer.hunks
+        .filter((entry) => moving.has(entry.hunk))
+        .flatMap((entry) => definesOf(entry.hunk))
+        .filter((symbol) => !staying.has(symbol)),
+    );
+  });
+  const withoutMovedSymbols = (
+    dependsOn: ProposedLayer['dependsOn'],
+  ): ProposedLayer['dependsOn'] =>
+    dependsOn.flatMap((each) => {
+      const moved = movedSymbols[each.layer - 1];
+
+      if (!moved || moved.size === 0) {
+        return [each];
+      }
+
+      const because = each.because.filter((symbol) => !moved.has(symbol));
+      return because.length > 0 ? [{ ...each, because }] : [];
+    });
 
   const inheritedNotes = cohort.layers.flatMap((layer, l) => {
     const paths = pathsOf(
@@ -290,6 +322,7 @@ export const withHunksMovedInto = (
       emptied,
       layer: {
         ...layer,
+        dependsOn: withoutMovedSymbols(layer.dependsOn),
         summary:
           l === target
             ? [

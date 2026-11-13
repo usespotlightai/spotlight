@@ -163,6 +163,14 @@ const splitInTwo = ({ part }: CohortLayersRequest): ProposedLayer[] => {
   }));
 };
 
+const LONG = written(
+  changed(
+    'long.ts',
+    Array.from({ length: 800 }, (_, at) => `old ${at}`),
+    Array.from({ length: 800 }, (_, at) => `new ${at}`),
+  ),
+);
+
 const LARGE_INPUT = {
   diff: LARGE,
   repository: null,
@@ -530,6 +538,19 @@ describe('GenerateChangeStack', () => {
         'One feature the code does not show',
       );
       expect(ready.usage).toMatchObject({ calls: 3, outputTokens: 600 });
+    });
+
+    it('outlines a diff with few hunks but more changed lines than one call should hold', async () => {
+      const { service, requests, outlined } = generating({
+        outlines: [[outlineOf('Rewrite', [HunkId.at(1)])]],
+        layers: oneLayer,
+      });
+      const stack = await service.begin(RUN, { ...LARGE_INPUT, diff: LONG });
+
+      await service.generated(stack);
+
+      expect(requests).toHaveLength(0);
+      expect(outlined).toHaveLength(1);
     });
 
     it('requests the outline again with its problems where it leaves hunks out', async () => {

@@ -23,3 +23,20 @@ export const placementsOf = (
     ),
     (placement) => placement.hunk,
   );
+
+export const onlyLayersOf = (
+  cohort: ProposedCohort,
+): Map<string, number> | null => {
+  const layers = new Map<string, number>();
+
+  for (const [hunk, placements] of placementsOf([cohort])) {
+    const [only, ...again] = placements;
+
+    if (!only || again.length > 0) {
+      return null;
+    }
+    layers.set(hunk, only.layer);
+  }
+
+  return layers;
+};

@@ -158,6 +158,16 @@ describe('StackOutline', () => {
     expect(problemsOf([cohort(['h1', 'h2', 'h3'], 'One feature')])).toEqual([]);
   });
 
+  it('puts hunks the code links into one cohort when that leaves no other problem', () => {
+    const outline = StackOutline.validate({
+      diff: DIFF,
+      facts: FACTS,
+      cohorts: [cohort(['h1']), cohort(['h2', 'h3'], 'One feature')],
+    });
+
+    expect(outline.map((each) => each.hunks)).toEqual([['h1', 'h3'], ['h2']]);
+  });
+
   it('parts out a cohort’s own hunks, links and imports', () => {
     const part = stackPartOf(DIFF, FACTS, [HunkId.of('h1'), HunkId.of('h3')]);
 

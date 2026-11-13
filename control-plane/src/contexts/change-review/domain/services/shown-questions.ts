@@ -4,6 +4,7 @@ import {
   MAX_QUESTIONS,
   type ProposedCohort,
   type ProposedLayer,
+  type ProposedQuestion,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 
 export const shownHunks = (
@@ -39,4 +40,21 @@ export const keptQuestions = (
         each.hunks.every((hunk) => shown.has(hunk)),
     )
     .slice(0, MAX_QUESTIONS);
+};
+
+const questionKey = (question: ProposedQuestion): string =>
+  JSON.stringify([question.question, question.answer, question.hunks]);
+
+const shownQuestions = (cohort: ProposedCohort): Set<string> =>
+  new Set(
+    cohort.layers.flatMap((_, l) => keptQuestions(cohort, l).map(questionKey)),
+  );
+
+export const keepsEveryQuestion = (
+  before: ProposedCohort,
+  after: ProposedCohort,
+): boolean => {
+  const still = shownQuestions(after);
+
+  return [...shownQuestions(before)].every((question) => still.has(question));
 };

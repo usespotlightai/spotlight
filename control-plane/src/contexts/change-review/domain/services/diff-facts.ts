@@ -125,6 +125,16 @@ export const connectedGroups = (
 export const placedHunks = (facts: DiffFacts): HunkId[] =>
   facts.hunks.filter((each) => !each.incidental).map((each) => each.hunk);
 
+export const definitionsOf = (
+  facts: DiffFacts,
+): ((hunk: HunkId) => readonly string[]) => {
+  const defined = new Map<string, readonly string[]>(
+    facts.hunks.map((each) => [each.hunk, each.defines]),
+  );
+
+  return (hunk) => defined.get(hunk) ?? [];
+};
+
 const MAX_DEFINERS = 3;
 
 const MIN_MOVED_LINES = 3;

@@ -49,7 +49,7 @@ export class RedraftChangeStack {
       ? await this.stacks.find(stack.previous)
       : null;
 
-    return exceedsOneCall(stack.facts)
+    return exceedsOneCall(stack.diff, stack.facts)
       ? this.byCohort(stack, redraft, previous)
       : this.whole(stack, redraft, previous);
   }

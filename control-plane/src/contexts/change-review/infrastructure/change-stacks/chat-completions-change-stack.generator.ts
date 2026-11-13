@@ -18,7 +18,11 @@ import {
 } from '@change-review/domain/services/diff-facts';
 import type { PreviousStack } from '@change-review/domain/services/previous-stack';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
-import type { Diff } from '@change-review/domain/value-objects/diff.vo';
+import {
+  changedLinesOf,
+  type Diff,
+  type DiffHunk,
+} from '@change-review/domain/value-objects/diff.vo';
 import {
   COHORT_KINDS,
   type DraftedLayer,
@@ -87,7 +91,10 @@ const PURPOSE =
 
 const COHORTS = `- Cohorts are independent pieces of work. Two changes belong to the same cohort when one exists to serve the other or both serve one purpose. Changes that merely look alike, sit in the same file, or follow the same pattern are not reasons to group them. When in doubt, split: a cohort that wrongly joins unrelated work misleads the reviewer, while two cohorts that could have been one cost little.`;
 
-const LAYERS_ARE = `- Layers are the ordered steps within one cohort, in the order a thoughtful senior engineer would walk someone through it: foundations first (schema, types, domain), then what builds on them (services, APIs), then what uses those (UI, wiring). A contract, the code implementing it and its tests belong in one layer, not three.`;
+const LAYER_LINES = 400;
+
+const LAYERS_ARE = `- Layers are the ordered steps within one cohort, in the order a thoughtful senior engineer would walk someone through it: foundations first (schema, types, domain), then what builds on them (services, APIs), then what uses those (UI, wiring). A test belongs in the layer of the code it tests.
+- A reviewer reads one layer at a time, so keep each layer to about ${LAYER_LINES} changed lines or fewer. Each hunk's heading gives its changed lines. Split a larger step into several layers, such as one for each table, service, endpoint or screen. A layer that holds most of a large cohort is a failure, because the reviewer then has no order to follow. A layer may be larger only when its hunks cannot work apart.`;
 
 const SET_ASIDE = `Lockfiles, generated files, snapshots, whole-file renames and formatting-only changes have already been set aside, and Spotlight places them itself. Other changes that need no review of their own go in a cohort of kind "incidental". Everything else is kind "change".`;
 
@@ -193,6 +200,27 @@ const layersOf = (layers: readonly z.infer<typeof LAYER>[]): DraftedLayer[] =>
     notes: files,
   }));
 
+const placedIn = (facts: DiffFacts): number => placedHunks(facts).length;
+
+const sizeOf = (hunk: DiffHunk): string => {
+  const { added, removed } = changedLinesOf(hunk);
+  return `+${added.length} −${removed.length}`;
+};
+
+const linesIn = (diff: Diff, facts: DiffFacts): number => {
+  const placed = new Set<string>(placedHunks(facts));
+
+  return diff.hunks
+    .filter((hunk) => placed.has(hunk.id))
+    .reduce((total, hunk) => {
+      const { added, removed } = changedLinesOf(hunk);
+      return total + added.length + removed.length;
+    }, 0);
+};
+
+const toPlace = (diff: Diff, facts: DiffFacts): string =>
+  `${placedIn(facts)} hunks and ${linesIn(diff, facts)} changed lines to place`;
+
 const described = (diff: Diff, facts: DiffFacts): string => {
   const known = new Map(facts.hunks.map((each) => [each.hunk, each]));
   const uses = (hunk: string) =>
@@ -219,7 +247,7 @@ const described = (diff: Diff, facts: DiffFacts): string => {
           const used = uses(hunk.id);
 
           return [
-            `### ${hunk.id}`,
+            `### ${hunk.id} (${sizeOf(hunk)})`,
             defines.length > 0 ? `defines: ${defines.join(', ')}` : null,
             ...used,
             outside.length > 0
@@ -235,8 +263,6 @@ const described = (diff: Diff, facts: DiffFacts): string => {
     })
     .join('\n\n');
 };
-
-const placedIn = (facts: DiffFacts): number => placedHunks(facts).length;
 
 const MAX_OUTPUT_LINES = 25;
 
@@ -385,7 +411,7 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
   }: ChangeStackGenerationRequest): Promise<GeneratedChangeStack> {
     const { answer, usage } = await this.request(STACK, SYSTEM, [
       repository ? `Repository: ${repository.value}` : null,
-      `The diff, as ${placedIn(facts)} hunks to place:`,
+      `The diff, as ${toPlace(diff, facts)}:`,
       described(diff, facts),
       previous ? previousStackPrompt(previous, facts, 'stack') : null,
       redraft ? redraftPrompt(redraft) : null,
@@ -410,7 +436,7 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
   }: ChangeStackGenerationRequest): Promise<GeneratedOutline> {
     const { answer, usage } = await this.request(OUTLINE, OUTLINE_SYSTEM, [
       repository ? `Repository: ${repository.value}` : null,
-      `The diff, as ${placedIn(facts)} hunks to place:`,
+      `The diff, as ${toPlace(diff, facts)}:`,
       described(diff, facts),
       previous ? previousStackPrompt(previous, facts, 'cohorts') : null,
       problemsPrompt(problems, 'set of cohorts for this diff'),
@@ -433,7 +459,7 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
     const { answer, usage } = await this.request(LAYERS, LAYERS_SYSTEM, [
       repository ? `Repository: ${repository.value}` : null,
       `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
-      `The cohort's diff, as ${placedIn(part.facts)} hunks to place:`,
+      `The cohort's diff, as ${toPlace(part.diff, part.facts)}:`,
       described(part.diff, part.facts),
       previous ? previousStackPrompt(previous, part.facts, 'layers') : null,
       redraft ? redraftPrompt(redraft) : null,

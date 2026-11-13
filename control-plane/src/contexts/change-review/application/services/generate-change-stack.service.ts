@@ -134,7 +134,7 @@ export class GenerateChangeStack {
       return reused;
     }
 
-    return exceedsOneCall(stack.facts)
+    return exceedsOneCall(stack.diff, stack.facts)
       ? this.split(stack, previous)
       : this.whole(stack, previous);
   }

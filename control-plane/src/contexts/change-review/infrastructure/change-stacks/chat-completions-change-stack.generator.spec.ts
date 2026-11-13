@@ -407,7 +407,7 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
       'The cohort, of kind "change": Invitations. Let admins invite people.',
     );
     expect(body.messages[1].content).toContain(
-      "The cohort's diff, as 1 hunks to place:",
+      "The cohort's diff, as 1 hunks and 2 changed lines to place:",
     );
   });
 });
