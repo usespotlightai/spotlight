@@ -22,7 +22,7 @@ interface OutcomeMeasures {
   readonly cost: Money | null;
 }
 
-interface OutcomeVerdict {
+export interface OutcomeVerdict {
   readonly value: number;
   readonly scale: JudgeScaleKind;
   readonly referenced: boolean;

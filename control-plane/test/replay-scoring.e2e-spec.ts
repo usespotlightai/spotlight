@@ -540,7 +540,7 @@ afterAll(async () => {
 });
 
 describe('a replay at a station that checks and judges', () => {
-  it('generates each replay’s change stack, checks it with the candidate’s own check, judges it against the change people accepted, and puts the task that regressed first', async () => {
+  it('generates each replay’s change stack, checks it with the candidate’s own check, judges it against the change people accepted, and takes one worse attempt against one as noise', async () => {
     const first = await anOriginal(true);
     const second = await anOriginal(false);
     const setId = await keptSet(
@@ -714,11 +714,11 @@ describe('a replay at a station that checks and judges', () => {
         each.baseline[0]?.succeeded,
       ]),
     ).toEqual([
-      [second.runId, true, -2, false, true],
       [first.runId, false, 1, true, true],
+      [second.runId, false, -2, false, true],
     ]);
 
-    const [regressed, steady] = comparison.map((row) =>
+    const [steady, worse] = comparison.map((row) =>
       replay.entries.find((each) => each.original.value === row.original),
     );
     const spentOf = (spent: ModelSpent | null | undefined) =>
@@ -734,17 +734,17 @@ describe('a replay at a station that checks and judges', () => {
       spends: [{ amount: 0.02, currency: 'USD' }],
       unpriced: 0,
     });
-    expect(regressed?.checks).toMatchObject({
+    expect(worse?.checks).toMatchObject({
       state: 'failed',
       failedAt: ['the whole change'],
       why: null,
     });
-    expect(regressed?.verdict).toMatchObject({
+    expect(worse?.verdict).toMatchObject({
       value: 2,
       passes: false,
       referenced: false,
     });
-    expect(regressed?.reasons.map((each) => each.code)).toEqual([
+    expect(worse?.reasons.map((each) => each.code)).toEqual([
       'check-failed',
       'judge-failed',
     ]);

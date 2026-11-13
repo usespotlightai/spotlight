@@ -26,6 +26,13 @@ describe('JudgeScale', () => {
     expect(JudgeScale.of('claims').passes(0.5, 0.6)).toBe(false);
   });
 
+  it('puts a score as its share of the scale, from 0 at the lowest to 1 at the highest', () => {
+    expect(JudgeScale.of('yes-no').shareOf(1)).toBe(1);
+    expect(JudgeScale.of('number').shareOf(1)).toBe(0);
+    expect(JudgeScale.of('number').shareOf(4)).toBe(0.75);
+    expect(JudgeScale.of('claims').shareOf(0.5)).toBe(0.5);
+  });
+
   it('marks claims only when it scores by claims, at the share it scores', () => {
     expect(JudgeScale.of('claims').marks(0.5, [true, false])).toBe(true);
     expect(JudgeScale.of('claims').marks(1, [true, false])).toBe(false);

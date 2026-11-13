@@ -221,7 +221,7 @@ describe('taskComparisons', () => {
     expect(compared[0]?.scoreDelta).toBeNull();
   });
 
-  it('counts a drop in the judge’s score as a regression, even where both succeeded', () => {
+  it('compares the judge’s scores, and takes one lower score against one as noise', () => {
     const judged = (replay: Replay, scores: readonly number[]) =>
       scores.reduce(
         (built, score, at) =>
@@ -247,7 +247,7 @@ describe('taskComparisons', () => {
         each.candidateSuccess,
       ]),
     ).toEqual([
-      ['original_0', -1, true, 1],
+      ['original_0', -1, false, 1],
       ['original_1', 1, false, 1],
     ]);
   });
@@ -512,14 +512,115 @@ describe('results with repeats', () => {
 
   it('puts the chance that the candidate does worse on a task from both sides’ attempts', () => {
     expect(
-      chanceWorse({ succeeded: 0, judged: 1 }, { succeeded: 3, judged: 3 }),
+      chanceWorse({ successes: 0, trials: 1 }, { successes: 3, trials: 3 }),
     ).toBeCloseTo(0.933, 3);
     expect(
-      chanceWorse({ succeeded: 0, judged: 1 }, { succeeded: 2, judged: 3 }),
+      chanceWorse({ successes: 0, trials: 1 }, { successes: 2, trials: 3 }),
     ).toBeCloseTo(0.8, 3);
     expect(
-      chanceWorse({ succeeded: 1, judged: 1 }, { succeeded: 0, judged: 3 }),
+      chanceWorse({ successes: 1, trials: 1 }, { successes: 0, trials: 3 }),
     ).toBeCloseTo(0.067, 3);
+  });
+
+  it('counts a drop in the judge’s score as a regression where the candidate is clearly worse, even where all succeeded, and puts it first', () => {
+    const judgedAs = (
+      replay: Replay,
+      scoreOf: (original: string, repeat: number) => number,
+    ) =>
+      replay.entries.reduce(
+        (built, entry) =>
+          built.recordVerdict(
+            entry.run as RunId,
+            scoredAs(scoreOf(entry.original.value, entry.repeat)),
+            later(90_000),
+          ),
+        replay,
+      );
+    const baseline = judgedAs(withRepeats('replay_live', 3, [], true), () => 5);
+    const candidate = judgedAs(
+      withRepeats('replay_candidate', 3, []),
+      (original, repeat) =>
+        original === 'original_2'
+          ? 2
+          : original === 'original_1' && repeat === 1
+            ? 4
+            : 5,
+    );
+
+    expect(
+      taskComparisons(candidate.outcome(), baseline.outcome()).map((each) => [
+        each.original,
+        each.candidateSuccess,
+        each.regressed,
+      ]),
+    ).toEqual([
+      ['original_2', 1, true],
+      ['original_0', 1, false],
+      ['original_1', 1, false],
+      ['original_3', 1, false],
+    ]);
+  });
+
+  it('puts the chance within the rounding of the exact chance for every whole tally up to the most repeats', () => {
+    const logFactorial = (whole: number): number =>
+      Array.from({ length: Math.max(whole - 1, 0) }, (_, at) =>
+        Math.log(at + 2),
+      ).reduce((sum, each) => sum + each, 0);
+    const logBeta = (one: number, other: number): number =>
+      logFactorial(one - 1) +
+      logFactorial(other - 1) -
+      logFactorial(one + other - 1);
+    const exactly = (
+      ours: { successes: number; trials: number },
+      theirs: { successes: number; trials: number },
+    ): number => {
+      const ourSuccesses = 1 + ours.successes;
+      const ourFailures = 1 + ours.trials - ours.successes;
+      const theirFailures = 1 + theirs.trials - theirs.successes;
+
+      return Array.from(
+        { length: 1 + theirs.successes },
+        (_, each) =>
+          Math.exp(
+            logBeta(ourSuccesses + each, ourFailures + theirFailures) -
+              logBeta(1 + each, theirFailures) -
+              logBeta(ourSuccesses, ourFailures),
+          ) /
+          (theirFailures + each),
+      ).reduce((sum, each) => sum + each, 0);
+    };
+    const tallies = Array.from({ length: 6 }, (_, trials) =>
+      Array.from({ length: trials + 1 }, (_, successes) => ({
+        successes,
+        trials,
+      })),
+    ).flat();
+
+    for (const ours of tallies) {
+      for (const theirs of tallies) {
+        expect(
+          Math.abs(chanceWorse(ours, theirs) - exactly(ours, theirs)),
+        ).toBeLessThan(1e-5);
+      }
+    }
+  });
+
+  it('puts a chance on tallies far beyond the most repeats', () => {
+    expect(
+      chanceWorse(
+        { successes: 400, trials: 1000 },
+        { successes: 600, trials: 1000 },
+      ),
+    ).toBeCloseTo(1, 6);
+  });
+
+  it('takes a judge’s score as that share of a success', () => {
+    expect(
+      chanceWorse({ successes: 0.25, trials: 1 }, { successes: 1, trials: 1 }),
+    ).toBeLessThan(0.9);
+    expect(
+      chanceWorse({ successes: 0.75, trials: 3 }, { successes: 3, trials: 3 }),
+    ).toBeGreaterThan(0.9);
   });
 
   it('takes a chance of exactly 90% for noise, whatever the rounding', () => {
@@ -527,8 +628,8 @@ describe('results with repeats', () => {
     const baseline = withRepeats('replay_live', 2, [], true);
 
     expect(
-      chanceWorse({ succeeded: 0, judged: 1 }, { succeeded: 2, judged: 2 }),
-    ).toBeCloseTo(0.9, 9);
+      chanceWorse({ successes: 0, trials: 1 }, { successes: 2, trials: 2 }),
+    ).toBeCloseTo(0.9, 6);
     expect(
       taskComparisons(candidate.outcome(), baseline.outcome()).some(
         (each) => each.regressed,
