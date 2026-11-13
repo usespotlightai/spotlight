@@ -23,8 +23,8 @@ export function StationHeading({
   tab,
 }: StationHeadingProps) {
   return (
-    <div className="flex shrink-0 flex-col gap-3 pt-3">
-      <div className={cn(STATION_COLUMN, 'flex min-w-0 flex-col gap-1')}>
+    <>
+      <div className={cn(STATION_COLUMN, 'flex min-w-0 flex-col gap-1 pt-3')}>
         <div className="flex min-w-0 items-center justify-between gap-3">
           <PageTitle
             lead={
@@ -53,7 +53,7 @@ export function StationHeading({
       </div>
 
       {station.kind === 'work' && (
-        <div className="border-border border-b">
+        <div className="sticky top-0 z-20 mt-3 border-border border-b bg-surface">
           <div className={STATION_COLUMN}>
             <StationTabs
               slug={slug}
@@ -65,6 +65,6 @@ export function StationHeading({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

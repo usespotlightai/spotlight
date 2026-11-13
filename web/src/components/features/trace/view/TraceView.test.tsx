@@ -272,6 +272,41 @@ describe('TraceView', () => {
     );
   });
 
+  it('closes the details from their own close button', async () => {
+    const user = userEvent.setup();
+    view();
+
+    await user.click(screen.getByRole('button', { name: 'npm test' }));
+    expect(
+      screen.getByText('sh: vitest: command not found'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Close the details' }));
+
+    await waitForElementToBeRemoved(() =>
+      screen.queryByText('sh: vitest: command not found'),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Close the details' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('closes the details on Escape', async () => {
+    const user = userEvent.setup();
+    view();
+
+    await user.click(screen.getByRole('button', { name: 'npm test' }));
+    expect(
+      screen.getByText('sh: vitest: command not found'),
+    ).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    await waitForElementToBeRemoved(() =>
+      screen.queryByText('sh: vitest: command not found'),
+    );
+  });
+
   it('marks the judge’s verdict on the row of the run it judged', () => {
     view();
 

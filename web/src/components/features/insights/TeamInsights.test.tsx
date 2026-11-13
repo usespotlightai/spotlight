@@ -106,6 +106,9 @@ vi.mock('@/hooks/api/useStation', () => ({
 vi.mock('@/components/features/trace/list/TraceList', () => ({
   TraceList: ({ range }: { range: string }) => <p>Traces over {range}</p>,
 }));
+vi.mock('@/hooks/api/useInsightsTraces', () => ({
+  useInsightsTraces: () => queried(undefined),
+}));
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({ data: [] }),
 }));

@@ -1,4 +1,7 @@
-import { MEMORY_COLUMNS } from '@/components/features/memory/columns';
+import {
+  MEMORY_COLUMNS,
+  MEMORY_WIDE_CELL,
+} from '@/components/features/memory/columns';
 import { cn } from '@/lib/utils';
 
 export function MemoryHead() {
@@ -10,11 +13,11 @@ export function MemoryHead() {
       )}
     >
       <span className="truncate">Memory</span>
-      <span className="truncate">Kind</span>
-      <span className="truncate">Applies to</span>
-      <span className="truncate">Source</span>
-      <span className="truncate">Approved by</span>
-      <span className="truncate text-right">Runs</span>
+      <span className="hidden truncate @md/pane:block">Kind</span>
+      <span className={cn('truncate', MEMORY_WIDE_CELL)}>Applies to</span>
+      <span className={cn('truncate', MEMORY_WIDE_CELL)}>Source</span>
+      <span className={cn('truncate', MEMORY_WIDE_CELL)}>Approved by</span>
+      <span className={cn('truncate text-right', MEMORY_WIDE_CELL)}>Runs</span>
     </div>
   );
 }

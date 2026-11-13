@@ -11,6 +11,7 @@ import { useCollapsed } from '@/hooks/useCollapsed';
 import type { LineResponseDto } from '@/lib/api';
 import { type BoardView, inView } from '@/lib/board';
 import { moveTargetFor, type Task } from '@/lib/task';
+import { cn } from '@/lib/utils';
 
 const STATIONS_STORAGE_KEY = 'spotlight.collapsed-stations';
 
@@ -84,7 +85,10 @@ export function Board({
       >
         <ScrollArea
           className="min-h-0 flex-1"
-          contentClassName="min-h-full flex flex-col gap-0.5 py-1.5"
+          contentClassName={cn(
+            'min-h-full flex flex-col gap-0.5 py-1.5',
+            selected.length > 0 && 'pb-16',
+          )}
         >
           {shown.map(({ station, place }) => (
             <BoardStation

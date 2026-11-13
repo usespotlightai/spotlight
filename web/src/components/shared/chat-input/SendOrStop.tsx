@@ -13,7 +13,7 @@ export function SendOrStop({ onStop, unsendable }: SendOrStopProps) {
       <Button
         type="button"
         size="icon-sm"
-        className="rounded-full"
+        className="rounded-full pointer-coarse:size-9"
         onClick={onStop}
         aria-label="Stop"
       >
@@ -26,7 +26,7 @@ export function SendOrStop({ onStop, unsendable }: SendOrStopProps) {
     <Button
       type="submit"
       size="icon-sm"
-      className="rounded-full"
+      className="rounded-full pointer-coarse:size-9"
       disabled={unsendable}
       aria-label="Send"
     >

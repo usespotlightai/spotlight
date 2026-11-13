@@ -341,6 +341,18 @@
 body.resizing {
   cursor: col-resize;
   user-select: none;
+
+  & :not(aside, [data-slot='pane']) {
+    transition: none !important;
+  }
+
+  & :is([data-slot='pane'], [data-slot='sidebar-gutter'] > aside) {
+    pointer-events: none;
+  }
+
+  & [data-slot='scroll-area-scrollbar'] {
+    display: none;
+  }
 }
 
 @keyframes detail-room-open {

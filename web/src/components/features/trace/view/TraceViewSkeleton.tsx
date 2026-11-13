@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 
+import { TIMELINE } from '@/components/features/trace/view/TraceBar';
 import { TraceGrid } from '@/components/features/trace/view/TraceGrid';
 import {
   type TraceRowShape,
@@ -10,6 +11,7 @@ import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { NAMES_PANE } from '@/lib/trace';
+import { cn } from '@/lib/utils';
 
 const WATERFALL: readonly TraceRowShape[] = [
   { depth: 0, hasChildren: true, name: 'w-16', left: 0, width: 7 },
@@ -36,30 +38,32 @@ export function TraceViewSkeleton() {
       aria-label="Loading the trace"
       className="flex min-h-0 flex-1 flex-col"
     >
-      <div
-        className="relative min-h-0 min-w-0 flex-1"
-        style={{ '--names': `${names.width}px` } as CSSProperties}
-      >
-        <ScrollArea
-          orientation="both"
-          className="h-full"
-          contentClassName="min-h-full flex flex-col"
+      <div className="@container/trace relative min-h-0 min-w-0 flex-1">
+        <div
+          className={cn('h-full', TIMELINE)}
+          style={{ '--names-wanted': `${names.width}px` } as CSSProperties}
         >
-          <TraceScale label={() => <SkeletonLine className="w-5" />} />
+          <ScrollArea
+            orientation="both"
+            className="h-full"
+            contentClassName="min-h-full flex flex-col"
+          >
+            <TraceScale label={() => <SkeletonLine className="w-5" />} />
 
-          <div className="relative flex-1 px-1.5">
-            <TraceGrid />
+            <div className="relative flex-1 px-1.5">
+              <TraceGrid />
 
-            <ul className="relative flex flex-col pt-2 pb-6">
-              {WATERFALL.map((row) => (
-                <TraceRowSkeleton
-                  key={`${row.depth}-${row.left}-${row.name}`}
-                  {...row}
-                />
-              ))}
-            </ul>
-          </div>
-        </ScrollArea>
+              <ul className="relative flex flex-col pt-2 pb-6">
+                {WATERFALL.map((row) => (
+                  <TraceRowSkeleton
+                    key={`${row.depth}-${row.left}-${row.name}`}
+                    {...row}
+                  />
+                ))}
+              </ul>
+            </div>
+          </ScrollArea>
+        </div>
       </div>
     </div>
   );

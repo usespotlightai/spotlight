@@ -9,8 +9,10 @@ import {
   focused,
   opened,
   panesOf,
+  placeAt,
   placed,
   selected,
+  storableTabs,
   storedTabs,
   tabIconOf,
   titled,
@@ -92,6 +94,14 @@ describe('visited and titled', () => {
     });
     expect(next.tabs[0]).toBe(three.tabs[0]);
   });
+
+  it('keep what the page was opened with', () => {
+    const state = { prompt: 'Set up our configuration as code.' };
+    const place = placeAt('/w/acme/team/team_1/agent', state);
+
+    expect(visited(three, place).tabs[1]?.state).toBe(state);
+    expect(placeAt('/w/acme/inbox', null)).toEqual({ path: '/w/acme/inbox' });
+  });
 });
 
 describe('opened', () => {
@@ -172,16 +182,41 @@ describe('storedTabs', () => {
     const trail = [{ label: 'Platform', to: '/w/acme/team/team_1' }];
     const stored = JSON.stringify({
       tabs: [
-        { id: 'a', path: '/w/acme/inbox', title: 'Inbox', trail },
-        { id: 'b', path: '/w/acme/settings', title: null, trail: [{}] },
+        { id: 'a', path: '/w/acme/inbox', title: 'Inbox', state: { trail } },
+        {
+          id: 'b',
+          path: '/w/acme/settings',
+          title: null,
+          state: { trail: [{}] },
+        },
       ],
       activeId: 'a',
     });
 
     const [first, second] = storedTabs(stored, 'new', here).tabs;
 
-    expect(first?.trail).toEqual(trail);
+    expect(first?.state).toEqual({ trail });
     expect(second).toEqual({ id: 'b', path: '/w/acme/settings', title: null });
+  });
+});
+
+describe('storableTabs', () => {
+  it('keeps only the trail of what each tab was opened with', () => {
+    const trail = [{ label: 'Platform', to: '/w/acme/team/team_1' }];
+    const tabs: AppTabs = {
+      ...three,
+      tabs: [
+        { ...inbox, state: { trail, prompt: 'Set up.' } },
+        { ...three.tabs[1], state: { prompt: 'Set up.' } },
+        three.tabs[2],
+      ],
+    };
+
+    expect(storableTabs(tabs).tabs).toEqual([
+      { ...inbox, state: { trail } },
+      three.tabs[1],
+      three.tabs[2],
+    ]);
   });
 });
 

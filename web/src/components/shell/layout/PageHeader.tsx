@@ -22,7 +22,7 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        'flex h-12 shrink-0 items-center gap-3 px-4',
+        'flex h-12 shrink-0 items-center gap-2 px-3 @md/pane:gap-3 @md/pane:px-4',
         bordered && 'border-b-[0.5px] border-border',
       )}
     >
@@ -36,7 +36,7 @@ export function PageHeader({
       )}
       {trailing}
       {actions && (
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex items-center justify-end gap-2">
           {actions}
         </div>
       )}

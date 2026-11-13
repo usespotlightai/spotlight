@@ -1,8 +1,10 @@
 import { useDroppable } from '@dnd-kit/core';
-import { use } from 'react';
+import { use, useRef } from 'react';
 
 import { TabDragContext, zoneId } from '@/components/shell/tabs/tab-drag';
+import { useNarrowerThan } from '@/hooks/useNarrowerThan';
 import type { SplitSide } from '@/lib/app-tabs';
+import { TWO_PANES_PX } from '@/lib/panes';
 import { cn } from '@/lib/utils';
 
 type SplitDropZonesProps = {
@@ -10,9 +12,17 @@ type SplitDropZonesProps = {
 };
 
 export function SplitDropZones({ sides }: SplitDropZonesProps) {
+  const frame = useRef<HTMLDivElement>(null);
+  const narrow = useNarrowerThan(frame, TWO_PANES_PX);
+  const shown = sides.length > 1 && narrow ? [] : sides;
+
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 z-30 flex">
-      {sides.map((side) => (
+    <div
+      ref={frame}
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-30 flex"
+    >
+      {shown.map((side) => (
         <SplitDropZone key={side} side={side} />
       ))}
     </div>

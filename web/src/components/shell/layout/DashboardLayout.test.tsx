@@ -28,6 +28,13 @@ const pointer = {
   pointerUp: firedAt('pointerUp'),
 };
 
+const mediaMatching =
+  (matches: (query: string) => boolean) => (query: string) => ({
+    matches: matches(query),
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  });
+
 const handle = () => screen.getByRole('separator', { name: 'Resize sidebar' });
 
 beforeEach(() => {
@@ -116,9 +123,9 @@ describe('DashboardLayout split view', () => {
   const splitHandle = () =>
     screen.getByRole('separator', { name: 'Resize split view' });
 
-  const row = () => splitHandle().closest('.\\@container') as HTMLElement;
-
   const splitColumn = () => splitHandle().parentElement as HTMLElement;
+
+  const row = () => splitColumn().parentElement as HTMLElement;
 
   const drag = (to: number) => {
     pointer.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
@@ -186,10 +193,81 @@ describe('DashboardLayout split view', () => {
     ).toBeNull();
   });
 
+  it('closes the pane the drag showed closing when the pointer capture is lost', () => {
+    const onCollapse = vi.fn();
+    renderSplit(onCollapse);
+
+    pointer.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
+    wait(100);
+    pointer.pointerMove(splitHandle(), { clientX: 500, pointerId: 1 });
+    fireEvent.lostPointerCapture(splitHandle(), { pointerId: 1 });
+
+    expect(onCollapse).toHaveBeenCalledOnce();
+    expect(onCollapse).toHaveBeenCalledWith('split');
+    expect(document.body).not.toHaveClass('resizing');
+    expect(splitColumn().style.width).toBe('');
+  });
+
+  it('keeps both panes when the pointer capture is lost before the drag shows a close', () => {
+    const onCollapse = vi.fn();
+    renderSplit(onCollapse);
+
+    pointer.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
+    wait(100);
+    pointer.pointerMove(splitHandle(), { clientX: 500, pointerId: 1 });
+    pointer.pointerMove(splitHandle(), { clientX: 100, pointerId: 1 });
+    fireEvent.lostPointerCapture(splitHandle(), { pointerId: 1 });
+
+    expect(onCollapse).not.toHaveBeenCalled();
+    expect(pane('b slot')).not.toHaveAttribute('data-collapsing');
+  });
+
+  describe('a pane dropped beside the shown one', () => {
+    const animate = vi.fn<(keyframes: Keyframe[]) => void>();
+
+    beforeEach(() => {
+      animate.mockClear();
+      Object.assign(HTMLElement.prototype, {
+        animate,
+        getAnimations: () => [],
+      });
+    });
+
+    afterEach(() => {
+      Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+      Reflect.deleteProperty(HTMLElement.prototype, 'getAnimations');
+    });
+
+    const animated = () =>
+      (animate.mock.contexts as HTMLElement[]).map(
+        (element) =>
+          element.querySelector('[data-slot="pane"]')?.textContent ??
+          element.textContent,
+      );
+
+    it('grows in from the left edge while the shown pane narrows', () => {
+      const { show } = renderSplit(vi.fn(), ['a']);
+
+      show('b', 'a');
+
+      expect(animated()).toEqual(['a slot', 'b slot', 'b slot']);
+      expect(animate.mock.calls[0]?.[0][0]).toHaveProperty('width');
+    });
+
+    it('leaves a pane dropped on the right to its own entrance', () => {
+      const { show } = renderSplit(vi.fn(), ['a']);
+
+      show('a', 'b');
+
+      expect(animate).not.toHaveBeenCalled();
+    });
+  });
+
   it('drops a closed pane at once when motion is reduced', () => {
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query.includes('reduce'),
-    }));
+    vi.stubGlobal(
+      'matchMedia',
+      mediaMatching((query) => query.includes('reduce')),
+    );
     const onCollapse = vi.fn();
     const { show } = renderSplit(onCollapse);
 
@@ -276,7 +354,6 @@ describe('DashboardLayout split view', () => {
   it('keeps the remembered width when the room is too small for it', () => {
     renderSplit();
     roomOf(478);
-    splitColumn().style.maxWidth = '235px';
     Object.defineProperty(splitColumn(), 'offsetWidth', { value: 235 });
 
     drag(-20);
@@ -288,25 +365,51 @@ describe('DashboardLayout split view', () => {
   it('follows the pointer past the smallest main pane', () => {
     renderSplit();
     roomOf(1000);
-    splitColumn().style.maxWidth = '672px';
 
     pointer.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
     wait(100);
     pointer.pointerMove(splitHandle(), { clientX: -100, pointerId: 1 });
 
-    expect(row().style.getPropertyValue('--split-drag')).toBe('');
+    expect(splitColumn().style.width).toBe('660px');
+    expect(splitColumn().style.maxWidth).toBe('');
 
     wait(100);
     pointer.pointerMove(splitHandle(), { clientX: -150, pointerId: 1 });
 
-    expect(row().style.getPropertyValue('--split-drag')).toBe('710px');
+    expect(splitColumn().style.width).toBe('710px');
+    expect(splitColumn().style.maxWidth).not.toBe('');
     expect(pane('a slot')).not.toHaveAttribute('data-collapsing');
+  });
+
+  it('keeps the split pane within the row while it follows the pointer', () => {
+    renderSplit();
+    roomOf(1000);
+
+    pointer.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
+    wait(100);
+    pointer.pointerMove(splitHandle(), { clientX: -900, pointerId: 1 });
+
+    expect(splitColumn().style.maxWidth).toMatch(
+      /^min\(calc\(100% - var\(--pane-gap\)\), /,
+    );
+    expect(row().firstElementChild).toHaveClass('min-w-0');
+  });
+
+  it('shows no less than no width when the pointer passes the split pane', () => {
+    renderSplit();
+    roomOf(1000);
+
+    pointer.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
+    wait(100);
+    pointer.pointerMove(splitHandle(), { clientX: 600, pointerId: 1 });
+
+    expect(splitColumn().style.width).toBe('0px');
+    expect(splitColumn().style.maxWidth).toContain(', 0px))');
   });
 
   it('stores no more split width than the room leaves', () => {
     renderSplit();
     roomOf(1000);
-    splitColumn().style.maxWidth = '672px';
 
     drag(-150);
 
@@ -315,7 +418,7 @@ describe('DashboardLayout split view', () => {
 
   it('keeps keyboard resizing within the room', () => {
     renderSplit();
-    splitColumn().style.maxWidth = '600px';
+    roomOf(928);
 
     for (let step = 0; step < 5; step += 1) {
       fireEvent.keyDown(splitHandle(), { key: 'ArrowLeft' });
@@ -339,7 +442,7 @@ describe('DashboardLayout split view', () => {
     pointer.pointerMove(splitHandle(), { clientX: 500, pointerId: 1 });
 
     expect(pane('b slot')).not.toHaveAttribute('data-collapsing');
-    expect(row().style.getPropertyValue('--split-drag')).toBe('');
+    expect(splitColumn().style.width).toBe('');
   });
 
   it('keeps both panes after an ordinary resize', () => {
@@ -445,6 +548,21 @@ describe('DashboardLayout sidebar', () => {
     expect(toggle.closest('[inert]')).not.toBeNull();
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(toggle).toHaveAttribute('aria-controls', aside()?.id);
+  });
+
+  it('keeps the collapse button in reach on a touch screen', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      mediaMatching((query) => query === '(pointer: coarse)'),
+    );
+    renderLayout();
+    const toggle = screen.getByRole('button', { name: 'Collapse sidebar' });
+
+    expect(toggle.closest('[inert]')).toBeNull();
+
+    fireEvent.click(toggle);
+
+    expect(aside()).toHaveAttribute('data-collapsed');
   });
 
   it('toggles the sidebar with the [ key', () => {
@@ -553,7 +671,10 @@ describe('DashboardLayout sidebar', () => {
   });
 
   it('ignores the [ key while the sidebar cannot show', () => {
-    vi.stubGlobal('matchMedia', () => ({ matches: false }));
+    vi.stubGlobal(
+      'matchMedia',
+      mediaMatching(() => false),
+    );
     renderLayout();
 
     press({});
@@ -670,7 +791,7 @@ describe('DashboardLayout sidebar', () => {
 
     expect(aside()).not.toHaveAttribute('data-collapsed');
     expect(sidebarHandle()).toHaveAttribute('aria-valuenow', '192');
-    expect(gutter().style.getPropertyValue('--sidebar-drag')).toBe('');
+    expect(gutter().style.width).toBe('');
     expect(gutter().style.getPropertyValue('--sidebar-width')).toBe('192px');
   });
 
@@ -680,7 +801,7 @@ describe('DashboardLayout sidebar', () => {
     dragSidebar(224, 40, 260);
 
     expect(sidebarHandle()).toHaveAttribute('aria-valuenow', '260');
-    expect(gutter().style.getPropertyValue('--sidebar-drag')).toBe('');
+    expect(gutter().style.width).toBe('');
     expect(gutter().style.getPropertyValue('--sidebar-width')).toBe('260px');
   });
 
@@ -690,11 +811,11 @@ describe('DashboardLayout sidebar', () => {
     pointer.pointerDown(sidebarHandle(), { clientX: 224, pointerId: 1 });
     pointer.pointerMove(sidebarHandle(), { clientX: 150, pointerId: 1 });
 
-    expect(gutter().style.getPropertyValue('--sidebar-drag')).toBe('150px');
+    expect(aside()?.style.translate).toBe('-42px');
 
     pointer.pointerMove(sidebarHandle(), { clientX: 90, pointerId: 1 });
 
-    expect(gutter().style.getPropertyValue('--sidebar-drag')).toBe('90px');
+    expect(aside()?.style.translate).toBe('-102px');
     expect(aside()).toHaveAttribute('data-closing');
   });
 
@@ -708,9 +829,21 @@ describe('DashboardLayout sidebar', () => {
     expect(aside()).not.toHaveAttribute('data-collapsed');
     expect(aside()).not.toHaveAttribute('data-closing');
     expect(document.body).not.toHaveClass('resizing');
-    expect(gutter().style.getPropertyValue('--sidebar-drag')).toBe('');
+    expect(gutter().style.width).toBe('');
+    expect(aside()?.style.translate).toBe('');
     expect(sidebarHandle()).toHaveAttribute('aria-valuenow', '224');
     expect(localStorage.getItem('spotlight.sidebar-width')).toBe('224');
+  });
+
+  it('collapses the sidebar the drag showed closing when the pointer capture is lost', () => {
+    renderLayout();
+
+    pointer.pointerDown(sidebarHandle(), { clientX: 224, pointerId: 1 });
+    pointer.pointerMove(sidebarHandle(), { clientX: 60, pointerId: 1 });
+    fireEvent.lostPointerCapture(sidebarHandle(), { pointerId: 1 });
+
+    expect(localStorage.getItem('spotlight.sidebar-collapsed')).toBe('true');
+    expect(aside()?.style.translate).toBe('');
   });
 
   it('shows the closed sidebar once the pointer rests on the expand button', () => {
@@ -878,5 +1011,92 @@ describe('DashboardLayout sidebar', () => {
     wait(75);
 
     expect(aside()).toHaveAttribute('data-peeking');
+  });
+  describe('on a narrow screen', () => {
+    beforeEach(() => {
+      vi.stubGlobal(
+        'matchMedia',
+        mediaMatching((query) => query === '(width < 48rem)'),
+      );
+    });
+
+    const open = () => {
+      expandButton().focus();
+      fireEvent.click(expandButton());
+    };
+
+    it('keeps the sidebar closed without changing the stored choice', () => {
+      renderLayout();
+
+      expect(aside()).toHaveAttribute('data-collapsed');
+      expect(aside()).toHaveAttribute('inert');
+      expect(expandButton().closest('[inert]')).toBeNull();
+      expect(collapsedNow()).toBe(false);
+    });
+
+    it('shows the sidebar over the page from the expand button', () => {
+      renderLayout();
+
+      open();
+
+      expect(aside()).toHaveAttribute('data-peeking');
+      expect(aside()).not.toHaveAttribute('inert');
+      expect(screen.getByRole('link', { name: 'Inbox' })).toHaveFocus();
+      expect(
+        screen.getByRole('button', { name: 'Collapse sidebar' }),
+      ).toHaveAttribute('aria-expanded', 'true');
+      expect(collapsedNow()).toBe(false);
+    });
+
+    it('keeps the sidebar shown after the pointer leaves it', () => {
+      renderLayout();
+
+      open();
+      pointer.pointerMove(document, { clientX: 500, clientY: 300 });
+      wait(600);
+
+      expect(aside()).toHaveAttribute('data-peeking');
+    });
+
+    it('ignores the pointer resting on the expand button', () => {
+      renderLayout();
+
+      fireEvent.pointerEnter(
+        document.querySelector('[data-slot="sidebar-expand"]') as Element,
+      );
+      wait(100);
+
+      expect(aside()).not.toHaveAttribute('data-peeking');
+    });
+
+    it.each([
+      [
+        'the expand button again',
+        () =>
+          fireEvent.click(
+            screen.getByRole('button', { name: 'Collapse sidebar' }),
+          ),
+      ],
+      ['Escape', () => fireEvent.keyDown(document.body, { key: 'Escape' })],
+      [
+        'a click on the backdrop',
+        () =>
+          fireEvent.click(
+            document.querySelector('[data-slot="sidebar-backdrop"]') as Element,
+          ),
+      ],
+      [
+        'a followed link',
+        () => fireEvent.click(screen.getByRole('link', { name: 'Inbox' })),
+      ],
+    ])('hides the shown sidebar on %s', (_, close) => {
+      renderLayout();
+
+      open();
+      close();
+
+      expect(aside()).not.toHaveAttribute('data-peeking');
+      expect(aside()).toHaveAttribute('inert');
+    });
   });
 });

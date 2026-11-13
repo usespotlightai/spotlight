@@ -33,8 +33,8 @@ export function BriefingCard({ briefing, attachments }: BriefingCardProps) {
             className={cn(
               'transition-[max-height] duration-200 ease-out motion-reduce:transition-none',
               open
-                ? 'max-h-64'
-                : 'max-h-32 [mask-image:linear-gradient(to_bottom,black_55%,transparent)]',
+                ? 'max-h-[min(50vh,16rem)]'
+                : 'max-h-[min(20vh,8rem)] [mask-image:linear-gradient(to_bottom,black_55%,transparent)]',
             )}
           >
             <p

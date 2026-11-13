@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
 import { contentsOf, reported } from '@/lib/detail';
 import {
@@ -23,23 +25,32 @@ const tokensOf = (node: TraceNode): string | null => {
   return all > 0 ? counted(all) : null;
 };
 
-export function DetailHeader({ node }: { node: TraceNode }) {
+export function DetailHeader({
+  node,
+  action,
+}: {
+  node: TraceNode;
+  action?: ReactNode;
+}) {
   const contents = contentsOf(node);
   const model = reported(node, 'gen_ai.request.model', 'llm.model_name');
   const tokens = tokensOf(node);
 
   return (
     <div className="flex flex-col gap-3">
-      <h2
-        className={cn(
-          'min-w-0 break-words font-medium text-sm leading-5',
-          node.category === 'failed'
-            ? 'text-outcome-failed'
-            : 'text-foreground',
-        )}
-      >
-        {node.name}
-      </h2>
+      <div className="flex items-start gap-2">
+        <h2
+          className={cn(
+            'min-w-0 flex-1 break-words font-medium text-sm leading-5',
+            node.category === 'failed'
+              ? 'text-outcome-failed'
+              : 'text-foreground',
+          )}
+        >
+          {node.name}
+        </h2>
+        {action}
+      </div>
 
       <dl className="flex flex-col">
         <DetailProperty name="Started">

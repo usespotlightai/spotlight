@@ -3,7 +3,6 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -11,6 +10,7 @@ import {
 
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
+import { ResponsiveChart } from '@/components/shared/chart/ResponsiveChart';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { durationTicks, formatDurationTick } from '@/lib/insights-shipping';
 import { formatDay } from '@/lib/judge';
@@ -92,7 +92,7 @@ export function DayChart({
     <figure aria-label={label} className="flex flex-col gap-2">
       <div className="[&_*:focus:not(:focus-visible)]:outline-none">
         <div {...cursor.area}>
-          <ResponsiveContainer width="100%" height={height}>
+          <ResponsiveChart height={height}>
             <ComposedChart
               data={[...points]}
               margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
@@ -151,7 +151,7 @@ export function DayChart({
                 ),
               )}
             </ComposedChart>
-          </ResponsiveContainer>
+          </ResponsiveChart>
         </div>
       </div>
       {legend && <ChartLegend entries={series} />}

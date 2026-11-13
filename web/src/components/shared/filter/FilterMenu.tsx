@@ -65,7 +65,7 @@ export function FilterMenu({
         aria-label={filled ? `${label}, ${applied} applied` : label}
         className={cn(
           filled ? trigger.filled : trigger.empty,
-          'bg-card shadow-none transition-colors data-[popup-open]:bg-muted',
+          'relative bg-card shadow-none transition-colors data-[popup-open]:bg-muted pointer-coarse:after:absolute pointer-coarse:after:-inset-2',
           trigger.trigger,
         )}
       >

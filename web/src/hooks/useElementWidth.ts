@@ -1,4 +1,11 @@
-import { type RefObject, useLayoutEffect, useState } from 'react';
+import {
+  type RefObject,
+  startTransition,
+  useLayoutEffect,
+  useState,
+} from 'react';
+
+const SETTLE_MS = 100;
 
 export function useElementWidth(element: RefObject<HTMLElement | null>) {
   const [width, setWidth] = useState(0);
@@ -10,16 +17,38 @@ export function useElementWidth(element: RefObject<HTMLElement | null>) {
       return;
     }
 
-    // react-doctor-disable-next-line react-hooks-js/set-state-in-effect
-    setWidth(Math.round(target.clientWidth)); // oxlint-disable-line react/set-state-in-effect -- the first width, before the observer reports
+    let shown = Math.round(target.clientWidth);
+    let settling: number | undefined;
+    const show = (next: number) => {
+      shown = next;
+      setWidth(next);
+    };
+
+    show(shown);
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) {
-        setWidth(Math.round(entry.contentRect.width));
+      if (!entry) {
+        return;
       }
+      const next = Math.round(entry.contentRect.width);
+      window.clearTimeout(settling);
+      if (next === shown) {
+        return;
+      }
+      if (shown === 0) {
+        show(next);
+        return;
+      }
+      settling = window.setTimeout(
+        () => startTransition(() => show(next)),
+        SETTLE_MS,
+      );
     });
     observer.observe(target);
 
-    return () => observer.disconnect();
+    return () => {
+      window.clearTimeout(settling);
+      observer.disconnect();
+    };
   }, [element]);
 
   return width;

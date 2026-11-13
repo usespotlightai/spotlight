@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import {
   type Location,
   MemoryRouter,
@@ -92,7 +93,7 @@ function HandedOver() {
   return <pre>{JSON.stringify(state.traces)}</pre>;
 }
 
-const showing = (filter: RunFilter = {}) =>
+const showing = (filter: RunFilter = {}, filters?: ReactNode) =>
   render(
     <MemoryRouter initialEntries={['/w/acme/team/team_1/insights']}>
       <Routes>
@@ -104,6 +105,7 @@ const showing = (filter: RunFilter = {}) =>
               teamId="team_1"
               range="7d"
               filter={filter}
+              filters={filters}
               onEveryTrace={everyTrace}
             />
           }
@@ -127,6 +129,26 @@ describe('TraceList', () => {
     expect(
       screen.getByRole('link', { name: 'Drain the stuck retry queues' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/tasks/task_1/trace');
+  });
+
+  it('shows the filters above the traces', () => {
+    showing({}, <button type="button">Every station</button>);
+
+    expect(
+      screen.getByRole('button', { name: 'Every station' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Drain the stuck retry queues' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the filters while the traces load', () => {
+    traces.mockReturnValue(undefined);
+    showing({}, <button type="button">Every station</button>);
+
+    expect(
+      screen.getByRole('button', { name: 'Every station' }),
+    ).toBeInTheDocument();
   });
 
   it('says how many of the runs of each trace match when narrowed', () => {

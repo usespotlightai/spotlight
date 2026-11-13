@@ -1,5 +1,5 @@
 export const OUTER_GUIDE =
-  'before:pointer-events-none before:absolute before:inset-y-0 before:left-4 before:w-px before:bg-border';
+  'before:pointer-events-none before:absolute before:inset-y-0 before:left-4 before:w-px before:bg-border [--cell-indent:1.75rem]';
 
 export const EDGE_INDENT = 'pl-2';
 

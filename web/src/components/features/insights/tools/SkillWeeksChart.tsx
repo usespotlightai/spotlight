@@ -53,7 +53,7 @@ export function SkillWeeksChart({ weeks, max, onWeek }: SkillWeeksChartProps) {
               type="button"
               aria-label={tooltipText(note)}
               onClick={() => onWeek(week.week)}
-              className="group/week flex h-full items-end rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="group/week relative flex h-full items-end pointer-coarse:after:absolute pointer-coarse:after:-inset-y-2 pointer-coarse:after:inset-x-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               style={{ width: SKILL_WEEK_BAR }}
             >
               {week.runs > 0 && (

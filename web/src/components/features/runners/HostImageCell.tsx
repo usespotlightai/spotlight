@@ -53,7 +53,7 @@ export function HostImageCell({
       )}
 
       {unavailable.length > 0 && (
-        <UnavailableImagesPill unavailable={unavailable} className="min-w-12">
+        <UnavailableImagesPill unavailable={unavailable} className="shrink-0">
           {unavailable.length} unavailable
         </UnavailableImagesPill>
       )}

@@ -30,7 +30,10 @@ export function YourToolRules({
           key={each.tool}
           className="flex min-h-7 items-center justify-between gap-4"
         >
-          <span className="truncate text-foreground text-sm">
+          <span
+            title={named(integration, each.tool)}
+            className="truncate text-foreground text-sm"
+          >
             {named(integration, each.tool)}
           </span>
           <ToolRuleSelect

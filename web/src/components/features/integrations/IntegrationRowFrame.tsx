@@ -95,32 +95,41 @@ export function IntegrationRowFrame({
       <div
         ref={head}
         data-slot="integration-head"
-        className="flex min-h-12 items-center justify-between gap-4 px-4 py-2"
+        className="relative flex min-h-12 items-center gap-3 px-4 py-2"
       >
-        <div className="flex min-w-0 items-center gap-3">
-          {logo}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex min-w-0 flex-1 basis-40 items-center gap-3">
+            {logo}
 
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="flex items-center gap-1.5">
-              <button
-                type="button"
-                aria-expanded={open}
-                aria-controls={details}
-                onClick={toggle}
-                className="truncate rounded-sm text-left font-medium text-foreground text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {name}
-              </button>
-              {mark}
-            </span>
-            <span className="text-muted-foreground text-xs">{summary}</span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  title={name}
+                  aria-expanded={open}
+                  aria-controls={details}
+                  onClick={toggle}
+                  className="truncate rounded-sm text-left font-medium text-foreground text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:after:absolute pointer-coarse:after:inset-0"
+                >
+                  {name}
+                </button>
+                {mark}
+              </span>
+              <span className="text-muted-foreground text-xs">{summary}</span>
+            </div>
           </div>
+
+          {!open && (
+            <div className="relative flex shrink-0 items-center empty:hidden pointer-coarse:[&_[data-need]]:h-7 @max-md/pane:basis-full @max-md/pane:pl-8 @md/pane:ml-auto">
+              {need}
+            </div>
+          )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          {!open && need}
-          <ExpandChevron open={open} className="size-4 text-muted-foreground" />
-        </div>
+        <ExpandChevron
+          open={open}
+          className="size-4 shrink-0 text-muted-foreground"
+        />
       </div>
 
       <div id={details} ref={body} className="cursor-auto">

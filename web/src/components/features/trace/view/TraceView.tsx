@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { SpanDetail } from '@/components/features/trace/view/SpanDetail';
+import { TIMELINE } from '@/components/features/trace/view/TraceBar';
 import { TraceGrid } from '@/components/features/trace/view/TraceGrid';
 import { TraceRow } from '@/components/features/trace/view/TraceRow';
 import { TraceScale } from '@/components/features/trace/view/TraceScale';
@@ -45,8 +46,18 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
       }
     };
 
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) {
+        setPicked(null);
+      }
+    };
+
     document.addEventListener('pointerdown', away);
-    return () => document.removeEventListener('pointerdown', away);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('pointerdown', away);
+      document.removeEventListener('keydown', escape);
+    };
   }, [picked]);
 
   const rows = useMemo(() => rowsOf(trace.roots, closed), [trace, closed]);
@@ -79,60 +90,66 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
             open={chosen !== null}
             duration={LEAVING}
             ref={panel}
+            onClose={() => setPicked(null)}
           />
         )
       }
     >
-      <div
-        ref={namesRef}
-        className="relative flex min-w-0 flex-1 flex-col"
-        style={{ '--names': `${namesWidth}px` } as CSSProperties}
-      >
+      <div className="@container/trace flex min-w-0 flex-1 flex-col">
         <div
-          className={cn('flex flex-1 flex-col', namesResizing && 'select-none')}
+          ref={namesRef}
+          className={cn('relative flex min-w-0 flex-1 flex-col', TIMELINE)}
+          style={{ '--names-wanted': `${namesWidth}px` } as CSSProperties}
         >
-          <TraceScale
-            label={(tick) => formatShortDuration(Math.round(whole * tick))}
-          />
+          <div
+            className={cn(
+              'flex flex-1 flex-col',
+              namesResizing && 'select-none',
+            )}
+          >
+            <TraceScale
+              label={(tick) => formatShortDuration(Math.round(whole * tick))}
+            />
 
-          {rows.length === 0 ? (
-            <p className="p-8 text-center text-muted-foreground text-sm">
-              No matches.
-            </p>
-          ) : (
-            <div className="relative flex-1 px-1.5">
-              <TraceGrid />
+            {rows.length === 0 ? (
+              <p className="p-8 text-center text-muted-foreground text-sm">
+                No matches.
+              </p>
+            ) : (
+              <div className="relative flex-1 px-1.5">
+                <TraceGrid />
 
-              <ul ref={listed} className="relative flex flex-col pt-2 pb-6">
-                {rows.map((row) => (
-                  <TraceRow
-                    key={row.node.id}
-                    node={row.node}
-                    teamId={teamId}
-                    depth={row.depth}
-                    childCount={row.children}
-                    trace={trace}
-                    picked={row.node.id === picked}
-                    open={!closed.has(row.node.id)}
-                    onPick={pick}
-                    onToggle={toggle}
-                  />
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+                <ul ref={listed} className="relative flex flex-col pt-2 pb-6">
+                  {rows.map((row) => (
+                    <TraceRow
+                      key={row.node.id}
+                      node={row.node}
+                      teamId={teamId}
+                      depth={row.depth}
+                      childCount={row.children}
+                      trace={trace}
+                      picked={row.node.id === picked}
+                      open={!closed.has(row.node.id)}
+                      onPick={pick}
+                      onToggle={toggle}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
 
-        <div
-          className="pointer-events-none absolute inset-y-0 left-0"
-          style={{ width: 'var(--names)' }}
-        >
-          <PaneHandle
-            {...namesHandle}
-            edge="right"
-            resizing={namesResizing}
-            className="pointer-events-auto"
-          />
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0"
+            style={{ width: 'var(--names)' }}
+          >
+            <PaneHandle
+              {...namesHandle}
+              edge="right"
+              resizing={namesResizing}
+              className="pointer-events-auto hidden @md/trace:block"
+            />
+          </div>
         </div>
       </div>
     </PaneScroller>

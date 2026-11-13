@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
-import { prefersReducedMotion } from '@/lib/motion';
+import { canAnimate, prefersReducedMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -20,31 +20,41 @@ export function TerminalSpinner({
   className,
   'aria-hidden': hidden = true,
 }: TerminalSpinnerProps) {
-  const [frame, setFrame] = useState(0);
+  const strip = useRef<HTMLSpanElement>(null);
+  const moving = !stopped && !prefersReducedMotion();
+  const glyphs = moving ? FRAMES : [stopped ? STOPPED : FRAMES[0]];
 
   useEffect(() => {
-    if (stopped || prefersReducedMotion()) {
+    if (!moving || !canAnimate(strip.current)) {
       return;
     }
-    const ticking = window.setInterval(
-      () => setFrame((at) => (at + 1) % FRAMES.length),
-      FRAME_MS,
+    const turning = strip.current.animate(
+      [{ transform: 'translateY(0)' }, { transform: 'translateY(-100%)' }],
+      {
+        duration: FRAME_MS * FRAMES.length,
+        easing: `steps(${FRAMES.length})`,
+        iterations: Infinity,
+      },
     );
 
-    return () => window.clearInterval(ticking);
-  }, [stopped]);
+    return () => turning.cancel();
+  }, [moving]);
 
   return (
     <span
       aria-hidden={hidden}
       className={cn(
-        'inline-flex h-4 shrink-0 select-none items-center text-base leading-none',
+        'inline-flex h-4 shrink-0 select-none items-start overflow-hidden text-base leading-4',
         className,
         'w-auto',
         stopped === 'faded' && 'text-faint',
       )}
     >
-      {stopped ? STOPPED : FRAMES[frame]}
+      <span ref={strip} className="flex flex-col">
+        {glyphs.map((glyph) => (
+          <span key={glyph}>{glyph}</span>
+        ))}
+      </span>
     </span>
   );
 }

@@ -32,7 +32,12 @@ export function DecisionTitle({
       ) : (
         Icon && <Icon aria-hidden className="size-4 shrink-0" />
       )}
-      <span className="truncate">{children}</span>
+      <span
+        title={typeof children === 'string' ? children : undefined}
+        className="truncate"
+      >
+        {children}
+      </span>
     </Heading>
   );
 }

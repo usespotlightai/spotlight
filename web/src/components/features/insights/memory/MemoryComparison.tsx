@@ -43,7 +43,9 @@ export function MemoryComparison({ runs, verdicts }: MemoryComparisonProps) {
               {row.other}
             </NestedCell>
             <NestedCell heading="Change">
-              {row.delta ? <DeltaGlyph delta={row.delta} /> : '–'}
+              <span className="flex @4xl:justify-end">
+                {row.delta ? <DeltaGlyph delta={row.delta} /> : '–'}
+              </span>
             </NestedCell>
           </li>
         ),

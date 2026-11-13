@@ -31,7 +31,7 @@ export function EditorSetup({ app, origin }: EditorSetupProps) {
               <span className="text-muted-foreground text-xs">
                 {step.title}
               </span>
-              <span className="select-text break-all text-foreground text-sm">
+              <span className="select-text overflow-x-auto whitespace-pre text-foreground text-sm">
                 {step.command}
               </span>
               {step.note && (

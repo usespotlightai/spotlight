@@ -40,7 +40,6 @@ export function WorthImproving({
         <NestedTableSkeleton
           label="Loading the station’s signals"
           headings={WORTH_IMPROVING_HEADINGS}
-          compact
           trailing
         />
       </div>
@@ -71,7 +70,6 @@ export function WorthImproving({
       <NestedTable
         label="Signals worth improving"
         headings={WORTH_IMPROVING_HEADINGS}
-        compact
         trailing
       >
         {flagged.signals.map((reading) => (

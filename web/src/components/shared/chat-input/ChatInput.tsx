@@ -1,7 +1,11 @@
 import { Plus } from 'lucide-react';
-import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
+import {
+  ONE_LINE,
+  STACKED,
+} from '@/components/shared/chat-input/chat-input-layout';
 import { ChatEditor } from '@/components/shared/chat-input/ChatEditor';
 import { ChatInputArea } from '@/components/shared/chat-input/ChatInputArea';
 import { DraftOffline } from '@/components/shared/chat-input/DraftOffline';
@@ -44,17 +48,6 @@ type ChatInputProps = Sending & {
 };
 
 const NO_REFERENCES: readonly Reference[] = [];
-
-const COMPACT: CSSProperties = {
-  gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
-  gridTemplateAreas: '"plus editor settings send"',
-};
-
-const EXPANDED: CSSProperties = {
-  gridTemplateColumns: 'auto minmax(0, 1fr) auto',
-  gridTemplateAreas:
-    '"top top top" "editor editor editor" "plus settings send"',
-};
 
 const forwardSend = (
   onSend: (message: Outgoing, restore: (error?: unknown) => void) => void,
@@ -186,10 +179,10 @@ export function ChatInput({
         <div
           ref={inner}
           data-expanded={expanded || undefined}
-          style={expanded ? EXPANDED : COMPACT}
           className={cn(
             'grid items-center gap-x-1 gap-y-2 p-1.5',
-            expanded && 'pt-0.5',
+            STACKED,
+            !expanded && ONE_LINE,
           )}
         >
           {expanded && lifted && (
@@ -234,8 +227,8 @@ export function ChatInput({
             disabled={disabled}
             area="settings"
             className={cn(
-              'flex min-w-0 items-center gap-1',
-              expanded ? 'justify-start' : 'justify-end',
+              'flex min-w-0 items-center justify-start gap-1',
+              !expanded && '@md/pane:justify-end',
             )}
           >
             {settings}

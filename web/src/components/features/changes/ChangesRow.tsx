@@ -21,7 +21,7 @@ export function ChangesRow({
   return (
     <TrailLink
       to={to}
-      className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/70"
+      className="flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/70"
     >
       <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
 

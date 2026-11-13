@@ -1,3 +1,4 @@
+import { OpenInEditorSkeleton } from '@/components/features/editor/OpenInEditorSkeleton';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { TurnsSkeleton } from '@/components/features/inbox/conversation/TurnsSkeleton';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
@@ -6,9 +7,11 @@ import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { STICKY_AT_TOP } from '@/lib/inbox';
+import { cn } from '@/lib/utils';
 
 export function RunSkeleton() {
   return (
@@ -23,16 +26,17 @@ export function RunSkeleton() {
             <Skeleton className="size-6 rounded" />
             <SkeletonLine className="w-20" />
             <CrumbSeparator />
-            <SkeletonLine className="w-48" />
+            <SkeletonLine className="w-24 @xl/pane:w-48" />
             <CrumbSeparator />
             <SkeletonLine className="w-20" />
           </>
         }
+        actions={<OpenInEditorSkeleton />}
       />
 
       <RunSidePanel>
         <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
-          <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
+          <div className={cn(THREAD_COLUMN, 'flex flex-col')}>
             <SkeletonLine className="w-28 self-center text-xs" />
 
             <section className="flex flex-col">

@@ -6,14 +6,27 @@ import { cn } from '@/lib/utils';
 type SidebarToggleProps = {
   ref?: Ref<HTMLButtonElement>;
   collapsed: boolean;
+  peeking?: boolean;
   controls: string;
   disabled?: boolean;
   onToggle: () => void;
 };
 
+const panelClass = (collapsed: boolean, peeking: boolean) => {
+  if (!collapsed) {
+    return 'group-hover/button:translate-x-[0.75px] group-hover/button:scale-x-[0.278] group-hover/button:scale-y-[0.818]';
+  }
+
+  return (
+    !peeking &&
+    'translate-x-[0.75px] scale-x-[0.278] scale-y-[0.818] group-hover/button:translate-x-0 group-hover/button:scale-100'
+  );
+};
+
 export function SidebarToggle({
   ref,
   collapsed,
+  peeking = false,
   controls,
   disabled,
   onToggle,
@@ -49,9 +62,7 @@ export function SidebarToggle({
           stroke="none"
           className={cn(
             'origin-left transition-transform duration-200 ease-spring [transform-box:fill-box] motion-reduce:transition-none',
-            collapsed
-              ? 'translate-x-[0.75px] scale-x-[0.278] scale-y-[0.818] group-hover/button:translate-x-0 group-hover/button:scale-100'
-              : 'group-hover/button:translate-x-[0.75px] group-hover/button:scale-x-[0.278] group-hover/button:scale-y-[0.818]',
+            panelClass(collapsed, peeking),
           )}
         />
       </svg>

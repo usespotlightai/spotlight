@@ -62,7 +62,7 @@ export function PipelineFlowChart({
         ref={frame}
         role="img"
         aria-label={label}
-        className="relative min-w-[40rem]"
+        className="relative min-w-[40rem] overflow-x-clip"
         style={{ height: PIPELINE_HEIGHT }}
       >
         {width > 0 && (

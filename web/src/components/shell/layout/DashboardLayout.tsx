@@ -1,7 +1,12 @@
 import {
   type ComponentProps,
   type CSSProperties,
+  memo,
   type ReactNode,
+  type Ref,
+  startTransition,
+  useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -9,10 +14,13 @@ import { CollapsibleSidebar } from '@/components/shell/layout/CollapsibleSidebar
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { useSidebarCollapsedSetting } from '@/hooks/useCollapsedSidebar';
 import { useDragToClose } from '@/hooks/useDragToClose';
+import { useNarrowerThan } from '@/hooks/useNarrowerThan';
+import { usePaneEntrance } from '@/hooks/usePaneEntrance';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { useSettling } from '@/hooks/useSettling';
 import { framesWindow } from '@/lib/desktop';
 import { SPRING, SPRING_MS } from '@/lib/motion';
+import { PANE_GAP_PX, PANE_MIN_PX, TWO_PANES_PX } from '@/lib/panes';
 import { cn } from '@/lib/utils';
 
 export type Pane = { key: string; content: ReactNode };
@@ -32,11 +40,9 @@ type Leaving = { pane: Pane; section: SectionName };
 
 const SPLIT_CLOSES_AT_PX = 160;
 
-const PANE_GAP_PX = 8;
-
 const SPLIT_PANE = {
   storageKey: 'spotlight.split-width',
-  min: 320,
+  min: PANE_MIN_PX,
   max: 1600,
   initial: 560,
   label: 'Resize split view',
@@ -44,8 +50,31 @@ const SPLIT_PANE = {
   property: '--split-width',
 };
 
+const SPLIT_CAP =
+  'max(calc(100% - var(--pane-min) - var(--pane-gap)), calc(50% - var(--pane-gap) / 2))';
+
+const SPLIT_ROOM = 'calc(100% - var(--pane-gap))';
+
 const PANE_SECTION =
-  'relative flex min-h-0 min-w-[min(var(--pane-min),var(--split-cap))] flex-1 flex-col overflow-clip rounded-lg border-[0.5px] border-border bg-surface shadow-pane outline-none transition-opacity data-focused:border-foreground/25 data-collapsing:opacity-40';
+  '@container/pane relative flex min-h-0 flex-1 flex-col overflow-clip rounded-lg border-[0.5px] border-border bg-surface shadow-pane outline-none transition-opacity data-collapsing:opacity-40 md:data-focused:border-foreground/25';
+
+const capOf = (row: HTMLElement | null) => {
+  const room = row?.clientWidth;
+
+  return room
+    ? Math.max(room - PANE_MIN_PX - PANE_GAP_PX, (room - PANE_GAP_PX) / 2)
+    : Infinity;
+};
+
+const styleOf = (
+  element: HTMLElement | null,
+  property: 'width' | 'maxWidth',
+  value: string | null,
+) => {
+  if (element) {
+    element.style[property] = value ?? '';
+  }
+};
 
 const withLeaving = (panes: Pane[], leaving: Leaving | null) => {
   if (!leaving) {
@@ -78,8 +107,20 @@ export function DashboardLayout({
   const [leaving, setLeaving] = useSettling<Leaving>();
   const [released, setReleased] = useSettling<true>();
   const columns = withLeaving(shown, leaving);
-  const pane = usePaneWidth<HTMLDivElement>(SPLIT_PANE);
+  const splitRef = useRef<HTMLDivElement>(null);
+  const pane = usePaneWidth<HTMLDivElement>({
+    ...SPLIT_PANE,
+    limit: (column) => capOf(column.parentElement),
+    onDrag: (width) =>
+      styleOf(splitRef.current, 'width', width === null ? null : `${width}px`),
+  });
   const { resizing, handleProps, paneRef } = pane;
+  const cramped = useNarrowerThan(paneRef, TWO_PANES_PX);
+  const split = shown.length > 1;
+  usePaneEntrance(
+    paneRef,
+    shown.map((each) => each.key),
+  );
 
   const close = (section: SectionName) => {
     const at = section === 'main' ? 0 : 1;
@@ -95,7 +136,18 @@ export function DashboardLayout({
   const dragHandle = useDragToClose<SectionName>({
     pane,
     direction: -1,
-    property: '--split-drag',
+    room: () => paneRef.current?.clientWidth ?? Infinity,
+    follow: (wanted) => {
+      const shown = wanted === null ? null : `${Math.max(0, wanted)}px`;
+      styleOf(
+        splitRef.current,
+        'maxWidth',
+        shown && `min(${SPLIT_ROOM}, max(${SPLIT_CAP}, ${shown}))`,
+      );
+      if (shown) {
+        styleOf(splitRef.current, 'width', shown);
+      }
+    },
     closingAt: (wanted, room) => {
       if (wanted < SPLIT_CLOSES_AT_PX) {
         return 'split';
@@ -131,6 +183,7 @@ export function DashboardLayout({
           className={cn(
             'flex min-w-0 items-start transition-[padding]',
             SPRING,
+            'max-md:pl-[calc(var(--sidebar-toggle-end)-0.5rem)]',
             collapsed && 'md:pl-[calc(var(--sidebar-toggle-end)-0.5rem)]',
           )}
         >
@@ -145,25 +198,29 @@ export function DashboardLayout({
               '--pane-gap': `${PANE_GAP_PX}px`,
             } as CSSProperties
           }
-          className="@container relative flex min-h-0 flex-1 gap-(--pane-gap) [--split-cap:max(calc(100cqw_-_var(--pane-min)_-_var(--pane-gap)),calc(50cqw_-_var(--pane-gap)_/_2))]"
+          className="relative flex min-h-0 flex-1 gap-(--pane-gap)"
         >
           {columns.map((column, index) => {
             const section: SectionName = index === 0 ? 'main' : 'split';
             const gone = column.key === leaving?.pane.key;
+            const handled = column.key === shown[1]?.key;
 
             return (
               <PaneColumn
                 key={column.key}
+                ref={handled ? splitRef : undefined}
                 section={section}
                 leaving={gone}
                 fills={leaving?.section === 'main' && !gone}
                 enters={steady}
-                focused={shown.length > 1 && focused === section}
+                focused={split && focused === section}
+                folded={split && focused !== section}
+                cramped={cramped}
                 collapsing={gone || dragging === section}
                 resizing={resizing}
                 released={released !== null}
                 handle={
-                  column.key === shown[1]?.key
+                  handled
                     ? {
                         ...handleProps,
                         ...dragHandle,
@@ -175,7 +232,9 @@ export function DashboardLayout({
                     : undefined
                 }
               >
-                {column.content}
+                <PaneContent defer={section === 'split' && steady}>
+                  {column.content}
+                </PaneContent>
               </PaneColumn>
             );
           })}
@@ -186,11 +245,14 @@ export function DashboardLayout({
 }
 
 type PaneColumnProps = {
+  ref?: Ref<HTMLDivElement>;
   section: SectionName;
   leaving: boolean;
   fills: boolean;
   enters: boolean;
   focused: boolean;
+  folded: boolean;
+  cramped: boolean;
   collapsing: boolean;
   resizing: boolean;
   released: boolean;
@@ -198,12 +260,68 @@ type PaneColumnProps = {
   children: ReactNode;
 };
 
+const mainColumnClass = (leaving: boolean, resizing: boolean) =>
+  cn(
+    'flex-1',
+    leaving && cn('mr-[calc(var(--pane-gap)*-1)] transition-[margin]', SPRING),
+    leaving || resizing
+      ? 'min-w-0'
+      : 'min-w-[min(var(--pane-min),calc(50%_-_var(--pane-gap)_/_2))]',
+  );
+
+const splitColumnClass = ({
+  leaving,
+  fills,
+  enters,
+  focused,
+  cramped,
+  resizing,
+  released,
+}: Pick<
+  PaneColumnProps,
+  | 'leaving'
+  | 'fills'
+  | 'enters'
+  | 'focused'
+  | 'cramped'
+  | 'resizing'
+  | 'released'
+>) =>
+  cn(
+    'max-w-[max(calc(100%_-_var(--pane-min)_-_var(--pane-gap)),calc(50%_-_var(--pane-gap)_/_2))] shrink-0',
+    leaving && 'ml-[calc(var(--pane-gap)*-1)] w-0',
+    fills && 'w-full max-w-none',
+    !leaving && !fills && 'w-(--split-width)',
+    focused &&
+      (cramped ? 'w-full max-w-none' : 'max-md:w-full max-md:max-w-none'),
+    enters && 'starting:ml-[calc(var(--pane-gap)*-1)] starting:w-0',
+    !resizing &&
+      cn(
+        released
+          ? 'transition-[width,max-width,margin]'
+          : 'transition-[width,margin]',
+        SPRING,
+        'max-md:transition-none',
+      ),
+  );
+
+const sectionWidthClass = (main: boolean, sliding: boolean) => {
+  if (!main) {
+    return 'md:min-w-(--pane-min)';
+  }
+
+  return sliding && 'min-w-(--pane-min)';
+};
+
 function PaneColumn({
+  ref,
   section,
   leaving,
   fills,
   enters,
   focused,
+  folded,
+  cramped,
   collapsing,
   resizing,
   released,
@@ -214,29 +332,23 @@ function PaneColumn({
 
   return (
     <div
+      ref={ref}
       inert={leaving || undefined}
       className={cn(
-        'relative flex-col',
+        'relative flex flex-col',
+        folded && (cramped ? 'hidden' : 'max-md:hidden'),
+        leaving && !main && 'max-md:hidden',
         main
-          ? cn(
-              'flex min-w-0 flex-1',
-              leaving &&
-                cn('mr-[calc(var(--pane-gap)*-1)] transition-[margin]', SPRING),
-            )
-          : cn(
-              'hidden max-w-[max(var(--split-cap),var(--split-drag,0px))] shrink-0 md:flex',
-              leaving && 'ml-[calc(var(--pane-gap)*-1)] w-0',
-              fills && 'w-full max-w-none',
-              !leaving && !fills && 'w-[var(--split-drag,var(--split-width))]',
-              enters && 'starting:ml-[calc(var(--pane-gap)*-1)] starting:w-0',
-              !resizing &&
-                cn(
-                  released
-                    ? 'transition-[width,max-width,margin]'
-                    : 'transition-[width,margin]',
-                  SPRING,
-                ),
-            ),
+          ? mainColumnClass(leaving, resizing)
+          : splitColumnClass({
+              leaving,
+              fills,
+              enters,
+              focused,
+              cramped,
+              resizing,
+              released,
+            }),
       )}
     >
       {handle && (
@@ -244,7 +356,10 @@ function PaneColumn({
           {...handle}
           edge="left"
           resizing={resizing}
-          className="-left-2"
+          className={cn(
+            '-left-2 touch-none pointer-coarse:-left-4 pointer-coarse:w-6',
+            cramped ? 'hidden' : 'max-md:hidden',
+          )}
         />
       )}
 
@@ -257,10 +372,15 @@ function PaneColumn({
         )}
       >
         <section
+          data-slot="pane"
           tabIndex={-1}
-          data-focused={focused || undefined}
+          data-focused={(focused && !cramped) || undefined}
           data-collapsing={collapsing || undefined}
-          className={cn(PANE_SECTION, SPRING)}
+          className={cn(
+            PANE_SECTION,
+            SPRING,
+            sectionWidthClass(main, leaving || resizing),
+          )}
         >
           {children}
         </section>
@@ -268,3 +388,21 @@ function PaneColumn({
     </div>
   );
 }
+
+const PaneContent = memo(function PaneContent({
+  defer,
+  children,
+}: {
+  defer: boolean;
+  children: ReactNode;
+}) {
+  const [shown, setShown] = useState(!defer);
+
+  useEffect(() => {
+    if (!shown) {
+      startTransition(() => setShown(true));
+    }
+  }, [shown]);
+
+  return shown ? children : null;
+});

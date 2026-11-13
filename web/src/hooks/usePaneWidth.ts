@@ -1,7 +1,6 @@
 import {
   type KeyboardEvent,
   type PointerEvent,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -18,9 +17,11 @@ type Pane = {
   label: string;
   edge?: 'left' | 'right';
   property?: string;
+  limit?: (shown: HTMLElement) => number;
+  onDrag?: (width: number | null) => void;
 };
 
-const WORKSPACE_SIDEBAR: Pane = {
+export const WORKSPACE_SIDEBAR: Pane = {
   storageKey: 'spotlight.sidebar-width',
   min: 192,
   max: 320,
@@ -41,8 +42,21 @@ const readStoredWidth = (pane: Pane): number => {
 const clampTo = (pane: Pane, width: number) =>
   Math.min(pane.max, Math.max(pane.min, Math.round(width)));
 
-const limitOf = (pane: Element | null | undefined) =>
-  (pane && Number.parseFloat(getComputedStyle(pane).maxWidth)) || Infinity;
+const limitOf = (shown: HTMLElement | null | undefined) => {
+  if (!shown) {
+    return Infinity;
+  }
+
+  const max = getComputedStyle(shown).maxWidth;
+  const value = Number.parseFloat(max);
+  if (!Number.isFinite(value)) {
+    return Infinity;
+  }
+
+  return max.endsWith('%')
+    ? ((shown.parentElement?.clientWidth ?? 0) * value) / 100 || Infinity
+    : value;
+};
 
 const store = (pane: Pane, width: number) => {
   try {
@@ -61,6 +75,8 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   );
   const last = useRef(width);
   const paneRef = useRef<T | null>(null);
+  const limitAt = (shown: HTMLElement | null | undefined) =>
+    shown && pane.limit ? pane.limit(shown) : limitOf(shown);
 
   useLayoutEffect(() => {
     if (pane.property && !resizing) {
@@ -68,7 +84,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     }
   }, [pane.property, width, resizing]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!resizing) {
       return;
     }
@@ -91,7 +107,9 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     const clamped = clampTo(pane, next);
     last.current = clamped;
 
-    if (pane.property) {
+    if (pane.onDrag) {
+      pane.onDrag(clamped);
+    } else if (pane.property) {
       paneRef.current?.style.setProperty(pane.property, `${clamped}px`);
     } else if (paneRef.current) {
       paneRef.current.style.width = `${clamped}px`;
@@ -109,7 +127,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     origin.current = {
       x: event.clientX,
       width: shown?.offsetWidth || width,
-      limit: limitOf(shown),
+      limit: limitAt(shown),
     };
     setResizing(true);
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -136,6 +154,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     const keeps = kept >= pane.min;
     origin.current = null;
     last.current = keeps ? kept : width;
+    pane.onDrag?.(null);
     flushSync(() => {
       setResizing(false);
       setWidth(last.current);
@@ -152,7 +171,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   };
 
   const step = (event: KeyboardEvent<HTMLElement>, by: number) => {
-    const limit = limitOf(event.currentTarget?.parentElement);
+    const limit = limitAt(event.currentTarget?.parentElement);
     const shown = Math.min(width, limit);
     const next = Math.min(clampTo(pane, shown + by), Math.max(limit, pane.min));
 

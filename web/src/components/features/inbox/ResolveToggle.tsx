@@ -38,7 +38,7 @@ export function ResolveToggle({ slug, entry }: ResolveToggleProps) {
             ? resolve.mutate({ slug, entry })
             : reopen.mutate({ slug, entry })
         }
-        className="-my-0.5 flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none transition-[color,opacity] hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 group-hover/row:opacity-100 group-has-[a:focus-visible]/row:opacity-100"
+        className="-my-0.5 flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none transition-[color,opacity] hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 group-hover/row:opacity-100 group-has-[a:focus-visible]/row:opacity-100 pointer-coarse:size-9 pointer-coarse:opacity-100"
       >
         <Icon aria-hidden className="size-3.5" />
       </TooltipTrigger>

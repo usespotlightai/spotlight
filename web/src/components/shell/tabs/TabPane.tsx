@@ -13,7 +13,7 @@ import {
 } from 'react-router';
 
 import { PageErrorBoundary } from '@/components/shell/layout/PageErrorBoundary';
-import { type AppTab, type Place, trailOf } from '@/lib/app-tabs';
+import { type AppTab, type Place, placeAt } from '@/lib/app-tabs';
 import { type ReportTitle, TabTitleContext } from '@/lib/tab-title';
 
 type TabPaneProps = {
@@ -41,17 +41,15 @@ export function TabPane({
 }: TabPaneProps) {
   const windowNavigator = use(UNSAFE_NavigationContext).navigator;
   const inPane = useMemo<Navigator>(() => {
-    const visit = (to: To, state?: unknown) => {
-      const trail = trailOf(state);
-      onVisit(tab.id, { path: hrefOf(to), ...(trail && { trail }) });
-    };
+    const visit = (to: To, state?: unknown) =>
+      onVisit(tab.id, placeAt(hrefOf(to), state));
 
     return { createHref: hrefOf, push: visit, replace: visit, go: () => {} };
   }, [onVisit, tab.id]);
 
   const location = {
     ...parsePath(tab.path),
-    state: tab.trail ? { trail: tab.trail } : null,
+    state: tab.state ?? null,
     key: tab.path,
   };
 

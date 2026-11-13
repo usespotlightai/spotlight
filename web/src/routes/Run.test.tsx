@@ -697,10 +697,7 @@ describe('Run', () => {
         screen.getByRole('textbox', {
           name: 'Send it back to Implementation',
         }),
-      ).toHaveAttribute(
-        'aria-placeholder',
-        'Say what to change. Implementation starts again…',
-      );
+      ).toHaveAttribute('aria-placeholder', 'Say what to change…');
     });
 
     const left = {

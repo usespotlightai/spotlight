@@ -12,7 +12,7 @@ import { useReviewing } from '@/lib/review-context';
 import { since } from '@/lib/since';
 
 const ACTION =
-  'rounded text-muted-foreground text-xs outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70';
+  'relative rounded text-muted-foreground text-xs outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1.5 pointer-coarse:after:-inset-y-2';
 
 type ReviewCommentItemProps = {
   comment: ReviewComment;

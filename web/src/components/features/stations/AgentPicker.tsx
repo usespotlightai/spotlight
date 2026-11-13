@@ -45,7 +45,7 @@ export function AgentPicker({
       <DropdownMenuTrigger
         aria-label={`Agent: ${named}`}
         disabled={readOnly}
-        className="flex h-7 min-w-0 items-center gap-1.5 rounded-md px-2 text-left text-foreground text-sm outline-none transition-colors hover:bg-accent disabled:pointer-events-none data-[popup-open]:bg-accent"
+        className="flex h-7 min-w-0 pointer-coarse:h-9 items-center gap-1.5 rounded-md px-2 text-left text-foreground text-sm outline-none transition-colors hover:bg-accent disabled:pointer-events-none data-[popup-open]:bg-accent"
       >
         <HarnessLogo harness={offered?.id} />
         <span className="truncate">{named}</span>

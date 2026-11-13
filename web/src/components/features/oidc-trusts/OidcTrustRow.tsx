@@ -15,10 +15,11 @@ export function OidcTrustRow({ trust }: OidcTrustRowProps) {
       <SettingsRow
         label={trust.key}
         leading={<RowIcon icon={ShieldCheck} />}
+        stack
         description={
           trust.description && (
             <WithTooltip tooltip={trust.description}>
-              <span className="line-clamp-2 break-words">
+              <span className="line-clamp-2 break-words pointer-coarse:line-clamp-none @max-md/pane:pointer-fine:line-clamp-3">
                 {trust.description}
               </span>
             </WithTooltip>
@@ -26,7 +27,7 @@ export function OidcTrustRow({ trust }: OidcTrustRowProps) {
         }
       >
         <WithTooltip tooltip={trustNote(trust)}>
-          <span className="text-muted-foreground text-xs tabular-nums">
+          <span className="whitespace-nowrap text-muted-foreground text-xs tabular-nums">
             {trust.lastIssuedAt ? (
               <time dateTime={trust.lastIssuedAt}>
                 {describeIssued(trust.lastIssuedAt)}

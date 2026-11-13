@@ -12,12 +12,13 @@ import {
   opened,
   panesOf,
   type Place,
+  placeAt,
   placed,
   type SplitSide,
   selected,
+  storableTabs,
   storedTabs,
   titled,
-  trailOf,
   visited,
   withoutPane,
 } from '@/lib/app-tabs';
@@ -71,11 +72,7 @@ const placeOf = (
   search: string,
   hash: string,
   state: unknown,
-): Place => {
-  const trail = trailOf(state);
-
-  return { path: `${pathname}${search}${hash}`, ...(trail && { trail }) };
-};
+): Place => placeAt(`${pathname}${search}${hash}`, state);
 
 export function useAppTabs(slug: string, teams: readonly Team[]) {
   const location: Location<unknown> = useLocation();
@@ -106,7 +103,10 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(shown.storageKey, JSON.stringify(shown.tabs));
+      localStorage.setItem(
+        shown.storageKey,
+        JSON.stringify(storableTabs(shown.tabs)),
+      );
     } catch {}
   }, [shown]);
 
@@ -122,7 +122,7 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
     const tab = activeTabOf(next);
     void navigate(tab.path, {
       replace,
-      state: tab.trail ? { trail: tab.trail } : null,
+      state: tab.state ?? null,
     });
   };
 

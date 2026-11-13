@@ -7,11 +7,15 @@ import { NoticeCard } from '@/components/features/inbox/notices/NoticeCard';
 import { NoticeSkeleton } from '@/components/features/inbox/notices/NoticeSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
-import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
+import {
+  type BreadcrumbSegment,
+  Breadcrumbs,
+} from '@/components/shell/layout/Breadcrumbs';
 import { useInboxNotice } from '@/hooks/api/useInbox';
 import { useResolveInboxNotice } from '@/hooks/api/useResolveInboxNotice';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { notFound } from '@/lib/error';
+import { inboxPath } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -59,7 +63,13 @@ export function InboxNotice() {
 
   if (failed(found) && !notFound(found.error)) {
     return (
-      <PageNotice>
+      <PageNotice
+        title={
+          <Breadcrumbs
+            segments={[{ label: 'Inbox', to: inboxPath(slug ?? '') }]}
+          />
+        }
+      >
         <CouldNotLoad
           what="The notice"
           retrying={found.isFetching}

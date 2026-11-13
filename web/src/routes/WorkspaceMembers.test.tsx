@@ -188,12 +188,10 @@ describe('WorkspaceMembers', () => {
       screen.getByRole('heading', { name: /Members\s*4/ }),
     ).toBeInTheDocument();
     expect(within(list).getByText('Maya Chen')).toBeInTheDocument();
-    expect(
-      within(list).getByText('maya.chen@acme.dev · Platform'),
-    ).toBeInTheDocument();
-    expect(
-      within(list).getByText('lena.park@acme.dev · No team'),
-    ).toBeInTheDocument();
+    expect(within(list).getByText('maya.chen@acme.dev')).toBeInTheDocument();
+    expect(within(list).getByText('Platform')).toBeInTheDocument();
+    expect(within(list).getByText('lena.park@acme.dev')).toBeInTheDocument();
+    expect(within(list).getByText('No team')).toBeInTheDocument();
     expect(within(list).getByText('Owner')).toBeInTheDocument();
     expect(within(list).getByText('Admin')).toBeInTheDocument();
   });

@@ -35,8 +35,9 @@ export function MemoryBodyCell({
     <button
       type="button"
       aria-expanded={expanded}
+      title={expanded ? undefined : body}
       onClick={onToggle}
-      className="min-w-0 whitespace-pre-wrap break-words text-left text-foreground leading-5 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:underline group-data-clamped/row:truncate"
+      className="min-w-0 whitespace-pre-wrap break-words text-left text-foreground leading-5 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:underline group-data-clamped/row:line-clamp-2 @md/pane:group-data-clamped/row:block @md/pane:group-data-clamped/row:truncate"
     >
       {body}
     </button>

@@ -1,18 +1,11 @@
-import {
-  type DragEndEvent,
-  type DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useState } from 'react';
 
 import { useReopenInboxEntry } from '@/hooks/api/useReopenInboxEntry';
 import { useResolveInboxEntry } from '@/hooks/api/useResolveInboxEntry';
 import { useDragGuard } from '@/hooks/useDragGuard';
+import { useDragSensors } from '@/hooks/useDragSensors';
 import { entryKey, type InboxEntry, reopenable, resolvable } from '@/lib/inbox';
-
-const HOLD = 6;
 
 export const OPEN_DROP = 'open';
 export const RESOLVED_DROP = 'resolved';
@@ -28,9 +21,7 @@ export function useInboxDrag(
   const swallowNextClick = useDragGuard();
   const [draggedKey, setDraggedKey] = useState<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: HOLD } }),
-  );
+  const sensors = useDragSensors();
 
   const dragged = entries.find((each) => entryKey(each) === draggedKey) ?? null;
 

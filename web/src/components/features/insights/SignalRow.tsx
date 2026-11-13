@@ -60,7 +60,7 @@ export function SignalRow({ reading, nested = true, action }: SignalRowProps) {
         {...(action
           ? { role: 'img' as const, 'aria-label': formatSignal(reading) }
           : {})}
-        className="col-span-full min-w-0 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1"
+        className="col-span-full min-w-0 pl-(--cell-indent,0.5rem) @4xl:col-span-1 @4xl:pl-0 @lg:group-data-compact/nested:col-span-1 @lg:group-data-compact/nested:pl-0"
       >
         <SignalDumbbell reading={reading} />
       </div>

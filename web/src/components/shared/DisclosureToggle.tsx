@@ -25,7 +25,7 @@ export function DisclosureToggle({
       disabled={disabled}
       aria-expanded={open}
       className={cn(
-        'flex items-center gap-1.5 self-start rounded py-0.5 text-muted-foreground text-xs outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+        'flex items-center gap-1.5 self-start rounded py-0.5 text-left text-muted-foreground text-xs outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
         className,
       )}
     >

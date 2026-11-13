@@ -21,7 +21,7 @@ export function MemoryPlaceToggle({
       aria-label={`${hidden ? 'Show' : 'Hide'} what is under ${label}`}
       onClick={onToggle}
       className={cn(
-        'absolute top-1/2 left-0 flex size-[11px] -translate-y-1/2 items-center justify-center rounded-[2px] border border-muted-foreground/50 bg-card text-muted-foreground outline-none transition-[color,border-color,opacity] duration-150 hover:border-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 group-data-clamped/row:hidden',
+        'absolute top-1/2 left-0 flex size-[11px] -translate-y-1/2 items-center justify-center rounded-[2px] border border-muted-foreground/50 bg-card text-muted-foreground outline-none transition-[color,border-color,opacity] duration-150 hover:border-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 group-data-clamped/row:hidden pointer-coarse:after:absolute pointer-coarse:after:-inset-2',
         open
           ? '[transition-delay:0ms,0ms,150ms]'
           : 'pointer-events-none opacity-0',

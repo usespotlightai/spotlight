@@ -57,7 +57,7 @@ export function TeamNavItem({
             'ml-auto size-3 shrink-0 transition-all',
             expanded
               ? 'opacity-100'
-              : '-rotate-90 opacity-0 group-hover/team:opacity-100 group-focus-visible/team:opacity-100',
+              : '-rotate-90 opacity-0 group-hover/team:opacity-100 group-focus-visible/team:opacity-100 pointer-coarse:opacity-100',
           )}
           aria-hidden
         />

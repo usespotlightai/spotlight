@@ -1,27 +1,56 @@
-import { type RefCallback, use, useCallback, useEffect, useRef } from 'react';
+import {
+  type RefCallback,
+  type RefObject,
+  use,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 
 import { JournalDemandContext } from '@/lib/journal-demand';
 
-export function useJournalSight(): (
-  runIds: readonly string[],
-) => RefCallback<HTMLElement> | undefined {
+export function useJournalSight(
+  root?: RefObject<HTMLElement | null>,
+): (runIds: readonly string[]) => RefCallback<HTMLElement> | undefined {
   const { want } = use(JournalDemandContext);
   const wantNow = useRef(want);
   const observer = useRef<IntersectionObserver | null>(null);
-  const watched = useRef(new WeakMap<Element, readonly string[]>());
+  const unseen = useRef(new Map<Element, readonly string[]>());
   const sights = useRef(new Map<string, RefCallback<HTMLElement>>());
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     wantNow.current = want;
   });
 
-  useEffect(
-    () => () => {
-      observer.current?.disconnect();
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+
+    const observing = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const runIds = unseen.current.get(entry.target);
+          if (entry.isIntersecting && runIds) {
+            unseen.current.delete(entry.target);
+            observing.unobserve(entry.target);
+            wantNow.current(runIds);
+          }
+        }
+      },
+      { root: root?.current ?? null, rootMargin: '100% 0px' },
+    );
+    observer.current = observing;
+    for (const element of unseen.current.keys()) {
+      observing.observe(element);
+    }
+
+    return () => {
+      observing.disconnect();
       observer.current = null;
-    },
-    [],
-  );
+    };
+  }, [root]);
 
   return useCallback((runIds: readonly string[]) => {
     if (runIds.length === 0) {
@@ -45,21 +74,13 @@ export function useJournalSight(): (
         return;
       }
 
-      const observing =
-        observer.current ??
-        new IntersectionObserver((entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting) {
-              wantNow.current(watched.current.get(entry.target) ?? []);
-              observing.unobserve(entry.target);
-            }
-          }
-        });
-      observer.current = observing;
-      watched.current.set(element, runIds);
-      observing.observe(element);
+      unseen.current.set(element, runIds);
+      observer.current?.observe(element);
 
-      return () => observing.unobserve(element);
+      return () => {
+        unseen.current.delete(element);
+        observer.current?.unobserve(element);
+      };
     };
 
     sights.current.set(key, sight);

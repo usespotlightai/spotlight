@@ -28,7 +28,7 @@ export function JudgeCoverageBar({ coverage }: { coverage: JudgeCoverage }) {
         ))}
       </div>
       <figcaption>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 @xl/pane:grid-cols-4">
           {COVERAGE_PARTS.map((part) => (
             <div key={part.key} className="flex min-w-0 flex-col gap-0.5">
               <dt className="flex items-center gap-1.5 text-muted-foreground text-xs">

@@ -18,7 +18,7 @@ export function TraceEgressMark() {
           <button
             type="button"
             data-slot="trace-egress-mark"
-            className="relative z-10 ml-1 flex shrink-0 cursor-default items-center rounded-sm text-outcome-failed outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            className="relative z-10 ml-1 pointer-coarse:before:absolute pointer-coarse:before:-inset-2 flex shrink-0 cursor-default items-center rounded-sm text-outcome-failed outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           />
         }
       >

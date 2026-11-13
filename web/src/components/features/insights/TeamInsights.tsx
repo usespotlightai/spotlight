@@ -8,6 +8,7 @@ import { OverviewTab } from '@/components/features/insights/OverviewTab';
 import { PeopleTab } from '@/components/features/insights/PeopleTab';
 import { ProductivityTab } from '@/components/features/insights/ProductivityTab';
 import { ToolsAndSkillsTab } from '@/components/features/insights/ToolsAndSkillsTab';
+import { TracesFilters } from '@/components/features/insights/TracesFilters';
 import { TraceList } from '@/components/features/trace/list/TraceList';
 import { useLines } from '@/hooks/api/useLines';
 import {
@@ -42,6 +43,7 @@ export function TeamInsights({ slug, teamId }: TeamInsightsProps) {
           teamId={teamId}
           range={view.period}
           filter={view.filter}
+          filters={<TracesFilters teamId={teamId} />}
           onEveryTrace={() => onView({ ...view, filter: {} })}
         />
       ) : (

@@ -22,7 +22,7 @@ export type AppTab = {
   readonly id: string;
   readonly path: string;
   readonly title: string | null;
-  readonly trail?: readonly BreadcrumbSegment[];
+  readonly state?: unknown;
 };
 
 export type AppTabs = {
@@ -41,8 +41,11 @@ export type Panes = {
 
 export type Place = {
   readonly path: string;
-  readonly trail?: readonly BreadcrumbSegment[];
+  readonly state?: unknown;
 };
+
+export const placeAt = (path: string, state: unknown): Place =>
+  state === null || state === undefined ? { path } : { path, state };
 
 export const activeTabOf = (tabs: AppTabs): AppTab =>
   tabs.tabs.find((tab) => tab.id === tabs.activeId) ?? tabs.tabs[0];
@@ -194,9 +197,12 @@ const TEAM_PATTERNS = [
   '/w/:slug/settings/team/:teamId/*',
 ];
 
+const pathnameOf = (path: string): string => path.split(/[?#]/)[0] ?? path;
+
 const teamIdAt = (path: string): string | undefined =>
-  TEAM_PATTERNS.map((pattern) => matchPath(pattern, path)).find(Boolean)?.params
-    .teamId;
+  TEAM_PATTERNS.map((pattern) => matchPath(pattern, pathnameOf(path))).find(
+    Boolean,
+  )?.params.teamId;
 
 export const newTabPath = (
   slug: string,
@@ -219,7 +225,8 @@ const TAB_ICONS: readonly (readonly [string, LucideIcon])[] = [
 ];
 
 export const tabIconOf = (path: string): LucideIcon =>
-  TAB_ICONS.find(([pattern]) => matchPath(pattern, path))?.[1] ?? Package;
+  TAB_ICONS.find(([pattern]) => matchPath(pattern, pathnameOf(path)))?.[1] ??
+  Package;
 
 const isTrail = (value: unknown): value is BreadcrumbSegment[] =>
   Array.isArray(value) &&
@@ -230,7 +237,7 @@ const isTrail = (value: unknown): value is BreadcrumbSegment[] =>
       typeof (crumb as BreadcrumbSegment).label === 'string',
   );
 
-export const trailOf = (state: unknown): BreadcrumbSegment[] | undefined => {
+const trailOf = (state: unknown): BreadcrumbSegment[] | undefined => {
   const trail = (state as { trail?: unknown } | null)?.trail;
 
   return isTrail(trail) && trail.length > 0 ? trail : undefined;
@@ -248,15 +255,24 @@ const tabOf = (value: unknown): AppTab | null => {
     return null;
   }
 
-  const trail = trailOf(tab);
+  const trail = trailOf(tab.state);
 
   return {
     id: tab.id,
     path: tab.path,
     title: typeof tab.title === 'string' ? tab.title : null,
-    ...(trail && { trail }),
+    ...(trail && { state: { trail } }),
   };
 };
+
+export const storableTabs = (tabs: AppTabs): AppTabs => ({
+  ...tabs,
+  tabs: tabs.tabs.map(({ state, ...tab }) => {
+    const trail = trailOf(state);
+
+    return trail ? { ...tab, state: { trail } } : tab;
+  }),
+});
 
 export const storedTabs = (
   stored: string | null,

@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
@@ -408,5 +408,54 @@ describe('Workspace', () => {
 
     const runners = screen.getByRole('link', { name: /Runners/ });
     expect(runners).toHaveTextContent('2');
+  });
+  describe('on a narrow screen', () => {
+    beforeEach(() => {
+      vi.spyOn(window, 'matchMedia').mockImplementation(
+        (query) =>
+          ({
+            matches: query === '(width < 48rem)',
+            addEventListener: () => {},
+            removeEventListener: () => {},
+          }) as unknown as MediaQueryList,
+      );
+    });
+
+    afterEach(() => {
+      vi.mocked(window.matchMedia).mockRestore();
+    });
+
+    const columnOf = (text: string) =>
+      screen.getByText(text).closest('section')?.parentElement?.parentElement;
+
+    it('shows only the focused tab of a split', async () => {
+      const user = userEvent.setup();
+      loaded(acme);
+      splitTabs();
+
+      renderAt('acme-inc');
+
+      expect(columnOf('section slot')).not.toHaveClass('max-md:hidden');
+      expect(columnOf('runs slot')).toHaveClass('max-md:hidden');
+
+      await user.click(screen.getByRole('button', { name: 'Runs' }));
+
+      expect(columnOf('runs slot')).not.toHaveClass('max-md:hidden');
+      expect(columnOf('section slot')).toHaveClass('max-md:hidden');
+    });
+
+    it('keeps the hidden tab of a split mounted', async () => {
+      const user = userEvent.setup();
+      loaded(acme);
+      splitTabs();
+
+      renderAt('acme-inc');
+      const runs = await screen.findByText('runs slot');
+
+      await user.click(screen.getByRole('button', { name: 'Runs' }));
+      await user.click(screen.getByRole('button', { name: 'Home' }));
+
+      expect(screen.getByText('runs slot')).toBe(runs);
+    });
   });
 });

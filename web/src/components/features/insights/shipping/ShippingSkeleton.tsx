@@ -93,7 +93,7 @@ export function ShippingSkeleton() {
             </div>
           </InsightsCardSkeleton>
 
-          <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
+          <div className="grid gap-x-12 gap-y-10 @4xl/pane:grid-cols-2">
             <InsightsCardSkeleton
               flat
               title="Time to merge"
@@ -169,7 +169,7 @@ export function ShippingSkeleton() {
           aria-label="Loading the reviews"
           className="flex flex-col gap-2"
         >
-          <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
+          <div className="grid gap-x-12 gap-y-10 @4xl/pane:grid-cols-2">
             <InsightsCardSkeleton
               flat
               title="Time to first review"
@@ -191,7 +191,7 @@ export function ShippingSkeleton() {
               <DayChartSkeleton />
             </InsightsCardSkeleton>
           </div>
-          <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
+          <div className="grid gap-x-12 gap-y-10 @4xl/pane:grid-cols-2">
             <InsightsCardSkeleton
               flat
               tableOnly

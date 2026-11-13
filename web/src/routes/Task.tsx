@@ -1,10 +1,9 @@
 import { useParams } from 'react-router';
 
 import { NotFound } from '@/components/features/board/NotFound';
+import { TaskCouldNotLoad } from '@/components/features/board/task/TaskCouldNotLoad';
 import { TaskPage } from '@/components/features/board/task/TaskPage';
 import { TaskSkeleton } from '@/components/features/board/task/TaskSkeleton';
-import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { PageNotice } from '@/components/shared/PageNotice';
 import { useLines } from '@/hooks/api/useLines';
 import { useTask } from '@/hooks/api/useTasks';
 import { useTaskTrail } from '@/hooks/useTaskTrail';
@@ -28,13 +27,11 @@ export function Task() {
 
   if (failed(found) && !notFound(found.error)) {
     return (
-      <PageNotice>
-        <CouldNotLoad
-          what="The task"
-          retrying={found.isFetching}
-          onRetry={() => void found.refetch()}
-        />
-      </PageNotice>
+      <TaskCouldNotLoad
+        known={trail.slice(0, -1)}
+        retrying={found.isFetching}
+        onRetry={() => void found.refetch()}
+      />
     );
   }
 

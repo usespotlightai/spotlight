@@ -1,5 +1,6 @@
 import {
   type ReactNode,
+  type RefObject,
   useId,
   useLayoutEffect,
   useRef,
@@ -7,14 +8,18 @@ import {
 } from 'react';
 
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
-import { SidebarToggle } from '@/components/shell/layout/SidebarToggle';
+import { SidebarAside } from '@/components/shell/layout/SidebarAside';
+import { SidebarExpand } from '@/components/shell/layout/SidebarExpand';
+import { SidebarPeekLayer } from '@/components/shell/layout/SidebarPeekLayer';
+import { useCoarsePointer } from '@/hooks/useCoarsePointer';
 import { useCollapsedSidebar } from '@/hooks/useCollapsedSidebar';
 import { useDragToClose } from '@/hooks/useDragToClose';
-import { usePaneWidth } from '@/hooks/usePaneWidth';
+import { useNarrowViewport } from '@/hooks/useNarrowViewport';
+import { usePaneWidth, WORKSPACE_SIDEBAR } from '@/hooks/usePaneWidth';
 import { useSettling } from '@/hooks/useSettling';
 import { useSidebarShortcut } from '@/hooks/useSidebarShortcut';
 import { framesWindow } from '@/lib/desktop';
-import { SPRING, SPRING_EASE } from '@/lib/motion';
+import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 const CLOSES_AT_PX = 96;
@@ -25,56 +30,59 @@ const FAST_FLING_PX_PER_MS = 0.8;
 
 const FAST_FLING_TRAVEL_PX = 40;
 
-const BELOW_TABS = 'top-11 bottom-2';
+const gutterWidthOf = (width: number) =>
+  `max(var(--sidebar-floor), ${width}px)`;
 
-const ASIDE_TRANSITION = {
-  resizing: 'transition-opacity',
-  floating: 'transition-[translate,opacity]',
-  regrowing: 'transition-[translate]',
-  hidden: 'transition-[translate,opacity,width]',
-  docked:
-    'transition-[translate,opacity,width,top,bottom,border-color,border-radius,box-shadow]',
+type ToggleRoomProps = {
+  touch: boolean;
+  narrow: boolean;
+  desktop: boolean;
+  floating: boolean;
 };
 
-type AsideMotion = keyof typeof ASIDE_TRANSITION;
+function ToggleRoom({ touch, narrow, desktop, floating }: ToggleRoomProps) {
+  if (!touch || narrow || desktop) {
+    return null;
+  }
 
-const asideMotion = (state: Record<AsideMotion, boolean>): AsideMotion =>
-  (['resizing', 'floating', 'regrowing', 'hidden'] as const).find(
-    (motion) => state[motion],
-  ) ?? 'docked';
+  return (
+    <div
+      aria-hidden
+      data-slot="sidebar-toggle-room"
+      className={cn(
+        'shrink-0',
+        floating ? 'h-0' : cn('h-7 transition-[height]', SPRING),
+      )}
+    />
+  );
+}
 
-type CollapsibleSidebarProps = {
-  children?: ReactNode;
+type ToggleFocusProps = {
+  paneRef: RefObject<HTMLElement | null>;
+  asideRef: RefObject<HTMLElement | null>;
+  toggleRef: RefObject<HTMLButtonElement | null>;
+  hidden: boolean;
+  collapsed: boolean;
+  pinned: boolean;
+  desktop: boolean;
+  touch: boolean;
+  narrow: boolean;
 };
 
-export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
-  const [closing, setClosing] = useState(false);
-  const [leaving, setLeaving] = useSettling<true>();
-  const pane = usePaneWidth<HTMLDivElement>();
-  const { width, min, resizing, handleProps, paneRef } = pane;
-  const asideId = useId();
-  const asideRef = useRef<HTMLElement | null>(null);
-  const toggleRef = useRef<HTMLButtonElement | null>(null);
+function useToggleFocus({
+  paneRef,
+  asideRef,
+  toggleRef,
+  hidden,
+  collapsed,
+  pinned,
+  desktop,
+  touch,
+  narrow,
+}: ToggleFocusProps) {
   const restoreRef = useRef<HTMLElement | null>(null);
-  const {
-    collapsed,
-    peeking,
-    floating,
-    docking,
-    toggling,
-    setCollapsed,
-    ...peek
-  } = useCollapsedSidebar(asideRef, toggleRef);
-  const hidden = collapsed && !peeking;
-  const shrunk = leaving !== null && hidden && !floating;
-  const desktop = framesWindow();
-  const motion = asideMotion({
-    resizing,
-    floating,
-    regrowing: leaving !== null && !collapsed,
-    hidden,
-    docked: true,
-  });
+  const opened = !collapsed || pinned;
+  const reachable = desktop || (touch && !narrow);
 
   useLayoutEffect(() => {
     const active = document.activeElement;
@@ -85,14 +93,65 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
     if (hidden && paneRef.current?.contains(active)) {
       restoreRef.current = active;
       toggleRef.current?.focus();
-    } else if (!collapsed && !desktop && active === toggleRef.current) {
+    } else if (opened && !reachable && active === toggleRef.current) {
       const aside = asideRef.current;
       const restore = restoreRef.current?.isConnected
         ? restoreRef.current
         : aside?.querySelector<HTMLElement>('a[href]');
       (restore ?? aside)?.focus();
     }
-  }, [collapsed, hidden, desktop, paneRef]);
+  }, [hidden, opened, reachable, paneRef, asideRef, toggleRef]);
+}
+
+type CollapsibleSidebarProps = {
+  children?: ReactNode;
+};
+
+export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
+  const [closing, setClosing] = useState(false);
+  const [leaving, setLeaving] = useSettling<true>();
+  const asideRef = useRef<HTMLElement | null>(null);
+  const pane = usePaneWidth<HTMLDivElement>({
+    ...WORKSPACE_SIDEBAR,
+    onDrag: (dragged) => {
+      const aside = asideRef.current;
+      if (aside?.parentElement) {
+        aside.parentElement.style.width =
+          dragged === null ? '' : gutterWidthOf(dragged);
+        aside.style.width = dragged === null ? '' : `${dragged}px`;
+      }
+    },
+  });
+  const { width, min, resizing, handleProps, paneRef } = pane;
+  const asideId = useId();
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
+  const narrow = useNarrowViewport();
+  const {
+    collapsed,
+    peeking,
+    floating,
+    pinned,
+    docking,
+    toggling,
+    setCollapsed,
+    ...peek
+  } = useCollapsedSidebar(asideRef, toggleRef, narrow);
+  const hidden = collapsed && !peeking;
+  const shrunk = leaving !== null && hidden && !floating;
+  const desktop = framesWindow();
+  const touch = useCoarsePointer();
+
+  useToggleFocus({
+    paneRef,
+    asideRef,
+    toggleRef,
+    hidden,
+    collapsed,
+    pinned,
+    desktop,
+    touch,
+    narrow,
+  });
 
   useSidebarShortcut(() => setCollapsed(!collapsed), Boolean(children));
 
@@ -104,7 +163,19 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
   const dragHandle = useDragToClose({
     pane,
     direction: 1,
-    property: '--sidebar-drag',
+    follow: (wanted) => {
+      const gutter = paneRef.current;
+      const aside = asideRef.current;
+      if (!gutter || !aside) {
+        return;
+      }
+
+      aside.style.translate =
+        wanted === null ? '' : `${Math.min(0, wanted - min)}px`;
+      if (wanted !== null) {
+        gutter.style.width = gutterWidthOf(wanted);
+      }
+    },
     closingAt: (wanted, _room, velocity) =>
       closes(wanted, velocity) ? true : null,
     onClosing: (closing) => setClosing(closing ?? false),
@@ -116,25 +187,13 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
 
   return (
     <>
-      {(collapsed || docking) && children && (
-        <div
-          aria-hidden
-          data-slot="sidebar-backdrop"
-          onClick={peek.unpeek}
-          className={cn(
-            'fixed inset-0 z-40 hidden bg-black/10 transition-opacity supports-backdrop-filter:backdrop-blur-xs md:block',
-            SPRING,
-            peeking ? 'opacity-100' : 'pointer-events-none opacity-0',
-          )}
-        />
-      )}
-
-      {collapsed && children && (
-        <div
-          aria-hidden
-          data-slot="sidebar-peek"
-          {...peek.peekIntent}
-          className={cn('fixed left-0 z-40 hidden w-2 md:block', BELOW_TABS)}
+      {children && (
+        <SidebarPeekLayer
+          collapsed={collapsed}
+          docking={docking}
+          peeking={peeking}
+          peekIntent={peek.peekIntent}
+          onUnpeek={peek.unpeek}
         />
       )}
 
@@ -142,72 +201,36 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
         ref={paneRef}
         data-slot="sidebar-gutter"
         className={cn(
-          'relative hidden shrink-0 md:block',
+          'relative shrink-0 max-md:w-0',
           collapsed
             ? 'w-2'
-            : 'w-[max(var(--sidebar-floor),var(--sidebar-drag,var(--sidebar-width)))]',
+            : 'w-[max(var(--sidebar-floor),var(--sidebar-width))]',
           ((collapsed && !floating) || (toggling && !docking)) &&
             'overflow-hidden',
-          !resizing && cn('transition-[width]', SPRING),
+          !resizing && cn('transition-[width] max-md:transition-none', SPRING),
         )}
       >
-        <aside
+        <SidebarAside
           ref={asideRef}
           id={asideId}
-          tabIndex={-1}
-          inert={hidden || undefined}
-          data-collapsed={collapsed || undefined}
-          data-peeking={peeking || undefined}
-          data-floating={floating || undefined}
-          data-closing={closing || shrunk || undefined}
-          style={shrunk ? { width: min } : undefined}
-          className={cn(
-            'left-0 flex flex-col overflow-hidden border-[0.5px] border-l-0 px-3 py-2 outline-none data-closing:opacity-40',
-            ASIDE_TRANSITION[motion],
-            SPRING,
-            floating
-              ? cn(
-                  'fixed z-50 w-[max(var(--sidebar-width),14rem)] rounded-r-xl border-border bg-background shadow-overlay',
-                  BELOW_TABS,
-                )
-              : 'absolute inset-y-0 z-10 w-(--sidebar-width) translate-x-[calc(var(--sidebar-drag,var(--sidebar-width))-var(--sidebar-width))] border-transparent',
-            docking && 'z-50',
-            !desktop && 'bg-background',
-            hidden &&
-              cn(
-                'pointer-events-none',
-                floating
-                  ? '-translate-x-[calc(100%+3rem)]'
-                  : '-translate-x-full',
-              ),
-          )}
+          collapsed={collapsed}
+          peeking={peeking}
+          floating={floating}
+          docking={docking}
+          resizing={resizing}
+          regrowing={leaving !== null && !collapsed}
+          closing={closing}
+          shrunkTo={shrunk ? min : undefined}
+          desktop={desktop}
         >
-          {desktop && (
-            <>
-              <div
-                aria-hidden
-                data-slot="sidebar-surface"
-                className={cn(
-                  'pointer-events-none absolute inset-0 -z-10 bg-background',
-                  floating
-                    ? 'opacity-100'
-                    : cn(
-                        'opacity-0 transition-opacity delay-[calc(var(--spring-duration)*0.3)] duration-[calc(var(--spring-duration)*0.7)]',
-                        SPRING_EASE,
-                      ),
-                )}
-              />
-              <div
-                data-slot="window-buttons"
-                className={cn(
-                  'shrink-0',
-                  floating ? 'h-0' : cn('h-7 transition-[height]', SPRING),
-                )}
-              />
-            </>
-          )}
+          <ToggleRoom
+            touch={touch}
+            narrow={narrow}
+            desktop={desktop}
+            floating={floating}
+          />
           {children}
-        </aside>
+        </SidebarAside>
 
         <PaneHandle
           {...handleProps}
@@ -223,34 +246,33 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
           }}
           edge="right"
           resizing={resizing}
-          className={cn(collapsed && 'hidden')}
+          className={cn(
+            'touch-none pointer-coarse:-right-3 pointer-coarse:w-6',
+            collapsed && 'hidden',
+          )}
         />
       </div>
 
-      <div
-        data-slot="sidebar-expand"
-        inert={(!collapsed && !desktop) || undefined}
-        {...(children ? peek.peekIntent : {})}
-        className={cn(
-          'fixed top-2 left-(--sidebar-toggle-left) z-50 hidden md:block',
-          !desktop &&
-            cn(
-              'transition-[opacity,translate] duration-[calc(var(--spring-duration)*0.3)]',
-              SPRING_EASE,
-              collapsed
-                ? 'delay-[calc(var(--spring-duration)*0.75)]'
-                : 'pointer-events-none -translate-x-2 opacity-0',
-            ),
-        )}
-      >
-        <SidebarToggle
-          ref={toggleRef}
-          collapsed={collapsed}
-          controls={asideId}
-          disabled={!children}
-          onToggle={() => setCollapsed(!collapsed)}
-        />
-      </div>
+      <SidebarExpand
+        toggleRef={toggleRef}
+        controls={asideId}
+        collapsed={collapsed}
+        peeking={peeking}
+        narrow={narrow}
+        desktop={desktop}
+        coarse={touch}
+        disabled={!children}
+        peekIntent={peek.peekIntent}
+        onToggle={() => {
+          if (!narrow) {
+            setCollapsed(!collapsed);
+          } else if (peeking) {
+            peek.unpeek();
+          } else {
+            peek.pin();
+          }
+        }}
+      />
     </>
   );
 }

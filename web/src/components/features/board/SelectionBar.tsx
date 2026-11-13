@@ -23,9 +23,9 @@ export function SelectionBar({
   return (
     <div
       data-slot="selection-bar"
-      className="-translate-x-1/2 absolute bottom-4 left-1/2 z-20 flex animate-in items-center gap-1 rounded-full border-[0.5px] border-border bg-popover py-1.5 px-2 shadow-overlay duration-150 fade-in slide-in-from-bottom-2 ease-out-quad"
+      className="-translate-x-1/2 absolute bottom-4 left-1/2 z-20 flex w-max max-w-[calc(100%-2rem)] animate-in items-center gap-1 rounded-full border-[0.5px] border-border bg-popover py-1.5 px-2 shadow-overlay duration-150 fade-in slide-in-from-bottom-2 ease-out-quad"
     >
-      <span className="px-2 text-muted-foreground text-xs tabular-nums">
+      <span className="whitespace-nowrap px-2 text-muted-foreground text-xs tabular-nums">
         {count} selected
       </span>
 

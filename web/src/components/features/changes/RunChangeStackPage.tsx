@@ -34,6 +34,7 @@ export function RunChangeStackPage({
   trail,
 }: RunChangeStackPageProps) {
   const { current, stack, layerId, pick, switchTo } = useStackInView(stacks);
+  const ready = stack?.state === 'ready' ? stack : null;
 
   return (
     <ReviewProvider
@@ -47,22 +48,30 @@ export function RunChangeStackPage({
         <div className="flex min-h-0 flex-1 flex-col">
           <PageHeader
             title={<Breadcrumbs segments={trail} />}
-            actions={
-              stack?.state === 'ready' ? (
-                <>
-                  <StackRepositoryPills
-                    stacks={current}
-                    stack={stack}
-                    onChange={switchTo}
-                  />
-                  {taskId && <SubmitReviewButton />}
-                </>
-              ) : undefined
+            trailing={
+              ready && (
+                <StackRepositoryPills
+                  stacks={current}
+                  stack={ready}
+                  onChange={switchTo}
+                  className="hidden shrink grow justify-end-safe pr-2 @4xl/pane:flex"
+                />
+              )
             }
+            actions={ready && taskId ? <SubmitReviewButton /> : undefined}
           />
 
-          {stack?.state === 'ready' ? (
-            <ChangeStackView stack={stack} layerId={layerId} onPick={pick} />
+          {ready && (
+            <StackRepositoryPills
+              stacks={current}
+              stack={ready}
+              onChange={switchTo}
+              className="border-border border-b-[0.5px] @md/pane:px-4 @4xl/pane:hidden"
+            />
+          )}
+
+          {ready ? (
+            <ChangeStackView stack={ready} layerId={layerId} onPick={pick} />
           ) : (
             <ChangeStackNotice
               stack={stack}

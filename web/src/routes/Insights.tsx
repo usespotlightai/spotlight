@@ -20,7 +20,11 @@ export function Insights() {
       section="insights"
       actions={
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {view.tab === 'traces' && <TracesFilters teamId={teamId} />}
+          {view.tab === 'traces' && (
+            <div className="hidden @2xl/pane:contents">
+              <TracesFilters teamId={teamId} />
+            </div>
+          )}
           <InsightsPeriodPicker />
         </div>
       }

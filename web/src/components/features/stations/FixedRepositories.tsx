@@ -19,7 +19,7 @@ export function FixedRepositories({
       value={repositories}
       onChange={unchangeable}
       readOnlyBecause={because}
-      className="h-6 w-auto"
+      className="h-6 w-auto pointer-coarse:h-9"
     />
   );
 }

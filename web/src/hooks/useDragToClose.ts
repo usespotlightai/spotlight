@@ -16,7 +16,8 @@ type PaneHandlers = {
 type DragToClose<Closing> = {
   pane: ReturnType<typeof usePaneWidth>;
   direction: 1 | -1;
-  property: string;
+  room?: () => number;
+  follow: (wanted: number | null) => void;
   closingAt: (wanted: number, room: number, velocity: number) => Closing | null;
   onClosing: (closing: Closing | null) => void;
   onClose: (closing: Closing) => void;
@@ -27,15 +28,16 @@ type Sample = { x: number; at: number };
 export function useDragToClose<Closing>({
   pane,
   direction,
-  property,
+  room = () => Infinity,
+  follow,
   closingAt,
   onClosing,
   onClose,
 }: DragToClose<Closing>): PaneHandlers {
-  const { width, min, paneRef, handleProps, wantedAt, limit, resize } = pane;
+  const { width, min, handleProps, wantedAt, limit, resize } = pane;
   const samples = useRef<Sample[]>([]);
-
-  const room = () => paneRef.current?.clientWidth || Infinity;
+  const roomAtStart = useRef(Infinity);
+  const shownClosing = useRef<Closing | null>(null);
 
   const track = (event: PointerEvent<HTMLElement>) => {
     const at = event.timeStamp;
@@ -53,16 +55,9 @@ export function useDragToClose<Closing>({
       : 0;
   };
 
-  const follow = (wanted: number | null) => {
-    if (wanted === null) {
-      paneRef.current?.style.removeProperty(property);
-    } else {
-      paneRef.current?.style.setProperty(property, `${wanted}px`);
-    }
-  };
-
   const end = () => {
     samples.current = [];
+    shownClosing.current = null;
     follow(null);
     onClosing(null);
   };
@@ -74,6 +69,7 @@ export function useDragToClose<Closing>({
       }
 
       samples.current = [];
+      roomAtStart.current = room() || Infinity;
       track(event);
       handleProps.onPointerDown(event);
     },
@@ -85,7 +81,8 @@ export function useDragToClose<Closing>({
       }
 
       track(event);
-      const closing = closingAt(wanted, room(), 0);
+      const closing = closingAt(wanted, roomAtStart.current, 0);
+      shownClosing.current = closing;
       onClosing(closing);
       follow(
         closing !== null || wanted < min || wanted > (limit() ?? Infinity)
@@ -96,7 +93,9 @@ export function useDragToClose<Closing>({
     onPointerUp: (event) => {
       const wanted = wantedAt(event);
       const closing =
-        wanted === null ? null : closingAt(wanted, room(), track(event));
+        wanted === null
+          ? null
+          : closingAt(wanted, roomAtStart.current, track(event));
       handleProps.onPointerUp(event);
 
       if (wanted === null) {
@@ -111,11 +110,15 @@ export function useDragToClose<Closing>({
     },
     onLostPointerCapture: () => {
       const dragged = limit() !== null;
+      const closing = shownClosing.current;
       handleProps.onLostPointerCapture();
 
       if (dragged) {
         end();
         resize(width);
+        if (closing !== null) {
+          onClose(closing);
+        }
       }
     },
   };

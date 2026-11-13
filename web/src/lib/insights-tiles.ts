@@ -1,15 +1,15 @@
-const IN_A_ROW: Record<number, string> = {
-  1: 'lg:grid-cols-1',
-  2: 'lg:grid-cols-2',
-  3: 'lg:grid-cols-3',
-  4: 'lg:grid-cols-4',
-  5: 'lg:grid-cols-5',
-  6: 'lg:grid-cols-6',
-  7: 'lg:grid-cols-7',
+const GRIDS: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-2 *:last:col-span-2 @xl/pane:grid-cols-3 @xl/pane:*:last:col-span-1',
+  4: 'grid-cols-2 @4xl/pane:grid-cols-4',
+  5: 'grid-cols-2 *:last:col-span-2 @xl/pane:grid-cols-6 @xl/pane:*:col-span-2 @xl/pane:*:nth-last-[-n+2]:col-span-3 @4xl/pane:grid-cols-5 @4xl/pane:*:col-span-1 @4xl/pane:*:nth-last-[-n+2]:col-span-1',
+  6: 'grid-cols-2 @xl/pane:grid-cols-3 @4xl/pane:grid-cols-6',
+  7: 'grid-cols-2 *:last:col-span-2 @xl/pane:grid-cols-4 @5xl/pane:grid-cols-7 @5xl/pane:*:last:col-span-1',
 };
 
-export const tilesInARow = (count: number): string =>
-  IN_A_ROW[count] ?? 'lg:grid-cols-4';
+export const tileGridOf = (count: number): string =>
+  GRIDS[count] ?? 'grid-cols-2 @xl/pane:grid-cols-3 @4xl/pane:grid-cols-4';
 
 export type TileBones = {
   readonly label: string | null;

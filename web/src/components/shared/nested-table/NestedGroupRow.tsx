@@ -35,7 +35,7 @@ export function NestedGroupRow({
           aria-expanded={open}
           aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
           onClick={onToggle}
-          className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="relative flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:after:absolute pointer-coarse:after:-inset-2"
         >
           <ExpandChevron open={open} />
         </button>

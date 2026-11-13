@@ -17,6 +17,11 @@ import { pillClass } from '@/lib/pill';
 import { linePath } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
+const LINK_TOUCH_TARGET = 'pointer-coarse:-my-2 pointer-coarse:py-2';
+
+const PILL_TOUCH_TARGET =
+  'relative pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:-inset-y-2';
+
 type ChangeMarkerRowProps = {
   slug: string;
   teamId: string;
@@ -51,7 +56,10 @@ export function ChangeMarkerRow({
 
           <TrailLink
             to={linePath(slug, teamId, marker.lineId)}
-            className="min-w-0 truncate text-muted-foreground hover:text-foreground hover:underline"
+            className={cn(
+              'min-w-0 truncate text-muted-foreground hover:text-foreground hover:underline',
+              LINK_TOUCH_TARGET,
+            )}
           >
             {names.get(marker.stationId)?.lineName ?? 'Removed line'}
           </TrailLink>
@@ -59,7 +67,10 @@ export function ChangeMarkerRow({
           <InsightsLink
             tab="stations"
             filter={{ stationId: marker.stationId }}
-            className="min-w-0 truncate text-foreground hover:underline"
+            className={cn(
+              'min-w-0 truncate text-foreground hover:underline',
+              LINK_TOUCH_TARGET,
+            )}
           >
             {formatStation(names, marker.stationId)}
           </InsightsLink>
@@ -85,7 +96,10 @@ export function ChangeMarkerRow({
             onClick={() => (shown ? panel.close() : panel.show(marker))}
             className={pillClass(
               shown ? 'default' : 'outline',
-              '-my-0.5 justify-self-start whitespace-nowrap @4xl:justify-self-end @lg:group-data-compact/nested:justify-self-end',
+              cn(
+                '-my-0.5 justify-self-start whitespace-nowrap @4xl:justify-self-end @lg:group-data-compact/nested:justify-self-end',
+                PILL_TOUCH_TARGET,
+              ),
             )}
           >
             Impact

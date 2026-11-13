@@ -18,8 +18,8 @@ export function IconRowSkeleton({
       <div className="flex min-w-0 items-center gap-3">
         <Skeleton className="size-8 shrink-0 rounded-full" />
         <div className="flex min-w-0 flex-col gap-0.5">
-          <SkeletonLine className={cn(nameWidth, 'text-sm')} />
-          <SkeletonLine className={cn(aboutWidth, 'text-xs')} />
+          <SkeletonLine className={cn(nameWidth, 'max-w-full text-sm')} />
+          <SkeletonLine className={cn(aboutWidth, 'max-w-full text-xs')} />
         </div>
       </div>
       {trailingWidth && (

@@ -2,6 +2,7 @@ import { Paperclip } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 type AttachButtonProps = {
   onAttach: (files: File[]) => void;
@@ -26,7 +27,10 @@ export function AttachButton({
         type="button"
         variant="ghost"
         size={label ? 'sm' : 'icon-sm'}
-        className={className}
+        className={cn(
+          label ? 'pointer-coarse:h-9' : 'pointer-coarse:size-9',
+          className,
+        )}
         disabled={disabled}
         onClick={() => picker.current?.click()}
         aria-label="Attach files"

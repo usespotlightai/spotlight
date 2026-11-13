@@ -37,14 +37,17 @@ export function MenuPicker({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={label}
-        className="flex h-7 items-center gap-2 rounded-md border border-border px-2 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-accent"
+        title={selected.label}
+        className="flex h-7 min-w-0 max-w-full items-center gap-2 whitespace-nowrap rounded-md border border-border px-2 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-accent"
       >
-        {selected.short && <span className={BADGE}>{selected.short}</span>}
+        {selected.short && (
+          <span className={`shrink-0 ${BADGE}`}>{selected.short}</span>
+        )}
         <span
           className={
             selected.short
-              ? 'hidden text-foreground sm:inline'
-              : 'text-foreground'
+              ? 'hidden min-w-0 truncate text-foreground @xl/pane:inline'
+              : 'min-w-0 truncate text-foreground'
           }
         >
           {selected.label}

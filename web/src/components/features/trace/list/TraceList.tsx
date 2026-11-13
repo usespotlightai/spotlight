@@ -1,5 +1,5 @@
 import { Binoculars } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
@@ -26,14 +26,24 @@ type TraceListProps = {
   teamId: string;
   range: string;
   filter: RunFilter;
+  filters?: ReactNode;
   onEveryTrace: () => void;
 };
+
+function NarrowFilters({ children }: { children?: ReactNode }) {
+  return (
+    children && (
+      <div className="px-3 pt-2 pb-1 @2xl/pane:hidden">{children}</div>
+    )
+  );
+}
 
 export function TraceList({
   slug,
   teamId,
   range,
   filter,
+  filters,
   onEveryTrace,
 }: TraceListProps) {
   const traces = useInsightsTraces(teamId, range, filter);
@@ -44,18 +54,26 @@ export function TraceList({
   const [selected, setSelected] = useState<readonly string[]>([]);
 
   if (loading(traces)) {
-    return <TraceListSkeleton />;
+    return (
+      <>
+        <NarrowFilters>{filters}</NarrowFilters>
+        <TraceListSkeleton />
+      </>
+    );
   }
 
   if (failed(traces) || !traces.data) {
     return (
-      <Notice>
-        <CouldNotLoad
-          what="Traces"
-          retrying={traces.isFetching}
-          onRetry={() => void traces.refetch()}
-        />
-      </Notice>
+      <>
+        <NarrowFilters>{filters}</NarrowFilters>
+        <Notice>
+          <CouldNotLoad
+            what="Traces"
+            retrying={traces.isFetching}
+            onRetry={() => void traces.refetch()}
+          />
+        </Notice>
+      </>
     );
   }
 
@@ -95,13 +113,19 @@ export function TraceList({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <TraceVolume volume={data.volume} from={data.from} to={data.to} />
-
       <ScrollArea
         className="min-h-0 flex-1"
         contentClassName="min-h-full px-1.5 pb-1.5"
       >
-        <TraceHead />
+        <div className="-mx-1.5">
+          <NarrowFilters>{filters}</NarrowFilters>
+        </div>
+
+        <TraceVolume volume={data.volume} from={data.from} to={data.to} />
+
+        <div className="sticky top-0 z-20 bg-surface">
+          <TraceHead />
+        </div>
 
         {data.truncated && (
           <p className="px-3 pb-1 text-muted-foreground text-xs">

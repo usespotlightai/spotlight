@@ -49,7 +49,7 @@ export function DecisionThread({
               to={reasoningAt}
               target="_blank"
               rel="noreferrer"
-              className="self-start text-muted-foreground text-sm leading-5 underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:underline"
+              className="relative self-start text-muted-foreground pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1 pointer-coarse:after:-inset-y-2.5 text-sm leading-5 underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:underline"
             >
               Detailed reasoning steps
             </Link>

@@ -30,7 +30,7 @@ export function Segmented<T extends string>({
     <fieldset
       ref={group}
       aria-label={label}
-      className="relative m-0 flex h-7 min-w-0 items-center rounded-lg border-0 bg-muted p-0.5 dark:bg-background"
+      className="relative m-0 flex h-7 min-w-0 pointer-coarse:h-10 max-w-full scrollbar-hide items-center overflow-x-auto rounded-lg border-0 bg-muted p-0.5 dark:bg-background"
     >
       {indicator && (
         <span
@@ -58,7 +58,7 @@ export function Segmented<T extends string>({
             aria-pressed={segment.id === value}
             onClick={() => onChange(segment.id)}
             className={cn(
-              'relative flex h-full items-center gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
+              'relative flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-muted-foreground text-sm outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
               segment.id === value && 'text-foreground',
             )}
           >

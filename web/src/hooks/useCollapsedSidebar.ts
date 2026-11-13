@@ -39,20 +39,29 @@ export const useSidebarCollapsedSetting = () =>
 export function useCollapsedSidebar(
   paneRef: RefObject<HTMLElement | null>,
   triggerRef: RefObject<HTMLElement | null>,
+  narrow = false,
 ) {
   const [stored, store] = useStoredState(SIDEBAR_COLLAPSED_KEY, 'false');
-  const collapsed = stored === 'true';
+  const collapsed = stored === 'true' || narrow;
   const [peeking, setPeeking] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [wasNarrow, setWasNarrow] = useState(narrow);
   const [floating, setFloating] = useState(false);
   const [docking, setDocking] = useSettling<true>();
   const [toggling, setToggling] = useSettling<true>();
   const [, settleFloating] = useSettling<true>(() => setFloating(false));
   const intent = useRef<ReturnType<typeof setTimeout>>(undefined);
   const armed = useRef(true);
+  if (wasNarrow !== narrow) {
+    setWasNarrow(narrow);
+    setPinned(false);
+    setPeeking(false);
+  }
 
   const unpeek = useCallback(() => {
     armed.current = false;
     setPeeking(false);
+    setPinned(false);
     settleFloating(true);
   }, [settleFloating]);
 
@@ -65,9 +74,10 @@ export function useCollapsedSidebar(
 
     const moved = (event: PointerEvent) => {
       const trigger = triggerRef.current;
-      armed.current ||=
-        event.clientX > PEEK_ARMS_PAST_PX &&
-        !(trigger && inside(trigger.getBoundingClientRect(), event));
+      armed.current =
+        armed.current ||
+        (event.clientX > PEEK_ARMS_PAST_PX &&
+          !(trigger && inside(trigger.getBoundingClientRect(), event)));
     };
     document.addEventListener('pointermove', moved);
 
@@ -79,9 +89,40 @@ export function useCollapsedSidebar(
       return;
     }
 
+    const escaped = (event: KeyboardEvent) => {
+      if (
+        event.key === 'Escape' &&
+        !event.defaultPrevented &&
+        !paneRef.current?.querySelector('[data-popup-open]')
+      ) {
+        unpeek();
+      }
+    };
+    document.addEventListener('keydown', escaped);
+
+    if (pinned) {
+      const pane = paneRef.current;
+      const followed = (event: MouseEvent) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('a[href]')
+        ) {
+          unpeek();
+        }
+      };
+      pane?.addEventListener('click', followed);
+
+      return () => {
+        document.removeEventListener('keydown', escaped);
+        pane?.removeEventListener('click', followed);
+      };
+    }
+
     let timer: ReturnType<typeof setTimeout> | undefined;
     const leaveSoon = () => {
-      timer ??= setTimeout(unpeek, PEEK_LEAVE_DELAY_MS);
+      if (timer === undefined) {
+        timer = setTimeout(unpeek, PEEK_LEAVE_DELAY_MS);
+      }
     };
     const moved = (event: PointerEvent) => {
       const pane = paneRef.current;
@@ -104,18 +145,8 @@ export function useCollapsedSidebar(
         leaveSoon();
       }
     };
-    const escaped = (event: KeyboardEvent) => {
-      if (
-        event.key === 'Escape' &&
-        !event.defaultPrevented &&
-        !paneRef.current?.querySelector('[data-popup-open]')
-      ) {
-        unpeek();
-      }
-    };
     document.addEventListener('pointermove', moved);
     document.addEventListener('pointerout', left);
-    document.addEventListener('keydown', escaped);
 
     return () => {
       clearTimeout(timer);
@@ -123,7 +154,7 @@ export function useCollapsedSidebar(
       document.removeEventListener('pointerout', left);
       document.removeEventListener('keydown', escaped);
     };
-  }, [collapsed, peeking, paneRef, triggerRef, unpeek]);
+  }, [collapsed, peeking, pinned, paneRef, triggerRef, unpeek]);
 
   const peek = () => {
     settleFloating(null);
@@ -135,9 +166,14 @@ export function useCollapsedSidebar(
     collapsed,
     peeking: collapsed && peeking,
     floating: collapsed && floating,
+    pinned: collapsed && peeking && pinned,
     docking: docking !== null,
     toggling: toggling !== null,
     unpeek,
+    pin: () => {
+      peek();
+      setPinned(true);
+    },
     setCollapsed: (next: boolean) => {
       if (next) {
         armed.current = false;
@@ -147,6 +183,7 @@ export function useCollapsedSidebar(
       setToggling(true);
       store(String(next));
       setPeeking(false);
+      setPinned(false);
       setFloating(false);
       settleFloating(null);
     },

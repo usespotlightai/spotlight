@@ -34,7 +34,7 @@ export function ProposedTaskFacts({
             <TrailLink
               id={titleId}
               to={taskPath(slug, teamId, proposal.taskId)}
-              className={`${FACT_VALUE} -mx-1.5 rounded-md box-decoration-clone px-1.5 py-0.5 outline-none transition-colors hover:bg-accent focus-visible:bg-accent`}
+              className={`${FACT_VALUE} -mx-1.5 rounded-md box-decoration-clone px-1.5 py-0.5 outline-none pointer-coarse:py-1.5 transition-colors hover:bg-accent focus-visible:bg-accent`}
             >
               {proposal.title}
             </TrailLink>
@@ -58,7 +58,9 @@ export function ProposedTaskFacts({
                 )}
                 color={proposal.stationColor ?? undefined}
               />
-              <span className="min-w-0 truncate">{station}</span>
+              <span className="min-w-0 truncate" title={station}>
+                {station}
+              </span>
             </p>
           ) : (
             <p className={`${FACT_VALUE} text-muted-foreground`}>

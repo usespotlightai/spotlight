@@ -273,7 +273,7 @@ export const ARRIVING =
   'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300 motion-safe:ease-out';
 
 export const STICKY_AT_TOP =
-  'sticky top-0 z-10 -mx-3 bg-surface pt-2 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-surface after:to-transparent';
+  'sticky top-0 z-10 -mx-3 bg-surface pt-2 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-surface after:to-transparent @max-xl/pane:static @max-xl/pane:after:hidden [@media(max-height:520px)]:static [@media(max-height:520px)]:after:hidden';
 
 export const inboxPath = (slug: string) => `/w/${slug}/inbox`;
 

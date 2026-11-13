@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import type { Ref } from 'react';
 
 import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
@@ -7,6 +8,7 @@ import { DetailFields } from '@/components/features/trace/view/detail/DetailFiel
 import { DetailHeader } from '@/components/features/trace/view/detail/DetailHeader';
 import { DetailSection } from '@/components/features/trace/view/detail/DetailSection';
 import { CodeDiff } from '@/components/shared/CodeDiff';
+import { IconAction } from '@/components/shared/IconAction';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -33,10 +35,12 @@ export function SpanDetail({
   open,
   duration,
   ref,
+  onClose,
 }: {
   node: TraceNode;
   teamId: string;
   open: boolean;
+  onClose: () => void;
   duration?: number;
   ref?: Ref<HTMLElement>;
 }) {
@@ -67,7 +71,16 @@ export function SpanDetail({
         className="h-full"
         contentClassName="min-h-full flex flex-col gap-5 px-4 py-4"
       >
-        <DetailHeader node={node} />
+        <DetailHeader
+          node={node}
+          action={
+            <span className="-mt-0.5 -mr-1">
+              <IconAction label="Close the details" onClick={onClose}>
+                <X aria-hidden />
+              </IconAction>
+            </span>
+          }
+        />
 
         {runId && <RunJudgeScore teamId={teamId} runId={runId} />}
         {runId && <RunNetwork teamId={teamId} runId={runId} />}

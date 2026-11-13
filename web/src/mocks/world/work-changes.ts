@@ -260,6 +260,46 @@ const POSTGRES_API: ChangeStackResponseDto = {
   ],
 };
 
+const POSTGRES_WORKER: ChangeStackResponseDto = {
+  id: 'stack_postgres_worker',
+  repository: 'acme/worker',
+  state: 'ready',
+  failure: null,
+  check: null,
+  removed: [],
+  files: [
+    file('package.json', 'modified', [
+      hunk('worker_package', 18, 18, '', [
+        '   "dependencies": {',
+        '-    "pg": "8.7.3",',
+        '-    "pg-native": "3.0.1",',
+        '+    "pg": "8.13.1",',
+        '     "zod": "3.23.8"',
+      ]),
+    ]),
+  ],
+  cohorts: [
+    {
+      id: 'c1',
+      kind: 'change',
+      title: 'Postgres driver 8.13',
+      intent:
+        'The worker shares the API database, so it moves to pg 8.13.1 too.',
+      layers: [
+        {
+          id: 'c1.l1',
+          title: 'Bump pg to 8.13.1',
+          summary: 'The same driver as the API, without the native binding.',
+          hunks: [{ hunk: 'worker_package' }],
+          notes: [],
+          questions: [],
+          revision: null,
+        },
+      ],
+    },
+  ],
+};
+
 const SEARCH_RUN = 'run_search_2';
 
 const SEARCH: ChangeStackResponseDto = {
@@ -363,7 +403,7 @@ const REFERRAL: ChangeStackResponseDto = {
 };
 
 export const RUN_CHANGE_STACKS: Record<string, ChangeStackResponseDto[]> = {
-  run_postgres_2: [POSTGRES_API],
+  run_postgres_2: [POSTGRES_API, POSTGRES_WORKER],
   run_search_2: [SEARCH],
   run_referral_1: [REFERRAL],
 };

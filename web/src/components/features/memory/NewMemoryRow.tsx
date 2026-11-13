@@ -1,4 +1,7 @@
-import { MEMORY_COLUMNS } from '@/components/features/memory/columns';
+import {
+  MEMORY_COLUMNS,
+  MEMORY_WIDE_CELL,
+} from '@/components/features/memory/columns';
 import { MemoryBodyInput } from '@/components/features/memory/MemoryBodyInput';
 import { MemoryKindSelect } from '@/components/features/memory/MemoryKindSelect';
 import { MemoryPlaceEditor } from '@/components/features/memory/MemoryPlaceEditor';
@@ -40,21 +43,42 @@ export function NewMemoryRow({ teamId, lines, onDone }: NewMemoryRowProps) {
           MEMORY_COLUMNS,
         )}
       >
-        <MemoryBodyInput
-          value={draft.body}
-          onChange={draft.setBody}
-          onSave={save}
-          onCancel={onDone}
-        />
-        <MemoryKindSelect value={draft.kind} onChange={draft.setKind} />
-        <MemoryPlaceEditor draft={draft} lines={lines} />
-        <span className="truncate text-muted-foreground text-sm leading-5">
+        <div className="col-span-full grid min-w-0 @4xl/pane:col-span-1">
+          <MemoryBodyInput
+            value={draft.body}
+            onChange={draft.setBody}
+            onSave={save}
+            onCancel={onDone}
+          />
+        </div>
+        <div className="col-span-full min-w-0 @4xl/pane:col-span-1">
+          <MemoryKindSelect value={draft.kind} onChange={draft.setKind} />
+        </div>
+        <div className="col-span-full min-w-0 @4xl/pane:col-span-1">
+          <MemoryPlaceEditor draft={draft} lines={lines} />
+        </div>
+        <span
+          className={cn(
+            'truncate text-muted-foreground text-sm leading-5',
+            MEMORY_WIDE_CELL,
+          )}
+        >
           {SOURCE_LABELS.person}
         </span>
-        <span className="truncate text-muted-foreground text-sm leading-5">
+        <span
+          className={cn(
+            'truncate text-muted-foreground text-sm leading-5',
+            MEMORY_WIDE_CELL,
+          )}
+        >
           {session?.user.name ?? 'You'}
         </span>
-        <span className="text-right text-muted-foreground text-sm leading-5 tabular-nums">
+        <span
+          className={cn(
+            'text-right text-muted-foreground text-sm leading-5 tabular-nums',
+            MEMORY_WIDE_CELL,
+          )}
+        >
           0
         </span>
       </div>

@@ -4,18 +4,28 @@ type SliceRowProps = {
   fill: string;
   values: ReactNode;
   slot: string;
+  title?: string;
   children: ReactNode;
 };
 
-export function SliceRow({ fill, values, slot, children }: SliceRowProps) {
+export function SliceRow({
+  fill,
+  values,
+  slot,
+  title,
+  children,
+}: SliceRowProps) {
   return (
-    <li data-slot={slot} className="flex items-center gap-2 text-xs">
+    <li data-slot={slot} className="flex items-start gap-2 text-xs">
       <span
         aria-hidden
-        className="size-2 shrink-0 rounded-sm"
+        className="mt-1 size-2 shrink-0 rounded-sm"
         style={{ background: fill }}
       />
-      <span className="min-w-0 flex-1 truncate text-foreground">
+      <span
+        className="line-clamp-2 min-w-0 flex-1 text-foreground"
+        title={title ?? (typeof children === 'string' ? children : undefined)}
+      >
         {children}
       </span>
       {values}

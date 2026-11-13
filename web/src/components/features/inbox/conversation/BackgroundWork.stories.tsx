@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
@@ -109,15 +110,21 @@ const render = (worked: RunJournal[], said: Note) => () => (
   />
 );
 
+const client = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+
 const meta = {
   title: 'Team/Runs/Run/Background work',
   decorators: [
     (Story) => (
-      <MemoryRouter>
-        <div className="flex h-dvh flex-col bg-surface">
-          <Story />
-        </div>
-      </MemoryRouter>
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <div className="flex h-dvh flex-col bg-surface">
+            <Story />
+          </div>
+        </MemoryRouter>
+      </QueryClientProvider>
     ),
   ],
   play: async ({ canvas, userEvent }) => {

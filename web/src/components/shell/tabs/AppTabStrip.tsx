@@ -29,7 +29,7 @@ export function AppTabStrip({
     <nav
       aria-label="Tabs"
       data-slot="app-tabs"
-      className="hidden min-w-0 shrink-0 items-center gap-1.5 pb-2 md:flex"
+      className="flex min-w-0 shrink-0 items-center gap-1.5 pb-2"
     >
       <SortableContext
         items={tabs.map((tab) => tab.id)}
