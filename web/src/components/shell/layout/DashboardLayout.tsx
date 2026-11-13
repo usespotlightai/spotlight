@@ -164,7 +164,7 @@ export function DashboardLayout({
       style={
         {
           '--spring-duration': `${SPRING_MS}ms`,
-          '--sidebar-toggle-left': desktop ? '5rem' : '0.5rem',
+          '--sidebar-toggle-left': desktop ? '5.75rem' : '0.5rem',
           '--sidebar-toggle-size': '1.75rem',
           '--sidebar-toggle-end':
             'calc(var(--sidebar-toggle-left) + var(--sidebar-toggle-size) + 0.375rem)',
