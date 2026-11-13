@@ -5,6 +5,7 @@
     "src/main.ts",
     "src/**/*.worker.ts",
     "scripts/*.ts",
+    "bench/**/*.ts",
     "drizzle.config.ts"
   ],
   "ignoreDependencies": ["pino-pretty"],
