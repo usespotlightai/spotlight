@@ -94,12 +94,12 @@ describe('SearchBudget', () => {
       perIteration: 2,
       ceiling: 100,
     }).splitCeiling(split, false);
-    const units = 10 + 4 + 2 * 2 * (7 + 4) + 2 * (3 + 3);
+    const units = 30 + 4 + 2 * 2 * (7 + 4) + 2 * (3 + 3);
 
     expect(ceilingSplit.agentRuns.amount).toBe(10);
     expect(ceilingSplit.agentRun.amount).toBe(5);
     expect(ceilingSplit.perRun.amount).toBeCloseTo(90 / units, 5);
-    expect(ceilingSplit.seed.equals(ceilingSplit.perRun.scaled(10, 1))).toBe(
+    expect(ceilingSplit.seed.equals(ceilingSplit.perRun.scaled(30, 1))).toBe(
       true,
     );
     expect(
@@ -212,14 +212,16 @@ describe('SearchBudget', () => {
     ).toThrow(InvalidSearchError);
   });
 
-  it('lets a calibrating seed replay every run three times, and keeps as much again for the replay handed the answer', () => {
+  it('lets every seed replay every run three times, and a calibrating one keep as much again for the replay handed the answer', () => {
     const budget = aBudget({ iterations: 2, perIteration: 2, ceiling: 20 });
     const split = splitOf(10);
     const calibrating = budget.splitCeiling(split, true);
 
-    expect(budget.seedRepeats(true)).toBe(3);
-    expect(budget.seedRepeats(false)).toBe(1);
+    const plain = budget.splitCeiling(split, false);
+
+    expect(budget.seedRepeats).toBe(3);
     expect(calibrating.seed).toEqual(calibrating.perRun.scaled(30, 1));
+    expect(plain.seed).toEqual(plain.perRun.scaled(30, 1));
     expect(calibrating.oracle).toEqual(calibrating.seed);
     expect(budget.splitCeiling(split, false).oracle.amount).toBe(0);
     expect(calibrating.perRun.amount).toBeLessThan(
@@ -238,7 +240,7 @@ describe('SearchBudget', () => {
       const ceilingSplit = budget.splitCeiling(split, true);
       const k = budget.perIteration;
       const margin = (runs: number) => Math.min(budget.concurrency, runs);
-      const seeded = split.runs * budget.seedRepeats(true);
+      const seeded = split.runs * budget.seedRepeats;
       const everything = ceilingSplit.seed
         .plus(ceilingSplit.perRun.scaled(margin(seeded), 1))
         .plus(ceilingSplit.oracle)
@@ -281,10 +283,15 @@ describe('SearchBudget', () => {
   });
 
   it('cannot afford a calibrating seed when its ceiling only covers a plain one', () => {
-    const budget = aBudget({ iterations: 10, perIteration: 5, ceiling: 8 });
     const split = splitOf(13);
+    const budgetOf = (ceiling: number) =>
+      aBudget({ iterations: 10, perIteration: 5, ceiling });
+    const lowest = Array.from(
+      { length: 10_000 },
+      (_, at) => (at + 1) / 100,
+    ).find((ceiling) => budgetOf(ceiling).affords(split, false)) as number;
 
-    expect(budget.affords(split, false)).toBe(true);
-    expect(budget.affords(split, true)).toBe(false);
+    expect(lowest).toBeGreaterThan(0.01);
+    expect(budgetOf(lowest).affords(split, true)).toBe(false);
   });
 });

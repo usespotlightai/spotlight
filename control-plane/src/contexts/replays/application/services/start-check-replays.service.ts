@@ -37,7 +37,7 @@ export class StartCheckReplays {
   async replayOf(checkId: ReplayCheckId, by: ChangeActor): Promise<void> {
     const check = await this.checks.find(checkId);
 
-    if (!check || (await this.replays.find(check.replayId))) {
+    if (!check?.replayId || (await this.replays.find(check.replayId))) {
       return;
     }
 
@@ -48,14 +48,16 @@ export class StartCheckReplays {
       return;
     }
 
-    const live = needsBaseline(
-      set,
-      await this.replays.ofSet(set.id),
-      check.liveHashes.scoring,
-      check.repeats,
-    )
-      ? await this.snapshots.taken(set)
-      : null;
+    const live =
+      check.needsOwnBaseline &&
+      needsBaseline(
+        set,
+        await this.replays.ofSet(set.id),
+        check.liveHashes.scoring,
+        check.baselineRepeats,
+      )
+        ? await this.snapshots.taken(set)
+        : null;
     let wantedLive = false;
 
     try {
@@ -76,41 +78,54 @@ export class StartCheckReplays {
     return this.transaction.inTransaction(async () => {
       const set = await this.sets.locked(check.setId);
 
+      const replayId = check.replayId;
+
       if (
         !set ||
+        !replayId ||
         set.isAtGoneStation ||
-        (await this.replays.find(check.replayId))
+        (await this.replays.find(replayId))
       ) {
+        return false;
+      }
+
+      const runSubset = check.runSubsetIn(set.runs);
+      const runs = runSubset ?? set.runs;
+
+      if (runs.length === 0) {
         return false;
       }
 
       const ofSet = await this.replays.ofSet(set.id);
       const { scoring } = check.liveHashes;
       const wanting =
-        live && needsBaseline(set, ofSet, scoring, check.repeats)
+        live && needsBaseline(set, ofSet, scoring, check.baselineRepeats)
           ? {
               id: ReplayId.of(this.ids.generate()),
               candidate: live.asReplayed,
-              ceiling: check.threshold.ceiling,
-              repeats: check.repeats,
+              ceiling: check.baselineCeiling,
+              repeats: check.baselineRepeats,
             }
           : null;
 
       await this.replays.add(
         Replay.start({
-          id: check.replayId,
+          id: replayId,
           set: set.snapshot,
           candidate: candidate.asReplayed,
           baseline: false,
           ceiling: check.threshold.ceiling,
           unpricedRate: check.threshold.unpricedRunIn(
-            set.entries.length * check.repeats,
+            runs.length * check.repeats,
           ),
           repeats: check.repeats,
-          pairwiseReferenceId: wanting
-            ? wanting.id
-            : (currentBaselineFor(set, ofSet, scoring, check.repeats)?.id ??
-              null),
+          ...(runSubset ? { runSubset } : {}),
+          pairwiseReferenceId: check.pairwiseReferenceFor(
+            wanting
+              ? wanting.id
+              : (currentBaselineFor(set, ofSet, scoring, check.baselineRepeats)
+                  ?.id ?? null),
+          ),
           at: this.clock.now(),
           by,
           wanting,

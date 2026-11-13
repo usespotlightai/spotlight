@@ -17,14 +17,16 @@ import { UnknownReplayCheckError } from '@replays/domain/exceptions/unknown-repl
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplayTotals } from '@replays/domain/services/replay-results';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
+import type { ReplayState } from '@replays/domain/value-objects/replay-state';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 const sideOf = (
+  state: ReplayState | null,
   replay: Replay | null,
   totals: ReplayTotals | null,
 ): CheckSideDto => ({
-  state: replay?.current ?? null,
+  state,
   entries: totals?.entries ?? 0,
   scored: totals?.scored ?? 0,
   succeeded: totals?.succeeded ?? null,
@@ -55,12 +57,13 @@ export class ReadReplayCheckHandler implements QueryHandlerPort<
         throw new UnknownReplayCheckError(query.checkId);
       }
 
-      const { evaluation, replay, baseline } = await this.evaluations.of(check);
+      const { evaluation, replay, outcome, baseline } =
+        await this.evaluations.of(check);
       const titles = new Map(
         (
           await this.trialableRuns.runSummaries(
             check.workspaceId,
-            replay?.originals ?? [],
+            outcome?.originals ?? [],
           )
         ).map((each) => [each.runId.value, each.title]),
       );
@@ -73,7 +76,9 @@ export class ReadReplayCheckHandler implements QueryHandlerPort<
         stationKey: check.stationKey,
         setId: check.setId.value,
         candidateId: check.candidateId.value,
-        replayId: check.replayId.value,
+        replayId: check.replayId?.value ?? null,
+        reusedReplayIds:
+          check.reused?.parts.map((each) => each.replayId.value) ?? [],
         baselineReplayId: baseline?.id.value ?? null,
         attempt: check.attempt,
         reference: {
@@ -87,8 +92,8 @@ export class ReadReplayCheckHandler implements QueryHandlerPort<
           maxRegressions: check.threshold.maxRegressions,
           minGain: check.threshold.minGain,
           ceiling: moneyView(check.threshold.ceiling),
-          unpricedRun: replay
-            ? moneyView(check.threshold.unpricedRunIn(replay.entries.length))
+          unpricedRun: outcome
+            ? moneyView(check.threshold.unpricedRunIn(outcome.entries.length))
             : null,
         },
         repeats: check.repeats,
@@ -97,9 +102,17 @@ export class ReadReplayCheckHandler implements QueryHandlerPort<
         undecidedBecause: evaluation.because,
         taskCount: evaluation.entries,
         compared: evaluation.compared,
-        candidate: sideOf(replay, evaluation.candidate),
-        baseline: sideOf(baseline, evaluation.baseline),
-        tasks: replay ? taskRowsOf(evaluation.tasks, titles) : [],
+        candidate: sideOf(
+          outcome?.current ?? null,
+          replay,
+          evaluation.candidate,
+        ),
+        baseline: sideOf(
+          baseline?.current ?? null,
+          baseline,
+          evaluation.baseline,
+        ),
+        tasks: outcome ? taskRowsOf(evaluation.tasks, titles) : [],
         createdAt: check.createdAt.toISOString(),
       };
     } catch (error) {

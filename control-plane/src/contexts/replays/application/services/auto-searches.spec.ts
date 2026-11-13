@@ -202,7 +202,7 @@ describe('AutoSearches', () => {
     ).toEqual(search?.split.searched.map((each) => each.taskId.value).sort());
   });
 
-  it('calibrates a new set with the seed of its first search, three repeats a run, and not again while the set and the live config stay', async () => {
+  it('calibrates a new set with the seed of its first search, and not again while the set and the live config stay, each seed three repeats a run', async () => {
     await auto().processDue();
 
     const [first] = searches() as [Search];
@@ -225,7 +225,10 @@ describe('AutoSearches', () => {
     expect(second?.calibrates).toBe(false);
     expect(
       memory.replays.get(second?.seed.replay.replayId.value ?? '')?.repeats,
-    ).toBe(1);
+    ).toBe(3);
+    expect(
+      memory.replays.get(second?.seed.replay.replayId.value ?? '')?.calibration,
+    ).toBe(false);
   });
 
   it('skips as too low a ceiling that covers a plain seed but not a calibrating one', async () => {

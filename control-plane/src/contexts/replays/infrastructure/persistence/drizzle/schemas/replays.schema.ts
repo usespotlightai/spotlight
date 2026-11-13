@@ -623,6 +623,14 @@ export const replayCheckBaseline = pgEnum(
   BASELINE_STATUSES,
 );
 
+export interface ReusedReplaysRow {
+  readonly seed: string;
+  readonly parts: readonly {
+    readonly replayId: string;
+    readonly runs: readonly string[];
+  }[];
+}
+
 export const replayCheck = pgTable(
   'replay_check',
   {
@@ -636,7 +644,8 @@ export const replayCheck = pgTable(
     setEntries: text('set_entries').notNull(),
     attempt: integer('attempt').notNull(),
     candidateId: text('candidate_id').notNull(),
-    replayId: text('replay_id').notNull(),
+    replayId: text('replay_id'),
+    reused: jsonb('reused').$type<ReusedReplaysRow>(),
     referenceCommit: text('reference_commit'),
     referencePullRequest: integer('reference_pull_request'),
     liveFingerprint: text('live_fingerprint').notNull(),

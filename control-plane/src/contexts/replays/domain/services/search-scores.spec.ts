@@ -340,7 +340,7 @@ describe('scoresOf, regressions', () => {
     const search = searchWith();
     const [first, second] = search.split.searchedRuns;
     const seed = replayedAs(
-      replayFor(SET, 'replay_seed', 'candidate_live', null, true),
+      replayFor(SET, 'replay_seed', 'candidate_live', null, true, 3),
       (original) => (original === first?.value ? 'failed' : 'completed'),
     );
     const terse = replayedAs(

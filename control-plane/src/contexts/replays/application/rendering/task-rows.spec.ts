@@ -14,7 +14,7 @@ const failingOn =
 
 const live = (): Replay =>
   replayedAs(
-    replayFor(SET, 'replay_live', 'candidate_live', null, true),
+    replayFor(SET, 'replay_live', 'candidate_live', null, true, 3),
     failingOn('original_3'),
   );
 

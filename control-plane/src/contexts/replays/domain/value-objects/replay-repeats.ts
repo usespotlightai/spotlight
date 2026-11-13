@@ -4,3 +4,6 @@ export const isValidRepeatCount = (repeats: number): boolean =>
   Number.isInteger(repeats) && repeats >= 1 && repeats <= MAX_REPEATS;
 
 export const CALIBRATION_REPEATS = 3;
+
+export const baselineRepeatsFor = (repeats: number): number =>
+  Math.max(repeats, CALIBRATION_REPEATS);

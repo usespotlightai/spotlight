@@ -74,6 +74,7 @@ import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.
 import { ReplayedCandidate } from '@replays/domain/value-objects/replayed-candidate.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
+import { ReusedReplays } from '@replays/domain/value-objects/reused-replays.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
@@ -171,6 +172,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   StationSearchSkipped,
   ReplayCheckId,
   ReplayThreshold,
+  ReusedReplays,
   SearchPolicy,
   ReplayedPeriod,
   ReplayCheckStarted,

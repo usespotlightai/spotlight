@@ -993,7 +993,7 @@ describe('SearchVisibilities', () => {
     ]);
     expect(visibility.seedBlock).toEqual(SEED_BLOCK);
     for (const candidate of visibility.candidates) {
-      expect(candidate.runs).toHaveLength(7);
+      expect(candidate.runs).toHaveLength(candidate.name === 'seed' ? 21 : 7);
       expect(
         candidate.runs.some((each) => heldOut.includes(each.original)),
       ).toBe(false);

@@ -7922,7 +7922,7 @@ export type ReplayCheckSideResponseDto = {
   /**
    * Why this side’s replay stopped: superseded by a later check of the same pull request, insufficient credits for the judge model, the search that ran it ended, or the live config moved on so it went stale
    */
-  stoppedBecause: 'superseded' | 'insufficient-credits' | 'search-ended' | 'stale' | null;
+  stoppedBecause: 'superseded' | 'insufficient-credits' | 'search-ended' | 'stale' | 'check-failed' | null;
 };
 
 export type ReplayCheckTaskSideResponseDto = {
@@ -7966,7 +7966,14 @@ export type ReplayCheckResponseDto = {
    * The planned candidate the check replays
    */
   candidateId: string;
-  replayId: string;
+  /**
+   * The replay of the change on the runs no search already replayed it on, or null when searches replayed it on every run
+   */
+  replayId: string | null;
+  /**
+   * The replays of the same config by a search that the check takes as its result on their runs, against the search’s seed
+   */
+  reusedReplayIds: Array<string>;
   /**
    * The replay of the live config it is compared with: the newest baseline of the set replaying the live config the check was started against; null while that baseline is still being started
    */

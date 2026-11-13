@@ -41138,6 +41138,7 @@
               "insufficient-credits",
               "search-ended",
               "stale",
+              "check-failed",
               null
             ],
             "nullable": true,
@@ -41251,7 +41252,16 @@
             "description": "The planned candidate the check replays"
           },
           "replayId": {
-            "type": "string"
+            "type": "string",
+            "nullable": true,
+            "description": "The replay of the change on the runs no search already replayed it on, or null when searches replayed it on every run"
+          },
+          "reusedReplayIds": {
+            "description": "The replays of the same config by a search that the check takes as its result on their runs, against the search’s seed",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "baselineReplayId": {
             "type": "string",
@@ -41364,6 +41374,7 @@
           "setId",
           "candidateId",
           "replayId",
+          "reusedReplayIds",
           "baselineReplayId",
           "attempt",
           "reference",
