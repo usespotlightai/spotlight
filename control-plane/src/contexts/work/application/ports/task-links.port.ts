@@ -6,4 +6,8 @@ export interface TaskLinksPort {
   conversationPage(slug: string, conversationId: string): string;
 
   chatPage(slug: string, teamId: string, chatId: string): string;
+
+  inboxRequestPage(slug: string, inboxRequestId: string): string;
+
+  noticePage(slug: string, noticeId: string): string;
 }

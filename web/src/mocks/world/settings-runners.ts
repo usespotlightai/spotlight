@@ -117,7 +117,7 @@ const HOSTS: HostResponseDto[] = [
     source: { kind: 'trust', key: 'production-cluster' },
     release: 'v0.4.3',
     unavailableReason:
-      'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight host update',
+      'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight update',
     containerRuntime: 'Podman Engine 5.2.1 (linux/amd64)',
     capacity: 8,
     running: [],

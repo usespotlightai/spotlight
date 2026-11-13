@@ -176,3 +176,40 @@ func TestNoTokenSaysHowToGetOne(t *testing.T) {
 		t.Fatalf("printed %q, %v; want how to log in", got, err)
 	}
 }
+
+func TestTheOneLoginGivesTheTokenWithoutAnAddress(t *testing.T) {
+	dir := t.TempDir()
+	putLogins(t, dir, map[string]credentials.Login{"https://staging.example.com": {Token: sessionToken}})
+
+	got, err := printed(t, map[string]string{credentials.DirVar: dir})
+
+	if err != nil || got != sessionToken {
+		t.Fatalf("printed %q, %v; want the one login", got, err)
+	}
+}
+
+func TestSeveralLoginsAskForTheAddress(t *testing.T) {
+	dir := t.TempDir()
+	putLogins(t, dir, map[string]credentials.Login{
+		"https://staging.example.com": {Token: sessionToken},
+		"https://other.example.com":   {Token: "tok_other"},
+	})
+
+	got, err := printed(t, map[string]string{credentials.DirVar: dir})
+	if err == nil || got != "" || !strings.Contains(err.Error(), "Say which one with --url") {
+		t.Fatalf("printed %q, %v; want the choice", got, err)
+	}
+
+	got, err = printed(t, map[string]string{credentials.DirVar: dir, tokenVar: "tok_env"})
+	if err != nil || got != "tok_env" {
+		t.Fatalf("printed %q, %v; want the token of the environment", got, err)
+	}
+}
+
+func TestNoTokenNamesTheAddressToLogInTo(t *testing.T) {
+	_, err := printed(t, map[string]string{credentials.DirVar: t.TempDir(), urlVar: "https://staging.example.com"})
+
+	if err == nil || !strings.Contains(err.Error(), "Run spotlight login --url https://staging.example.com,") {
+		t.Fatalf("err = %v", err)
+	}
+}

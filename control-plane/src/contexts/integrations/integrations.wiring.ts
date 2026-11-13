@@ -172,6 +172,7 @@ import { IntegrationsUsingSecret } from '@integrations/application/services/inte
 import { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
 import { NotifyChannel } from '@integrations/application/services/notify-channel.service';
 import { NotifyTask } from '@integrations/application/services/notify-task.service';
+import { NotifyTeam } from '@integrations/application/services/notify-team.service';
 import { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
 import { PersonToolRules } from '@integrations/application/services/person-tool-rules.service';
 import { ProcessDueDeliveries } from '@integrations/application/services/process-due-deliveries.service';
@@ -230,6 +231,7 @@ import { IntegrationSecretUses } from '@integrations/infrastructure/acl/secret-u
 import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { TeamIntegrations } from '@integrations/infrastructure/acl/team-integrations.adapter';
+import { TeamNotices } from '@integrations/infrastructure/acl/team-notices.adapter';
 import { CarriedCausation } from '@integrations/infrastructure/causation/carried-causation';
 import { INTEGRATIONS_PAYLOAD_TYPES } from '@integrations/infrastructure/events/integrations-payload-types';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
@@ -375,6 +377,7 @@ import {
 } from '@work/application/ports/task-links.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
+import { TEAM_NOTICES } from '@work/application/ports/team-notices.port';
 
 const INTEGRATIONS_EVENTS = Symbol('INTEGRATIONS_EVENTS');
 
@@ -1241,6 +1244,30 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     provide: CHANNEL_NOTICES,
     inject: [NotifyChannel],
     useFactory: (notices: NotifyChannel) => new ChannelNotices(notices),
+  },
+
+  {
+    provide: NotifyTeam,
+    inject: [
+      DEFINED_INTEGRATIONS,
+      INTEGRATION_RUNTIME,
+      CallAuthResolver,
+      INBOX_LINKS,
+      LOGGER,
+    ],
+    useFactory: (
+      defined: DefinedIntegrationsPort,
+      runtime: IntegrationRuntimePort,
+      callAuthResolver: CallAuthResolver,
+      links: InboxLinksPort,
+      logger: LoggerPort,
+    ) => new NotifyTeam(defined, runtime, callAuthResolver, links, logger),
+  },
+
+  {
+    provide: TEAM_NOTICES,
+    inject: [NotifyTeam],
+    useFactory: (notices: NotifyTeam) => new TeamNotices(notices),
   },
 
   ...bindQueryHandler(TeamIntegrationsQuery, TeamIntegrationsHandler, [

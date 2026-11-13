@@ -4,6 +4,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { NoticeRaised } from '@work/domain/events/notice-raised.event';
+import { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import { NoticeResolved } from '@work/domain/events/notice-resolved.event';
 import type { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
@@ -55,7 +56,15 @@ export class Notice extends EventRecorder {
       resolvedAt: null,
       version: 0,
     });
-    created.raised(input.at);
+    created.record(
+      new NoticeRaised(
+        created.state.id,
+        created.state.workspaceId,
+        created.state.teamId,
+        created.state.addressee,
+        input.at,
+      ),
+    );
 
     return created;
   }
@@ -154,6 +163,12 @@ export class Notice extends EventRecorder {
     return Notice.addressedTo(this.state.addressee, person);
   }
 
+  get openToTeam(): boolean {
+    return (
+      this.state.addressee === null && Notice.unread(this.state.resolvedAt)
+    );
+  }
+
   resolve(at: Date): Notice {
     if (this.state.resolvedAt) {
       return this;
@@ -180,20 +195,16 @@ export class Notice extends EventRecorder {
 
     const reopened = new Notice({ ...this.state, resolvedAt: null });
     reopened.inheritEvents(this);
-    reopened.raised(at);
-
-    return reopened;
-  }
-
-  private raised(at: Date): void {
-    this.record(
-      new NoticeRaised(
-        this.state.id,
-        this.state.workspaceId,
-        this.state.teamId,
-        this.state.addressee,
+    reopened.record(
+      new NoticeReopened(
+        reopened.state.id,
+        reopened.state.workspaceId,
+        reopened.state.teamId,
+        reopened.state.addressee,
         at,
       ),
     );
+
+    return reopened;
   }
 }
