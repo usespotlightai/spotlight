@@ -8,6 +8,9 @@ const PLACED = '.spotlight/attachments/';
 const placed = (attachment: Attachment): string =>
   `${PLACED}${attachment.id.value}/${attachment.name}`;
 
+const VIDEO_HINT =
+  'To see a video, make a folder, extract frames into it as images with `ffmpeg` (for example `ffmpeg -i <video> -vf fps=1 <folder>/%03d.png`) and read those images. `ffprobe <video>` gives the duration and frame size.';
+
 const KB = 1024;
 const MB = KB * KB;
 
@@ -44,15 +47,21 @@ export const Attached = {
   },
 
   listed(attachments: readonly Attachment[]): string | null {
-    return attachments.length > 0
-      ? [
-          'Attached, in the workspace:',
-          ...attachments.map(
-            (each) =>
-              `- \`${placed(each)}\` (${each.contentType}, ${sized(each.size)})`,
-          ),
-        ].join('\n')
-      : null;
+    if (attachments.length === 0) {
+      return null;
+    }
+
+    const listing = [
+      'Attached, in the workspace:',
+      ...attachments.map(
+        (each) =>
+          `- \`${placed(each)}\` (${each.contentType}, ${sized(each.size)})`,
+      ),
+    ].join('\n');
+
+    return attachments.some((each) => each.video)
+      ? `${listing}\n\n${VIDEO_HINT}`
+      : listing;
   },
 
   beside(body: string, attachments: readonly Attachment[]): string {
