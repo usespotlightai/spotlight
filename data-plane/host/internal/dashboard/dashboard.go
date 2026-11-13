@@ -52,6 +52,10 @@ type Setting struct {
 	Set   bool
 }
 
+func (s Setting) hidden() bool {
+	return s.Secret || s.Group == config.GroupOther
+}
+
 func Run(host Host, version string) error {
 	final, err := tea.NewProgram(newModel(host, version)).Run()
 	if done, ok := final.(model); ok {

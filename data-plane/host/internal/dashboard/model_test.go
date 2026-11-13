@@ -223,8 +223,12 @@ func TestChangesASetting(t *testing.T) {
 		t.Fatalf("mode %v with %q", m.mode, m.settings.input.Value())
 	}
 	m.settings.input.SetValue("8")
-	m = deliver(press(m, "enter"))
-	if host.ranArgs(0) != "config set capacity=8" || host.inputs[0] != "" {
+	m, cmd := press(m, "enter")
+	if m.running != "spotlight host config set capacity=8" {
+		t.Fatalf("running = %q", m.running)
+	}
+	m = deliver(m, cmd)
+	if host.ranArgs(0) != "config set capacity --stdin" || host.inputs[0] != "8" {
 		t.Fatalf("ran %q with %q", host.ranArgs(0), host.inputs[0])
 	}
 
@@ -233,8 +237,8 @@ func TestChangesASetting(t *testing.T) {
 		t.Fatalf("a secret starts with %q", m.settings.input.Value())
 	}
 	m.settings.input.SetValue("new-token")
-	m, cmd := press(m, "enter")
-	if m.running != "spotlight host config set token --stdin" {
+	m, cmd = press(m, "enter")
+	if m.running != "spotlight host config set token=•••" {
 		t.Fatalf("running = %q", m.running)
 	}
 	deliver(m, cmd)
@@ -258,6 +262,24 @@ func TestEnterOnASecretWithoutAValueKeepsIt(t *testing.T) {
 	}
 }
 
+func TestAnUnknownVariableIsTreatedAsASecret(t *testing.T) {
+	host := &fakeHost{status: serving(0), rows: []Setting{setting(t, "REGISTRY_PASSWORD", "hunter2")}}
+	m, _ := press(started(host), "c")
+	if strings.Contains(m.View().Content, "hunter2") {
+		t.Fatal("the view shows the value")
+	}
+	m, _ = press(m, "enter")
+	if m.settings.input.Value() != "" {
+		t.Fatalf("the field starts with %q", m.settings.input.Value())
+	}
+	m.settings.input.SetValue("new")
+	m, cmd := press(m, "enter")
+	deliver(m, cmd)
+	if m.running != "spotlight host config set REGISTRY_PASSWORD=•••" || host.inputs[0] != "new" {
+		t.Fatalf("running %q with %v", m.running, host.inputs)
+	}
+}
+
 func TestAnEditSavesTheSettingItOpened(t *testing.T) {
 	host := &fakeHost{status: serving(0), rows: []Setting{setting(t, "capacity", "5"), setting(t, "image", "")}}
 	m, _ := press(started(host), "c", "j", "enter")
@@ -271,7 +293,7 @@ func TestAnEditSavesTheSettingItOpened(t *testing.T) {
 	}
 	m.settings.input.SetValue("runner:2")
 	deliver(press(m, "enter"))
-	if host.ranArgs(0) != "config set image=runner:2" {
+	if host.ranArgs(0) != "config set image --stdin" || host.inputs[0] != "runner:2" {
 		t.Fatalf("ran %q", host.ranArgs(0))
 	}
 }
@@ -534,11 +556,38 @@ func TestFollowingAgainStartsAFreshLog(t *testing.T) {
 		t.Fatal("the log did not end")
 	}
 
-	host.logs = func() (io.ReadCloser, error) { return io.NopCloser(strings.NewReader(`{"msg":"new"}` + "\n")), nil }
-	m = deliver(m, m.check())
+	opened := 0
+	host.logs = func() (io.ReadCloser, error) {
+		opened++
+		return io.NopCloser(strings.NewReader(`{"msg":"new"}` + "\n")), nil
+	}
+	m = deliver(m, m.checkAgain())
+	if opened != 0 {
+		t.Fatal("a status poll restarted the log")
+	}
+
+	m, cmd := update(m, ranMsg{command: "spotlight host start"})
+	m = deliver(m, cmd)
+	if opened != 1 || len(m.logs.entries) != 1 {
+		t.Fatalf("opened %d, entries %+v", opened, m.logs.entries)
+	}
 	m = deliver(m, m.logs.stream.next())
 	if len(m.logs.entries) != 1 || m.logs.entries[0].msg != "new" {
 		t.Fatalf("entries = %+v", m.logs.entries)
+	}
+}
+
+func TestAFailedRestartKeepsTheLogAndItsNote(t *testing.T) {
+	host := &fakeHost{status: serving(0)}
+	m := started(host)
+	m, _ = update(m, logLineMsg{stream: m.logs.stream, line: `{"msg":"old"}`})
+	m = deliver(m, m.logs.stream.next())
+
+	m, cmd := update(m, ranMsg{command: "spotlight host restart"})
+	m = deliver(m, cmd)
+	m = deliver(m, m.logs.stream.next())
+	if m.logs.note != "no service" || len(m.logs.entries) != 1 || m.logs.entries[0].msg != "old" {
+		t.Fatalf("note %q entries %+v", m.logs.note, m.logs.entries)
 	}
 }
 

@@ -2,12 +2,14 @@ package host
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"golang.org/x/term"
@@ -86,18 +88,29 @@ func (p *process) Close() error {
 	p.once.Do(func() {
 		_ = p.cmd.Process.Kill()
 		p.err = p.cmd.Wait()
+		if killed(p.err) {
+			p.err = nil
+		}
 	})
 	return p.err
+}
+
+func killed(err error) bool {
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) {
+		return false
+	}
+	status, ok := exit.Sys().(syscall.WaitStatus)
+	return ok && status.Signaled() && status.Signal() == syscall.SIGKILL
 }
 
 func (h localHost) Status() dashboard.Status {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*timeout)
 	defer cancel()
 	r := inspect(ctx, h.version)
-	cfg, _ := config.Load(h.version)
 
 	status := dashboard.Status{
-		Name: cfg.Name,
+		Name: r.Name,
 		Service: dashboard.Service{
 			Installed: r.Service.Installed, Running: r.Service.Running, Unit: r.Service.Unit, Process: r.Service.Process,
 		},

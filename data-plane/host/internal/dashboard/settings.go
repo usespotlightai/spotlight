@@ -71,7 +71,7 @@ func (m model) startEditing() (tea.Model, tea.Cmd) {
 	input := &m.settings.input
 	input.SetValue("")
 	input.EchoMode, input.Placeholder = textinput.EchoNormal, ""
-	if row.Secret {
+	if row.hidden() {
 		input.EchoMode = textinput.EchoPassword
 		if row.Set {
 			input.Placeholder = "type a new value, or press enter to keep it"
@@ -97,12 +97,14 @@ func (m model) saveSetting() (tea.Model, tea.Cmd) {
 	switch {
 	case !ok:
 		return m, nil
-	case row.Secret && value != "":
-		return m.runWith(value, "config", "set", row.Key, "--stdin")
-	case row.Secret:
-		return m, nil
 	case value != "":
-		return m.run("config", "set", row.Key+"="+value)
+		shown := row.Key + "=" + value
+		if row.hidden() {
+			shown = row.Key + "=•••"
+		}
+		return m.runShown(shownCommand([]string{"config", "set", shown}), value, "config", "set", row.Key, "--stdin")
+	case row.hidden():
+		return m, nil
 	case row.Set:
 		return m.run("config", "unset", row.Key)
 	}

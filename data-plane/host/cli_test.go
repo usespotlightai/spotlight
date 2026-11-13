@@ -135,6 +135,12 @@ func TestSetsAValueFromStdin(t *testing.T) {
 			t.Errorf("%v took a value from stdin", args)
 		}
 	}
+	if err := changeSettings(strings.NewReader("\n"), &out, "dev", "set", []string{"token", "--stdin"}); err == nil || !strings.Contains(err.Error(), "unset token") {
+		t.Errorf("empty stdin: %v", err)
+	}
+	if got := saved(t, path); !strings.Contains(got, "SPOTLIGHT_POOL_TOKEN=new-token\n") {
+		t.Errorf("empty stdin changed the token:\n%s", got)
+	}
 	if err := changeSettings(strings.NewReader("x"), &out, "dev", "unset", []string{"token", "--stdin"}); err == nil {
 		t.Error("unset took --stdin")
 	}

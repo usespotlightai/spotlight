@@ -222,7 +222,7 @@ func (m model) settingLine(row Setting, selected bool, keyWidth int) string {
 		value = m.settings.input.View()
 	case !row.Set:
 		value = s.faint.Render("default")
-	case row.Secret:
+	case row.hidden():
 		value = s.text.Render(config.Mask(row.Value))
 	default:
 		value = s.text.Render(row.Value)

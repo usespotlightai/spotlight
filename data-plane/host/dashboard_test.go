@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -31,8 +32,26 @@ func TestClosingTheLogStopsItsProcess(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Close did not stop the process")
 	}
-	if logs.Close() == nil {
-		t.Error("a second Close lost the exit error")
+	if err := logs.Close(); err != nil {
+		t.Errorf("closing a log it stopped reports %v", err)
+	}
+}
+
+func TestClosingAFailedLogKeepsItsError(t *testing.T) {
+	cmd := exec.Command("sh", "-c", "exit 3")
+	pipe, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	logs := &process{Reader: pipe, cmd: cmd}
+	if _, err := io.ReadAll(logs); err != nil {
+		t.Fatal(err)
+	}
+	if err := logs.Close(); err == nil || !strings.Contains(err.Error(), "exit status 3") {
+		t.Fatalf("Close = %v", err)
 	}
 }
 

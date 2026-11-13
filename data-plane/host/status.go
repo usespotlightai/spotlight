@@ -36,6 +36,7 @@ type check struct {
 
 type report struct {
 	Config  string `json:"config"`
+	Name    string `json:"name,omitempty"`
 	Service struct {
 		Installed bool   `json:"installed"`
 		Unit      string `json:"unit,omitempty"`
@@ -95,7 +96,7 @@ func inspect(ctx context.Context, version string) report {
 	r.Settings = shown(values)
 
 	cfg, invalid := config.Load(version)
-	r.Sandboxes.Capacity = cfg.Capacity
+	r.Name, r.Sandboxes.Capacity = cfg.Name, cfg.Capacity
 	if unit, installed := install.Installed(); installed {
 		r.Service.Unit, r.Service.Installed = unit, true
 	}

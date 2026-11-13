@@ -134,7 +134,11 @@ func changeSettings(in io.Reader, out io.Writer, version, verb string, args []st
 		if err != nil {
 			return err
 		}
-		pairs[0] += "=" + strings.TrimRight(string(value), "\r\n")
+		trimmed := strings.TrimRight(string(value), "\r\n")
+		if trimmed == "" {
+			return fmt.Errorf("stdin holds no value for %s; to remove it, run: spotlight host config unset %s", pairs[0], pairs[0])
+		}
+		pairs[0] += "=" + trimmed
 	}
 
 	file, err := config.Open(config.Path())

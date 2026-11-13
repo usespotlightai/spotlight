@@ -59,6 +59,8 @@ type (
 type logView struct {
 	stream  *logStream
 	ended   bool
+	retry   bool
+	replace bool
 	note    string
 	entries []logEntry
 	scroll  viewport.Model
@@ -177,14 +179,13 @@ func shownCommand(args []string) string {
 }
 
 func (m model) run(args ...string) (tea.Model, tea.Cmd) {
-	return m.runWith("", args...)
+	return m.runShown(shownCommand(args), "", args...)
 }
 
-func (m model) runWith(input string, args ...string) (tea.Model, tea.Cmd) {
+func (m model) runShown(shown, input string, args ...string) (tea.Model, tea.Cmd) {
 	if m.running != "" {
 		return m, nil
 	}
-	shown := shownCommand(args)
 	m.running, m.question, m.mode = shown, nil, browsing
 	host := m.host
 	return m, tea.Batch(m.spin(), func() tea.Msg {
@@ -263,7 +264,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.check != m.checks {
 			return m, nil
 		}
+		started := m.status != nil && !m.status.Service.Running && msg.status.Service.Running
 		m.status, m.checking = &msg.status, false
+		retry := m.logs.retry || started
+		m.logs.retry = false
+		if !retry {
+			return m, nil
+		}
 		return m, m.followAgain()
 
 	case settingsMsg:
@@ -276,12 +283,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ranMsg:
 		result := outcome(msg)
-		m.running, m.last = "", &result
+		m.running, m.last, m.logs.retry = "", &result, true
 		return m, tea.Batch(m.checkAgain(), m.loadSettings())
 
 	case logLineMsg:
 		if msg.stream != m.logs.stream {
 			return m, nil
+		}
+		if m.logs.replace {
+			m.logs.entries, m.logs.note, m.logs.replace = nil, "", false
 		}
 		entry := parseLog(msg.line)
 		entry.rendered = entry.render(m.style)
@@ -296,7 +306,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.stream != m.logs.stream {
 			return m, nil
 		}
-		m.logs.ended, m.logs.note = true, ""
+		m.logs.ended = true
 		if msg.err != nil {
 			m.logs.note = msg.err.Error()
 		}
@@ -312,9 +322,7 @@ func (m *model) followAgain() tea.Cmd {
 	if !m.logs.ended || m.status == nil || !m.status.Service.Installed {
 		return nil
 	}
-	m.logs.stream, m.logs.ended, m.logs.note = follow(m.host.Logs), false, ""
-	m.logs.entries = nil
-	m.refreshLog()
+	m.logs.stream, m.logs.ended, m.logs.replace = follow(m.host.Logs), false, true
 	return m.logs.stream.next()
 }
 
