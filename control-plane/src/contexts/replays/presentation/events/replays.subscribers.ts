@@ -32,6 +32,7 @@ import type { StartCheckReplays } from '@replays/application/services/start-chec
 import type { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
 import type { StartSearchReplays } from '@replays/application/services/start-search-replays.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
+import type { StopFailedChecks } from '@replays/application/services/stop-failed-checks.service';
 import type { StopSupersededChecks } from '@replays/application/services/stop-superseded-checks.service';
 import type { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
 import type { ChangeJudged } from '@replays/domain/events/change-judged.event';
@@ -160,6 +161,7 @@ export interface ReplaysReactions {
   readonly startingSearchReplays: StartSearchReplays;
   readonly startingCheckReplays: StartCheckReplays;
   readonly stoppingSupersededChecks: StopSupersededChecks;
+  readonly stoppingFailedChecks: StopFailedChecks;
   readonly noticingResults: NoticeSearchResults;
   readonly picking: PickSearchCandidates;
   readonly schedules: SearchSchedules;
@@ -260,6 +262,11 @@ export const replaysSubscribers = (
         event.runId,
         event.failure.code,
       ),
+  ),
+  subscribing<ReplayEntryConcluded>(
+    'replays.stop-failed-checks',
+    ['replay.entry-concluded'],
+    (event) => reactions.stoppingFailedChecks.concluded(event),
   ),
   subscribing<ReplayEntryConcluded>(
     'replays.find-replays-to-pair',

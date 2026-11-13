@@ -47,3 +47,8 @@ const meta = {
 export default meta;
 
 export const Run: StoryObj<typeof meta> = {};
+
+export const ShowingMemories: StoryObj<typeof meta> = {
+  name: 'Showing the run’s memories',
+  args: { run: 'run_postgres_3', memories: true },
+};

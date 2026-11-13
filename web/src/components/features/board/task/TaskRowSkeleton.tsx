@@ -16,7 +16,7 @@ export function TaskRowSkeleton() {
 
         <Skeleton className="-ml-1 size-6 rounded-full" />
 
-        <span className="ml-2 flex w-20 shrink-0 justify-end text-xs">
+        <span className="ml-2 hidden w-20 shrink-0 justify-end text-xs @xl/pane:flex">
           <SkeletonLine className="w-10" />
         </span>
       </div>

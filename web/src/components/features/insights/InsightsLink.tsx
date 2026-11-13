@@ -30,7 +30,7 @@ export function InsightsLink({
     <Link
       to={insightsPath(slug, teamId, { tab, period, filter, page: 1 })}
       className={cn(
-        'rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50',
+        'relative rounded-sm underline-offset-2 pointer-coarse:after:absolute pointer-coarse:after:-inset-y-1.5 pointer-coarse:after:inset-x-0 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50',
         className,
       )}
     >

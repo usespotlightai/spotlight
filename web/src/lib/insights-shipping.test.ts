@@ -8,7 +8,13 @@ import type {
   StageTimesResponseDto,
 } from '@/lib/api';
 import { stationNamesOf } from '@/lib/insights';
-import { flowStages, shippingOf, slowestFirst } from '@/lib/insights-shipping';
+import {
+  durationTicks,
+  flowStages,
+  formatDurationTick,
+  shippingOf,
+  slowestFirst,
+} from '@/lib/insights-shipping';
 
 const HOUR = 3_600_000;
 
@@ -302,5 +308,19 @@ describe('slowestFirst', () => {
       'feature',
       'fix',
     ]);
+  });
+});
+
+describe('formatDurationTick', () => {
+  it('prints a tick between whole hours exactly', () => {
+    expect(formatDurationTick(1.5 * HOUR)).toBe('1.5h');
+    expect(formatDurationTick(36 * HOUR)).toBe('1.5d');
+    expect(formatDurationTick(2 * HOUR)).toBe('2h');
+  });
+
+  it('gives every tick its own text', () => {
+    const labels = durationTicks(1.4 * HOUR).map(formatDurationTick);
+
+    expect(labels).toEqual(['0', '30m', '1h', '1.5h']);
   });
 });

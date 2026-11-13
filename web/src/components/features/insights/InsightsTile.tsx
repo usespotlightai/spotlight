@@ -39,15 +39,19 @@ export function InsightsTile({
     <div
       data-slot="insights-tile"
       className={cn(
-        'flex min-h-[7.625rem] min-w-0 flex-col gap-1 overflow-hidden rounded-lg border border-border px-4 py-3 max-sm:odd:last:col-span-2',
+        'flex min-h-[7.625rem] min-w-0 flex-col gap-1 overflow-hidden rounded-lg border border-border px-3 py-3 @md/pane:px-4',
         className,
       )}
     >
-      <dt className="flex min-h-5 items-center gap-1.5 text-muted-foreground text-sm leading-5">
-        <span className="line-clamp-1" title={label}>
+      <dt className="flex min-h-5 items-start gap-1.5 text-muted-foreground text-sm leading-5">
+        <span className="line-clamp-2" title={label}>
           {label}
         </span>
-        {tooltip && <InfoTooltip tooltip={tooltip} />}
+        {tooltip && (
+          <span className="flex h-5 shrink-0 items-center">
+            <InfoTooltip tooltip={tooltip} />
+          </span>
+        )}
       </dt>
       <dd className="@container flex flex-1 flex-col">
         <span className="flex flex-col items-start gap-0.5">

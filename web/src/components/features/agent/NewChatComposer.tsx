@@ -108,7 +108,7 @@ export function NewChatComposer({
             slug={slug}
             value={repositories}
             onChange={chooseRepositories}
-            className="h-6 w-auto"
+            className="h-6 w-auto pointer-coarse:h-9"
           />
           {start.isError && (
             <p

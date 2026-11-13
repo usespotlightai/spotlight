@@ -25,7 +25,7 @@ export function SidebarLink({
       to={to}
       className={({ isActive }) =>
         cn(
-          'flex h-7 items-center gap-2 rounded-md px-2 text-muted-foreground text-sm outline-none transition-colors',
+          'flex h-7 items-center pointer-coarse:h-11 gap-2 rounded-md px-2 text-muted-foreground text-sm outline-none transition-colors',
           'hover:bg-sidebar-hover hover:text-foreground',
           (isActive || active) &&
             'bg-sidebar-selected font-medium text-foreground hover:bg-sidebar-selected',

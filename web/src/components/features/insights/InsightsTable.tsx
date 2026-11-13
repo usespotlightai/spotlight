@@ -110,18 +110,23 @@ export function InsightsTable<T>({
                   picked === key && 'bg-selected',
                 )}
               >
-                {columns.map((column, at) => (
-                  <td
-                    key={column.id}
-                    className={cn(
-                      'min-w-0 whitespace-nowrap text-foreground',
-                      at === 0 && EDGE_INDENT,
-                      column.numeric && 'text-right tabular-nums',
-                    )}
-                  >
-                    {column.cell(row)}
-                  </td>
-                ))}
+                {columns.map((column, at) => {
+                  const cell = column.cell(row);
+
+                  return (
+                    <td
+                      key={column.id}
+                      title={typeof cell === 'string' ? cell : undefined}
+                      className={cn(
+                        'min-w-0 truncate text-foreground',
+                        at === 0 && EDGE_INDENT,
+                        column.numeric && 'text-right tabular-nums',
+                      )}
+                    >
+                      {cell}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}

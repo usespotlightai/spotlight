@@ -31,6 +31,8 @@ const checkOf = (maxRegressions = 0): ReplayCheck =>
     setId: SET.id,
     candidateId: CandidateId.of('candidate_planned'),
     replayId: ReplayId.of('replay_1'),
+    setRuns: SET.runs,
+    reused: null,
     setEntries: ENTRIES,
     attempt: 1,
     reference: PlannedReference.of({ pullRequest: 42 }),
@@ -55,7 +57,7 @@ const candidate = (): Replay =>
 
 const baseline = (): Replay =>
   replayedAs(
-    replayFor(SET, 'replay_base', 'candidate_live', null, true),
+    replayFor(SET, 'replay_base', 'candidate_live', null, true, 3),
     () => 'completed',
   );
 

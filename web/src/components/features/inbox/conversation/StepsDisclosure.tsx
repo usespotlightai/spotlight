@@ -31,7 +31,11 @@ export function StepsDisclosure({
 
   return (
     <div className="py-1.5">
-      <DisclosureToggle open={open} onToggle={toggle}>
+      <DisclosureToggle
+        open={open}
+        onToggle={toggle}
+        className="pointer-coarse:min-h-8"
+      >
         {label}
       </DisclosureToggle>
 

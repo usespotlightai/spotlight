@@ -30,50 +30,49 @@ export function StationSkeleton({ tab }: { tab: StationTab }) {
         }
       />
 
-      <div className="flex shrink-0 flex-col gap-3 pt-3">
-        <div className={cn(STATION_COLUMN, 'flex min-w-0 flex-col gap-1')}>
-          <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2.5 text-xl leading-7">
-              <Skeleton className="size-[1.125rem] shrink-0 rounded-full" />
-              <SkeletonLine className="w-44" />
-            </span>
-            {tab === 'activity' && <Skeleton className="h-7 w-32 rounded-md" />}
-          </div>
-          <SkeletonLine className="w-56 text-sm leading-5" />
-        </div>
-
-        <div className="border-border border-b">
-          <div
-            className={cn(
-              STATION_COLUMN,
-              'flex items-center justify-between gap-3',
-            )}
-          >
-            <div className="-ml-2 flex items-center gap-1">
-              {STATION_TABS.map((each) => (
-                <span
-                  key={each.id}
-                  className={cn(
-                    'relative flex h-9 items-center px-2 text-sm',
-                    each.id === tab
-                      ? 'text-foreground'
-                      : 'text-muted-foreground',
-                  )}
-                >
-                  {each.label}
-                  {each.id === tab && (
-                    <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-primary" />
-                  )}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <StationPane>
+      <StationPane heading={<HeadingSkeleton tab={tab} />}>
         <StationTabSkeleton tab={tab} />
       </StationPane>
     </div>
+  );
+}
+
+function HeadingSkeleton({ tab }: { tab: StationTab }) {
+  return (
+    <>
+      <div className={cn(STATION_COLUMN, 'flex min-w-0 flex-col gap-1 pt-3')}>
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2.5 text-xl leading-7">
+            <Skeleton className="size-[1.125rem] shrink-0 rounded-full" />
+            <SkeletonLine className="w-44" />
+          </span>
+          {tab === 'activity' && (
+            <Skeleton className="h-7 w-14 shrink-0 rounded-md @xl/pane:w-32" />
+          )}
+        </div>
+        <SkeletonLine className="w-56 text-sm leading-5" />
+      </div>
+
+      <div className="sticky top-0 z-20 mt-3 border-border border-b bg-surface">
+        <div className={cn(STATION_COLUMN, 'flex items-center gap-3')}>
+          <div className="-ml-2 flex items-center gap-1">
+            {STATION_TABS.map((each) => (
+              <span
+                key={each.id}
+                className={cn(
+                  'relative flex h-9 items-center px-2 text-sm',
+                  each.id === tab ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {each.label}
+                {each.id === tab && (
+                  <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-primary" />
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

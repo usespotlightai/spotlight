@@ -1,5 +1,5 @@
 {
-  "id": "d5f72ef2-9723-46cb-b1ce-4f4d1c231856",
+  "id": "6d51cff9-df6d-4f5c-b755-bca8d424ff5b",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -11463,7 +11463,13 @@
           "name": "replay_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "reused": {
+          "name": "reused",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "reference_commit": {
           "name": "reference_commit",
@@ -19552,7 +19558,8 @@
         "superseded",
         "insufficient-credits",
         "search-ended",
-        "stale"
+        "stale",
+        "check-failed"
       ]
     },
     "public.search_skip_reason": {

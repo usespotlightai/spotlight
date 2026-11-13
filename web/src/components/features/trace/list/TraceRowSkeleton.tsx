@@ -1,5 +1,8 @@
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
-import { TRACE_COLUMNS } from '@/components/features/trace/list/columns';
+import {
+  TRACE_CELL as CELL,
+  TRACE_COLUMNS,
+} from '@/components/features/trace/list/columns';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { cn } from '@/lib/utils';
 
@@ -11,17 +14,17 @@ export function TraceRowSkeleton() {
         TRACE_COLUMNS,
       )}
     >
-      <span aria-hidden />
-      <SkeletonLine className="w-20 text-xs" />
-      <span className="flex min-w-0 items-center gap-0.5">
+      <span aria-hidden className={CELL.select} />
+      <SkeletonLine className={cn('w-20 text-xs', CELL.started)} />
+      <span className={cn('flex min-w-0 items-center gap-0.5', CELL.stations)}>
         <StationIconSkeleton />
       </span>
-      <SkeletonLine className="w-36" />
-      <span aria-hidden />
-      <span aria-hidden />
-      <span aria-hidden />
-      <SkeletonLine className="ml-auto w-8 text-xs" />
-      <SkeletonLine className="ml-auto w-8 text-xs" />
+      <SkeletonLine className={cn('w-36 max-w-full', CELL.task)} />
+      <span aria-hidden className={CELL.detail} />
+      <span aria-hidden className={CELL.detail} />
+      <span aria-hidden className={CELL.errors} />
+      <SkeletonLine className={cn('ml-auto w-8 text-xs', CELL.duration)} />
+      <SkeletonLine className={cn('ml-auto w-8 text-xs', CELL.cost)} />
     </li>
   );
 }

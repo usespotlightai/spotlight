@@ -4,6 +4,7 @@ import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked'
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
+import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import type { Attachment } from '@/lib/attachment';
 import { STICKY_AT_TOP } from '@/lib/inbox';
@@ -35,7 +36,7 @@ export function RunBriefing({
       sidePanel={sidePanel}
       footer={<ComposerFooter>{footer}</ComposerFooter>}
     >
-      <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
+      <div className={cn(THREAD_COLUMN, 'flex flex-col')}>
         <TimeMarker at={run.startedAt} />
 
         <div className={cn('mt-6', STICKY_AT_TOP)}>

@@ -1117,6 +1117,7 @@ export class InMemoryChecks implements ReplayCheckRepository {
           attempt: check.attempt,
           candidateId: check.candidateId,
           replayId: check.replayId,
+          reused: check.reused,
           reference: check.reference,
           liveFingerprint: check.liveFingerprint,
           candidateFingerprint: check.candidateFingerprint,

@@ -23,23 +23,25 @@ export function CopyBlock({ text, label, focused, onCopy }: CopyBlockProps) {
   }, [focused]);
 
   return (
-    <div className="relative">
-      <CodeBlock command={text} className="pr-10" />
-
-      <Button
-        ref={button}
-        variant="ghost"
-        size="icon-xs"
-        aria-label={copied ? 'Copied' : label}
-        title={label}
-        className="absolute top-1.5 right-1.5 text-muted-foreground"
-        onClick={() => {
-          void copy(text);
-          onCopy?.();
-        }}
-      >
-        <CopyIcon copied={copied} />
-      </Button>
-    </div>
+    <CodeBlock
+      command={text}
+      className="pr-1"
+      trailing={
+        <Button
+          ref={button}
+          variant="ghost"
+          size="icon-xs"
+          aria-label={copied ? 'Copied' : label}
+          title={label}
+          className="m-1.5 text-muted-foreground"
+          onClick={() => {
+            void copy(text);
+            onCopy?.();
+          }}
+        >
+          <CopyIcon copied={copied} />
+        </Button>
+      }
+    />
   );
 }

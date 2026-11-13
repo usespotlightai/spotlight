@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { Link } from 'react-router';
 
 import { useTabIndicator } from '@/hooks/useTabIndicator';
+import { useTabStrip } from '@/hooks/useTabStrip';
 import { cn } from '@/lib/utils';
 
 type TabLink<T extends string> = {
@@ -39,13 +40,15 @@ export function TabLinks<T extends string>({
   const look = LOOKS[variant];
   const nav = useRef<HTMLElement>(null);
   const indicator = useTabIndicator(nav, current);
+  const fade = useTabStrip(nav, current);
 
   return (
     <nav
       ref={nav}
       aria-label={label}
+      style={fade}
       className={cn(
-        'relative flex shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none]',
+        'relative flex shrink-0 scroll-px-6 items-center gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none]',
         className,
       )}
     >

@@ -68,23 +68,25 @@ export function ProposedTaskCard({
         />
       </OverflowFade>
 
-      <DecisionControls>
-        <DecisionButton
-          disabled={pending || !open}
-          onClick={onDismiss}
-          aria-describedby={titleId}
-        >
-          Dismiss
-        </DecisionButton>
-        <DecisionButton
-          variant="default"
-          disabled={pending || !open || !proposal.stationName}
-          onClick={onCreate}
-          aria-describedby={titleId}
-        >
-          Create task
-        </DecisionButton>
-      </DecisionControls>
+      {open && (
+        <DecisionControls>
+          <DecisionButton
+            disabled={pending}
+            onClick={onDismiss}
+            aria-describedby={titleId}
+          >
+            Dismiss
+          </DecisionButton>
+          <DecisionButton
+            variant="default"
+            disabled={pending || !proposal.stationName}
+            onClick={onCreate}
+            aria-describedby={titleId}
+          >
+            Create task
+          </DecisionButton>
+        </DecisionControls>
+      )}
     </DecisionCard>
   );
 }

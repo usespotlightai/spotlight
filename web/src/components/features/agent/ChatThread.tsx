@@ -10,6 +10,7 @@ import {
 } from '@/components/features/inbox/conversation/StepsWork';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { Turn } from '@/components/shared/Turn';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useJournalSight } from '@/hooks/useJournalSight';
@@ -50,10 +51,10 @@ export function ChatThread({
   );
   const moments = momentsOf(chat.messages, journals, resting);
   const turns = turnsOf(moments);
-  const sight = useJournalSight();
   const scroller = useStickToBottom<HTMLDivElement>(
     turns.filter((turn) => turn.message).length,
   );
+  const sight = useJournalSight(scroller);
   const lastWorked = moments.reduce<ChatMoment | null>(
     (found, moment) => (moment.kind === 'worked' ? moment : found),
     null,
@@ -66,7 +67,7 @@ export function ChatThread({
       contentClassName="min-h-full flex"
     >
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-8 py-8">
+        <div className={cn(THREAD_COLUMN, 'flex flex-1 flex-col')}>
           <TimeMarker at={chat.createdAt} />
 
           {turns.length === 0 && !chat.progress && <ChatEmpty />}

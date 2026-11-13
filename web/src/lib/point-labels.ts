@@ -25,6 +25,7 @@ const CHARACTER_WIDTH = 6.2;
 const GAP = 15;
 const SIDE_GAP = 14;
 const ACCESS = 2;
+const DOT = 4;
 
 const LINE = LABEL_SIZE + 2;
 
@@ -37,6 +38,10 @@ const spotsFor = (
   { x: point.x, y: point.y + GAP + LABEL_SIZE + LINE, anchor: 'middle' },
   { x: point.x + SIDE_GAP, y: point.y + LABEL_SIZE / 3, anchor: 'start' },
   { x: point.x - SIDE_GAP, y: point.y + LABEL_SIZE / 3, anchor: 'end' },
+  { x: point.x - DOT, y: point.y - GAP, anchor: 'start' },
+  { x: point.x + DOT, y: point.y - GAP, anchor: 'end' },
+  { x: point.x - DOT, y: point.y + GAP + LABEL_SIZE, anchor: 'start' },
+  { x: point.x + DOT, y: point.y + GAP + LABEL_SIZE, anchor: 'end' },
 ];
 
 const boxOf = (label: PlacedLabel): Box => {
@@ -62,34 +67,39 @@ const overlap = (a: Box, b: Box): boolean =>
   a.top < b.bottom + ACCESS &&
   b.top < a.bottom + ACCESS;
 
-export type Span = {
-  readonly left: number;
-  readonly right: number;
-};
+const inside = (box: Box, plot: Box | undefined): boolean =>
+  !plot ||
+  (box.left >= plot.left &&
+    box.right <= plot.right &&
+    box.top >= plot.top &&
+    box.bottom <= plot.bottom);
 
-const inside = (box: Box, span: Span | undefined): boolean =>
-  !span || (box.left >= span.left && box.right <= span.right);
+const dotOf = (point: LabelledPoint): Box => ({
+  left: point.x - DOT,
+  right: point.x + DOT,
+  top: point.y - DOT,
+  bottom: point.y + DOT,
+});
 
 export const placeLabels = (
   points: readonly LabelledPoint[],
-  span?: Span,
+  plot?: Box,
 ): PlacedLabel[] => {
+  const taken = points.map(dotOf);
   const placed: PlacedLabel[] = [];
 
   for (const point of points) {
-    const taken = placed.map(boxOf);
-    const options = spotsFor(point).map((spot) => ({
-      ...spot,
-      key: point.key,
-      text: point.text,
-    }));
-    const free = options.find(
-      (option) =>
-        inside(boxOf(option), span) &&
-        !taken.some((box) => overlap(box, boxOf(option))),
-    );
-    const kept = options.find((option) => inside(boxOf(option), span));
-    placed.push(free ?? kept ?? options[0]);
+    const free = spotsFor(point)
+      .map((spot) => ({ ...spot, key: point.key, text: point.text }))
+      .find((option) => {
+        const box = boxOf(option);
+        return inside(box, plot) && !taken.some((other) => overlap(other, box));
+      });
+
+    if (free) {
+      placed.push(free);
+      taken.push(boxOf(free));
+    }
   }
 
   return placed;

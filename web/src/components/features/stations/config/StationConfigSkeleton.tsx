@@ -4,6 +4,7 @@ import {
   CONFIG_LAYOUT,
   CONFIG_MAIN,
 } from '@/components/features/stations/config/StationConfig';
+import { PROPERTIES_LAYOUT } from '@/components/features/stations/config/StationProperties';
 import { TabSection } from '@/components/features/stations/TabSection';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
@@ -17,7 +18,13 @@ const PROMPT_LINES = [
 ] as const;
 
 const GROUPS = [
-  ['Live config', [['Since', 'w-14']]],
+  [
+    'Live config',
+    [
+      ['Since', 'w-14'],
+      ['Change', 'w-24'],
+    ],
+  ],
   [
     'Agent',
     [
@@ -32,6 +39,13 @@ const GROUPS = [
       ['Name', 'w-16'],
       ['Repositories', 'w-28'],
       ['Skills', 'w-24'],
+    ],
+  ],
+  [
+    'Automatic improvement',
+    [
+      ['Searches', 'w-28'],
+      ['Budget', 'w-20'],
     ],
   ],
 ] as const;
@@ -67,7 +81,7 @@ export function StationConfigSkeleton() {
         </TabSection>
       </div>
 
-      <div className="grid content-start gap-10 max-lg:order-first sm:max-lg:grid-cols-2">
+      <div className={PROPERTIES_LAYOUT}>
         {GROUPS.map(([title, rows]) => (
           <TabSection key={title} level={3} title={title}>
             <dl className={PROPERTY_GRID}>

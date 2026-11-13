@@ -58,7 +58,7 @@ export function TaskRow({
       {...listeners}
       data-slot="task-row"
       className={cn(
-        'group/task relative mx-1.5 touch-none select-none rounded-md first:mt-0.5 last:mb-0.5',
+        'group/task relative mx-1.5 select-none rounded-md [-webkit-touch-callout:none] first:mt-0.5 last:mb-0.5',
         isDragging && 'opacity-40',
         mergeTop && 'rounded-t-none',
         mergeBottom && 'rounded-b-none',
@@ -68,13 +68,14 @@ export function TaskRow({
         <DropIndicator edge={landing === 'above' ? 'top' : 'bottom'} />
       )}
 
-      <span className="pointer-events-none absolute inset-y-0 left-3 z-10 flex w-4 items-center justify-center">
+      <span className="pointer-events-none absolute top-0 left-3 z-10 flex h-10 w-4 items-center justify-center">
         <Checkbox
           checked={selected}
           onCheckedChange={onSelectedChange}
           aria-label={`Select ${task.title}`}
           className={cn(
-            'pointer-events-auto opacity-0 transition-opacity',
+            'pointer-events-auto relative opacity-0 transition-opacity',
+            'pointer-coarse:opacity-100 pointer-coarse:after:absolute pointer-coarse:after:-inset-3',
             'focus-visible:opacity-100 group-hover/task:opacity-100',
             selected && 'opacity-100',
           )}
@@ -83,7 +84,8 @@ export function TaskRow({
 
       <div
         className={cn(
-          'flex h-10 min-w-0 items-center gap-2 rounded-[inherit] px-3 transition-colors',
+          'grid min-h-10 min-w-0 grid-cols-[1rem_auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-[inherit] px-3 py-2 transition-colors',
+          '@xl/pane:flex @xl/pane:h-10 @xl/pane:py-0',
           selected ? 'bg-selected' : 'group-hover/task:bg-accent',
         )}
       >
@@ -99,19 +101,22 @@ export function TaskRow({
           <TrailLink
             to={to}
             draggable={false}
-            className="truncate text-foreground text-sm outline-none"
+            title={task.title}
+            className="-my-2 truncate py-2 text-foreground text-sm outline-none"
           >
             {task.title}
           </TrailLink>
         </span>
 
-        <TaskState task={task} reviewTo={reviewTo} />
+        <span className="col-start-3 row-start-2 flex pl-1.5 empty:hidden @xl/pane:contents">
+          <TaskState task={task} reviewTo={reviewTo} />
+        </span>
 
         <AssigneePicker teamId={teamId} task={task} className="-ml-1" />
 
         <time
           dateTime={task.createdAt}
-          className="ml-2 w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums"
+          className="ml-2 hidden w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums @xl/pane:block"
         >
           {createdOn(task.createdAt)}
         </time>

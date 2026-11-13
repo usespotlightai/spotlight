@@ -19,8 +19,8 @@ export function RowCheckbox({
         onCheckedChange={onSelectedChange}
         aria-label={label}
         className={cn(
-          'opacity-0 transition-opacity',
-          'focus-visible:opacity-100 group-hover/host:opacity-100',
+          'relative opacity-0 transition-opacity after:absolute after:-inset-3',
+          'focus-visible:opacity-100 group-hover/host:opacity-100 pointer-coarse:opacity-100',
           selected && 'opacity-100',
         )}
       />

@@ -1,14 +1,8 @@
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Bar, BarChart, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { TraceLegend } from '@/components/features/trace/list/TraceLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
+import { ResponsiveChart } from '@/components/shared/chart/ResponsiveChart';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import type { TraceVolumeBucketResponseDto } from '@/lib/api';
 import { spanned } from '@/lib/trace-list';
@@ -117,14 +111,14 @@ export function TraceVolume({
   }
 
   return (
-    <div className="px-2 pt-2 pb-1">
+    <div className="px-0.5 pt-2 pb-1">
       <TraceLegend />
 
       <div
         {...cursor.area}
         className="[&_*:focus:not(:focus-visible)]:outline-none"
       >
-        <ResponsiveContainer width="100%" height={HEIGHT}>
+        <ResponsiveChart height={HEIGHT}>
           <BarChart
             data={buckets}
             barGap={0}
@@ -162,7 +156,7 @@ export function TraceVolume({
               isAnimationActive={false}
             />
           </BarChart>
-        </ResponsiveContainer>
+        </ResponsiveChart>
       </div>
     </div>
   );

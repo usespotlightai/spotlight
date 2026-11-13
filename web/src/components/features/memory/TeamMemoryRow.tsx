@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { MEMORY_COLUMNS } from '@/components/features/memory/columns';
+import {
+  MEMORY_COLUMNS,
+  MEMORY_DETAIL_CELL,
+  MEMORY_KIND_CELL,
+} from '@/components/features/memory/columns';
 import { MemoryBodyCell } from '@/components/features/memory/MemoryBodyCell';
+import { MemoryCellLabel } from '@/components/features/memory/MemoryCellLabel';
 import { MemoryDetails } from '@/components/features/memory/MemoryDetails';
 import { MemoryKindLabel } from '@/components/features/memory/MemoryKindLabel';
 import { MemoryKindSelect } from '@/components/features/memory/MemoryKindSelect';
@@ -74,7 +79,7 @@ export function TeamMemoryRow({
     >
       <div
         className={cn(
-          'relative grid min-h-9 items-start gap-3 rounded-md px-3 py-2 text-sm leading-5 group-data-clamped/row:h-9',
+          'relative grid min-h-9 items-start gap-3 rounded-md px-3 py-2 text-sm leading-5 @md/pane:group-data-clamped/row:h-9',
           MEMORY_COLUMNS,
         )}
       >
@@ -88,7 +93,12 @@ export function TeamMemoryRow({
           onCancel={editing.cancel}
         />
 
-        <span className="relative z-10 min-w-0 truncate text-muted-foreground text-sm leading-5">
+        <span
+          className={cn(
+            'relative z-10 min-w-0 truncate text-muted-foreground text-sm leading-5',
+            !changing && MEMORY_KIND_CELL,
+          )}
+        >
           {changing ? (
             <MemoryKindSelect value={draft.kind} onChange={draft.setKind} />
           ) : (
@@ -96,7 +106,13 @@ export function TeamMemoryRow({
           )}
         </span>
 
-        <span className="relative z-10 min-w-0 group-data-clamped/row:pointer-events-none">
+        <span
+          className={cn(
+            'relative z-10 flex min-w-0 flex-col group-data-clamped/row:pointer-events-none',
+            MEMORY_DETAIL_CELL,
+          )}
+        >
+          <MemoryCellLabel>Applies to</MemoryCellLabel>
           {changing ? (
             <MemoryPlaceEditor draft={draft} lines={lines} />
           ) : (
@@ -104,8 +120,16 @@ export function TeamMemoryRow({
           )}
         </span>
 
-        <div className="relative z-10 flex min-w-0 flex-col gap-2 text-muted-foreground text-sm leading-5 group-data-clamped/row:pointer-events-none">
-          <span className="truncate">{SOURCE_LABELS[memory.source]}</span>
+        <div
+          className={cn(
+            'relative z-10 flex min-w-0 flex-col gap-2 text-muted-foreground text-sm leading-5 group-data-clamped/row:pointer-events-none',
+            MEMORY_DETAIL_CELL,
+          )}
+        >
+          <span className="flex min-w-0 flex-col">
+            <MemoryCellLabel>Source</MemoryCellLabel>
+            <span className="truncate">{SOURCE_LABELS[memory.source]}</span>
+          </span>
           {seen && (
             <div className="group-data-clamped/row:hidden">
               <MemorySource slug={slug} teamId={teamId} memoryId={memory.id} />
@@ -113,12 +137,26 @@ export function TeamMemoryRow({
           )}
         </div>
 
-        <span className="min-w-0 truncate text-muted-foreground text-sm leading-5">
-          {memory.approvedBy.name ?? 'Someone'}
+        <span
+          className={cn(
+            'flex min-w-0 flex-col text-muted-foreground text-sm leading-5',
+            MEMORY_DETAIL_CELL,
+          )}
+        >
+          <MemoryCellLabel>Approved by</MemoryCellLabel>
+          <span className="truncate">
+            {memory.approvedBy.name ?? 'Someone'}
+          </span>
         </span>
 
-        <span className="truncate text-right text-muted-foreground text-sm leading-5 tabular-nums">
-          {memory.runs}
+        <span
+          className={cn(
+            'flex min-w-0 flex-col text-muted-foreground text-sm leading-5 tabular-nums @4xl/pane:text-right',
+            MEMORY_DETAIL_CELL,
+          )}
+        >
+          <MemoryCellLabel>Runs</MemoryCellLabel>
+          <span className="truncate">{memory.runs}</span>
         </span>
       </div>
 

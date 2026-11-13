@@ -8,7 +8,7 @@ import {
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const FADE = '1.5rem';
+const FADE = 'min(1.5rem, 25%)';
 
 export function FadingScroll({
   className,

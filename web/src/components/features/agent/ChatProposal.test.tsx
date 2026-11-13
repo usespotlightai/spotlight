@@ -134,24 +134,36 @@ describe('ChatProposal', () => {
     expect(
       screen.getByRole('link', { name: 'Back off exponentially' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/tasks/task_1');
-    expect(screen.getByRole('button', { name: 'Create task' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Create task' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Dismiss' }),
+    ).not.toBeInTheDocument();
   });
 
   it('says the task is being created while it is, offering nothing more to do', () => {
     showing({ ...OPEN, state: 'accepted' });
 
     expect(screen.getByText('Creating the task')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create task' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Create task' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Dismiss' }),
+    ).not.toBeInTheDocument();
   });
 
   it('says the proposal was dismissed, offering nothing more to do', () => {
     showing({ ...OPEN, state: 'dismissed' });
 
     expect(screen.getByText('Dismissed')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create task' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Create task' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Dismiss' }),
+    ).not.toBeInTheDocument();
   });
 
   it('cannot create a task at a station that is gone', () => {

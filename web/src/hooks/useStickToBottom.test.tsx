@@ -4,12 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 
 let grow: () => void = () => {};
+let observed: Element[] = [];
 
 class GrowingObserver {
   constructor(callback: () => void) {
     grow = callback;
   }
-  observe() {}
+  observe(target: Element) {
+    observed.push(target);
+  }
   unobserve() {}
   disconnect() {}
 }
@@ -38,6 +41,7 @@ const grown = (box: HTMLElement, height: number) => {
 };
 
 beforeEach(() => {
+  observed = [];
   vi.stubGlobal('ResizeObserver', GrowingObserver);
 });
 
@@ -53,6 +57,40 @@ describe('useStickToBottom', () => {
     grown(box, 900);
 
     expect(box.scrollTop).toBe(900);
+  });
+
+  it('keeps following when its own scroll lands after the log grew again', () => {
+    render(<Log />);
+    const box = screen.getByTestId('scroller');
+    grown(box, 900);
+
+    Object.defineProperty(box, 'scrollHeight', {
+      configurable: true,
+      value: 1400,
+    });
+    fireEvent.scroll(box);
+    grow();
+
+    expect(box.scrollTop).toBe(1400);
+  });
+
+  it('goes back to the bottom when the box itself changes size', () => {
+    render(<Log />);
+    const box = screen.getByTestId('scroller');
+
+    expect(observed).toContain(box);
+  });
+
+  it('stops following when the person scrolls up', () => {
+    render(<Log />);
+    const box = screen.getByTestId('scroller');
+    grown(box, 900);
+
+    box.scrollTop = 300;
+    fireEvent.scroll(box);
+    grown(box, 1400);
+
+    expect(box.scrollTop).toBe(300);
   });
 
   it('stays in place when a step is opened', () => {

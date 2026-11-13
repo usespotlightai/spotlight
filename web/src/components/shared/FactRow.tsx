@@ -7,7 +7,7 @@ export const FACT_VALUE =
 
 export function FactRow({ children }: { children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-4 py-1 first:pt-0 last:pb-0">
+    <div className="grid grid-cols-1 gap-x-4 py-1 first:pt-0 last:pb-0 @md/pane:grid-cols-[6rem_minmax(0,1fr)]">
       {children}
     </div>
   );

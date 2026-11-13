@@ -49,7 +49,7 @@ export function StationSection({
         style={{
           backgroundImage: `linear-gradient(to right, ${color}1f, transparent 60%)`,
         }}
-        className="sticky top-0 z-10 mx-1.5 relative flex h-9 shrink-0 select-none items-center gap-2 rounded-md bg-accent px-3"
+        className="sticky top-0 z-20 mx-1.5 relative flex h-9 shrink-0 select-none items-center gap-2 rounded-md bg-accent px-3"
       >
         {landing && <DropIndicator edge="bottom" />}
 
@@ -58,7 +58,7 @@ export function StationSection({
           onClick={onToggle}
           aria-expanded={open}
           aria-label={name}
-          className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:text-foreground"
+          className="relative flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors after:absolute after:-inset-2.5 hover:text-foreground"
         >
           <ChevronDown
             className={cn('size-3 transition-transform', !open && '-rotate-90')}
@@ -98,7 +98,7 @@ export function StationSection({
             type="button"
             onClick={onAddTask}
             aria-label={`Add task to ${name}`}
-            className="ml-auto flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-foreground/10 hover:text-foreground"
+            className="relative ml-auto flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors after:absolute after:-inset-2 hover:bg-foreground/10 hover:text-foreground"
           >
             <Plus className="size-3.5" aria-hidden />
           </button>

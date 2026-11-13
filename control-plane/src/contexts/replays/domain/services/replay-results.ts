@@ -95,7 +95,9 @@ const NO_ENDINGS: Record<ReplayEnding, number> = {
   'not-run': 0,
 };
 
-const REGRESSED_BY = 0.5;
+const REGRESSED_AT = 0.9;
+
+const ROUNDING = 1e-9;
 
 const SCORE_EPSILON = 0.01;
 
@@ -135,6 +137,53 @@ const successOf = (repeats: readonly EntryOutcome[]): number | null => {
   const judged = judgedIn(repeats);
 
   return mean(judged.map((each) => (each.succeeded ? 1 : 0)));
+};
+
+interface Tally {
+  readonly succeeded: number;
+  readonly judged: number;
+}
+
+const tallyOf = (repeats: readonly EntryOutcome[]): Tally => {
+  const judged = judgedIn(repeats);
+
+  return {
+    succeeded: judged.filter((each) => each.succeeded).length,
+    judged: judged.length,
+  };
+};
+
+const logGamma = (whole: number): number => {
+  let sum = 0;
+
+  for (let factor = 2; factor < whole; factor += 1) {
+    sum += Math.log(factor);
+  }
+
+  return sum;
+};
+
+const logBeta = (one: number, other: number): number =>
+  logGamma(one) + logGamma(other) - logGamma(one + other);
+
+export const chanceWorse = (candidate: Tally, baseline: Tally): number => {
+  const ourSuccesses = 1 + candidate.succeeded;
+  const ourFailures = 1 + candidate.judged - candidate.succeeded;
+  const theirSuccesses = 1 + baseline.succeeded;
+  const theirFailures = 1 + baseline.judged - baseline.succeeded;
+  let chance = 0;
+
+  for (let each = 0; each < theirSuccesses; each += 1) {
+    chance +=
+      Math.exp(
+        logBeta(ourSuccesses + each, ourFailures + theirFailures) -
+          logBeta(1 + each, theirFailures) -
+          logBeta(ourSuccesses, ourFailures),
+      ) /
+      (theirFailures + each);
+  }
+
+  return chance;
 };
 
 export const taskSuccessesOf = (
@@ -266,13 +315,13 @@ const scoresOf = (
 };
 
 const regressedFrom = (
-  candidateSuccess: number | null,
-  baselineSuccess: number | null,
+  candidate: Tally,
+  baseline: Tally,
   scoreDelta: number | null,
 ): boolean =>
-  (candidateSuccess !== null &&
-    baselineSuccess !== null &&
-    baselineSuccess - candidateSuccess > REGRESSED_BY) ||
+  (candidate.judged > 0 &&
+    baseline.judged > 0 &&
+    chanceWorse(candidate, baseline) > REGRESSED_AT + ROUNDING) ||
   (scoreDelta !== null && scoreDelta < -SCORE_EPSILON);
 
 export const pairOutcomeOf = (
@@ -364,7 +413,7 @@ export const taskComparisons = (
         scoreUncompared: scores.uncompared,
         regressed:
           concluded &&
-          regressedFrom(candidateSuccess, baselineSuccess, scores.delta),
+          regressedFrom(tallyOf(repeats), tallyOf(theirs), scores.delta),
         pair: pairOutcomeOf(repeats),
       };
     })

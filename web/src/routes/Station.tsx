@@ -66,15 +66,17 @@ export function Station() {
         heading={false}
       />
 
-      <StationHeading
-        slug={slug}
-        teamId={teamId}
-        line={line}
-        station={station}
-        tab={tab}
-      />
-
-      <StationPane>
+      <StationPane
+        heading={
+          <StationHeading
+            slug={slug}
+            teamId={teamId}
+            line={line}
+            station={station}
+            tab={tab}
+          />
+        }
+      >
         {tabLoading && station.kind === 'work' ? (
           <StationTabSkeleton tab={tab} />
         ) : (

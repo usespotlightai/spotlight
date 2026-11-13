@@ -30,6 +30,8 @@ import {
 
 const PERIOD_TILES = new Set(['runs', 'cost', 'median']);
 
+const RUNS_TILE = '[&>dd]:flex-none @4xl/pane:[&>dd]:flex-1';
+
 const trendable = (values: readonly (number | null)[]): boolean =>
   new Set(values.filter((value) => value !== null)).size > 1;
 
@@ -103,6 +105,7 @@ function LiveSummary({ teamId, lineId, stationId }: SummaryProps) {
               label={column.label}
               value={column.render(tally)}
               visual={visualOf(column)}
+              className={column.label === 'Runs' ? RUNS_TILE : undefined}
             />,
             ...(column.label === 'Runs'
               ? [<OutcomesTile key={OUTCOMES_TITLE} tally={tally} />]
@@ -159,6 +162,7 @@ function PeriodSummary({
                   delta={tile.delta}
                   drill={tile.drill}
                   trend={tile.trend}
+                  className={tile.id === 'runs' ? RUNS_TILE : undefined}
                 />,
                 ...(tile.id === 'runs'
                   ? [

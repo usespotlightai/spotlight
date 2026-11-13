@@ -19,7 +19,10 @@ export function DraggableInboxEntry({ slug, entry }: DraggableInboxEntryProps) {
     <li
       ref={setNodeRef}
       {...listeners}
-      className={cn('touch-none', isDragging && 'opacity-40')}
+      className={cn(
+        'select-none [-webkit-touch-callout:none]',
+        isDragging && 'opacity-40',
+      )}
     >
       <InboxEntryRow slug={slug} entry={entry} />
     </li>

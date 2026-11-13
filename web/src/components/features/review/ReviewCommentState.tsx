@@ -47,7 +47,7 @@ export function ReviewCommentState({
         rel="noreferrer"
         className={cn(
           className,
-          'gap-1 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70',
+          'relative gap-1 outline-none pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70',
         )}
       >
         {description}

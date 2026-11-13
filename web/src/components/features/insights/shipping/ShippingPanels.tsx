@@ -23,7 +23,7 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
     <>
       <InsightsSection title="What the agents ship">
         <PipelineFlow flow={shipping.pipeline} />
-        <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
+        <div className="grid gap-x-12 gap-y-10 @4xl/pane:grid-cols-2">
           <TimeToMerge
             now={shipping.toMerge}
             changes={shipping.toMergeChanges}
@@ -38,7 +38,7 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
       </InsightsSection>
 
       <InsightsSection title="Review and approval">
-        <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
+        <div className="grid gap-x-12 gap-y-10 @4xl/pane:grid-cols-2">
           <TimeToFirstReview days={shipping.reviewDays} />
           <InsightsCard
             flat
@@ -64,7 +64,7 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
             />
           </InsightsCard>
         </div>
-        <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
+        <div className="grid gap-x-12 gap-y-10 @4xl/pane:grid-cols-2">
           <ReviewBots bots={shipping.bots} />
           <InsightsCard
             flat

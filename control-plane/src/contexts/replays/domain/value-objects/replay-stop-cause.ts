@@ -6,6 +6,7 @@ export const REPLAY_STOP_CAUSES = [
   'insufficient-credits',
   'search-ended',
   'stale',
+  'check-failed',
 ] as const;
 
 export type ReplayStopCause = (typeof REPLAY_STOP_CAUSES)[number];

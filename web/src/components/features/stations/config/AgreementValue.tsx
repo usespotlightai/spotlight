@@ -56,11 +56,13 @@ export function AgreementValue({
       data-qualified={qualified}
       className="flex flex-col"
     >
-      <span className="flex items-center gap-1.5">
+      <span className="flex flex-wrap items-center gap-x-1.5">
         <span className="tabular-nums">{formatStat(agreement)}</span>
         {band && <span className="text-muted-foreground">{band}</span>}
         {below && (
-          <span className="text-outcome-failed">· below the minimum</span>
+          <span className="whitespace-nowrap text-outcome-failed">
+            · below the minimum
+          </span>
         )}
         {note && (
           <InfoTooltip

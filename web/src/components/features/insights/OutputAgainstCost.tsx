@@ -1,18 +1,12 @@
-import {
-  Bar,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { useMemo } from 'react';
+import { Bar, ComposedChart, Line, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { ConfigMarkers } from '@/components/features/insights/ConfigMarkers';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { OutputLegend } from '@/components/features/insights/OutputLegend';
 import { OutputTable } from '@/components/features/insights/OutputTable';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
+import { ResponsiveChart } from '@/components/shared/chart/ResponsiveChart';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { costTick } from '@/lib/chart';
 import { spentIn } from '@/lib/inbox';
@@ -28,6 +22,10 @@ const INSET = 8;
 const AXIS_WIDTH = 36;
 
 const AXIS_TICK = { fill: 'var(--chart-axis)', fontSize: 12 } as const;
+
+const PRICED_MARGIN = { top: 8, right: INSET, bottom: 0, left: INSET };
+
+const UNPRICED_MARGIN = { ...PRICED_MARGIN, right: INSET + AXIS_WIDTH };
 
 export const TipContent = ({
   placement,
@@ -83,6 +81,12 @@ export function OutputAgainstCost({
 }: OutputAgainstCostProps) {
   const cursor = useCursorTooltip();
   const priced = currency !== null;
+  const data = useMemo(() => [...days], [days]);
+  const spendTick = useMemo(
+    () => (spend: number) =>
+      currency ? costTick(spend, currency) : String(spend),
+    [currency],
+  );
 
   return (
     <InsightsCard
@@ -108,15 +112,10 @@ export function OutputAgainstCost({
 
         <div className="[&_*:focus:not(:focus-visible)]:outline-none">
           <div {...cursor.area}>
-            <ResponsiveContainer width="100%" height={OUTPUT_CHART_HEIGHT}>
+            <ResponsiveChart height={OUTPUT_CHART_HEIGHT}>
               <ComposedChart
-                data={[...days]}
-                margin={{
-                  top: 8,
-                  right: priced ? INSET : INSET + AXIS_WIDTH,
-                  bottom: 0,
-                  left: INSET,
-                }}
+                data={data}
+                margin={priced ? PRICED_MARGIN : UNPRICED_MARGIN}
               >
                 <XAxis
                   dataKey="day"
@@ -144,9 +143,7 @@ export function OutputAgainstCost({
                   tickCount={3}
                   width={AXIS_WIDTH}
                   tick={AXIS_TICK}
-                  tickFormatter={(spend: number) =>
-                    currency ? costTick(spend, currency) : String(spend)
-                  }
+                  tickFormatter={spendTick}
                 />
                 <Tooltip
                   {...cursor.tooltip}
@@ -179,7 +176,7 @@ export function OutputAgainstCost({
                   />
                 )}
               </ComposedChart>
-            </ResponsiveContainer>
+            </ResponsiveChart>
           </div>
         </div>
 

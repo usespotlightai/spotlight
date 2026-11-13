@@ -49,7 +49,7 @@ export function ConfigMarkers({
                 aria-label={`Config changed on ${formatDay(day.day)}: ${day.changes
                   .map((change) => formatStation(names, change.stationId))
                   .join(', ')}`}
-                className="flex size-5 items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="relative flex size-5 items-center justify-center rounded-sm pointer-coarse:after:absolute pointer-coarse:after:-inset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 <span
                   aria-hidden

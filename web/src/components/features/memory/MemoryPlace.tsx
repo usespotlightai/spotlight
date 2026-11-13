@@ -3,6 +3,9 @@ import { useState } from 'react';
 import { MemoryPlaceNode } from '@/components/features/memory/MemoryPlaceNode';
 import type { PlaceNode } from '@/lib/memory';
 
+const textOf = (node: PlaceNode): string =>
+  `${node.joinedBy ?? ''}${node.label}${node.children.map(textOf).join('')}`;
+
 type MemoryPlaceProps = {
   tree: PlaceNode;
   open: boolean;
@@ -24,6 +27,7 @@ export function MemoryPlace({ tree, open }: MemoryPlaceProps) {
   return (
     <ul
       aria-label="Where it applies"
+      title={textOf(tree)}
       className="flex min-w-0 flex-col text-muted-foreground text-sm leading-5 group-data-clamped/row:flex-row group-data-clamped/row:items-center group-data-clamped/row:overflow-hidden group-data-clamped/row:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] group-data-closing/row:overflow-x-clip group-data-closing/row:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] group-data-transitioning/row:overflow-x-clip group-data-transitioning/row:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]"
     >
       <MemoryPlaceNode

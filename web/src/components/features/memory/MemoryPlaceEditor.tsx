@@ -10,6 +10,8 @@ const BRANCH = 'relative min-w-0 pl-5';
 const LEAF =
   'relative min-w-0 pt-1.5 before:absolute before:-top-0.5 before:left-[-14px] before:h-5 before:border-muted-foreground/50 before:border-l before:border-dotted after:absolute after:top-[18px] after:left-[-14px] after:w-[13px] after:border-muted-foreground/50 after:border-t after:border-dotted';
 
+const PATHS_LEAF = `${LEAF} pointer-coarse:before:h-6 pointer-coarse:after:top-[22px]`;
+
 type MemoryPlaceEditorProps = {
   draft: MemoryDraft;
   lines: readonly LineResponseDto[];
@@ -58,14 +60,14 @@ export function MemoryPlaceEditor({ draft, lines }: MemoryPlaceEditorProps) {
                   onChange={draft.setRepository}
                 />
                 <ul className={BRANCH}>
-                  <li className={LEAF}>
+                  <li className={PATHS_LEAF}>
                     <FieldInput
                       value={draft.paths}
                       disabled={!draft.repository}
                       onChange={(event) => draft.setPaths(event.target.value)}
                       placeholder="Paths, separated by commas"
                       aria-label="Paths"
-                      className={`${CONTROL} h-7 border bg-card px-2 text-sm md:text-sm`}
+                      className={`${CONTROL} h-7 border bg-card pointer-coarse:h-9 px-2 text-sm md:text-sm`}
                     />
                   </li>
                 </ul>

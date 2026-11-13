@@ -51,7 +51,7 @@ export const TraceRow = memo(function TraceRow({
             onClick={() => onToggle(node.id)}
             aria-expanded={open}
             aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`}
-            className="relative z-10 flex shrink-0 items-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="relative z-10 flex shrink-0 items-center rounded text-muted-foreground pointer-coarse:before:absolute pointer-coarse:before:-inset-2 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronRight
               className={cn(
@@ -67,6 +67,7 @@ export const TraceRow = memo(function TraceRow({
         <button
           type="button"
           onClick={() => onPick(node.id)}
+          title={node.name}
           className={cn(
             'min-w-0 truncate text-left outline-none after:absolute after:inset-0',
             node.category === 'failed'

@@ -20,16 +20,21 @@ import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo'
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import { ReusedReplays } from '@replays/domain/value-objects/reused-replays.vo';
 import { SetEntriesDigest } from '@replays/domain/value-objects/set-entries-digest.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
-import { replayCheck } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
+import {
+  type ReusedReplaysRow,
+  replayCheck,
+} from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -52,6 +57,23 @@ const scoringFieldOf = (raw: string): ScoringField => {
   return field;
 };
 
+const reusedOf = (row: ReusedReplaysRow): ReusedReplays =>
+  ReusedReplays.of({
+    seed: ReplayId.of(row.seed),
+    parts: row.parts.map((each) => ({
+      replayId: ReplayId.of(each.replayId),
+      runs: each.runs.map((run) => RunId.of(run)),
+    })),
+  });
+
+const reusedRowOf = (reused: ReusedReplays): ReusedReplaysRow => ({
+  seed: reused.seed.value,
+  parts: reused.parts.map((each) => ({
+    replayId: each.replayId.value,
+    runs: each.runs.map((run) => run.value),
+  })),
+});
+
 const toCheck = (row: CheckRow): ReplayCheck =>
   ReplayCheck.rehydrate({
     id: ReplayCheckId.of(row.id),
@@ -66,7 +88,8 @@ const toCheck = (row: CheckRow): ReplayCheck =>
     setEntries: SetEntriesDigest.of(row.setEntries),
     attempt: row.attempt,
     candidateId: CandidateId.of(row.candidateId),
-    replayId: ReplayId.of(row.replayId),
+    replayId: row.replayId === null ? null : ReplayId.of(row.replayId),
+    reused: row.reused === null ? null : reusedOf(row.reused),
     reference: PlannedReference.of({
       commit: row.referenceCommit,
       pullRequest: row.referencePullRequest,
@@ -168,7 +191,8 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           setEntries: added.setEntries,
           attempt: added.attempt,
           candidateId: added.candidateId.value,
-          replayId: added.replayId.value,
+          replayId: added.replayId?.value ?? null,
+          reused: added.reused && reusedRowOf(added.reused),
           referenceCommit: added.reference.commit,
           referencePullRequest: added.reference.pullRequest,
           liveFingerprint: added.liveFingerprint.value,

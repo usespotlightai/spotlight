@@ -84,7 +84,11 @@ export function StationRecentRuns({
         </div>
       ) : (
         <div className="-mx-2">
-          <NestedTable label={RECENT_RUNS_TITLE} headings={RECENT_RUN_HEADINGS}>
+          <NestedTable
+            label={RECENT_RUNS_TITLE}
+            headings={RECENT_RUN_HEADINGS}
+            compact
+          >
             {runs.map((run) => (
               <OutcomeRow
                 key={run.runId}

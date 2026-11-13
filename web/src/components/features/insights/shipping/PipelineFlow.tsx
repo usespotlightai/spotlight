@@ -78,7 +78,7 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
         table={<PipelineFlowTable stages={stages} />}
         actions={
           <div className="flex items-center gap-1.5">
-            <span className="hidden whitespace-nowrap text-muted-foreground text-xs tabular-nums sm:inline">
+            <span className="hidden whitespace-nowrap text-muted-foreground text-xs tabular-nums @xl/pane:inline">
               {formatCount(merged)} {which}PRs merged
             </span>
             {pickers}

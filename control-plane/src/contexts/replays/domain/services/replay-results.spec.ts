@@ -16,6 +16,7 @@ import {
   slots,
 } from '@replays/domain/replays.fake-spec';
 import {
+  chanceWorse,
   taskComparisons,
   totalsOf,
 } from '@replays/domain/services/replay-results';
@@ -194,7 +195,7 @@ describe('totalsOf', () => {
 });
 
 describe('taskComparisons', () => {
-  it('sets each task against the baseline, regressions first, with deltas once both ended', () => {
+  it('sets each task against the baseline, with deltas once both ended, and no regression from one attempt against one', () => {
     const baseline = ran(
       'baseline',
       ['passed', 'passed', 'failed-run'],
@@ -210,14 +211,14 @@ describe('taskComparisons', () => {
     const compared = taskComparisons(candidate.outcome(), baseline.outcome());
 
     expect(compared.map((each) => [each.original, each.regressed])).toEqual([
-      ['original_1', true],
       ['original_0', false],
+      ['original_1', false],
       ['original_2', false],
     ]);
-    expect(compared[1]?.costDelta).toBe(-0.5);
-    expect(compared[1]?.msDelta).toBe(0);
-    expect(compared[1]?.stepsDelta).toBe(0);
-    expect(compared[1]?.scoreDelta).toBeNull();
+    expect(compared[0]?.costDelta).toBe(-0.5);
+    expect(compared[0]?.msDelta).toBe(0);
+    expect(compared[0]?.stepsDelta).toBe(0);
+    expect(compared[0]?.scoreDelta).toBeNull();
   });
 
   it('counts a drop in the judge’s score as a regression, even where both succeeded', () => {
@@ -340,10 +341,9 @@ describe('taskComparisons', () => {
     ]);
 
     expect(compared.map((each) => each.original)).toEqual([
-      'original_2',
       'original_1',
+      'original_2',
     ]);
-    expect(compared.map((each) => each.regressed)).toEqual([true, false]);
   });
 
   it('has nothing to set a task against without a baseline', () => {
@@ -412,7 +412,7 @@ describe('results with repeats', () => {
     expect(totalsOf(twice.outcome())).toEqual(totals);
   });
 
-  it('compares task by task, every repeat on each side, regressing only when the baseline succeeds more than half as often again', () => {
+  it('compares task by task, every repeat on each side, regressing only where the candidate is clearly worse than the baseline’s attempts allow', () => {
     const baseline = withRepeats('replay_live', 2, ['original_3#1'], true);
     const candidate = withRepeats('replay_candidate', 2, [
       'original_0#1',
@@ -492,14 +492,47 @@ describe('results with repeats', () => {
     ).toBe(true);
   });
 
-  it('regresses on one repeat each just as before: the baseline succeeded and the candidate failed', () => {
-    const baseline = withRepeats('replay_live', 1, [], true);
+  it('takes one failed attempt for a regression only against a baseline that succeeded on every one of several attempts', () => {
     const candidate = withRepeats('replay_candidate', 1, ['original_2#1']);
-
-    expect(
+    const regressedAgainst = (baseline: Replay): string[] =>
       taskComparisons(candidate.outcome(), baseline.outcome())
         .filter((each) => each.regressed)
-        .map((each) => each.original),
-    ).toEqual(['original_2']);
+        .map((each) => each.original);
+
+    expect(regressedAgainst(withRepeats('replay_once', 1, [], true))).toEqual(
+      [],
+    );
+    expect(
+      regressedAgainst(withRepeats('replay_flaky', 3, ['original_2#3'], true)),
+    ).toEqual([]);
+    expect(regressedAgainst(withRepeats('replay_live', 3, [], true))).toEqual([
+      'original_2',
+    ]);
+  });
+
+  it('puts the chance that the candidate does worse on a task from both sides’ attempts', () => {
+    expect(
+      chanceWorse({ succeeded: 0, judged: 1 }, { succeeded: 3, judged: 3 }),
+    ).toBeCloseTo(0.933, 3);
+    expect(
+      chanceWorse({ succeeded: 0, judged: 1 }, { succeeded: 2, judged: 3 }),
+    ).toBeCloseTo(0.8, 3);
+    expect(
+      chanceWorse({ succeeded: 1, judged: 1 }, { succeeded: 0, judged: 3 }),
+    ).toBeCloseTo(0.067, 3);
+  });
+
+  it('takes a chance of exactly 90% for noise, whatever the rounding', () => {
+    const candidate = withRepeats('replay_candidate', 1, ['original_2#1']);
+    const baseline = withRepeats('replay_live', 2, [], true);
+
+    expect(
+      chanceWorse({ succeeded: 0, judged: 1 }, { succeeded: 2, judged: 2 }),
+    ).toBeCloseTo(0.9, 9);
+    expect(
+      taskComparisons(candidate.outcome(), baseline.outcome()).some(
+        (each) => each.regressed,
+      ),
+    ).toBe(false);
   });
 });

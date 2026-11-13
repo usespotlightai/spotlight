@@ -42,6 +42,7 @@ export function InboxRowFrame({
           {icon}
 
           <span
+            title={title}
             className={cn(
               'truncate text-sm',
               unread
@@ -65,7 +66,10 @@ export function InboxRowFrame({
           )}
         </span>
 
-        <span className="truncate pl-6 text-muted-foreground text-xs">
+        <span
+          title={preview}
+          className="truncate pl-6 text-muted-foreground text-xs"
+        >
           {preview}
         </span>
       </NavLink>

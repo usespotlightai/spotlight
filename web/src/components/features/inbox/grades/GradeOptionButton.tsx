@@ -18,7 +18,7 @@ export function GradeOptionButton({
       variant={chosen ? 'default' : 'outline'}
       aria-pressed={chosen}
       disabled={pending}
-      className="min-w-10 touch-manipulation tabular-nums"
+      className="min-w-10 touch-manipulation pointer-coarse:h-9 tabular-nums"
       onClick={onClick}
     >
       {label}

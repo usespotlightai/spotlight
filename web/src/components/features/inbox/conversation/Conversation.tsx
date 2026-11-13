@@ -7,6 +7,7 @@ import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker'
 import { WorldMessage } from '@/components/features/inbox/conversation/WorldMessage';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
+import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { Turn } from '@/components/shared/Turn';
 import { useMessageSources } from '@/hooks/api/useMessageSources';
 import { useArrivals } from '@/hooks/useArrivals';
@@ -68,22 +69,73 @@ const marksIn = (item: ConversationItem): Set<number> => {
 
 const CLOSE = 80;
 
+const FADE_BELOW_HEAD = 24;
+
+const latestTop = (
+  box: HTMLDivElement,
+  inside: HTMLDivElement,
+  fromTop: boolean,
+): number => {
+  const bottom = box.scrollHeight - box.clientHeight;
+  const latest = inside.querySelector(
+    ':scope > section:last-of-type > ol > li:last-child[data-note]',
+  );
+
+  if (!latest) {
+    return bottom;
+  }
+
+  const head = latest.closest('section')?.querySelector(':scope > [data-head]');
+  const covered =
+    head instanceof HTMLElement && getComputedStyle(head).position === 'sticky'
+      ? head.offsetHeight + FADE_BELOW_HEAD
+      : null;
+
+  if (covered === null && !fromTop) {
+    return bottom;
+  }
+
+  const top =
+    latest.getBoundingClientRect().top -
+    box.getBoundingClientRect().top +
+    box.scrollTop -
+    (covered ?? 0);
+
+  return Math.min(bottom, Math.max(0, top));
+};
+
+const toLatest = (
+  box: HTMLDivElement,
+  inside: HTMLDivElement,
+  fromTop: boolean,
+) => {
+  box.scrollTop = box.scrollHeight;
+  box.scrollTop = latestTop(box, inside, fromTop);
+};
+
 const put = (
   box: HTMLDivElement,
   inside: HTMLDivElement,
   at: number | null,
+  fromTop: boolean,
 ): boolean => {
   const note = at === null ? null : inside.querySelector(`[data-note="${at}"]`);
   const was = box.scrollTop;
 
-  box.scrollTop = note
-    ? note.getBoundingClientRect().top -
+  if (note) {
+    box.scrollTop =
+      note.getBoundingClientRect().top -
       box.getBoundingClientRect().top +
-      box.scrollTop
-    : box.scrollHeight;
+      box.scrollTop;
+  } else {
+    toLatest(box, inside, fromTop);
+  }
 
   return box.scrollTop !== was;
 };
+
+const said = (note: Note): boolean =>
+  note.body.trim() !== '' || note.attachments.length > 0;
 
 export type Deciding = {
   readonly pending: boolean;
@@ -132,6 +184,7 @@ export function Conversation({
   const following = useRef(true);
   const pinnedAt = useRef<number | null>(null);
   const ours = useRef(false);
+  const setup = item.notes.filter(shown).at(-1)?.form === 'setup';
 
   useLayoutEffect(() => {
     const box = scroller.current;
@@ -143,11 +196,12 @@ export function Conversation({
 
     pinnedAt.current = openAt ?? null;
     following.current = pinnedAt.current === null;
-    ours.current = put(box, inside, pinnedAt.current);
+    ours.current = put(box, inside, pinnedAt.current, setup);
 
     const grew = new ResizeObserver(() => {
       if (pinnedAt.current !== null) {
-        ours.current = put(box, inside, pinnedAt.current) || ours.current;
+        ours.current =
+          put(box, inside, pinnedAt.current, setup) || ours.current;
         return;
       }
 
@@ -156,7 +210,7 @@ export function Conversation({
       }
 
       const was = box.scrollTop;
-      box.scrollTo({ top: box.scrollHeight - box.clientHeight });
+      toLatest(box, inside, setup);
       ours.current = box.scrollTop !== was || ours.current;
     });
     grew.observe(inside);
@@ -173,7 +227,7 @@ export function Conversation({
       grew.disconnect();
       box.removeEventListener('click', toggled, true);
     };
-  }, [item.id, openAt]);
+  }, [item.id, openAt, setup]);
 
   const watched = () => {
     const box = scroller.current;
@@ -205,10 +259,7 @@ export function Conversation({
       sidePanel={sidePanel}
       footer={<ComposerFooter>{footer}</ComposerFooter>}
     >
-      <div
-        ref={content}
-        className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8"
-      >
+      <div ref={content} className={cn(THREAD_COLUMN, 'flex flex-col')}>
         <TimeMarker at={item.createdAt} />
 
         {turns.map((turn, at, all) => {
@@ -221,7 +272,7 @@ export function Conversation({
                 source={sourceOf(turn.prompt.source)}
                 deferredTo={turn.prompt.deferredTo}
               />
-            ) : turn.prompt ? (
+            ) : turn.prompt && said(turn.prompt) ? (
               <PersonMessage
                 body={turn.prompt.body}
                 attachments={turn.prompt.attachments}
@@ -244,7 +295,7 @@ export function Conversation({
               className={cn(afterAnother && 'mt-6')}
               head={
                 <>
-                  {turn.prompt && marked.has(turn.prompt.position) && (
+                  {head && turn.prompt && marked.has(turn.prompt.position) && (
                     <div className={cn('mb-3', !afterAnother && 'mt-6')}>
                       <TimeMarker at={turn.prompt.at} />
                     </div>
@@ -252,6 +303,7 @@ export function Conversation({
 
                   {head && (
                     <div
+                      data-head
                       data-note={turn.prompt?.position}
                       className={cn(
                         STICKY_AT_TOP,

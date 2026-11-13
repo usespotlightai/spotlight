@@ -24,7 +24,10 @@ export function OneLine({ text, className }: OneLineProps) {
           <span
             ref={line}
             data-slot="one-line"
-            className={cn('block truncate', className)}
+            className={cn(
+              'block truncate pointer-coarse:line-clamp-3 pointer-coarse:whitespace-normal',
+              className,
+            )}
           />
         }
       >

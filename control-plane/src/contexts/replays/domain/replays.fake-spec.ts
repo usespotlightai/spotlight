@@ -218,6 +218,8 @@ export const aCheck = (setId = ReplaySetId.of('set_1')): ReplayCheck =>
     setId,
     candidateId: CandidateId.of('candidate_planned'),
     replayId: ReplayId.of('replay_1'),
+    setRuns: [],
+    reused: null,
     setEntries: ENTRIES,
     attempt: 1,
     reference: PlannedReference.of({ pullRequest: 42 }),

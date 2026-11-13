@@ -22,7 +22,19 @@ export function MemberRow({ slug, member }: MemberRowProps) {
         leading={
           <PersonAvatar person={member} className="data-[size=sm]:size-8" />
         }
-        description={`${member.email} · ${describeTeams(member.teams)}`}
+        description={
+          <span className="flex flex-wrap gap-x-1">
+            <span className="flex min-w-0 max-w-full">
+              <span title={member.email} className="min-w-0 truncate">
+                {member.email}
+              </span>
+              <span aria-hidden className="shrink-0 whitespace-pre">
+                {' ·'}
+              </span>
+            </span>
+            <span>{describeTeams(member.teams)}</span>
+          </span>
+        }
       >
         <ActionWithAlert
           alert={

@@ -14,10 +14,10 @@ export function InsightsTileSkeleton({
   trend,
 }: TileBones) {
   return (
-    <SkeletonBlock className="max-sm:odd:last:col-span-2">
+    <SkeletonBlock className="@max-xl/pane:odd:last:col-span-2">
       <div
         data-slot="insights-tile"
-        className="flex min-h-[7.625rem] min-w-0 flex-col gap-1 overflow-hidden rounded-lg border border-border px-4 py-3"
+        className="flex min-h-[7.625rem] min-w-0 flex-col gap-1 overflow-hidden rounded-lg border border-border px-3 py-3 @md/pane:px-4"
       >
         <dt className="flex min-h-5 items-center gap-1.5 text-muted-foreground text-sm leading-5">
           {label === null ? (

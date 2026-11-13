@@ -3,6 +3,7 @@ import { XIcon } from 'lucide-react';
 import { type MouseEvent, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { prefersReducedMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 const MARGIN_X = 64;
@@ -86,15 +87,12 @@ const atView = (view: HTMLElement): Keyframe => ({
   clipPath: `inset(-${SHADOW_ROOM}px round ${radius(view) + SHADOW_ROOM}px)`,
 });
 
-const still = () =>
-  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-
 const play = (
   element: HTMLElement | null,
   keyframes: Keyframe[],
   timing: KeyframeAnimationOptions,
 ): Promise<unknown> =>
-  element && 'animate' in element && !still()
+  element && 'animate' in element && !prefersReducedMotion()
     ? element
         .animate(keyframes, { ...timing, fill: 'forwards' })
         .finished.catch(() => undefined)

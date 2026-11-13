@@ -1,8 +1,10 @@
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
-import { baselineTermsOf } from '@replays/domain/services/baseline-terms';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
-import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
+import {
+  baselineRepeatsFor,
+  MAX_REPEATS,
+} from '@replays/domain/value-objects/replay-repeats';
 
 export const MAX_ITERATIONS = 10;
 
@@ -102,8 +104,8 @@ export class SearchBudget {
     });
   }
 
-  seedRepeats(calibrates: boolean): number {
-    return baselineTermsOf(calibrates, this.repeats, this.ceiling).repeats;
+  get seedRepeats(): number {
+    return baselineRepeatsFor(this.repeats);
   }
 
   affords(split: HeldOutSplit, calibrates: boolean): boolean {
@@ -119,7 +121,7 @@ export class SearchBudget {
   }
 
   splitCeiling(split: HeldOutSplit, calibrates: boolean): SearchCeilingSplit {
-    const seeded = split.runs * this.seedRepeats(calibrates);
+    const seeded = split.runs * this.seedRepeats;
     const answered = calibrates ? seeded : 0;
     const searched = split.searched.length * this.repeats;
     const heldOut = split.heldOut.length * this.repeats;

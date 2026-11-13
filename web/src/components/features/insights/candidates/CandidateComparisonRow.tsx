@@ -88,7 +88,7 @@ export function CandidateComparisonRow({
           <NestedCell heading="Live">
             {formatPercent(shown.liveSuccessRate)}
           </NestedCell>
-          <div className="col-span-full grid h-5 min-w-0 items-center self-start @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1">
+          <div className="col-span-full grid h-5 min-w-0 items-center self-start pl-(--cell-indent,0.5rem) @4xl:col-span-1 @4xl:pl-0 @lg:group-data-compact/nested:col-span-1 @lg:group-data-compact/nested:pl-0">
             <GainTrack gain={candidate.gainOverLive} />
           </div>
           <NestedCell heading="Cost per run" strong>

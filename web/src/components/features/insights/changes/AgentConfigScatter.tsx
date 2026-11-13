@@ -1,12 +1,4 @@
-import {
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-  ZAxis,
-} from 'recharts';
+import { Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts';
 
 import { BEST_VALUE } from '@/components/features/insights/BestValueMark';
 import { ReplayedLegend } from '@/components/features/insights/candidates/ReplayedLegend';
@@ -18,6 +10,7 @@ import { ReplayedPointTip } from '@/components/features/insights/candidates/Repl
 import { RunsSizeLegend } from '@/components/features/insights/changes/RunsSizeLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { PointLabels } from '@/components/shared/chart/PointLabels';
+import { ResponsiveChart } from '@/components/shared/chart/ResponsiveChart';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { useDotHover } from '@/hooks/useDotHover';
 import { AXIS_TITLE, costTick } from '@/lib/chart';
@@ -113,10 +106,7 @@ export function AgentConfigScatter({
         className="min-w-0 flex-1 [&_*:focus:not(:focus-visible)]:outline-none"
       >
         <div {...cursor.area}>
-          <ResponsiveContainer
-            width="100%"
-            height={AGENT_CONFIG_SCATTER_HEIGHT}
-          >
+          <ResponsiveChart height={AGENT_CONFIG_SCATTER_HEIGHT}>
             <ScatterChart margin={{ top: 20, right: 4, bottom: 4, left: 0 }}>
               <XAxis
                 type="number"
@@ -204,7 +194,7 @@ export function AgentConfigScatter({
                 }))}
               />
             </ScatterChart>
-          </ResponsiveContainer>
+          </ResponsiveChart>
         </div>
       </div>
       <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-14 text-muted-foreground text-xs">

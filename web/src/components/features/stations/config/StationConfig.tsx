@@ -5,7 +5,7 @@ import { StationProperties } from '@/components/features/stations/config/Station
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 
 export const CONFIG_LAYOUT =
-  'grid w-full gap-x-14 gap-y-10 pt-3 lg:grid-cols-[minmax(0,1fr)_17.5rem]';
+  'grid w-full gap-x-14 gap-y-10 pt-3 @4xl/pane:grid-cols-[minmax(0,1fr)_20rem]';
 
 export const CONFIG_MAIN = 'flex min-w-0 flex-col gap-10';
 

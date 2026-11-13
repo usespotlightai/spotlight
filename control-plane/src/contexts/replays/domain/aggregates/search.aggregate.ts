@@ -654,7 +654,7 @@ export class Search extends EventRecorder {
         calibration: calibrates,
         ceiling: ceilings.seed,
         unpricedRate: ceilings.perRun,
-        repeats: budget.seedRepeats(calibrates),
+        repeats: budget.seedRepeats,
         runSubset: null,
         pairwiseReferenceId: null,
       };

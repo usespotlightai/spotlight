@@ -59,7 +59,7 @@ CREATE TYPE "public"."replay_search_state" AS ENUM('seeding', 'searching', 'hold
 CREATE TYPE "public"."replay_search_stop_reason" AS ENUM('iterations-spent', 'ceiling-reached', 'stalled', 'turned-off', 'station-gone', 'seed-failed');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_trigger" AS ENUM('schedule', 'alert', 'request');--> statement-breakpoint
 CREATE TYPE "public"."replay_state" AS ENUM('queued', 'running', 'finished', 'stopped', 'ceiling-reached');--> statement-breakpoint
-CREATE TYPE "public"."replay_stop_cause" AS ENUM('superseded', 'insufficient-credits', 'search-ended', 'stale');--> statement-breakpoint
+CREATE TYPE "public"."replay_stop_cause" AS ENUM('superseded', 'insufficient-credits', 'search-ended', 'stale', 'check-failed');--> statement-breakpoint
 CREATE TYPE "public"."search_skip_reason" AS ENUM('no-agent', 'no-scoring', 'set-too-small', 'no-fresh-held-out', 'ceiling-too-low', 'noisy', 'judge-unstable', 'flaky-checks', 'no-headroom', 'monthly-ceiling', 'pull-request-open', 'cooldown');--> statement-breakpoint
 CREATE TYPE "public"."unreplayable_reason" AS ENUM('unknown-run', 'not-a-task-run', 'task-gone', 'still-running', 'no-starting-point', 'no-briefing', 'archive-gone', 'attachments-gone', 'answer-gone', 'repository-gone', 'not-at-the-station', 'candidate-unfit', 'cannot-start', 'unchecked', 'cancelled', 'dispatch-failed');--> statement-breakpoint
 CREATE TYPE "public"."runner_work_kind" AS ENUM('run', 'check');--> statement-breakpoint
@@ -1417,7 +1417,8 @@ CREATE TABLE "replay_check" (
 	"set_entries" text NOT NULL,
 	"attempt" integer NOT NULL,
 	"candidate_id" text NOT NULL,
-	"replay_id" text NOT NULL,
+	"replay_id" text,
+	"reused" jsonb,
 	"reference_commit" text,
 	"reference_pull_request" integer,
 	"live_fingerprint" text NOT NULL,

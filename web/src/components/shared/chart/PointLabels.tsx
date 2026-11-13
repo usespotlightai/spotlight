@@ -27,7 +27,14 @@ export function PointLabels({ labels }: { labels: readonly ChartLabel[] }) {
         ? []
         : [{ key: label.key, text: label.text, x, y }];
     }),
-    plot ? { left: plot.x, right: plot.x + plot.width } : undefined,
+    plot
+      ? {
+          left: plot.x,
+          right: plot.x + plot.width,
+          top: plot.y,
+          bottom: plot.y + plot.height,
+        }
+      : undefined,
   );
 
   return (

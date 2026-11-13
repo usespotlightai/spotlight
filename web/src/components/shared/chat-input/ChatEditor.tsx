@@ -83,7 +83,7 @@ export function ChatEditor({
   return (
     <LexicalCollaboration>
       <LexicalExtensionComposer extension={extension} contentEditable={null}>
-        <ScrollArea className="max-h-56">
+        <ScrollArea className="max-h-[min(14rem,25svh)]">
           <ContentEditable
             aria-label={label}
             aria-placeholder={placeholder}

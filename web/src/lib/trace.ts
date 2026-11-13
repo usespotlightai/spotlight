@@ -49,12 +49,16 @@ export const runIdOf = (node: TraceNode): string | null =>
     : null;
 
 export const NAMES_PANE = {
-  property: '--names',
+  property: '--names-wanted',
   storageKey: 'spotlight.trace-names-width',
   min: 200,
   max: 640,
   initial: 320,
   label: 'Resize the names',
+  limit: (shown: HTMLElement) => {
+    const room = shown.parentElement?.clientWidth ?? 0;
+    return room * (room >= 448 ? 0.5 : 0.4);
+  },
 };
 
 export const TICKS = [0, 0.25, 0.5, 0.75, 1];

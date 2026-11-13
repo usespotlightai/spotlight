@@ -61,7 +61,8 @@ type checkTask struct {
 
 type checkRead struct {
 	ID                  string   `json:"id"`
-	ReplayID            string   `json:"replayId"`
+	ReplayID            *string  `json:"replayId"`
+	ReusedReplayIDs     []string `json:"reusedReplayIds"`
 	ScoringPinnedToLive []string `json:"scoringPinnedToLive"`
 	Result              string   `json:"result"`
 	UndecidedBecause    *string  `json:"undecidedBecause"`
@@ -438,6 +439,9 @@ func (r *checkReport) print(out io.Writer) {
 		if read.Repeats > 1 {
 			fmt.Fprintf(out, "  each run replayed %d times\n", read.Repeats)
 		}
+		if len(read.ReusedReplayIDs) > 0 {
+			fmt.Fprintln(out, "  reuses a search's replays of the same config, against the search's live baseline")
+		}
 		fmt.Fprintf(out, "  candidate %s, baseline %s\n", describeSide(read.Candidate), describeSide(read.Baseline))
 		if read.Gain != nil {
 			fmt.Fprintf(out, "  %s\n", describeGain(*read.Gain, "the baseline"))
@@ -550,6 +554,8 @@ func describeStop(cause string) string {
 		return "the search that ran it ended"
 	case "stale":
 		return "the live config moved on"
+	case "check-failed":
+		return "more tasks had regressed than the line allows"
 	default:
 		return cause
 	}

@@ -82,7 +82,7 @@ export function AssigneePicker({
         <DropdownMenuTrigger
           aria-label={label}
           className={cn(
-            'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent',
+            'flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent',
             className,
           )}
         >

@@ -67,7 +67,7 @@ export function LayerFileHeader({
             variant="ghost"
             size="icon-xs"
             aria-label="Comment on this file"
-            className="text-muted-foreground"
+            className="relative text-muted-foreground pointer-coarse:after:absolute pointer-coarse:after:-inset-2"
             onClick={onComment}
           >
             <MessageSquarePlus aria-hidden />

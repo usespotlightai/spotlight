@@ -2,6 +2,7 @@ import { useRef } from 'react';
 
 import {
   HOST_COLUMNS,
+  HOST_HEAD,
   HOST_HEADINGS,
 } from '@/components/features/runners/columns';
 import { ColumnResizer } from '@/components/shared/ColumnResizer';
@@ -29,13 +30,7 @@ export function HostHead({
     );
 
   return (
-    <div
-      ref={row}
-      className={cn(
-        'grid h-8 items-center gap-x-6 pr-3 pl-9 text-muted-foreground text-xs',
-        HOST_COLUMNS,
-      )}
-    >
+    <div ref={row} className={cn(HOST_HEAD, HOST_COLUMNS)}>
       {HOST_HEADINGS.map((heading, column) => (
         <span
           key={heading.label}

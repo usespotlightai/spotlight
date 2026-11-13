@@ -9,6 +9,7 @@ import { formatShare } from '@/lib/insights';
 type FailureSlice = {
   key: string;
   count: number;
+  title: string;
   label: ReactNode;
 };
 
@@ -22,7 +23,7 @@ export function FailureSlices({ label, of, slices }: FailureSlicesProps) {
   const total = slices.reduce((sum, slice) => sum + slice.count, 0);
 
   return (
-    <div className="flex min-w-0 items-center gap-4 pb-3">
+    <div className="flex min-w-0 flex-col items-start gap-3 pb-3 @sm/pane:flex-row @sm/pane:items-center @sm/pane:gap-4">
       {total > 0 && (
         <SliceDonut
           slot="failure-donut"
@@ -32,12 +33,16 @@ export function FailureSlices({ label, of, slices }: FailureSlicesProps) {
           }))}
         />
       )}
-      <ul aria-label={label} className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <ul
+        aria-label={label}
+        className="flex min-w-0 flex-1 flex-col gap-1.5 self-stretch @sm/pane:self-auto"
+      >
         {slices.map((slice, at) => (
           <SliceRow
             key={slice.key}
             slot="failure-slice"
             fill={sliceFill(at)}
+            title={slice.title}
             values={
               <WithTooltip
                 tooltip={`${formatShare(total > 0 ? slice.count / total : 0)} of ${of}`}

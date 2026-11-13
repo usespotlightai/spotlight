@@ -1,5 +1,6 @@
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
 import { StationSelect } from '@/components/features/board/task/StationSelect';
+import { TASK_PROPERTIES } from '@/components/features/board/task/TaskLayout';
 import { TaskPullRequestLink } from '@/components/features/board/task/TaskPullRequestLink';
 import { TaskChangesLink } from '@/components/features/changes/TaskChangesLink';
 import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
@@ -26,7 +27,7 @@ export function TaskProperties({
   const linked = slug && teamId ? { slug, teamId } : null;
 
   return (
-    <aside className="sticky top-8 hidden w-56 shrink-0 flex-col gap-4 self-start lg:flex">
+    <aside className={TASK_PROPERTIES}>
       <section className="flex flex-col gap-1.5">
         <h2 className="px-2 font-medium text-muted-foreground text-xs">
           Properties

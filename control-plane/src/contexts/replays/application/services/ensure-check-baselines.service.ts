@@ -45,8 +45,17 @@ export class EnsureCheckBaselines implements PendingJobsPort {
   }
 
   private async ensure(check: ReplayCheck): Promise<void> {
-    const { baseline, set, replay } = await this.evaluations.of(check);
+    const { baseline, set, replay, reusedEvidence } =
+      await this.evaluations.of(check);
 
+    if (reusedEvidence) {
+      const settled = check.settleReusedBaseline(reusedEvidence);
+
+      if (settled !== check) {
+        await this.checks.save(settled);
+      }
+      return;
+    }
     if (baseline) {
       await this.checks.save(check.recordBaseline());
       return;
@@ -79,7 +88,7 @@ export class EnsureCheckBaselines implements PendingJobsPort {
         seen,
         await this.replays.ofSet(seen.id),
         check.liveHashes.scoring,
-        check.repeats,
+        check.baselineRepeats,
       )
     ) {
       return;
@@ -98,7 +107,7 @@ export class EnsureCheckBaselines implements PendingJobsPort {
             locked,
             await this.replays.ofSet(locked.id),
             check.liveHashes.scoring,
-            check.repeats,
+            check.baselineRepeats,
           )
         ) {
           return false;
@@ -110,11 +119,11 @@ export class EnsureCheckBaselines implements PendingJobsPort {
             set: locked.snapshot,
             candidate: snapshot.asReplayed,
             baseline: true,
-            ceiling: check.threshold.ceiling,
+            ceiling: check.baselineCeiling,
             unpricedRate: check.threshold.unpricedRunIn(
               locked.entries.length * check.repeats,
             ),
-            repeats: check.repeats,
+            repeats: check.baselineRepeats,
             at: this.clock.now(),
             by: ChangeActor.spotlight(locked.workspaceId),
           }),

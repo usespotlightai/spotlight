@@ -245,6 +245,7 @@ export const answeredIn = (
 });
 
 export const STACK_NAV_PANE = {
+  property: '--stack-nav-w',
   storageKey: 'spotlight.change-stack-nav-width',
   min: 224,
   max: 560,

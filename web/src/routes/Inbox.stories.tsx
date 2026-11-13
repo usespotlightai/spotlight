@@ -103,7 +103,7 @@ const meta = {
       },
       admin: { ...toggle('Workspace owner or admin'), if: SETTING_UP },
       editingMemory: toggle('Edit the first memory'),
-      approvingMemory: toggle('Approve the first memory'),
+      approvingMemory: toggle('Approve the open memory'),
       answeringYes: toggle('Answer Yes'),
     },
     world: ({
@@ -140,12 +140,13 @@ const meta = {
       }
       if (opened === MEMORIES_REQUEST_ID && approvingMemory) {
         return async (screen, user) => {
+          const approvable = await screen.findAllByRole('button', {
+            name: /^Approve memory /,
+          });
           await user.click(
-            (
-              await screen.findAllByRole('button', {
-                name: /^Approve memory /,
-              })
-            )[0],
+            approvable.find(
+              (button) => !(button as HTMLButtonElement).disabled,
+            ) ?? approvable[0],
           );
         };
       }

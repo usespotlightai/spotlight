@@ -56,7 +56,7 @@ export function RunComposer({
         answering
           ? 'Answer the question to continue the run…'
           : restarts
-            ? `Say what to change. ${station} starts again…`
+            ? 'Say what to change…'
             : 'Write a message…'
       }
       pending={send.isPending}

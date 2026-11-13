@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { AppTabStrip } from '@/components/shell/tabs/AppTabStrip';
+import { TabDrag } from '@/components/shell/tabs/TabDrag';
 import { useAppTabs } from '@/hooks/useAppTabs';
 import { TabTitleContext } from '@/lib/tab-title';
 
@@ -35,14 +36,22 @@ function Shell() {
 
   return (
     <>
-      <AppTabStrip
+      <TabDrag
         tabs={tabs.tabs}
         activeId={tabs.activeId}
-        onSelect={tabs.select}
-        onClose={tabs.close}
+        canPlace={tabs.canPlace}
         onMove={tabs.move}
-        onOpen={tabs.open}
-      />
+        onPlace={tabs.place}
+      >
+        <AppTabStrip
+          tabs={tabs.tabs}
+          activeId={tabs.activeId}
+          splitId={tabs.splitId}
+          onSelect={tabs.select}
+          onClose={tabs.close}
+          onOpen={tabs.open}
+        />
+      </TabDrag>
       <button
         type="button"
         onClick={() => {
@@ -56,7 +65,7 @@ function Shell() {
       >
         Move the first tab to the end
       </button>
-      <TabTitleContext value={tabs.report}>
+      <TabTitleContext value={tabs.titleFor(tabs.activeId)}>
         <Routes>
           <Route path="/w/:slug/inbox" element={<Page title="Inbox" />} />
           <Route

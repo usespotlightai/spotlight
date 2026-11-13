@@ -27,7 +27,7 @@ export function NestedTable({
   return (
     <ScrollArea
       orientation="horizontal"
-      className="group/nested @container"
+      className="group/nested @container isolate"
       data-compact={compact || undefined}
     >
       <div

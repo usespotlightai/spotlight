@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentChats } from '@/components/features/agent/AgentChats';
+import { TabPane } from '@/components/shell/tabs/TabPane';
+import { useAppTabs } from '@/hooks/useAppTabs';
 import type { ChatSummary } from '@/lib/chat';
 
 const chats = vi.fn<(...args: unknown[]) => unknown>();
@@ -24,7 +26,21 @@ vi.mock('@/hooks/api/useChats', () => ({
 }));
 
 vi.mock('@/components/features/agent/NewChatComposer', () => ({
-  NewChatComposer: () => <p>Plan with the agent</p>,
+  NewChatComposer: ({
+    defaultPrompt,
+    defaultRepositories,
+  }: {
+    defaultPrompt: string | null;
+    defaultRepositories: string[];
+  }) => (
+    <>
+      <p>Plan with the agent</p>
+      {defaultPrompt && <p>{defaultPrompt}</p>}
+      {defaultRepositories.length > 0 && (
+        <p>{defaultRepositories.join(', ')}</p>
+      )}
+    </>
+  ),
 }));
 
 const chat: ChatSummary = {
@@ -49,7 +65,31 @@ const showing = () =>
     </MemoryRouter>,
   );
 
+function InTab() {
+  const tabs = useAppTabs('acme', []);
+  const tab = tabs.tabs.find((each) => each.id === tabs.activeId);
+
+  return (
+    tab && (
+      <TabPane
+        tab={tab}
+        pages={
+          <Route
+            path="team/:teamId/agent"
+            element={<AgentChats slug="acme" teamId="team_1" />}
+          />
+        }
+        focused
+        onFocus={() => {}}
+        onVisit={tabs.visit}
+        onTitle={tabs.titleFor(tab.id)}
+      />
+    )
+  );
+}
+
 beforeEach(() => {
+  localStorage.clear();
   chats.mockReturnValue([chat]);
   failing.mockReturnValue(false);
   older.mockReturnValue(false);
@@ -131,5 +171,28 @@ describe('AgentChats', () => {
     expect(screen.getByText('No chats yet')).toBeInTheDocument();
     expect(screen.getByText('Plan with the agent')).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('starts the composer with what the tab was opened with', () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/w/acme/team/team_1/agent',
+            state: {
+              prompt: 'Set up our configuration as code.',
+              repositories: ['acme/api', 'acme/web'],
+            },
+          },
+        ]}
+      >
+        <InTab />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText('Set up our configuration as code.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('acme/api, acme/web')).toBeInTheDocument();
   });
 });

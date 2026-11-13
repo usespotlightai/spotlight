@@ -27,7 +27,10 @@ export function useOneLineFit(written: Written, opened: boolean) {
       return;
     }
 
-    setHeight(box.offsetHeight);
+    const next = box.offsetHeight;
+    if (next !== height) {
+      setHeight(next);
+    }
 
     if (!expanded) {
       room.current = field.clientWidth;
@@ -44,7 +47,7 @@ export function useOneLineFit(written: Written, opened: boolean) {
 
     const line = widthOf(field.firstElementChild);
 
-    if (room.current !== null && line + FIT_MARGIN <= room.current) {
+    if (wrapped && room.current !== null && line + FIT_MARGIN <= room.current) {
       // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change
       setWrapped(false);
     }

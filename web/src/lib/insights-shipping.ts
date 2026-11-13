@@ -160,6 +160,9 @@ export const durationTicks = (max: number): number[] => {
   return Array.from({ length: top / step + 1 }, (_, at) => at * step);
 };
 
+const inUnit = (ms: number, unit: number, name: string): string =>
+  `${Number((ms / unit).toFixed(1))}${name}`;
+
 export const formatDurationTick = (ms: number): string => {
   if (ms === 0) {
     return '0';
@@ -168,10 +171,10 @@ export const formatDurationTick = (ms: number): string => {
     return `${Math.round(ms / MINUTE_MS)}m`;
   }
   if (ms < DAY_MS) {
-    return `${Math.round(ms / HOUR_MS)}h`;
+    return inUnit(ms, HOUR_MS, 'h');
   }
 
-  return `${Math.round(ms / DAY_MS)}d`;
+  return inUnit(ms, DAY_MS, 'd');
 };
 
 export const STATION_STAGES = ['queued', 'running', 'inbox'] as const;

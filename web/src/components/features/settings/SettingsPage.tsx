@@ -19,7 +19,7 @@ export function SettingsPage({
 
   return (
     <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-8 py-8">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 @xl/pane:px-8 @xl/pane:py-8">
         <div className="flex flex-col gap-3">
           <PageTitle>{title}</PageTitle>
 

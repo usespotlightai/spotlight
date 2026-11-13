@@ -27,7 +27,7 @@ export function UnavailableImagesPill({
           <button
             type="button"
             className={cn(
-              'flex cursor-default rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+              'flex shrink-0 cursor-default rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
               className,
             )}
           />

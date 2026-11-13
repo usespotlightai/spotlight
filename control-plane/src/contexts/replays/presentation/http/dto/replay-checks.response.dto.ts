@@ -284,8 +284,21 @@ export class ReplayCheckResponseDto {
   @ApiProperty({ description: 'The planned candidate the check replays' })
   readonly candidateId: string;
 
-  @ApiProperty()
-  readonly replayId: string;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The replay of the change on the runs no search already replayed it on, or null when searches replayed it on every run',
+  })
+  readonly replayId: string | null;
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description:
+      'The replays of the same config by a search that the check takes as its result on their runs, against the search’s seed',
+  })
+  readonly reusedReplayIds: string[];
 
   @ApiProperty({
     nullable: true,
@@ -389,6 +402,7 @@ export class ReplayCheckResponseDto {
     this.setId = check.setId;
     this.candidateId = check.candidateId;
     this.replayId = check.replayId;
+    this.reusedReplayIds = [...check.reusedReplayIds];
     this.baselineReplayId = check.baselineReplayId;
     this.attempt = check.attempt;
     this.reference = new ReplayCheckReferenceResponseDto(check.reference);

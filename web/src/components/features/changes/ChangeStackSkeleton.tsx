@@ -12,7 +12,7 @@ const COHORTS = [
 ];
 
 export function ChangeStackSkeleton({ known }: { known: BreadcrumbSegment[] }) {
-  const { width } = usePaneWidth(STACK_NAV_PANE);
+  const { paneRef } = usePaneWidth<HTMLDivElement>(STACK_NAV_PANE);
 
   return (
     <div
@@ -22,10 +22,14 @@ export function ChangeStackSkeleton({ known }: { known: BreadcrumbSegment[] }) {
     >
       <PageHeader title={<TrailSkeleton known={known} />} />
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col @2xl/pane:flex-row">
+        <div className="flex h-11 shrink-0 items-center gap-2.5 border-border border-b-[0.5px] px-4 @2xl/pane:hidden">
+          <SkeletonLine className="w-40 text-sm" />
+        </div>
+
         <div
-          style={{ width }}
-          className="flex shrink-0 flex-col gap-8 border-border border-r-[0.5px] px-3 py-5"
+          ref={paneRef}
+          className="hidden shrink-0 flex-col gap-8 border-border border-r-[0.5px] px-3 py-5 @2xl/pane:flex @2xl/pane:w-(--stack-nav-w) @2xl/pane:max-w-1/2"
         >
           {COHORTS.map((layers) => (
             <div key={layers.join()} className="flex flex-col gap-2.5">
@@ -47,7 +51,7 @@ export function ChangeStackSkeleton({ known }: { known: BreadcrumbSegment[] }) {
           ))}
         </div>
 
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-8 py-8">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-5 @md/pane:px-6 @xl/pane:px-8 @xl/pane:py-8">
           <div className="flex flex-col gap-2">
             <SkeletonLine className="w-2/5 text-lg" />
             <SkeletonLine className="w-4/5 text-sm" />
