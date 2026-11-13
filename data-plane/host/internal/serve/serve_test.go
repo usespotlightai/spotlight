@@ -1225,6 +1225,33 @@ func TestRenewsTheNextRunsLeaseUntilTheRunnerTakesItsAssignment(t *testing.T) {
 	}
 }
 
+func TestStopsRenewingSoonAfterTheRunnerTakesItsAssignment(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.LeaseEvery = 2 * time.Second
+	id := liveSandbox(t, engine, pool, opts)
+	handOvers := func() int {
+		return len(slices.DeleteFunc(engine.signalled(id), func(each string) bool { return each != "SIGUSR1" }))
+	}
+	before := handOvers()
+
+	pool.into <- reused("runner_2", "sandbox_a")
+	pool.into <- reused("runner_3", "sandbox_a")
+	deadline := time.Now().Add(time.Second)
+	for handOvers() < before+2 {
+		if time.Now().After(deadline) {
+			t.Fatal("the host waited a lease interval before it saw the runner take its assignment")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	pool.runClient.mu.Lock()
+	defer pool.runClient.mu.Unlock()
+	if slices.Contains(pool.runClient.renewed, "run-runner_2") {
+		t.Error("the host renewed the lease of a run whose runner took its assignment at once")
+	}
+}
+
 func TestReKeysTheEgressForEachRunAndHandsTheSandboxItsAuthority(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	id := liveSandbox(t, engine, pool, options(t))
