@@ -21,6 +21,22 @@ type fakeHost struct {
 	status Status
 	rows   []Setting
 	logs   func() (io.ReadCloser, error)
+
+	logins    []Login
+	loggedOut []string
+
+	editors EditorSetup
+}
+
+func (f *fakeHost) Editors() EditorSetup { return f.editors }
+func (f *fakeHost) Setup() *exec.Cmd     { return exec.Command("true") }
+
+func (f *fakeHost) Logins() ([]Login, error) { return f.logins, nil }
+func (f *fakeHost) Login() *exec.Cmd         { return exec.Command("true") }
+
+func (f *fakeHost) Logout(address string) (string, error) {
+	f.loggedOut = append(f.loggedOut, address)
+	return "Logged out of " + address + ".", nil
 }
 
 func (f *fakeHost) Run(args []string, input string) (string, error) {
@@ -44,6 +60,7 @@ func (f *fakeHost) Logs() (io.ReadCloser, error) {
 
 func serving(sandboxes int) Status {
 	return Status{
+		SetUp:     true,
 		Name:      "leon-mac",
 		Service:   Service{Installed: true, Running: true, Process: 42, Unit: "spotlight-host.service"},
 		Sandboxes: Sandboxes{Running: &sandboxes, Capacity: 5},
@@ -75,6 +92,8 @@ func keyPress(name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyEscape}
 	case "pgup":
 		return tea.KeyPressMsg{Code: tea.KeyPgUp}
+	case "down":
+		return tea.KeyPressMsg{Code: tea.KeyDown}
 	}
 	code := []rune(name)[0]
 	return tea.KeyPressMsg{Code: code, Text: name}
@@ -114,8 +133,10 @@ func deliver(m model, cmd tea.Cmd) model {
 }
 
 func started(host *fakeHost) model {
-	m := newModel(host, "20261113-01")
+	m := newModel(host, host, host, "20261113-01")
 	m = deliver(m, m.check())
+	m = deliver(m, m.loadLogins())
+	m = deliver(m, m.loadEditors())
 	return deliver(m, m.loadSettings())
 }
 
@@ -205,9 +226,61 @@ func TestServiceActionsNeedAnInstalledService(t *testing.T) {
 }
 
 func TestInitWaitsForTheFirstCheck(t *testing.T) {
-	m := newModel(&fakeHost{}, "dev")
+	m := newModel(&fakeHost{}, &fakeHost{}, &fakeHost{}, "dev")
 	if slices.Contains(footerKeys(m), "i") {
 		t.Fatal("init shows before the host is checked")
+	}
+}
+
+func TestLogsInWhenThereIsNoLogin(t *testing.T) {
+	m := started(&fakeHost{status: notInstalled()})
+	if !strings.Contains(screenText(m), "account     ○ not logged in") || !slices.Contains(footerKeys(m), "a") {
+		t.Fatalf("view:\n%s", screenText(m))
+	}
+	m, cmd := press(m, "a")
+	if m.running != "spotlight login" || cmd == nil {
+		t.Fatalf("running = %q", m.running)
+	}
+}
+
+func TestAsksBeforeItLogsOut(t *testing.T) {
+	host := &fakeHost{status: serving(0), logins: []Login{{Address: "https://app.usespotlight.ai", User: "leon@example.com"}}}
+	m := started(host)
+	if view := screenText(m); !strings.Contains(view, "● leon@example.com · app.usespotlight.ai") {
+		t.Fatalf("view:\n%s", view)
+	}
+
+	m, _ = press(m, "a")
+	if m.mode != asking || m.question.text != "Log out of app.usespotlight.ai?" {
+		t.Fatalf("mode %v question %+v", m.mode, m.question)
+	}
+	m, cmd := press(m, "y")
+	if m.running != "spotlight logout --url https://app.usespotlight.ai" {
+		t.Fatalf("running = %q", m.running)
+	}
+	deliver(m, cmd)
+	if !slices.Equal(host.loggedOut, []string{"https://app.usespotlight.ai"}) {
+		t.Fatalf("logged out of %v", host.loggedOut)
+	}
+}
+
+func TestChoosesWhichLoginToEnd(t *testing.T) {
+	host := &fakeHost{status: serving(0), logins: []Login{{Address: "https://app.usespotlight.ai"}, {Address: "http://localhost:3000", User: "dev"}}}
+	m, _ := press(started(host), "a")
+	if m.mode != commanding || m.palette.input.Value() != "log out of " {
+		t.Fatalf("mode %v query %q", m.mode, m.palette.input.Value())
+	}
+	var names []string
+	for _, each := range search(m.paletteActions(), m.palette.input.Value()) {
+		names = append(names, each.name)
+	}
+	slices.Sort(names)
+	if !slices.Equal(names, []string{"log out of app.usespotlight.ai", "log out of localhost:3000"}) {
+		t.Fatalf("found %v", names)
+	}
+	m, _ = press(m, "enter", "y")
+	if !strings.HasPrefix(m.running, "spotlight logout --url http") {
+		t.Fatalf("running = %q", m.running)
 	}
 }
 
@@ -600,5 +673,100 @@ func TestLastLineDropsTheMarkAndPrefix(t *testing.T) {
 		if got := lastLine(output); got != want {
 			t.Errorf("lastLine(%q) = %q", output, got)
 		}
+	}
+}
+
+func TestAMachineWithoutAHostShowsOneCalmLine(t *testing.T) {
+	m := sized(started(&fakeHost{status: Status{Name: "Leon-MBP.fritz.box", Checks: []Check{{Name: "settings", Level: console.Failed, Message: "There are no settings."}}}}), 80, 30)
+	view := screenText(m)
+	for _, want := range []string{"host        ○ not set up on this computer", "editors     ○ not set up for VS Code or Cursor"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("view lacks %q:\n%s", want, view)
+		}
+	}
+	for _, unwanted := range []string{"Leon-MBP", "✗", "checks", "── log", "There are no settings"} {
+		if strings.Contains(view, unwanted) {
+			t.Errorf("view shows %q:\n%s", unwanted, view)
+		}
+	}
+	if keys := footerKeys(m); !slices.Contains(keys, "i") || !slices.Contains(keys, "e") || slices.Contains(keys, "c") || slices.Contains(keys, "l") {
+		t.Errorf("footer keys %v", keys)
+	}
+	if !strings.Contains(view, "i set up a host") {
+		t.Errorf("view:\n%s", view)
+	}
+}
+
+func TestEditorsShowWhatSshSetupSetUp(t *testing.T) {
+	host := &fakeHost{status: serving(0), editors: EditorSetup{Configured: true, Editors: []Editor{
+		{Name: "VS Code", Ready: true},
+		{Name: "Cursor", Message: "Cursor waits 20 seconds for a connection."},
+	}}}
+	m := sized(started(host), 100, 30)
+	view := screenText(m)
+	for _, want := range []string{"editors     ✓ ssh   ✓ VS Code   ! Cursor", "! Cursor waits 20 seconds for a connection.", "spotlight ssh setup", "e editors"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("view lacks %q:\n%s", want, view)
+		}
+	}
+
+	m, cmd := press(m, "e")
+	if m.running != "spotlight ssh setup" || cmd == nil {
+		t.Fatalf("running = %q", m.running)
+	}
+}
+
+func TestReadyEditorsKeepTheFooterShort(t *testing.T) {
+	host := &fakeHost{status: serving(0), editors: EditorSetup{Configured: true, Editors: []Editor{{Name: "VS Code", Ready: true}}}}
+	if keys := footerKeys(started(host)); slices.Contains(keys, "e") {
+		t.Errorf("footer keys %v", keys)
+	}
+}
+
+func TestThePalettePlaceholderShowsInFull(t *testing.T) {
+	m := sized(started(&fakeHost{status: serving(0)}), 80, 30)
+	m, _ = press(m, ":")
+	if view := screenText(m); !strings.Contains(view, ": type a command") {
+		t.Errorf("view:\n%s", view)
+	}
+}
+
+func TestHelpScrollsWhenItDoesNotFit(t *testing.T) {
+	m := sized(started(&fakeHost{status: serving(0)}), 80, 30)
+	m, _ = press(m, "?")
+	if !slices.Contains(footerKeys(m), "↑↓") {
+		t.Fatalf("footer keys %v", footerKeys(m))
+	}
+	before := screenText(m)
+	m, _ = press(m, "down")
+	if m.helpTop != 1 || screenText(m) == before {
+		t.Fatalf("help top %d", m.helpTop)
+	}
+	for range 100 {
+		m, _ = press(m, "down")
+	}
+	if view := screenText(m); !strings.Contains(view, "Each action runs a spotlight command") {
+		t.Errorf("the end of the help does not show:\n%s", view)
+	}
+}
+
+func TestQuitSaysTheHostKeepsServingOnlyWhenItServes(t *testing.T) {
+	for _, each := range []struct {
+		status Status
+		want   bool
+	}{{serving(0), true}, {notInstalled(), false}} {
+		m := started(&fakeHost{status: each.status})
+		lines := m.helpLines()[sectionViews]
+		if got := slices.Contains(lines, hint{key: "q", label: "quit; the host keeps serving"}); got != each.want {
+			t.Errorf("serving %v: help %v", each.status.Service.Running, lines)
+		}
+	}
+}
+
+func TestTheFooterKeepsKeysAndQuitWhenItIsNarrow(t *testing.T) {
+	m := sized(started(&fakeHost{status: serving(0)}), 60, 30)
+	footer := strings.Split(screenText(m), "\n")[29]
+	if !strings.Contains(footer, "? keys   q quit") || !strings.Contains(footer, "s stop") || strings.Contains(footer, "…") {
+		t.Errorf("footer %q", footer)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"runtime"
 	"syscall"
@@ -30,6 +31,7 @@ type cli struct {
 	binary   func() (string, error)
 	system   string
 	terminal func() *console.Terminal
+	login    func(address string) error
 	waitHint time.Duration
 }
 
@@ -47,6 +49,15 @@ func Main(args []string, version string) int {
 		system:   runtime.GOOS,
 		terminal: console.Open,
 		waitHint: 10 * time.Second,
+	}
+	c.login = func(address string) error {
+		binary, err := c.binary()
+		if err != nil {
+			return err
+		}
+		login := exec.Command(binary, "login", "--url", address)
+		login.Stdin, login.Stdout, login.Stderr = os.Stdin, os.Stdout, os.Stderr
+		return login.Run()
 	}
 
 	return c.main(ctx, args)

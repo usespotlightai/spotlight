@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -382,5 +383,52 @@ func TestSetupFindsTheEditorsOfEachSystem(t *testing.T) {
 		if strings.Join(got, "\n") != strings.Join(each.want, "\n") {
 			t.Errorf("%s %v: found %q, want %q", each.system, each.env, got, each.want)
 		}
+	}
+}
+
+func TestSetupOffersToLogInWhenThereIsNoLogin(t *testing.T) {
+	for answer, loggedIn := range map[string]bool{"y\n": true, "n\n": false} {
+		setup := newSetup(t, "/usr/local/bin/spotlight")
+		var asked bytes.Buffer
+		setup.cli.terminal = func() *console.Terminal { return console.New(strings.NewReader(answer), &asked) }
+		var logins []string
+		setup.cli.login = func(address string) error {
+			logins = append(logins, address)
+			setup.login(t, map[string]string{address: "me@example.com"})
+			return nil
+		}
+
+		setup.run(t, "--url", "https://staging.example.com")
+
+		if !strings.Contains(asked.String(), "There is no login for https://staging.example.com. The editor connects as you. Log in now? (y/N)") {
+			t.Errorf("asked %q", asked.String())
+		}
+		if got := len(logins) == 1; got != loggedIn {
+			t.Errorf("answer %q: logged in %v, want %v", answer, logins, loggedIn)
+		}
+		if got := strings.Contains(setup.out.String(), "✓ Logged in to https://staging.example.com as me@example.com."); got != loggedIn {
+			t.Errorf("answer %q printed\n%s", answer, setup.out.String())
+		}
+	}
+}
+
+func TestInspectSaysWhatSetupSetUp(t *testing.T) {
+	setup := newSetup(t, "/usr/local/bin/spotlight")
+	setup.editor(t, "Code", "{\n  \"remote.SSH.connectTimeout\": 600\n}\n")
+	setup.editor(t, "Cursor", "{\n  \"remote.SSH.connectTimeout\": 20\n}\n")
+
+	if got := Inspect(setup.cli.env, "linux"); got.Configured || len(got.Editors) != 2 {
+		t.Fatalf("before setup: %+v", got)
+	}
+
+	setup.run(t, "--no-editor-timeout")
+
+	got := Inspect(setup.cli.env, "linux")
+	want := Setup{Configured: true, Editors: []Editor{
+		{Name: "VS Code", Ready: true, Message: "VS Code waits 600 seconds for a connection."},
+		{Name: "Cursor", Message: "Cursor waits 20 seconds for a connection. A stopped sandbox can take minutes to start."},
+	}}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("inspect\n%+v\nwant\n%+v", got, want)
 	}
 }

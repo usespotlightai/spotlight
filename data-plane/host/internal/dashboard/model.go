@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -40,7 +41,7 @@ type outcome struct {
 
 type question struct {
 	text string
-	args []string
+	do   func(model) (tea.Model, tea.Cmd)
 }
 
 type (
@@ -54,6 +55,11 @@ type (
 		rows []Setting
 		err  error
 	}
+	loginsMsg struct {
+		logins []Login
+		err    error
+	}
+	editorsMsg EditorSetup
 )
 
 type logView struct {
@@ -83,6 +89,8 @@ type paletteView struct {
 
 type model struct {
 	host    Host
+	account Account
+	editors Editors
 	version string
 	style   styles
 
@@ -100,6 +108,12 @@ type model struct {
 	last     *outcome
 	question *question
 
+	logins     []Login
+	loginsNote string
+
+	editorSetup *EditorSetup
+	helpTop     int
+
 	logs     logView
 	settings settingsView
 	palette  paletteView
@@ -112,9 +126,11 @@ func newInput(placeholder string) textinput.Model {
 	return input
 }
 
-func newModel(host Host, version string) model {
+func newModel(host Host, account Account, editors Editors, version string) model {
 	m := model{
 		host:     host,
+		account:  account,
+		editors:  editors,
 		version:  version,
 		style:    terminalStyles(),
 		width:    100,
@@ -136,7 +152,7 @@ func newModel(host Host, version string) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.check(), m.loadSettings(), tick(), m.logs.stream.next(), m.spinner.Tick)
+	return tea.Batch(m.check(), m.loadSettings(), m.loadLogins(), m.loadEditors(), tick(), m.logs.stream.next(), m.spinner.Tick)
 }
 
 func tick() tea.Cmd {
@@ -162,6 +178,22 @@ func (m model) loadSettings() tea.Cmd {
 	}
 }
 
+func (m model) loadLogins() tea.Cmd {
+	account := m.account
+	return func() tea.Msg {
+		logins, err := account.Logins()
+		return loginsMsg{logins: logins, err: err}
+	}
+}
+
+func (m model) loadEditors() tea.Cmd {
+	editors := m.editors
+	if editors == nil {
+		return nil
+	}
+	return func() tea.Msg { return editorsMsg(editors.Editors()) }
+}
+
 func (m model) busy() bool {
 	return m.running != "" || m.status == nil
 }
@@ -178,18 +210,34 @@ func shownCommand(args []string) string {
 	return strings.Join(append([]string{"spotlight host"}, args...), " ")
 }
 
+func loginCommand() string {
+	return "spotlight login"
+}
+
+func logoutCommand(address string) string {
+	return "spotlight logout --url " + address
+}
+
+func editorsCommand() string {
+	return "spotlight ssh setup"
+}
+
 func (m model) run(args ...string) (tea.Model, tea.Cmd) {
 	return m.runShown(shownCommand(args), "", args...)
 }
 
 func (m model) runShown(shown, input string, args ...string) (tea.Model, tea.Cmd) {
+	host := m.host
+	return m.start(shown, func() (string, error) { return host.Run(args, input) })
+}
+
+func (m model) start(shown string, do func() (string, error)) (tea.Model, tea.Cmd) {
 	if m.running != "" {
 		return m, nil
 	}
 	m.running, m.question, m.mode = shown, nil, browsing
-	host := m.host
 	return m, tea.Batch(m.spin(), func() tea.Msg {
-		out, err := host.Run(args, input)
+		out, err := do()
 		if err != nil && out == "" {
 			out = err.Error()
 		}
@@ -198,12 +246,15 @@ func (m model) runShown(shown, input string, args ...string) (tea.Model, tea.Cmd
 }
 
 func (m model) attach(args ...string) (tea.Model, tea.Cmd) {
+	return m.hand(shownCommand(args), m.host.Attach(args))
+}
+
+func (m model) hand(shown string, cmd *exec.Cmd) (tea.Model, tea.Cmd) {
 	if m.running != "" {
 		return m, nil
 	}
-	shown := shownCommand(args)
 	m.running, m.mode = shown, browsing
-	return m, tea.ExecProcess(m.host.Attach(args), func(err error) tea.Msg {
+	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
 		out := ""
 		if err != nil {
 			out = err.Error()
@@ -212,23 +263,42 @@ func (m model) attach(args ...string) (tea.Model, tea.Cmd) {
 	})
 }
 
-func (m model) ask(text string, args ...string) (tea.Model, tea.Cmd) {
+func (m model) ask(text string, do func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
 	if m.running != "" {
 		return m, nil
 	}
-	m.question, m.mode = &question{text: text, args: args}, asking
+	m.question, m.mode = &question{text: text, do: do}, asking
 	return m, nil
 }
 
+func running(args ...string) func(model) (tea.Model, tea.Cmd) {
+	return func(m model) (tea.Model, tea.Cmd) { return m.run(args...) }
+}
+
 func (m model) askWhenBusy(action string, args ...string) (tea.Model, tea.Cmd) {
-	switch running := m.sandboxes(); running {
+	switch busy := m.sandboxes(); busy {
 	case 0:
 		return m.run(args...)
 	case 1:
-		return m.ask(action+"? This stops its running sandbox.", args...)
+		return m.ask(action+"? This stops its running sandbox.", running(args...))
 	default:
-		return m.ask(fmt.Sprintf("%s? This stops its %d running sandboxes.", action, running), args...)
+		return m.ask(fmt.Sprintf("%s? This stops its %d running sandboxes.", action, busy), running(args...))
 	}
+}
+
+func (m model) logIn() (tea.Model, tea.Cmd) {
+	return m.hand(loginCommand(), m.account.Login())
+}
+
+func (m model) setUpEditors() (tea.Model, tea.Cmd) {
+	return m.hand(editorsCommand(), m.editors.Setup())
+}
+
+func (m model) logOut(address string) (tea.Model, tea.Cmd) {
+	return m.ask("Log out of "+shownAddress(address)+"?", func(m model) (tea.Model, tea.Cmd) {
+		account := m.account
+		return m.start(logoutCommand(address), func() (string, error) { return account.Logout(address) })
+	})
 }
 
 func (m model) sandboxes() int {
@@ -284,7 +354,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ranMsg:
 		result := outcome(msg)
 		m.running, m.last, m.logs.retry = "", &result, true
-		return m, tea.Batch(m.checkAgain(), m.loadSettings())
+		return m, tea.Batch(m.checkAgain(), m.loadSettings(), m.loadLogins(), m.loadEditors())
+
+	case loginsMsg:
+		m.logins, m.loginsNote = msg.logins, ""
+		if msg.err != nil {
+			m.loginsNote = msg.err.Error()
+		}
+		return m, nil
+
+	case editorsMsg:
+		setup := EditorSetup(msg)
+		m.editorSetup = &setup
+		return m, nil
 
 	case logLineMsg:
 		if msg.stream != m.logs.stream {
@@ -327,6 +409,10 @@ func (m *model) followAgain() tea.Cmd {
 }
 
 func (m *model) sizeLog() {
+	for _, input := range []*textinput.Model{&m.palette.input, &m.logs.filter, &m.settings.filter, &m.settings.input} {
+		input.SetWidth(max(m.width-len(gutter)*2-2, 1))
+	}
+	m.helpTop = min(m.helpTop, m.lastHelpTop())
 	m.logs.scroll.SetWidth(m.width)
 	m.logs.scroll.SetHeight(max(m.bodyHeight()-1, 1))
 	m.refreshLog()
@@ -399,7 +485,7 @@ func (m model) press(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 func (m model) answer(yes bool) (tea.Model, tea.Cmd) {
 	if yes && m.question != nil {
-		return m.run(m.question.args...)
+		return m.question.do(m)
 	}
 	m.question, m.mode = nil, browsing
 	return m, nil
@@ -453,7 +539,23 @@ func (m model) recheck() (tea.Model, tea.Cmd) {
 	return m, m.checkAgain()
 }
 
+func (m model) openHelp() (tea.Model, tea.Cmd) {
+	m.mode, m.helpTop = helping, 0
+	return m, nil
+}
+
 func (m model) closeHelp() (tea.Model, tea.Cmd) {
 	m.mode = browsing
 	return m, nil
+}
+
+func scrollHelp(by int) func(model) (tea.Model, tea.Cmd) {
+	return func(m model) (tea.Model, tea.Cmd) {
+		m.helpTop = min(max(m.helpTop+by, 0), m.lastHelpTop())
+		return m, nil
+	}
+}
+
+func (m model) lastHelpTop() int {
+	return max(len(m.helpBody())-m.bodyHeight(), 0)
 }

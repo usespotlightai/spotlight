@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"usespotlight.ai/data-plane/credentials"
+	"usespotlight.ai/data-plane/host/internal/dashboard"
 )
 
 func TestClosingTheLogStopsItsProcess(t *testing.T) {
@@ -63,5 +66,32 @@ func TestRunPassesTheInputOnStdin(t *testing.T) {
 	out, err := localHost{binary: binary}.Run([]string{"config"}, "secret\n")
 	if err != nil || out != "host config got secret" {
 		t.Fatalf("out %q, %v", out, err)
+	}
+}
+
+func TestTheAccountListsTheLogins(t *testing.T) {
+	t.Setenv(credentials.DirVar, t.TempDir())
+	if logins, err := (localAccount{}).Logins(); err != nil || len(logins) != 0 {
+		t.Fatalf("logins %v, %v", logins, err)
+	}
+
+	path, err := credentials.Path(os.Getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := credentials.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Put("https://app.usespotlight.ai", credentials.Login{Token: "t", User: "leon@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	logins, err := (localAccount{}).Logins()
+	if err != nil || len(logins) != 1 || logins[0] != (dashboard.Login{Address: "https://app.usespotlight.ai", User: "leon@example.com"}) {
+		t.Fatalf("logins %v, %v", logins, err)
 	}
 }

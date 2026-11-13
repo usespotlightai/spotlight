@@ -11,12 +11,14 @@ import (
 
 const (
 	sectionHost     = "host"
+	sectionAccount  = "account"
+	sectionEditors  = "editors"
 	sectionViews    = "views"
 	sectionSettings = "settings"
 	sectionLog      = "log"
 )
 
-var helpColumns = [][]string{{sectionHost, sectionViews}, {sectionSettings, sectionLog}}
+var helpColumns = [][]string{{sectionHost, sectionAccount, sectionEditors, sectionViews}, {sectionSettings, sectionLog}}
 
 // action is the one place a key, its footer label, its help line and its palette entry come from.
 type action struct {
@@ -74,7 +76,7 @@ func (m model) keymap() keymap {
 	case commanding:
 		return keymap{shown: paletteKeys()}
 	case helping:
-		return keymap{shown: []action{{keys: []string{"esc", "?", "q"}, label: "close", do: model.closeHelp}}}
+		return keymap{shown: m.helpKeys()}
 	case editing:
 		return keymap{shown: editKeys()}
 	case filtering:
@@ -83,12 +85,55 @@ func (m model) keymap() keymap {
 
 	switch m.screen {
 	case settingsScreen:
-		return keymap{shown: settingsActions(), hidden: slices.Concat(viewActions(), m.hostActions())}
+		return keymap{shown: settingsActions(), hidden: slices.Concat(m.viewActions(), m.hostActions(), m.accountActions(), m.editorActions())}
 	case logScreen:
-		return keymap{shown: m.logActions(), hidden: viewActions()}
+		return keymap{shown: m.logActions(), hidden: m.viewActions()}
 	default:
-		return keymap{shown: slices.Concat(m.hostActions(), viewActions())}
+		return keymap{shown: slices.Concat(m.hostActions(), m.accountActions(), m.editorActions(), m.viewActions())}
 	}
+}
+
+func (m model) helpKeys() []action {
+	scroll := len(m.helpBody()) > m.bodyHeight()
+	return []action{
+		{keys: []string{"up", "k"}, keyLabel: "↑↓", label: "scroll", disabled: !scroll, do: scrollHelp(-1)},
+		{keys: []string{"down", "j"}, disabled: !scroll, do: scrollHelp(1)},
+		{keys: []string{"pgup", "b"}, disabled: !scroll, do: scrollHelp(-m.bodyHeight())},
+		{keys: []string{"pgdown", "f", "space"}, disabled: !scroll, do: scrollHelp(m.bodyHeight())},
+		{keys: []string{"esc", "?", "q"}, label: "close", do: model.closeHelp},
+	}
+}
+
+func (m model) setUp() bool {
+	return m.status != nil && m.status.SetUp
+}
+
+func (m model) editorActions() []action {
+	editors := action{
+		name: "set up editors", keys: []string{"e"}, section: sectionEditors, command: editorsCommand(),
+		help: "set up ssh for VS Code and Cursor", disabled: m.editors == nil, do: model.setUpEditors,
+	}
+	if setup := m.editorSetup; setup != nil && (!setup.Configured || slices.ContainsFunc(setup.Editors, func(each Editor) bool { return !each.Ready })) {
+		editors.label = "editors"
+	}
+	return []action{editors}
+}
+
+func (m model) accountActions() []action {
+	account := action{keys: []string{"a"}, section: sectionAccount, help: "log in, or log out", disabled: m.account == nil}
+	switch len(m.logins) {
+	case 0:
+		account.name, account.label, account.command = "log in", "log in", loginCommand()
+		account.do = model.logIn
+	case 1:
+		address := m.logins[0].Address
+		account.name, account.label, account.command = "log out", "log out", logoutCommand(address)
+		account.do = func(m model) (tea.Model, tea.Cmd) { return m.logOut(address) }
+	default:
+		account.label = "log out"
+		account.do = func(m model) (tea.Model, tea.Cmd) { return m.openPaletteWith("log out of ") }
+	}
+	return []action{account}
 }
 
 func (m model) hostActions() []action {
@@ -127,26 +172,36 @@ func (m model) hostActions() []action {
 			name: "update", keys: []string{"u"}, section: sectionHost,
 			help: "update to the release of the control plane", command: shownCommand([]string{"update"}),
 			do: func(m model) (tea.Model, tea.Cmd) {
-				return m.ask("Replace this binary with the release of the control plane?", "update")
+				return m.ask("Replace this binary with the release of the control plane?", running("update"))
 			},
 		},
 		{
-			name: "init", keys: []string{"i"}, label: "init", section: sectionHost, disabled: !known || installed,
+			name: "set up a host", keys: []string{"i"}, label: "set up a host", section: sectionHost, disabled: !known || installed,
 			help: "connect this machine and install the service", command: shownCommand([]string{"init"}),
 			do: func(m model) (tea.Model, tea.Cmd) { return m.attach("init") },
 		},
 	}
 }
 
-func viewActions() []action {
+func (m model) viewActions() []action {
+	quit := "quit"
+	if m.status != nil && m.status.Service.Running {
+		quit = "quit; the host keeps serving"
+	}
+	whenSetUp := func(label string) string {
+		if m.setUp() {
+			return label
+		}
+		return ""
+	}
 	return []action{
 		{
-			name: "settings", keys: []string{"c"}, label: "settings", section: sectionViews,
+			name: "settings", keys: []string{"c"}, label: whenSetUp("settings"), section: sectionViews,
 			help: "settings", command: "spotlight host config",
 			do: func(m model) (tea.Model, tea.Cmd) { return m.toggle(settingsScreen) },
 		},
 		{
-			name: "log", keys: []string{"l"}, label: "log", section: sectionViews,
+			name: "log", keys: []string{"l"}, label: whenSetUp("log"), section: sectionViews,
 			help: "full log", command: "spotlight host logs -f",
 			do: func(m model) (tea.Model, tea.Cmd) { return m.toggle(logScreen) },
 		},
@@ -161,15 +216,11 @@ func viewActions() []action {
 		},
 		{
 			name: "keys", keys: []string{"?"}, label: "keys", section: sectionViews,
-			help: "show every key",
-			do: func(m model) (tea.Model, tea.Cmd) {
-				m.mode = helping
-				return m, nil
-			},
+			help: "show every key", do: model.openHelp,
 		},
 		{
 			name: "quit", keys: []string{"q"}, label: "quit", section: sectionViews,
-			help: "quit; the host keeps serving",
+			help: quit,
 			do:   func(m model) (tea.Model, tea.Cmd) { return m, tea.Quit },
 		},
 	}
@@ -286,7 +337,7 @@ func (m model) footer() []hint {
 
 func (m model) helpLines() map[string][]hint {
 	sections := map[string][]hint{}
-	for _, each := range slices.Concat(m.hostActions(), viewActions(), settingsActions(), m.logActions()) {
+	for _, each := range slices.Concat(m.hostActions(), m.accountActions(), m.editorActions(), m.viewActions(), settingsActions(), m.logActions()) {
 		line := hint{key: each.helpKey(), label: each.help}
 		if each.help == "" || slices.Contains(sections[each.section], line) {
 			continue
@@ -298,9 +349,18 @@ func (m model) helpLines() map[string][]hint {
 
 func (m model) paletteActions() []action {
 	var all []action
-	for _, each := range slices.Concat(m.hostActions(), viewActions()) {
+	for _, each := range slices.Concat(m.hostActions(), m.accountActions(), m.editorActions(), m.viewActions()) {
 		if each.name != "" && !each.disabled {
 			all = append(all, each)
+		}
+	}
+	if len(m.logins) > 1 {
+		all = append(all, action{name: "log in", command: loginCommand(), do: model.logIn})
+		for _, login := range m.logins {
+			all = append(all, action{
+				name: "log out of " + shownAddress(login.Address), command: logoutCommand(login.Address),
+				do: func(m model) (tea.Model, tea.Cmd) { return m.logOut(login.Address) },
+			})
 		}
 	}
 	for _, row := range m.settings.rows {

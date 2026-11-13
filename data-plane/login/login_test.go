@@ -206,6 +206,7 @@ func TestLoginPollsUntilApprovedAndKeepsTheLogin(t *testing.T) {
 		"https://spotlight.test/device?user_code=WDJBMJHT",
 		"WDJB-MJHT",
 		"Logged in to " + address + " as person@example.com.",
+		"Next: to open tasks in VS Code or Cursor, run: spotlight ssh setup --url " + address,
 	} {
 		if !strings.Contains(got.out, want) {
 			t.Errorf("output %q, want %q in it", got.out, want)

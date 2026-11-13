@@ -11,8 +11,13 @@ import (
 const settingPenalty = 2000
 
 func (m model) openPalette() (tea.Model, tea.Cmd) {
+	return m.openPaletteWith("")
+}
+
+func (m model) openPaletteWith(query string) (tea.Model, tea.Cmd) {
 	m.mode, m.palette.cursor = commanding, 0
-	m.palette.input.SetValue("")
+	m.palette.input.SetValue(query)
+	m.palette.input.CursorEnd()
 	return m, m.palette.input.Focus()
 }
 

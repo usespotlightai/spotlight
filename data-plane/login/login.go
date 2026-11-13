@@ -22,6 +22,7 @@ import (
 	"golang.org/x/term"
 
 	"usespotlight.ai/data-plane/credentials"
+	"usespotlight.ai/data-plane/ssh"
 )
 
 const (
@@ -223,7 +224,17 @@ func (c *client) login(ctx context.Context, args []string) error {
 	}
 
 	fmt.Fprintf(c.out, "Logged in to %s as %s.\n", address, printable(user))
+	if !ssh.Inspect(c.env, runtime.GOOS).Configured {
+		fmt.Fprintf(c.out, "Next: to open tasks in VS Code or Cursor, run: %s\n", sshSetupCommand(address))
+	}
 	return nil
+}
+
+func sshSetupCommand(address string) string {
+	if address == credentials.DefaultAddress {
+		return "spotlight ssh setup"
+	}
+	return "spotlight ssh setup --url " + address
 }
 
 func webPage(page string) bool {

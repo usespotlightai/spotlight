@@ -7,14 +7,14 @@ const docs = "spotlight-command"
 var hostHelp = help.Command{
 	Path:    "host",
 	Summary: "Run sandboxes for your workspace's runs and checks on this machine.",
-	Usage:   []string{"spotlight host", "spotlight host <command> [flags]"},
+	Usage:   []string{"spotlight host <command> [flags]"},
 	Examples: []help.Example{
 		{Comment: "Connect this machine and install the host as a service", Command: "spotlight host init"},
-		{Comment: "Open the dashboard", Command: "spotlight host"},
 		{Command: "spotlight host status"},
+		{Comment: "Open the dashboard for the host and the login", Command: "spotlight"},
 	},
 	Notes: []string{
-		"Without a command in a terminal, it opens the dashboard: the status, the live log, the settings and the actions, each with its command.",
+		"Without a command in a terminal, it prints this help.",
 		"Without a command and without a terminal, it serves in the foreground, as spotlight host serve does.",
 	},
 	Exits: []help.Exit{

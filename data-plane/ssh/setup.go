@@ -87,16 +87,13 @@ func (c cli) setup(args []string) error {
 }
 
 func (c cli) loginCheck(address string) check {
-	path, err := credentials.Path(c.env)
-	if err != nil {
-		return check{level: console.Warned, text: "There is no login for " + address + ".", fix: loginCommand(address)}
+	login, found, err := c.savedLogin(address)
+	if err == nil && !found && c.offerLogin(address) {
+		login, found, err = c.savedLogin(address)
 	}
-	file, err := credentials.Load(path)
-	if err != nil {
-		return check{level: console.Failed, text: "Sorry, the logins cannot be read: " + err.Error()}
-	}
-	login, found := file.Login(address)
 	switch {
+	case err != nil:
+		return check{level: console.Failed, text: "Sorry, the logins cannot be read: " + err.Error()}
 	case !found:
 		return check{level: console.Warned, text: "There is no login for " + address + ".", fix: loginCommand(address)}
 	case login.User != "":
@@ -104,6 +101,32 @@ func (c cli) loginCheck(address string) check {
 	default:
 		return check{level: console.Passed, text: "Logged in to " + address + "."}
 	}
+}
+
+func (c cli) savedLogin(address string) (credentials.Login, bool, error) {
+	path, err := credentials.Path(c.env)
+	if err != nil {
+		return credentials.Login{}, false, nil
+	}
+	file, err := credentials.Load(path)
+	if err != nil {
+		return credentials.Login{}, false, err
+	}
+	login, found := file.Login(address)
+	return login, found, nil
+}
+
+func (c cli) offerLogin(address string) bool {
+	if c.terminal == nil || c.login == nil {
+		return false
+	}
+	tty := c.terminal()
+	if tty == nil {
+		return false
+	}
+	asked := tty.Confirm("There is no login for " + address + ". The editor connects as you. Log in now?")
+	tty.Close()
+	return asked && c.login(address) == nil
 }
 
 func (c cli) editorChecks(home string, setTimeout, keepTimeout bool) []check {

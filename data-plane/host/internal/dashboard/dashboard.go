@@ -19,7 +19,37 @@ type Host interface {
 	Logs() (io.ReadCloser, error)
 }
 
+// Account is the CLI's login on this machine, which spotlight login and spotlight logout change.
+type Account interface {
+	Logins() ([]Login, error)
+	Login() *exec.Cmd
+	Logout(address string) (string, error)
+}
+
+// Editors is what spotlight ssh setup set up, so that VS Code and Cursor open task workspaces.
+type Editors interface {
+	Editors() EditorSetup
+	Setup() *exec.Cmd
+}
+
+type EditorSetup struct {
+	Configured bool
+	Editors    []Editor
+}
+
+type Editor struct {
+	Name    string
+	Ready   bool
+	Message string
+}
+
+type Login struct {
+	Address string
+	User    string
+}
+
 type Status struct {
+	SetUp     bool
 	Name      string
 	Service   Service
 	Sandboxes Sandboxes
@@ -56,8 +86,8 @@ func (s Setting) hidden() bool {
 	return s.Secret || s.Group == config.GroupOther
 }
 
-func Run(host Host, version string) error {
-	final, err := tea.NewProgram(newModel(host, version)).Run()
+func Run(host Host, account Account, editors Editors, version string) error {
+	final, err := tea.NewProgram(newModel(host, account, editors, version)).Run()
 	if done, ok := final.(model); ok {
 		done.logs.stream.stop()
 	}

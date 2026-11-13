@@ -21,8 +21,10 @@ const (
 	meterSlots  = 20
 )
 
+const headerHeight, footerHeight = 2, 3
+
 func (m model) bodyHeight() int {
-	return max(m.height-len(m.header())-len(m.footerLines()), 0)
+	return max(m.height-headerHeight-footerHeight, 0)
 }
 
 func (m model) View() tea.View {
@@ -32,7 +34,7 @@ func (m model) View() tea.View {
 	case m.mode == commanding:
 		body = m.paletteBody(height)
 	case m.mode == helping:
-		body = m.helpBody()
+		body = m.helpView(height)
 	case m.screen == settingsScreen:
 		body = m.settingsBody(height)
 	case m.screen == logScreen:
@@ -48,7 +50,7 @@ func (m model) View() tea.View {
 	lines := slices.Concat(m.header(), body, m.footerLines())
 	view := tea.NewView(m.fit(lines[:min(len(lines), max(m.height, 0))]))
 	view.AltScreen = true
-	view.WindowTitle = "spotlight host"
+	view.WindowTitle = "spotlight"
 	return view
 }
 
@@ -58,8 +60,8 @@ func (m model) footerLines() []string {
 
 func (m model) header() []string {
 	s := m.style
-	left := gutter + s.dim.Render("spotlight host")
-	if m.status != nil && m.status.Name != "" {
+	left := gutter + s.dim.Render("spotlight")
+	if m.setUp() && m.status.Name != "" {
 		left += "  " + s.lit.Render(m.status.Name)
 	}
 	switch m.screen {
@@ -89,27 +91,19 @@ func shortPath(path string, room int) string {
 func (m model) overviewBody(height int) []string {
 	s := m.style
 	if m.status == nil {
-		return []string{"", gutter + m.spinner.View() + " " + s.dim.Render("Checking the host")}
+		return []string{"", gutter + m.spinner.View() + " " + s.dim.Render("Checking this computer")}
 	}
-	status := m.status
+	if !m.status.SetUp {
+		lines := []string{""}
+		lines = append(lines, m.accountLines()...)
+		lines = append(lines, m.editorLines()...)
+		return append(lines, gutter+m.label("host")+s.faint.Render("○")+s.dim.Render(" not set up on this computer"))
+	}
 
-	lines := []string{"", m.spread(gutter+m.serviceLine(), m.meter()+gutter), ""}
-
-	var summary []string
-	for _, each := range status.Checks {
-		summary = append(summary, s.mark(each.Level)+" "+s.dim.Render(each.Name))
-	}
-	lines = append(lines, gutter+m.label("checks")+strings.Join(summary, "   "))
-	indent := gutter + strings.Repeat(" ", labelColumn)
-	for _, each := range status.Checks {
-		if each.Level == console.Passed {
-			continue
-		}
-		lines = append(lines, indent+s.mark(each.Level)+" "+s.text.Render(each.Message))
-		if each.Fix != "" {
-			lines = append(lines, indent+"  "+s.dim.Render(each.Fix))
-		}
-	}
+	lines := []string{"", m.spread(gutter+m.label("host")+m.serviceLine(), m.meter()+gutter)}
+	lines = append(lines, m.checkLines()...)
+	lines = append(lines, m.accountLines()...)
+	lines = append(lines, m.editorLines()...)
 
 	note := "live"
 	if m.logs.note != "" {
@@ -125,6 +119,84 @@ func (m model) overviewBody(height int) []string {
 		lines = append(lines, gutter+entry.rendered)
 	}
 	return lines
+}
+
+func (m model) checkLines() []string {
+	s := m.style
+	var summary []string
+	for _, each := range m.status.Checks {
+		summary = append(summary, s.mark(each.Level)+" "+s.dim.Render(each.Name))
+	}
+	lines := []string{gutter + m.label("checks") + strings.Join(summary, "   ")}
+	for _, each := range m.status.Checks {
+		if each.Level != console.Passed {
+			lines = append(lines, m.detail(each.Level, each.Message, each.Fix)...)
+		}
+	}
+	return lines
+}
+
+func (m model) detail(level, message, fix string) []string {
+	s := m.style
+	indent := gutter + strings.Repeat(" ", labelColumn)
+	lines := []string{indent + s.mark(level) + " " + s.text.Render(message)}
+	if fix != "" {
+		lines = append(lines, indent+"  "+s.dim.Render(fix))
+	}
+	return lines
+}
+
+func (m model) accountLines() []string {
+	return []string{gutter + m.label("account") + m.accountLine()}
+}
+
+func (m model) accountLine() string {
+	s := m.style
+	switch {
+	case m.loginsNote != "":
+		return s.bad.Render(m.loginsNote)
+	case len(m.logins) == 0:
+		return s.faint.Render("○") + s.dim.Render(" not logged in")
+	}
+	var shown []string
+	for _, login := range m.logins {
+		who := s.lit.Render(login.User)
+		if login.User == "" {
+			who = s.text.Render("logged in")
+		}
+		shown = append(shown, who+s.dim.Render(" · "+shownAddress(login.Address)))
+	}
+	return s.ok.Render("●") + " " + strings.Join(shown, s.faint.Render("   "))
+}
+
+func (m model) editorLines() []string {
+	s := m.style
+	label := gutter + m.label("editors")
+	setup := m.editorSetup
+	switch {
+	case m.editors == nil:
+		return nil
+	case setup == nil:
+		return []string{label + s.faint.Render("checking")}
+	case !setup.Configured:
+		return []string{label + s.faint.Render("○") + s.dim.Render(" not set up for VS Code or Cursor")}
+	}
+
+	summary := []string{s.mark(console.Passed) + " " + s.dim.Render("ssh")}
+	var details []string
+	for _, each := range setup.Editors {
+		if each.Ready {
+			summary = append(summary, s.mark(console.Passed)+" "+s.dim.Render(each.Name))
+			continue
+		}
+		summary = append(summary, s.mark(console.Warned)+" "+s.dim.Render(each.Name))
+		details = append(details, m.detail(console.Warned, each.Message, editorsCommand())...)
+	}
+	return append([]string{label + strings.Join(summary, "   ")}, details...)
+}
+
+func shownAddress(address string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(address, "https://"), "http://")
 }
 
 func (m model) serviceLine() string {
@@ -284,6 +356,12 @@ func (m model) paletteBody(height int) []string {
 	return lines
 }
 
+func (m model) helpView(height int) []string {
+	lines := m.helpBody()
+	top := min(m.helpTop, max(len(lines)-height, 0))
+	return lines[top:]
+}
+
 func (m model) helpBody() []string {
 	s := m.style
 	sections := m.helpLines()
@@ -319,7 +397,7 @@ func (m model) helpBody() []string {
 			lines = append(lines, line)
 		}
 	}
-	return append(lines, "", gutter+s.dim.Render("Each action runs a spotlight host command and shows it below."))
+	return append(lines, "", gutter+s.dim.Render("Each action runs a spotlight command and shows it below."))
 }
 
 func widest(lines []string) int {
@@ -357,13 +435,26 @@ func lastLine(output string) string {
 	return line
 }
 
+const hintGap = "   "
+
 func (m model) keyLine(hints []hint) string {
 	s := m.style
+	for len(hints) > 2 && hintsWidth(hints) > m.width {
+		hints = slices.Delete(slices.Clone(hints), len(hints)-3, len(hints)-2)
+	}
 	parts := make([]string, 0, len(hints))
 	for _, each := range hints {
 		parts = append(parts, s.lit.Render(each.key)+" "+s.dim.Render(each.label))
 	}
-	return gutter + strings.Join(parts, "   ")
+	return gutter + strings.Join(parts, hintGap)
+}
+
+func hintsWidth(hints []hint) int {
+	width := len(gutter) + len(hintGap)*max(len(hints)-1, 0)
+	for _, each := range hints {
+		width += ansi.StringWidth(each.key) + 1 + ansi.StringWidth(each.label)
+	}
+	return width
 }
 
 func (m model) label(text string) string {

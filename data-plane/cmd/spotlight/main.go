@@ -51,11 +51,10 @@ var agentSections = []help.Section{
 }
 
 var operatorSections = []help.Section{
-	{Title: "Start here", Paths: []string{"login", "host init"}},
-	{Title: "Hosts", Paths: []string{"host", "host status", "host config", "host logs", "host update"}},
-	{Title: "Editors", Paths: []string{"ssh setup", "ssh proxy"}},
-	{Title: "Replays", Paths: []string{"replay", "replay check"}},
-	{Title: "Account", Paths: []string{"logout"}},
+	{Title: "Your login", Paths: []string{"login", "logout", "token"}},
+	{Title: "Open tasks in VS Code or Cursor", Paths: []string{"ssh setup", "ssh proxy"}},
+	{Title: "Run agents on this computer", Paths: []string{"host init", "host", "host status", "host config", "host logs", "host update"}},
+	{Title: "Check station changes", Paths: []string{"replay", "replay check"}},
 	{Title: "Other", Paths: []string{"version", "help"}},
 }
 
@@ -64,6 +63,14 @@ var sandboxSection = help.Section{Title: "Started by the host", Paths: []string{
 func inRun() bool {
 	return os.Getenv(protocol.AgentAPIURLVar) != ""
 }
+
+func inEditorSession() bool {
+	return os.Getenv(protocol.EditorSessionVar) != ""
+}
+
+const editorSessionNote = `This terminal is in the sandbox of a Spotlight task.
+Run spotlight login, spotlight ssh setup and the host commands on your own computer.
+Agent commands work only in a run. To see them: spotlight help --all`
 
 func root(all bool) help.Root {
 	footer := []string{"Run spotlight <command> --help for flags and examples."}
@@ -79,9 +86,10 @@ func root(all bool) help.Root {
 		return help.Root{Summary: "Commands for this Spotlight run.", Sections: agentSections, Footer: append(footer, "Docs: "+help.DocsBase+"agent-commands")}
 	default:
 		return help.Root{
-			Summary:  "Spotlight command line: hosts for your runs, replays, and your login.",
+			Summary:  "Spotlight command line: your login, editors, hosts for your runs, and replays.",
 			Sections: operatorSections,
 			Footer: append(footer,
+				"In a terminal, spotlight without a command opens a dashboard for this computer: your login, editors and host.",
 				"Run spotlight help --all for the commands that agents use in a run.",
 				"Docs: "+help.DocsBase+"spotlight-command"),
 		}
@@ -93,6 +101,17 @@ func main() {
 }
 
 func run(args []string, out, errs io.Writer) int {
+	if len(args) == 0 && !inRun() && inEditorSession() {
+		fmt.Fprintln(out, editorSessionNote)
+		return 0
+	}
+	if len(args) == 0 && !inRun() && host.Interactive() {
+		if err := host.OpenDashboard(version); err != nil {
+			fmt.Fprintln(errs, "spotlight:", err)
+			return 1
+		}
+		return 0
+	}
 	if len(args) == 0 {
 		fmt.Fprintln(out, commands.RenderRoot(root(false)))
 		return 0
@@ -111,7 +130,7 @@ func run(args []string, out, errs io.Writer) int {
 	if !found {
 		return unknown("", args, errs)
 	}
-	if help.Wanted(args) || (command.Group && len(rest) == 0) {
+	if help.Wanted(args) || (command.Group && len(rest) == 0) || (command.Path == "host" && len(rest) == 0 && (host.Interactive() || inRun())) {
 		return helpFor(args, out, errs)
 	}
 	if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") && len(commands.Children(command.Path)) > 0 {

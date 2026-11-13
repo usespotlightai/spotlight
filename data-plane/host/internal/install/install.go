@@ -235,7 +235,7 @@ func installedPath() (string, error) {
 	}
 	path, ok := Installed()
 	if !ok {
-		return "", fmt.Errorf("the host is not installed as a service; run `spotlight host init`")
+		return "", fmt.Errorf("the host is not installed as a service; to install it, run spotlight host init")
 	}
 	return path, nil
 }

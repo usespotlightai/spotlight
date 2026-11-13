@@ -25,9 +25,7 @@ import (
 func Main(args []string, version string) int {
 	var err error
 
-	if len(args) == 0 && interactive() {
-		err = openDashboard(version)
-	} else if len(args) == 0 {
+	if len(args) == 0 {
 		err = run(version)
 	} else {
 		switch rest := args[1:]; args[0] {

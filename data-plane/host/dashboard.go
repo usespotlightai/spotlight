@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -14,9 +15,11 @@ import (
 
 	"golang.org/x/term"
 
+	"usespotlight.ai/data-plane/credentials"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/dashboard"
 	"usespotlight.ai/data-plane/host/internal/install"
+	"usespotlight.ai/data-plane/ssh"
 )
 
 const (
@@ -24,16 +27,67 @@ const (
 	commandTimeout    = 10 * time.Minute
 )
 
-func interactive() bool {
+// Interactive says if stdin and stdout are a terminal, where the dashboard can open.
+func Interactive() bool {
 	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
 }
 
-func openDashboard(version string) error {
+// OpenDashboard shows this machine's host and the CLI's login, and runs spotlight commands on them.
+func OpenDashboard(version string) error {
 	binary, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("find the spotlight binary: %w", err)
 	}
-	return dashboard.Run(localHost{version: version, binary: binary}, version)
+	return dashboard.Run(localHost{version: version, binary: binary}, localAccount{binary: binary}, localEditors{binary: binary}, version)
+}
+
+type localEditors struct {
+	binary string
+}
+
+func (e localEditors) Editors() dashboard.EditorSetup {
+	setup := ssh.Inspect(os.Getenv, runtime.GOOS)
+	shown := dashboard.EditorSetup{Configured: setup.Configured}
+	for _, each := range setup.Editors {
+		shown.Editors = append(shown.Editors, dashboard.Editor{Name: each.Name, Ready: each.Ready, Message: each.Message})
+	}
+	return shown
+}
+
+func (e localEditors) Setup() *exec.Cmd {
+	return exec.Command(e.binary, "ssh", "setup")
+}
+
+type localAccount struct {
+	binary string
+}
+
+func (a localAccount) Logins() ([]dashboard.Login, error) {
+	path, err := credentials.Path(os.Getenv)
+	if err != nil {
+		return nil, nil
+	}
+	file, err := credentials.Load(path)
+	if err != nil {
+		return nil, err
+	}
+	var logins []dashboard.Login
+	for _, address := range file.Addresses() {
+		login, _ := file.Login(address)
+		logins = append(logins, dashboard.Login{Address: address, User: login.User})
+	}
+	return logins, nil
+}
+
+func (a localAccount) Login() *exec.Cmd {
+	return exec.Command(a.binary, "login")
+}
+
+func (a localAccount) Logout(address string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, a.binary, "logout", "--url", address).CombinedOutput()
+	return strings.TrimSpace(string(out)), err
 }
 
 type localHost struct {
@@ -109,8 +163,10 @@ func (h localHost) Status() dashboard.Status {
 	defer cancel()
 	r := inspect(ctx, h.version)
 
+	_, err := os.Stat(r.Config)
 	status := dashboard.Status{
-		Name: r.Name,
+		SetUp: err == nil || r.Service.Installed || r.Service.Running,
+		Name:  r.Name,
 		Service: dashboard.Service{
 			Installed: r.Service.Installed, Running: r.Service.Running, Unit: r.Service.Unit, Process: r.Service.Process,
 		},
