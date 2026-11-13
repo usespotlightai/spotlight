@@ -1,9 +1,4 @@
-type EditorTargetKind = 'task' | 'chat';
-
-export interface EditorTarget {
-  readonly kind: EditorTargetKind;
-  readonly id: string;
-}
+import type { EditorTarget } from '@work/application/dto/editor-connection.dto';
 
 export class ConnectEditorCommand {
   constructor(

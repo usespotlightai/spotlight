@@ -22,6 +22,10 @@ export class SandboxLease {
     return this.holder.isRun;
   }
 
+  get isForEditor(): boolean {
+    return this.holder.isEditor;
+  }
+
   expiredAt(now: Date): boolean {
     return (
       this.holder.isEditor &&

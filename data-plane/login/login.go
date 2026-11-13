@@ -39,13 +39,14 @@ const (
 var errStopped = errors.New("stopped. No login was kept")
 
 type client struct {
-	env     func(string) string
-	out     io.Writer
-	http    *http.Client
-	version string
-	browse  func(string) error
-	sleep   func(context.Context, time.Duration) error
-	now     func() time.Time
+	env      func(string) string
+	out      io.Writer
+	http     *http.Client
+	version  string
+	browse   func(string) error
+	sleep    func(context.Context, time.Duration) error
+	now      func() time.Time
+	waitLine string
 }
 
 type deviceCode struct {
@@ -85,12 +86,13 @@ func Logout(args []string, version string) int {
 
 func newClient(version string) *client {
 	c := &client{
-		env:     os.Getenv,
-		out:     os.Stdout,
-		http:    &http.Client{Timeout: answerTime},
-		version: version,
-		sleep:   sleep,
-		now:     time.Now,
+		env:      os.Getenv,
+		out:      os.Stdout,
+		http:     &http.Client{Timeout: answerTime},
+		version:  version,
+		sleep:    sleep,
+		now:      time.Now,
+		waitLine: "Waiting for you to approve the login. Press Ctrl-C to stop.",
 	}
 	if term.IsTerminal(int(os.Stdout.Fd())) {
 		c.browse = browse
@@ -124,12 +126,21 @@ func sleep(ctx context.Context, wait time.Duration) error {
 	}
 }
 
+func ForEditor(ctx context.Context, address, version string, out io.Writer) (string, error) {
+	c := newClient(version)
+	c.out = out
+	c.browse = browse
+	c.waitLine = "Waiting for you to approve the login in the browser."
+
+	return c.signIn(ctx, address)
+}
+
 func browse(page string) error {
 	var command *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
+	switch {
+	case runtime.GOOS == "darwin":
 		command = exec.Command("open", page)
-	case "linux":
+	case runtime.GOOS == "linux" && (os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""):
 		command = exec.Command("xdg-open", page)
 	default:
 		return errors.ErrUnsupported
@@ -176,15 +187,23 @@ func (c *client) login(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	if *noBrowser {
+		c.browse = nil
+	}
 
+	_, err = c.signIn(ctx, address)
+	return err
+}
+
+func (c *client) signIn(ctx context.Context, address string) (string, error) {
 	path, err := credentials.Path(c.env)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	code, err := c.deviceCode(ctx, address)
 	if err != nil {
-		return stopped(ctx, err)
+		return "", stopped(ctx, err)
 	}
 
 	page := code.VerificationURIComplete
@@ -192,38 +211,38 @@ func (c *client) login(ctx context.Context, args []string) error {
 		page = code.VerificationURI
 	}
 	if !webPage(page) {
-		return fmt.Errorf("Spotlight at %s gave a login page that is not an http or https address", address)
+		return "", fmt.Errorf("Spotlight at %s gave a login page that is not an http or https address", address)
 	}
 	fmt.Fprintf(c.out, "Open this page to log in to %s:\n  %s\n", address, printable(page))
 	fmt.Fprintf(c.out, "Check that the page shows the code %s.\n", printable(shown(code.UserCode)))
-	if !*noBrowser && c.browse != nil && c.browse(page) == nil {
+	if c.browse != nil && c.browse(page) == nil {
 		fmt.Fprintln(c.out, "Opened the page in your browser.")
 	}
-	fmt.Fprintln(c.out, "Waiting for you to approve the login. Press Ctrl-C to stop.")
+	fmt.Fprintln(c.out, c.waitLine)
 
 	token, err := c.poll(ctx, address, code)
 	if err != nil {
-		return stopped(ctx, err)
+		return "", stopped(ctx, err)
 	}
 
 	user, err := c.user(ctx, address, token)
 	if err != nil {
-		return stopped(ctx, err)
+		return "", stopped(ctx, err)
 	}
 
 	file, err := credentials.Load(path)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := file.Put(address, credentials.Login{Token: token, User: user}); err != nil {
-		return err
+		return "", err
 	}
 	if err := file.Save(); err != nil {
-		return err
+		return "", err
 	}
 
 	fmt.Fprintf(c.out, "Logged in to %s as %s.\n", address, printable(user))
-	return nil
+	return token, nil
 }
 
 func webPage(page string) bool {

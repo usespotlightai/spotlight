@@ -143,13 +143,14 @@ func testClient(t *testing.T, env map[string]string) (*client, *bytes.Buffer, *c
 	opened := &[]string{}
 
 	return &client{
-		env:     func(name string) string { return env[name] },
-		out:     out,
-		http:    &http.Client{Timeout: 5 * time.Second},
-		version: "test",
-		browse:  func(page string) error { *opened = append(*opened, page); return nil },
-		sleep:   at.sleep,
-		now:     at.now,
+		env:      func(name string) string { return env[name] },
+		out:      out,
+		http:     &http.Client{Timeout: 5 * time.Second},
+		version:  "test",
+		browse:   func(page string) error { *opened = append(*opened, page); return nil },
+		sleep:    at.sleep,
+		now:      at.now,
+		waitLine: "Waiting for you to approve the login. Press Ctrl-C to stop.",
 	}, out, at, opened
 }
 

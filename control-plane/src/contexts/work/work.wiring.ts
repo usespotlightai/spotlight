@@ -367,7 +367,10 @@ import {
   TASK_VIEWS,
   type TaskViewsPort,
 } from '@work/application/ports/task-views.port';
-import { TASK_WORKSPACES } from '@work/application/ports/task-workspaces.port';
+import {
+  TASK_WORKSPACES,
+  type TaskWorkspacesPort,
+} from '@work/application/ports/task-workspaces.port';
 import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
@@ -418,6 +421,7 @@ import {
   ReadChatJournalQuery,
   ReadChatQuery,
 } from '@work/application/queries/chat.queries';
+import { ReadEditorConnectionQuery } from '@work/application/queries/editor-connection.query';
 import { JoinTaskDraftHandler } from '@work/application/queries/handlers/join-task-draft.handler';
 import { ListChatJournalRunsHandler } from '@work/application/queries/handlers/list-chat-journal-runs.handler';
 import { ListChatsHandler } from '@work/application/queries/handlers/list-chats.handler';
@@ -441,6 +445,7 @@ import { PendingMessagesHandler } from '@work/application/queries/handlers/pendi
 import { ReadAttachmentHandler } from '@work/application/queries/handlers/read-attachment.handler';
 import { ReadChatJournalHandler } from '@work/application/queries/handlers/read-chat-journal.handler';
 import { ReadChatHandler } from '@work/application/queries/handlers/read-chat.handler';
+import { ReadEditorConnectionHandler } from '@work/application/queries/handlers/read-editor-connection.handler';
 import { ReadRunAttachmentHandler } from '@work/application/queries/handlers/read-run-attachment.handler';
 import { ReadRunConfigHandler } from '@work/application/queries/handlers/read-run-config.handler';
 import { ReadRunNotesHandler } from '@work/application/queries/handlers/read-run-notes.handler';
@@ -495,6 +500,7 @@ import { CreateTask } from '@work/application/services/create-task';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { DraftSending } from '@work/application/services/draft-sending.service';
+import { EditorTargets } from '@work/application/services/editor-targets.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { HistoryAccesses } from '@work/application/services/history-accesses.service';
 import { InboxRequestLoader } from '@work/application/services/inbox-request-loader.service';
@@ -2029,11 +2035,24 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     WorkAccess,
   ]),
 
+  {
+    provide: EditorTargets,
+    inject: [TASK_WORKSPACES, CHAT_REPOSITORY, WorkAccess],
+    useFactory: (
+      tasks: TaskWorkspacesPort,
+      chats: ChatRepository,
+      access: WorkAccess,
+    ) => new EditorTargets(tasks, chats, access),
+  },
+
   ...bindCommandHandler(ConnectEditorCommand, ConnectEditorHandler, [
-    TASK_WORKSPACES,
-    CHAT_REPOSITORY,
+    EditorTargets,
     EDITOR_LEASES,
-    WorkAccess,
+  ]),
+
+  ...bindQueryHandler(ReadEditorConnectionQuery, ReadEditorConnectionHandler, [
+    EditorTargets,
+    EDITOR_LEASES,
   ]),
 
   ...bindQueryHandler(ReadTaskDraftQuery, ReadTaskDraftHandler, [

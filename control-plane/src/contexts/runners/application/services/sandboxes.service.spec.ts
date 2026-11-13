@@ -733,6 +733,33 @@ describe('Sandboxes', () => {
       ).toBe(false);
     });
 
+    it('says an editor holds the open sandbox of a key while any editor lease is live', async () => {
+      const { service } = serving({ known: [idleReady()] });
+
+      expect(
+        await service.heldByAnEditor('ws_1', 'task-task_1', later(1_000)),
+      ).toBe(false);
+
+      await service.holdForEditor('sandbox_e', 'conn_1', later(1_000));
+
+      expect(
+        await service.heldByAnEditor('ws_1', 'task-task_1', later(2_000)),
+      ).toBe(true);
+      expect(
+        await service.heldByAnEditor('ws_2', 'task-task_1', later(2_000)),
+      ).toBe(false);
+      expect(
+        await service.heldByAnEditor('ws_1', 'task-task_9', later(2_000)),
+      ).toBe(false);
+      expect(
+        await service.heldByAnEditor(
+          'ws_1',
+          'task-task_1',
+          later(1_000 + EDITOR_LEASE_MS),
+        ),
+      ).toBe(false);
+    });
+
     it('keeps the sandbox past the grace while it holds it, and the grace starts again once it leaves', async () => {
       const { stored, service } = serving({ known: [idleReady()] });
       await service.holdForEditor('sandbox_e', 'conn_1', later(1_000));

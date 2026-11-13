@@ -41,7 +41,7 @@ export function AuthorizeDevice() {
     return (
       <AuthScreen className={WIDTH}>
         <AuthTitle title={TITLE}>
-          Log in to approve the code from your terminal.
+          Log in to approve the code from your terminal or editor.
         </AuthTitle>
         <SignInToContinue callbackURL={devicePath(userCode)} />
       </AuthScreen>
@@ -89,7 +89,7 @@ export function AuthorizeDevice() {
     return (
       <AuthScreen className={WIDTH}>
         <AuthTitle title="Spotlight CLI is logged in">
-          You can close this tab and go back to your terminal.
+          You can close this tab and go back to your terminal or editor.
         </AuthTitle>
       </AuthScreen>
     );
@@ -109,7 +109,8 @@ export function AuthorizeDevice() {
     <AuthScreen className={WIDTH}>
       <AuthTitle title="Approve the Spotlight CLI?">
         The CLI acts as {session?.user.email} in every workspace you are a
-        member of. Approve only a code that your terminal shows.
+        member of. Approve only a code that you started from your terminal or
+        editor.
       </AuthTitle>
       <DecideDevice userCode={userCode} />
     </AuthScreen>

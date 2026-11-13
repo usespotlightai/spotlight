@@ -45,10 +45,47 @@ func (c cli) proxy(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	if token == "" {
-		return notSignedIn(address)
+	stored := token != ""
+	if !stored {
+		fmt.Fprintf(c.errs, "There is no login for %s.\n", address)
+		if token, err = c.startLogin(ctx, address); err != nil {
+			return err
+		}
 	}
 
+	conn, err := c.open(ctx, address, alias, token)
+	if lapsed := (expiredLogin{}); errors.As(err, &lapsed) && stored {
+		fmt.Fprintf(c.errs, "Your login for %s expired.\n", address)
+		if token, err = c.startLogin(ctx, address); err != nil {
+			return err
+		}
+		conn, err = c.open(ctx, address, alias, token)
+	}
+	if lapsed := (expiredLogin{}); errors.As(err, &lapsed) {
+		return fmt.Errorf("Sorry, Spotlight at %s refused the new login. Please try again", address)
+	}
+	if err != nil {
+		return err
+	}
+	defer conn.CloseNow()
+	conn.SetReadLimit(readLimit)
+
+	return c.pipe(ctx, conn, address)
+}
+
+func (c cli) startLogin(ctx context.Context, address string) (string, error) {
+	token, err := c.deviceLogin(ctx, address, c.errs)
+	if err != nil {
+		if ctx.Err() != nil {
+			return "", errStopped
+		}
+		return "", fmt.Errorf("Sorry, the login to %s did not finish: %w. Run: %s", address, err, loginCommand(address))
+	}
+
+	return token, nil
+}
+
+func (c cli) open(ctx context.Context, address string, alias Alias, token string) (*websocket.Conn, error) {
 	header := http.Header{}
 	header.Set("Authorization", "Bearer "+token)
 	header.Set(clientHeader, "cli/"+c.version)
@@ -59,27 +96,25 @@ func (c cli) proxy(ctx context.Context, args []string) error {
 	connection, err := connect(dialing, address, alias, header)
 	if err != nil {
 		if ctx.Err() != nil {
-			return errStopped
+			return nil, errStopped
 		}
-		return err
+		return nil, err
 	}
 
 	target, err := socketURL(address, connection)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	conn, response, err := websocket.Dial(dialing, target, &websocket.DialOptions{HTTPHeader: header})
 	if err != nil {
 		if ctx.Err() != nil {
-			return errStopped
+			return nil, errStopped
 		}
-		return socketRefused(address, alias, response, err)
+		return nil, socketRefused(address, alias, response, err)
 	}
-	defer conn.CloseNow()
-	conn.SetReadLimit(readLimit)
 
-	return c.pipe(ctx, conn, address)
+	return conn, nil
 }
 
 func connect(ctx context.Context, address string, alias Alias, header http.Header) (protocol.EditorConnection, error) {
@@ -197,8 +232,12 @@ func (c cli) pipe(ctx context.Context, conn *websocket.Conn, address string) err
 	}
 }
 
-func notSignedIn(address string) error {
-	return fmt.Errorf("Sorry, you are not signed in to %s. Run: %s", address, loginCommand(address))
+type expiredLogin struct {
+	address string
+}
+
+func (e expiredLogin) Error() string {
+	return fmt.Sprintf("Sorry, your login for %s expired. Run: %s", e.address, loginCommand(e.address))
 }
 
 func refused(address string, alias Alias, response *http.Response, err error) error {
@@ -210,7 +249,7 @@ func refused(address string, alias Alias, response *http.Response, err error) er
 	case http.StatusBadRequest:
 		return fmt.Errorf("Sorry, Spotlight at %s did not find one task or chat in %s", address, alias)
 	case http.StatusUnauthorized:
-		return fmt.Errorf("Sorry, your login for %s expired. Run: %s", address, loginCommand(address))
+		return expiredLogin{address: address}
 	case http.StatusForbidden:
 		return fmt.Errorf("Sorry, Spotlight at %s refused the connection: %s", address, said(response))
 	case http.StatusNotFound:

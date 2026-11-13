@@ -15,6 +15,7 @@ import (
 	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/credentials"
 	"usespotlight.ai/data-plane/help"
+	"usespotlight.ai/data-plane/login"
 )
 
 const stoppedExit = 130
@@ -22,15 +23,16 @@ const stoppedExit = 130
 var errStopped = errors.New("stopped")
 
 type cli struct {
-	env      func(string) string
-	in       io.Reader
-	out      io.Writer
-	errs     io.Writer
-	version  string
-	binary   func() (string, error)
-	system   string
-	terminal func() *console.Terminal
-	waitHint time.Duration
+	env         func(string) string
+	in          io.Reader
+	out         io.Writer
+	errs        io.Writer
+	version     string
+	binary      func() (string, error)
+	system      string
+	terminal    func() *console.Terminal
+	waitHint    time.Duration
+	deviceLogin func(ctx context.Context, address string, out io.Writer) (string, error)
 }
 
 func Main(args []string, version string) int {
@@ -47,6 +49,9 @@ func Main(args []string, version string) int {
 		system:   runtime.GOOS,
 		terminal: console.Open,
 		waitHint: 10 * time.Second,
+		deviceLogin: func(ctx context.Context, address string, out io.Writer) (string, error) {
+			return login.ForEditor(ctx, address, version, out)
+		},
 	}
 
 	return c.main(ctx, args)

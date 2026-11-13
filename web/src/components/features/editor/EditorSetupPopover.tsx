@@ -20,7 +20,11 @@ export function EditorSetupPopover({ anchor, setup }: EditorSetupPopoverProps) {
       }}
     >
       <PopoverContent anchor={anchor} align="end" sideOffset={6}>
-        <EditorSetup app={setup.app} origin={window.location.origin} />
+        <EditorSetup
+          app={setup.app}
+          reason={setup.reason}
+          origin={window.location.origin}
+        />
       </PopoverContent>
     </Popover>
   );

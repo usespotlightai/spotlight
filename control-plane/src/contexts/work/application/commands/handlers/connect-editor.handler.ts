@@ -1,60 +1,32 @@
 import type { EditorLeasesPort } from '@runners/application/ports/editor-leases.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ConnectEditorCommand } from '@work/application/commands/connect-editor.command';
 import type { EditorConnectionDto } from '@work/application/dto/editor-connection.dto';
-import type { TaskWorkspacesPort } from '@work/application/ports/task-workspaces.port';
-import type { WorkAccess } from '@work/application/services/work-access.service';
-import { WorkRequesters } from '@work/application/services/work-requesters';
-import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-
-interface Found {
-  readonly workspaceId: WorkspaceId;
-  readonly key: string;
-}
+import type { EditorTargets } from '@work/application/services/editor-targets.service';
 
 export class ConnectEditorHandler implements CommandHandlerPort<
   ConnectEditorCommand,
   EditorConnectionDto | null
 > {
   constructor(
-    private readonly tasks: TaskWorkspacesPort,
-    private readonly chats: ChatRepository,
+    private readonly targets: EditorTargets,
     private readonly leases: EditorLeasesPort,
-    private readonly access: WorkAccess,
   ) {}
 
   async execute(
     command: ConnectEditorCommand,
   ): Promise<EditorConnectionDto | null> {
     try {
-      const viewer = UserId.of(command.viewerId);
-      const found =
-        command.target.kind === 'task'
-          ? await this.ofTask(viewer, command.target.id)
-          : await this.ofChat(viewer, command.target.id);
+      const found = await this.targets.workingCopyOf(
+        UserId.of(command.viewerId),
+        command.target,
+        command.workspaceSlug,
+      );
 
-      if (
-        !found ||
-        !(await this.access.seesWorkspace(found.workspaceId, viewer))
-      ) {
+      if (!found) {
         return null;
-      }
-
-      if (command.workspaceSlug !== null) {
-        const workspaceId = await this.access.memberWorkspaceAt(
-          command.workspaceSlug,
-          viewer,
-        );
-
-        if (!workspaceId?.equals(found.workspaceId)) {
-          return null;
-        }
       }
 
       const lease = await this.leases.hold(found.workspaceId.value, found.key);
@@ -63,34 +35,5 @@ export class ConnectEditorHandler implements CommandHandlerPort<
     } catch (error) {
       rethrowAsApplicationError(error);
     }
-  }
-
-  private async ofTask(viewer: UserId, taskId: string): Promise<Found | null> {
-    const id = TaskId.of(taskId);
-    const [workspaceId, teamId] = await Promise.all([
-      this.tasks.workspaceOf(id),
-      this.tasks.teamOf(id),
-    ]);
-
-    if (!workspaceId || !teamId) {
-      return null;
-    }
-
-    (await this.access.standingOn(teamId, viewer)).assertActsOnTasks(
-      () => new UnknownTaskError(taskId),
-    );
-
-    return { workspaceId, key: WorkRequesters.taskWorkingCopyKey(id) };
-  }
-
-  private async ofChat(viewer: UserId, chatId: string): Promise<Found | null> {
-    const chat = await this.chats.find(ChatId.of(chatId));
-
-    return chat && (await this.access.opensChat(chat, viewer))
-      ? {
-          workspaceId: chat.workspaceId,
-          key: WorkRequesters.chatWorkingCopyKey(ChatId.of(chatId)),
-        }
-      : null;
   }
 }

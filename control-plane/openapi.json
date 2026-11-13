@@ -14082,6 +14082,60 @@
       }
     },
     "/editor-connections": {
+      "get": {
+        "operationId": "readEditorConnection",
+        "parameters": [
+          {
+            "name": "workspace",
+            "required": false,
+            "in": "query",
+            "description": "The workspace the task or chat must be in",
+            "schema": {}
+          },
+          {
+            "name": "chat",
+            "required": false,
+            "in": "query",
+            "description": "The chat. Name a task or a chat.",
+            "schema": {}
+          },
+          {
+            "name": "task",
+            "required": false,
+            "in": "query",
+            "description": "The task. Name a task or a chat.",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditorConnectionStateResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No task and no chat, or both"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task or chat that the caller may open in an editor"
+          }
+        },
+        "summary": "Whether an editor holds the sandbox of a task or a chat now",
+        "tags": [
+          "editor-connections"
+        ]
+      },
       "post": {
         "operationId": "connectEditor",
         "parameters": [],
@@ -30499,6 +30553,19 @@
         },
         "required": [
           "body"
+        ]
+      },
+      "EditorConnectionStateResponseDto": {
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean",
+            "example": true,
+            "description": "An editor holds an editor lease on the sandbox now"
+          }
+        },
+        "required": [
+          "connected"
         ]
       },
       "ConnectEditorRequestDto": {

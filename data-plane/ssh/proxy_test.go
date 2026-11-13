@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -91,9 +93,10 @@ func accepting(t *testing.T, then func(context.Context, *websocket.Conn)) func(*
 }
 
 type proxyRun struct {
-	cli  cli
-	out  *lockedBuffer
-	errs *bytes.Buffer
+	cli      cli
+	out      *lockedBuffer
+	errs     *bytes.Buffer
+	loggedIn []string
 }
 
 type lockedBuffer struct {
@@ -127,8 +130,23 @@ func newProxy(t *testing.T, address string, signedIn bool, in io.Reader) *proxyR
 
 	run := &proxyRun{out: &lockedBuffer{}, errs: &bytes.Buffer{}}
 	run.cli = cli{env: func(key string) string { return env[key] }, in: in, out: run.out, errs: run.errs, version: "test"}
+	run.loggingIn(func(string) (string, error) { return "", errors.New("the code expired") })
 
 	return run
+}
+
+func (r *proxyRun) loggingIn(answer func(address string) (string, error)) {
+	r.cli.deviceLogin = func(_ context.Context, address string, out io.Writer) (string, error) {
+		r.loggedIn = append(r.loggedIn, address)
+		fmt.Fprintln(out, "Open this page to log in.")
+		return answer(address)
+	}
+}
+
+func closing(t *testing.T) func(*http.Request, http.ResponseWriter) {
+	return accepting(t, func(_ context.Context, conn *websocket.Conn) {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	})
 }
 
 func (r *proxyRun) proxy(t *testing.T, ctx context.Context, alias string) int {
@@ -238,7 +256,6 @@ func TestProxyBlocksWhileTheSandboxStarts(t *testing.T) {
 func TestProxyNamesEachRefusal(t *testing.T) {
 	for status, want := range map[int]string{
 		http.StatusBadRequest:         "did not find one task or chat in task-abc.acme.spotlight",
-		http.StatusUnauthorized:       "your login for",
 		http.StatusForbidden:          "refused the connection: refused",
 		http.StatusNotFound:           "there is no task abc in workspace acme that you may open",
 		http.StatusServiceUnavailable: "the sandbox could not be opened",
@@ -276,13 +293,36 @@ func TestProxyNamesAnEditorLeaseThatEndedBeforeTheSocket(t *testing.T) {
 	}
 }
 
-func TestProxyAsksForALoginBeforeItConnects(t *testing.T) {
+func TestProxyLogsInBeforeItConnectsWithNoLogin(t *testing.T) {
+	fake := newFakeSpotlight(t, nil)
+	fake.serve = closing(t)
+	in, typed := io.Pipe()
+	defer typed.Close()
+	run := newProxy(t, fake.server.URL, false, in)
+	run.loggingIn(func(string) (string, error) { return "new-token", nil })
+
+	code := run.proxy(t, within(t), "task-abc.acme.spotlight")
+
+	want := "There is no login for " + fake.server.URL + ".\nOpen this page to log in.\n"
+	if code != 0 || run.errs.String() != want {
+		t.Errorf("exit %d, stderr %q; want %q", code, run.errs.String(), want)
+	}
+	if len(run.loggedIn) != 1 || run.loggedIn[0] != fake.server.URL {
+		t.Errorf("logged in to %v", run.loggedIn)
+	}
+	if got := (<-fake.connected).header.Get("Authorization"); got != "Bearer new-token" {
+		t.Errorf("connect Authorization = %q", got)
+	}
+}
+
+func TestProxyStopsWhenTheLoginDoesNotFinish(t *testing.T) {
 	fake := newFakeSpotlight(t, refusing(http.StatusTeapot))
 	run := newProxy(t, fake.server.URL, false, strings.NewReader(""))
 
 	code := run.proxy(t, within(t), "task-abc.acme.spotlight")
 
-	want := "spotlight ssh proxy: Sorry, you are not signed in to " + fake.server.URL + ". Run: spotlight login --url " + fake.server.URL + "\n"
+	want := "There is no login for " + fake.server.URL + ".\nOpen this page to log in.\n" +
+		"spotlight ssh proxy: Sorry, the login to " + fake.server.URL + " did not finish: the code expired. Run: spotlight login --url " + fake.server.URL + "\n"
 	if code != 1 || run.errs.String() != want {
 		t.Errorf("exit %d, stderr %q; want %q", code, run.errs.String(), want)
 	}
@@ -292,6 +332,64 @@ func TestProxyAsksForALoginBeforeItConnects(t *testing.T) {
 	case <-fake.asked:
 		t.Error("the proxy connected without a login")
 	default:
+	}
+}
+
+func TestProxyLogsInAgainWhenTheLoginExpired(t *testing.T) {
+	fake := newFakeSpotlight(t, nil)
+	fake.serve = closing(t)
+	fake.connecting = func(r *http.Request, w http.ResponseWriter) {
+		if r.Header.Get("Authorization") != "Bearer new-token" {
+			http.Error(w, "expired", http.StatusUnauthorized)
+			return
+		}
+		leasing(r, w)
+	}
+	in, typed := io.Pipe()
+	defer typed.Close()
+	run := newProxy(t, fake.server.URL, true, in)
+	run.loggingIn(func(string) (string, error) { return "new-token", nil })
+
+	code := run.proxy(t, within(t), "task-abc.acme.spotlight")
+
+	want := "Your login for " + fake.server.URL + " expired.\nOpen this page to log in.\n"
+	if code != 0 || run.errs.String() != want {
+		t.Errorf("exit %d, stderr %q; want %q", code, run.errs.String(), want)
+	}
+	if got := (<-fake.asked).Header.Get("Authorization"); got != "Bearer new-token" {
+		t.Errorf("socket Authorization = %q", got)
+	}
+}
+
+func TestProxyLogsInOnceWhenTheNewLoginIsRefused(t *testing.T) {
+	fake := newFakeSpotlight(t, refusing(http.StatusTeapot))
+	fake.connecting = refusing(http.StatusUnauthorized)
+	run := newProxy(t, fake.server.URL, true, strings.NewReader(""))
+	run.loggingIn(func(string) (string, error) { return "new-token", nil })
+
+	code := run.proxy(t, within(t), "task-abc.acme.spotlight")
+
+	if len(run.loggedIn) != 1 {
+		t.Errorf("logged in %d times, want once", len(run.loggedIn))
+	}
+	if code != 1 || !strings.HasSuffix(run.errs.String(), "spotlight ssh proxy: Sorry, Spotlight at "+fake.server.URL+" refused the new login. Please try again\n") {
+		t.Errorf("exit %d, stderr %q", code, run.errs.String())
+	}
+}
+
+func TestProxyLogsInOnceWhenSpotlightRefusesTheFirstLogin(t *testing.T) {
+	fake := newFakeSpotlight(t, refusing(http.StatusTeapot))
+	fake.connecting = refusing(http.StatusUnauthorized)
+	run := newProxy(t, fake.server.URL, false, strings.NewReader(""))
+	run.loggingIn(func(string) (string, error) { return "new-token", nil })
+
+	code := run.proxy(t, within(t), "task-abc.acme.spotlight")
+
+	if len(run.loggedIn) != 1 {
+		t.Errorf("logged in %d times, want once", len(run.loggedIn))
+	}
+	if code != 1 || !strings.HasSuffix(run.errs.String(), "spotlight ssh proxy: Sorry, Spotlight at "+fake.server.URL+" refused the new login. Please try again\n") {
+		t.Errorf("exit %d, stderr %q", code, run.errs.String())
 	}
 }
 

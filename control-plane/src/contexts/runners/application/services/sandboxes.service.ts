@@ -473,6 +473,19 @@ export class Sandboxes
     );
   }
 
+  async heldByAnEditor(
+    workspaceId: string,
+    key: string,
+    at: Date,
+  ): Promise<boolean> {
+    const open = await this.sandboxes.openFor(
+      WorkspaceId.of(workspaceId),
+      SandboxKey.of(key),
+    );
+
+    return !!open && open.holdsAnEditorAt(at);
+  }
+
   async releaseEditor(
     sandboxId: string,
     holder: string,

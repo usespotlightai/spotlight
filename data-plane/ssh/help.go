@@ -56,7 +56,8 @@ var proxyHelp = help.Command{
 		{Command: "spotlight ssh proxy task-0d6c1f9e-1b7e-4c55-9a51-1f0f6b8d2c3a.acme.spotlight"},
 	},
 	Notes: []string{
-		"Uses the login from spotlight login. If the sandbox is not running, Spotlight starts it, and the command waits until it is ready.",
+		"Uses the login from spotlight login. If there is no login, or the login expired, it opens the login page in the browser and waits for your approval. It writes the page and the code to stderr.",
+		"If the sandbox is not running, Spotlight starts it, and the command waits until it is ready.",
 		"Writes one line to stderr when the sandbox does not answer in 10 seconds, and one line if the connection fails.",
 	},
 	Exits: []help.Exit{

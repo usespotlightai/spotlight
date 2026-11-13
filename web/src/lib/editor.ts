@@ -12,6 +12,8 @@ export const EDITOR_NAMES: Record<EditorApp, string> = {
   cursor: 'Cursor',
 };
 
+export type EditorSetupReason = 'not-opened' | 'not-connected';
+
 export const isEditorApp = (value: string): value is EditorApp =>
   (EDITOR_APPS as readonly string[]).includes(value);
 

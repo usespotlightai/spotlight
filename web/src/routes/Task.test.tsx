@@ -36,6 +36,9 @@ vi.mock('@/hooks/api/useTasks', () => ({
     refetch,
   }),
 }));
+vi.mock('@/hooks/api/useEditorConnection', () => ({
+  useEditorConnection: () => ({ data: undefined }),
+}));
 vi.mock('@/hooks/api/useMoveTask', () => ({
   useMoveTask: () => ({ mutate: moved }),
 }));

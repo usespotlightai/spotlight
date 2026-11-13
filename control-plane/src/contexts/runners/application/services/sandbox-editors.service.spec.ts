@@ -12,6 +12,7 @@ const setUp = (input: { held?: boolean[] } = {}) => {
     holdForEditor: vi.fn(async () =>
       (held.shift() ?? true) ? { open: true, ready: false } : null,
     ),
+    heldByAnEditor: vi.fn(async () => true),
   };
   let next = 0;
   const editors = new SandboxEditors(
@@ -45,6 +46,17 @@ describe('SandboxEditors', () => {
 
     expect(await editors.hold('ws_1', 'task-task_1')).not.toBeNull();
     expect(sandboxes.open).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks whether an editor holds the sandbox of the workspace and key now', async () => {
+    const { editors, sandboxes } = setUp();
+
+    expect(await editors.isHeld('ws_1', 'task-task_1')).toBe(true);
+    expect(sandboxes.heldByAnEditor).toHaveBeenCalledWith(
+      'ws_1',
+      'task-task_1',
+      NOW,
+    );
   });
 
   it('fails when the sandbox drains on each attempt', async () => {

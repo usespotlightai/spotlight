@@ -80,6 +80,15 @@ describe('sandbox editors (e2e)', () => {
     headers: Record<string, string> = owner(),
   ) => http().post('/api/editor-connections').set(headers).send(body);
 
+  const reading = (
+    query: Record<string, string>,
+    headers: Record<string, string> = owner(),
+  ) => http().get('/api/editor-connections').query(query).set(headers);
+
+  const connected = async (query: Record<string, string>) =>
+    ((await reading(query).expect(200)).body as { connected: boolean })
+      .connected;
+
   const lease = async (
     body: Record<string, string> = { task: taskId() },
     headers?: Record<string, string>,
@@ -193,6 +202,23 @@ describe('sandbox editors (e2e)', () => {
     expect(await sandboxOf(`work/task-${taskId()}`)).toBeNull();
   });
 
+  it('reads no editor connection with no session, for a person outside the workspace or another workspace, or without one task or one chat', async () => {
+    await reading({ task: taskId() }, {}).expect(401);
+    await reading(
+      { task: taskId() },
+      { [TEST_USER_HEADER]: randomUUID() },
+    ).expect(404);
+    await reading({ workspace: team.slug }).expect(400);
+    await reading({ task: taskId(), chat: randomUUID() }).expect(400);
+    await reading({ task: taskId(), workspace: `not-${team.slug}` }).expect(
+      404,
+    );
+    expect(await connected({ task: taskId(), workspace: team.slug })).toBe(
+      false,
+    );
+    expect(await sandboxOf(`work/task-${taskId()}`)).toBeNull();
+  });
+
   it('refuses a socket with no session, another site’s page, no lease, an unknown lease, and a second socket on one lease', async () => {
     const ticket = await lease({ task: taskId(), workspace: team.slug });
 
@@ -238,6 +264,7 @@ describe('sandbox editors (e2e)', () => {
     });
     expect(held).toMatchObject({ hostId: null, state: 'open' });
     expect(held.leases.map((each) => each.kind)).toEqual(['editor', 'editor']);
+    expect(await connected({ task: taskId() })).toBe(true);
 
     cookie.close();
     cli.close();
@@ -245,6 +272,7 @@ describe('sandbox editors (e2e)', () => {
       const found = await sandboxOf(`work/task-${taskId()}`);
       return found?.leases.length === 0 ? true : null;
     });
+    expect(await connected({ task: taskId() })).toBe(false);
   });
 
   it('pipes the editor’s bytes to the sandbox’s host once the sandbox is ready', async () => {
