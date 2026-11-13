@@ -1,6 +1,10 @@
 import { AcceptInviteCommand } from '@identity/application/commands/accept-invite.command';
 import { AddTeamMemberCommand } from '@identity/application/commands/add-team-member.command';
 import { AddUserEmailCommand } from '@identity/application/commands/add-user-email.command';
+import {
+  RemoveAvatarCommand,
+  SetAvatarCommand,
+} from '@identity/application/commands/avatar.commands';
 import { ChangeMemberRoleCommand } from '@identity/application/commands/change-member-role.command';
 import { CreateTeamCommand } from '@identity/application/commands/create-team.command';
 import { CreateWorkspaceWithTeamCommand } from '@identity/application/commands/create-workspace-with-team.command';
@@ -23,10 +27,12 @@ import { DeleteWorkspaceTokenHandler } from '@identity/application/commands/hand
 import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { ExchangeWorkloadTokenHandler } from '@identity/application/commands/handlers/exchange-workload-token.handler';
 import { InviteToWorkspaceHandler } from '@identity/application/commands/handlers/invite-to-workspace.handler';
+import { RemoveAvatarHandler } from '@identity/application/commands/handlers/remove-avatar.handler';
 import { RemoveUserEmailHandler } from '@identity/application/commands/handlers/remove-user-email.handler';
 import { ResendInviteHandler } from '@identity/application/commands/handlers/resend-invite.handler';
 import { ResendUserEmailVerificationHandler } from '@identity/application/commands/handlers/resend-user-email-verification.handler';
 import { RevokeInviteHandler } from '@identity/application/commands/handlers/revoke-invite.handler';
+import { SetAvatarHandler } from '@identity/application/commands/handlers/set-avatar.handler';
 import { UpdateOidcTrustHandler } from '@identity/application/commands/handlers/update-oidc-trust.handler';
 import { UpdateTeamHandler } from '@identity/application/commands/handlers/update-team.handler';
 import { UpdateWorkspaceTokenHandler } from '@identity/application/commands/handlers/update-workspace-token.handler';
@@ -52,9 +58,14 @@ import {
 } from '@identity/application/commands/workspace-token.commands';
 import { IDENTITY_EVENT_MAPPERS } from '@identity/application/integration-events/identity.event-mappers';
 import {
+  AVATAR_IMAGES,
+  type AvatarImagesPort,
+} from '@identity/application/ports/avatar-images.port';
+import {
   CONFIGURATION_AUDIT,
   type ConfigurationAuditPort,
 } from '@identity/application/ports/configuration-audit.port';
+import { CONTENT_HASH } from '@identity/application/ports/content-hash.port';
 import { EMAIL_OWNERS } from '@identity/application/ports/email-owners.port';
 import { GITHUB_ACTIONS_TRUSTS } from '@identity/application/ports/github-actions-trusts.port';
 import { IDENTITY_DEFINITIONS } from '@identity/application/ports/identity-definitions.port';
@@ -124,6 +135,7 @@ import {
   ListOidcTrustResourcesHandler,
   ReadOidcTrustHandler,
 } from '@identity/application/queries/handlers/oidc-trust.handlers';
+import { ReadAvatarHandler } from '@identity/application/queries/handlers/read-avatar.handler';
 import { ReadInviteHandler } from '@identity/application/queries/handlers/read-invite.handler';
 import { ReadTeamHandler } from '@identity/application/queries/handlers/read-team.handler';
 import { ReadWorkspaceHandler } from '@identity/application/queries/handlers/read-workspace.handler';
@@ -149,6 +161,7 @@ import {
   ListOidcTrustResourcesQuery,
   ReadOidcTrustQuery,
 } from '@identity/application/queries/oidc-trust.queries';
+import { ReadAvatarQuery } from '@identity/application/queries/read-avatar.query';
 import { ReadInviteQuery } from '@identity/application/queries/read-invite.query';
 import { ReadTeamQuery } from '@identity/application/queries/read-team.query';
 import { ReadWorkspaceQuery } from '@identity/application/queries/read-workspace.query';
@@ -158,6 +171,8 @@ import {
   ListWorkspaceTokenResourcesQuery,
   ReadWorkspaceTokenQuery,
 } from '@identity/application/queries/workspace-token.queries';
+import { AvatarOwners } from '@identity/application/services/avatar-owners.service';
+import { AvatarRemoval } from '@identity/application/services/avatar-removal.service';
 import { DependentsRegistry } from '@identity/application/services/dependents-registry.service';
 import { FirstTeam } from '@identity/application/services/first-team.service';
 import { GitHubActionsTrusts } from '@identity/application/services/github-actions-trusts.service';
@@ -198,6 +213,7 @@ import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzl
 import { DrizzleUserEmailReader } from '@identity/infrastructure/persistence/drizzle/readers/user-email.reader';
 import { DrizzleWorkspaceRecords } from '@identity/infrastructure/persistence/drizzle/readers/workspace-records.reader';
 import { DrizzleWorkspaceRoles } from '@identity/infrastructure/persistence/drizzle/readers/workspace-roles.reader';
+import { DrizzleAvatarRepository } from '@identity/infrastructure/persistence/drizzle/repositories/avatar.repository';
 import { DrizzleOidcTrustRepository } from '@identity/infrastructure/persistence/drizzle/repositories/oidc-trust.repository';
 import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/drizzle/repositories/team.repository';
 import { DrizzleUserEmailRepository } from '@identity/infrastructure/persistence/drizzle/repositories/user-email.repository';
@@ -205,9 +221,14 @@ import { DrizzleWorkspaceInviteRepository } from '@identity/infrastructure/persi
 import { DrizzleWorkspaceTokenRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-token.repository';
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import { DrizzleSignupSurveys } from '@identity/infrastructure/persistence/drizzle/signup-surveys';
+import { S3AvatarImages } from '@identity/infrastructure/storage/s3-avatar-images';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { identitySubscribers } from '@identity/presentation/events/identity.subscribers';
 import { IDENTITY_API_CONVENTIONS } from '@identity/presentation/http/api-conventions';
+import {
+  TeamAvatarController,
+  WorkspaceAvatarController,
+} from '@identity/presentation/http/controllers/avatar.controller';
 import { ConfigurationChangeController } from '@identity/presentation/http/controllers/configuration-change.controller';
 import {
   InviteController,
@@ -237,9 +258,11 @@ import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import { ApiConventions } from '@platform/http/api-conventions';
 import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import { ChangeNotices } from '@platform/live/change-notices';
+import { s3ClientsOf } from '@platform/storage/s3-clients';
 import {
   CLOCK,
   type ClockPort,
@@ -272,6 +295,8 @@ const IDENTITY_API_DOCUMENTATION = Symbol('IDENTITY_API_DOCUMENTATION');
 const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');
 
 export const IDENTITY_CONTROLLERS: readonly Type[] = [
+  WorkspaceAvatarController,
+  TeamAvatarController,
   WorkspaceResourceController,
   TeamResourceController,
   WorkspaceTokenResourceController,
@@ -289,6 +314,7 @@ export const IDENTITY_CONTROLLERS: readonly Type[] = [
 
 const adapters: Provider[] = [
   DrizzleWorkspaceRepository,
+  DrizzleAvatarRepository,
   DrizzleTeamRepository,
   DrizzleWorkspaceInviteRepository,
   DrizzleUserEmailRepository,
@@ -342,6 +368,17 @@ const adapters: Provider[] = [
   { provide: CONFIGURATION_AUDIT, useClass: DrizzleConfigurationAudit },
   { provide: OIDC_TRUST_USAGE, useClass: DrizzleOidcTrustUsage },
   { provide: SIGNUP_SURVEYS, useClass: DrizzleSignupSurveys },
+  {
+    provide: AVATAR_IMAGES,
+    inject: [ENV],
+    useFactory: (env: Env) => new S3AvatarImages(s3ClientsOf(env)),
+  },
+  { provide: CONTENT_HASH, useClass: Sha256ContentHash },
+  {
+    provide: AvatarOwners,
+    inject: [WORKSPACE_ACCESS],
+    useFactory: (access: WorkspaceAccessPort) => new AvatarOwners(access),
+  },
   {
     provide: MAIL_TRANSPORT,
     inject: [ENV, LOGGER],
@@ -441,6 +478,24 @@ const handlers: Provider[] = [
   ]),
   ...bindQueryHandler(ListWorkspacesQuery, ListWorkspacesHandler, [
     WORKSPACE_READER,
+  ]),
+  ...bindQueryHandler(ReadAvatarQuery, ReadAvatarHandler, [
+    AvatarOwners,
+    DrizzleAvatarRepository,
+    AVATAR_IMAGES,
+  ]),
+  ...bindCommandHandler(SetAvatarCommand, SetAvatarHandler, [
+    AvatarOwners,
+    DrizzleAvatarRepository,
+    AVATAR_IMAGES,
+    CONTENT_HASH,
+    ID_GENERATOR,
+    TRANSACTION,
+  ]),
+  ...bindCommandHandler(RemoveAvatarCommand, RemoveAvatarHandler, [
+    AvatarOwners,
+    DrizzleAvatarRepository,
+    TRANSACTION,
   ]),
   ...bindQueryHandler(GetWorkspaceQuery, GetWorkspaceHandler, [
     WORKSPACE_READER,
@@ -722,6 +777,8 @@ const published: Provider[] = [
       IssuedTokens,
       PERSON_READER,
       DrizzleWorkspaceInviteRepository,
+      DrizzleAvatarRepository,
+      AVATAR_IMAGES,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -737,6 +794,8 @@ const published: Provider[] = [
       issuedTokens: IssuedTokens,
       people: PersonReaderPort,
       invites: DrizzleWorkspaceInviteRepository,
+      avatars: DrizzleAvatarRepository,
+      avatarImages: AvatarImagesPort,
     ) => {
       types.register('identity', IDENTITY_PAYLOAD_TYPES);
       mappers.register(IDENTITY_EVENT_MAPPERS);
@@ -749,6 +808,7 @@ const published: Provider[] = [
           issuedTokens,
           new WorkspaceInviteRemoval(invites),
           new WorkspaceSetup(workspaces),
+          new AvatarRemoval(avatars, avatarImages),
         ),
       );
       return true;

@@ -1,6 +1,9 @@
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { AvatarRemoved } from '@identity/domain/events/avatar-removed.event';
+import { AvatarReplaced } from '@identity/domain/events/avatar-replaced.event';
+import { AvatarSet } from '@identity/domain/events/avatar-set.event';
 import { OidcTrustCreated } from '@identity/domain/events/oidc-trust-created.event';
 import { OidcTrustDeleted } from '@identity/domain/events/oidc-trust-deleted.event';
 import { OidcTrustUpdated } from '@identity/domain/events/oidc-trust-updated.event';
@@ -23,6 +26,9 @@ import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-is
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
 import { WorkspaceTokenUpdated } from '@identity/domain/events/workspace-token-updated.event';
 import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.event';
+import { AvatarDigest } from '@identity/domain/value-objects/avatar-digest.vo';
+import { AvatarImageId } from '@identity/domain/value-objects/avatar-image-id.vo';
+import { AvatarOwner } from '@identity/domain/value-objects/avatar-owner.vo';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
@@ -97,6 +103,21 @@ const typesIn = (encoded: unknown): readonly string[] => {
 };
 
 const EVERY_EVENT: readonly DomainEvent[] = [
+  new AvatarSet(
+    AvatarOwner.workspace(WORKSPACE),
+    AvatarDigest.of('c'.repeat(64)),
+  ),
+  new AvatarReplaced(
+    AvatarOwner.workspace(WORKSPACE),
+    AvatarDigest.of('c'.repeat(64)),
+    AvatarDigest.of('a'.repeat(64)),
+    AvatarImageId.of('6f1d2c3b-4a59-4e8d-9c7b-1a2b3c4d5e6f'),
+  ),
+  new AvatarRemoved(
+    AvatarOwner.team(WORKSPACE, TEAM),
+    AvatarDigest.of('b'.repeat(64)),
+    AvatarImageId.of('7a2e3d4c-5b6a-4f9e-8d7c-2b3c4d5e6f70'),
+  ),
   new OidcTrustCreated(
     TRUST,
     WORKSPACE,

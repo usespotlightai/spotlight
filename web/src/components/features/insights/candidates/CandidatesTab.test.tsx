@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CandidatesTab } from '@/components/features/insights/candidates/CandidatesTab';
 import type { InsightsPeriod } from '@/lib/insights';
 import { stationNamesOf } from '@/lib/insights';
+import type { InsightsCandidates } from '@/lib/insights-candidates';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
 type Queried = {
@@ -91,6 +92,30 @@ const row = (name: string) =>
   screen
     .getByText(name)
     .closest('[data-slot="replayed-candidate"]') as HTMLElement;
+
+const withPrompt = (
+  name: string,
+  was: string,
+  now: string,
+): InsightsCandidates => ({
+  ...CANDIDATES,
+  stations: CANDIDATES.stations.map((station) => ({
+    ...station,
+    sets: station.sets.map((set) => ({
+      ...set,
+      candidates: set.candidates.map((each) =>
+        each.name === name
+          ? {
+              ...each,
+              changes: each.changes.map((change) =>
+                change.part === 'prompt' ? { ...change, was, now } : change,
+              ),
+            }
+          : each,
+      ),
+    })),
+  })),
+});
 
 beforeEach(() => {
   answer.candidates = queried(CANDIDATES);
@@ -310,6 +335,37 @@ describe('the Candidates tab', () => {
       'data-expanded',
       'true',
     );
+
+    await userEvent.click(name);
+    expect(name).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('shows a changed prompt as a diff under its row', async () => {
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(80);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(48);
+    answer.candidates = queried(
+      withPrompt(
+        'sonnet-terse-prompt',
+        'Review it.\nBe thorough.',
+        'Review it.\nBe brief.',
+      ),
+    );
+    showing();
+
+    const detail = row('sonnet-terse-prompt').querySelector(
+      '[data-slot="row-detail"]',
+    ) as HTMLElement;
+    expect(within(detail).getByText('Be thorough.')).toBeInTheDocument();
+    expect(within(detail).getByText('Be brief.')).toBeInTheDocument();
+    expect(
+      row('opus-with-migrations-skill').querySelector(
+        '[data-slot="row-detail"]',
+      ),
+    ).toBeNull();
+
+    const name = screen.getByRole('button', { name: 'sonnet-terse-prompt' });
+    await userEvent.click(name);
+    expect(row('sonnet-terse-prompt')).toHaveAttribute('data-expanded', 'true');
 
     await userEvent.click(name);
     expect(name).toHaveAttribute('aria-expanded', 'false');

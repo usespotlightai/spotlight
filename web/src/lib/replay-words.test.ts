@@ -64,7 +64,9 @@ describe('replay words', () => {
     );
 
     expect(noise?.tone).toBe('good');
-    expect(noise?.advice).toMatch(/^Noise is within the line’s minimum/);
+    expect(noise?.advice).toBe(
+      'The live config replayed each run 3 times, unchanged. Its success moved 6 pts between repeats. If a search replays each run once, it can tell a +5 pts gain from chance.',
+    );
   });
 
   it('reads an unhealthy set line by line, each with what to do', () => {
@@ -134,14 +136,20 @@ describe('replay words', () => {
     );
 
     expect(readings.map((each) => [each.text, each.tone])).toEqual([
-      ['Success moved 20 pts between 3 repeats', 'bad'],
+      ['20 pts', 'bad'],
       ['Little: +2 pts with the answer', 'bad'],
       ['Same verdict on 70% of 10 changes', 'bad'],
       ['1 of 12 changes flipped', 'bad'],
     ]);
     expect(readings[0]?.advice).toBe(
-      'One repeat can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. Minimum real gain: +5 pts',
+      'The live config replayed each run 3 times, unchanged. Its success moved 20 pts between repeats. If a search replays each run once, it can’t tell a +5 pts gain from chance. Search with more repeats per run, or raise the line’s minimum real gain.',
     );
+    expect(readings[0]?.rows).toEqual([
+      ['Repeats', '3'],
+      ['Success per repeat', '50%, 60%, 70%'],
+      ['Tasks that flipped', '0 tasks'],
+      ['Minimum real gain', '+5 pts'],
+    ]);
     expect(readings[1]?.advice).toMatch(
       /^Live config: 95% on 6 runs\. With the answer: 97%\. Even the answer barely helps\./,
     );

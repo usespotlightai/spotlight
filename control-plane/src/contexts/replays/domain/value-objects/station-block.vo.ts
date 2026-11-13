@@ -31,6 +31,14 @@ export class StationBlock {
     return JSON.parse(this.written) as Block;
   }
 
+  overlaidWith(fields: Block): Block {
+    return Object.fromEntries(
+      Object.entries({ ...this.value, ...fields }).filter(
+        ([field]) => fields[field] !== null,
+      ),
+    );
+  }
+
   equals(other: StationBlock): boolean {
     return this.written === other.written;
   }

@@ -8,6 +8,7 @@ export * from '@configuration/infrastructure/persistence/drizzle/schemas/configu
 export * from '@github/infrastructure/persistence/drizzle/schemas/github-connection.schema';
 export * from '@github/infrastructure/persistence/drizzle/schemas/pull-request.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
+export * from '@identity/infrastructure/persistence/drizzle/schemas/avatar.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/user-email.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';

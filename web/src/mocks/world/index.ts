@@ -30,10 +30,11 @@ export const WORKSPACE: WorkspaceResponseDto = {
   id: 'workspace_acme',
   name: 'Acme',
   slug: SLUG,
+  avatarUrl: null,
   role: 'owner',
   teams: [
-    { id: PLATFORM_ID, name: 'Platform' },
-    { id: GROWTH_ID, name: 'Growth' },
+    { id: PLATFORM_ID, name: 'Platform', avatarUrl: null },
+    { id: GROWTH_ID, name: 'Growth', avatarUrl: null },
   ],
   setupStatus: 'done',
 };

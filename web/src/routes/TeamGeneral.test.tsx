@@ -51,6 +51,17 @@ vi.mock('@/hooks/api/useAddTeamMember', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useAvatar', () => ({
+  useTeamAvatar: () => ({
+    mutate: vi.fn(),
+    reset: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+    variables: undefined,
+  }),
+}));
+
 vi.mock('@/hooks/api/useInviteToWorkspace', () => ({
   useInviteToWorkspace: () => ({
     mutate: invite,

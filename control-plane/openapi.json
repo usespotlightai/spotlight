@@ -949,6 +949,267 @@
         }
       }
     },
+    "/workspaces/{slug}/avatar": {
+      "put": {
+        "operationId": "setWorkspaceAvatar",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAvatarRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "That is its avatar now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "You may not configure it"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          },
+          "409": {
+            "description": "Its avatar changed at the same time; try again"
+          },
+          "422": {
+            "description": "Not a PNG, JPEG, WebP or GIF image, or too large"
+          }
+        },
+        "summary": "Set the workspace’s avatar",
+        "tags": [
+          "workspaces"
+        ]
+      },
+      "delete": {
+        "operationId": "removeWorkspaceAvatar",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It has no avatar now"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "You may not configure it"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          },
+          "409": {
+            "description": "Its avatar changed at the same time; try again"
+          }
+        },
+        "summary": "Remove the workspace’s avatar",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}/avatar/{digest}": {
+      "get": {
+        "operationId": "readWorkspaceAvatar",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "digest",
+            "required": true,
+            "in": "path",
+            "description": "The SHA-256 of the image",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image, byte for byte"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "Not its avatar, or not for this caller"
+          }
+        },
+        "summary": "The workspace’s avatar image",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/teams/{teamId}/avatar": {
+      "put": {
+        "operationId": "setTeamAvatar",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAvatarRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "That is its avatar now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "You may not configure it"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          },
+          "409": {
+            "description": "Its avatar changed at the same time; try again"
+          },
+          "422": {
+            "description": "Not a PNG, JPEG, WebP or GIF image, or too large"
+          }
+        },
+        "summary": "Set the team’s avatar",
+        "tags": [
+          "teams"
+        ]
+      },
+      "delete": {
+        "operationId": "removeTeamAvatar",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It has no avatar now"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "You may not configure it"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          },
+          "409": {
+            "description": "Its avatar changed at the same time; try again"
+          }
+        },
+        "summary": "Remove the team’s avatar",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/teams/{teamId}/avatar/{digest}": {
+      "get": {
+        "operationId": "readTeamAvatar",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "digest",
+            "required": true,
+            "in": "path",
+            "description": "The SHA-256 of the image",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image, byte for byte"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "Not its avatar, or not for this caller"
+          }
+        },
+        "summary": "The team’s avatar image",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
     "/v1/resources/workspaces/import": {
       "get": {
         "operationId": "importWorkspace",
@@ -22470,6 +22731,44 @@
           "items"
         ]
       },
+      "SetAvatarRequestDto": {
+        "type": "object",
+        "properties": {
+          "contentType": {
+            "type": "string",
+            "description": "What kind of image the bytes are.",
+            "enum": [
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif"
+            ],
+            "example": "image/webp"
+          },
+          "data": {
+            "type": "string",
+            "description": "The image, base64-encoded, at most 512 KB once decoded.",
+            "format": "byte"
+          }
+        },
+        "required": [
+          "contentType",
+          "data"
+        ]
+      },
+      "AvatarResponseDto": {
+        "type": "object",
+        "properties": {
+          "avatarUrl": {
+            "type": "string",
+            "description": "Where to read the avatar.",
+            "example": "/api/workspaces/acme-inc/avatar/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+          }
+        },
+        "required": [
+          "avatarUrl"
+        ]
+      },
       "WorkspaceResourceResponseDto": {
         "type": "object",
         "properties": {
@@ -22985,11 +23284,18 @@
           "name": {
             "type": "string",
             "example": "Acme Inc."
+          },
+          "avatarUrl": {
+            "type": "string",
+            "description": "Where to read its avatar, or null when it has none.",
+            "nullable": true,
+            "example": "/api/teams/9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84/avatar/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
           }
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "avatarUrl"
         ]
       },
       "CreatedWorkspaceResponseDto": {
@@ -23036,6 +23342,12 @@
             "type": "string",
             "example": "acme-inc"
           },
+          "avatarUrl": {
+            "type": "string",
+            "description": "Where to read its avatar, or null when it has none.",
+            "nullable": true,
+            "example": "/api/workspaces/acme-inc/avatar/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+          },
           "role": {
             "type": "string",
             "example": "owner",
@@ -23050,6 +23362,7 @@
           "id",
           "name",
           "slug",
+          "avatarUrl",
           "role"
         ]
       },
@@ -23067,6 +23380,12 @@
           "slug": {
             "type": "string",
             "example": "acme-inc"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "description": "Where to read its avatar, or null when it has none.",
+            "nullable": true,
+            "example": "/api/workspaces/acme-inc/avatar/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
           },
           "teams": {
             "type": "array",
@@ -23098,6 +23417,7 @@
           "id",
           "name",
           "slug",
+          "avatarUrl",
           "teams",
           "role",
           "setupStatus"
@@ -41931,7 +42251,7 @@
           "was": {
             "type": "string",
             "nullable": true,
-            "description": "What it was, where it can be shown; prompts, skills and rubrics are compared but not shown"
+            "description": "What it was, where it can be shown; the prompt is shown in full, skills and rubrics are compared but not shown"
           },
           "now": {
             "type": "string",
