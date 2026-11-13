@@ -6,7 +6,6 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { CommandPalette } from '@/components/shell/command/CommandPalette';
 import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
-import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
 import { SidebarSlide } from '@/components/shell/layout/SidebarSlide';
 import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
@@ -25,8 +24,8 @@ import { useInboxNotifier } from '@/hooks/useInboxNotifier';
 import { useLastPlace } from '@/hooks/useLastPlace';
 import { useLiveStream } from '@/hooks/useLiveStream';
 import { useSlideFrom } from '@/hooks/useSlideFrom';
+import type { SplitSide } from '@/lib/app-tabs';
 import { failed, loading } from '@/lib/query';
-import { TabTitleContext } from '@/lib/tab-title';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_URL_PREFIX, workspacePath } from '@/lib/workspace';
 
@@ -75,6 +74,16 @@ export function Workspace({ pages }: WorkspaceProps) {
       )
     );
   };
+  const paneIds = tabs.panes.right
+    ? [tabs.panes.left, tabs.panes.right]
+    : [tabs.panes.left];
+  const dropSides = (index: number): SplitSide[] => {
+    if (index > 0) {
+      return ['right'];
+    }
+
+    return paneIds.length > 1 ? ['left'] : ['left', 'right'];
+  };
   const drag = {
     tabs: tabs.tabs,
     activeId: tabs.activeId,
@@ -85,18 +94,6 @@ export function Workspace({ pages }: WorkspaceProps) {
 
   if (!slug) {
     return null;
-  }
-
-  if (loading(workspace)) {
-    return (
-      <TabDrag {...drag}>
-        <DashboardLayout tabs={strip}>
-          <TabTitleContext value={tabs.titleFor(tabs.activeId)}>
-            <PageOutlet />
-          </TabTitleContext>
-        </DashboardLayout>
-      </TabDrag>
-    );
   }
 
   if (failed(workspace)) {
@@ -115,7 +112,7 @@ export function Workspace({ pages }: WorkspaceProps) {
     );
   }
 
-  if (!workspace.data) {
+  if (!loading(workspace) && !workspace.data) {
     return (
       <main className="flex min-h-svh flex-col items-center justify-center gap-4 px-4">
         <h1 className="font-medium text-2xl tracking-tight">
@@ -146,49 +143,51 @@ export function Workspace({ pages }: WorkspaceProps) {
     <TabDrag {...drag}>
       <DashboardLayout
         sidebar={
-          <SidebarSlide key={inSettings ? 'settings' : 'app'} from={slideFrom}>
-            {inSettings ? (
-              <SettingsSidebar
-                slug={slug}
-                back={leftAt ?? workspacePath(slug)}
-                workspace={workspace.data}
-              />
-            ) : (
-              <WorkspaceSidebar
-                slug={slug}
-                workspace={workspace.data}
-                onSearch={() => setSearching(true)}
-              />
-            )}
-          </SidebarSlide>
+          workspace.data && (
+            <SidebarSlide
+              key={inSettings ? 'settings' : 'app'}
+              from={slideFrom}
+            >
+              {inSettings ? (
+                <SettingsSidebar
+                  slug={slug}
+                  back={leftAt ?? workspacePath(slug)}
+                  workspace={workspace.data}
+                />
+              ) : (
+                <WorkspaceSidebar
+                  slug={slug}
+                  workspace={workspace.data}
+                  onSearch={() => setSearching(true)}
+                />
+              )}
+            </SidebarSlide>
+          )
         }
         tabs={strip}
-        panesKey={`${tabs.panes.left}:${tabs.panes.right}`}
         focused={tabs.panes.left === tabs.activeId ? 'main' : 'split'}
         onCollapse={(section) =>
           tabs.hidePane(section === 'main' ? 'left' : 'right')
         }
-        split={
-          tabs.panes.right && (
+        panes={paneIds.map((id, index) => ({
+          key: id ?? 'main',
+          content: (
             <>
-              {paneOf(tabs.panes.right)}
-              <SplitDropZones sides={['right']} />
+              {paneOf(id)}
+              <SplitDropZones sides={dropSides(index)} />
             </>
-          )
-        }
-      >
-        {paneOf(tabs.panes.left)}
-        <SplitDropZones
-          sides={tabs.panes.right ? ['left'] : ['left', 'right']}
-        />
+          ),
+        }))}
+      />
 
+      {workspace.data && (
         <CommandPalette
           slug={slug}
           workspace={workspace.data}
           open={searching}
           onOpenChange={setSearching}
         />
-      </DashboardLayout>
+      )}
     </TabDrag>
   );
 }

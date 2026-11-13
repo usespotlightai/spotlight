@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 
 const KEYBOARD_STEP = 16;
 
@@ -40,6 +41,9 @@ const readStoredWidth = (pane: Pane): number => {
 const clampTo = (pane: Pane, width: number) =>
   Math.min(pane.max, Math.max(pane.min, Math.round(width)));
 
+const limitOf = (pane: Element | null | undefined) =>
+  (pane && Number.parseFloat(getComputedStyle(pane).maxWidth)) || Infinity;
+
 const store = (pane: Pane, width: number) => {
   try {
     localStorage.setItem(pane.storageKey, String(width));
@@ -52,7 +56,9 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   const direction = pane.edge === 'left' ? -1 : 1;
   const [width, setWidth] = useState(() => readStoredWidth(pane));
   const [resizing, setResizing] = useState(false);
-  const origin = useRef<{ x: number; width: number } | null>(null);
+  const origin = useRef<{ x: number; width: number; limit: number } | null>(
+    null,
+  );
   const last = useRef(width);
   const paneRef = useRef<T | null>(null);
 
@@ -95,16 +101,30 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   };
 
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
-    origin.current = { x: event.clientX, width };
+    if (event.button !== 0) {
+      return;
+    }
+
+    const shown = event.currentTarget.parentElement;
+    origin.current = {
+      x: event.clientX,
+      width: shown?.offsetWidth || width,
+      limit: limitOf(shown),
+    };
     setResizing(true);
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
+  const wantedAt = (event: PointerEvent<HTMLElement>) =>
+    origin.current
+      ? origin.current.width + direction * (event.clientX - origin.current.x)
+      : null;
+
   const onPointerMove = (event: PointerEvent<HTMLElement>) => {
-    if (!origin.current) {
-      return;
+    const wanted = wantedAt(event);
+    if (wanted !== null) {
+      show(wanted);
     }
-    show(origin.current.width + direction * (event.clientX - origin.current.x));
   };
 
   const finish = () => {
@@ -112,10 +132,18 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
       return;
     }
 
+    const kept = Math.min(last.current, origin.current.limit);
+    const keeps = kept >= pane.min;
     origin.current = null;
-    setResizing(false);
-    setWidth(last.current);
-    store(pane, last.current);
+    last.current = keeps ? kept : width;
+    flushSync(() => {
+      setResizing(false);
+      setWidth(last.current);
+    });
+
+    if (keeps) {
+      store(pane, kept);
+    }
   };
 
   const onPointerUp = (event: PointerEvent<HTMLElement>) => {
@@ -123,11 +151,21 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
+  const step = (event: KeyboardEvent<HTMLElement>, by: number) => {
+    const limit = limitOf(event.currentTarget?.parentElement);
+    const shown = Math.min(width, limit);
+    const next = Math.min(clampTo(pane, shown + by), Math.max(limit, pane.min));
+
+    if (Math.min(next, limit) !== shown) {
+      resize(next);
+    }
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === 'ArrowLeft') {
-      resize(width - direction * KEYBOARD_STEP);
+      step(event, -direction * KEYBOARD_STEP);
     } else if (event.key === 'ArrowRight') {
-      resize(width + direction * KEYBOARD_STEP);
+      step(event, direction * KEYBOARD_STEP);
     } else if (event.key === 'Home') {
       resize(pane.initial);
     } else {
@@ -140,6 +178,8 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     width,
     min: pane.min,
     resizing,
+    wantedAt,
+    limit: () => origin.current?.limit ?? null,
     paneRef,
     resize,
     handleProps: {

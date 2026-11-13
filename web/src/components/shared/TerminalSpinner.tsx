@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { prefersReducedMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -7,10 +8,6 @@ const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '
 const FRAME_MS = 80;
 
 const STOPPED = '⠿';
-
-const stillPreferred = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 type TerminalSpinnerProps = {
   stopped?: 'filled' | 'faded' | null;
@@ -26,7 +23,7 @@ export function TerminalSpinner({
   const [frame, setFrame] = useState(0);
 
   useEffect(() => {
-    if (stopped || stillPreferred()) {
+    if (stopped || prefersReducedMotion()) {
       return;
     }
     const ticking = window.setInterval(

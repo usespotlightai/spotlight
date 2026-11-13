@@ -1,6 +1,7 @@
 import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -32,7 +33,7 @@ const layoutBox = (element: HTMLElement): Box => ({
   height: element.offsetHeight,
 });
 
-export const useSidebarCollapsed = () =>
+export const useSidebarCollapsedSetting = () =>
   useStoredState(SIDEBAR_COLLAPSED_KEY, 'false')[0] === 'true';
 
 export function useCollapsedSidebar(
@@ -44,8 +45,16 @@ export function useCollapsedSidebar(
   const [peeking, setPeeking] = useState(false);
   const [floating, setFloating] = useState(false);
   const [docking, setDocking] = useSettling<true>();
+  const [toggling, setToggling] = useSettling<true>();
+  const [, settleFloating] = useSettling<true>(() => setFloating(false));
   const intent = useRef<ReturnType<typeof setTimeout>>(undefined);
   const armed = useRef(true);
+
+  const unpeek = useCallback(() => {
+    armed.current = false;
+    setPeeking(false);
+    settleFloating(true);
+  }, [settleFloating]);
 
   useEffect(() => () => clearTimeout(intent.current), [collapsed]);
 
@@ -72,7 +81,7 @@ export function useCollapsedSidebar(
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     const leaveSoon = () => {
-      timer ??= setTimeout(() => setPeeking(false), PEEK_LEAVE_DELAY_MS);
+      timer ??= setTimeout(unpeek, PEEK_LEAVE_DELAY_MS);
     };
     const moved = (event: PointerEvent) => {
       const pane = paneRef.current;
@@ -101,7 +110,7 @@ export function useCollapsedSidebar(
         !event.defaultPrevented &&
         !paneRef.current?.querySelector('[data-popup-open]')
       ) {
-        setPeeking(false);
+        unpeek();
       }
     };
     document.addEventListener('pointermove', moved);
@@ -114,9 +123,10 @@ export function useCollapsedSidebar(
       document.removeEventListener('pointerout', left);
       document.removeEventListener('keydown', escaped);
     };
-  }, [collapsed, peeking, paneRef, triggerRef]);
+  }, [collapsed, peeking, paneRef, triggerRef, unpeek]);
 
   const peek = () => {
+    settleFloating(null);
     setFloating(true);
     setPeeking(true);
   };
@@ -126,19 +136,23 @@ export function useCollapsedSidebar(
     peeking: collapsed && peeking,
     floating: collapsed && floating,
     docking: docking !== null,
-    unpeek: () => setPeeking(false),
+    toggling: toggling !== null,
+    unpeek,
     setCollapsed: (next: boolean) => {
       if (next) {
         armed.current = false;
-      } else if (peeking) {
+      } else if (peeking || floating) {
         setDocking(true);
       }
+      setToggling(true);
       store(String(next));
       setPeeking(false);
       setFloating(false);
+      settleFloating(null);
     },
     peekIntent: {
       onPointerEnter: (event: ReactPointerEvent) => {
+        clearTimeout(intent.current);
         if (collapsed && armed.current && event.buttons === 0) {
           intent.current = setTimeout(peek, PEEK_INTENT_DELAY_MS);
         }

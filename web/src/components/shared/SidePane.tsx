@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode, Ref } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
@@ -25,7 +25,7 @@ export function SidePane({
   ref?: Ref<HTMLElement>;
   children: ReactNode;
 }) {
-  const { width, resizing, handleProps, paneRef } = usePaneWidth({
+  const { resizing, handleProps, paneRef } = usePaneWidth({
     ...pane,
     edge: 'left',
     property: '--detail-w',
@@ -47,12 +47,7 @@ export function SidePane({
           ref.current = node;
         }
       }}
-      style={
-        {
-          '--detail-w': `${width}px`,
-          animationDuration: `${duration}ms`,
-        } as CSSProperties
-      }
+      style={{ animationDuration: `${duration}ms` }}
       {...openState}
       className={cn(
         'relative w-[var(--detail-w)] shrink-0',

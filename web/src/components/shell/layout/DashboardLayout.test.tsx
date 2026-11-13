@@ -1,8 +1,32 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
+import {
+  DashboardLayout,
+  type Pane,
+} from '@/components/shell/layout/DashboardLayout';
+import { SPRING_MS } from '@/lib/motion';
+
+const firedAt =
+  (type: 'pointerDown' | 'pointerMove' | 'pointerUp') =>
+  (target: Element | Document, init: PointerEventInit) => {
+    const event = createEvent[type](target, init);
+    Object.defineProperty(event, 'timeStamp', { value: Date.now() });
+    fireEvent(target, event);
+  };
+
+const pointer = {
+  pointerDown: firedAt('pointerDown'),
+  pointerMove: firedAt('pointerMove'),
+  pointerUp: firedAt('pointerUp'),
+};
 
 const handle = () => screen.getByRole('separator', { name: 'Resize sidebar' });
 
@@ -92,27 +116,45 @@ describe('DashboardLayout split view', () => {
   const splitHandle = () =>
     screen.getByRole('separator', { name: 'Resize split view' });
 
+  const row = () => splitHandle().closest('.\\@container') as HTMLElement;
+
+  const splitColumn = () => splitHandle().parentElement as HTMLElement;
+
   const drag = (to: number) => {
-    fireEvent.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
+    pointer.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
     wait(100);
-    fireEvent.pointerMove(splitHandle(), { clientX: to, pointerId: 1 });
+    pointer.pointerMove(splitHandle(), { clientX: to, pointerId: 1 });
     wait(100);
-    fireEvent.pointerUp(splitHandle(), { clientX: to, pointerId: 1 });
+    pointer.pointerUp(splitHandle(), { clientX: to, pointerId: 1 });
   };
 
-  const renderSplit = (onCollapse = vi.fn(), panesKey = 'a:b') =>
-    render(
-      <DashboardLayout
-        split={<p>split slot</p>}
-        panesKey={panesKey}
-        onCollapse={onCollapse}
-      >
-        <p>content slot</p>
-      </DashboardLayout>,
-    );
+  const panesOf = (...keys: string[]): Pane[] =>
+    keys.map((key) => ({
+      key,
+      content: (
+        <>
+          <p>{key} slot</p>
+          <input aria-label={`${key} draft`} />
+        </>
+      ),
+    }));
 
-  const pane = (text: string) =>
-    screen.getByText(text).closest('section') as HTMLElement;
+  const renderSplit = (onCollapse = vi.fn(), keys = ['a', 'b']) => {
+    const view = render(
+      <DashboardLayout panes={panesOf(...keys)} onCollapse={onCollapse} />,
+    );
+    const show = (...next: string[]) =>
+      view.rerender(
+        <DashboardLayout panes={panesOf(...next)} onCollapse={onCollapse} />,
+      );
+
+    return { ...view, show };
+  };
+
+  const pane = (text: string) => screen.queryByText(text)?.closest('section');
+
+  const roomOf = (width: number) =>
+    Object.defineProperty(row(), 'clientWidth', { value: width });
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -120,85 +162,184 @@ describe('DashboardLayout split view', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
-  it('slides the split pane away before hiding it', () => {
+  it('hides the split pane at release and lets it slide away', () => {
     const onCollapse = vi.fn();
-    renderSplit(onCollapse);
+    const { show } = renderSplit(onCollapse);
 
     drag(500);
 
-    expect(pane('split slot')).toHaveAttribute('data-collapsing');
-    expect(pane('split slot').closest('[inert]')).not.toBeNull();
-    expect(onCollapse).not.toHaveBeenCalled();
-
-    wait(350);
-
     expect(onCollapse).toHaveBeenCalledWith('split');
-    expect(splitHandle()).toHaveAttribute('aria-valuenow', '560');
+
+    show('a');
+
+    expect(pane('b slot')).toHaveAttribute('data-collapsing');
+    expect(pane('b slot')?.closest('[inert]')).not.toBeNull();
+
+    wait(SPRING_MS);
+
+    expect(pane('b slot')).toBeUndefined();
+    expect(
+      screen.queryByRole('separator', { name: 'Resize split view' }),
+    ).toBeNull();
   });
 
-  it('slides the main pane away before hiding it', () => {
+  it('drops a closed pane at once when motion is reduced', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('reduce'),
+    }));
     const onCollapse = vi.fn();
-    renderSplit(onCollapse);
-    Object.defineProperty(
-      splitHandle().parentElement?.parentElement,
-      'clientWidth',
-      {
-        value: 1000,
-      },
-    );
+    const { show } = renderSplit(onCollapse);
+
+    drag(500);
+    show('a');
+
+    expect(onCollapse).toHaveBeenCalledWith('split');
+    expect(pane('b slot')).toBeUndefined();
+  });
+
+  it('hides the main pane at release and lets it slide away', () => {
+    const onCollapse = vi.fn();
+    const { show } = renderSplit(onCollapse);
+    roomOf(1000);
 
     drag(-400);
 
-    expect(pane('content slot')).toHaveAttribute('data-collapsing');
-    expect(pane('split slot')).not.toHaveAttribute('data-collapsing');
-    expect(onCollapse).not.toHaveBeenCalled();
-
-    wait(350);
-
     expect(onCollapse).toHaveBeenCalledWith('main');
+
+    show('b');
+
+    expect(pane('a slot')).toHaveAttribute('data-collapsing');
+    expect(pane('a slot')?.closest('[inert]')).not.toBeNull();
+    expect(pane('b slot')).not.toHaveAttribute('data-collapsing');
+
+    wait(SPRING_MS);
+
+    expect(pane('a slot')).toBeUndefined();
+  });
+
+  it('keeps the surviving pane mounted when the main pane closes', () => {
+    const { show } = renderSplit();
+    const draft = screen.getByRole('textbox', { name: 'b draft' });
+    fireEvent.change(draft, { target: { value: 'unsent' } });
+    roomOf(1000);
+
+    drag(-400);
+    show('b');
+    wait(SPRING_MS);
+
+    expect(screen.getByRole('textbox', { name: 'b draft' })).toBe(draft);
+    expect(draft).toHaveValue('unsent');
+    expect(draft.closest('[inert]')).toBeNull();
+  });
+
+  it('moves focus to the surviving pane before the closed one goes inert', () => {
+    renderSplit();
+
+    screen.getByRole('textbox', { name: 'b draft' }).focus();
+    drag(500);
+
+    expect(pane('a slot')).toHaveFocus();
+  });
+
+  it('shows a tab dropped into the split while the closed pane slides away', () => {
+    const { show } = renderSplit();
+
+    drag(500);
+    show('a');
+    show('a', 'c');
+
+    expect(pane('c slot')).not.toHaveAttribute('data-collapsing');
+    expect(pane('c slot')?.closest('[inert]')).toBeNull();
+
+    wait(SPRING_MS);
+
+    expect(pane('b slot')).toBeUndefined();
+    expect(pane('c slot')).toBeInTheDocument();
+  });
+
+  it('starts a drag from the width the split pane shows', () => {
+    const onCollapse = vi.fn();
+    renderSplit(onCollapse);
+    roomOf(478);
+    Object.defineProperty(splitColumn(), 'offsetWidth', { value: 235 });
+
+    drag(-2);
+    wait(SPRING_MS);
+
+    expect(onCollapse).not.toHaveBeenCalled();
+    expect(pane('a slot')).not.toHaveAttribute('data-collapsing');
+  });
+
+  it('keeps the remembered width when the room is too small for it', () => {
+    renderSplit();
+    roomOf(478);
+    splitColumn().style.maxWidth = '235px';
+    Object.defineProperty(splitColumn(), 'offsetWidth', { value: 235 });
+
+    drag(-20);
+
+    expect(splitHandle()).toHaveAttribute('aria-valuenow', '560');
+    expect(localStorage.getItem('spotlight.split-width')).toBeNull();
   });
 
   it('follows the pointer past the smallest main pane', () => {
     renderSplit();
-    const splitPane = splitHandle().parentElement as HTMLElement;
-    Object.defineProperty(splitPane.parentElement, 'clientWidth', {
-      value: 1000,
-    });
+    roomOf(1000);
+    splitColumn().style.maxWidth = '672px';
 
-    fireEvent.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
+    pointer.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
     wait(100);
-    fireEvent.pointerMove(splitHandle(), { clientX: -100, pointerId: 1 });
+    pointer.pointerMove(splitHandle(), { clientX: -100, pointerId: 1 });
 
-    expect(splitPane.style.getPropertyValue('--split-drag')).toBe('');
+    expect(row().style.getPropertyValue('--split-drag')).toBe('');
 
     wait(100);
-    fireEvent.pointerMove(splitHandle(), { clientX: -150, pointerId: 1 });
+    pointer.pointerMove(splitHandle(), { clientX: -150, pointerId: 1 });
 
-    expect(splitPane.style.getPropertyValue('--split-drag')).toBe('710px');
-    expect(pane('content slot')).not.toHaveAttribute('data-collapsing');
+    expect(row().style.getPropertyValue('--split-drag')).toBe('710px');
+    expect(pane('a slot')).not.toHaveAttribute('data-collapsing');
   });
 
-  it('keeps a pane that another tab replaced while it was sliding away', () => {
-    const onCollapse = vi.fn();
-    const { rerender } = renderSplit(onCollapse);
+  it('stores no more split width than the room leaves', () => {
+    renderSplit();
+    roomOf(1000);
+    splitColumn().style.maxWidth = '672px';
 
-    drag(500);
-    rerender(
-      <DashboardLayout
-        split={<p>split slot</p>}
-        panesKey="a:c"
-        onCollapse={onCollapse}
-      >
-        <p>content slot</p>
-      </DashboardLayout>,
-    );
-    wait(350);
+    drag(-150);
 
-    expect(onCollapse).not.toHaveBeenCalled();
-    expect(pane('split slot')).not.toHaveAttribute('data-collapsing');
-    expect(pane('split slot').closest('[inert]')).toBeNull();
+    expect(splitHandle()).toHaveAttribute('aria-valuenow', '672');
+  });
+
+  it('keeps keyboard resizing within the room', () => {
+    renderSplit();
+    splitColumn().style.maxWidth = '600px';
+
+    for (let step = 0; step < 5; step += 1) {
+      fireEvent.keyDown(splitHandle(), { key: 'ArrowLeft' });
+    }
+
+    expect(splitHandle()).toHaveAttribute('aria-valuenow', '600');
+
+    fireEvent.keyDown(splitHandle(), { key: 'ArrowRight' });
+
+    expect(splitHandle()).toHaveAttribute('aria-valuenow', '584');
+  });
+
+  it('ignores a drag with a button other than the primary one', () => {
+    renderSplit();
+
+    pointer.pointerDown(splitHandle(), {
+      clientX: 0,
+      button: 2,
+      pointerId: 1,
+    });
+    pointer.pointerMove(splitHandle(), { clientX: 500, pointerId: 1 });
+
+    expect(pane('b slot')).not.toHaveAttribute('data-collapsing');
+    expect(row().style.getPropertyValue('--split-drag')).toBe('');
   });
 
   it('keeps both panes after an ordinary resize', () => {
@@ -206,10 +347,10 @@ describe('DashboardLayout split view', () => {
     renderSplit(onCollapse);
 
     drag(100);
-    wait(350);
+    wait(SPRING_MS);
 
     expect(onCollapse).not.toHaveBeenCalled();
-    expect(pane('split slot')).not.toHaveAttribute('data-collapsing');
+    expect(pane('b slot')).not.toHaveAttribute('data-collapsing');
   });
 });
 
@@ -227,13 +368,13 @@ describe('DashboardLayout sidebar', () => {
 
   const dragSidebar = (...path: number[]) => {
     const [from, ...rest] = path;
-    fireEvent.pointerDown(sidebarHandle(), { clientX: from, pointerId: 1 });
+    pointer.pointerDown(sidebarHandle(), { clientX: from, pointerId: 1 });
     for (const x of rest) {
       wait(100);
-      fireEvent.pointerMove(sidebarHandle(), { clientX: x, pointerId: 1 });
+      pointer.pointerMove(sidebarHandle(), { clientX: x, pointerId: 1 });
     }
     wait(100);
-    fireEvent.pointerUp(sidebarHandle(), {
+    pointer.pointerUp(sidebarHandle(), {
       clientX: rest.at(-1) ?? from,
       pointerId: 1,
     });
@@ -241,13 +382,13 @@ describe('DashboardLayout sidebar', () => {
 
   const flick = (...path: number[]) => {
     const [from, ...rest] = path;
-    fireEvent.pointerDown(sidebarHandle(), { clientX: from, pointerId: 1 });
+    pointer.pointerDown(sidebarHandle(), { clientX: from, pointerId: 1 });
     for (const x of rest.slice(0, -1)) {
       wait(20);
-      fireEvent.pointerMove(sidebarHandle(), { clientX: x, pointerId: 1 });
+      pointer.pointerMove(sidebarHandle(), { clientX: x, pointerId: 1 });
     }
     wait(20);
-    fireEvent.pointerUp(sidebarHandle(), {
+    pointer.pointerUp(sidebarHandle(), {
       clientX: rest.at(-1),
       pointerId: 1,
     });
@@ -318,20 +459,27 @@ describe('DashboardLayout sidebar', () => {
     expect(aside()).not.toHaveAttribute('data-collapsed');
   });
 
-  it('ignores a repeated [ key', () => {
+  it.each([
+    ['repeated', { repeat: true }],
+    ['with Ctrl', { ctrlKey: true }],
+    ['with Command', { metaKey: true }],
+    ['with Option', { altKey: true }],
+    ['with Shift', { shiftKey: true }],
+  ])('ignores the [ key %s', (_name, init) => {
     renderLayout();
 
-    press({ repeat: true });
+    press(init);
 
     expect(collapsedNow()).toBe(false);
   });
 
-  it('ignores the [ key with a modifier', () => {
+  it('ignores a [ key that something else handled', () => {
     renderLayout();
+    const handled = (event: KeyboardEvent) => event.preventDefault();
+    document.body.addEventListener('keydown', handled);
 
-    press({ ctrlKey: true });
-    press({ metaKey: true });
-    press({ altKey: true });
+    press({});
+    document.body.removeEventListener('keydown', handled);
 
     expect(collapsedNow()).toBe(false);
   });
@@ -348,30 +496,60 @@ describe('DashboardLayout sidebar', () => {
     expect(collapsedNow()).toBe(false);
   });
 
-  it('ignores the [ key while focus is in a dialog or menu', () => {
+  it('ignores the [ key in editable text', () => {
     render(
-      <>
-        <DashboardLayout sidebar={<p>sidebar slot</p>} />
-        <div role="dialog">
-          <button type="button">In dialog</button>
-        </div>
-        <div role="menu">
-          <button type="button">In menu</button>
-        </div>
-      </>,
+      <DashboardLayout sidebar={<p>sidebar slot</p>}>
+        <div contentEditable aria-label="Note" />
+      </DashboardLayout>,
     );
+    const note = screen.getByLabelText('Note');
+    Object.defineProperty(note, 'isContentEditable', { value: true });
 
-    screen.getByRole('button', { name: 'In dialog' }).focus();
-    press({});
-    screen.getByRole('button', { name: 'In menu' }).focus();
-    press({});
+    press({}, note);
 
     expect(collapsedNow()).toBe(false);
+  });
 
-    (document.activeElement as HTMLElement).blur();
+  it.each(['dialog', 'menu', 'listbox'])(
+    'ignores the [ key while focus is in a %s',
+    (role) => {
+      render(
+        <>
+          <DashboardLayout sidebar={<p>sidebar slot</p>} />
+          <div role={role}>
+            <button type="button">Inside</button>
+          </div>
+        </>,
+      );
+
+      screen.getByRole('button', { name: 'Inside' }).focus();
+      press({});
+
+      expect(collapsedNow()).toBe(false);
+    },
+  );
+
+  it('collapses on a plain [ key', () => {
+    renderLayout();
+
     press({});
 
     expect(collapsedNow()).toBe(true);
+  });
+
+  it('ignores the [ key while there is no sidebar to show', () => {
+    localStorage.setItem('spotlight.sidebar-collapsed', 'true');
+    render(
+      <DashboardLayout>
+        <p>content slot</p>
+      </DashboardLayout>,
+    );
+
+    press({});
+
+    expect(collapsedNow()).toBe(true);
+    expect(document.querySelector('[data-slot="sidebar-peek"]')).toBeNull();
+    expect(expandButton()).toBeDisabled();
   });
 
   it('ignores the [ key while the sidebar cannot show', () => {
@@ -391,6 +569,26 @@ describe('DashboardLayout sidebar', () => {
 
     expect(aside()).toHaveAttribute('data-collapsed');
     expect(expandButton()).toHaveFocus();
+
+    press({});
+
+    expect(sidebarHandle()).toHaveFocus();
+  });
+
+  it('keeps focus on the toggle when it opens the sidebar in the desktop app', () => {
+    vi.stubGlobal('spotlightDesktop', { platform: 'darwin' });
+    renderLayout();
+
+    screen.getByRole('link', { name: 'Inbox' }).focus();
+    press({});
+
+    expect(expandButton()).toHaveFocus();
+
+    press({});
+
+    expect(
+      screen.getByRole('button', { name: 'Collapse sidebar' }),
+    ).toHaveFocus();
   });
 
   it('moves focus back into the sidebar when it opens', () => {
@@ -424,7 +622,7 @@ describe('DashboardLayout sidebar', () => {
     expect(aside()).toHaveAttribute('inert');
     expect(aside()).toHaveAttribute('data-closing');
 
-    wait(350);
+    wait(SPRING_MS);
 
     expect(aside()).not.toHaveAttribute('data-closing');
 
@@ -440,7 +638,7 @@ describe('DashboardLayout sidebar', () => {
     renderLayout();
 
     dragSidebar(300, 200, 120, 40);
-    wait(350);
+    wait(SPRING_MS);
     press({});
 
     expect(gutter().style.getPropertyValue('--sidebar-width')).toBe('300px');
@@ -489,12 +687,12 @@ describe('DashboardLayout sidebar', () => {
   it('follows the pointer below the narrowest width instead of jumping', () => {
     renderLayout();
 
-    fireEvent.pointerDown(sidebarHandle(), { clientX: 224, pointerId: 1 });
-    fireEvent.pointerMove(sidebarHandle(), { clientX: 150, pointerId: 1 });
+    pointer.pointerDown(sidebarHandle(), { clientX: 224, pointerId: 1 });
+    pointer.pointerMove(sidebarHandle(), { clientX: 150, pointerId: 1 });
 
     expect(gutter().style.getPropertyValue('--sidebar-drag')).toBe('150px');
 
-    fireEvent.pointerMove(sidebarHandle(), { clientX: 90, pointerId: 1 });
+    pointer.pointerMove(sidebarHandle(), { clientX: 90, pointerId: 1 });
 
     expect(gutter().style.getPropertyValue('--sidebar-drag')).toBe('90px');
     expect(aside()).toHaveAttribute('data-closing');
@@ -503,13 +701,13 @@ describe('DashboardLayout sidebar', () => {
   it('restores the starting width when the pointer capture is lost', () => {
     renderLayout();
 
-    fireEvent.pointerDown(sidebarHandle(), { clientX: 224, pointerId: 1 });
-    fireEvent.pointerMove(sidebarHandle(), { clientX: 150, pointerId: 1 });
+    pointer.pointerDown(sidebarHandle(), { clientX: 224, pointerId: 1 });
+    pointer.pointerMove(sidebarHandle(), { clientX: 150, pointerId: 1 });
     fireEvent.lostPointerCapture(sidebarHandle(), { pointerId: 1 });
 
     expect(aside()).not.toHaveAttribute('data-collapsed');
     expect(aside()).not.toHaveAttribute('data-closing');
-    expect(gutter()).not.toHaveAttribute('data-resizing');
+    expect(document.body).not.toHaveClass('resizing');
     expect(gutter().style.getPropertyValue('--sidebar-drag')).toBe('');
     expect(sidebarHandle()).toHaveAttribute('aria-valuenow', '224');
     expect(localStorage.getItem('spotlight.sidebar-width')).toBe('224');
@@ -552,7 +750,7 @@ describe('DashboardLayout sidebar', () => {
 
     expect(aside()).not.toHaveAttribute('data-peeking');
 
-    fireEvent.pointerMove(document, { clientX: 60, clientY: 300 });
+    pointer.pointerMove(document, { clientX: 60, clientY: 300 });
     fireEvent.pointerEnter(edge());
     wait(75);
 
@@ -583,7 +781,7 @@ describe('DashboardLayout sidebar', () => {
     expandButton().getBoundingClientRect = () =>
       ({ left: 8, top: 8, width: 28, height: 28 }) as DOMRect;
     const move = (clientX: number, clientY: number) =>
-      fireEvent.pointerMove(document, { clientX, clientY });
+      pointer.pointerMove(document, { clientX, clientY });
 
     move(500, 300);
     wait(299);
@@ -634,5 +832,51 @@ describe('DashboardLayout sidebar', () => {
     expect(aside()).not.toHaveAttribute('data-floating');
     expect(aside()).not.toHaveAttribute('data-collapsed');
     expect(localStorage.getItem('spotlight.sidebar-collapsed')).toBe('false');
+  });
+
+  it('keeps the backdrop while a shown sidebar docks', () => {
+    renderCollapsed();
+    const backdrop = () =>
+      document.querySelector('[data-slot="sidebar-backdrop"]');
+
+    peek();
+    fireEvent.click(expandButton());
+
+    expect(backdrop()).not.toBeNull();
+
+    wait(SPRING_MS);
+
+    expect(backdrop()).toBeNull();
+  });
+
+  it('docks the closed sidebar again once a shown sidebar has slid away', () => {
+    renderCollapsed();
+
+    peek();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(aside()).toHaveAttribute('data-floating');
+
+    wait(SPRING_MS);
+
+    expect(aside()).not.toHaveAttribute('data-floating');
+  });
+
+  it('waits for the pointer to move away before it shows the sidebar again after Escape', () => {
+    renderCollapsed();
+
+    fireEvent.pointerEnter(edge());
+    wait(75);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    fireEvent.pointerEnter(edge());
+    wait(200);
+
+    expect(aside()).not.toHaveAttribute('data-peeking');
+
+    pointer.pointerMove(document, { clientX: 60, clientY: 300 });
+    fireEvent.pointerEnter(edge());
+    wait(75);
+
+    expect(aside()).toHaveAttribute('data-peeking');
   });
 });

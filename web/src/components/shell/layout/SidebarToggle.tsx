@@ -6,6 +6,7 @@ type SidebarToggleProps = {
   ref?: Ref<HTMLButtonElement>;
   collapsed: boolean;
   controls: string;
+  disabled?: boolean;
   onToggle: () => void;
 };
 
@@ -13,6 +14,7 @@ export function SidebarToggle({
   ref,
   collapsed,
   controls,
+  disabled,
   onToggle,
 }: SidebarToggleProps) {
   return (
@@ -23,8 +25,9 @@ export function SidebarToggle({
       aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       aria-expanded={!collapsed}
       aria-controls={controls}
+      disabled={disabled}
       onClick={onToggle}
-      className="shrink-0 text-muted-foreground"
+      className="size-(--sidebar-toggle-size) shrink-0 text-muted-foreground active:not-aria-[haspopup]:translate-y-0 aria-expanded:bg-transparent aria-expanded:text-muted-foreground aria-expanded:hover:bg-muted aria-expanded:hover:text-foreground dark:aria-expanded:hover:bg-muted/50"
     >
       <svg
         viewBox="0 0 16 16"
