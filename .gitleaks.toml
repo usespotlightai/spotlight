@@ -9,7 +9,6 @@ regexes = [
   '''^S9\+m23g9lI8X4VNFd0ayFXJH7P14Q3GZGsNvjCglc/Q=$''',
   '''^xoxb-encrypted-\d+$''',
   '''^CURSOR_API_KEY=cursor(-test)?$''',
-  '''^XAI_API_KEY=xai(-test)?$''',
   '''^abc123def456$''',
   '''^spl_0123456789abcd$''',
   '''^Zq8mV2xR7tLk4NcW1pHs9dYb3fGj6aEu$''',
