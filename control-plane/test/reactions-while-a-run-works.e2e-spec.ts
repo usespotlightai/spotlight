@@ -456,37 +456,17 @@ describe('a happening while the current run of the task waits on a person (e2e)'
     return { task: await found(task.id), runId };
   };
 
-  it('defers the move beside the question while the run is suspended', async () => {
+  it('moves the task on, closing the question and ending the suspended run', async () => {
     const { task, runId } = await pausedAt('implementation');
 
     await changesRequested(task);
-
-    const after = await found(task.id);
-    expect(after.stationId).toEqual(stationKeyed('implementation').id);
-    expect(after.currentRunId).toEqual(runId);
-    expect(after.awaitingReview).toBe(true);
-    expect(after.deferredMoveTo).toEqual(stationKeyed('code-review').id);
-    expect(
-      after.notes.slice(-2).map((each) => [each.kind, each.body.value]),
-    ).toEqual([
-      ['asked', 'Which queue should I drain?'],
-      ['message', CHANGES_ASKED_FOR],
-    ]);
-    expect((await runOf(runId)).state).toBe('suspended');
-  });
-
-  it('makes the deferred move once the answered run ends without passing it on', async () => {
-    const { task, runId } = await pausedAt('implementation');
-    await changesRequested(task);
-
-    await answered(task, task.notes.length - 1, 'The default one.');
-    await eventually(async () => (await runOf(runId)).state === 'queued');
-    await claimed(runId);
-    await endedPassingTo(runId, 'review');
 
     const moved = await atStation(task, 'code-review');
     expect(moved.awaitingReview).toBe(false);
+    expect(moved.deferredMoveTo).toBeNull();
+    expect(moved.currentRunId).not.toBeNull();
     expect(moved.currentRunId).not.toEqual(runId);
+    await eventually(async () => (await runOf(runId)).hasEnded);
   });
 
   it('finishes the task on a merge while the run is suspended, ending the run', async () => {
@@ -544,20 +524,6 @@ describe('a deferred move and what ends the run (e2e)', () => {
     expect(moved.currentRunId).not.toBeNull();
     expect(moved.currentRunId).not.toEqual(runId);
     await eventually(async () => (await runOf(runId)).hasEnded);
-  });
-
-  it('gives way to a merge that finishes a paused task', async () => {
-    const { task, runId } = await workingAt('implementation');
-    await claimed(runId);
-    await pausedAsking(runId);
-    await changesRequested(task);
-    await merged(task);
-
-    const finished = await found(task.id);
-    expect(finished.stationId).toEqual(stationKeyed('completed').id);
-    expect(finished.finished).toBe(true);
-    expect(finished.currentRunId).toBeNull();
-    expect(finished.deferredMoveTo).toBeNull();
   });
 });
 
