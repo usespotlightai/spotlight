@@ -1,3 +1,5 @@
+import type { ActionCaller } from '@integrations/domain/value-objects/action-caller.vo';
+import type { BindingSubject } from '@integrations/domain/value-objects/binding.vo';
 import { type Declared, Scope } from '@platform/expressions/scope';
 import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
@@ -57,6 +59,59 @@ const NOTICE: Declared = {
   },
 };
 
+export const SUBJECT_VARIABLES = {
+  task: ['ask', 'task'],
+  chat: ['chat', 'reply'],
+  'inbox-request': ['request', 'task'],
+  notice: ['notice'],
+} as const satisfies Readonly<Record<BindingSubject, readonly string[]>>;
+
+export type SubjectVariable<Subject extends BindingSubject> =
+  (typeof SUBJECT_VARIABLES)[Subject][number];
+
+export const TOOL_VARIABLES = ['inputs', 'task'] as const;
+
+export type ToolVariable = (typeof TOOL_VARIABLES)[number];
+
+const POSTED = ['target', 'uploaded'] as const;
+
+export const CALLER_VARIABLES: Readonly<
+  Record<ActionCaller, readonly string[]>
+> = {
+  task: [...SUBJECT_VARIABLES.task, ...POSTED],
+  chat: [...SUBJECT_VARIABLES.chat, ...POSTED],
+  'inbox-request': [...SUBJECT_VARIABLES['inbox-request'], ...POSTED],
+  notice: [...SUBJECT_VARIABLES.notice, ...POSTED],
+  tool: TOOL_VARIABLES,
+  schedule: [],
+};
+
+const CALLER_DEPENDENT = [...new Set(Object.values(CALLER_VARIABLES).flat())];
+
+const narrowed = new WeakMap<Scope, Map<string, Scope>>();
+
+export const calledBy = (
+  scope: Scope,
+  callers: readonly ActionCaller[],
+): Scope => {
+  const key = callers.join(' ');
+  const known = narrowed.get(scope) ?? new Map<string, Scope>();
+  const cached = known.get(key);
+
+  if (cached) {
+    return cached;
+  }
+
+  const seen = scope.without(
+    CALLER_DEPENDENT.filter(
+      (name) => !callers.some((by) => CALLER_VARIABLES[by].includes(name)),
+    ),
+  );
+  narrowed.set(scope, known.set(key, seen));
+
+  return seen;
+};
+
 export const DELIVERED = Scope.of({
   body: OUTSIDE,
   headers: OUTSIDE,
@@ -70,26 +125,18 @@ export const POLLING = Scope.of({
 
 export const POLLED = Scope.of({ body: OUTSIDE, cursor: 'string' });
 
-export const ACTING = Scope.of({
+const GIVEN_BY_SUBJECTS: Readonly<
+  Record<SubjectVariable<BindingSubject>, Declared>
+> = {
   task: TASK,
   ask: ASK,
   chat: CHAT,
   reply: REPLY,
   request: REQUEST,
   notice: NOTICE,
-  target: 'map<string, string>',
-  connection: 'string',
-  uploaded: 'list',
-});
+};
 
-export const ADDRESSING = Scope.of({
-  task: TASK,
-  ask: ASK,
-  chat: CHAT,
-  reply: REPLY,
-  request: REQUEST,
-  notice: NOTICE,
-});
+export const ADDRESSING = Scope.of(GIVEN_BY_SUBJECTS);
 
 const NOTE_FILE: Declared = {
   schema: {
@@ -100,14 +147,11 @@ const NOTE_FILE: Declared = {
   },
 };
 
-export const UPLOADING = Scope.of({
-  task: TASK,
-  ask: ASK,
-  chat: CHAT,
-  reply: REPLY,
-  request: REQUEST,
-  notice: NOTICE,
-  target: 'map<string, string>',
+export const UPLOADING = ADDRESSING.and({ target: 'map<string, string>' });
+
+export const ACTING = UPLOADING.and({
+  connection: 'string',
+  uploaded: 'list',
 });
 
 export const PREPARING = UPLOADING.and({

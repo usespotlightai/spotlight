@@ -54,6 +54,7 @@ const POSITIONS: readonly ExpressionPositionDto[] = EXPRESSION_POSITIONS.map(
     returns: position.returns,
     variables: declarationsOf(position.scope.declared),
     addedVariables: position.addedVariables,
+    calls: position.calls,
   }),
 );
 

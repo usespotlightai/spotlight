@@ -28,6 +28,7 @@ import {
 } from '@integrations/domain/services/notice-posting';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import {
+  type BindingSubject,
   isAboutATask,
   type TaskBindingSubject,
 } from '@integrations/domain/value-objects/binding.vo';
@@ -54,6 +55,10 @@ import {
   type OAuth2Discovery,
 } from '@integrations/infrastructure/integrations/oauth2-discovery';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
+import type {
+  SubjectVariable,
+  ToolVariable,
+} from '@integrations/infrastructure/integrations/scopes';
 import {
   asJson,
   textOf,
@@ -92,16 +97,29 @@ const serviceErrorOf = (result: OutboundResult): ServiceError => ({
   output: asJson(result.response ?? null).slice(0, MAX_OUTPUT_CHARS),
 });
 
+type GivenBy<Subject extends BindingSubject> = Readonly<
+  Record<SubjectVariable<Subject>, unknown>
+>;
+
 const bindingsOf = (payload: PostPayload): Bindings => {
   switch (payload.kind) {
     case 'task':
-      return { task: taskBinding(payload.task), ask: payload.ask };
+      return {
+        task: taskBinding(payload.task),
+        ask: payload.ask,
+      } satisfies GivenBy<'task'>;
     case 'inbox-request':
-      return { task: taskBinding(payload.task), request: payload.request };
+      return {
+        task: taskBinding(payload.task),
+        request: payload.request,
+      } satisfies GivenBy<'inbox-request'>;
     case 'chat':
-      return { chat: payload.chat, reply: payload.reply };
+      return {
+        chat: payload.chat,
+        reply: payload.reply,
+      } satisfies GivenBy<'chat'>;
     case 'notice':
-      return { notice: payload.notice };
+      return { notice: payload.notice } satisfies GivenBy<'notice'>;
   }
 };
 
@@ -608,7 +626,9 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       call: async (inputs, callAuth) => {
         const { result, bindings } = await this.sent(
           action,
-          { ...bound, inputs },
+          { ...bound, inputs } satisfies Readonly<
+            Record<ToolVariable, unknown>
+          >,
           callAuth,
         );
 

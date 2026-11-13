@@ -134,11 +134,11 @@ export class Integration {
     }
 
     if (schedule) {
-      actions.forSchedule(schedule.action.name, 'schedule');
+      actions.calledBy(schedule.action.name, 'schedule', 'schedule');
     }
 
     for (const binding of bindings) {
-      actions.forBinding(
+      actions.calledBy(
         binding.action,
         binding.about,
         `binding on ${binding.event}`,
@@ -147,7 +147,11 @@ export class Integration {
 
     for (const provided of tools) {
       if (provided.backing.action !== null) {
-        actions.forTool(provided.backing.action, `tool ${provided.tool.value}`);
+        actions.calledBy(
+          provided.backing.action,
+          'tool',
+          `tool ${provided.tool.value}`,
+        );
       }
     }
 

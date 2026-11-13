@@ -1,3 +1,4 @@
+import type { ActionCaller } from '@integrations/domain/value-objects/action-caller.vo';
 import type { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 export const EXPRESSION_RETURNS_NAMES = ['bool', 'list'] as const;
@@ -41,9 +42,15 @@ export interface ExpressionDeclarationDto {
   readonly fields: readonly ExpressionDeclarationDto[];
 }
 
+export interface ExpressionCallDto {
+  readonly by: ActionCaller;
+  readonly variables: readonly string[];
+}
+
 export interface ExpressionPositionDto {
   readonly position: FieldPath;
   readonly returns: ExpressionReturns | null;
   readonly variables: readonly ExpressionDeclarationDto[];
   readonly addedVariables: readonly ExpressionAddedVariable[];
+  readonly calls: readonly ExpressionCallDto[];
 }
