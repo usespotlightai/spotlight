@@ -616,6 +616,8 @@ type Plan = (
 
 const SETTLE_PAUSE_MS = 200;
 
+const SETTLE_WITHIN_MS = 20_000;
+
 const unsettledReplayEntries = async () =>
   db
     .select({ runId: schema.replayEntry.runId })
@@ -637,7 +639,7 @@ const unsettledReplayEntries = async () =>
     );
 
 const settled = async (): Promise<boolean> => {
-  const deadline = Date.now() + WITHIN;
+  const deadline = Date.now() + SETTLE_WITHIN_MS;
 
   while (Date.now() < deadline) {
     await judged();
