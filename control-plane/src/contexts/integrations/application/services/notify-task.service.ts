@@ -55,7 +55,16 @@ export class NotifyTask {
         task: view,
         request: {
           form: request.form,
-          link: await this.links.inboxRequest(view.workspaceId, request.id),
+          link: await this.links
+            .inboxRequest(view.workspaceId, request.id)
+            .catch((error: unknown) => {
+              this.log.warn(
+                { request: request.id, error },
+                'Spotlight could not link to an inbox request',
+              );
+
+              return null;
+            }),
         },
       }),
     );
