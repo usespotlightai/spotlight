@@ -1,8 +1,13 @@
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 
-const SUBJECTS = ['task', 'chat', 'inbox-request', 'notice'] as const;
+export const BINDING_SUBJECTS = [
+  'task',
+  'chat',
+  'inbox-request',
+  'notice',
+] as const;
 
-export type BindingSubject = (typeof SUBJECTS)[number];
+export type BindingSubject = (typeof BINDING_SUBJECTS)[number];
 
 export type BindableEvents = Readonly<
   Record<BindingSubject, readonly string[]>
@@ -15,7 +20,7 @@ export const EVENT_ABOUT: Readonly<Record<BindingSubject, string>> = {
   notice: 'A notice event',
 };
 
-const ABOUT_A_TASK = [
+export const ABOUT_A_TASK = [
   'task',
   'inbox-request',
 ] as const satisfies readonly BindingSubject[];
@@ -34,6 +39,12 @@ export class Binding {
     readonly action: string,
   ) {}
 
+  static aboutOf(event: string, known: BindableEvents): BindingSubject | null {
+    return (
+      BINDING_SUBJECTS.find((subject) => known[subject].includes(event)) ?? null
+    );
+  }
+
   static of(input: {
     event: string;
     action: string;
@@ -41,14 +52,12 @@ export class Binding {
     marked: boolean;
     routed: boolean;
   }): Binding {
-    const about = SUBJECTS.find((subject) =>
-      input.known[subject].includes(input.event),
-    );
+    const about = Binding.aboutOf(input.event, input.known);
 
-    if (about === undefined) {
+    if (about === null) {
       throw new InvalidIntegrationPartError(
         `binding on ${input.event}`,
-        `must be one of ${SUBJECTS.flatMap((subject) => input.known[subject]).join(', ')}`,
+        `must be one of ${BINDING_SUBJECTS.flatMap((subject) => input.known[subject]).join(', ')}`,
       );
     }
 

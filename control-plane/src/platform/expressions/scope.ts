@@ -18,6 +18,15 @@ export class Scope {
     return new Scope({ ...this.declared, ...more }, this.types);
   }
 
+  without(names: readonly string[]): Scope {
+    return new Scope(
+      Object.fromEntries(
+        Object.entries(this.declared).filter(([name]) => !names.includes(name)),
+      ),
+      this.types,
+    );
+  }
+
   typed(types: readonly NamedType[]): Scope {
     return new Scope(this.declared, types);
   }

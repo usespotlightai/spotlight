@@ -1,9 +1,10 @@
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
-import type { Action } from '@integrations/domain/value-objects/action.vo';
 import {
-  type BindingSubject,
-  EVENT_ABOUT,
-} from '@integrations/domain/value-objects/binding.vo';
+  type ActionCaller,
+  CALLER_ABOUT,
+  sendsFiles,
+} from '@integrations/domain/value-objects/action-caller.vo';
+import type { Action } from '@integrations/domain/value-objects/action.vo';
 
 export class DefinedActions {
   private constructor(private readonly actions: ReadonlyMap<string, Action>) {}
@@ -14,12 +15,12 @@ export class DefinedActions {
     );
   }
 
-  named(name: string, by: string): Action {
+  named(name: string, at: string): Action {
     const action = this.actions.get(name);
 
     if (!action) {
       throw new InvalidIntegrationPartError(
-        by,
+        at,
         `names undefined action ${name}`,
       );
     }
@@ -27,30 +28,17 @@ export class DefinedActions {
     return action;
   }
 
-  forTool(name: string, by: string): Action {
-    return this.withoutUploads(
-      name,
-      by,
-      'Only an event in on sends files. Please name an action without uploads',
-    );
-  }
+  calledBy(name: string, caller: ActionCaller, at: string): Action {
+    const action = this.named(name, at);
 
-  forSchedule(name: string, by: string): Action {
-    return this.withoutUploads(
-      name,
-      by,
-      'Only an event in on sends files. Please name an action without uploads',
-    );
-  }
+    if (action.uploads && !sendsFiles(caller)) {
+      throw new InvalidIntegrationPartError(
+        at,
+        `names the action ${name}, which uploads files. ${CALLER_ABOUT[caller]} has no files. Please name an action without uploads`,
+      );
+    }
 
-  forBinding(name: string, about: BindingSubject, by: string): Action {
-    return about === 'task'
-      ? this.named(name, by)
-      : this.withoutUploads(
-          name,
-          by,
-          `${EVENT_ABOUT[about]} has no files. Please name an action without uploads`,
-        );
+    return action;
   }
 
   has(name: string): boolean {
@@ -59,18 +47,5 @@ export class DefinedActions {
 
   get all(): readonly string[] {
     return [...this.actions.keys()];
-  }
-
-  private withoutUploads(name: string, by: string, why: string): Action {
-    const action = this.named(name, by);
-
-    if (action.uploads) {
-      throw new InvalidIntegrationPartError(
-        by,
-        `names the action ${name}, which uploads files. ${why}`,
-      );
-    }
-
-    return action;
   }
 }

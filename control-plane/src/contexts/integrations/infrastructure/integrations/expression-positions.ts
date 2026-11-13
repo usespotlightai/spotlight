@@ -2,6 +2,15 @@ import type {
   ExpressionAddedVariable,
   ExpressionReturns,
 } from '@integrations/application/dto/expression-check.dto';
+import {
+  ACTION_CALLERS,
+  type ActionCaller,
+  sendsFiles,
+} from '@integrations/domain/value-objects/action-caller.vo';
+import {
+  ABOUT_A_TASK,
+  BINDING_SUBJECTS,
+} from '@integrations/domain/value-objects/binding.vo';
 import { ExpressionPosition } from '@integrations/infrastructure/integrations/expression-position';
 import {
   ACTING,
@@ -12,6 +21,7 @@ import {
   DEFAULTING,
   DELIVERED,
   LINKED,
+  OUTSIDE,
   MARKING,
   POLLED,
   POLLING,
@@ -38,6 +48,7 @@ const at = (name: string, scope: Scope, variables: PositionVariables = {}) =>
     scope,
     variables.returns ?? null,
     variables.addedVariables ?? [],
+    [],
   );
 
 const each = (
@@ -46,6 +57,11 @@ const each = (
   scope: Scope,
   addedVariables: readonly ExpressionAddedVariable[],
 ) => fields.map((field) => at(`${prefix}.${field}`, scope, { addedVariables }));
+
+const callableBy = (
+  callers: readonly ActionCaller[],
+  positions: readonly ExpressionPosition[],
+) => positions.map((position) => position.callableBy(callers));
 
 const verifyAt = (prefix: string, scope: Scope) =>
   each(
@@ -139,23 +155,40 @@ export const EXPRESSION_POSITIONS: readonly ExpressionPosition[] = [
   ...requestAt('poll.request', POLLING),
   at('poll.cursor', POLLED),
   ...eventsAt(`poll.events.${ANY_SEGMENT}`, POLLED),
-  ...requestAt(`actions.${ANY_SEGMENT}.request`, ACTING, ['inputs']),
-  at(`actions.${ANY_SEGMENT}.uploads.each`, UPLOADING, {
-    returns: 'list',
-  }),
-  ...requestAt(`actions.${ANY_SEGMENT}.uploads.prepare`, PREPARING),
-  ...requestAt(`actions.${ANY_SEGMENT}.uploads.send`, SENDING, [], SENT),
-  ...requestAt(`actions.${ANY_SEGMENT}.uploads.complete`, COMPLETING),
-  ...requestAt(`actions.${ANY_SEGMENT}.uploads.ready`, SENDING),
+  ...callableBy(ACTION_CALLERS, [
+    ...requestAt(`actions.${ANY_SEGMENT}.request`, ACTING, ['inputs']),
+  ]),
+  ...callableBy(ACTION_CALLERS.filter(sendsFiles), [
+    at(`actions.${ANY_SEGMENT}.uploads.each`, UPLOADING, {
+      returns: 'list',
+    }),
+    ...requestAt(`actions.${ANY_SEGMENT}.uploads.prepare`, PREPARING),
+    ...requestAt(`actions.${ANY_SEGMENT}.uploads.send`, SENDING, [], SENT),
+    ...requestAt(`actions.${ANY_SEGMENT}.uploads.complete`, COMPLETING),
+    ...requestAt(`actions.${ANY_SEGMENT}.uploads.ready`, SENDING),
+  ]),
   at(`tools.${ANY_SEGMENT}.inputs.${ANY_SEGMENT}.default`, DEFAULTING),
-  at(
-    `tools.${ANY_SEGMENT}.output`,
-    answered(ACTING).and({ capture: 'map<string, dyn>' }),
-    { addedVariables: ['inputs'] },
+  ...callableBy(
+    ['tool'],
+    [
+      at(
+        `tools.${ANY_SEGMENT}.output`,
+        ACTING.and({
+          response: OUTSIDE,
+          status: OUTSIDE,
+          capture: 'map<string, dyn>',
+        }),
+        { addedVariables: ['inputs'] },
+      ),
+    ],
   ),
   at('connection.oauth2.identity', LINKED),
-  at(`on.${ANY_SEGMENT}.${ANY_SEGMENT}.to.${ANY_SEGMENT}`, ADDRESSING),
-  at(`on.${ANY_SEGMENT}.${ANY_SEGMENT}.mark.${ANY_SEGMENT}.value`, MARKING),
+  ...callableBy(BINDING_SUBJECTS, [
+    at(`on.${ANY_SEGMENT}.${ANY_SEGMENT}.to.${ANY_SEGMENT}`, ADDRESSING),
+  ]),
+  ...callableBy(ABOUT_A_TASK, [
+    at(`on.${ANY_SEGMENT}.${ANY_SEGMENT}.mark.${ANY_SEGMENT}.value`, MARKING),
+  ]),
 ];
 
 const POSITIONS: ReadonlyMap<string, ExpressionPosition> = new Map(

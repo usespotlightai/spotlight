@@ -61,6 +61,7 @@ const positioned = (
   returns,
   variables: declarationsOf(scope.declared),
   addedVariables: [],
+  calls: [],
 });
 
 const STEP = `steps.${ANY_SEGMENT}`;
