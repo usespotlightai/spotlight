@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -143,14 +142,13 @@ func testClient(t *testing.T, env map[string]string) (*client, *bytes.Buffer, *c
 	opened := &[]string{}
 
 	return &client{
-		env:      func(name string) string { return env[name] },
-		out:      out,
-		http:     &http.Client{Timeout: 5 * time.Second},
-		version:  "test",
-		browse:   func(page string) error { *opened = append(*opened, page); return nil },
-		sleep:    at.sleep,
-		now:      at.now,
-		waitLine: "Waiting for you to approve the login. Press Ctrl-C to stop.",
+		env:     func(name string) string { return env[name] },
+		out:     out,
+		http:    &http.Client{Timeout: 5 * time.Second},
+		version: "test",
+		browse:  func(page string) error { *opened = append(*opened, page); return nil },
+		sleep:   at.sleep,
+		now:     at.now,
 	}, out, at, opened
 }
 
@@ -159,7 +157,7 @@ func loggingIn(t *testing.T, address string, args ...string) ran {
 
 	dir := t.TempDir()
 	c, out, at, opened := testClient(t, map[string]string{credentials.DirVar: dir, urlVar: address})
-	err := c.login(context.Background(), args)
+	_, err := c.login(context.Background(), args)
 
 	return ran{out: out.String(), err: err, clock: at, opened: *opened, credDir: dir}
 }
@@ -329,7 +327,7 @@ func TestCancelStopsTheLoginCleanly(t *testing.T) {
 	defer cancel()
 	at.cancel, at.after = cancel, 1
 
-	if err := c.login(ctx, nil); !errors.Is(err, errStopped) {
+	if _, err := c.login(ctx, nil); !errors.Is(err, ErrStopped) {
 		t.Fatalf("err = %v, want it stopped", err)
 	}
 	if logins := stored(t, dir); len(logins) != 0 {
@@ -337,29 +335,41 @@ func TestCancelStopsTheLoginCleanly(t *testing.T) {
 	}
 }
 
-func TestTheAddressComesFromTheFlagThenTheEnvironmentThenTheDefault(t *testing.T) {
+func TestTheAddressComesFromTheFlagThenTheEnvironmentThenTheOneLoginThenTheDefault(t *testing.T) {
+	chosen := func(c *client, args []string) (string, error) {
+		given, err := c.given(logoutHelp, args)
+		if err != nil {
+			return "", err
+		}
+		return credentials.Choose(c.env, given)
+	}
+
+	dir := t.TempDir()
+	putLogins(t, dir, map[string]credentials.Login{"https://staging.example.com": {Token: sessionToken}})
 	for _, each := range []struct {
-		env  string
+		env  map[string]string
 		args []string
 		want string
 	}{
-		{"https://env.example.com", []string{"--url", "https://Flag.example.com/"}, "https://flag.example.com"},
-		{"https://env.example.com/", nil, "https://env.example.com"},
-		{"", nil, defaultAddress},
+		{map[string]string{urlVar: "https://env.example.com"}, []string{"--url", "https://Flag.example.com/"}, "https://flag.example.com"},
+		{map[string]string{urlVar: "https://env.example.com/"}, nil, "https://env.example.com"},
+		{map[string]string{credentials.DirVar: dir}, nil, "https://staging.example.com"},
+		{nil, []string{"--url", "flag.example.com"}, "https://flag.example.com"},
+		{nil, nil, defaultAddress},
 	} {
-		c, _, _, _ := testClient(t, map[string]string{urlVar: each.env})
-		got, err := c.address(newFlags(), each.args)
+		c, _, _, _ := testClient(t, each.env)
+		got, err := chosen(c, each.args)
 		if err != nil || got != each.want {
-			t.Errorf("address with %q and %v = %q, %v, want %q", each.env, each.args, got, err, each.want)
+			t.Errorf("address with %v and %v = %q, %v, want %q", each.env, each.args, got, err, each.want)
 		}
 	}
 
 	c, _, _, _ := testClient(t, nil)
-	if _, err := c.address(newFlags(), []string{"--url", "http://spotlight.example.com"}); err == nil {
+	if _, err := chosen(c, []string{"--url", "http://spotlight.example.com"}); err == nil {
 		t.Errorf("a plain http address was taken")
 	}
-	if _, err := c.address(newFlags(), []string{"extra"}); err == nil || !strings.Contains(err.Error(), "usage") {
-		t.Errorf("err = %v, want the usage", err)
+	if _, err := chosen(c, []string{"extra"}); err == nil || !strings.Contains(err.Error(), "spotlight logout") {
+		t.Errorf("err = %v, want the usage of logout", err)
 	}
 }
 
@@ -424,8 +434,6 @@ func TestLogoutWithNoLoginSaysSo(t *testing.T) {
 	}
 }
 
-func newFlags() *flag.FlagSet { return flag.NewFlagSet("login", flag.ContinueOnError) }
-
 func putLogins(t *testing.T, dir string, logins map[string]credentials.Login) {
 	t.Helper()
 
@@ -440,5 +448,149 @@ func putLogins(t *testing.T, dir string, logins map[string]credentials.Login) {
 	}
 	if err := file.Save(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestLoginAsksForTheAddressWhenNoneIsKnown(t *testing.T) {
+	dir := t.TempDir()
+	c, _, _, _ := testClient(t, map[string]string{credentials.DirVar: dir})
+	var asked []string
+	c.ask = func(question, shown string) (string, error) {
+		asked = append(asked, question+" ["+shown+"]")
+		return "app.staging.usespotlight.ai", nil
+	}
+
+	address, err := c.loginAddress("")
+	if err != nil || address != "https://app.staging.usespotlight.ai" {
+		t.Fatalf("address %q, %v", address, err)
+	}
+	if len(asked) != 1 || asked[0] != "Spotlight address [https://app.usespotlight.ai]" {
+		t.Errorf("asked %v", asked)
+	}
+}
+
+func TestLoginUsesTheOneSavedAddressWithoutAsking(t *testing.T) {
+	dir := t.TempDir()
+	c, _, _, _ := testClient(t, map[string]string{credentials.DirVar: dir})
+	c.ask = func(string, string) (string, error) {
+		t.Fatal("asked for the address")
+		return "", nil
+	}
+	path, _ := credentials.Path(c.env)
+	file, _ := credentials.Load(path)
+	if err := file.Put("https://app.staging.usespotlight.ai", credentials.Login{Token: "t", User: "me@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	if address, err := c.loginAddress(""); err != nil || address != "https://app.staging.usespotlight.ai" {
+		t.Fatalf("address %q, %v", address, err)
+	}
+}
+
+func TestLoginWithoutATerminalUsesTheDefaultAddress(t *testing.T) {
+	c, _, _, _ := testClient(t, map[string]string{credentials.DirVar: t.TempDir()})
+	if address, err := c.loginAddress(""); err != nil || address != credentials.DefaultAddress {
+		t.Fatalf("address %q, %v", address, err)
+	}
+}
+
+func TestLogoutEndsTheOneLoginWithoutAnAddress(t *testing.T) {
+	s, address := serve(t)
+	dir := t.TempDir()
+	putLogins(t, dir, map[string]credentials.Login{address: {Token: sessionToken}})
+
+	c, out, _, _ := testClient(t, map[string]string{credentials.DirVar: dir})
+	if err := c.logout(context.Background(), nil); err != nil {
+		t.Fatalf("logout: %v", err)
+	}
+
+	if len(s.signedOut) != 1 || !strings.Contains(out.String(), "Logged out of "+address+".") {
+		t.Fatalf("output %q, signed out %v", out.String(), s.signedOut)
+	}
+}
+
+func TestARequestShowsThePageAndKeepsTheLoginAfterTheApproval(t *testing.T) {
+	_, address := serve(t, pending(), granted())
+	dir := t.TempDir()
+	c, out, _, opened := testClient(t, map[string]string{credentials.DirVar: dir})
+
+	request, err := c.start(context.Background(), address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Address != address || request.Page != "https://spotlight.test/device?user_code=WDJBMJHT" || request.Code != "WDJB-MJHT" {
+		t.Fatalf("request %+v", request)
+	}
+	if out.Len() != 0 || len(*opened) != 0 {
+		t.Fatalf("a request printed %q or opened %v", out.String(), *opened)
+	}
+
+	user, err := request.Wait(context.Background())
+	if err != nil || user != "person@example.com" {
+		t.Fatalf("user %q, %v", user, err)
+	}
+	if logins := stored(t, dir); logins[address].Token != sessionToken {
+		t.Fatalf("stored %v", logins)
+	}
+}
+
+func TestAStoppedWaitKeepsNoLogin(t *testing.T) {
+	_, address := serve(t, pending(), granted())
+	dir := t.TempDir()
+	c, _, _, _ := testClient(t, map[string]string{credentials.DirVar: dir})
+
+	request, err := c.start(context.Background(), address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := request.Wait(ctx); !errors.Is(err, ErrStopped) {
+		t.Fatalf("err = %v", err)
+	}
+	if logins := stored(t, dir); len(logins) != 0 {
+		t.Fatalf("stored %v", logins)
+	}
+}
+
+func TestSeveralLoginsAskForTheAddressOnATerminalAndFailWithoutOne(t *testing.T) {
+	dir := t.TempDir()
+	putLogins(t, dir, map[string]credentials.Login{
+		"https://app.usespotlight.ai": {Token: "a"},
+		"http://localhost:3000":       {Token: "b"},
+	})
+
+	c, _, _, _ := testClient(t, map[string]string{credentials.DirVar: dir})
+	var several credentials.SeveralLogins
+	if _, err := c.loginAddress(""); !errors.As(err, &several) || len(several.Addresses) != 2 {
+		t.Fatalf("err = %v", err)
+	}
+
+	c.ask = func(string, string) (string, error) { return "", nil }
+	if address, err := c.loginAddress(""); err != nil || address != defaultAddress {
+		t.Fatalf("address %q, %v", address, err)
+	}
+}
+
+func TestTheOneDefaultLoginIsUsedWithoutAsking(t *testing.T) {
+	dir := t.TempDir()
+	putLogins(t, dir, map[string]credentials.Login{defaultAddress: {Token: "a"}})
+	c, _, _, _ := testClient(t, map[string]string{credentials.DirVar: dir})
+	c.ask = func(string, string) (string, error) {
+		t.Fatal("asked for the address")
+		return "", nil
+	}
+	if address, err := c.loginAddress(""); err != nil || address != defaultAddress {
+		t.Fatalf("address %q, %v", address, err)
+	}
+}
+
+func TestAnAddressWithoutASchemeGetsHTTPS(t *testing.T) {
+	c, _, _, _ := testClient(t, nil)
+	if address, err := c.loginAddress("app.staging.usespotlight.ai"); err != nil || address != "https://app.staging.usespotlight.ai" {
+		t.Fatalf("address %q, %v", address, err)
 	}
 }

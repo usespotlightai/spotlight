@@ -16,7 +16,7 @@ export const RunnerFleetMapper = {
       source: summary.source,
       release: summary.release,
       unavailableReason: HostRelease.of(summary.release).isOutdated
-        ? `Host is on release ${summary.release}. Minimum release required: ${HostRelease.MINIMUM.value}. Update it with: spotlight host update`
+        ? `Host is on release ${summary.release}. Minimum release required: ${HostRelease.MINIMUM.value}. Update it with: spotlight update`
         : null,
       containerRuntime: summary.containerRuntime,
       capacity: summary.capacity,

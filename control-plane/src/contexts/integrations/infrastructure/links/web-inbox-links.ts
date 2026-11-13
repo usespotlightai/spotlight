@@ -41,4 +41,22 @@ export class WebInboxLinks implements InboxLinksPort {
       ? this.taskLinks.taskPage(slug, teamId.value, taskId.value)
       : null;
   }
+
+  async inboxRequest(
+    workspaceId: WorkspaceId,
+    inboxRequestId: string,
+  ): Promise<string | null> {
+    const slug = await this.workspaces.slugOf(workspaceId);
+
+    return slug ? this.taskLinks.inboxRequestPage(slug, inboxRequestId) : null;
+  }
+
+  async notice(
+    workspaceId: WorkspaceId,
+    noticeId: string,
+  ): Promise<string | null> {
+    const slug = await this.workspaces.slugOf(workspaceId);
+
+    return slug ? this.taskLinks.noticePage(slug, noticeId) : null;
+  }
 }

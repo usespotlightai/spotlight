@@ -18,8 +18,6 @@ import (
 	"usespotlight.ai/data-plane/login"
 )
 
-const stoppedExit = 130
-
 var errStopped = errors.New("stopped")
 
 type cli struct {
@@ -31,8 +29,9 @@ type cli struct {
 	binary      func() (string, error)
 	system      string
 	terminal    func() *console.Terminal
-	waitHint    time.Duration
+	login       func(ctx context.Context, given string) (string, error)
 	deviceLogin func(ctx context.Context, address string, out io.Writer) (string, error)
+	waitHint    time.Duration
 }
 
 func Main(args []string, version string) int {
@@ -49,6 +48,9 @@ func Main(args []string, version string) int {
 		system:   runtime.GOOS,
 		terminal: console.Open,
 		waitHint: 10 * time.Second,
+		login: func(ctx context.Context, given string) (string, error) {
+			return login.LogIn(ctx, given, version)
+		},
 		deviceLogin: func(ctx context.Context, address string, out io.Writer) (string, error) {
 			return login.ForEditor(ctx, address, version, out)
 		},
@@ -65,7 +67,7 @@ func (c cli) main(ctx context.Context, args []string) int {
 
 	switch args[0] {
 	case "setup":
-		return c.exit(setupHelp.Path, c.setup(args[1:]))
+		return c.exit(setupHelp.Path, c.setup(ctx, args[1:]))
 	case "proxy":
 		return c.exit(proxyHelp.Path, c.proxy(ctx, args[1:]))
 	default:
@@ -79,7 +81,7 @@ func (c cli) exit(command string, err error) int {
 	case err == nil:
 		return 0
 	case errors.Is(err, errStopped):
-		return stoppedExit
+		return console.StoppedExit
 	default:
 		fmt.Fprintf(c.errs, "spotlight %s: %s\n", command, err)
 		return 1
@@ -87,6 +89,11 @@ func (c cli) exit(command string, err error) int {
 }
 
 func (c cli) parse(shown help.Command, args []string, flags func(*flag.FlagSet)) (string, []string, error) {
+	address, _, positional, err := c.parseGiven(shown, args, flags)
+	return address, positional, err
+}
+
+func (c cli) parseGiven(shown help.Command, args []string, flags func(*flag.FlagSet)) (string, bool, []string, error) {
 	set := flag.NewFlagSet(shown.Path, flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	given := set.String("url", "", "the Spotlight address")
@@ -97,7 +104,7 @@ func (c cli) parse(shown help.Command, args []string, flags func(*flag.FlagSet))
 	var positional []string
 	for {
 		if err := set.Parse(args); err != nil {
-			return "", nil, fmt.Errorf("%s", shown.Synopsis())
+			return "", false, nil, fmt.Errorf("%s", shown.Synopsis())
 		}
 		if set.NArg() == 0 {
 			break
@@ -108,16 +115,12 @@ func (c cli) parse(shown help.Command, args []string, flags func(*flag.FlagSet))
 
 	address, err := credentials.Choose(c.env, *given)
 	if err != nil {
-		return "", nil, err
+		return "", false, nil, err
 	}
 
-	return address, positional, nil
+	return address, *given != "" || c.env(credentials.URLVar) != "", positional, nil
 }
 
 func loginCommand(address string) string {
-	if address == credentials.DefaultAddress {
-		return "spotlight login"
-	}
-
-	return "spotlight login --url " + address
+	return credentials.Command("spotlight login", address)
 }

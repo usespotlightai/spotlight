@@ -18,6 +18,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/protocol"
 )
 
@@ -448,7 +449,7 @@ func TestProxyStopsOnASignal(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 
-	if code := <-done; code != stoppedExit {
+	if code := <-done; code != console.StoppedExit {
 		t.Errorf("exit %d, stderr %q", code, run.errs.String())
 	}
 }

@@ -2,8 +2,10 @@ package credentials
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -47,6 +49,8 @@ func TestAddressKeepsTheSchemeAndHostOnly(t *testing.T) {
 		"http://app.spotlight.localhost":          "http://app.spotlight.localhost",
 		"http://spotlight.test:8080":              "http://spotlight.test:8080",
 		"  https://app.usespotlight.ai  ":         "https://app.usespotlight.ai",
+		"app.staging.usespotlight.ai":             "https://app.staging.usespotlight.ai",
+		"localhost:3000":                          "https://localhost:3000",
 	} {
 		got, err := Address(raw)
 		if err != nil || got != want {
@@ -56,7 +60,7 @@ func TestAddressKeepsTheSchemeAndHostOnly(t *testing.T) {
 }
 
 func TestAddressRejectsPlainHTTPAndWhatIsNoURL(t *testing.T) {
-	for _, raw := range []string{"http://app.usespotlight.ai", "http://10.0.0.4:3000", "app.usespotlight.ai", "ftp://app.usespotlight.ai", "https://", ""} {
+	for _, raw := range []string{"http://app.usespotlight.ai", "http://10.0.0.4:3000", "ftp://app.usespotlight.ai", "https://", ""} {
 		if got, err := Address(raw); err == nil {
 			t.Errorf("Address(%q) = %q, want an error", raw, got)
 		}
@@ -241,7 +245,8 @@ func TestChooseNamesTheLoginsWhenThereAreSeveral(t *testing.T) {
 	}
 
 	_, err := Choose(envOf(map[string]string{DirVar: dir}), "")
-	if err == nil || !strings.Contains(err.Error(), "https://app.usespotlight.ai, https://staging.example.com.") {
+	var several SeveralLogins
+	if !errors.As(err, &several) || !slices.Equal(several.Addresses, []string{"https://app.usespotlight.ai", "https://staging.example.com"}) {
 		t.Errorf("err = %v, want both logins named", err)
 	}
 }

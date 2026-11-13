@@ -1,11 +1,20 @@
+import { AuthoredText } from '@/components/features/stations/config/AuthoredText';
 import { PROPERTY_GRID } from '@/components/features/stations/config/PropertyList';
 import {
   CONFIG_LAYOUT,
   CONFIG_MAIN,
 } from '@/components/features/stations/config/StationConfig';
 import { TabSection } from '@/components/features/stations/TabSection';
-import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+
+const PROMPT_LINES = [
+  ['first', 'w-full'],
+  ['second', 'w-11/12'],
+  ['third', 'w-full'],
+  ['fourth', 'w-3/4'],
+  ['fifth', 'w-full'],
+  ['sixth', 'w-1/2'],
+] as const;
 
 const GROUPS = [
   ['Live config', [['Since', 'w-14']]],
@@ -32,7 +41,13 @@ export function StationConfigSkeleton() {
     <div className={CONFIG_LAYOUT}>
       <div className={CONFIG_MAIN}>
         <TabSection title="Prompt">
-          <Skeleton className="h-40 w-full rounded-lg" />
+          <AuthoredText>
+            <div className="text-sm leading-5">
+              {PROMPT_LINES.map(([key, width]) => (
+                <SkeletonLine key={key} className={width} />
+              ))}
+            </div>
+          </AuthoredText>
         </TabSection>
         <TabSection title="Judge">
           <dl className={PROPERTY_GRID}>

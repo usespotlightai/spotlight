@@ -126,9 +126,12 @@ main() {
   if [ "$#" -gt 0 ]; then
     "$BIN_DIR/spotlight" host init --url "$API_BASE" "$@" || status=$?
   else
-    next_step "Log in, so the CLI and Terraform act as you:"
+    next_step "To see what is set up on this computer:"
+    next_step "  spotlight"
+    next_step "To open tasks in VS Code or Cursor, log in and set up ssh:"
     next_step "  spotlight login --url $API_BASE"
-    next_step "To run agents on this machine, set it up as a host:"
+    next_step "  spotlight ssh setup"
+    next_step "To run agents on this computer, set it up as a host:"
     next_step "  spotlight host init --url $API_BASE"
   fi
 

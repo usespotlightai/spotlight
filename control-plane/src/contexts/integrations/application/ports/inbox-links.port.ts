@@ -21,4 +21,11 @@ export interface InboxLinksPort {
     teamId: TeamId,
     taskId: TaskId,
   ): Promise<string | null>;
+
+  inboxRequest(
+    workspaceId: WorkspaceId,
+    inboxRequestId: string,
+  ): Promise<string | null>;
+
+  notice(workspaceId: WorkspaceId, noticeId: string): Promise<string | null>;
 }

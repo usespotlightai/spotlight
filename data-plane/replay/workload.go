@@ -196,8 +196,19 @@ func problemOf(status int, body []byte) string {
 
 func checkAPI(env func(string) string, version string, now func() time.Time) (*api, error) {
 	base := env(urlVar)
+	if base == "" && env(tokenVar) == "" && env(trustVar) == "" {
+		address, err := credentials.Choose(env, "")
+		var several credentials.SeveralLogins
+		if errors.As(err, &several) {
+			return nil, fmt.Errorf("there are logins for %s. Set %s to the one to check the plan with", strings.Join(several.Addresses, ", "), urlVar)
+		}
+		if err != nil {
+			return nil, err
+		}
+		base = address
+	}
 	if base == "" {
-		return nil, fmt.Errorf("set %s, and %s, %s or a login from spotlight login, to check a plan\n%s", urlVar, tokenVar, trustVar, checkHelp.Synopsis())
+		return nil, fmt.Errorf("set %s with %s or %s, to check a plan\n%s", urlVar, tokenVar, trustVar, checkHelp.Synopsis())
 	}
 
 	if token := env(tokenVar); token != "" {

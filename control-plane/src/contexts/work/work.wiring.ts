@@ -217,6 +217,7 @@ import { DropUnorderedRun } from '@work/application/events/handlers/drop-unorder
 import { EnqueueOrderedRun } from '@work/application/events/handlers/enqueue-ordered-run.handler';
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
 import { NotifyChannel } from '@work/application/events/handlers/notify-channel.handler';
+import { NotifyOutsideToolsOfNotices } from '@work/application/events/handlers/notify-outside-tools-of-notices.handler';
 import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
@@ -379,6 +380,10 @@ import {
   TEAM_MEMORIES,
   type TeamMemoriesPort,
 } from '@work/application/ports/team-memories.port';
+import {
+  TEAM_NOTICES,
+  type TeamNoticesPort,
+} from '@work/application/ports/team-notices.port';
 import {
   TEAM_SKILLS,
   type TeamSkillsPort,
@@ -1751,6 +1756,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TakeTurn,
       RUN_JOURNAL_READINGS,
       TASK_PLACEMENTS,
+      NOTICE_REPOSITORY,
+      TEAM_NOTICES,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1781,6 +1788,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       turns: TakeTurn,
       readings: RunJournalReadingsPort,
       placements: TaskPlacementsPort,
+      noticeRepository: NoticeRepository,
+      raisedNotices: TeamNoticesPort,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -1807,9 +1816,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           acceptances,
           outsideTools: new NotifyOutsideTools(
             tasks,
+            inboxRequests,
             notifier,
             transaction,
             clock,
+          ),
+          outsideNotices: new NotifyOutsideToolsOfNotices(
+            noticeRepository,
+            raisedNotices,
           ),
           taskRuns: new OrderTaskRun(
             tasks,
