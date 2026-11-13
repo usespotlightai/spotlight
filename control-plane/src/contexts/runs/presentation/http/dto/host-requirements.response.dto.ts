@@ -59,15 +59,26 @@ export class HostRequirementsResponseDto {
   })
   readonly images: readonly string[];
 
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY'],
+    description:
+      'The harness keys this workspace holds as secrets, sorted. Egress injects them for each run of a harness that uses them, and the host gets them for its image probe from POST /api/hosts/harness-keys',
+  })
+  readonly harnessKeys: readonly string[];
+
   constructor(
     host: HostReleaseResponseDto,
     runner: RunnerReleaseResponseDto,
     harnesses: readonly HarnessProbeResponseDto[],
     images: readonly string[],
+    harnessKeys: readonly string[],
   ) {
     this.host = host;
     this.runner = runner;
     this.harnesses = harnesses;
     this.images = images;
+    this.harnessKeys = harnessKeys;
   }
 }

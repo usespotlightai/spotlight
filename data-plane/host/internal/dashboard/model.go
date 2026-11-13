@@ -35,6 +35,7 @@ const (
 	editing
 	filtering
 	loggingIn
+	settingUp
 )
 
 type outcome struct {
@@ -104,6 +105,7 @@ type model struct {
 	host    Host
 	account Account
 	editors Editors
+	setup   Setup
 	version string
 	style   styles
 
@@ -126,11 +128,13 @@ type model struct {
 
 	editorSetup *EditorSetup
 	helpTop     int
+	setUpFirst  *string
 
-	logs     logView
-	settings settingsView
-	palette  paletteView
-	login    loginView
+	logs      logView
+	settings  settingsView
+	palette   paletteView
+	login     loginView
+	setupView setupView
 }
 
 func newInput(placeholder string) textinput.Model {
@@ -140,11 +144,12 @@ func newInput(placeholder string) textinput.Model {
 	return input
 }
 
-func newModel(host Host, account Account, editors Editors, version string) model {
+func newModel(host Host, account Account, editors Editors, setup Setup, version string) model {
 	m := model{
 		host:     host,
 		account:  account,
 		editors:  editors,
+		setup:    setup,
 		version:  version,
 		style:    terminalStyles(),
 		width:    100,
@@ -158,9 +163,10 @@ func newModel(host Host, account Account, editors Editors, version string) model
 			scroll: viewport.New(),
 			filter: newInput("filter the log"),
 		},
-		settings: settingsView{input: newInput(""), filter: newInput("filter the settings")},
-		palette:  paletteView{input: newInput("type a command")},
-		login:    newLoginView(),
+		settings:  settingsView{input: newInput(""), filter: newInput("filter the settings")},
+		palette:   paletteView{input: newInput("type a command")},
+		login:     newLoginView(),
+		setupView: newSetupView(),
 	}
 	m.resize()
 	return m
@@ -218,7 +224,7 @@ func (m model) loadEditors() tea.Cmd {
 }
 
 func (m model) busy() bool {
-	return m.running != "" || m.status == nil || m.waitingForLogin()
+	return m.running != "" || m.status == nil || m.waitingForLogin() || m.waitingForSetup()
 }
 
 func (m *model) spin() tea.Cmd {
@@ -374,6 +380,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.logins.note = msg.err.Error()
 		}
+		if address := m.setUpFirst; address != nil {
+			m.setUpFirst = nil
+			return m.setUpHostAt(*address)
+		}
 		return m, nil
 
 	case loginStartedMsg:
@@ -384,6 +394,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case loginPageMsg:
 		return m.loginPageOpened(msg)
+
+	case setupLoadedMsg:
+		return m.setupLoaded(msg)
+
+	case setupHeldMsg:
+		return m.setupHeld(msg)
+
+	case setupStepMsg:
+		return m.setupStepDone(msg)
+
+	case buildLineMsg:
+		return m.buildLine(msg)
 
 	case editorsMsg:
 		setup := EditorSetup(msg)
@@ -435,6 +457,7 @@ func (m *model) resize() {
 		input.SetWidth(max(m.width-len(gutter)*2-2, 1))
 	}
 	m.login.input.SetWidth(max(m.width-len(gutter)*2-labelColumn-1, 1))
+	m.setupView.input.SetWidth(max(m.width-len(gutter)*2-labelColumn-1, 1))
 	m.helpTop = min(m.helpTop, m.lastHelpTop())
 	m.logs.scroll.SetWidth(m.width)
 	m.logs.scroll.SetHeight(max(m.bodyHeight()-1, 1))
@@ -485,6 +508,10 @@ func (m model) typeInto(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case loggingIn:
 		if m.login.step == addressStep {
 			m.login.input, cmd = m.login.input.Update(msg)
+		}
+	case settingUp:
+		if m.setupView.input.Focused() {
+			m.setupView.input, cmd = m.setupView.input.Update(msg)
 		}
 	case filtering:
 		filter := m.filter()

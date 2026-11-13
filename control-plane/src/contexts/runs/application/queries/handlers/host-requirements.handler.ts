@@ -7,6 +7,7 @@ import { HarnessMapper } from '@runs/application/mappers/harness.mapper';
 import type { ControlPlaneReleasePort } from '@runs/application/ports/control-plane-release.port';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { HostRequirementsQuery } from '@runs/application/queries/host.queries';
+import type { HeldHarnessKeys } from '@runs/application/services/held-harness-keys.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';
@@ -20,6 +21,7 @@ export class HostRequirementsHandler implements QueryHandlerPort<
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly images: LineImagesPort,
     private readonly controlPlane: ControlPlaneReleasePort,
+    private readonly harnessKeys: HeldHarnessKeys,
   ) {}
 
   async execute(
@@ -43,6 +45,9 @@ export class HostRequirementsHandler implements QueryHandlerPort<
           .catalogue()
           .map((entry) => HarnessMapper.toDto(entry, [])),
         images: await this.images.namedIn(authenticated.workspaceId),
+        harnessKeys: (
+          await this.harnessKeys.inWorkspace(authenticated.workspaceId)
+        ).map((each) => each.value),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

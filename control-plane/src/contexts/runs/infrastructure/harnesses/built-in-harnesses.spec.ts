@@ -44,6 +44,19 @@ describe('the harnesses Spotlight knows', () => {
     }
   });
 
+  it('names the secrets that can hold each harness’s own model key', () => {
+    expect(
+      Object.fromEntries(
+        known.catalogue().map((each) => [each.id, each.harnessKeys]),
+      ),
+    ).toEqual({
+      'claude-code': ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN'],
+      cursor: ['CURSOR_API_KEY'],
+      codex: ['CODEX_API_KEY', 'OPENAI_API_KEY'],
+      opencode: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY'],
+    });
+  });
+
   it('offers an effort ladder for each harness', () => {
     for (const each of known.catalogue()) {
       expect(each.efforts.length).toBeGreaterThan(0);

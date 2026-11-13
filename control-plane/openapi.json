@@ -6498,6 +6498,60 @@
         ]
       }
     },
+    "/hosts/harness-keys": {
+      "post": {
+        "description": "Called by a host before it probes an image for models, with the credential it claims runs with. The response holds each harness key that the workspace holds as a secret, for each host it is bound to. Values that Spotlight stores come back sealed to the recipient, bound to an empty run id. For a value in an external store, the response gives the external reference that egress reads. Spotlight grants nothing to a run.",
+        "operationId": "fetchHarnessKeys",
+        "parameters": [
+          {
+            "name": "Spotlight-Trust",
+            "in": "header",
+            "description": "The runner trust to claim through; the bearer is then the workload’s token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HarnessKeysRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarnessKeysResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, rotated or unknown pool token, or a workload the trust does not match"
+          },
+          "422": {
+            "description": "The recipient is not an X25519 public key"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The harness keys of the host’s workspace, for the egress of its image probe",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/hosts/claim": {
       "post": {
         "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a working copy key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its working copy key and waits for runs. A warm sandbox (`work.warm`) has no key: the host clones the line’s repositories from its mirrors and runs their setup, then claims with `sandbox` like any live sandbox, and a task’s first run on that line is claimed into it.",
@@ -24986,13 +25040,179 @@
             "items": {
               "type": "string"
             }
+          },
+          "harnessKeys": {
+            "example": [
+              "ANTHROPIC_API_KEY",
+              "OPENAI_API_KEY"
+            ],
+            "description": "The harness keys this workspace holds as secrets, sorted. Egress injects them for each run of a harness that uses them, and the host gets them for its image probe from POST /api/hosts/harness-keys",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "host",
           "runner",
           "harnesses",
-          "images"
+          "images",
+          "harnessKeys"
+        ]
+      },
+      "HarnessKeysRequestDto": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "example": "p8kX0q1cVJ3Q0x4yQ2a6m0dD6b8hT3n1gC9sZ7rW2Ek=",
+            "description": "The X25519 public key that the egress of the host’s image probe holds, in base64; values Spotlight stores are sealed to it"
+          }
+        },
+        "required": [
+          "recipient"
+        ]
+      },
+      "ExternalSecretRefResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "aws-secrets-manager"
+            ]
+          },
+          "secretId": {
+            "type": "string",
+            "example": "arn:aws:secretsmanager:eu-west-1:123456789012:secret:linear-api-key"
+          },
+          "field": {
+            "type": "string",
+            "nullable": true,
+            "example": "token"
+          }
+        },
+        "required": [
+          "kind",
+          "secretId",
+          "field"
+        ]
+      },
+      "FetchedSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "example": "LINEAR_API_KEY"
+          },
+          "host": {
+            "type": "string",
+            "example": "mcp.linear.app",
+            "description": "The one host that egress injects it for"
+          },
+          "location": {
+            "type": "string",
+            "enum": [
+              "header",
+              "query"
+            ],
+            "example": "header",
+            "description": "Whether egress injects it in a request header or in a query parameter"
+          },
+          "name": {
+            "type": "string",
+            "example": "authorization",
+            "description": "The header or query parameter that contains its stand-in"
+          },
+          "prefix": {
+            "type": "string",
+            "example": "Bearer "
+          },
+          "sealed": {
+            "type": "string",
+            "nullable": true,
+            "description": "The value, sealed to the recipient for this run; null when egress reads it in its own network"
+          },
+          "externalRef": {
+            "nullable": true,
+            "description": "Where egress reads the value with its host’s own identity; null when Spotlight sealed it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ExternalSecretRefResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "secret",
+          "host",
+          "location",
+          "name",
+          "prefix",
+          "sealed",
+          "externalRef"
+        ]
+      },
+      "DeniedSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "example": "LINEAR_API_KEY"
+          },
+          "reason": {
+            "type": "string",
+            "example": "The workspace has no secret named LINEAR_API_KEY; create it before anything uses it"
+          }
+        },
+        "required": [
+          "secret",
+          "reason"
+        ]
+      },
+      "HarnessKeysResponseDto": {
+        "type": "object",
+        "properties": {
+          "extraAllowedHosts": {
+            "example": [],
+            "description": "Always empty: the probe allows no extra host",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bound": {
+            "example": [
+              "api.anthropic.com"
+            ],
+            "description": "The hosts the harness keys are bound to. Egress decrypts only these hosts",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "secrets": {
+            "description": "Each harness key the workspace holds, for each host it is bound to. A value Spotlight stores is sealed to the recipient with an empty run id",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FetchedSecretResponseDto"
+            }
+          },
+          "denied": {
+            "description": "The harness keys that egress does not get, and why",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeniedSecretResponseDto"
+            }
+          }
+        },
+        "required": [
+          "extraAllowedHosts",
+          "bound",
+          "secrets",
+          "denied"
         ]
       },
       "ClaimHostWorkRequestDto": {
@@ -25213,104 +25433,6 @@
           "host",
           "token",
           "recipient"
-        ]
-      },
-      "ExternalSecretRefResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "aws-secrets-manager"
-            ]
-          },
-          "secretId": {
-            "type": "string",
-            "example": "arn:aws:secretsmanager:eu-west-1:123456789012:secret:linear-api-key"
-          },
-          "field": {
-            "type": "string",
-            "nullable": true,
-            "example": "token"
-          }
-        },
-        "required": [
-          "kind",
-          "secretId",
-          "field"
-        ]
-      },
-      "FetchedSecretResponseDto": {
-        "type": "object",
-        "properties": {
-          "secret": {
-            "type": "string",
-            "example": "LINEAR_API_KEY"
-          },
-          "host": {
-            "type": "string",
-            "example": "mcp.linear.app",
-            "description": "The one host that egress injects it for"
-          },
-          "location": {
-            "type": "string",
-            "enum": [
-              "header",
-              "query"
-            ],
-            "example": "header",
-            "description": "Whether egress injects it in a request header or in a query parameter"
-          },
-          "name": {
-            "type": "string",
-            "example": "authorization",
-            "description": "The header or query parameter that contains its stand-in"
-          },
-          "prefix": {
-            "type": "string",
-            "example": "Bearer "
-          },
-          "sealed": {
-            "type": "string",
-            "nullable": true,
-            "description": "The value, sealed to the recipient for this run; null when egress reads it in its own network"
-          },
-          "externalRef": {
-            "nullable": true,
-            "description": "Where egress reads the value with its host’s own identity; null when Spotlight sealed it",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ExternalSecretRefResponseDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "secret",
-          "host",
-          "location",
-          "name",
-          "prefix",
-          "sealed",
-          "externalRef"
-        ]
-      },
-      "DeniedSecretResponseDto": {
-        "type": "object",
-        "properties": {
-          "secret": {
-            "type": "string",
-            "example": "LINEAR_API_KEY"
-          },
-          "reason": {
-            "type": "string",
-            "example": "The workspace has no secret named LINEAR_API_KEY; create it before anything uses it"
-          }
-        },
-        "required": [
-          "secret",
-          "reason"
         ]
       },
       "SpotlightApiResponseDto": {

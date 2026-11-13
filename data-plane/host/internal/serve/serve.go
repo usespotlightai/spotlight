@@ -67,6 +67,7 @@ const (
 
 type Pool interface {
 	Requirements(ctx context.Context) (protocol.HostRequirements, error)
+	Credential() (protocol.HostCredential, error)
 	Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Assignment, error)
 	ClaimCall(ctx context.Context) (*protocol.HostCall, error)
 	RecordCallResponse(ctx context.Context, id string, response protocol.HostCallResponse) error

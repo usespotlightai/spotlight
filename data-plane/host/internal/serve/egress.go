@@ -48,7 +48,7 @@ func (h *Host) egress(
 	}
 
 	sidecar, err := h.egressSidecar(ctx, nameOf(assignment), labels,
-		assignment.EgressToken, assignment.AllowedHosts, harnessKeys, h.opts.EgressWait)
+		egressCredential{token: assignment.EgressToken}, assignment.AllowedHosts, harnessKeys, h.opts.EgressWait)
 	if err == nil {
 		log.Info("started the sandbox's egress", "egress", sidecar.container)
 	}
@@ -57,7 +57,7 @@ func (h *Host) egress(
 }
 
 func (h *Host) egressSidecar(
-	ctx context.Context, name string, labels map[string]string, token string, sandboxHosts []string,
+	ctx context.Context, name string, labels map[string]string, credential egressCredential, sandboxHosts []string,
 	harnessKeys []protocol.HarnessKey, wait time.Duration,
 ) (*egressSidecar, error) {
 	if wait <= 0 {
@@ -76,7 +76,7 @@ func (h *Host) egressSidecar(
 		return sidecar, err
 	}
 
-	return sidecar, sidecar.start(ctx, token)
+	return sidecar, sidecar.start(ctx, credential)
 }
 
 func (s *egressSidecar) rekey(ctx context.Context, token string) error {
@@ -91,10 +91,15 @@ func (s *egressSidecar) rekey(ctx context.Context, token string) error {
 		s.container, s.authority = "", nil
 	}
 
-	return s.start(ctx, token)
+	return s.start(ctx, egressCredential{token: token})
 }
 
-func (s *egressSidecar) start(ctx context.Context, token string) error {
+type egressCredential struct {
+	token string
+	host  *protocol.HostCredential
+}
+
+func (s *egressSidecar) start(ctx context.Context, credential egressCredential) error {
 	h := s.host
 
 	image, err := h.egressImage(ctx)
@@ -104,7 +109,8 @@ func (s *egressSidecar) start(ctx context.Context, token string) error {
 
 	s.container, err = h.startEgress(ctx, image, s.name, s.labels, protocol.EgressConfig{
 		URL:          h.now().SandboxURL,
-		Token:        token,
+		Token:        credential.token,
+		Host:         credential.host,
 		Credential:   s.credential,
 		Allow:        h.now().Egress.Allow,
 		SecretAllow:  h.now().Egress.SecretAllow,
