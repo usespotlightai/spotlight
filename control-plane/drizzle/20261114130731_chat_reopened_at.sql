@@ -1,1 +1,0 @@
-ALTER TABLE "chat" ADD COLUMN "reopened_at" timestamp (3) with time zone;
