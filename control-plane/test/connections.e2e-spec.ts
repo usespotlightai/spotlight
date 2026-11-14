@@ -67,6 +67,27 @@ const LINEAR = {
   },
 };
 
+const TRACKER = {
+  integration: 'tracker',
+  name: 'Tracker',
+  connection: {
+    oauth2: {
+      authorize: 'https://tracker.example/oauth/authorize',
+      token: 'https://tracker.example/oauth/token',
+      client: { id: 'own-client', secret: 'secret.TRACKER_CLIENT_SECRET' },
+    },
+  },
+  actions: {
+    ping: {
+      request: {
+        method: 'GET',
+        url: 'https://tracker.example/api/ping',
+        auth: { oauth2: { connection: true } },
+      },
+    },
+  },
+};
+
 interface Connections {
   readonly mine: readonly { readonly tools: unknown }[];
   readonly people:
@@ -200,20 +221,7 @@ describe('each person’s own connections (e2e)', () => {
       })
       .expect(201);
     await as(seat.owner)
-      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, {
-        integration: 'tracker',
-        name: 'Tracker',
-        connection: {
-          oauth2: {
-            authorize: 'https://tracker.example/oauth/authorize',
-            token: 'https://tracker.example/oauth/token',
-            client: {
-              id: 'own-client',
-              secret: 'secret.TRACKER_CLIENT_SECRET',
-            },
-          },
-        },
-      })
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, TRACKER)
       .expect(201);
 
     const started = (await as(seat.owner).post(
@@ -229,20 +237,7 @@ describe('each person’s own connections (e2e)', () => {
 
   it('says which secret is missing where the team’s own client names one that is not there', async () => {
     await as(seat.owner)
-      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, {
-        integration: 'tracker',
-        name: 'Tracker',
-        connection: {
-          oauth2: {
-            authorize: 'https://tracker.example/oauth/authorize',
-            token: 'https://tracker.example/oauth/token',
-            client: {
-              id: 'own-client',
-              secret: 'secret.TRACKER_CLIENT_SECRET',
-            },
-          },
-        },
-      })
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, TRACKER)
       .expect(201);
 
     const started = (await as(seat.owner).post(
@@ -266,20 +261,7 @@ describe('each person’s own connections (e2e)', () => {
       })
       .expect(201);
     await as(seat.owner)
-      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, {
-        integration: 'tracker',
-        name: 'Tracker',
-        connection: {
-          oauth2: {
-            authorize: 'https://tracker.example/oauth/authorize',
-            token: 'https://tracker.example/oauth/token',
-            client: {
-              id: 'own-client',
-              secret: 'secret.TRACKER_CLIENT_SECRET',
-            },
-          },
-        },
-      })
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, TRACKER)
       .expect(201);
 
     const started = (await as(seat.owner).post(
