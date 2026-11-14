@@ -1,5 +1,8 @@
+import { CircleArrowRight, CircleSlash } from 'lucide-react';
+
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { RunPendingMarker } from '@/components/features/runs/RunPendingMarker';
+import { Pill } from '@/components/shared/Pill';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type Run, runStatus, waitsOnPerson } from '@/lib/run';
@@ -76,9 +79,7 @@ export function RunRow({
 
             {run.progress && <ProgressState progress={run.progress} />}
 
-            {status && !waits && (
-              <span className="text-muted-foreground text-xs">{status}</span>
-            )}
+            {status && !waits && <EndedPill run={run} status={status} />}
 
             <span className="shrink-0 text-right text-muted-foreground text-xs tabular-nums @xl/pane:w-20">
               {since(run.startedAt)}
@@ -87,5 +88,15 @@ export function RunRow({
         </div>
       </div>
     </li>
+  );
+}
+
+function EndedPill({ run, status }: { run: Run; status: string }) {
+  const Icon = run.state === 'superseded' ? CircleArrowRight : CircleSlash;
+
+  return (
+    <Pill lead={<Icon className="size-3.5 shrink-0" aria-hidden />}>
+      {status}
+    </Pill>
   );
 }
