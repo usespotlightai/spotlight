@@ -1,3 +1,4 @@
+import { PinnedText } from '@/components/features/inbox/conversation/PinnedText';
 import { MemoryProvenanceList } from '@/components/features/memory/MemoryProvenanceList';
 import { MemoryScopeRows } from '@/components/features/memory/MemoryScopeRows';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
@@ -41,9 +42,11 @@ export function ProposedMemoryFacts({
               aria-label="The memory as it should be"
             />
           ) : (
-            <p id={bodyId} className={FACT_VALUE}>
-              {memory.body}
-            </p>
+            <PinnedText>
+              <p id={bodyId} className={FACT_VALUE}>
+                {memory.body}
+              </p>
+            </PinnedText>
           )}
         </dd>
       </FactRow>

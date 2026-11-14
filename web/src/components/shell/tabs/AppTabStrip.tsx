@@ -3,11 +3,20 @@ import {
   SortableContext,
 } from '@dnd-kit/sortable';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import type { CSSProperties } from 'react';
 
 import { AppTabItem } from '@/components/shell/tabs/AppTabItem';
 import { Button } from '@/components/ui/button';
+import { useSidebarCollapsedSetting } from '@/hooks/useCollapsedSidebar';
 import { type AppTab, tabIconOf } from '@/lib/app-tabs';
-import { desktopApp } from '@/lib/desktop';
+import { desktopApp, framesWindow } from '@/lib/desktop';
+import { SPRING } from '@/lib/motion';
+import { cn } from '@/lib/utils';
+
+const STRIP_SPACING = {
+  '--tab-gap': 'calc(var(--spacing) * 1.5)',
+  '--history-button': 'calc(var(--spacing) * 7)',
+} as CSSProperties;
 
 type AppTabStripProps = {
   tabs: readonly AppTab[];
@@ -34,21 +43,31 @@ export function AppTabStrip({
   onBack,
   onForward,
 }: AppTabStripProps) {
+  const collapsed = useSidebarCollapsedSetting();
+  const hangs = framesWindow() && !collapsed;
+
   return (
     <nav
       aria-label="Tabs"
       data-slot="app-tabs"
-      className="flex min-w-0 shrink-0 items-center gap-1.5 pb-2"
+      style={STRIP_SPACING}
+      className="flex min-w-0 shrink-0 items-center gap-(--tab-gap) pb-2"
     >
       {desktopApp() && (
-        <>
+        <div
+          className={cn(
+            'relative z-20 flex shrink-0 items-center gap-(--tab-gap) transition-[margin]',
+            SPRING,
+            hangs && 'md:-ml-[calc(2*(var(--history-button)+var(--tab-gap)))]',
+          )}
+        >
           <Button
             variant="ghost"
             size="icon-sm"
             aria-label="Back"
             disabled={!canGoBack}
             onClick={onBack}
-            className="text-muted-foreground"
+            className="size-(--history-button) text-muted-foreground"
           >
             <ChevronLeft className="size-3.5" aria-hidden />
           </Button>
@@ -58,17 +77,17 @@ export function AppTabStrip({
             aria-label="Forward"
             disabled={!canGoForward}
             onClick={onForward}
-            className="text-muted-foreground"
+            className="size-(--history-button) text-muted-foreground"
           >
             <ChevronRight className="size-3.5" aria-hidden />
           </Button>
-        </>
+        </div>
       )}
       <SortableContext
         items={tabs.map((tab) => tab.id)}
         strategy={horizontalListSortingStrategy}
       >
-        <ul className="flex min-w-0 items-center gap-1.5">
+        <ul className="flex min-w-0 items-center gap-(--tab-gap)">
           {tabs.map((tab) => (
             <AppTabItem
               key={tab.id}

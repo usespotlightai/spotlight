@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
 import { AppTabStrip } from '@/components/shell/tabs/AppTabStrip';
 
 const TABS = [
@@ -47,3 +48,14 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const InDesktopApp: Story = {};
+
+export const BesideTheSidebar: Story = {
+  render: (args) => (
+    <DashboardLayout
+      sidebar={<div className="pt-9 text-sm">Sidebar</div>}
+      tabs={<AppTabStrip {...args} />}
+    >
+      <div className="p-4 text-sm">Inbox</div>
+    </DashboardLayout>
+  ),
+};

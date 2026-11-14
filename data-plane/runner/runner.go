@@ -128,6 +128,9 @@ func run(args []string, version string) error {
 			defer proxy.close()
 			r.proxyEnv = proxy.env
 		}
+	} else if relay, opened := r.openRelay(); opened {
+		defer relay.close()
+		r.proxyEnv = relay.env
 	}
 
 	if !cfg.HasAssignmentFile() || assigned.SandboxID == "" {
@@ -424,6 +427,25 @@ func (r runner) openLocalProxy(ctx context.Context, egress *localproxy.Egress) (
 			r.log.Warn("could not close the local proxy", "error", err)
 		}
 	}}, nil
+}
+
+func (r runner) openRelay() (opened, bool) {
+	upstream, found := localproxy.PasswordProxy(os.Getenv)
+	if !found {
+		return opened{}, false
+	}
+
+	relay, err := localproxy.OpenRelay(upstream, localproxy.Options{Log: r.log})
+	if err != nil {
+		r.log.Warn("could not open the proxy relay, so the agent gets the egress address with its password", "error", err)
+		return opened{}, false
+	}
+
+	return opened{env: relay.Env(), close: func() {
+		if err := relay.Close(); err != nil {
+			r.log.Warn("could not close the proxy relay", "error", err)
+		}
+	}}, true
 }
 
 func unready(err error) protocol.StackCheckResult {

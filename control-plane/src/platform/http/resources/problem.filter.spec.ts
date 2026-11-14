@@ -14,7 +14,9 @@ import {
   type ApplicationErrorKind,
 } from '@shared-kernel/application/errors/application-error';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -40,7 +42,8 @@ const responseTo = (exception: unknown) => {
   const headers = new Map<string, string>();
   const reply = vi.fn();
   const error = vi.fn();
-  const report = vi.fn();
+  const report = vi.fn<ErrorReportsPort['report']>();
+  const count = vi.fn();
   const adapterHost = {
     httpAdapter: {
       setHeader: (_: unknown, name: string, value: string) =>
@@ -59,12 +62,13 @@ const responseTo = (exception: unknown) => {
     adapterHost,
     { error } as unknown as LoggerPort,
     { report },
+    { count } as unknown as TelemetryPort,
     forbiddenActs,
   ).catch(exception, host);
 
   const [, body, status] = reply.mock.calls[0] as [unknown, unknown, number];
 
-  return { body, status, headers, error, report };
+  return { body, status, headers, error, report, count };
 };
 
 describe('ProblemFilter', () => {
@@ -180,5 +184,38 @@ describe('ProblemFilter', () => {
     const { report } = responseTo(ProblemException.notFound('line'));
 
     expect(report).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a direct 53300', Object.assign(new Error('slots'), { code: '53300' })],
+    [
+      'a wrapped 53300',
+      Object.assign(new Error('Failed to get session'), {
+        cause: Object.assign(new Error('slots'), { code: '53300' }),
+      }),
+    ],
+    [
+      'a pool connect timeout',
+      new Error('timeout exceeded when trying to connect'),
+    ],
+  ])('answers 503 with Retry-After for %s', (_, exception) => {
+    const { status, headers, count, report } = responseTo(exception);
+
+    expect(status).toBe(503);
+    expect(headers.get('Retry-After')).toBe('5');
+    expect(count).toHaveBeenCalledWith('spotlight_db_connection_refused_total');
+    expect(report).toHaveBeenCalledWith(expect.any(Error), {
+      source: 'db.pool_exhausted',
+    });
+  });
+
+  it('keeps an unrelated database error at 500', () => {
+    const { status, headers, count } = responseTo(
+      Object.assign(new Error('boom'), { code: '42P01' }),
+    );
+
+    expect(status).toBe(500);
+    expect(headers.has('Retry-After')).toBe(false);
+    expect(count).not.toHaveBeenCalled();
   });
 });
