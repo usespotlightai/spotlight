@@ -981,6 +981,7 @@ describe('runner pools (e2e)', () => {
             containerRuntime: 'docker',
             capacity: 2,
             slotsTaken: 1,
+            slotsOffered: 1,
             idleSandboxes: [],
             images: [
               {

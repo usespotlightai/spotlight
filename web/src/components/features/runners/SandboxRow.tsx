@@ -5,26 +5,37 @@ import {
   HOST_ROW,
   HOST_ROW_HOVER,
 } from '@/components/features/runners/columns';
+import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
 import { HiddenRunTitle } from '@/components/features/runners/HiddenRunTitle';
-import { StatusDot, type Tone } from '@/components/features/runners/StatusDot';
+import { ImagePill } from '@/components/features/runners/ImagePill';
+import { StatusDot } from '@/components/features/runners/StatusDot';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useLineNames } from '@/hooks/api/useLineNames';
 import {
+  type Host,
   hiddenFromViewer,
   hiddenRunTip,
   type IdleSandbox,
-  idleSandboxActivity,
   idleSandboxLabel,
-  idleSandboxStatus,
+  imageHarnesses,
+  isWarm,
   leasedRunPath,
+  type NamedHarness,
+  type SandboxRow as Row,
+  sandboxActivity,
+  sandboxStatus,
+  sandboxStatusTip,
   warmSandboxLabel,
 } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
-const toneOf = (sandbox: IdleSandbox): Tone =>
-  sandbox.status === 'draining' ? 'gone' : 'ready';
-
-function KeptFor({ slug, sandbox }: { slug: string; sandbox: IdleSandbox }) {
+function LastRunTitle({
+  slug,
+  sandbox,
+}: {
+  slug: string;
+  sandbox: IdleSandbox;
+}) {
   const label = idleSandboxLabel(sandbox);
   const path = leasedRunPath(slug, sandbox.lastRun);
 
@@ -51,23 +62,20 @@ function KeptFor({ slug, sandbox }: { slug: string; sandbox: IdleSandbox }) {
   );
 }
 
-function WarmFor({ slug, lineId }: { slug: string; lineId: string }) {
-  const label = warmSandboxLabel(useLineNames(slug, true).get(lineId));
-
-  return (
-    <span title={label} className="truncate text-muted-foreground">
-      {label}
-    </span>
-  );
-}
-
-type IdleSandboxRowProps = {
+type SandboxRowProps = {
   slug: string;
-  sandbox: IdleSandbox;
+  host: Host;
+  row: Row;
+  harnesses: readonly NamedHarness[] | undefined;
 };
 
-export function IdleSandboxRow({ slug, sandbox }: IdleSandboxRowProps) {
-  const activity = idleSandboxActivity(sandbox);
+export function SandboxRow({ slug, host, row, harnesses }: SandboxRowProps) {
+  const [first] = row.sandboxes;
+  const lineNames = useLineNames(slug, isWarm(first));
+  const lineName =
+    first.warmLineId === null ? undefined : lineNames.get(first.warmLineId);
+  const label = warmSandboxLabel(row.sandboxes.length, lineName);
+  const activity = sandboxActivity(row);
 
   return (
     <li
@@ -76,20 +84,31 @@ export function IdleSandboxRow({ slug, sandbox }: IdleSandboxRowProps) {
     >
       <span className="col-span-2 flex min-w-0 items-center gap-1.5 pl-1">
         <CornerDownRight aria-hidden className="size-3.5 shrink-0 text-faint" />
-        {sandbox.warmLineId === null ? (
-          <KeptFor slug={slug} sandbox={sandbox} />
+        {isWarm(first) ? (
+          <span title={label} className="truncate text-muted-foreground">
+            {label}
+          </span>
         ) : (
-          <WarmFor slug={slug} lineId={sandbox.warmLineId} />
+          <LastRunTitle slug={slug} sandbox={first} />
         )}
       </span>
 
-      <StatusDot tone={toneOf(sandbox)}>{idleSandboxStatus(sandbox)}</StatusDot>
+      <StatusDot
+        tone={first.status === 'draining' ? 'gone' : 'ready'}
+        tip={sandboxStatusTip(first, lineName)}
+      >
+        {sandboxStatus(first)}
+      </StatusDot>
 
-      <span />
+      <span className="truncate text-muted-foreground text-xs tabular-nums">
+        {row.sandboxes.length}
+      </span>
 
-      <span />
+      <span className="flex min-w-0">
+        {first.image && <ImagePill image={first.image} title={first.image} />}
+      </span>
 
-      <span />
+      <HarnessLogos harnesses={imageHarnesses(host, first.image, harnesses)} />
 
       <span />
 

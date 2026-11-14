@@ -114,6 +114,7 @@ import {
 } from '@runners/application/ports/sandbox-upkeep.port';
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import { WARM_SANDBOXES } from '@runners/application/ports/warm-sandboxes.port';
+import { WORKING_COPY_IMAGES } from '@runners/application/ports/working-copy-images.port';
 import { ImportEgressHandler } from '@runners/application/queries/handlers/import-egress.handler';
 import { ImportRunnerPoolHandler } from '@runners/application/queries/handlers/import-runner-pool.handler';
 import { ImportRunnerTrustHandler } from '@runners/application/queries/handlers/import-runner-trust.handler';
@@ -657,6 +658,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     RUNNER_READER,
     DrizzleRunnerRepository,
+    WORKING_COPY_IMAGES,
     CLOCK,
   ]),
 

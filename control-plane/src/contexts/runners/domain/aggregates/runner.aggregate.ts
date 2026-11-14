@@ -265,6 +265,25 @@ export class Runner extends EventRecorder {
     return recordsStill ? work : null;
   }
 
+  isOpenClaimAt(now: Date): boolean {
+    return (
+      this.state.hostId !== null &&
+      this.state.enters === null &&
+      this.state.work === null &&
+      this.isAlive(now)
+    );
+  }
+
+  waitsInOneOf(sandboxes: readonly SandboxId[]): boolean {
+    const { enters, work } = this.state;
+
+    return (
+      work === null &&
+      enters !== null &&
+      sandboxes.some((each) => each.equals(enters))
+    );
+  }
+
   claimsAt(now: Date): RunnerClaims {
     return this.state.work === null && this.isAlive(now)
       ? 'reserved'

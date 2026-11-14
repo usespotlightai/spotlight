@@ -3,6 +3,7 @@ import { SEEDING_HARNESS } from '@lines/application/ports/seeding-harness.port';
 import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
 import { contextBindings } from '@platform/bindings/context-bindings';
+import { WORKING_COPY_IMAGES } from '@runners/application/ports/working-copy-images.port';
 import { RunnersModule } from '@runners/runners.module';
 import { ARCHIVE_HOLDERS } from '@runs/application/ports/archive-holders.port';
 import { HARNESS_LAUNCH } from '@runs/application/ports/harness-launch.port';
@@ -27,7 +28,7 @@ import { STARTING_POINT_HOLDS } from '@runs/application/ports/starting-point-hol
 import { RUNS_CONTROLLERS, RUNS_PROVIDERS } from '@runs/runs.wiring';
 import { SecretsModule } from '@secrets/secrets.module';
 
-const BINDINGS = contextBindings([SEEDING_HARNESS]);
+const BINDINGS = contextBindings([SEEDING_HARNESS, WORKING_COPY_IMAGES]);
 
 @Module({
   imports: [IdentityModule, SecretsModule, RunnersModule, LinesModule],

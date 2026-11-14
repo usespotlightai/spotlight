@@ -26,10 +26,11 @@ import { cn } from '@/lib/utils';
 type RunnerRowProps = {
   slug: string;
   runner: ActiveRunner;
+  slots?: number;
   harnesses: readonly NamedHarness[] | undefined;
 };
 
-export function RunnerRow({ slug, runner, harnesses }: RunnerRowProps) {
+export function RunnerRow({ slug, runner, slots, harnesses }: RunnerRowProps) {
   const label = formatRun(runner.currentRun);
   const path = leasedRunPath(slug, runner.currentRun);
 
@@ -61,7 +62,9 @@ export function RunnerRow({ slug, runner, harnesses }: RunnerRowProps) {
         {runnerStatus(runner)}
       </StatusDot>
 
-      <span />
+      <span className="truncate text-muted-foreground text-xs tabular-nums">
+        {slots}
+      </span>
 
       <span className="flex min-w-0">
         {runner.image && (

@@ -24,6 +24,7 @@ export interface IdleSandboxDto {
   readonly id: string;
   readonly workingCopyKey: string | null;
   readonly warmLineId: string | null;
+  readonly image: string | null;
   readonly status: LiveSandboxStatus;
   readonly idleSince: string;
   readonly startedAt: string;
@@ -38,6 +39,7 @@ export interface HostDto {
   readonly containerRuntime: string;
   readonly capacity: number;
   readonly slotsTaken: number;
+  readonly slotsOffered: number;
   readonly idleSandboxes: readonly IdleSandboxDto[];
   readonly images: readonly HostImageDto[];
   readonly firstHeartbeatAt: string;
