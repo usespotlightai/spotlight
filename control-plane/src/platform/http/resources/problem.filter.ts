@@ -23,6 +23,7 @@ import {
   entityTagOf,
   PROBLEM_CONTENT_TYPE,
 } from '@platform/http/resources/resource-headers';
+import { connectionsExhausted } from '@platform/persistence/drizzle/violations';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import {
   ERROR_REPORTS,
@@ -32,8 +33,22 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
 
 const SERVER_ERROR: number = HttpStatus.INTERNAL_SERVER_ERROR;
+
+const RETRY_AFTER_SECONDS = '5';
+
+const CONNECTIONS_REFUSED_METRIC = 'spotlight_db_connection_refused_total';
+
+class DatabaseConnectionsExhausted extends Error {
+  constructor() {
+    super('The database refused a connection');
+  }
+}
 
 type LoggableRequest = {
   method?: string;
@@ -44,6 +59,13 @@ type LoggableRequest = {
 const problemOf = (exception: unknown): Problem => {
   if (exception instanceof ProblemException) {
     return exception.problem;
+  }
+
+  if (connectionsExhausted(exception)) {
+    return ProblemException.withStatus(
+      HttpStatus.SERVICE_UNAVAILABLE,
+      'The service is busy. Please retry shortly.',
+    ).problem;
   }
 
   const http =
@@ -68,6 +90,7 @@ export class ProblemFilter implements ExceptionFilter {
     private readonly adapterHost: HttpAdapterHost,
     @Inject(LOGGER) private readonly logger: LoggerPort,
     @Inject(ERROR_REPORTS) private readonly reports: ErrorReportsPort,
+    @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
     private readonly forbiddenActs: ForbiddenActs,
   ) {}
 
@@ -75,7 +98,18 @@ export class ProblemFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const problem = this.explained(exception, problemOf(exception));
 
-    if (problem.status >= SERVER_ERROR) {
+    const refused = connectionsExhausted(exception);
+
+    if (refused) {
+      this.telemetry.count(CONNECTIONS_REFUSED_METRIC);
+      this.reports.report(new DatabaseConnectionsExhausted(), {
+        source: 'db.pool_exhausted',
+      });
+      this.logger.error(
+        { err: exception, context: ProblemFilter.name },
+        'Refused a database connection',
+      );
+    } else if (problem.status >= SERVER_ERROR) {
       if (!(exception instanceof ApplicationError)) {
         this.reports.report(exception, { source: 'http' });
       }
@@ -104,6 +138,10 @@ export class ProblemFilter implements ExceptionFilter {
 
     adapter.setHeader(response, 'Content-Type', PROBLEM_CONTENT_TYPE);
     adapter.setHeader(response, API_VERSION_HEADER, API_VERSION);
+
+    if (refused) {
+      adapter.setHeader(response, 'Retry-After', RETRY_AFTER_SECONDS);
+    }
 
     if (problem.currentVersion !== undefined) {
       adapter.setHeader(

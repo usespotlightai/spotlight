@@ -38,6 +38,7 @@ const TITLES: Readonly<Record<number, [slug: string, title: string]>> = {
     'The request must be conditional',
   ],
   [HttpStatus.BAD_GATEWAY]: ['upstream-error', 'An upstream service failed'],
+  [HttpStatus.SERVICE_UNAVAILABLE]: ['unavailable', 'The service is busy'],
 };
 
 const problemType = (slug: string): string => `urn:spotlight:problem:${slug}`;
