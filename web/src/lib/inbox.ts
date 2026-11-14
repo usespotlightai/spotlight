@@ -57,7 +57,7 @@ export type JournalledRun = JournalledRunResponseDto;
 export const decisionPending = (notes: readonly Note[]): boolean =>
   notes.findLast((note) => note.kind === 'asked')?.form === 'approval';
 
-export const closesOrReopens = (note: Note): boolean =>
+const closesOrReopens = (note: Note): boolean =>
   note.form === 'resolved' || note.kind === 'reopened';
 
 export const showsInThread = (note: Note): boolean => !closesOrReopens(note);
