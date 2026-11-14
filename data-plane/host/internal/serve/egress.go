@@ -102,6 +102,25 @@ func (s *egressSidecar) rekey(ctx context.Context, token, runner string) error {
 	return s.start(ctx, egressCredential{token: token})
 }
 
+// Egress deletes its config at start. A restarted host takes over from this file.
+const egressTakeoverPath = "/run/spotlight-host/takeover.json"
+
+type egressTakeover struct {
+	Credential   string   `json:"credential"`
+	SandboxHosts []string `json:"sandboxHosts,omitempty"`
+	HarnessKeys  []string `json:"harnessKeys,omitempty"`
+}
+
+func (s *egressSidecar) takeoverFile() (sandbox.File, error) {
+	names := make([]string, 0, len(s.keys))
+	for _, key := range s.keys {
+		names = append(names, key.Name)
+	}
+
+	body, err := json.Marshal(egressTakeover{Credential: s.credential, SandboxHosts: s.sandboxHosts, HarnessKeys: names})
+	return sandbox.File{Path: egressTakeoverPath, Mode: 0o400, Body: body}, err
+}
+
 type egressCredential struct {
 	token string
 	host  *protocol.HostCredential
@@ -111,6 +130,10 @@ func (s *egressSidecar) start(ctx context.Context, credential egressCredential) 
 	h := s.host
 
 	image, err := h.egressImage(ctx)
+	if err != nil {
+		return err
+	}
+	takeover, err := s.takeoverFile()
 	if err != nil {
 		return err
 	}
@@ -124,7 +147,7 @@ func (s *egressSidecar) start(ctx context.Context, credential egressCredential) 
 		SecretAllow:  h.now().Egress.SecretAllow,
 		HarnessKeys:  s.keys,
 		SandboxHosts: s.sandboxHosts,
-	}, []sandbox.Join{{Network: s.network, Aliases: []string{EgressAlias}}})
+	}, []sandbox.Join{{Network: s.network, Aliases: []string{EgressAlias}}}, takeover)
 	if err != nil {
 		return err
 	}
@@ -141,13 +164,14 @@ func (s *egressSidecar) start(ctx context.Context, credential egressCredential) 
 
 func (h *Host) startEgress(
 	ctx context.Context, image, name string, labels map[string]string, config protocol.EgressConfig, joins []sandbox.Join,
+	kept ...sandbox.File,
 ) (string, error) {
 	body, err := json.Marshal(config)
 	if err != nil {
 		return "", err
 	}
 
-	env, files := h.now().Egress.Env, []sandbox.File{{Path: protocol.EgressConfigPath, Mode: 0o400, Body: body}}
+	env, files := h.now().Egress.Env, append([]sandbox.File{{Path: protocol.EgressConfigPath, Mode: 0o400, Body: body}}, kept...)
 	if len(h.now().Egress.CABundle) > 0 {
 		env = append(slices.Clone(env), "SSL_CERT_DIR="+EgressCABundleDir)
 		files = append(files, sandbox.File{Path: EgressCABundleDir + "/trusted.pem", Mode: 0o644, DirMode: 0o755, Body: h.now().Egress.CABundle})

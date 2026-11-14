@@ -436,12 +436,12 @@ func (e *fakeEngine) Read(_ context.Context, id, path string) ([]byte, error) {
 		return nil, os.ErrNotExist
 	}
 	if path == protocol.EgressConfigPath {
-		for _, file := range spec.Files {
-			if file.Path == path {
-				return file.Body, nil
-			}
-		}
 		return nil, os.ErrNotExist
+	}
+	for _, file := range spec.Files {
+		if file.Path == path {
+			return file.Body, nil
+		}
 	}
 	if call := spec.Labels[serve.LabelCall]; call != "" {
 		if e.callMute || path != protocol.EgressSendPath {
@@ -2144,9 +2144,13 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 	}
 
 	var config protocol.EgressConfig
-	if len(egress.Files) != 1 || egress.Files[0].Path != protocol.EgressConfigPath || egress.Files[0].Mode != 0o400 ||
+	if len(egress.Files) != 2 || egress.Files[0].Path != protocol.EgressConfigPath || egress.Files[0].Mode != 0o400 ||
 		json.Unmarshal(egress.Files[0].Body, &config) != nil {
 		t.Fatalf("egress got %+v", egress.Files)
+	}
+	if kept := string(egress.Files[1].Body); egress.Files[1].Path != "/run/spotlight-host/takeover.json" || egress.Files[1].Mode != 0o400 ||
+		kept != `{"credential":"`+config.Credential+`","harnessKeys":["ANTHROPIC_API_KEY"]}` {
+		t.Errorf("egress keeps %s for a restarted host, more than the sandbox's credential and key names", kept)
 	}
 	if config.Token != "egress-runner_1" || config.URL != opts.SandboxURL || !slices.Equal(config.Allow, []string{"api.anthropic.com"}) ||
 		!slices.Equal(config.SecretAllow, []string{"prod/*"}) || len(config.Credential) < 16 {
@@ -2327,7 +2331,7 @@ func TestHandsEgressTheAuthoritiesItTrustsForPrivateHosts(t *testing.T) {
 	if !slices.Contains(egress.Env, "SSL_CERT_DIR="+serve.EgressCABundleDir) {
 		t.Errorf("egress env %v", egress.Env)
 	}
-	if len(egress.Files) != 2 || egress.Files[1].Path != serve.EgressCABundleDir+"/trusted.pem" || string(egress.Files[1].Body) != "acme authority" {
+	if len(egress.Files) != 3 || egress.Files[2].Path != serve.EgressCABundleDir+"/trusted.pem" || string(egress.Files[2].Body) != "acme authority" {
 		t.Errorf("egress files %+v", egress.Files)
 	}
 

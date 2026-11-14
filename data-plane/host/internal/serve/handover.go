@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	"usespotlight.ai/data-plane/host/internal/sandbox"
@@ -103,13 +104,17 @@ func (h *Host) adopted(
 		return liveSandbox{}, errors.New("its egress is not running")
 	}
 
-	body, err := h.engine.Read(ctx, egress.ID, protocol.EgressConfigPath)
+	body, err := h.engine.Read(ctx, egress.ID, egressTakeoverPath)
 	if err != nil {
 		return liveSandbox{}, fmt.Errorf("read its egress settings: %w", err)
 	}
-	var config protocol.EgressConfig
-	if err := json.Unmarshal(body, &config); err != nil {
+	var kept egressTakeover
+	if err := json.Unmarshal(body, &kept); err != nil {
 		return liveSandbox{}, fmt.Errorf("read its egress settings: %w", err)
+	}
+	keys, err := h.harnessKeysNamed(kept.HarnessKeys)
+	if err != nil {
+		return liveSandbox{}, err
 	}
 
 	authority, err := h.engine.Read(ctx, egress.ID, protocol.EgressAuthority)
@@ -141,16 +146,30 @@ func (h *Host) adopted(
 			host:         h,
 			name:         name,
 			labels:       sidecarLabels,
-			keys:         config.HarnessKeys,
+			keys:         keys,
 			wait:         egressWaitOr(h.opts.EgressWait),
-			sandboxHosts: config.SandboxHosts,
+			sandboxHosts: kept.SandboxHosts,
 			networkName:  networkName,
 			network:      network,
 			container:    egress.ID,
-			credential:   config.Credential,
+			credential:   kept.Credential,
 			authority:    authority,
 		},
 	}, nil
+}
+
+func (h *Host) harnessKeysNamed(names []string) ([]protocol.HarnessKey, error) {
+	_, held := standInsFor(h.now().SandboxEnv)
+
+	keys := make([]protocol.HarnessKey, 0, len(names))
+	for _, name := range names {
+		at := slices.IndexFunc(held, func(key protocol.HarnessKey) bool { return key.Name == name })
+		if at < 0 {
+			return nil, fmt.Errorf("its harness key %s is no longer in the host's sandbox-env", name)
+		}
+		keys = append(keys, held[at])
+	}
+	return keys, nil
 }
 
 func (h *Host) reap(ctx context.Context, left leftBehind) {
