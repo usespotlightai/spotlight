@@ -103,14 +103,15 @@ func (h *Host) adopted(
 		return liveSandbox{}, errors.New("its egress is not running")
 	}
 
-	body, err := h.engine.Read(ctx, egress.ID, protocol.EgressConfigPath)
+	body, err := h.engine.Read(ctx, egress.ID, egressTakeoverPath)
 	if err != nil {
 		return liveSandbox{}, fmt.Errorf("read its egress settings: %w", err)
 	}
-	var config protocol.EgressConfig
-	if err := json.Unmarshal(body, &config); err != nil {
+	var kept egressTakeover
+	if err := json.Unmarshal(body, &kept); err != nil {
 		return liveSandbox{}, fmt.Errorf("read its egress settings: %w", err)
 	}
+	_, keys := standInsFor(h.now().SandboxEnv)
 
 	authority, err := h.engine.Read(ctx, egress.ID, protocol.EgressAuthority)
 	if err != nil {
@@ -141,13 +142,13 @@ func (h *Host) adopted(
 			host:         h,
 			name:         name,
 			labels:       sidecarLabels,
-			keys:         config.HarnessKeys,
+			keys:         keys,
 			wait:         egressWaitOr(h.opts.EgressWait),
-			sandboxHosts: config.SandboxHosts,
+			sandboxHosts: kept.SandboxHosts,
 			networkName:  networkName,
 			network:      network,
 			container:    egress.ID,
-			credential:   config.Credential,
+			credential:   kept.Credential,
 			authority:    authority,
 		},
 	}, nil

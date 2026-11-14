@@ -202,6 +202,35 @@ func TestTheRestartedHostDeliversTheNextRunIntoASandboxItTookOver(t *testing.T) 
 	})
 }
 
+func TestTheRestartedHostReKeysASandboxItTookOverWithItsCredentialHostsAndHarnessKeys(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := updating(t, &updates{}, false)
+	opts.LeaseEvery = 5 * time.Millisecond
+	id := updatedWhileRunning(t, opts, engine, pool, sandboxOnly("sandbox_a"))
+	before := egressTokenOf(t, engine.liveEgressesOfSandbox("sandbox_a")[0])
+
+	restarted(t, opts, engine, pool)
+	pool.into <- reused("runner_2", "sandbox_a")
+	eventually(t, "the egress re-keyed for the run", func() bool {
+		live := engine.liveEgressesOfSandbox("sandbox_a")
+		return len(live) == 1 && egressTokenOf(t, live[0]).Token == "egress-runner_2"
+	})
+
+	after := egressTokenOf(t, engine.liveEgressesOfSandbox("sandbox_a")[0])
+	if after.Credential != before.Credential {
+		t.Error("the re-keyed egress takes another proxy credential than the sandbox has")
+	}
+	if !slices.Equal(after.SandboxHosts, []string{"archives.example.com"}) {
+		t.Errorf("the re-keyed egress lets the sandbox reach %v", after.SandboxHosts)
+	}
+	if !slices.Equal(after.HarnessKeys, before.HarnessKeys) || len(after.HarnessKeys) != 1 {
+		t.Errorf("the re-keyed egress wears the harness keys %+v, not %+v", after.HarnessKeys, before.HarnessKeys)
+	}
+	if engine.wasDestroyed(id) {
+		t.Fatal("the restarted host destroyed the sandbox it took over")
+	}
+}
+
 func TestStopsASandboxItTookOverWhenTheControlPlaneDrainsIt(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := updating(t, &updates{}, false)

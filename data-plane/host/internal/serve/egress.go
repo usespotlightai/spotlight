@@ -102,6 +102,14 @@ func (s *egressSidecar) rekey(ctx context.Context, token, runner string) error {
 	return s.start(ctx, egressCredential{token: token})
 }
 
+// egressTakeoverPath stays in the egress for a restarted host. Egress deletes its config when it starts.
+const egressTakeoverPath = "/run/spotlight/takeover.json"
+
+type egressTakeover struct {
+	Credential   string   `json:"credential"`
+	SandboxHosts []string `json:"sandboxHosts,omitempty"`
+}
+
 type egressCredential struct {
 	token string
 	host  *protocol.HostCredential
@@ -146,8 +154,15 @@ func (h *Host) startEgress(
 	if err != nil {
 		return "", err
 	}
+	kept, err := json.Marshal(egressTakeover{Credential: config.Credential, SandboxHosts: config.SandboxHosts})
+	if err != nil {
+		return "", err
+	}
 
-	env, files := h.now().Egress.Env, []sandbox.File{{Path: protocol.EgressConfigPath, Mode: 0o400, Body: body}}
+	env, files := h.now().Egress.Env, []sandbox.File{
+		{Path: protocol.EgressConfigPath, Mode: 0o400, Body: body},
+		{Path: egressTakeoverPath, Mode: 0o400, Body: kept},
+	}
 	if len(h.now().Egress.CABundle) > 0 {
 		env = append(slices.Clone(env), "SSL_CERT_DIR="+EgressCABundleDir)
 		files = append(files, sandbox.File{Path: EgressCABundleDir + "/trusted.pem", Mode: 0o644, DirMode: 0o755, Body: h.now().Egress.CABundle})
