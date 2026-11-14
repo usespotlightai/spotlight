@@ -439,6 +439,54 @@ export class Sandboxes
     }
   }
 
+  async holdArchive(
+    sandboxId: string,
+    runId: string,
+    at: Date,
+  ): Promise<boolean> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    if (!found) {
+      return false;
+    }
+
+    const run = RunId.of(runId);
+    const held = await reviseSandbox(this.sandboxes, found, (sandbox) =>
+      sandbox.holdArchiveOf(run, at),
+    );
+
+    return held?.holdsArchiveOf(run) ?? false;
+  }
+
+  async releaseArchive(
+    sandboxId: string,
+    runId: string,
+    at: Date,
+  ): Promise<void> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    if (found) {
+      const run = RunId.of(runId);
+
+      await reviseSandbox(this.sandboxes, found, (sandbox) =>
+        sandbox.releaseArchiveOf(run, at),
+      );
+    }
+  }
+
+  async heldForArchive(
+    sandboxId: string,
+    runId: string,
+    at: Date,
+  ): Promise<boolean> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    return (
+      !!found?.isLive &&
+      found.withoutExpiredLeases(at).holdsArchiveOf(RunId.of(runId))
+    );
+  }
+
   async holdForEditor(
     sandboxId: string,
     holder: string,
@@ -469,7 +517,7 @@ export class Sandboxes
 
     return (
       !!found?.isOpen &&
-      found.withoutExpiredEditors(at).holdsEditor(LeaseHolder.editor(holder))
+      found.withoutExpiredLeases(at).holdsEditor(LeaseHolder.editor(holder))
     );
   }
 
@@ -578,6 +626,14 @@ export class Sandboxes
           'Draining an idle sandbox',
         );
       }
+    }
+
+    for (const archiving of await this.sandboxes.archivingRenewedBefore(
+      SandboxLease.archiveRenewedBefore(now),
+    )) {
+      await reviseSandbox(this.sandboxes, archiving, (sandbox) =>
+        sandbox.withoutExpiredLeases(now),
+      );
     }
 
     for (const id of await this.placements.liveOnHostsSilentSince(

@@ -23,6 +23,7 @@ type conversation struct {
 	journal      *journalWriter
 	control      Journal
 	archiver     *archiver
+	sandbox      ArchivingSandbox
 	lifecycle    *progress
 	takeHandover func() *protocol.Handover
 	handover     *protocol.Handover
@@ -321,7 +322,10 @@ func (c *conversation) complete(ctx context.Context, exitCode int) error {
 	}
 
 	_ = c.harness.Close()
-	c.archiver.archive(ctx)
+	held := c.archiver.holdForArchive(ctx, c.sandbox)
+	if held == nil {
+		c.archiver.archive(ctx)
+	}
 	c.journal.flush(ctx)
 
 	if c.handOver != nil && !stopped {
@@ -329,12 +333,16 @@ func (c *conversation) complete(ctx context.Context, exitCode int) error {
 		c.handOver = nil
 	}
 
-	if err := c.control.Complete(ctx, c.run.ID, turn); err != nil {
-		return err
+	err := c.control.Complete(ctx, c.run.ID, turn)
+	if err == nil {
+		c.log.Info("turn reported", "exitCode", exitCode, "stopped", stopped)
 	}
 
-	c.log.Info("turn reported", "exitCode", exitCode, "stopped", stopped)
-	return nil
+	if held != nil {
+		c.archiver.archiveHeld(ctx, held, err == nil)
+	}
+
+	return err
 }
 
 func (c *conversation) leaveLostBehind() {

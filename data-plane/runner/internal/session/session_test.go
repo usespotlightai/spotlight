@@ -53,6 +53,7 @@ type journal struct {
 	renewedWhileReading    int
 	starts                 []protocol.StartingPoint
 	startErr               error
+	completeErr            error
 	proposed               []protocol.CandidateProposal
 	caused                 []protocol.CauseRecord
 }
@@ -91,7 +92,7 @@ func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion
 	if j.archives != nil {
 		j.completedBy = append(j.completedBy, j.archives.count())
 	}
-	return nil
+	return j.completeErr
 }
 
 func (j *journal) UseTool(
@@ -382,39 +383,43 @@ process.stdin.on("data", (chunk) => {
 }
 
 type runOptions struct {
-	messages    [][]protocol.Message
-	heartbeat   time.Duration
-	sandbox     *session.Sandbox
-	runID       string
-	briefing    string
-	handover    []string
-	agentUser   *account.User
-	root        string
-	env         map[string]string
-	resume      protocol.Resume
-	stopAfter   int
-	attachments []protocol.Attachment
-	skills      []protocol.SkillFile
-	skillHomes  []string
-	settings    []string
-	files       map[string]string
-	setup       protocol.HarnessSetup
-	decision    string
-	archives    *archives
-	memory      []protocol.MemoryFile
-	memoryErr   error
-	memoryTakes time.Duration
-	starting    bool
-	startErr    error
-	replay      *protocol.Replay
-	search      *protocol.SearchSpec
-	checkouts   []protocol.Checkout
-	proxyEnv    map[string]string
-	enforced    func(context.Context) bool
-	stopOnce    string
-	wait        time.Duration
-	quiet       time.Duration
-	log         *slog.Logger
+	messages      [][]protocol.Message
+	heartbeat     time.Duration
+	sandbox       *session.Sandbox
+	runID         string
+	briefing      string
+	handover      []string
+	agentUser     *account.User
+	root          string
+	env           map[string]string
+	resume        protocol.Resume
+	stopAfter     int
+	attachments   []protocol.Attachment
+	skills        []protocol.SkillFile
+	skillHomes    []string
+	settings      []string
+	files         map[string]string
+	setup         protocol.HarnessSetup
+	decision      string
+	archives      *archives
+	held          *heldSandbox
+	stopOnArchive bool
+	attempt       int
+	completeErr   error
+	memory        []protocol.MemoryFile
+	memoryErr     error
+	memoryTakes   time.Duration
+	starting      bool
+	startErr      error
+	replay        *protocol.Replay
+	search        *protocol.SearchSpec
+	checkouts     []protocol.Checkout
+	proxyEnv      map[string]string
+	enforced      func(context.Context) bool
+	stopOnce      string
+	wait          time.Duration
+	quiet         time.Duration
+	log           *slog.Logger
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -435,6 +440,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		memoryErr:   settings.memoryErr,
 		memoryTakes: settings.memoryTakes,
 		startErr:    settings.startErr,
+		completeErr: settings.completeErr,
 	}
 	if settings.sandbox == nil {
 		settings.sandbox = new(session.Sandbox)
@@ -442,14 +448,23 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 	if settings.runID == "" {
 		settings.runID = "run_1"
 	}
+	var held session.ArchivingSandbox
+	if settings.held != nil {
+		settings.held.journal = written
+		held = settings.held
+	}
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
+	if settings.held != nil && settings.stopOnArchive {
+		settings.held.onGrant = stop
+	}
 	if settings.stopOnce != "" {
 		go stopOnceWritten(ctx, stop, filepath.Join(settings.root, settings.stopOnce))
 	}
 
 	err := settings.sandbox.Execute(ctx, protocol.Run{
-		ID: settings.runID,
+		ID:      settings.runID,
+		Attempt: settings.attempt,
 		Spec: protocol.Spec{
 			Command:       protocol.Command{Executable: executable, Env: settings.env},
 			Briefing:      settings.briefing,
@@ -475,8 +490,9 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		Enforced:       settings.enforced,
 		BackgroundWait: settings.wait,
 		SettleQuiet:    settings.quiet,
+		Sandbox:        held,
 	})
-	if err != nil && settings.stopOnce == "" {
+	if err != nil && settings.stopOnce == "" && settings.completeErr == nil {
 		t.Fatalf("execute: %v", err)
 	}
 

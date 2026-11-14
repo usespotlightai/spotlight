@@ -20,6 +20,16 @@ const (
 
 const settleFor = 25 * time.Second
 
+const archiveLeaseRenewal = 30 * time.Second
+
+type ArchivingSandbox interface {
+	HoldArchiveLease(ctx context.Context, runID string) error
+	ReleaseArchiveLease(ctx context.Context, runID string) error
+	AppendArchiveEvents(ctx context.Context, runID string, attempt int, events []protocol.Event) error
+	GrantArchive(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error)
+	CompleteArchive(ctx context.Context, archiveID string) error
+}
+
 type archiver struct {
 	run     protocol.Run
 	space   *workspace.Workspace
@@ -197,7 +207,14 @@ func (a *archiver) archive(ctx context.Context) bool {
 	var completed bool
 	a.leased(ctx, func(ctx context.Context) {
 		var summary string
-		summary, completed = a.archived(ctx)
+		summary, completed = a.archived(ctx, storeCalls{
+			grant: func(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error) {
+				return a.control.GrantArchive(ctx, a.run.ID, size, sha256)
+			},
+			complete: func(ctx context.Context, archiveID string) error {
+				return a.control.CompleteArchive(ctx, a.run.ID, archiveID)
+			},
+		})
 		a.report(archiveStep, "%s", summary)
 	})
 	if !completed {
@@ -207,7 +224,72 @@ func (a *archiver) archive(ctx context.Context) bool {
 	return completed
 }
 
-func (a *archiver) archived(ctx context.Context) (string, bool) {
+type heldArchive struct {
+	sandbox      ArchivingSandbox
+	stopRenewing context.CancelFunc
+}
+
+type archiveJournal struct {
+	sandbox ArchivingSandbox
+	attempt int
+}
+
+func (j archiveJournal) AppendEvents(ctx context.Context, runID string, events []protocol.Event) error {
+	return j.sandbox.AppendArchiveEvents(ctx, runID, j.attempt, events)
+}
+
+func (a *archiver) holdForArchive(ctx context.Context, sandbox ArchivingSandbox) *heldArchive {
+	if sandbox == nil || !a.restoresWorkspace() {
+		return nil
+	}
+
+	if err := sandbox.HoldArchiveLease(ctx, a.run.ID); err != nil {
+		a.log.Warn("the sandbox could not hold the workspace for an archive after the report, so the run archives first", "error", err)
+		return nil
+	}
+
+	return &heldArchive{
+		sandbox: sandbox,
+		stopRenewing: renewing(context.WithoutCancel(ctx), archiveLeaseRenewal, func(ctx context.Context) error {
+			return sandbox.HoldArchiveLease(ctx, a.run.ID)
+		}, func(err error) {
+			a.log.Error("could not renew the sandbox's archive lease; a new sandbox of the task may restore an older archive", "error", err)
+		}),
+	}
+}
+
+func (a *archiver) archiveHeld(ctx context.Context, held *heldArchive, reported bool) {
+	defer held.stopRenewing()
+
+	if reported {
+		a.journal.through(archiveJournal{sandbox: held.sandbox, attempt: a.run.Attempt})
+		a.archiveAfterReport(ctx, held.sandbox)
+	} else {
+		a.archive(ctx)
+	}
+
+	settled, done := settling(ctx)
+	defer done()
+
+	a.journal.flush(settled)
+	held.stopRenewing()
+	if err := held.sandbox.ReleaseArchiveLease(settled, a.run.ID); err != nil {
+		a.log.Warn("could not release the sandbox after the archive; the lease expires instead", "error", err)
+	}
+}
+
+func (a *archiver) archiveAfterReport(ctx context.Context, sandbox ArchivingSandbox) {
+	ctx, cancel := lingering(ctx)
+	defer cancel()
+
+	summary, completed := a.archived(ctx, storeCalls{grant: sandbox.GrantArchive, complete: sandbox.CompleteArchive})
+	a.report(archiveStep, "%s", summary)
+	if !completed {
+		a.current = ""
+	}
+}
+
+func (a *archiver) archived(ctx context.Context, calls storeCalls) (string, bool) {
 	leaveOut := a.rebuilt(ctx)
 
 	now, err := archive.Fingerprint(a.space.Dir, leaveOut)
@@ -218,14 +300,7 @@ func (a *archiver) archived(ctx context.Context) (string, bool) {
 		return "Coalesced: nothing changed since the workspace was last restored or archived", true
 	}
 
-	stored, err := packAndStore(ctx, a.space, a.through, leaveOut, a.scratch, storeCalls{
-		grant: func(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error) {
-			return a.control.GrantArchive(ctx, a.run.ID, size, sha256)
-		},
-		complete: func(ctx context.Context, archiveID string) error {
-			return a.control.CompleteArchive(ctx, a.run.ID, archiveID)
-		},
-	}, a.log)
+	stored, err := packAndStore(ctx, a.space, a.through, leaveOut, a.scratch, calls, a.log)
 	if err != nil {
 		return "Skipped: " + err.Error(), false
 	}
@@ -283,6 +358,15 @@ func (a *archiver) leased(ctx context.Context, do func(context.Context)) {
 }
 
 func leasing(ctx context.Context, lease Journal, runID string, every time.Duration, log *slog.Logger) context.CancelFunc {
+	return renewing(ctx, every, func(ctx context.Context) error {
+		_, err := lease.RenewLease(ctx, runID)
+		return err
+	}, func(err error) {
+		log.Warn("could not renew lease", "error", err)
+	})
+}
+
+func renewing(ctx context.Context, every time.Duration, renew func(context.Context) error, failed func(error)) context.CancelFunc {
 	renewing, stop := context.WithCancel(ctx)
 
 	go func() {
@@ -294,8 +378,8 @@ func leasing(ctx context.Context, lease Journal, runID string, every time.Durati
 			case <-renewing.Done():
 				return
 			case <-ticker.C:
-				if _, err := lease.RenewLease(renewing, runID); err != nil {
-					log.Warn("could not renew lease", "error", err)
+				if err := renew(renewing); err != nil {
+					failed(err)
 				}
 			}
 		}
@@ -309,6 +393,16 @@ func settling(ctx context.Context) (context.Context, context.CancelFunc) {
 		return context.WithCancel(ctx)
 	}
 	return context.WithTimeout(context.WithoutCancel(ctx), settleFor)
+}
+
+func lingering(ctx context.Context) (context.Context, context.CancelFunc) {
+	detached, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	stop := context.AfterFunc(ctx, func() { time.AfterFunc(settleFor, cancel) })
+
+	return detached, func() {
+		stop()
+		cancel()
+	}
 }
 
 func emptied(space *workspace.Workspace, log *slog.Logger) {

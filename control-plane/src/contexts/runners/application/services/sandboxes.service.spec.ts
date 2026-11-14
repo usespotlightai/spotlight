@@ -16,7 +16,10 @@ import {
 import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
-import { EDITOR_LEASE_MS } from '@runners/domain/value-objects/sandbox-lease.vo';
+import {
+  ARCHIVE_LEASE_MS,
+  EDITOR_LEASE_MS,
+} from '@runners/domain/value-objects/sandbox-lease.vo';
 import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -412,6 +415,96 @@ describe('Sandboxes', () => {
       ).resolves.toEqual([]);
     });
   });
+  describe('the archive of a run after it reported its turn', () => {
+    it('holds the sandbox for the run in it, so the key stays live and no next run comes in until released', async () => {
+      const { service, stored } = serving({ known: [placed('sandbox_1')] });
+
+      await expect(
+        service.holdArchive('sandbox_1', 'run_9', later(500)),
+      ).resolves.toBe(false);
+      await expect(
+        service.holdArchive('sandbox_9', 'run_1', later(500)),
+      ).resolves.toBe(false);
+      await expect(
+        service.holdArchive('sandbox_1', 'run_1', later(500)),
+      ).resolves.toBe(true);
+
+      await service.releaseRun('run_1', later(1_000));
+
+      expect(stored.get('sandbox_1')?.isIdle).toBe(false);
+      await expect(service.takingRuns('sandbox_1', HOST)).resolves.toBeNull();
+      await expect(
+        service.liveKeysIn(WORKSPACE.value, later(2_000)),
+      ).resolves.toEqual(['task-task_1']);
+      await expect(
+        service.heldForArchive('sandbox_1', 'run_1', later(2_000)),
+      ).resolves.toBe(true);
+      await expect(
+        service.heldForArchive('sandbox_1', 'run_2', later(2_000)),
+      ).resolves.toBe(false);
+      await expect(
+        service.heldForArchive(
+          'sandbox_1',
+          'run_1',
+          later(500 + ARCHIVE_LEASE_MS),
+        ),
+      ).resolves.toBe(false);
+      await expect(
+        service.holdArchive('sandbox_1', 'run_1', later(30_000)),
+      ).resolves.toBe(true);
+
+      await service.releaseArchive('sandbox_1', 'run_1', later(15_000));
+
+      expect(stored.get('sandbox_1')?.idleSince).toEqual(later(15_000));
+      await expect(service.takingRuns('sandbox_1', HOST)).resolves.toEqual({
+        id: 'sandbox_1',
+        workspaceId: WORKSPACE.value,
+        key: 'task-task_1',
+      });
+    });
+
+    it('keeps a sandbox a retiring run drains off its host’s drain list until the archive releases it', async () => {
+      const { service } = serving({ known: [placed('sandbox_1')] });
+      const host = aHost({ id: HostId.of(HOST), sandboxes: ['sandbox_1'] });
+
+      await service.holdArchive('sandbox_1', 'run_1', later(500));
+      await service.retireRun('run_1', later(1_000));
+
+      await expect(service.toDrainOn(host)).resolves.toEqual([]);
+      await expect(
+        service.liveKeysIn(WORKSPACE.value, later(2_000)),
+      ).resolves.toEqual(['task-task_1']);
+
+      await service.releaseArchive('sandbox_1', 'run_1', later(15_000));
+
+      await expect(service.toDrainOn(host)).resolves.toEqual(['sandbox_1']);
+    });
+
+    it('drops an archive lease nobody renewed, and the sandbox takes runs again', async () => {
+      const due = later(500 + ARCHIVE_LEASE_MS);
+      const { service, stored } = serving({
+        known: [
+          placed('sandbox_1')
+            .holdArchiveOf(RunId.of('run_1'), later(500))
+            .releaseRun(RunId.of('run_1'), later(1_000)),
+        ],
+        now: due,
+      });
+
+      await service.drainIdle(later(500 + ARCHIVE_LEASE_MS - 1));
+      expect(stored.get('sandbox_1')?.holdsArchiveOf(RunId.of('run_1'))).toBe(
+        true,
+      );
+
+      await service.drainIdle(due);
+
+      expect(stored.get('sandbox_1')?.holdsArchiveOf(RunId.of('run_1'))).toBe(
+        false,
+      );
+      expect(stored.get('sandbox_1')?.idleSince).toEqual(due);
+    });
+  });
+
   describe('a sandbox requested with no run', () => {
     const requested = (id = 'sandbox_r', key = 'task-task_1') =>
       Sandbox.request({

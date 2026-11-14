@@ -151,19 +151,36 @@ export class Sandbox extends EventRecorder {
       );
     }
 
-    const holdsARun = state.leases.some((each) => each.isForRun);
+    const occupied = state.leases.some((each) => each.occupies);
 
-    if (state.hostId === null && (holdsARun || state.state === 'draining')) {
+    if (state.hostId === null && (occupied || state.state === 'draining')) {
       throw new InconsistentStateError(
         'sandbox',
-        `is ${state.state} or held by a run while no host started it`,
+        `is ${state.state} or held by a run or an archive while no host started it`,
       );
     }
 
-    if (holdsARun === (state.idleSince !== null)) {
+    if (occupied === (state.idleSince !== null)) {
       throw new InconsistentStateError(
         'sandbox',
-        'is idle while a run holds it, or holds no run and is not idle',
+        'is idle while a run or an archive holds it, or holds neither and is not idle',
+      );
+    }
+
+    const archived = state.leases.flatMap((each) =>
+      each.isForArchive ? [each.holder.id] : [],
+    );
+
+    if (
+      archived.length > 0 &&
+      (state.key === null ||
+        state.leases.some(
+          (each) => each.isForRun && !archived.includes(each.holder.id),
+        ))
+    ) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'holds an archive while it has no key, or while another run holds it',
       );
     }
 
@@ -278,6 +295,10 @@ export class Sandbox extends EventRecorder {
     return this.isHeldBy(LeaseHolder.run(runId));
   }
 
+  holdsArchiveOf(runId: RunId): boolean {
+    return this.isHeldBy(LeaseHolder.archive(runId));
+  }
+
   holdsEditor(holder: LeaseHolder): boolean {
     return holder.isEditor && this.isHeldBy(holder);
   }
@@ -331,8 +352,13 @@ export class Sandbox extends EventRecorder {
   }
 
   keptBy(host: RunnerHost): boolean {
+    const holdsAnArchive =
+      this.isLive && this.state.leases.some((each) => each.isForArchive);
+
     return (
-      this.isOpen && this.isOn(host.id) && !(host.isStopping && this.isIdle)
+      (this.isOpen || holdsAnArchive) &&
+      this.isOn(host.id) &&
+      !(host.isStopping && this.isIdle)
     );
   }
 
@@ -454,10 +480,7 @@ export class Sandbox extends EventRecorder {
     const holder = LeaseHolder.run(runId);
     const leases = this.state.leases.filter((each) => !each.isHeldBy(holder));
 
-    return this.with({
-      leases,
-      idleSince: leases.some((each) => each.isForRun) ? null : at,
-    });
+    return this.withLeases(leases, at);
   }
 
   retireRun(runId: RunId, at: Date): Sandbox {
@@ -467,7 +490,42 @@ export class Sandbox extends EventRecorder {
 
     const released = this.releaseRun(runId, at);
 
-    return released.leases.length === 0 ? released.drain() : released;
+    return released.leases.every((each) => each.isForArchive)
+      ? released.drain()
+      : released;
+  }
+
+  holdArchiveOf(runId: RunId, at: Date): Sandbox {
+    const holder = LeaseHolder.archive(runId);
+
+    if (
+      !this.isLive ||
+      this.state.key === null ||
+      !(this.holdsRun(runId) || this.isHeldBy(holder))
+    ) {
+      return this;
+    }
+
+    return this.with({
+      leases: [
+        ...this.state.leases.filter((each) => !each.isHeldBy(holder)),
+        SandboxLease.of(holder, at),
+      ],
+      idleSince: null,
+    });
+  }
+
+  releaseArchiveOf(runId: RunId, at: Date): Sandbox {
+    const holder = LeaseHolder.archive(runId);
+
+    if (!this.isHeldBy(holder)) {
+      return this;
+    }
+
+    return this.withLeases(
+      this.state.leases.filter((each) => !each.isHeldBy(holder)),
+      at,
+    );
   }
 
   holdEditor(holder: LeaseHolder, at: Date): Sandbox {
@@ -501,7 +559,7 @@ export class Sandbox extends EventRecorder {
     );
   }
 
-  withoutExpiredEditors(now: Date): Sandbox {
+  withoutExpiredLeases(now: Date): Sandbox {
     const leases = this.state.leases.filter((each) => !each.expiredAt(now));
 
     return leases.length === this.state.leases.length
@@ -581,7 +639,7 @@ export class Sandbox extends EventRecorder {
   }
 
   drainedWhenDue(policy: SandboxDrainPolicy, now: Date): Sandbox {
-    const held = this.withoutExpiredEditors(now);
+    const held = this.withoutExpiredLeases(now);
 
     if (!held.drainDue(policy, now)) {
       return held;
@@ -595,11 +653,13 @@ export class Sandbox extends EventRecorder {
   }
 
   private withLeases(leases: readonly SandboxLease[], at: Date): Sandbox {
-    const idle = !leases.some((each) => each.isForRun);
+    if (leases.some((each) => each.occupies)) {
+      return this.with({ leases, idleSince: null });
+    }
 
     return this.with({
       leases,
-      idleSince: idle && leases.length === 0 ? at : this.state.idleSince,
+      idleSince: leases.length === 0 ? at : (this.state.idleSince ?? at),
     });
   }
 

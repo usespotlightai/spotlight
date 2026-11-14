@@ -3,8 +3,10 @@ package control_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"usespotlight.ai/data-plane/control"
@@ -65,5 +67,48 @@ func TestASandboxNeedsAnIdAndAToken(t *testing.T) {
 	}
 	if _, err := control.ForSandbox("http://localhost", "sandbox_1", ""); err == nil {
 		t.Error("took a sandbox with no token")
+	}
+}
+
+func TestASandboxHoldsItselfForTheArchiveOfARun(t *testing.T) {
+	var seen []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		seen = append(seen, strings.TrimSpace(r.Method+" "+r.URL.Path+" "+r.Header.Get("Authorization")+" "+string(body)))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+
+	sandbox, err := control.ForSandbox(server.URL, "sandbox_1", "sandbox-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	if err := sandbox.HoldArchiveLease(ctx, "run_1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := sandbox.AppendArchiveEvents(ctx, "run_1", 2, []protocol.Event{{Seq: 9, Type: protocol.EventOutput, Message: "archive"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := sandbox.AppendArchiveEvents(ctx, "run_1", 2, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := sandbox.ReleaseArchiveLease(ctx, "run_1"); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{
+		"PUT /api/sandboxes/sandbox_1/archive-leases/run_1 Bearer sandbox-token",
+		`POST /api/sandboxes/sandbox_1/archive-leases/run_1/events Bearer sandbox-token {"attempt":2,"events":[{"seq":9,"type":"output","at":"0001-01-01T00:00:00Z","message":"archive"}]}`,
+		"DELETE /api/sandboxes/sandbox_1/archive-leases/run_1 Bearer sandbox-token",
+	}
+	if len(seen) != len(want) {
+		t.Fatalf("called %v", seen)
+	}
+	for i := range want {
+		if seen[i] != want[i] {
+			t.Errorf("call %d was %q, want %q", i, seen[i], want[i])
+		}
 	}
 }

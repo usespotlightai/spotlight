@@ -347,6 +347,20 @@ export class DrizzleSandboxRepository implements SandboxRepository {
     return rows.map(toSandbox);
   }
 
+  async archivingRenewedBefore(cutoff: Date): Promise<readonly Sandbox[]> {
+    const rows = await this.context.db
+      .select()
+      .from(sandbox)
+      .where(
+        and(
+          ne(sandbox.state, 'gone'),
+          sql`exists (select 1 from jsonb_array_elements(${sandbox.leases}) as lease where lease->>'kind' = 'archive' and (lease->>'renewedAt')::timestamptz <= ${cutoff.toISOString()}::timestamptz)`,
+        ),
+      );
+
+    return rows.map(toSandbox);
+  }
+
   async goneBefore(cutoff: Date): Promise<readonly Sandbox[]> {
     const rows = await this.context.db
       .select()

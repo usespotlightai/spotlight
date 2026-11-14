@@ -205,6 +205,9 @@ const pulling = (
     readyWarmIn: vi.fn(async () => over.readyWarm ?? []),
     adoptForRun: vi.fn(async () => over.adopts ?? true),
     authenticate: vi.fn(async () => null),
+    holdArchive: vi.fn(async () => true),
+    releaseArchive: vi.fn(async () => {}),
+    heldForArchive: vi.fn(async () => false),
   } satisfies SandboxesPort;
   const archives = {
     completedKeysAmong: vi.fn(

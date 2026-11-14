@@ -51,6 +51,7 @@ import {
   RecordEgressConnectionsCommand,
 } from '@runs/application/commands/egress.commands';
 import { AppendRunJournalHandler } from '@runs/application/commands/handlers/append-run-journal.handler';
+import { AppendSandboxArchiveJournalHandler } from '@runs/application/commands/handlers/append-sandbox-archive-journal.handler';
 import { ClaimHostCallHandler } from '@runs/application/commands/handlers/claim-host-call.handler';
 import { ClaimHostWorkHandler } from '@runs/application/commands/handlers/claim-host-work.handler';
 import { ClaimRunHandler } from '@runs/application/commands/handlers/claim-run.handler';
@@ -62,11 +63,13 @@ import { FetchRunSecretsHandler } from '@runs/application/commands/handlers/fetc
 import { FetchSharedRunSecretsHandler } from '@runs/application/commands/handlers/fetch-shared-run-secrets.handler';
 import { GrantSandboxArchiveHandler } from '@runs/application/commands/handlers/grant-sandbox-archive.handler';
 import { GrantWorkingCopyArchiveHandler } from '@runs/application/commands/handlers/grant-working-copy-archive.handler';
+import { HoldSandboxArchiveHandler } from '@runs/application/commands/handlers/hold-sandbox-archive.handler';
 import { RecordEgressConnectionsHandler } from '@runs/application/commands/handlers/record-egress-connections.handler';
 import { RecordHostCallResponseHandler } from '@runs/application/commands/handlers/record-host-call-response.handler';
 import { RecordRunImageHandler } from '@runs/application/commands/handlers/record-run-image.handler';
 import { RecordStartingPointHandler } from '@runs/application/commands/handlers/record-starting-point.handler';
 import { RedeemCallSecretsHandler } from '@runs/application/commands/handlers/redeem-call-secrets.handler';
+import { ReleaseSandboxArchiveHandler } from '@runs/application/commands/handlers/release-sandbox-archive.handler';
 import { RenewCheckLeaseHandler } from '@runs/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@runs/application/commands/handlers/renew-lease.handler';
 import {
@@ -86,10 +89,13 @@ import {
   RenewLeaseCommand,
 } from '@runs/application/commands/runner.commands';
 import {
+  AppendSandboxArchiveJournalCommand,
   CompleteSandboxArchiveCommand,
   CompleteWorkingCopyArchiveCommand,
   GrantSandboxArchiveCommand,
   GrantWorkingCopyArchiveCommand,
+  HoldSandboxArchiveCommand,
+  ReleaseSandboxArchiveCommand,
 } from '@runs/application/commands/working-copy-archive.commands';
 import { RecordRunUsage } from '@runs/application/events/handlers/record-run-usage.handler';
 import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.event-mappers';
@@ -241,6 +247,7 @@ import { RemoveReleasedArchives } from '@runs/application/services/remove-releas
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import { RunCredentials } from '@runs/application/services/run-credentials.service';
 import { RunFileSources } from '@runs/application/services/run-file-sources.service';
+import { RunJournalAppends } from '@runs/application/services/run-journal-appends.service';
 import { RunJournalReadings } from '@runs/application/services/run-journal-readings.service';
 import { RunLeases } from '@runs/application/services/run-leases.service';
 import { RunReadModel } from '@runs/application/services/run-read-model.service';
@@ -310,6 +317,7 @@ import { RunStreamController } from '@runs/presentation/http/controllers/run-str
 import { RunController } from '@runs/presentation/http/controllers/run.controller';
 import { RunnerActivityController } from '@runs/presentation/http/controllers/runner-activity.controller';
 import { RunnerController } from '@runs/presentation/http/controllers/runner.controller';
+import { SandboxArchiveLeaseController } from '@runs/presentation/http/controllers/sandbox-archive-lease.controller';
 import { SandboxArchiveController } from '@runs/presentation/http/controllers/sandbox-archive.controller';
 import { WorkingCopyArchiveController } from '@runs/presentation/http/controllers/working-copy-archive.controller';
 import { LongPollShutdown } from '@runs/presentation/http/long-poll-shutdown';
@@ -370,6 +378,7 @@ export const RUNS_CONTROLLERS: readonly Type[] = [
   RunStreamController,
   WorkingCopyArchiveController,
   SandboxArchiveController,
+  SandboxArchiveLeaseController,
   PoolController,
   HostWorkController,
   HostCallSecretsController,
@@ -787,6 +796,31 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     [SandboxArchives, WORKING_COPY_ARCHIVE_REPOSITORY, ArchiveGrants],
   ),
 
+  ...bindCommandHandler(HoldSandboxArchiveCommand, HoldSandboxArchiveHandler, [
+    SandboxArchives,
+    RUN_REPOSITORY,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(
+    ReleaseSandboxArchiveCommand,
+    ReleaseSandboxArchiveHandler,
+    [SandboxArchives, CLOCK],
+  ),
+
+  ...bindCommandHandler(
+    AppendSandboxArchiveJournalCommand,
+    AppendSandboxArchiveJournalHandler,
+    [SandboxArchives, RUN_REPOSITORY, RunJournalAppends, CLOCK],
+  ),
+
+  {
+    provide: RunJournalAppends,
+    inject: [RUN_JOURNAL, RUN_STREAM],
+    useFactory: (journal: RunJournalPort, stream: RunStreamPort) =>
+      new RunJournalAppends(journal, stream),
+  },
+
   {
     provide: ArchiveGrants,
     inject: [
@@ -1126,8 +1160,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(AppendRunJournalCommand, AppendRunJournalHandler, [
     RUN_REPOSITORY,
-    RUN_JOURNAL,
-    RUN_STREAM,
+    RunJournalAppends,
   ]),
 
   ...bindCommandHandler(CompleteRunCommand, CompleteRunHandler, [
