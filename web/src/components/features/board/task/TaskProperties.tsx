@@ -54,7 +54,7 @@ export function TaskProperties({
 
         {teamId && <AssigneePicker teamId={teamId} task={task} variant="row" />}
 
-        {linked && task.source && (
+        {linked && (
           <TaskSourceLink
             slug={linked.slug}
             teamId={linked.teamId}

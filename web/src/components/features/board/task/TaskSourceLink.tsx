@@ -6,7 +6,7 @@ import { teamSettingsPath } from '@/lib/settings';
 type TaskSourceLinkProps = {
   slug: string;
   teamId: string;
-  source: string;
+  source: string | null;
 };
 
 export function TaskSourceLink({ slug, teamId, source }: TaskSourceLinkProps) {
