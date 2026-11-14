@@ -317,7 +317,7 @@ process.stdin.on("data", (chunk) => {
       let usage;
       try { ` + doing + ` } catch (e) { output = String(e.message ?? e); }
       send({ jsonrpc: "2.0", method: "session/update",
-             params: { update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: output } } } });
+             params: { sessionId, update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: output } } } });
       send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "` + stopReason + `", ...(usage ? { usage } : {}) } });
     }
   }
@@ -493,28 +493,39 @@ func stopOnceWritten(ctx context.Context, stop context.CancelFunc, path string) 
 	}
 }
 
-func agentOutput(t *testing.T, written *journal) string {
+func agentChunks(t *testing.T, written *journal) []string {
 	t.Helper()
 
-	var output strings.Builder
-	for _, event := range written.typed(protocol.EventOutput) {
-		if event.Message != "" {
-			continue
+	var chunks []string
+	for _, event := range written.typed(protocol.EventMessage) {
+		var message protocol.AgentMessage
+		if err := json.Unmarshal(event.Data, &message); err != nil {
+			t.Fatalf("the journal recorded a message that does not read: %v", err)
 		}
-		var update struct {
-			Update struct {
-				Content struct {
-					Text string `json:"text"`
-				} `json:"content"`
-			} `json:"update"`
+		if message.Role == protocol.MessageFromAgent {
+			chunks = append(chunks, message.Text)
 		}
-		if err := json.Unmarshal(event.Data, &update); err != nil {
-			t.Fatalf("the journal recorded something that is not an update: %v", err)
-		}
-		output.WriteString(update.Update.Content.Text)
 	}
+	return chunks
+}
 
-	return output.String()
+func agentOutput(t *testing.T, written *journal) string {
+	t.Helper()
+	return strings.Join(agentChunks(t, written), "")
+}
+
+func turnsEnded(t *testing.T, written *journal) []protocol.TurnEnded {
+	t.Helper()
+
+	var ended []protocol.TurnEnded
+	for _, event := range written.typed(protocol.EventTurnEnded) {
+		var turn protocol.TurnEnded
+		if err := json.Unmarshal(event.Data, &turn); err != nil {
+			t.Fatalf("the journal recorded a turn end that does not read: %v", err)
+		}
+		ended = append(ended, turn)
+	}
+	return ended
 }
 
 func TestTakesARunFromNothingToAnOutcome(t *testing.T) {
@@ -531,48 +542,51 @@ func TestTakesARunFromNothingToAnOutcome(t *testing.T) {
 	}
 }
 
-func TestRecordsTheAgentsOutputAsItWasWritten(t *testing.T) {
+func TestKeepsEachFrameOfTheHarnessAsItWasWritten(t *testing.T) {
 	written := run(t, harness(t, `output = "structured";`, "end_turn"))
 
-	output := written.typed(protocol.EventOutput)
-	if len(output) == 0 {
-		t.Fatal("nothing was recorded")
+	for _, event := range written.typed(protocol.EventHarnessFrame) {
+		var frame struct {
+			Protocol string `json:"protocol"`
+			Data     struct {
+				Method string `json:"method"`
+				Params struct {
+					Update map[string]any `json:"update"`
+				} `json:"params"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(event.Data, &frame); err != nil {
+			t.Fatalf("not readable as a frame: %v", err)
+		}
+		if frame.Protocol == "acp/1" && frame.Data.Method == "session/update" && frame.Data.Params.Update["sessionUpdate"] == "agent_message_chunk" {
+			return
+		}
 	}
-
-	var update map[string]any
-	if err := json.Unmarshal(output[0].Data, &update); err != nil {
-		t.Fatalf("not readable as an update: %v", err)
-	}
-	if _, ok := update["update"]; !ok {
-		t.Errorf("recorded %v, which is not a session update", update)
-	}
+	t.Fatal("the agent's update was not kept as a frame")
 }
 
 func TestWhatATurnUsedIsRecordedAsTheHarnessReportedIt(t *testing.T) {
 	written := run(t, harness(t, `output = "cached"; usage = { totalTokens: 20, inputTokens: 3, outputTokens: 5, cachedReadTokens: 12 };`, "end_turn"))
 
-	used := written.typed(protocol.EventUsage)
-	if len(used) != 1 {
-		t.Fatalf("expected one usage per turn, got %d", len(used))
+	ended := turnsEnded(t, written)
+	if len(ended) != 1 || ended[0].Usage == nil {
+		t.Fatalf("expected one turn with its usage, got %+v", ended)
 	}
 
-	var usage map[string]any
-	if err := json.Unmarshal(used[0].Data, &usage); err != nil {
-		t.Fatalf("not readable as usage: %v", err)
+	usage := ended[0].Usage
+	if usage.CacheRead == nil || *usage.CacheRead != 12 || usage.Input == nil || *usage.Input != 3 {
+		t.Errorf("recorded %+v", usage)
 	}
-	if usage["cachedReadTokens"] != float64(12) {
-		t.Errorf("recorded %v", usage)
-	}
-	if _, found := usage["cachedWriteTokens"]; found {
-		t.Errorf("recorded a cache write the harness never reported: %v", usage)
+	if usage.CacheWrite != nil {
+		t.Errorf("recorded a cache write the harness never reported: %+v", usage)
 	}
 }
 
 func TestATurnThatReportsNoUsageRecordsNone(t *testing.T) {
 	written := run(t, harness(t, `output = "quiet";`, "end_turn"))
 
-	if used := written.typed(protocol.EventUsage); len(used) != 0 {
-		t.Errorf("recorded usage nobody reported: %v", used)
+	if ended := turnsEnded(t, written); len(ended) != 1 || ended[0].Usage != nil {
+		t.Errorf("recorded usage nobody reported: %+v", ended)
 	}
 }
 
@@ -1251,8 +1265,8 @@ func TestAMessageIsSentAgainWhereTheHarnessLetsItGoUnread(t *testing.T) {
 		t.Fatalf("the run should finish: %+v", written.done)
 	}
 
-	for _, event := range written.typed(protocol.EventOutput) {
-		if strings.Contains(string(event.Data), "got: actually, do this instead") {
+	for _, chunk := range agentChunks(t, written) {
+		if strings.Contains(chunk, "got: actually, do this instead") {
 			return
 		}
 	}
@@ -1591,22 +1605,7 @@ func handingOverWhen(condition string) string {
 func prompts(t *testing.T, written *journal) []string {
 	t.Helper()
 
-	var said strings.Builder
-	for _, event := range written.typed(protocol.EventOutput) {
-		var update struct {
-			Update struct {
-				SessionUpdate string `json:"sessionUpdate"`
-				Content       struct {
-					Text string `json:"text"`
-				} `json:"content"`
-			} `json:"update"`
-		}
-		if json.Unmarshal(event.Data, &update) == nil && update.Update.SessionUpdate == "agent_message_chunk" {
-			said.WriteString(update.Update.Content.Text)
-		}
-	}
-
-	output := said.String()
+	output := agentOutput(t, written)
 	if !strings.HasPrefix(output, "[") || !strings.HasSuffix(output, "]") {
 		t.Fatalf("the agent wrote %q", output)
 	}
@@ -1766,18 +1765,8 @@ func said(t *testing.T, written *journal) string {
 	t.Helper()
 
 	var all strings.Builder
-	for _, event := range written.typed(protocol.EventOutput) {
-		var update struct {
-			Update struct {
-				SessionUpdate string `json:"sessionUpdate"`
-				Content       struct {
-					Text string `json:"text"`
-				} `json:"content"`
-			} `json:"update"`
-		}
-		if json.Unmarshal(event.Data, &update) == nil && update.Update.SessionUpdate == "agent_message_chunk" {
-			all.WriteString(update.Update.Content.Text + "|")
-		}
+	for _, chunk := range agentChunks(t, written) {
+		all.WriteString(chunk + "|")
 	}
 	return all.String()
 }
@@ -1868,8 +1857,15 @@ func TestTheProtocolOfTheHarnessIsJournalled(t *testing.T) {
 	written := run(t, harness(t, `output = "worked";`, "end_turn"))
 
 	connected := written.typed(protocol.EventHarnessConnected)
-	if len(connected) != 1 || connected[0].Message != "acp/1" {
+	if len(connected) != 1 {
 		t.Fatalf("connected %+v", connected)
+	}
+	var said protocol.HarnessConnected
+	if err := json.Unmarshal(connected[0].Data, &said); err != nil {
+		t.Fatal(err)
+	}
+	if said.Protocol != "acp/1" || said.Events != protocol.HarnessEventsVersion || !said.Reports.TurnUsage || said.Reports.Background {
+		t.Fatalf("connected %+v", said)
 	}
 }
 

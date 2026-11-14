@@ -1181,7 +1181,7 @@ export type RunEventRequestDto = {
   at: string;
   message?: string;
   /**
-   * One session update as the agent reported it, JSON, base64
+   * The event's data as JSON, base64
    */
   data?: string;
 };

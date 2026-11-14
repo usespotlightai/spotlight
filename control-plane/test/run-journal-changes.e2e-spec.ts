@@ -20,6 +20,12 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import {
+  connected,
+  entryOf,
+  said,
+  toolChanged,
+} from './support/harness-events';
 import { silentLogger } from './support/logger';
 import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
@@ -47,69 +53,54 @@ afterAll(async () => {
 const API = Repository.of('acme/api');
 const WEB = Repository.of('acme/web');
 
-const sent = (update: Record<string, unknown>): string =>
-  Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
-    'base64',
-  );
-
 type Notification =
   | { call: string }
   | { edit: string; path: string }
   | { hook: string }
   | { chunk: string };
 
-const entries = (...notifications: Notification[]): JournalEntry[] =>
-  notifications.map((each, index) => {
-    const at = new Date(Date.UTC(2026, 8, 27, 9, 0, index));
-    const seq = index + 1;
+const EDIT = { title: 'Edit', input: { file: 'a large input' } };
 
-    if ('hook' in each) {
-      return { seq, type: 'output', at, message: each.hook, data: 'aGk=' };
-    }
-    if ('call' in each) {
-      return {
-        seq,
-        type: 'output',
-        at,
-        data: sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: each.call,
-          title: 'Edit',
-          rawInput: { file: 'a large input' },
-        }),
-      };
-    }
-    if ('edit' in each) {
-      return {
-        seq,
-        type: 'output',
-        at,
-        data: sent({
-          sessionUpdate: 'tool_call_update',
-          toolCallId: each.edit,
-          status: 'completed',
-          rawOutput: 'x'.repeat(10_000),
-          content: [
-            {
-              type: 'diff',
-              path: each.path,
-              oldText: 'before',
-              newText: 'after',
-            },
-          ],
-        }),
-      };
-    }
-    return {
+const entryAt = (seq: number, each: Notification): JournalEntry => {
+  const at = new Date(Date.UTC(2026, 8, 27, 9, 0, seq));
+
+  if ('hook' in each) {
+    return { seq, type: 'output', at, message: each.hook, data: 'aGk=' };
+  }
+  if ('call' in each) {
+    return entryOf(
       seq,
-      type: 'output',
       at,
-      data: sent({
-        sessionUpdate: 'agent_message_chunk',
-        content: { type: 'text', text: each.chunk },
+      toolChanged({ id: each.call, ...EDIT, status: 'pending' }),
+    );
+  }
+  if ('edit' in each) {
+    return entryOf(
+      seq,
+      at,
+      toolChanged({
+        id: each.edit,
+        ...EDIT,
+        status: 'completed',
+        output: 'x'.repeat(10_000),
+        files: [
+          {
+            path: each.path,
+            operation: 'update',
+            before: 'before',
+            after: 'after',
+          },
+        ],
       }),
-    };
-  });
+    );
+  }
+  return entryOf(seq, at, said(each.chunk));
+};
+
+const entries = (...notifications: Notification[]): JournalEntry[] => [
+  entryOf(1, new Date(Date.UTC(2026, 8, 27, 9, 0, 1)), connected()),
+  ...notifications.map((each, index) => entryAt(index + 2, each)),
+];
 
 const runOf = async (
   taskId: string,
@@ -185,7 +176,6 @@ describe('reading what a task’s runs changed', () => {
       entries(
         { call: 'call_1' },
         { edit: 'call_1', path: '/runs/r2/api/src/retry.ts' },
-        { edit: 'call_9', path: '/runs/r2/api/src/unseen.ts' },
       ),
     );
     await journal.append(
@@ -227,7 +217,6 @@ describe('reading what a task’s runs changed', () => {
         { chunk: 'Now the retry.' },
         { call: 'call_2' },
         { edit: 'call_2', path: '/runs/r1/api/src/retry.ts' },
-        { edit: 'call_3', path: '/runs/r1/api/src/never-called.ts' },
       ),
     );
 

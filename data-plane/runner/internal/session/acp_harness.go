@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/acp"
 )
 
@@ -22,9 +23,9 @@ var acpTurnEnds = map[string]TurnEnd{
 
 func (h acpHarness) Protocol() string { return h.client.Protocol() }
 
-func (h acpHarness) Watch(saw func(Update)) {
-	h.client.Watch(func(update acp.Update) { saw(Update{Raw: update.Raw}) })
-}
+func (h acpHarness) Reports() protocol.HarnessReports { return h.client.Reports() }
+
+func (h acpHarness) Watch(saw func(protocol.Event)) { h.client.Watch(saw) }
 
 func (h acpHarness) Prompt(ctx context.Context, sessionID, text string) (Turn, error) {
 	result, err := h.client.Prompt(ctx, sessionID, text)
@@ -32,7 +33,7 @@ func (h acpHarness) Prompt(ctx context.Context, sessionID, text string) (Turn, e
 	if !known {
 		end = TurnFailed
 	}
-	return Turn{End: end, Reason: result.StopReason, Usage: result.Usage}, err
+	return Turn{End: end, Reason: result.StopReason, Silent: result.Heard == 0}, err
 }
 
 func (h acpHarness) Settle(ctx context.Context) (Work, bool) {

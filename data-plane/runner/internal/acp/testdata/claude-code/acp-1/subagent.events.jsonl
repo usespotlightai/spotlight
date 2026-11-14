@@ -1,0 +1,11 @@
+{"type":"turn.started","data":{"turn":1,"origin":"prompt"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"tool.changed","data":{"id":"toolu_4","name":"Task","kind":"think","title":"Task","status":"in_progress","input":{"description":"Find the flaky test","subagent_type":"general-purpose"}}}
+{"type":"child.changed","data":{"child":"child_1","title":"Find the flaky test","description":"Look for the flaky test","state":"running"}}
+{"type":"child.message","data":{"to":"child_1","text":"Find the flaky test in src/queue."}}
+{"type":"message","data":{"session":"child_1","id":"m1","role":"agent","text":"It is queue.spec.ts."}}
+{"type":"child.message","data":{"from":"child_1","text":"queue.spec.ts is flaky."}}
+{"type":"child.changed","data":{"child":"child_1","state":"idle","stop":"ended"}}
+{"type":"tool.changed","data":{"id":"toolu_4","name":"Task","kind":"think","title":"Task","status":"completed","input":{"description":"Find the flaky test","subagent_type":"general-purpose"}}}
+{"type":"turn.ended","data":{"turn":1,"stop":"ended","reason":"end_turn"}}
+{"type":"session.state","data":{"state":"idle"}}

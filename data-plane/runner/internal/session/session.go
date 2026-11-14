@@ -395,7 +395,12 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		log:     log,
 		stopped: make(chan struct{}),
 	}
-	journal.record(ctx, protocol.Event{Type: protocol.EventHarnessConnected, Message: harness.Protocol()})
+	journal.record(ctx, protocol.HarnessEvent(protocol.EventHarnessConnected, protocol.HarnessConnected{
+		Protocol: harness.Protocol(),
+		Events:   protocol.HarnessEventsVersion,
+		Session:  sessionID,
+		Reports:  harness.Reports(),
+	}))
 
 	stopLeasing()
 	err = talk.work(ctx, talk.opening(ctx))
@@ -903,7 +908,10 @@ type journalWriter struct {
 	sending sync.Mutex
 	seq     int
 	pending []protocol.Event
+	failed  int
 }
+
+const flushTries = 5
 
 func (j *journalWriter) append(event protocol.Event) {
 	j.mu.Lock()
@@ -933,9 +941,23 @@ func (j *journalWriter) flush(ctx context.Context) {
 		return
 	}
 
-	if err := j.journal.AppendEvents(ctx, j.runID, batch); err != nil {
-		slog.Warn("could not append events", "run", j.runID, "count", len(batch), "error", err)
+	err := j.journal.AppendEvents(ctx, j.runID, batch)
+	if err == nil {
+		j.failed = 0
+		return
 	}
+
+	j.failed++
+	if j.failed >= flushTries {
+		slog.Warn("could not append events; they are lost", "run", j.runID, "count", len(batch), "error", err)
+		j.failed = 0
+		return
+	}
+
+	slog.Warn("could not append events; they are sent again with the next ones", "run", j.runID, "count", len(batch), "error", err)
+	j.mu.Lock()
+	j.pending = append(batch, j.pending...)
+	j.mu.Unlock()
 }
 
 func recall(ctx context.Context, journal Journal, runID string, request protocol.RecallRequest) (json.RawMessage, error) {

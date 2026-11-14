@@ -19,7 +19,6 @@ import {
   PROVISION_FAILED,
   RUN_PAUSED,
   TOOL_REFUSED,
-  TURN_USAGE,
 } from '@runs/domain/value-objects/journal-entry-type';
 import { Money } from '@runs/domain/value-objects/money.vo';
 import type { SpentReading } from '@runs/domain/value-objects/run-usage.vo';
@@ -28,24 +27,33 @@ import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import {
   backgroundWorkIn,
   type WaitEnded,
-} from '@runs/infrastructure/acp/background-work';
-import { type Content, diffIn } from '@runs/infrastructure/acp/content';
-import {
-  type FrameReader,
-  frameReaderFor,
-  type HarnessNotification,
-} from '@runs/infrastructure/acp/frame-reader';
-import {
-  callEndingOf,
-  harnessToolOf,
-  readingPaths,
-  requestedSkillOf,
-} from '@runs/infrastructure/acp/harness-tools';
+} from '@runs/infrastructure/journal/background-work';
 import {
   controlPlaneFactsOf,
   journalEntryText,
 } from '@runs/infrastructure/journal/control-plane-facts';
 import { enforcementOf } from '@runs/infrastructure/journal/egress-enforcement';
+import {
+  type AgentMessage,
+  type ChildChanged,
+  type ChildMessage,
+  type ContextChanged,
+  type FileChange,
+  type HarnessEvent,
+  harnessConnectedOf,
+  harnessEventOf,
+  type PlanEntry,
+  type ToolChanged,
+  type ToolLocation,
+  type ToolOutput,
+  type TurnUsage,
+} from '@runs/infrastructure/journal/harness-events';
+import {
+  callEndingOf,
+  harnessToolOf,
+  readingPaths,
+  requestedSkillOf,
+} from '@runs/infrastructure/journal/harness-tools';
 import {
   decoded,
   type Journalled,
@@ -58,14 +66,10 @@ const countOf = (value: unknown): number | null =>
 
 const DETAIL_LIMIT = 4_000;
 
-const priced = (
-  cost: { amount?: number; currency?: string } | undefined,
-): Money | null =>
+const priced = (cost: ContextChanged['cost']): Money | null =>
   cost?.currency && Money.isCurrency(cost.currency)
     ? Money.maybe(cost.amount, cost.currency)
     : null;
-
-type AcpNotification = HarnessNotification;
 
 const unfenced = (text: string): string => {
   const lines = text.split('\n');
@@ -82,37 +86,28 @@ const unfenced = (text: string): string => {
     .trim();
 };
 
-const textOf = (content: Content | undefined): string => {
-  if (!content) {
-    return '';
-  }
-  if (Array.isArray(content)) {
-    return content
-      .map((each) => each?.content?.text ?? '')
-      .filter(Boolean)
-      .join('\n')
-      .trim();
-  }
-  return content.text ?? '';
-};
+const changed = (
+  files: readonly FileChange[] | undefined,
+): StepChange | null => {
+  const file = files?.[0];
 
-const changed = (content: Content | undefined): StepChange | null => {
-  const diff = diffIn(content);
-
-  return diff
+  return file
     ? {
-        path: diff.path ?? null,
-        before: (diff.oldText ?? '').slice(0, DETAIL_LIMIT),
-        after: (diff.newText ?? '').slice(0, DETAIL_LIMIT),
+        path: file.path,
+        before: (file.before ?? '').slice(0, DETAIL_LIMIT),
+        after: (file.after ?? '').slice(0, DETAIL_LIMIT),
       }
     : null;
 };
 
+const changedOnce = (call: ToolChanged): StepChange | null =>
+  call.status === 'completed' ? changed(call.files) : null;
+
 const locationsOf = (
-  locations: { path?: string; line?: number }[] | undefined,
+  locations: readonly ToolLocation[] | undefined,
 ): StepLocation[] =>
   (locations ?? []).flatMap((each) =>
-    each?.path ? [{ path: each.path, line: each.line ?? null }] : [],
+    each.path ? [{ path: each.path, line: each.line ?? null }] : [],
   );
 
 const written = (raw: unknown): string | null => {
@@ -129,21 +124,6 @@ const written = (raw: unknown): string | null => {
     return null;
   }
 };
-
-const toolNameOf = (
-  update: NonNullable<AcpNotification['update']>,
-): string | null => {
-  const named = update._meta?.claudeCode?.toolName;
-
-  return typeof named === 'string' && named.trim().length > 0 ? named : null;
-};
-
-interface TurnUsage {
-  readonly inputTokens?: unknown;
-  readonly outputTokens?: unknown;
-  readonly cachedReadTokens?: unknown;
-  readonly cachedWriteTokens?: unknown;
-}
 
 interface HookCalled {
   readonly hook?: string;
@@ -173,13 +153,11 @@ const inPlace = (
     : [...steps.slice(0, at), step, ...steps.slice(at)];
 };
 
-const planned = (
-  entries: NonNullable<AcpNotification['update']>['entries'],
-): string =>
-  (entries ?? [])
+const planned = (entries: readonly PlanEntry[]): string =>
+  entries
     .map((each) => {
-      const status = each?.status ? `[${each.status}] ` : '';
-      return `${status}${each?.content ?? ''}`.trim();
+      const status = each.status ? `[${each.status}] ` : '';
+      return `${status}${each.content}`.trim();
     })
     .filter(Boolean)
     .join('\n');
@@ -246,37 +224,27 @@ const WAIT_ENDS: Readonly<
 const tasksIn = (data: string | null): readonly string[] =>
   backgroundWorkIn(data).tasks;
 
-const SUBAGENT_STATUSES: Readonly<Record<string, string>> = {
-  running: 'running',
-  requires_action: 'running',
-};
-
-const subagentStatusOf = (
-  state: NonNullable<AcpNotification['update']>['state'],
-): string | null => {
-  if (!state?.state) {
+const subagentStatusOf = (changed: ChildChanged): string | null => {
+  if (!changed.state) {
     return null;
   }
-  if (state.state !== 'idle') {
-    return SUBAGENT_STATUSES[state.state] ?? null;
+  if (changed.state !== 'idle') {
+    return 'running';
   }
-  return state.stopReason === 'error' || state.stopReason === 'cancelled'
+  return changed.stop === 'failed' || changed.stop === 'cancelled'
     ? 'failed'
     : 'completed';
 };
 
-const blocksOf = (content: Content | undefined): string =>
-  Array.isArray(content)
-    ? content
-        .map((block) =>
-          typeof (block as { text?: unknown })?.text === 'string'
-            ? (block as { text: string }).text
-            : '',
-        )
-        .filter(Boolean)
-        .join('\n')
-        .trim()
-    : '';
+const NOTIFIED = new Set<HarnessEvent['type']>([
+  'message',
+  'tool.changed',
+  'tool.output',
+  'plan.changed',
+  'context.changed',
+  'child.changed',
+  'child.message',
+]);
 
 const transcriptOf = (steps: readonly JournalStep[]): string | null =>
   steps
@@ -293,8 +261,10 @@ export class JournalBuilder {
   #steps: Building[] = [];
   #hooks: JournalStep[] = [];
   #tools = new Map<string, number>();
+  #printed = new Map<string, string>();
   #refused = new Set<string>();
   #textStep: Building | null = null;
+  #textId: string | null = null;
   #spent: SpentReading | null = null;
   #egressEnforcement: EgressEnforcement | null = null;
   #spentBySession = new Map<string, SpentReading>();
@@ -308,7 +278,8 @@ export class JournalBuilder {
   #agentStopped: Date | null = null;
   #closed: Date | null = null;
   #seen: Date | null = null;
-  #reader: FrameReader | null = frameReaderFor(null);
+  #reading = false;
+  #root = '';
   #subagents = new Map<string, { at: number; journal: JournalBuilder }>();
   #waiting: Building | null = null;
 
@@ -333,14 +304,24 @@ export class JournalBuilder {
       case 'output':
         this.output(event);
         break;
+      case 'turn.started':
+      case 'turn.ended':
+      case 'session.state':
+      case 'message':
+      case 'tool.changed':
+      case 'tool.output':
+      case 'plan.changed':
+      case 'background.changed':
+      case 'child.changed':
+      case 'child.message':
+      case 'context.changed':
+        this.harnessEvent(event);
+        break;
       case PROVISION_FAILED:
         this.failedToProvision(event);
         break;
       case RUN_PAUSED:
         this.#pausedAt.push(event.at);
-        break;
-      case TURN_USAGE:
-        this.used(event);
         break;
       case TOOL_REFUSED:
         this.refused(event);
@@ -352,7 +333,7 @@ export class JournalBuilder {
         this.#agentStopped = event.at;
         break;
       case HARNESS_CONNECTED:
-        this.#reader = frameReaderFor(event.message);
+        this.connected(event);
         break;
       case AGENT_REMINDED:
         this.reminded(event);
@@ -376,41 +357,37 @@ export class JournalBuilder {
   private output(event: Journalled): void {
     if (event.message) {
       this.ranHook(event);
-      return;
-    }
-    if (!event.data) {
-      return;
-    }
-
-    this.onNotification(event.data, event.at);
-  }
-
-  private onNotification(data: string, at: Date): void {
-    const notification = this.#reader?.read(data);
-    if (notification) {
-      this.notified(notification, at);
     }
   }
 
-  private notified(notification: AcpNotification, at: Date): void {
-    const update = notification.update;
-    if (!update?.sessionUpdate) {
-      return;
+  private connected(event: Journalled): void {
+    const connected = harnessConnectedOf(event);
+    this.#reading = connected !== null;
+    this.#root = connected?.session ?? '';
+  }
+
+  private harnessEvent(event: Journalled): void {
+    const read = this.#reading ? harnessEventOf(event) : null;
+    if (read) {
+      this.happened(read, event.at);
+    }
+  }
+
+  private happened(event: HarnessEvent, at: Date): void {
+    if (NOTIFIED.has(event.type)) {
+      this.#first = this.#first ?? at;
+      this.#last = at;
+      this.#notifiedAt.push(at);
     }
 
-    this.#first = this.#first ?? at;
-    this.#last = at;
-    this.#notifiedAt.push(at);
-
-    if (update.sessionUpdate === 'session_message') {
-      this.messaged(update);
+    if (event.type === 'child.message') {
+      this.messaged(event.data);
     }
 
-    const subagent = notification.sessionId
-      ? this.subagentOwning(notification.sessionId)
-      : undefined;
+    const session = event.data.session;
+    const subagent = session ? this.subagentOwning(session) : undefined;
     if (subagent) {
-      subagent.journal.notified(notification, at);
+      subagent.journal.happened(event, at);
       const step = this.#steps[subagent.at];
       if (step) {
         step.endedAt = at;
@@ -418,50 +395,47 @@ export class JournalBuilder {
       return;
     }
 
-    switch (update.sessionUpdate) {
-      case 'subagent_update':
-        this.subagent(update, at);
+    switch (event.type) {
+      case 'child.changed':
+        this.subagent(event.data, at);
         break;
-      case 'agent_message_chunk':
-        this.addText('message', textOf(update.content), at);
+      case 'message':
+        this.said(event.data, at);
         break;
-      case 'agent_thought_chunk':
-        this.addText('thought', textOf(update.content), at);
+      case 'tool.changed':
+        this.tool(event.data, at);
         break;
-      case 'tool_call':
-        this.startTool(update, at);
+      case 'tool.output':
+        this.toolOutput(event.data);
         break;
-      case 'tool_call_update':
-        this.went(update, at);
+      case 'plan.changed':
+        this.means(event.data.entries, at);
         break;
-      case 'plan':
-        this.means(update, at);
+      case 'context.changed':
+        this.cost(event.data, session || this.#root);
         break;
-      case 'usage_update':
-        this.cost(update, notification.sessionId ?? '');
+      case 'turn.ended':
+        this.used(event.data.usage);
         break;
-      default:
+      case 'turn.started':
+      case 'session.state':
+      case 'background.changed':
+      case 'child.message':
         break;
     }
   }
 
-  private used(event: Journalled): void {
-    let usage: TurnUsage;
-    try {
-      usage = JSON.parse(decoded(event.data ?? '')) as TurnUsage;
-    } catch {
-      return;
-    }
-    if (typeof usage !== 'object' || usage === null) {
+  private used(usage: TurnUsage | undefined): void {
+    if (!usage) {
       return;
     }
 
     this.#tokens = this.#tokens.plus(
       Tokens.of({
-        input: countOf(usage.inputTokens),
-        output: countOf(usage.outputTokens),
-        cacheRead: countOf(usage.cachedReadTokens),
-        cacheWrite: countOf(usage.cachedWriteTokens),
+        input: countOf(usage.input),
+        output: countOf(usage.output),
+        cacheRead: countOf(usage.cacheRead),
+        cacheWrite: countOf(usage.cacheWrite),
       }),
     );
   }
@@ -652,27 +626,16 @@ export class JournalBuilder {
     return this.#tokens;
   }
 
-  private cost(
-    update: NonNullable<AcpNotification['update']>,
-    session: string,
-  ): void {
-    if (update.used === undefined || update.size === undefined) {
-      return;
-    }
-
+  private cost(changed: ContextChanged, session: string): void {
     this.#spent = {
-      used: update.used,
-      size: update.size,
-      cost: priced(update.cost),
+      used: changed.used,
+      size: changed.size,
+      cost: priced(changed.cost),
     };
     this.#spentBySession.set(session, this.#spent);
   }
 
-  private means(
-    update: NonNullable<AcpNotification['update']>,
-    at: Date,
-  ): void {
-    const entries = update.entries ?? [];
+  private means(entries: readonly PlanEntry[], at: Date): void {
     if (entries.length === 0) {
       return;
     }
@@ -689,77 +652,79 @@ export class JournalBuilder {
     this.#steps.push(step);
   }
 
-  private addText(kind: 'message' | 'thought', text: string, at: Date): void {
-    if (!text) {
+  private said(message: AgentMessage, at: Date): void {
+    if (!message.text || message.role === 'user') {
       return;
     }
 
-    if (this.#textStep?.kind === kind) {
-      this.#textStep.text += text;
+    const kind = message.role === 'thought' ? 'thought' : 'message';
+
+    if (this.#textStep?.kind === kind && this.#textId === message.id) {
+      this.#textStep.text += message.text;
       this.#textStep.endedAt = at;
       return;
     }
 
     this.flushText();
-    this.#textStep = bare(kind, text, at);
+    this.#textStep = bare(kind, message.text, at);
+    this.#textId = message.id;
   }
 
-  private startTool(
-    update: NonNullable<AcpNotification['update']>,
-    at: Date,
-  ): void {
-    if (update.toolCallId && this.#tools.has(update.toolCallId)) {
-      this.went(update, at);
-      return;
-    }
-
-    this.flushText();
-
-    const step = bare('tool', update.title ?? 'a tool', at);
-    step.id = update.toolCallId ?? null;
-    step.status = update.status ?? null;
-    step.tool = update.kind ?? null;
-    step.named = toolNameOf(update);
-    step.workingAt = update.status === WORKING ? at : null;
-    step.locations = locationsOf(update.locations);
-    step.input = written(update.rawInput);
-
-    this.#steps.push(step);
-
-    if (update.toolCallId) {
-      this.#tools.set(update.toolCallId, this.#steps.length - 1);
-    }
-  }
-
-  private went(update: NonNullable<AcpNotification['update']>, at: Date): void {
-    const id = update.toolCallId;
-    const found = id === undefined ? undefined : this.#tools.get(id);
+  private tool(call: ToolChanged, at: Date): void {
+    const found = this.#tools.get(call.id);
     const step = found === undefined ? undefined : this.#steps[found];
 
     if (found === undefined || !step) {
+      this.flushText();
+
+      const started = bare('tool', call.title, at);
+      started.id = call.id;
+      started.status = call.status ?? null;
+      started.tool = call.kind ?? null;
+      started.named = call.name?.trim() || null;
+      started.workingAt = call.status === WORKING ? at : null;
+      started.locations = locationsOf(call.locations);
+      started.input = written(call.input);
+      started.output = written(call.output);
+      started.change = changedOnce(call);
+
+      this.#steps.push(started);
+      this.#tools.set(call.id, this.#steps.length - 1);
       return;
     }
 
-    const came = textOf(update.content);
-    const locations = locationsOf(update.locations);
+    const locations = locationsOf(call.locations);
 
     this.#steps[found] = {
       ...step,
-      text: update.title ?? step.text,
-      status: update.status ?? step.status,
-      tool: update.kind ?? step.tool,
-      named: toolNameOf(update) ?? step.named,
-      detail: came ? unfenced(came).slice(0, DETAIL_LIMIT) : step.detail,
+      text: call.title,
+      status: call.status ?? step.status,
+      tool: call.kind ?? step.tool,
+      named: call.name?.trim() || step.named,
       locations: locations.length > 0 ? locations : step.locations,
-      input: written(update.rawInput) ?? step.input,
-      output: written(update.rawOutput) ?? step.output,
-      change: changed(update.content) ?? step.change,
-      workingAt: step.workingAt ?? (update.status === WORKING ? at : null),
+      input: written(call.input) ?? step.input,
+      output: written(call.output) ?? step.output,
+      change: changedOnce(call) ?? step.change,
+      workingAt: step.workingAt ?? (call.status === WORKING ? at : null),
       endedAt:
         step.status !== null && ENDED_STATUSES.has(step.status)
           ? step.endedAt
           : at,
     };
+  }
+
+  private toolOutput(output: ToolOutput): void {
+    const found = this.#tools.get(output.id);
+    const step = found === undefined ? undefined : this.#steps[found];
+    if (!step || !output.text) {
+      return;
+    }
+
+    const printed = output.replace
+      ? output.text
+      : `${this.#printed.get(output.id) ?? ''}${output.text}`;
+    this.#printed.set(output.id, printed);
+    step.detail = unfenced(printed).slice(0, DETAIL_LIMIT);
   }
 
   private owns(sessionId: string): boolean {
@@ -777,33 +742,27 @@ export class JournalBuilder {
     );
   }
 
-  private subagent(
-    update: NonNullable<AcpNotification['update']>,
-    at: Date,
-  ): void {
-    const id = update.sessionId;
-    if (!id) {
-      return;
-    }
+  private subagent(changed: ChildChanged, at: Date): void {
+    const id = changed.child;
 
     this.flushText();
 
     const known = this.#subagents.get(id);
     const step = known ? this.#steps[known.at] : undefined;
     if (step) {
-      step.text = update.title ?? update.description ?? step.text;
-      step.status = subagentStatusOf(update.state) ?? step.status;
+      step.text = changed.title || changed.description || step.text;
+      step.status = subagentStatusOf(changed) ?? step.status;
       step.endedAt = at;
       return;
     }
 
     const started = bare(
       'subagent',
-      update.title ?? update.description ?? 'a subagent',
+      changed.title || changed.description || 'a subagent',
       at,
     );
     started.id = id;
-    started.status = subagentStatusOf(update.state) ?? 'running';
+    started.status = subagentStatusOf(changed) ?? 'running';
     this.#steps.push(started);
     this.#subagents.set(id, {
       at: this.#steps.length - 1,
@@ -811,18 +770,14 @@ export class JournalBuilder {
     });
   }
 
-  private messaged(update: NonNullable<AcpNotification['update']>): void {
-    const text = blocksOf(update.content);
+  private messaged(message: ChildMessage): void {
+    const text = message.text.trim();
     if (!text) {
       return;
     }
 
-    const to = update.recipientSessionId
-      ? this.#subagents.get(update.recipientSessionId)
-      : undefined;
-    const from = update.senderSessionId
-      ? this.#subagents.get(update.senderSessionId)
-      : undefined;
+    const to = message.to ? this.#subagents.get(message.to) : undefined;
+    const from = message.from ? this.#subagents.get(message.from) : undefined;
     const toStep = to ? this.#steps[to.at] : undefined;
     const fromStep = from ? this.#steps[from.at] : undefined;
 
@@ -887,6 +842,7 @@ export class JournalBuilder {
     if (this.#textStep) {
       this.#steps.push({ ...this.#textStep, text: this.#textStep.text.trim() });
       this.#textStep = null;
+      this.#textId = null;
     }
   }
 }

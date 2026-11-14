@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/account"
 )
 
@@ -23,9 +24,15 @@ type Client struct {
 	waiting map[int]chan response
 
 	answer    Permission
-	watching  func(Update)
+	watching  func(protocol.Event)
 	replaying bool
 	work      *workState
+	turns     int
+	heard     int
+	prompts   map[int]int
+
+	translating sync.Mutex
+	translator  *translator
 
 	root    string
 	meta    json.RawMessage
@@ -118,17 +125,19 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 	life, end := context.WithCancel(ctx)
 
 	client := &Client{
-		command: command,
-		stdin:   stdin,
-		waiting: map[int]chan response{},
-		answer:  answer,
-		root:    opts.Root,
-		meta:    opts.Session,
-		servers: opts.McpServers,
-		life:    life,
-		end:     end,
-		done:    make(chan struct{}),
-		work:    newWorkState(cmp.Or(opts.SettleQuiet, settleQuiet)),
+		command:    command,
+		stdin:      stdin,
+		waiting:    map[int]chan response{},
+		prompts:    map[int]int{},
+		answer:     answer,
+		root:       opts.Root,
+		meta:       opts.Session,
+		servers:    opts.McpServers,
+		life:       life,
+		end:        end,
+		done:       make(chan struct{}),
+		work:       newWorkState(cmp.Or(opts.SettleQuiet, settleQuiet)),
+		translator: newTranslator(),
 	}
 
 	go client.read(stdout)
@@ -165,6 +174,7 @@ func (c *Client) NewSession(ctx context.Context) (string, error) {
 		return "", err
 	}
 
+	c.opened(out.SessionID)
 	return out.SessionID, nil
 }
 
@@ -179,17 +189,32 @@ func (c *Client) Resume(ctx context.Context, sessionID string) error {
 		c.mu.Unlock()
 	}()
 
-	return c.call(ctx, "session/load", c.opening(map[string]any{
+	if err := c.call(ctx, "session/load", c.opening(map[string]any{
 		"sessionId": sessionID,
 		"cwd":       c.root,
-	}), nil)
+	}), nil); err != nil {
+		return err
+	}
+
+	c.opened(sessionID)
+	return nil
+}
+
+func (c *Client) opened(sessionID string) {
+	c.translating.Lock()
+	defer c.translating.Unlock()
+	c.translator.opened(sessionID)
 }
 
 func (c *Client) Protocol() string {
 	return Protocol
 }
 
-func (c *Client) Watch(saw func(Update)) {
+func (c *Client) Reports() protocol.HarnessReports {
+	return protocol.HarnessReports{TurnUsage: true}
+}
+
+func (c *Client) Watch(saw func(protocol.Event)) {
 	c.mu.Lock()
 	c.watching = saw
 	c.mu.Unlock()
@@ -228,13 +253,91 @@ func (c *Client) opening(params map[string]any) map[string]any {
 func (c *Client) Prompt(ctx context.Context, sessionID string, text string) (Result, error) {
 	c.work.touch()
 
+	c.mu.Lock()
+	c.turns++
+	turn := c.turns
+	c.heard = 0
+	c.mu.Unlock()
+	promptID := 0
+
+	c.translating.Lock()
+	c.translator.turned()
+	c.translating.Unlock()
+
+	c.emit(
+		protocol.HarnessEvent(protocol.EventTurnStarted, protocol.TurnStarted{Turn: turn, Origin: protocol.TurnFromPrompt}),
+		protocol.HarnessEvent(protocol.EventSessionState, protocol.SessionState{State: protocol.SessionRunning}),
+	)
+
 	var out Result
-	err := c.call(ctx, "session/prompt", map[string]any{
+	err := c.request(ctx, "session/prompt", map[string]any{
 		"sessionId": sessionID,
 		"prompt":    []any{map[string]any{"type": "text", "text": text}},
-	}, &out)
+	}, &out, func(id int) {
+		promptID = id
+		c.prompts[id] = turn
+	})
+
+	c.mu.Lock()
+	out.Heard = c.heard
+	_, unanswered := c.prompts[promptID]
+	delete(c.prompts, promptID)
+	c.mu.Unlock()
+
+	if unanswered {
+		c.turnEnded(protocol.TurnEnded{Turn: turn, Stop: protocol.TurnStopFailed, Error: err.Error()})
+	}
 
 	return out, err
+}
+
+func (c *Client) turnEnded(ended protocol.TurnEnded) {
+	c.emit(
+		protocol.HarnessEvent(protocol.EventTurnEnded, ended),
+		protocol.HarnessEvent(protocol.EventSessionState, protocol.SessionState{State: protocol.SessionIdle}),
+	)
+}
+
+func (c *Client) promptAnswered(turn int, result json.RawMessage, failed *responseError) {
+	if failed != nil {
+		c.turnEnded(protocol.TurnEnded{Turn: turn, Stop: protocol.TurnStopFailed, Error: failed.Message})
+		return
+	}
+
+	var out Result
+	_ = json.Unmarshal(result, &out)
+	c.turnEnded(protocol.TurnEnded{
+		Turn: turn, Stop: StopOf(out.StopReason), Reason: out.StopReason, Usage: usageOf(out.Usage),
+	})
+}
+
+func (c *Client) emit(events ...protocol.Event) {
+	c.mu.Lock()
+	watching := c.watching
+	c.mu.Unlock()
+
+	if watching == nil {
+		return
+	}
+	for _, event := range events {
+		watching(event)
+	}
+}
+
+func usageOf(raw json.RawMessage) *protocol.TurnUsage {
+	var usage struct {
+		InputTokens       *int `json:"inputTokens"`
+		OutputTokens      *int `json:"outputTokens"`
+		CachedReadTokens  *int `json:"cachedReadTokens"`
+		CachedWriteTokens *int `json:"cachedWriteTokens"`
+	}
+	if !present(raw) || json.Unmarshal(raw, &usage) != nil {
+		return nil
+	}
+	return &protocol.TurnUsage{
+		Input: usage.InputTokens, Output: usage.OutputTokens,
+		CacheRead: usage.CachedReadTokens, CacheWrite: usage.CachedWriteTokens,
+	}
 }
 
 func (c *Client) Cancel(sessionID string) error {
@@ -264,6 +367,10 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) call(ctx context.Context, method string, params any, out any) error {
+	return c.request(ctx, method, params, out, nil)
+}
+
+func (c *Client) request(ctx context.Context, method string, params any, out any, sent func(id int)) error {
 	encoded, err := json.Marshal(params)
 	if err != nil {
 		return err
@@ -274,6 +381,9 @@ func (c *Client) call(ctx context.Context, method string, params any, out any) e
 	id := c.nextID
 	answered := make(chan response, 1)
 	c.waiting[id] = answered
+	if sent != nil {
+		sent(id)
+	}
 	c.mu.Unlock()
 
 	defer func() {

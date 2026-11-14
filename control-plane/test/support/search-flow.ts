@@ -53,6 +53,7 @@ import {
   searchStarted,
 } from './auto-searches';
 import { eventually } from './eventually';
+import { posted, said, spent } from './harness-events';
 import { keptSet } from './kept-sets';
 import { writtenStation } from './replays';
 import { aDispatch, requestedByTask } from './runs';
@@ -524,11 +525,6 @@ const queuedReplayRuns = async () =>
       ),
     );
 
-const sent = (update: Record<string, unknown>): string =>
-  Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
-    'base64',
-  );
-
 interface Claimed {
   readonly token: string;
   readonly runId: string;
@@ -566,28 +562,7 @@ export const finished = async (
 ) => {
   await bearing(token)
     .post(`/api/runs/${runId}/events`, {
-      events: [
-        {
-          seq: 1,
-          type: 'output',
-          at: new Date().toISOString(),
-          data: sent({
-            sessionUpdate: 'agent_message_chunk',
-            content: { type: 'text', text: `Drained it: score(${score}).` },
-          }),
-        },
-        {
-          seq: 2,
-          type: 'output',
-          at: new Date().toISOString(),
-          data: sent({
-            sessionUpdate: 'usage_update',
-            used: 1_000,
-            size: 200_000,
-            cost: { amount: cost, currency: 'USD' },
-          }),
-        },
-      ],
+      events: posted(said(`Drained it: score(${score}).`), spent(cost)),
     })
     .expect(204);
   await bearing(token)
@@ -746,19 +721,7 @@ export const endedSearchRun = async (
 ) => {
   await bearing(token)
     .post(`/api/runs/${runId}/events`, {
-      events: [
-        {
-          seq: 1,
-          type: 'output',
-          at: new Date().toISOString(),
-          data: sent({
-            sessionUpdate: 'usage_update',
-            used: 1_000,
-            size: 200_000,
-            cost: { amount: cost, currency: 'USD' },
-          }),
-        },
-      ],
+      events: posted(spent(cost)),
     })
     .expect(204);
   await bearing(token)

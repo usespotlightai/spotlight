@@ -1,22 +1,57 @@
-import { AGENT_STOPPED } from '@runs/domain/value-objects/journal-entry-type';
+import {
+  AGENT_STOPPED,
+  HARNESS_CONNECTED,
+} from '@runs/domain/value-objects/journal-entry-type';
 import { Money } from '@runs/domain/value-objects/money.vo';
-import { JournalBuilder } from '@runs/infrastructure/acp/journal-builder';
+import { JournalBuilder } from '@runs/infrastructure/journal/journal-builder';
+import type { Journalled } from '@runs/infrastructure/journal/journalled';
 import { describe, expect, it } from 'vitest';
 
-const sent = (update: Record<string, unknown>): string =>
-  Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
-    'base64',
-  );
+type Row = Omit<Journalled, 'at'>;
 
-const chunk = (sessionUpdate: string, text: string) =>
-  sent({ sessionUpdate, content: { type: 'text', text } });
+const encoded = (value: unknown): string =>
+  Buffer.from(JSON.stringify(value)).toString('base64');
+
+const event = (type: string, data: Record<string, unknown>): Row => ({
+  type,
+  message: null,
+  data: encoded(data),
+});
+
+const connected = (): Row =>
+  event(HARNESS_CONNECTED, {
+    protocol: 'acp/1',
+    events: 1,
+    session: 'session_1',
+    reports: {
+      background: false,
+      selfStartedTurns: false,
+      turnUsage: true,
+      commandOutput: false,
+    },
+  });
+
+const said = (role: 'agent' | 'user' | 'thought', text: string, id = 'm1') =>
+  event('message', { id, role, text });
+
+const tool = (call: Record<string, unknown>) =>
+  event('tool.changed', { title: 'a tool', ...call });
+
+const printed = (id: string, text: string, replace = true) =>
+  event('tool.output', { id, text, replace });
 
 const clock = (at: number) => new Date(2026, 7, 29, 12, 0, at);
 
-const read = (...data: (string | null)[]) => {
-  const builder = new JournalBuilder();
-  data.forEach((each, at) => {
-    builder.take({ type: 'output', at: clock(at), message: null, data: each });
+const listening = (began: Date | null = null) => {
+  const builder = new JournalBuilder(began);
+  builder.take({ ...connected(), at: began ?? clock(0) });
+  return builder;
+};
+
+const read = (...rows: Row[]) => {
+  const builder = listening();
+  rows.forEach((each, at) => {
+    builder.take({ ...each, at: clock(at) });
   });
   return builder;
 };
@@ -29,8 +64,8 @@ const withoutTime = (builder: JournalBuilder) =>
 describe('JournalBuilder', () => {
   it('puts the chunks of one message back together', () => {
     const builder = read(
-      chunk('agent_message_chunk', 'Reproduced '),
-      chunk('agent_message_chunk', 'on restart.'),
+      said('agent', 'Reproduced '),
+      said('agent', 'on restart.'),
     );
 
     expect(withoutTime(builder)).toEqual([
@@ -45,10 +80,22 @@ describe('JournalBuilder', () => {
     ]);
   });
 
+  it('starts a new message where the harness starts one', () => {
+    const builder = read(
+      said('agent', 'Reproduced it.', 'm1'),
+      said('agent', 'Fixed it.', 'm2'),
+    );
+
+    expect(builder.steps().map((step) => step.text)).toEqual([
+      'Reproduced it.',
+      'Fixed it.',
+    ]);
+  });
+
   it('keeps thoughts apart from messages', () => {
     const builder = read(
-      chunk('agent_thought_chunk', 'The queue looks stuck.'),
-      chunk('agent_message_chunk', 'Draining it.'),
+      said('thought', 'The queue looks stuck.'),
+      said('agent', 'Draining it.'),
     );
 
     expect(builder.steps().map((step) => step.kind)).toEqual([
@@ -59,9 +106,9 @@ describe('JournalBuilder', () => {
 
   it('says how long each thing took, and the run as a whole', () => {
     const builder = read(
-      chunk('agent_thought_chunk', 'Weighing it.'),
-      chunk('agent_thought_chunk', ' Still weighing.'),
-      chunk('agent_message_chunk', 'Done.'),
+      said('thought', 'Weighing it.', 'm1'),
+      said('thought', ' Still weighing.', 'm1'),
+      said('agent', 'Done.', 'm2'),
     );
 
     expect(builder.steps()[0]?.ms).toBe(1_000);
@@ -70,8 +117,8 @@ describe('JournalBuilder', () => {
 
   it('says when each step began', () => {
     const builder = read(
-      chunk('agent_thought_chunk', 'Weighing it.'),
-      chunk('agent_message_chunk', 'Done.'),
+      said('thought', 'Weighing it.', 'm1'),
+      said('agent', 'Done.', 'm2'),
     );
 
     expect(builder.steps().map((step) => step.startedAt)).toEqual([
@@ -81,7 +128,7 @@ describe('JournalBuilder', () => {
   });
 
   it('leaves the time the run waited for a person out of how long it took', () => {
-    const builder = new JournalBuilder();
+    const builder = listening();
     builder.take({
       type: 'run.paused',
       at: clock(5),
@@ -89,12 +136,7 @@ describe('JournalBuilder', () => {
       data: null,
     });
     for (const at of [0, 2, 60, 63]) {
-      builder.take({
-        type: 'output',
-        at: clock(at),
-        message: null,
-        data: chunk('agent_message_chunk', 'Working.'),
-      });
+      builder.take({ ...said('agent', 'Working.'), at: clock(at) });
     }
 
     expect(builder.ms()).toBe(5_000);
@@ -106,16 +148,16 @@ describe('JournalBuilder', () => {
 
   it('folds a tool and how it went into one step', () => {
     const builder = read(
-      sent({
-        sessionUpdate: 'tool_call',
-        toolCallId: 'toolu_1',
+      tool({
+        id: 'toolu_1',
         title: 'ToolSearch',
         kind: 'other',
         status: 'pending',
       }),
-      sent({
-        sessionUpdate: 'tool_call_update',
-        toolCallId: 'toolu_1',
+      tool({
+        id: 'toolu_1',
+        title: 'ToolSearch',
+        kind: 'other',
         status: 'completed',
       }),
     );
@@ -135,13 +177,9 @@ describe('JournalBuilder', () => {
 
   it('keeps two tools apart', () => {
     const builder = read(
-      sent({ sessionUpdate: 'tool_call', toolCallId: 'a', title: 'Read' }),
-      sent({ sessionUpdate: 'tool_call', toolCallId: 'b', title: 'Write' }),
-      sent({
-        sessionUpdate: 'tool_call_update',
-        toolCallId: 'a',
-        status: 'failed',
-      }),
+      tool({ id: 'a', title: 'Read' }),
+      tool({ id: 'b', title: 'Write' }),
+      tool({ id: 'a', title: 'Read', status: 'failed' }),
     );
 
     expect(
@@ -154,24 +192,14 @@ describe('JournalBuilder', () => {
 
   it('takes the command and its output from the answer', () => {
     const builder = read(
-      sent({
-        sessionUpdate: 'tool_call',
-        toolCallId: 'b1',
-        title: 'Terminal',
-        kind: 'execute',
-        status: 'pending',
-      }),
-      sent({
-        sessionUpdate: 'tool_call_update',
-        toolCallId: 'b1',
+      tool({ id: 'b1', title: 'Terminal', kind: 'execute', status: 'pending' }),
+      tool({
+        id: 'b1',
         title: 'ls -la /workspaces',
         kind: 'execute',
         status: 'completed',
-        content: [
-          { type: 'content', content: { type: 'text', text: 'total 0' } },
-          { type: 'content', content: { type: 'text', text: 'drwxr-xr-x .' } },
-        ],
       }),
+      printed('b1', 'total 0\ndrwxr-xr-x .'),
     );
 
     expect(withoutTime(builder)).toEqual([
@@ -186,19 +214,24 @@ describe('JournalBuilder', () => {
     ]);
   });
 
+  it('adds what a command prints to what it printed before, until the harness gives all of it', () => {
+    const builder = read(
+      tool({ id: 'b4', title: 'npm test', kind: 'execute' }),
+      printed('b4', 'PASS a.spec.ts\n', false),
+      printed('b4', 'PASS b.spec.ts', false),
+    );
+
+    expect(builder.steps()[0]?.detail).toBe('PASS a.spec.ts\nPASS b.spec.ts');
+
+    builder.take({ ...printed('b4', 'Tests: 2 passed'), at: clock(3) });
+
+    expect(builder.steps()[0]?.detail).toBe('Tests: 2 passed');
+  });
+
   it('takes the answer out of the code fence it arrives in', () => {
     const builder = read(
-      sent({ sessionUpdate: 'tool_call', toolCallId: 'b3', title: 'Terminal' }),
-      sent({
-        sessionUpdate: 'tool_call_update',
-        toolCallId: 'b3',
-        content: [
-          {
-            type: 'content',
-            content: { type: 'text', text: '```console\ntotal 0\n```' },
-          },
-        ],
-      }),
+      tool({ id: 'b3', title: 'Terminal' }),
+      printed('b3', '```console\ntotal 0\n```'),
     );
 
     expect(builder.steps()[0]?.detail).toBe('total 0');
@@ -206,17 +239,8 @@ describe('JournalBuilder', () => {
 
   it('keeps only as much of an answer as anyone would read', () => {
     const builder = read(
-      sent({ sessionUpdate: 'tool_call', toolCallId: 'b2', title: 'Terminal' }),
-      sent({
-        sessionUpdate: 'tool_call_update',
-        toolCallId: 'b2',
-        content: [
-          {
-            type: 'content',
-            content: { type: 'text', text: 'x'.repeat(9_000) },
-          },
-        ],
-      }),
+      tool({ id: 'b2', title: 'Terminal' }),
+      printed('b2', 'x'.repeat(9_000)),
     );
 
     expect(builder.steps()[0]?.detail).toHaveLength(4_000);
@@ -224,9 +248,8 @@ describe('JournalBuilder', () => {
 
   it('keeps the locations a tool touched, down to the line', () => {
     const builder = read(
-      sent({
-        sessionUpdate: 'tool_call',
-        toolCallId: 'r1',
+      tool({
+        id: 'r1',
         title: 'Read',
         kind: 'read',
         locations: [
@@ -243,18 +266,10 @@ describe('JournalBuilder', () => {
   });
 
   it('keeps the input and the output of a tool', () => {
+    const input = { pattern: 'queue', path: 'src' };
     const builder = read(
-      sent({
-        sessionUpdate: 'tool_call',
-        toolCallId: 'g1',
-        title: 'Grep',
-        rawInput: { pattern: 'queue', path: 'src' },
-      }),
-      sent({
-        sessionUpdate: 'tool_call_update',
-        toolCallId: 'g1',
-        rawOutput: { matches: 3 },
-      }),
+      tool({ id: 'g1', title: 'Grep', input }),
+      tool({ id: 'g1', title: 'Grep', input, output: { matches: 3 } }),
     );
 
     const step = builder.steps()[0];
@@ -264,17 +279,18 @@ describe('JournalBuilder', () => {
 
   it('keeps a rewrite as what the file was and what it became', () => {
     const builder = read(
-      sent({ sessionUpdate: 'tool_call', toolCallId: 'e1', title: 'Edit' }),
-      sent({
-        sessionUpdate: 'tool_call_update',
-        toolCallId: 'e1',
+      tool({ id: 'e1', title: 'Edit' }),
+      tool({
+        id: 'e1',
+        title: 'Edit',
         kind: 'edit',
-        content: [
+        status: 'completed',
+        files: [
           {
-            type: 'diff',
             path: '/workspace/queue.ts',
-            oldText: 'const retries = 3;',
-            newText: 'const retries = 500;',
+            operation: 'update',
+            before: 'const retries = 3;',
+            after: 'const retries = 500;',
           },
         ],
       }),
@@ -287,10 +303,37 @@ describe('JournalBuilder', () => {
     });
   });
 
+  it('keeps no change for an edit that did not go through', () => {
+    const edit = {
+      id: 'e1',
+      title: 'Edit',
+      kind: 'edit',
+      files: [{ path: '/workspace/queue.ts', operation: 'update', after: 'x' }],
+    };
+    const builder = read(
+      tool({ ...edit, status: 'pending' }),
+      tool({ ...edit, status: 'failed' }),
+    );
+
+    expect(builder.steps()[0]?.change).toBeNull();
+  });
+
+  it('passes over an event that lacks what it must say', () => {
+    const builder = read(
+      event('plan.changed', {}),
+      event('child.message', { from: 'child' }),
+      tool({ id: 'a', locations: 'not a list' }),
+      event('context.changed', { used: 'many', size: 1 }),
+      said('agent', 'Still here.'),
+    );
+
+    expect(builder.steps().map((step) => step.text)).toEqual(['Still here.']);
+    expect(builder.spent()).toBeNull();
+  });
+
   it('reads what the agent said it meant to do', () => {
     const builder = read(
-      sent({
-        sessionUpdate: 'plan',
+      event('plan.changed', {
         entries: [
           { content: 'Reproduce it', status: 'completed' },
           { content: 'Cap the retries', status: 'pending' },
@@ -308,8 +351,7 @@ describe('JournalBuilder', () => {
 
   it('keeps what the run spent', () => {
     const builder = read(
-      sent({
-        sessionUpdate: 'usage_update',
+      event('context.changed', {
         used: 12_173,
         size: 200_000,
         cost: { amount: 0.0664917, currency: 'USD' },
@@ -321,13 +363,13 @@ describe('JournalBuilder', () => {
       size: 200_000,
       cost: Money.of(0.0664917, 'USD'),
     });
+    expect(builder.spentBySession().get('session_1')).toEqual(builder.spent());
     expect(builder.steps()).toEqual([]);
   });
 
   it('keeps a cost it cannot read as unpriced', () => {
     const builder = read(
-      sent({
-        sessionUpdate: 'usage_update',
+      event('context.changed', {
         used: 12_173,
         size: 200_000,
         cost: { amount: 3, currency: 'credits' },
@@ -342,17 +384,18 @@ describe('JournalBuilder', () => {
   });
 
   it('adds up the tokens each turn reported, count by count', () => {
-    const builder = new JournalBuilder();
-    const turn = (usage: Record<string, unknown>, at: number) =>
-      builder.take({
-        type: 'usage',
-        at: clock(at),
-        message: null,
-        data: Buffer.from(JSON.stringify(usage)).toString('base64'),
-      });
-
-    turn({ inputTokens: 3, outputTokens: 5, cachedReadTokens: 100 }, 1);
-    turn({ inputTokens: 2, outputTokens: 1, cachedReadTokens: 50 }, 2);
+    const builder = read(
+      event('turn.ended', {
+        turn: 1,
+        stop: 'ended',
+        usage: { input: 3, output: 5, cacheRead: 100 },
+      }),
+      event('turn.ended', {
+        turn: 2,
+        stop: 'ended',
+        usage: { input: 2, output: 1, cacheRead: 50 },
+      }),
+    );
 
     expect(builder.tokens()).toMatchObject({
       input: 5,
@@ -374,8 +417,6 @@ describe('JournalBuilder', () => {
       });
       return builder.egressEnforcement();
     };
-    const encoded = (value: unknown) =>
-      Buffer.from(JSON.stringify(value)).toString('base64');
 
     expect(checked(encoded({ enforced: true }))).toBe('enforced');
     expect(checked(encoded({ enforced: false }))).toBe('not-enforced');
@@ -385,13 +426,14 @@ describe('JournalBuilder', () => {
   });
 
   it('knows no tokens where no turn reported any', () => {
-    const builder = new JournalBuilder();
-    builder.take({
-      type: 'usage',
-      at: clock(1),
-      message: null,
-      data: Buffer.from('not usage').toString('base64'),
-    });
+    const builder = read(
+      {
+        type: 'turn.ended',
+        message: null,
+        data: Buffer.from('not usage').toString('base64'),
+      },
+      event('turn.ended', { turn: 1, stop: 'ended' }),
+    );
 
     expect(builder.tokens()).toMatchObject({
       input: null,
@@ -402,20 +444,13 @@ describe('JournalBuilder', () => {
   });
 
   it('reads a count that is not a whole number of tokens as unreported', () => {
-    const builder = new JournalBuilder();
-    builder.take({
-      type: 'usage',
-      at: clock(1),
-      message: null,
-      data: Buffer.from(
-        JSON.stringify({
-          inputTokens: -1,
-          outputTokens: 2.5,
-          cachedReadTokens: '7',
-          cachedWriteTokens: 4,
-        }),
-      ).toString('base64'),
-    });
+    const builder = read(
+      event('turn.ended', {
+        turn: 1,
+        stop: 'ended',
+        usage: { input: -1, output: 2.5, cacheRead: '7', cacheWrite: 4 },
+      }),
+    );
 
     expect(builder.tokens()).toMatchObject({
       input: null,
@@ -427,8 +462,11 @@ describe('JournalBuilder', () => {
 
   it('passes over what it has nothing to show for', () => {
     const builder = read(
-      sent({ sessionUpdate: 'available_commands_update' }),
-      sent({ sessionUpdate: 'session_info_update' }),
+      event('turn.started', { turn: 1, origin: 'prompt' }),
+      event('session.state', { state: 'running' }),
+      event('background.changed', { items: [] }),
+      said('user', 'Fix the queue.'),
+      event('harness.frame', { protocol: 'acp/1', data: {} }),
     );
 
     expect(builder.steps()).toEqual([]);
@@ -436,19 +474,14 @@ describe('JournalBuilder', () => {
 
   describe('what happened around the agent', () => {
     it('keeps a hook as its own step', () => {
-      const builder = new JournalBuilder(clock(0));
+      const builder = listening(clock(0));
       builder.take({
         type: 'output',
         at: clock(4),
         message: 'prepare',
         data: Buffer.from('Cloning into workspace…').toString('base64'),
       });
-      builder.take({
-        type: 'output',
-        at: clock(5),
-        message: null,
-        data: chunk('agent_message_chunk', 'Working.'),
-      });
+      builder.take({ ...said('agent', 'Working.'), at: clock(5) });
 
       const [hook, message] = builder.steps();
       expect(hook?.kind).toBe('hook');
@@ -464,12 +497,10 @@ describe('JournalBuilder', () => {
         type: 'provision.failed',
         at: clock(2),
         message: null,
-        data: Buffer.from(
-          JSON.stringify({
-            failure: 'unreachable',
-            detail: 'connect ECONNREFUSED 10.0.0.4:443',
-          }),
-        ).toString('base64'),
+        data: encoded({
+          failure: 'unreachable',
+          detail: 'connect ECONNREFUSED 10.0.0.4:443',
+        }),
       });
 
       const [failed] = builder.steps();
@@ -499,21 +530,19 @@ describe('JournalBuilder', () => {
     });
 
     const hookCalled = (over: Record<string, unknown> = {}) =>
-      Buffer.from(
-        JSON.stringify({
-          hook: 'core/grafana-reads',
-          step: 'notify',
-          kind: 'call',
-          target: 'slack.post-message',
-          request: { channel: 'C1', text: 'Searched Grafana' },
-          response: { ok: true },
-          status: null,
-          failed: false,
-          startedAt: clock(3).toISOString(),
-          ms: 250,
-          ...over,
-        }),
-      ).toString('base64');
+      encoded({
+        hook: 'core/grafana-reads',
+        step: 'notify',
+        kind: 'call',
+        target: 'slack.post-message',
+        request: { channel: 'C1', text: 'Searched Grafana' },
+        response: { ok: true },
+        status: null,
+        failed: false,
+        startedAt: clock(3).toISOString(),
+        ms: 250,
+        ...over,
+      });
 
     it('shows a hook calling out as a hook step with what it sent and got back', () => {
       const builder = new JournalBuilder(clock(0));
@@ -564,25 +593,15 @@ describe('JournalBuilder', () => {
     });
 
     it('puts a hook call where it happened among what the agent did', () => {
-      const builder = new JournalBuilder(clock(0));
+      const builder = listening(clock(0));
       builder.take({
         type: 'hook.called',
         at: clock(6),
         message: null,
         data: hookCalled({ startedAt: clock(5).toISOString() }),
       });
-      builder.take({
-        type: 'output',
-        at: clock(2),
-        message: null,
-        data: chunk('agent_thought_chunk', 'Looking.'),
-      });
-      builder.take({
-        type: 'output',
-        at: clock(8),
-        message: null,
-        data: chunk('agent_message_chunk', 'Found it.'),
-      });
+      builder.take({ ...said('thought', 'Looking.', 'm1'), at: clock(2) });
+      builder.take({ ...said('agent', 'Found it.', 'm2'), at: clock(8) });
 
       expect(builder.steps().map((each) => each.kind)).toEqual([
         'thought',
@@ -605,19 +624,14 @@ describe('JournalBuilder', () => {
     });
 
     it('says where the run turned from preparing to working', () => {
-      const builder = new JournalBuilder(clock(0));
+      const builder = listening(clock(0));
       builder.take({
         type: 'working-copy.ready',
         at: clock(4),
         message: '/workspaces/run_1',
         data: null,
       });
-      builder.take({
-        type: 'output',
-        at: clock(6),
-        message: null,
-        data: chunk('agent_message_chunk', 'Working.'),
-      });
+      builder.take({ ...said('agent', 'Working.'), at: clock(6) });
       builder.take({
         type: 'completed',
         at: clock(9),
@@ -636,13 +650,8 @@ describe('JournalBuilder', () => {
     });
 
     it('marks when the agent was stopped, without a step for it', () => {
-      const builder = new JournalBuilder();
-      builder.take({
-        type: 'output',
-        at: clock(2),
-        message: null,
-        data: chunk('agent_message_chunk', 'Working.'),
-      });
+      const builder = listening();
+      builder.take({ ...said('agent', 'Working.'), at: clock(2) });
       builder.take({
         type: AGENT_STOPPED,
         at: clock(5),
@@ -668,29 +677,24 @@ describe('JournalBuilder', () => {
 
   describe('calls', () => {
     it('names each call by the tool the harness says it called, with its server, time and ending', () => {
+      const linear = {
+        id: 'a',
+        title: 'mcp__linear__get_issue',
+        name: 'mcp__linear__get_issue',
+        input: { id: 'ENG-1' },
+      };
       const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
-          title: 'mcp__linear__get_issue',
-          _meta: { claudeCode: { toolName: 'mcp__linear__get_issue' } },
-          rawInput: { id: 'ENG-1' },
-        }),
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'b',
+        tool(linear),
+        tool({
+          id: 'b',
           title: 'Read SKILL.md',
           kind: 'read',
           status: 'completed',
-          _meta: { claudeCode: { toolName: 'Read' } },
+          name: 'Read',
           locations: [{ path: '/workspace/.claude/skills/grafana/SKILL.md' }],
         }),
-        sent({
-          sessionUpdate: 'tool_call_update',
-          toolCallId: 'a',
-          status: 'failed',
-        }),
-        chunk('agent_message_chunk', 'Done.'),
+        tool({ ...linear, status: 'failed' }),
+        said('agent', 'Done.'),
       );
 
       expect(builder.calls()).toEqual([
@@ -713,37 +717,10 @@ describe('JournalBuilder', () => {
       ]);
     });
 
-    it('takes the bridge’s own file tools for the harness’s, while a server of the same name still counts', () => {
-      const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
-          title: 'Read',
-          status: 'completed',
-          _meta: { claudeCode: { toolName: 'mcp__acp__Read' } },
-        }),
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'b',
-          title: 'mcp__acp__query',
-          status: 'completed',
-          _meta: { claudeCode: { toolName: 'mcp__acp__query' } },
-        }),
-      );
-
-      expect(
-        builder.calls().map(({ server, tool }) => ({ server, tool })),
-      ).toEqual([
-        { server: null, tool: 'Read' },
-        { server: 'acp', tool: 'query' },
-      ]);
-    });
-
     it('names a call by its title where the harness gives no tool name', () => {
       const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
+        tool({
+          id: 'a',
           title: 'Tool: sentry/resolve_issue',
           status: 'completed',
         }),
@@ -757,39 +734,17 @@ describe('JournalBuilder', () => {
 
     it('times a call from when it started working, leaving out the wait for approval', () => {
       const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
-          status: 'pending',
-        }),
-        sent({
-          sessionUpdate: 'tool_call_update',
-          toolCallId: 'a',
-          status: 'in_progress',
-        }),
-        sent({
-          sessionUpdate: 'tool_call_update',
-          toolCallId: 'a',
-          status: 'in_progress',
-        }),
-        sent({
-          sessionUpdate: 'tool_call_update',
-          toolCallId: 'a',
-          status: 'completed',
-        }),
+        tool({ id: 'a', status: 'pending' }),
+        tool({ id: 'a', status: 'in_progress' }),
+        tool({ id: 'a', status: 'in_progress' }),
+        tool({ id: 'a', status: 'completed' }),
       );
 
       expect(builder.calls()[0]?.ms).toBe(2_000);
     });
 
     it('leaves a call that never finished untimed', () => {
-      const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
-          status: 'pending',
-        }),
-      );
+      const builder = read(tool({ id: 'a', status: 'pending' }));
 
       expect(builder.calls()[0]).toMatchObject({
         ms: null,
@@ -798,51 +753,22 @@ describe('JournalBuilder', () => {
     });
 
     it('takes a call as refused only when Spotlight refused its permission, whatever it said', () => {
-      const builder = new JournalBuilder();
-      const journal = [
-        {
-          type: 'output',
-          data: sent({
-            sessionUpdate: 'tool_call',
-            toolCallId: 'a',
-            _meta: { claudeCode: { toolName: 'mcp__linear__comment' } },
-          }),
-        },
-        {
-          type: 'tool.refused',
-          data: Buffer.from(JSON.stringify({ toolCallId: 'a' })).toString(
-            'base64',
-          ),
-        },
-        {
-          type: 'output',
-          data: sent({
-            sessionUpdate: 'tool_call_update',
-            toolCallId: 'a',
-            status: 'failed',
-          }),
-        },
-        {
-          type: 'output',
-          data: sent({
-            sessionUpdate: 'tool_call',
-            toolCallId: 'b',
-            _meta: { claudeCode: { toolName: 'mcp__linear__comment' } },
-          }),
-        },
-        {
-          type: 'output',
-          data: sent({
-            sessionUpdate: 'tool_call_update',
-            toolCallId: 'b',
-            status: 'failed',
-            rawOutput: 'User refused permission to run tool',
-          }),
-        },
-      ];
-      journal.forEach((each, at) => {
-        builder.take({ ...each, at: clock(at), message: null });
-      });
+      const comment = {
+        title: 'mcp__linear__comment',
+        name: 'mcp__linear__comment',
+      };
+      const builder = read(
+        tool({ id: 'a', ...comment }),
+        event('tool.refused', { toolCallId: 'a' }),
+        tool({ id: 'a', ...comment, status: 'failed' }),
+        tool({ id: 'b', ...comment }),
+        tool({
+          id: 'b',
+          ...comment,
+          status: 'failed',
+          output: 'User refused permission to run tool',
+        }),
+      );
 
       expect(builder.calls().map((each) => each.ending)).toEqual([
         'refused',
@@ -852,22 +778,10 @@ describe('JournalBuilder', () => {
 
     it('stops timing a call once it completed or failed', () => {
       const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
-          status: 'in_progress',
-        }),
-        sent({
-          sessionUpdate: 'tool_call_update',
-          toolCallId: 'a',
-          status: 'completed',
-        }),
-        chunk('agent_message_chunk', 'Reading it.'),
-        sent({
-          sessionUpdate: 'tool_call_update',
-          toolCallId: 'a',
-          rawOutput: 'late output',
-        }),
+        tool({ id: 'a', status: 'in_progress' }),
+        tool({ id: 'a', status: 'completed' }),
+        said('agent', 'Reading it.'),
+        tool({ id: 'a', status: 'completed', output: 'late output' }),
       );
 
       expect(builder.calls()[0]).toMatchObject({
@@ -877,47 +791,29 @@ describe('JournalBuilder', () => {
     });
 
     it('leaves the time the run waited for a person out of a call that never said it was working', () => {
-      const builder = new JournalBuilder();
-      const call = (at: number, update: Record<string, unknown>) =>
-        builder.take({
-          type: 'output',
-          at: clock(at),
-          message: null,
-          data: sent({ toolCallId: 'a', ...update }),
-        });
+      const builder = listening();
+      const call = (at: number, status: string) =>
+        builder.take({ ...tool({ id: 'a', status }), at: clock(at) });
 
-      call(0, { sessionUpdate: 'tool_call', status: 'pending' });
-      call(2, { sessionUpdate: 'tool_call_update' });
+      call(0, 'pending');
+      call(2, 'pending');
       builder.take({
         type: 'run.paused',
         at: clock(3),
         message: null,
         data: null,
       });
-      call(60, { sessionUpdate: 'tool_call_update' });
-      call(61, { sessionUpdate: 'tool_call_update', status: 'completed' });
+      call(60, 'pending');
+      call(61, 'completed');
 
       expect(builder.calls()[0]?.ms).toBe(3_000);
     });
 
     it('takes a call announced twice under one id as one call', () => {
       const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
-          status: 'pending',
-          _meta: { claudeCode: { toolName: 'mcp__linear__get_issue' } },
-        }),
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
-          status: 'in_progress',
-        }),
-        sent({
-          sessionUpdate: 'tool_call_update',
-          toolCallId: 'a',
-          status: 'completed',
-        }),
+        tool({ id: 'a', status: 'pending', name: 'mcp__linear__get_issue' }),
+        tool({ id: 'a', status: 'in_progress' }),
+        tool({ id: 'a', status: 'completed' }),
       );
 
       expect(builder.calls()).toEqual([
@@ -933,9 +829,8 @@ describe('JournalBuilder', () => {
 
     it('never reads a server out of the title of a command', () => {
       const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
+        tool({
+          id: 'a',
           kind: 'execute',
           title: 'mcp__linear__get_issue',
           status: 'completed',
@@ -950,13 +845,12 @@ describe('JournalBuilder', () => {
 
     it('reads the skill that the harness’s skill tool requested', () => {
       const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
+        tool({
+          id: 'a',
           title: 'Skill',
           status: 'completed',
-          _meta: { claudeCode: { toolName: 'Skill' } },
-          rawInput: { skill: 'our-migrations' },
+          name: 'Skill',
+          input: { skill: 'our-migrations' },
         }),
       );
 
@@ -965,30 +859,27 @@ describe('JournalBuilder', () => {
 
     it('offers only the paths of a read, search or command as read', () => {
       const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
+        tool({
+          id: 'a',
           kind: 'execute',
           status: 'completed',
-          _meta: { claudeCode: { toolName: 'Bash' } },
-          rawInput: { command: 'cat .claude/skills/grafana/SKILL.md' },
+          name: 'Bash',
+          input: { command: 'cat .claude/skills/grafana/SKILL.md' },
         }),
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'b',
+        tool({
+          id: 'b',
           kind: 'edit',
           status: 'completed',
-          _meta: { claudeCode: { toolName: 'Write' } },
+          name: 'Write',
           locations: [{ path: '/workspace/.claude/skills/grafana/SKILL.md' }],
-          rawInput: { file_path: '/workspace/.claude/skills/grafana/SKILL.md' },
+          input: { file_path: '/workspace/.claude/skills/grafana/SKILL.md' },
         }),
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'c',
+        tool({
+          id: 'c',
           kind: 'other',
           status: 'completed',
-          _meta: { claudeCode: { toolName: 'mcp__wiki__save' } },
-          rawInput: { path: '.claude/skills/grafana/SKILL.md' },
+          name: 'mcp__wiki__save',
+          input: { path: '.claude/skills/grafana/SKILL.md' },
         }),
       );
 
@@ -1007,12 +898,11 @@ describe('JournalBuilder', () => {
 
     it('keeps the tool’s name and working time out of the steps it shows', () => {
       const builder = read(
-        sent({
-          sessionUpdate: 'tool_call',
-          toolCallId: 'a',
+        tool({
+          id: 'a',
           title: 'Search',
           status: 'in_progress',
-          _meta: { claudeCode: { toolName: 'mcp__wiki__search' } },
+          name: 'mcp__wiki__search',
         }),
       );
 

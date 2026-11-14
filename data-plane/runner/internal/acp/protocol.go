@@ -35,17 +35,8 @@ type responseError struct {
 	Message string `json:"message"`
 }
 
-type Update struct {
-	Kind string
-	Text string
-	Raw  json.RawMessage
-}
-
 type Result struct {
 	StopReason string          `json:"stopReason"`
 	Usage      json.RawMessage `json:"usage"`
-}
-
-func (r Result) Used() bool {
-	return len(r.Usage) > 0 && string(r.Usage) != "null"
+	Heard      int             `json:"-"`
 }

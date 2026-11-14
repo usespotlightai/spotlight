@@ -1,8 +1,8 @@
-import { AcpHarnessToolNames } from '@runs/infrastructure/acp/harness-tools';
+import { HarnessToolNames } from '@runs/infrastructure/journal/harness-tools';
 import { describe, expect, it } from 'vitest';
 
-describe('AcpHarnessToolNames', () => {
-  const names = new AcpHarnessToolNames();
+describe('HarnessToolNames', () => {
+  const names = new HarnessToolNames();
 
   it('names the server and tool a permission asks for', () => {
     expect(names.toolFor('mcp__linear__create_issue', 'other')).toEqual({

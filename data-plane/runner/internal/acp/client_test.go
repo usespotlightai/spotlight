@@ -6,12 +6,23 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/acp"
 )
+
+func said(event protocol.Event) string {
+	if event.Type != protocol.EventMessage {
+		return ""
+	}
+	var message protocol.AgentMessage
+	_ = json.Unmarshal(event.Data, &message)
+	return message.Text
+}
 
 func pretend(t *testing.T, script string) string {
 	t.Helper()
@@ -80,7 +91,13 @@ func TestOpensASessionAndReportsTheAgentsOutput(t *testing.T) {
 	}
 
 	var output string
-	client.Watch(func(update acp.Update) { output += update.Text })
+	var ended protocol.TurnEnded
+	client.Watch(func(event protocol.Event) {
+		output += said(event)
+		if event.Type == protocol.EventTurnEnded {
+			_ = json.Unmarshal(event.Data, &ended)
+		}
+	})
 	result, err := client.Prompt(ctx, sessionID, "do the thing")
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
@@ -89,11 +106,11 @@ func TestOpensASessionAndReportsTheAgentsOutput(t *testing.T) {
 	if output != "half done" {
 		t.Errorf("output %q", output)
 	}
-	if result.StopReason != "end_turn" {
-		t.Errorf("stopped for %q", result.StopReason)
+	if result.StopReason != "end_turn" || result.Heard != 2 {
+		t.Errorf("stopped for %q after %d updates", result.StopReason, result.Heard)
 	}
-	if !result.Used() || string(result.Usage) != `{"inputTokens":3,"outputTokens":5,"totalTokens":8}` {
-		t.Errorf("the turn's usage came back as %s", result.Usage)
+	if ended.Turn != 1 || ended.Stop != protocol.TurnStopEnded || ended.Usage == nil || *ended.Usage.Input != 3 || *ended.Usage.Output != 5 {
+		t.Errorf("the turn ended as %+v", ended)
 	}
 }
 
@@ -460,7 +477,7 @@ func TestASessionOpensWithWhatTheHarnessIsSetUpWith(t *testing.T) {
 			}
 
 			var output string
-			client.Watch(func(update acp.Update) { output += update.Text })
+			client.Watch(func(event protocol.Event) { output += said(event) })
 			if _, err := client.Prompt(ctx, "session_1", "go"); err != nil {
 				t.Fatalf("%s, resuming=%v: prompt: %v", expected.name, resuming, err)
 			}
@@ -570,10 +587,12 @@ func TestUpdatesOutsideATurnReachTheWatcherButNotTheReplay(t *testing.T) {
 
 	var mu sync.Mutex
 	var seen []string
-	client.Watch(func(update acp.Update) {
-		mu.Lock()
-		defer mu.Unlock()
-		seen = append(seen, update.Text)
+	client.Watch(func(event protocol.Event) {
+		if text := said(event); text != "" {
+			mu.Lock()
+			defer mu.Unlock()
+			seen = append(seen, text)
+		}
 	})
 
 	if err := client.Resume(ctx, "session_1"); err != nil {
@@ -675,5 +694,58 @@ process.stdin.on("data", (chunk) => {
 	}
 	if !reflect.DeepEqual(kinds, []string{"command", "subagent", "monitor", "other"}) {
 		t.Fatalf("kinds %v", kinds)
+	}
+}
+
+const tellingWhoIsSignedIn = `
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "";
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_1" } });
+    if (msg.method === "session/prompt") {
+      send({ jsonrpc: "2.0", method: "_auth/status_update", params: { authStatus: { account: { email: "someone@example.com" } } } });
+      send({ jsonrpc: "2.0", method: "session/update",
+             params: { sessionId: "session_1", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "hi" } } } });
+      send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
+    }
+  }
+});
+`
+
+func TestKeepsOnlyTheFramesOfTheSession(t *testing.T) {
+	client, _ := start(t, tellingWhoIsSignedIn, nil)
+
+	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
+	defer stop()
+
+	sessionID, err := client.NewSession(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var frames []string
+	client.Watch(func(event protocol.Event) {
+		if event.Type == protocol.EventHarnessFrame {
+			frames = append(frames, string(event.Data))
+		}
+	})
+	if _, err := client.Prompt(ctx, sessionID, "go"); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(frames) != 2 {
+		t.Fatalf("kept %d frames: %q", len(frames), frames)
+	}
+	for _, frame := range frames {
+		if strings.Contains(frame, "someone@example.com") {
+			t.Errorf("kept who is signed in: %s", frame)
+		}
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"usespotlight.ai/data-plane/protocol"
 )
 
 func (c *Client) read(stdout io.Reader) {
@@ -31,6 +33,10 @@ func (c *Client) read(stdout io.Reader) {
 			continue
 		}
 
+		if message.Method == "" || journaled[message.Method] {
+			c.framed(line)
+		}
+
 		switch {
 		case message.Method == "" && len(message.ID) > 0:
 			c.answered(message.ID, message.Result, message.Error)
@@ -52,52 +58,67 @@ func (c *Client) answered(id json.RawMessage, result json.RawMessage, failed *re
 
 	c.mu.Lock()
 	waiting := c.waiting[at]
+	turn, prompted := c.prompts[at]
+	delete(c.prompts, at)
 	c.mu.Unlock()
 
+	if prompted {
+		c.promptAnswered(turn, result, failed)
+	}
 	if waiting != nil {
 		waiting <- response{ID: id, Result: result, Error: failed}
 	}
 }
 
-func (c *Client) onNotification(method string, params json.RawMessage) {
+func (c *Client) framed(line []byte) {
+	if c.isReplaying() {
+		return
+	}
+	c.emit(protocol.HarnessEvent(protocol.EventHarnessFrame, protocol.HarnessFrame{
+		Protocol: Protocol,
+		Data:     append(json.RawMessage(nil), line...),
+	}))
+}
+
+var journaled = map[string]bool{
+	"session/update":             true,
+	"session/request_permission": true,
+	claudeCodeFrame:              true,
+}
+
+func (c *Client) isReplaying() bool {
 	c.mu.Lock()
-	replaying := c.replaying
-	c.mu.Unlock()
+	defer c.mu.Unlock()
+	return c.replaying
+}
+
+func (c *Client) onNotification(method string, params json.RawMessage) {
+	if c.isReplaying() {
+		return
+	}
 
 	if method == claudeCodeFrame {
-		if !replaying {
-			c.work.apply(claudeCodeWork(params))
+		change := claudeCodeWork(params)
+		c.work.apply(change)
+		if change.tasks != nil {
+			c.emit(protocol.HarnessEvent(protocol.EventBackgroundChanged, protocol.BackgroundChanged{Items: *change.tasks}))
 		}
 		return
 	}
-	if method != "session/update" || replaying {
+	if method != "session/update" {
 		return
 	}
 	c.work.touch()
 
-	var notification struct {
-		Update struct {
-			SessionUpdate string `json:"sessionUpdate"`
-			Content       struct {
-				Text string `json:"text"`
-			} `json:"content"`
-		} `json:"update"`
-	}
-	_ = json.Unmarshal(params, &notification)
-
 	c.mu.Lock()
-	watching := c.watching
+	c.heard++
 	c.mu.Unlock()
 
-	if watching == nil {
-		return
-	}
+	c.translating.Lock()
+	events := c.translator.translate(params)
+	c.translating.Unlock()
 
-	watching(Update{
-		Kind: notification.Update.SessionUpdate,
-		Text: notification.Update.Content.Text,
-		Raw:  params,
-	})
+	c.emit(events...)
 }
 
 func (c *Client) requested(id json.RawMessage, method string, params json.RawMessage) {

@@ -258,7 +258,6 @@ const (
 	EventOutput           EventType = "output"
 	EventFailed           EventType = "failed"
 	EventSpan             EventType = "span"
-	EventUsage            EventType = "usage"
 	EventToolRefused      EventType = "tool.refused"
 	EventEgressChecked    EventType = "egress.checked"
 	EventAgentStopped     EventType = "agent.stopped"

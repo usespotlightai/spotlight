@@ -5,21 +5,12 @@ import {
   BACKGROUND_WAITING,
   HARNESS_CONNECTED,
 } from '@runs/domain/value-objects/journal-entry-type';
-import { JournalBuilder } from '@runs/infrastructure/acp/journal-builder';
+import { JournalBuilder } from '@runs/infrastructure/journal/journal-builder';
 import type { Journalled } from '@runs/infrastructure/journal/journalled';
 import { describe, expect, it } from 'vitest';
 
 const encoded = (value: unknown): string =>
   Buffer.from(JSON.stringify(value)).toString('base64');
-
-const output = (
-  update: Record<string, unknown>,
-  sessionId = 'session_1',
-): Omit<Journalled, 'at'> => ({
-  type: 'output',
-  message: null,
-  data: encoded({ sessionId, update }),
-});
 
 const entry = (
   type: string,
@@ -31,21 +22,36 @@ const entry = (
   data: data === null ? null : encoded(data),
 });
 
-const said = (text: string, sessionId?: string) =>
-  output(
-    { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } },
-    sessionId,
-  );
+const event = (type: string, data: Record<string, unknown>) =>
+  entry(type, null, data);
+
+const connected = (events = 1) =>
+  event(HARNESS_CONNECTED, {
+    protocol: 'acp/1',
+    events,
+    reports: {
+      background: true,
+      selfStartedTurns: false,
+      turnUsage: true,
+      commandOutput: false,
+    },
+  });
+
+const said = (text: string, session?: string, id = 'm1') =>
+  event('message', { session, id, role: 'agent', text });
 
 const clock = (at: number) => new Date(2026, 10, 9, 12, 0, at);
 
-const read = (...entries: Omit<Journalled, 'at'>[]) => {
+const play = (...entries: Omit<Journalled, 'at'>[]) => {
   const builder = new JournalBuilder();
   entries.forEach((each, at) => {
     builder.take({ ...each, at: clock(at) });
   });
   return builder;
 };
+
+const read = (...entries: Omit<Journalled, 'at'>[]) =>
+  play(connected(), ...entries);
 
 const shown = (builder: JournalBuilder) =>
   builder.steps().map(({ kind, text, status, detail, input, output }) => ({
@@ -59,15 +65,21 @@ const shown = (builder: JournalBuilder) =>
 
 const tests = [{ id: 't1', kind: 'local_bash', description: 'npx vitest run' }];
 
-describe('JournalBuilder, harness protocols', () => {
-  it('reads the frames of an ACP v1 connection', () => {
-    const builder = read(entry(HARNESS_CONNECTED, 'acp/1'), said('Done.'));
+describe('JournalBuilder, harness connection', () => {
+  it('reads the events of a harness once it connected', () => {
+    const builder = play(connected(), said('Done.'));
 
     expect(builder.steps().map((step) => step.text)).toEqual(['Done.']);
   });
 
-  it('reads no frames of a protocol it does not know', () => {
-    const builder = read(entry(HARNESS_CONNECTED, 'acp/9'), said('Done.'));
+  it('reads no events before the harness connected', () => {
+    const builder = play(said('Done.'));
+
+    expect(builder.steps()).toEqual([]);
+  });
+
+  it('reads no events of a version it does not know', () => {
+    const builder = play(connected(2), said('Done.'));
 
     expect(builder.steps()).toEqual([]);
   });
@@ -181,46 +193,36 @@ describe('JournalBuilder, background work', () => {
 
 describe('JournalBuilder, subagents', () => {
   const spawned = (state: Record<string, unknown>) =>
-    output({
-      sessionUpdate: 'subagent_update',
-      sessionId: 'child_1',
+    event('child.changed', {
+      child: 'child_1',
       title: 'Explore',
       description: 'Find the retry code',
-      state,
+      ...state,
     });
 
   it('groups what a subagent did under one step, with its brief and its answer', () => {
     const builder = read(
       said('Looking for the retry code.'),
       spawned({ state: 'running' }),
-      output(
-        {
-          sessionUpdate: 'session_message',
-          senderSessionId: 'session_1',
-          recipientSessionId: 'child_1',
-          content: [{ type: 'text', text: 'Find where uploads retry.' }],
-        },
-        'child_1',
-      ),
-      output(
-        {
-          sessionUpdate: 'tool_call',
-          toolCallId: 'call_1',
-          title: 'grep retry',
-          kind: 'search',
-          status: 'completed',
-        },
-        'child_1',
-      ),
-      said('It is in uploads.ts.', 'child_1'),
-      spawned({ state: 'idle', stopReason: 'end_turn' }),
-      output({
-        sessionUpdate: 'session_message',
-        senderSessionId: 'child_1',
-        recipientSessionId: 'session_1',
-        content: [{ type: 'text', text: 'Retries live in uploads.ts.' }],
+      event('child.message', {
+        session: 'child_1',
+        to: 'child_1',
+        text: 'Find where uploads retry.',
       }),
-      said('Fixing it.'),
+      event('tool.changed', {
+        session: 'child_1',
+        id: 'call_1',
+        title: 'grep retry',
+        kind: 'search',
+        status: 'completed',
+      }),
+      said('It is in uploads.ts.', 'child_1', 'm2'),
+      spawned({ state: 'idle', stop: 'ended' }),
+      event('child.message', {
+        from: 'child_1',
+        text: 'Retries live in uploads.ts.',
+      }),
+      said('Fixing it.', undefined, 'm3'),
     );
 
     expect(shown(builder)).toEqual([
@@ -254,25 +256,19 @@ describe('JournalBuilder, subagents', () => {
   it('keeps the work of a nested subagent inside the outer subagent', () => {
     const builder = read(
       spawned({ state: 'running' }),
-      output(
-        {
-          sessionUpdate: 'subagent_update',
-          sessionId: 'grandchild_1',
-          title: 'Search',
-          state: { state: 'running' },
-        },
-        'child_1',
-      ),
-      output(
-        {
-          sessionUpdate: 'tool_call',
-          toolCallId: 'call_9',
-          title: 'grep upload',
-          kind: 'search',
-          status: 'completed',
-        },
-        'grandchild_1',
-      ),
+      event('child.changed', {
+        session: 'child_1',
+        child: 'grandchild_1',
+        title: 'Search',
+        state: 'running',
+      }),
+      event('tool.changed', {
+        session: 'grandchild_1',
+        id: 'call_9',
+        title: 'grep upload',
+        kind: 'search',
+        status: 'completed',
+      }),
       said('Back in the parent.'),
     );
 
@@ -287,7 +283,7 @@ describe('JournalBuilder, subagents', () => {
     const builder = read(
       spawned({ state: 'running' }),
       said('I started the subagent.'),
-      spawned({ state: 'idle', stopReason: 'end_turn' }),
+      spawned({ state: 'idle', stop: 'ended' }),
       said('The subagent is done.'),
     );
 
@@ -302,16 +298,13 @@ describe('JournalBuilder, subagents', () => {
   it('counts the tool calls of a subagent with the run', () => {
     const builder = read(
       spawned({ state: 'running' }),
-      output(
-        {
-          sessionUpdate: 'tool_call',
-          toolCallId: 'call_1',
-          title: 'grep retry',
-          kind: 'search',
-          status: 'completed',
-        },
-        'child_1',
-      ),
+      event('tool.changed', {
+        session: 'child_1',
+        id: 'call_1',
+        title: 'grep retry',
+        kind: 'search',
+        status: 'completed',
+      }),
     );
 
     expect(builder.calls()).toHaveLength(1);

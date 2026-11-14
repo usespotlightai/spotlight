@@ -14,14 +14,6 @@ const PREFIXED = /^mcp__(\S+?)__(\S+)$/;
 
 const TITLED = /^Tool: ([^\s/]+)\/(\S+)$/;
 
-const BRIDGE_SERVER = 'mcp__acp__';
-
-const BRIDGE_TOOLS = new Set(
-  ['Read', 'Write', 'Edit', 'MultiEdit', 'Bash', 'BashOutput', 'KillShell'].map(
-    (tool) => `${BRIDGE_SERVER}${tool}`,
-  ),
-);
-
 const SKILL_TOOL = 'Skill';
 
 const READING_KINDS = new Set(['read', 'search', 'execute']);
@@ -29,10 +21,6 @@ const READING_KINDS = new Set(['read', 'search', 'execute']);
 const COMMAND_KIND = 'execute';
 
 const prefixed = (named: string): HarnessTool | null => {
-  if (BRIDGE_TOOLS.has(named)) {
-    return { server: null, tool: named.slice(BRIDGE_SERVER.length) };
-  }
-
   const [, server, tool] = PREFIXED.exec(named) ?? [];
 
   return server && tool ? { server, tool } : null;
@@ -102,7 +90,7 @@ export const callEndingOf = (
 };
 
 @Injectable()
-export class AcpHarnessToolNames implements HarnessToolNamesPort {
+export class HarnessToolNames implements HarnessToolNamesPort {
   toolFor(title: string, kind: string): HarnessToolName | null {
     const named = fromTitle(title.trim(), kind);
 

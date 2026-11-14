@@ -21,6 +21,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import {
+  connected,
+  entryOf,
+  type HarnessEvent,
+  said,
+  toolChanged,
+} from './support/harness-events';
 import { deleteRunnersOf } from './support/runners';
 import {
   aDispatch,
@@ -84,23 +91,17 @@ const writing = async (
       .expect(201)
   ).body as Recalled;
 
-const acp = (update: Record<string, unknown>): string =>
-  Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
-    'base64',
-  );
-
-const journalled = async (seq: number, update: Record<string, unknown>) => {
+const journalled = async (seq: number, event: HarnessEvent) => {
   await http()
     .post(`/api/runs/${runId}/events`)
     .set('Authorization', `Bearer ${token}`)
     .send({
       events: [
-        {
+        entryOf(
           seq,
-          type: 'output',
-          at: new Date(Date.UTC(2026, 8, 27, 10, 0, seq)).toISOString(),
-          data: acp(update),
-        },
+          new Date(Date.UTC(2026, 8, 27, 10, 0, seq)).toISOString(),
+          event,
+        ),
       ],
     })
     .expect(204);
@@ -236,18 +237,18 @@ beforeAll(async () => {
   );
   token = await claimed();
 
-  await journalled(1, {
-    sessionUpdate: 'agent_message_chunk',
-    content: { type: 'text', text: 'A queue needs a worker we do not run.' },
-  });
-  await journalled(2, {
-    sessionUpdate: 'tool_call',
-    toolCallId: 'toolu_1',
-    title:
-      'spotlight remember --kind rationale --body "Uploads retry in the request."',
-    kind: 'execute',
-    status: 'pending',
-  });
+  await journalled(1, connected());
+  await journalled(2, said('A queue needs a worker we do not run.'));
+  await journalled(
+    3,
+    toolChanged({
+      id: 'toolu_1',
+      title:
+        'spotlight remember --kind rationale --body "Uploads retry in the request."',
+      kind: 'execute',
+      status: 'pending',
+    }),
+  );
 }, 60_000);
 
 afterAll(async () => {
@@ -668,13 +669,15 @@ describe('the team’s memory laid out in the run’s workspace', () => {
     );
     const handle = file?.path.split('/').pop()?.replace('.md', '');
 
-    await journalled(3, {
-      sessionUpdate: 'tool_call',
-      toolCallId: 'toolu_read',
-      title: `cat ${file?.path}`,
-      kind: 'execute',
-      status: 'completed',
-    });
+    await journalled(
+      4,
+      toolChanged({
+        id: 'toolu_read',
+        title: `cat ${file?.path}`,
+        kind: 'execute',
+        status: 'completed',
+      }),
+    );
     await http()
       .post(`/api/runs/${runId}/completion`)
       .set('Authorization', `Bearer ${token}`)

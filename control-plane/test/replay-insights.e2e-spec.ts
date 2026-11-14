@@ -32,6 +32,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { type SearchPolicyTerms, searchStarted } from './support/auto-searches';
 import { eventually } from './support/eventually';
+import { posted, said, spent } from './support/harness-events';
 import { keptSet } from './support/kept-sets';
 import { writtenStation } from './support/replays';
 import { aDispatch, requestedByTask } from './support/runs';
@@ -267,11 +268,6 @@ const queuedReplayRuns = async () =>
       ),
     );
 
-const sent = (update: Record<string, unknown>): string =>
-  Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
-    'base64',
-  );
-
 interface Claimed {
   readonly token: string;
   readonly runId: string;
@@ -309,28 +305,7 @@ const finished = async (
 ) => {
   await bearing(token)
     .post(`/api/runs/${runId}/events`, {
-      events: [
-        {
-          seq: 1,
-          type: 'output',
-          at: new Date().toISOString(),
-          data: sent({
-            sessionUpdate: 'agent_message_chunk',
-            content: { type: 'text', text: `Drained it: score(${score}).` },
-          }),
-        },
-        {
-          seq: 2,
-          type: 'output',
-          at: new Date().toISOString(),
-          data: sent({
-            sessionUpdate: 'usage_update',
-            used: 1_000,
-            size: 200_000,
-            cost: { amount: cost, currency: 'USD' },
-          }),
-        },
-      ],
+      events: posted(said(`Drained it: score(${score}).`), spent(cost)),
     })
     .expect(204);
   await bearing(token)
@@ -466,19 +441,7 @@ const leasedSearchRun = async (
 const endedSearchRun = async ({ token, runId }: Claimed, failed = false) => {
   await bearing(token)
     .post(`/api/runs/${runId}/events`, {
-      events: [
-        {
-          seq: 1,
-          type: 'output',
-          at: new Date().toISOString(),
-          data: sent({
-            sessionUpdate: 'usage_update',
-            used: 1_000,
-            size: 200_000,
-            cost: { amount: 0.05, currency: 'USD' },
-          }),
-        },
-      ],
+      events: posted(spent(0.05)),
     })
     .expect(204);
   await bearing(token)

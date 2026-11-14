@@ -67,6 +67,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { posted, spent } from './support/harness-events';
 import { keptSet, runEnded } from './support/kept-sets';
 import {
   plannedCandidate,
@@ -325,19 +326,6 @@ const claimed = async (): Promise<{ token: string; runId: string }> => {
   return { token: assignment.token, runId: assignment.work.run.id };
 };
 
-const usage = (amount: number) =>
-  Buffer.from(
-    JSON.stringify({
-      sessionId: 'session_1',
-      update: {
-        sessionUpdate: 'usage_update',
-        used: 1_000,
-        size: 200_000,
-        cost: { amount, currency: 'USD' },
-      },
-    }),
-  ).toString('base64');
-
 const finishes = async (
   { token, runId }: { token: string; runId: string },
   cost: number,
@@ -347,14 +335,7 @@ const finishes = async (
     .post(`/api/runs/${runId}/events`)
     .set('Authorization', `Bearer ${token}`)
     .send({
-      events: [
-        {
-          seq: 1,
-          type: 'output',
-          at: new Date().toISOString(),
-          data: usage(cost),
-        },
-      ],
+      events: posted(spent(cost)),
     })
     .expect(204);
   await http()

@@ -1,0 +1,7 @@
+{"type":"turn.started","data":{"turn":1,"origin":"prompt"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"tool.changed","data":{"id":"toolu_2","name":"Edit","kind":"edit","title":"Edit `src/queue.ts`","status":"pending","input":{"file_path":"/work/src/queue.ts","old_string":"drain()","new_string":"drain(true)"},"locations":[{"path":"/work/src/queue.ts","line":12}],"files":[{"path":"/work/src/queue.ts","operation":"update","before":"drain()","after":"drain(true)"}]}}
+{"type":"tool.changed","data":{"id":"toolu_2","name":"Edit","kind":"edit","title":"Edit `src/queue.ts`","status":"completed","input":{"file_path":"/work/src/queue.ts","old_string":"drain()","new_string":"drain(true)"},"locations":[{"path":"/work/src/queue.ts","line":12}],"files":[{"path":"/work/src/queue.ts","operation":"update","before":"drain()","after":"drain(true)"}]}}
+{"type":"tool.changed","data":{"id":"toolu_3","name":"Write","kind":"edit","title":"Write `NOTES.md`","status":"completed","files":[{"path":"/work/NOTES.md","operation":"create","after":"# Notes\n"}]}}
+{"type":"turn.ended","data":{"turn":1,"stop":"ended","reason":"end_turn"}}
+{"type":"session.state","data":{"state":"idle"}}
