@@ -1,3 +1,5 @@
+import { useDeferredValue } from 'react';
+
 import { CandidatesTab } from '@/components/features/insights/candidates/CandidatesTab';
 import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
 import { EveryStationSkeleton } from '@/components/features/insights/EveryStationSkeleton';
@@ -21,6 +23,7 @@ type EveryStationViewProps = {
 
 export function EveryStationView(shared: EveryStationViewProps) {
   const { teamId, period, names } = shared;
+  const drawn = useDeferredValue(true, false);
   const queries = [
     useInsightsStations(teamId, period),
     useInsightsChanges(teamId, period),
@@ -28,7 +31,7 @@ export function EveryStationView(shared: EveryStationViewProps) {
     useInsightsCandidates(teamId, period),
   ];
 
-  if (queries.some(loading)) {
+  if (!drawn || queries.some(loading)) {
     return <EveryStationSkeleton names={names} />;
   }
 

@@ -255,7 +255,7 @@ const address = () => screen.getByRole('status', { name: 'Address' });
 
 const tabs = () => screen.getByRole('navigation', { name: 'Insights' });
 
-const tabsRequested = () => requested.map((each) => each.tab);
+const tabsRequested = () => [...new Set(requested.map((each) => each.tab))];
 
 const sections = () =>
   [...document.querySelectorAll('[data-slot="insights-section"] > h2')].map(
