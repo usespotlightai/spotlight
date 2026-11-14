@@ -11,6 +11,8 @@ type Tabs = {
   select(id: string): void;
   close(id: string): void;
   open(): void;
+  back(): void;
+  forward(): void;
 };
 
 const TAB_AT = /^tab-(\d)$/;
@@ -45,6 +47,11 @@ export function useDesktopCommands(slug: string | undefined, tabs: Tabs) {
   const heard = useEffectEvent((command: string) => {
     if (command === 'new-tab') {
       tabs.open();
+      return;
+    }
+
+    if (command === 'back' || command === 'forward') {
+      tabs[command]();
       return;
     }
 

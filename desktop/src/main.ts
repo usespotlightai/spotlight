@@ -430,12 +430,12 @@ const menu = (): MenuItemConstructorOptions[] => [
       {
         label: 'Back',
         accelerator: 'CmdOrCtrl+[',
-        click: () => main?.webContents.navigationHistory.goBack(),
+        click: () => sendCommand('back'),
       },
       {
         label: 'Forward',
         accelerator: 'CmdOrCtrl+]',
-        click: () => main?.webContents.navigationHistory.goForward(),
+        click: () => sendCommand('forward'),
       },
     ],
   },

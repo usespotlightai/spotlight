@@ -5,7 +5,9 @@ import {
   APP_TABS_KEY,
   type AppTabs,
   activeTabOf,
+  back,
   closed,
+  forward,
   moved,
   newTabPath,
   focused,
@@ -153,6 +155,10 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
     hidePane: (side: SplitSide) => apply(withoutPane(tabs, side)),
     move: (id: string, to: string) =>
       change((current) => moved(current, id, to)),
+    canGoBack: activeTabOf(tabs).back.length > 0,
+    canGoForward: activeTabOf(tabs).forward.length > 0,
+    back: () => show(back(tabs), true),
+    forward: () => show(forward(tabs), true),
     open: () =>
       show(
         opened(

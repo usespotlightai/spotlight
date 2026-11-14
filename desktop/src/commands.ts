@@ -6,6 +6,8 @@ export type Command =
   | 'next-tab'
   | 'previous-tab'
   | 'last-tab'
+  | 'back'
+  | 'forward'
   | 'settings'
   | `tab-${number}`;
 

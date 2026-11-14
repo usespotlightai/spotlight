@@ -1,12 +1,13 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { AppTabStrip } from '@/components/shell/tabs/AppTabStrip';
 import { TabDrag } from '@/components/shell/tabs/TabDrag';
 import { useAppTabs } from '@/hooks/useAppTabs';
+import { APP_TABS_KEY } from '@/lib/app-tabs';
 import { TabTitleContext } from '@/lib/tab-title';
 
 const TEAMS = [
@@ -49,7 +50,11 @@ function Shell() {
           splitId={tabs.splitId}
           onSelect={tabs.select}
           onClose={tabs.close}
+          canGoBack={tabs.canGoBack}
+          canGoForward={tabs.canGoForward}
           onOpen={tabs.open}
+          onBack={tabs.back}
+          onForward={tabs.forward}
         />
       </TabDrag>
       <button
@@ -102,6 +107,11 @@ const address = () => screen.getByRole('status', { name: 'Address' });
 
 beforeEach(() => {
   localStorage.clear();
+  Object.assign(window, { spotlightDesktop: { platform: 'darwin' } });
+});
+
+afterEach(() => {
+  Reflect.deleteProperty(window, 'spotlightDesktop');
 });
 
 describe('useAppTabs', () => {
@@ -121,6 +131,38 @@ describe('useAppTabs', () => {
 
     expect(tab('Fix the login')).toHaveAttribute('aria-current', 'page');
     expect(strip().queryByRole('button', { name: 'Runs' })).toBeNull();
+  });
+
+  it('goes back and forward within the tab and keeps the history stored', async () => {
+    const user = userEvent.setup();
+    renderAt('/w/acme/team/team_2/runs');
+
+    const backButton = strip().getByRole('button', { name: 'Back' });
+    const forwardButton = strip().getByRole('button', { name: 'Forward' });
+
+    expect(backButton).toBeDisabled();
+    expect(forwardButton).toBeDisabled();
+
+    await user.click(screen.getByRole('link', { name: 'Open' }));
+    await user.click(backButton);
+
+    expect(address()).toHaveTextContent('/w/acme/team/team_2/runs');
+    expect(backButton).toBeDisabled();
+    expect(forwardButton).toBeEnabled();
+
+    const stored = JSON.parse(
+      localStorage.getItem(`${APP_TABS_KEY}.acme`) ?? '{}',
+    ) as { tabs: { forward: unknown }[] };
+
+    expect(stored.tabs[0].forward).toEqual([
+      { path: '/w/acme/team/team_2/runs/run_1' },
+    ]);
+
+    await user.click(forwardButton);
+
+    expect(address()).toHaveTextContent('/w/acme/team/team_2/runs/run_1');
+    expect(forwardButton).toBeDisabled();
+    expect(backButton).toBeEnabled();
   });
 
   it('opens a new tab at the agent of the team on the page', async () => {

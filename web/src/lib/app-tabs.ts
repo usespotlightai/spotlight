@@ -18,11 +18,15 @@ export const APP_TABS_KEY = 'spotlight.tabs';
 
 export const NEW_TAB_TITLE = 'New tab';
 
+export const TAB_HISTORY_LIMIT = 50;
+
 export type AppTab = {
   readonly id: string;
   readonly path: string;
   readonly title: string | null;
   readonly state?: unknown;
+  readonly back: readonly Place[];
+  readonly forward: readonly Place[];
 };
 
 export type AppTabs = {
@@ -51,7 +55,7 @@ export const activeTabOf = (tabs: AppTabs): AppTab =>
   tabs.tabs.find((tab) => tab.id === tabs.activeId) ?? tabs.tabs[0];
 
 const firstTabs = (id: string, place: Place): AppTabs => ({
-  tabs: [{ id, title: null, ...place }],
+  tabs: [{ id, title: null, back: [], forward: [], ...place }],
   activeId: id,
 });
 
@@ -69,7 +73,69 @@ export const visited = (
   place: Place,
   id: string | undefined = tabs.activeId,
 ): AppTabs =>
-  changeTab(tabs, id, (tab) => ({ id: tab.id, title: tab.title, ...place }));
+  changeTab(tabs, id, (tab) => {
+    if (place.path === tab.path) {
+      return { ...tab, ...placeAt(place.path, place.state) };
+    }
+
+    return {
+      id: tab.id,
+      title: tab.title,
+      ...place,
+      back: [...tab.back, placeAt(tab.path, tab.state)].slice(
+        -TAB_HISTORY_LIMIT,
+      ),
+      forward: [],
+    };
+  });
+
+const tabWith = (tabs: AppTabs, id: string | undefined): AppTab | undefined =>
+  tabs.tabs.find((tab) => tab.id === id);
+
+export const back = (
+  tabs: AppTabs,
+  id: string | undefined = tabs.activeId,
+): AppTabs =>
+  !tabWith(tabs, id)?.back.length
+    ? tabs
+    : changeTab(tabs, id, (tab) => {
+        const previous = tab.back.at(-1);
+
+        return previous
+          ? {
+              id: tab.id,
+              title: tab.title,
+              ...previous,
+              back: tab.back.slice(0, -1),
+              forward: [placeAt(tab.path, tab.state), ...tab.forward].slice(
+                0,
+                TAB_HISTORY_LIMIT,
+              ),
+            }
+          : tab;
+      });
+
+export const forward = (
+  tabs: AppTabs,
+  id: string | undefined = tabs.activeId,
+): AppTabs =>
+  !tabWith(tabs, id)?.forward.length
+    ? tabs
+    : changeTab(tabs, id, (tab) => {
+        const next = tab.forward[0];
+
+        return next
+          ? {
+              id: tab.id,
+              title: tab.title,
+              ...next,
+              back: [...tab.back, placeAt(tab.path, tab.state)].slice(
+                -TAB_HISTORY_LIMIT,
+              ),
+              forward: tab.forward.slice(1),
+            }
+          : tab;
+      });
 
 export const titled = (
   tabs: AppTabs,
@@ -80,7 +146,7 @@ export const titled = (
 
 export const opened = (tabs: AppTabs, id: string, path: string): AppTabs => ({
   ...tabs,
-  tabs: [...tabs.tabs, { id, path, title: null }],
+  tabs: [...tabs.tabs, { id, path, title: null, back: [], forward: [] }],
   activeId: id,
 });
 
@@ -243,6 +309,24 @@ const trailOf = (state: unknown): BreadcrumbSegment[] | undefined => {
   return isTrail(trail) && trail.length > 0 ? trail : undefined;
 };
 
+const storablePlace = (place: Place): Place => {
+  const trail = trailOf(place.state);
+
+  return trail ? { path: place.path, state: { trail } } : { path: place.path };
+};
+
+const placesOf = (value: unknown): Place[] =>
+  Array.isArray(value)
+    ? value
+        .filter(
+          (place): place is Place =>
+            typeof place === 'object' &&
+            place !== null &&
+            typeof (place as Place).path === 'string',
+        )
+        .map(storablePlace)
+    : [];
+
 const tabOf = (value: unknown): AppTab | null => {
   const tab = value as Partial<Record<keyof AppTab, unknown>> | null;
 
@@ -255,23 +339,24 @@ const tabOf = (value: unknown): AppTab | null => {
     return null;
   }
 
-  const trail = trailOf(tab.state);
-
   return {
     id: tab.id,
-    path: tab.path,
     title: typeof tab.title === 'string' ? tab.title : null,
-    ...(trail && { state: { trail } }),
+    ...storablePlace({ path: tab.path, state: tab.state }),
+    back: placesOf(tab.back).slice(-TAB_HISTORY_LIMIT),
+    forward: placesOf(tab.forward).slice(0, TAB_HISTORY_LIMIT),
   };
 };
 
 export const storableTabs = (tabs: AppTabs): AppTabs => ({
   ...tabs,
-  tabs: tabs.tabs.map(({ state, ...tab }) => {
-    const trail = trailOf(state);
-
-    return trail ? { ...tab, state: { trail } } : tab;
-  }),
+  tabs: tabs.tabs.map((tab) => ({
+    id: tab.id,
+    title: tab.title,
+    ...storablePlace(tab),
+    back: tab.back.map(storablePlace),
+    forward: tab.forward.map(storablePlace),
+  })),
 });
 
 export const storedTabs = (
