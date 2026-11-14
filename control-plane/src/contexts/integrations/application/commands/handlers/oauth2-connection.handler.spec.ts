@@ -130,7 +130,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
     'Did not begin an OAuth2 connection',
   ];
 
-  const refused = (reason: string, kind: string, message: string) =>
+  const refused = (reason: string, kind: string, message: string): unknown =>
     expect.objectContaining({
       name: 'OAuth2ConnectionNotBegunError',
       reason,
