@@ -13,6 +13,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "oxlint --fix",
+    "typecheck": "tsc --noEmit --incremental false",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:cov": "vitest run --project unit --coverage",
