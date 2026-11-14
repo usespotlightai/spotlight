@@ -13,7 +13,7 @@ const members = vi.fn();
 const role = vi.fn<(...args: unknown[]) => unknown>();
 const connect = vi.fn();
 const disconnect = vi.fn();
-const connectFailed = vi.fn<(...args: unknown[]) => unknown>();
+const connectError = vi.fn<(...args: unknown[]) => unknown>();
 const disconnectFailed = vi.fn<(...args: unknown[]) => unknown>();
 
 const failing = vi.fn();
@@ -62,7 +62,7 @@ vi.mock('@/hooks/api/useConnectIntegration', () => ({
   useConnectIntegration: () => ({
     mutate: connect,
     isPending: false,
-    isError: connectFailed(),
+    error: connectError(),
   }),
 }));
 
@@ -160,7 +160,7 @@ beforeEach(() => {
   refetch.mockClear();
   connect.mockClear();
   disconnect.mockClear();
-  connectFailed.mockReturnValue(false);
+  connectError.mockReturnValue(null);
   disconnectFailed.mockReturnValue(false);
   github.mockReturnValue(ready());
   configuration.mockReturnValue(read());
@@ -532,8 +532,12 @@ describe('TeamIntegrations', () => {
     expect(people).toHaveTextContent('Not connected: Maya Chen');
   });
 
-  it('says when the team account could not be connected', () => {
-    connectFailed.mockReturnValue(true);
+  it('says why the team account could not be connected', () => {
+    connectError.mockReturnValue(
+      new Error(
+        'Integration grafana has no OAuth2 client. Required: an OAUTH_CLIENTS entry for grafana',
+      ),
+    );
     configuration.mockReturnValue(
       read([
         integration({
@@ -546,17 +550,19 @@ describe('TeamIntegrations', () => {
     showing();
 
     expect(head('Grafana').getByRole('alert')).toHaveTextContent(
-      'Could not connect. Try again.',
+      'Integration grafana has no OAuth2 client. Required: an OAUTH_CLIENTS entry for grafana',
     );
   });
 
-  it('says when a person’s own account could not be connected', () => {
-    connectFailed.mockReturnValue(true);
+  it('says why a person’s own account could not be connected', () => {
+    connectError.mockReturnValue(
+      new Error("Integration linear doesn't take a personal account."),
+    );
     configuration.mockReturnValue(read([personal()]));
     showing();
 
     expect(head('Linear').getByRole('alert')).toHaveTextContent(
-      'Could not connect. Try again.',
+      "Integration linear doesn't take a personal account.",
     );
   });
 
@@ -584,15 +590,17 @@ describe('TeamIntegrations', () => {
     );
   });
 
-  it('says when the team account could not be changed', async () => {
-    connectFailed.mockReturnValue(true);
+  it('says why the team account could not be changed', async () => {
+    connectError.mockReturnValue(
+      new Error('Only a workspace owner or admin can connect a team account.'),
+    );
     configuration.mockReturnValue(read([personal()]));
     showing();
 
     const team = fact(await opening('Linear'), 'Team account');
 
     expect(within(team).getByRole('alert')).toHaveTextContent(
-      'Could not connect. Try again.',
+      'Only a workspace owner or admin can connect a team account.',
     );
   });
 });

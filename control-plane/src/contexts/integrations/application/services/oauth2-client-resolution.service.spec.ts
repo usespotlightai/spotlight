@@ -23,8 +23,15 @@ const server = (token = 'https://auth.tracker.example/token') =>
 
 const resolving = (configured = '{}') => {
   let stored: OAuth2ClientRegistration | null = null;
-  const register = vi.fn(async () => ({
-    clientId: OAuth2ClientId.of(`client-${register.mock.calls.length}`),
+  let registered = 0;
+  const register = vi.fn<
+    () => Promise<{
+      clientId: OAuth2ClientId;
+      clientSecret: null;
+      secretExpiresAt: null;
+    } | null>
+  >(async () => ({
+    clientId: OAuth2ClientId.of(`client-${(registered += 1)}`),
     clientSecret: null,
     secretExpiresAt: null,
   }));
@@ -100,10 +107,39 @@ describe('OAuth2ClientResolution', () => {
     ).resolves.toEqual({ id: 'c-1', secret: 's-1' });
     await expect(
       unbound.clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
-    ).resolves.toBeNull();
+    ).rejects.toMatchObject({
+      kind: 'invalid',
+      message:
+        'OAUTH_CLIENTS entry for tracker names no issuer. Required issuer: https://auth.tracker.example',
+    });
     await expect(
       unbound.clients.existingFor(TEAM, TRACKER, null),
     ).resolves.toEqual({ id: 'c-1', secret: 's-1' });
     expect(unbound.register).not.toHaveBeenCalled();
+  });
+
+  it('names the missing OAUTH_CLIENTS entry where the integration offers no registration', async () => {
+    const { clients, register } = resolving();
+
+    await expect(
+      clients.clientFor(TEAM, TRACKER, null, server()),
+    ).rejects.toMatchObject({
+      kind: 'invalid',
+      message:
+        'Integration tracker has no OAuth2 client. Required: an OAUTH_CLIENTS entry for tracker',
+    });
+    expect(register).not.toHaveBeenCalled();
+  });
+
+  it('says so where the registration endpoint registers no client', async () => {
+    const { clients, register } = resolving();
+    register.mockResolvedValueOnce(null);
+
+    await expect(
+      clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
+    ).rejects.toMatchObject({
+      kind: 'upstream-error',
+      message: 'Client registration for integration tracker failed.',
+    });
   });
 });
