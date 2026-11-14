@@ -575,10 +575,12 @@ export class Sandbox extends EventRecorder {
     return held.withArchiveLease(holder, attempt, at);
   }
 
-  releaseArchiveOf(runId: RunId, at: Date): Sandbox {
+  releaseArchiveOf(runId: RunId, attempt: number, at: Date): Sandbox {
     const holder = LeaseHolder.archive(runId);
 
-    if (!this.isHeldBy(holder)) {
+    if (
+      !this.state.leases.some((each) => each.isForArchiveOf(holder, attempt))
+    ) {
       return this;
     }
 

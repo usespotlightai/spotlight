@@ -459,7 +459,7 @@ describe('Sandboxes', () => {
         service.renewArchive('sandbox_1', 'run_1', 1, later(10_000)),
       ).resolves.toBe(true);
 
-      await service.releaseArchive('sandbox_1', 'run_1', later(15_000));
+      await service.releaseArchive('sandbox_1', 'run_1', 1, later(15_000));
 
       expect(stored.get('sandbox_1')?.idleSince).toEqual(later(15_000));
       await expect(service.takingRuns('sandbox_1', HOST)).resolves.toEqual({
@@ -484,7 +484,7 @@ describe('Sandboxes', () => {
         service.liveKeysIn(WORKSPACE.value, later(2_000)),
       ).resolves.toEqual(['task-task_1']);
 
-      await service.releaseArchive('sandbox_1', 'run_1', later(15_000));
+      await service.releaseArchive('sandbox_1', 'run_1', 1, later(15_000));
 
       await expect(service.toDrainOn(host)).resolves.toEqual(['sandbox_1']);
     });

@@ -26,7 +26,7 @@ const releaseWithin = 5 * time.Second
 
 type ArchivingSandbox interface {
 	HoldArchiveLease(ctx context.Context, runID string, attempt int) error
-	ReleaseArchiveLease(ctx context.Context, runID string) error
+	ReleaseArchiveLease(ctx context.Context, runID string, attempt int) error
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	GrantArchive(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error)
 	CompleteArchive(ctx context.Context, archiveID string) error
@@ -255,7 +255,7 @@ func (a *archiver) holdForArchive(ctx context.Context, sandbox ArchivingSandbox)
 func (a *archiver) archiveHeld(ctx context.Context, held *heldArchive, reported bool) {
 	defer held.stopRenewing()
 
-	settled, done := lingering(ctx, settleFor)
+	lingered, done := lingering(ctx, settleFor)
 	defer done()
 
 	if reported {
@@ -267,9 +267,12 @@ func (a *archiver) archiveHeld(ctx context.Context, held *heldArchive, reported 
 		a.archive(ctx)
 	}
 
+	settled, cancel := context.WithTimeout(lingered, settleFor)
+	defer cancel()
+
 	a.journal.drain(settled)
 	held.stopRenewing()
-	if err := held.sandbox.ReleaseArchiveLease(settled, a.run.ID); err != nil {
+	if err := held.sandbox.ReleaseArchiveLease(settled, a.run.ID, a.run.Attempt); err != nil {
 		a.log.Warn("could not release the sandbox after the archive; the lease expires instead", "error", err)
 	}
 }
@@ -278,7 +281,7 @@ func (a *archiver) releaseArchiveLease(ctx context.Context, sandbox ArchivingSan
 	released, done := context.WithTimeout(context.WithoutCancel(ctx), releaseWithin)
 	defer done()
 
-	if err := sandbox.ReleaseArchiveLease(released, a.run.ID); err != nil {
+	if err := sandbox.ReleaseArchiveLease(released, a.run.ID, a.run.Attempt); err != nil {
 		a.log.Warn("could not release an archive lease the sandbox may hold; it expires instead", "error", err)
 	}
 }

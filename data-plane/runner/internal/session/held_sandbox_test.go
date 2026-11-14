@@ -33,7 +33,7 @@ func (s *heldSandbox) HoldArchiveLease(_ context.Context, _ string, attempt int)
 	return nil
 }
 
-func (s *heldSandbox) ReleaseArchiveLease(context.Context, string) error {
+func (s *heldSandbox) ReleaseArchiveLease(context.Context, string, int) error {
 	s.called("release")
 	return nil
 }

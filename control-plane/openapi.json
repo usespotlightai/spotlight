@@ -6489,6 +6489,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "attempt",
+            "required": true,
+            "in": "query",
+            "description": "The attempt the lease was held for",
+            "schema": {
+              "type": "number"
+            }
           }
         ],
         "responses": {

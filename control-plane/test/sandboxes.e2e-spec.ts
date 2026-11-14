@@ -425,7 +425,7 @@ describe('sandboxes (e2e)', () => {
     expect(journaled).toEqual([{ attempt: 1, seq: 900 }]);
 
     await http()
-      .delete(lease)
+      .delete(`${lease}?attempt=1`)
       .set('Authorization', `Bearer ${sandboxToken}`)
       .expect(204);
     await events(902).expect(404);

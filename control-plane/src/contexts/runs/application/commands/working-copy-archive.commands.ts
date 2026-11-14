@@ -40,6 +40,7 @@ export class ReleaseSandboxArchiveCommand {
     readonly sandboxId: string,
     readonly token: string | undefined,
     readonly runId: string,
+    readonly attempt: number,
   ) {}
 }
 

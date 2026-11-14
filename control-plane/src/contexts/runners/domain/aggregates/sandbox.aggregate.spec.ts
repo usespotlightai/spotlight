@@ -706,12 +706,16 @@ describe('Sandbox', () => {
     });
 
     it('takes the next run once the archive releases it, idle from then', () => {
-      const released = archiving().releaseArchiveOf(RUN, later(15_000));
+      expect(archiving().releaseArchiveOf(RUN, 2, later(15_000))).toEqual(
+        archiving(),
+      );
+
+      const released = archiving().releaseArchiveOf(RUN, 1, later(15_000));
 
       expect(released.leases).toEqual([]);
       expect(released.idleSince).toEqual(later(15_000));
       expect(released.takesRunOn(reporting, NOW)).toBe(true);
-      expect(released.releaseArchiveOf(RUN, later(16_000))).toBe(released);
+      expect(released.releaseArchiveOf(RUN, 1, later(16_000))).toBe(released);
     });
 
     it('is kept by its host while the archive holds it, even once a retiring run drains it', () => {
@@ -724,7 +728,7 @@ describe('Sandbox', () => {
       expect(retired.keptBy(stopping, NOW)).toBe(true);
       expect(retired.takesRunOn(reporting, NOW)).toBe(false);
       expect(
-        retired.releaseArchiveOf(RUN, later(15_000)).keptBy(reporting, NOW),
+        retired.releaseArchiveOf(RUN, 1, later(15_000)).keptBy(reporting, NOW),
       ).toBe(false);
     });
 
@@ -735,7 +739,7 @@ describe('Sandbox', () => {
         .retireRun(RUN, later(1_000));
 
       expect(edited.current).toBe('open');
-      expect(edited.releaseArchiveOf(RUN, later(15_000)).isIdle).toBe(true);
+      expect(edited.releaseArchiveOf(RUN, 1, later(15_000)).isIdle).toBe(true);
     });
 
     it('drops an archive lease nobody renewed, and is idle from then', () => {

@@ -12147,7 +12147,12 @@ export type ReleaseSandboxArchiveLeaseData = {
     sandboxId: string;
     runId: string;
   };
-  query?: never;
+  query: {
+    /**
+     * The attempt the lease was held for
+     */
+    attempt: number;
+  };
   url: '/sandboxes/{sandboxId}/archive-leases/{runId}';
 };
 

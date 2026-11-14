@@ -464,6 +464,7 @@ export class Sandboxes
   async releaseArchive(
     sandboxId: string,
     runId: string,
+    attempt: number,
     at: Date,
   ): Promise<void> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
@@ -472,7 +473,7 @@ export class Sandboxes
       const run = RunId.of(runId);
 
       await reviseSandbox(this.sandboxes, found, (sandbox) =>
-        sandbox.releaseArchiveOf(run, at),
+        sandbox.releaseArchiveOf(run, attempt, at),
       );
     }
   }

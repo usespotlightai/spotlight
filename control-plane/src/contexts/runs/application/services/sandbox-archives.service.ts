@@ -56,9 +56,15 @@ export class SandboxArchives {
   releaseArchive(
     sandbox: ArchivingSandbox,
     run: RunId,
+    attempt: number,
     at: Date,
   ): Promise<void> {
-    return this.sandboxes.releaseArchive(sandbox.id.value, run.value, at);
+    return this.sandboxes.releaseArchive(
+      sandbox.id.value,
+      run.value,
+      attempt,
+      at,
+    );
   }
 
   archivedAttemptOf(

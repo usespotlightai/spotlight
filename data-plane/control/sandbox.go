@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"usespotlight.ai/data-plane/protocol"
 )
@@ -86,8 +87,9 @@ func (s *Sandbox) HoldArchiveLease(ctx context.Context, runID string, attempt in
 	return nil
 }
 
-func (s *Sandbox) ReleaseArchiveLease(ctx context.Context, runID string) error {
-	if err := s.client.do(ctx, http.MethodDelete, s.archiveLeasePath(runID), nil, nil); err != nil {
+func (s *Sandbox) ReleaseArchiveLease(ctx context.Context, runID string, attempt int) error {
+	path := s.archiveLeasePath(runID) + "?attempt=" + strconv.Itoa(attempt)
+	if err := s.client.do(ctx, http.MethodDelete, path, nil, nil); err != nil {
 		return fmt.Errorf("release the sandbox after the archive: %w", err)
 	}
 

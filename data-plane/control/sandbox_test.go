@@ -74,7 +74,7 @@ func TestASandboxHoldsItselfForTheArchiveOfARun(t *testing.T) {
 	var seen []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
-		seen = append(seen, strings.TrimSpace(r.Method+" "+r.URL.Path+" "+r.Header.Get("Authorization")+" "+string(body)))
+		seen = append(seen, strings.TrimSpace(r.Method+" "+r.URL.RequestURI()+" "+r.Header.Get("Authorization")+" "+string(body)))
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	t.Cleanup(server.Close)
@@ -94,14 +94,14 @@ func TestASandboxHoldsItselfForTheArchiveOfARun(t *testing.T) {
 	if err := sandbox.AppendEvents(ctx, "run_1", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := sandbox.ReleaseArchiveLease(ctx, "run_1"); err != nil {
+	if err := sandbox.ReleaseArchiveLease(ctx, "run_1", 2); err != nil {
 		t.Fatal(err)
 	}
 
 	want := []string{
 		`PUT /api/sandboxes/sandbox_1/archive-leases/run_1 Bearer sandbox-token {"attempt":2}`,
 		`POST /api/sandboxes/sandbox_1/archive-leases/run_1/events Bearer sandbox-token {"events":[{"seq":9,"type":"output","at":"0001-01-01T00:00:00Z","message":"archive"}]}`,
-		"DELETE /api/sandboxes/sandbox_1/archive-leases/run_1 Bearer sandbox-token",
+		"DELETE /api/sandboxes/sandbox_1/archive-leases/run_1?attempt=2 Bearer sandbox-token",
 	}
 	if len(seen) != len(want) {
 		t.Fatalf("called %v", seen)

@@ -286,13 +286,18 @@ describe('a sandbox that archives a run’s workspace after the run reported its
 
     await expect(
       release.execute(
-        new ReleaseSandboxArchiveCommand('sandbox_1', TOKEN, 'run_1'),
+        new ReleaseSandboxArchiveCommand('sandbox_1', TOKEN, 'run_1', 1),
       ),
     ).resolves.toBe(true);
-    expect(port.releaseArchive).toHaveBeenCalledWith('sandbox_1', 'run_1', NOW);
+    expect(port.releaseArchive).toHaveBeenCalledWith(
+      'sandbox_1',
+      'run_1',
+      1,
+      NOW,
+    );
     await expect(
       release.execute(
-        new ReleaseSandboxArchiveCommand('sandbox_1', 'stolen', 'run_1'),
+        new ReleaseSandboxArchiveCommand('sandbox_1', 'stolen', 'run_1', 1),
       ),
     ).resolves.toBe(false);
   });

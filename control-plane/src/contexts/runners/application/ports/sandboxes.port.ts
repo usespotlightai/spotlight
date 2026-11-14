@@ -99,7 +99,12 @@ export interface SandboxesPort {
     at: Date,
   ): Promise<boolean>;
 
-  releaseArchive(sandboxId: string, runId: string, at: Date): Promise<void>;
+  releaseArchive(
+    sandboxId: string,
+    runId: string,
+    attempt: number,
+    at: Date,
+  ): Promise<void>;
 
   archivedAttemptOf(
     sandboxId: string,

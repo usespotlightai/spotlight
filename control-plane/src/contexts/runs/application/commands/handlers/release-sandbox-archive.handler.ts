@@ -28,6 +28,7 @@ export class ReleaseSandboxArchiveHandler implements CommandHandlerPort<
       await this.sandboxes.releaseArchive(
         sandbox,
         RunId.of(command.runId),
+        command.attempt,
         this.clock.now(),
       );
 

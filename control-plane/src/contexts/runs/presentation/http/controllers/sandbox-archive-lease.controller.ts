@@ -7,8 +7,10 @@ import {
   HttpStatus,
   NotFoundException,
   Param,
+  ParseIntPipe,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import {
@@ -17,6 +19,7 @@ import {
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { bearerIn } from '@platform/http/bearer';
@@ -92,11 +95,17 @@ export class SandboxArchiveLeaseController {
     summary:
       'Release the sandbox after the archive is sealed or failed, so it takes its next run',
   })
+  @ApiQuery({
+    name: 'attempt',
+    type: Number,
+    description: 'The attempt the lease was held for',
+  })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ description: UNKNOWN })
   async release(
     @Param('sandboxId') sandboxId: string,
     @Param('runId') runId: string,
+    @Query('attempt', ParseIntPipe) attempt: number,
     @Headers('authorization') authorization: string | undefined,
   ): Promise<void> {
     const released = await this.commandBus.execute<
@@ -107,6 +116,7 @@ export class SandboxArchiveLeaseController {
         sandboxId,
         bearerIn(authorization),
         runId,
+        attempt,
       ),
     );
 
