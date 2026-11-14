@@ -1,15 +1,39 @@
-import type { Env } from '@platform/config/env.schema';
+import type { DatabaseEnv, Env } from '@platform/config/env.schema';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { Pool, type PoolConfig } from 'pg';
 
 export type DrizzleDatabase = NodePgDatabase;
 
-export const createPool = (env: Env): Pool =>
-  new Pool({ connectionString: env.DATABASE_URL });
+export const poolOptions = (
+  env: DatabaseEnv,
+  connectionString: string,
+  max = env.DATABASE_POOL_MAX,
+): PoolConfig => ({
+  connectionString,
+  max,
+  idleTimeoutMillis: env.DATABASE_POOL_IDLE_TIMEOUT_MS,
+  connectionTimeoutMillis: env.DATABASE_POOL_CONNECTION_TIMEOUT_MS,
+});
 
-export const createReadPool = (env: Env, pool: Pool): Pool =>
+const guarded = (pool: Pool, name: string, logger: LoggerPort): Pool => {
+  // A dropped idle client emits "error". Without a listener, it would end the process.
+  pool.on('error', (error) =>
+    logger.warn({ err: error, pool: name }, 'Postgres pool client failed'),
+  );
+  return pool;
+};
+
+export const createPool = (env: Env, logger: LoggerPort): Pool =>
+  guarded(new Pool(poolOptions(env, env.DATABASE_URL)), 'primary', logger);
+
+export const createReadPool = (
+  env: Env,
+  pool: Pool,
+  logger: LoggerPort,
+): Pool =>
   env.DATABASE_READ_URL
-    ? new Pool({ connectionString: env.DATABASE_READ_URL })
+    ? guarded(new Pool(poolOptions(env, env.DATABASE_READ_URL)), 'read', logger)
     : pool;
 
 export const createDatabase = (pool: Pool): DrizzleDatabase =>

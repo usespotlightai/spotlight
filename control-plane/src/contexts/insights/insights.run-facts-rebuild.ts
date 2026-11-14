@@ -5,7 +5,10 @@ import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/per
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
 import { parseDatabaseEnv } from '@platform/config/env';
-import { createDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import {
+  createDatabase,
+  poolOptions,
+} from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { Pool } from 'pg';
@@ -22,7 +25,8 @@ const READ_ONLY: DomainEventDispatcher = {
 };
 
 export const openRunFactsRebuild = (): RunFactsRebuild => {
-  const pool = new Pool({ connectionString: parseDatabaseEnv().DATABASE_URL });
+  const env = parseDatabaseEnv();
+  const pool = new Pool(poolOptions(env, env.DATABASE_URL, 2));
   const context = new DrizzleContext(createDatabase(pool));
 
   return {
