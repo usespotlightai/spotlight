@@ -72,6 +72,36 @@ func TestReadsAMoveAndItsPatch(t *testing.T) {
 	}
 }
 
+func TestReadsWhatEachFileWasAndBecameFromThePatch(t *testing.T) {
+	patch := "diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,3 +1,3 @@\n keep\n-old\n+new\n tail\n" +
+		"diff --git /work/notes.md /work/notes.md\nnew file mode 100644\n--- /dev/null\n+++ /work/notes.md\n@@ -0,0 +1 @@\n+one\n\\ No newline at end of file\n"
+	content, _ := json.Marshal([]map[string]any{{
+		"type": "diff",
+		"changes": []map[string]string{
+			{"operation": "modify", "path": "/work/src/a.ts"},
+			{"operation": "add", "path": "/work/notes.md"},
+		},
+		"patch": map[string]string{"format": "git_patch", "text": patch},
+	}})
+
+	call := last[protocol.ToolChanged](t, translated(t,
+		`{"sessionUpdate":"tool_call_update","toolCallId":"c1","kind":"edit","status":"completed","content":`+string(content)+`}`,
+	), protocol.EventToolChanged)
+
+	sidesOf := func(file protocol.FileChange) [2]string {
+		if file.Before == nil || file.After == nil {
+			t.Fatalf("no sides for %s", file.Path)
+		}
+		return [2]string{*file.Before, *file.After}
+	}
+	if got := sidesOf(call.Files[0]); got != [2]string{"keep\nold\ntail", "keep\nnew\ntail"} {
+		t.Fatalf("read the edit as %q", got)
+	}
+	if got := sidesOf(call.Files[1]); got != [2]string{"", "one"} {
+		t.Fatalf("read the new file as %q", got)
+	}
+}
+
 func TestKeepsWhatAToolCallHadWhenAPatchLeavesItOut(t *testing.T) {
 	call := last[protocol.ToolChanged](t, translated(t,
 		`{"sessionUpdate":"tool_call_update","toolCallId":"c1","name":"Read","title":"Read a.ts","kind":"read","rawInput":{"path":"a.ts"}}`,

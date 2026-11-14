@@ -488,7 +488,9 @@ func filesIn(blocks []block) ([]protocol.FileChange, string) {
 			patches = append(patches, each.Patch.Text)
 		}
 	}
-	return files, strings.Join(patches, "\n")
+	patch := strings.Join(patches, "\n")
+	withSides(files, patch)
+	return files, patch
 }
 
 func operationOf(operation string) protocol.FileOperation {

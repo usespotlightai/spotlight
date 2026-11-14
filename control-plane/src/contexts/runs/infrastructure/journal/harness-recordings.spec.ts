@@ -224,6 +224,17 @@ describe('the recordings of Claude Code over ACP v2', () => {
     expect(paths.paths()).toEqual(['/work/notes.md', '/work/notes.md']);
   });
 
+  it('reads what each edit changed from its patch', () => {
+    const changes = built('edit', 'acp-2')
+      .steps()
+      .flatMap((step) => (step.change ? [step.change] : []));
+
+    expect(changes).toEqual([
+      { path: '/work/notes.md', before: '', after: 'one' },
+      { path: '/work/notes.md', before: 'one', after: 'two' },
+    ]);
+  });
+
   it('reads what the turn used', () => {
     const { input, output } = built('text', 'acp-2').tokens();
 
