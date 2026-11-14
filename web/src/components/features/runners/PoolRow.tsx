@@ -42,6 +42,8 @@ export function PoolRow({ slug, pool, harnesses }: PoolRowProps) {
 
         <span />
 
+        <span />
+
         <HarnessLogos harnesses={poolHarnesses(pool, harnesses)} />
 
         <span />

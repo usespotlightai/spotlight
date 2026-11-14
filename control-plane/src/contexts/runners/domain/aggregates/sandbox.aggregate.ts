@@ -22,10 +22,26 @@ export type SandboxState = (typeof SANDBOX_STATES)[number];
 
 export type SandboxStatus = 'starting' | 'ready' | 'draining' | 'gone';
 
-export const LIVE_SANDBOX_STATES: readonly SandboxState[] = [
+export type LiveSandboxState = Exclude<SandboxState, 'gone'>;
+
+export type LiveSandboxStatus = Exclude<SandboxStatus, 'gone'>;
+
+export const LIVE_SANDBOX_STATES: readonly LiveSandboxState[] = [
   'open',
   'draining',
 ];
+
+interface StatusFacts<S extends SandboxState> {
+  readonly state: S;
+  readonly placedOnHost: boolean;
+  readonly hostOnline: boolean;
+  readonly reportedByHost: boolean;
+}
+
+interface IdleFacts {
+  readonly state: SandboxState;
+  readonly idleSince: Date | null;
+}
 
 const START_WINDOW_MS = 60_000;
 
@@ -334,19 +350,37 @@ export class Sandbox extends EventRecorder {
   }
 
   isReadyOn(host: RunnerHost | null, now: Date): boolean {
-    return (
-      this.isOpen &&
-      this.isLiveOn(host, now) &&
-      (host?.reportsSandbox(this.state.id) ?? false)
-    );
+    return this.statusOn(host, now) === 'ready';
   }
 
   statusOn(host: RunnerHost | null, now: Date): SandboxStatus {
-    if (!this.isOpen) {
-      return this.state.state === 'draining' ? 'draining' : 'gone';
+    return Sandbox.statusFrom({
+      state: this.state.state,
+      placedOnHost: host !== null && this.isOn(host.id),
+      hostOnline: host?.isOnlineAt(now) ?? false,
+      reportedByHost: host?.reportsSandbox(this.state.id) ?? false,
+    });
+  }
+
+  static statusFrom(input: StatusFacts<LiveSandboxState>): LiveSandboxStatus;
+  static statusFrom(input: StatusFacts<SandboxState>): SandboxStatus;
+  static statusFrom(input: StatusFacts<SandboxState>): SandboxStatus {
+    if (input.state !== 'open') {
+      return input.state;
     }
 
-    return this.isReadyOn(host, now) ? 'ready' : 'starting';
+    return input.placedOnHost && input.hostOnline && input.reportedByHost
+      ? 'ready'
+      : 'starting';
+  }
+
+  static isIdleAndLive<F extends IdleFacts>(
+    facts: F,
+  ): facts is F & { state: LiveSandboxState; idleSince: Date } {
+    return (
+      facts.idleSince !== null &&
+      (LIVE_SANDBOX_STATES as readonly SandboxState[]).includes(facts.state)
+    );
   }
 
   takesRunOn(host: RunnerHost, now: Date): boolean {

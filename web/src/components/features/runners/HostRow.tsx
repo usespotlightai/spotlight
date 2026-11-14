@@ -12,6 +12,7 @@ import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import {
   type Host,
   heartbeatAt,
+  hostSlots,
   type NamedHarness,
   servedBy,
   sourceLabel,
@@ -67,6 +68,10 @@ export function HostRow({
 
         <HostStatus host={host} />
 
+        <span className="truncate text-muted-foreground text-xs tabular-nums">
+          {hostSlots(host)}
+        </span>
+
         <HostImageCell images={host.images} />
 
         <HarnessLogos harnesses={servedBy(host, harnesses)} />
@@ -85,6 +90,7 @@ export function HostRow({
         slug={slug}
         of={host.name}
         runners={host.runners}
+        idleSandboxes={host.idleSandboxes}
         harnesses={harnesses}
       />
     </li>

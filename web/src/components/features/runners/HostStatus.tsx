@@ -5,7 +5,7 @@ const toneOf = (host: Host): Tone => {
   if (!host.online) {
     return 'gone';
   }
-  return host.running.length > 0 ? 'busy' : 'ready';
+  return host.runners.length > 0 ? 'busy' : 'ready';
 };
 
 export function HostStatus({ host }: { host: Host }) {

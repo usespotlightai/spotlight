@@ -24,7 +24,9 @@ const host = (over: Record<string, unknown> = {}) => ({
   name: 'leons-mac',
   source: { kind: 'pool', key: 'my-computer' },
   online: true,
-  running: [],
+  runners: [],
+  idleSandboxes: [],
+  slotsTaken: 0,
   ...over,
 });
 

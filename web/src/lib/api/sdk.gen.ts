@@ -928,9 +928,7 @@ export const recordEgressConnections = <ThrowOnError extends boolean = false>(op
 });
 
 /**
- * Which run each of the workspace’s runners is working on
- *
- * A runner with no lease on a run is idle, and is not listed.
+ * The run each busy runner works on, and the last run of each idle sandbox
  */
 export const listRunnerActivity = <ThrowOnError extends boolean = false>(options: Options<ListRunnerActivityData, ThrowOnError>): RequestResult<ListRunnerActivityResponses, ListRunnerActivityErrors, ThrowOnError> => (options.client ?? client).get<ListRunnerActivityResponses, ListRunnerActivityErrors, ThrowOnError>({ url: '/workspaces/{slug}/runner-activity', ...options });
 

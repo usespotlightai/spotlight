@@ -7093,7 +7093,6 @@
     },
     "/workspaces/{slug}/runner-activity": {
       "get": {
-        "description": "A runner with no lease on a run is idle, and is not listed.",
         "operationId": "listRunnerActivity",
         "parameters": [
           {
@@ -7112,10 +7111,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/RunnerActivityResponseDto"
-                  }
+                  "$ref": "#/components/schemas/RunnerActivityResponseDto"
                 }
               }
             }
@@ -7127,7 +7123,7 @@
             "description": "No such workspace for this caller"
           }
         },
-        "summary": "Which run each of the workspace’s runners is working on",
+        "summary": "The run each busy runner works on, and the last run of each idle sandbox",
         "tags": [
           "runners"
         ]
@@ -25947,7 +25943,7 @@
           "title"
         ]
       },
-      "RunnerActivityResponseDto": {
+      "BusyRunnerResponseDto": {
         "type": "object",
         "properties": {
           "runnerId": {
@@ -25966,6 +25962,51 @@
         "required": [
           "runnerId",
           "currentRun"
+        ]
+      },
+      "WorkingCopyResponseDto": {
+        "type": "object",
+        "properties": {
+          "workingCopyKey": {
+            "type": "string",
+            "example": "work/task-3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63",
+            "description": "The working copy that an idle sandbox keeps"
+          },
+          "lastRun": {
+            "description": "The last run that used the working copy",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LeasedRunResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "workingCopyKey",
+          "lastRun"
+        ]
+      },
+      "RunnerActivityResponseDto": {
+        "type": "object",
+        "properties": {
+          "runners": {
+            "description": "Each runner with a lease on a run. A runner with no lease is idle, and is not listed.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusyRunnerResponseDto"
+            }
+          },
+          "workingCopies": {
+            "description": "The last run of each working copy that an idle sandbox keeps",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkingCopyResponseDto"
+            }
+          }
+        },
+        "required": [
+          "runners",
+          "workingCopies"
         ]
       },
       "HarnessModelResponseDto": {
@@ -26300,6 +26341,53 @@
           "key"
         ]
       },
+      "IdleSandboxResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "ba339f88-9dcd-436b-bc96-c0d8c8136ed9"
+          },
+          "workingCopyKey": {
+            "type": "string",
+            "nullable": true,
+            "example": "work/task-3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63",
+            "description": "The working copy it keeps for the runs of one task or chat; null for a warm sandbox"
+          },
+          "warmLineId": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "The line whose first run it waits for, when it is a warm sandbox"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "ready",
+              "draining"
+            ],
+            "example": "ready",
+            "description": "Ready once its host reports it; draining while its host stops it"
+          },
+          "idleSince": {
+            "type": "string",
+            "example": "2026-09-25T11:30:00.000Z"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-09-25T11:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "workingCopyKey",
+          "warmLineId",
+          "status",
+          "idleSince",
+          "startedAt"
+        ]
+      },
       "HostHarnessResponseDto": {
         "type": "object",
         "properties": {
@@ -26398,11 +26486,16 @@
             "example": 4,
             "description": "How many sandboxes it runs at once"
           },
-          "running": {
-            "description": "The one-run runners in its sandboxes now",
+          "slotsTaken": {
+            "type": "number",
+            "example": 3,
+            "description": "How many of its slots are taken now: one for each runner on it, and one for each idle sandbox that no runner enters"
+          },
+          "idleSandboxes": {
+            "description": "Its sandboxes that hold no run now: warm sandboxes, and sandboxes that wait for the next run of their task or chat",
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/IdleSandboxResponseDto"
             }
           },
           "images": {
@@ -26439,7 +26532,8 @@
           "unavailableReason",
           "containerRuntime",
           "capacity",
-          "running",
+          "slotsTaken",
+          "idleSandboxes",
           "images",
           "firstHeartbeatAt",
           "onlineSince",
@@ -26507,7 +26601,7 @@
             }
           },
           "runners": {
-            "description": "Every runner at work now, one per run, on a host or provisioned by a push pool",
+            "description": "Every runner alive now, on a host or provisioned by a push pool: at work on a run, or started and yet to claim one",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/LiveRunnerResponseDto"

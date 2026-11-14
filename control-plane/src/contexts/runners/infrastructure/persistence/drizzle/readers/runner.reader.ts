@@ -1,28 +1,33 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import type { IdleWorkingCopiesPort } from '@runners/application/ports/idle-working-copies.port';
 import type {
   CredentialSourceSummary,
   HostSummary,
+  IdleSandboxSummary,
   LiveRunnerSummary,
   RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { isIdleSandbox } from '@runners/infrastructure/persistence/drizzle/idle-sandboxes';
 import {
   runner,
   runnerHost,
   runnerPool,
   runnerTrust,
+  sandbox,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 
 const sourceOf = (row: {
   poolId: string | null;
@@ -34,7 +39,9 @@ const sourceOf = (row: {
     : { kind: 'trust', key: row.trustKey };
 
 @Injectable()
-export class DrizzleRunnerReader implements RunnerReaderPort {
+export class DrizzleRunnerReader
+  implements RunnerReaderPort, IdleWorkingCopiesPort
+{
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(CLOCK) private readonly clock: ClockPort,
@@ -182,7 +189,6 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         and(
           eq(runner.workspaceId, workspaceId.value),
           isNull(runner.endedAt),
-          isNotNull(runner.workId),
         ),
       )
       .orderBy(runner.startedAt);
@@ -224,7 +230,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       release: host.release,
       containerRuntime: host.containerRuntime,
       capacity: host.capacity,
-      running: host.running,
+      reportedSandboxes: host.sandboxes,
       images: host.images.map((each) => ({
         image: each.image,
         digest: each.digest ?? null,
@@ -240,5 +246,61 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       onlineSince: host.onlineSince,
       lastHeartbeatAt: host.lastHeartbeatAt,
     }));
+  }
+
+  async idleSandboxesOn(
+    hostIds: readonly string[],
+  ): Promise<IdleSandboxSummary[]> {
+    if (hostIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.db
+      .select({
+        id: sandbox.id,
+        hostId: sandbox.hostId,
+        key: sandbox.key,
+        warm: sandbox.warm,
+        state: sandbox.state,
+        idleSince: sandbox.idleSince,
+        startedAt: sandbox.startedAt,
+      })
+      .from(sandbox)
+      .where(
+        and(inArray(sandbox.hostId, [...hostIds]), isIdleSandbox()),
+      )
+      .orderBy(sandbox.startedAt);
+
+    return rows.flatMap((row) =>
+      row.hostId !== null && Sandbox.isIdleAndLive(row)
+        ? [
+            {
+              id: row.id,
+              hostId: row.hostId,
+              key: row.key,
+              warmLineId: row.warm?.lineId ?? null,
+              state: row.state,
+              idleSince: row.idleSince,
+              startedAt: row.startedAt,
+            },
+          ]
+        : [],
+    );
+  }
+
+  async idleIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
+    const rows = await this.db
+      .selectDistinct({ key: sandbox.key })
+      .from(sandbox)
+      .where(
+        and(
+          eq(sandbox.workspaceId, workspaceId.value),
+          isNotNull(sandbox.hostId),
+          isNotNull(sandbox.key),
+          isIdleSandbox(),
+        ),
+      );
+
+    return rows.flatMap((row) => (row.key === null ? [] : [row.key]));
   }
 }

@@ -12,6 +12,7 @@ export function HostRowSkeleton() {
         <Skeleton className="size-1.5 rounded-full" />
         <SkeletonLine className="w-10" />
       </span>
+      <SkeletonLine className="w-8 text-xs" />
       <Skeleton className="h-5 w-28 rounded-full" />
       <span className="flex items-center gap-1.5">
         <Skeleton className="size-3.5 rounded-sm" />
