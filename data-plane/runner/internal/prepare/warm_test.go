@@ -41,6 +41,19 @@ func TestAWarmCheckoutIsClonedFromTheHostsMirrorAtItsDefaultBranch(t *testing.T)
 	}
 }
 
+func TestAWarmCheckoutIsClonedFromAMirrorThatAnotherUserOwns(t *testing.T) {
+	mirrors, dir := t.TempDir(), t.TempDir()
+	mirrorOf(t, mirrors, "web")
+	t.Setenv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")
+
+	if err := prepare.FromMirror(context.Background(), mirrors, dir, protocol.WarmCheckout{Path: "web"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "web", "package-lock.json")); err != nil {
+		t.Errorf("the warm checkout has no files: %v", err)
+	}
+}
+
 func TestAWarmCheckoutRefusesAMissingMirrorOrAMirrorWithNoDefaultBranch(t *testing.T) {
 	mirrors, dir := t.TempDir(), t.TempDir()
 
