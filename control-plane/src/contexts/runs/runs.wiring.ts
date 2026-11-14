@@ -46,6 +46,7 @@ import {
   WARM_SANDBOXES,
   type WarmSandboxesPort,
 } from '@runners/application/ports/warm-sandboxes.port';
+import { WARM_SLOTS } from '@runners/application/ports/warm-slots.port';
 import { WORKING_COPY_IMAGES } from '@runners/application/ports/working-copy-images.port';
 import {
   FetchRunSecretsCommand,
@@ -1031,6 +1032,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     SANDBOXES,
     SANDBOX_HOSTS,
     WORKING_COPY_ARCHIVE_REPOSITORY,
+    WARM_SLOTS,
   ]),
 
   {

@@ -76,6 +76,10 @@ import {
   type EditorSandboxesPort,
 } from '@runners/application/ports/editor-sandboxes.port';
 import { EDITOR_SESSIONS } from '@runners/application/ports/editor-sessions.port';
+import {
+  HOST_SLOT_LOCKS,
+  type HostSlotLocksPort,
+} from '@runners/application/ports/host-slot-locks.port';
 import { IDLE_WORKING_COPIES } from '@runners/application/ports/idle-working-copies.port';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
@@ -114,6 +118,7 @@ import {
 } from '@runners/application/ports/sandbox-upkeep.port';
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import { WARM_SANDBOXES } from '@runners/application/ports/warm-sandboxes.port';
+import { WARM_SLOTS } from '@runners/application/ports/warm-slots.port';
 import { WORKING_COPY_IMAGES } from '@runners/application/ports/working-copy-images.port';
 import { ImportEgressHandler } from '@runners/application/queries/handlers/import-egress.handler';
 import { ImportRunnerPoolHandler } from '@runners/application/queries/handlers/import-runner-pool.handler';
@@ -145,6 +150,7 @@ import {
 } from '@runners/application/queries/runner-resource.queries';
 import { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/delete-runners-of-deleted-workspace.service';
 import { HostAdmission } from '@runners/application/services/host-admission.service';
+import { HostWarmSlots } from '@runners/application/services/host-warm-slots.service';
 import { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
 import { RunnerAuthenticator } from '@runners/application/services/runner-authenticator.service';
 import { RunnerClaimants } from '@runners/application/services/runner-claimants.service';
@@ -163,6 +169,7 @@ import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-
 import { RunnerDefinitions } from '@runners/infrastructure/definitions/runner-definitions';
 import { RUNNERS_PAYLOAD_TYPES } from '@runners/infrastructure/events/runners-payload-types';
 import { InstallerAssets } from '@runners/infrastructure/installer/installer-assets';
+import { DrizzleHostSlotLocks } from '@runners/infrastructure/persistence/drizzle/host-slot-locks';
 import { DrizzleUsedTokens } from '@runners/infrastructure/persistence/drizzle/ledgers/used-tokens.ledger';
 import { DrizzleRunnerResources } from '@runners/infrastructure/persistence/drizzle/readers/runner-resources.reader';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
@@ -411,6 +418,27 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       logger: LoggerPort,
     ) => new WarmSandboxes(sandboxes, ids, logger),
+  },
+  {
+    provide: WARM_SLOTS,
+    inject: [
+      DrizzleSandboxRepository,
+      DrizzleRunnerHostRepository,
+      DrizzleRunnerRepository,
+      HOST_SLOT_LOCKS,
+      LOGGER,
+    ],
+    useFactory: (
+      sandboxes: DrizzleSandboxRepository,
+      hosts: DrizzleRunnerHostRepository,
+      runners: DrizzleRunnerRepository,
+      locks: HostSlotLocksPort,
+      logger: LoggerPort,
+    ) => new HostWarmSlots(sandboxes, hosts, runners, locks, logger),
+  },
+  {
+    provide: HOST_SLOT_LOCKS,
+    useClass: DrizzleHostSlotLocks,
   },
   {
     provide: HostAdmission,

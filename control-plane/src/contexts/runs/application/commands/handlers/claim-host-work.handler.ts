@@ -10,7 +10,9 @@ import type {
   SandboxTakingRuns,
   StartedSandbox,
   WarmStart,
+  StartedWarmSandbox,
 } from '@runners/application/ports/sandboxes.port';
+import type { WarmSlotsPort } from '@runners/application/ports/warm-slots.port';
 import type { ClaimHostWorkCommand } from '@runs/application/commands/runner.commands';
 import type { HostClaimDto } from '@runs/application/dto/host.dto';
 import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
@@ -97,6 +99,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     private readonly sandboxes: SandboxesPort,
     private readonly sandboxHosts: SandboxHostsPort,
     private readonly archives: WorkingCopyArchiveRepository,
+    private readonly warmSlots: WarmSlotsPort,
   ) {}
 
   async execute(command: ClaimHostWorkCommand): Promise<HostClaimDto> {
@@ -217,19 +220,12 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
         return requested;
       }
 
-      const held = await this.sandboxes.liveKeysIn(
-        registered.workspaceId.value,
-        this.clock.now(),
-      );
-      const avoiding = held.map((each) => WorkingCopyKey.parse(each));
-      const waiting = await this.waitingForWarm(
-        registered.workspaceId,
-        avoiding,
-      );
       const run = await this.startedRun(
-        claimantOf(runner, registered, {
-          avoiding: [...avoiding, ...waiting],
-        }),
+        claimantOf(
+          runner,
+          registered,
+          await this.freshSandboxRouting(registered.workspaceId),
+        ),
         host,
         until,
       );
@@ -348,6 +344,19 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     return null;
   }
 
+  private async freshSandboxRouting(
+    workspaceId: WorkspaceId,
+  ): Promise<SandboxRouting> {
+    const held = await this.sandboxes.liveKeysIn(
+      workspaceId.value,
+      this.clock.now(),
+    );
+    const avoiding = held.map((each) => WorkingCopyKey.parse(each));
+    const waiting = await this.waitingForWarm(workspaceId, avoiding);
+
+    return { avoiding: [...avoiding, ...waiting] };
+  }
+
   private async waitingForWarm(
     workspaceId: WorkspaceId,
     avoiding: readonly WorkingCopyKey[],
@@ -406,18 +415,40 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     registered: RunnerClaimant,
     host: string,
   ): Promise<Claimed | null> {
-    for (const requested of await this.sandboxes.requestedWarmIn(
+    const requested = await this.sandboxes.requestedWarmIn(
       registered.workspaceId.value,
-    )) {
+    );
+
+    if (requested.length === 0) {
+      return null;
+    }
+
+    const started = await this.warmSlots.startWarmIfRoomOn(
+      host,
+      this.clock.now(),
+      () => this.firstStartedWarm(requested, registered, host),
+    );
+
+    return started
+      ? { kind: 'sandbox', sandbox: started, warm: started.warm }
+      : null;
+  }
+
+  private async firstStartedWarm(
+    requested: readonly string[],
+    registered: RunnerClaimant,
+    host: string,
+  ): Promise<StartedWarmSandbox | null> {
+    for (const each of requested) {
       const started = await this.sandboxes.startWarm(
-        requested,
+        each,
         host,
         registered.offer,
         this.clock.now(),
       );
 
       if (started) {
-        return { kind: 'sandbox', sandbox: started, warm: started.warm };
+        return started;
       }
     }
 
@@ -510,12 +541,34 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
       return start === 'requeued' ? start : start === 'starts' ? run : null;
     }, until);
 
-    if (!found || found === 'requeued') {
+    if (!found) {
+      await this.drainedForWaitingRuns(runner, registered, host);
+      return null;
+    }
+
+    if (found === 'requeued') {
       return null;
     }
 
     return this.heldOrDropped(found, runner, into.id, (forRun, at) =>
       this.sandboxes.adoptForRun(into.id, forRun({ host }), at),
+    );
+  }
+
+  private async drainedForWaitingRuns(
+    runner: RunnerId,
+    registered: RunnerClaimant,
+    host: string,
+  ): Promise<void> {
+    await this.warmSlots.drainWarmOn(host, this.clock.now(), async () =>
+      this.claims.waitsFor(
+        claimantOf(
+          runner,
+          registered,
+          await this.freshSandboxRouting(registered.workspaceId),
+        ),
+        this.clock.now(),
+      ),
     );
   }
 
