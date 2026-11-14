@@ -15,6 +15,7 @@ type Client struct {
 
 	mu        sync.Mutex
 	answer    acp.Permission
+	frames    bool
 	watching  func(protocol.Event)
 	replaying bool
 	work      *acp.WorkState
@@ -44,6 +45,7 @@ func Start(ctx context.Context, opts acp.Options) (*Client, error) {
 
 	client := &Client{
 		answer:     answer,
+		frames:     opts.Frames,
 		work:       acp.NewWorkState(cmp.Or(opts.SettleQuiet, acp.SettleQuiet)),
 		prompts:    map[int]int{},
 		translator: newTranslator(),

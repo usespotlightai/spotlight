@@ -15,7 +15,7 @@ var journaled = map[string]bool{
 }
 
 func (c *Client) framed(line []byte, method string) {
-	if method != "" && !journaled[method] {
+	if !c.frames || (method != "" && !journaled[method]) {
 		return
 	}
 	c.emit(acp.Frame(Protocol, line))

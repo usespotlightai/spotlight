@@ -36,7 +36,7 @@ func (c *Client) promptAnswered(turn int, result json.RawMessage, failed *acp.Re
 }
 
 func (c *Client) framed(line []byte, method string) {
-	if c.isReplaying() || (method != "" && !journaled[method]) {
+	if !c.frames || c.isReplaying() || (method != "" && !journaled[method]) {
 		return
 	}
 	c.emit(acp.Frame(Protocol, line))

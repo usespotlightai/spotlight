@@ -29,6 +29,7 @@ func live(t *testing.T, name, briefing string, wait time.Duration) *journal {
 		o.briefing = briefing
 		o.handover = []string{"code-review", "review"}
 		o.wait = wait
+		o.frames = true
 		o.decision = protocol.PermissionAllow
 		o.log = slog.New(slog.NewTextHandler(os.Stderr, nil))
 		o.env = map[string]string{"CLAUDE_CODE_EXECUTABLE": os.Getenv("LIVE_CLAUDE")}

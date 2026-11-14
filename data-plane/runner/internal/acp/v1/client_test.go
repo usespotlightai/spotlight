@@ -67,6 +67,7 @@ func start(t *testing.T, script string, answer acp.Permission) (*v1.Client, stri
 		Executable: pretend(t, script),
 		Root:       root,
 		Answer:     answer,
+		Frames:     true,
 	})
 	if err != nil {
 		t.Fatalf("start: %v", err)

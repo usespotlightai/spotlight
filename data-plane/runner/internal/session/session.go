@@ -82,6 +82,7 @@ type Options struct {
 	Enforced       func(ctx context.Context) bool
 	Unready        error
 	BackgroundWait time.Duration
+	HarnessFrames  bool
 	SettleQuiet    time.Duration
 }
 
@@ -336,6 +337,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		Session:     run.Spec.HarnessSetup.Session,
 		McpServers:  serversOf(run.Spec.HarnessSetup.McpServers),
 		SettleQuiet: opts.SettleQuiet,
+		Frames:      opts.HarnessFrames,
 	})
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("start agent: %w", err))

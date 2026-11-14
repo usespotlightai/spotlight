@@ -19,6 +19,7 @@ type Client struct {
 
 	mu         sync.Mutex
 	answer     acp.Permission
+	frames     bool
 	watching   func(protocol.Event)
 	work       *acp.WorkState
 	sessionID  string
@@ -66,6 +67,7 @@ func Start(ctx context.Context, opts acp.Options) (*Client, error) {
 
 	client := &Client{
 		answer:     answer,
+		frames:     opts.Frames,
 		work:       acp.NewWorkState(cmp.Or(opts.SettleQuiet, acp.SettleQuiet)),
 		asking:     map[string]context.CancelFunc{},
 		translator: newTranslator(),

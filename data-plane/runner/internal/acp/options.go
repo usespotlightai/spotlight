@@ -51,6 +51,7 @@ type Options struct {
 	Session     json.RawMessage
 	McpServers  []McpServer
 	SettleQuiet time.Duration
+	Frames      bool
 }
 
 type Option struct {

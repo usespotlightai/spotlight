@@ -414,6 +414,7 @@ type runOptions struct {
 	stopOnce    string
 	wait        time.Duration
 	quiet       time.Duration
+	frames      bool
 	protocol    string
 	log         *slog.Logger
 }
@@ -476,6 +477,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		Enforced:       settings.enforced,
 		BackgroundWait: settings.wait,
 		SettleQuiet:    settings.quiet,
+		HarnessFrames:  settings.frames,
 	})
 	if err != nil && settings.stopOnce == "" {
 		t.Fatalf("execute: %v", err)
@@ -543,8 +545,16 @@ func TestTakesARunFromNothingToAnOutcome(t *testing.T) {
 	}
 }
 
-func TestKeepsEachFrameOfTheHarnessAsItWasWritten(t *testing.T) {
+func TestKeepsNoFramesOfTheHarnessUnlessAsked(t *testing.T) {
 	written := run(t, harness(t, `output = "structured";`, "end_turn"))
+
+	if frames := written.typed(protocol.EventHarnessFrame); len(frames) != 0 {
+		t.Errorf("kept %d frames", len(frames))
+	}
+}
+
+func TestKeepsEachFrameOfTheHarnessAsItWasWritten(t *testing.T) {
+	written := run(t, harness(t, `output = "structured";`, "end_turn"), func(o *runOptions) { o.frames = true })
 
 	for _, event := range written.typed(protocol.EventHarnessFrame) {
 		var frame struct {
