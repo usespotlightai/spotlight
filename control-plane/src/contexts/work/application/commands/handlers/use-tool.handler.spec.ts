@@ -71,6 +71,7 @@ import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo'
 import {
   builtInTool,
   CHECKS,
+  OPEN_TASKS,
   PROPOSE_TASK,
   PULL_REQUEST,
   REVIEW,
@@ -391,10 +392,12 @@ const using = (
           return 'Proposed.';
         },
       },
-      ...[REVIEW_COMMENT, REVIEW, SETUP_PULL_REQUEST, CHECKS].map((tool) => ({
-        tool,
-        call: async () => null,
-      })),
+      ...[REVIEW_COMMENT, REVIEW, SETUP_PULL_REQUEST, CHECKS, OPEN_TASKS].map(
+        (tool) => ({
+          tool,
+          call: async () => null,
+        }),
+      ),
     ],
     new ChatToolExtensions({
       find: async () => chat(),

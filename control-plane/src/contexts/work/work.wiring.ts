@@ -304,6 +304,10 @@ import {
 import { NOTE_FILES } from '@work/application/ports/note-files.port';
 import { NOTICES } from '@work/application/ports/notices.port';
 import {
+  OPEN_TASK_READER,
+  type OpenTaskReaderPort,
+} from '@work/application/ports/open-task-reader.port';
+import {
   PROCESSED_EVENTS,
   type ProcessedEventsPort,
 } from '@work/application/ports/processed-events.port';
@@ -518,6 +522,7 @@ import { NoteFiles } from '@work/application/services/note-files.service';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
+import { OpenTasksToolUse } from '@work/application/services/open-tasks.tool-use';
 import { OutsideTaskNotices } from '@work/application/services/outside-task-notices.service';
 import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool-use';
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
@@ -594,6 +599,7 @@ import { DrizzleChatMarks } from '@work/infrastructure/persistence/drizzle/reade
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
 import { DrizzleDispatchedRuns } from '@work/infrastructure/persistence/drizzle/readers/dispatched-runs.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
+import { DrizzleOpenTaskReader } from '@work/infrastructure/persistence/drizzle/readers/open-task.reader';
 import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
@@ -1004,6 +1010,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: ATTACHMENT_READER, useClass: DrizzleAttachmentReader },
   { provide: TASK_LOOKUP_READER, useClass: DrizzleTaskLookupReader },
+  { provide: OPEN_TASK_READER, useClass: DrizzleOpenTaskReader },
 
   {
     provide: CONTROL_PLANE_RELEASE,
@@ -2168,6 +2175,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TASK_LOOKUP_READER,
       CHECK_RUNS,
       AttachmentCopies,
+      OPEN_TASK_READER,
     ],
     useFactory: (
       opening: OpenPullRequest,
@@ -2180,9 +2188,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tasks: TaskLookupReaderPort,
       checkRuns: CheckRunsPort,
       copies: AttachmentCopies,
+      openTasks: OpenTaskReaderPort,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ChecksToolUse(tasks, checkRuns),
+      new OpenTasksToolUse(lines, openTasks),
       new ProposeTaskToolUse(chats, lines, copies, clock),
       new SetupPullRequestToolUse(chats, pullRequests, transaction, clock),
       new ReviewCommentToolUse(reviewing),

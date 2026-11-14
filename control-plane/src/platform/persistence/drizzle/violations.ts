@@ -1,3 +1,5 @@
+import { DrizzleQueryError } from "drizzle-orm";
+
 export const UNIQUE_VIOLATION = "23505";
 
 export const FOREIGN_KEY_VIOLATION = "23503";
@@ -28,26 +30,85 @@ const TOO_MANY_CONNECTIONS = "53300";
 
 const POOL_TIMEOUT_MESSAGE = "timeout exceeded when trying to connect";
 
+const UNAVAILABLE_SQLSTATES = new Set([
+  "08000",
+  "08001",
+  "08003",
+  "08004",
+  "08006",
+  TOO_MANY_CONNECTIONS,
+  "57P01",
+  "57P02",
+  "57P03",
+]);
+
+const CONNECTION_LOSS_MESSAGES = new Set([
+  POOL_TIMEOUT_MESSAGE,
+  "Connection terminated unexpectedly",
+  "Connection terminated due to connection timeout",
+]);
+
+const UNREACHABLE_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENOTFOUND",
+  "EPIPE",
+  "ETIMEDOUT",
+]);
+
 const MAX_CAUSE_DEPTH = 10;
 
-export const connectionsExhausted = (error: unknown): boolean => {
+type CauseLink = { code?: unknown; message?: unknown; cause?: unknown };
+
+function* causeChain(error: unknown): Generator<CauseLink> {
   for (
-    let each = error as {
-        code?: string;
-        message?: string;
-        cause?: unknown;
-      } | null,
-      depth = 0;
-    each && depth < MAX_CAUSE_DEPTH;
-    each = each.cause as typeof each, depth += 1
+    let each = error, depth = 0;
+    typeof each === "object" && each !== null && depth < MAX_CAUSE_DEPTH;
+    depth += 1
   ) {
-    if (
+    const link: CauseLink = each;
+
+    yield link;
+    each = link.cause;
+  }
+}
+
+export const connectionsExhausted = (error: unknown): boolean =>
+  [...causeChain(error)].some(
+    (each) =>
       each.code === TOO_MANY_CONNECTIONS ||
-      each.message === POOL_TIMEOUT_MESSAGE
+      each.message === POOL_TIMEOUT_MESSAGE,
+  );
+
+const textOf = (value: unknown): string | null =>
+  typeof value === "string" ? value : null;
+
+export const unavailabilityReason = (error: unknown): string | null => {
+  const links = [...causeChain(error)];
+  const query = links.findIndex((each) => each instanceof DrizzleQueryError);
+
+  for (const [at, each] of links.entries()) {
+    const code = textOf(each.code);
+    const message = textOf(each.message);
+
+    if (code !== null && UNAVAILABLE_SQLSTATES.has(code)) {
+      return code;
+    }
+
+    if (message !== null && CONNECTION_LOSS_MESSAGES.has(message)) {
+      return message;
+    }
+
+    if (
+      query !== -1 &&
+      at > query &&
+      code !== null &&
+      UNREACHABLE_CODES.has(code)
     ) {
-      return true;
+      return code;
     }
   }
 
-  return false;
+  return null;
 };

@@ -16,6 +16,7 @@ import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import {
   builtInTool,
   CHECKS,
+  OPEN_TASKS,
   PROPOSE_TASK,
   PULL_REQUEST,
   REVIEW,
@@ -62,6 +63,7 @@ const reviewing: BuiltInToolUse<TaskToolContext>[] = [
   REVIEW,
   SETUP_PULL_REQUEST,
   CHECKS,
+  OPEN_TASKS,
 ].map((tool) => ({ tool, call: async () => null }));
 
 const NO_EXTENSIONS = new ChatToolExtensions({

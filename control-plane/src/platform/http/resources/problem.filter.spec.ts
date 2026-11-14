@@ -204,9 +204,10 @@ describe('ProblemFilter', () => {
     expect(status).toBe(503);
     expect(headers.get('Retry-After')).toBe('5');
     expect(count).toHaveBeenCalledWith('spotlight_db_connection_refused_total');
-    expect(report).toHaveBeenCalledWith(expect.any(Error), {
-      source: 'db.pool_exhausted',
-    });
+    expect(report).toHaveBeenCalledWith(
+      expect.objectContaining({ cause: exception }),
+      { source: 'db.pool_exhausted' },
+    );
   });
 
   it('keeps an unrelated database error at 500', () => {
