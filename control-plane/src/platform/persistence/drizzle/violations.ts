@@ -24,7 +24,7 @@ export const violates = (
   );
 };
 
-export const TOO_MANY_CONNECTIONS = "53300";
+const TOO_MANY_CONNECTIONS = "53300";
 
 const POOL_TIMEOUT_MESSAGE = "timeout exceeded when trying to connect";
 

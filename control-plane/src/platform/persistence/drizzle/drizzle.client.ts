@@ -7,7 +7,7 @@ export type DrizzleDatabase = NodePgDatabase;
 
 export type PoolErrorHandler = (error: Error) => void;
 
-export const poolOptions = (
+const poolOptions = (
   env: DatabaseEnv,
   connectionString: string,
 ): PoolConfig => ({
