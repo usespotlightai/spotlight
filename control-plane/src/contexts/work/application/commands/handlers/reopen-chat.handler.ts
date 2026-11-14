@@ -25,7 +25,10 @@ export class ReopenChatHandler implements CommandHandlerPort<
         command.slug,
         command.reopenedBy,
       );
-      const reopened = chat.reopen(UserId.of(command.reopenedBy));
+      const reopened = chat.reopen(
+        UserId.of(command.reopenedBy),
+        this.clock.now(),
+      );
 
       if (reopened !== chat) {
         await this.chats.save(reopened);

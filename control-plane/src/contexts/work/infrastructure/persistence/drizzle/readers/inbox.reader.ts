@@ -140,6 +140,9 @@ const rankedAt = (
   interactedAt: Date = entry.askedAt,
 ): Ranked => ({ entry, arrivedAt, interactedAt });
 
+const laterOf = (one: Date, other: Date | null | undefined): Date =>
+  other && other > one ? other : one;
+
 const rankingTime = (ranked: Ranked): number =>
   +(ranked.entry.section === 'open' ? ranked.arrivedAt : ranked.interactedAt);
 
@@ -333,6 +336,7 @@ const chatsWhere = (
       title: chat.title,
       currentRunId: chat.currentRunId,
       createdAt: chat.createdAt,
+      reopenedAt: chat.reopenedAt,
       resolvedAt: chat.resolvedAt,
       readAt: chat.readAt,
       cursorAt: sortableTime(chat.resolvedAt),
@@ -553,7 +557,11 @@ export class DrizzleInboxReader implements InboxReaderPort {
         rankedAt(each.entry),
       ),
       ...chatEntries.map((each, place) =>
-        rankedAt(each.entry, chats[place]?.createdAt),
+        rankedAt(
+          each.entry,
+          chats[place]?.createdAt,
+          laterOf(each.entry.askedAt, chats[place]?.reopenedAt),
+        ),
       ),
     ];
 

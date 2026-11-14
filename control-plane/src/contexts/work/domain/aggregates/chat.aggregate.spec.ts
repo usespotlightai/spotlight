@@ -890,12 +890,17 @@ describe('Chat', () => {
       expect(resolved.resolve(LEON, new Date('2026-09-15T09:00:00.000Z'))).toBe(
         resolved,
       );
-      expect(resolved.reopen(LEON).resolvedAt).toBeNull();
-      expect(started().reopen(LEON).resolvedAt).toBeNull();
+      const reopenAt = new Date('2026-09-15T14:00:00.000Z');
+
+      expect(resolved.reopen(LEON, reopenAt).resolvedAt).toBeNull();
+      expect(resolved.reopen(LEON, reopenAt).reopenedAt).toEqual(reopenAt);
+      expect(started().reopen(LEON, reopenAt).reopenedAt).toBeNull();
       expect(() => started().resolve(STRANGER, LATER)).toThrow(
         NotTheChatStarterError,
       );
-      expect(() => resolved.reopen(STRANGER)).toThrow(NotTheChatStarterError);
+      expect(() => resolved.reopen(STRANGER, LATER)).toThrow(
+        NotTheChatStarterError,
+      );
       expect(() => started().markRead(STRANGER, LATER)).toThrow(
         NotTheChatStarterError,
       );

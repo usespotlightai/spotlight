@@ -158,6 +158,36 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
     ]);
   });
 
+  it('lists a reopened running chat above a chat with a newer message', async () => {
+    const viewer = `user_${randomUUID()}`;
+    const reopened = startedBy(viewer, {
+      now: new Date('2026-10-20T08:00:00Z'),
+    })
+      .resolve(UserId.of(viewer), new Date('2026-10-20T08:10:00Z'))
+      .assignRun(RunId.of(randomUUID()), START);
+    const messaged = startedBy(viewer, {
+      now: new Date('2026-10-20T09:00:00Z'),
+    });
+    await chats.add(reopened);
+    await chats.add(messaged);
+
+    expect((await open(viewer)).map((each) => each.id)).toEqual([
+      messaged.id.value,
+      reopened.id.value,
+    ]);
+
+    const back = (await chats.find(reopened.id))?.reopen(
+      UserId.of(viewer),
+      new Date('2026-10-20T09:30:00Z'),
+    ) as Chat;
+    await chats.save(back);
+
+    expect((await open(viewer)).map((each) => each.id)).toEqual([
+      reopened.id.value,
+      messaged.id.value,
+    ]);
+  });
+
   it('lists open chats by arrival, even after a newer message', async () => {
     const viewer = `user_${randomUUID()}`;
     const early = repliedTo(
@@ -287,7 +317,10 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
       chatEntry((await resolvedPage(viewer, {})).items, chat),
     ).toBeDefined();
 
-    const reopened = (await chats.find(chat.id))?.reopen(UserId.of(viewer));
+    const reopened = (await chats.find(chat.id))?.reopen(
+      UserId.of(viewer),
+      AFTER,
+    );
     await chats.save(reopened as Chat);
     expect(chatEntry(await open(viewer), chat)?.section).toBe('open');
     expect(
