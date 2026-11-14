@@ -22,10 +22,12 @@ const settleFor = 25 * time.Second
 
 const archiveLeaseRenewal = 30 * time.Second
 
+const releaseWithin = 5 * time.Second
+
 type ArchivingSandbox interface {
-	HoldArchiveLease(ctx context.Context, runID string) error
+	HoldArchiveLease(ctx context.Context, runID string, attempt int) error
 	ReleaseArchiveLease(ctx context.Context, runID string) error
-	AppendArchiveEvents(ctx context.Context, runID string, attempt int, events []protocol.Event) error
+	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	GrantArchive(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error)
 	CompleteArchive(ctx context.Context, archiveID string) error
 }
@@ -229,29 +231,21 @@ type heldArchive struct {
 	stopRenewing context.CancelFunc
 }
 
-type archiveJournal struct {
-	sandbox ArchivingSandbox
-	attempt int
-}
-
-func (j archiveJournal) AppendEvents(ctx context.Context, runID string, events []protocol.Event) error {
-	return j.sandbox.AppendArchiveEvents(ctx, runID, j.attempt, events)
-}
-
 func (a *archiver) holdForArchive(ctx context.Context, sandbox ArchivingSandbox) *heldArchive {
 	if sandbox == nil || !a.restoresWorkspace() {
 		return nil
 	}
 
-	if err := sandbox.HoldArchiveLease(ctx, a.run.ID); err != nil {
+	if err := sandbox.HoldArchiveLease(ctx, a.run.ID, a.run.Attempt); err != nil {
 		a.log.Warn("the sandbox could not hold the workspace for an archive after the report, so the run archives first", "error", err)
+		a.releaseArchiveLease(ctx, sandbox)
 		return nil
 	}
 
 	return &heldArchive{
 		sandbox: sandbox,
 		stopRenewing: renewing(context.WithoutCancel(ctx), archiveLeaseRenewal, func(ctx context.Context) error {
-			return sandbox.HoldArchiveLease(ctx, a.run.ID)
+			return sandbox.HoldArchiveLease(ctx, a.run.ID, a.run.Attempt)
 		}, func(err error) {
 			a.log.Error("could not renew the sandbox's archive lease; a new sandbox of the task may restore an older archive", "error", err)
 		}),
@@ -261,15 +255,17 @@ func (a *archiver) holdForArchive(ctx context.Context, sandbox ArchivingSandbox)
 func (a *archiver) archiveHeld(ctx context.Context, held *heldArchive, reported bool) {
 	defer held.stopRenewing()
 
+	settled, done := lingering(ctx, settleFor)
+	defer done()
+
 	if reported {
-		a.journal.through(archiveJournal{sandbox: held.sandbox, attempt: a.run.Attempt})
-		a.archiveAfterReport(ctx, held.sandbox)
+		a.journal.through(held.sandbox)
+		archiving, stop := lingering(ctx, settleFor-releaseWithin)
+		a.archiveAfterReport(archiving, held.sandbox)
+		stop()
 	} else {
 		a.archive(ctx)
 	}
-
-	settled, done := settling(ctx)
-	defer done()
 
 	a.journal.drain(settled)
 	held.stopRenewing()
@@ -278,10 +274,16 @@ func (a *archiver) archiveHeld(ctx context.Context, held *heldArchive, reported 
 	}
 }
 
-func (a *archiver) archiveAfterReport(ctx context.Context, sandbox ArchivingSandbox) {
-	ctx, cancel := lingering(ctx)
-	defer cancel()
+func (a *archiver) releaseArchiveLease(ctx context.Context, sandbox ArchivingSandbox) {
+	released, done := context.WithTimeout(context.WithoutCancel(ctx), releaseWithin)
+	defer done()
 
+	if err := sandbox.ReleaseArchiveLease(released, a.run.ID); err != nil {
+		a.log.Warn("could not release an archive lease the sandbox may hold; it expires instead", "error", err)
+	}
+}
+
+func (a *archiver) archiveAfterReport(ctx context.Context, sandbox ArchivingSandbox) {
 	summary, completed := a.archived(ctx, storeCalls{grant: sandbox.GrantArchive, complete: sandbox.CompleteArchive})
 	a.report(archiveStep, "%s", summary)
 	if !completed {
@@ -395,9 +397,9 @@ func settling(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.WithoutCancel(ctx), settleFor)
 }
 
-func lingering(ctx context.Context) (context.Context, context.CancelFunc) {
+func lingering(ctx context.Context, after time.Duration) (context.Context, context.CancelFunc) {
 	detached, cancel := context.WithCancel(context.WithoutCancel(ctx))
-	stop := context.AfterFunc(ctx, func() { time.AfterFunc(settleFor, cancel) })
+	stop := context.AfterFunc(ctx, func() { time.AfterFunc(after, cancel) })
 
 	return detached, func() {
 		stop()

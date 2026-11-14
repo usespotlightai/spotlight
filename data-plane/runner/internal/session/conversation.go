@@ -121,7 +121,13 @@ func (c *conversation) work(ctx context.Context, prompt string) error {
 	defer stopFlushing()
 	go stream(flushing, c.journal)
 
-	return c.complete(ctx, c.converse(ctx, prompt))
+	held, err := c.complete(ctx, c.converse(ctx, prompt))
+	stopRenewing()
+	if held != nil {
+		c.archiver.archiveHeld(ctx, held, err == nil)
+	}
+
+	return err
 }
 
 func (c *conversation) converse(ctx context.Context, prompt string) int {
@@ -291,9 +297,9 @@ func (c *conversation) handedOver() bool {
 	return c.handover != nil
 }
 
-func (c *conversation) complete(ctx context.Context, exitCode int) error {
+func (c *conversation) complete(ctx context.Context, exitCode int) (*heldArchive, error) {
 	if ctx.Err() != nil {
-		return c.leave(ctx)
+		return nil, c.leave(ctx)
 	}
 
 	stopped := c.stopWasRequested()
@@ -328,11 +334,7 @@ func (c *conversation) complete(ctx context.Context, exitCode int) error {
 		c.log.Info("turn reported", "exitCode", exitCode, "stopped", stopped)
 	}
 
-	if held != nil {
-		c.archiver.archiveHeld(ctx, held, err == nil)
-	}
-
-	return err
+	return held, err
 }
 
 func (c *conversation) leaveLostBehind() {

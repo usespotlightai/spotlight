@@ -420,13 +420,13 @@ describe('Sandboxes', () => {
       const { service, stored } = serving({ known: [placed('sandbox_1')] });
 
       await expect(
-        service.holdArchive('sandbox_1', 'run_9', later(500)),
+        service.holdArchive('sandbox_1', 'run_9', 1, later(500)),
       ).resolves.toBe(false);
       await expect(
-        service.holdArchive('sandbox_9', 'run_1', later(500)),
+        service.holdArchive('sandbox_9', 'run_1', 1, later(500)),
       ).resolves.toBe(false);
       await expect(
-        service.holdArchive('sandbox_1', 'run_1', later(500)),
+        service.holdArchive('sandbox_1', 'run_1', 1, later(500)),
       ).resolves.toBe(true);
 
       await service.releaseRun('run_1', later(1_000));
@@ -437,20 +437,26 @@ describe('Sandboxes', () => {
         service.liveKeysIn(WORKSPACE.value, later(2_000)),
       ).resolves.toEqual(['task-task_1']);
       await expect(
-        service.heldForArchive('sandbox_1', 'run_1', later(2_000)),
-      ).resolves.toBe(true);
+        service.archivedAttemptOf('sandbox_1', 'run_1', later(2_000)),
+      ).resolves.toBe(1);
       await expect(
-        service.heldForArchive('sandbox_1', 'run_2', later(2_000)),
-      ).resolves.toBe(false);
+        service.archivedAttemptOf('sandbox_1', 'run_2', later(2_000)),
+      ).resolves.toBeNull();
       await expect(
-        service.heldForArchive(
+        service.archivedAttemptOf(
           'sandbox_1',
           'run_1',
           later(500 + ARCHIVE_LEASE_MS),
         ),
+      ).resolves.toBeNull();
+      await expect(
+        service.holdArchive('sandbox_1', 'run_1', 2, later(10_000)),
       ).resolves.toBe(false);
       await expect(
-        service.holdArchive('sandbox_1', 'run_1', later(30_000)),
+        service.renewArchive('sandbox_1', 'run_1', 2, later(10_000)),
+      ).resolves.toBe(false);
+      await expect(
+        service.renewArchive('sandbox_1', 'run_1', 1, later(10_000)),
       ).resolves.toBe(true);
 
       await service.releaseArchive('sandbox_1', 'run_1', later(15_000));
@@ -464,10 +470,13 @@ describe('Sandboxes', () => {
     });
 
     it('keeps a sandbox a retiring run drains off its host’s drain list until the archive releases it', async () => {
-      const { service } = serving({ known: [placed('sandbox_1')] });
+      const { service } = serving({
+        known: [placed('sandbox_1')],
+        now: later(2_000),
+      });
       const host = aHost({ id: HostId.of(HOST), sandboxes: ['sandbox_1'] });
 
-      await service.holdArchive('sandbox_1', 'run_1', later(500));
+      await service.holdArchive('sandbox_1', 'run_1', 1, later(500));
       await service.retireRun('run_1', later(1_000));
 
       await expect(service.toDrainOn(host)).resolves.toEqual([]);
@@ -485,7 +494,7 @@ describe('Sandboxes', () => {
       const { service, stored } = serving({
         known: [
           placed('sandbox_1')
-            .holdArchiveOf(RunId.of('run_1'), later(500))
+            .holdArchiveOf(RunId.of('run_1'), 1, later(500))
             .releaseRun(RunId.of('run_1'), later(1_000)),
         ],
         now: due,

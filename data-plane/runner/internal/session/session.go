@@ -939,6 +939,7 @@ func (j *journalWriter) through(sink eventSink) {
 	defer j.sending.Unlock()
 
 	j.journal = sink
+	j.failed = 0
 }
 
 func (j *journalWriter) record(ctx context.Context, event protocol.Event) {

@@ -207,7 +207,8 @@ const pulling = (
     authenticate: vi.fn(async () => null),
     holdArchive: vi.fn(async () => true),
     releaseArchive: vi.fn(async () => {}),
-    heldForArchive: vi.fn(async () => false),
+    renewArchive: vi.fn(async () => true),
+    archivedAttemptOf: vi.fn(async () => null),
   } satisfies SandboxesPort;
   const archives = {
     completedKeysAmong: vi.fn(

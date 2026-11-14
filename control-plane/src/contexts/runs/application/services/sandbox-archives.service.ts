@@ -33,9 +33,24 @@ export class SandboxArchives {
   holdArchive(
     sandbox: ArchivingSandbox,
     run: RunId,
+    attempt: number,
     at: Date,
   ): Promise<boolean> {
-    return this.sandboxes.holdArchive(sandbox.id.value, run.value, at);
+    return this.sandboxes.holdArchive(sandbox.id.value, run.value, attempt, at);
+  }
+
+  renewArchive(
+    sandbox: ArchivingSandbox,
+    run: RunId,
+    attempt: number,
+    at: Date,
+  ): Promise<boolean> {
+    return this.sandboxes.renewArchive(
+      sandbox.id.value,
+      run.value,
+      attempt,
+      at,
+    );
   }
 
   releaseArchive(
@@ -46,11 +61,11 @@ export class SandboxArchives {
     return this.sandboxes.releaseArchive(sandbox.id.value, run.value, at);
   }
 
-  heldForArchive(
+  archivedAttemptOf(
     sandbox: ArchivingSandbox,
     run: RunId,
     at: Date,
-  ): Promise<boolean> {
-    return this.sandboxes.heldForArchive(sandbox.id.value, run.value, at);
+  ): Promise<number | null> {
+    return this.sandboxes.archivedAttemptOf(sandbox.id.value, run.value, at);
   }
 }

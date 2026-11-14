@@ -31,6 +31,7 @@ export class HoldSandboxArchiveCommand {
     readonly sandboxId: string,
     readonly token: string | undefined,
     readonly runId: string,
+    readonly attempt: number,
   ) {}
 }
 
@@ -47,7 +48,6 @@ export class AppendSandboxArchiveJournalCommand {
     readonly sandboxId: string,
     readonly token: string | undefined,
     readonly runId: string,
-    readonly attempt: number,
     readonly entries: readonly AppendedJournalEntry[],
   ) {}
 }

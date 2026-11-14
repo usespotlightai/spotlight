@@ -198,7 +198,7 @@ export const storedSandboxes = (
           each.isOpen && each.idleSince !== null && each.idleSince <= cutoff,
       ),
     ),
-    archivingRenewedBefore: vi.fn(async (cutoff: Date) =>
+    withArchiveLeaseRenewedBefore: vi.fn(async (cutoff: Date) =>
       all().filter(
         (each) =>
           each.isLive &&

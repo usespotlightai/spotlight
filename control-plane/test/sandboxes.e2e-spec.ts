@@ -351,12 +351,11 @@ describe('sandboxes (e2e)', () => {
     const { sandboxId, sandboxToken } = claimed;
     await heartbeat([sandboxId]).expect(200);
     const lease = `/api/sandboxes/${sandboxId}/archive-leases/${runId}`;
-    const events = (attempt: number, seq: number) =>
+    const events = (seq: number) =>
       http()
         .post(`${lease}/events`)
         .set('Authorization', `Bearer ${sandboxToken}`)
         .send({
-          attempt,
           events: [
             {
               seq,
@@ -371,16 +370,19 @@ describe('sandboxes (e2e)', () => {
     await http()
       .put(lease)
       .set('Authorization', `Bearer ${claimed.token}`)
+      .send({ attempt: 1 })
       .expect(404);
     await http()
       .put(`/api/sandboxes/${sandboxId}/archive-leases/${randomUUID()}`)
       .set('Authorization', `Bearer ${sandboxToken}`)
+      .send({ attempt: 1 })
       .expect(404);
     await http()
       .put(lease)
       .set('Authorization', `Bearer ${sandboxToken}`)
+      .send({ attempt: 1 })
       .expect(204);
-    await events(1, 900).expect(409);
+    await events(900).expect(409);
 
     await complete(runId, claimed.token);
     const archiving = await eventually(async () => {
@@ -397,8 +399,17 @@ describe('sandboxes (e2e)', () => {
     await claim().expect(204);
     await claim(sandboxId).expect(204);
 
-    await events(1, 900).expect(204);
-    await events(2, 901).expect(404);
+    await http()
+      .put(lease)
+      .set('Authorization', `Bearer ${sandboxToken}`)
+      .send({ attempt: 2 })
+      .expect(404);
+    await http()
+      .put(lease)
+      .set('Authorization', `Bearer ${sandboxToken}`)
+      .send({ attempt: 1 })
+      .expect(204);
+    await events(900).expect(204);
     const journaled = await db
       .select({
         attempt: schema.runJournalEntry.attempt,
@@ -417,7 +428,7 @@ describe('sandboxes (e2e)', () => {
       .delete(lease)
       .set('Authorization', `Bearer ${sandboxToken}`)
       .expect(204);
-    await events(1, 902).expect(404);
+    await events(902).expect(404);
     expect((await sandboxRow(sandboxId))?.idleSince).not.toBeNull();
     await expect(claim(sandboxId).expect(200)).resolves.toMatchObject({
       body: { sandboxId, work: { kind: 'run', run: { id: next } } },
@@ -433,6 +444,7 @@ describe('sandboxes (e2e)', () => {
     await http()
       .put(`/api/sandboxes/${sandboxId}/archive-leases/${runId}`)
       .set('Authorization', `Bearer ${sandboxToken}`)
+      .send({ attempt: 1 })
       .expect(204);
     await complete(runId, claimed.token);
     const held = await eventually(async () => {

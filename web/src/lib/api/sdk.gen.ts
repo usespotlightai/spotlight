@@ -752,16 +752,20 @@ export const releaseSandboxArchiveLease = <ThrowOnError extends boolean = false>
 /**
  * Hold the sandbox for the archive of a run’s workspace: it takes no other run until the lease is released or expires
  *
- * The bearer is the sandbox token. Take the lease while the run holds the sandbox, before the run reports its turn. Renew it with the same call; it expires 2 minutes after the last call.
+ * The bearer is the sandbox token. Take the lease for the attempt in its turn, while the run holds the sandbox, before the run reports the turn. Renew it with the same call and attempt; it expires 2 minutes after the last call.
  */
 export const holdSandboxArchiveLease = <ThrowOnError extends boolean = false>(options: Options<HoldSandboxArchiveLeaseData, ThrowOnError>): RequestResult<HoldSandboxArchiveLeaseResponses, HoldSandboxArchiveLeaseErrors, ThrowOnError> => (options.client ?? client).put<HoldSandboxArchiveLeaseResponses, HoldSandboxArchiveLeaseErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
   url: '/sandboxes/{sandboxId}/archive-leases/{runId}',
-  ...options
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
 });
 
 /**
- * Add the archive step to the journal of the attempt that reported the turn the sandbox holds an archive lease for
+ * Add the archive step to the journal of the attempt the sandbox holds an archive lease for
  */
 export const appendSandboxArchiveEvents = <ThrowOnError extends boolean = false>(options: Options<AppendSandboxArchiveEventsData, ThrowOnError>): RequestResult<AppendSandboxArchiveEventsResponses, AppendSandboxArchiveEventsErrors, ThrowOnError> => (options.client ?? client).post<AppendSandboxArchiveEventsResponses, AppendSandboxArchiveEventsErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],

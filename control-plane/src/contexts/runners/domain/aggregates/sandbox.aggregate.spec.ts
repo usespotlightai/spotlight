@@ -183,7 +183,7 @@ describe('Sandbox', () => {
 
     expect(retired.current).toBe('draining');
     expect(retired.statusOn(reporting, NOW)).toBe('draining');
-    expect(retired.keptBy(reporting)).toBe(false);
+    expect(retired.keptBy(reporting, NOW)).toBe(false);
     expect(retired.leases).toEqual([]);
   });
 
@@ -281,12 +281,14 @@ describe('Sandbox', () => {
     const held = started();
     const idle = held.releaseRun(RunId.of('run_1'), later(0));
 
-    expect(held.keptBy(reporting)).toBe(true);
-    expect(idle.keptBy(reporting)).toBe(true);
-    expect(held.keptBy(stopping)).toBe(true);
-    expect(idle.keptBy(stopping)).toBe(false);
+    expect(held.keptBy(reporting, NOW)).toBe(true);
+    expect(idle.keptBy(reporting, NOW)).toBe(true);
+    expect(held.keptBy(stopping, NOW)).toBe(true);
+    expect(idle.keptBy(stopping, NOW)).toBe(false);
     expect(idle.takesRunOn(stopping, NOW)).toBe(false);
-    expect(idle.keptBy(aHost({ at: STARTED_AT, id: OTHER_HOST }))).toBe(false);
+    expect(idle.keptBy(aHost({ at: STARTED_AT, id: OTHER_HOST }), NOW)).toBe(
+      false,
+    );
   });
 
   it('never drains while a run holds it', () => {
@@ -605,25 +607,49 @@ describe('Sandbox', () => {
     const RUN = RunId.of('run_1');
 
     const archiving = () =>
-      started().holdArchiveOf(RUN, later(500)).releaseRun(RUN, later(1_000));
+      started().holdArchiveOf(RUN, 1, later(500)).releaseRun(RUN, later(1_000));
 
     it('takes the lease only from the run that holds it, or renews it', () => {
       const idle = started().releaseRun(RUN, later(1_000));
 
-      expect(started().holdArchiveOf(RunId.of('run_2'), later(500))).toEqual(
+      expect(started().holdArchiveOf(RunId.of('run_2'), 1, later(500))).toEqual(
         started(),
       );
-      expect(idle.holdArchiveOf(RUN, later(2_000))).toBe(idle);
-      expect(idle.holdArchiveOf(RUN, later(2_000)).holdsArchiveOf(RUN)).toBe(
-        false,
-      );
+      expect(idle.holdArchiveOf(RUN, 1, later(2_000))).toBe(idle);
+      expect(idle.renewArchiveOf(RUN, 1, later(2_000))).toBe(idle);
 
-      const renewed = archiving().holdArchiveOf(RUN, later(30_000));
+      const renewed = archiving().renewArchiveOf(RUN, 1, later(30_000));
 
-      expect(renewed.holdsArchiveOf(RUN)).toBe(true);
+      expect(renewed.archivedAttemptOf(RUN, later(30_000))).toBe(1);
       expect(renewed.leases).toEqual([
-        SandboxLease.of(LeaseHolder.archive(RUN), later(30_000)),
+        SandboxLease.of(LeaseHolder.archive(RUN), later(30_000), 1),
       ]);
+    });
+
+    it('holds the lease for one attempt: no renewal or second hold of another, nor of one that expired', () => {
+      const held = started().holdArchiveOf(RUN, 2, later(500));
+
+      expect(held.archivedAttemptOf(RUN, later(500))).toBe(2);
+      expect(held.holdArchiveOf(RUN, 3, later(600))).toBe(held);
+      expect(held.renewArchiveOf(RUN, 1, later(600))).toBe(held);
+
+      const lapsed = archiving();
+      const due = later(500 + ARCHIVE_LEASE_MS);
+
+      expect(lapsed.archivedAttemptOf(RUN, due)).toBeNull();
+      expect(lapsed.renewArchiveOf(RUN, 1, due)).toBe(lapsed);
+      expect(
+        started()
+          .holdArchiveOf(RUN, 1, later(500))
+          .retireRun(RUN, later(1_000))
+          .keptBy(reporting, due),
+      ).toBe(false);
+      expect(() => SandboxLease.of(LeaseHolder.archive(RUN), later(0))).toThrow(
+        InconsistentStateError,
+      );
+      expect(() => SandboxLease.of(LeaseHolder.run(RUN), later(0), 1)).toThrow(
+        InconsistentStateError,
+      );
     });
 
     it('takes no archive lease when it has no key, and holds none beside another run', () => {
@@ -634,11 +660,11 @@ describe('Sandbox', () => {
         at: STARTED_AT,
       });
 
-      expect(keyless.holdArchiveOf(RUN, later(500))).toBe(keyless);
+      expect(keyless.holdArchiveOf(RUN, 1, later(500))).toBe(keyless);
       expect(() =>
         withLeases(
           [
-            SandboxLease.of(LeaseHolder.archive(RUN), later(0)),
+            SandboxLease.of(LeaseHolder.archive(RUN), later(0), 1),
             SandboxLease.of(LeaseHolder.run(RunId.of('run_2')), later(0)),
           ],
           null,
@@ -648,7 +674,7 @@ describe('Sandbox', () => {
         withLeases(
           [
             SandboxLease.of(LeaseHolder.run(RUN), later(0)),
-            SandboxLease.of(LeaseHolder.archive(RUN), later(0)),
+            SandboxLease.of(LeaseHolder.archive(RUN), later(0), 1),
           ],
           null,
         ).holdsArchiveOf(RUN),
@@ -690,22 +716,22 @@ describe('Sandbox', () => {
 
     it('is kept by its host while the archive holds it, even once a retiring run drains it', () => {
       const retired = started()
-        .holdArchiveOf(RUN, later(500))
+        .holdArchiveOf(RUN, 1, later(500))
         .retireRun(RUN, later(1_000));
 
       expect(retired.current).toBe('draining');
-      expect(retired.keptBy(reporting)).toBe(true);
-      expect(retired.keptBy(stopping)).toBe(true);
+      expect(retired.keptBy(reporting, NOW)).toBe(true);
+      expect(retired.keptBy(stopping, NOW)).toBe(true);
       expect(retired.takesRunOn(reporting, NOW)).toBe(false);
       expect(
-        retired.releaseArchiveOf(RUN, later(15_000)).keptBy(reporting),
+        retired.releaseArchiveOf(RUN, later(15_000)).keptBy(reporting, NOW),
       ).toBe(false);
     });
 
     it('stays ready for an editor when a retiring run leaves it to its archive and an editor', () => {
       const edited = started()
         .holdEditor(editor('conn_1'), later(200))
-        .holdArchiveOf(RUN, later(500))
+        .holdArchiveOf(RUN, 1, later(500))
         .retireRun(RUN, later(1_000));
 
       expect(edited.current).toBe('open');
@@ -735,7 +761,7 @@ describe('Sandbox', () => {
     it('cannot be idle while an archive holds it', () => {
       expect(() =>
         withLeases(
-          [SandboxLease.of(LeaseHolder.archive(RUN), later(0))],
+          [SandboxLease.of(LeaseHolder.archive(RUN), later(0), 1)],
           later(0),
         ),
       ).toThrow(InconsistentStateError);

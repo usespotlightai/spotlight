@@ -52,7 +52,7 @@ const entry = {
 const setUp = (input: {
   run: Run;
   holds?: boolean;
-  archived?: boolean;
+  archived?: number;
   workspaceId?: string;
 }) => {
   const sandbox: AuthenticatedSandbox = {
@@ -64,8 +64,9 @@ const setUp = (input: {
     authenticate: async (token: string | undefined) =>
       token === TOKEN ? sandbox : null,
     holdArchive: vi.fn(async () => input.holds ?? true),
+    renewArchive: vi.fn(async () => input.holds ?? true),
     releaseArchive: vi.fn(async () => {}),
-    heldForArchive: vi.fn(async () => input.archived ?? false),
+    archivedAttemptOf: vi.fn(async () => input.archived ?? null),
   };
   const sandboxes = new SandboxArchives(port as unknown as SandboxesPort);
   const appended: { attempt: RunAttempt; entries: readonly JournalEntry[] }[] =
@@ -104,9 +105,29 @@ describe('a sandbox that archives a run’s workspace after the run reported its
     const { hold, port } = setUp({ run: aLeasedRun() });
 
     await expect(
-      hold.execute(new HoldSandboxArchiveCommand('sandbox_1', TOKEN, 'run_1')),
+      hold.execute(
+        new HoldSandboxArchiveCommand('sandbox_1', TOKEN, 'run_1', 1),
+      ),
     ).resolves.toBe(true);
-    expect(port.holdArchive).toHaveBeenCalledWith('sandbox_1', 'run_1', NOW);
+    expect(port.holdArchive).toHaveBeenCalledWith('sandbox_1', 'run_1', 1, NOW);
+    expect(port.renewArchive).not.toHaveBeenCalled();
+  });
+
+  it('only renews the lease of an attempt no longer in its turn', async () => {
+    const { hold, port } = setUp({ run: reported(aLeasedRun()) });
+
+    await expect(
+      hold.execute(
+        new HoldSandboxArchiveCommand('sandbox_1', TOKEN, 'run_1', 1),
+      ),
+    ).resolves.toBe(true);
+    expect(port.renewArchive).toHaveBeenCalledWith(
+      'sandbox_1',
+      'run_1',
+      1,
+      NOW,
+    );
+    expect(port.holdArchive).not.toHaveBeenCalled();
   });
 
   it('holds nothing for a wrong token, an unknown run, or a run of another workspace', async () => {
@@ -124,7 +145,7 @@ describe('a sandbox that archives a run’s workspace after the run reported its
 
       await expect(
         hold.execute(
-          new HoldSandboxArchiveCommand('sandbox_1', each.token, each.runId),
+          new HoldSandboxArchiveCommand('sandbox_1', each.token, each.runId, 1),
         ),
       ).resolves.toBe(false);
       expect(port.holdArchive).not.toHaveBeenCalled();
@@ -135,7 +156,9 @@ describe('a sandbox that archives a run’s workspace after the run reported its
     const { hold } = setUp({ run: aLeasedRun(), holds: false });
 
     await expect(
-      hold.execute(new HoldSandboxArchiveCommand('sandbox_1', TOKEN, 'run_1')),
+      hold.execute(
+        new HoldSandboxArchiveCommand('sandbox_1', TOKEN, 'run_1', 1),
+      ),
     ).resolves.toBe(false);
   });
 
@@ -143,12 +166,12 @@ describe('a sandbox that archives a run’s workspace after the run reported its
     const run = reported(aLeasedRun());
     const { append, appended, published } = setUp({
       run,
-      archived: true,
+      archived: 1,
     });
 
     await expect(
       append.execute(
-        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', 1, [
+        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', [
           entry,
         ]),
       ),
@@ -179,20 +202,49 @@ describe('a sandbox that archives a run’s workspace after the run reported its
         [],
         new Date(NOW.getTime() + 5_000),
       );
-    const { append, appended } = setUp({ run, archived: true });
+    const { append, appended } = setUp({ run, archived: 1 });
 
     expect(run.attempt.number).toBe(2);
     await expect(
       append.execute(
-        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', 1, [
+        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', [
           entry,
         ]),
       ),
     ).resolves.toBe(true);
     expect(appended[0]?.attempt.number).toBe(1);
+  });
+
+  it('refuses to journal an attempt that is queued and never reported a turn', async () => {
+    const run = aLeasedRun()
+      .reportTurn(
+        RunnerId.of('runner_1'),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
+        HandoverReport.of({
+          handover: Handover.of({ next: 'review', note: 'Which queue?' }),
+          session: HarnessSession.of('session_1'),
+        }),
+        NOW,
+      )
+      .resumed(
+        RunAttempt.of(RunId.of('run_1'), 1),
+        'messages',
+        [],
+        new Date(NOW.getTime() + 5_000),
+      );
+    const queued = setUp({ run, archived: 2 });
+    const unknown = setUp({ run, archived: 3 });
+
     await expect(
-      append.execute(
-        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', 3, [
+      queued.append.execute(
+        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', [
+          entry,
+        ]),
+      ),
+    ).rejects.toBeInstanceOf(ApplicationError);
+    await expect(
+      unknown.append.execute(
+        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', [
           entry,
         ]),
       ),
@@ -204,7 +256,7 @@ describe('a sandbox that archives a run’s workspace after the run reported its
 
     await expect(
       append.execute(
-        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', 1, [
+        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', [
           entry,
         ]),
       ),
@@ -216,12 +268,12 @@ describe('a sandbox that archives a run’s workspace after the run reported its
     const run = aLeasedRun();
     const { append, appended } = setUp({
       run,
-      archived: true,
+      archived: 1,
     });
 
     await expect(
       append.execute(
-        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', 1, [
+        new AppendSandboxArchiveJournalCommand('sandbox_1', TOKEN, 'run_1', [
           entry,
         ]),
       ),

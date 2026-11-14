@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/session"
@@ -111,8 +112,8 @@ func TestArchivesBeforeTheReportWhenTheSandboxCannotHoldIt(t *testing.T) {
 			o.resume = protocol.Resume{Key: resumeKey}
 		})
 
-	callOrder(t, written, "hold", "archive", "complete")
-	if slices.Contains(written.calls, "sandbox archive") || slices.Contains(written.calls, "release") {
+	callOrder(t, written, "hold", "release", "archive", "complete")
+	if slices.Contains(written.calls, "sandbox archive") {
 		t.Errorf("archived through a sandbox that did not hold the workspace: %v", written.calls)
 	}
 	if len(written.completedBy) != 1 || written.completedBy[0] != 1 {
@@ -175,7 +176,7 @@ func TestFinishesTheArchiveAfterTheReportWhenTheRunnerIsStopped(t *testing.T) {
 	callOrder(t, written, "complete", "sandbox archive", "release")
 }
 
-func TestJournalsTheArchiveUnderTheAttemptThatReportedTheTurn(t *testing.T) {
+func TestHoldsTheArchiveLeaseForTheAttemptInItsTurn(t *testing.T) {
 	archives := newArchives(t)
 	held := &heldSandbox{archives: archives}
 
@@ -188,11 +189,11 @@ func TestJournalsTheArchiveUnderTheAttemptThatReportedTheTurn(t *testing.T) {
 		})
 
 	if len(held.attempts) == 0 {
-		t.Fatal("the sandbox journaled nothing about the archive")
+		t.Fatal("the sandbox took no archive lease")
 	}
 	for _, attempt := range held.attempts {
 		if attempt != 3 {
-			t.Errorf("the sandbox journaled the archive under attempts %v, wanted 3", held.attempts)
+			t.Errorf("the sandbox held the archive lease for attempts %v, wanted 3", held.attempts)
 			break
 		}
 	}
@@ -219,5 +220,32 @@ func TestArchivesWithTheRunsOwnLeaseWhenTheReportFailsAfterTheHold(t *testing.T)
 	}
 	if archives.count() != 1 {
 		t.Errorf("%d archives were completed, wanted the one", archives.count())
+	}
+}
+
+func TestRenewsNoRunLeaseWhileItArchivesAfterTheReport(t *testing.T) {
+	archives := newArchives(t)
+	held := &heldSandbox{archives: archives}
+	var atGrant, afterWait int
+	held.onGrant = func() {
+		held.journal.mu.Lock()
+		atGrant = held.journal.renewals
+		held.journal.mu.Unlock()
+		time.Sleep(100 * time.Millisecond)
+		held.journal.mu.Lock()
+		afterWait = held.journal.renewals
+		held.journal.mu.Unlock()
+	}
+
+	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
+		func(o *runOptions) {
+			o.archives = archives
+			o.held = held
+			o.heartbeat = 10 * time.Millisecond
+			o.resume = protocol.Resume{Key: resumeKey}
+		})
+
+	if afterWait != atGrant {
+		t.Errorf("renewed the reported run's lease %d times while it archived", afterWait-atGrant)
 	}
 }

@@ -645,7 +645,7 @@
     },
     "/sandboxes/{sandboxId}/archive-leases/{runId}": {
       "put": {
-        "description": "The bearer is the sandbox token. Take the lease while the run holds the sandbox, before the run reports its turn. Renew it with the same call; it expires 2 minutes after the last call.",
+        "description": "The bearer is the sandbox token. Take the lease for the attempt in its turn, while the run holds the sandbox, before the run reports the turn. Renew it with the same call and attempt; it expires 2 minutes after the last call.",
         "operationId": "holdSandboxArchiveLease",
         "parameters": [
           {
@@ -665,12 +665,22 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HoldSandboxArchiveLeaseRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": ""
           },
           "404": {
-            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox, or a run the sandbox does not hold"
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox, a run the sandbox does not hold, or no lease of this attempt to renew"
           },
           "409": {
             "description": "The run does not archive a working copy for a later run"
@@ -751,7 +761,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppendSandboxArchiveEventsRequestDto"
+                "$ref": "#/components/schemas/AppendRunEventsRequestDto"
               }
             }
           }
@@ -761,7 +771,7 @@
             "description": ""
           },
           "404": {
-            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox, no archive lease for this run, or an unknown attempt"
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox, or no archive lease for this run"
           },
           "409": {
             "description": "The attempt has not reported its turn"
@@ -772,7 +782,7 @@
             "bearer": []
           }
         ],
-        "summary": "Add the archive step to the journal of the attempt that reported the turn the sandbox holds an archive lease for",
+        "summary": "Add the archive step to the journal of the attempt the sandbox holds an archive lease for",
         "tags": [
           "runners"
         ]
@@ -3080,23 +3090,16 @@
           "headers"
         ]
       },
-      "AppendSandboxArchiveEventsRequestDto": {
+      "HoldSandboxArchiveLeaseRequestDto": {
         "type": "object",
         "properties": {
-          "events": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RunEventRequestDto"
-            }
-          },
           "attempt": {
             "type": "number",
             "example": 1,
-            "description": "The attempt of the run that reported the turn it archives"
+            "description": "The attempt of the run whose turn the archive follows, as the claim named it"
           }
         },
         "required": [
-          "events",
           "attempt"
         ]
       },

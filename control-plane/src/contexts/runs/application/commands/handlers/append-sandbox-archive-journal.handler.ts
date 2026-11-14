@@ -25,12 +25,17 @@ export class AppendSandboxArchiveJournalHandler implements CommandHandlerPort<
         command.sandboxId,
         command.token,
       );
-      const held =
-        !!sandbox &&
-        (await this.sandboxes.heldForArchive(sandbox, runId, this.clock.now()));
-      const attempt = held
-        ? (await this.runs.findById(runId))?.journalAfterTurnOf(command.attempt)
+      const archived = sandbox
+        ? await this.sandboxes.archivedAttemptOf(
+            sandbox,
+            runId,
+            this.clock.now(),
+          )
         : null;
+      const attempt =
+        archived === null
+          ? null
+          : (await this.runs.findById(runId))?.journalAfterTurnOf(archived);
 
       if (!attempt) {
         return false;

@@ -26,10 +26,11 @@ export class AppendRunEventsRequestDto {
   readonly events!: RunEventRequestDto[];
 }
 
-export class AppendSandboxArchiveEventsRequestDto extends AppendRunEventsRequestDto {
+export class HoldSandboxArchiveLeaseRequestDto {
   @ApiProperty({
     example: 1,
-    description: 'The attempt of the run that reported the turn it archives',
+    description:
+      'The attempt of the run whose turn the archive follows, as the claim named it',
   })
   readonly attempt!: number;
 }

@@ -1307,10 +1307,9 @@ export type ArchiveGrantResponseDto = {
   };
 };
 
-export type AppendSandboxArchiveEventsRequestDto = {
-  events: Array<RunEventRequestDto>;
+export type HoldSandboxArchiveLeaseRequestDto = {
   /**
-   * The attempt of the run that reported the turn it archives
+   * The attempt of the run whose turn the archive follows, as the claim named it
    */
   attempt: number;
 };
@@ -12122,7 +12121,7 @@ export type ReleaseSandboxArchiveLeaseResponses = {
 export type ReleaseSandboxArchiveLeaseResponse = ReleaseSandboxArchiveLeaseResponses[keyof ReleaseSandboxArchiveLeaseResponses];
 
 export type HoldSandboxArchiveLeaseData = {
-  body?: never;
+  body: HoldSandboxArchiveLeaseRequestDto;
   path: {
     sandboxId: string;
     runId: string;
@@ -12133,7 +12132,7 @@ export type HoldSandboxArchiveLeaseData = {
 
 export type HoldSandboxArchiveLeaseErrors = {
   /**
-   * Missing, wrong or no longer valid sandbox token, or not this sandbox, or a run the sandbox does not hold
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox, a run the sandbox does not hold, or no lease of this attempt to renew
    */
   404: unknown;
   /**
@@ -12149,7 +12148,7 @@ export type HoldSandboxArchiveLeaseResponses = {
 export type HoldSandboxArchiveLeaseResponse = HoldSandboxArchiveLeaseResponses[keyof HoldSandboxArchiveLeaseResponses];
 
 export type AppendSandboxArchiveEventsData = {
-  body: AppendSandboxArchiveEventsRequestDto;
+  body: AppendRunEventsRequestDto;
   path: {
     sandboxId: string;
     runId: string;
@@ -12160,7 +12159,7 @@ export type AppendSandboxArchiveEventsData = {
 
 export type AppendSandboxArchiveEventsErrors = {
   /**
-   * Missing, wrong or no longer valid sandbox token, or not this sandbox, no archive lease for this run, or an unknown attempt
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox, or no archive lease for this run
    */
   404: unknown;
   /**

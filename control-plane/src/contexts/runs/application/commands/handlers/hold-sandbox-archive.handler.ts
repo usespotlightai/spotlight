@@ -32,11 +32,21 @@ export class HoldSandboxArchiveHandler implements CommandHandlerPort<
 
       run.mayActBeyondItself('archive a working copy for a later run');
 
-      return await this.sandboxes.holdArchive(
-        sandbox,
-        run.id,
-        this.clock.now(),
-      );
+      const now = this.clock.now();
+
+      return run.attemptInTurn(command.attempt)
+        ? await this.sandboxes.holdArchive(
+            sandbox,
+            run.id,
+            command.attempt,
+            now,
+          )
+        : await this.sandboxes.renewArchive(
+            sandbox,
+            run.id,
+            command.attempt,
+            now,
+          );
     } catch (error) {
       rethrowAsApplicationError(error);
     }

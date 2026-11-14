@@ -74,8 +74,12 @@ func (s *Sandbox) archiveLeasePath(runID string) string {
 	return fmt.Sprintf("/api/sandboxes/%s/archive-leases/%s", url.PathEscape(s.id), url.PathEscape(runID))
 }
 
-func (s *Sandbox) HoldArchiveLease(ctx context.Context, runID string) error {
-	if err := s.client.do(ctx, http.MethodPut, s.archiveLeasePath(runID), nil, nil); err != nil {
+func (s *Sandbox) HoldArchiveLease(ctx context.Context, runID string, attempt int) error {
+	lease := struct {
+		Attempt int `json:"attempt"`
+	}{Attempt: attempt}
+
+	if err := s.client.do(ctx, http.MethodPut, s.archiveLeasePath(runID), lease, nil); err != nil {
 		return fmt.Errorf("hold the sandbox for the archive: %w", err)
 	}
 
@@ -90,15 +94,14 @@ func (s *Sandbox) ReleaseArchiveLease(ctx context.Context, runID string) error {
 	return nil
 }
 
-func (s *Sandbox) AppendArchiveEvents(ctx context.Context, runID string, attempt int, events []protocol.Event) error {
+func (s *Sandbox) AppendEvents(ctx context.Context, runID string, events []protocol.Event) error {
 	if len(events) == 0 {
 		return nil
 	}
 
 	batch := struct {
-		Attempt int              `json:"attempt"`
-		Events  []protocol.Event `json:"events"`
-	}{Attempt: attempt, Events: events}
+		Events []protocol.Event `json:"events"`
+	}{Events: events}
 
 	if err := s.client.do(ctx, http.MethodPost, s.archiveLeasePath(runID)+"/events", batch, nil); err != nil {
 		return fmt.Errorf("append the archive's events: %w", err)

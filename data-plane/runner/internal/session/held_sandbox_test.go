@@ -22,8 +22,11 @@ func (s *heldSandbox) called(name string) {
 	s.journal.calls = append(s.journal.calls, name)
 }
 
-func (s *heldSandbox) HoldArchiveLease(context.Context, string) error {
+func (s *heldSandbox) HoldArchiveLease(_ context.Context, _ string, attempt int) error {
 	s.called("hold")
+	s.journal.mu.Lock()
+	s.attempts = append(s.attempts, attempt)
+	s.journal.mu.Unlock()
 	if s.refuse {
 		return errors.New("404 Not Found: a run the sandbox does not hold")
 	}
@@ -35,10 +38,9 @@ func (s *heldSandbox) ReleaseArchiveLease(context.Context, string) error {
 	return nil
 }
 
-func (s *heldSandbox) AppendArchiveEvents(_ context.Context, _ string, attempt int, events []protocol.Event) error {
+func (s *heldSandbox) AppendEvents(_ context.Context, _ string, events []protocol.Event) error {
 	s.journal.mu.Lock()
 	defer s.journal.mu.Unlock()
-	s.attempts = append(s.attempts, attempt)
 	s.sent = append(s.sent, events...)
 	s.journal.events = append(s.journal.events, events...)
 	return nil
