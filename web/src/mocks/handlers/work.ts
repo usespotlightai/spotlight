@@ -107,6 +107,7 @@ export const workHandlers: RequestHandler[] = [
         createdBy: SAM,
         assignee: null,
         note: null,
+        source: null,
       };
 
       world().tasks[teamId] = [...(world().tasks[teamId] ?? []), task];

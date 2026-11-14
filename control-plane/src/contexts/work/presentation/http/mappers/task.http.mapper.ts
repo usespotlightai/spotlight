@@ -44,6 +44,7 @@ export const TaskHttpMapper = {
             dto.note.body,
           )
         : null,
+      dto.source,
     );
   },
 };

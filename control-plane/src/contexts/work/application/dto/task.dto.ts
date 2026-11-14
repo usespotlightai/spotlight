@@ -33,4 +33,5 @@ export interface TaskDto {
   readonly note: TaskNoteDto | null;
   readonly createdBy: TaskPersonDto | null;
   readonly assignee: TaskPersonDto | null;
+  readonly source: string | null;
 }

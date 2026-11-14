@@ -603,6 +603,7 @@ const chatHandlers = [
           createdBy: SAM,
           assignee: null,
           note: null,
+          source: null,
         },
       ];
       proposal.state = 'created';

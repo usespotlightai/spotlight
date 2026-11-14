@@ -136,6 +136,15 @@ export class TaskResponseDto {
   })
   readonly note: TaskNoteResponseDto | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'linear',
+    description:
+      'The integration that opened it, or null where a person created it',
+  })
+  readonly source: string | null;
+
   constructor(
     id: string,
     stationId: string,
@@ -150,6 +159,7 @@ export class TaskResponseDto {
     createdBy: TaskPersonResponseDto | null,
     assignee: TaskPersonResponseDto | null,
     note: TaskNoteResponseDto | null,
+    source: string | null,
   ) {
     this.id = id;
     this.stationId = stationId;
@@ -164,6 +174,7 @@ export class TaskResponseDto {
     this.createdBy = createdBy;
     this.assignee = assignee;
     this.note = note;
+    this.source = source;
   }
 }
 

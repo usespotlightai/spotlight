@@ -34,6 +34,7 @@ export interface TaskSummary {
   readonly note: TaskNoteSummary | null;
   readonly createdBy: TaskPersonSummary | null;
   readonly assignee: TaskPersonSummary | null;
+  readonly source: string | null;
 }
 
 export type TaskListing =

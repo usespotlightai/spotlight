@@ -90,6 +90,14 @@ vi.mock('@/hooks/api/useTaskJournal', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useConfiguration', () => ({
+  useConfiguration: () => ({
+    data: {
+      integrations: [{ integration: 'linear', name: 'Linear', logo: null }],
+    },
+  }),
+}));
+
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({
     data: { teams: [{ id: 'team_1', name: 'Platform' }] },
@@ -429,5 +437,28 @@ describe('Task', () => {
       screen.getByRole('heading', { level: 1, name: 'Fix the queue' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('where a task came from', () => {
+  it('names the integration that opened it, with a link to the team integrations', () => {
+    listed.mockReturnValue([{ ...task, source: 'linear' }]);
+
+    renderAt('task_1');
+
+    expect(screen.getByRole('link', { name: 'Linear' })).toHaveAttribute(
+      'href',
+      '/w/acme/settings/team/team_1/integrations',
+    );
+  });
+
+  it('names no source for a task a person created', () => {
+    listed.mockReturnValue([{ ...task, source: null }]);
+
+    renderAt('task_1');
+
+    expect(
+      screen.queryByRole('link', { name: 'Linear' }),
+    ).not.toBeInTheDocument();
   });
 });

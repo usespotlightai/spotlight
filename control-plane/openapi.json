@@ -29430,6 +29430,12 @@
                 "$ref": "#/components/schemas/TaskNoteResponseDto"
               }
             ]
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "linear",
+            "description": "The integration that opened it, or null where a person created it"
           }
         },
         "required": [
@@ -29445,7 +29451,8 @@
           "pullRequests",
           "createdBy",
           "assignee",
-          "note"
+          "note",
+          "source"
         ]
       },
       "TaskPageResponseDto": {
