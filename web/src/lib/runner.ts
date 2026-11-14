@@ -358,7 +358,7 @@ export const hostChildren = (host: Host): HostChild[] =>
     })),
   ].sort((one, other) => rankOf(one) - rankOf(other));
 
-export const oldestOf = (row: SandboxRow): IdleSandbox =>
+const oldestOf = (row: SandboxRow): IdleSandbox =>
   row.sandboxes.reduce((oldest, each) =>
     each.startedAt < oldest.startedAt ? each : oldest,
   );
