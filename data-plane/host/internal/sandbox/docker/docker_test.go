@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"slices"
 	"strconv"
@@ -64,6 +66,73 @@ func TestReferenceSplitsATagFromARegistryWithAPort(t *testing.T) {
 		if name != want[0] || tag != want[1] {
 			t.Errorf("%s: got %s %s", image, name, tag)
 		}
+	}
+}
+
+// recording answers as an engine would, and passes on the body of each create.
+func recording(t *testing.T) (*Engine, <-chan []byte) {
+	t.Helper()
+
+	bodies := make(chan []byte, 8)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/info":
+			w.Write([]byte(`{"MemTotal":25000000000}`))
+		case strings.HasPrefix(r.URL.Path, "/containers/create"):
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Error(err)
+			}
+			bodies <- body
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{"Id":"c1"}`))
+		default:
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	engine, err := Connect("tcp://" + strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return engine, bodies
+}
+
+func TestASandboxWithLimitsHasNoSwapAboveItsMemoryAndItsOOMScore(t *testing.T) {
+	engine, bodies := recording(t)
+
+	limits := sandbox.Limits{Memory: 6 << 30, OOMScoreAdj: 500}
+	if _, err := engine.Start(context.Background(), sandbox.Spec{Image: "runner", Limits: limits}); err != nil {
+		t.Fatal(err)
+	}
+	var limited created
+	if err := json.Unmarshal(<-bodies, &limited); err != nil {
+		t.Fatal(err)
+	}
+	if got := limited.HostConfig; got.Memory != 6<<30 || got.MemorySwap != 6<<30 || got.OomScoreAdj != 500 {
+		t.Errorf("host config %+v", got)
+	}
+
+	if _, err := engine.Start(context.Background(), sandbox.Spec{Image: "egress"}); err != nil {
+		t.Fatal(err)
+	}
+	var unlimited struct{ HostConfig map[string]json.RawMessage }
+	if err := json.Unmarshal(<-bodies, &unlimited); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"Memory", "MemorySwap", "OomScoreAdj"} {
+		if value, set := unlimited.HostConfig[key]; set {
+			t.Errorf("a container without limits sets %s to %s", key, value)
+		}
+	}
+}
+
+func TestReadsTheMemoryOfTheRuntime(t *testing.T) {
+	engine, _ := recording(t)
+
+	if total, err := engine.Memory(context.Background()); err != nil || total != 25000000000 {
+		t.Errorf("memory %d, %v", total, err)
 	}
 }
 

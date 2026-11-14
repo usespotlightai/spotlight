@@ -38,6 +38,12 @@ type Spec struct {
 	Network    string
 	Joins      []Join
 	ExtraHosts []string
+	Limits     Limits
+}
+
+type Limits struct {
+	Memory      int64
+	OOMScoreAdj int
 }
 
 type Join struct {

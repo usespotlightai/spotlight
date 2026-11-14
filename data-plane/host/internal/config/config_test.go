@@ -26,7 +26,8 @@ func isolated(t *testing.T) string {
 	dir := t.TempDir()
 	for _, name := range []string{
 		"SPOTLIGHT_URL", "SPOTLIGHT_POOL_TOKEN", "SPOTLIGHT_TRUST", "SPOTLIGHT_OIDC_TOKEN_FILE",
-		"SPOTLIGHT_CAPACITY", "SPOTLIGHT_RUNNER_IMAGE", "SPOTLIGHT_RUN_TIMEOUT", "SPOTLIGHT_SANDBOX_URL",
+		"SPOTLIGHT_CAPACITY", "SPOTLIGHT_SANDBOX_MEMORY", "SPOTLIGHT_RUNNER_IMAGE", "SPOTLIGHT_RUN_TIMEOUT",
+		"SPOTLIGHT_SANDBOX_URL",
 		"SPOTLIGHT_SANDBOX_ENV", "SPOTLIGHT_SANDBOX_NETWORK", "SPOTLIGHT_SANDBOX_HOSTS", "SPOTLIGHT_STATE",
 		"SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_PASS",
 		"SPOTLIGHT_EGRESS_IMAGE", "SPOTLIGHT_EGRESS_ALLOW", "SPOTLIGHT_EGRESS_ENV", "SPOTLIGHT_EGRESS_PASS",
@@ -62,8 +63,8 @@ func TestLoadsWhatTheInstallerWrote(t *testing.T) {
 	if cfg.Credential() != control.Bearer("pool-token") {
 		t.Errorf("credential %v", cfg.Credential())
 	}
-	if cfg.Capacity != 1 || cfg.RunTimeout != 6*time.Hour {
-		t.Errorf("capacity %d, timeout %v", cfg.Capacity, cfg.RunTimeout)
+	if cfg.Capacity != 1 || cfg.SandboxMemory != 0 || cfg.RunTimeout != 6*time.Hour {
+		t.Errorf("capacity %d, memory %d, timeout %v", cfg.Capacity, cfg.SandboxMemory, cfg.RunTimeout)
 	}
 	if cfg.Images.Default != config.Image+":v1.4.0" || !cfg.Images.Allows(config.Image+":v1.4.0") {
 		t.Errorf("images %+v: the runner image is pinned to the host's version", cfg.Images)
@@ -374,5 +375,71 @@ func TestReadsHealthChecksAndTheLogLevelFromTheFile(t *testing.T) {
 	}
 	if !slices.Contains(cfg.SandboxEnv, "SPOTLIGHT_LOG_LEVEL=debug") {
 		t.Errorf("sandboxes do not get the log level: %v", cfg.SandboxEnv)
+	}
+}
+
+func TestReadsAWholeNumberOfBytesOrOfBinaryUnits(t *testing.T) {
+	for raw, want := range map[string]int64{
+		"6g": 6 << 30, "6G": 6 << 30, "6gb": 6 << 30, "6GiB": 6 << 30, "512m": 512 << 20, "1t": 1 << 40, "64k": 64 << 10,
+		"1048576": 1 << 20, "1048576b": 1 << 20, " 2 g ": 2 << 30,
+	} {
+		if got, err := config.ParseSize(raw); err != nil || got != want {
+			t.Errorf("%q: got %d, %v; want %d", raw, got, err, want)
+		}
+	}
+	for _, raw := range []string{"", "g", "6x", "6i", "6ib", "-6g", "1.5g", "6 gigs", "99999999999t"} {
+		if got, err := config.ParseSize(raw); err == nil {
+			t.Errorf("%q is a size of %d", raw, got)
+		}
+	}
+}
+
+func TestWritesASizeExactlyInTheLargestUnitThatDividesIt(t *testing.T) {
+	for bytes, want := range map[int64]string{
+		6 << 30: "6g", 6<<30 + 512<<20: "6656m", 512 << 20: "512m", 1 << 40: "1t", 100: "100", 0: "0",
+	} {
+		if got := config.FormatSize(bytes); got != want {
+			t.Errorf("%d: got %q, want %q", bytes, got, want)
+		}
+	}
+}
+
+func TestReadsTheMemoryOfEachSandbox(t *testing.T) {
+	dir := isolated(t)
+	write(t, filepath.Join(dir, "host.env"), "SPOTLIGHT_URL=https://spotlight.test\nSPOTLIGHT_POOL_TOKEN=pool-token\n")
+
+	for raw, want := range map[string]int64{"6g": 6 << 30, "none": 0, "None": 0} {
+		t.Setenv("SPOTLIGHT_SANDBOX_MEMORY", raw)
+		if cfg, err := config.Load("dev"); err != nil || cfg.SandboxMemory != want {
+			t.Errorf("%q: memory %d, %v", raw, cfg.SandboxMemory, err)
+		}
+	}
+	for raw, want := range map[string]string{
+		"lots": "not a size such as 512m or 6g, or none",
+		"1m":   "below Docker's least limit, 6m",
+	} {
+		t.Setenv("SPOTLIGHT_SANDBOX_MEMORY", raw)
+		if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%q: %v", raw, err)
+		}
+	}
+}
+
+func TestSuggestsTheRuntimesMemoryLessTheHostsSharedBetweenTheSandboxesInWholeMebibytes(t *testing.T) {
+	for _, each := range []struct {
+		memory    int64
+		sandboxes int
+		want      string
+	}{
+		{23 << 30, 8, "2688m"},
+		{22 << 30, 4, "5g"},
+		{64 << 30, 5, "12697m"},
+		{2 << 30, 1, ""},
+		{0, 5, ""},
+		{64 << 30, 0, ""},
+	} {
+		if got := config.SuggestedSandboxMemory(each.memory, each.sandboxes); got != each.want {
+			t.Errorf("%s for %d sandboxes: got %q, want %q", config.FormatSize(each.memory), each.sandboxes, got, each.want)
+		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -279,17 +280,7 @@ func agent() string {
 }
 
 func SystemdUnit(s Service, system bool) string {
-	wanted := "default.target"
-	if system {
-		wanted = "multi-user.target"
-	}
-
-	return strings.Join([]string{
-		"[Unit]",
-		"Description=Spotlight host: a fresh runner for every run",
-		"After=network-online.target docker.service podman.socket",
-		"Wants=network-online.target",
-		"",
+	service := []string{
 		"[Service]",
 		"ExecStart=" + commandQuoted(s.Binary) + " host serve",
 		"Environment=" + settingQuoted("SPOTLIGHT_HOST_CONFIG="+s.Config),
@@ -298,11 +289,25 @@ func SystemdUnit(s Service, system bool) string {
 		"RestartSec=5",
 		"RestartPreventExitStatus=" + strconv.Itoa(StopExit),
 		"TimeoutStopSec=90",
+	}
+	wanted := "default.target"
+	if system {
+		service = append(service, "OOMScoreAdjust=-500")
+		wanted = "multi-user.target"
+	}
+
+	return strings.Join(slices.Concat([]string{
+		"[Unit]",
+		"Description=Spotlight host: a fresh runner for every run",
+		"After=network-online.target docker.service podman.socket",
+		"Wants=network-online.target",
+		"",
+	}, service, []string{
 		"",
 		"[Install]",
 		"WantedBy=" + wanted,
 		"",
-	}, "\n")
+	}), "\n")
 }
 
 func settingQuoted(value string) string {

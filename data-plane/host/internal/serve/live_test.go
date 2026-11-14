@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"usespotlight.ai/data-plane/host/internal/sandbox"
 	"usespotlight.ai/data-plane/host/internal/serve"
 )
 
@@ -41,8 +42,8 @@ func live(t *testing.T, opts serve.Options, engine *fakeEngine, pool *pool) (*se
 
 func settingsOf(opts serve.Options) serve.Settings {
 	return serve.Settings{
-		Name: opts.Name, Images: opts.Images, Capacity: opts.Capacity, RunTimeout: opts.RunTimeout,
-		SandboxURL: opts.SandboxURL, SandboxEnv: opts.SandboxEnv, Egress: opts.Egress,
+		Name: opts.Name, Images: opts.Images, Capacity: opts.Capacity, SandboxMemory: opts.SandboxMemory,
+		RunTimeout: opts.RunTimeout, SandboxURL: opts.SandboxURL, SandboxEnv: opts.SandboxEnv, Egress: opts.Egress,
 		Network: opts.Network, ExtraHosts: opts.ExtraHosts, AutoUpdate: opts.AutoUpdate,
 	}
 }
@@ -63,6 +64,33 @@ func TestAReloadedCapacityTakesMoreWorkWithoutARestart(t *testing.T) {
 	eventually(t, "the second sandbox", func() bool { return len(engine.workSandboxes()) == 2 })
 	if engine.wasDestroyed(engine.workSandboxes()[0]) {
 		t.Error("the reload stopped a running sandbox")
+	}
+}
+
+func TestAReloadedMemoryLimitAppliesToTheNextSandboxAndNeverToEgress(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.SandboxMemory = 6 << 30
+	host, _ := live(t, opts, engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "one sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+
+	reloaded := settingsOf(opts)
+	reloaded.Capacity, reloaded.SandboxMemory = 2, 8<<30
+	host.Reload(reloaded)
+	pool.work <- assignment("runner_2")
+	eventually(t, "the second sandbox", func() bool { return len(engine.workSandboxes()) == 2 })
+
+	first, second := engine.sandbox(engine.workSandboxes()[0]), engine.sandbox(engine.workSandboxes()[1])
+	if want := (sandbox.Limits{Memory: 6 << 30, OOMScoreAdj: 500}); first.Limits != want {
+		t.Errorf("the first sandbox has %+v, want %+v", first.Limits, want)
+	}
+	if want := (sandbox.Limits{Memory: 8 << 30, OOMScoreAdj: 500}); second.Limits != want {
+		t.Errorf("the sandbox after the reload has %+v, want %+v", second.Limits, want)
+	}
+	if _, egress, ok := engine.egressOf("runner_1"); !ok || egress.Limits != (sandbox.Limits{}) {
+		t.Errorf("egress started %v, with limits %+v", ok, egress.Limits)
 	}
 }
 

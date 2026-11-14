@@ -109,6 +109,15 @@ func (e *Engine) Describe(ctx context.Context) (string, error) {
 	return fmt.Sprintf("%s %s (%s/%s)", name, version.Version, version.Os, version.Arch), nil
 }
 
+func (e *Engine) Memory(ctx context.Context) (int64, error) {
+	var info struct{ MemTotal int64 }
+	if _, err := e.call(ctx, http.MethodGet, "/info", nil, &info); err != nil {
+		return 0, fmt.Errorf("read the container runtime's memory: %w", err)
+	}
+
+	return info.MemTotal, nil
+}
+
 func (e *Engine) Inspect(ctx context.Context, image string) (sandbox.Image, error) {
 	var inspected struct {
 		ID          string `json:"Id"`
@@ -286,6 +295,9 @@ type hostConfig struct {
 	Mounts      []mount  `json:",omitempty"`
 	NetworkMode string   `json:",omitempty"`
 	ExtraHosts  []string `json:",omitempty"`
+	Memory      int64    `json:",omitempty"`
+	MemorySwap  int64    `json:",omitempty"`
+	OomScoreAdj int      `json:",omitempty"`
 }
 
 type created struct {
@@ -308,6 +320,9 @@ func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
 			Init:        true,
 			NetworkMode: spec.Network,
 			ExtraHosts:  spec.ExtraHosts,
+			Memory:      spec.Limits.Memory,
+			MemorySwap:  spec.Limits.Memory,
+			OomScoreAdj: spec.Limits.OOMScoreAdj,
 		},
 	}
 	for _, each := range spec.Mounts {

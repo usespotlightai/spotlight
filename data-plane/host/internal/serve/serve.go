@@ -66,6 +66,9 @@ const (
 	retryFloor      = 2 * time.Second
 	retryCeiling    = 30 * time.Second
 	updateRetry     = 10 * time.Minute
+
+	// The kernel, out of memory, stops a sandbox before the host that supervises it.
+	sandboxOOMScore = 500
 )
 
 type Pool interface {
@@ -121,6 +124,7 @@ type Options struct {
 	SweepEvery     time.Duration
 	EgressWait     time.Duration
 	Capacity       int
+	SandboxMemory  int64
 	RunTimeout     time.Duration
 	ControlURL     string
 	SandboxURL     string
@@ -284,8 +288,8 @@ func (h *Host) Serve(ctx context.Context) error {
 	}
 
 	if !h.wasUpdated() && !h.wasRestarted() {
-		h.log.Info("serving", "name", h.now().Name, "capacity", h.slots.size(), "default", h.now().Images.Default,
-			"tookOver", len(left.taken))
+		h.log.Info("serving", "name", h.now().Name, "capacity", h.slots.size(), "sandboxMemoryBytes", h.now().SandboxMemory,
+			"default", h.now().Images.Default, "tookOver", len(left.taken))
 
 		reporting.Go(func() { h.watch(claiming, ctx, stop) })
 		reporting.Go(func() { h.sweep(claiming) })
@@ -638,6 +642,10 @@ func final(err error) bool {
 		control.HasReason(err, "host-unreported")
 }
 
+func (h *Host) sandboxLimits() sandbox.Limits {
+	return sandbox.Limits{Memory: h.now().SandboxMemory, OOMScoreAdj: sandboxOOMScore}
+}
+
 func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment protocol.Assignment) {
 	log := h.log.With("runner", assignment.RunnerID)
 	trace, traced := telemetry.TraceFrom(ctx)
@@ -758,6 +766,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		Mounts:  mounts,
 		Files:   append([]sandbox.File{{Path: AssignmentPath, Mode: 0o400, Body: body}}, sidecar.files()...),
 		Network: sidecar.network,
+		Limits:  h.sandboxLimits(),
 	})
 	h.started(image, err == nil)
 	if err != nil {

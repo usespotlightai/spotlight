@@ -27,27 +27,28 @@ import (
 )
 
 type Config struct {
-	URL        string
-	SandboxURL string
-	PoolToken  string
-	Workload   trust.Workload
-	Capacity   int
-	Images     images.Allowed
-	Registry   string
-	RunTimeout time.Duration
-	SandboxEnv []string
-	Egress     Egress
-	Network    string
-	ExtraHosts []string
-	State      string
-	Name       string
-	DockerHost string
-	AutoUpdate bool
-	Releases   string
-	HealthAddr string
-	LogLevel   string
-	Sampler    string
-	SamplerArg string
+	URL           string
+	SandboxURL    string
+	PoolToken     string
+	Workload      trust.Workload
+	Capacity      int
+	SandboxMemory int64
+	Images        images.Allowed
+	Registry      string
+	RunTimeout    time.Duration
+	SandboxEnv    []string
+	Egress        Egress
+	Network       string
+	ExtraHosts    []string
+	State         string
+	Name          string
+	DockerHost    string
+	AutoUpdate    bool
+	Releases      string
+	HealthAddr    string
+	LogLevel      string
+	Sampler       string
+	SamplerArg    string
 }
 
 type Egress struct {
@@ -66,6 +67,7 @@ const (
 	envTrust       = "SPOTLIGHT_TRUST"
 	envTokenFile   = "SPOTLIGHT_OIDC_TOKEN_FILE"
 	envCapacity    = "SPOTLIGHT_CAPACITY"
+	envMemory      = "SPOTLIGHT_SANDBOX_MEMORY"
 	envImage       = "SPOTLIGHT_RUNNER_IMAGE"
 	envRegistry    = "SPOTLIGHT_REGISTRY_CONFIG"
 	envRunTimeout  = protocol.RunTimeoutVar
@@ -191,6 +193,13 @@ func parse(version string, saved map[string]string, fromEnv bool) (Config, error
 		cfg.Capacity, err = strconv.Atoi(raw)
 		if err != nil || cfg.Capacity < 1 {
 			note(fmt.Errorf("%s: %q is not a count of at least 1", envCapacity, raw))
+		}
+	}
+
+	if raw := get(envMemory); raw != "" {
+		cfg.SandboxMemory, err = parseSandboxMemory(raw)
+		if err != nil {
+			note(fmt.Errorf("%s: %w", envMemory, err))
 		}
 	}
 

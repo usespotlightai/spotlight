@@ -31,10 +31,10 @@ const (
 )
 
 type initFlags struct {
-	url, token, trust, tokenFile, image, name string
-	capacity                                  int
-	noService, yes, tokenStdin                bool
-	given                                     map[string]bool
+	url, token, trust, tokenFile, image, name, memory string
+	capacity                                          int
+	noService, yes, tokenStdin                        bool
+	given                                             map[string]bool
 }
 
 func initialize(version string, args []string) error {
@@ -45,6 +45,7 @@ func initialize(version string, args []string) error {
 	flags.StringVar(&f.trust, "trust", "", "")
 	flags.StringVar(&f.tokenFile, "oidc-token-file", "", "")
 	flags.IntVar(&f.capacity, "capacity", 0, "")
+	flags.StringVar(&f.memory, "sandbox-memory", "", "")
 	flags.StringVar(&f.image, "image", "", "")
 	flags.StringVar(&f.name, "name", "", "")
 	flags.BoolVar(&f.noService, "no-service", false, "")
@@ -95,7 +96,7 @@ func initialize(version string, args []string) error {
 	if err := runtimeAnswers(file.Values()["DOCKER_HOST"]); err != nil {
 		return err
 	}
-	if err := settle(file, f, tty, version); err != nil {
+	if err := settle(file, f, tty, version, runtimeMemory(os.Stdout, file.Values()["DOCKER_HOST"])); err != nil {
 		return err
 	}
 
@@ -134,7 +135,7 @@ func initialize(version string, args []string) error {
 }
 
 // settle puts each value in the file: from its flag, else from the person's answer, else the saved value or default.
-func settle(file *config.File, f initFlags, tty *console.Terminal, version string) error {
+func settle(file *config.File, f initFlags, tty *console.Terminal, version string, runtimeMemory int64) error {
 	saved := file.Values()
 	value := func(question, flagName, flagValue, env, fallback string) (string, error) {
 		current := saved[env]
@@ -171,6 +172,18 @@ func settle(file *config.File, f initFlags, tty *console.Terminal, version strin
 		return err
 	}
 	if err := file.Set("SPOTLIGHT_CAPACITY", capacity); err != nil {
+		return err
+	}
+
+	sandboxes, _ := strconv.Atoi(capacity)
+	memory, err := value("Memory per sandbox ("+config.NoMemoryLimit+" sets no limit)", "sandbox-memory", f.memory,
+		"SPOTLIGHT_SANDBOX_MEMORY", config.SuggestedSandboxMemory(runtimeMemory, sandboxes))
+	if err != nil {
+		return err
+	}
+	if memory == "" {
+		file.Unset("SPOTLIGHT_SANDBOX_MEMORY")
+	} else if err := file.Set("SPOTLIGHT_SANDBOX_MEMORY", memory); err != nil {
 		return err
 	}
 
@@ -244,6 +257,21 @@ func runtimeAnswers(dockerHost string) error {
 		return fmt.Errorf("nothing saved, because no container runtime answers. A host runs each sandbox in a container: start Docker or Podman (on macOS, Docker Desktop, OrbStack or Colima), then run this again: %w", err)
 	}
 	return nil
+}
+
+func runtimeMemory(out io.Writer, dockerHost string) int64 {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	engine, err := docker.Connect(dockerHost)
+	var memory int64
+	if err == nil {
+		memory, err = engine.Memory(ctx)
+	}
+	if err != nil {
+		fmt.Fprintf(out, "  %s The container runtime does not give its memory, so init suggests no memory limit: %v\n",
+			mark(warned), err)
+	}
+	return memory
 }
 
 // reach stops on a credential Spotlight refuses, and only warns when Spotlight does not answer.

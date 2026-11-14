@@ -386,6 +386,7 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.Ha
 		Labels:  map[string]string{LabelHost: h.opts.HostID},
 		Files:   sidecar.files(),
 		Network: sidecar.network,
+		Limits:  h.sandboxLimits(),
 	})
 	defer h.destroy(id)
 	if err != nil {

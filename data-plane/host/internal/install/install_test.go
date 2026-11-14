@@ -20,6 +20,7 @@ func TestTheSystemdUnitRestartsTheHostAndLetsItsSandboxesStopInTime(t *testing.T
 		"Restart=always",
 		"RestartPreventExitStatus=3",
 		"TimeoutStopSec=90",
+		"OOMScoreAdjust=-500",
 		"WantedBy=multi-user.target",
 	} {
 		if !strings.Contains(unit, want) {
@@ -27,8 +28,9 @@ func TestTheSystemdUnitRestartsTheHostAndLetsItsSandboxesStopInTime(t *testing.T
 		}
 	}
 
-	if !strings.Contains(install.SystemdUnit(host, false), "WantedBy=default.target") {
-		t.Error("a user unit is not wanted by the user's default target")
+	user := install.SystemdUnit(host, false)
+	if !strings.Contains(user, "WantedBy=default.target") || strings.Contains(user, "OOMScoreAdjust") {
+		t.Errorf("the user unit:\n%s", user)
 	}
 }
 
