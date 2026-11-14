@@ -2,7 +2,13 @@ import { inboxSectionOf } from '@work/application/read-models/inbox-section';
 import { describe, expect, it } from 'vitest';
 
 const entry = (shown: Partial<Parameters<typeof inboxSectionOf>[0]>) =>
-  inboxSectionOf({ unread: false, resolved: false, running: false, ...shown });
+  inboxSectionOf({
+    unread: false,
+    resolved: false,
+    running: false,
+    following: false,
+    ...shown,
+  });
 
 describe('the inbox section of an entry', () => {
   it('keeps an unread entry open, also when it runs or is resolved', () => {

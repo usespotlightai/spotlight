@@ -312,8 +312,15 @@ export const noticePath = (slug: string, id: string) =>
 export const noticeLinkPath = (slug: string, notice: InboxNotice) =>
   `${teamPath(slug, notice.teamId)}/${notice.link.replace(/^\/+/, '')}`;
 
+export const followed = (entry: InboxEntry): boolean =>
+  (entry.kind === 'task' || entry.kind === 'run') &&
+  entry.standing === 'following';
+
+export const waitsForTeam = (entry: InboxEntry): boolean =>
+  entry.kind === 'task' && entry.standing === 'team';
+
 export const resolvable = (entry: InboxEntry): entry is ResolvableEntry =>
-  entry.kind !== 'run' && !entry.resolved;
+  entry.kind !== 'run' && !entry.resolved && !followed(entry);
 
 export const reopenable = (entry: InboxEntry): entry is ResolvableEntry =>
   entry.reopenable;
@@ -337,6 +344,8 @@ export const chatPreviewOf = (chat: InboxChat): string => {
 export const NOTICE_POINTS_LABEL = 'Details';
 
 export const GONE_FROM_INBOX = 'No longer waiting for you.';
+
+export const WAITING_FOR_TEAM = 'Waiting for team';
 
 export const noticePreviewOf = (notice: InboxNotice): string =>
   notice.points[0] ?? '';

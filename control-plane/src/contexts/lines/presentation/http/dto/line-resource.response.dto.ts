@@ -26,6 +26,7 @@ export class LineResourceResponseDto extends ResourceResponseDto {
       name: 'Delivery',
       repositories: [],
       warmSandboxes: 0,
+      defaultAssignee: 'ada@example.com',
       stations: [
         {
           key: 'backlog',

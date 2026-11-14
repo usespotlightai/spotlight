@@ -28,4 +28,12 @@ export const TeamAccess = {
         team.hasMember(principal.userId))
     );
   },
+
+  joinedTeam(team: Team, workspace: Workspace, principal: Principal): boolean {
+    return (
+      principal.kind === 'person' &&
+      team.hasMember(principal.userId) &&
+      TeamAccess.actsOnTeam(team, workspace, principal)
+    );
+  },
 };

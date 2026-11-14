@@ -37,12 +37,13 @@ const mainOf = (configuration: ExportableConfigurationDto): string =>
     .join('\n');
 
 const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
-  team_id        = spotlight_team.core.id
-  key            = "delivery"
-  name           = "Delivery"
-  role           = "delivery"
-  runners        = ["build-1", "vpc-internal"]
-  warm_sandboxes = 2
+  team_id          = spotlight_team.core.id
+  key              = "delivery"
+  name             = "Delivery"
+  role             = "delivery"
+  runners          = ["build-1", "vpc-internal"]
+  warm_sandboxes   = 2
+  default_assignee = "ada@example.com"
 
   repository {
     name  = "acme/api"
@@ -486,7 +487,9 @@ describe('workspaceTerraform', () => {
       resourceOf('line', 'core/delivery'),
     ).hcl;
 
-    expect(line).toContain('  runners        = ["build-1", "vpc-internal"]\n');
+    expect(line).toContain(
+      '  runners          = ["build-1", "vpc-internal"]\n',
+    );
     expect(line).toContain('    runners   = ["gpu"]\n');
     expect(mainOf(CONFIGURATION)).not.toContain('spotlight_runner.');
     expect(fileOf(CONFIGURATION, 'variables.tf')).not.toMatch(
@@ -497,10 +500,19 @@ describe('workspaceTerraform', () => {
   it('writes the warm sandboxes of a line only when it keeps any warm', () => {
     expect(
       resourceHcl(CONFIGURATION, resourceOf('line', 'core/delivery')).hcl,
-    ).toContain('  warm_sandboxes = 2\n');
+    ).toContain('  warm_sandboxes   = 2\n');
     expect(
       resourceHcl(CONFIGURATION, resourceOf('line', 'core/review')).hcl,
     ).not.toContain('warm_sandboxes');
+  });
+
+  it('writes the default assignee of a line only when it names one', () => {
+    expect(
+      resourceHcl(CONFIGURATION, resourceOf('line', 'core/delivery')).hcl,
+    ).toContain('  default_assignee = "ada@example.com"\n');
+    expect(
+      resourceHcl(CONFIGURATION, resourceOf('line', 'core/review')).hcl,
+    ).not.toContain('default_assignee');
   });
 
   it('writes an OIDC trust with its claims only when it names any', () => {

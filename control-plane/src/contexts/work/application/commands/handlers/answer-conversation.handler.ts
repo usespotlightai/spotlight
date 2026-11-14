@@ -63,7 +63,7 @@ export class AnswerConversationHandler implements CommandHandlerPort<
   private async answer(
     command: AnswerConversationCommand,
   ): Promise<{ taskId: TaskId; next: DraftGeneration | null }> {
-    const { item, task, line } = await this.conversations.putTo(
+    const { item, task, line, members } = await this.conversations.putTo(
       command.conversationId,
       command.answeredBy,
     );
@@ -83,7 +83,9 @@ export class AnswerConversationHandler implements CommandHandlerPort<
     const drafted = task.sendDraft(sent);
 
     const changed = task.changesAt(item.from, command.decision, command.edits);
-    const answered = drafted.answer(
+    const answered = drafted.answerAs(
+      answeredBy,
+      members,
       item.from,
       {
         line,

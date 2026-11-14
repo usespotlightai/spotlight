@@ -46,6 +46,12 @@ export type InboxEntry =
   | StoredChat;
 
 const sectionOf = (entry: InboxEntry): InboxNoticeResponseDto['section'] => {
+  if (
+    (entry.kind === 'task' || entry.kind === 'run') &&
+    entry.standing === 'following'
+  ) {
+    return 'following';
+  }
   if (entry.unread) {
     return 'open';
   }
@@ -151,6 +157,7 @@ const conversation = ({
     failure: null,
     inboxRequest: null,
     notes: numberedNotes,
+    standing: 'assignee',
     ...over,
   };
 };
@@ -206,6 +213,7 @@ const inboxRequestOf = ({
     failure: null,
     inboxRequest,
     notes: [],
+    standing: 'team',
     ...over,
   };
 };
@@ -478,6 +486,7 @@ const setupItem = (createdAt: string, resolved: boolean): InboxConversation => {
     briefing: null,
     failure: null,
     inboxRequest: null,
+    standing: 'assignee',
     notes: [
       {
         position: 0,
@@ -526,6 +535,7 @@ const runningOn = (
     askedAt: run?.startedAt ?? task.createdAt,
     unread: false,
     resolved: false,
+    standing: 'assignee',
   };
 };
 

@@ -122,6 +122,7 @@ export type LineDefinition = {
   readonly repositories: readonly LineDefinitionRepository[];
   readonly runners?: readonly string[];
   readonly warmSandboxes?: number;
+  readonly defaultAssignee?: string;
   readonly stations: readonly LineDefinitionStation[];
   readonly reactions: readonly LineDefinitionReaction[];
   readonly reviews?: LineDefinitionReviews;

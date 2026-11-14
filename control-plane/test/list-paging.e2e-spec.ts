@@ -163,6 +163,7 @@ const inboxOf = (workspaceId: string, teamId: string) => {
     viewer,
     teamsSeen: new Set([teamId]),
     teamsActedOn: new Set<string>(),
+    teamsJoined: new Set<string>(),
   });
 
   return {

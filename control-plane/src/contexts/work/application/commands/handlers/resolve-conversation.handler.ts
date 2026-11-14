@@ -22,17 +22,18 @@ export class ResolveConversationHandler implements CommandHandlerPort<
 
   async execute(command: ResolveConversationCommand): Promise<void> {
     try {
-      const { item, task, line } = await this.conversations.putTo(
+      const { item, task, line, members } = await this.conversations.putTo(
         command.conversationId,
         command.resolvedBy,
       );
+      const resolvedBy = UserId.of(command.resolvedBy);
 
       await this.tasks.save(
-        task.resolveAt(item.from, {
+        task.resolveAs(resolvedBy, members, item.from, {
           line,
           body: TaskNoteBody.of(RESOLVED),
           at: this.clock.now(),
-          voice: Voice.person(UserId.of(command.resolvedBy)),
+          voice: Voice.person(resolvedBy),
         }),
       );
     } catch (error) {

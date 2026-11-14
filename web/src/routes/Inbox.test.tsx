@@ -379,6 +379,66 @@ describe('Inbox', () => {
     });
   });
 
+  describe('what waits for the team', () => {
+    it('marks a question on a task without an assignee', () => {
+      waiting.mockReturnValue([item({ standing: 'team', unread: true })]);
+      renderAt('/w/acme/inbox');
+
+      expect(screen.getAllByText('Waiting for team')[0]).toBeInTheDocument();
+    });
+  });
+
+  describe('what the viewer follows', () => {
+    beforeEach(() => {
+      waiting.mockReturnValue([
+        item(),
+        item({
+          id: 'task_3:0',
+          taskId: 'task_3',
+          title: 'Rotate the keys',
+          standing: 'following',
+          section: 'following',
+          unread: true,
+        }),
+      ]);
+    });
+
+    it('holds it apart from what is open, collapsed to begin with', () => {
+      renderAt('/w/acme/inbox');
+
+      expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
+        '1',
+      );
+      expect(screen.getByRole('button', { name: /Following/ })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      );
+    });
+
+    it('offers no resolve for it', async () => {
+      const person = userEvent.setup();
+      renderAt('/w/acme/inbox');
+
+      await person.click(screen.getByRole('button', { name: /Following/ }));
+
+      expect(
+        screen.getByRole('link', { name: /Rotate the keys/ }),
+      ).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Resolve' })).toHaveLength(
+        1,
+      );
+    });
+
+    it('leaves the section out when nothing is followed', () => {
+      waiting.mockReturnValue([item()]);
+      renderAt('/w/acme/inbox');
+
+      expect(
+        screen.queryByRole('button', { name: /Following/ }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   describe('what is running', () => {
     beforeEach(() => {
       waiting.mockReturnValue([

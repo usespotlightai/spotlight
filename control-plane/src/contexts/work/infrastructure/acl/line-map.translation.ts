@@ -85,4 +85,5 @@ export const lineMapOf = (view: LineView): LineMap =>
     ),
     reviews: view.reviews && ReviewIntake.of(view.reviews),
     placement: RunnerPlacement.of(view.runners),
+    defaultAssignee: view.defaultAssignee,
   });

@@ -14,6 +14,7 @@ import { InvalidStationAlertError } from '@lines/domain/exceptions/invalid-stati
 import { InvalidStationJudgeError } from '@lines/domain/exceptions/invalid-station-judge.error';
 import { AgentPrompt } from '@lines/domain/value-objects/agent-prompt.vo';
 import { ConfigSource } from '@lines/domain/value-objects/config-source.vo';
+import { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
 import {
   LinePlan,
   type StationPlan,
@@ -556,6 +557,23 @@ export const compileLine = (input: unknown): ParsedLine => {
     );
   }
 
+  let defaultAssignee: DefaultAssignee | null = null;
+
+  try {
+    defaultAssignee =
+      definition.defaultAssignee === undefined
+        ? null
+        : DefaultAssignee.of(definition.defaultAssignee);
+  } catch (error) {
+    problems.push(
+      ConfigurationProblem.of({
+        path,
+        at: FieldPath.of(['defaultAssignee']),
+        reason: reasoned(error),
+      }),
+    );
+  }
+
   const stations: StationPlan[] = [];
 
   for (const [at, station] of definition.stations.entries()) {
@@ -589,6 +607,7 @@ export const compileLine = (input: unknown): ParsedLine => {
         reviews,
         placement,
         warmSandboxes,
+        defaultAssignee,
         replayCheck,
         search,
         source,

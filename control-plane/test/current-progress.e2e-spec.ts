@@ -170,6 +170,7 @@ const inboxWith = async (
     viewer: UserId.of(viewer),
     teamsSeen: new Set(['team_1']),
     teamsActedOn: new Set(),
+    teamsJoined: new Set(),
   });
 
   const onBoard = await tasks.findInTeam(
@@ -497,6 +498,7 @@ const movedOnWith = async (
     viewer: UserId.of(viewer),
     teamsSeen: new Set(['team_1']),
     teamsActedOn: new Set(),
+    teamsJoined: new Set(),
   });
 
   return {
