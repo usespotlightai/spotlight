@@ -4731,7 +4731,10 @@
             "description": "The caller is not a workspace admin, and asks for a team account"
           },
           "404": {
-            "description": "The team is not found, the integration does not take this connection, or the integration has no OAuth2 client"
+            "description": "The team or the integration is not found, or the integration does not take this connection"
+          },
+          "422": {
+            "description": "The integration has no OAuth2 client, or its OAUTH_CLIENTS entry names another issuer"
           },
           "502": {
             "description": "The OAuth2 endpoints of the integration are not found, or its client registration failed"

@@ -17704,9 +17704,13 @@ export type ConnectIntegrationErrors = {
    */
   403: unknown;
   /**
-   * The team is not found, the integration does not take this connection, or the integration has no OAuth2 client
+   * The team or the integration is not found, or the integration does not take this connection
    */
   404: unknown;
+  /**
+   * The integration has no OAuth2 client, or its OAUTH_CLIENTS entry names another issuer
+   */
+  422: unknown;
   /**
    * The OAuth2 endpoints of the integration are not found, or its client registration failed
    */

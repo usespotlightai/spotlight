@@ -6,6 +6,7 @@ import {
   BeginOAuth2ConnectionHandler,
   FinishOAuth2ConnectionHandler,
 } from '@integrations/application/commands/handlers/oauth2-connection.handler';
+import { OAuth2ClientMissingError } from '@integrations/application/errors/oauth2-client-missing.error';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type {
@@ -69,7 +70,12 @@ const CLIENT = { id: 'c-1', secret: 's-1' };
 
 describe('BeginOAuth2ConnectionHandler', () => {
   const beginning = (
-    over: { allowed?: boolean; member?: boolean; actsAs?: ActsAs } = {},
+    over: {
+      allowed?: boolean;
+      member?: boolean;
+      actsAs?: ActsAs;
+      defined?: boolean;
+    } = {},
   ) => {
     const begin = vi.fn(async () => STARTED);
     const scoped: string[] = [];
@@ -78,12 +84,6 @@ describe('BeginOAuth2ConnectionHandler', () => {
       endpoint: 'https://slack.com/register' as string | null,
       server: null,
     }));
-    const logger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    } satisfies LoggerPort;
     const integration = Integration.of({
       key: IntegrationKey.of('slack'),
       apiSpecs: ['mcp'],
@@ -95,13 +95,12 @@ describe('BeginOAuth2ConnectionHandler', () => {
       begin,
       clientFor,
       registrationFor,
-      logger,
       scoped,
       handler: new BeginOAuth2ConnectionHandler(
         authorizing(over.allowed ?? true, over.member ?? true),
         { ofTeam: async () => [] } as unknown as DefinedIntegrationsPort,
         {
-          integrations: () => [integration],
+          integrations: () => (over.defined === false ? [] : [integration]),
         } as unknown as IntegrationRuntimePort,
         { begin, registrationFor } as unknown as OAuth2LinkingPort,
         { clientFor } as unknown as OAuth2ClientResolution,
@@ -112,31 +111,9 @@ describe('BeginOAuth2ConnectionHandler', () => {
           },
           withinFresh: async (_workspace, work) => work(),
         } satisfies WorkspaceOutboundScopePort,
-        logger,
       ),
     };
   };
-
-  const notBegun = (
-    reason: string,
-    over: { owner?: 'team' | 'person' } = {},
-  ) => [
-    {
-      teamId: 'team_1',
-      integration: 'slack',
-      owner: over.owner ?? 'team',
-      reason,
-    },
-    'Did not begin an OAuth2 connection',
-  ];
-
-  const refused = (reason: string, kind: string, message: string): unknown =>
-    expect.objectContaining({
-      name: 'OAuth2ConnectionNotBegunError',
-      reason,
-      kind,
-      message,
-    });
 
   const command = (
     actsAs: 'team' | 'requester' | null = null,
@@ -151,10 +128,9 @@ describe('BeginOAuth2ConnectionHandler', () => {
     );
 
   it('returns the authorize URL for an admin connecting the team', async () => {
-    const { handler, begin, logger } = beginning();
+    const { handler, begin } = beginning();
 
     expect(await handler.execute(command())).toBe(STARTED);
-    expect(logger.info).not.toHaveBeenCalled();
     expect(begin).toHaveBeenCalledWith(
       {
         teamId: TeamId.of('team_1'),
@@ -181,87 +157,44 @@ describe('BeginOAuth2ConnectionHandler', () => {
     );
   });
 
-  it('refuses where the registration endpoint registers no app for the integration', async () => {
-    const { handler, clientFor, begin, logger } = beginning();
-    clientFor.mockResolvedValueOnce(null as never);
+  it('passes on why no OAuth2 client was found', async () => {
+    const { handler, clientFor, begin } = beginning();
+    const missing = new OAuth2ClientMissingError('slack');
+    clientFor.mockRejectedValueOnce(missing);
 
-    await expect(handler.execute(command())).rejects.toEqual(
-      refused(
-        'not-registered',
-        'upstream-error',
-        'Client registration for integration slack failed.',
-      ),
-    );
+    await expect(handler.execute(command())).rejects.toBe(missing);
     expect(begin).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
-      ...notBegun('not-registered'),
-    );
-  });
-
-  it('names the missing OAuth2 client where the integration names no registration endpoint', async () => {
-    const { handler, clientFor, registrationFor, logger } = beginning();
-    registrationFor.mockResolvedValueOnce({ endpoint: null, server: null });
-    clientFor.mockResolvedValueOnce(null as never);
-
-    await expect(handler.execute(command())).rejects.toEqual(
-      refused(
-        'no-client',
-        'not-found',
-        'Integration slack has no OAuth2 client. Required: an OAUTH_CLIENTS entry for slack',
-      ),
-    );
-    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
-      ...notBegun('no-client'),
-    );
   });
 
   it('refuses where the integration has no OAuth2 endpoints', async () => {
-    const { handler, clientFor, registrationFor, logger } = beginning();
+    const { handler, clientFor, registrationFor } = beginning();
     registrationFor.mockResolvedValueOnce(null as never);
 
-    await expect(handler.execute(command())).rejects.toEqual(
-      refused(
-        'no-oauth2-endpoints',
-        'upstream-error',
-        'OAuth2 endpoints for integration slack not found.',
-      ),
-    );
+    await expect(handler.execute(command())).rejects.toMatchObject({
+      kind: 'upstream-error',
+      message: 'OAuth2 endpoints for integration slack not found.',
+    });
     expect(clientFor).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
-      ...notBegun('no-oauth2-endpoints'),
-    );
   });
 
-  it('says so where the linking does not begin', async () => {
-    const { handler, begin, logger } = beginning();
+  it('refuses where the linking does not begin', async () => {
+    const { handler, begin } = beginning();
     begin.mockResolvedValueOnce(null as never);
 
-    await expect(handler.execute(command())).rejects.toEqual(
-      refused(
-        'not-begun',
-        'upstream-error',
-        'OAuth2 endpoints for integration slack not found.',
-      ),
-    );
-    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
-      ...notBegun('not-begun'),
-    );
+    await expect(handler.execute(command())).rejects.toMatchObject({
+      kind: 'upstream-error',
+      message: 'OAuth2 endpoints for integration slack not found.',
+    });
   });
 
   it('denies a member who may not connect the team', async () => {
-    const { handler, begin, logger } = beginning({ allowed: false });
+    const { handler, begin } = beginning({ allowed: false });
 
-    await expect(handler.execute(command())).rejects.toEqual(
-      refused(
-        'not-allowed',
-        'not-allowed',
-        'Only a workspace owner or admin can connect a team account.',
-      ),
-    );
+    await expect(handler.execute(command())).rejects.toMatchObject({
+      kind: 'not-allowed',
+      message: 'Only a workspace owner or admin can connect a team account.',
+    });
     expect(begin).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
-      ...notBegun('not-allowed'),
-    );
   });
 
   it('lets any member connect their own account where the integration acts as each person', async () => {
@@ -283,30 +216,35 @@ describe('BeginOAuth2ConnectionHandler', () => {
   });
 
   it('rejects a person’s own connection where the integration acts as the team', async () => {
-    const { handler, begin, logger } = beginning();
+    const { handler, begin } = beginning();
 
-    await expect(handler.execute(command('requester'))).rejects.toEqual(
-      refused(
-        'takes-no-connection',
-        'not-found',
-        "Integration slack doesn't take a personal account.",
-      ),
-    );
+    await expect(handler.execute(command('requester'))).rejects.toMatchObject({
+      kind: 'not-found',
+      message: "Integration slack doesn't take a personal account.",
+    });
     expect(begin).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
-      ...notBegun('takes-no-connection', { owner: 'person' }),
-    );
   });
 
-  it('denies someone who is not on the team', async () => {
+  it('refuses an integration the team does not define', async () => {
+    const { handler, begin } = beginning({ defined: false });
+
+    await expect(handler.execute(command())).rejects.toMatchObject({
+      kind: 'not-found',
+      message: 'Integration slack not found.',
+    });
+    expect(begin).not.toHaveBeenCalled();
+  });
+
+  it('denies someone who is not on the team, as if the team did not exist', async () => {
     const { handler, begin } = beginning({
       member: false,
       actsAs: ActsAs.requester(),
     });
 
-    await expect(handler.execute(command('requester'))).rejects.toEqual(
-      refused('not-a-member', 'not-found', 'Team team_1 not found.'),
-    );
+    await expect(handler.execute(command('requester'))).rejects.toMatchObject({
+      kind: 'not-found',
+      message: 'Team team_1 not found.',
+    });
     expect(begin).not.toHaveBeenCalled();
   });
 });

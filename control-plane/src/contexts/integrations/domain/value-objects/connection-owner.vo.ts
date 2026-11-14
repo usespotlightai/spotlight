@@ -1,3 +1,4 @@
+import { ConnectionForbiddenError } from '@integrations/domain/exceptions/connection-forbidden.error';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -63,6 +64,14 @@ export class ConnectionOwner {
 
   mayBeConnectedBy(person: UserId, isAdmin: boolean): boolean {
     return this.personId ? this.personId.equals(person) : isAdmin;
+  }
+
+  assertConnectableBy(person: UserId, isAdmin: boolean): void {
+    if (!this.mayBeConnectedBy(person, isAdmin)) {
+      throw new ConnectionForbiddenError(
+        this.isPerson ? 'not-the-person' : 'not-workspace-admin',
+      );
+    }
   }
 
   equals(other: ConnectionOwner): boolean {

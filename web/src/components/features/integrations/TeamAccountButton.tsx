@@ -1,7 +1,7 @@
 import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { PillButton } from '@/components/shared/PillButton';
 import { useConnectIntegration } from '@/hooks/api/useConnectIntegration';
-import { connectFailureOf, type Integration } from '@/lib/integration';
+import type { Integration } from '@/lib/integration';
 
 type TeamAccountButtonProps = {
   integration: Integration;
@@ -15,9 +15,7 @@ export function TeamAccountButton({
   const connect = useConnectIntegration(teamId);
 
   return (
-    <ActionWithAlert
-      alert={connect.isError ? connectFailureOf(connect.error) : null}
-    >
+    <ActionWithAlert alert={connect.error?.message ?? null}>
       <PillButton
         data-need="team"
         variant="default"

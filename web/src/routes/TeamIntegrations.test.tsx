@@ -13,7 +13,6 @@ const members = vi.fn();
 const role = vi.fn<(...args: unknown[]) => unknown>();
 const connect = vi.fn();
 const disconnect = vi.fn();
-const connectFailed = vi.fn<(...args: unknown[]) => unknown>();
 const connectError = vi.fn<(...args: unknown[]) => unknown>();
 const disconnectFailed = vi.fn<(...args: unknown[]) => unknown>();
 
@@ -63,7 +62,6 @@ vi.mock('@/hooks/api/useConnectIntegration', () => ({
   useConnectIntegration: () => ({
     mutate: connect,
     isPending: false,
-    isError: connectFailed(),
     error: connectError(),
   }),
 }));
@@ -162,7 +160,6 @@ beforeEach(() => {
   refetch.mockClear();
   connect.mockClear();
   disconnect.mockClear();
-  connectFailed.mockReturnValue(false);
   connectError.mockReturnValue(null);
   disconnectFailed.mockReturnValue(false);
   github.mockReturnValue(ready());
@@ -536,12 +533,11 @@ describe('TeamIntegrations', () => {
   });
 
   it('says why the team account could not be connected', () => {
-    connectFailed.mockReturnValue(true);
-    connectError.mockReturnValue({
-      statusCode: 404,
-      message:
+    connectError.mockReturnValue(
+      new Error(
         'Integration grafana has no OAuth2 client. Required: an OAUTH_CLIENTS entry for grafana',
-    });
+      ),
+    );
     configuration.mockReturnValue(
       read([
         integration({
@@ -558,13 +554,15 @@ describe('TeamIntegrations', () => {
     );
   });
 
-  it('says when a person’s own account could not be connected', () => {
-    connectFailed.mockReturnValue(true);
+  it('says why a person’s own account could not be connected', () => {
+    connectError.mockReturnValue(
+      new Error("Integration linear doesn't take a personal account."),
+    );
     configuration.mockReturnValue(read([personal()]));
     showing();
 
     expect(head('Linear').getByRole('alert')).toHaveTextContent(
-      'Sorry, the account couldn’t be connected. Please try again.',
+      "Integration linear doesn't take a personal account.",
     );
   });
 
@@ -593,11 +591,9 @@ describe('TeamIntegrations', () => {
   });
 
   it('says why the team account could not be changed', async () => {
-    connectFailed.mockReturnValue(true);
-    connectError.mockReturnValue({
-      statusCode: 403,
-      message: 'Only a workspace owner or admin can connect a team account.',
-    });
+    connectError.mockReturnValue(
+      new Error('Only a workspace owner or admin can connect a team account.'),
+    );
     configuration.mockReturnValue(read([personal()]));
     showing();
 

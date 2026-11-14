@@ -34,6 +34,7 @@ import {
   ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
@@ -92,7 +93,11 @@ export class OAuth2ConnectionController {
   })
   @ApiNotFoundResponse({
     description:
-      'The team is not found, the integration does not take this connection, or the integration has no OAuth2 client',
+      'The team or the integration is not found, or the integration does not take this connection',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'The integration has no OAuth2 client, or its OAUTH_CLIENTS entry names another issuer',
   })
   @ApiBadGatewayResponse({
     description:

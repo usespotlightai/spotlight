@@ -5,17 +5,10 @@ import type {
   PersonConnectionResponseDto,
 } from '@/lib/api';
 import { toolsCounted } from '@/lib/api-spec';
-import { messageOf } from '@/lib/error';
 
 export type Integration = IntegrationViewResponseDto;
 
 export type MyConnection = MyConnectionResponseDto;
-
-export const connectFailureOf = (thrown: unknown): string =>
-  messageOf(
-    thrown,
-    'Sorry, the account couldn’t be connected. Please try again.',
-  );
 
 export const actsAsEachPerson = (integration: Integration): boolean =>
   integration.actsAs === 'requester';

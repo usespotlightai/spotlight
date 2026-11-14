@@ -1291,7 +1291,6 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OAUTH2_LINKING,
       OAuth2ClientResolution,
       WORKSPACE_OUTBOUND_SCOPE,
-      LOGGER,
     ],
   ),
 

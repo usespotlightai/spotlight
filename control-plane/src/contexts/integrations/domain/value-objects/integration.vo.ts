@@ -1,3 +1,4 @@
+import { ConnectionNotTakenError } from '@integrations/domain/exceptions/connection-not-taken.error';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
@@ -217,6 +218,12 @@ export class Integration {
     return (
       this.requiresConnection && (!owner.isPerson || this.actsAs.byRequester)
     );
+  }
+
+  assertTakesConnectionFrom(owner: ConnectionOwner): void {
+    if (!this.takesConnectionFrom(owner)) {
+      throw new ConnectionNotTakenError(this.key.value, owner.kind);
+    }
   }
 
   writtenTool(tool: ToolName): ProvidedTool | null {

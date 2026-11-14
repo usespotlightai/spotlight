@@ -3,7 +3,7 @@ import { ArrowLeftRight } from 'lucide-react';
 import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { RowActions } from '@/components/shared/RowActions';
 import { useConnectIntegration } from '@/hooks/api/useConnectIntegration';
-import { connectFailureOf, type Integration } from '@/lib/integration';
+import type { Integration } from '@/lib/integration';
 
 type TeamAccountActionsProps = {
   integration: Integration;
@@ -17,9 +17,7 @@ export function TeamAccountActions({
   const connect = useConnectIntegration(teamId);
 
   return (
-    <ActionWithAlert
-      alert={connect.isError ? connectFailureOf(connect.error) : null}
-    >
+    <ActionWithAlert alert={connect.error?.message ?? null}>
       <RowActions
         label={`Actions for the team’s ${integration.name} account`}
         disabled={connect.isPending}
