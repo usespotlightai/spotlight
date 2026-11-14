@@ -530,6 +530,7 @@ import { PurgeProcessedEvents } from '@work/application/services/purge-processed
 import { PurgeToolUses } from '@work/application/services/purge-tool-uses.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
+import { ResumeTaskRun } from '@work/application/services/resume-task-run.service';
 import { ReviewCommentToolUse } from '@work/application/services/review-comment.tool-use';
 import { ReviewToolUse } from '@work/application/services/review.tool-use';
 import { RunAccess } from '@work/application/services/run-access.service';
@@ -752,6 +753,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       FilesLoader,
       RunRouting,
       RUN_JOURNAL_READINGS,
+      ResumeTaskRun,
     ],
     useFactory: (
       turns: RunTurnsPort,
@@ -765,6 +767,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       files: FilesLoader,
       routing: RunRouting,
       readings: RunJournalReadingsPort,
+      resuming: ResumeTaskRun,
     ) =>
       new TakeTurn(
         turns,
@@ -778,7 +781,20 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         files,
         routing,
         readings,
+        resuming,
       ),
+  },
+
+  {
+    provide: ResumeTaskRun,
+    inject: [RUNS, DISPATCH_REPOSITORY, TeamIntegrations, TRANSACTION, LOGGER],
+    useFactory: (
+      runs: RunsPort,
+      dispatches: DispatchRepository,
+      integrations: TeamIntegrations,
+      transaction: TransactionPort,
+      logger: LoggerPort,
+    ) => new ResumeTaskRun(runs, dispatches, integrations, transaction, logger),
   },
 
   { provide: PROCESSED_EVENTS, useClass: DrizzleProcessedEvents },
@@ -1084,6 +1100,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       TELEMETRY,
       LOGGER,
+      ResumeTaskRun,
     ],
     useFactory: (
       turns: RunTurnsPort,
@@ -1098,6 +1115,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       telemetry: TelemetryPort,
       logger: LoggerPort,
+      resuming: ResumeTaskRun,
     ) =>
       new Turns(
         turns,
@@ -1112,6 +1130,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         ids,
         telemetry,
         logger,
+        resuming,
       ),
   },
 
@@ -1765,6 +1784,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TASK_PLACEMENTS,
       NOTICE_REPOSITORY,
       TEAM_NOTICES,
+      ResumeTaskRun,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1797,6 +1817,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       placements: TaskPlacementsPort,
       noticeRepository: NoticeRepository,
       raisedNotices: TeamNoticesPort,
+      resuming: ResumeTaskRun,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -1808,7 +1829,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             tasks,
             dispatches,
             lines,
-            runsFacade,
+            resuming,
           ),
           turns,
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),

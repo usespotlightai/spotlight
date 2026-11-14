@@ -36,6 +36,8 @@ import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import {
   actsBeyondItselfIn,
   type RunCheckout,
+  NO_TOOL_CHANGE,
+  type RunToolChange,
   type RunSpec,
 } from '@runs/domain/value-objects/run-spec.vo';
 import {
@@ -1104,6 +1106,7 @@ export class Run extends EventRecorder {
     because: 'messages' | 'answered',
     joining: readonly RunCheckout[],
     now: Date,
+    tools: RunToolChange = NO_TOOL_CHANGE,
   ): Run {
     const turn = attempt === null ? this.turn : this.turnAt(attempt);
 
@@ -1123,10 +1126,12 @@ export class Run extends EventRecorder {
       );
     }
 
-    const resumed = this.with({
-      spec: this.spec.join(joining),
-      turn: null,
-    }).backOnTheQueue(now);
+    const spec = this.spec
+      .join(joining)
+      .withToolChange(
+        this.ordered.policy.actsBeyondItself ? tools : NO_TOOL_CHANGE,
+      );
+    const resumed = this.with({ spec, turn: null }).backOnTheQueue(now);
 
     resumed.record(new RunResumed(this.id, this.workspaceId));
 

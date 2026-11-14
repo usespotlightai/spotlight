@@ -69,6 +69,11 @@ export interface ToolManifestShape {
   readonly output?: JsonObject;
 }
 
+export interface RunToolChangeShape {
+  readonly removed: readonly string[];
+  readonly added: readonly ToolManifestShape[];
+}
+
 export interface SkillFileShape {
   readonly path: string;
   readonly text: string;

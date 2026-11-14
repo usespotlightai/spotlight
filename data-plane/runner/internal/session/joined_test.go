@@ -34,3 +34,16 @@ func TestAResumedSessionHearsWhichRepositoriesJoinedTheWorkspace(t *testing.T) {
 		t.Errorf("new repositories said %q", got)
 	}
 }
+
+func TestAResumedSessionHearsWhichToolsItGainedAndLost(t *testing.T) {
+	if got := changedToolsNote(nil); got != "" {
+		t.Errorf("no tool change said %q", got)
+	}
+	got := changedToolsNote(&protocol.ChangedTools{Added: []string{"sentry.get-issue", "sentry.get-latest-event"}, Removed: []string{"linear.get-issue"}})
+	if !strings.Contains(got, "sentry.get-issue, sentry.get-latest-event.") || !strings.Contains(got, "no longer use these tools: linear.get-issue.") || !strings.HasSuffix(got, "\n\n") {
+		t.Errorf("a tool change said %q", got)
+	}
+	if got := changedToolsNote(&protocol.ChangedTools{Removed: []string{"linear.get-issue"}}); strings.Contains(got, "can now use") {
+		t.Errorf("a lost tool alone said %q", got)
+	}
+}

@@ -14,6 +14,10 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TurnRetakesPort } from '@work/application/ports/turn-retakes.port';
+import {
+  NO_TOOL_CHANGE,
+  resumingWith,
+} from '@work/application/services/resume-task-run.fake-spec';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import {
   STUCK_TURNS_METRIC,
@@ -86,7 +90,17 @@ const turning = (
     }
   });
   const clock = over.clock ?? new TickingClock();
-  const resume = vi.fn(async () => undefined);
+  const resume = vi.fn(async () => 'resumed' as const);
+  const dispatches = {
+    find: async () => ({
+      subject: {
+        kind: 'task',
+        taskId: TaskId.of('task_1'),
+        revision: TaskRevision.of(0),
+        stationId: StationId.of('station_1'),
+      },
+    }),
+  } as unknown as DispatchRepository;
   const cancel = vi.fn(async () => ({
     was: 'suspended' as const,
     started: true,
@@ -183,16 +197,7 @@ const turning = (
     } satisfies TurnRetakesPort,
     { of: async () => over.facts ?? [] },
     { resume, cancel } as unknown as RunsPort,
-    {
-      find: async () => ({
-        subject: {
-          kind: 'task',
-          taskId: TaskId.of('task_1'),
-          revision: TaskRevision.of(0),
-          stationId: StationId.of('station_1'),
-        },
-      }),
-    } as unknown as DispatchRepository,
+    dispatches,
     {
       withTurnAnsweredBetween: async () => over.tasks ?? [],
       find: async () =>
@@ -204,6 +209,7 @@ const turning = (
     { generate: () => randomUUID() },
     { count, inSpan: vi.fn(), measure: vi.fn() } as never,
     { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error },
+    resumingWith({ resume }, dispatches),
   );
   const tick = async (now: Date) => {
     clock.at = now;
@@ -423,7 +429,7 @@ describe('Turns', () => {
 
     await turns.resumeAnswered();
 
-    expect(resume).toHaveBeenCalledWith(RUN, 3, 'answered', []);
+    expect(resume).toHaveBeenCalledWith(RUN, 3, 'answered', [], NO_TOOL_CHANGE);
   });
 
   it('cancels a kept turn whose task let go of its run', async () => {
