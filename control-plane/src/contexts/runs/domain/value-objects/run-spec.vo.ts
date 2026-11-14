@@ -68,6 +68,18 @@ export interface RunToolManifest {
   readonly output?: JsonObject;
 }
 
+export interface RunChangedTools {
+  readonly added: readonly string[];
+  readonly removed: readonly string[];
+}
+
+export interface RunToolChange {
+  readonly removed: readonly Tool[];
+  readonly added: readonly RunToolManifest[];
+}
+
+export const NO_TOOL_CHANGE: RunToolChange = { removed: [], added: [] };
+
 export interface RunFile {
   readonly path: string;
   readonly text: string;
@@ -101,6 +113,7 @@ export interface RunSpecParts {
   readonly skills?: readonly RunFile[];
   readonly skillHomes?: readonly string[];
   readonly manifest?: readonly RunToolManifest[];
+  readonly changedTools?: RunChangedTools;
   readonly catalog?: readonly string[];
   readonly attachments?: readonly RunAttachment[];
   readonly diffs?: boolean;
@@ -122,6 +135,7 @@ export const RUN_SPEC_FIELDS = [
   'skills',
   'skillHomes',
   'manifest',
+  'changedTools',
   'catalog',
   'attachments',
   'diffs',
@@ -240,6 +254,14 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
             ? { output: structuredClone(each.output) }
             : {}),
         })),
+      }
+    : {}),
+  ...(parts.changedTools
+    ? {
+        changedTools: {
+          added: [...parts.changedTools.added],
+          removed: [...parts.changedTools.removed],
+        },
       }
     : {}),
   ...(parts.catalog ? { catalog: [...parts.catalog] } : {}),
@@ -416,6 +438,25 @@ export class RunSpec {
       throw new InvalidRunSpecError('must say what checks its change');
     }
 
+    const changed = parts.changedTools;
+
+    if (
+      changed &&
+      (changed.added.length + changed.removed.length === 0 ||
+        changed.added.some(
+          (name) =>
+            changed.removed.includes(name) ||
+            !(parts.manifest ?? []).some((each) => each.name === name),
+        ) ||
+        changed.removed.some((name) =>
+          (parts.manifest ?? []).some((each) => each.name === name),
+        ))
+    ) {
+      throw new InvalidRunSpecError(
+        'must list as changed only the tools it gained or lost',
+      );
+    }
+
     return new RunSpec(copied(parts));
   }
 
@@ -479,6 +520,39 @@ export class RunSpec {
           ...this.parts,
           checkouts: [...(this.parts.checkouts ?? []), ...joining],
         });
+  }
+
+  withToolChange({ removed, added }: RunToolChange): RunSpec {
+    const manifest = this.parts.manifest ?? [];
+    const lost = manifest.filter(
+      (each) =>
+        removed.some((tool) => tool.called === each.name) &&
+        !added.some((other) => other.name === each.name),
+    );
+    const kept = manifest.filter((each) => !lost.includes(each));
+    const gained = added.filter(
+      (each, at) =>
+        !kept.some((other) => other.name === each.name) &&
+        added.findIndex((other) => other.name === each.name) === at,
+    );
+    const { changedTools, ...rest } = this.parts;
+
+    if (gained.length === 0 && lost.length === 0 && !changedTools) {
+      return this;
+    }
+
+    return RunSpec.of({
+      ...rest,
+      manifest: [...kept, ...gained],
+      ...(gained.length > 0 || lost.length > 0
+        ? {
+            changedTools: {
+              added: gained.map((each) => each.name),
+              removed: lost.map((each) => each.name),
+            },
+          }
+        : {}),
+    });
   }
 
   wearingHarnessKeys(keys: readonly SecretName[]): RunSpec {

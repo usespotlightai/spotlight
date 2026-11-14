@@ -208,6 +208,80 @@ describe('RunSpec', () => {
     expect(RunSpec.of(parts()).enables(Tool.of('pull-request'))).toBe(false);
   });
 
+  it('gains and loses tools on a resume, and says which until the next one', () => {
+    const tool = (name: string) => ({
+      name,
+      description: name,
+      inputs: [],
+      approval: null,
+    });
+    const spec = RunSpec.of(
+      parts({ manifest: [tool('pull-request'), tool('linear.get-issue')] }),
+    );
+
+    const changed = spec.withToolChange({
+      removed: [Tool.of('linear.get-issue')],
+      added: [
+        tool('sentry.get-issue'),
+        tool('sentry.get-issue'),
+        tool('pull-request'),
+      ],
+    });
+
+    expect(changed.value.manifest?.map((each) => each.name)).toEqual([
+      'pull-request',
+      'sentry.get-issue',
+    ]);
+    expect(changed.value.changedTools).toEqual({
+      added: ['sentry.get-issue'],
+      removed: ['linear.get-issue'],
+    });
+    expect(spec.withToolChange({ removed: [], added: [] })).toBe(spec);
+    expect(
+      changed.withToolChange({ removed: [], added: [] }).value.changedTools,
+    ).toBeUndefined();
+  });
+
+  it('keeps a tool both taken away and given again, and lists it as neither', () => {
+    const tool = {
+      name: 'sentry.get-issue',
+      description: 'Read the Sentry issue.',
+      inputs: [],
+      approval: null,
+    };
+    const spec = RunSpec.of(parts({ manifest: [tool] }));
+
+    expect(
+      spec.withToolChange({
+        removed: [Tool.of('sentry.get-issue')],
+        added: [tool],
+      }),
+    ).toBe(spec);
+  });
+
+  it('rejects tools listed as changed that it did not gain or lose', () => {
+    const manifest = [
+      { name: 'pull-request', description: 'open', inputs: [], approval: null },
+    ];
+
+    expect(() =>
+      RunSpec.of(
+        parts({ manifest, changedTools: { added: ['merge'], removed: [] } }),
+      ),
+    ).toThrow(InvalidRunSpecError);
+    expect(() =>
+      RunSpec.of(
+        parts({
+          manifest,
+          changedTools: { added: [], removed: ['pull-request'] },
+        }),
+      ),
+    ).toThrow(InvalidRunSpecError);
+    expect(() =>
+      RunSpec.of(parts({ manifest, changedTools: { added: [], removed: [] } })),
+    ).toThrow(InvalidRunSpecError);
+  });
+
   it('keeps nothing it was not described by', () => {
     const loose = { ...parts(), anything: { else: true } } as RunSpecParts;
 

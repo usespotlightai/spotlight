@@ -95,13 +95,13 @@ func (c *conversation) request(ctx context.Context) string {
 	message, received := c.pollMessages(ctx)
 	switch {
 	case received && resumed:
-		return newRepositoriesNote(c.joined) + message
+		return newRepositoriesNote(c.joined) + changedToolsNote(c.run.Spec.ChangedTools) + message
 	case received:
-		return briefing + "\n\n" + message
+		return briefing + "\n\n" + changedToolsNote(c.run.Spec.ChangedTools) + message
 	case resumed:
-		return newRepositoriesNote(c.joined) + resumeAfterLostRunner
+		return newRepositoriesNote(c.joined) + changedToolsNote(c.run.Spec.ChangedTools) + resumeAfterLostRunner
 	default:
-		return briefing
+		return strings.TrimSuffix(briefing+"\n\n"+changedToolsNote(c.run.Spec.ChangedTools), "\n\n")
 	}
 }
 
@@ -110,6 +110,20 @@ func newRepositoriesNote(folders []string) string {
 		return ""
 	}
 	return "The workspace has repositories that it did not have before: " + strings.Join(folders, ", ") + ". Each is a folder in the workspace.\n\n"
+}
+
+func changedToolsNote(changed *protocol.ChangedTools) string {
+	if changed == nil {
+		return ""
+	}
+	note := ""
+	if len(changed.Added) > 0 {
+		note += "You can now use these tools, which you did not have before: " + strings.Join(changed.Added, ", ") + ". Run `spotlight tools describe <tool>` to see how to call one.\n\n"
+	}
+	if len(changed.Removed) > 0 {
+		note += "You can no longer use these tools: " + strings.Join(changed.Removed, ", ") + ".\n\n"
+	}
+	return note
 }
 
 func (c *conversation) work(ctx context.Context, prompt string) error {

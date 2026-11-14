@@ -18,6 +18,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -270,6 +271,78 @@ describe('the turn of a run that holds it', () => {
         kept().resumed(RunAttempt.of(RUN, 1), 'answered', joining, NOW).spec
           .checkoutFolders,
       ).toEqual([...pending().spec.checkoutFolders, 'config']);
+    });
+
+    it('serves on its new attempt the tools it gained, and says which', () => {
+      const resumed = kept().resumed(
+        RunAttempt.of(RUN, 1),
+        'answered',
+        [],
+        NOW,
+        {
+          removed: [],
+          added: [
+            {
+              name: 'sentry.get-issue',
+              description: 'Read the Sentry issue.',
+              inputs: [],
+              approval: null,
+            },
+          ],
+        },
+      );
+
+      expect(resumed.spec.enables(Tool.of('sentry.get-issue'))).toBe(true);
+      expect(resumed.spec.value.changedTools).toEqual({
+        added: ['sentry.get-issue'],
+        removed: [],
+      });
+    });
+
+    it('loses on its new attempt the tools taken away, and says nothing more once a later resume changes none', () => {
+      const tool = {
+        name: 'sentry.get-issue',
+        description: 'Read the Sentry issue.',
+        inputs: [],
+        approval: null,
+      };
+      const gained = kept().resumed(
+        RunAttempt.of(RUN, 1),
+        'answered',
+        [],
+        NOW,
+        {
+          removed: [],
+          added: [tool],
+        },
+      );
+      const asked = (run: Run) =>
+        run
+          .claim(claimer(OTHER), later(1_000))
+          .reportTurn(OTHER, CLEAN, ASKED, later(2_000))
+          .keep(RunAttempt.of(RUN, 2), later(2_000));
+
+      const lost = asked(gained).resumed(
+        RunAttempt.of(RUN, 2),
+        'answered',
+        [],
+        later(3_000),
+        { removed: [Tool.of('sentry.get-issue')], added: [] },
+      );
+      const unchanged = asked(gained).resumed(
+        RunAttempt.of(RUN, 2),
+        'answered',
+        [],
+        later(3_000),
+      );
+
+      expect(lost.spec.enables(Tool.of('sentry.get-issue'))).toBe(false);
+      expect(lost.spec.value.changedTools).toEqual({
+        added: [],
+        removed: ['sentry.get-issue'],
+      });
+      expect(unchanged.spec.enables(Tool.of('sentry.get-issue'))).toBe(true);
+      expect(unchanged.spec.value.changedTools).toBeUndefined();
     });
 
     it('is claimed by a runner on its new attempt', () => {

@@ -1,3 +1,4 @@
+import { distinct } from '@shared-kernel/domain/distinct';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -52,6 +53,12 @@ type Ordering = Pick<
   readonly toolsOnMarks?: readonly Tool[];
   readonly now: Date;
 };
+
+export interface DispatchToolChange {
+  readonly dispatch: Dispatch;
+  readonly added: readonly Tool[];
+  readonly removed: readonly Tool[];
+}
 
 const problemOf = (state: DispatchState): string | null => {
   const station = stationOfDispatch(state.subject);
@@ -349,6 +356,27 @@ export class Dispatch extends EventRecorder {
         ),
       );
     }
+  }
+
+  withToolsOnMarks(onMarks: readonly Tool[]): DispatchToolChange {
+    if (this.state.subject.kind !== 'task') {
+      return { dispatch: this, added: [], removed: [] };
+    }
+
+    const before = this.state.toolsOnMarks;
+    const now = distinct(onMarks).filter(
+      (each) => !this.state.configuredAs?.lists(each),
+    );
+    const added = now.filter(
+      (each) => !before.some((tool) => tool.equals(each)),
+    );
+    const removed = before.filter(
+      (each) => !now.some((tool) => tool.equals(each)),
+    );
+
+    return added.length === 0 && removed.length === 0
+      ? { dispatch: this, added, removed }
+      : { dispatch: this.with({ toolsOnMarks: now }), added, removed };
   }
 
   detached(at: Date): Dispatch {

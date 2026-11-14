@@ -88,6 +88,7 @@ const representative = {
       approval: null,
     },
   ],
+  changedTools: { added: ['pull-request'], removed: ['linear.get-issue'] },
   attachments: [
     { id: 'att_1', path: '.spotlight/attachments/att_1/screen.png' },
   ],

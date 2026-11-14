@@ -11,6 +11,12 @@ import { RunAlreadyExistsError } from '@runs/domain/exceptions/run-already-exist
 import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
+import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
+import { Handover } from '@runs/domain/value-objects/handover.vo';
+import { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
+import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { LinesWarmLines } from '@runs/infrastructure/acl/lines-warm-lines.adapter';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -310,6 +316,50 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     });
 
     expect(stored.get('run_1')?.state).toBe('failed');
+  });
+
+  it('resumes a kept run with the tools it gained, and says it resumed only once', async () => {
+    const { runs, stored } = inMemory();
+    await runs.enqueue(ORDER);
+    const runId = RunId.of('run_1');
+    const runner = RunnerId.of('runner_1');
+    const queued = stored.get('run_1');
+    if (!queued) {
+      throw new Error('The order made no run');
+    }
+    stored.set(
+      'run_1',
+      queued
+        .claim(claimer(runner), NOW)
+        .reportTurn(
+          runner,
+          RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
+          HandoverReport.of({
+            handover: Handover.of({ next: 'review', note: 'Which queue?' }),
+            session: HarnessSession.of('session_1'),
+          }),
+          NOW,
+        )
+        .keep(RunAttempt.of(runId, 1), NOW),
+    );
+    const change = {
+      removed: [],
+      added: [
+        {
+          name: 'sentry.get-issue',
+          description: 'Read the Sentry issue.',
+          inputs: [],
+          approval: null,
+        },
+      ],
+    };
+
+    expect(await runs.resume(runId, 1, 'answered', [], change)).toBe(true);
+    expect(stored.get('run_1')?.spec.value.changedTools).toEqual({
+      added: ['sentry.get-issue'],
+      removed: [],
+    });
+    expect(await runs.resume(runId, 1, 'answered', [], change)).toBe(false);
   });
 
   it('cancels a queued run and says what it was', async () => {

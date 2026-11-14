@@ -154,7 +154,7 @@ export const recordingRuns = (
   ),
   askedAPerson: vi.fn(answers.askedAPerson ?? (async () => undefined)),
   keep: vi.fn(answers.keep ?? (async () => undefined)),
-  resume: vi.fn(answers.resume ?? (async () => undefined)),
+  resume: vi.fn(answers.resume ?? (async () => true)),
   finish: vi.fn(answers.finish ?? (async () => undefined)),
 });
 
@@ -186,6 +186,7 @@ export const heldTurn = (held: TurnFacts | null) => {
     },
     resume: async () => {
       current = null;
+      return true;
     },
     finish: async () => {
       current = null;

@@ -12,6 +12,7 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
+import type { ResumeTaskRun } from '@work/application/services/resume-task-run.service';
 import { RunsTranslation } from '@work/application/services/run-ending-reactions';
 import type { RunRouting } from '@work/application/services/run-routing.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -35,6 +36,7 @@ export class TakeTurn {
     private readonly files: FilesLoader,
     private readonly routing: RunRouting,
     private readonly readings: RunJournalReadingsPort,
+    private readonly resuming: ResumeTaskRun,
   ) {}
 
   async take(runId: RunId, attempt: number): Promise<void> {
@@ -91,12 +93,14 @@ export class TakeTurn {
     });
 
     if (decision.kind === 'resume') {
-      await this.runs.resume(
+      await this.resuming.resume({
+        task,
+        line,
         runId,
         attempt,
-        'messages',
-        RunCheckoutsMapper.toRun(decision.checkouts),
-      );
+        because: 'messages',
+        checkouts: RunCheckoutsMapper.toRun(decision.checkouts),
+      });
       return;
     }
 
