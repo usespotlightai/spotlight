@@ -72,11 +72,11 @@ export interface RunSpan {
   readonly attributes: readonly SpanAttribute[];
 }
 
-export type SessionStatus = 'running' | 'needs-action' | 'idle';
+type SessionStatus = 'running' | 'needs-action' | 'idle';
 
 export type BackgroundKind = 'command' | 'monitor' | 'subagent' | 'other';
 
-export interface BackgroundTask {
+interface BackgroundTask {
   readonly id: string;
   readonly kind: BackgroundKind;
   readonly description: string;

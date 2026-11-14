@@ -4,9 +4,9 @@ import {
   type Journalled,
 } from '@runs/infrastructure/journal/journalled';
 
-export const HARNESS_EVENTS_VERSION = 1;
+const HARNESS_EVENTS_VERSION = 1;
 
-export interface HarnessReports {
+interface HarnessReports {
   readonly background: boolean;
   readonly selfStartedTurns: boolean;
   readonly turnUsage: boolean;
@@ -37,14 +37,9 @@ export interface TurnUsage {
   readonly cacheWrite?: number;
 }
 
-export type TurnStop =
-  | 'ended'
-  | 'cut-short'
-  | 'refused'
-  | 'cancelled'
-  | 'failed';
+type TurnStop = 'ended' | 'cut-short' | 'refused' | 'cancelled' | 'failed';
 
-export interface TurnEnded extends InSession {
+interface TurnEnded extends InSession {
   readonly turn: number;
   readonly stop: TurnStop;
   readonly reason?: string;
@@ -54,7 +49,7 @@ export interface TurnEnded extends InSession {
 
 export type SessionStateName = 'running' | 'needs-action' | 'idle';
 
-export interface SessionState extends InSession {
+interface SessionState extends InSession {
   readonly state: SessionStateName;
 }
 
@@ -103,7 +98,7 @@ export interface PlanEntry {
   readonly priority?: string;
 }
 
-export interface PlanChanged extends InSession {
+interface PlanChanged extends InSession {
   readonly entries: readonly PlanEntry[];
 }
 
@@ -113,7 +108,7 @@ export interface BackgroundItem {
   readonly description: string;
 }
 
-export interface BackgroundChanged extends InSession {
+interface BackgroundChanged extends InSession {
   readonly items: readonly BackgroundItem[];
 }
 
@@ -150,7 +145,7 @@ export type HarnessEvent =
   | { readonly type: 'child.message'; readonly data: ChildMessage }
   | { readonly type: 'context.changed'; readonly data: ContextChanged };
 
-export type HarnessEventType = HarnessEvent['type'];
+type HarnessEventType = HarnessEvent['type'];
 
 export const HARNESS_EVENT_TYPES: ReadonlySet<string> =
   new Set<HarnessEventType>([
