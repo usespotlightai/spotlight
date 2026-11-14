@@ -60,7 +60,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
         marks: reading.journal.marks(),
         spent: reading.journal.spent(),
         egressEnforcement: reading.journal.egressEnforcement(),
-        sessionStatus: reading.journal.sessionStatus(),
+        activity: reading.journal.activity(),
         background: reading.journal.background(),
       };
     });

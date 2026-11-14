@@ -9884,16 +9884,16 @@
               }
             ]
           },
-          "sessionStatus": {
+          "activity": {
             "type": "string",
             "enum": [
-              "running",
+              "working",
               "needs-action",
-              "idle",
+              "waiting-for-background",
               null
             ],
             "nullable": true,
-            "description": "What the harness last said its session does. Null for a harness that does not say"
+            "description": "What the agent does now: works, needs a person to allow an action, or waits for its background work. Null once the agent stopped, or for a harness that reports no session"
           },
           "background": {
             "description": "The background work the harness last listed. Empty for a harness that lists none",
@@ -9911,7 +9911,7 @@
           "ms",
           "marks",
           "spent",
-          "sessionStatus",
+          "activity",
           "background"
         ]
       },

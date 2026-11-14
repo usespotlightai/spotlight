@@ -2,7 +2,11 @@ import { STEP_KINDS } from '@work/domain/value-objects/step-kind';
 
 export const STEP_KIND_NAMES = STEP_KINDS;
 
-export const SESSION_STATUSES = ['running', 'needs-action', 'idle'] as const;
+export const AGENT_ACTIVITIES = [
+  'working',
+  'needs-action',
+  'waiting-for-background',
+] as const;
 
 export const BACKGROUND_KINDS = [
   'command',
@@ -11,7 +15,7 @@ export const BACKGROUND_KINDS = [
   'other',
 ] as const;
 
-type SessionStatusDto = (typeof SESSION_STATUSES)[number];
+type AgentActivityDto = (typeof AGENT_ACTIVITIES)[number];
 
 interface BackgroundTaskDto {
   readonly id: string;
@@ -83,7 +87,7 @@ export interface RunJournalDto {
   readonly ms: number | null;
   readonly marks: RunMarksDto;
   readonly spent: RunSpentDto | null;
-  readonly sessionStatus: SessionStatusDto | null;
+  readonly activity: AgentActivityDto | null;
   readonly background: readonly BackgroundTaskDto[];
 }
 

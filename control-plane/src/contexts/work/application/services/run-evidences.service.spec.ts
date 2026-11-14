@@ -80,7 +80,7 @@ const journal: RunJournal = {
   },
   spent: null,
   egressEnforcement: null,
-  sessionStatus: null,
+  activity: null,
   background: [],
 };
 

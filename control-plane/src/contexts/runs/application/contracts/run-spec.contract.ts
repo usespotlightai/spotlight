@@ -19,6 +19,10 @@ export interface RunCheckoutShape {
   readonly setup?: string;
 }
 
+export const HARNESS_PROTOCOLS = ['acp/1', 'acp/2'] as const;
+
+type HarnessProtocolShape = (typeof HARNESS_PROTOCOLS)[number];
+
 interface SessionOptionShape {
   readonly id: string;
   readonly value: string;
@@ -28,7 +32,7 @@ interface SessionOptionShape {
 export interface RunCommandShape {
   readonly executable: string;
   readonly args: readonly string[];
-  readonly protocol?: 'acp/1' | 'acp/2';
+  readonly protocol?: HarnessProtocolShape;
   readonly env?: Readonly<Record<string, string>>;
   readonly sessionOptions?: readonly SessionOptionShape[];
 }

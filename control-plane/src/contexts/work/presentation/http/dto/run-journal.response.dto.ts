@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   BACKGROUND_KINDS,
-  SESSION_STATUSES,
+  AGENT_ACTIVITIES,
   STEP_KIND_NAMES,
 } from '@work/application/dto/run-journal.dto';
 
@@ -295,13 +295,13 @@ export class RunJournalResponseDto {
   readonly spent: RunSpentResponseDto | null;
 
   @ApiProperty({
-    enum: [...SESSION_STATUSES, null],
+    enum: [...AGENT_ACTIVITIES, null],
     nullable: true,
     type: String,
     description:
-      'What the harness last said its session does. Null for a harness that does not say',
+      'What the agent does now: works, needs a person to allow an action, or waits for its background work. Null once the agent stopped, or for a harness that reports no session',
   })
-  readonly sessionStatus: (typeof SESSION_STATUSES)[number] | null;
+  readonly activity: (typeof AGENT_ACTIVITIES)[number] | null;
 
   @ApiProperty({
     type: BackgroundTaskResponseDto,
@@ -319,7 +319,7 @@ export class RunJournalResponseDto {
     ms: number | null,
     marks: RunMarksResponseDto,
     spent: RunSpentResponseDto | null,
-    sessionStatus: (typeof SESSION_STATUSES)[number] | null,
+    activity: (typeof AGENT_ACTIVITIES)[number] | null,
     background: readonly BackgroundTaskResponseDto[],
   ) {
     this.runId = runId;
@@ -329,7 +329,7 @@ export class RunJournalResponseDto {
     this.ms = ms;
     this.marks = marks;
     this.spent = spent;
-    this.sessionStatus = sessionStatus;
+    this.activity = activity;
     this.background = background;
   }
 }

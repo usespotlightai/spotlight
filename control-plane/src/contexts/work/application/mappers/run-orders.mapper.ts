@@ -8,15 +8,16 @@ import type {
   RunRestoreContract,
   RunWorkingCopyContract,
 } from '@runs/application/contracts/run-order.contract';
-import type {
-  AttachmentShape,
-  HarnessSetupShape,
-  RunCheckoutShape,
-  RunCommandShape,
-  RunResumeShape,
-  RunSpecShape,
-  SkillFileShape,
-  ToolManifestShape,
+import {
+  type AttachmentShape,
+  HARNESS_PROTOCOLS,
+  type HarnessSetupShape,
+  type RunCheckoutShape,
+  type RunCommandShape,
+  type RunResumeShape,
+  type RunSpecShape,
+  type SkillFileShape,
+  type ToolManifestShape,
 } from '@runs/application/contracts/run-spec.contract';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import {
@@ -139,10 +140,12 @@ const commandOf = (value: JsonValue | undefined): RunCommandShape => {
   return {
     executable: textAt(command.executable, 'spec command executable'),
     args: textsAt(command.args, 'spec command args'),
-    ...present('protocol', command.protocol, (each) =>
-      each === 'acp/1' || each === 'acp/2'
-        ? each
-        : unreadable('spec command protocol'),
+    ...present(
+      'protocol',
+      command.protocol,
+      (each) =>
+        HARNESS_PROTOCOLS.find((protocol) => protocol === each) ??
+        unreadable('spec command protocol'),
     ),
     ...present('env', command.env, (each) =>
       textRecordAt(each, 'spec command env'),

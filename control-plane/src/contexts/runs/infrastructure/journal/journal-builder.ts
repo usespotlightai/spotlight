@@ -6,6 +6,10 @@ import type {
   StepLocation,
 } from '@runs/application/contracts/run-journal.contract';
 import type { CalledStep } from '@runs/domain/services/tool-attribution';
+import {
+  type AgentActivity,
+  agentActivityOf,
+} from '@runs/domain/value-objects/agent-activity.vo';
 import { AgentTurns } from '@runs/domain/value-objects/agent-turns.vo';
 import {
   AGENT_REMINDED,
@@ -633,8 +637,12 @@ export class JournalBuilder {
     return this.#egressEnforcement;
   }
 
-  sessionStatus(): SessionStateName | null {
-    return this.#status;
+  activity(): AgentActivity | null {
+    return agentActivityOf({
+      stopped: this.#agentStopped !== null,
+      waitingForBackground: this.#waiting !== null,
+      session: this.#status,
+    });
   }
 
   background(): readonly BackgroundItem[] {

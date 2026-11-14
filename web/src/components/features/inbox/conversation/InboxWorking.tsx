@@ -27,7 +27,7 @@ type InboxWorkingProps = {
   stationPosition: number;
   stationCount: number;
   progress: ShownProgress;
-  session?: Pick<RunJournal, 'sessionStatus' | 'background'>;
+  session?: Pick<RunJournal, 'activity' | 'background'>;
 };
 
 export function InboxWorking({

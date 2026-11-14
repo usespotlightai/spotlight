@@ -78,7 +78,7 @@ export const RunJournalHttpMapper = {
             journal.spent.currency,
           )
         : null,
-      journal.sessionStatus,
+      journal.activity,
       journal.background.map(
         ({ id, kind, description }) =>
           new BackgroundTaskResponseDto(id, kind, description),

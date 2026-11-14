@@ -619,6 +619,14 @@ func TestATurnThatEndsBadlyIsReportedAsFailed(t *testing.T) {
 	}
 }
 
+func TestATurnCutShortAtItsRequestLimitDoesNotFailTheRun(t *testing.T) {
+	written := run(t, harness(t, `output = "cut";`, "max_turn_requests"))
+
+	if written.done == nil || written.done.Failed {
+		t.Fatalf("completion %+v", written.done)
+	}
+}
+
 func TestARunStoppedFromTheConsoleFinishesAsStopped(t *testing.T) {
 	written := run(t, stalling(t), func(o *runOptions) { o.stopAfter = 1 })
 
