@@ -248,9 +248,7 @@ describe('the image each working copy last ran in', () => {
       `work/task-${unstarted}`,
     ]);
 
-    expect([...ranIn]).toEqual([
-      [`work/task-${task}`, pinned('widgets', 'b')],
-    ]);
+    expect([...ranIn]).toEqual([[`work/task-${task}`, pinned('widgets', 'b')]]);
     await expect(
       images.lastRanIn(WorkspaceId.of(WORKSPACE), []),
     ).resolves.toEqual(new Map());

@@ -537,7 +537,9 @@ describe('Runners', () => {
     expect(
       within(rows[1]).getByText('spotlight-runner:v0.3.0'),
     ).toBeInTheDocument();
-    expect(within(rows[1]).getByText('Claude Code 2.1.270')).toBeInTheDocument();
+    expect(
+      within(rows[1]).getByText('Claude Code 2.1.270'),
+    ).toBeInTheDocument();
   });
 
   it('hides the run of a team the viewer cannot read behind a blurred stand-in, saying why', () => {
