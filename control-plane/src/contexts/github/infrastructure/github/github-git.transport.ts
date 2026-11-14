@@ -1,5 +1,6 @@
 import { Readable } from 'node:stream';
 
+import { GitHubUnansweredError } from '@github/application/errors/github-unanswered.error';
 import {
   REPOSITORY_ACCESS,
   type RepositoryAccessPort,
@@ -10,8 +11,14 @@ import type {
   RepositoryGitPort,
 } from '@github/application/ports/repository-git.port';
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+const TIMEOUT_MS = 600_000;
 
 // Never forward the caller's own authorization upstream.
 const FORWARDED = [
@@ -41,11 +48,19 @@ const carried = (
   return taken;
 };
 
+const reasonOf = (error: unknown): string => {
+  const cause = (error as { cause?: unknown } | null)?.cause ?? error;
+
+  return cause instanceof Error ? cause.message : String(cause);
+};
+
 @Injectable()
 export class GitHubGitTransport implements RepositoryGitPort {
   constructor(
     @Inject(REPOSITORY_ACCESS)
     private readonly access: RepositoryAccessPort,
+    @Inject(LOGGER)
+    private readonly logger: LoggerPort,
   ) {}
 
   async call(
@@ -57,6 +72,7 @@ export class GitHubGitTransport implements RepositoryGitPort {
     const upstream = `${repository.url}.git${call.path}${call.search}`;
 
     const response = await fetch(upstream, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
       method: call.method,
       headers: {
         ...carried(call.headers, FORWARDED),
@@ -74,6 +90,16 @@ export class GitHubGitTransport implements RepositoryGitPort {
           }
         : {}),
       redirect: 'manual',
+    }).catch((error: unknown) => {
+      this.logger.warn(
+        {
+          repository: repository.value,
+          path: call.path,
+          reason: reasonOf(error),
+        },
+        'GitHub sent no answer to a git call',
+      );
+      throw new GitHubUnansweredError(`${call.method} ${call.path}`, error);
     });
 
     const answered: Record<string, string> = {};
