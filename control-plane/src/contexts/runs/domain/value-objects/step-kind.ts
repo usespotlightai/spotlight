@@ -8,6 +8,7 @@ const STEP_KINDS = [
   'waited',
   'lost',
   'reminded',
+  'turn',
 ] as const;
 
 export type StepKind = (typeof STEP_KINDS)[number];

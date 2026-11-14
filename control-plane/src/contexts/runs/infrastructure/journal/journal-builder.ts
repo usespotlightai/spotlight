@@ -35,6 +35,7 @@ import {
 import { enforcementOf } from '@runs/infrastructure/journal/egress-enforcement';
 import {
   type AgentMessage,
+  type BackgroundItem,
   type ChildChanged,
   type ChildMessage,
   type ContextChanged,
@@ -45,7 +46,9 @@ import {
   type PlanEntry,
   type ToolChanged,
   type ToolLocation,
+  type SessionStateName,
   type ToolOutput,
+  type TurnStarted,
   type TurnUsage,
 } from '@runs/infrastructure/journal/harness-events';
 import {
@@ -282,6 +285,8 @@ export class JournalBuilder {
   #root = '';
   #subagents = new Map<string, { at: number; journal: JournalBuilder }>();
   #waiting: Building | null = null;
+  #status: SessionStateName | null = null;
+  #background: readonly BackgroundItem[] = [];
 
   constructor(began: Date | null = null) {
     this.#opened = began;
@@ -418,11 +423,26 @@ export class JournalBuilder {
         this.used(event.data.usage);
         break;
       case 'turn.started':
+        this.turned(event.data, at);
+        break;
       case 'session.state':
+        this.#status = event.data.state;
+        break;
       case 'background.changed':
+        this.#background = event.data.items;
+        break;
       case 'child.message':
         break;
     }
+  }
+
+  private turned(started: TurnStarted, at: Date): void {
+    if (started.origin !== 'self') {
+      return;
+    }
+
+    this.flushText();
+    this.#steps.push(bare('turn', started.cause ?? '', at));
   }
 
   private used(usage: TurnUsage | undefined): void {
@@ -611,6 +631,14 @@ export class JournalBuilder {
 
   egressEnforcement(): EgressEnforcement | null {
     return this.#egressEnforcement;
+  }
+
+  sessionStatus(): SessionStateName | null {
+    return this.#status;
+  }
+
+  background(): readonly BackgroundItem[] {
+    return this.#background;
   }
 
   spentBySession(): ReadonlyMap<string, SpentReading> {

@@ -96,6 +96,36 @@ describe('JournalBuilder', () => {
     ]);
   });
 
+  it('marks a turn the agent started by itself', () => {
+    const builder = read(
+      event('turn.started', { turn: 1, origin: 'prompt' }),
+      said('agent', 'Started the tests.', 'm1'),
+      event('turn.started', { turn: 2, origin: 'self' }),
+      said('agent', 'The tests pass.', 'm2'),
+    );
+
+    expect(builder.steps().map((step) => [step.kind, step.text])).toEqual([
+      ['message', 'Started the tests.'],
+      ['turn', ''],
+      ['message', 'The tests pass.'],
+    ]);
+  });
+
+  it('keeps what the session last did and the background work it last listed', () => {
+    const builder = read(
+      event('session.state', { state: 'running' }),
+      event('background.changed', {
+        items: [{ id: 't1', kind: 'command', description: 'npx vitest run' }],
+      }),
+      event('session.state', { state: 'needs-action' }),
+    );
+
+    expect(builder.sessionStatus()).toBe('needs-action');
+    expect(builder.background()).toEqual([
+      { id: 't1', kind: 'command', description: 'npx vitest run' },
+    ]);
+  });
+
   it('starts a new message where the harness starts one', () => {
     const builder = read(
       said('agent', 'Reproduced it.', 'm1'),

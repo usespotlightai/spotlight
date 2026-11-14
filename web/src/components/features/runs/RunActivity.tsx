@@ -67,6 +67,7 @@ export function RunActivity({
           stationColor={station.color}
           stationPosition={station.position}
           stationCount={station.count}
+          session={journals.at(-1)}
         />
       )}
     </ol>

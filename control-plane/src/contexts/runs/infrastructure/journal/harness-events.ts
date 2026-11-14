@@ -1,3 +1,4 @@
+import type { BackgroundKind } from '@runs/application/contracts/run-journal.contract';
 import {
   decoded,
   type Journalled,
@@ -108,7 +109,7 @@ export interface PlanChanged extends InSession {
 
 export interface BackgroundItem {
   readonly id: string;
-  readonly kind: string;
+  readonly kind: BackgroundKind;
   readonly description: string;
 }
 

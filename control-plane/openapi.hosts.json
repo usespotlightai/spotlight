@@ -3969,7 +3969,8 @@
               "subagent",
               "waited",
               "lost",
-              "reminded"
+              "reminded",
+              "turn"
             ]
           },
           "text": {

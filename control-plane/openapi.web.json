@@ -7917,7 +7917,8 @@
               "subagent",
               "waited",
               "lost",
-              "reminded"
+              "reminded",
+              "turn"
             ]
           },
           "text": {
@@ -9813,6 +9814,34 @@
           "currency"
         ]
       },
+      "BackgroundTaskResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "toolu_01MDARfjBj5VLXgUXq89feTu"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "command",
+              "monitor",
+              "subagent",
+              "other"
+            ],
+            "example": "command"
+          },
+          "description": {
+            "type": "string",
+            "example": "npx vitest run"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "description"
+        ]
+      },
       "RunJournalResponseDto": {
         "type": "object",
         "properties": {
@@ -9854,6 +9883,24 @@
                 "$ref": "#/components/schemas/RunSpentResponseDto"
               }
             ]
+          },
+          "sessionStatus": {
+            "type": "string",
+            "enum": [
+              "running",
+              "needs-action",
+              "idle",
+              null
+            ],
+            "nullable": true,
+            "description": "What the harness last said its session does. Null for a harness that does not say"
+          },
+          "background": {
+            "description": "The background work the harness last listed. Empty for a harness that lists none",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BackgroundTaskResponseDto"
+            }
           }
         },
         "required": [
@@ -9863,7 +9910,9 @@
           "spans",
           "ms",
           "marks",
-          "spent"
+          "spent",
+          "sessionStatus",
+          "background"
         ]
       },
       "TaskReviewResponseDto": {

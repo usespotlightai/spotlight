@@ -26,6 +26,7 @@ import {
   shownAt,
   spentIn,
   spentOn,
+  workingWordsOf,
   threadText,
   workedOn,
 } from '@/lib/inbox';
@@ -419,6 +420,36 @@ describe('notices', () => {
     ];
 
     expect(new Set(entries.map(entryKey)).size).toBe(2);
+  });
+});
+
+describe('workingWordsOf', () => {
+  it('says what the session does while the run is in progress', () => {
+    const command = {
+      id: 'b1',
+      kind: 'command',
+      description: 'npx vitest run',
+    } as const;
+
+    expect(workingWordsOf('in-progress', 'Build')).toBe('Build is working…');
+    expect(
+      workingWordsOf('in-progress', 'Build', {
+        sessionStatus: 'needs-action',
+        background: [],
+      }),
+    ).toBe('Build needs a permission…');
+    expect(
+      workingWordsOf('in-progress', 'Build', {
+        sessionStatus: 'idle',
+        background: [command],
+      }),
+    ).toBe('Build waits for background work…');
+    expect(
+      workingWordsOf('in-progress', 'Build', {
+        sessionStatus: 'running',
+        background: [command],
+      }),
+    ).toBe('Build is working…');
   });
 });
 
