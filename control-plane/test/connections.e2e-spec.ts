@@ -188,12 +188,15 @@ describe('each person’s own connections (e2e)', () => {
   });
 
   it('keeps a member who is no admin from connecting the team', async () => {
-    const started = await as(seat.member).post(
+    const started = (await as(seat.member).post(
       `/api/teams/${workspaceId}/integrations/linear/connect`,
       {},
-    );
+    )) as Answer<{ readonly message: string }>;
 
-    expect(started.status).toBe(404);
+    expect(started.status).toBe(403);
+    expect(started.body.message).toBe(
+      'Only a workspace owner or admin can connect a team account.',
+    );
   });
 
   it('shows a member their own connections, and an admin who has connected what', async () => {

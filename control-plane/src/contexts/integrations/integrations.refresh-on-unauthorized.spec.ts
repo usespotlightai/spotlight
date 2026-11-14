@@ -8,6 +8,7 @@ import type {
 import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { RecordToolOutputHandler } from '@integrations/application/commands/handlers/record-tool-output.handler';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
@@ -37,6 +38,7 @@ import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotli
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
+import type { OAuth2Discovery } from '@integrations/infrastructure/integrations/oauth2-discovery';
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-linking';
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
@@ -61,6 +63,7 @@ import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -334,6 +337,7 @@ const settingUp = ({
   registered = true,
   generated = false,
   policies = new InMemoryPersonToolPolicies(),
+  blocked = false,
 } = {}) => {
   const linear = new FakeLinear();
   const clock = { now: () => NOW } as ClockPort;
@@ -374,13 +378,20 @@ const settingUp = ({
   );
   const expressions = new CelExpressionEngine();
   const policy = allowingOutbound(['linear.app', 'api.linear.app']);
+  const quiet = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  } satisfies LoggerPort;
   const clients = new OAuth2ClientResolution(
     OAuth2Clients.from('{}'),
     registrations,
-    new OAuth2Registrar(policy, linear.fetch),
+    new OAuth2Registrar(policy, quiet, linear.fetch),
     TEAMS,
     clock,
     CALLBACK,
+    quiet,
   );
   const exchange = new OAuth2Exchange(policy, clock, linear.fetch);
   const runtime = new CompiledIntegrationRuntime(
@@ -391,7 +402,16 @@ const settingUp = ({
     ),
     clients,
     exchange,
-    discoveringNothing(),
+    blocked
+      ? ({
+          endpoints: async () => {
+            throw new EgressBlockedError(
+              'linear.app',
+              "Host is not on the workspace's allowed list.",
+            );
+          },
+        } as unknown as OAuth2Discovery)
+      : discoveringNothing(),
     callingNoServer(),
     unlimited,
     unscoped,
@@ -625,6 +645,18 @@ describe('OAuth that recovers from a token the service does not accept', () => {
       personId: ALICE.value,
       because: 'refresh-failed',
     });
+  });
+
+  it('keeps the connection when the deployment blocks its OAuth2 server, so it refreshes once the server is allowed', async () => {
+    const { linear, connectedAs, storedConnection, comment } = settingUp({
+      blocked: true,
+    });
+    connectedAs('at-1', 'rt-1');
+    linear.revoke();
+
+    await expect(comment()).rejects.toThrow(/answered 401/);
+
+    expect((await storedConnection())?.refreshFailedAt).toBeNull();
   });
 
   it('acts as the person who started the task, never as the team', async () => {

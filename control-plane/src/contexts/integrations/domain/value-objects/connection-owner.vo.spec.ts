@@ -25,4 +25,31 @@ describe('ConnectionOwner', () => {
     expect(ActsAs.chosen(null).equals(ActsAs.team())).toBe(true);
     expect(ConnectionOwner.team().actsAs.equals(ActsAs.team())).toBe(true);
   });
+
+  it('lets only a workspace admin connect the team account', () => {
+    expect(() =>
+      ConnectionOwner.team().assertConnectableBy(ADA, true),
+    ).not.toThrow();
+    expect(() =>
+      ConnectionOwner.team().assertConnectableBy(ADA, false),
+    ).toThrow(
+      expect.objectContaining({
+        kind: 'not-allowed',
+        denial: 'not-workspace-admin',
+        message: 'Only a workspace owner or admin can connect a team account.',
+      }),
+    );
+  });
+
+  it('lets only its person connect a personal account', () => {
+    expect(() =>
+      ConnectionOwner.person(ADA).assertConnectableBy(ADA, false),
+    ).not.toThrow();
+    expect(() =>
+      ConnectionOwner.person(ADA).assertConnectableBy(
+        UserId.of('user_bea'),
+        true,
+      ),
+    ).toThrow(expect.objectContaining({ denial: 'not-the-person' }));
+  });
 });

@@ -3,6 +3,7 @@ import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client
 import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { describe, expect, it, vi } from 'vitest';
 
 const ENDPOINT = OAuth2Endpoint.of('https://mcp.example/register');
@@ -12,10 +13,21 @@ const CALLBACK = OAuth2Endpoint.of(
 
 const registering = (reply: Response) => {
   const fetch = vi.fn(async () => reply);
+  const logger = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } satisfies LoggerPort;
 
   return {
     fetch,
-    registrar: new OAuth2Registrar(allowingOutbound(['mcp.example']), fetch),
+    logger,
+    registrar: new OAuth2Registrar(
+      allowingOutbound(['mcp.example']),
+      logger,
+      fetch,
+    ),
   };
 };
 
@@ -43,7 +55,7 @@ describe('OAuth2Registrar', () => {
   });
 
   it('never follows a redirect, and registers nothing from one', async () => {
-    const { fetch, registrar } = registering(
+    const { fetch, logger, registrar } = registering(
       new Response(null, {
         status: 302,
         headers: { location: 'http://169.254.169.254/latest' },
@@ -52,6 +64,20 @@ describe('OAuth2Registrar', () => {
 
     expect(await registrar.register(ENDPOINT, CALLBACK)).toBeNull();
     expect(fetch).toHaveBeenCalledOnce();
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
+      { server: 'mcp.example', status: 302 },
+      'Could not register an OAuth2 client',
+    );
+  });
+
+  it('says so where the answer names no client', async () => {
+    const { logger, registrar } = registering(Response.json({}));
+
+    expect(await registrar.register(ENDPOINT, CALLBACK)).toBeNull();
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
+      { server: 'mcp.example', status: 200, answer: 'no-client-id' },
+      'Could not register an OAuth2 client',
+    );
   });
 
   it('blocks an endpoint the deployment did not allow', async () => {

@@ -7,6 +7,7 @@ import {
 } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
 import type { OAuth2LinkInput } from '@integrations/application/ports/oauth2-linking.port';
@@ -74,6 +75,7 @@ const linking = (
     exchanged?: OAuthTokens | null;
     hosts?: WorkspaceOutboundScopePort;
     team?: boolean;
+    blocked?: boolean;
   } = {},
 ) => {
   const configured = clientsFrom(
@@ -87,11 +89,16 @@ const linking = (
       OutboundScope.allows('slack.com'),
       OutboundScope.allows('elsewhere.example'),
     );
+
+    if (over.blocked) {
+      throw new EgressBlockedError('slack.com', 'Host is not allowed.');
+    }
+
     return discovering(oauth2);
   };
   const exchanged = 'exchanged' in over ? over.exchanged : TOKENS;
   const allowedWhileExchanging: boolean[] = [];
-  const exchange = vi.fn(async () => {
+  const exchange = vi.fn(async (): Promise<OAuthTokens | null | undefined> => {
     allowedWhileExchanging.push(
       OutboundScope.allows('slack.com'),
       OutboundScope.allows('elsewhere.example'),
@@ -302,6 +309,26 @@ describe('OAuth2Linking', () => {
       refused: 'state-not-accepted',
     });
     expect(exchange).not.toHaveBeenCalled();
+  });
+
+  it('refuses a returning code where the deployment blocks the OAuth server', async () => {
+    const { it, exchange } = linking({ blocked: true });
+
+    expect(await it.authorized(returned())).toEqual(
+      refusedFor('egress-blocked'),
+    );
+    expect(exchange).not.toHaveBeenCalled();
+  });
+
+  it('refuses a returning code where the deployment blocks the token endpoint', async () => {
+    const { it, exchange } = linking();
+    exchange.mockRejectedValueOnce(
+      new EgressBlockedError('slack.com', 'Host is not allowed.'),
+    );
+
+    expect(await it.authorized(returned())).toEqual(
+      refusedFor('egress-blocked'),
+    );
   });
 
   it('yields nothing when the service does not accept the code', async () => {

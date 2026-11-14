@@ -40,6 +40,7 @@ export type OAuth2Refusal =
   | 'nonce-spent'
   | 'no-team'
   | 'no-oauth2-endpoints'
+  | 'egress-blocked'
   | 'no-client'
   | 'token-exchange-failed';
 

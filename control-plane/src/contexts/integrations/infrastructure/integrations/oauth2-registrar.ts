@@ -5,6 +5,7 @@ import type {
 import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import type { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -19,6 +20,7 @@ interface RegistrationResponse {
 export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
   constructor(
     private readonly policy: OutboundPolicy,
+    private readonly logger: LoggerPort,
     private readonly fetch: Fetch = policy.fetch,
   ) {}
 
@@ -46,7 +48,7 @@ export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
     });
 
     if (!reply.ok || reply.type === 'opaqueredirect') {
-      return null;
+      return this.refused(endpoint, { status: reply.status });
     }
 
     const answered = (await reply
@@ -59,7 +61,10 @@ export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
         : null;
 
     if (!answered || !clientId) {
-      return null;
+      return this.refused(endpoint, {
+        status: reply.status,
+        answer: answered ? 'no-client-id' : 'not-json',
+      });
     }
 
     const expiresAt =
@@ -76,5 +81,16 @@ export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
           : null,
       secretExpiresAt: expiresAt,
     };
+  }
+
+  private refused(
+    endpoint: OAuth2Endpoint,
+    about: { readonly status: number; readonly answer?: string },
+  ): null {
+    this.logger.warn(
+      { server: new URL(endpoint.value).host, ...about },
+      'Could not register an OAuth2 client',
+    );
+    return null;
   }
 }

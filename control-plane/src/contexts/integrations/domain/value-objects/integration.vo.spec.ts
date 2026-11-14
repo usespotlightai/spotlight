@@ -207,4 +207,19 @@ describe('Integration connections', () => {
       ),
     ).toBe(false);
   });
+
+  it('refuses a personal account where it acts as the team', () => {
+    expect(() =>
+      Integration.of({
+        key: LINEAR,
+        apiSpecs: ['mcp'],
+        connectsOver: 'oauth2',
+      }).assertTakesConnectionFrom(PERSON),
+    ).toThrow(
+      expect.objectContaining({
+        kind: 'not-found',
+        message: "Integration linear doesn't take a personal account.",
+      }),
+    );
+  });
 });

@@ -5,17 +5,26 @@ import {
   connectIntegration,
 } from '@/lib/api';
 import { desktopApp } from '@/lib/desktop';
+import { messageOf } from '@/lib/error';
 
 type Connecting = ConnectIntegrationRequestDto & { integration: string };
 
 export function useConnectIntegration(teamId: string | undefined) {
   return useMutation({
     mutationFn: async ({ integration, ...body }: Connecting) => {
-      const { data } = await connectIntegration({
+      const { data, error } = await connectIntegration({
         path: { teamId: teamId as string, integration },
         body,
-        throwOnError: true,
       });
+
+      if (error || !data) {
+        throw new Error(
+          messageOf(
+            error,
+            'Sorry, the account couldn’t be connected. Please try again.',
+          ),
+        );
+      }
 
       return data;
     },

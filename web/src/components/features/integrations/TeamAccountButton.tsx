@@ -15,9 +15,7 @@ export function TeamAccountButton({
   const connect = useConnectIntegration(teamId);
 
   return (
-    <ActionWithAlert
-      alert={connect.isError ? 'Could not connect. Try again.' : null}
-    >
+    <ActionWithAlert alert={connect.error?.message ?? null}>
       <PillButton
         data-need="team"
         variant="default"

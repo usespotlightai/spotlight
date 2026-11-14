@@ -17,9 +17,7 @@ export function TeamAccountActions({
   const connect = useConnectIntegration(teamId);
 
   return (
-    <ActionWithAlert
-      alert={connect.isError ? 'Could not connect. Try again.' : null}
-    >
+    <ActionWithAlert alert={connect.error?.message ?? null}>
       <RowActions
         label={`Actions for the team’s ${integration.name} account`}
         disabled={connect.isPending}

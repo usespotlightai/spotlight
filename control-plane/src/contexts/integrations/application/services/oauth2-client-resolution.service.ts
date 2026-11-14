@@ -1,4 +1,9 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import {
+  OAuth2ClientMissingError,
+  type OtherIssuer,
+} from '@integrations/application/errors/oauth2-client-missing.error';
+import { OAuth2ServerUnavailableError } from '@integrations/application/errors/oauth2-server-unavailable.error';
 import type {
   ConfiguredOAuth2Client,
   ConfiguredOAuth2ClientsPort,
@@ -10,12 +15,14 @@ import type {
 } from '@integrations/application/ports/oauth2-clients.port';
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/domain/exceptions/oauth2-client-registration-version-conflict.error';
+import { TeamNotFoundError } from '@integrations/domain/exceptions/team-not-found.error';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import { ClientSecret } from '@integrations/domain/value-objects/client-secret.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const clientOf = (registration: OAuth2ClientRegistration): OAuth2Client => ({
@@ -23,13 +30,21 @@ const clientOf = (registration: OAuth2ClientRegistration): OAuth2Client => ({
   secret: registration.clientSecret?.value ?? null,
 });
 
+const otherIssuerOf = (
+  configured: ConfiguredOAuth2Client,
+  server: AuthorizationServer | null,
+): OtherIssuer | null =>
+  server && !AuthorizationServer.takesClientIssuedFor(server, configured.issuer)
+    ? { named: configured.issuer, required: server.issuer }
+    : null;
+
 const configuredFor = (
   configured: ConfiguredOAuth2Client,
   server: AuthorizationServer | null,
 ): OAuth2Client | null =>
-  AuthorizationServer.takesClientIssuedFor(server, configured.issuer)
-    ? { id: configured.id, secret: configured.secret }
-    : null;
+  otherIssuerOf(configured, server)
+    ? null
+    : { id: configured.id, secret: configured.secret };
 
 export class OAuth2ClientResolution implements OAuth2ClientsPort {
   constructor(
@@ -39,6 +54,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     private readonly teams: TeamDirectoryPort,
     private readonly clock: ClockPort,
     private readonly callback: string,
+    private readonly logger: LoggerPort,
   ) {}
 
   async existingFor(
@@ -64,15 +80,21 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     integration: IntegrationKey,
     registration: string | null,
     server: AuthorizationServer | null,
-  ): Promise<OAuth2Client | null> {
+  ): Promise<OAuth2Client> {
     const configured = this.configured.of(integration.value);
 
     if (configured) {
-      return configuredFor(configured, server);
+      const otherIssuer = otherIssuerOf(configured, server);
+
+      if (otherIssuer) {
+        throw this.missing(integration, otherIssuer);
+      }
+
+      return { id: configured.id, secret: configured.secret };
     }
 
     if (!registration) {
-      return null;
+      throw this.missing(integration, null);
     }
 
     const wanted = {
@@ -87,15 +109,21 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     }
 
     const team = await this.teams.find(teamId);
-    const answered = team
-      ? await this.registrar.register(
-          wanted.registrationEndpoint,
-          wanted.redirectUri,
-        )
-      : null;
 
-    if (!team || !answered) {
-      return null;
+    if (!team) {
+      throw new TeamNotFoundError(teamId.value);
+    }
+
+    const answered = await this.registrar.register(
+      wanted.registrationEndpoint,
+      wanted.redirectUri,
+    );
+
+    if (!answered) {
+      throw new OAuth2ServerUnavailableError(
+        integration.value,
+        'registration-failed',
+      );
     }
 
     const registered = OAuth2ClientRegistration.register({
@@ -120,9 +148,34 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
 
       const winner = await this.registrations.of(teamId, integration);
 
-      return winner?.servedBy(server) ? clientOf(winner) : null;
+      if (!winner?.servedBy(server)) {
+        throw new OAuth2ServerUnavailableError(
+          integration.value,
+          'registration-failed',
+        );
+      }
+
+      return clientOf(winner);
     }
 
     return clientOf(registered);
+  }
+
+  private missing(
+    integration: IntegrationKey,
+    otherIssuer: OtherIssuer | null,
+  ): OAuth2ClientMissingError {
+    this.logger.warn(
+      {
+        integration: integration.value,
+        named: otherIssuer?.named,
+        required: otherIssuer?.required,
+      },
+      otherIssuer
+        ? 'OAUTH_CLIENTS entry names an issuer other than the authorization server'
+        : 'No OAUTH_CLIENTS entry for the integration',
+    );
+
+    return new OAuth2ClientMissingError(integration.value, otherIssuer);
   }
 }

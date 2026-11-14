@@ -6,6 +6,7 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -23,11 +24,24 @@ const server = (token = 'https://auth.tracker.example/token') =>
 
 const resolving = (configured = '{}') => {
   let stored: OAuth2ClientRegistration | null = null;
-  const register = vi.fn(async () => ({
-    clientId: OAuth2ClientId.of(`client-${register.mock.calls.length}`),
+  let registered = 0;
+  const register = vi.fn<
+    () => Promise<{
+      clientId: OAuth2ClientId;
+      clientSecret: null;
+      secretExpiresAt: null;
+    } | null>
+  >(async () => ({
+    clientId: OAuth2ClientId.of(`client-${(registered += 1)}`),
     clientSecret: null,
     secretExpiresAt: null,
   }));
+  const logger = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } satisfies LoggerPort;
   const clients = new OAuth2ClientResolution(
     OAuth2Clients.from(configured),
     {
@@ -51,9 +65,10 @@ const resolving = (configured = '{}') => {
     } satisfies TeamDirectoryPort,
     { now: () => new Date('2026-10-05T10:00:00.000Z') } as ClockPort,
     'https://app.example/api/integrations/oauth/callback',
+    logger,
   );
 
-  return { clients, register };
+  return { clients, register, logger };
 };
 
 describe('OAuth2ClientResolution', () => {
@@ -98,12 +113,53 @@ describe('OAuth2ClientResolution', () => {
     await expect(
       bound.clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
     ).resolves.toEqual({ id: 'c-1', secret: 's-1' });
+    expect(bound.logger.warn).not.toHaveBeenCalled();
     await expect(
       unbound.clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
-    ).resolves.toBeNull();
+    ).rejects.toMatchObject({
+      kind: 'invalid',
+      message:
+        'Integration tracker has no OAuth2 client for its authorization server.',
+    });
+    expect(unbound.logger.warn).toHaveBeenCalledExactlyOnceWith(
+      {
+        integration: 'tracker',
+        named: null,
+        required: 'https://auth.tracker.example',
+      },
+      'OAUTH_CLIENTS entry names an issuer other than the authorization server',
+    );
     await expect(
       unbound.clients.existingFor(TEAM, TRACKER, null),
     ).resolves.toEqual({ id: 'c-1', secret: 's-1' });
     expect(unbound.register).not.toHaveBeenCalled();
+  });
+
+  it('refuses, and asks operators for an OAUTH_CLIENTS entry, where the integration offers no registration', async () => {
+    const { clients, register, logger } = resolving();
+
+    await expect(
+      clients.clientFor(TEAM, TRACKER, null, server()),
+    ).rejects.toMatchObject({
+      kind: 'invalid',
+      message: 'Integration tracker has no OAuth2 client.',
+    });
+    expect(register).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
+      { integration: 'tracker', named: undefined, required: undefined },
+      'No OAUTH_CLIENTS entry for the integration',
+    );
+  });
+
+  it('says so where the registration endpoint registers no client', async () => {
+    const { clients, register } = resolving();
+    register.mockResolvedValueOnce(null);
+
+    await expect(
+      clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
+    ).rejects.toMatchObject({
+      kind: 'upstream-error',
+      message: 'Client registration for integration tracker failed.',
+    });
   });
 });

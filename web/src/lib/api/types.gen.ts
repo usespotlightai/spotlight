@@ -17708,9 +17708,21 @@ export type ConnectIntegrationErrors = {
    */
   401: unknown;
   /**
-   * No such team, not yours to connect, or the integration does not take this connection
+   * The caller is not a workspace admin and asks for a team account, or the deployment blocks the OAuth2 server
+   */
+  403: unknown;
+  /**
+   * The team or the integration is not found, or the integration does not take this connection
    */
   404: unknown;
+  /**
+   * The integration has no OAuth2 client, or none for its authorization server
+   */
+  422: unknown;
+  /**
+   * The OAuth2 endpoints of the integration are not found, or its client registration failed
+   */
+  502: unknown;
 };
 
 export type ConnectIntegrationResponses = {
