@@ -6,8 +6,11 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
 import { AppTabItem } from '@/components/shell/tabs/AppTabItem';
 import { Button } from '@/components/ui/button';
+import { useSidebarCollapsedSetting } from '@/hooks/useCollapsedSidebar';
 import { type AppTab, tabIconOf } from '@/lib/app-tabs';
-import { desktopApp } from '@/lib/desktop';
+import { desktopApp, framesWindow } from '@/lib/desktop';
+import { SPRING } from '@/lib/motion';
+import { cn } from '@/lib/utils';
 
 type AppTabStripProps = {
   tabs: readonly AppTab[];
@@ -34,6 +37,9 @@ export function AppTabStrip({
   onBack,
   onForward,
 }: AppTabStripProps) {
+  const collapsed = useSidebarCollapsedSetting();
+  const hangs = framesWindow() && !collapsed;
+
   return (
     <nav
       aria-label="Tabs"
@@ -41,7 +47,13 @@ export function AppTabStrip({
       className="flex min-w-0 shrink-0 items-center gap-1.5 pb-2"
     >
       {desktopApp() && (
-        <>
+        <div
+          className={cn(
+            'relative z-20 flex shrink-0 items-center gap-1.5 transition-[margin]',
+            SPRING,
+            hangs && 'md:-ml-17',
+          )}
+        >
           <Button
             variant="ghost"
             size="icon-sm"
@@ -62,7 +74,7 @@ export function AppTabStrip({
           >
             <ChevronRight className="size-3.5" aria-hidden />
           </Button>
-        </>
+        </div>
       )}
       <SortableContext
         items={tabs.map((tab) => tab.id)}
