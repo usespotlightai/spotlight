@@ -245,6 +245,29 @@ describe('the inbox, open and resolved', () => {
     expect(three).toEqual({ items: [], next: null });
   });
 
+  it('lists open conversations by arrival, not by their newest note', async () => {
+    const line = await aLine();
+    const arrivedFirst = await line.addTask({ stationId: line.work });
+    const arrivedLast = await line.addTask({ stationId: line.work });
+
+    await line.addNotes(arrivedFirst, [
+      { kind: 'asked', at: at(0) },
+      { kind: 'answered', at: at(20) },
+    ]);
+    await line.addNotes(arrivedLast, [{ kind: 'asked', at: at(10) }]);
+
+    const open =
+      (await inboxOf(line.workspaceId, line.teamId).openForWorkspaceMember(
+        'acme',
+        UserId.of(line.viewer),
+      )) ?? [];
+
+    expect(open.map((each) => each.id)).toEqual([
+      `${arrivedLast}:0`,
+      `${arrivedFirst}:0`,
+    ]);
+  });
+
   it('keeps a resolved conversation open while its ask is unseen, on a finished task too', async () => {
     const line = await aLine();
     const finished = await line.addTask({

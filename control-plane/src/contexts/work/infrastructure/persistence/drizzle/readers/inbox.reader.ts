@@ -104,7 +104,7 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
 
 const PAGES_TO_SKIP_OVER = 5;
 
@@ -127,6 +127,21 @@ interface Keyed {
   readonly entry: InboxEntrySummary;
   readonly cursor: Cursor;
 }
+
+interface Ranked {
+  readonly entry: InboxEntrySummary;
+  readonly arrivedAt: Date;
+  readonly interactedAt: Date;
+}
+
+const rankedAt = (
+  entry: InboxEntrySummary,
+  arrivedAt: Date = entry.askedAt,
+  interactedAt: Date = entry.askedAt,
+): Ranked => ({ entry, arrivedAt, interactedAt });
+
+const rankingTime = (ranked: Ranked): number =>
+  +(ranked.entry.section === 'open' ? ranked.arrivedAt : ranked.interactedAt);
 
 interface Gathered {
   readonly keyed: readonly Keyed[];
@@ -234,6 +249,7 @@ const requestsWhere = (
   userId: UserId,
   narrowedTo: SQL | undefined,
   limit: number | null,
+  orderedBy: AnyPgColumn = inboxRequest.openedAt,
 ) => {
   const query = db
     .select({
@@ -241,7 +257,7 @@ const requestsWhere = (
       form: inboxRequest.form,
       about: inboxRequest.about,
       requestOpenedAt: inboxRequest.openedAt,
-      cursorAt: sortableTime(inboxRequest.openedAt),
+      cursorAt: sortableTime(orderedBy),
       readAt: inboxRequestRead.readAt,
       resolvedAt: inboxRequest.resolvedAt,
       taskId: task.id,
@@ -274,7 +290,7 @@ const requestsWhere = (
         narrowedTo,
       ),
     )
-    .orderBy(desc(inboxRequest.openedAt), desc(inboxRequest.id))
+    .orderBy(desc(orderedBy), desc(inboxRequest.id))
     .$dynamic();
 
   return limit === null ? query : query.limit(limit);
@@ -286,9 +302,10 @@ const noticesWhere = (
   userId: UserId,
   narrowedTo: SQL | undefined,
   limit: number | null,
+  orderedBy: AnyPgColumn = notice.createdAt,
 ) => {
   const query = db
-    .select({ notice, cursorAt: sortableTime(notice.createdAt) })
+    .select({ notice, cursorAt: sortableTime(orderedBy) })
     .from(notice)
     .where(
       and(
@@ -297,7 +314,7 @@ const noticesWhere = (
         narrowedTo,
       ),
     )
-    .orderBy(desc(notice.createdAt), desc(notice.id))
+    .orderBy(desc(orderedBy), desc(notice.id))
     .$dynamic();
 
   return limit === null ? query : query.limit(limit);
@@ -315,6 +332,7 @@ const chatsWhere = (
       teamId: chat.teamId,
       title: chat.title,
       currentRunId: chat.currentRunId,
+      createdAt: chat.createdAt,
       resolvedAt: chat.resolvedAt,
       readAt: chat.readAt,
       cursorAt: sortableTime(chat.resolvedAt),
@@ -525,14 +543,23 @@ export class DrizzleInboxReader implements InboxReaderPort {
         null,
       ),
     ]);
-    const items: InboxEntrySummary[] = [
+    const chatEntries = await this.chatItems(chats);
+    const items: Ranked[] = [
       ...tasks,
-      ...(await this.requestItems(scope, requests)).map((each) => each.entry),
-      ...(await this.noticeItems(scope, notices)).map((each) => each.entry),
-      ...(await this.chatItems(chats)).map((each) => each.entry),
+      ...(await this.requestItems(scope, requests)).map((each) =>
+        rankedAt(each.entry),
+      ),
+      ...(await this.noticeItems(scope, notices)).map((each) =>
+        rankedAt(each.entry),
+      ),
+      ...chatEntries.map((each, place) =>
+        rankedAt(each.entry, chats[place]?.createdAt),
+      ),
     ];
 
-    return items.sort((one, other) => +other.askedAt - +one.askedAt);
+    return items
+      .sort((one, other) => rankingTime(other) - rankingTime(one))
+      .map((each) => each.entry);
   }
 
   async resolved(
@@ -728,9 +755,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
       scope.viewer,
       and(
         isNotNull(inboxRequest.resolvedAt),
-        before ? notNewerThan(inboxRequest.openedAt, before) : undefined,
+        before ? notNewerThan(inboxRequest.resolvedAt, before) : undefined,
       ),
       fetched,
+      inboxRequest.resolvedAt,
     );
 
     return {
@@ -750,9 +778,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
       scope.viewer,
       and(
         isNotNull(notice.resolvedAt),
-        before ? notNewerThan(notice.createdAt, before) : undefined,
+        before ? notNewerThan(notice.resolvedAt, before) : undefined,
       ),
       fetched,
+      notice.resolvedAt,
     );
 
     return {
@@ -782,9 +811,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
     };
   }
 
-  private async openTasks(
-    scope: InboxScope,
-  ): Promise<(InboxItemSummary | InboxRunSummary)[]> {
+  private async openTasks(scope: InboxScope): Promise<Ranked[]> {
     const rows = await tasksWhere(
       this.db,
       this.progress,
@@ -841,9 +868,17 @@ export class DrizzleInboxReader implements InboxReaderPort {
           : null;
 
       return [
-        ...(working ? [working] : []),
-        ...listed.map((conversation) =>
-          conversationItem(
+        ...(working
+          ? [
+              rankedAt(
+                working,
+                working.askedAt,
+                newest.get(row.taskId)?.at ?? working.askedAt,
+              ),
+            ]
+          : []),
+        ...listed.map((conversation) => {
+          const entry = conversationItem(
             row,
             conversation,
             latest,
@@ -856,8 +891,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
                 ) ?? null)
               : (newest.get(row.taskId) ?? null),
             context,
-          ),
-        ),
+          );
+
+          return rankedAt(entry, conversation.from.at, entry.askedAt);
+        }),
       ];
     });
   }
