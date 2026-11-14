@@ -54,6 +54,21 @@ func TestAWarmCheckoutIsClonedFromAMirrorThatAnotherUserOwns(t *testing.T) {
 	}
 }
 
+func TestAWarmCheckoutKeepsTheUsersGlobalGitConfig(t *testing.T) {
+	mirrors, dir := t.TempDir(), t.TempDir()
+	mirrorOf(t, mirrors, "web")
+	home := t.TempDir()
+	write(t, filepath.Join(home, ".gitconfig"), "[clone]\n\tdefaultRemoteName = upstream\n")
+	t.Setenv("HOME", home)
+
+	if err := prepare.FromMirror(context.Background(), mirrors, dir, protocol.WarmCheckout{Path: "web"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := git(t, filepath.Join(dir, "web"), "remote"); got != "upstream" {
+		t.Errorf("the warm checkout's remote is %q, want the user's upstream", got)
+	}
+}
+
 func TestAWarmCheckoutRefusesAMissingMirrorOrAMirrorWithNoDefaultBranch(t *testing.T) {
 	mirrors, dir := t.TempDir(), t.TempDir()
 

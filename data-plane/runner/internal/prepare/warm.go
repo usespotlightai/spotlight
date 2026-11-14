@@ -25,25 +25,18 @@ func FromMirror(ctx context.Context, mirrors, dir string, checkout protocol.Warm
 		return nil
 	}
 
-	trusted, err := trustingConfig()
+	trusting, err := configTrustingOtherOwners()
 	if err != nil {
 		return err
 	}
-	defer os.Remove(trusted)
-	git := func(dir string, args ...string) (string, error) {
-		return shell.Run(ctx, shell.Command{
-			Dir:  dir,
-			Env:  map[string]string{"GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_GLOBAL": trusted},
-			Name: "git",
-			Args: args,
-		})
-	}
+	defer os.Remove(trusting)
+	env := map[string]string{"GIT_CONFIG_GLOBAL": trusting}
 
-	if output, err := git(dir, "clone", "--quiet", source, tree); err != nil {
+	if output, err := shell.GitWith(ctx, dir, env, nil, "clone", "--quiet", source, tree); err != nil {
 		return fmt.Errorf("git clone %s from the mirror: %w: %s", checkout.Path, err, shell.Tail(output))
 	}
 
-	if _, err := git(tree, "rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
+	if _, err := shell.GitWith(ctx, tree, env, nil, "rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
 		if err := os.RemoveAll(tree); err != nil {
 			return fmt.Errorf("remove the empty clone of %s: %w", checkout.Path, err)
 		}
@@ -53,14 +46,13 @@ func FromMirror(ctx context.Context, mirrors, dir string, checkout protocol.Warm
 	return nil
 }
 
-// The host's user owns the mirrors, and Debian's git takes safe.directory only from global or system config, not from -c.
-func trustingConfig() (string, error) {
+func configTrustingOtherOwners() (string, error) {
 	file, err := os.CreateTemp("", "spotlight-mirror-*.gitconfig")
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
-	if _, err := file.WriteString("[safe]\n\tdirectory = *\n"); err != nil {
+	if _, err := file.WriteString("[include]\n\tpath = ~/.config/git/config\n\tpath = ~/.gitconfig\n[safe]\n\tdirectory = *\n"); err != nil {
 		os.Remove(file.Name())
 		return "", err
 	}
