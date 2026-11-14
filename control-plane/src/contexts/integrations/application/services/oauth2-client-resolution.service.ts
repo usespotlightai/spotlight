@@ -1,5 +1,8 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import { OAuth2ClientMissingError } from '@integrations/application/errors/oauth2-client-missing.error';
+import {
+  OAuth2ClientMissingError,
+  type OtherIssuer,
+} from '@integrations/application/errors/oauth2-client-missing.error';
 import { OAuth2ServerUnavailableError } from '@integrations/application/errors/oauth2-server-unavailable.error';
 import type {
   ConfiguredOAuth2Client,
@@ -26,13 +29,21 @@ const clientOf = (registration: OAuth2ClientRegistration): OAuth2Client => ({
   secret: registration.clientSecret?.value ?? null,
 });
 
+const otherIssuerOf = (
+  configured: ConfiguredOAuth2Client,
+  server: AuthorizationServer | null,
+): OtherIssuer | null =>
+  server && !AuthorizationServer.takesClientIssuedFor(server, configured.issuer)
+    ? { named: configured.issuer, required: server.issuer }
+    : null;
+
 const configuredFor = (
   configured: ConfiguredOAuth2Client,
   server: AuthorizationServer | null,
 ): OAuth2Client | null =>
-  AuthorizationServer.takesClientIssuedFor(server, configured.issuer)
-    ? { id: configured.id, secret: configured.secret }
-    : null;
+  otherIssuerOf(configured, server)
+    ? null
+    : { id: configured.id, secret: configured.secret };
 
 export class OAuth2ClientResolution implements OAuth2ClientsPort {
   constructor(
@@ -71,14 +82,10 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     const configured = this.configured.of(integration.value);
 
     if (configured) {
-      if (
-        server &&
-        !AuthorizationServer.takesClientIssuedFor(server, configured.issuer)
-      ) {
-        throw new OAuth2ClientMissingError(integration.value, {
-          named: configured.issuer,
-          required: server.issuer,
-        });
+      const otherIssuer = otherIssuerOf(configured, server);
+
+      if (otherIssuer) {
+        throw new OAuth2ClientMissingError(integration.value, otherIssuer);
       }
 
       return { id: configured.id, secret: configured.secret };

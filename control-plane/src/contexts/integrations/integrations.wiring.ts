@@ -906,8 +906,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: OAUTH2_CLIENT_REGISTRAR,
-    inject: [OutboundPolicy],
-    useFactory: (policy: OutboundPolicy) => new OAuth2Registrar(policy),
+    inject: [OutboundPolicy, LOGGER],
+    useFactory: (policy: OutboundPolicy, logger: LoggerPort) =>
+      new OAuth2Registrar(policy, logger),
   },
 
   { provide: OAUTH2_CLIENTS, useExisting: OAuth2ClientResolution },

@@ -61,6 +61,7 @@ import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -377,7 +378,16 @@ const settingUp = ({
   const clients = new OAuth2ClientResolution(
     OAuth2Clients.from('{}'),
     registrations,
-    new OAuth2Registrar(policy, linear.fetch),
+    new OAuth2Registrar(
+      policy,
+      {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      } satisfies LoggerPort,
+      linear.fetch,
+    ),
     TEAMS,
     clock,
     CALLBACK,

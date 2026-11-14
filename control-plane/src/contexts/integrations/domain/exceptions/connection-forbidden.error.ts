@@ -5,7 +5,7 @@ export type ConnectionDenial = 'not-workspace-admin' | 'not-the-person';
 const MESSAGES: Record<ConnectionDenial, string> = {
   'not-workspace-admin':
     'Only a workspace owner or admin can connect a team account.',
-  'not-the-person': 'Only its person can connect a personal account.',
+  'not-the-person': 'Only the account holder can connect a personal account.',
 };
 
 export class ConnectionForbiddenError extends DomainError {
