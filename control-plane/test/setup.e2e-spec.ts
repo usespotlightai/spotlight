@@ -27,7 +27,9 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import { silentLogger } from './support/logger';
 import * as schema from './support/schema';
+import { insertTask } from './support/tasks';
 import { createTeam as createTeamIn } from './support/team';
 
 const access = (db: DrizzleDatabase) =>
@@ -58,9 +60,13 @@ const createTeam = (slug: string) => createTeamIn(db, tasks, slug);
 beforeAll(async () => {
   database = await openDatabase('setup');
   db = database.db;
-  tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
-    dispatch: async () => {},
-  });
+  tasks = new DrizzleTaskRepository(
+    new DrizzleContext(db),
+    {
+      dispatch: async () => {},
+    },
+    silentLogger,
+  );
 }, 60_000);
 
 afterAll(async () => {
@@ -139,7 +145,7 @@ describe('the open setup lists of a team', () => {
   it('leaves out a task that never had a list', async () => {
     const { workspaceId, teamId, stationId, list } = await createTeam('angier');
 
-    await db.insert(schema.task).values({
+    await insertTask(db, {
       id: randomUUID(),
       branch: `feat/test-${randomUUID()}`,
       openedFrom: 'person',

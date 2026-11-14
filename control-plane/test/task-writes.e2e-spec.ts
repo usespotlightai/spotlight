@@ -16,8 +16,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { openDatabase, type TestDatabase } from './support/database';
+import { silentLogger } from './support/logger';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 import { createTeam } from './support/team';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
@@ -35,9 +37,13 @@ let tasks: DrizzleTaskRepository;
 beforeAll(async () => {
   database = await openDatabase('task_writes');
   db = database.db;
-  tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
-    dispatch: async () => {},
-  });
+  tasks = new DrizzleTaskRepository(
+    new DrizzleContext(db),
+    {
+      dispatch: async () => {},
+    },
+    silentLogger,
+  );
 }, 60_000);
 
 afterAll(async () => {
@@ -233,20 +239,17 @@ describe('a person moving a task by hand', () => {
   const taskAt = async (stationId: string) => {
     const id = randomUUID();
 
-    await app
-      .get<DrizzleDatabase>(DRIZZLE)
-      .insert(schema.task)
-      .values({
-        id,
-        branch: `feat/test-${id}`,
-        openedFrom: 'person',
-        workspaceId: team.workspaceId.value,
-        stationId,
-        title: 'Drain the queue',
-        originStationId: stationId,
-        createdById: team.owner.value,
-        assigneeId: team.owner.value,
-      });
+    await insertTask(app.get<DrizzleDatabase>(DRIZZLE), {
+      id,
+      branch: `feat/test-${id}`,
+      openedFrom: 'person',
+      workspaceId: team.workspaceId.value,
+      stationId,
+      title: 'Drain the queue',
+      originStationId: stationId,
+      createdById: team.owner.value,
+      assigneeId: team.owner.value,
+    });
 
     return id;
   };

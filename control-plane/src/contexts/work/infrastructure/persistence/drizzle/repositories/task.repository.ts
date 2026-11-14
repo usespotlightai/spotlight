@@ -6,6 +6,10 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
+import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -19,6 +23,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StationNotKnownYetError } from '@work/application/errors/station-not-known-yet.error';
+import { TeamNotKnownYetError } from '@work/application/errors/team-not-known-yet.error';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-already-opened.error';
@@ -69,7 +74,10 @@ import {
   taskNote,
   taskPullRequest,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
+import {
+  workStation,
+  workTeam,
+} from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import {
   and,
   asc,
@@ -288,6 +296,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
+    @Inject(LOGGER) private readonly logger: LoggerPort,
   ) {}
 
   async add(added: Task): Promise<void> {
@@ -297,12 +306,45 @@ export class DrizzleTaskRepository implements TaskRepository {
     });
   }
 
+  private async numbered(
+    added: Task,
+  ): Promise<{ teamId: string; number: number }> {
+    const [station] = await this.context.db
+      .select({ teamId: workStation.teamId })
+      .from(workStation)
+      .where(eq(workStation.stationId, added.stationId.value));
+
+    if (!station) {
+      throw new StationNotKnownYetError(added.stationId.value);
+    }
+
+    const [counted] = await this.context.db
+      .update(workTeam)
+      .set({ nextNumber: sql`${workTeam.nextNumber} + 1` })
+      .where(eq(workTeam.teamId, station.teamId))
+      .returning({ number: sql<number>`${workTeam.nextNumber} - 1` });
+
+    if (!counted) {
+      this.logger.error(
+        { teamId: station.teamId, taskId: added.id.value },
+        'The team has no key at task creation',
+      );
+
+      throw new TeamNotKnownYetError(station.teamId);
+    }
+
+    return { teamId: station.teamId, number: counted.number };
+  }
+
   private async inserted(added: Task): Promise<void> {
+    const numbered = await this.numbered(added);
+
     await this.translated(added, () =>
       this.context.db.insert(task).values({
         id: added.id.value,
         workspaceId: added.workspaceId.value,
         stationId: added.stationId.value,
+        ...numbered,
         title: added.title.value,
         branch: added.branch.value,
         description: added.description?.value ?? null,

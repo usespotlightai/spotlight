@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 import { createTeam } from './support/team';
 
 let app: INestApplication;
@@ -51,7 +52,7 @@ const createInboxRequest = async (
   const taskId = randomUUID();
   const requestId = randomUUID();
 
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id: taskId,
     branch: `feat/test-${taskId}`,
     openedFrom: 'person',
@@ -261,7 +262,7 @@ describe('who is told which memories a run used on a deleted team’s line', () 
         kind: 'completed',
       },
     ]);
-    await db.insert(schema.task).values({
+    await insertTask(db, {
       id: taskId,
       branch: `feat/test-${taskId}`,
       openedFrom: 'person',

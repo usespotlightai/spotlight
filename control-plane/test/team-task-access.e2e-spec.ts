@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
+import { insertTask } from './support/tasks';
 import { createTeam } from './support/team';
 
 let app: INestApplication;
@@ -23,7 +24,7 @@ const tasksOfTeam = () => `/api/teams/${team.teamId.value}/tasks`;
 const taskAt = async (): Promise<string> => {
   const id = randomUUID();
 
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id,
     branch: `feat/test-${id}`,
     openedFrom: 'person',

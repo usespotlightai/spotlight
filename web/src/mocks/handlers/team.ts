@@ -591,6 +591,7 @@ const chatHandlers = [
         ...(world().tasks[teamId] ?? []),
         {
           id: taskId,
+          identifier: `MOCK-${(world().tasks[teamId]?.length ?? 0) + 1}`,
           stationId: proposal.stationId,
           revision: 0,
           title: proposal.title,

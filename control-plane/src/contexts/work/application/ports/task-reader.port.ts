@@ -22,6 +22,7 @@ interface TaskPersonSummary {
 
 export interface TaskSummary {
   readonly id: string;
+  readonly identifier: string;
   readonly stationId: string;
   readonly revision: number;
   readonly title: string;

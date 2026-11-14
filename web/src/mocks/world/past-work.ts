@@ -117,6 +117,7 @@ const finalStationOf = (runs: readonly HistoryRun[]): string => {
 
 const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   id: task.id,
+  identifier: `PAST-${task.id}`,
   stationId: finalStationOf(historyRunsOfTask(task.id)),
   revision: 0,
   title: task.title,

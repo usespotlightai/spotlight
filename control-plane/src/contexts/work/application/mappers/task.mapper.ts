@@ -5,6 +5,7 @@ export const TaskMapper = {
   summaryToDto(summary: TaskSummary): TaskDto {
     return {
       id: summary.id,
+      identifier: summary.identifier,
       stationId: summary.stationId,
       revision: summary.revision,
       title: summary.title,

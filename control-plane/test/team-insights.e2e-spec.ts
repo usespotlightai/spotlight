@@ -65,6 +65,7 @@ import { eventually } from './support/eventually';
 import { endingFor } from './support/run-ended';
 import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertTask } from './support/tasks';
 import { createTeam } from './support/team';
 
 const TOKEN_HEADER = 'spotlight-workspace-token';
@@ -137,7 +138,7 @@ beforeAll(async () => {
   const station = team.stationId;
   const workspaceId = team.workspaceId;
 
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id: TASK.value,
     branch: `feat/test-${TASK.value}`,
     openedFrom: 'person',

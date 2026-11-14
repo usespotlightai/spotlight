@@ -14,7 +14,7 @@ import {
 
 import { PageErrorBoundary } from '@/components/shell/layout/PageErrorBoundary';
 import { type AppTab, type Place, placeAt } from '@/lib/app-tabs';
-import { type ReportTitle, TabTitleContext } from '@/lib/tab-title';
+import { type TabReports, TabTitleContext } from '@/lib/tab-title';
 
 type TabPaneProps = {
   tab: AppTab;
@@ -22,7 +22,7 @@ type TabPaneProps = {
   focused: boolean;
   onFocus: () => void;
   onVisit: (id: string, place: Place) => void;
-  onTitle: ReportTitle;
+  onReports: TabReports;
 };
 
 const OUTSIDE_ANY_ROUTER = null as never;
@@ -37,7 +37,7 @@ export function TabPane({
   focused,
   onFocus,
   onVisit,
-  onTitle,
+  onReports,
 }: TabPaneProps) {
   const windowNavigator = use(UNSAFE_NavigationContext).navigator;
   const inPane = useMemo<Navigator>(() => {
@@ -66,7 +66,7 @@ export function TabPane({
             location={location}
             navigator={focused ? windowNavigator : inPane}
           >
-            <TabTitleContext value={onTitle}>
+            <TabTitleContext value={onReports}>
               <PageErrorBoundary>
                 <Suspense fallback={null}>
                   <Routes>

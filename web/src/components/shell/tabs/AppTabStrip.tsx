@@ -6,11 +6,13 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import type { CSSProperties } from 'react';
 
 import { AppTabItem } from '@/components/shell/tabs/AppTabItem';
+import { RecentPagesButton } from '@/components/shell/tabs/RecentPagesButton';
 import { Button } from '@/components/ui/button';
 import { useSidebarCollapsedSetting } from '@/hooks/useCollapsedSidebar';
 import { type AppTab, tabIconOf } from '@/lib/app-tabs';
 import { desktopApp, framesWindow } from '@/lib/desktop';
 import { SPRING } from '@/lib/motion';
+import type { RecentPage } from '@/lib/recent-pages';
 import { cn } from '@/lib/utils';
 
 const STRIP_SPACING = {
@@ -29,6 +31,8 @@ type AppTabStripProps = {
   onOpen: () => void;
   onBack: () => void;
   onForward: () => void;
+  recent?: readonly RecentPage[];
+  onRecent?: (path: string) => void;
 };
 
 export function AppTabStrip({
@@ -42,6 +46,8 @@ export function AppTabStrip({
   onOpen,
   onBack,
   onForward,
+  recent = [],
+  onRecent,
 }: AppTabStripProps) {
   const collapsed = useSidebarCollapsedSetting();
   const hangs = framesWindow() && !collapsed;
@@ -58,7 +64,7 @@ export function AppTabStrip({
           className={cn(
             'relative z-20 flex shrink-0 items-center gap-(--tab-gap) transition-[margin]',
             SPRING,
-            hangs && 'md:-ml-[calc(2*(var(--history-button)+var(--tab-gap)))]',
+            hangs && 'md:-ml-[calc(3*(var(--history-button)+var(--tab-gap)))]',
           )}
         >
           <Button
@@ -81,6 +87,13 @@ export function AppTabStrip({
           >
             <ChevronRight className="size-3.5" aria-hidden />
           </Button>
+          {onRecent && (
+            <RecentPagesButton
+              pages={recent}
+              onSelect={onRecent}
+              className="size-(--history-button)"
+            />
+          )}
         </div>
       )}
       <SortableContext

@@ -20,6 +20,7 @@ import type {
   TaskReaderPort,
   TaskSummary,
 } from '@work/application/ports/task-reader.port';
+import { taskIdentifier } from '@work/domain/services/task-identifier';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
 import { cursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
@@ -32,7 +33,10 @@ import {
   taskNote,
   taskPullRequest,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
+import {
+  workStation,
+  workTeam,
+} from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { and, asc, desc, eq, inArray, ne, type SQL } from 'drizzle-orm';
 
 @Injectable()
@@ -95,6 +99,8 @@ export class DrizzleTaskReader implements TaskReaderPort {
     const listed = this.db
       .select({
         id: task.id,
+        number: task.number,
+        teamKey: workTeam.key,
         rank: task.rank,
         stationId: task.stationId,
         revision: task.revision,
@@ -108,6 +114,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
       })
       .from(task)
       .innerJoin(workStation, eq(workStation.stationId, task.stationId))
+      .innerJoin(workTeam, eq(workTeam.teamId, task.teamId))
       .where(and(eq(workStation.teamId, teamId.value), narrowedTo))
       .orderBy(asc(task.rank), asc(task.id))
       .$dynamic();
@@ -146,6 +153,8 @@ export class DrizzleTaskReader implements TaskReaderPort {
 
     return rows.map(
       ({
+        number,
+        teamKey,
         currentRunId,
         createdById,
         assigneeId,
@@ -153,6 +162,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         ...rest
       }) => ({
         ...rest,
+        identifier: taskIdentifier(teamKey, number),
         pullRequests: reviewedPullRequest
           ? [reviewedPullRequest]
           : (pulled.get(rest.id) ?? []),

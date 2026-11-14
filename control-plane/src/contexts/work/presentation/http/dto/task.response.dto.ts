@@ -57,6 +57,12 @@ export class TaskResponseDto {
   @ApiProperty({ example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13' })
   readonly id: string;
 
+  @ApiProperty({
+    example: 'SPO-272',
+    description: 'The team key and the number of the task in its team',
+  })
+  readonly identifier: string;
+
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
   readonly stationId: string;
 
@@ -138,6 +144,7 @@ export class TaskResponseDto {
 
   constructor(
     id: string,
+    identifier: string,
     stationId: string,
     revision: number,
     title: string,
@@ -152,6 +159,7 @@ export class TaskResponseDto {
     note: TaskNoteResponseDto | null,
   ) {
     this.id = id;
+    this.identifier = identifier;
     this.stationId = stationId;
     this.revision = revision;
     this.title = title;

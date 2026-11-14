@@ -82,7 +82,7 @@ function InTab() {
         focused
         onFocus={() => {}}
         onVisit={tabs.visit}
-        onTitle={tabs.titleFor(tab.id)}
+        onReports={tabs.reportsFor(tab.id)}
       />
     )
   );

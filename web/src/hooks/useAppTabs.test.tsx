@@ -70,7 +70,7 @@ function Shell() {
       >
         Move the first tab to the end
       </button>
-      <TabTitleContext value={tabs.titleFor(tabs.activeId)}>
+      <TabTitleContext value={tabs.reportsFor(tabs.activeId)}>
         <Routes>
           <Route path="/w/:slug/inbox" element={<Page title="Inbox" />} />
           <Route

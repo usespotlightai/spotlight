@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const dto: TaskDto = {
   id: 'task_1',
+  identifier: 'CORE-1',
   revision: 2,
   stationId: 'station_1',
   title: 'Fix the queue',
@@ -35,6 +36,10 @@ describe('TaskHttpMapper', () => {
         `${key} was dropped crossing to the response`,
       ).not.toBeUndefined();
     }
+  });
+
+  it('carries the identifier of the task', () => {
+    expect(TaskHttpMapper.toResponse(dto).identifier).toBe('CORE-1');
   });
 
   it('carries the note as its own shape, not as words', () => {

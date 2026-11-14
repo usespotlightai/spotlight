@@ -95,6 +95,7 @@ export const workHandlers: RequestHandler[] = [
       const body = (await request.json()) as AddTaskRequestDto;
       const task: TaskResponseDto = {
         id: nextId('task'),
+        identifier: `MOCK-${(world().tasks[teamId]?.length ?? 0) + 1}`,
         stationId,
         revision: 0,
         title: body.title,

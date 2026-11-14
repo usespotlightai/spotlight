@@ -1,3 +1,4 @@
+import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamOrigin } from '@identity/domain/value-objects/team-origin.vo';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -11,6 +12,7 @@ export class TeamCreated implements ConfigurationChanged {
   constructor(
     readonly workspaceId: WorkspaceId,
     readonly teamId: TeamId,
+    readonly key: TeamKey,
     readonly createdBy: UserId,
     readonly origin: TeamOrigin,
     readonly change: ConfigurationChange,

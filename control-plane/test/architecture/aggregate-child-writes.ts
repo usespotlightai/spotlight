@@ -221,6 +221,13 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
       'contexts/work/infrastructure/persistence/drizzle/station-deletion.guard.ts',
     ],
   },
+  work_team: {
+    why: 'Work local projection of the team keys, with the next task number of each team',
+    writers: [
+      'contexts/work/infrastructure/persistence/drizzle/projections/work-teams.projection.ts',
+      'contexts/work/infrastructure/persistence/drizzle/repositories/task.repository.ts',
+    ],
+  },
   workspace_plan: {
     why: 'Catalog plan record of a workspace, removed with the workspace',
     writers: [

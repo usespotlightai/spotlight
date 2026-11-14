@@ -12,6 +12,7 @@ export const TaskHttpMapper = {
   toResponse(dto: TaskDto): TaskResponseDto {
     return new TaskResponseDto(
       dto.id,
+      dto.identifier,
       dto.stationId,
       dto.revision,
       dto.title,

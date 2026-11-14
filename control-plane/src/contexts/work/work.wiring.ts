@@ -224,6 +224,7 @@ import { NotifyOutsideTools } from '@work/application/events/handlers/notify-out
 import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
+import { ProjectTeam } from '@work/application/events/handlers/project-team.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
@@ -423,6 +424,10 @@ import {
 } from '@work/application/ports/work-stations.port';
 import { WORK_TASK_LOOKUP } from '@work/application/ports/work-task-lookup.port';
 import {
+  WORK_TEAMS,
+  type WorkTeamsPort,
+} from '@work/application/ports/work-teams.port';
+import {
   ListChatJournalRunsQuery,
   ListChatsQuery,
   ReadChatJournalQuery,
@@ -591,6 +596,7 @@ import { DrizzleTeamWelcomes } from '@work/infrastructure/persistence/drizzle/le
 import { DrizzleToolUses } from '@work/infrastructure/persistence/drizzle/ledgers/tool-uses.ledger';
 import { DrizzleTurnRetakes } from '@work/infrastructure/persistence/drizzle/ledgers/turn-retakes.ledger';
 import { DrizzleWorkStations } from '@work/infrastructure/persistence/drizzle/projections/work-stations.projection';
+import { DrizzleWorkTeams } from '@work/infrastructure/persistence/drizzle/projections/work-teams.projection';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleChatMarks } from '@work/infrastructure/persistence/drizzle/readers/chat-marks.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
@@ -619,6 +625,7 @@ import { S3Readiness } from '@work/infrastructure/storage/s3-readiness';
 import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-parent';
 import { TaskDraftCollab } from '@work/presentation/collab/task-draft.collab';
 import { workStationSubscribers } from '@work/presentation/events/work-stations.subscribers';
+import { workTeamSubscribers } from '@work/presentation/events/work-teams.subscribers';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
 import { AttachmentController } from '@work/presentation/http/controllers/attachment.controller';
 import { ChatController } from '@work/presentation/http/controllers/chat.controller';
@@ -636,6 +643,8 @@ import { TurnsWorker } from '@work/presentation/workers/turns.worker';
 const WORK_EVENTS = Symbol('WORK_EVENTS');
 
 const WORK_STATION_EVENTS = Symbol('WORK_STATION_EVENTS');
+
+const WORK_TEAM_EVENTS = Symbol('WORK_TEAM_EVENTS');
 
 export const WORK_CONTROLLERS: readonly Type[] = [
   RunWorkController,
@@ -1172,6 +1181,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: TASK_PLACEMENTS, useClass: DrizzleTaskPlacements },
 
   { provide: WORK_STATIONS, useClass: DrizzleWorkStations },
+
+  { provide: WORK_TEAMS, useClass: DrizzleWorkTeams },
+
+  {
+    provide: WORK_TEAM_EVENTS,
+    inject: [EventSubscribers, WORK_TEAMS],
+    useFactory: (subscribers: EventSubscribers, teams: WorkTeamsPort) => {
+      subscribers.register(workTeamSubscribers(new ProjectTeam(teams)));
+      return true;
+    },
+  },
 
   { provide: STATION_DELETION_GUARD, useClass: DrizzleStationDeletionGuard },
 

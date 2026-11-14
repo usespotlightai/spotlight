@@ -22,6 +22,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import { silentLogger } from './support/logger';
 import { createTeam } from './support/team';
 
 let database: TestDatabase;
@@ -33,9 +34,13 @@ beforeAll(async () => {
   chats = new DrizzleChatRepository(new DrizzleContext(database.db), {
     dispatch: async () => {},
   });
-  tasks = new DrizzleTaskRepository(new DrizzleContext(database.db), {
-    dispatch: async () => {},
-  });
+  tasks = new DrizzleTaskRepository(
+    new DrizzleContext(database.db),
+    {
+      dispatch: async () => {},
+    },
+    silentLogger,
+  );
 }, 60_000);
 
 afterAll(async () => {

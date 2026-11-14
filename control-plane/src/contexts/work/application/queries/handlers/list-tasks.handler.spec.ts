@@ -13,6 +13,7 @@ const created = new Date('2026-08-27T09:15:00.000Z');
 const summaries: TaskSummary[] = [
   {
     id: 'task_1',
+    identifier: 'CORE-1',
     revision: 0,
     stationId: 'station_1',
     title: 'Fix the queue',
@@ -28,6 +29,7 @@ const summaries: TaskSummary[] = [
   },
   {
     id: 'task_2',
+    identifier: 'CORE-2',
     revision: 0,
     stationId: 'station_2',
     title: 'Write the spec',

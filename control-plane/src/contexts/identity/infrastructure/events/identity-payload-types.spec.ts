@@ -139,6 +139,7 @@ const EVERY_EVENT: readonly DomainEvent[] = [
   new TeamCreated(
     WORKSPACE,
     TEAM,
+    TeamKey.of('core'),
     USER,
     'configuration',
     ConfigurationChange.created(changed, BY),

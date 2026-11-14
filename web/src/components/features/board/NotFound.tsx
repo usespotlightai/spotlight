@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 
 import { PageNotice } from '@/components/shared/PageNotice';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { useMissingTab } from '@/lib/tab-title';
 import { cn } from '@/lib/utils';
 
 type NotFoundProps = {
@@ -12,6 +13,8 @@ type NotFoundProps = {
 };
 
 export function NotFound({ title, to, children }: NotFoundProps) {
+  useMissingTab();
+
   return (
     <PageNotice title={title}>
       <div className="flex flex-col items-center gap-3">

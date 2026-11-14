@@ -269,7 +269,8 @@ const TEAM_PATTERNS = [
   '/w/:slug/settings/team/:teamId/*',
 ];
 
-const pathnameOf = (path: string): string => path.split(/[?#]/)[0] ?? path;
+export const pathnameOf = (path: string): string =>
+  path.split(/[?#]/)[0] ?? path;
 
 const teamIdAt = (path: string): string | undefined =>
   TEAM_PATTERNS.map((pattern) => matchPath(pattern, pathnameOf(path))).find(

@@ -39,6 +39,7 @@ export const IDENTITY_EVENT_MAPPERS = [
       kind: TEAM_CREATED,
       workspaceId: event.workspaceId.value,
       teamId: event.teamId.value,
+      key: event.key.value,
       ownerId: event.createdBy.value,
       origin: event.origin,
     }),

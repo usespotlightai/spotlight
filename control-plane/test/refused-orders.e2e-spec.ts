@@ -17,6 +17,7 @@ import { eventually } from './support/eventually';
 import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 import { createTeam } from './support/team';
 
 const DELIVERY = randomUUID();
@@ -85,7 +86,7 @@ describe('a task run whose order the catalog refuses (e2e)', () => {
     const taskId = randomUUID();
     const runId = randomUUID();
 
-    await db.insert(schema.task).values({
+    await insertTask(db, {
       id: taskId,
       branch: `feat/test-${taskId}`,
       openedFrom: 'person',

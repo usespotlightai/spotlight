@@ -17,6 +17,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import { silentLogger } from './support/logger';
 import { createTeam } from './support/team';
 
 const _access = (db: DrizzleDatabase) =>
@@ -40,9 +41,13 @@ let board: DrizzleTaskReader;
 beforeAll(async () => {
   database = await openDatabase('board_listing');
   db = database.db;
-  tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
-    dispatch: async () => {},
-  });
+  tasks = new DrizzleTaskRepository(
+    new DrizzleContext(db),
+    {
+      dispatch: async () => {},
+    },
+    silentLogger,
+  );
   board = new DrizzleTaskReader(db, new DrizzlePersonReader(db), {
     progressOf: async () => [],
   });

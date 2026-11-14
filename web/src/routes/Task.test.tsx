@@ -3,10 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { TabTitleContext } from '@/lib/tab-title';
 import { Task } from '@/routes/Task';
 
 const task = {
   id: 'task_1',
+  identifier: 'SPO-272',
   stationId: 'station_1',
   revision: 2,
   title: 'Fix the queue',
@@ -97,17 +99,30 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
   }),
 }));
 
+const reports = {
+  title: vi.fn(() => () => {}),
+  label: vi.fn(),
+  missing: vi.fn(),
+};
+
 const renderAt = (taskId: string) =>
   render(
-    <MemoryRouter initialEntries={[`/w/acme/team/team_1/tasks/${taskId}`]}>
-      <Routes>
-        <Route path="/w/:slug/team/:teamId/tasks/:taskId" element={<Task />} />
-      </Routes>
-    </MemoryRouter>,
+    <TabTitleContext value={reports}>
+      <MemoryRouter initialEntries={[`/w/acme/team/team_1/tasks/${taskId}`]}>
+        <Routes>
+          <Route
+            path="/w/:slug/team/:teamId/tasks/:taskId"
+            element={<Task />}
+          />
+        </Routes>
+      </MemoryRouter>
+    </TabTitleContext>,
   );
 
 beforeEach(() => {
   localStorage.clear();
+  reports.label.mockClear();
+  reports.missing.mockClear();
   moved.mockClear();
   deleted.mockClear();
   worked.mockReturnValue([]);
@@ -385,6 +400,19 @@ describe('Task', () => {
       'href',
       '/w/acme/team/team_1',
     );
+  });
+
+  it('tells its tab that the page is gone where there is no task', () => {
+    renderAt('task_missing');
+
+    expect(reports.missing).toHaveBeenCalledOnce();
+  });
+
+  it('tells its tab the identifier of the task', () => {
+    renderAt('task_1');
+
+    expect(reports.label).toHaveBeenCalledWith('SPO-272');
+    expect(reports.missing).not.toHaveBeenCalled();
   });
 
   it('keeps the shape of a task while it loads, keeping what never changes', () => {

@@ -43,6 +43,7 @@ describe('IDENTITY_EVENT_MAPPERS', () => {
         new TeamCreated(
           WORKSPACE,
           TeamId.of('team_1'),
+          TeamKey.of('core'),
           UserId.of('user_1'),
           'configuration',
           changed('team', 'team_1', 'core'),
@@ -53,6 +54,7 @@ describe('IDENTITY_EVENT_MAPPERS', () => {
         kind: 'identity.team-created.v1',
         workspaceId: 'ws_1',
         teamId: 'team_1',
+        key: 'core',
         ownerId: 'user_1',
         origin: 'configuration',
       },

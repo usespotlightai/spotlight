@@ -32,3 +32,9 @@ export const workLine = pgTable('work_line', {
   lineVersion: integer('line_version'),
   savedVersion: integer('saved_version'),
 });
+
+export const workTeam = pgTable('work_team', {
+  teamId: text('team_id').primaryKey(),
+  key: text('key').notNull(),
+  nextNumber: integer('next_number').notNull().default(1),
+});

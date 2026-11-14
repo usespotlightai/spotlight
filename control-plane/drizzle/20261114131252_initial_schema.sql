@@ -2158,6 +2158,8 @@ CREATE TABLE "task" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"station_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"number" integer NOT NULL,
 	"title" text NOT NULL,
 	"branch" text NOT NULL,
 	"description" text,
@@ -2295,6 +2297,12 @@ CREATE TABLE "work_station" (
 	"kind" "work_station_kind" NOT NULL,
 	"color" text NOT NULL,
 	"position" integer NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "work_team" (
+	"team_id" text PRIMARY KEY NOT NULL,
+	"key" text NOT NULL,
+	"next_number" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
 DROP INDEX "account_issuer_accountId_uidx";--> statement-breakpoint
@@ -2605,6 +2613,7 @@ CREATE INDEX "notice_addressee_idx" ON "notice" USING btree ("workspace_id","add
 CREATE INDEX "notice_team_idx" ON "notice" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "notice_workspace_created_idx" ON "notice" USING btree ("workspace_id","created_at","id");--> statement-breakpoint
 CREATE INDEX "processed_event_processed_at_idx" ON "processed_event" USING btree ("processed_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "task_team_number_uidx" ON "task" USING btree ("team_id","number");--> statement-breakpoint
 CREATE UNIQUE INDEX "task_proposed_in_uidx" ON "task" USING btree ("proposed_in_chat_id","proposed_in_position");--> statement-breakpoint
 CREATE INDEX "task_station_idx" ON "task" USING btree ("station_id","rank");--> statement-breakpoint
 CREATE INDEX "task_origin_station_idx" ON "task" USING btree ("origin_station_id");--> statement-breakpoint

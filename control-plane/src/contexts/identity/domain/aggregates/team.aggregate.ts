@@ -51,6 +51,7 @@ export class Team extends EventRecorder {
       new TeamCreated(
         input.workspaceId,
         input.id,
+        team.key,
         input.createdBy,
         team.origin,
         ConfigurationChange.created(team.whatChanged, input.by),
@@ -67,6 +68,7 @@ export class Team extends EventRecorder {
       new TeamCreated(
         input.workspaceId,
         input.id,
+        team.key,
         input.createdBy,
         team.origin,
         ConfigurationChange.created(team.whatChanged, input.by),

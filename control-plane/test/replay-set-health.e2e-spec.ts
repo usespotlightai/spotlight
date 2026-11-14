@@ -61,6 +61,7 @@ import { replayOf } from './support/replays';
 import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 import { createTeam } from './support/team';
 
 const HOST = `host-health-${randomUUID().slice(0, 8)}`;
@@ -256,7 +257,7 @@ const anOriginal = async (): Promise<Original> => {
   const archiveId = randomUUID();
   const at = new Date();
 
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id: taskId,
     branch: `feat/test-${taskId}`,
     openedFrom: 'person',

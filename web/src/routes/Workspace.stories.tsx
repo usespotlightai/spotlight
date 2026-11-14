@@ -3,8 +3,9 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { THEME_STORAGE_KEY } from '@/hooks/useTheme';
 import { APP_TABS_KEY } from '@/lib/app-tabs';
 import { inboxPath } from '@/lib/inbox';
+import { RECENT_PAGES_KEY } from '@/lib/recent-pages';
 import { runnersPath } from '@/lib/runner';
-import { teamSectionPath } from '@/lib/team';
+import { linePath, teamPath, teamSectionPath } from '@/lib/team';
 import { GROWTH_ID, PLATFORM_ID, SLUG, WORKSPACE } from '@/mocks/world';
 import { settingsWorld } from '@/mocks/world/settings';
 import {
@@ -102,3 +103,51 @@ const openThemeMenu = (theme: 'light' | 'dark'): StoryObj<typeof meta> => ({
 export const ThemeMenuLight = openThemeMenu('light');
 
 export const ThemeMenuDark = openThemeMenu('dark');
+
+const RECENT_PAGES = [
+  {
+    path: `${teamPath(SLUG, PLATFORM_ID)}/tasks/task_272`,
+    title: 'Show recently viewed pages in the tab strip',
+    label: 'SPO-272',
+  },
+  {
+    path: `${teamPath(SLUG, PLATFORM_ID)}/runs/run_41`,
+    title: 'Run 41',
+  },
+  {
+    path: `${teamPath(SLUG, PLATFORM_ID)}/tasks/task_268`,
+    title: 'Let a station keep its own judge',
+    label: 'SPO-268',
+  },
+  { path: linePath(SLUG, PLATFORM_ID, 'line_1'), title: 'Delivery' },
+  { path: teamSectionPath(SLUG, GROWTH_ID, 'memory'), title: 'Memory' },
+  { path: runnersPath(SLUG), title: 'Runners' },
+];
+
+export const RecentlyViewed: StoryObj<typeof meta> = {
+  beforeEach: () => {
+    Object.defineProperty(window, 'spotlightDesktop', {
+      configurable: true,
+      value: {
+        platform: 'linux',
+        setBadge: () => {},
+        show: () => {},
+        authorize: () => {},
+      },
+    });
+    localStorage.setItem(
+      `${RECENT_PAGES_KEY}.${SLUG}`,
+      JSON.stringify(RECENT_PAGES),
+    );
+
+    return () => {
+      Reflect.deleteProperty(window, 'spotlightDesktop');
+      localStorage.removeItem(`${RECENT_PAGES_KEY}.${SLUG}`);
+    };
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(
+      await canvas.findByRole('button', { name: 'Recently viewed' }),
+    );
+  },
+};

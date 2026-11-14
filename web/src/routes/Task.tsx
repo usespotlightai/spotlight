@@ -9,6 +9,7 @@ import { useTask } from '@/hooks/api/useTasks';
 import { useTaskTrail } from '@/hooks/useTaskTrail';
 import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
+import { useTabLabel } from '@/lib/tab-title';
 import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 
@@ -18,6 +19,7 @@ export function Task() {
   const found = useTask(teamId, taskId);
 
   const task = found.data;
+  useTabLabel(task?.identifier);
   const line = lines.data?.find((candidate) =>
     candidate.stations.some((station) => station.id === task?.stationId),
   );

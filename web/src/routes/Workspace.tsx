@@ -59,6 +59,8 @@ export function Workspace({ pages }: WorkspaceProps) {
       onOpen={tabs.open}
       onBack={tabs.back}
       onForward={tabs.forward}
+      recent={tabs.recent}
+      onRecent={tabs.showRecent}
     />
   );
   const paneOf = (id: string | undefined) => {
@@ -73,7 +75,7 @@ export function Workspace({ pages }: WorkspaceProps) {
           focused={tab.id === tabs.activeId}
           onFocus={() => tabs.focus(tab.id)}
           onVisit={tabs.visit}
-          onTitle={tabs.titleFor(tab.id)}
+          onReports={tabs.reportsFor(tab.id)}
         />
       )
     );

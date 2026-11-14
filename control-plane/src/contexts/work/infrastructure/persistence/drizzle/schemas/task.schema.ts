@@ -93,6 +93,8 @@ export const task = pgTable(
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     stationId: text('station_id').notNull(),
+    teamId: text('team_id').notNull(),
+    number: integer('number').notNull(),
     title: text('title').notNull(),
     branch: text('branch').notNull(),
     description: text('description'),
@@ -132,6 +134,7 @@ export const task = pgTable(
       columns: [table.stationId],
       foreignColumns: [workStation.stationId],
     }).onDelete('restrict'),
+    uniqueIndex('task_team_number_uidx').on(table.teamId, table.number),
     uniqueIndex('task_proposed_in_uidx').on(
       table.proposedInChatId,
       table.proposedInPosition,

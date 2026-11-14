@@ -30,6 +30,7 @@ import { runFactsOver, runJournalsOver } from './support/run-facts';
 import { aDispatch, aTurn, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -136,7 +137,7 @@ const ran = async (
   const runId = randomUUID();
   const ended = state === 'completed' || state === 'failed';
 
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id: taskId,
     branch: `feat/test-${taskId}`,
     openedFrom: 'person',

@@ -21,6 +21,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import { silentLogger } from './support/logger';
 import { aRunOf } from './support/run-ended';
 import { createTeam } from './support/team';
 
@@ -45,9 +46,13 @@ let tasks: DrizzleTaskRepository;
 beforeAll(async () => {
   database = await openDatabase('tool_approvals');
   db = database.db;
-  tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
-    dispatch: async () => {},
-  });
+  tasks = new DrizzleTaskRepository(
+    new DrizzleContext(db),
+    {
+      dispatch: async () => {},
+    },
+    silentLogger,
+  );
 }, 60_000);
 
 afterAll(async () => {

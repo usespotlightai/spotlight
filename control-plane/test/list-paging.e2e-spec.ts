@@ -20,6 +20,7 @@ import { runFactsOver } from './support/run-facts';
 import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -82,7 +83,7 @@ const aLine = async () => {
   }) => {
     const taskId = randomUUID();
 
-    await db.insert(schema.task).values({
+    await insertTask(db, {
       id: taskId,
       branch: `feat/test-${taskId}`,
       openedFrom: 'person',

@@ -29,6 +29,7 @@ import { aRunOf } from './support/run-ended';
 import { requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 
 const HOUR = 60 * 60_000;
 const DAY = 24 * HOUR;
@@ -104,7 +105,7 @@ const aTask = async (
 ): Promise<string> => {
   const id = randomUUID();
 
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id,
     branch: `feat/test-${id}`,
     openedFrom: 'person',

@@ -36,6 +36,7 @@ import { DrizzleQueryError, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import { silentLogger } from './support/logger';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -52,7 +53,7 @@ beforeAll(async () => {
   database = await openDatabase('work_integrity');
   db = database.db;
   context = new DrizzleContext(db);
-  tasks = new DrizzleTaskRepository(context, quiet);
+  tasks = new DrizzleTaskRepository(context, quiet, silentLogger);
 }, 60_000);
 
 afterAll(async () => {

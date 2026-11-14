@@ -14,6 +14,24 @@ import * as schema from './schema';
 
 type StationRow = typeof schema.station.$inferInsert;
 
+const projectTeams = async (
+  db: DrizzleDatabase,
+  teamIds: readonly string[],
+): Promise<void> => {
+  const keys = await db
+    .select({ id: schema.team.id, key: schema.team.key })
+    .from(schema.team)
+    .where(inArray(schema.team.id, [...teamIds]));
+  const keyOf = new Map(keys.map((each) => [each.id, each.key]));
+
+  await db
+    .insert(schema.workTeam)
+    .values(
+      teamIds.map((teamId) => ({ teamId, key: keyOf.get(teamId) ?? teamId })),
+    )
+    .onConflictDoNothing();
+};
+
 export const projectStations = async (
   db: DrizzleDatabase,
   stationIds: readonly string[],
@@ -44,6 +62,7 @@ export const projectStations = async (
     return;
   }
 
+  await projectTeams(db, [...new Set(rows.map((each) => each.teamId))]);
   await db
     .insert(schema.workStation)
     .values(rows)

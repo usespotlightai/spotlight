@@ -208,6 +208,7 @@ describe('Team', () => {
         new TeamCreated(
           WORKSPACE,
           TeamId.of('team_1'),
+          TeamKey.of('core'),
           OWNER,
           'configuration',
           ConfigurationChange.created(CORE, BY),

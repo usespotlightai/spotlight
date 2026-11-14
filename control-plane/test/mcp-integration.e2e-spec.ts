@@ -37,6 +37,7 @@ import { deleteRunnersOf } from './support/runners';
 import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 import { createTeam } from './support/team';
 
 const HOST = `host-mcp-${randomUUID().slice(0, 8)}`;
@@ -193,7 +194,7 @@ const aClaimedRun = async (): Promise<{
   const taskId = randomUUID();
   const runId = randomUUID();
 
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id: taskId,
     branch: `feat/test-${taskId}`,
     openedFrom: 'person',

@@ -81,6 +81,8 @@ export const GROWTH_LINES: LineResponseDto[] = [
   },
 ];
 
+let numbered = 0;
+
 const task = (
   over: Partial<TaskResponseDto> & {
     id: string;
@@ -88,6 +90,7 @@ const task = (
     stationId: string;
   },
 ): TaskResponseDto => ({
+  identifier: `GRO-${++numbered}`,
   revision: 0,
   description: null,
   attachments: [],

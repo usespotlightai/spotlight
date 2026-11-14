@@ -350,6 +350,7 @@ describe('a team, created through the resource API (e2e)', () => {
       'replays.delete-side-by-side-judgings-of-deleted-team',
       'work.delete-chats-of-deleted-team',
       'work.delete-notices-of-deleted-team',
+      'work.forget-deleted-team',
       'work.forget-welcome-of-deleted-team',
     ]);
     expect(await dependentsOf(teamId)).toEqual([]);

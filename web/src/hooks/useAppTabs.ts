@@ -24,7 +24,15 @@ import {
   visited,
   withoutPane,
 } from '@/lib/app-tabs';
-import type { ReportTitle } from '@/lib/tab-title';
+import {
+  described,
+  forgotten,
+  RECENT_PAGES_KEY,
+  type RecentPage,
+  recorded,
+  storedPages,
+} from '@/lib/recent-pages';
+import type { TabReports } from '@/lib/tab-title';
 import type { Team } from '@/lib/team';
 
 const readTabs = (storageKey: string, here: Place): AppTabs => {
@@ -35,31 +43,77 @@ const readTabs = (storageKey: string, here: Place): AppTabs => {
   return visited(storedTabs(stored, crypto.randomUUID(), here), here);
 };
 
-type Change = (next: (tabs: AppTabs) => AppTabs) => void;
+const readRecent = (storageKey: string, here: Place): readonly RecentPage[] => {
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem(storageKey);
+  } catch {}
+  return recorded(storedPages(stored), here.path);
+};
 
-function useTitleReports(change: Change) {
-  const reports = useRef(new Map<string, ReportTitle>());
+type Shown = {
+  readonly storageKey: string;
+  readonly recentKey: string;
+  readonly path: string;
+  readonly state: unknown;
+  readonly tabs: AppTabs;
+  readonly recent: readonly RecentPage[];
+};
+
+type Change = (next: (shown: Shown) => Shown) => void;
+
+const withTabs =
+  (next: (tabs: AppTabs) => AppTabs) =>
+  (shown: Shown): Shown => ({ ...shown, tabs: next(shown.tabs) });
+
+const pathOf = (shown: Shown, id: string): string | undefined =>
+  shown.tabs.tabs.find((tab) => tab.id === id)?.path;
+
+const withDetails =
+  (id: string, details: { title?: string; label?: string }) =>
+  (shown: Shown): Shown => {
+    const path = pathOf(shown, id);
+
+    return path
+      ? { ...shown, recent: described(shown.recent, path, details) }
+      : shown;
+  };
+
+function useTabReports(change: Change) {
+  const reports = useRef(new Map<string, TabReports>());
 
   return useCallback(
-    (id: string): ReportTitle => {
+    (id: string): TabReports => {
       const known = reports.current.get(id);
       if (known) {
         return known;
       }
 
       let titles: { title: string }[] = [];
-      const report: ReportTitle = (title) => {
-        const entry = { title };
-        titles = [...titles, entry];
-        change((current) => titled(current, title, id));
+      const report: TabReports = {
+        title: (title) => {
+          const entry = { title };
+          titles = [...titles, entry];
+          change(withTabs((current) => titled(current, title, id)));
+          change(withDetails(id, { title }));
 
-        return () => {
-          titles = titles.filter((each) => each !== entry);
-          const top = titles.at(-1);
-          if (top) {
-            change((current) => titled(current, top.title, id));
-          }
-        };
+          return () => {
+            titles = titles.filter((each) => each !== entry);
+            const top = titles.at(-1);
+            if (top) {
+              change(withTabs((current) => titled(current, top.title, id)));
+            }
+          };
+        },
+        label: (label) => change(withDetails(id, { label })),
+        missing: () =>
+          change((shown) => {
+            const path = pathOf(shown, id);
+
+            return path
+              ? { ...shown, recent: forgotten(shown.recent, path) }
+              : shown;
+          }),
       };
       reports.current.set(id, report);
 
@@ -81,25 +135,41 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
   const { pathname, search, hash, state } = location;
   const navigate = useNavigate();
   const storageKey = `${APP_TABS_KEY}.${slug}`;
+  const recentKey = `${RECENT_PAGES_KEY}.${slug}`;
   const here = placeOf(pathname, search, hash, state);
-  const [shown, setShown] = useState(() => ({
+  const [shown, setShown] = useState<Shown>(() => ({
     storageKey,
+    recentKey,
     path: here.path,
     state,
     tabs: readTabs(storageKey, here),
+    recent: readRecent(recentKey, here),
   }));
 
   let tabs = shown.tabs;
   if (shown.storageKey !== storageKey) {
     tabs = readTabs(storageKey, here);
-    setShown({ storageKey, path: here.path, state, tabs });
+    setShown({
+      storageKey,
+      recentKey,
+      path: here.path,
+      state,
+      tabs,
+      recent: readRecent(recentKey, here),
+    });
   } else if (shown.path !== here.path || shown.state !== state) {
     tabs = visited(tabs, here);
-    setShown({ ...shown, path: here.path, state, tabs });
+    setShown({
+      ...shown,
+      path: here.path,
+      state,
+      tabs,
+      recent: recorded(shown.recent, here.path),
+    });
   }
 
   const change = useCallback<Change>(
-    (next) => setShown((current) => ({ ...current, tabs: next(current.tabs) })),
+    (next) => setShown((current) => next(current)),
     [],
   );
 
@@ -110,17 +180,27 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
         JSON.stringify(storableTabs(shown.tabs)),
       );
     } catch {}
-  }, [shown]);
+  }, [shown.storageKey, shown.tabs]);
 
-  const titleFor = useTitleReports(change);
+  useEffect(() => {
+    try {
+      localStorage.setItem(shown.recentKey, JSON.stringify(shown.recent));
+    } catch {}
+  }, [shown.recentKey, shown.recent]);
+
+  const reportsFor = useTabReports(change);
   const visit = useCallback(
     (id: string, place: Place) =>
-      change((current) => visited(current, place, id)),
+      change((current) => ({
+        ...current,
+        tabs: visited(current.tabs, place, id),
+        recent: recorded(current.recent, place.path),
+      })),
     [change],
   );
 
   const show = (next: AppTabs, replace = false) => {
-    change(() => next);
+    change(withTabs(() => next));
     const tab = activeTabOf(next);
     void navigate(tab.path, {
       replace,
@@ -130,7 +210,7 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
 
   const apply = (next: AppTabs) => {
     if (next.activeId === tabs.activeId) {
-      change(() => next);
+      change(withTabs(() => next));
     } else {
       show(next);
     }
@@ -141,8 +221,10 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
     activeId: tabs.activeId,
     splitId: tabs.splitId,
     panes: panesOf(tabs),
-    titleFor,
+    reportsFor,
     visit,
+    recent: shown.recent,
+    showRecent: (path: string) => void navigate(path),
     focus: (id: string) => {
       if (id === tabs.splitId) {
         show(focused(tabs, id), true);
@@ -154,7 +236,7 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
     place: (id: string, side: SplitSide) => apply(placed(tabs, id, side)),
     hidePane: (side: SplitSide) => apply(withoutPane(tabs, side)),
     move: (id: string, to: string) =>
-      change((current) => moved(current, id, to)),
+      change(withTabs((current) => moved(current, id, to))),
     canGoBack: activeTabOf(tabs).back.length > 0,
     canGoForward: activeTabOf(tabs).forward.length > 0,
     back: () => show(back(tabs), true),

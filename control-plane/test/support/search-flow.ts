@@ -59,6 +59,7 @@ import { aDispatch, requestedByTask } from './runs';
 import * as schema from './schema';
 import { searchReadOf } from './search-read';
 import { insertStations } from './stations';
+import { insertTask } from './tasks';
 import { createTeam } from './team';
 
 const HOST = `host-search-flow-${randomUUID().slice(0, 8)}`;
@@ -278,7 +279,7 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
   const archiveId = randomUUID();
   const at = new Date();
 
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id: taskId,
     branch: `feat/test-${taskId}`,
     openedFrom: 'person',

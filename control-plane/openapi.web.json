@@ -9978,6 +9978,11 @@
             "type": "string",
             "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
           },
+          "identifier": {
+            "type": "string",
+            "example": "SPO-272",
+            "description": "The team key and the number of the task in its team"
+          },
           "stationId": {
             "type": "string",
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
@@ -10073,6 +10078,7 @@
         },
         "required": [
           "id",
+          "identifier",
           "stationId",
           "revision",
           "title",

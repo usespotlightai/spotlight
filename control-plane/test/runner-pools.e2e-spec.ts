@@ -36,6 +36,7 @@ import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
 import { definitionOf } from './support/line-definition';
+import { silentLogger } from './support/logger';
 import { E2E_LONG_POLL_MS } from './support/long-poll';
 import { deleteRunnersOf } from './support/runners';
 import { requestedBySpec } from './support/runs';
@@ -660,9 +661,13 @@ describe('runner pools (e2e)', () => {
     it('closes the Setup list once a host sends a heartbeat through it, in a workspace connected to GitHub and set up as code', async () => {
       const { list } = await listSetUp(
         db,
-        new DrizzleTaskRepository(new DrizzleContext(db), {
-          dispatch: async () => {},
-        }),
+        new DrizzleTaskRepository(
+          new DrizzleContext(db),
+          {
+            dispatch: async () => {},
+          },
+          silentLogger,
+        ),
         { workspaceId, teamId: workspaceId, owner },
       );
       await db.insert(schema.githubConnection).values({

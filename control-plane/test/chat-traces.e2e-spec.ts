@@ -25,6 +25,7 @@ import { runFactsOver } from './support/run-facts';
 import { requestedByChat, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -112,7 +113,7 @@ const taskOfTeam = async (teamId: string) => {
     name: 'Triage',
     position: 0,
   });
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id: taskId,
     branch: `feat/test-${taskId}`,
     openedFrom: 'person',

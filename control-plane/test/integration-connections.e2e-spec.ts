@@ -32,6 +32,7 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import { silentLogger } from './support/logger';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -70,7 +71,11 @@ beforeAll(async () => {
     labelled,
   );
   registrations = new DrizzleOAuth2ClientRegistrations(context, labelled);
-  tasks = new DrizzleTaskRepository(context, { dispatch: async () => {} });
+  tasks = new DrizzleTaskRepository(
+    context,
+    { dispatch: async () => {} },
+    silentLogger,
+  );
 }, 60_000);
 
 afterAll(async () => {

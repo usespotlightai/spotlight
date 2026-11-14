@@ -3123,6 +3123,10 @@ export type TaskNoteResponseDto = {
 
 export type TaskResponseDto = {
   id: string;
+  /**
+   * The team key and the number of the task in its team
+   */
+  identifier: string;
   stationId: string;
   /**
    * How many times it has moved; a move names the revision it was based on

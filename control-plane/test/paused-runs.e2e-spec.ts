@@ -29,6 +29,7 @@ import { deleteRunnersOf } from './support/runners';
 import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 import { createTeam } from './support/team';
 
 interface PendingMessage {
@@ -137,7 +138,7 @@ const aTaskWithLeasedRun = async (
   const taskId = randomUUID();
   const runId = randomUUID();
 
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id: taskId,
     branch: `feat/test-${taskId}`,
     openedFrom: 'person',

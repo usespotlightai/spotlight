@@ -34,6 +34,7 @@ import {
   type ResourceFixture,
 } from './support/resource-conformance';
 import * as schema from './support/schema';
+import { insertTask } from './support/tasks';
 import { seatTeam } from './support/team';
 
 const DELIVERY = definitionOf(BUILT_IN_LINES[0]);
@@ -193,7 +194,7 @@ describe('a line, created through the resource API (e2e)', () => {
         and(eq(schema.station.lineId, lineId), eq(schema.station.key, key)),
       );
 
-    await db.insert(schema.task).values({
+    await insertTask(db, {
       id: randomUUID(),
       branch: `feat/test-${randomUUID()}`,
       openedFrom: 'person',

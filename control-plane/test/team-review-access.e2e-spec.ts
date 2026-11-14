@@ -18,6 +18,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { aDispatch, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertTask } from './support/tasks';
 import { createTeam } from './support/team';
 
 let app: INestApplication;
@@ -169,7 +170,7 @@ beforeAll(async () => {
     teamId: team.teamId.value,
     userId: TEAMMATE,
   });
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id: TASK,
     branch: `feat/test-${TASK}`,
     openedFrom: 'person',

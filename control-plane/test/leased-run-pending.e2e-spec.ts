@@ -16,9 +16,11 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import { silentLogger } from './support/logger';
 import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -33,7 +35,7 @@ beforeAll(async () => {
   works = new RunWorks(
     new RunReadModel(new DrizzleRunFactsReader(context)),
     {} as RunsPort,
-    new DrizzleTaskRepository(context, NO_EVENTS),
+    new DrizzleTaskRepository(context, NO_EVENTS, silentLogger),
     new DrizzleChatRepository(context, NO_EVENTS),
     { findByStation: async () => null } as unknown as LineMapsPort,
     new DrizzleDispatchRepository(context, NO_EVENTS),
@@ -68,7 +70,7 @@ const taskRun = async () => {
     name: 'Triage',
     position: 0,
   });
-  await db.insert(schema.task).values({
+  await insertTask(db, {
     id: taskId,
     branch: `feat/test-${taskId}`,
     openedFrom: 'person',
@@ -212,9 +214,13 @@ describe('the messages that a leased run has yet to get', () => {
       }
     }
 
-    const task = await new DrizzleTaskRepository(new DrizzleContext(db), {
-      dispatch: async () => {},
-    }).find(TaskId.of(taskId));
+    const task = await new DrizzleTaskRepository(
+      new DrizzleContext(db),
+      {
+        dispatch: async () => {},
+      },
+      silentLogger,
+    ).find(TaskId.of(taskId));
     const pending = await works.pendingFor(runId, RUNNER.value);
 
     expect(pending?.map((each) => each.position)).toEqual(

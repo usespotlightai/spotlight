@@ -17,6 +17,7 @@ import {
 } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
+import { insertTask } from './support/tasks';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -67,7 +68,7 @@ describe('which run each busy runner is working on', () => {
       name: 'Triage',
       position: 0,
     });
-    await db.insert(schema.task).values({
+    await insertTask(db, {
       id: taskId,
       branch: `feat/test-${taskId}`,
       openedFrom: 'person',
