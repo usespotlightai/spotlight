@@ -40,6 +40,7 @@ import {
   type SecretSourcePort,
 } from '@secrets/application/ports/secret-source.port';
 import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
+import { WORKSPACE_SECRETS } from '@secrets/application/ports/workspace-secrets.port';
 import { ImportSecretHandler } from '@secrets/application/queries/handlers/import-secret.handler';
 import { ListSecretResourcesHandler } from '@secrets/application/queries/handlers/list-secret-resources.handler';
 import { ReadSecretHandler } from '@secrets/application/queries/handlers/read-secret.handler';
@@ -58,6 +59,7 @@ import { SecretConfiguration } from '@secrets/application/services/secret-config
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { SecretUsesRegistry } from '@secrets/application/services/secret-uses-registry.service';
+import { WorkspaceSecrets } from '@secrets/application/services/workspace-secrets.service';
 import {
   RUN_GRANTS_REPOSITORY,
   type RunGrantsRepository,
@@ -94,7 +96,10 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
+import {
+  ID_GENERATOR,
+  type IdGeneratorPort,
+} from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import {
   LOGGER,
@@ -242,6 +247,16 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
     inject: [SealedSecrets, LOGGER],
     useFactory: (sealed: SealedSecrets, logger: LoggerPort) =>
       new HostSecretFetches(sealed, logger),
+  },
+  {
+    provide: WORKSPACE_SECRETS,
+    inject: [SECRETS, SecretSources, ID_GENERATOR, CLOCK],
+    useFactory: (
+      secrets: SecretRepository,
+      sources: SecretSources,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) => new WorkspaceSecrets(secrets, sources, ids, clock),
   },
   { provide: SECRET_USES, useFactory: () => new SecretUsesRegistry() },
   {

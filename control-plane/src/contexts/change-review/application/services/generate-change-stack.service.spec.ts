@@ -267,7 +267,7 @@ const generating = (
   };
 
   const generator: ChangeStackGeneratorPort = {
-    available: over.available ?? true,
+    availableTo: async () => over.available ?? true,
     generate: async (request) => {
       requests.push(request);
       const answer = answers.shift();

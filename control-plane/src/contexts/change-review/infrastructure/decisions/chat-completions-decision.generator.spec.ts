@@ -1,5 +1,6 @@
 import type { RunReasoning } from '@change-review/application/ports/work.port';
 import { ChatCompletionsDecisionGenerator } from '@change-review/infrastructure/decisions/chat-completions-decision.generator';
+import { FixedInferenceCalls } from '@platform/llm/fixed-inference-calls';
 import { describe, expect, it } from 'vitest';
 
 const ENDPOINT = {
@@ -50,9 +51,8 @@ describe('generating decisions through a chat completions endpoint', () => {
     });
 
     const generated = await new ChatCompletionsDecisionGenerator(
-      ENDPOINT,
-      fetch,
-    ).generate(REASONED);
+      new FixedInferenceCalls(ENDPOINT, fetch),
+    ).generate('workspace-1', REASONED);
 
     const body = JSON.parse(requests[0]?.init.body as string) as {
       model: string;
@@ -70,10 +70,12 @@ describe('generating decisions through a chat completions endpoint', () => {
   });
 
   it('does not generate without a key', async () => {
-    const generator = new ChatCompletionsDecisionGenerator(null);
+    const generator = new ChatCompletionsDecisionGenerator(
+      new FixedInferenceCalls(null),
+    );
 
-    expect(generator.available).toBe(false);
-    await expect(generator.generate(REASONED)).rejects.toThrow(
+    expect(await generator.availableTo('workspace-1')).toBe(false);
+    await expect(generator.generate('workspace-1', REASONED)).rejects.toThrow(
       'No model endpoint',
     );
   });
@@ -84,7 +86,9 @@ describe('generating decisions through a chat completions endpoint', () => {
     });
 
     await expect(
-      new ChatCompletionsDecisionGenerator(ENDPOINT, fetch).generate(REASONED),
+      new ChatCompletionsDecisionGenerator(
+        new FixedInferenceCalls(ENDPOINT, fetch),
+      ).generate('workspace-1', REASONED),
     ).rejects.toThrow('The model returned no usable answer. Reason: length');
   });
 });

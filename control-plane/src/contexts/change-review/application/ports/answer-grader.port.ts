@@ -5,6 +5,7 @@ import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.
 export const ANSWER_GRADER = Symbol('ANSWER_GRADER');
 
 export interface GradingRequest {
+  readonly workspaceId: string;
   readonly question: string;
   readonly expected: string;
   readonly reply: string;
@@ -17,7 +18,7 @@ export interface GradedAnswer {
 }
 
 export interface AnswerGraderPort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   grade(request: GradingRequest): Promise<GradedAnswer>;
 }

@@ -8,12 +8,8 @@ import {
   type ProposedDecision,
 } from '@change-review/domain/entities/decision.entity';
 import { latestWithin } from '@change-review/infrastructure/decisions/latest-within';
-import {
-  type Fetch,
-  JsonSchema,
-  type ModelEndpoint,
-  requestJson,
-} from '@platform/llm/chat-completions';
+import { JsonSchema } from '@platform/llm/chat-completions';
+import type { InferenceCallsPort } from '@shared-kernel/application/ports/inference-calls.port';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 8_000;
@@ -65,22 +61,16 @@ const line = (step: ReasonedStep): string =>
   `[${step.index}] ${step.kind}: ${clipped(step.text.trim())}`;
 
 export class ChatCompletionsDecisionGenerator implements DecisionGeneratorPort {
-  constructor(
-    private readonly endpoint: ModelEndpoint | null,
-    private readonly fetch: Fetch = globalThis.fetch,
-  ) {}
+  constructor(private readonly calls: InferenceCallsPort) {}
 
-  get available(): boolean {
-    return this.endpoint !== null;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.calls.availableTo(workspaceId);
   }
 
   async generate(
+    workspaceId: string,
     reasoning: RunReasoning,
   ): Promise<readonly ProposedDecision[]> {
-    if (!this.endpoint) {
-      throw new Error('No model endpoint is set for decisions');
-    }
-
     const stepLines = latestWithin(reasoning.steps.map(line), MAX_PROMPT_CHARS);
     const prompt = [
       `The files changed on this task so far:\n${reasoning.changed.map((each) => `- ${each}`).join('\n')}`,
@@ -92,9 +82,7 @@ export class ChatCompletionsDecisionGenerator implements DecisionGeneratorPort {
 
     const {
       answer: { decisions },
-    } = await requestJson({
-      endpoint: this.endpoint,
-      fetch: this.fetch,
+    } = await this.calls.json(workspaceId, {
       responseSchema: DECISIONS,
       system: SYSTEM,
       prompt,

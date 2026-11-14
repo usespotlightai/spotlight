@@ -11,7 +11,7 @@ describe('InsightsChangeJudge', () => {
   it('asks Insights to judge a replay as a run whose effects the sandbox blocked', async () => {
     const orders: ChangeJudgmentOrder[] = [];
     const judgments: ChangeJudgmentsPort = {
-      available: true,
+      availableTo: async () => true,
       judge: async (order) => {
         orders.push(order);
         return { judged: false, failure: 'unavailable' };
@@ -19,6 +19,7 @@ describe('InsightsChangeJudge', () => {
     };
 
     await new InsightsChangeJudge(judgments).judge({
+      workspaceId: 'workspace_1',
       run: RunId.of('replay_1'),
       criteria: JudgeCriteria.of({ rubric: 'It drains.' }),
       reference: null,
@@ -27,6 +28,7 @@ describe('InsightsChangeJudge', () => {
 
     expect(orders).toEqual([
       {
+        workspaceId: 'workspace_1',
         runId: RunId.of('replay_1'),
         criteria: JudgeCriteria.of({ rubric: 'It drains.' }),
         reference: null,

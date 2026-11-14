@@ -75,12 +75,13 @@ export class AnswerQuestionHandler implements CommandHandlerPort<
 
       const reply = QuestionAnswer.replyOf(command.reply);
 
-      if (reply && !this.grader.available) {
+      if (reply && !(await this.grader.availableTo(run.workspaceId.value))) {
         throw new ChangeStacksUnavailableError();
       }
 
       const graded = reply
         ? await this.grader.grade({
+            workspaceId: run.workspaceId.value,
             question: question.question,
             expected: question.answer,
             reply,

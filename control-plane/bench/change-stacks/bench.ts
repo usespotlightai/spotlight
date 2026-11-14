@@ -17,6 +17,7 @@ import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-d
 import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
 import { TreeSitterSymbolIndexer } from '@change-review/infrastructure/change-stacks/tree-sitter/tree-sitter-symbol.indexer';
 import type { ModelEndpoint } from '@platform/llm/chat-completions';
+import { FixedInferenceCalls } from '@platform/llm/fixed-inference-calls';
 import { ModelsDevPrices } from '@platform/llm/models-dev.prices';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -243,24 +244,20 @@ const endpointOf = (
   model: string | undefined,
   prices: ModelsDevPrices,
 ): ModelEndpoint => {
-  const apiKey = process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.BENCH_API_KEY ?? process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
     throw new Error(
-      'Set LLM_API_KEY or OPENROUTER_API_KEY, or pass --env <file> that sets one',
+      'Set BENCH_API_KEY or OPENROUTER_API_KEY, or pass --env <file> that sets one',
     );
   }
 
   return {
-    baseUrl: process.env.LLM_BASE_URL ?? DEFAULT_BASE_URL,
+    baseUrl: process.env.BENCH_BASE_URL ?? DEFAULT_BASE_URL,
     apiKey,
-    model:
-      model ??
-      process.env.CHANGE_STACK_MODEL ??
-      process.env.LLM_MODEL ??
-      DEFAULT_MODEL,
+    model: model ?? process.env.BENCH_MODEL ?? DEFAULT_MODEL,
     supportsReasoningEffort:
-      process.env.LLM_SUPPORTS_REASONING_EFFORT === 'true',
+      process.env.BENCH_SUPPORTS_REASONING_EFFORT === 'true',
     prices,
   };
 };
@@ -312,7 +309,7 @@ const sampled = async (
   const stacks = memoryStacks();
   const log = recording();
   const generator = new RecordingGenerator(
-    new ChatCompletionsChangeStackGenerator(endpoint),
+    new ChatCompletionsChangeStackGenerator(new FixedInferenceCalls(endpoint)),
   );
   const service = serviceOf(stacks, generator, log.logger);
   const started = Date.now();
@@ -698,7 +695,7 @@ const show = (file: string, name: string): void => {
 };
 
 const NO_MODEL: ChangeStackGeneratorPort = {
-  available: true,
+  availableTo: async () => true,
   generate: () => Promise.reject(new Error('A recheck calls no model')),
   outline: () => Promise.reject(new Error('A recheck calls no model')),
   layers: () => Promise.reject(new Error('A recheck calls no model')),

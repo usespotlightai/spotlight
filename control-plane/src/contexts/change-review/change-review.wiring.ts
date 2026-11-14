@@ -191,8 +191,6 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
-import { MODEL_PRICES, type ModelPrices } from '@platform/llm/model-prices';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   RUNNERS,
@@ -213,6 +211,10 @@ import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
+import {
+  INFERENCE_CALLS,
+  type InferenceCallsPort,
+} from '@shared-kernel/application/ports/inference-calls.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -337,27 +339,21 @@ const adapters: Provider[] = [
   { provide: PATCH_WRITER, useClass: GitPatchWriter },
   {
     provide: CHANGE_STACK_GENERATOR,
-    inject: [ENV, MODEL_PRICES],
-    useFactory: (env: Env, prices: ModelPrices) =>
-      new ChatCompletionsChangeStackGenerator(
-        modelEndpointOf(env, env.CHANGE_STACK_MODEL, prices),
-      ),
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) =>
+      new ChatCompletionsChangeStackGenerator(calls),
   },
   {
     provide: DECISION_GENERATOR,
-    inject: [ENV, MODEL_PRICES],
-    useFactory: (env: Env, prices: ModelPrices) =>
-      new ChatCompletionsDecisionGenerator(
-        modelEndpointOf(env, env.DECISIONS_MODEL, prices),
-      ),
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) =>
+      new ChatCompletionsDecisionGenerator(calls),
   },
   {
     provide: ANSWER_GRADER,
-    inject: [ENV, MODEL_PRICES],
-    useFactory: (env: Env, prices: ModelPrices) =>
-      new ChatCompletionsAnswerGrader(
-        modelEndpointOf(env, env.CHANGE_STACK_MODEL, prices),
-      ),
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) =>
+      new ChatCompletionsAnswerGrader(calls),
   },
   {
     provide: REVIEW_LINKS,

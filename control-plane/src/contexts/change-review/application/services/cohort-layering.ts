@@ -82,6 +82,7 @@ export type CohortLayering =
     };
 
 interface LayeringRequest {
+  readonly workspaceId: string;
   readonly diff: Diff;
   readonly facts: DiffFacts;
   readonly repository: RepositoryName | null;
@@ -103,6 +104,7 @@ type Detailing =
 const detailLayer = async (
   generator: ChangeStackGeneratorPort,
   request: {
+    workspaceId: string;
     part: StackPart;
     repository: RepositoryName | null;
     cohort: OutlinedCohort;
@@ -116,6 +118,7 @@ const detailLayer = async (
   for (let attempt = 1; attempt <= LAYERING_ATTEMPTS; attempt += 1) {
     const attempt = await attempted(() =>
       generator.layerDetails({
+        workspaceId: request.workspaceId,
         part: request.part,
         repository: request.repository,
         cohort: request.cohort,
@@ -156,7 +159,8 @@ const layerInTwoSteps = async (
   request: LayeringRequest,
   part: StackPart,
 ): Promise<CohortLayering> => {
-  const { cohort, repository, redraft, redrafting, previous } = request;
+  const { workspaceId, cohort, repository, redraft, redrafting, previous } =
+    request;
   const usage: ModelCall[] = [];
   let problems: readonly StackProblem[] = [];
   let plan: ProposedCohort | null = null;
@@ -165,6 +169,7 @@ const layerInTwoSteps = async (
   for (let round = 1; !plan && round <= LAYERING_ATTEMPTS; round += 1) {
     const attempt = await attempted(() =>
       generator.layerPlan({
+        workspaceId,
         part,
         repository,
         cohort,
@@ -214,15 +219,20 @@ const layerInTwoSteps = async (
   for (let at = 0; at < settled.layers.length; at += DETAILS_AT_ONCE) {
     detailings.push(
       ...(await Promise.all(
-        settled.layers
-          .slice(at, at + DETAILS_AT_ONCE)
-          .map((_, offset) =>
-            detailLayer(
-              generator,
-              { part, repository, cohort, plan: settled, layer: at + offset },
-              usage,
-            ),
+        settled.layers.slice(at, at + DETAILS_AT_ONCE).map((_, offset) =>
+          detailLayer(
+            generator,
+            {
+              workspaceId,
+              part,
+              repository,
+              cohort,
+              plan: settled,
+              layer: at + offset,
+            },
+            usage,
           ),
+        ),
       )),
     );
   }
@@ -268,7 +278,8 @@ export const layerCohort = async (
   generator: ChangeStackGeneratorPort,
   request: LayeringRequest,
 ): Promise<CohortLayering> => {
-  const { cohort, repository, redraft, redrafting, previous } = request;
+  const { workspaceId, cohort, repository, redraft, redrafting, previous } =
+    request;
   const part = stackPartOf(request.diff, request.facts, cohort.hunks);
 
   if (layeredInTwoSteps(part)) {
@@ -281,6 +292,7 @@ export const layerCohort = async (
   for (let attempt = 1; attempt <= LAYERING_ATTEMPTS; attempt += 1) {
     const attempt = await attempted(() =>
       generator.layers({
+        workspaceId,
         part,
         repository,
         cohort,

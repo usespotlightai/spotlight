@@ -87,6 +87,7 @@ export class WorkJudgings implements PendingJobsPort {
 
     try {
       const { verdict, model } = await this.judge.judge({
+        workspaceId: judging.workspaceId.value,
         rubric: judging.rubric.text,
         claims: judging.rubric.criteria.claims,
         scale: judging.rubric.scale.kind,

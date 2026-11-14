@@ -57,7 +57,7 @@ const judging = async (
       of: async (runId) => evidence[runId.value] ?? null,
     },
     {
-      available: options.available ?? true,
+      availableTo: async () => options.available ?? true,
       judge: async (request) => {
         requests.push(request);
         return {
@@ -71,6 +71,7 @@ const judging = async (
   const reference =
     options.reference === undefined ? 'original_1' : options.reference;
   const judgment = await judgments.judge({
+    workspaceId: 'workspace_1',
     runId: RunId.of('replay_1'),
     criteria: options.criteria ?? JudgeCriteria.of({ rubric: RUBRIC }),
     reference: reference ? RunId.of(reference) : null,

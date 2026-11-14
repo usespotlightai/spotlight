@@ -9,13 +9,11 @@ import {
   MAX_REASONS_PER_CLAIM,
 } from '@insights/domain/services/grounded-verdict';
 import {
-  type Fetch,
   JsonSchema,
   ModelEmptyCompletionError,
-  type ModelEndpoint,
   ModelRequestError,
-  requestJson,
 } from '@platform/llm/chat-completions';
+import type { InferenceCallsPort } from '@shared-kernel/application/ports/inference-calls.port';
 import { MAX_GUIDANCE_LENGTH } from '@shared-kernel/domain/value-objects/judge-guidance';
 import { z } from 'zod';
 
@@ -163,23 +161,20 @@ const evidenceOf = (request: JudgeRequest): string =>
   });
 
 export class ChatCompletionsJudge implements JudgePort {
-  constructor(
-    private readonly endpoint: ModelEndpoint | null,
-    private readonly fetch: Fetch = globalThis.fetch,
-  ) {}
+  constructor(private readonly calls: InferenceCallsPort) {}
 
-  get available(): boolean {
-    return this.endpoint !== null;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.calls.availableTo(workspaceId);
   }
 
   async judge(request: JudgeRequest): Promise<JudgeAnswer> {
-    if (!this.endpoint) {
+    const endpoint = await this.calls.endpointOf(request.workspaceId);
+
+    if (!endpoint) {
       throw new JudgingError('request-failed', 'no model endpoint is set');
     }
 
     const call = {
-      endpoint: this.endpoint,
-      fetch: this.fetch,
       system: systemOf(request),
       prompt: evidenceOf(request),
       maxTokens: request.scale === 'claims' ? MAX_CLAIMS_OUTPUT : MAX_OUTPUT,
@@ -187,7 +182,7 @@ export class ChatCompletionsJudge implements JudgePort {
 
     try {
       if (request.scale === 'claims') {
-        const { answer } = await requestJson({
+        const { answer } = await this.calls.json(request.workspaceId, {
           ...call,
           responseSchema: request.guidanceRequested
             ? CLAIMS.verdictAndGuidance
@@ -196,12 +191,12 @@ export class ChatCompletionsJudge implements JudgePort {
         return {
           verdict: { claims: answer.claims },
           guidance: guidanceOf(answer),
-          model: this.endpoint.model,
+          model: endpoint.model,
         };
       }
 
       if (request.scale === 'yes-no') {
-        const { answer } = await requestJson({
+        const { answer } = await this.calls.json(request.workspaceId, {
           ...call,
           responseSchema: request.guidanceRequested
             ? YES_NO.verdictAndGuidance
@@ -210,11 +205,11 @@ export class ChatCompletionsJudge implements JudgePort {
         return {
           verdict: { value: answer.passes, reasons: answer.reasons },
           guidance: guidanceOf(answer),
-          model: this.endpoint.model,
+          model: endpoint.model,
         };
       }
 
-      const { answer } = await requestJson({
+      const { answer } = await this.calls.json(request.workspaceId, {
         ...call,
         responseSchema: request.guidanceRequested
           ? NUMBER.verdictAndGuidance
@@ -223,7 +218,7 @@ export class ChatCompletionsJudge implements JudgePort {
       return {
         verdict: { value: answer.score, reasons: answer.reasons },
         guidance: guidanceOf(answer),
-        model: this.endpoint.model,
+        model: endpoint.model,
       };
     } catch (error) {
       if (error instanceof ModelRequestError) {

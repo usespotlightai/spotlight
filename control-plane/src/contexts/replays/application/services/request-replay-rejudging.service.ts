@@ -9,7 +9,7 @@ export class RequestReplayRejudging {
   ) {}
 
   async requested(event: ReplayRejudgingRequested): Promise<void> {
-    const ordered = await this.judgings.requeue(event.run);
+    const ordered = await this.judgings.requeue(event.run, event.workspaceId);
 
     if (ordered !== 'requested') {
       await this.verdicts.rejudgingFailed(

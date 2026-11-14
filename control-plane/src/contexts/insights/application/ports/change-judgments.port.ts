@@ -5,6 +5,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 export const CHANGE_JUDGMENTS = Symbol('CHANGE_JUDGMENTS');
 
 export interface ChangeJudgmentOrder {
+  readonly workspaceId: string;
   readonly runId: RunId;
   readonly criteria: JudgeCriteria;
   readonly reference: RunId | null;
@@ -37,7 +38,7 @@ export type ChangeJudgment =
   | UnjudgedJudgment;
 
 export interface ChangeJudgmentsPort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   judge(order: ChangeJudgmentOrder): Promise<ChangeJudgment>;
 }

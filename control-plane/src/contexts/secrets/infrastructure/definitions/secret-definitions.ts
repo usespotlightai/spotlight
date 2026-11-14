@@ -8,10 +8,16 @@ import {
   SecretProblems,
 } from '@secrets/application/rendering/secret-problems';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
+import {
+  isReservedSecretName,
+  RESERVED_SECRET_PREFIX,
+} from '@secrets/domain/value-objects/reserved-secret-name';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
+import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { z } from 'zod';
 
@@ -49,6 +55,19 @@ export class SecretDefinitions implements SecretDefinitionsPort {
 
     if (!read.success) {
       return { ok: false, problems: problemsIn(SECRET, read.error) };
+    }
+
+    if (isReservedSecretName(read.data.name)) {
+      return {
+        ok: false,
+        problems: [
+          ConfigurationProblem.of({
+            path: SECRET,
+            at: FieldPath.of(['name']),
+            reason: `cannot start with ${RESERVED_SECRET_PREFIX}, which Spotlight keeps for its own secrets`,
+          }),
+        ],
+      };
     }
 
     try {

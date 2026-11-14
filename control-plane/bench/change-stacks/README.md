@@ -10,10 +10,10 @@ npm run bench:change-stacks -- run --env ../.env --label baseline
 
 - `--repeats <n>` drafts each case n times (default 3). The model is not deterministic, so one draft per case is not enough.
 - `--cases pr-540,pr-530` runs only those cases.
-- `--model <id>` replaces `CHANGE_STACK_MODEL` / `LLM_MODEL`. The default is staging's model.
+- `--model <id>` replaces `BENCH_MODEL`. The default is staging's model.
 - `--concurrency <n>` drafts n stacks at once (default 4).
 
-The model endpoint comes from `LLM_BASE_URL`, `LLM_API_KEY` (or `OPENROUTER_API_KEY`) and `LLM_SUPPORTS_REASONING_EFFORT`, as in the control plane. The default endpoint is OpenRouter.
+The model endpoint comes from `BENCH_BASE_URL`, `BENCH_API_KEY` (or `OPENROUTER_API_KEY`) and `BENCH_SUPPORTS_REASONING_EFFORT`. The benchmark does not read the inference endpoint of a workspace. The default endpoint is OpenRouter.
 
 Each run writes `results/<label>-<time>.json`, and the model drafts of each sample in `results/<label>-<time>.drafts.json`. The folder is not in git.
 

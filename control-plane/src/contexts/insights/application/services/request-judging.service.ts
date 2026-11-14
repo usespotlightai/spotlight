@@ -43,7 +43,6 @@ export class RequestJudging {
     if (
       !event.taskId ||
       !event.stationId ||
-      !this.judge.available ||
       !ending ||
       !judgesRunThatEnded(ending)
     ) {
@@ -55,7 +54,12 @@ export class RequestJudging {
       : null;
     const settings = run ? await this.judges.judgeAt(run.stationId) : null;
 
-    if (!run || !settings || !sampledForJudging(runId, settings.sample)) {
+    if (
+      !run ||
+      !settings ||
+      !sampledForJudging(runId, settings.sample) ||
+      !(await this.judge.availableTo(run.workspaceId.value))
+    ) {
       return;
     }
 

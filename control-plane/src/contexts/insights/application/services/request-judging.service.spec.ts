@@ -40,7 +40,7 @@ const requesting = (
   const judgings = new JudgingsInMemory();
   const deletions = deletionsInMemory();
   const judge: JudgePort = {
-    available: change.available ?? true,
+    availableTo: async () => change.available ?? true,
     judge: async () => ({
       model: 'some/model',
       verdict: { value: true, reasons: [] },

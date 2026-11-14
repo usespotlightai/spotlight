@@ -3,6 +3,12 @@ import {
   type ModelPrices,
   PRICE_CURRENCY,
 } from '@platform/llm/model-prices';
+import type {
+  CompletionUsage,
+  JsonRequest,
+  StructuredCompletion,
+  StructuredSchema,
+} from '@shared-kernel/application/ports/inference-calls.port';
 import type { ModelCost } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { z } from 'zod';
 
@@ -11,8 +17,6 @@ const MAX_WAIT_MS = 10 * 60 * 1000;
 const UNSUPPORTED = new Set(['$schema', 'minimum', 'maximum']);
 
 export type Fetch = typeof globalThis.fetch;
-
-export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 
 const TRUNCATED = 'length';
 
@@ -66,17 +70,6 @@ interface Completion {
     readonly cost?: number;
   };
   readonly error?: { readonly message?: string };
-}
-
-interface CompletionUsage {
-  readonly inputTokens: number | null;
-  readonly outputTokens: number | null;
-  readonly cost: ModelCost | null;
-}
-
-export interface StructuredCompletion<T> {
-  readonly answer: T;
-  readonly usage: CompletionUsage | null;
 }
 
 const counted = (raw: unknown): number | null =>
@@ -137,7 +130,7 @@ const strictSchema = (schema: unknown): unknown =>
 const completionsUrlOf = (baseUrl: string): string =>
   `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
-export class JsonSchema<T> {
+export class JsonSchema<T> implements StructuredSchema<T> {
   readonly json: unknown;
 
   constructor(
@@ -148,21 +141,19 @@ export class JsonSchema<T> {
   }
 }
 
-export const requestJson = async <T>(request: {
-  endpoint: ModelEndpoint;
-  fetch: Fetch;
-  responseSchema: JsonSchema<T>;
-  system: string;
-  prompt: string;
-  maxTokens: number;
-  reasoning?: ReasoningEffort;
-}): Promise<StructuredCompletion<T>> => {
+export const requestJson = async <T>(
+  request: JsonRequest<T> & {
+    endpoint: ModelEndpoint;
+    fetch: Fetch;
+    timeoutMs?: number;
+  },
+): Promise<StructuredCompletion<T>> => {
   const { endpoint } = request;
 
   const response = await request
     .fetch(completionsUrlOf(endpoint.baseUrl), {
       method: 'POST',
-      signal: AbortSignal.timeout(MAX_WAIT_MS),
+      signal: AbortSignal.timeout(request.timeoutMs ?? MAX_WAIT_MS),
       headers: {
         ...(endpoint.apiKey
           ? { Authorization: `Bearer ${endpoint.apiKey}` }

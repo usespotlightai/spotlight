@@ -95,8 +95,8 @@ export class RecordingGenerator implements ChangeStackGeneratorPort {
 
   constructor(private readonly generator: ChangeStackGeneratorPort) {}
 
-  get available(): boolean {
-    return this.generator.available;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.generator.availableTo(workspaceId);
   }
 
   async generate(request: ChangeStackGenerationRequest) {

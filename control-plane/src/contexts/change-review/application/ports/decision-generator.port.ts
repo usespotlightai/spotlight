@@ -4,7 +4,10 @@ import type { ProposedDecision } from '@change-review/domain/entities/decision.e
 export const DECISION_GENERATOR = Symbol('DECISION_GENERATOR');
 
 export interface DecisionGeneratorPort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
-  generate(reasoning: RunReasoning): Promise<readonly ProposedDecision[]>;
+  generate(
+    workspaceId: string,
+    reasoning: RunReasoning,
+  ): Promise<readonly ProposedDecision[]>;
 }

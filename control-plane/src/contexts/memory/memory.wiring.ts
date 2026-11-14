@@ -108,15 +108,11 @@ import { RunnerMemoryFilesController } from '@memory/presentation/http/controlle
 import { RunnerMemoryController } from '@memory/presentation/http/controllers/runner-memory.controller';
 import { TeamMemoryController } from '@memory/presentation/http/controllers/team-memory.controller';
 import type { Provider, Type } from '@nestjs/common';
-import { ENV } from '@platform/config/config.constants';
-import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
-import { MODEL_PRICES, type ModelPrices } from '@platform/llm/model-prices';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
@@ -130,6 +126,10 @@ import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
+import {
+  INFERENCE_CALLS,
+  type InferenceCallsPort,
+} from '@shared-kernel/application/ports/inference-calls.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -374,11 +374,9 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   { provide: REJECTED_MEMORIES, useClass: DrizzleRejectedMemories },
   {
     provide: MEMORY_DRAFTER,
-    inject: [ENV, MODEL_PRICES],
-    useFactory: (env: Env, prices: ModelPrices) =>
-      new ChatCompletionsMemoryDrafter(
-        modelEndpointOf(env, env.MEMORIES_MODEL, prices),
-      ),
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) =>
+      new ChatCompletionsMemoryDrafter(calls),
   },
   {
     provide: RequestMemories,

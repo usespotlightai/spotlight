@@ -1,5 +1,6 @@
 import { ConfigurationModule } from '@configuration/configuration.module';
 import { IdentityModule } from '@identity/identity.module';
+import { InferenceModule } from '@inference/inference.module';
 import { CHANGE_JUDGMENTS } from '@insights/application/ports/change-judgments.port';
 import { PAIR_JUDGMENTS } from '@insights/application/ports/pair-judgments.port';
 import { RUN_ACCEPTANCE } from '@insights/application/ports/run-acceptance.port';
@@ -22,6 +23,7 @@ const BINDINGS = contextBindings([RUN_RESULTS]);
     LinesModule,
     WorkModule,
     MemoryModule,
+    InferenceModule,
     ConfigurationModule,
   ],
   controllers: [...INSIGHTS_CONTROLLERS],

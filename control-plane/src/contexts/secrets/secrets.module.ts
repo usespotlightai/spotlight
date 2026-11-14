@@ -9,6 +9,7 @@ import { RUN_SECRET_FETCHES } from '@secrets/application/ports/run-secret-fetche
 import { SECRET_CONFIGURATION } from '@secrets/application/ports/secret-configuration.port';
 import { SECRET_INJECTION } from '@secrets/application/ports/secret-injection.port';
 import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
+import { WORKSPACE_SECRETS } from '@secrets/application/ports/workspace-secrets.port';
 import {
   SECRETS_CONTROLLERS,
   SECRETS_PROVIDERS,
@@ -28,6 +29,7 @@ import {
     RUN_SECRET_FETCHES,
     SECRET_CONFIGURATION,
     SECRET_USES,
+    WORKSPACE_SECRETS,
   ],
 })
 export class SecretsModule {}

@@ -9,6 +9,7 @@ const PAIR_JUDGMENT_ORDERS = ['run-first', 'other-first'] as const;
 export type PairJudgmentOrderKind = (typeof PAIR_JUDGMENT_ORDERS)[number];
 
 export interface PairJudgmentOrder {
+  readonly workspaceId: string;
   readonly runId: RunId;
   readonly otherRunId: RunId;
   readonly reference: RunId;
@@ -35,7 +36,7 @@ export type PairJudgment =
   | UnjudgedJudgment;
 
 export interface PairJudgmentsPort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   judge(order: PairJudgmentOrder): Promise<PairJudgment>;
 }

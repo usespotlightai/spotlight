@@ -60,7 +60,7 @@ const working = async (
       of: async () => evidence,
     },
     {
-      available: true,
+      availableTo: async () => true,
       judge: async (request) => {
         requests.push(request);
         return {

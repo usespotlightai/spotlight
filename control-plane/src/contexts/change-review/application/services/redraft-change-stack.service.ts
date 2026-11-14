@@ -66,6 +66,7 @@ export class RedraftChangeStack {
     for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
       const attempt = await attempted(() =>
         this.generator.generate({
+          workspaceId: stack.workspaceId.value,
           diff,
           repository: stack.repository,
           facts,
@@ -113,6 +114,7 @@ export class RedraftChangeStack {
           return scoped
             ? () =>
                 layerCohort(this.generator, {
+                  workspaceId: stack.workspaceId.value,
                   diff: stack.diff,
                   facts: stack.facts,
                   repository: stack.repository,

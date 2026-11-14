@@ -93,7 +93,7 @@ const archiveStore: WorkingCopyArchiveStorePort = {
 };
 
 const judge: JudgePort = {
-  available: true,
+  availableTo: async () => true,
   judge: async (request) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);

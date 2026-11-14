@@ -109,14 +109,6 @@ export const envSchema = databaseSchema
     SENTRY_DSN: z.string().optional(),
     SENTRY_WEB_DSN: z.string().optional(),
     SENTRY_ENVIRONMENT: z.string().optional(),
-    LLM_BASE_URL: unsetWhenEmpty(z.url({ protocol: /^https?$/ })),
-    LLM_API_KEY: unsetWhenEmpty(z.string().min(1)),
-    LLM_MODEL: unsetWhenEmpty(z.string().min(1)),
-    LLM_SUPPORTS_REASONING_EFFORT: z.stringbool().default(false),
-    CHANGE_STACK_MODEL: unsetWhenEmpty(z.string().min(1)),
-    DECISIONS_MODEL: unsetWhenEmpty(z.string().min(1)),
-    MEMORIES_MODEL: unsetWhenEmpty(z.string().min(1)),
-    JUDGE_MODEL: unsetWhenEmpty(z.string().min(1)),
     LLM_PRICES: z.enum(['models.dev', 'none']).default('models.dev'),
     LLM_PRICES_URL: z.url().default('https://models.dev/api.json'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
@@ -151,22 +143,6 @@ export const envSchema = databaseSchema
       path: ['VAPID_PUBLIC_KEY'],
       message:
         'goes with VAPID_PRIVATE_KEY and VAPID_SUBJECT. Set all three to send Web Push, or none; generate a key pair with: npx web-push generate-vapid-keys',
-    },
-  )
-  .refine(
-    (env) =>
-      (env.LLM_BASE_URL === undefined) ===
-      [
-        env.LLM_MODEL,
-        env.CHANGE_STACK_MODEL,
-        env.DECISIONS_MODEL,
-        env.MEMORIES_MODEL,
-        env.JUDGE_MODEL,
-      ].every((model) => model === undefined),
-    {
-      path: ['LLM_BASE_URL'],
-      message:
-        'goes with LLM_MODEL. Set a base URL and a model to use a model endpoint, or set neither',
     },
   )
   .transform((env) => ({

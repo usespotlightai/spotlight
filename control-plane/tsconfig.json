@@ -31,6 +31,7 @@
       "@configuration/*": ["./src/contexts/configuration/*"],
       "@identity/*": ["./src/contexts/identity/*"],
       "@secrets/*": ["./src/contexts/secrets/*"],
+      "@inference/*": ["./src/contexts/inference/*"],
       "@catalog/*": ["./src/contexts/catalog/*"],
       "@notifications/*": ["./src/contexts/notifications/*"],
       "@/*": ["./src/*"]

@@ -138,6 +138,7 @@ export class WorkMemoryDrafts implements PendingJobsPort {
       proposed = evidence.isEmpty
         ? []
         : await this.drafter.draft({
+            workspaceId: draft.workspaceId.value,
             lineName: runContext.lineName,
             stationName: runContext.stationName,
             repositories: runContext.repositories.map((each) => each.value),

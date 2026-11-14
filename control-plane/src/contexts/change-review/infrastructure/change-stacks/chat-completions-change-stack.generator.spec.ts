@@ -12,6 +12,7 @@ import {
 } from '@change-review/infrastructure/change-stacks/chat-completions-change-stack.generator';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
+import { FixedInferenceCalls } from '@platform/llm/fixed-inference-calls';
 import { describe, expect, it } from 'vitest';
 
 const ENDPOINT = {
@@ -93,6 +94,7 @@ const sentBody = (requests: { init: RequestInit }[]) =>
 
 const generate = (generator: ChatCompletionsChangeStackGenerator) =>
   generator.generate({
+    workspaceId: 'workspace-1',
     diff: DIFF,
     repository: RepositoryName.of('web'),
     facts: factsOf(DIFF, new PatternCodeReading()),
@@ -169,9 +171,11 @@ describe('connectionsPrompt', () => {
 
 describe('ChatCompletionsChangeStackGenerator', () => {
   it('is unavailable without a key', async () => {
-    const generator = new ChatCompletionsChangeStackGenerator(null);
+    const generator = new ChatCompletionsChangeStackGenerator(
+      new FixedInferenceCalls(null),
+    );
 
-    expect(generator.available).toBe(false);
+    expect(await generator.availableTo('workspace-1')).toBe(false);
     await expect(generate(generator)).rejects.toThrow('No model endpoint');
   });
 
@@ -186,7 +190,9 @@ describe('ChatCompletionsChangeStackGenerator', () => {
     });
 
     const { cohorts, usage } = await generate(
-      new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch),
+      new ChatCompletionsChangeStackGenerator(
+        new FixedInferenceCalls(ENDPOINT, fetch),
+      ),
     );
 
     expect(usage).toBeNull();
@@ -280,7 +286,9 @@ describe('ChatCompletionsChangeStackGenerator', () => {
     });
 
     const { cohorts } = await generate(
-      new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch),
+      new ChatCompletionsChangeStackGenerator(
+        new FixedInferenceCalls(ENDPOINT, fetch),
+      ),
     );
 
     expect(cohorts[0]?.layers[0]?.hunks).toEqual([{ hunk: 'hx' }]);
@@ -292,7 +300,11 @@ describe('ChatCompletionsChangeStackGenerator', () => {
     });
 
     await expect(
-      generate(new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch)),
+      generate(
+        new ChatCompletionsChangeStackGenerator(
+          new FixedInferenceCalls(ENDPOINT, fetch),
+        ),
+      ),
     ).rejects.toThrow(
       'The model request failed. Response: 402 Insufficient credits',
     );
@@ -318,7 +330,11 @@ describe('ChatCompletionsChangeStackGenerator', () => {
     });
 
     await expect(
-      generate(new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch)),
+      generate(
+        new ChatCompletionsChangeStackGenerator(
+          new FixedInferenceCalls(ENDPOINT, fetch),
+        ),
+      ),
     ).rejects.toThrow(GenerationError);
   });
 
@@ -328,7 +344,11 @@ describe('ChatCompletionsChangeStackGenerator', () => {
     });
 
     await expect(
-      generate(new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch)),
+      generate(
+        new ChatCompletionsChangeStackGenerator(
+          new FixedInferenceCalls(ENDPOINT, fetch),
+        ),
+      ),
     ).rejects.toMatchObject({
       name: 'GenerationError',
       message: 'The model returned no usable answer. Reason: length',
@@ -342,7 +362,11 @@ describe('ChatCompletionsChangeStackGenerator', () => {
     });
 
     await expect(
-      generate(new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch)),
+      generate(
+        new ChatCompletionsChangeStackGenerator(
+          new FixedInferenceCalls(ENDPOINT, fetch),
+        ),
+      ),
     ).rejects.toMatchObject({ name: 'GenerationError', truncated: false });
   });
 });
@@ -372,9 +396,9 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
     });
 
     const { cohorts } = await new ChatCompletionsChangeStackGenerator(
-      ENDPOINT,
-      fetch,
+      new FixedInferenceCalls(ENDPOINT, fetch),
     ).outline({
+      workspaceId: 'workspace-1',
       diff: DIFF,
       repository: RepositoryName.of('web'),
       facts: factsOf(DIFF, new PatternCodeReading()),
@@ -412,7 +436,10 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
       because: [because],
     });
 
-    await new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch).outline({
+    await new ChatCompletionsChangeStackGenerator(
+      new FixedInferenceCalls(ENDPOINT, fetch),
+    ).outline({
+      workspaceId: 'workspace-1',
       diff: DIFF,
       repository: null,
       facts: {
@@ -442,9 +469,9 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
     const { requests, fetch } = answer({ layers: COHORTS[0]?.layers });
 
     const { layers } = await new ChatCompletionsChangeStackGenerator(
-      ENDPOINT,
-      fetch,
+      new FixedInferenceCalls(ENDPOINT, fetch),
     ).layers({
+      workspaceId: 'workspace-1',
       part: { diff: DIFF, facts: factsOf(DIFF, new PatternCodeReading()) },
       repository: null,
       cohort: {
@@ -484,9 +511,14 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
     const { requests, fetch } = answer({ layers: [planned] });
 
     const { layers } = await new ChatCompletionsChangeStackGenerator(
-      ENDPOINT,
-      fetch,
-    ).layerPlan({ part: PART, repository: null, cohort: COHORT, problems: [] });
+      new FixedInferenceCalls(ENDPOINT, fetch),
+    ).layerPlan({
+      workspaceId: 'workspace-1',
+      part: PART,
+      repository: null,
+      cohort: COHORT,
+      problems: [],
+    });
 
     expect(layers).toEqual([
       {
@@ -511,9 +543,9 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
     });
 
     const { details } = await new ChatCompletionsChangeStackGenerator(
-      ENDPOINT,
-      fetch,
+      new FixedInferenceCalls(ENDPOINT, fetch),
     ).layerDetails({
+      workspaceId: 'workspace-1',
       part: PART,
       repository: null,
       cohort: COHORT,

@@ -14,6 +14,7 @@ export interface KnownMemory {
 }
 
 export interface MemoryDraftRequest {
+  readonly workspaceId: string;
   readonly lineName: string;
   readonly stationName: string;
   readonly repositories: readonly string[];
@@ -27,7 +28,7 @@ export interface MemoryDraftRequest {
 }
 
 export interface MemoryDrafterPort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   draft(request: MemoryDraftRequest): Promise<readonly ProposedMemory[]>;
 }

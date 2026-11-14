@@ -8,13 +8,11 @@ import { MAX_REASONS } from '@insights/domain/services/grounded-verdict';
 import type { JudgedHunk } from '@insights/domain/services/judge-evidence';
 import { PAIR_LABELS } from '@insights/domain/value-objects/pair-order';
 import {
-  type Fetch,
   JsonSchema,
   ModelEmptyCompletionError,
-  type ModelEndpoint,
   ModelRequestError,
-  requestJson,
 } from '@platform/llm/chat-completions';
+import type { InferenceCallsPort } from '@shared-kernel/application/ports/inference-calls.port';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 4_000;
@@ -93,26 +91,23 @@ const evidenceOf = (request: SideBySideJudgeRequest): string =>
   });
 
 export class ChatCompletionsSideBySideJudge implements SideBySideJudgePort {
-  constructor(
-    private readonly endpoint: ModelEndpoint | null,
-    private readonly fetch: Fetch = globalThis.fetch,
-  ) {}
+  constructor(private readonly calls: InferenceCallsPort) {}
 
-  get available(): boolean {
-    return this.endpoint !== null;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.calls.availableTo(workspaceId);
   }
 
   async judgePair(
     request: SideBySideJudgeRequest,
   ): Promise<SideBySideJudgeAnswer> {
-    if (!this.endpoint) {
+    const endpoint = await this.calls.endpointOf(request.workspaceId);
+
+    if (!endpoint) {
       throw new JudgingError('request-failed', 'no model endpoint is set');
     }
 
     try {
-      const { answer } = await requestJson({
-        endpoint: this.endpoint,
-        fetch: this.fetch,
+      const { answer } = await this.calls.json(request.workspaceId, {
         system: systemOf(request),
         prompt: evidenceOf(request),
         maxTokens: MAX_OUTPUT,
@@ -121,7 +116,7 @@ export class ChatCompletionsSideBySideJudge implements SideBySideJudgePort {
 
       return {
         verdict: { preferred: answer.preferred, reasons: answer.reasons },
-        model: this.endpoint.model,
+        model: endpoint.model,
       };
     } catch (error) {
       if (error instanceof ModelRequestError) {

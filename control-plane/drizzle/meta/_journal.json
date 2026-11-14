@@ -15,6 +15,13 @@
       "when": 1794605412176,
       "tag": "20261113213012_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794647923331,
+      "tag": "20261114091843_add_inference_endpoint",
+      "breakpoints": true
     }
   ]
 }

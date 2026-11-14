@@ -34,12 +34,10 @@ import {
   type DraftedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import {
-  type Fetch,
   JsonSchema,
   ModelEmptyCompletionError,
-  type ModelEndpoint,
-  requestJson,
 } from '@platform/llm/chat-completions';
+import type { InferenceCallsPort } from '@shared-kernel/application/ports/inference-calls.port';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 65_536;
@@ -472,16 +470,14 @@ export const describeProblem = (problem: StackProblem): string => {
 };
 
 export class ChatCompletionsChangeStackGenerator implements ChangeStackGeneratorPort {
-  constructor(
-    private readonly endpoint: ModelEndpoint | null,
-    private readonly fetch: Fetch = globalThis.fetch,
-  ) {}
+  constructor(private readonly calls: InferenceCallsPort) {}
 
-  get available(): boolean {
-    return this.endpoint !== null;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.calls.availableTo(workspaceId);
   }
 
   async generate({
+    workspaceId,
     diff,
     repository,
     facts,
@@ -489,7 +485,7 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
     redraft,
     previous,
   }: ChangeStackGenerationRequest): Promise<GeneratedChangeStack> {
-    const { answer, usage } = await this.request(STACK, SYSTEM, [
+    const { answer, usage } = await this.request(workspaceId, STACK, SYSTEM, [
       repository ? `Repository: ${repository.value}` : null,
       `The diff, as ${toPlace(diff, facts)}:`,
       described(diff, facts),
@@ -509,20 +505,26 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
   }
 
   async outline({
+    workspaceId,
     diff,
     repository,
     facts,
     problems,
     previous,
   }: ChangeStackGenerationRequest): Promise<GeneratedOutline> {
-    const { answer, usage } = await this.request(OUTLINE, OUTLINE_SYSTEM, [
-      repository ? `Repository: ${repository.value}` : null,
-      `The diff, as ${toPlace(diff, facts)}:`,
-      described(diff, facts),
-      connectionsPrompt(facts),
-      previous ? previousStackPrompt(previous, facts, 'cohorts') : null,
-      problemsPrompt(problems, 'set of cohorts for this diff'),
-    ]);
+    const { answer, usage } = await this.request(
+      workspaceId,
+      OUTLINE,
+      OUTLINE_SYSTEM,
+      [
+        repository ? `Repository: ${repository.value}` : null,
+        `The diff, as ${toPlace(diff, facts)}:`,
+        described(diff, facts),
+        connectionsPrompt(facts),
+        previous ? previousStackPrompt(previous, facts, 'cohorts') : null,
+        problemsPrompt(problems, 'set of cohorts for this diff'),
+      ],
+    );
 
     return {
       cohorts: answer.cohorts,
@@ -531,6 +533,7 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
   }
 
   async layers({
+    workspaceId,
     part,
     repository,
     cohort,
@@ -538,20 +541,26 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
     redraft,
     previous,
   }: CohortLayersRequest): Promise<GeneratedLayers> {
-    const { answer, usage } = await this.request(LAYERS, LAYERS_SYSTEM, [
-      repository ? `Repository: ${repository.value}` : null,
-      `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
-      `The cohort's diff, as ${toPlace(part.diff, part.facts)}:`,
-      described(part.diff, part.facts),
-      previous ? previousStackPrompt(previous, part.facts, 'layers') : null,
-      redraft ? redraftPrompt(redraft) : null,
-      problemsPrompt(problems, 'set of layers for this cohort'),
-    ]);
+    const { answer, usage } = await this.request(
+      workspaceId,
+      LAYERS,
+      LAYERS_SYSTEM,
+      [
+        repository ? `Repository: ${repository.value}` : null,
+        `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
+        `The cohort's diff, as ${toPlace(part.diff, part.facts)}:`,
+        described(part.diff, part.facts),
+        previous ? previousStackPrompt(previous, part.facts, 'layers') : null,
+        redraft ? redraftPrompt(redraft) : null,
+        problemsPrompt(problems, 'set of layers for this cohort'),
+      ],
+    );
 
     return { layers: layersOf(answer.layers), usage };
   }
 
   async layerPlan({
+    workspaceId,
     part,
     repository,
     cohort,
@@ -559,15 +568,20 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
     redraft,
     previous,
   }: CohortLayersRequest): Promise<GeneratedLayerPlan> {
-    const { answer, usage } = await this.request(PLAN, PLAN_SYSTEM, [
-      repository ? `Repository: ${repository.value}` : null,
-      `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
-      `The cohort's diff, as ${toPlace(part.diff, part.facts)}:`,
-      described(part.diff, part.facts),
-      previous ? previousStackPrompt(previous, part.facts, 'layers') : null,
-      redraft ? redraftPrompt(redraft) : null,
-      problemsPrompt(problems, 'set of layers for this cohort'),
-    ]);
+    const { answer, usage } = await this.request(
+      workspaceId,
+      PLAN,
+      PLAN_SYSTEM,
+      [
+        repository ? `Repository: ${repository.value}` : null,
+        `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
+        `The cohort's diff, as ${toPlace(part.diff, part.facts)}:`,
+        described(part.diff, part.facts),
+        previous ? previousStackPrompt(previous, part.facts, 'layers') : null,
+        redraft ? redraftPrompt(redraft) : null,
+        problemsPrompt(problems, 'set of layers for this cohort'),
+      ],
+    );
 
     return {
       layers: answer.layers.map(({ ranges, ...layer }) => ({
@@ -579,6 +593,7 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
   }
 
   async layerDetails({
+    workspaceId,
     part,
     repository,
     cohort,
@@ -591,14 +606,19 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
       part.facts,
       plan[layer]?.hunks.map((entry) => entry.hunk) ?? [],
     );
-    const { answer, usage } = await this.request(DETAILS, DETAILS_SYSTEM, [
-      repository ? `Repository: ${repository.value}` : null,
-      `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
-      `The cohort's layers:\n${planOf(plan, layer)}`,
-      `Write the notes and questions of layer ${layer + 1}. Its diff:`,
-      described(shown.diff, shown.facts),
-      problemsPrompt(problems, `answer for layer ${layer + 1}`),
-    ]);
+    const { answer, usage } = await this.request(
+      workspaceId,
+      DETAILS,
+      DETAILS_SYSTEM,
+      [
+        repository ? `Repository: ${repository.value}` : null,
+        `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
+        `The cohort's layers:\n${planOf(plan, layer)}`,
+        `Write the notes and questions of layer ${layer + 1}. Its diff:`,
+        described(shown.diff, shown.facts),
+        problemsPrompt(problems, `answer for layer ${layer + 1}`),
+      ],
+    );
 
     return {
       details: { notes: answer.files, questions: answer.questions },
@@ -607,28 +627,25 @@ export class ChatCompletionsChangeStackGenerator implements ChangeStackGenerator
   }
 
   private async request<T>(
+    workspaceId: string,
     schema: JsonSchema<T>,
     system: string,
     sections: readonly (string | null)[],
   ) {
-    if (!this.endpoint) {
-      throw new Error('No model endpoint is set for change stacks');
-    }
-
-    return requestJson({
-      endpoint: this.endpoint,
-      fetch: this.fetch,
-      responseSchema: schema,
-      system,
-      prompt: sections.filter(Boolean).join('\n\n'),
-      maxTokens: MAX_OUTPUT,
-      reasoning: REASONING,
-    }).catch((error: unknown) => {
-      throw error instanceof ModelEmptyCompletionError
-        ? new GenerationError(error.message, error.usage, {
-            truncated: error.truncated,
-          })
-        : error;
-    });
+    return this.calls
+      .json(workspaceId, {
+        responseSchema: schema,
+        system,
+        prompt: sections.filter(Boolean).join('\n\n'),
+        maxTokens: MAX_OUTPUT,
+        reasoning: REASONING,
+      })
+      .catch((error: unknown) => {
+        throw error instanceof ModelEmptyCompletionError
+          ? new GenerationError(error.message, error.usage, {
+              truncated: error.truncated,
+            })
+          : error;
+      });
   }
 }

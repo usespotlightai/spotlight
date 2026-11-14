@@ -1,4 +1,5 @@
 import { ChatCompletionsAnswerGrader } from '@change-review/infrastructure/answers/chat-completions-answer.grader';
+import { FixedInferenceCalls } from '@platform/llm/fixed-inference-calls';
 import { describe, expect, it } from 'vitest';
 
 const ENDPOINT = {
@@ -9,6 +10,7 @@ const ENDPOINT = {
 };
 
 const REQUEST = {
+  workspaceId: 'workspace-1',
   question: 'Who signs when the member has left?',
   expected: 'The integration signs it.',
   reply: 'The bot.',
@@ -42,9 +44,11 @@ const sentBody = (requests: RequestInit[]) =>
 
 describe('ChatCompletionsAnswerGrader', () => {
   it('is unavailable without a key', async () => {
-    const grader = new ChatCompletionsAnswerGrader(null);
+    const grader = new ChatCompletionsAnswerGrader(
+      new FixedInferenceCalls(null),
+    );
 
-    expect(grader.available).toBe(false);
+    expect(await grader.availableTo('workspace-1')).toBe(false);
     await expect(grader.grade(REQUEST)).rejects.toThrow('No model endpoint');
   });
 
@@ -63,9 +67,9 @@ describe('ChatCompletionsAnswerGrader', () => {
       ],
     });
 
-    const graded = await new ChatCompletionsAnswerGrader(ENDPOINT, fetch).grade(
-      REQUEST,
-    );
+    const graded = await new ChatCompletionsAnswerGrader(
+      new FixedInferenceCalls(ENDPOINT, fetch),
+    ).grade(REQUEST);
 
     expect(graded).toEqual({
       grade: {
@@ -99,7 +103,9 @@ describe('ChatCompletionsAnswerGrader', () => {
       })) as unknown as typeof globalThis.fetch;
 
     await expect(
-      new ChatCompletionsAnswerGrader(ENDPOINT, fetch).grade(REQUEST),
+      new ChatCompletionsAnswerGrader(
+        new FixedInferenceCalls(ENDPOINT, fetch),
+      ).grade(REQUEST),
     ).rejects.toMatchObject({ kind: 'upstream-error' });
   });
 
@@ -115,7 +121,9 @@ describe('ChatCompletionsAnswerGrader', () => {
       ],
     });
 
-    await new ChatCompletionsAnswerGrader(ENDPOINT, fetch).grade({
+    await new ChatCompletionsAnswerGrader(
+      new FixedInferenceCalls(ENDPOINT, fetch),
+    ).grade({
       ...REQUEST,
       cited: Array.from({ length: 5 }, (_, place) => ({
         path: `big${place}.ts`,

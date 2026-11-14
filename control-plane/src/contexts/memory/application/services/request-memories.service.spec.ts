@@ -52,7 +52,9 @@ const requesting = (input: {
         saved.push(draft);
       },
     } as unknown as MemoryDraftRepository,
-    { available: input.available ?? true } as MemoryDrafterPort,
+    {
+      availableTo: async () => input.available ?? true,
+    } as unknown as MemoryDrafterPort,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => 'draft_1' },
     { now: () => NOW, sleep: async () => undefined },

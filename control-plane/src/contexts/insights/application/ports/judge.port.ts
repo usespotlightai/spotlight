@@ -9,6 +9,7 @@ import type { ScoreKind } from '@insights/domain/value-objects/score-scale.vo';
 export const JUDGE = Symbol('INSIGHTS_JUDGE');
 
 export interface JudgeRequest {
+  readonly workspaceId: string;
   readonly rubric: string | null;
   readonly claims: readonly string[];
   readonly scale: ScoreKind;
@@ -30,7 +31,7 @@ export interface JudgeAnswer {
 }
 
 export interface JudgePort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   judge(request: JudgeRequest): Promise<JudgeAnswer>;
 }

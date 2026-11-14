@@ -87,7 +87,7 @@ export class WorkDecisionSets implements PendingJobsPort {
     return set.recordGeneration({
       runId,
       proposed: evidence.canSupportAny
-        ? await this.generator.generate(reasoning)
+        ? await this.generator.generate(set.workspaceId.value, reasoning)
         : [],
       evidence,
       newId: () => this.ids.generate(),

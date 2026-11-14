@@ -6,6 +6,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 export const PAIR_JUDGE = Symbol('REPLAYS_PAIR_JUDGE');
 
 export interface PairJudgeOrder {
+  readonly workspaceId: string;
   readonly run: RunId;
   readonly other: RunId;
   readonly reference: RunId;
@@ -14,7 +15,7 @@ export interface PairJudgeOrder {
 }
 
 export interface PairJudgePort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   judge(order: PairJudgeOrder): Promise<PairJudgment>;
 }

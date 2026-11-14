@@ -190,7 +190,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         }),
       },
       {
-        available: true,
+        availableTo: async () => true,
         judge: async () => ({
           model: 'some/model',
           verdict: { value: true, reasons: [] },

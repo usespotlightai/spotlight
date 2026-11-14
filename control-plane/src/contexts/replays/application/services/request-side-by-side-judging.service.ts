@@ -31,7 +31,7 @@ export class RequestSideBySideJudging {
   async request(
     request: SideBySideJudgingRequest,
   ): Promise<SideBySideJudgingAnswer> {
-    if (!this.judge.available) {
+    if (!(await this.judge.availableTo(request.workspaceId.value))) {
       return 'unavailable';
     }
 

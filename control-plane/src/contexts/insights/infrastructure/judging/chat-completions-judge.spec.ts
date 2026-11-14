@@ -1,6 +1,7 @@
 import { JudgingError } from '@insights/application/errors/judging.error';
 import type { JudgeRequest } from '@insights/application/ports/judge.port';
 import { ChatCompletionsJudge } from '@insights/infrastructure/judging/chat-completions-judge';
+import { FixedInferenceCalls } from '@platform/llm/fixed-inference-calls';
 import { describe, expect, it } from 'vitest';
 
 const ENDPOINT = {
@@ -11,6 +12,7 @@ const ENDPOINT = {
 };
 
 const REQUEST: JudgeRequest = {
+  workspaceId: 'workspace_1',
   rubric: 'Did the run retry uploads without a queue?',
   claims: [],
   scale: 'yes-no',
@@ -103,7 +105,10 @@ const completed = (content: string, finish = 'stop') =>
 const judging = (
   fetch: typeof globalThis.fetch,
   request: JudgeRequest = REQUEST,
-) => new ChatCompletionsJudge(ENDPOINT, fetch).judge(request);
+) =>
+  new ChatCompletionsJudge(new FixedInferenceCalls(ENDPOINT, fetch)).judge(
+    request,
+  );
 
 describe('judging a run through a chat completions endpoint', () => {
   it('keeps the rubric in its instructions and sends the evidence as one JSON document', async () => {
@@ -395,7 +400,7 @@ describe('judging a run through a chat completions endpoint', () => {
 
   it('does not judge without a model endpoint', async () => {
     await expect(
-      new ChatCompletionsJudge(null).judge(REQUEST),
+      new ChatCompletionsJudge(new FixedInferenceCalls(null)).judge(REQUEST),
     ).rejects.toBeInstanceOf(JudgingError);
   });
 

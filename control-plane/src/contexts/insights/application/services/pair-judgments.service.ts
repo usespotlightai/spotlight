@@ -31,12 +31,12 @@ export class PairJudgments implements PairJudgmentsPort {
     private readonly llmJudge: SideBySideJudgePort,
   ) {}
 
-  get available(): boolean {
-    return this.llmJudge.available;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.llmJudge.availableTo(workspaceId);
   }
 
   async judge(order: PairJudgmentOrder): Promise<PairJudgment> {
-    if (!this.llmJudge.available) {
+    if (!(await this.llmJudge.availableTo(order.workspaceId))) {
       return unjudged('unavailable');
     }
 
@@ -77,6 +77,7 @@ export class PairJudgments implements PairJudgmentsPort {
         }
 
         const { verdict, model } = await this.llmJudge.judgePair({
+          workspaceId: order.workspaceId,
           rubric: order.criteria.rubric,
           claims: order.criteria.claims,
           title: evidence.title,

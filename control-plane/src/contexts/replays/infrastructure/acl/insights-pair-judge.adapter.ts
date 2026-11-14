@@ -53,13 +53,14 @@ const judgmentOf = (judgment: InsightsPairJudgment): PairJudgment =>
 export class InsightsPairJudge implements PairJudgePort {
   constructor(private readonly judgments: PairJudgmentsPort) {}
 
-  get available(): boolean {
-    return this.judgments.available;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.judgments.availableTo(workspaceId);
   }
 
   async judge(order: PairJudgeOrder): Promise<PairJudgment> {
     return judgmentOf(
       await this.judgments.judge({
+        workspaceId: order.workspaceId,
         runId: order.run,
         otherRunId: order.other,
         reference: order.reference,

@@ -1,6 +1,7 @@
 import { MemoryDraftingError } from '@memory/application/errors/memory-drafting.error';
 import type { MemoryDraftRequest } from '@memory/application/ports/memory-drafter.port';
 import { ChatCompletionsMemoryDrafter } from '@memory/infrastructure/drafting/chat-completions-memory.drafter';
+import { FixedInferenceCalls } from '@platform/llm/fixed-inference-calls';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -25,6 +26,7 @@ const MEMORIES = [
 ];
 
 const REQUEST: MemoryDraftRequest = {
+  workspaceId: 'workspace_1',
   lineName: 'Delivery',
   stationName: 'Implementation',
   repositories: ['acme/api'],
@@ -76,7 +78,9 @@ const completed = (content: string, finish = 'stop') =>
   );
 
 const drafting = (fetch: typeof globalThis.fetch) =>
-  new ChatCompletionsMemoryDrafter(ENDPOINT, fetch).draft(REQUEST);
+  new ChatCompletionsMemoryDrafter(
+    new FixedInferenceCalls(ENDPOINT, fetch),
+  ).draft(REQUEST);
 
 describe('drafting memories through a chat completions endpoint', () => {
   it('requests with the numbered steps and notes, the changed files, and what the team has approved', async () => {
@@ -156,11 +160,10 @@ describe('drafting memories through a chat completions endpoint', () => {
   });
 
   it('does not draft without a key', async () => {
-    const drafter = new ChatCompletionsMemoryDrafter(null);
-
-    expect(drafter.available).toBe(false);
-    await expect(drafter.draft(REQUEST)).rejects.toBeInstanceOf(
-      MemoryDraftingError,
+    const drafter = new ChatCompletionsMemoryDrafter(
+      new FixedInferenceCalls(null),
     );
+
+    expect(await drafter.availableTo('workspace_1')).toBe(false);
   });
 });

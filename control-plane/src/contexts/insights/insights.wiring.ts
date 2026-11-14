@@ -167,16 +167,12 @@ import {
   type TeamMemoryUsePort,
 } from '@memory/application/ports/team-memory-use.port';
 import type { Provider, Type } from '@nestjs/common';
-import { ENV } from '@platform/config/config.constants';
-import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
-import { MODEL_PRICES, type ModelPrices } from '@platform/llm/model-prices';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
@@ -190,6 +186,10 @@ import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
+import {
+  INFERENCE_CALLS,
+  type InferenceCallsPort,
+} from '@shared-kernel/application/ports/inference-calls.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -277,17 +277,14 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: JUDGE,
-    inject: [ENV, MODEL_PRICES],
-    useFactory: (env: Env, prices: ModelPrices) =>
-      new ChatCompletionsJudge(modelEndpointOf(env, env.JUDGE_MODEL, prices)),
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) => new ChatCompletionsJudge(calls),
   },
   {
     provide: SIDE_BY_SIDE_JUDGE,
-    inject: [ENV, MODEL_PRICES],
-    useFactory: (env: Env, prices: ModelPrices) =>
-      new ChatCompletionsSideBySideJudge(
-        modelEndpointOf(env, env.JUDGE_MODEL, prices),
-      ),
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) =>
+      new ChatCompletionsSideBySideJudge(calls),
   },
   DrizzleRunFacts,
   DrizzlePullRequestFacts,
