@@ -299,9 +299,9 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
 
   {
     provide: REPOSITORY_GIT,
-    inject: [REPOSITORY_ACCESS],
-    useFactory: (access: RepositoryAccessPort) =>
-      new GitHubGitTransport(access),
+    inject: [REPOSITORY_ACCESS, LOGGER],
+    useFactory: (access: RepositoryAccessPort, logger: LoggerPort) =>
+      new GitHubGitTransport(access, logger),
   },
 
   ...bindQueryHandler(ListRepositoriesQuery, ListRepositoriesHandler, [
