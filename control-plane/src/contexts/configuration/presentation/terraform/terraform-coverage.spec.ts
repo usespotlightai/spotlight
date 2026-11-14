@@ -9,6 +9,7 @@ import { RESOURCE_EXTENSION } from '@platform/http/resources/resource-headers';
 import { describe, expect, it } from 'vitest';
 
 const NOT_EXPORTED: Readonly<Record<string, string>> = {
+  'inference-endpoint': 'the workspace export does not cover it yet',
   'workspace-token':
     'only a person who administers the workspace may issue, change or revoke a token, and Terraform calls with a token, which never administers',
 };
