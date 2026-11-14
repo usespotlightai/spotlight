@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +14,13 @@ import (
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/install"
 )
+
+// UpgradeService has a service from before spotlight host serve run it, since bare spotlight host prints help.
+func UpgradeService(errs io.Writer) {
+	if err := install.Upgrade(errs); err != nil {
+		fmt.Fprintln(errs, "spotlight host: change the service to run spotlight host serve:", err)
+	}
+}
 
 func restart(version string, args []string) error {
 	flags := flag.NewFlagSet("restart", flag.ContinueOnError)

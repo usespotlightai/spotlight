@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"usespotlight.ai/data-plane/console"
 )
@@ -100,6 +101,63 @@ func Installed() (string, bool) {
 	}
 	_, err = os.Stat(path)
 	return path, err == nil
+}
+
+// Upgrade rewrites a unit or agent that still runs bare spotlight host, which prints help since host serve took its place.
+func Upgrade(out io.Writer) error {
+	path, ok := Installed()
+	if !ok {
+		return nil
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	upgraded, changed := Upgraded(string(body))
+	if !changed {
+		return nil
+	}
+	if err := write(path, upgraded); err != nil {
+		return err
+	}
+
+	if runtime.GOOS == "linux" {
+		err = systemctl("daemon-reload")
+	} else {
+		err = reloadAgent(path)
+	}
+	if err != nil {
+		return err
+	}
+
+	console.Step(out, fmt.Sprintf("Changed the service to run spotlight host serve (%s)", path))
+	return nil
+}
+
+func Upgraded(body string) (string, bool) {
+	lines := strings.Split(body, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, "ExecStart=") && strings.HasSuffix(line, " host") {
+			lines[i] = line + " serve"
+			return strings.Join(lines, "\n"), true
+		}
+	}
+
+	const bare = "<string>host</string></array>"
+	if strings.Contains(body, bare) {
+		return strings.Replace(body, bare, "<string>host</string><string>serve</string></array>", 1), true
+	}
+	return body, false
+}
+
+// reloadAgent runs in its own session, so it outlives the agent it boots out when the agent itself calls it.
+func reloadAgent(path string) error {
+	reload := exec.Command("/bin/sh", "-c", `launchctl bootout "$1"; launchctl bootstrap "$2" "$3"`, "sh", agent(), domain(), path)
+	reload.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := reload.Start(); err != nil {
+		return err
+	}
+	return reload.Process.Release()
 }
 
 func Active() bool {

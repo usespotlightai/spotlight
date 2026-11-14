@@ -133,6 +133,9 @@ func run(args []string, out, errs io.Writer) int {
 		return unknown("", args, errs)
 	}
 	if help.Wanted(args) || (command.Group && len(rest) == 0) {
+		if len(args) == 1 && args[0] == "host" {
+			host.UpgradeService(errs)
+		}
 		return helpFor(args, out, errs)
 	}
 	if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") && len(commands.Children(command.Path)) > 0 {

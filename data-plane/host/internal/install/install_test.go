@@ -57,3 +57,31 @@ func TestTheSystemdUnitSurvivesAPathSystemdWouldOtherwiseExpand(t *testing.T) {
 		}
 	}
 }
+
+func TestAUnitFromBeforeHostServeIsRewrittenToServe(t *testing.T) {
+	for _, binary := range []string{"/home/a/.spotlight/bin/spotlight", "/opt/my $tools/spotlight"} {
+		current := install.SystemdUnit(install.Service{Binary: binary, Config: host.Config}, false)
+		old := strings.Replace(current, " host serve\n", " host\n", 1)
+
+		upgraded, changed := install.Upgraded(old)
+		if !changed || upgraded != current {
+			t.Errorf("the unit was not rewritten to serve (changed %v):\n%s", changed, upgraded)
+		}
+		if again, changed := install.Upgraded(current); changed || again != current {
+			t.Errorf("a unit that serves changed:\n%s", again)
+		}
+	}
+}
+
+func TestAnAgentFromBeforeHostServeIsRewrittenToServe(t *testing.T) {
+	current := install.LaunchdPlist(install.Service{Binary: "/Users/a&b/bin/spotlight", Config: "/Users/a&b/.spotlight/host.env"}, "/tmp/host.log")
+	old := strings.Replace(current, "<string>host</string><string>serve</string>", "<string>host</string>", 1)
+
+	upgraded, changed := install.Upgraded(old)
+	if !changed || upgraded != current {
+		t.Errorf("the agent was not rewritten to serve (changed %v):\n%s", changed, upgraded)
+	}
+	if again, changed := install.Upgraded(current); changed || again != current {
+		t.Errorf("an agent that serves changed:\n%s", again)
+	}
+}
