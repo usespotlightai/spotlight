@@ -271,12 +271,7 @@ const splitColumnClass = ({
   released,
 }: Pick<
   PaneColumnProps,
-  | 'leaving'
-  | 'fills'
-  | 'focused'
-  | 'cramped'
-  | 'resizing'
-  | 'released'
+  'leaving' | 'fills' | 'focused' | 'cramped' | 'resizing' | 'released'
 >) =>
   cn(
     'max-w-[max(calc(100%_-_var(--pane-min)_-_var(--pane-gap)),calc(50%_-_var(--pane-gap)_/_2))] shrink-0',

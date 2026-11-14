@@ -222,6 +222,22 @@ describe('DashboardLayout split view', () => {
     expect(pane('b slot')).not.toHaveAttribute('data-collapsing');
   });
 
+  it.each([
+    ['right', ['a', 'b']],
+    ['left', ['b', 'a']],
+  ])('shows a pane dropped on the %s at its final width', (_, keys) => {
+    const animate = vi.fn();
+    Object.assign(HTMLElement.prototype, { animate, getAnimations: () => [] });
+    const { show } = renderSplit(vi.fn(), ['a']);
+
+    show(...keys);
+    Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+    Reflect.deleteProperty(HTMLElement.prototype, 'getAnimations');
+
+    expect(animate).not.toHaveBeenCalled();
+    expect(splitColumn().className).not.toMatch(/starting:/);
+  });
+
   it('drops a closed pane at once when motion is reduced', () => {
     vi.stubGlobal(
       'matchMedia',
