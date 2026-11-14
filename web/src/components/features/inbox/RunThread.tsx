@@ -16,7 +16,7 @@ import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
-import { decisionPending } from '@/lib/inbox';
+import { decisionPending, showsInThread } from '@/lib/inbox';
 import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, loading } from '@/lib/query';
 import { shownProgress } from '@/lib/run';
@@ -80,7 +80,10 @@ export function RunThread({
                 latest?.id ?? null,
                 journal.data ?? [],
               )}
-              openAt={lastNoteOf(conversation.notes, runId)}
+              openAt={lastNoteOf(
+                conversation.notes.filter(showsInThread),
+                runId,
+              )}
               footer={
                 run && latest ? (
                   <RunFooter
@@ -94,7 +97,7 @@ export function RunThread({
                 ) : null
               }
               deciding={decide}
-              afterRun={(ran) => (ran === runId ? after : null)}
+              afterRun={{ runId, content: after }}
             />
           </JournalDemandContext>
         </RunSidePanel>
