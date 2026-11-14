@@ -11,6 +11,7 @@ import type {
 import { runPath } from '@/lib/run';
 import { settingsPath } from '@/lib/settings';
 import { since } from '@/lib/since';
+import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type LeasedRun = LeasedRunResponseDto;
 
@@ -103,6 +104,19 @@ export const hostStatus = (host: Host): string => {
 export const hostSlots = (host: Host): string | null =>
   host.online ? `${host.slotsTaken} of ${host.capacity}` : null;
 
+export const hostSlotsTip = (host: Host): TooltipNote => {
+  const warm = host.idleSandboxes.filter(isWarm).length;
+
+  return {
+    rows: [
+      ['Runs', String(host.runners.length)],
+      ['Warm sandboxes', String(warm)],
+      ['Idle sandboxes', String(host.idleSandboxes.length - warm)],
+      ['Free', String(host.slotsOffered)],
+    ],
+  };
+};
+
 export const sourceLabel = (source: CredentialSourceResponseDto): string => {
   const kind = source.kind === 'pool' ? 'Pool' : 'Trust';
   return source.key === null ? `${kind} deleted` : `${kind} ${source.key}`;
@@ -138,6 +152,16 @@ const namedHarnesses = (
     name: nameOf(each.id, harnesses),
     version: each.version,
   }));
+
+export const imageHarnesses = (
+  host: Host,
+  image: string | null,
+  harnesses: readonly NamedHarness[] | undefined,
+): NamedHarness[] =>
+  namedHarnesses(
+    host.images.find((each) => each.image === image)?.harnesses ?? [],
+    harnesses,
+  );
 
 export const servedBy = (
   host: Host,
@@ -255,32 +279,138 @@ export const leasedRunPath = (
     ? runPath(slug, run.teamId, run.id)
     : null;
 
-const WARM_SANDBOX = 'Warm sandbox';
+export const isWarm = (sandbox: IdleSandbox): boolean =>
+  sandbox.warmLineId !== null;
 
-export const warmSandboxLabel = (lineName: string | undefined): string =>
-  lineName ? `${WARM_SANDBOX} for ${lineName}` : WARM_SANDBOX;
+export type SandboxRow = {
+  readonly id: string;
+  readonly sandboxes: readonly [IdleSandbox, ...IdleSandbox[]];
+};
+
+export type HostChild =
+  | { readonly kind: 'run'; readonly runner: ActiveRunner }
+  | { readonly kind: 'sandboxes'; readonly row: SandboxRow };
+
+const STOPPING = 4;
+
+const rankOf = (child: HostChild): number => {
+  if (child.kind === 'run') {
+    return child.runner.currentRun ? 0 : 1;
+  }
+
+  const [first] = child.row.sandboxes;
+
+  if (first.status === 'draining') {
+    return STOPPING;
+  }
+
+  return isWarm(first) ? 3 : 2;
+};
+
+const WARM_STATUS_ORDER: readonly IdleSandbox['status'][] = [
+  'starting',
+  'ready',
+  'draining',
+];
+
+const warmRows = (warm: readonly IdleSandbox[]): SandboxRow[] => {
+  const lines = [...new Set(warm.map((each) => each.warmLineId))];
+  const groups = new Map<string, [IdleSandbox, ...IdleSandbox[]]>();
+
+  for (const sandbox of warm) {
+    const key = [sandbox.warmLineId, sandbox.status, sandbox.image].join('\n');
+    const group = groups.get(key);
+
+    if (group) {
+      group.push(sandbox);
+    } else {
+      groups.set(key, [sandbox]);
+    }
+  }
+
+  const byLineThenStatus = (one: SandboxRow, other: SandboxRow): number => {
+    const [a] = one.sandboxes;
+    const [b] = other.sandboxes;
+
+    return (
+      lines.indexOf(a.warmLineId) - lines.indexOf(b.warmLineId) ||
+      WARM_STATUS_ORDER.indexOf(a.status) - WARM_STATUS_ORDER.indexOf(b.status)
+    );
+  };
+
+  return [...groups.values()]
+    .map((sandboxes) => ({ id: sandboxes[0].id, sandboxes }))
+    .sort(byLineThenStatus);
+};
+
+export const hostChildren = (host: Host): HostChild[] =>
+  [
+    ...host.runners.map((runner): HostChild => ({ kind: 'run', runner })),
+    ...host.idleSandboxes
+      .filter((each) => !isWarm(each))
+      .map((sandbox): HostChild => ({
+        kind: 'sandboxes',
+        row: { id: sandbox.id, sandboxes: [sandbox] },
+      })),
+    ...warmRows(host.idleSandboxes.filter(isWarm)).map((row): HostChild => ({
+      kind: 'sandboxes',
+      row,
+    })),
+  ].sort((one, other) => rankOf(one) - rankOf(other));
+
+export const oldestOf = (row: SandboxRow): IdleSandbox =>
+  row.sandboxes.reduce((oldest, each) =>
+    each.startedAt < oldest.startedAt ? each : oldest,
+  );
+
+export const warmSandboxLabel = (
+  count: number,
+  lineName: string | undefined,
+): string => {
+  const what = count === 1 ? 'Warm sandbox' : `${count} warm sandboxes`;
+
+  return lineName ? `${what} for ${lineName}` : what;
+};
 
 export const idleSandboxLabel = (sandbox: IdleSandbox): string =>
   sandbox.lastRun ? formatRun(sandbox.lastRun) : 'Idle sandbox';
 
-const IDLE_SANDBOX_STATUSES: Record<
+const SANDBOX_STATUSES: Record<
   IdleSandbox['status'],
-  { warm: string; kept: string }
+  { warm: string; task: string }
 > = {
-  starting: { warm: 'Starting', kept: 'Starting' },
-  ready: { warm: 'Ready', kept: 'Waiting' },
-  draining: { warm: 'Stopping', kept: 'Stopping' },
+  starting: { warm: 'Starting', task: 'Starting' },
+  ready: { warm: 'Ready', task: 'Idle' },
+  draining: { warm: 'Stopping', task: 'Stopping' },
 };
 
-export const idleSandboxStatus = (sandbox: IdleSandbox): string =>
-  IDLE_SANDBOX_STATUSES[sandbox.status][
-    sandbox.warmLineId === null ? 'kept' : 'warm'
-  ];
+export const sandboxStatus = (sandbox: IdleSandbox): string =>
+  SANDBOX_STATUSES[sandbox.status][isWarm(sandbox) ? 'warm' : 'task'];
 
-export const idleSandboxActivity = (sandbox: IdleSandbox): string =>
-  sandbox.warmLineId === null
-    ? `Idle since ${since(sandbox.idleSince)}`
-    : `Started ${since(sandbox.startedAt)}`;
+export const sandboxStatusTip = (
+  sandbox: IdleSandbox,
+  lineName: string | undefined,
+): string | null => {
+  if (sandbox.status === 'draining') {
+    return 'Spotlight stops this sandbox. Its slot is free when it stops.';
+  }
+
+  if (sandbox.status !== 'ready') {
+    return null;
+  }
+
+  return isWarm(sandbox)
+    ? `Sandbox has ${lineName ? `${lineName}’s` : 'this line’s'} repositories set up. It takes the first run of a task on this line.`
+    : 'Sandbox holds this task’s workspace for its next run.';
+};
+
+export const sandboxActivity = (row: SandboxRow): string => {
+  const [first] = row.sandboxes;
+
+  return isWarm(first)
+    ? `Started ${since(oldestOf(row).startedAt)}`
+    : `Idle since ${since(first.idleSince)}`;
+};
 
 export const NONE_IN_FILTER: Record<Exclude<RunnerFilter, 'all'>, string> = {
   running: 'No runs in progress.',

@@ -1895,6 +1895,10 @@ export type IdleSandboxResponseDto = {
    */
   warmLineId: string | null;
   /**
+   * The runner image it runs. A warm sandbox runs the image its line asks for, or the host’s default one. Any other sandbox runs the image of its last run. Null when the image is not known
+   */
+  image: string | null;
+  /**
    * Ready once its host reports it; draining while its host stops it
    */
   status: 'starting' | 'ready' | 'draining';
@@ -1946,9 +1950,13 @@ export type HostResponseDto = {
    */
   capacity: number;
   /**
-   * How many of its slots are taken now: one for each runner on it, and one for each idle sandbox that no runner enters
+   * How many of its slots are taken now. Each run on it takes one, and each idle sandbox takes one
    */
   slotsTaken: number;
+  /**
+   * How many of its slots are free for a new run now
+   */
+  slotsOffered: number;
   /**
    * Its sandboxes that hold no run now: warm sandboxes, and sandboxes that wait for the next run of their task or chat
    */

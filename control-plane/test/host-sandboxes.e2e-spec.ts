@@ -4,10 +4,12 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner.repository';
+import { DrizzleWorkingCopyImages } from '@runs/infrastructure/persistence/drizzle/readers/working-copy-images.reader';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import { requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 
 const NOW = new Date('2026-11-14T12:00:00.000Z');
@@ -101,7 +103,7 @@ describe('the sandboxes that wait on a host', () => {
       warm: {
         lineId: 'line_delivery',
         labelGroups: [],
-        image: null,
+        image: 'ghcr.io/acme/widgets:1',
         checkouts: [],
         fingerprint: 'fingerprint_1',
       },
@@ -141,11 +143,17 @@ describe('the sandboxes that wait on a host', () => {
     const idle = await reader.idleSandboxesOn([HOST]);
 
     expect(
-      idle.map((each) => [each.id, each.state, each.key, each.warmLineId]),
+      idle.map((each) => [
+        each.id,
+        each.state,
+        each.key,
+        each.warmLineId,
+        each.warmImage,
+      ]),
     ).toEqual([
-      [kept.id, 'open', kept.key, null],
-      [warm.id, 'open', null, 'line_delivery'],
-      [draining.id, 'draining', draining.key, null],
+      [kept.id, 'open', kept.key, null, null],
+      [warm.id, 'open', null, 'line_delivery', 'ghcr.io/acme/widgets:1'],
+      [draining.id, 'draining', draining.key, null, null],
     ]);
     await expect(reader.idleSandboxesOn([])).resolves.toEqual([]);
 
@@ -188,5 +196,63 @@ describe('the runners alive in a workspace', () => {
     expect(alive.map((each) => each.id.value).sort()).toEqual(
       [working.id, claiming.id, pushed.id].sort(),
     );
+  });
+});
+
+describe('the image each working copy last ran in', () => {
+  const pinned = (name: string, digit: string) =>
+    `ghcr.io/acme/${name}@sha256:${digit.repeat(64)}`;
+
+  const startedRun = (
+    taskId: string,
+    over: Partial<typeof schema.run.$inferInsert>,
+  ) => ({
+    id: randomUUID(),
+    workspaceId: WORKSPACE,
+    harness: 'dev',
+    state: 'completed' as const,
+    spec: {},
+    ...requestedByTask(taskId),
+    ...over,
+  });
+
+  it('names the image of the run that used each working copy last, and none for a key whose runs never started', async () => {
+    const images = new DrizzleWorkingCopyImages(db);
+    const [task, unstarted] = [randomUUID(), randomUUID()];
+
+    await db.insert(schema.run).values([
+      startedRun(task, {
+        ranIn: pinned('runner', 'a'),
+        startedAt: minutesAgo(50),
+        endedAt: minutesAgo(40),
+        createdAt: minutesAgo(50),
+      }),
+      startedRun(task, {
+        ranIn: pinned('widgets', 'b'),
+        startedAt: minutesAgo(30),
+        endedAt: minutesAgo(20),
+        createdAt: minutesAgo(30),
+      }),
+      startedRun(unstarted, { state: 'queued', createdAt: minutesAgo(5) }),
+      startedRun(task, {
+        workspaceId: 'ws_other',
+        ranIn: pinned('other', 'c'),
+        startedAt: minutesAgo(10),
+        endedAt: minutesAgo(1),
+        createdAt: minutesAgo(10),
+      }),
+    ]);
+
+    const ranIn = await images.lastRanIn(WorkspaceId.of(WORKSPACE), [
+      `work/task-${task}`,
+      `work/task-${unstarted}`,
+    ]);
+
+    expect([...ranIn]).toEqual([
+      [`work/task-${task}`, pinned('widgets', 'b')],
+    ]);
+    await expect(
+      images.lastRanIn(WorkspaceId.of(WORKSPACE), []),
+    ).resolves.toEqual(new Map());
   });
 });

@@ -279,6 +279,7 @@ export class DrizzleRunnerReader
               hostId: row.hostId,
               key: row.key,
               warmLineId: row.warm?.lineId ?? null,
+              warmImage: row.warm?.image ?? null,
               state: row.state,
               idleSince: row.idleSince,
               startedAt: row.startedAt,

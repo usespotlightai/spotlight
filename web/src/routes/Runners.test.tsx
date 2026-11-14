@@ -75,6 +75,7 @@ const host = (over: Record<string, unknown> = {}) => ({
   containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
   capacity: 4,
   slotsTaken: 0,
+  slotsOffered: 4,
   idleSandboxes: [],
   images: [image()],
   firstHeartbeatAt: '2026-08-20T09:00:00.000Z',
@@ -123,6 +124,7 @@ const idleSandbox = (over: Record<string, unknown> = {}) => ({
   id: 'sandbox_1',
   key: 'work/task-task_1',
   warmLineId: null,
+  image: 'ghcr.io/usespotlightai/spotlight-runner:v0.3.0',
   status: 'ready',
   idleSince: '2026-08-29T12:00:00.000Z',
   startedAt: '2026-08-29T11:00:00.000Z',
@@ -430,10 +432,10 @@ describe('Runners', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
   });
 
-  it('nests the idle sandboxes under their host: a kept one by its last run, a warm one by its line', () => {
+  it('nests the idle sandboxes under their host: a task’s one by its last run, a warm one by its line', () => {
     listing([
       host({
-        slotsTaken: 3,
+        slotsTaken: 4,
         idleSandboxes: [
           idleSandbox(),
           idleSandbox({
@@ -449,6 +451,13 @@ describe('Runners', () => {
             status: 'starting',
             lastRun: null,
           }),
+          idleSandbox({
+            id: 'sandbox_4',
+            key: null,
+            warmLineId: 'line_delivery',
+            status: 'draining',
+            lastRun: null,
+          }),
         ],
       }),
     ]);
@@ -461,13 +470,74 @@ describe('Runners', () => {
     expect(
       nested.getByRole('link', { name: 'Drain the stuck retry queues' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
-    expect(nested.getByText('Waiting')).toBeInTheDocument();
+    expect(nested.getByText('Idle')).toHaveAccessibleDescription(
+      'Sandbox holds this task’s workspace for its next run.',
+    );
     expect(nested.getByText(/^Idle since/)).toBeInTheDocument();
-    expect(nested.getByText('Warm sandbox for Delivery')).toBeInTheDocument();
-    expect(nested.getByText('Ready')).toBeInTheDocument();
+    expect(nested.getAllByText('Warm sandbox for Delivery')).toHaveLength(2);
+    expect(nested.getByText('Ready')).toHaveAccessibleDescription(
+      'Sandbox has Delivery’s repositories set up. It takes the first run of a task on this line.',
+    );
     expect(nested.getByText('Warm sandbox')).toBeInTheDocument();
     expect(nested.getByText('Starting')).toBeInTheDocument();
-    expect(screen.getByText('3 of 4')).toBeInTheDocument();
+    expect(nested.getByText('Stopping')).toHaveAccessibleDescription(
+      'Spotlight stops this sandbox. Its slot is free when it stops.',
+    );
+    expect(
+      nested.getAllByRole('listitem').map((row) => row.textContent),
+    ).toEqual([
+      expect.stringMatching(/^Drain the stuck retry queuesIdle/),
+      expect.stringMatching(/^Warm sandbox for DeliveryReady/),
+      expect.stringMatching(/^Warm sandboxStarting/),
+      expect.stringMatching(/^Warm sandbox for DeliveryStopping/),
+    ]);
+    expect(screen.getByText('4 of 4')).toBeInTheDocument();
+  });
+
+  it('gives one row to each thing that takes a slot, merging warm sandboxes of one line', () => {
+    listing([
+      host({
+        capacity: 6,
+        slotsTaken: 6,
+        slotsOffered: 0,
+        runners: [onHost('runner_1')],
+        idleSandboxes: ['w1', 'w2', 'w3', 'w4', 'w5'].map((id, at) =>
+          idleSandbox({
+            id,
+            key: null,
+            warmLineId: 'line_delivery',
+            startedAt: `2026-08-29T11:0${at}:00.000Z`,
+            lastRun: null,
+          }),
+        ),
+      }),
+    ]);
+
+    renderPage();
+
+    const hosts = within(
+      screen.getByRole('region', { name: 'Hosts and push pools' }),
+    );
+    const nested = within(
+      screen.getByRole('list', { name: 'Runners on build-box-1' }),
+    );
+    const rows = nested.getAllByRole('listitem');
+
+    expect(hosts.getByText('Running 1')).toBeInTheDocument();
+    expect(hosts.getByText('6 of 6')).toHaveAccessibleDescription(
+      'Runs: 1. Warm sandboxes: 5. Idle sandboxes: 0. Free: 0.',
+    );
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText('Running')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('1')).toBeInTheDocument();
+    expect(
+      within(rows[1]).getByText('5 warm sandboxes for Delivery'),
+    ).toBeInTheDocument();
+    expect(within(rows[1]).getByText('5')).toBeInTheDocument();
+    expect(
+      within(rows[1]).getByText('spotlight-runner:v0.3.0'),
+    ).toBeInTheDocument();
+    expect(within(rows[1]).getByText('Claude Code 2.1.270')).toBeInTheDocument();
   });
 
   it('hides the run of a team the viewer cannot read behind a blurred stand-in, saying why', () => {
