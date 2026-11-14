@@ -2,7 +2,9 @@ import { Inject, Module, type OnApplicationShutdown } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import { ConfigModule } from '@platform/config/config.module';
 import { LoggingModule } from '@platform/logging/logging.module';
+import { OtelTelemetry } from '@platform/telemetry/otel-telemetry';
 import {
+  countFailures,
   createDatabase,
   createPool,
   createReadPool,
@@ -43,6 +45,12 @@ export class DrizzleModule implements OnApplicationShutdown {
     @Inject(READ_PG_POOL) private readonly readPool: Pool,
     @Inject(LOGGER) logger: LoggerPort,
   ) {
+    const telemetry = new OtelTelemetry();
+
+    for (const each of new Set([pool, readPool])) {
+      countFailures(each, telemetry);
+    }
+
     for (const each of new Set([pool, readPool])) {
       each.on('error', (error: Error & { code?: string }) =>
         logger.error(
