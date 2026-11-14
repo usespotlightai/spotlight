@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { useMarkInboxItemRead } from '@/hooks/api/useMarkInboxItemRead';
 import { useMarkInboxRequestRead } from '@/hooks/api/useMarkInboxRequestRead';
-import type { InboxItemView } from '@/lib/inbox';
+import { followed, type InboxItemView } from '@/lib/inbox';
 
 export function useMarkReadOnView(
   slug: string | undefined,
@@ -15,7 +15,13 @@ export function useMarkReadOnView(
   useEffect(() => {
     const at = item && `${item.id}:${item.notes.length}`;
 
-    if (!slug || !item?.unread || !at || seen.current === at) {
+    if (
+      !slug ||
+      !item?.unread ||
+      followed(item) ||
+      !at ||
+      seen.current === at
+    ) {
       return;
     }
 

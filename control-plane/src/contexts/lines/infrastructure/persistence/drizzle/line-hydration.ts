@@ -2,6 +2,7 @@ import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { Station } from '@lines/domain/entities/station.entity';
 import { AgentPrompt } from '@lines/domain/value-objects/agent-prompt.vo';
 import { ConfigSource } from '@lines/domain/value-objects/config-source.vo';
+import { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
 import { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import { Reaction } from '@lines/domain/value-objects/reaction.vo';
 import { ReplayCheckPolicy } from '@lines/domain/value-objects/replay-check-policy.vo';
@@ -123,6 +124,9 @@ const toLine = (
     source: line.source ? ConfigSource.of(line.source) : null,
     placement: RunnerPlacement.of(line.runners),
     warmSandboxes: WarmSandboxCount.of(line.warmSandboxes),
+    defaultAssignee: line.defaultAssignee
+      ? DefaultAssignee.of(line.defaultAssignee)
+      : null,
     repositories,
     version: line.version,
   });

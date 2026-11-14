@@ -60,6 +60,12 @@ vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
 }));
 
+const take = vi.fn();
+
+vi.mock('@/hooks/api/useTakeInboxItem', () => ({
+  useTakeInboxItem: () => ({ mutate: take, isPending: false }),
+}));
+
 vi.mock('@/hooks/api/useMarkInboxItemRead', () => ({
   useMarkInboxItemRead: () => ({ mutate: markInboxItemRead }),
 }));
@@ -151,6 +157,7 @@ function Switch({ to }: { to: string }) {
 describe('InboxItem', () => {
   beforeEach(() => {
     answer.mockClear();
+    take.mockClear();
     markInboxItemRead.mockClear();
     waiting.mockReturnValue(item([note()]));
     viewer.mockReturnValue({ user: { id: 'user_2' } });
@@ -569,6 +576,54 @@ describe('InboxItem', () => {
     expect(
       screen.getByRole('textbox', { name: 'Answer Implementation' }),
     ).toBeInTheDocument();
+  });
+
+  describe('waiting for the team', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([{ ...only, standing: 'team' }]);
+    });
+
+    it('says so, and takes the task for the viewer on Take it', async () => {
+      renderItem();
+
+      expect(screen.getByText(/Waiting for team/)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Take it' }));
+
+      expect(take).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:0' });
+    });
+
+    it('can be answered by anyone on the team', () => {
+      renderItem();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Answer Implementation' }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('followed by the viewer', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([
+        { ...only, standing: 'following', unread: true },
+      ]);
+    });
+
+    it('shows the conversation without a way to answer it', () => {
+      renderItem();
+
+      expect(
+        screen.queryByRole('textbox', { name: /Answer/ }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/Its assignee answers here/)).toBeInTheDocument();
+    });
+
+    it('leaves it unread for its assignee', () => {
+      renderItem();
+
+      expect(markInboxItemRead).not.toHaveBeenCalled();
+    });
   });
 
   it('has nothing to answer once it has moved on', () => {

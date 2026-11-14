@@ -254,6 +254,13 @@ describe('renderLine', () => {
     expect(rendered().warmSandboxes).toBe(0);
   });
 
+  it('renders the default assignee of a line only where it names one', () => {
+    expect(
+      rendered({ defaultAssignee: 'ada@example.com' }).defaultAssignee,
+    ).toBe('ada@example.com');
+    expect(rendered()).not.toHaveProperty('defaultAssignee');
+  });
+
   it('renders where a line and its stations may run, and leaves it out when anywhere', () => {
     const definition = rendered({
       runners: ['vpc-internal'],

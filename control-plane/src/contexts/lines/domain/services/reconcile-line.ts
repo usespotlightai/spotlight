@@ -104,6 +104,7 @@ const assemble = (
     reviews: plan.reviews,
     placement: plan.placement,
     warmSandboxes: plan.warmSandboxes,
+    defaultAssignee: plan.defaultAssignee,
     replayCheck: plan.replayCheck,
     search: plan.search,
     source: plan.source,

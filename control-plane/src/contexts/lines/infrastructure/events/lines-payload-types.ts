@@ -3,6 +3,7 @@ import { LineDeleted } from '@lines/domain/events/line-deleted.event';
 import { LineUpdated } from '@lines/domain/events/line-updated.event';
 import { AgentPrompt } from '@lines/domain/value-objects/agent-prompt.vo';
 import { ConfigSource } from '@lines/domain/value-objects/config-source.vo';
+import { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
 import { LinePlan } from '@lines/domain/value-objects/line-plan.vo';
 import { LineRepositories } from '@lines/domain/value-objects/line-repositories.vo';
 import { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
@@ -33,6 +34,7 @@ export const LINES_PAYLOAD_TYPES = [
   LineUpdated,
   AgentPrompt,
   ConfigSource,
+  DefaultAssignee,
   LinePlan,
   LineRepositories,
   LineRepositoryConfig,

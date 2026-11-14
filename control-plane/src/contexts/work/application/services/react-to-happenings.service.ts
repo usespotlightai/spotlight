@@ -38,7 +38,10 @@ import {
   REACTED,
 } from '@work/application/services/happenings-reaction';
 import type { WorkAccess } from '@work/application/services/work-access.service';
-import { Task } from '@work/domain/aggregates/task.aggregate';
+import {
+  type OpeningCandidates,
+  Task,
+} from '@work/domain/aggregates/task.aggregate';
 import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
@@ -58,6 +61,7 @@ import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo'
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 const anchorOf = (
@@ -339,6 +343,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
         anchor: anchorOf(happened, attachments),
       }),
       task,
+      line,
       attachments,
       happened.authorEmail,
       happened.payload.happening,
@@ -541,10 +546,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     attachments: readonly Attachment[],
     shaped: (task: Task) => Task,
   ): Promise<void> {
-    const named = happened.opens?.assignEmail
-      ? await this.members.byEmail(workspaceId, happened.opens.assignEmail)
-      : null;
-    const members = named ? await this.teams.membersOf(line.teamId) : null;
+    const assignee = await this.assigneeOn(workspaceId, line, happened);
     const now = this.clock.now();
 
     const added = shaped(
@@ -569,10 +571,41 @@ export class ReactToHappenings implements HappeningReactionsPort {
       ),
     );
 
-    const opened =
-      named && members ? added.assignedIfMember(named, members) : added;
+    const opened = assignee
+      ? added.assignedOnOpening(assignee.candidates, assignee.members)
+      : added;
 
     await this.tasks.add(await handedToRun(this.dispatch, opened, line));
+  }
+
+  private async assigneeOn(
+    workspaceId: WorkspaceId,
+    line: LineMap,
+    happened: ReceivedHappening,
+  ): Promise<{
+    readonly candidates: OpeningCandidates;
+    readonly members: TeamMembers;
+  } | null> {
+    const named = happened.opens?.assignEmail ?? null;
+    const lineDefault = line.defaultAssignee;
+
+    if (!named && !lineDefault) {
+      return null;
+    }
+
+    const members = await this.teams.membersOf(line.teamId);
+    const person = (email: string | null) =>
+      email ? this.members.byEmail(workspaceId, email) : null;
+
+    return members
+      ? {
+          candidates: {
+            named: await person(named),
+            lineDefault: await person(lineDefault),
+          },
+          members,
+        }
+      : null;
   }
 
   private skipped(
@@ -589,6 +622,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
   private async applied(
     reaction: Outcome,
     task: Task,
+    line: LineMap,
     attachments: readonly Attachment[],
     authorEmail: string | null,
     happening: Happening,
@@ -602,9 +636,12 @@ export class ReactToHappenings implements HappeningReactionsPort {
       : null;
     const destination = movedTo(reaction);
 
+    const members = await this.teams.membersOf(line.teamId);
+
     return task.reactTo(reaction, {
       at: this.clock.now(),
       voice: Voice.fromHappening(happening, author),
+      members: members ?? TeamMembers.of([]),
       attachments,
       ranksAtDestination: destination
         ? (await this.placements.placementsAt(destination)).map(

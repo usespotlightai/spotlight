@@ -16,6 +16,7 @@ const DELIVERY: LineDefinition = {
   ],
   runners: ['build-1', 'vpc-internal'],
   warmSandboxes: 2,
+  defaultAssignee: 'ada@example.com',
   stations: [
     {
       key: 'backlog',

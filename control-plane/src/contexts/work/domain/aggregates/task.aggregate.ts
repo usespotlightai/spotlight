@@ -50,13 +50,19 @@ import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task
 import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
+import { NotOnTheTeamAskedError } from '@work/domain/exceptions/not-on-the-team-asked.error';
 import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
+import { TaskTakenError } from '@work/domain/exceptions/task-taken.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
-import { ConversationAudience } from '@work/domain/services/conversation-audience';
+import {
+  ConversationAudience,
+  type ConversationStanding,
+  type ConversationViewer,
+} from '@work/domain/services/conversation-audience';
 import {
   type Conversation,
   notesIn,
@@ -110,11 +116,16 @@ import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import type { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WorkingCopyRelease } from '@work/domain/value-objects/working-copy-release.vo';
+
+export interface OpeningCandidates {
+  readonly named: UserId | null;
+  readonly lineDefault: UserId | null;
+}
 
 export interface OpenReviewComment {
   readonly at: NotePosition;
@@ -630,6 +641,14 @@ export class Task extends EventRecorder {
       : { task: this.moveTo(line, to, rank, newNote, handMove), moved: true };
   }
 
+  assignedOnOpening(candidates: OpeningCandidates, members: TeamMembers): Task {
+    const first = [candidates.named, candidates.lineDefault].find(
+      (each): each is UserId => each !== null && members.includes(each),
+    );
+
+    return first ? this.assign(first, members) : this;
+  }
+
   assignedIfMember(userId: UserId, members: TeamMembers): Task {
     return members.includes(userId) ? this.assign(userId, members) : this;
   }
@@ -644,6 +663,63 @@ export class Task extends EventRecorder {
 
   unassign(): Task {
     return this.assignedTo(null);
+  }
+
+  take(from: NotePosition, person: UserId, members: TeamMembers): Task {
+    if (!this.isWaitingAt(from)) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} is not waiting on anyone at that note.`,
+      );
+    }
+
+    return this.heldBy(person, members);
+  }
+
+  answerAs(
+    answerer: UserId,
+    members: TeamMembers,
+    from: NotePosition,
+    newNote: NewNote,
+    decision: ApprovalDecision | null = null,
+    edits: ApprovalEdits | null = null,
+  ): Task {
+    return this.heldBy(answerer, members).answer(
+      from,
+      newNote,
+      decision,
+      edits,
+    );
+  }
+
+  resolveAs(
+    resolver: UserId,
+    members: TeamMembers,
+    from: NotePosition,
+    newNote: NewNote,
+  ): Task {
+    return this.heldBy(resolver, members).resolveAt(from, newNote);
+  }
+
+  private heldBy(person: UserId, members: TeamMembers): Task {
+    if (!this.assignee && !members.includes(person)) {
+      throw new NotOnTheTeamAskedError(this.id.value);
+    }
+
+    if (!this.assignee) {
+      return this.assign(person, members);
+    }
+
+    if (!this.assignee.equals(person)) {
+      throw new TaskTakenError(this.id.value);
+    }
+
+    return this;
+  }
+
+  private claimedOnAnswer(person: UserId | null, members: TeamMembers): Task {
+    return person && this.assignee === null
+      ? this.assignedIfMember(person, members)
+      : this;
   }
 
   private assignedTo(assignee: UserId | null): Task {
@@ -846,6 +922,7 @@ export class Task extends EventRecorder {
         voice: Voice.world(),
         attachments: [],
         ranksAtDestination: on.ranksAtHeldMove,
+        members: TeamMembers.of([]),
       }) ?? released
     );
   }
@@ -1048,18 +1125,25 @@ export class Task extends EventRecorder {
     return this.noted(newNote, 'message');
   }
 
-  receiveMessage(by: RunId, newNote: NewNote, at: StationId | null): Task {
+  receiveMessage(
+    by: RunId,
+    newNote: NewNote,
+    at: StationId | null,
+    members: TeamMembers,
+  ): Task {
     const answering =
       this.hasCurrentRun(by) ||
       (!this.running && at !== null && this.stationId.equals(at));
     const pending = answering ? this.pendingConversation : null;
+    const sender = newNote.voice.isPerson ? newNote.voice.author : null;
 
     if (pending && !this.decisionPending) {
-      return this.answer(pending.from, newNote);
+      return sender
+        ? this.answerAs(sender, members, pending.from, newNote)
+        : this.answer(pending.from, newNote);
     }
 
     const withMessage = this.addMessage(newNote, at);
-    const sender = newNote.voice.isPerson ? newNote.voice.author : null;
 
     if (sender && !this.running) {
       withMessage.record(
@@ -1137,6 +1221,7 @@ export class Task extends EventRecorder {
       readonly voice: Voice;
       readonly attachments: readonly Attachment[];
       readonly ranksAtDestination: readonly TaskRank[];
+      readonly members: TeamMembers;
     },
   ): Task | null {
     if (outcome.kind === 'nothing') {
@@ -1168,7 +1253,10 @@ export class Task extends EventRecorder {
           newNote,
         ).movedOnClose(outcome.closed);
       case 'answers':
-        return this.answer(outcome.to, newNote);
+        return this.answer(outcome.to, newNote).claimedOnAnswer(
+          on.voice.author,
+          on.members,
+        );
       case 'moves':
         return this.react(
           outcome.line,
@@ -1410,8 +1498,23 @@ export class Task extends EventRecorder {
     return open ? (open.from.noteIn(this.notes) ?? null) : null;
   }
 
-  showsConversationsTo(viewer: UserId): boolean {
-    return ConversationAudience.includes(this.assignee, viewer);
+  wroteIn(person: UserId): boolean {
+    return this.notes.some(
+      (note) =>
+        note.voice.isPerson &&
+        [note.voice.author, ...note.voice.coAuthors].some((each) =>
+          each?.equals(person),
+        ),
+    );
+  }
+
+  conversationStandingOf(
+    viewer: ConversationViewer,
+  ): ConversationStanding | null {
+    return ConversationAudience.standingOf(this.assignee, {
+      ...viewer,
+      wroteIn: this.wroteIn(viewer.person),
+    });
   }
 
   assignedToThem(userId: UserId): boolean {

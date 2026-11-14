@@ -1,5 +1,5 @@
 {
-  "id": "2d0c2584-6398-4a78-9f0d-e80839e85af8",
+  "id": "4b61293f-e161-47d5-83b3-d97840e584aa",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -8699,6 +8699,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "default_assignee": {
+          "name": "default_assignee",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "version": {
           "name": "version",

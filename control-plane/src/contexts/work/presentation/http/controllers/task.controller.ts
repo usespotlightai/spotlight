@@ -326,11 +326,12 @@ export class TaskController {
   })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
   @ApiConflictResponse({
-    description: 'The task has moved on from that station',
+    description:
+      'The task has moved on from that station, or the message answers a question that another person is the assignee of',
   })
   @ApiForbiddenResponse({
     description:
-      'The caller is not a member of the team, nor a workspace admin',
+      'The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it',
   })
   async sendMessage(
     @Param('runId') runId: string,

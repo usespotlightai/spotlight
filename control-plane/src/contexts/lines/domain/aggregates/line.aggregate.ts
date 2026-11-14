@@ -17,6 +17,7 @@ import {
   stationsProblem,
 } from '@lines/domain/services/line-layout';
 import type { ConfigSource } from '@lines/domain/value-objects/config-source.vo';
+import type { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
 import { LineRepositories } from '@lines/domain/value-objects/line-repositories.vo';
 import type { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import { Reaction } from '@lines/domain/value-objects/reaction.vo';
@@ -58,6 +59,7 @@ export interface LineLayout {
   readonly reviews?: ReviewPolicy | null;
   readonly placement?: RunnerPlacement;
   readonly warmSandboxes?: WarmSandboxCount;
+  readonly defaultAssignee?: DefaultAssignee | null;
   readonly replayCheck?: ReplayCheckPolicy | null;
   readonly search?: LineSearchPolicy | null;
   readonly source?: ConfigSource | null;
@@ -83,6 +85,7 @@ export class Line extends EventRecorder {
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
     readonly warmSandboxes: WarmSandboxCount,
+    readonly defaultAssignee: DefaultAssignee | null,
     readonly replayCheck: ReplayCheckPolicy | null,
     readonly search: LineSearchPolicy | null,
     readonly source: ConfigSource | null,
@@ -251,6 +254,7 @@ export class Line extends EventRecorder {
       layout.reviews ?? null,
       layout.placement ?? RunnerPlacement.anywhere(),
       layout.warmSandboxes ?? WarmSandboxCount.NONE,
+      layout.defaultAssignee ?? null,
       layout.replayCheck ?? null,
       layout.search ?? null,
       layout.source ?? null,
@@ -352,6 +356,7 @@ export class Line extends EventRecorder {
       this.reviews,
       this.placement,
       this.warmSandboxes,
+      this.defaultAssignee,
       this.replayCheck,
       this.search,
       this.source,
@@ -400,6 +405,10 @@ export class Line extends EventRecorder {
         reviews: part.reviews !== undefined ? part.reviews : this.reviews,
         placement: part.placement ?? this.placement,
         warmSandboxes: part.warmSandboxes ?? this.warmSandboxes,
+        defaultAssignee:
+          part.defaultAssignee !== undefined
+            ? part.defaultAssignee
+            : this.defaultAssignee,
         replayCheck:
           part.replayCheck !== undefined ? part.replayCheck : this.replayCheck,
         search: part.search !== undefined ? part.search : this.search,
