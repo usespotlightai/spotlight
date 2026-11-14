@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import {
+  type AfterRun,
   Conversation,
   type Deciding,
 } from '@/components/features/inbox/conversation/Conversation';
@@ -22,7 +23,7 @@ type RunConversationProps = {
   live?: ReactNode;
   closing?: ReactNode;
   openAt?: number | null;
-  afterRun?: (runId: string) => ReactNode;
+  afterRun?: AfterRun;
 };
 
 export function RunConversation({

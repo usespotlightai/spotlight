@@ -60,6 +60,8 @@ export const decisionPending = (notes: readonly Note[]): boolean =>
 export const closesOrReopens = (note: Note): boolean =>
   note.form === 'resolved' || note.kind === 'reopened';
 
+export const showsInThread = (note: Note): boolean => !closesOrReopens(note);
+
 const answersTo = (notes: readonly Note[], runId: string): number[] => {
   const answers: number[] = [];
   let asked = false;

@@ -113,8 +113,10 @@ export function RunPage({
                 openAt={openAt}
                 live={live}
                 closing={followedOn ? undefined : closing}
-                afterRun={(ranId) =>
-                  followedOn && ranId === run.id ? closing : null
+                afterRun={
+                  followedOn && closing
+                    ? { runId: run.id, content: closing }
+                    : undefined
                 }
                 footer={footer}
                 deciding={decide}

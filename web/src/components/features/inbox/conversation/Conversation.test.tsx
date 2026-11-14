@@ -1,15 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  type AfterRun,
   Conversation,
   type Deciding,
 } from '@/components/features/inbox/conversation/Conversation';
 import { type Note, openedAt } from '@/lib/inbox';
+import type { ShownProgress } from '@/lib/run';
 
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: { user: { id: 'user_1' } } }),
@@ -67,10 +68,27 @@ const APPROVAL = {
   askedOf: null,
 };
 
+const CLOSING: AfterRun = {
+  runId: 'run_1',
+  content: <p>How the run went</p>,
+};
+
+const expectInOrder = (...texts: string[]) => {
+  const shown = texts.map((text) => screen.getByText(text));
+
+  for (const [at, each] of shown.slice(1).entries()) {
+    expect(
+      shown[at]?.compareDocumentPosition(each) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  }
+};
+
 const showing = (
   notes: ReturnType<typeof note>[],
   deciding?: Deciding,
-  afterRun?: (runId: string) => ReactNode,
+  afterRun?: AfterRun,
+  progress: ShownProgress | null = null,
 ) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -88,7 +106,7 @@ const showing = (
               position: 0,
               count: 4,
             },
-            progress: null,
+            progress,
             notes,
           }}
           worked={[]}
@@ -185,7 +203,7 @@ describe('Conversation', () => {
         { ...ran, position: 2, body: 'Done', at: LATER },
       ],
       undefined,
-      () => <p>How the run went</p>,
+      CLOSING,
     );
 
     const closing = screen.getAllByText('How the run went');
@@ -194,6 +212,82 @@ describe('Conversation', () => {
       screen.getByText('Done').compareDocumentPosition(closing[0]) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it('closes a run after its last shown note when a resolving note of it comes later', () => {
+    const ran = { ...note(0, AT), runId: 'run_1', body: 'Done' };
+    showing(
+      [
+        ran,
+        {
+          ...ran,
+          position: 1,
+          voice: 'person',
+          kind: 'passed',
+          form: 'resolved',
+          body: 'Resolved.',
+          at: LATER,
+        },
+      ],
+      undefined,
+      CLOSING,
+    );
+
+    const closing = screen.getAllByText('How the run went');
+    expect(closing).toHaveLength(1);
+    expect(
+      screen.getByText('Done').compareDocumentPosition(closing[0]) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('closes a run that has said nothing yet after the last note, above the working line', () => {
+    showing([note(0, AT)], undefined, CLOSING, 'in-progress');
+
+    expect(screen.getAllByText('How the run went')).toHaveLength(1);
+    expectInOrder('note 0', 'How the run went', 'Backlog is working…');
+  });
+
+  it('closes a run where its hidden last note was, before a later run', () => {
+    showing(
+      [
+        { ...note(0, AT), runId: 'run_0', body: 'Before' },
+        {
+          ...note(1, LATER),
+          runId: 'run_1',
+          voice: 'person',
+          kind: 'passed',
+          form: 'resolved',
+          body: 'Resolved.',
+        },
+        { ...note(2, LATER), runId: 'run_2', body: 'Later' },
+      ],
+      undefined,
+      CLOSING,
+    );
+
+    expect(screen.getAllByText('How the run went')).toHaveLength(1);
+    expectInOrder('Before', 'How the run went', 'Later');
+  });
+
+  it('closes a run under the message that ended it, before a later run', () => {
+    showing(
+      [
+        { ...note(0, AT), runId: 'run_1', body: 'Asked' },
+        {
+          ...note(1, LATER),
+          runId: 'run_1',
+          voice: 'person',
+          body: 'Go ahead',
+        },
+        { ...note(2, LATER), runId: 'run_2', body: 'Later' },
+      ],
+      undefined,
+      CLOSING,
+    );
+
+    expect(screen.getAllByText('How the run went')).toHaveLength(1);
+    expectInOrder('Go ahead', 'How the run went', 'Later');
   });
 
   it('shows what the station said in an older turn', () => {

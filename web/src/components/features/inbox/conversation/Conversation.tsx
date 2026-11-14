@@ -17,11 +17,11 @@ import {
   ARRIVING,
   authorsOf,
   type ConversationItem,
-  closesOrReopens,
   type Note,
   openedAt,
   type RunJournal,
   STICKY_AT_TOP,
+  showsInThread,
   workedOn,
 } from '@/lib/inbox';
 import { lastNoteOf } from '@/lib/run-notes';
@@ -33,14 +33,22 @@ interface NoteTurn {
   readonly notes: Note[];
 }
 
-type WorkedBy = ReadonlyMap<number, readonly RunJournal[]>;
+interface RunClosingPlace {
+  readonly turn: number;
+  readonly after: number | null;
+}
 
-const shown = (note: Note): boolean => !closesOrReopens(note);
+export type AfterRun = {
+  readonly runId: string;
+  readonly content: ReactNode;
+};
+
+type WorkedBy = ReadonlyMap<number, readonly RunJournal[]>;
 
 const turnsOf = (item: ConversationItem): NoteTurn[] => {
   const cut: NoteTurn[] = [{ prompt: null, notes: [] }];
 
-  for (const note of item.notes.filter(shown)) {
+  for (const note of item.notes.filter(showsInThread)) {
     if (note.voice === 'person' || note.voice === 'world') {
       cut.push({ prompt: note, notes: [] });
     } else {
@@ -51,11 +59,34 @@ const turnsOf = (item: ConversationItem): NoteTurn[] => {
   return cut;
 };
 
+const closingPlaceOf = (
+  turns: readonly NoteTurn[],
+  notes: readonly Note[],
+  runId: string,
+): RunClosingPlace => {
+  const reach = lastNoteOf(notes, runId) ?? Number.POSITIVE_INFINITY;
+  let place: RunClosingPlace = { turn: 0, after: null };
+
+  turns.forEach((turn, at) => {
+    if (turn.prompt && turn.prompt.position <= reach) {
+      place = { turn: at, after: null };
+    }
+
+    for (const note of turn.notes) {
+      if (note.position <= reach) {
+        place = { turn: at, after: note.position };
+      }
+    }
+  });
+
+  return place;
+};
+
 const marksIn = (item: ConversationItem): Set<number> => {
   let current = openedAt(item.createdAt);
   const marked = new Set<number>();
 
-  for (const note of item.notes.filter(shown)) {
+  for (const note of item.notes.filter(showsInThread)) {
     const reads = openedAt(note.at);
 
     if (reads !== current) {
@@ -151,7 +182,7 @@ type ConversationProps = {
   closing?: ReactNode;
   footer: ReactNode;
   deciding?: Deciding;
-  afterRun?: (runId: string) => ReactNode;
+  afterRun?: AfterRun;
 };
 
 export function Conversation({
@@ -184,7 +215,7 @@ export function Conversation({
   const following = useRef(true);
   const pinnedAt = useRef<number | null>(null);
   const ours = useRef(false);
-  const setup = item.notes.filter(shown).at(-1)?.form === 'setup';
+  const setup = item.notes.filter(showsInThread).at(-1)?.form === 'setup';
 
   useLayoutEffect(() => {
     const box = scroller.current;
@@ -251,6 +282,9 @@ export function Conversation({
     turn.notes.length > 0 ||
     (at === 0 && Boolean(briefing));
   const firstShown = turns.findIndex(rendered);
+  const runClosing = afterRun?.content
+    ? closingPlaceOf(turns, item.notes, afterRun.runId)
+    : null;
 
   return (
     <PaneScroller
@@ -319,12 +353,16 @@ export function Conversation({
               }
             >
               <ol className="mt-6 flex flex-col gap-6">
+                {runClosing?.turn === at && runClosing.after === null && (
+                  <li>{afterRun?.content}</li>
+                )}
+
                 {turn.notes.map((note, place) => {
                   const before = turn.notes[place - 1];
                   const closesRun =
-                    note.runId &&
-                    lastNoteOf(item.notes, note.runId) === note.position
-                      ? afterRun?.(note.runId)
+                    runClosing?.turn === at &&
+                    runClosing.after === note.position
+                      ? afterRun?.content
                       : null;
 
                   return (
