@@ -26331,7 +26331,7 @@
           "slotsTaken": {
             "type": "number",
             "example": 3,
-            "description": "How many of its slots are taken now: one for each runner at work, and one for each idle sandbox that no runner enters"
+            "description": "How many of its slots are taken now: one for each runner on it, and one for each idle sandbox that no runner enters"
           },
           "idleSandboxes": {
             "description": "Its sandboxes that hold no run now: warm sandboxes, and sandboxes that wait for the next run of their task or chat",
@@ -26443,7 +26443,7 @@
             }
           },
           "runners": {
-            "description": "Every runner at work now, one per run, on a host or provisioned by a push pool",
+            "description": "Every runner alive now, on a host or provisioned by a push pool: at work on a run, or started and yet to claim one",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/LiveRunnerResponseDto"

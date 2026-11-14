@@ -90,7 +90,7 @@ afterAll(async () => {
 });
 
 describe('the sandboxes that wait on a host', () => {
-  it('lists the idle sandboxes of the hosts asked for, open or draining, and the working copies they keep', async () => {
+  it('lists the idle sandboxes of the hosts asked for, open or draining, and the working copies that idle sandboxes on hosts keep', async () => {
     const kept = sandbox({
       key: `work/task-${randomUUID()}`,
       idleSince: minutesAgo(7),
@@ -98,6 +98,13 @@ describe('the sandboxes that wait on a host', () => {
     const warm = sandbox({
       idleSince: minutesAgo(20),
       startedAt: minutesAgo(20),
+      warm: {
+        lineId: 'line_delivery',
+        labelGroups: [],
+        image: null,
+        checkouts: [],
+        fingerprint: 'fingerprint_1',
+      },
     });
     const draining = sandbox({
       key: `work/chat-${randomUUID()}`,
@@ -122,32 +129,42 @@ describe('the sandboxes that wait on a host', () => {
         hostId: OTHER_HOST,
         idleSince: minutesAgo(2),
       }),
+      sandbox({
+        key: `work/task-${randomUUID()}`,
+        hostId: null,
+        poolId: null,
+        tokenHash: null,
+        idleSince: minutesAgo(1),
+      }),
     ]);
 
     const idle = await reader.idleSandboxesOn([HOST]);
 
-    expect(idle.map((each) => [each.id, each.state])).toEqual([
-      [kept.id, 'open'],
-      [warm.id, 'open'],
-      [draining.id, 'draining'],
+    expect(
+      idle.map((each) => [each.id, each.state, each.key, each.warmLineId]),
+    ).toEqual([
+      [kept.id, 'open', kept.key, null],
+      [warm.id, 'open', null, 'line_delivery'],
+      [draining.id, 'draining', draining.key, null],
     ]);
     await expect(reader.idleSandboxesOn([])).resolves.toEqual([]);
 
-    const keys = await reader.keptIn(WorkspaceId.of(WORKSPACE));
+    const keys = await reader.idleIn(WorkspaceId.of(WORKSPACE));
 
     expect(keys).toEqual(expect.arrayContaining([kept.key, draining.key]));
     expect(keys).toHaveLength(3);
   });
 });
 
-describe('the runners alive on hosts', () => {
-  it('finds the runners at work with a fresh heartbeat and the ones still inside their claim window, and none that ended or timed out', async () => {
+describe('the runners alive in a workspace', () => {
+  it('finds the runners at work with a fresh heartbeat and the ones still inside their claim window, on a host or not, and none that ended or timed out', async () => {
     const working = runner({
       workKind: 'run',
       workId: randomUUID(),
       lastHeartbeatAt: NOW,
     });
     const claiming = runner({});
+    const pushed = runner({ hostId: null });
 
     await db.insert(schema.runner).values([
       working,
@@ -159,14 +176,17 @@ describe('the runners alive on hosts', () => {
         lastHeartbeatAt: minutesAgo(60),
       }),
       runner({ endedAt: minutesAgo(1) }),
-      runner({ hostId: null }),
+      pushed,
       runner({ workspaceId: 'ws_other' }),
     ]);
 
-    const alive = await runners.aliveOnHostsIn(WorkspaceId.of(WORKSPACE), NOW);
+    const alive = await runners.aliveInWorkspace(
+      WorkspaceId.of(WORKSPACE),
+      NOW,
+    );
 
     expect(alive.map((each) => each.id.value).sort()).toEqual(
-      [working.id, claiming.id].sort(),
+      [working.id, claiming.id, pushed.id].sort(),
     );
   });
 });

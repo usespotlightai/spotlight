@@ -809,4 +809,42 @@ describe('Sandbox', () => {
       ).toThrow(InconsistentStateError);
     });
   });
+
+  describe('status and idleness from plain facts', () => {
+    it('calls an open sandbox ready only when its own host is online and reports it', () => {
+      const facts = {
+        state: 'open' as const,
+        placedOnHost: true,
+        hostOnline: true,
+        reportedByHost: true,
+      };
+
+      expect(Sandbox.statusFrom(facts)).toBe('ready');
+      expect(Sandbox.statusFrom({ ...facts, placedOnHost: false })).toBe(
+        'starting',
+      );
+      expect(Sandbox.statusFrom({ ...facts, hostOnline: false })).toBe(
+        'starting',
+      );
+      expect(Sandbox.statusFrom({ ...facts, reportedByHost: false })).toBe(
+        'starting',
+      );
+      expect(Sandbox.statusFrom({ ...facts, state: 'draining' })).toBe(
+        'draining',
+      );
+    });
+
+    it('calls a sandbox idle and live while it holds no run and is not gone', () => {
+      const idleSince = new Date('2026-11-14T12:00:00.000Z');
+
+      expect(Sandbox.isIdleAndLive({ state: 'open', idleSince })).toBe(true);
+      expect(Sandbox.isIdleAndLive({ state: 'draining', idleSince })).toBe(
+        true,
+      );
+      expect(Sandbox.isIdleAndLive({ state: 'gone', idleSince })).toBe(false);
+      expect(Sandbox.isIdleAndLive({ state: 'open', idleSince: null })).toBe(
+        false,
+      );
+    });
+  });
 });

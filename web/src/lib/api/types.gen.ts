@@ -1939,7 +1939,7 @@ export type HostResponseDto = {
    */
   capacity: number;
   /**
-   * How many of its slots are taken now: one for each runner at work, and one for each idle sandbox that no runner enters
+   * How many of its slots are taken now: one for each runner on it, and one for each idle sandbox that no runner enters
    */
   slotsTaken: number;
   /**
@@ -1981,7 +1981,7 @@ export type LiveRunnerResponseDto = {
 export type RunnerFleetResponseDto = {
   hosts: Array<HostResponseDto>;
   /**
-   * Every runner at work now, one per run, on a host or provisioned by a push pool
+   * Every runner alive now, on a host or provisioned by a push pool: at work on a run, or started and yet to claim one
    */
   runners: Array<LiveRunnerResponseDto>;
 };

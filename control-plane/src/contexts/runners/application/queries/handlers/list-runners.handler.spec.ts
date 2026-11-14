@@ -51,7 +51,6 @@ const runner = (
   id: 'runner_1',
   source: { kind: 'pool', key: 'ephemeral' },
   hostId: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
-  enters: null,
   image: 'ghcr.io/acme/runner:main',
   harnesses: ['claude-code'],
   startedAt: ago(60_000),
@@ -98,7 +97,14 @@ const listing = (
   const inWorkspace = vi.fn().mockResolvedValue(input.runners ?? []);
   const hostsIn = vi.fn().mockResolvedValue(input.hosts ?? []);
   const idleSandboxesOn = vi.fn().mockResolvedValue(input.idleSandboxes ?? []);
-  const aliveOnHostsIn = vi.fn().mockResolvedValue(input.alive ?? []);
+  const aliveInWorkspace = vi
+    .fn()
+    .mockResolvedValue(
+      input.alive ??
+        (input.runners ?? []).map((each) =>
+          aRunner({ id: each.id, host: each.hostId }),
+        ),
+    );
 
   const handler = new ListRunnersHandler(
     {
@@ -112,11 +118,11 @@ const listing = (
       hasEgressCapableRunner: vi.fn(),
       supportedModels: vi.fn(),
     },
-    { aliveOnHostsIn } as unknown as RunnerRepository,
+    { aliveInWorkspace } as unknown as RunnerRepository,
     clock(),
   );
 
-  return { handler, inWorkspace, hostsIn, idleSandboxesOn, aliveOnHostsIn };
+  return { handler, inWorkspace, hostsIn, idleSandboxesOn, aliveInWorkspace };
 };
 
 const handle = async (input: Fleet = {}) =>
@@ -162,7 +168,7 @@ describe('ListRunnersHandler', () => {
   });
 
   it('lists hosts for a day after their last heartbeat, and only those of the workspace requested', async () => {
-    const { handler, hostsIn, inWorkspace, idleSandboxesOn, aliveOnHostsIn } =
+    const { handler, hostsIn, inWorkspace, idleSandboxesOn, aliveInWorkspace } =
       listing({ hosts: [host()] });
 
     await handler.execute(new ListRunnersQuery('acme', 'user_1'));
@@ -175,7 +181,7 @@ describe('ListRunnersHandler', () => {
     expect(idleSandboxesOn).toHaveBeenCalledWith([
       '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
     ]);
-    expect(aliveOnHostsIn).toHaveBeenCalledWith(MEMBER.workspaceId, NOW);
+    expect(aliveInWorkspace).toHaveBeenCalledWith(MEMBER.workspaceId, NOW);
   });
 
   it('lists the runners that are alive now, with the host each runs on', async () => {
@@ -280,6 +286,27 @@ describe('ListRunnersHandler', () => {
     });
 
     expect(fleet?.hosts[0]?.slotsTaken).toBe(4);
+  });
+
+  it('lists the same alive runners that take the slots: a starting runner, and no runner whose heartbeat timed out', async () => {
+    const fleet = await handle({
+      hosts: [host()],
+      runners: [
+        runner(),
+        runner({ id: 'runner_2' }),
+        runner({ id: 'runner_3', hostId: null }),
+      ],
+      alive: [
+        aRunner({ id: 'runner_1', host: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE' }),
+        aRunner({ id: 'runner_3', host: null }),
+      ],
+    });
+
+    expect(fleet?.runners.map((each) => each.id)).toEqual([
+      'runner_1',
+      'runner_3',
+    ]);
+    expect(fleet?.hosts[0]?.slotsTaken).toBe(1);
   });
 
   it('still lists a host and a runner whose pool is gone, with no key to name it by', async () => {

@@ -162,7 +162,7 @@ export class HostResponseDto {
   @ApiProperty({
     example: 3,
     description:
-      'How many of its slots are taken now: one for each runner at work, and one for each idle sandbox that no runner enters',
+      'How many of its slots are taken now: one for each runner on it, and one for each idle sandbox that no runner enters',
   })
   readonly slotsTaken: number;
 
@@ -274,7 +274,7 @@ export class RunnerFleetResponseDto {
   @ApiProperty({
     type: [LiveRunnerResponseDto],
     description:
-      'Every runner at work now, one per run, on a host or provisioned by a push pool',
+      'Every runner alive now, on a host or provisioned by a push pool: at work on a run, or started and yet to claim one',
   })
   readonly runners: readonly LiveRunnerResponseDto[];
 

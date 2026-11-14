@@ -22,7 +22,8 @@ const idleSandbox = (
     warmLineId: summary.warmLineId,
     status: Sandbox.statusFrom({
       state: summary.state,
-      liveOnHost: online,
+      placedOnHost: summary.hostId === host.id,
+      hostOnline: online,
       reportedByHost: host.reportedSandboxes.includes(summary.id),
     }),
     idleSince: summary.idleSince.toISOString(),

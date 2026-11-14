@@ -1,5 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { KeptWorkingCopiesPort } from '@runners/application/ports/kept-working-copies.port';
+import type { IdleWorkingCopiesPort } from '@runners/application/ports/idle-working-copies.port';
 import type {
   LeasedRunDto,
   RunnerActivityDto,
@@ -23,7 +23,7 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly activity: RunnerActivityReaderPort,
-    private readonly kept: KeptWorkingCopiesPort,
+    private readonly idle: IdleWorkingCopiesPort,
     private readonly labels: RunRequesterLabels,
     private readonly viewers: RunViewing,
   ) {}
@@ -41,7 +41,7 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
 
       const [leased, keys] = await Promise.all([
         this.activity.leasedIn(membership.workspaceId),
-        this.kept.keptIn(membership.workspaceId),
+        this.idle.idleIn(membership.workspaceId),
       ]);
       const lastRuns = await this.activity.lastRunsOf(
         membership.workspaceId,

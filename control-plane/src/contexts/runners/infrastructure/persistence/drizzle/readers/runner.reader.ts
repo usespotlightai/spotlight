@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type { KeptWorkingCopiesPort } from '@runners/application/ports/kept-working-copies.port';
+import type { IdleWorkingCopiesPort } from '@runners/application/ports/idle-working-copies.port';
 import type {
   CredentialSourceSummary,
   HostSummary,
@@ -10,6 +10,7 @@ import type {
   RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
@@ -39,7 +40,7 @@ const sourceOf = (row: {
 
 @Injectable()
 export class DrizzleRunnerReader
-  implements RunnerReaderPort, KeptWorkingCopiesPort
+  implements RunnerReaderPort, IdleWorkingCopiesPort
 {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
@@ -176,7 +177,6 @@ export class DrizzleRunnerReader
         poolKey: runnerPool.key,
         trustKey: runnerTrust.key,
         hostId: runner.hostId,
-        enters: runner.entersSandboxId,
         image: runner.image,
         harnesses: runner.harnesses,
         startedAt: runner.startedAt,
@@ -189,7 +189,6 @@ export class DrizzleRunnerReader
         and(
           eq(runner.workspaceId, workspaceId.value),
           isNull(runner.endedAt),
-          isNotNull(runner.workId),
         ),
       )
       .orderBy(runner.startedAt);
@@ -198,7 +197,6 @@ export class DrizzleRunnerReader
       id: row.id,
       source: sourceOf(row),
       hostId: row.hostId,
-      enters: row.enters,
       image: row.image,
       harnesses: row.harnesses,
       startedAt: row.startedAt,
@@ -274,7 +272,7 @@ export class DrizzleRunnerReader
       .orderBy(sandbox.startedAt);
 
     return rows.flatMap((row) =>
-      row.hostId !== null && row.idleSince !== null && row.state !== 'gone'
+      row.hostId !== null && Sandbox.isIdleAndLive(row)
         ? [
             {
               id: row.id,
@@ -290,13 +288,14 @@ export class DrizzleRunnerReader
     );
   }
 
-  async keptIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
+  async idleIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
     const rows = await this.db
       .selectDistinct({ key: sandbox.key })
       .from(sandbox)
       .where(
         and(
           eq(sandbox.workspaceId, workspaceId.value),
+          isNotNull(sandbox.hostId),
           isNotNull(sandbox.key),
           isIdleSandbox(),
         ),

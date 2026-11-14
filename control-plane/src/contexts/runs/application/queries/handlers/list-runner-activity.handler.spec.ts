@@ -61,7 +61,7 @@ const LAST_RUNS: WorkingCopyRunRow[] = [
 const listing = (member: boolean) => {
   const leasedIn = vi.fn(async () => LEASED);
   const lastRunsOf = vi.fn(async () => LAST_RUNS);
-  const keptIn = vi.fn(async () => ['work/task-task_1']);
+  const idleIn = vi.fn(async () => ['work/task-task_1']);
   const labels = new RunRequesterLabels();
   labels.register({
     owner: 'work',
@@ -89,12 +89,12 @@ const listing = (member: boolean) => {
       ),
     } as unknown as WorkspaceAccessPort,
     { leasedIn, lastRunsOf },
-    { keptIn },
+    { idleIn },
     labels,
     viewers,
   );
 
-  return { handler, leasedIn, lastRunsOf, keptIn, viewers };
+  return { handler, leasedIn, lastRunsOf, idleIn, viewers };
 };
 
 describe('ListRunnerActivityHandler', () => {
@@ -148,7 +148,7 @@ describe('ListRunnerActivityHandler', () => {
   });
 
   it('names the last run of each working copy that an idle sandbox keeps', async () => {
-    const { handler, lastRunsOf, keptIn } = listing(true);
+    const { handler, lastRunsOf, idleIn } = listing(true);
 
     const activity = await handler.execute(
       new ListRunnerActivityQuery('acme', 'user_1'),
@@ -167,7 +167,7 @@ describe('ListRunnerActivityHandler', () => {
         },
       },
     ]);
-    expect(keptIn).toHaveBeenCalledWith(WORKSPACE);
+    expect(idleIn).toHaveBeenCalledWith(WORKSPACE);
     expect(lastRunsOf).toHaveBeenCalledWith(WORKSPACE, ['work/task-task_1']);
   });
 

@@ -247,20 +247,14 @@ export class DrizzleRunnerRepository implements RunnerRepository {
     return rows.map(toRunner).filter((each) => each.isAlive(now));
   }
 
-  async aliveOnHostsIn(
+  async aliveInWorkspace(
     workspaceId: WorkspaceId,
     now: Date,
   ): Promise<readonly Runner[]> {
     const rows = await this.context.db
       .select()
       .from(runner)
-      .where(
-        and(
-          eq(runner.workspaceId, workspaceId.value),
-          isNotNull(runner.hostId),
-          mayBeAlive(now),
-        ),
-      );
+      .where(and(eq(runner.workspaceId, workspaceId.value), mayBeAlive(now)));
 
     return rows.map(toRunner).filter((each) => each.isAlive(now));
   }

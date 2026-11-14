@@ -7,11 +7,12 @@ import type {
   RunnerActivityRow,
   WorkingCopyRunRow,
 } from '@runs/application/ports/runner-activity-reader.port';
+import { lastUseOf } from '@runs/domain/services/working-copy-last-use';
 import { isLeasedState } from '@runs/domain/value-objects/run-state';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 
 const COLUMNS = {
   id: run.id,
@@ -88,9 +89,12 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
     }
 
     const rows = await this.db
-      .selectDistinctOn([run.workingCopyKey], {
+      .select({
         ...COLUMNS,
         workingCopyKey: run.workingCopyKey,
+        createdAt: run.createdAt,
+        startedAt: run.startedAt,
+        endedAt: run.endedAt,
       })
       .from(run)
       .where(
@@ -99,18 +103,14 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
           inArray(run.workingCopyKey, [...keys]),
           isNotNull(run.startedAt),
         ),
-      )
-      .orderBy(
-        run.workingCopyKey,
-        desc(sql`coalesce(${run.endedAt}, ${run.startedAt})`),
-        desc(run.createdAt),
-        desc(run.id),
       );
 
-    return rows.flatMap((row) =>
-      row.workingCopyKey === null
-        ? []
-        : [{ ...activityRunOf(row), workingCopyKey: row.workingCopyKey }],
-    );
+    return keys.flatMap((workingCopyKey) => {
+      const last = lastUseOf(
+        rows.filter((each) => each.workingCopyKey === workingCopyKey),
+      );
+
+      return last === null ? [] : [{ ...activityRunOf(last), workingCopyKey }];
+    });
   }
 }

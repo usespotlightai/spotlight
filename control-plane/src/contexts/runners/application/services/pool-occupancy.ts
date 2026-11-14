@@ -29,10 +29,10 @@ const occupancyAmong = (
 
 export const occupancyOnHost = (
   hostId: HostId,
-  aliveOnHosts: readonly Runner[],
+  alive: readonly Runner[],
   idleOnHost: readonly SandboxId[],
 ): PoolOccupancy =>
   occupancyAmong(
-    aliveOnHosts.filter((each) => each.hostId?.equals(hostId) ?? false),
+    alive.filter((each) => each.hostId?.equals(hostId) ?? false),
     idleOnHost,
   );

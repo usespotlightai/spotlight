@@ -42,8 +42,9 @@ export class ListRunnersHandler implements QueryHandlerPort<
           RunnerHost.staleBefore(now),
         ),
         this.runners.inWorkspace(membership.workspaceId),
-        this.runnerRepository.aliveOnHostsIn(membership.workspaceId, now),
+        this.runnerRepository.aliveInWorkspace(membership.workspaceId, now),
       ]);
+      const aliveIds = new Set(alive.map((each) => each.id.value));
       const idleSandboxes = await this.runners.idleSandboxesOn(
         hosts.map((host) => host.id),
       );
@@ -65,7 +66,9 @@ export class ListRunnersHandler implements QueryHandlerPort<
             },
           );
         }),
-        runners: runners.map((each) => RunnerFleetMapper.runner(each)),
+        runners: runners
+          .filter((each) => aliveIds.has(each.id))
+          .map((each) => RunnerFleetMapper.runner(each)),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

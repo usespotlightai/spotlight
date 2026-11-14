@@ -11,7 +11,6 @@ export interface LiveRunnerSummary {
   readonly id: string;
   readonly source: CredentialSourceSummary;
   readonly hostId: string | null;
-  readonly enters: string | null;
   readonly image: string | null;
   readonly harnesses: readonly string[];
   readonly startedAt: Date;

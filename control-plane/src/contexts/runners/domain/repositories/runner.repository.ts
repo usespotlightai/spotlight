@@ -20,7 +20,7 @@ export interface RunnerRepository {
 
   aliveIn(poolId: PoolId, now: Date): Promise<readonly Runner[]>;
 
-  aliveOnHostsIn(
+  aliveInWorkspace(
     workspaceId: WorkspaceId,
     now: Date,
   ): Promise<readonly Runner[]>;
