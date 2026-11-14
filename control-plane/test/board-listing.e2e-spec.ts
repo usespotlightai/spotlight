@@ -7,6 +7,7 @@ import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/driz
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
@@ -132,5 +133,39 @@ describe('the pull requests of a task', () => {
       docs.value,
     ]);
     expect(listed?.pullRequests).toEqual([api.value, docs.value]);
+  });
+});
+
+describe('where a task came from', () => {
+  it('names the integration that opened it, and nothing for a person', async () => {
+    const { owner, teamId, stationId, line } = await createTeam(
+      db,
+      tasks,
+      `source-${randomUUID()}`,
+    );
+    const opened = (title: string, receivedFrom: Happening | null) =>
+      Task.add({
+        line,
+        at: stationId,
+        title: TaskTitle.of(title),
+        rank: TaskRank.between(null, null),
+        createdBy: receivedFrom ? null : owner,
+        receivedFrom,
+        now: NOW,
+        newId: () => randomUUID(),
+      });
+    const fromLinear = opened(
+      'Fix the login',
+      Happening.of('linear.issue.created'),
+    );
+    const byHand = opened('Write the spec', null);
+
+    await tasks.add(fromLinear);
+    await tasks.add(byHand);
+
+    expect((await board.findInTeam(teamId, fromLinear.id))?.source).toBe(
+      'linear',
+    );
+    expect((await board.findInTeam(teamId, byHand.id))?.source).toBeNull();
   });
 });

@@ -4,7 +4,11 @@ import { EDITOR_NAMES, type EditorApp } from '@/lib/editor';
 import { choice, type PageArgs, pageStory } from '@/stories/application';
 
 type TaskArgs = {
-  readonly task: 'task_retries' | 'task_postgres' | 'task_search';
+  readonly task:
+    | 'task_retries'
+    | 'task_postgres'
+    | 'task_search'
+    | 'task_latency';
   readonly preferred: EditorApp;
   readonly editor: 'closed' | 'menu' | 'setup';
 };
@@ -20,6 +24,7 @@ const meta = {
         task_retries: 'Working',
         task_postgres: 'Waiting for you',
         task_search: 'Completed',
+        task_latency: 'From an integration',
       }),
       preferred: choice('Editor chosen last', EDITOR_NAMES),
       editor: choice('Open in an editor', {
@@ -74,4 +79,8 @@ export const EditorMenu: StoryObj<typeof meta> = {
 
 export const EditorSetup: StoryObj<typeof meta> = {
   args: { task: 'task_search', editor: 'setup' },
+};
+
+export const FromAnIntegration: StoryObj<typeof meta> = {
+  args: { task: 'task_latency' },
 };

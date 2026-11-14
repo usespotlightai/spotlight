@@ -2,6 +2,7 @@ import { AssigneePicker } from '@/components/features/board/task/AssigneePicker'
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TASK_PROPERTIES } from '@/components/features/board/task/TaskLayout';
 import { TaskPullRequestLink } from '@/components/features/board/task/TaskPullRequestLink';
+import { TaskSourceLink } from '@/components/features/board/task/TaskSourceLink';
 import { TaskChangesLink } from '@/components/features/changes/TaskChangesLink';
 import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
 import { TaskTraceLink } from '@/components/features/trace/TaskTraceLink';
@@ -52,6 +53,14 @@ export function TaskProperties({
         )}
 
         {teamId && <AssigneePicker teamId={teamId} task={task} variant="row" />}
+
+        {linked && (
+          <TaskSourceLink
+            slug={linked.slug}
+            teamId={linked.teamId}
+            source={task.source}
+          />
+        )}
 
         {linked && (
           <TaskChangesLink

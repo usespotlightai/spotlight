@@ -16,6 +16,7 @@ export const TaskMapper = {
       pullRequests: summary.pullRequests,
       createdBy: summary.createdBy,
       assignee: summary.assignee,
+      source: summary.source,
       note: summary.note
         ? {
             position: summary.note.position,

@@ -3162,6 +3162,10 @@ export type TaskResponseDto = {
    * The last note on this task, and the station where it was written
    */
   note: TaskNoteResponseDto | null;
+  /**
+   * The integration that opened it, or null where a person created it
+   */
+  source: string | null;
 };
 
 export type TaskPageResponseDto = {

@@ -219,6 +219,7 @@ const task = (
   createdBy: SAM,
   assignee: null,
   note: null,
+  source: null,
   ...over,
 });
 
@@ -286,7 +287,8 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     title: 'p99 latency alert on the payments API',
     stationId: 'station_investigate',
     progress: 'in-progress',
-    createdBy: TOM,
+    createdBy: null,
+    source: 'grafana',
     assignee: TOM,
     createdAt: hoursAgo(2),
     description:

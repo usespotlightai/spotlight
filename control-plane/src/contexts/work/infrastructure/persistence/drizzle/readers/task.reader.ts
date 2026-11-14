@@ -20,6 +20,7 @@ import type {
   TaskReaderPort,
   TaskSummary,
 } from '@work/application/ports/task-reader.port';
+import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
 import { cursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
@@ -105,6 +106,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         reviewedPullRequest: task.reviewedPullRequest,
         createdById: task.createdById,
         assigneeId: task.assigneeId,
+        openedFrom: task.openedFrom,
       })
       .from(task)
       .innerJoin(workStation, eq(workStation.stationId, task.stationId))
@@ -150,6 +152,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         createdById,
         assigneeId,
         reviewedPullRequest,
+        openedFrom,
         ...rest
       }) => ({
         ...rest,
@@ -164,6 +167,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         createdBy: createdById ? person(createdById) : null,
         assignee: assigneeId ? person(assigneeId) : null,
         note: notes.get(rest.id) ?? null,
+        source: TaskOrigin.decode(openedFrom).integration?.value ?? null,
       }),
     );
   }

@@ -131,6 +131,7 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   createdBy: personOf(task.openedBy),
   assignee: null,
   note: null,
+  source: null,
 });
 
 export const pastTaskOf = (taskId: string): TaskResponseDto | undefined => {
