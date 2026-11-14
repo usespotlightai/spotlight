@@ -17,6 +17,7 @@ import { useDragToClose } from '@/hooks/useDragToClose';
 import { useNarrowerThan } from '@/hooks/useNarrowerThan';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { useSettling } from '@/hooks/useSettling';
+import { useSnapOnChange } from '@/hooks/useSnapOnChange';
 import { framesWindow } from '@/lib/desktop';
 import { SPRING, SPRING_MS } from '@/lib/motion';
 import { PANE_GAP_PX, PANE_MIN_PX, TWO_PANES_PX } from '@/lib/panes';
@@ -116,6 +117,7 @@ export function DashboardLayout({
   const { resizing, handleProps, paneRef } = pane;
   const cramped = useNarrowerThan(paneRef, TWO_PANES_PX);
   const split = shown.length > 1;
+  useSnapOnChange(splitRef, shown[1]?.key);
 
   const close = (section: SectionName) => {
     const at = section === 'main' ? 0 : 1;

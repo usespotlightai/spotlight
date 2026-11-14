@@ -238,6 +238,22 @@ describe('DashboardLayout split view', () => {
     expect(splitColumn().className).not.toMatch(/starting:/);
   });
 
+  it('shows the main pane moved into the split at its final width', () => {
+    const { show } = renderSplit(vi.fn(), ['a']);
+    const column = pane('a slot')?.parentElement?.parentElement as HTMLElement;
+    const measured: string[] = [];
+    column.getBoundingClientRect = () => {
+      measured.push(column.style.transition);
+      return new DOMRect();
+    };
+
+    show('b', 'a');
+
+    expect(splitColumn()).toBe(column);
+    expect(measured).toContain('none');
+    expect(column.style.transition).toBe('');
+  });
+
   it('drops a closed pane at once when motion is reduced', () => {
     vi.stubGlobal(
       'matchMedia',
