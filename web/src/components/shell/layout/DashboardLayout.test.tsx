@@ -222,45 +222,20 @@ describe('DashboardLayout split view', () => {
     expect(pane('b slot')).not.toHaveAttribute('data-collapsing');
   });
 
-  describe('a pane dropped beside the shown one', () => {
-    const animate = vi.fn<(keyframes: Keyframe[]) => void>();
+  it.each([
+    ['right', ['a', 'b']],
+    ['left', ['b', 'a']],
+  ])('shows a pane dropped on the %s at its final width', (_, keys) => {
+    const animate = vi.fn();
+    Object.assign(HTMLElement.prototype, { animate, getAnimations: () => [] });
+    const { show } = renderSplit(vi.fn(), ['a']);
 
-    beforeEach(() => {
-      animate.mockClear();
-      Object.assign(HTMLElement.prototype, {
-        animate,
-        getAnimations: () => [],
-      });
-    });
+    show(...keys);
+    Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+    Reflect.deleteProperty(HTMLElement.prototype, 'getAnimations');
 
-    afterEach(() => {
-      Reflect.deleteProperty(HTMLElement.prototype, 'animate');
-      Reflect.deleteProperty(HTMLElement.prototype, 'getAnimations');
-    });
-
-    const animated = () =>
-      (animate.mock.contexts as HTMLElement[]).map(
-        (element) =>
-          element.querySelector('[data-slot="pane"]')?.textContent ??
-          element.textContent,
-      );
-
-    it('grows in from the left edge while the shown pane narrows', () => {
-      const { show } = renderSplit(vi.fn(), ['a']);
-
-      show('b', 'a');
-
-      expect(animated()).toEqual(['a slot', 'b slot', 'b slot']);
-      expect(animate.mock.calls[0]?.[0][0]).toHaveProperty('width');
-    });
-
-    it('leaves a pane dropped on the right to its own entrance', () => {
-      const { show } = renderSplit(vi.fn(), ['a']);
-
-      show('a', 'b');
-
-      expect(animate).not.toHaveBeenCalled();
-    });
+    expect(animate).not.toHaveBeenCalled();
+    expect(splitColumn().className).not.toMatch(/starting:/);
   });
 
   it('drops a closed pane at once when motion is reduced', () => {

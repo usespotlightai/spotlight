@@ -15,7 +15,6 @@ import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { useSidebarCollapsedSetting } from '@/hooks/useCollapsedSidebar';
 import { useDragToClose } from '@/hooks/useDragToClose';
 import { useNarrowerThan } from '@/hooks/useNarrowerThan';
-import { usePaneEntrance } from '@/hooks/usePaneEntrance';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { useSettling } from '@/hooks/useSettling';
 import { framesWindow } from '@/lib/desktop';
@@ -117,10 +116,6 @@ export function DashboardLayout({
   const { resizing, handleProps, paneRef } = pane;
   const cramped = useNarrowerThan(paneRef, TWO_PANES_PX);
   const split = shown.length > 1;
-  usePaneEntrance(
-    paneRef,
-    shown.map((each) => each.key),
-  );
 
   const close = (section: SectionName) => {
     const at = section === 'main' ? 0 : 1;
@@ -212,7 +207,6 @@ export function DashboardLayout({
                 section={section}
                 leaving={gone}
                 fills={leaving?.section === 'main' && !gone}
-                enters={steady}
                 focused={split && focused === section}
                 folded={split && focused !== section}
                 cramped={cramped}
@@ -249,7 +243,6 @@ type PaneColumnProps = {
   section: SectionName;
   leaving: boolean;
   fills: boolean;
-  enters: boolean;
   focused: boolean;
   folded: boolean;
   cramped: boolean;
@@ -272,20 +265,13 @@ const mainColumnClass = (leaving: boolean, resizing: boolean) =>
 const splitColumnClass = ({
   leaving,
   fills,
-  enters,
   focused,
   cramped,
   resizing,
   released,
 }: Pick<
   PaneColumnProps,
-  | 'leaving'
-  | 'fills'
-  | 'enters'
-  | 'focused'
-  | 'cramped'
-  | 'resizing'
-  | 'released'
+  'leaving' | 'fills' | 'focused' | 'cramped' | 'resizing' | 'released'
 >) =>
   cn(
     'max-w-[max(calc(100%_-_var(--pane-min)_-_var(--pane-gap)),calc(50%_-_var(--pane-gap)_/_2))] shrink-0',
@@ -294,7 +280,6 @@ const splitColumnClass = ({
     !leaving && !fills && 'w-(--split-width)',
     focused &&
       (cramped ? 'w-full max-w-none' : 'max-md:w-full max-md:max-w-none'),
-    enters && 'starting:ml-[calc(var(--pane-gap)*-1)] starting:w-0',
     !resizing &&
       cn(
         released
@@ -318,7 +303,6 @@ function PaneColumn({
   section,
   leaving,
   fills,
-  enters,
   focused,
   folded,
   cramped,
@@ -343,7 +327,6 @@ function PaneColumn({
           : splitColumnClass({
               leaving,
               fills,
-              enters,
               focused,
               cramped,
               resizing,
