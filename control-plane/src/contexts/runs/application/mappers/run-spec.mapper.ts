@@ -2,6 +2,7 @@ import { InvalidRunSpecError } from '@runs/domain/exceptions/invalid-run-spec.er
 import {
   type RunAttachment,
   type RunCheckout,
+  isHarnessProtocol,
   type RunCommand,
   type RunFile,
   type RunHarnessSetup,
@@ -11,6 +12,7 @@ import {
   type RunToolApproval,
   type RunToolInput,
   type RunToolManifest,
+  type SessionOption,
 } from '@runs/domain/value-objects/run-spec.vo';
 import { isJsonObject, isJsonValue } from '@shared-kernel/domain/json-value';
 
@@ -102,7 +104,35 @@ const commandOf = (raw: unknown): RunCommand => {
     args: listAt(input.args, 'what to run with', (arg) =>
       stringAt(arg, 'what to run with'),
     ),
+    ...(input.protocol === undefined
+      ? {}
+      : {
+          protocol: isHarnessProtocol(input.protocol)
+            ? input.protocol
+            : unreadable('which protocol the harness speaks'),
+        }),
     ...(env ? { env } : {}),
+    ...(input.sessionOptions === undefined
+      ? {}
+      : {
+          sessionOptions: listAt(
+            input.sessionOptions,
+            'the session options',
+            sessionOptionOf,
+          ),
+        }),
+  };
+};
+
+const sessionOptionOf = (raw: unknown): SessionOption => {
+  const input = objectAt(raw, 'a session option');
+
+  return {
+    id: stringAt(input.id, 'a session option'),
+    value: stringAt(input.value, 'a session option'),
+    ...(input.optional === undefined
+      ? {}
+      : { optional: booleanAt(input.optional, 'a session option') }),
   };
 };
 

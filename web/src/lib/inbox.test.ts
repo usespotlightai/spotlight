@@ -17,7 +17,6 @@ import {
   formatShortDuration,
   inboxItemPath,
   lastNoteAt,
-  liveSessionOf,
   noticeLinkPath,
   noticePath,
   noticePreviewOf,
@@ -424,27 +423,8 @@ describe('notices', () => {
   });
 });
 
-describe('liveSessionOf', () => {
-  const journal = (endedAt: string | null) =>
-    ({
-      sessionStatus: 'idle',
-      background: [],
-      marks: { endedAt },
-    }) as unknown as RunJournal;
-
-  it('reads the session only from a journal that has not ended', () => {
-    const live = journal(null);
-
-    expect(liveSessionOf([journal('2026-11-14T10:00:00Z'), live])).toBe(live);
-    expect(
-      liveSessionOf([live, journal('2026-11-14T10:00:00Z')]),
-    ).toBeUndefined();
-    expect(liveSessionOf([])).toBeUndefined();
-  });
-});
-
 describe('workingWordsOf', () => {
-  it('says what the session does while the run is in progress', () => {
+  it('says what the agent does while the run is in progress', () => {
     const command = {
       id: 'b1',
       kind: 'command',
@@ -454,19 +434,19 @@ describe('workingWordsOf', () => {
     expect(workingWordsOf('in-progress', 'Build')).toBe('Build is working…');
     expect(
       workingWordsOf('in-progress', 'Build', {
-        sessionStatus: 'needs-action',
+        activity: 'needs-action',
         background: [],
       }),
     ).toBe('Build needs a permission…');
     expect(
       workingWordsOf('in-progress', 'Build', {
-        sessionStatus: 'idle',
+        activity: 'waiting-for-background',
         background: [command],
       }),
     ).toBe('Build waits for background work…');
     expect(
       workingWordsOf('in-progress', 'Build', {
-        sessionStatus: 'running',
+        activity: 'working',
         background: [command],
       }),
     ).toBe('Build is working…');

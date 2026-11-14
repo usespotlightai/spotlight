@@ -3151,9 +3151,9 @@ export type RunJournalResponseDto = {
   marks: RunMarksResponseDto;
   spent: RunSpentResponseDto | null;
   /**
-   * What the harness last said its session does. Null for a harness that does not say
+   * What the agent does now: works, needs a person to allow an action, or waits for its background work. Null once the agent stopped, or for a harness that reports no session
    */
-  sessionStatus: 'running' | 'needs-action' | 'idle' | null;
+  activity: 'working' | 'needs-action' | 'waiting-for-background' | null;
   /**
    * The background work the harness last listed. Empty for a harness that lists none
    */

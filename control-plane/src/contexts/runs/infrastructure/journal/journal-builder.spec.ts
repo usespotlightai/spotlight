@@ -1,5 +1,6 @@
 import {
   AGENT_STOPPED,
+  BACKGROUND_WAITING,
   HARNESS_CONNECTED,
 } from '@runs/domain/value-objects/journal-entry-type';
 import { Money } from '@runs/domain/value-objects/money.vo';
@@ -120,10 +121,32 @@ describe('JournalBuilder', () => {
       event('session.state', { state: 'needs-action' }),
     );
 
-    expect(builder.sessionStatus()).toBe('needs-action');
+    expect(builder.activity()).toBe('needs-action');
     expect(builder.background()).toEqual([
       { id: 't1', kind: 'command', description: 'npx vitest run' },
     ]);
+  });
+
+  it('says the run waits for background work only while the runner waits for it', () => {
+    const vitest = { id: 't1', kind: 'command', description: 'npx vitest run' };
+    const idle = [
+      event('session.state', { state: 'idle' }),
+      event('background.changed', {
+        items: [{ id: 't1', kind: 'command', description: 'npx vitest run' }],
+      }),
+    ];
+
+    expect(read(...idle).activity()).toBe('working');
+    expect(
+      read(...idle, event(BACKGROUND_WAITING, { tasks: [vitest] })).activity(),
+    ).toBe('waiting-for-background');
+    expect(
+      read(
+        ...idle,
+        event(BACKGROUND_WAITING, { tasks: [vitest] }),
+        event(AGENT_STOPPED, {}),
+      ).activity(),
+    ).toBeNull();
   });
 
   it('starts a new message where the harness starts one', () => {

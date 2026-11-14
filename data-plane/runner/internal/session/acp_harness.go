@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/acp"
 	v1 "usespotlight.ai/data-plane/runner/internal/acp/v1"
 	v2 "usespotlight.ai/data-plane/runner/internal/acp/v2"
@@ -38,18 +39,18 @@ func startV1(ctx context.Context, opts acp.Options) (Harness, error) {
 
 var errUnknownProtocol = errors.New("the runner does not speak this harness protocol")
 
-var turnEnds = map[string]TurnEnd{
-	"end_turn":   TurnEnded,
-	"max_tokens": TurnCutShort,
-	"cancelled":  TurnCancelled,
+var turnEnds = map[protocol.TurnStop]TurnEnd{
+	protocol.TurnStopEnded:     TurnEnded,
+	protocol.TurnStopCutShort:  TurnCutShort,
+	protocol.TurnStopCancelled: TurnCancelled,
 }
 
-func turnOf(stopReason string, heard int) Turn {
-	end, known := turnEnds[stopReason]
+func turnOf(stop protocol.TurnStop, reason string, heard int) Turn {
+	end, known := turnEnds[stop]
 	if !known {
 		end = TurnFailed
 	}
-	return Turn{End: end, Reason: stopReason, Silent: heard == 0}
+	return Turn{End: end, Reason: reason, Silent: heard == 0}
 }
 
 type overV1 struct {
@@ -58,7 +59,7 @@ type overV1 struct {
 
 func (h overV1) Prompt(ctx context.Context, text string) (Turn, error) {
 	result, err := h.Client.Prompt(ctx, text)
-	return turnOf(result.StopReason, result.Heard), err
+	return turnOf(v1.StopOf(result.StopReason), result.StopReason, result.Heard), err
 }
 
 func (h overV1) Settle(ctx context.Context) (Work, bool) {
@@ -74,7 +75,7 @@ type overV2 struct {
 
 func (h overV2) Prompt(ctx context.Context, text string) (Turn, error) {
 	result, err := h.Client.Prompt(ctx, text)
-	return turnOf(result.StopReason, result.Heard), err
+	return turnOf(v2.StopOf(result.StopReason), result.StopReason, result.Heard), err
 }
 
 func (h overV2) Settle(ctx context.Context) (Work, bool) {
