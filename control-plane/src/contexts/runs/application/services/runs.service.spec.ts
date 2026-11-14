@@ -354,12 +354,14 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
       ],
     };
 
-    expect(await runs.resume(runId, 1, 'answered', [], change)).toBe(true);
+    expect(await runs.resume(runId, 1, 'answered', [], change)).toBe('resumed');
     expect(stored.get('run_1')?.spec.value.changedTools).toEqual({
       added: ['sentry.get-issue'],
       removed: [],
     });
-    expect(await runs.resume(runId, 1, 'answered', [], change)).toBe(false);
+    expect(await runs.resume(runId, 1, 'answered', [], change)).toBe(
+      'not-resumed',
+    );
   });
 
   it('cancels a queued run and says what it was', async () => {

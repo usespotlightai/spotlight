@@ -13,6 +13,7 @@ import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
+import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -343,6 +344,39 @@ describe('the turn of a run that holds it', () => {
       });
       expect(unchanged.spec.enables(Tool.of('sentry.get-issue'))).toBe(true);
       expect(unchanged.spec.value.changedTools).toBeUndefined();
+    });
+
+    it('resumes without the tools it gained when its policy keeps it to itself', () => {
+      const keptToItself = claimed({
+        ...orderedFor.holdingTurn('task_1', 0),
+        policy: RunPolicy.of({
+          ...orderedFor.holdingTurn('task_1', 0).policy.parts,
+          actsBeyondItself: false,
+        }),
+      })
+        .reportTurn(RUNNER, CLEAN, ASKED, NOW)
+        .keep(RunAttempt.of(RUN, 1), NOW);
+
+      const resumed = keptToItself.resumed(
+        RunAttempt.of(RUN, 1),
+        'answered',
+        [],
+        NOW,
+        {
+          removed: [],
+          added: [
+            {
+              name: 'sentry.get-issue',
+              description: 'Read the Sentry issue.',
+              inputs: [],
+              approval: null,
+            },
+          ],
+        },
+      );
+
+      expect(resumed.state).toBe('queued');
+      expect(resumed.spec.enables(Tool.of('sentry.get-issue'))).toBe(false);
     });
 
     it('is claimed by a runner on its new attempt', () => {

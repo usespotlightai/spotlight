@@ -23,6 +23,11 @@ export type RunEnqueueing =
 
 export type ResumedBecause = 'messages' | 'answered';
 
+export type RunResumption =
+  | 'resumed'
+  | 'resumed-with-its-tools'
+  | 'not-resumed';
+
 export interface StopRequest {
   readonly pendingTurn: number | null;
 }
@@ -45,6 +50,6 @@ export interface RunsPort {
     because: ResumedBecause,
     checkouts: readonly RunCheckoutShape[],
     tools: RunToolChangeShape,
-  ): Promise<boolean>;
+  ): Promise<RunResumption>;
   finish(runId: RunId, attempt: number): Promise<void>;
 }

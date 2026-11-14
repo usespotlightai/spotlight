@@ -1126,15 +1126,11 @@ export class Run extends EventRecorder {
       );
     }
 
-    const spec = this.spec.join(joining).withToolChange(tools);
-    const problem = orderProblem(this.ordered, spec);
-
-    if (problem) {
-      throw new InvalidRunTransitionError(
-        `Run ${this.id.value} cannot resume: it ${problem}.`,
+    const spec = this.spec
+      .join(joining)
+      .withToolChange(
+        this.ordered.policy.actsBeyondItself ? tools : NO_TOOL_CHANGE,
       );
-    }
-
     const resumed = this.with({ spec, turn: null }).backOnTheQueue(now);
 
     resumed.record(new RunResumed(this.id, this.workspaceId));

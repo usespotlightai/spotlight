@@ -90,7 +90,7 @@ const turning = (
     }
   });
   const clock = over.clock ?? new TickingClock();
-  const resume = vi.fn(async () => true);
+  const resume = vi.fn(async () => 'resumed' as const);
   const dispatches = {
     find: async () => ({
       subject: {

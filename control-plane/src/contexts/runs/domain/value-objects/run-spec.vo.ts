@@ -555,6 +555,19 @@ export class RunSpec {
     });
   }
 
+  serves({ removed, added }: RunToolChange): boolean {
+    const names = (this.parts.manifest ?? []).map((each) => each.name);
+
+    return (
+      added.every((each) => names.includes(each.name)) &&
+      removed.every(
+        (tool) =>
+          !names.includes(tool.called) ||
+          added.some((each) => each.name === tool.called),
+      )
+    );
+  }
+
   wearingHarnessKeys(keys: readonly SecretName[]): RunSpec {
     if (keys.length === 0) {
       return this;

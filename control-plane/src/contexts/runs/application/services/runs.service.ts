@@ -5,6 +5,7 @@ import type { ContentHashPort } from '@runs/application/ports/content-hash.port'
 import type {
   QueuedRunCancellation,
   ResumedBecause,
+  RunResumption,
   RunCancellation,
   RunEnqueueing,
   RunLease,
@@ -180,7 +181,7 @@ export class Runs implements RunsPort {
     because: ResumedBecause,
     checkouts: readonly RunCheckout[],
     tools: RunToolChangeShape,
-  ): Promise<boolean> {
+  ): Promise<RunResumption> {
     const toolChange = RunSpecMapper.toolChange(tools);
     const decided = await this.decided(runId, (run) => {
       const resumed = run.resumed(
@@ -193,11 +194,16 @@ export class Runs implements RunsPort {
 
       return {
         run: resumed,
-        resumed: resumed !== run && resumed.state === 'queued',
+        resumption:
+          resumed === run || resumed.state !== 'queued'
+            ? ('not-resumed' as const)
+            : resumed.spec.serves(toolChange)
+              ? ('resumed' as const)
+              : ('resumed-with-its-tools' as const),
       };
     });
 
-    return decided?.resumed ?? false;
+    return decided?.resumption ?? 'not-resumed';
   }
 
   async finish(runId: RunId, attempt: number): Promise<void> {

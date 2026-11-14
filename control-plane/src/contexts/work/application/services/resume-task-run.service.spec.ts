@@ -1,3 +1,4 @@
+import type { RunResumption } from '@runs/application/ports/runs.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -10,6 +11,7 @@ import { ResumeTaskRun } from '@work/application/services/resume-task-run.servic
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { DispatchVersionConflictError } from '@work/domain/exceptions/dispatch-version-conflict.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -68,12 +70,22 @@ const dispatchedWith = (toolsOnMarks: readonly Tool[]) =>
   });
 
 const resuming = ({
-  before = [] as readonly Tool[],
-  onMarks = [] as readonly Tool[],
-  undescribed = [] as readonly Tool[],
-  resumes = true,
+  before = [],
+  onMarks = [],
+  undescribed = [],
+  resumption = 'resumed',
   lookupFails = false,
+  conflictsOnce = false,
+}: {
+  before?: readonly Tool[];
+  onMarks?: readonly Tool[];
+  undescribed?: readonly Tool[];
+  resumption?: RunResumption;
+  lookupFails?: boolean;
+  conflictsOnce?: boolean;
 } = {}) => {
+  let conflicts = conflictsOnce ? 1 : 0;
+  let reads = 0;
   const saved: Dispatch[] = [];
   const asked: string[][] = [];
   const steps: string[] = [];
@@ -82,14 +94,22 @@ const resuming = ({
   const runs = recordingRuns({
     resume: async () => {
       steps.push(open ? 'resume in transaction' : 'resume');
-      return resumes;
+      return resumption;
     },
   });
   const dispatches: DispatchRepository = {
-    find: async () => dispatchedWith(before),
+    find: async () => {
+      steps.push(open ? 'read in transaction' : 'read');
+      reads += 1;
+      return dispatchedWith(before);
+    },
     add: async () => undefined,
     save: async (each) => {
       steps.push(open ? 'save in transaction' : 'save');
+      if (conflicts > 0) {
+        conflicts -= 1;
+        throw new DispatchVersionConflictError(RUN.value);
+      }
       saved.push(each);
     },
   };
@@ -142,7 +162,7 @@ const resuming = ({
       checkouts: [],
     });
 
-  return { resume, runs, saved, asked, steps, warned };
+  return { resume, runs, saved, asked, steps, warned, reads: () => reads };
 };
 
 describe('ResumeTaskRun', () => {
@@ -172,7 +192,36 @@ describe('ResumeTaskRun', () => {
 
     await resume();
 
-    expect(steps).toEqual(['resume in transaction', 'save in transaction']);
+    expect(steps).toEqual([
+      'read in transaction',
+      'resume in transaction',
+      'save in transaction',
+    ]);
+  });
+
+  it('reads the dispatch again and resumes again when another write changed it first', async () => {
+    const { resume, runs, saved, reads } = resuming({
+      onMarks: [ISSUE],
+      conflictsOnce: true,
+    });
+
+    await resume();
+
+    expect(reads()).toBe(2);
+    expect(runs.resume).toHaveBeenCalledTimes(2);
+    expect(saved.map((each) => each.toolsOnMarks)).toEqual([[ISSUE]]);
+  });
+
+  it('keeps the dispatch as it was, and warns, when the run resumed without the tools its policy keeps it from', async () => {
+    const { resume, saved, warned } = resuming({
+      onMarks: [ISSUE],
+      resumption: 'resumed-with-its-tools',
+    });
+
+    await resume();
+
+    expect(saved).toEqual([]);
+    expect(warned).toHaveLength(1);
   });
 
   it('records only the tools it can describe to the agent, so a tool described later is given then', async () => {
@@ -222,7 +271,10 @@ describe('ResumeTaskRun', () => {
   });
 
   it('keeps the dispatch as it was when the run did not resume', async () => {
-    const { resume, saved } = resuming({ onMarks: [ISSUE], resumes: false });
+    const { resume, saved } = resuming({
+      onMarks: [ISSUE],
+      resumption: 'not-resumed',
+    });
 
     await resume();
 
