@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,6 +14,10 @@ import (
 )
 
 const defaultTimeout = 10 * time.Minute
+
+var retryDelays = []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second}
+
+var serverError = regexp.MustCompile(`(?:returned error: |HTTP )(5\d\d)\b`)
 
 type Author struct {
 	Name  string
@@ -58,7 +63,9 @@ func Checkouts(ctx context.Context, checkouts []protocol.Checkout, opts Options)
 func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *output) error {
 	tree := filepath.Join(o.Dir, checkout.Path)
 	git := func(args ...string) error {
-		output, err := shell.Git(ctx, tree, nil, args...)
+		output, err := retried(ctx, "git "+args[0]+" in "+checkout.Path, out, func() (string, error) {
+			return shell.Git(ctx, tree, nil, args...)
+		})
 		if err != nil {
 			return fmt.Errorf("git %s in %s: %w: %s", args[0], checkout.Path, err, shell.Tail(output))
 		}
@@ -84,12 +91,12 @@ func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *
 	case o.Mirrors != "" && exists(filepath.Join(o.Mirrors, checkout.Path+".git")):
 		out.add("cloning %s from the host's mirror", checkout.Path)
 		// Use --dissociate because the workspace is archived and then restored on hosts that do not have this mirror.
-		if err := o.clone(ctx, checkout, "--reference-if-able", filepath.Join(o.Mirrors, checkout.Path+".git"), "--dissociate"); err != nil {
+		if err := o.clone(ctx, checkout, out, "--reference-if-able", filepath.Join(o.Mirrors, checkout.Path+".git"), "--dissociate"); err != nil {
 			return err
 		}
 	default:
 		out.add("cloning %s", checkout.Path)
-		if err := o.clone(ctx, checkout); err != nil {
+		if err := o.clone(ctx, checkout, out); err != nil {
 			return err
 		}
 	}
@@ -143,23 +150,46 @@ func fastForward(checkout protocol.Checkout, git func(args ...string) bool, out 
 	}
 }
 
-func (o Options) clone(ctx context.Context, checkout protocol.Checkout, extra ...string) error {
+func (o Options) clone(ctx context.Context, checkout protocol.Checkout, out *output, extra ...string) error {
 	tree := filepath.Join(o.Dir, checkout.Path)
 	if err := os.MkdirAll(filepath.Dir(tree), 0o755); err != nil {
 		return fmt.Errorf("make room for %s: %w", checkout.Path, err)
 	}
 
 	args := append(append([]string{"clone", "--quiet"}, extra...), checkout.Remote, tree)
-	output, err := shell.Run(ctx, shell.Command{
-		Dir:  o.Dir,
-		Env:  map[string]string{"GIT_TERMINAL_PROMPT": "0"},
-		Name: "git",
-		Args: args,
+	output, err := retried(ctx, "git clone "+checkout.Path, out, func() (string, error) {
+		return shell.Run(ctx, shell.Command{
+			Dir:  o.Dir,
+			Env:  map[string]string{"GIT_TERMINAL_PROMPT": "0"},
+			Name: "git",
+			Args: args,
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("git clone %s: %w: %s", checkout.Path, err, shell.Tail(output))
 	}
 	return nil
+}
+
+func retried(ctx context.Context, what string, out *output, run func() (string, error)) (string, error) {
+	for attempt := 0; ; attempt++ {
+		output, err := run()
+		status := serverError.FindStringSubmatch(output)
+		if err == nil || status == nil || attempt == len(retryDelays) || ctx.Err() != nil {
+			return output, err
+		}
+
+		delay := retryDelays[attempt]
+		out.add("%s: the server answered %s, trying again in %s", what, status[1], delay)
+
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return output, err
+		case <-timer.C:
+		}
+	}
 }
 
 func exists(path string) bool {
