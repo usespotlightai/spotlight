@@ -64,7 +64,7 @@ describe('the mock settings', () => {
     const { data: activity } = await listRunnerActivity(slug);
 
     expect(fleet.hosts.map((each) => each.name)).toContain('build-box-1');
-    expect(activity.map((each) => each.currentRun.id).sort()).toEqual([
+    expect(activity.runners.map((each) => each.currentRun.id).sort()).toEqual([
       'run_checkout_1',
       'run_latency_1',
       'run_pricing_2',
@@ -72,7 +72,7 @@ describe('the mock settings', () => {
       'run_survey_1',
     ]);
     expect(
-      activity.every((each) =>
+      activity.runners.every((each) =>
         fleet.runners.some((runner) => runner.id === each.runnerId),
       ),
     ).toBe(true);

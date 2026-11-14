@@ -12,10 +12,7 @@ import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { RunnerActivityDto } from '@runs/application/dto/runner-activity.dto';
 import { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
-import {
-  LeasedRunResponseDto,
-  RunnerActivityResponseDto,
-} from '@runs/presentation/http/dto/runner-activity.response.dto';
+import { RunnerActivityResponseDto } from '@runs/presentation/http/dto/runner-activity.response.dto';
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -26,31 +23,25 @@ export class RunnerActivityController {
   @Get()
   @ApiOperation({
     operationId: 'listRunnerActivity',
-    summary: 'Which run each of the workspace’s runners is working on',
-    description: 'A runner with no lease on a run is idle, and is not listed.',
+    summary:
+      'The run each busy runner works on, and the last run of each idle sandbox',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
-  @ApiOkResponse({ type: RunnerActivityResponseDto, isArray: true })
+  @ApiOkResponse({ type: RunnerActivityResponseDto })
   @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
   async list(
     @Param('slug') slug: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<RunnerActivityResponseDto[]> {
+  ): Promise<RunnerActivityResponseDto> {
     const activity = await this.queryBus.execute<
       ListRunnerActivityQuery,
-      RunnerActivityDto[] | null
+      RunnerActivityDto | null
     >(new ListRunnerActivityQuery(slug, user.id));
 
     if (!activity) {
       throw new NotFoundException();
     }
 
-    return activity.map(
-      (each) =>
-        new RunnerActivityResponseDto(
-          each.runnerId,
-          new LeasedRunResponseDto(each.currentRun),
-        ),
-    );
+    return new RunnerActivityResponseDto(activity);
   }
 }

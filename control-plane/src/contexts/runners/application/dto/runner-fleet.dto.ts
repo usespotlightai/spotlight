@@ -19,6 +19,15 @@ interface HostImageDto {
   readonly unavailableReason: string | null;
 }
 
+export interface IdleSandboxDto {
+  readonly id: string;
+  readonly key: string | null;
+  readonly warmLineId: string | null;
+  readonly status: 'starting' | 'ready' | 'draining';
+  readonly idleSince: string;
+  readonly startedAt: string;
+}
+
 export interface HostDto {
   readonly id: string;
   readonly name: string;
@@ -27,7 +36,8 @@ export interface HostDto {
   readonly unavailableReason: string | null;
   readonly containerRuntime: string;
   readonly capacity: number;
-  readonly running: readonly string[];
+  readonly slotsTaken: number;
+  readonly idleSandboxes: readonly IdleSandboxDto[];
   readonly images: readonly HostImageDto[];
   readonly firstHeartbeatAt: string;
   readonly onlineSince: string;

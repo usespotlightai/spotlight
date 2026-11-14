@@ -31,12 +31,13 @@ export class ListRunnersHandler implements QueryHandlerPort<
       }
 
       const now = this.clock.now();
-      const [hosts, runners] = await Promise.all([
+      const [hosts, runners, idleSandboxes] = await Promise.all([
         this.runners.hostsIn(
           membership.workspaceId,
           RunnerHost.staleBefore(now),
         ),
         this.runners.inWorkspace(membership.workspaceId),
+        this.runners.idleSandboxesIn(membership.workspaceId),
       ]);
 
       return {
@@ -44,6 +45,7 @@ export class ListRunnersHandler implements QueryHandlerPort<
           RunnerFleetMapper.host(
             host,
             RunnerHost.isOnline(host.lastHeartbeatAt, now),
+            { runners, idleSandboxes },
           ),
         ),
         runners: runners.map((each) => RunnerFleetMapper.runner(each)),

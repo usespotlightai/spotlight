@@ -315,7 +315,11 @@ export class Sandbox extends EventRecorder {
       return this.state.state === 'draining' ? 'draining' : 'gone';
     }
 
-    return this.isReadyOn(host, now) ? 'ready' : 'starting';
+    return Sandbox.openStatus(this.isReadyOn(host, now));
+  }
+
+  static openStatus(readyOnHost: boolean): 'ready' | 'starting' {
+    return readyOnHost ? 'ready' : 'starting';
   }
 
   takesRunOn(host: RunnerHost, now: Date): boolean {

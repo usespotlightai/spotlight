@@ -1,6 +1,10 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import type { RunPolicyContract } from '@runs/application/contracts/run-order.contract';
-import type { RunnerActivityRow } from '@runs/application/ports/runner-activity-reader.port';
+import type {
+  RunnerActivityRow,
+  WorkingCopyRunRow,
+} from '@runs/application/ports/runner-activity-reader.port';
 import { ListRunnerActivityHandler } from '@runs/application/queries/handlers/list-runner-activity.handler';
 import { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
@@ -45,8 +49,39 @@ const LEASED = [
   ),
 ];
 
+const { runnerId: _, ...lastTaskRun } = leasedRun(
+  'run_6',
+  { owner: 'work', kind: 'task', id: 'task_1' },
+  'team_1',
+);
+
+const LAST_RUNS: WorkingCopyRunRow[] = [
+  { ...lastTaskRun, state: 'completed', key: 'work/task-task_1' },
+];
+
 const listing = (member: boolean) => {
   const leasedIn = vi.fn(async () => LEASED);
+  const lastRunsOf = vi.fn(async () => LAST_RUNS);
+  const idleSandboxesIn = vi.fn(async () => [
+    {
+      id: 'sandbox_1',
+      hostId: 'host_1',
+      key: 'work/task-task_1',
+      warmLineId: null,
+      draining: false,
+      idleSince: new Date(),
+      startedAt: new Date(),
+    },
+    {
+      id: 'sandbox_2',
+      hostId: 'host_1',
+      key: null,
+      warmLineId: 'line_1',
+      draining: false,
+      idleSince: new Date(),
+      startedAt: new Date(),
+    },
+  ]);
   const labels = new RunRequesterLabels();
   labels.register({
     owner: 'work',
@@ -57,7 +92,7 @@ const listing = (member: boolean) => {
       ]),
   });
   const viewers = {
-    readableAmong: vi.fn(async () => new Set(['run_7'])),
+    readableAmong: vi.fn(async () => new Set(['run_6', 'run_7'])),
   } as unknown as RunViewing;
 
   const handler = new ListRunnerActivityHandler(
@@ -73,21 +108,24 @@ const listing = (member: boolean) => {
           : null,
       ),
     } as unknown as WorkspaceAccessPort,
-    { leasedIn },
+    { leasedIn, lastRunsOf },
+    { idleSandboxesIn } as unknown as RunnerReaderPort,
     labels,
     viewers,
   );
 
-  return { handler, leasedIn, viewers };
+  return { handler, leasedIn, lastRunsOf, viewers };
 };
 
 describe('ListRunnerActivityHandler', () => {
   it('says which run each busy runner works on, by the kind its requester names, and labels only the runs the viewer may read', async () => {
     const { handler, leasedIn, viewers } = listing(true);
 
-    await expect(
-      handler.execute(new ListRunnerActivityQuery('acme', 'user_1')),
-    ).resolves.toEqual([
+    const activity = await handler.execute(
+      new ListRunnerActivityQuery('acme', 'user_1'),
+    );
+
+    expect(activity?.runners).toEqual([
       {
         runnerId: 'runner_of_run_7',
         currentRun: {
@@ -124,9 +162,32 @@ describe('ListRunnerActivityHandler', () => {
     ]);
     expect(leasedIn).toHaveBeenCalledWith(WORKSPACE);
     expect(viewers.readableAmong).toHaveBeenCalledWith(
-      LEASED,
+      [...LEASED, ...LAST_RUNS],
       UserId.of('user_1'),
     );
+  });
+
+  it('names the last run of each working copy that an idle sandbox keeps, and asks for no warm sandbox', async () => {
+    const { handler, lastRunsOf } = listing(true);
+
+    const activity = await handler.execute(
+      new ListRunnerActivityQuery('acme', 'user_1'),
+    );
+
+    expect(activity?.workingCopies).toEqual([
+      {
+        key: 'work/task-task_1',
+        lastRun: {
+          id: 'run_6',
+          state: 'completed',
+          kind: 'task',
+          teamId: 'team_1',
+          readable: true,
+          title: 'Drain the stuck retry queues',
+        },
+      },
+    ]);
+    expect(lastRunsOf).toHaveBeenCalledWith(WORKSPACE, ['work/task-task_1']);
   });
 
   it('shows nothing to a viewer outside the workspace', async () => {

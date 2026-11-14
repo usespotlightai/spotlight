@@ -148,3 +148,69 @@ describe('which run each busy runner is working on', () => {
     ]);
   });
 });
+
+describe('the last run of each working copy', () => {
+  it('finds the newest run for each key asked about, and none for a key with no run', async () => {
+    const taskId = randomUUID();
+    const otherTaskId = randomUUID();
+    const key = `work/task-${taskId}`;
+    const otherKey = `work/task-${otherTaskId}`;
+    const first = randomUUID();
+    const last = randomUUID();
+    const other = randomUUID();
+
+    await db.insert(schema.run).values([
+      leasedRun({
+        ...requestedByTask(taskId, { teamId: 'team_line' }),
+        id: first,
+        state: 'completed',
+        endedAt: new Date(),
+        createdAt: new Date('2026-11-14T10:00:00.000Z'),
+      }),
+      leasedRun({
+        ...requestedByTask(taskId, { teamId: 'team_line' }),
+        id: last,
+        state: 'completed',
+        endedAt: new Date(),
+        createdAt: new Date('2026-11-14T11:00:00.000Z'),
+      }),
+      leasedRun({
+        ...requestedByTask(otherTaskId, { teamId: 'team_line' }),
+        id: other,
+        createdAt: new Date('2026-11-14T09:00:00.000Z'),
+      }),
+      leasedRun({
+        ...requestedByTask(randomUUID(), { teamId: 'team_line' }),
+        createdAt: new Date('2026-11-14T12:00:00.000Z'),
+      }),
+    ]);
+
+    const runs = await reader.lastRunsOf(WorkspaceId.of('ws_1'), [
+      key,
+      otherKey,
+      'work/task-none',
+    ]);
+
+    expect(
+      runs
+        .map((each) => ({
+          key: each.key,
+          runId: each.runId.value,
+          state: each.state,
+          kind: each.requester.kind,
+        }))
+        .sort((one, another) => one.key.localeCompare(another.key)),
+    ).toEqual(
+      [
+        { key, runId: last, state: 'completed', kind: 'task' },
+        { key: otherKey, runId: other, state: 'claimed', kind: 'task' },
+      ].sort((one, another) => one.key.localeCompare(another.key)),
+    );
+  });
+
+  it('asks the database nothing for no keys', async () => {
+    await expect(
+      reader.lastRunsOf(WorkspaceId.of('ws_1'), []),
+    ).resolves.toEqual([]);
+  });
+});

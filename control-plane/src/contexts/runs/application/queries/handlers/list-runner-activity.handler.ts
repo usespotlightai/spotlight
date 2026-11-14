@@ -1,7 +1,14 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { RunnerActivityDto } from '@runs/application/dto/runner-activity.dto';
+import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type {
+  LeasedRunDto,
+  RunnerActivityDto,
+} from '@runs/application/dto/runner-activity.dto';
 import { requesterRefOf } from '@runs/application/ports/run-requester-labels.port';
-import type { RunnerActivityReaderPort } from '@runs/application/ports/runner-activity-reader.port';
+import type {
+  ActivityRunRow,
+  RunnerActivityReaderPort,
+} from '@runs/application/ports/runner-activity-reader.port';
 import type { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
 import type { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
 import type { RunViewing } from '@runs/application/services/run-viewing.service';
@@ -11,18 +18,19 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ListRunnerActivityHandler implements QueryHandlerPort<
   ListRunnerActivityQuery,
-  RunnerActivityDto[] | null
+  RunnerActivityDto | null
 > {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly activity: RunnerActivityReaderPort,
+    private readonly runners: RunnerReaderPort,
     private readonly labels: RunRequesterLabels,
     private readonly viewers: RunViewing,
   ) {}
 
   async execute(
     query: ListRunnerActivityQuery,
-  ): Promise<RunnerActivityDto[] | null> {
+  ): Promise<RunnerActivityDto | null> {
     try {
       const viewer = UserId.of(query.viewerId);
       const membership = await this.access.inWorkspace(query.slug, viewer);
@@ -31,29 +39,46 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
         return null;
       }
 
-      const leased = await this.activity.leasedIn(membership.workspaceId);
+      const [leased, idle] = await Promise.all([
+        this.activity.leasedIn(membership.workspaceId),
+        this.runners.idleSandboxesIn(membership.workspaceId),
+      ]);
+      const lastRuns = await this.activity.lastRunsOf(membership.workspaceId, [
+        ...new Set(
+          idle.flatMap((each) => (each.key === null ? [] : [each.key])),
+        ),
+      ]);
+      const runs = [...leased, ...lastRuns];
       const [labels, readable] = await Promise.all([
-        this.labels.labelsOf(leased.map((each) => each.requester)),
-        this.viewers.readableAmong(leased, viewer),
+        this.labels.labelsOf(runs.map((each) => each.requester)),
+        this.viewers.readableAmong(runs, viewer),
       ]);
 
-      return leased.map((each) => {
+      const shown = (each: ActivityRunRow): LeasedRunDto => {
         const reads = readable.has(each.runId.value);
 
         return {
-          runnerId: each.runnerId,
-          currentRun: {
-            id: each.runId.value,
-            state: each.state,
-            kind: each.requester.kind,
-            teamId: each.teamId,
-            readable: reads,
-            title: reads
-              ? (labels.get(requesterRefOf(each.requester))?.title ?? null)
-              : null,
-          },
+          id: each.runId.value,
+          state: each.state,
+          kind: each.requester.kind,
+          teamId: each.teamId,
+          readable: reads,
+          title: reads
+            ? (labels.get(requesterRefOf(each.requester))?.title ?? null)
+            : null,
         };
-      });
+      };
+
+      return {
+        runners: leased.map((each) => ({
+          runnerId: each.runnerId,
+          currentRun: shown(each),
+        })),
+        workingCopies: lastRuns.map((each) => ({
+          key: each.key,
+          lastRun: shown(each),
+        })),
+      };
     } catch (error) {
       rethrowAsApplicationError(error);
     }

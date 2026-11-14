@@ -36,6 +36,10 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({ data: { id: 'workspace_acme', role: role() } }),
 }));
 
+vi.mock('@/hooks/api/useLineNames', () => ({
+  useLineNames: () => new Map([['line_delivery', 'Delivery']]),
+}));
+
 vi.mock('@/hooks/api/useRunnerPools', () => ({
   useRunnerPools: () => ({ data: pools() }),
 }));
@@ -70,7 +74,8 @@ const host = (over: Record<string, unknown> = {}) => ({
   unavailableReason: null,
   containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
   capacity: 4,
-  running: [],
+  slotsTaken: 0,
+  idleSandboxes: [],
   images: [image()],
   firstHeartbeatAt: '2026-08-20T09:00:00.000Z',
   onlineSince: '2026-08-29T09:00:00.000Z',
@@ -103,6 +108,25 @@ const provisioned = (over: Record<string, unknown> = {}) => ({
   startedAt: '2026-08-29T12:00:00.000Z',
   lastHeartbeatAt: '2026-08-29T12:00:00.000Z',
   currentRun: LEASED_RUN,
+  ...over,
+});
+
+const onHost = (id: string, over: Record<string, unknown> = {}) =>
+  provisioned({
+    id,
+    hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
+    image: 'ghcr.io/usespotlightai/spotlight-runner:v0.3.0',
+    ...over,
+  });
+
+const idleSandbox = (over: Record<string, unknown> = {}) => ({
+  id: 'sandbox_1',
+  key: 'work/task-task_1',
+  warmLineId: null,
+  status: 'ready',
+  idleSince: '2026-08-29T12:00:00.000Z',
+  startedAt: '2026-08-29T11:00:00.000Z',
+  lastRun: { ...LEASED_RUN, state: 'completed' },
   ...over,
 });
 
@@ -323,7 +347,10 @@ describe('Runners', () => {
 
   it('says how busy each host is, and which one is offline', () => {
     listing([
-      host({ running: ['runner_1', 'runner_2'] }),
+      host({
+        runners: [onHost('runner_1'), onHost('runner_2')],
+        slotsTaken: 3,
+      }),
       host({ id: 'second-host-id', name: 'idle-box' }),
       host({ id: 'third-host-id', name: 'gone-box', online: false }),
     ]);
@@ -333,7 +360,8 @@ describe('Runners', () => {
     const hosts = within(
       screen.getByRole('region', { name: 'Hosts and push pools' }),
     );
-    expect(hosts.getByText('Running 2 of 4')).toBeInTheDocument();
+    expect(hosts.getByText('Running 2')).toBeInTheDocument();
+    expect(hosts.getByText('3 of 4')).toBeInTheDocument();
     expect(hosts.getByText('Idle')).toBeInTheDocument();
     expect(hosts.getByText('Offline')).toBeInTheDocument();
   });
@@ -390,14 +418,36 @@ describe('Runners', () => {
   });
 
   it('nests each runner under its host, linking to the run it works on', () => {
+    listing([host({ runners: [onHost('runner_1')], slotsTaken: 1 })]);
+
+    renderPage();
+
+    const nested = within(
+      screen.getByRole('list', { name: 'Runners on build-box-1' }),
+    );
+    expect(
+      nested.getByRole('link', { name: 'Drain the stuck retry queues' }),
+    ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
+  });
+
+  it('nests the idle sandboxes under their host: a kept one by its last run, a warm one by its line', () => {
     listing([
       host({
-        running: ['runner_1'],
-        runners: [
-          provisioned({
-            id: 'runner_1',
-            hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
-            image: 'ghcr.io/usespotlightai/spotlight-runner:v0.3.0',
+        slotsTaken: 3,
+        idleSandboxes: [
+          idleSandbox(),
+          idleSandbox({
+            id: 'sandbox_2',
+            key: null,
+            warmLineId: 'line_delivery',
+            lastRun: null,
+          }),
+          idleSandbox({
+            id: 'sandbox_3',
+            key: null,
+            warmLineId: 'line_gone',
+            status: 'starting',
+            lastRun: null,
           }),
         ],
       }),
@@ -411,12 +461,19 @@ describe('Runners', () => {
     expect(
       nested.getByRole('link', { name: 'Drain the stuck retry queues' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
+    expect(nested.getByText('Waiting')).toBeInTheDocument();
+    expect(nested.getByText(/^Idle since/)).toBeInTheDocument();
+    expect(nested.getByText('Warm sandbox for Delivery')).toBeInTheDocument();
+    expect(nested.getByText('Ready')).toBeInTheDocument();
+    expect(nested.getByText('Warm sandbox')).toBeInTheDocument();
+    expect(nested.getByText('Starting')).toBeInTheDocument();
+    expect(screen.getByText('3 of 4')).toBeInTheDocument();
   });
 
   it('hides the run of a team the viewer cannot read behind a blurred stand-in, saying why', () => {
     listing([
       host({
-        running: ['runner_1'],
+        slotsTaken: 1,
         runners: [
           provisioned({
             id: 'runner_1',
@@ -472,15 +529,20 @@ describe('Runners', () => {
 
     renderPage();
 
-    expect(screen.getByText('Push pool · egress')).toBeInTheDocument();
+    expect(screen.getByText('Push pool with egress')).toBeInTheDocument();
   });
 
   it('shows only the hosts in the chosen filter, and remembers it', async () => {
     const person = userEvent.setup();
     listing(
       [
-        host({ running: ['runner_1'] }),
-        host({ id: 'second-host-id', name: 'idle-box' }),
+        host({ runners: [onHost('runner_1')], slotsTaken: 1 }),
+        host({
+          id: 'second-host-id',
+          name: 'idle-box',
+          slotsTaken: 1,
+          idleSandboxes: [idleSandbox()],
+        }),
         host({ id: 'third-host-id', name: 'gone-box', online: false }),
       ],
       [pushPool()],

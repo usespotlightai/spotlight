@@ -10,10 +10,21 @@ export interface LiveRunnerSummary {
   readonly id: string;
   readonly source: CredentialSourceSummary;
   readonly hostId: string | null;
+  readonly enters: string | null;
   readonly image: string | null;
   readonly harnesses: readonly string[];
   readonly startedAt: Date;
   readonly lastHeartbeatAt: Date | null;
+}
+
+export interface IdleSandboxSummary {
+  readonly id: string;
+  readonly hostId: string;
+  readonly key: string | null;
+  readonly warmLineId: string | null;
+  readonly draining: boolean;
+  readonly idleSince: Date;
+  readonly startedAt: Date;
 }
 
 interface HostHarnessSummary {
@@ -37,7 +48,7 @@ export interface HostSummary {
   readonly release: string;
   readonly containerRuntime: string;
   readonly capacity: number;
-  readonly running: readonly string[];
+  readonly reportedSandboxes: readonly string[];
   readonly images: readonly HostImageSummary[];
   readonly firstHeartbeatAt: Date;
   readonly onlineSince: Date;
@@ -50,6 +61,8 @@ export interface RunnerReaderPort {
   inWorkspace(workspaceId: WorkspaceId): Promise<LiveRunnerSummary[]>;
 
   hostsIn(workspaceId: WorkspaceId, since: Date): Promise<HostSummary[]>;
+
+  idleSandboxesIn(workspaceId: WorkspaceId): Promise<IdleSandboxSummary[]>;
 
   readyToRun(workspaceId: WorkspaceId): Promise<boolean>;
 

@@ -7,8 +7,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const RUNNER_ACTIVITY_READER = Symbol('RUNNER_ACTIVITY_READER');
 
-export interface RunnerActivityRow {
-  readonly runnerId: string;
+export interface ActivityRunRow {
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
   readonly state: string;
@@ -17,6 +16,19 @@ export interface RunnerActivityRow {
   readonly teamId: string | null;
 }
 
+export interface RunnerActivityRow extends ActivityRunRow {
+  readonly runnerId: string;
+}
+
+export interface WorkingCopyRunRow extends ActivityRunRow {
+  readonly key: string;
+}
+
 export interface RunnerActivityReaderPort {
   leasedIn(workspaceId: WorkspaceId): Promise<readonly RunnerActivityRow[]>;
+
+  lastRunsOf(
+    workspaceId: WorkspaceId,
+    keys: readonly string[],
+  ): Promise<readonly WorkingCopyRunRow[]>;
 }

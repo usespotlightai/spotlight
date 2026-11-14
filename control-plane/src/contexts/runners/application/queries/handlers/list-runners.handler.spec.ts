@@ -4,6 +4,7 @@ import type {
 } from '@identity/application/ports/workspace-access.port';
 import type {
   HostSummary,
+  IdleSandboxSummary,
   LiveRunnerSummary,
 } from '@runners/application/ports/runner-reader.port';
 import { ListRunnersHandler } from '@runners/application/queries/handlers/list-runners.handler';
@@ -24,7 +25,7 @@ const host = (overrides: Partial<HostSummary> = {}): HostSummary => ({
   release: '0.9.0',
   containerRuntime: 'docker',
   capacity: 4,
-  running: ['runner_1'],
+  reportedSandboxes: [],
   images: [
     {
       image: 'ghcr.io/acme/runner:main',
@@ -47,12 +48,32 @@ const runner = (
   id: 'runner_1',
   source: { kind: 'pool', key: 'ephemeral' },
   hostId: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
+  enters: null,
   image: 'ghcr.io/acme/runner:main',
   harnesses: ['claude-code'],
   startedAt: ago(60_000),
   lastHeartbeatAt: null,
   ...overrides,
 });
+
+const idleSandbox = (
+  overrides: Partial<IdleSandboxSummary> = {},
+): IdleSandboxSummary => ({
+  id: 'sandbox_1',
+  hostId: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
+  key: 'work/task-task_1',
+  warmLineId: null,
+  draining: false,
+  idleSince: ago(420_000),
+  startedAt: ago(600_000),
+  ...overrides,
+});
+
+type Fleet = {
+  hosts?: HostSummary[];
+  runners?: LiveRunnerSummary[];
+  idleSandboxes?: IdleSandboxSummary[];
+};
 
 const clock = (): ClockPort => ({
   now: () => NOW,
@@ -67,11 +88,12 @@ const MEMBER: WorkspaceMembership = {
 };
 
 const listing = (
-  input: { hosts?: HostSummary[]; runners?: LiveRunnerSummary[] } = {},
+  input: Fleet = {},
   membership: WorkspaceMembership | null = MEMBER,
 ) => {
   const inWorkspace = vi.fn().mockResolvedValue(input.runners ?? []);
   const hostsIn = vi.fn().mockResolvedValue(input.hosts ?? []);
+  const idleSandboxesIn = vi.fn().mockResolvedValue(input.idleSandboxes ?? []);
 
   const handler = new ListRunnersHandler(
     {
@@ -80,6 +102,7 @@ const listing = (
     {
       inWorkspace,
       hostsIn,
+      idleSandboxesIn,
       readyToRun: vi.fn(),
       hasEgressCapableRunner: vi.fn(),
       supportedModels: vi.fn(),
@@ -90,9 +113,8 @@ const listing = (
   return { handler, inWorkspace, hostsIn };
 };
 
-const handle = async (
-  input: { hosts?: HostSummary[]; runners?: LiveRunnerSummary[] } = {},
-) => listing(input).handler.execute(new ListRunnersQuery('acme', 'user_1'));
+const handle = async (input: Fleet = {}) =>
+  listing(input).handler.execute(new ListRunnersQuery('acme', 'user_1'));
 
 describe('ListRunnersHandler', () => {
   it('reports a host with a heartbeat just now as online', async () => {
@@ -102,7 +124,8 @@ describe('ListRunnersHandler', () => {
       expect.objectContaining({
         id: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
         source: { kind: 'pool', key: 'ephemeral' },
-        running: ['runner_1'],
+        slotsTaken: 0,
+        idleSandboxes: [],
         images: [
           expect.objectContaining({
             image: 'ghcr.io/acme/runner:main',
@@ -175,6 +198,73 @@ describe('ListRunnersHandler', () => {
         lastHeartbeatAt: NOW.toISOString(),
       }),
     ]);
+  });
+
+  it('lists the idle sandboxes on each host, ready once the host reports them', async () => {
+    const fleet = await handle({
+      hosts: [host({ reportedSandboxes: ['sandbox_1'] })],
+      idleSandboxes: [
+        idleSandbox(),
+        idleSandbox({
+          id: 'sandbox_2',
+          key: null,
+          warmLineId: 'line_1',
+          idleSince: ago(60_000),
+          startedAt: ago(60_000),
+        }),
+        idleSandbox({ id: 'sandbox_3', draining: true }),
+        idleSandbox({ id: 'sandbox_4', hostId: 'other_host' }),
+      ],
+    });
+
+    expect(fleet?.hosts[0]?.idleSandboxes).toEqual([
+      {
+        id: 'sandbox_1',
+        key: 'work/task-task_1',
+        warmLineId: null,
+        status: 'ready',
+        idleSince: ago(420_000).toISOString(),
+        startedAt: ago(600_000).toISOString(),
+      },
+      expect.objectContaining({
+        id: 'sandbox_2',
+        warmLineId: 'line_1',
+        status: 'starting',
+      }),
+      expect.objectContaining({ id: 'sandbox_3', status: 'draining' }),
+    ]);
+  });
+
+  it('calls a reported sandbox starting while its host is offline', async () => {
+    const fleet = await handle({
+      hosts: [
+        host({
+          reportedSandboxes: ['sandbox_1'],
+          lastHeartbeatAt: ago(90_000),
+        }),
+      ],
+      idleSandboxes: [idleSandbox()],
+    });
+
+    expect(fleet?.hosts[0]?.idleSandboxes[0]?.status).toBe('starting');
+  });
+
+  it('counts a slot for each runner at work and each idle sandbox that no runner enters', async () => {
+    const fleet = await handle({
+      hosts: [host()],
+      runners: [
+        runner(),
+        runner({ id: 'runner_2', enters: 'sandbox_2' }),
+        runner({ id: 'runner_3', hostId: 'other_host' }),
+      ],
+      idleSandboxes: [
+        idleSandbox(),
+        idleSandbox({ id: 'sandbox_2' }),
+        idleSandbox({ id: 'sandbox_3', key: null, warmLineId: 'line_1' }),
+      ],
+    });
+
+    expect(fleet?.hosts[0]?.slotsTaken).toBe(4);
   });
 
   it('still lists a host and a runner whose pool is gone, with no key to name it by', async () => {

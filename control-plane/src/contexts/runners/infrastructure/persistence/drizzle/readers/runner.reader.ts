@@ -4,6 +4,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
   CredentialSourceSummary,
   HostSummary,
+  IdleSandboxSummary,
   LiveRunnerSummary,
   RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
@@ -16,13 +17,14 @@ import {
   runnerHost,
   runnerPool,
   runnerTrust,
+  sandbox,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, isNull, ne, or } from 'drizzle-orm';
 
 const sourceOf = (row: {
   poolId: string | null;
@@ -170,6 +172,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         poolKey: runnerPool.key,
         trustKey: runnerTrust.key,
         hostId: runner.hostId,
+        enters: runner.entersSandboxId,
         image: runner.image,
         harnesses: runner.harnesses,
         startedAt: runner.startedAt,
@@ -191,6 +194,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       id: row.id,
       source: sourceOf(row),
       hostId: row.hostId,
+      enters: row.enters,
       image: row.image,
       harnesses: row.harnesses,
       startedAt: row.startedAt,
@@ -224,7 +228,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       release: host.release,
       containerRuntime: host.containerRuntime,
       capacity: host.capacity,
-      running: host.running,
+      reportedSandboxes: host.sandboxes,
       images: host.images.map((each) => ({
         image: each.image,
         digest: each.digest ?? null,
@@ -240,5 +244,46 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       onlineSince: host.onlineSince,
       lastHeartbeatAt: host.lastHeartbeatAt,
     }));
+  }
+
+  async idleSandboxesIn(
+    workspaceId: WorkspaceId,
+  ): Promise<IdleSandboxSummary[]> {
+    const rows = await this.db
+      .select({
+        id: sandbox.id,
+        hostId: sandbox.hostId,
+        key: sandbox.key,
+        warm: sandbox.warm,
+        state: sandbox.state,
+        idleSince: sandbox.idleSince,
+        startedAt: sandbox.startedAt,
+      })
+      .from(sandbox)
+      .where(
+        and(
+          eq(sandbox.workspaceId, workspaceId.value),
+          isNotNull(sandbox.hostId),
+          isNotNull(sandbox.idleSince),
+          ne(sandbox.state, 'gone'),
+        ),
+      )
+      .orderBy(sandbox.startedAt);
+
+    return rows.flatMap((row) =>
+      row.hostId !== null && row.idleSince !== null
+        ? [
+            {
+              id: row.id,
+              hostId: row.hostId,
+              key: row.key,
+              warmLineId: row.warm?.lineId ?? null,
+              draining: row.state === 'draining',
+              idleSince: row.idleSince,
+              startedAt: row.startedAt,
+            },
+          ]
+        : [],
+    );
   }
 }

@@ -950,6 +950,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ListRunnerActivityQuery, ListRunnerActivityHandler, [
     WORKSPACE_ACCESS,
     RUNNER_ACTIVITY_READER,
+    RUNNER_READER,
     RunRequesterLabels,
     RunViewing,
   ]),
