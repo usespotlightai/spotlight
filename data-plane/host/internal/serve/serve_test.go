@@ -76,6 +76,8 @@ type fakeEngine struct {
 	signals   map[string][]string
 	keepsFile bool
 	execs     map[string][][]string
+	created   map[string]time.Time
+	followed  map[string][]time.Time
 }
 
 func newEngine() *fakeEngine {
@@ -91,6 +93,8 @@ func newEngine() *fakeEngine {
 		put:      map[string]map[string]sandbox.File{},
 		signals:  map[string][]string{},
 		execs:    map[string][][]string{},
+		created:  map[string]time.Time{},
+		followed: map[string][]time.Time{},
 	}
 }
 
@@ -145,19 +149,6 @@ func (e *fakeEngine) signalled(id string) []string {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return slices.Clone(e.signals[id])
-}
-
-func (e *fakeEngine) liveEgressesOf(runner string) []sandbox.Spec {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	var live []sandbox.Spec
-	for id, spec := range e.egresses {
-		if spec.Labels[serve.LabelRunner] == runner && !slices.Contains(e.destroyed, id) {
-			live = append(live, spec)
-		}
-	}
-	return live
 }
 
 func (e *fakeEngine) liveEgressesOfSandbox(sandboxID string) []sandbox.Spec {
@@ -322,6 +313,7 @@ func (e *fakeEngine) Start(_ context.Context, spec sandbox.Spec) (string, error)
 		e.next++
 		id := fmt.Sprintf("egress_%d", e.next)
 		e.egresses[id] = spec
+		e.created[id] = time.Now()
 		return id, nil
 	}
 
@@ -341,6 +333,7 @@ func (e *fakeEngine) Start(_ context.Context, spec sandbox.Spec) (string, error)
 	e.next++
 	id := fmt.Sprintf("sandbox_%d", e.next)
 	e.started[id] = spec
+	e.created[id] = time.Now()
 	e.exits[id] = make(chan int, 1)
 	if len(spec.Args) > 0 && spec.Args[0] == "harnesses" {
 		e.exits[id] <- 0
@@ -349,8 +342,9 @@ func (e *fakeEngine) Start(_ context.Context, spec sandbox.Spec) (string, error)
 	return id, nil
 }
 
-func (e *fakeEngine) Follow(_ context.Context, id string, out io.Writer) error {
+func (e *fakeEngine) Follow(_ context.Context, id string, since time.Time, out io.Writer) error {
 	e.mu.Lock()
+	e.followed[id] = append(e.followed[id], since)
 	spec := e.started[id]
 	reported := protocol.Registration{Release: e.release, Harnesses: e.found}
 	e.mu.Unlock()
@@ -406,8 +400,27 @@ func (e *fakeEngine) Destroy(_ context.Context, id string) error {
 	return nil
 }
 
-func (e *fakeEngine) Labelled(context.Context, string, string) ([]string, error) {
-	return e.left, nil
+func (e *fakeEngine) Labelled(_ context.Context, key, value string) ([]sandbox.Container, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	var found []sandbox.Container
+	for _, id := range e.left {
+		found = append(found, sandbox.Container{ID: id})
+	}
+	for _, id := range slices.Sorted(maps.Keys(e.started)) {
+		if spec := e.started[id]; spec.Labels[key] == value && !slices.Contains(e.destroyed, id) {
+			found = append(found, sandbox.Container{
+				ID: id, Labels: spec.Labels, Running: len(e.exits[id]) == 0, Created: e.created[id],
+			})
+		}
+	}
+	for _, id := range slices.Sorted(maps.Keys(e.egresses)) {
+		if spec := e.egresses[id]; spec.Labels[key] == value && !slices.Contains(e.destroyed, id) {
+			found = append(found, sandbox.Container{ID: id, Labels: spec.Labels, Running: true, Created: e.created[id]})
+		}
+	}
+	return found, nil
 }
 
 func (e *fakeEngine) Read(_ context.Context, id, path string) ([]byte, error) {
@@ -420,6 +433,14 @@ func (e *fakeEngine) Read(_ context.Context, id, path string) ([]byte, error) {
 
 	spec, ok := e.egresses[id]
 	if !ok || (e.egressMute && spec.Labels[serve.LabelRunner] != "") {
+		return nil, os.ErrNotExist
+	}
+	if path == protocol.EgressConfigPath {
+		for _, file := range spec.Files {
+			if file.Path == path {
+				return file.Body, nil
+			}
+		}
 		return nil, os.ErrNotExist
 	}
 	if call := spec.Labels[serve.LabelCall]; call != "" {
@@ -1265,12 +1286,13 @@ func TestReKeysTheEgressForEachRunAndHandsTheSandboxItsAuthority(t *testing.T) {
 	before := egressTokenOf(t, first)
 
 	pool.into <- reused("runner_2", "sandbox_a")
-	eventually(t, "the egress re-keyed", func() bool {
-		live := engine.liveEgressesOf("runner_1")
-		return len(live) == 1 && egressTokenOf(t, live[0]).Token == "egress-runner_2"
+	eventually(t, "the egress re-keyed and labelled with the run's runner", func() bool {
+		live := engine.liveEgressesOfSandbox("sandbox_a")
+		return len(live) == 1 && egressTokenOf(t, live[0]).Token == "egress-runner_2" &&
+			live[0].Labels[serve.LabelRunner] == "runner_2"
 	})
 
-	after := egressTokenOf(t, engine.liveEgressesOf("runner_1")[0])
+	after := egressTokenOf(t, engine.liveEgressesOfSandbox("sandbox_a")[0])
 	if after.Credential != before.Credential {
 		t.Error("the re-keyed egress takes another proxy credential than the sandbox has")
 	}

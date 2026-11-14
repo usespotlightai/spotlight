@@ -240,7 +240,7 @@ func updateBinary(version string, args []string) error {
 		return err
 	}
 
-	fmt.Printf("spotlight update: %s is now release %s. A running host restarts on it when its sandboxes finish.\n",
+	fmt.Printf("spotlight update: %s is now release %s. A running host restarts on it now and keeps its running sandboxes.\n",
 		binary.Path, release)
 	return nil
 }

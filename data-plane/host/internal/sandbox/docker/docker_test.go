@@ -111,7 +111,7 @@ func TestASandboxRunsWithItsFilesAndIsGoneAfterwards(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := engine.Follow(ctx, id, &out); err != nil {
+	if err := engine.Follow(ctx, id, time.Time{}, &out); err != nil {
 		t.Fatalf("follow: %v", err)
 	}
 	if !strings.Contains(out.String(), "assignment") || !strings.Contains(out.String(), "400") {
@@ -121,6 +121,9 @@ func TestASandboxRunsWithItsFilesAndIsGoneAfterwards(t *testing.T) {
 	labelled, err := engine.Labelled(ctx, "ai.usespotlight.test", "sandbox")
 	if err != nil || len(labelled) == 0 {
 		t.Fatalf("labelled %v: %v", labelled, err)
+	}
+	if found := labelled[0]; found.ID != id || found.Running || found.Labels["ai.usespotlight.test"] != "sandbox" || found.Created.IsZero() {
+		t.Errorf("listed %+v", found)
 	}
 
 	if err := engine.Destroy(ctx, id); err != nil {
@@ -132,7 +135,7 @@ func TestASandboxRunsWithItsFilesAndIsGoneAfterwards(t *testing.T) {
 
 	left, _ := engine.Labelled(ctx, "ai.usespotlight.test", "sandbox")
 	for _, each := range left {
-		if each == id {
+		if each.ID == id {
 			t.Errorf("sandbox %s is still there", id)
 		}
 	}
@@ -237,7 +240,7 @@ func TestLayingAFileLeavesItsParentsAsTheImageHasThem(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := engine.Follow(ctx, id, &out); err != nil {
+	if err := engine.Follow(ctx, id, time.Time{}, &out); err != nil {
 		t.Fatalf("follow: %v", err)
 	}
 	if strings.TrimSpace(out.String()) != "755" {
@@ -311,7 +314,7 @@ func TestASandboxOnItsOwnNetworkConnectsOnlyToWhatJoinedIt(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := engine.Follow(ctx, id, &out); err != nil {
+	if err := engine.Follow(ctx, id, time.Time{}, &out); err != nil {
 		t.Fatalf("follow: %v", err)
 	}
 	if got := strings.Fields(out.String()); !slices.Equal(got, []string{"reached", "contained", "755"}) {
@@ -368,7 +371,7 @@ func TestARunningSandboxTakesAFileAndASignal(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := engine.Follow(ctx, id, &out); err != nil {
+	if err := engine.Follow(ctx, id, time.Time{}, &out); err != nil {
 		t.Fatalf("follow: %v", err)
 	}
 	if !strings.Contains(out.String(), "next run") {

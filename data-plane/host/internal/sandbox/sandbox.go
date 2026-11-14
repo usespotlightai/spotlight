@@ -59,6 +59,13 @@ type File struct {
 	Body    []byte
 }
 
+type Container struct {
+	ID      string
+	Labels  map[string]string
+	Running bool
+	Created time.Time
+}
+
 type Network struct {
 	ID   string
 	Name string
@@ -74,11 +81,11 @@ type Engine interface {
 	Start(ctx context.Context, spec Spec) (string, error)
 	Put(ctx context.Context, id string, file File) error
 	Signal(ctx context.Context, id, signal string) error
-	Follow(ctx context.Context, id string, out io.Writer) error
+	Follow(ctx context.Context, id string, since time.Time, out io.Writer) error
 	Wait(ctx context.Context, id string) (int, error)
 	Stop(ctx context.Context, id string, grace time.Duration) error
 	Destroy(ctx context.Context, id string) error
-	Labelled(ctx context.Context, key, value string) ([]string, error)
+	Labelled(ctx context.Context, key, value string) ([]Container, error)
 	Read(ctx context.Context, id, path string) ([]byte, error)
 	Exec(ctx context.Context, id string, command []string, errs io.Writer) (io.ReadWriteCloser, error)
 	Network(ctx context.Context, name string, labels map[string]string) (string, error)

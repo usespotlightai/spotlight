@@ -185,7 +185,7 @@ var updateHelp = help.Command{
 		{Comment: "Update to the release of the control plane", Command: "spotlight update"},
 		{Command: "spotlight update 20261020-01"},
 	},
-	Notes: []string{"Default release: the release of the Spotlight that this computer's host serves. Without a host, name a release. A running host restarts on the new binary when its sandboxes finish."},
+	Notes: []string{"Default release: the release of the Spotlight that this computer's host serves. Without a host, name a release. A running host restarts on the new binary at once and keeps its running sandboxes."},
 	Docs:  docs + "#spotlight-update",
 }
 
