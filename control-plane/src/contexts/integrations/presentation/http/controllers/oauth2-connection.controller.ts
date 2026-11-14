@@ -97,7 +97,7 @@ export class OAuth2ConnectionController {
   })
   @ApiUnprocessableEntityResponse({
     description:
-      'The integration has no OAuth2 client, or its OAUTH_CLIENTS entry names another issuer',
+      'The integration has no OAuth2 client, or none for its authorization server',
   })
   @ApiBadGatewayResponse({
     description:

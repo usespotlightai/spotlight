@@ -51,8 +51,7 @@ describe('useConnectIntegration', () => {
     connectIntegration.mockResolvedValue({
       error: {
         statusCode: 422,
-        message:
-          'Integration linear has no OAuth2 client. Required: an OAUTH_CLIENTS entry for linear',
+        message: 'Integration linear has no OAuth2 client.',
       },
     });
     const result = connecting();
@@ -61,7 +60,7 @@ describe('useConnectIntegration', () => {
 
     await waitFor(() =>
       expect(result.current.error?.message).toBe(
-        'Integration linear has no OAuth2 client. Required: an OAUTH_CLIENTS entry for linear',
+        'Integration linear has no OAuth2 client.',
       ),
     );
     expect(authorize).not.toHaveBeenCalled();

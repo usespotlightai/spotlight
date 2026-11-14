@@ -17372,7 +17372,7 @@
             "description": "The team or the integration is not found, or the integration does not take this connection"
           },
           "422": {
-            "description": "The integration has no OAuth2 client, or its OAUTH_CLIENTS entry names another issuer"
+            "description": "The integration has no OAuth2 client, or none for its authorization server"
           },
           "502": {
             "description": "The OAuth2 endpoints of the integration are not found, or its client registration failed"

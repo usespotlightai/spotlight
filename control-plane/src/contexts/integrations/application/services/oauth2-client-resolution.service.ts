@@ -22,6 +22,7 @@ import { ClientSecret } from '@integrations/domain/value-objects/client-secret.v
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const clientOf = (registration: OAuth2ClientRegistration): OAuth2Client => ({
@@ -53,6 +54,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     private readonly teams: TeamDirectoryPort,
     private readonly clock: ClockPort,
     private readonly callback: string,
+    private readonly logger: LoggerPort,
   ) {}
 
   async existingFor(
@@ -85,14 +87,14 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       const otherIssuer = otherIssuerOf(configured, server);
 
       if (otherIssuer) {
-        throw new OAuth2ClientMissingError(integration.value, otherIssuer);
+        throw this.missing(integration, otherIssuer);
       }
 
       return { id: configured.id, secret: configured.secret };
     }
 
     if (!registration) {
-      throw new OAuth2ClientMissingError(integration.value);
+      throw this.missing(integration, null);
     }
 
     const wanted = {
@@ -157,5 +159,23 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     }
 
     return clientOf(registered);
+  }
+
+  private missing(
+    integration: IntegrationKey,
+    otherIssuer: OtherIssuer | null,
+  ): OAuth2ClientMissingError {
+    this.logger.warn(
+      {
+        integration: integration.value,
+        named: otherIssuer?.named,
+        required: otherIssuer?.required,
+      },
+      otherIssuer
+        ? 'OAUTH_CLIENTS entry names an issuer other than the authorization server'
+        : 'No OAUTH_CLIENTS entry for the integration',
+    );
+
+    return new OAuth2ClientMissingError(integration.value, otherIssuer);
   }
 }

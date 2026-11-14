@@ -5,26 +5,18 @@ export interface OtherIssuer {
   readonly required: string;
 }
 
-const messageOf = (integration: string, issuer: OtherIssuer | null) => {
-  if (!issuer) {
-    return `Integration ${integration} has no OAuth2 client. Required: an OAUTH_CLIENTS entry for ${integration}`;
-  }
-
-  const named = issuer.named
-    ? `names issuer ${issuer.named}`
-    : 'names no issuer';
-
-  return `OAUTH_CLIENTS entry for ${integration} ${named}. Required issuer: ${issuer.required}`;
-};
-
 export class OAuth2ClientMissingError extends ApplicationError {
   readonly kind = 'invalid' as const;
 
   constructor(
-    integration: string,
+    readonly integration: string,
     readonly issuer: OtherIssuer | null = null,
   ) {
-    super(messageOf(integration, issuer));
+    super(
+      issuer
+        ? `Integration ${integration} has no OAuth2 client for its authorization server.`
+        : `Integration ${integration} has no OAuth2 client.`,
+    );
     this.name = 'OAuth2ClientMissingError';
   }
 }

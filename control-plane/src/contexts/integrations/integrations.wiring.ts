@@ -922,6 +922,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       TEAM_DIRECTORY,
       CLOCK,
       ENV,
+      LOGGER,
     ],
     useFactory: (
       configured: ConfiguredOAuth2ClientsPort,
@@ -930,6 +931,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       teams: TeamDirectoryPort,
       clock: ClockPort,
       env: Env,
+      logger: LoggerPort,
     ) =>
       new OAuth2ClientResolution(
         configured,
@@ -938,6 +940,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         teams,
         clock,
         callbackOf(env),
+        logger,
       ),
   },
 

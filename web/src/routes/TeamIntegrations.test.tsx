@@ -534,9 +534,7 @@ describe('TeamIntegrations', () => {
 
   it('says why the team account could not be connected', () => {
     connectError.mockReturnValue(
-      new Error(
-        'Integration grafana has no OAuth2 client. Required: an OAUTH_CLIENTS entry for grafana',
-      ),
+      new Error('Integration grafana has no OAuth2 client.'),
     );
     configuration.mockReturnValue(
       read([
@@ -550,7 +548,7 @@ describe('TeamIntegrations', () => {
     showing();
 
     expect(head('Grafana').getByRole('alert')).toHaveTextContent(
-      'Integration grafana has no OAuth2 client. Required: an OAUTH_CLIENTS entry for grafana',
+      'Integration grafana has no OAuth2 client.',
     );
   });
 

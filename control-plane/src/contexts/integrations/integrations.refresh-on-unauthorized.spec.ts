@@ -375,22 +375,20 @@ const settingUp = ({
   );
   const expressions = new CelExpressionEngine();
   const policy = allowingOutbound(['linear.app', 'api.linear.app']);
+  const quiet = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  } satisfies LoggerPort;
   const clients = new OAuth2ClientResolution(
     OAuth2Clients.from('{}'),
     registrations,
-    new OAuth2Registrar(
-      policy,
-      {
-        debug: () => {},
-        info: () => {},
-        warn: () => {},
-        error: () => {},
-      } satisfies LoggerPort,
-      linear.fetch,
-    ),
+    new OAuth2Registrar(policy, quiet, linear.fetch),
     TEAMS,
     clock,
     CALLBACK,
+    quiet,
   );
   const exchange = new OAuth2Exchange(policy, clock, linear.fetch);
   const runtime = new CompiledIntegrationRuntime(
