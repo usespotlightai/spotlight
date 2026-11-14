@@ -17,7 +17,6 @@ export const poolOptions = (
 });
 
 const guarded = (pool: Pool, name: string, logger: LoggerPort): Pool => {
-  // A dropped idle client emits "error". Without a listener, it would end the process.
   pool.on('error', (error) =>
     logger.warn({ err: error, pool: name }, 'Postgres pool client failed'),
   );
