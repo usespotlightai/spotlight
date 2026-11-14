@@ -277,3 +277,25 @@ func TestKeepsANewAnswerThatStartsLikeTheLastOne(t *testing.T) {
 		t.Fatalf("said %q", said)
 	}
 }
+
+func TestForgetsWhatAFinishedToolCallReadAndWroteButNotItsName(t *testing.T) {
+	reading := newTranslator()
+	reading.opened("root")
+	for _, each := range []string{
+		`{"sessionUpdate":"tool_call_update","toolCallId":"c1","name":"Read","title":"Read a.ts","kind":"read","rawInput":{"path":"a.ts"},"content":[{"type":"terminal","terminalId":"t1"}]}`,
+		`{"sessionUpdate":"terminal_output_chunk","terminalId":"t1","data":"` + base64.StdEncoding.EncodeToString([]byte("a long file")) + `"}`,
+		`{"sessionUpdate":"tool_call_update","toolCallId":"c1","status":"completed","rawOutput":"a long file"}`,
+	} {
+		reading.translate("root", json.RawMessage(each))
+	}
+
+	kept := reading.tools["\x00c1"]
+	if kept.Input != nil || kept.Output != nil || reading.terminals["\x00t1"].output != "" {
+		t.Fatalf("kept %+v and %q", kept, reading.terminals["\x00t1"].output)
+	}
+
+	late := last[protocol.ToolChanged](t, reading.translate("root", json.RawMessage(`{"sessionUpdate":"tool_call_update","toolCallId":"c1","status":"completed"}`)), protocol.EventToolChanged)
+	if late.Name != "Read" || late.Title != "Read a.ts" || late.Kind != "read" {
+		t.Fatalf("a late patch read as %+v", late)
+	}
+}

@@ -319,7 +319,11 @@ func (t *translator) patched(session string, patch toolPatch) (*protocol.ToolCha
 	}
 
 	events := []protocol.Event{protocol.HarnessEvent(protocol.EventToolChanged, t.shown(*call))}
-	return call, append(events, output...)
+	shown := *call
+	if call.Status == protocol.ToolCompleted || call.Status == protocol.ToolFailed {
+		call.Input, call.Output, call.Files, call.Patch = nil, nil, nil, ""
+	}
+	return &shown, append(events, output...)
 }
 
 func (t *translator) shown(call protocol.ToolChanged) protocol.ToolChanged {
@@ -392,6 +396,7 @@ func (t *translator) linkedOutput(session string, blocks []block) []protocol.Eve
 			events = append(events, protocol.HarnessEvent(protocol.EventToolOutput, protocol.ToolOutput{
 				Session: session, ID: term.call, Text: term.output, Replace: true,
 			}))
+			term.output = ""
 		}
 	}
 	return events
@@ -420,12 +425,19 @@ func (t *translator) printed(session, terminalID string, raw []byte, replace boo
 	var text string
 	if replace {
 		text, term.split = string(raw), nil
-		term.output = text
 	} else {
 		text, term.split = whole(append(term.split, raw...))
-		term.output += text
 	}
-	if term.call == "" || (text == "" && !replace) {
+
+	if term.call == "" {
+		if replace {
+			term.output = text
+		} else {
+			term.output += text
+		}
+		return nil
+	}
+	if text == "" && !replace {
 		return nil
 	}
 	return []protocol.Event{protocol.HarnessEvent(protocol.EventToolOutput, protocol.ToolOutput{
