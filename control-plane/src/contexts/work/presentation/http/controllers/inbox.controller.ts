@@ -40,7 +40,6 @@ import { ReopenNoticeCommand } from '@work/application/commands/reopen-notice.co
 import { ResolveConversationCommand } from '@work/application/commands/resolve-conversation.command';
 import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-inbox-request.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
-import { TakeConversationCommand } from '@work/application/commands/take-conversation.command';
 import type {
   InboxEntryDto,
   InboxItemDto,
@@ -265,7 +264,8 @@ export class InboxController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'answerInboxItem',
-    summary: 'Answer what a conversation is waiting on, and let it carry on',
+    summary:
+      'Answer what a conversation is waiting on, and let it carry on. On a task with no assignee, the first member of the team who answers becomes its assignee',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
@@ -273,7 +273,7 @@ export class InboxController {
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
   @ApiConflictResponse({
     description:
-      'Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with',
+      'Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with',
   })
   @ApiForbiddenResponse({
     description:
@@ -326,13 +326,16 @@ export class InboxController {
   @ApiOperation({
     operationId: 'resolveInboxItem',
     summary:
-      'Close a conversation without an answer, stopping any run of its task',
+      'Close a conversation without an answer, stopping any run of its task. On a task with no assignee, the first member of the team who resolves it becomes its assignee',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
   @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
-  @ApiConflictResponse({ description: 'The conversation is already closed' })
+  @ApiConflictResponse({
+    description:
+      'The conversation is already closed, or another person is the assignee of the task and the caller is a member of the team who follows it',
+  })
   @ApiForbiddenResponse({
     description:
       'The caller is not a member of the team, nor a workspace admin',
@@ -344,34 +347,6 @@ export class InboxController {
     await this.commandBus.execute(
       new ResolveConversationCommand(itemId, user.id),
     );
-  }
-
-  @Post(':itemId/take')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'takeInboxItem',
-    summary:
-      'Assign the task of a conversation that waits for the team to the caller',
-  })
-  @ApiParam({ name: 'slug', type: String, example: 'acme' })
-  @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
-  @ApiNoContentResponse({ description: 'The caller is the assignee' })
-  @ApiNotFoundResponse({
-    description:
-      'No such conversation for this caller, or another person took it and the caller does not follow the task',
-  })
-  @ApiForbiddenResponse({
-    description: 'The caller follows the task but does not act on its team',
-  })
-  @ApiConflictResponse({
-    description:
-      'The caller is a member of the team who follows the task and another person is its assignee, or nothing waits on anyone at that conversation',
-  })
-  async takeInboxItem(
-    @Param('itemId') itemId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
-    await this.commandBus.execute(new TakeConversationCommand(itemId, user.id));
   }
 
   @Post('requests/:requestId/resolve')

@@ -6,7 +6,10 @@ import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
-import type { ConversationStanding } from '@work/domain/services/conversation-audience';
+import type {
+  ConversationStanding,
+  RunStanding,
+} from '@work/domain/services/conversation-audience';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
@@ -161,7 +164,7 @@ export interface InboxRunSummary {
   readonly unread: false;
   readonly resolved: false;
   readonly section: InboxSection;
-  readonly standing: ConversationStanding;
+  readonly standing: RunStanding;
   readonly reopenable: false;
 }
 

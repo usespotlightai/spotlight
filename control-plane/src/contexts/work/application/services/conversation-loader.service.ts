@@ -2,7 +2,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { TaskTakenError } from '@work/domain/exceptions/task-taken.error';
+import { AssignedToAnotherPersonError } from '@work/domain/exceptions/assigned-to-another-person.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
@@ -54,7 +54,7 @@ export class ConversationLoader {
     team.standing.assertActsOnTasks(unknown);
 
     if (!ConversationAudience.answers(standing)) {
-      throw new TaskTakenError(task.id.value);
+      throw new AssignedToAnotherPersonError(task.id.value);
     }
 
     return { item, task, standing, line: team.line, members: team.members };

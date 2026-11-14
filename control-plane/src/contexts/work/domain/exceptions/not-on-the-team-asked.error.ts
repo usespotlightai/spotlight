@@ -5,7 +5,7 @@ export class NotOnTheTeamAskedError extends DomainError {
 
   constructor(taskId: string) {
     super(
-      `Task ${taskId} waits for its team. Only a member of the team can answer or take it.`,
+      `Task ${taskId} waits for its team. Only a member of the team can answer it.`,
     );
     this.name = 'NotOnTheTeamAskedError';
   }

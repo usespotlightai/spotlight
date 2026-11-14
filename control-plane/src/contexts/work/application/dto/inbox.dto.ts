@@ -10,6 +10,8 @@ import {
 import {
   CONVERSATION_STANDINGS,
   type ConversationStanding,
+  RUN_STANDINGS,
+  type RunStanding,
 } from '@work/domain/services/conversation-audience';
 import {
   APPROVAL_SUBJECT_KINDS,
@@ -30,9 +32,11 @@ export const INBOX_REQUEST_DTO_FORMS = INBOX_REQUEST_FORMS;
 export const INBOX_NOTICE_FORMS = NOTICE_FORMS;
 export const INBOX_DTO_SECTIONS = INBOX_SECTIONS;
 export const INBOX_STANDINGS = CONVERSATION_STANDINGS;
+export const INBOX_RUN_STANDINGS = RUN_STANDINGS;
 
 export type InboxDtoSection = InboxSection;
 export type InboxStanding = ConversationStanding;
+export type InboxRunStanding = RunStanding;
 
 interface InboxApprovalInputDto {
   readonly name: string;
@@ -176,7 +180,7 @@ export interface InboxRunDto {
   readonly unread: false;
   readonly resolved: false;
   readonly section: InboxSection;
-  readonly standing: InboxStanding;
+  readonly standing: InboxRunStanding;
   readonly reopenable: false;
 }
 

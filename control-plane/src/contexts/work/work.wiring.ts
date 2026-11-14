@@ -191,7 +191,6 @@ import { SendMessageHandler } from '@work/application/commands/handlers/send-mes
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
-import { TakeConversationHandler } from '@work/application/commands/handlers/take-conversation.handler';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
 import { KeepTaskDraftCommand } from '@work/application/commands/keep-task-draft.command';
 import { MarkConversationReadCommand } from '@work/application/commands/mark-conversation-read.command';
@@ -206,7 +205,6 @@ import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-i
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
-import { TakeConversationCommand } from '@work/application/commands/take-conversation.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
@@ -2105,10 +2103,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ResolveConversationHandler,
     [ConversationLoader, TASK_REPOSITORY, CLOCK],
   ),
-  ...bindCommandHandler(TakeConversationCommand, TakeConversationHandler, [
-    ConversationLoader,
-    TASK_REPOSITORY,
-  ]),
   ...bindCommandHandler(
     ResolveInboxRequestCommand,
     ResolveInboxRequestHandler,

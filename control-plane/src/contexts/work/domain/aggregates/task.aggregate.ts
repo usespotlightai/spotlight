@@ -44,6 +44,7 @@ import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { TaskRunEnded } from '@work/domain/events/task-run-ended.event';
 import { TaskSessionKept } from '@work/domain/events/task-session-kept.event';
 import { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.event';
+import { AssignedToAnotherPersonError } from '@work/domain/exceptions/assigned-to-another-person.error';
 import { DraftAlreadySentError } from '@work/domain/exceptions/draft-already-sent.error';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
@@ -55,7 +56,6 @@ import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
-import { TaskTakenError } from '@work/domain/exceptions/task-taken.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
 import {
@@ -665,16 +665,6 @@ export class Task extends EventRecorder {
     return this.assignedTo(null);
   }
 
-  take(from: NotePosition, person: UserId, members: TeamMembers): Task {
-    if (!this.isWaitingAt(from)) {
-      throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is not waiting on anyone at that note.`,
-      );
-    }
-
-    return this.heldBy(person, members);
-  }
-
   answerAs(
     answerer: UserId,
     members: TeamMembers,
@@ -710,7 +700,7 @@ export class Task extends EventRecorder {
     }
 
     if (!this.assignee.equals(person)) {
-      throw new TaskTakenError(this.id.value);
+      throw new AssignedToAnotherPersonError(this.id.value);
     }
 
     return this;

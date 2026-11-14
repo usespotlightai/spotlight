@@ -1785,10 +1785,10 @@
             "description": "No such conversation for this caller"
           },
           "409": {
-            "description": "Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with"
+            "description": "Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with"
           }
         },
-        "summary": "Answer what a conversation is waiting on, and let it carry on",
+        "summary": "Answer what a conversation is waiting on, and let it carry on. On a task with no assignee, the first member of the team who answers becomes its assignee",
         "tags": [
           "inbox"
         ]
@@ -1871,56 +1871,10 @@
             "description": "No such conversation for this caller"
           },
           "409": {
-            "description": "The conversation is already closed"
+            "description": "The conversation is already closed, or another person is the assignee of the task and the caller is a member of the team who follows it"
           }
         },
-        "summary": "Close a conversation without an answer, stopping any run of its task",
-        "tags": [
-          "inbox"
-        ]
-      }
-    },
-    "/workspaces/{slug}/inbox/{itemId}/take": {
-      "post": {
-        "operationId": "takeInboxItem",
-        "parameters": [
-          {
-            "name": "itemId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "task_1:0",
-              "type": "string"
-            }
-          },
-          {
-            "name": "slug",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "acme",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "The caller is the assignee"
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "403": {
-            "description": "The caller follows the task but does not act on its team"
-          },
-          "404": {
-            "description": "No such conversation for this caller, or another person took it and the caller does not follow the task"
-          },
-          "409": {
-            "description": "The caller is a member of the team who follows the task and another person is its assignee, or nothing waits on anyone at that conversation"
-          }
-        },
-        "summary": "Assign the task of a conversation that waits for the team to the caller",
+        "summary": "Close a conversation without an answer, stopping any run of its task. On a task with no assignee, the first member of the team who resolves it becomes its assignee",
         "tags": [
           "inbox"
         ]
@@ -9461,7 +9415,6 @@
             "type": "string",
             "enum": [
               "assignee",
-              "team",
               "following"
             ],
             "example": "assignee",
