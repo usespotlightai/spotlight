@@ -4,7 +4,7 @@ import {
   type Journalled,
 } from '@runs/infrastructure/journal/journalled';
 
-export const HARNESS_EVENTS_VERSION = 1;
+const HARNESS_EVENTS_VERSION = 1;
 
 const TURN_ORIGINS = ['prompt', 'self'] as const;
 
