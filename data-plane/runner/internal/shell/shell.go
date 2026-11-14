@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -58,9 +59,15 @@ func Run(ctx context.Context, c Command) (string, error) {
 }
 
 func Git(ctx context.Context, dir string, as *account.User, args ...string) (string, error) {
+	return GitWith(ctx, dir, nil, as, args...)
+}
+
+func GitWith(ctx context.Context, dir string, env map[string]string, as *account.User, args ...string) (string, error) {
+	with := map[string]string{"GIT_TERMINAL_PROMPT": "0"}
+	maps.Copy(with, env)
 	return Run(ctx, Command{
 		Dir:   dir,
-		Env:   map[string]string{"GIT_TERMINAL_PROMPT": "0"},
+		Env:   with,
 		RunAs: as,
 		Name:  "git",
 		Args:  append([]string{"-c", "safe.directory=*", "-C", dir}, args...),

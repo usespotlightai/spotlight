@@ -25,17 +25,18 @@ func FromMirror(ctx context.Context, mirrors, dir string, checkout protocol.Warm
 		return nil
 	}
 
-	output, err := shell.Run(ctx, shell.Command{
-		Dir:  dir,
-		Env:  map[string]string{"GIT_TERMINAL_PROMPT": "0"},
-		Name: "git",
-		Args: []string{"-c", "safe.directory=*", "clone", "--quiet", source, tree},
-	})
+	trusting, err := configTrustingOtherOwners()
 	if err != nil {
+		return err
+	}
+	defer os.Remove(trusting)
+	env := map[string]string{"GIT_CONFIG_GLOBAL": trusting}
+
+	if output, err := shell.GitWith(ctx, dir, env, nil, "clone", "--quiet", source, tree); err != nil {
 		return fmt.Errorf("git clone %s from the mirror: %w: %s", checkout.Path, err, shell.Tail(output))
 	}
 
-	if _, err := shell.Git(ctx, tree, nil, "rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
+	if _, err := shell.GitWith(ctx, tree, env, nil, "rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
 		if err := os.RemoveAll(tree); err != nil {
 			return fmt.Errorf("remove the empty clone of %s: %w", checkout.Path, err)
 		}
@@ -43,4 +44,17 @@ func FromMirror(ctx context.Context, mirrors, dir string, checkout protocol.Warm
 	}
 
 	return nil
+}
+
+func configTrustingOtherOwners() (string, error) {
+	file, err := os.CreateTemp("", "spotlight-mirror-*.gitconfig")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	if _, err := file.WriteString("[include]\n\tpath = ~/.config/git/config\n\tpath = ~/.gitconfig\n[safe]\n\tdirectory = *\n"); err != nil {
+		os.Remove(file.Name())
+		return "", err
+	}
+	return file.Name(), nil
 }
