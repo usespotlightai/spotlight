@@ -1,0 +1,2 @@
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Started the tests."}}}}
+{"jsonrpc":"2.0","id":"PROMPT","result":{"stopReason":"end_turn"}}

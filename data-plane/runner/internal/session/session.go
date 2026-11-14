@@ -82,6 +82,7 @@ type Options struct {
 	Enforced       func(ctx context.Context) bool
 	Unready        error
 	BackgroundWait time.Duration
+	HarnessFrames  bool
 	SettleQuiet    time.Duration
 }
 
@@ -326,7 +327,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	env := granted(protocol.WithoutShadowedHarnessKeys(run.Spec.Command.Env, os.Getenv), channel, state, telemetry.URL, usesAPI(run.Spec, opts.ControlPlane))
 	maps.Copy(env, opts.ProxyEnv)
 
-	harness, err := acp.Start(ctx, acp.Options{
+	harness, err := startHarness(ctx, run.Spec.Command.Protocol, acp.Options{
 		Executable:  run.Spec.Command.Executable,
 		Args:        run.Spec.Command.Args,
 		Env:         env,
@@ -336,6 +337,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		Session:     run.Spec.HarnessSetup.Session,
 		McpServers:  serversOf(run.Spec.HarnessSetup.McpServers),
 		SettleQuiet: opts.SettleQuiet,
+		Frames:      opts.HarnessFrames,
 	})
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("start agent: %w", err))
@@ -358,14 +360,14 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		leave()
 		return unopened(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
-	if err := configure(ctx, harness, sessionID, run.Spec.Command.SessionOptions, log); err != nil {
+	if err := configure(ctx, harness, run.Spec.Command.SessionOptions, log); err != nil {
 		leave()
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	talk := &conversation{
 		run:       run,
-		harness:   overACP(harness),
+		harness:   harness,
 		sessionID: sessionID,
 		joined:    joined,
 		unready:   unready,
@@ -395,7 +397,12 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		log:     log,
 		stopped: make(chan struct{}),
 	}
-	journal.record(ctx, protocol.Event{Type: protocol.EventHarnessConnected, Message: harness.Protocol()})
+	journal.record(ctx, protocol.HarnessEvent(protocol.EventHarnessConnected, protocol.HarnessConnected{
+		Protocol: harness.Protocol(),
+		Events:   protocol.HarnessEventsVersion,
+		Session:  sessionID,
+		Reports:  harness.Reports(),
+	}))
 
 	stopLeasing()
 	err = talk.work(ctx, talk.opening(ctx))
@@ -467,7 +474,7 @@ func (o Options) generateStacks(
 	}
 }
 
-func open(ctx context.Context, harness *acp.Client, previous string, log *slog.Logger) (string, error) {
+func open(ctx context.Context, harness Harness, previous string, log *slog.Logger) (string, error) {
 	if previous != "" {
 		err := harness.Resume(ctx, previous)
 		if err == nil {
@@ -489,10 +496,10 @@ func open(ctx context.Context, harness *acp.Client, previous string, log *slog.L
 }
 
 func configure(
-	ctx context.Context, harness *acp.Client, sessionID string, options []protocol.SessionOption, log *slog.Logger,
+	ctx context.Context, harness Harness, options []protocol.SessionOption, log *slog.Logger,
 ) error {
 	for _, option := range options {
-		err := harness.SetConfigOption(ctx, sessionID, option.ID, option.Value)
+		err := harness.SetConfigOption(ctx, option.ID, option.Value)
 		if err == nil {
 			continue
 		}
@@ -773,7 +780,7 @@ func failed(
 		Type:    protocol.EventFailed,
 		Message: message,
 	})
-	journal.flush(ctx)
+	journal.drain(ctx)
 
 	if err := reporter.Complete(ctx, runID, protocol.Completion{
 		ExitCode:    -1,
@@ -903,7 +910,13 @@ type journalWriter struct {
 	sending sync.Mutex
 	seq     int
 	pending []protocol.Event
+	failed  int
 }
+
+const (
+	flushTries   = 5
+	flushBackoff = 200 * time.Millisecond
+)
 
 func (j *journalWriter) append(event protocol.Event) {
 	j.mu.Lock()
@@ -920,7 +933,17 @@ func (j *journalWriter) record(ctx context.Context, event protocol.Event) {
 	j.flush(ctx)
 }
 
-func (j *journalWriter) flush(ctx context.Context) {
+func (j *journalWriter) drain(ctx context.Context) {
+	for try := 1; !j.flush(ctx) && try < flushTries; try++ {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Duration(try) * flushBackoff):
+		}
+	}
+}
+
+func (j *journalWriter) flush(ctx context.Context) bool {
 	j.sending.Lock()
 	defer j.sending.Unlock()
 
@@ -930,12 +953,27 @@ func (j *journalWriter) flush(ctx context.Context) {
 	j.mu.Unlock()
 
 	if len(batch) == 0 {
-		return
+		return true
 	}
 
-	if err := j.journal.AppendEvents(ctx, j.runID, batch); err != nil {
-		slog.Warn("could not append events", "run", j.runID, "count", len(batch), "error", err)
+	err := j.journal.AppendEvents(ctx, j.runID, batch)
+	if err == nil {
+		j.failed = 0
+		return true
 	}
+
+	j.failed++
+	if j.failed >= flushTries {
+		slog.Warn("could not append events; they are lost", "run", j.runID, "count", len(batch), "error", err)
+		j.failed = 0
+		return true
+	}
+
+	slog.Warn("could not append events; they are sent again with the next ones", "run", j.runID, "count", len(batch), "error", err)
+	j.mu.Lock()
+	j.pending = append(batch, j.pending...)
+	j.mu.Unlock()
+	return false
 }
 
 func recall(ctx context.Context, journal Journal, runID string, request protocol.RecallRequest) (json.RawMessage, error) {

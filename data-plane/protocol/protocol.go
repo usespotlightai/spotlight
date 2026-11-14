@@ -44,6 +44,7 @@ type Command struct {
 	Executable     string            `json:"executable"`
 	Args           []string          `json:"args,omitempty"`
 	Env            map[string]string `json:"env,omitempty"`
+	Protocol       string            `json:"protocol,omitempty"`
 	SessionOptions []SessionOption   `json:"sessionOptions,omitempty"`
 }
 
@@ -258,7 +259,6 @@ const (
 	EventOutput           EventType = "output"
 	EventFailed           EventType = "failed"
 	EventSpan             EventType = "span"
-	EventUsage            EventType = "usage"
 	EventToolRefused      EventType = "tool.refused"
 	EventEgressChecked    EventType = "egress.checked"
 	EventAgentStopped     EventType = "agent.stopped"

@@ -21,6 +21,7 @@ const KIND_VERBS = new Map<JournalStep['kind'], string>([
   ['waited', 'Waited for'],
   ['lost', 'Stopped'],
   ['reminded', 'Reminded'],
+  ['turn', 'Continued on its own'],
 ]);
 
 const PROSE_KINDS = new Set<JournalStep['kind']>([

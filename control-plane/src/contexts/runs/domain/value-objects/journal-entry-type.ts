@@ -1,5 +1,3 @@
-export const TURN_USAGE = 'usage';
-
 export const TOOL_REFUSED = 'tool.refused';
 
 export const EGRESS_CHECKED = 'egress.checked';

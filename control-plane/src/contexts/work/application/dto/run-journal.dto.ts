@@ -2,6 +2,23 @@ import { STEP_KINDS } from '@work/domain/value-objects/step-kind';
 
 export const STEP_KIND_NAMES = STEP_KINDS;
 
+export const SESSION_STATUSES = ['running', 'needs-action', 'idle'] as const;
+
+export const BACKGROUND_KINDS = [
+  'command',
+  'monitor',
+  'subagent',
+  'other',
+] as const;
+
+type SessionStatusDto = (typeof SESSION_STATUSES)[number];
+
+interface BackgroundTaskDto {
+  readonly id: string;
+  readonly kind: (typeof BACKGROUND_KINDS)[number];
+  readonly description: string;
+}
+
 interface StepLocationDto {
   readonly path: string;
   readonly line: number | null;
@@ -66,6 +83,8 @@ export interface RunJournalDto {
   readonly ms: number | null;
   readonly marks: RunMarksDto;
   readonly spent: RunSpentDto | null;
+  readonly sessionStatus: SessionStatusDto | null;
+  readonly background: readonly BackgroundTaskDto[];
 }
 
 export interface JournalledRunDto {

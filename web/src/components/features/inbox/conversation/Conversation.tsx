@@ -16,6 +16,7 @@ import { togglesDisclosure } from '@/lib/disclosure';
 import {
   ARRIVING,
   authorsOf,
+  liveSessionOf,
   type ConversationItem,
   type Note,
   openedAt,
@@ -401,6 +402,7 @@ export function Conversation({
                         stationColor={item.station.color}
                         stationPosition={item.station.position}
                         stationCount={item.station.count}
+                        session={liveSessionOf(worked)}
                       />
                     )
                   ))}

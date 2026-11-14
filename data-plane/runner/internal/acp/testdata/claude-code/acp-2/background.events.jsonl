@@ -1,0 +1,37 @@
+{"type":"message","data":{"id":"504a4e9c-81e1-4f4d-9c7c-84b29618208a","role":"user","text":"Run `sleep 20 \u0026\u0026 echo done` with the Bash tool's run_in_background option. Do not wait. End your turn at once. When you are told it finished, reply with: finished","replace":true}}
+{"type":"turn.started","data":{"turn":1,"origin":"prompt"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"context.changed","data":{"used":17596,"size":1000000}}
+{"type":"tool.changed","data":{"id":"toolu_01Wxga7FJq28u7aW7ophJkev","name":"Bash","kind":"execute","title":"Terminal","status":"pending","input":{}}}
+{"type":"tool.changed","data":{"id":"toolu_01Wxga7FJq28u7aW7ophJkev","name":"Bash","kind":"execute","title":"sleep 20 \u0026\u0026 echo done","status":"pending","input":{"command":"sleep 20 \u0026\u0026 echo done"}}}
+{"type":"tool.changed","data":{"id":"toolu_01Wxga7FJq28u7aW7ophJkev","name":"Bash","kind":"execute","title":"sleep 20 \u0026\u0026 echo done","status":"pending","input":{"command":"sleep 20 \u0026\u0026 echo done","run_in_background":true}}}
+{"type":"tool.changed","data":{"id":"toolu_01Wxga7FJq28u7aW7ophJkev","name":"Bash","kind":"execute","title":"sleep 20 \u0026\u0026 echo done","status":"pending","input":{"command":"sleep 20 \u0026\u0026 echo done","description":"Run sleep 20 then echo done in background","run_in_background":true}}}
+{"type":"context.changed","data":{"used":17695,"size":1000000}}
+{"type":"tool.output","data":{"id":"toolu_01Wxga7FJq28u7aW7ophJkev","text":"Command running in background with ID: bo391vje8. Output is being written to: /tmp/tasks/output You will be notified when it completes. To check interim output, use Read on that file path.","replace":true}}
+{"type":"tool.changed","data":{"id":"toolu_01Wxga7FJq28u7aW7ophJkev","name":"Bash","kind":"execute","title":"sleep 20 \u0026\u0026 echo done","status":"completed","input":{"command":"sleep 20 \u0026\u0026 echo done","description":"Run sleep 20 then echo done in background","run_in_background":true}}}
+{"type":"background.changed","data":{"items":[{"id":"toolu_01Wxga7FJq28u7aW7ophJkev","kind":"command","description":"sleep 20 \u0026\u0026 echo done"}]}}
+{"type":"context.changed","data":{"used":19657,"size":1000000}}
+{"type":"message","data":{"id":"msg_011Ch2vX6TVDaWQFi5R4gNqL","role":"agent","text":"The"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6TVDaWQFi5R4gNqL","role":"agent","text":" background job"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6TVDaWQFi5R4gNqL","role":"agent","text":" is running (`sleep "}}
+{"type":"message","data":{"id":"msg_011Ch2vX6TVDaWQFi5R4gNqL","role":"agent","text":"20 \u0026\u0026 echo done`,"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6TVDaWQFi5R4gNqL","role":"agent","text":" task"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6TVDaWQFi5R4gNqL","role":"agent","text":" ID b"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6TVDaWQFi5R4gNqL","role":"agent","text":"o391vje8). I'"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6TVDaWQFi5R4gNqL","role":"agent","text":"ll reply \"finished\" when"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6TVDaWQFi5R4gNqL","role":"agent","text":" it"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6TVDaWQFi5R4gNqL","role":"agent","text":" completes."}}
+{"type":"context.changed","data":{"used":19816,"size":1000000}}
+{"type":"context.changed","data":{"used":19816,"size":1000000}}
+{"type":"context.changed","data":{"used":19816,"size":1000000,"cost":{"amount":0.0022147,"currency":"USD"}}}
+{"type":"turn.ended","data":{"turn":1,"stop":"ended","reason":"end_turn","usage":{"input":4,"output":278,"cacheRead":28950,"cacheWrite":8279}}}
+{"type":"session.state","data":{"state":"idle"}}
+{"type":"tool.output","data":{"id":"toolu_01Wxga7FJq28u7aW7ophJkev","text":"done\n\n[exited with code 0]\n","replace":true}}
+{"type":"background.changed","data":{"items":[]}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"turn.started","data":{"turn":2,"origin":"self"}}
+{"type":"context.changed","data":{"used":20225,"size":1000000}}
+{"type":"message","data":{"id":"msg_011Ch2vYaAttppaakrVJ1Pee","role":"agent","text":"finished"}}
+{"type":"context.changed","data":{"used":20225,"size":1000000,"cost":{"amount":0.00252681,"currency":"USD"}}}
+{"type":"turn.ended","data":{"turn":2,"stop":"ended","reason":"end_turn","usage":{"input":4,"output":4,"cacheRead":19651,"cacheWrite":566}}}
+{"type":"session.state","data":{"state":"idle"}}

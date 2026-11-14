@@ -7,7 +7,8 @@ import type {
 import type { RecordedRunUsage } from '@runs/domain/entities/recorded-run-usage.entity';
 import { isJournalledAttempt } from '@runs/domain/value-objects/run-journalled-attempts';
 import type { AttemptReading } from '@runs/domain/value-objects/run-usage.vo';
-import { JournalBuilder } from '@runs/infrastructure/acp/journal-builder';
+import { HARNESS_FRAME } from '@runs/infrastructure/journal/harness-events';
+import { JournalBuilder } from '@runs/infrastructure/journal/journal-builder';
 import {
   run,
   runJournalEntry,
@@ -18,7 +19,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, ne } from 'drizzle-orm';
 
 export const readingOf = (
   journal: JournalBuilder,
@@ -62,7 +63,12 @@ export class DrizzleRunUsages implements RunUsageWriterPort {
         data: runJournalEntry.data,
       })
       .from(runJournalEntry)
-      .where(eq(runJournalEntry.runId, runId.value))
+      .where(
+        and(
+          eq(runJournalEntry.runId, runId.value),
+          ne(runJournalEntry.type, HARNESS_FRAME),
+        ),
+      )
       .orderBy(asc(runJournalEntry.attempt), asc(runJournalEntry.seq));
     const journals = new Map<number, JournalBuilder>([
       [found.attempt, new JournalBuilder()],

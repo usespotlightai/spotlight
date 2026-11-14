@@ -1,0 +1,21 @@
+{"type":"message","data":{"id":"b5fbfda0-2d25-4246-98d5-86b7879882a1","role":"user","text":"Run the shell command `echo hi` and then stop.","replace":true}}
+{"type":"turn.started","data":{"turn":1,"origin":"prompt"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"context.changed","data":{"used":17557,"size":1000000}}
+{"type":"tool.changed","data":{"id":"toolu_016K6RBkzmK53U8ccqv6sT5p","name":"Bash","kind":"execute","title":"Terminal","status":"pending","input":{}}}
+{"type":"tool.changed","data":{"id":"toolu_016K6RBkzmK53U8ccqv6sT5p","name":"Bash","kind":"execute","title":"echo hi","status":"pending","input":{"command":"echo hi"}}}
+{"type":"tool.changed","data":{"id":"toolu_016K6RBkzmK53U8ccqv6sT5p","name":"Bash","kind":"execute","title":"echo hi","status":"pending","input":{"command":"echo hi","description":"Print hi via echo"}}}
+{"type":"context.changed","data":{"used":17618,"size":1000000}}
+{"type":"context.changed","data":{"used":17618,"size":1000000}}
+{"type":"tool.output","data":{"id":"toolu_016K6RBkzmK53U8ccqv6sT5p","text":"hi","replace":true}}
+{"type":"tool.changed","data":{"id":"toolu_016K6RBkzmK53U8ccqv6sT5p","name":"Bash","kind":"execute","title":"echo hi","status":"completed","input":{"command":"echo hi","description":"Print hi via echo"}}}
+{"type":"context.changed","data":{"used":19430,"size":1000000}}
+{"type":"message","data":{"id":"msg_011Ch2vX6WE3GddB1tPNYaWs","role":"agent","text":"The command"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6WE3GddB1tPNYaWs","role":"agent","text":" printed `hi`. I"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6WE3GddB1tPNYaWs","role":"agent","text":" ran n"}}
+{"type":"message","data":{"id":"msg_011Ch2vX6WE3GddB1tPNYaWs","role":"agent","text":"othing else."}}
+{"type":"context.changed","data":{"used":19495,"size":1000000}}
+{"type":"context.changed","data":{"used":19495,"size":1000000}}
+{"type":"context.changed","data":{"used":19495,"size":1000000,"cost":{"amount":0.0020995099999999997,"currency":"USD"}}}
+{"type":"turn.ended","data":{"turn":1,"stop":"ended","reason":"end_turn","usage":{"input":4,"output":146,"cacheRead":28911,"cacheWrite":8052}}}
+{"type":"session.state","data":{"state":"idle"}}

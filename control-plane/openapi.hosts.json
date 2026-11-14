@@ -2765,7 +2765,7 @@
           },
           "type": {
             "type": "string",
-            "example": "output"
+            "example": "tool.changed"
           },
           "at": {
             "type": "string",
@@ -2776,7 +2776,7 @@
           },
           "data": {
             "type": "string",
-            "description": "One session update as the agent reported it, JSON, base64"
+            "description": "The event's data as JSON, base64"
           }
         },
         "required": [
@@ -3969,7 +3969,8 @@
               "subagent",
               "waited",
               "lost",
-              "reminded"
+              "reminded",
+              "turn"
             ]
           },
           "text": {
