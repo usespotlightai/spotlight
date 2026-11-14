@@ -112,6 +112,10 @@ export class RunnerHost extends EventRecorder {
     return this.state.sandboxes.includes(id);
   }
 
+  hasFreeSlot(taken: number): boolean {
+    return taken < this.state.report.capacity;
+  }
+
   get isStopping(): boolean {
     return this.state.sandboxes.stopping;
   }

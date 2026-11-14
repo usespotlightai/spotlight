@@ -11,6 +11,7 @@ import type {
   StartedSandbox,
   StartedWarmSandbox,
 } from '@runners/application/ports/sandboxes.port';
+import type { WarmSlotsPort } from '@runners/application/ports/warm-slots.port';
 import { ClaimHostWorkHandler } from '@runs/application/commands/handlers/claim-host-work.handler';
 import { ClaimHostWorkCommand } from '@runs/application/commands/runner.commands';
 import type { ClaimedCheck } from '@runs/application/ports/check-work.port';
@@ -94,6 +95,8 @@ const pulling = (
     firstRunsPerPage?: number;
     archived?: readonly WorkingCopyKey[];
     adopts?: boolean;
+    waits?: boolean;
+    roomForWarm?: boolean;
   } = {},
 ) => {
   let now = NOW;
@@ -216,12 +219,17 @@ const pulling = (
         keys.filter((key) => over.archived?.some((each) => each.equals(key))),
     ),
   } as unknown as WorkingCopyArchiveRepository;
+  const waitsFor = vi.fn(async () => over.waits ?? false);
+  const warmSlots = {
+    roomForWarmOn: vi.fn(async () => over.roomForWarm ?? true),
+    drainWarmOn: vi.fn(async () => {}),
+  } satisfies WarmSlotsPort;
   const handler = new ClaimHostWorkHandler(
     authenticator,
     runners as unknown as RunnersPort,
     heartbeats,
     runs,
-    { next: claimNext } as unknown as RunClaims,
+    { next: claimNext, waitsFor } as unknown as RunClaims,
     checks,
     clock,
     { mayStart: mayStart } as unknown as ClaimGate,
@@ -235,6 +243,7 @@ const pulling = (
     sandboxes,
     { hosts: () => ['archives.example.com'] },
     archives,
+    warmSlots,
   );
 
   return {
@@ -248,6 +257,8 @@ const pulling = (
     mayStart,
     saved,
     unclaim,
+    waitsFor,
+    warmSlots,
   };
 };
 
@@ -776,6 +787,22 @@ describe('ClaimHostWorkHandler', () => {
       expect(sandboxes.startWarm).not.toHaveBeenCalled();
     });
 
+    it('leaves the last free slot of its host to other work', async () => {
+      const { handler, sandboxes, warmSlots } = pulling({
+        requestedWarm: ['sandbox_w'],
+        startsWarm: warm,
+        roomForWarm: false,
+        check: aCheck,
+      });
+
+      expect(await handler.execute(pull())).toMatchObject({
+        outcome: 'claimed',
+        work: { kind: 'check' },
+      });
+      expect(warmSlots.roomForWarmOn).toHaveBeenCalledWith(HOST, NOW);
+      expect(sandboxes.startWarm).not.toHaveBeenCalled();
+    });
+
     it('takes up a check when no host offer fits the requested warm sandbox', async () => {
       const { handler } = pulling({
         requestedWarm: ['sandbox_w'],
@@ -957,6 +984,50 @@ describe('ClaimHostWorkHandler', () => {
         }),
         NOW,
       );
+    });
+
+    it('asks its host to drain a warm sandbox when a fresh sandbox would take a waiting run', async () => {
+      const { handler, waitsFor, warmSlots, runners } = pulling({
+        taking: keeping,
+        liveKeys: ['requester/subject-task_2'],
+        waits: true,
+      });
+
+      expect(await handler.execute(into())).toEqual({ outcome: 'nothing' });
+      expect(waitsFor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sandbox: {
+            avoiding: [WorkingCopyKey.parse('requester/subject-task_2')],
+          },
+        }),
+        expect.any(Date),
+      );
+      expect(warmSlots.drainWarmOn).toHaveBeenCalledWith(
+        HOST,
+        expect.any(Date),
+      );
+      expect(runners.release).toHaveBeenCalled();
+    });
+
+    it('keeps the warm sandboxes of its host when no run waits for a fresh sandbox', async () => {
+      const { handler, waitsFor, warmSlots } = pulling({ taking: keeping });
+
+      expect(await handler.execute(into())).toEqual({ outcome: 'nothing' });
+      expect(waitsFor).toHaveBeenCalled();
+      expect(warmSlots.drainWarmOn).not.toHaveBeenCalled();
+    });
+
+    it('drains no warm sandbox once it took a first run', async () => {
+      const { handler, waitsFor, warmSlots } = pulling({
+        run: taken(),
+        taking: keeping,
+        waits: true,
+      });
+
+      await handler.execute(into());
+
+      expect(waitsFor).not.toHaveBeenCalled();
+      expect(warmSlots.drainWarmOn).not.toHaveBeenCalled();
     });
 
     it('puts the run back and releases the runner when adopting the warm sandbox fails', async () => {

@@ -679,6 +679,10 @@ export class Sandbox extends EventRecorder {
     return this.isRequested ? 'removed' : this.drain();
   }
 
+  drainedForQueuedRun(host: RunnerHost, now: Date): Sandbox {
+    return this.takesFirstRunOn(host, now) ? this.drain() : this;
+  }
+
   drainedWhenPlaced(): Sandbox {
     return this.isPlaced ? this.drain() : this;
   }

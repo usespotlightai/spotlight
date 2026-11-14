@@ -74,6 +74,16 @@ describe('Runner', () => {
     expect(checking.isAlive(later(12 * 60_000))).toBe(false);
   });
 
+  it('is an open claim only on a host, in no sandbox, with no work, while alive', () => {
+    expect(aRunner().isOpenClaimAt(later(0))).toBe(true);
+    expect(aRunner().isOpenClaimAt(later(60_000))).toBe(false);
+    expect(aRunner({ host: null }).isOpenClaimAt(later(0))).toBe(false);
+    expect(aRunner({ enters: 'sandbox_1' }).isOpenClaimAt(later(0))).toBe(
+      false,
+    );
+    expect(aRunner().claim(RUN, later(0)).isOpenClaimAt(later(0))).toBe(false);
+  });
+
   it('claims only what was reserved for it, then nothing more', () => {
     const waiting = aRunner();
 
