@@ -32,9 +32,7 @@ func live(t *testing.T, name, briefing string, wait time.Duration) *journal {
 		o.decision = protocol.PermissionAllow
 		o.log = slog.New(slog.NewTextHandler(os.Stderr, nil))
 		o.env = map[string]string{"CLAUDE_CODE_EXECUTABLE": os.Getenv("LIVE_CLAUDE")}
-		o.setup = protocol.HarnessSetup{Session: json.RawMessage(`{"claudeCode":{"emitRawSDKMessages":[` +
-			`{"type":"system","subtype":"session_state_changed"},` +
-			`{"type":"system","subtype":"background_tasks_changed"}]}}`)}
+		o.protocol = "acp/2"
 	})
 
 	raw, _ := json.MarshalIndent(written.events, "", " ")
@@ -110,7 +108,7 @@ func TestLiveWorkStillRunningAtTheLimit(t *testing.T) {
 	}
 }
 
-var answerID = regexp.MustCompile(`^\{"jsonrpc":"2.0","id":\d+,"result":\{"stopReason"`)
+var answerID = regexp.MustCompile(`^\{"jsonrpc":"2.0","id":\d+,"result":\{"messageId"`)
 
 func record(t *testing.T, path string, written *journal) {
 	t.Helper()
@@ -138,7 +136,7 @@ func record(t *testing.T, path string, written *journal) {
 			}
 			line := bytes.TrimSpace(frame.Data)
 			if loc := answerID.FindIndex(line); loc != nil {
-				line = append([]byte(`{"jsonrpc":"2.0","id":"PROMPT","result":{"stopReason"`), line[loc[1]:]...)
+				line = append([]byte(`{"jsonrpc":"2.0","id":"PROMPT","result":{"messageId"`), line[loc[1]:]...)
 			}
 			frames.Write(append(line, '\n'))
 		}

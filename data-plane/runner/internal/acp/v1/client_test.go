@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -544,10 +543,8 @@ func TestSetsASessionConfigOption(t *testing.T) {
 	}
 }
 
-const workingHarness = `
+const wakingHarness = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
-const frame = (message) => send({ jsonrpc: "2.0", method: "_claude/sdkMessage",
-  params: { sessionId: "session_1", message: { type: "system", ...message } } });
 const say = (text) => send({ jsonrpc: "2.0", method: "session/update",
   params: { sessionId: "session_1", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text } } } });
 let buffered = "";
@@ -561,16 +558,8 @@ process.stdin.on("data", (chunk) => {
     if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
     if (msg.method === "session/load") { say("from before"); send({ jsonrpc: "2.0", id: msg.id, result: {} }); }
     if (msg.method === "session/prompt") {
-      frame({ subtype: "session_state_changed", state: "running" });
-      frame({ subtype: "background_tasks_changed", tasks: [{ task_id: "t1", task_type: "local_bash", description: "npm test" }] });
       send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
-      frame({ subtype: "session_state_changed", state: "idle" });
-      setTimeout(() => {
-        frame({ subtype: "background_tasks_changed", tasks: [] });
-        frame({ subtype: "session_state_changed", state: "running" });
-        say("woke up");
-        frame({ subtype: "session_state_changed", state: "idle" });
-      }, 200);
+      setTimeout(() => say("woke up"), 100);
     }
   }
 });
@@ -578,9 +567,8 @@ process.stdin.on("data", (chunk) => {
 
 func TestUpdatesOutsideATurnReachTheWatcherButNotTheReplay(t *testing.T) {
 	client, err := v1.Start(context.Background(), acp.Options{
-		Executable:  pretend(t, workingHarness),
-		Root:        t.TempDir(),
-		SettleQuiet: 50 * time.Millisecond,
+		Executable: pretend(t, wakingHarness),
+		Root:       t.TempDir(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -590,13 +578,10 @@ func TestUpdatesOutsideATurnReachTheWatcherButNotTheReplay(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	var mu sync.Mutex
-	var seen []string
+	heard := make(chan string, 4)
 	client.Watch(func(event protocol.Event) {
 		if text := said(event); text != "" {
-			mu.Lock()
-			defer mu.Unlock()
-			seen = append(seen, text)
+			heard <- text
 		}
 	})
 
@@ -607,98 +592,22 @@ func TestUpdatesOutsideATurnReachTheWatcherButNotTheReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if work := client.Current(); !work.Seen || len(work.Background) != 1 || work.Background[0].Description != "npm test" {
-		t.Fatalf("right after the turn: %+v", work)
-	}
-
-	work, settled := client.Settle(ctx)
-	if !settled || len(work.Background) != 0 {
-		t.Fatalf("settled=%v %+v", settled, work)
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-	if !reflect.DeepEqual(seen, []string{"woke up"}) {
-		t.Errorf("the watcher saw %q", seen)
+	select {
+	case text := <-heard:
+		if text != "woke up" {
+			t.Errorf("the watcher heard %q first", text)
+		}
+	case <-ctx.Done():
+		t.Fatal("the watcher heard nothing after the turn")
 	}
 }
 
-func TestAHarnessWithoutWorkFramesSettlesAtOnce(t *testing.T) {
+func TestAV1HarnessSettlesAtOnce(t *testing.T) {
 	client, _ := start(t, responsiveHarness, nil)
 
 	work, settled := client.Settle(context.Background())
 	if !settled || work.Seen {
 		t.Fatalf("settled=%v %+v", settled, work)
-	}
-}
-
-func TestSettlingStopsAtTheDeadline(t *testing.T) {
-	client, err := v1.Start(context.Background(), acp.Options{
-		Executable:  pretend(t, workingHarness),
-		Root:        t.TempDir(),
-		SettleQuiet: 50 * time.Millisecond,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = client.Close() })
-
-	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
-	defer stop()
-	if _, err := client.Prompt(ctx, "go"); err != nil {
-		t.Fatal(err)
-	}
-
-	short, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
-	defer cancel()
-	work, settled := client.Settle(short)
-	if settled || len(work.Background) != 1 {
-		t.Fatalf("settled=%v %+v", settled, work)
-	}
-}
-
-func TestClaudeCodeTaskTypesBecomeSpotlightKinds(t *testing.T) {
-	client, err := v1.Start(context.Background(), acp.Options{
-		Executable: pretend(t, `
-const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
-let buffered = "";
-process.stdin.on("data", (chunk) => {
-  buffered += chunk.toString();
-  const lines = buffered.split("\n");
-  buffered = lines.pop();
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    const msg = JSON.parse(line);
-    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
-    if (msg.method === "session/prompt") {
-      send({ jsonrpc: "2.0", method: "_claude/sdkMessage", params: { sessionId: "s", message: { type: "system",
-        subtype: "background_tasks_changed", tasks: [
-          { task_id: "1", task_type: "local_bash", description: "tests" },
-          { task_id: "2", task_type: "local_agent", description: "explore" },
-          { task_id: "3", task_type: "monitor", description: "watch" },
-          { task_id: "4", task_type: "workflow", description: "flow" } ] } } });
-      send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
-    }
-  }
-});
-`),
-		Root: t.TempDir(),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = client.Close() })
-
-	if _, err := client.Prompt(context.Background(), "go"); err != nil {
-		t.Fatal(err)
-	}
-
-	var kinds []string
-	for _, task := range client.Current().Background {
-		kinds = append(kinds, string(task.Kind))
-	}
-	if !reflect.DeepEqual(kinds, []string{"command", "subagent", "monitor", "other"}) {
-		t.Fatalf("kinds %v", kinds)
 	}
 }
 

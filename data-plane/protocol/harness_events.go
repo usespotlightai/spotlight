@@ -102,6 +102,7 @@ type AgentMessage struct {
 	ID      string      `json:"id"`
 	Role    MessageRole `json:"role"`
 	Text    string      `json:"text"`
+	Replace bool        `json:"replace,omitempty"`
 }
 
 type ToolLocation struct {

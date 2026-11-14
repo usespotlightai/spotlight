@@ -1,0 +1,38 @@
+{"type":"message","data":{"id":"fc82ddcc-06db-47fa-a32f-be9c67a80fc2","role":"user","text":"Use the Write tool to create notes.md containing 'one', then use the Edit tool to change 'one' to 'two'. Do not use Bash.","replace":true}}
+{"type":"turn.started","data":{"turn":1,"origin":"prompt"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"context.changed","data":{"used":17588,"size":1000000}}
+{"type":"tool.changed","data":{"id":"toolu_01LS27MXWbY8tymCZLSfMsN4","name":"Write","kind":"edit","title":"Preparing file…","status":"pending","input":{}}}
+{"type":"tool.changed","data":{"id":"toolu_01LS27MXWbY8tymCZLSfMsN4","name":"Write","kind":"edit","title":"Write notes.md","status":"pending","input":{"file_path":"/work/notes.md"},"locations":[{"path":"/work/notes.md"}]}}
+{"type":"tool.changed","data":{"id":"toolu_01LS27MXWbY8tymCZLSfMsN4","name":"Write","kind":"edit","title":"Write notes.md","status":"pending","input":{"file_path":"/work/notes.md","content":"one"},"locations":[{"path":"/work/notes.md"}]}}
+{"type":"context.changed","data":{"used":17695,"size":1000000}}
+{"type":"tool.changed","data":{"id":"toolu_01LS27MXWbY8tymCZLSfMsN4","name":"Write","kind":"edit","title":"Write notes.md","status":"pending","input":{"file_path":"/work/notes.md","content":"one"},"locations":[{"path":"/work/notes.md"}],"files":[{"path":"/work/notes.md","operation":"create"}],"patch":"diff --git /work/notes.md /work/notes.md\nnew file mode 100644\n--- /dev/null\n+++ /work/notes.md\n@@ -0,0 +1 @@\n+one\n\\ No newline at end of file\n"}}
+{"type":"session.state","data":{"state":"needs-action"}}
+{"type":"tool.changed","data":{"id":"toolu_01LS27MXWbY8tymCZLSfMsN4","name":"Write","kind":"edit","title":"Write notes.md","status":"pending","input":{"file_path":"/work/notes.md","content":"one"},"locations":[{"path":"/work/notes.md"}],"files":[{"path":"/work/notes.md","operation":"create"}],"patch":"diff --git /work/notes.md /work/notes.md\nnew file mode 100644\n--- /dev/null\n+++ /work/notes.md\n@@ -0,0 +1 @@\n+one\n\\ No newline at end of file\n"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"tool.changed","data":{"id":"toolu_01LS27MXWbY8tymCZLSfMsN4","name":"Write","kind":"edit","title":"Write notes.md","status":"completed","input":{"file_path":"/work/notes.md","content":"one"},"output":"File created successfully at: /work/notes.md (file state is current in your context — no need to Read it back)","locations":[{"path":"/work/notes.md"}],"files":[{"path":"/work/notes.md","operation":"create"}],"patch":"diff --git /work/notes.md /work/notes.md\nnew file mode 100644\n--- /dev/null\n+++ /work/notes.md\n@@ -0,0 +1 @@\n+one\n\\ No newline at end of file\n"}}
+{"type":"context.changed","data":{"used":19584,"size":1000000}}
+{"type":"tool.changed","data":{"id":"toolu_01S3DU8NY2MvG8fofQiLVcgW","name":"Edit","kind":"edit","title":"Edit","status":"pending","input":{}}}
+{"type":"tool.changed","data":{"id":"toolu_01S3DU8NY2MvG8fofQiLVcgW","name":"Edit","kind":"edit","title":"Edit notes.md","status":"pending","input":{"file_path":"/work/notes.md"},"locations":[{"path":"/work/notes.md"}]}}
+{"type":"tool.changed","data":{"id":"toolu_01S3DU8NY2MvG8fofQiLVcgW","name":"Edit","kind":"edit","title":"Edit notes.md","status":"pending","input":{"file_path":"/work/notes.md","old_string":"one"},"locations":[{"path":"/work/notes.md"}]}}
+{"type":"tool.changed","data":{"id":"toolu_01S3DU8NY2MvG8fofQiLVcgW","name":"Edit","kind":"edit","title":"Edit notes.md","status":"pending","input":{"replace_all":false,"file_path":"/work/notes.md","old_string":"one","new_string":"two"},"locations":[{"path":"/work/notes.md"}]}}
+{"type":"context.changed","data":{"used":19862,"size":1000000}}
+{"type":"context.changed","data":{"used":19862,"size":1000000}}
+{"type":"tool.changed","data":{"id":"toolu_01S3DU8NY2MvG8fofQiLVcgW","name":"Edit","kind":"edit","title":"Edit notes.md","status":"pending","input":{"replace_all":false,"file_path":"/work/notes.md","old_string":"one","new_string":"two"},"locations":[{"path":"/work/notes.md"}],"files":[{"path":"/work/notes.md","operation":"update"}],"patch":"diff --git /work/notes.md /work/notes.md\n--- /work/notes.md\n+++ /work/notes.md\n@@ -1 +1 @@\n-one\n\\ No newline at end of file\n+two\n\\ No newline at end of file\n"}}
+{"type":"session.state","data":{"state":"needs-action"}}
+{"type":"tool.changed","data":{"id":"toolu_01S3DU8NY2MvG8fofQiLVcgW","name":"Edit","kind":"edit","title":"Edit notes.md","status":"pending","input":{"file_path":"/work/notes.md","old_string":"one","new_string":"two","replace_all":false},"locations":[{"path":"/work/notes.md"}],"files":[{"path":"/work/notes.md","operation":"update"}],"patch":"diff --git /work/notes.md /work/notes.md\n--- /work/notes.md\n+++ /work/notes.md\n@@ -1 +1 @@\n-one\n\\ No newline at end of file\n+two\n\\ No newline at end of file\n"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"tool.changed","data":{"id":"toolu_01S3DU8NY2MvG8fofQiLVcgW","name":"Edit","kind":"edit","title":"Edit notes.md","status":"pending","input":{"file_path":"/work/notes.md","old_string":"one","new_string":"two","replace_all":false},"locations":[{"path":"/work/notes.md","line":1}],"files":[{"path":"/work/notes.md","operation":"update"}],"patch":"diff --git /work/notes.md /work/notes.md\n--- /work/notes.md\n+++ /work/notes.md\n@@ -1 +1 @@\n-one\n\\ No newline at end of file\n+two\n\\ No newline at end of file\n"}}
+{"type":"tool.changed","data":{"id":"toolu_01S3DU8NY2MvG8fofQiLVcgW","name":"Edit","kind":"edit","title":"Edit notes.md","status":"completed","input":{"file_path":"/work/notes.md","old_string":"one","new_string":"two","replace_all":false},"output":"The file /work/notes.md has been updated successfully. (file state is current in your context — no need to Read it back)","locations":[{"path":"/work/notes.md","line":1}],"files":[{"path":"/work/notes.md","operation":"update"}],"patch":"diff --git /work/notes.md /work/notes.md\n--- /work/notes.md\n+++ /work/notes.md\n@@ -1 +1 @@\n-one\n\\ No newline at end of file\n+two\n\\ No newline at end of file\n"}}
+{"type":"context.changed","data":{"used":19982,"size":1000000}}
+{"type":"message","data":{"id":"msg_011Ch2vWxPZypyhrZhdZgAGw","role":"agent","text":"I created `notes.md`"}}
+{"type":"message","data":{"id":"msg_011Ch2vWxPZypyhrZhdZgAGw","role":"agent","text":" in the working directory with `one"}}
+{"type":"message","data":{"id":"msg_011Ch2vWxPZypyhrZhdZgAGw","role":"agent","text":"`, then changed it to `"}}
+{"type":"message","data":{"id":"msg_011Ch2vWxPZypyhrZhdZgAGw","role":"agent","text":"two` with"}}
+{"type":"message","data":{"id":"msg_011Ch2vWxPZypyhrZhdZgAGw","role":"agent","text":" Edit. I"}}
+{"type":"message","data":{"id":"msg_011Ch2vWxPZypyhrZhdZgAGw","role":"agent","text":" did"}}
+{"type":"message","data":{"id":"msg_011Ch2vWxPZypyhrZhdZgAGw","role":"agent","text":"n't use Bash."}}
+{"type":"context.changed","data":{"used":20016,"size":1000000}}
+{"type":"context.changed","data":{"used":20016,"size":1000000,"cost":{"amount":0.0025594000000000003,"currency":"USD"}}}
+{"type":"turn.ended","data":{"turn":1,"stop":"ended","reason":"end_turn","usage":{"input":6,"output":447,"cacheRead":48520,"cacheWrite":8600}}}
+{"type":"session.state","data":{"state":"idle"}}

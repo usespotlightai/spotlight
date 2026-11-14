@@ -45,7 +45,6 @@ func (c *Client) framed(line []byte, method string) {
 var journaled = map[string]bool{
 	"session/update":             true,
 	"session/request_permission": true,
-	claudeCodeFrame:              true,
 }
 
 func (c *Client) isReplaying() bool {
@@ -59,14 +58,6 @@ func (c *Client) notified(method string, params json.RawMessage) {
 		return
 	}
 
-	if method == claudeCodeFrame {
-		change := claudeCodeWork(params)
-		c.work.Apply(change)
-		if change.Tasks != nil {
-			c.emit(protocol.HarnessEvent(protocol.EventBackgroundChanged, protocol.BackgroundChanged{Items: *change.Tasks}))
-		}
-		return
-	}
 	if method != "session/update" {
 		return
 	}

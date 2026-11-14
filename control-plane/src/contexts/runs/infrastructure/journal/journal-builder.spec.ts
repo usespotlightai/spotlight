@@ -80,6 +80,22 @@ describe('JournalBuilder', () => {
     ]);
   });
 
+  it('takes a whole message in place of the chunks it had', () => {
+    const builder = read(
+      said('agent', 'Draft', 'm1'),
+      event('message', {
+        id: 'm1',
+        role: 'agent',
+        text: 'Reproduced on restart.',
+        replace: true,
+      }),
+    );
+
+    expect(builder.steps().map((step) => step.text)).toEqual([
+      'Reproduced on restart.',
+    ]);
+  });
+
   it('starts a new message where the harness starts one', () => {
     const builder = read(
       said('agent', 'Reproduced it.', 'm1'),

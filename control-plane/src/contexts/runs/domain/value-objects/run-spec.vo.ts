@@ -21,9 +21,14 @@ export interface SessionOption {
   readonly optional?: boolean;
 }
 
+export const HARNESS_PROTOCOLS = ['acp/1', 'acp/2'] as const;
+
+export type HarnessProtocol = (typeof HARNESS_PROTOCOLS)[number];
+
 export interface RunCommand {
   readonly executable: string;
   readonly args: readonly string[];
+  readonly protocol?: HarnessProtocol;
   readonly env?: Readonly<Record<string, string>>;
   readonly sessionOptions?: readonly SessionOption[];
 }

@@ -22,6 +22,24 @@ describe('the harnesses Spotlight knows', () => {
     expect(known.commandFor(HarnessId.of('nothing'), null_())).toBeNull();
   });
 
+  it('speaks ACP v2 to Claude Code and ACP v1 to the others', () => {
+    const protocols = Object.fromEntries(
+      known
+        .catalogue()
+        .map((harness) => [
+          harness.id,
+          known.commandFor(HarnessId.of(harness.id), null_())?.protocol,
+        ]),
+    );
+
+    expect(protocols).toEqual({
+      'claude-code': 'acp/2',
+      cursor: 'acp/1',
+      codex: 'acp/1',
+      opencode: 'acp/1',
+    });
+  });
+
   it('has no two harnesses under one name', () => {
     const named = known.catalogue().map((harness) => harness.id);
 

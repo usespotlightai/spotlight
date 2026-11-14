@@ -16,25 +16,38 @@ const encoded = (value: unknown): string =>
 
 const clock = (at: number) => new Date(2026, 10, 14, 12, 0, at);
 
-const recorded = (harness: string, scenario: string): Journalled[] => [
+const REPORTS = {
+  'acp-1': {
+    background: false,
+    selfStartedTurns: false,
+    turnUsage: true,
+    commandOutput: false,
+  },
+  'acp-2': {
+    background: true,
+    selfStartedTurns: true,
+    turnUsage: true,
+    commandOutput: true,
+  },
+};
+
+const recorded = (
+  scenario: string,
+  version: keyof typeof REPORTS = 'acp-1',
+): Journalled[] => [
   {
     type: 'harness.connected',
     at: clock(0),
     message: null,
     data: encoded({
-      protocol: 'acp/1',
+      protocol: version.replace('-', '/'),
       events: 1,
       session: 'session_1',
-      reports: {
-        background: false,
-        selfStartedTurns: false,
-        turnUsage: true,
-        commandOutput: false,
-      },
+      reports: REPORTS[version],
     }),
   },
   ...readFileSync(
-    join(RECORDINGS, harness, 'acp-1', `${scenario}.events.jsonl`),
+    join(RECORDINGS, 'claude-code', version, `${scenario}.events.jsonl`),
     'utf8',
   )
     .split('\n')
@@ -48,16 +61,19 @@ const recorded = (harness: string, scenario: string): Journalled[] => [
     }),
 ];
 
-const built = (scenario: string): JournalBuilder => {
+const built = (
+  scenario: string,
+  version: keyof typeof REPORTS = 'acp-1',
+): JournalBuilder => {
   const builder = new JournalBuilder();
-  for (const event of recorded('claude-code', scenario)) {
+  for (const event of recorded(scenario, version)) {
     builder.take(event);
   }
   return builder;
 };
 
-const stepsOf = (scenario: string) =>
-  built(scenario)
+const stepsOf = (scenario: string, version: keyof typeof REPORTS = 'acp-1') =>
+  built(scenario, version)
     .steps()
     .map(({ ms: _ms, startedAt: _startedAt, ...step }) => step);
 
@@ -118,7 +134,7 @@ describe('the recordings of Claude Code over ACP v1', () => {
 
   it('reads the files that edits changed', () => {
     const paths = new ChangedPaths();
-    for (const event of recorded('claude-code', 'edit')) {
+    for (const event of recorded('edit')) {
       paths.take({ ...event, attempt: 1 });
     }
 
@@ -179,5 +195,53 @@ describe('the recordings of Claude Code over ACP v1', () => {
     expect(stepsOf('refused').map((step) => step.text)).toEqual([
       "I can't help with that.",
     ]);
+  });
+});
+
+describe('the recordings of Claude Code over ACP v2', () => {
+  it('reads a command with what its terminal printed', () => {
+    const command = stepsOf('command', 'acp-2').find(
+      (step) => step.kind === 'tool',
+    );
+
+    expect(command).toMatchObject({
+      text: 'echo hi',
+      status: 'completed',
+      tool: 'execute',
+      detail: 'hi',
+    });
+    expect(built('command', 'acp-2').calls()).toMatchObject([
+      { server: null, tool: 'Bash', ending: 'completed' },
+    ]);
+  });
+
+  it('reads the files that edits changed', () => {
+    const paths = new ChangedPaths();
+    for (const event of recorded('edit', 'acp-2')) {
+      paths.take({ ...event, attempt: 1 });
+    }
+
+    expect(paths.paths()).toEqual(['/work/notes.md', '/work/notes.md']);
+  });
+
+  it('reads what the turn used', () => {
+    const { input, output } = built('text', 'acp-2').tokens();
+
+    expect(input).toBeGreaterThan(0);
+    expect(output).toBeGreaterThan(0);
+  });
+
+  it('reads the turn the agent started itself when its background work ended', () => {
+    const messages = stepsOf('background', 'acp-2').filter(
+      (step) => step.kind === 'message',
+    );
+
+    expect(messages[messages.length - 1]?.text).toBe('finished');
+  });
+
+  it('reads a background subagent as a subagent step', () => {
+    expect(stepsOf('subagent', 'acp-2')).toContainEqual(
+      expect.objectContaining({ kind: 'subagent', status: 'completed' }),
+    );
   });
 });

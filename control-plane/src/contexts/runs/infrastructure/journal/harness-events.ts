@@ -61,6 +61,7 @@ export interface AgentMessage extends InSession {
   readonly id: string;
   readonly role: 'agent' | 'user' | 'thought';
   readonly text: string;
+  readonly replace?: boolean;
 }
 
 export interface ToolLocation {

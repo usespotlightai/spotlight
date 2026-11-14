@@ -139,6 +139,11 @@ const commandOf = (value: JsonValue | undefined): RunCommandShape => {
   return {
     executable: textAt(command.executable, 'spec command executable'),
     args: textsAt(command.args, 'spec command args'),
+    ...present('protocol', command.protocol, (each) =>
+      each === 'acp/1' || each === 'acp/2'
+        ? each
+        : unreadable('spec command protocol'),
+    ),
     ...present('env', command.env, (each) =>
       textRecordAt(each, 'spec command env'),
     ),

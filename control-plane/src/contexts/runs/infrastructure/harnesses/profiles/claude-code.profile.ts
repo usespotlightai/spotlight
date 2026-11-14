@@ -54,11 +54,6 @@ const byDefault = (
   }
 };
 
-const WORK_STATE_FRAMES = [
-  { type: 'system', subtype: 'session_state_changed' },
-  { type: 'system', subtype: 'background_tasks_changed' },
-];
-
 export const claudeCodeProfile: ProfileTranslator = {
   native: 'json',
   lays: [CLAUDE_SETTINGS],
@@ -131,7 +126,6 @@ export const claudeCodeProfile: ProfileTranslator = {
       config: {},
       session: {
         claudeCode: {
-          emitRawSDKMessages: WORK_STATE_FRAMES,
           options: {
             managedSettings: {
               permissions: {

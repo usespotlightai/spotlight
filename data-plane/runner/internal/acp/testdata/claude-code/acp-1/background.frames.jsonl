@@ -1,4 +1,2 @@
-{"jsonrpc":"2.0","method":"_claude/sdkMessage","params":{"sessionId":"session_1","message":{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"b1","task_type":"local_bash","description":"npx vitest run"},{"task_id":"b2","task_type":"local_agent","description":"ambient","ambient":true}]}}}
 {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Started the tests."}}}}
 {"jsonrpc":"2.0","id":"PROMPT","result":{"stopReason":"end_turn"}}
-{"jsonrpc":"2.0","method":"_claude/sdkMessage","params":{"sessionId":"session_1","message":{"type":"system","subtype":"background_tasks_changed","tasks":[]}}}

@@ -660,7 +660,9 @@ export class JournalBuilder {
     const kind = message.role === 'thought' ? 'thought' : 'message';
 
     if (this.#textStep?.kind === kind && this.#textId === message.id) {
-      this.#textStep.text += message.text;
+      this.#textStep.text = message.replace
+        ? message.text
+        : this.#textStep.text + message.text;
       this.#textStep.endedAt = at;
       return;
     }
