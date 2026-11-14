@@ -26,7 +26,12 @@ const representative = {
   command: {
     executable: 'claude-agent-acp',
     args: ['--acp'],
+    protocol: 'acp/2',
     env: { TRACEPARENT: '00-abc-def-01' },
+    sessionOptions: [
+      { id: 'model', value: 'opus' },
+      { id: 'effort', value: 'high', optional: true },
+    ],
   },
   briefing: 'do the thing',
   handover: { options: ['spec', 'review'], noteLimit: 4_000 },
@@ -166,6 +171,33 @@ describe('RunSpecMapper.ordered', () => {
     );
 
     expect(spec.spec.value.command).toEqual(command);
+  });
+
+  it('keeps the protocol and the session options of the harness', () => {
+    const harness = {
+      executable: 'claude-agent-acp',
+      args: [],
+      protocol: 'acp/2',
+      sessionOptions: [{ id: 'model', value: 'opus' }],
+    } as const;
+
+    const ordered = RunSpecMapper.ordered(
+      { briefing: 'do the thing' },
+      harness,
+    );
+    const claimed = RunSpecMapper.received(
+      JSON.parse(JSON.stringify(ordered.spec.value)),
+    );
+
+    expect(claimed.value.command).toEqual(harness);
+  });
+
+  it('rejects a protocol no harness speaks', () => {
+    expect(() =>
+      RunSpecMapper.received(
+        parts({ command: { ...command, protocol: 'acp/9' } }),
+      ),
+    ).toThrow(InvalidRunSpecError);
   });
 
   it('fills in what a caller left out', () => {

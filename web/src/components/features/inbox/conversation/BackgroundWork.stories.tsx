@@ -36,8 +36,8 @@ const step = (seconds: number, over: Partial<Step>): Step => ({
 const journal = (
   steps: Step[],
   live: boolean,
-  session: Pick<RunJournal, 'sessionStatus' | 'background'> = {
-    sessionStatus: null,
+  session: Pick<RunJournal, 'activity' | 'background'> = {
+    activity: null,
     background: [],
   },
 ): RunJournal => ({
@@ -176,7 +176,7 @@ export const InTheBackground: Story = {
   render: render(
     [
       journal(started, true, {
-        sessionStatus: 'idle',
+        activity: 'waiting-for-background',
         background: [
           { id: 'bash_1', kind: 'command', description: 'npx vitest run' },
           {
@@ -194,7 +194,7 @@ export const InTheBackground: Story = {
 
 export const NeedsAPermission: Story = {
   render: render(
-    [journal(started, true, { sessionStatus: 'needs-action', background: [] })],
+    [journal(started, true, { activity: 'needs-action', background: [] })],
     note('I am looking for the cause.', 72),
     'in-progress',
   ),

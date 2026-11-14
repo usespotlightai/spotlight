@@ -57,7 +57,7 @@ const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
   },
   spent: null,
   egressEnforcement: null,
-  sessionStatus: null,
+  activity: null,
   background: [],
   ...part,
 });

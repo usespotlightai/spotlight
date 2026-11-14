@@ -6,6 +6,27 @@ import {
 
 export const HARNESS_EVENTS_VERSION = 1;
 
+const TURN_ORIGINS = ['prompt', 'self'] as const;
+
+const TURN_STOPS = [
+  'ended',
+  'cut-short',
+  'refused',
+  'cancelled',
+  'failed',
+] as const;
+
+const MESSAGE_ROLES = ['agent', 'user', 'thought'] as const;
+
+const SESSION_STATES = ['running', 'needs-action', 'idle'] as const;
+
+const BACKGROUND_KINDS: readonly BackgroundKind[] = [
+  'command',
+  'monitor',
+  'subagent',
+  'other',
+];
+
 interface HarnessReports {
   readonly background: boolean;
   readonly selfStartedTurns: boolean;
@@ -26,7 +47,7 @@ interface InSession {
 
 export interface TurnStarted extends InSession {
   readonly turn: number;
-  readonly origin: 'prompt' | 'self';
+  readonly origin: (typeof TURN_ORIGINS)[number];
   readonly cause?: string;
 }
 
@@ -37,7 +58,7 @@ export interface TurnUsage {
   readonly cacheWrite?: number;
 }
 
-type TurnStop = 'ended' | 'cut-short' | 'refused' | 'cancelled' | 'failed';
+type TurnStop = (typeof TURN_STOPS)[number];
 
 interface TurnEnded extends InSession {
   readonly turn: number;
@@ -47,7 +68,7 @@ interface TurnEnded extends InSession {
   readonly usage?: TurnUsage;
 }
 
-export type SessionStateName = 'running' | 'needs-action' | 'idle';
+export type SessionStateName = (typeof SESSION_STATES)[number];
 
 interface SessionState extends InSession {
   readonly state: SessionStateName;
@@ -55,7 +76,7 @@ interface SessionState extends InSession {
 
 export interface AgentMessage extends InSession {
   readonly id: string;
-  readonly role: 'agent' | 'user' | 'thought';
+  readonly role: (typeof MESSAGE_ROLES)[number];
   readonly text: string;
   readonly replace?: boolean;
 }
@@ -210,19 +231,25 @@ const absentOr =
   (value: unknown): boolean =>
     value === undefined || check(value);
 
+const oneOf =
+  (values: readonly string[]) =>
+  (value: unknown): boolean =>
+    typeof value === 'string' && values.includes(value);
+
 const located = listOf((each) => isString(each.path));
 
 const filed = listOf((each) => isString(each.path));
 
 const READABLE: Readonly<Record<HarnessEventType, (data: Data) => boolean>> = {
-  'turn.started': (data) => isNumber(data.turn),
+  'turn.started': (data) =>
+    isNumber(data.turn) && oneOf(TURN_ORIGINS)(data.origin),
   'turn.ended': (data) =>
     isNumber(data.turn) &&
-    isString(data.stop) &&
+    oneOf(TURN_STOPS)(data.stop) &&
     absentOr(isObject)(data.usage),
-  'session.state': (data) => isString(data.state),
+  'session.state': (data) => oneOf(SESSION_STATES)(data.state),
   message: (data) =>
-    isString(data.id) && isString(data.role) && isString(data.text),
+    isString(data.id) && oneOf(MESSAGE_ROLES)(data.role) && isString(data.text),
   'tool.changed': (data) =>
     isString(data.id) &&
     isString(data.title) &&
@@ -231,8 +258,17 @@ const READABLE: Readonly<Record<HarnessEventType, (data: Data) => boolean>> = {
   'tool.output': (data) => isString(data.id) && isString(data.text),
   'plan.changed': (data) =>
     listOf((each) => isString(each.content))(data.entries),
-  'background.changed': (data) => Array.isArray(data.items),
-  'child.changed': (data) => isString(data.child),
+  'background.changed': (data) =>
+    listOf(
+      (each) =>
+        isString(each.id) &&
+        oneOf(BACKGROUND_KINDS)(each.kind) &&
+        isString(each.description),
+    )(data.items),
+  'child.changed': (data) =>
+    isString(data.child) &&
+    absentOr(oneOf(SESSION_STATES))(data.state) &&
+    absentOr(oneOf(TURN_STOPS))(data.stop),
   'child.message': (data) => isString(data.text),
   'context.changed': (data) =>
     isNumber(data.used) && isNumber(data.size) && absentOr(isObject)(data.cost),

@@ -37,7 +37,7 @@ const journal = (steps: JournalStep[]): RunJournal => ({
   },
   spent: null,
   egressEnforcement: null,
-  sessionStatus: null,
+  activity: null,
   background: [],
 });
 

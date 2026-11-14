@@ -72,7 +72,7 @@ export interface RunSpan {
   readonly attributes: readonly SpanAttribute[];
 }
 
-type SessionStatus = 'running' | 'needs-action' | 'idle';
+type AgentActivity = 'working' | 'needs-action' | 'waiting-for-background';
 
 export type BackgroundKind = 'command' | 'monitor' | 'subagent' | 'other';
 
@@ -91,7 +91,7 @@ export interface RunJournal {
   readonly marks: RunMarks;
   readonly spent: RunSpent | null;
   readonly egressEnforcement: EgressEnforcement | null;
-  readonly sessionStatus: SessionStatus | null;
+  readonly activity: AgentActivity | null;
   readonly background: readonly BackgroundTask[];
 }
 

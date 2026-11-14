@@ -21,9 +21,12 @@ export interface SessionOption {
   readonly optional?: boolean;
 }
 
-const HARNESS_PROTOCOLS = ['acp/1', 'acp/2'] as const;
+export const HARNESS_PROTOCOLS = ['acp/1', 'acp/2'] as const;
 
 export type HarnessProtocol = (typeof HARNESS_PROTOCOLS)[number];
+
+export const isHarnessProtocol = (value: unknown): value is HarnessProtocol =>
+  HARNESS_PROTOCOLS.some((each) => each === value);
 
 export interface RunCommand {
   readonly executable: string;
@@ -185,6 +188,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   command: {
     executable: parts.command.executable,
     args: [...parts.command.args],
+    ...(parts.command.protocol ? { protocol: parts.command.protocol } : {}),
     ...(parts.command.env ? { env: { ...parts.command.env } } : {}),
     ...(parts.command.sessionOptions?.length
       ? {
