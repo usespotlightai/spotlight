@@ -61,6 +61,7 @@ const runtimeOf = (
     credentialsFor(),
     unlimited,
     unscoped,
+    async () => null,
   );
 
 describe('verifying an ed25519 signature', () => {

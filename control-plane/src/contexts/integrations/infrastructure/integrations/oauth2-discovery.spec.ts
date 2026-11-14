@@ -92,6 +92,9 @@ describe('OAuth2Discovery', () => {
       resource: SERVER,
       scopes: ['read', 'write'],
       identity: null,
+      client: null,
+      scopeSeparator: ' ',
+      pkce: true,
     });
     expect(fetch.mock.calls.map(([url]) => urlOf(url))).toContain(METADATA);
   });
@@ -120,6 +123,9 @@ describe('OAuth2Discovery', () => {
       identity: null,
       registration: null,
       resource: null,
+      client: null,
+      scopeSeparator: ' ',
+      pkce: true,
     };
 
     const { discoverAt: _, ...endpoints } = named;

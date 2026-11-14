@@ -232,6 +232,11 @@ interface PollIR {
   readonly events: readonly EventIR[];
 }
 
+interface OAuth2ClientIR {
+  readonly id: string;
+  readonly secret: string | null;
+}
+
 export interface OAuth2Endpoints {
   readonly issuer: string | null;
   readonly authorize: string;
@@ -240,6 +245,9 @@ export interface OAuth2Endpoints {
   readonly identity: Expression | null;
   readonly registration: string | null;
   readonly resource: string | null;
+  readonly client: OAuth2ClientIR | null;
+  readonly scopeSeparator: ' ' | ',';
+  readonly pkce: boolean;
 }
 
 export type OAuth2IR =
@@ -952,6 +960,7 @@ const oauth2Of = (
   written: NonNullable<NonNullable<IntegrationFile['connection']>['oauth2']>,
   mcp: string | null,
   identity: Expression | null,
+  client: OAuth2ClientIR | null,
 ): OAuth2IR =>
   written.discover
     ? {
@@ -968,6 +977,9 @@ const oauth2Of = (
         registration: written.registration ?? null,
         resource: written.resource ?? null,
         identity,
+        client,
+        scopeSeparator: written.scopeSeparator,
+        pkce: written.pkce,
       };
 
 const inputSchemaOf = (input: ToolInputFile): InputSchema =>
@@ -1212,6 +1224,22 @@ export const compileIntegration = (
                       root.to('connection.oauth2.identity'),
                     )
                   : null,
+                oauth2File.discover || !oauth2File.client
+                  ? null
+                  : {
+                      id: oauth2File.client.id,
+                      secret: oauth2File.client.secret
+                        ? compiler.referenced(
+                            oauth2File.client.secret,
+                            FieldPath.of([
+                              'connection',
+                              'oauth2',
+                              'client',
+                              'secret',
+                            ]),
+                          )
+                        : null,
+                    },
               ),
             )
           : null,

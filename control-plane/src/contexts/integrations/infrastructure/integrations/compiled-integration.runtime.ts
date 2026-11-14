@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { ToolCallInputs } from '@integrations/application/dto/declared-tool.dto';
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { OAuth2ClientSecretRefusedError } from '@integrations/application/errors/oauth2-client-secret-refused.error';
 import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
 import { DeclaredToolMapper } from '@integrations/application/mappers/declared-tool.mapper';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
@@ -53,6 +54,7 @@ import type {
 } from '@integrations/infrastructure/integrations/integration.reader';
 import {
   authorizationServerOf,
+  ownClientOf,
   type OAuth2Discovery,
 } from '@integrations/infrastructure/integrations/oauth2-discovery';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -790,11 +792,18 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         })
       : null;
     const client = oauth2
-      ? await this.clients.existingFor(
-          teamId,
-          integration,
-          authorizationServerOf(oauth2),
-        )
+      ? await this.clients
+          .existingFor(teamId, integration, {
+            own: ownClientOf(oauth2),
+            server: authorizationServerOf(oauth2),
+          })
+          .catch((error: unknown) => {
+            if (error instanceof OAuth2ClientSecretRefusedError) {
+              return null;
+            }
+
+            throw error;
+          })
       : null;
 
     if (!oauth2 || !client) {

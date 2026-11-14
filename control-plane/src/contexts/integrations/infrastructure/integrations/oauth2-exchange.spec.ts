@@ -114,6 +114,28 @@ describe('OAuth2Exchange', () => {
     expect(form.get('resource')).toBeNull();
   });
 
+  it('sends no verifier for a connection without PKCE', async () => {
+    const fetch = replying({ access_token: 'xoxb-1' });
+    const exchange = new OAuth2Exchange(
+      allowingOutbound(['slack.com']),
+      clock,
+      fetch,
+    );
+
+    await exchange.exchange(
+      oauth2(),
+      CLIENT,
+      'code-1',
+      'https://app.example/api/integrations/oauth/callback',
+      null,
+    );
+
+    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new URLSearchParams(init.body as string).has('code_verifier')).toBe(
+      false,
+    );
+  });
+
   it('sends only the client id for a client registered without a secret', async () => {
     const fetch = replying({ access_token: 'xoxb-1' });
     const exchange = new OAuth2Exchange(

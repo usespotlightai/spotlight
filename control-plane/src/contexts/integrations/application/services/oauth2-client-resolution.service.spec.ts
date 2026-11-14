@@ -7,6 +7,7 @@ import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -36,6 +37,10 @@ const resolving = (configured = '{}') => {
     clientSecret: null,
     secretExpiresAt: null,
   }));
+  const sentTo = vi.fn(
+    async (_workspace: WorkspaceId, secret: SecretName, _url: string) =>
+      secret.value === 'TRACKER_CLIENT_SECRET' ? 'own-secret' : 'other',
+  );
   const logger = {
     debug: vi.fn(),
     info: vi.fn(),
@@ -66,40 +71,101 @@ const resolving = (configured = '{}') => {
     { now: () => new Date('2026-10-05T10:00:00.000Z') } as ClockPort,
     'https://app.example/api/integrations/oauth/callback',
     logger,
+    { sentTo },
   );
 
-  return { clients, register, logger };
+  return { clients, register, logger, sentTo };
+};
+
+const OWN = {
+  id: 'own-client',
+  secret: SecretName.of('TRACKER_CLIENT_SECRET'),
+  token: 'https://tracker.example/oauth/token',
 };
 
 describe('OAuth2ClientResolution', () => {
+  it('uses the team’s own client before a configured one or a registration', async () => {
+    const { clients, register, sentTo, logger } = resolving(
+      '{"tracker":{"id":"c-1","secret":"s-1"}}',
+    );
+    const own = { id: 'own-client', secret: 'own-secret' };
+
+    await expect(
+      clients.clientFor(TEAM, TRACKER, {
+        own: OWN,
+        endpoint: REGISTRATION,
+        server: server(),
+      }),
+    ).resolves.toEqual(own);
+    await expect(
+      clients.existingFor(TEAM, TRACKER, { own: OWN, server: null }),
+    ).resolves.toEqual(own);
+    expect(sentTo).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      SecretName.of('TRACKER_CLIENT_SECRET'),
+      'https://tracker.example/oauth/token',
+    );
+    expect(register).not.toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it('reads no secret for a team’s own public client', async () => {
+    const { clients, sentTo } = resolving();
+
+    await expect(
+      clients.clientFor(TEAM, TRACKER, {
+        own: {
+          id: 'public-client',
+          secret: null,
+          token: 'https://tracker.example/oauth/token',
+        },
+        endpoint: null,
+        server: null,
+      }),
+    ).resolves.toEqual({ id: 'public-client', secret: null });
+    expect(sentTo).not.toHaveBeenCalled();
+  });
+
   it('uses a client registered with one authorization server only for that server', async () => {
     const { clients } = resolving();
 
     await expect(
-      clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
+      clients.clientFor(TEAM, TRACKER, {
+        own: null,
+        endpoint: REGISTRATION,
+        server: server(),
+      }),
     ).resolves.toEqual({ id: 'client-1', secret: null });
-    await expect(clients.existingFor(TEAM, TRACKER, server())).resolves.toEqual(
-      {
-        id: 'client-1',
-        secret: null,
-      },
-    );
     await expect(
-      clients.existingFor(TEAM, TRACKER, server('https://evil.example/token')),
+      clients.existingFor(TEAM, TRACKER, { own: null, server: server() }),
+    ).resolves.toEqual({
+      id: 'client-1',
+      secret: null,
+    });
+    await expect(
+      clients.existingFor(TEAM, TRACKER, {
+        own: null,
+        server: server('https://evil.example/token'),
+      }),
     ).resolves.toBeNull();
-    await expect(clients.existingFor(TEAM, TRACKER, null)).resolves.toBeNull();
+    await expect(
+      clients.existingFor(TEAM, TRACKER, { own: null, server: null }),
+    ).resolves.toBeNull();
   });
 
   it('registers again when the server discovered moved', async () => {
     const { clients, register } = resolving();
 
-    await clients.clientFor(TEAM, TRACKER, REGISTRATION, server());
-    await clients.clientFor(
-      TEAM,
-      TRACKER,
-      REGISTRATION,
-      server('https://auth.tracker.example/v2/token'),
-    );
+    await clients.clientFor(TEAM, TRACKER, {
+      own: null,
+      endpoint: REGISTRATION,
+      server: server(),
+    });
+    await clients.clientFor(TEAM, TRACKER, {
+      own: null,
+      endpoint: REGISTRATION,
+      server: server('https://auth.tracker.example/v2/token'),
+    });
 
     expect(register).toHaveBeenCalledTimes(2);
   });
@@ -111,11 +177,19 @@ describe('OAuth2ClientResolution', () => {
     const unbound = resolving('{"tracker":{"id":"c-1","secret":"s-1"}}');
 
     await expect(
-      bound.clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
+      bound.clients.clientFor(TEAM, TRACKER, {
+        own: null,
+        endpoint: REGISTRATION,
+        server: server(),
+      }),
     ).resolves.toEqual({ id: 'c-1', secret: 's-1' });
     expect(bound.logger.warn).not.toHaveBeenCalled();
     await expect(
-      unbound.clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
+      unbound.clients.clientFor(TEAM, TRACKER, {
+        own: null,
+        endpoint: REGISTRATION,
+        server: server(),
+      }),
     ).rejects.toMatchObject({
       kind: 'invalid',
       message:
@@ -130,7 +204,7 @@ describe('OAuth2ClientResolution', () => {
       'OAUTH_CLIENTS entry names an issuer other than the authorization server',
     );
     await expect(
-      unbound.clients.existingFor(TEAM, TRACKER, null),
+      unbound.clients.existingFor(TEAM, TRACKER, { own: null, server: null }),
     ).resolves.toEqual({ id: 'c-1', secret: 's-1' });
     expect(unbound.register).not.toHaveBeenCalled();
   });
@@ -139,7 +213,11 @@ describe('OAuth2ClientResolution', () => {
     const { clients, register, logger } = resolving();
 
     await expect(
-      clients.clientFor(TEAM, TRACKER, null, server()),
+      clients.clientFor(TEAM, TRACKER, {
+        own: null,
+        endpoint: null,
+        server: server(),
+      }),
     ).rejects.toMatchObject({
       kind: 'invalid',
       message: 'Integration tracker has no OAuth2 client.',
@@ -156,7 +234,11 @@ describe('OAuth2ClientResolution', () => {
     register.mockResolvedValueOnce(null);
 
     await expect(
-      clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
+      clients.clientFor(TEAM, TRACKER, {
+        own: null,
+        endpoint: REGISTRATION,
+        server: server(),
+      }),
     ).rejects.toMatchObject({
       kind: 'upstream-error',
       message: 'Client registration for integration tracker failed.',

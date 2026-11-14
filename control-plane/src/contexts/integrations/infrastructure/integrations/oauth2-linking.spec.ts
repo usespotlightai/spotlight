@@ -8,6 +8,7 @@ import {
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { OAuth2ClientSecretRefusedError } from '@integrations/application/errors/oauth2-client-secret-refused.error';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
 import type { OAuth2LinkInput } from '@integrations/application/ports/oauth2-linking.port';
@@ -76,6 +77,7 @@ const linking = (
     hosts?: WorkspaceOutboundScopePort;
     team?: boolean;
     blocked?: boolean;
+    file?: string;
   } = {},
 ) => {
   const configured = clientsFrom(
@@ -117,7 +119,9 @@ const linking = (
   };
 
   const linked = new OAuth2Linking(
-    { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
+    {
+      ofTeam: async () => (over.file ? [defined(over.file)] : config()),
+    } as unknown as DefinedIntegrationsPort,
     new IntegrationReader(expressions, operationsContaining()),
     discovery,
     configured,
@@ -143,7 +147,10 @@ const linking = (
   );
 
   const registered = (integration: string): Promise<OAuth2Client | null> =>
-    configured.existingFor(TEAM, IntegrationKey.of(integration), null);
+    configured.existingFor(TEAM, IntegrationKey.of(integration), {
+      own: null,
+      server: null,
+    });
   const it = {
     authorized: linked.authorized.bind(linked),
     landingFor: linked.landingFor.bind(linked),
@@ -160,7 +167,13 @@ const linking = (
     },
   };
 
-  return { it, exchange, allowedWhileExchanging, allowedWhileRegistering };
+  return {
+    it,
+    exchange,
+    clients: configured,
+    allowedWhileExchanging,
+    allowedWhileRegistering,
+  };
 };
 
 const signed = (integration = 'slack', by = 'user_1', nonce = 'n-1') =>
@@ -331,6 +344,22 @@ describe('OAuth2Linking', () => {
     );
   });
 
+  it('refuses a returning code where the team’s own client secret cannot go to the token endpoint', async () => {
+    const { it, exchange, clients } = linking();
+    vi.spyOn(clients, 'existingFor').mockRejectedValueOnce(
+      new OAuth2ClientSecretRefusedError('SLACK_CLIENT_SECRET', {
+        kind: 'not-allowed',
+        message:
+          'Secret SLACK_CLIENT_SECRET is not bound to https://slack.com.',
+      }),
+    );
+
+    expect(await it.authorized(returned())).toEqual(
+      refusedFor('client-secret-refused'),
+    );
+    expect(exchange).not.toHaveBeenCalled();
+  });
+
   it('yields nothing when the service does not accept the code', async () => {
     const { it } = linking({ exchanged: null });
 
@@ -435,6 +464,29 @@ describe('OAuth2Linking', () => {
     expect(url.searchParams.get('code_challenge')).toBe(
       createHash('sha256').update(String(verifier)).digest('base64url'),
     );
+  });
+
+  it('joins the scopes with the separator the file names, and leaves PKCE out where it says so', async () => {
+    const { it, exchange } = linking({
+      file: SLACK.replace(
+        '    scopes:\n',
+        "    scopeSeparator: ','\n    pkce: false\n    scopes:\n",
+      ),
+    });
+
+    const started = await it.begin(linkInput());
+    const url = new URL(started?.url ?? '');
+    await it.authorized(
+      returned({
+        state: url.searchParams.get('state') ?? '',
+        nonce: started?.nonce ?? '',
+      }),
+    );
+
+    expect(url.searchParams.get('scope')).toBe('chat:write,channels:read');
+    expect(url.searchParams.has('code_challenge')).toBe(false);
+    expect(url.searchParams.has('code_challenge_method')).toBe(false);
+    expect((exchange.mock.calls[0] as unknown as unknown[])[4]).toBeNull();
   });
 
   it('names the resource it wants a token for, where the file names one', async () => {

@@ -1,5 +1,7 @@
-import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
-import type { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
+import type {
+  OAuth2Client,
+  OAuth2ClientSource,
+} from '@integrations/application/ports/oauth2-clients.port';
 import type { ConnectionOwnerKind } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
@@ -42,6 +44,7 @@ export type OAuth2Refusal =
   | 'no-oauth2-endpoints'
   | 'egress-blocked'
   | 'no-client'
+  | 'client-secret-refused'
   | 'token-exchange-failed';
 
 export interface OAuth2Refused {
@@ -50,9 +53,8 @@ export interface OAuth2Refused {
   readonly integration?: IntegrationKey;
 }
 
-export interface OAuth2Registration {
+export interface OAuth2Registration extends OAuth2ClientSource {
   readonly endpoint: string | null;
-  readonly server: AuthorizationServer | null;
 }
 
 export interface OAuth2LinkingPort {

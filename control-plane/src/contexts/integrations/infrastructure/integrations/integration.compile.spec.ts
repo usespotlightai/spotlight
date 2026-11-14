@@ -399,6 +399,50 @@ webhook:
       ).not.toBeNull();
     });
 
+    it('keeps the team’s own client, and counts its secret as a credential', () => {
+      const read = compileIntegration(
+        parseYaml(
+          WHOLE_OAUTH.replace(
+            '    scopes:\n',
+            '    client:\n      id: own-client\n      secret: secret.SLACK_CLIENT_SECRET\n    scopes:\n',
+          ),
+        ),
+        expressions,
+      );
+
+      expect(read.ok && read.readable.connection?.oauth2).toMatchObject({
+        client: { id: 'own-client', secret: 'SLACK_CLIENT_SECRET' },
+      });
+      expect(
+        read.ok &&
+          read.readable.integration.credentials.map((each) => each.value),
+      ).toContain('SLACK_CLIENT_SECRET');
+    });
+
+    it('refuses its own client together with a registration endpoint', () => {
+      expect(
+        complaining(
+          WHOLE_OAUTH.replace(
+            '    scopes:\n',
+            '    registration: https://slack.com/oauth/register\n    client:\n      id: own-client\n    scopes:\n',
+          ),
+          'connection.oauth2.client',
+        ).map((each) => each.reason),
+      ).toContainEqual(expect.stringMatching(/names its own client/));
+    });
+
+    it('refuses a key it does not know, so a misspelt pkce never leaves PKCE on', () => {
+      expect(
+        complaining(
+          WHOLE_OAUTH.replace(
+            '    scopes:\n',
+            '    pcke: false\n    scopes:\n',
+          ),
+          'connection.oauth2',
+        ),
+      ).not.toEqual([]);
+    });
+
     it('takes the team’s connection unless it says each requester’s', () => {
       const read = compileIntegration(parseYaml(WHOLE_OAUTH), expressions);
       const requester = compileIntegration(
@@ -1671,6 +1715,14 @@ mcp:
         ),
       ).map((each) => each.reason),
     ).toContainEqual(expect.stringMatching(/Unrecognized key: "token"/));
+    expect(
+      problems(
+        TRACKER.replace(
+          '    discover: true\n',
+          '    discover: true\n    client:\n      id: own-client\n',
+        ),
+      ).map((each) => each.reason),
+    ).toContainEqual(expect.stringMatching(/Unrecognized key: "client"/));
   });
 });
 

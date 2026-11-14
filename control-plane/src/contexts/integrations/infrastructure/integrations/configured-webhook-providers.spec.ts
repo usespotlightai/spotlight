@@ -5,6 +5,7 @@ import type {
   DefinedIntegration,
   DefinedIntegrationsPort,
 } from '@integrations/application/ports/defined-integrations.port';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ConfiguredWebhookProviders } from '@integrations/infrastructure/integrations/configured-webhook-providers';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -75,6 +76,7 @@ const configured = (
       unlimited,
       unscoped,
       { now: () => new Date(), sleep: async () => {} },
+      { of: async () => ({ connection: null }) } as unknown as CallAuthResolver,
     ),
   };
 };

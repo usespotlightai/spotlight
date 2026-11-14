@@ -103,8 +103,7 @@ export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
         const client = await this.clients.clientFor(
           teamId,
           integration,
-          registration.endpoint,
-          registration.server,
+          registration,
         );
         const started = await this.linking.begin(
           {

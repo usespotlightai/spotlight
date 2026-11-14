@@ -132,6 +132,7 @@ const runtime = (secret: string | null = SIGNING, file = SLACK) =>
     credentialsFor(),
     unlimited,
     unscoped,
+    async () => null,
   );
 
 const raw = (body: unknown) => Buffer.from(JSON.stringify(body));
@@ -352,6 +353,7 @@ webhook:
         SLACK,
         unlimited,
         unscoped,
+        async () => null,
       );
 
       return { runtime, run };

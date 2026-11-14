@@ -227,6 +227,7 @@ import { WorkDeliveryReactions } from '@integrations/infrastructure/acl/delivery
 import { IntegrationConfigs } from '@integrations/infrastructure/acl/integration-configs.adapter';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { NoticeFileReader } from '@integrations/infrastructure/acl/notice-file-reader.adapter';
+import { OAuth2ClientSecrets } from '@integrations/infrastructure/acl/oauth2-client-secrets.adapter';
 import { IntegrationSecretUses } from '@integrations/infrastructure/acl/secret-uses.adapter';
 import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
@@ -923,6 +924,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       CLOCK,
       ENV,
       LOGGER,
+      SECRET_INJECTION,
     ],
     useFactory: (
       configured: ConfiguredOAuth2ClientsPort,
@@ -932,6 +934,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       env: Env,
       logger: LoggerPort,
+      injection: SecretInjectionPort,
     ) =>
       new OAuth2ClientResolution(
         configured,
@@ -941,6 +944,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         clock,
         callbackOf(env),
         logger,
+        new OAuth2ClientSecrets(injection),
       ),
   },
 
@@ -1170,6 +1174,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OUTBOUND_LIMITS,
       WORKSPACE_OUTBOUND_SCOPE,
       CLOCK,
+      CallAuthResolver,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -1180,6 +1185,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       limits: OutboundLimitsPort,
       scope: WorkspaceOutboundScopePort,
       clock: ClockPort,
+      callAuth: CallAuthResolver,
     ) =>
       new ConfiguredWebhookProviders(
         defined,
@@ -1190,6 +1196,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         limits,
         scope,
         clock,
+        callAuth,
       ),
   },
 

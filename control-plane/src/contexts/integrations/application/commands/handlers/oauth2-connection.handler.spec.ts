@@ -84,6 +84,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
     const registrationFor = vi.fn(async () => ({
       endpoint: 'https://slack.com/register' as string | null,
       server: null,
+      own: null,
     }));
     const integration = Integration.of({
       key: IntegrationKey.of('slack'),
@@ -153,8 +154,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
     expect(clientFor).toHaveBeenCalledWith(
       TeamId.of('team_1'),
       IntegrationKey.of('slack'),
-      'https://slack.com/register',
-      null,
+      { endpoint: 'https://slack.com/register', server: null, own: null },
     );
   });
 

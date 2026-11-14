@@ -162,6 +162,7 @@ export class HttpOutbound {
       throw new UpstreamError(
         'fetching a file',
         `the host answered ${reply.status} without it`,
+        reply.status,
       );
     }
 

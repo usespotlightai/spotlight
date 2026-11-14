@@ -368,15 +368,31 @@ const connectionSchema = z.object({
           resource: z.url().optional(),
         })
         .strict(),
-      z.object({
-        discover: z.literal(false).default(false),
-        authorize: z.url(),
-        token: z.url(),
-        scopes: z.array(scope).default([]),
-        identity: expression.optional(),
-        registration: z.url().optional(),
-        resource: z.url().optional(),
-      }),
+      z
+        .object({
+          discover: z.literal(false).default(false),
+          authorize: z.url(),
+          token: z.url(),
+          scopes: z.array(scope).default([]),
+          identity: expression.optional(),
+          registration: z.url().optional(),
+          resource: z.url().optional(),
+          scopeSeparator: z.enum([' ', ',']).default(' '),
+          pkce: z.boolean().default(true),
+          client: z
+            .object({
+              id: z.string().min(1, 'is the client ID the provider gave'),
+              secret: secretRef.optional(),
+            })
+            .strict()
+            .optional(),
+        })
+        .strict()
+        .refine((oauth2) => !(oauth2.client && oauth2.registration), {
+          path: ['client'],
+          message:
+            'names its own client, so it registers none: remove registration or client',
+        }),
     ])
     .optional(),
   manual: z.object({ secrets: z.array(secretRef).default([]) }).optional(),

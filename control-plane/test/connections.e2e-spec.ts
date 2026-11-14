@@ -162,6 +162,9 @@ describe('each person’s own connections (e2e)', () => {
       .delete(schema.personToolPolicy)
       .where(eq(schema.personToolPolicy.teamId, workspaceId));
     await db
+      .delete(schema.secret)
+      .where(eq(schema.secret.workspaceId, workspaceId));
+    await db
       .delete(schema.configurationChange)
       .where(eq(schema.configurationChange.workspaceId, workspaceId));
     await seat.unseat();
@@ -185,6 +188,109 @@ describe('each person’s own connections (e2e)', () => {
       by: seat.member,
       returnTo: `/w/${workspaceId}/inbox/task_1`,
     });
+  });
+
+  it('sends the team’s own OAuth2 client, not the deployment’s, where the definition names one', async () => {
+    await as(seat.owner)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/secrets`, {
+        name: 'TRACKER_CLIENT_SECRET',
+        bindings: [{ host: 'tracker.example' }],
+        valueWo: 'own-secret',
+        valueWoVersion: 1,
+      })
+      .expect(201);
+    await as(seat.owner)
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, {
+        integration: 'tracker',
+        name: 'Tracker',
+        connection: {
+          oauth2: {
+            authorize: 'https://tracker.example/oauth/authorize',
+            token: 'https://tracker.example/oauth/token',
+            client: {
+              id: 'own-client',
+              secret: 'secret.TRACKER_CLIENT_SECRET',
+            },
+          },
+        },
+      })
+      .expect(201);
+
+    const started = (await as(seat.owner).post(
+      `/api/teams/${workspaceId}/integrations/tracker/connect`,
+      {},
+    )) as Answer<{ readonly url: string }>;
+
+    expect(started.status).toBe(201);
+    expect(new URL(started.body.url).searchParams.get('client_id')).toBe(
+      'own-client',
+    );
+  });
+
+  it('says which secret is missing where the team’s own client names one that is not there', async () => {
+    await as(seat.owner)
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, {
+        integration: 'tracker',
+        name: 'Tracker',
+        connection: {
+          oauth2: {
+            authorize: 'https://tracker.example/oauth/authorize',
+            token: 'https://tracker.example/oauth/token',
+            client: {
+              id: 'own-client',
+              secret: 'secret.TRACKER_CLIENT_SECRET',
+            },
+          },
+        },
+      })
+      .expect(201);
+
+    const started = (await as(seat.owner).post(
+      `/api/teams/${workspaceId}/integrations/tracker/connect`,
+      {},
+    )) as Answer<{ readonly message: string }>;
+
+    expect(started.status).toBe(409);
+    expect(started.body.message).toBe(
+      'Secret TRACKER_CLIENT_SECRET not found. Please create it first.',
+    );
+  });
+
+  it('never sends the team’s own client secret to a token endpoint it is not bound to', async () => {
+    await as(seat.owner)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/secrets`, {
+        name: 'TRACKER_CLIENT_SECRET',
+        bindings: [{ host: 'api.github.com' }],
+        valueWo: 'own-secret',
+        valueWoVersion: 1,
+      })
+      .expect(201);
+    await as(seat.owner)
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, {
+        integration: 'tracker',
+        name: 'Tracker',
+        connection: {
+          oauth2: {
+            authorize: 'https://tracker.example/oauth/authorize',
+            token: 'https://tracker.example/oauth/token',
+            client: {
+              id: 'own-client',
+              secret: 'secret.TRACKER_CLIENT_SECRET',
+            },
+          },
+        },
+      })
+      .expect(201);
+
+    const started = (await as(seat.owner).post(
+      `/api/teams/${workspaceId}/integrations/tracker/connect`,
+      {},
+    )) as Answer<{ readonly message: string }>;
+
+    expect(started.status).toBe(403);
+    expect(started.body.message).toBe(
+      'Secret TRACKER_CLIENT_SECRET is not bound to https://tracker.example.',
+    );
   });
 
   it('keeps a member who is no admin from connecting the team', async () => {

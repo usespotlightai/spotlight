@@ -4,6 +4,7 @@ import type { TeamDirectoryPort } from '@identity/application/ports/team-directo
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { OAuth2ClientSecretRefusedError } from '@integrations/application/errors/oauth2-client-secret-refused.error';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type {
   OAuth2Client,
@@ -25,6 +26,7 @@ import type { IntegrationReader } from '@integrations/infrastructure/integration
 import { oauth2Of } from '@integrations/infrastructure/integrations/oauth2-config';
 import {
   authorizationServerOf,
+  ownClientOf,
   type OAuth2Discovery,
 } from '@integrations/infrastructure/integrations/oauth2-discovery';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -85,6 +87,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
         ? {
             endpoint: oauth2.registration,
             server: authorizationServerOf(oauth2),
+            own: ownClientOf(oauth2),
           }
         : null;
     });
@@ -134,13 +137,18 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     authorize.searchParams.set('client_id', client.id);
     authorize.searchParams.set('redirect_uri', this.callback);
     authorize.searchParams.set('response_type', 'code');
-    authorize.searchParams.set('scope', oauth2.scopes.join(' '));
-    authorize.searchParams.set('state', signed.token);
     authorize.searchParams.set(
-      'code_challenge',
-      OAuth2State.challengeOf(this.state.verifierFor(nonce)),
+      'scope',
+      oauth2.scopes.join(oauth2.scopeSeparator),
     );
-    authorize.searchParams.set('code_challenge_method', 'S256');
+    authorize.searchParams.set('state', signed.token);
+    if (oauth2.pkce) {
+      authorize.searchParams.set(
+        'code_challenge',
+        OAuth2State.challengeOf(this.state.verifierFor(nonce)),
+      );
+      authorize.searchParams.set('code_challenge_method', 'S256');
+    }
 
     if (oauth2.resource) {
       authorize.searchParams.set('resource', oauth2.resource);
@@ -197,6 +205,10 @@ export class OAuth2Linking implements OAuth2LinkingPort {
         return refused('egress-blocked', intent);
       }
 
+      if (error instanceof OAuth2ClientSecretRefusedError) {
+        return refused('client-secret-refused', intent);
+      }
+
       throw error;
     }
   }
@@ -221,7 +233,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     const client = await this.clients.existingFor(
       teamId,
       IntegrationKey.of(intent.integration),
-      authorizationServerOf(oauth2),
+      { own: ownClientOf(oauth2), server: authorizationServerOf(oauth2) },
     );
 
     if (!client) {
@@ -233,7 +245,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       client,
       returned.code,
       this.callback,
-      this.state.verifierFor(intent.nonce),
+      oauth2.pkce ? this.state.verifierFor(intent.nonce) : null,
     );
 
     if (!tokens) {
