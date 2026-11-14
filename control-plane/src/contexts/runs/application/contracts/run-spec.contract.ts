@@ -1,3 +1,7 @@
+import {
+  HARNESS_PROTOCOLS as PROTOCOLS,
+  type HarnessProtocol,
+} from '@runs/domain/value-objects/run-spec.vo';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
 
 // Do not send a host address to a runner. Name each remote as Spotlight serves it.
@@ -19,9 +23,9 @@ export interface RunCheckoutShape {
   readonly setup?: string;
 }
 
-export const HARNESS_PROTOCOLS = ['acp/1', 'acp/2'] as const;
+export const HARNESS_PROTOCOLS: readonly HarnessProtocol[] = PROTOCOLS;
 
-type HarnessProtocolShape = (typeof HARNESS_PROTOCOLS)[number];
+type HarnessProtocolShape = HarnessProtocol;
 
 interface SessionOptionShape {
   readonly id: string;

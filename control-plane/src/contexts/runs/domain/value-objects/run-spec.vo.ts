@@ -21,7 +21,7 @@ export interface SessionOption {
   readonly optional?: boolean;
 }
 
-const HARNESS_PROTOCOLS = ['acp/1', 'acp/2'] as const;
+export const HARNESS_PROTOCOLS = ['acp/1', 'acp/2'] as const;
 
 export type HarnessProtocol = (typeof HARNESS_PROTOCOLS)[number];
 
