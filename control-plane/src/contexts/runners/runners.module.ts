@@ -1,6 +1,7 @@
 import { IdentityModule } from '@identity/identity.module';
 import { Module } from '@nestjs/common';
 import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
+import { IDLE_WORKING_COPIES } from '@runners/application/ports/idle-working-copies.port';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
@@ -24,6 +25,7 @@ import { SecretsModule } from '@secrets/secrets.module';
   exports: [
     RUNNER_CLAIMANTS,
     RUNNER_READER,
+    IDLE_WORKING_COPIES,
     INSTALLER_ASSETS,
     RUNNER_CONFIGURATION,
     RUNNER_POOLS,

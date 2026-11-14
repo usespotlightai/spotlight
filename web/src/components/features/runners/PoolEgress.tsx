@@ -9,6 +9,8 @@ import { PUSH_POOL } from '@/lib/runner';
 
 const PLATFORM = 'spotlight';
 
+const WITH_EGRESS = `${PUSH_POOL} with egress`;
+
 export function PoolEgress({
   slug,
   poolKey,
@@ -35,12 +37,12 @@ export function PoolEgress({
           // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the trigger renders this button around its children
           <button
             type="button"
-            title={`${PUSH_POOL} · egress`}
+            title={WITH_EGRESS}
             className="min-w-0 cursor-default truncate rounded-sm text-left text-muted-foreground text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           />
         }
       >
-        {PUSH_POOL} · egress
+        {WITH_EGRESS}
       </TooltipTrigger>
       <TooltipContent className="max-w-80">
         {egress === PLATFORM

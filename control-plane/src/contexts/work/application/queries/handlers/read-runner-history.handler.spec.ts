@@ -90,6 +90,8 @@ const journal = (runId: string): RunJournal => ({
   },
   spent: null,
   egressEnforcement: null,
+  activity: null,
+  background: [],
 });
 
 const outcomeOf = (

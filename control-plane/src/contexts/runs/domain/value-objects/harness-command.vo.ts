@@ -1,4 +1,5 @@
 import type {
+  HarnessProtocol,
   RunCommand,
   SessionOption,
 } from '@runs/domain/value-objects/run-spec.vo';
@@ -8,6 +9,7 @@ export class HarnessCommand {
   private constructor(
     readonly executable: string,
     readonly args: readonly string[],
+    readonly protocol: HarnessProtocol | null,
     readonly env: Readonly<Record<string, string>>,
     readonly sessionOptions: readonly SessionOption[],
   ) {}
@@ -15,6 +17,7 @@ export class HarnessCommand {
   static of(input: {
     executable: string;
     args?: readonly string[];
+    protocol?: HarnessProtocol;
     env?: Readonly<Record<string, string>>;
     sessionOptions?: readonly SessionOption[];
   }): HarnessCommand {
@@ -45,6 +48,7 @@ export class HarnessCommand {
     return new HarnessCommand(
       executable,
       [...(input.args ?? [])],
+      input.protocol ?? null,
       { ...input.env },
       sessionOptions,
     );
@@ -56,6 +60,7 @@ export class HarnessCommand {
     return {
       executable: this.executable,
       args: [...this.args],
+      ...(this.protocol ? { protocol: this.protocol } : {}),
       ...(Object.keys(env).length > 0 ? { env } : {}),
       ...(this.sessionOptions.length > 0
         ? { sessionOptions: this.sessionOptions.map((each) => ({ ...each })) }
@@ -68,6 +73,7 @@ export class HarnessCommand {
 
     return (
       this.executable === other.executable &&
+      this.protocol === other.protocol &&
       this.args.length === other.args.length &&
       this.args.every((arg, at) => arg === other.args[at]) &&
       named.length === Object.keys(other.env).length &&

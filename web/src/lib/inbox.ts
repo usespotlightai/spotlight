@@ -290,15 +290,28 @@ export const inboxRunPath = (slug: string, teamId: string, runId: string) =>
 export const inboxChatPath = (slug: string, teamId: string, chatId: string) =>
   `${inboxPath(slug)}/teams/${encodeURIComponent(teamId)}/chats/${encodeURIComponent(chatId)}`;
 
+type LiveSession = Pick<RunJournal, 'activity' | 'background'>;
+
+const inProgressWordsOf = (station: string, session?: LiveSession): string => {
+  if (session?.activity === 'needs-action') {
+    return `${station} needs a permission…`;
+  }
+  if (session?.activity === 'waiting-for-background') {
+    return `${station} waits for background work…`;
+  }
+  return `${station} is working…`;
+};
+
 export const workingWordsOf = (
   progress: ShownProgress,
   station: string,
+  session?: LiveSession,
 ): string => {
   if (progress === 'queued') {
     return `Queued. ${station} starts when a runner is free.`;
   }
   if (progress === 'in-progress') {
-    return `${station} is working…`;
+    return inProgressWordsOf(station, session);
   }
 
   return progress === 'finishing'

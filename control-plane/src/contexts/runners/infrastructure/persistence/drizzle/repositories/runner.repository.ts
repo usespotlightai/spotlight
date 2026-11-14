@@ -120,6 +120,18 @@ const columnsOf = (runner: Runner) => ({
   endedAt: runner.endedAt,
 });
 
+const mayBeAlive = (now: Date) =>
+  and(
+    isNull(runner.endedAt),
+    or(
+      and(
+        isNotNull(runner.workId),
+        gt(runner.lastHeartbeatAt, Runner.heartbeatTimedOutBefore(now)),
+      ),
+      and(isNull(runner.workId), gt(runner.claimBy, now)),
+    ),
+  );
+
 @Injectable()
 export class DrizzleRunnerRepository implements RunnerRepository {
   constructor(
@@ -230,19 +242,19 @@ export class DrizzleRunnerRepository implements RunnerRepository {
     const rows = await this.context.db
       .select()
       .from(runner)
-      .where(
-        and(
-          eq(runner.poolId, poolId.value),
-          isNull(runner.endedAt),
-          or(
-            and(
-              isNotNull(runner.workId),
-              gt(runner.lastHeartbeatAt, Runner.heartbeatTimedOutBefore(now)),
-            ),
-            and(isNull(runner.workId), gt(runner.claimBy, now)),
-          ),
-        ),
-      );
+      .where(and(eq(runner.poolId, poolId.value), mayBeAlive(now)));
+
+    return rows.map(toRunner).filter((each) => each.isAlive(now));
+  }
+
+  async aliveInWorkspace(
+    workspaceId: WorkspaceId,
+    now: Date,
+  ): Promise<readonly Runner[]> {
+    const rows = await this.context.db
+      .select()
+      .from(runner)
+      .where(and(eq(runner.workspaceId, workspaceId.value), mayBeAlive(now)));
 
     return rows.map(toRunner).filter((each) => each.isAlive(now));
   }

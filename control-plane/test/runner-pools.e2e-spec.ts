@@ -980,7 +980,8 @@ describe('runner pools (e2e)', () => {
             unavailableReason: null,
             containerRuntime: 'docker',
             capacity: 2,
-            running: [],
+            slotsTaken: 1,
+            idleSandboxes: [],
             images: [
               {
                 image: DEFAULT_IMAGE,

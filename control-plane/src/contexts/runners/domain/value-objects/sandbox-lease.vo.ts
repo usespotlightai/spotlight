@@ -1,6 +1,9 @@
 import type { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export const EDITOR_LEASE_MS = 2 * 60_000;
+
+export const ARCHIVE_LEASE_MS = 2 * 60_000;
 
 const EDITOR_RENEWALS_PER_LEASE = 4;
 
@@ -8,10 +11,29 @@ export class SandboxLease {
   private constructor(
     readonly holder: LeaseHolder,
     readonly renewedAt: Date,
+    readonly attempt: number | null,
   ) {}
 
-  static of(holder: LeaseHolder, renewedAt: Date): SandboxLease {
-    return new SandboxLease(holder, renewedAt);
+  static of(
+    holder: LeaseHolder,
+    renewedAt: Date,
+    attempt: number | null = null,
+  ): SandboxLease {
+    const valid =
+      attempt === null || (Number.isInteger(attempt) && attempt >= 1);
+
+    if (!valid || holder.isArchive !== (attempt !== null)) {
+      throw new InconsistentStateError(
+        'sandbox lease',
+        'has an archive with no attempt, or an attempt on a run or editor',
+      );
+    }
+
+    return new SandboxLease(holder, renewedAt, attempt);
+  }
+
+  static archiveRenewedBefore(now: Date): Date {
+    return new Date(now.getTime() - ARCHIVE_LEASE_MS);
   }
 
   static editorRenewalMs(): number {
@@ -26,14 +48,29 @@ export class SandboxLease {
     return this.holder.isEditor;
   }
 
+  get isForArchive(): boolean {
+    return this.holder.isArchive;
+  }
+
+  get occupies(): boolean {
+    return this.holder.isRun || this.holder.isArchive;
+  }
+
   expiredAt(now: Date): boolean {
-    return (
-      this.holder.isEditor &&
-      now.getTime() - this.renewedAt.getTime() >= EDITOR_LEASE_MS
-    );
+    const held = now.getTime() - this.renewedAt.getTime();
+
+    if (this.holder.isEditor) {
+      return held >= EDITOR_LEASE_MS;
+    }
+
+    return this.holder.isArchive && held >= ARCHIVE_LEASE_MS;
   }
 
   isHeldBy(holder: LeaseHolder): boolean {
     return this.holder.equals(holder);
+  }
+
+  isForArchiveOf(holder: LeaseHolder, attempt: number): boolean {
+    return this.isHeldBy(holder) && this.attempt === attempt;
   }
 }

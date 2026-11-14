@@ -18,6 +18,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import { connected, entryOf, said, turnEnded } from './support/harness-events';
 import { requestedByChat } from './support/runs';
 import * as schema from './support/schema';
 
@@ -196,28 +197,20 @@ describe('journalling a run that was tried again', () => {
 });
 
 describe('recording the usage of a run that paused for a person', () => {
-  const messageChunk = (seq: number, second: number) => ({
-    seq,
-    type: 'output',
-    at: new Date(Date.UTC(2026, 8, 17, 9, 0, second)),
-    data: Buffer.from(
-      JSON.stringify({
-        sessionId: 'session_1',
-        update: {
-          sessionUpdate: 'agent_message_chunk',
-          content: { type: 'text', text: `message at ${second}` },
-        },
-      }),
-    ).toString('base64'),
-  });
+  const messages = (first: number, second: number) => {
+    const at = (each: number) => new Date(Date.UTC(2026, 8, 17, 9, 0, each));
+
+    return [
+      entryOf(1, at(first), connected()),
+      entryOf(2, at(first), said(`message at ${first}`)),
+      entryOf(3, at(second), said(`message at ${second}`)),
+    ];
+  };
 
   it('counts every attempt it stored, and none of the time it waited', async () => {
     const { runId } = await chatRun();
 
-    await journal.append(RunAttempt.of(runId, 1), [
-      messageChunk(1, 0),
-      messageChunk(2, 4),
-    ]);
+    await journal.append(RunAttempt.of(runId, 1), messages(0, 4));
     await journal.appendControlPlaneEntry(RunAttempt.of(runId, 1), {
       type: 'run.paused',
       at: new Date(Date.UTC(2026, 8, 17, 9, 0, 5)),
@@ -232,10 +225,7 @@ describe('recording the usage of a run that paused for a person', () => {
         endedAt: null,
       })
       .where(eq(schema.run.id, runId.value));
-    await journal.append(RunAttempt.of(runId, 2), [
-      messageChunk(1, 50),
-      messageChunk(2, 53),
-    ]);
+    await journal.append(RunAttempt.of(runId, 2), messages(50, 53));
     await finished(runId);
     await recordUsage(runId);
 
@@ -247,25 +237,19 @@ describe('recording the usage of a run that paused for a person', () => {
 });
 
 describe('recording the tokens a run used', () => {
-  const turned = (seq: number, usage: Record<string, number>) => ({
-    seq,
-    type: 'usage',
-    at: new Date(Date.UTC(2026, 8, 17, 9, 0, seq)),
-    data: Buffer.from(JSON.stringify(usage)).toString('base64'),
-  });
+  const turned = (usage: Record<string, number>) => {
+    const at = new Date(Date.UTC(2026, 8, 17, 9, 0, 1));
+
+    return [entryOf(1, at, connected()), entryOf(2, at, turnEnded(usage))];
+  };
 
   it('adds up the turns of every attempt it stored, count by count', async () => {
     const { runId } = await chatRun();
 
-    await journal.append(RunAttempt.of(runId, 1), [
-      turned(1, {
-        inputTokens: 10,
-        outputTokens: 20,
-        cachedReadTokens: 3_000,
-        cachedWriteTokens: 400,
-        totalTokens: 3_430,
-      }),
-    ]);
+    await journal.append(
+      RunAttempt.of(runId, 1),
+      turned({ input: 10, output: 20, cacheRead: 3_000, cacheWrite: 400 }),
+    );
     await db
       .update(schema.run)
       .set({
@@ -275,15 +259,10 @@ describe('recording the tokens a run used', () => {
         endedAt: null,
       })
       .where(eq(schema.run.id, runId.value));
-    await journal.append(RunAttempt.of(runId, 2), [
-      turned(1, {
-        inputTokens: 5,
-        outputTokens: 7,
-        cachedReadTokens: 2_000,
-        cachedWriteTokens: 0,
-        totalTokens: 2_012,
-      }),
-    ]);
+    await journal.append(
+      RunAttempt.of(runId, 2),
+      turned({ input: 5, output: 7, cacheRead: 2_000, cacheWrite: 0 }),
+    );
     await finished(runId);
     await recordUsage(runId);
 
@@ -300,9 +279,10 @@ describe('recording the tokens a run used', () => {
   it('stores what the harness never reported as unknown, not zero', async () => {
     const { runId } = await chatRun();
 
-    await journal.append(RunAttempt.of(runId, 1), [
-      turned(1, { inputTokens: 10, outputTokens: 20, totalTokens: 30 }),
-    ]);
+    await journal.append(
+      RunAttempt.of(runId, 1),
+      turned({ input: 10, output: 20 }),
+    );
     await finished(runId);
     await recordUsage(runId);
 
@@ -423,20 +403,14 @@ describe('journalling what happened around a run', () => {
 });
 
 describe('counting the steps of runs', () => {
-  const messageChunk = (seq: number) => ({
-    seq,
-    type: 'output',
-    at: new Date(Date.UTC(2026, 8, 17, 9, 0, seq)),
-    data: Buffer.from(
-      JSON.stringify({
-        sessionId: 'session_1',
-        update: {
-          sessionUpdate: 'agent_message_chunk',
-          content: { type: 'text', text: `message at ${seq}` },
-        },
-      }),
-    ).toString('base64'),
-  });
+  const messageAfter = (seq: number) => {
+    const at = new Date(Date.UTC(2026, 8, 17, 9, 0, seq));
+
+    return [
+      entryOf(seq, at, connected()),
+      entryOf(seq + 1, at, said(`message at ${seq}`)),
+    ];
+  };
 
   it('counts steps and messages apart, and gives a run without steps no entry', async () => {
     const worked = await chatRun();
@@ -445,9 +419,9 @@ describe('counting the steps of runs', () => {
 
     await journal.append(RunAttempt.of(worked.runId, 1), [
       ...hooks('one-a', 'one-b'),
-      { ...messageChunk(3) },
+      ...messageAfter(3),
     ]);
-    await journal.append(RunAttempt.of(answered.runId, 1), [messageChunk(1)]);
+    await journal.append(RunAttempt.of(answered.runId, 1), messageAfter(1));
 
     const counts = await new DrizzleRunJournals(db).countsOf([
       worked.runId,

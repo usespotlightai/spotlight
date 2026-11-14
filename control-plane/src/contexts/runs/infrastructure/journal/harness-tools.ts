@@ -1,0 +1,101 @@
+import { Injectable } from '@nestjs/common';
+import type {
+  HarnessToolName,
+  HarnessToolNamesPort,
+} from '@runs/application/ports/harness-tool-names.port';
+import type { CallEnding } from '@runs/domain/services/tool-attribution';
+
+export interface HarnessTool {
+  readonly server: string | null;
+  readonly tool: string;
+}
+
+const PREFIXED = /^mcp__(\S+?)__(\S+)$/;
+
+const TITLED = /^Tool: ([^\s/]+)\/(\S+)$/;
+
+const SKILL_TOOL = 'Skill';
+
+const READING_KINDS = new Set(['read', 'search', 'execute']);
+
+const COMMAND_KIND = 'execute';
+
+const prefixed = (named: string): HarnessTool | null => {
+  const [, server, tool] = PREFIXED.exec(named) ?? [];
+
+  return server && tool ? { server, tool } : null;
+};
+
+const titled = (title: string): HarnessTool | null => {
+  const [, server, tool] = TITLED.exec(title) ?? [];
+
+  return server && tool ? { server, tool } : null;
+};
+
+const fromTitle = (title: string, kind: string | null): HarnessTool | null =>
+  kind === COMMAND_KIND ? null : (titled(title) ?? prefixed(title));
+
+export const harnessToolOf = (
+  named: string | null,
+  title: string,
+  kind: string | null,
+): HarnessTool => {
+  const trimmed = title.trim();
+
+  if (named) {
+    return prefixed(named.trim()) ?? { server: null, tool: named.trim() };
+  }
+
+  return fromTitle(trimmed, kind) ?? { server: null, tool: trimmed };
+};
+
+export const requestedSkillOf = (
+  tool: HarnessTool,
+  input: string | null,
+): string | null => {
+  if (tool.server !== null || tool.tool !== SKILL_TOOL || !input) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(input) as { skill?: unknown };
+
+    return typeof parsed.skill === 'string' ? parsed.skill : null;
+  } catch {
+    return null;
+  }
+};
+
+export const readingPaths = (
+  tool: HarnessTool,
+  kind: string | null,
+  read: readonly (string | null)[],
+): readonly string[] =>
+  tool.server === null && kind !== null && READING_KINDS.has(kind)
+    ? read.flatMap((each) => (each ? [each] : []))
+    : [];
+
+export const callEndingOf = (
+  status: string | null,
+  refused: boolean,
+): CallEnding => {
+  if (refused) {
+    return 'refused';
+  }
+  if (status === 'completed') {
+    return 'completed';
+  }
+
+  return status === 'failed' ? 'failed' : 'unfinished';
+};
+
+@Injectable()
+export class HarnessToolNames implements HarnessToolNamesPort {
+  toolFor(title: string, kind: string): HarnessToolName | null {
+    const named = fromTitle(title.trim(), kind);
+
+    return named && named.server !== null
+      ? { server: named.server, tool: named.tool }
+      : null;
+  }
+}

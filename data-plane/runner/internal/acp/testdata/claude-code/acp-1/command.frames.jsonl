@@ -1,0 +1,4 @@
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"tool_call","toolCallId":"toolu_1","title":"`npm test`","kind":"execute","status":"pending","rawInput":{"command":"npm test","description":"Run the tests"},"_meta":{"claudeCode":{"toolName":"mcp__acp__Bash"}}}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"tool_call_update","toolCallId":"toolu_1","status":"in_progress"}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"tool_call_update","toolCallId":"toolu_1","status":"completed","content":[{"type":"content","content":{"type":"text","text":"```console\n12 passed\n```"}}],"rawOutput":{"stdout":"12 passed","exitCode":0},"_meta":{"claudeCode":{"toolName":"mcp__acp__Bash"}}}}}
+{"jsonrpc":"2.0","id":"PROMPT","result":{"stopReason":"end_turn"}}

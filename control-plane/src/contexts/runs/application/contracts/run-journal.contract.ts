@@ -7,7 +7,8 @@ type StepKind =
   | 'subagent'
   | 'waited'
   | 'lost'
-  | 'reminded';
+  | 'reminded'
+  | 'turn';
 
 export interface SpentCost {
   readonly amount: number;
@@ -71,6 +72,16 @@ export interface RunSpan {
   readonly attributes: readonly SpanAttribute[];
 }
 
+type AgentActivity = 'working' | 'needs-action' | 'waiting-for-background';
+
+export type BackgroundKind = 'command' | 'monitor' | 'subagent' | 'other';
+
+interface BackgroundTask {
+  readonly id: string;
+  readonly kind: BackgroundKind;
+  readonly description: string;
+}
+
 export interface RunJournal {
   readonly runId: string;
   readonly attempt: number;
@@ -80,6 +91,8 @@ export interface RunJournal {
   readonly marks: RunMarks;
   readonly spent: RunSpent | null;
   readonly egressEnforcement: EgressEnforcement | null;
+  readonly activity: AgentActivity | null;
+  readonly background: readonly BackgroundTask[];
 }
 
 export interface RunChanges {

@@ -21,7 +21,10 @@ import {
   type ReadyProfile,
   readyProfile,
 } from '@runs/domain/value-objects/ready-profile';
-import type { SessionOption } from '@runs/domain/value-objects/run-spec.vo';
+import type {
+  HarnessProtocol,
+  SessionOption,
+} from '@runs/domain/value-objects/run-spec.vo';
 import { claudeCodeProfile } from '@runs/infrastructure/harnesses/profiles/claude-code.profile';
 import { codexProfile } from '@runs/infrastructure/harnesses/profiles/codex.profile';
 import { cursorProfile } from '@runs/infrastructure/harnesses/profiles/cursor.profile';
@@ -54,6 +57,7 @@ interface Definition {
   readonly name: string;
   readonly executable: string;
   readonly args: readonly string[];
+  readonly protocol: HarnessProtocol;
   readonly env: Readonly<Record<string, string>>;
   readonly configEnv: string | null;
   readonly config?: Readonly<Record<string, unknown>>;
@@ -92,6 +96,7 @@ const CLAUDE_CODE: Definition = {
   name: 'Claude Code',
   executable: 'claude-agent-acp',
   args: [],
+  protocol: 'acp/2',
   configEnv: null,
   modelBinding: { kind: 'env', name: 'ANTHROPIC_MODEL' },
   efforts: EFFORTS,
@@ -129,6 +134,7 @@ const CURSOR: Definition = {
   name: 'Cursor CLI',
   executable: 'cursor-agent',
   args: ['acp'],
+  protocol: 'acp/1',
   env: {},
   configEnv: null,
   modelBinding: { kind: 'arg', flag: '--model' },
@@ -146,6 +152,7 @@ const CODEX: Definition = {
   name: 'Codex',
   executable: 'codex-acp',
   args: [],
+  protocol: 'acp/1',
   env: {
     // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
     CODEX_HOME: '${SPOTLIGHT_STATE_DIR}/codex',
@@ -173,6 +180,7 @@ const OPENCODE: Definition = {
   name: 'OpenCode',
   executable: 'opencode',
   args: ['acp'],
+  protocol: 'acp/1',
   env: {
     // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
     OPENCODE_DB: '${SPOTLIGHT_STATE_DIR}/opencode.db',
@@ -393,6 +401,7 @@ const commandOf = (
   return HarnessCommand.of({
     executable: def.executable,
     args,
+    protocol: def.protocol,
     env,
     sessionOptions,
   });

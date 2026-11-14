@@ -1181,7 +1181,7 @@ export type RunEventRequestDto = {
   at: string;
   message?: string;
   /**
-   * One session update as the agent reported it, JSON, base64
+   * The event's data as JSON, base64
    */
   data?: string;
 };
@@ -1305,6 +1305,13 @@ export type ArchiveGrantResponseDto = {
   headers: {
     [key: string]: string;
   };
+};
+
+export type HoldSandboxArchiveLeaseRequestDto = {
+  /**
+   * The attempt of the run whose turn the archive follows, as the claim named it
+   */
+  attempt: number;
 };
 
 export type PoolQueueResponseDto = {
@@ -1689,12 +1696,34 @@ export type LeasedRunResponseDto = {
   title: string | null;
 };
 
-export type RunnerActivityResponseDto = {
+export type BusyRunnerResponseDto = {
   runnerId: string;
   /**
    * The run the runner is working on
    */
   currentRun: LeasedRunResponseDto;
+};
+
+export type WorkingCopyResponseDto = {
+  /**
+   * The working copy that an idle sandbox keeps
+   */
+  workingCopyKey: string;
+  /**
+   * The last run that used the working copy
+   */
+  lastRun: LeasedRunResponseDto;
+};
+
+export type RunnerActivityResponseDto = {
+  /**
+   * Each runner with a lease on a run. A runner with no lease is idle, and is not listed.
+   */
+  runners: Array<BusyRunnerResponseDto>;
+  /**
+   * The last run of each working copy that an idle sandbox keeps
+   */
+  workingCopies: Array<WorkingCopyResponseDto>;
 };
 
 export type HarnessModelResponseDto = {
@@ -1855,6 +1884,24 @@ export type CredentialSourceResponseDto = {
   key: string | null;
 };
 
+export type IdleSandboxResponseDto = {
+  id: string;
+  /**
+   * The working copy it keeps for the runs of one task or chat; null for a warm sandbox
+   */
+  workingCopyKey: string | null;
+  /**
+   * The line whose first run it waits for, when it is a warm sandbox
+   */
+  warmLineId: string | null;
+  /**
+   * Ready once its host reports it; draining while its host stops it
+   */
+  status: 'starting' | 'ready' | 'draining';
+  idleSince: string;
+  startedAt: string;
+};
+
 export type HostHarnessResponseDto = {
   id: string;
   version: string | null;
@@ -1899,9 +1946,13 @@ export type HostResponseDto = {
    */
   capacity: number;
   /**
-   * The one-run runners in its sandboxes now
+   * How many of its slots are taken now: one for each runner on it, and one for each idle sandbox that no runner enters
    */
-  running: Array<string>;
+  slotsTaken: number;
+  /**
+   * Its sandboxes that hold no run now: warm sandboxes, and sandboxes that wait for the next run of their task or chat
+   */
+  idleSandboxes: Array<IdleSandboxResponseDto>;
   /**
    * The runner images it supports or cannot use, and what each contains
    */
@@ -1937,7 +1988,7 @@ export type LiveRunnerResponseDto = {
 export type RunnerFleetResponseDto = {
   hosts: Array<HostResponseDto>;
   /**
-   * Every runner at work now, one per run, on a host or provisioned by a push pool
+   * Every runner alive now, on a host or provisioned by a push pool: at work on a run, or started and yet to claim one
    */
   runners: Array<LiveRunnerResponseDto>;
 };
@@ -2220,7 +2271,7 @@ export type StepChangeResponseDto = {
 };
 
 export type JournalStepResponseDto = {
-  kind: 'message' | 'thought' | 'tool' | 'planned' | 'hook' | 'subagent' | 'waited' | 'lost' | 'reminded';
+  kind: 'message' | 'thought' | 'tool' | 'planned' | 'hook' | 'subagent' | 'waited' | 'lost' | 'reminded' | 'turn';
   text: string;
   status: string | null;
   /**
@@ -3086,6 +3137,12 @@ export type RunSpentResponseDto = {
   currency: string | null;
 };
 
+export type BackgroundTaskResponseDto = {
+  id: string;
+  kind: 'command' | 'monitor' | 'subagent' | 'other';
+  description: string;
+};
+
 export type RunJournalResponseDto = {
   runId: string;
   attempt: number;
@@ -3100,6 +3157,14 @@ export type RunJournalResponseDto = {
   ms: number | null;
   marks: RunMarksResponseDto;
   spent: RunSpentResponseDto | null;
+  /**
+   * What the agent does now: works, needs a person to allow an action, or waits for its background work. Null once the agent stopped, or for a harness that reports no session
+   */
+  activity: 'working' | 'needs-action' | 'waiting-for-background' | null;
+  /**
+   * The background work the harness last listed. Empty for a harness that lists none
+   */
+  background: Array<BackgroundTaskResponseDto>;
 };
 
 export type TaskReviewResponseDto = {
@@ -12076,6 +12141,88 @@ export type CompleteSandboxArchiveResponses = {
 
 export type CompleteSandboxArchiveResponse = CompleteSandboxArchiveResponses[keyof CompleteSandboxArchiveResponses];
 
+export type ReleaseSandboxArchiveLeaseData = {
+  body?: never;
+  path: {
+    sandboxId: string;
+    runId: string;
+  };
+  query: {
+    /**
+     * The attempt the lease was held for
+     */
+    attempt: number;
+  };
+  url: '/sandboxes/{sandboxId}/archive-leases/{runId}';
+};
+
+export type ReleaseSandboxArchiveLeaseErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+};
+
+export type ReleaseSandboxArchiveLeaseResponses = {
+  204: void;
+};
+
+export type ReleaseSandboxArchiveLeaseResponse = ReleaseSandboxArchiveLeaseResponses[keyof ReleaseSandboxArchiveLeaseResponses];
+
+export type HoldSandboxArchiveLeaseData = {
+  body: HoldSandboxArchiveLeaseRequestDto;
+  path: {
+    sandboxId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/archive-leases/{runId}';
+};
+
+export type HoldSandboxArchiveLeaseErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox, a run the sandbox does not hold, or no lease of this attempt to renew
+   */
+  404: unknown;
+  /**
+   * The run does not archive a working copy for a later run
+   */
+  409: unknown;
+};
+
+export type HoldSandboxArchiveLeaseResponses = {
+  204: void;
+};
+
+export type HoldSandboxArchiveLeaseResponse = HoldSandboxArchiveLeaseResponses[keyof HoldSandboxArchiveLeaseResponses];
+
+export type AppendSandboxArchiveEventsData = {
+  body: AppendRunEventsRequestDto;
+  path: {
+    sandboxId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/archive-leases/{runId}/events';
+};
+
+export type AppendSandboxArchiveEventsErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox, or no archive lease for this run
+   */
+  404: unknown;
+  /**
+   * The attempt has not reported its turn
+   */
+  409: unknown;
+};
+
+export type AppendSandboxArchiveEventsResponses = {
+  204: void;
+};
+
+export type AppendSandboxArchiveEventsResponse = AppendSandboxArchiveEventsResponses[keyof AppendSandboxArchiveEventsResponses];
+
 export type PoolQueueData = {
   body?: never;
   path: {
@@ -12415,7 +12562,7 @@ export type ListRunnerActivityErrors = {
 };
 
 export type ListRunnerActivityResponses = {
-  200: Array<RunnerActivityResponseDto>;
+  200: RunnerActivityResponseDto;
 };
 
 export type ListRunnerActivityResponse = ListRunnerActivityResponses[keyof ListRunnerActivityResponses];

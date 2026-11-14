@@ -85,6 +85,33 @@ export interface SandboxesPort {
 
   retireRun(runId: string, at: Date): Promise<void>;
 
+  holdArchive(
+    sandboxId: string,
+    runId: string,
+    attempt: number,
+    at: Date,
+  ): Promise<boolean>;
+
+  renewArchive(
+    sandboxId: string,
+    runId: string,
+    attempt: number,
+    at: Date,
+  ): Promise<boolean>;
+
+  releaseArchive(
+    sandboxId: string,
+    runId: string,
+    attempt: number,
+    at: Date,
+  ): Promise<void>;
+
+  archivedAttemptOf(
+    sandboxId: string,
+    runId: string,
+    at: Date,
+  ): Promise<number | null>;
+
   open(workspaceId: string, key: string, at: Date): Promise<OpenedSandbox>;
 
   requestedIn(workspaceId: string): Promise<readonly RequestedSandbox[]>;

@@ -1,6 +1,7 @@
 import { AppendRunJournalHandler } from '@runs/application/commands/handlers/append-run-journal.handler';
 import { AppendRunJournalCommand } from '@runs/application/commands/runner.commands';
 import type { JournalEntry } from '@runs/application/ports/run-journal.port';
+import { RunJournalAppends } from '@runs/application/services/run-journal-appends.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
@@ -37,16 +38,18 @@ const journalling = () => {
 
   const handler = new AppendRunJournalHandler(
     { findById: async () => leased } as unknown as RunRepository,
-    {
-      append: async (attempt, entries) =>
-        void appended.push({ attempt, entries }),
-      appendControlPlaneEntry: async (_, entry) => ({
-        seq: -1_000_000,
-        type: entry.type,
-        at: entry.at,
-      }),
-    },
-    { publish: (runId: string) => void published.push(runId) } as never,
+    new RunJournalAppends(
+      {
+        append: async (attempt, entries) =>
+          void appended.push({ attempt, entries }),
+        appendControlPlaneEntry: async (_, entry) => ({
+          seq: -1_000_000,
+          type: entry.type,
+          at: entry.at,
+        }),
+      },
+      { publish: (runId: string) => void published.push(runId) } as never,
+    ),
   );
 
   return { handler, appended, published };

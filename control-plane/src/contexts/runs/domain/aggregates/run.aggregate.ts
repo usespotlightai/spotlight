@@ -1497,6 +1497,27 @@ export class Run extends EventRecorder {
     return this.attempt;
   }
 
+  attemptInTurn(attempt: number): RunAttempt | null {
+    return isLeased(this.state) && this.attempt.number === attempt
+      ? this.attempt
+      : null;
+  }
+
+  journalAfterTurnOf(attempt: number): RunAttempt | null {
+    const reported = this.attemptNumbered(attempt);
+
+    if (
+      reported?.equals(this.attempt) &&
+      (isLeased(this.state) || this.state === 'queued')
+    ) {
+      throw new InvalidRunTransitionError(
+        `Run ${this.id.value} is ${this.state}. Attempt ${attempt} has not reported its turn.`,
+      );
+    }
+
+    return reported;
+  }
+
   attemptNumbered(attempt: number): RunAttempt | null {
     return Number.isInteger(attempt) &&
       attempt >= 1 &&

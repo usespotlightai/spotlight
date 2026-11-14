@@ -85,6 +85,8 @@ const step = (
 const worked: RunJournal[] = Array.from({ length: TURNS }, (_, turn) => ({
   runId: `run_long_${turn}`,
   attempt: 1,
+  activity: null,
+  background: [],
   ms: 230_000,
   spans: [],
   marks: {

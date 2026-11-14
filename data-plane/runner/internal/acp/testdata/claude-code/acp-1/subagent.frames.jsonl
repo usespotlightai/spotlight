@@ -1,0 +1,8 @@
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"tool_call","toolCallId":"toolu_4","title":"Task","kind":"think","status":"in_progress","rawInput":{"description":"Find the flaky test","subagent_type":"general-purpose"},"_meta":{"claudeCode":{"toolName":"Task"}}}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"subagent_update","sessionId":"child_1","title":"Find the flaky test","description":"Look for the flaky test","state":{"state":"running","stopReason":null}}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"session_message","senderSessionId":"session_1","recipientSessionId":"child_1","content":[{"type":"text","text":"Find the flaky test in src/queue."}]}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"child_1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"It is queue.spec.ts."}}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"session_message","senderSessionId":"child_1","recipientSessionId":"session_1","content":[{"type":"text","text":"queue.spec.ts is flaky."}]}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"subagent_update","sessionId":"child_1","state":{"state":"idle","stopReason":"end_turn"}}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"tool_call_update","toolCallId":"toolu_4","status":"completed"}}}
+{"jsonrpc":"2.0","id":"PROMPT","result":{"stopReason":"end_turn"}}

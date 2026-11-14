@@ -22,10 +22,26 @@ export type SandboxState = (typeof SANDBOX_STATES)[number];
 
 export type SandboxStatus = 'starting' | 'ready' | 'draining' | 'gone';
 
-export const LIVE_SANDBOX_STATES: readonly SandboxState[] = [
+export type LiveSandboxState = Exclude<SandboxState, 'gone'>;
+
+export type LiveSandboxStatus = Exclude<SandboxStatus, 'gone'>;
+
+export const LIVE_SANDBOX_STATES: readonly LiveSandboxState[] = [
   'open',
   'draining',
 ];
+
+interface StatusFacts<S extends SandboxState> {
+  readonly state: S;
+  readonly placedOnHost: boolean;
+  readonly hostOnline: boolean;
+  readonly reportedByHost: boolean;
+}
+
+interface IdleFacts {
+  readonly state: SandboxState;
+  readonly idleSince: Date | null;
+}
 
 const START_WINDOW_MS = 60_000;
 
@@ -151,19 +167,36 @@ export class Sandbox extends EventRecorder {
       );
     }
 
-    const holdsARun = state.leases.some((each) => each.isForRun);
+    const occupied = state.leases.some((each) => each.occupies);
 
-    if (state.hostId === null && (holdsARun || state.state === 'draining')) {
+    if (state.hostId === null && (occupied || state.state === 'draining')) {
       throw new InconsistentStateError(
         'sandbox',
-        `is ${state.state} or held by a run while no host started it`,
+        `is ${state.state} or held by a run or an archive while no host started it`,
       );
     }
 
-    if (holdsARun === (state.idleSince !== null)) {
+    if (occupied === (state.idleSince !== null)) {
       throw new InconsistentStateError(
         'sandbox',
-        'is idle while a run holds it, or holds no run and is not idle',
+        'is idle while a run or an archive holds it, or holds neither and is not idle',
+      );
+    }
+
+    const archived = state.leases.flatMap((each) =>
+      each.isForArchive ? [each.holder.id] : [],
+    );
+
+    if (
+      archived.length > 0 &&
+      (state.key === null ||
+        state.leases.some(
+          (each) => each.isForRun && !archived.includes(each.holder.id),
+        ))
+    ) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'holds an archive while it has no key, or while another run holds it',
       );
     }
 
@@ -278,6 +311,20 @@ export class Sandbox extends EventRecorder {
     return this.isHeldBy(LeaseHolder.run(runId));
   }
 
+  holdsArchiveOf(runId: RunId): boolean {
+    return this.isHeldBy(LeaseHolder.archive(runId));
+  }
+
+  archivedAttemptOf(runId: RunId, now: Date): number | null {
+    const holder = LeaseHolder.archive(runId);
+
+    return (
+      this.state.leases.find(
+        (each) => each.isHeldBy(holder) && !each.expiredAt(now),
+      )?.attempt ?? null
+    );
+  }
+
   holdsEditor(holder: LeaseHolder): boolean {
     return holder.isEditor && this.isHeldBy(holder);
   }
@@ -303,19 +350,37 @@ export class Sandbox extends EventRecorder {
   }
 
   isReadyOn(host: RunnerHost | null, now: Date): boolean {
-    return (
-      this.isOpen &&
-      this.isLiveOn(host, now) &&
-      (host?.reportsSandbox(this.state.id) ?? false)
-    );
+    return this.statusOn(host, now) === 'ready';
   }
 
   statusOn(host: RunnerHost | null, now: Date): SandboxStatus {
-    if (!this.isOpen) {
-      return this.state.state === 'draining' ? 'draining' : 'gone';
+    return Sandbox.statusFrom({
+      state: this.state.state,
+      placedOnHost: host !== null && this.isOn(host.id),
+      hostOnline: host?.isOnlineAt(now) ?? false,
+      reportedByHost: host?.reportsSandbox(this.state.id) ?? false,
+    });
+  }
+
+  static statusFrom(input: StatusFacts<LiveSandboxState>): LiveSandboxStatus;
+  static statusFrom(input: StatusFacts<SandboxState>): SandboxStatus;
+  static statusFrom(input: StatusFacts<SandboxState>): SandboxStatus {
+    if (input.state !== 'open') {
+      return input.state;
     }
 
-    return this.isReadyOn(host, now) ? 'ready' : 'starting';
+    return input.placedOnHost && input.hostOnline && input.reportedByHost
+      ? 'ready'
+      : 'starting';
+  }
+
+  static isIdleAndLive<F extends IdleFacts>(
+    facts: F,
+  ): facts is F & { state: LiveSandboxState; idleSince: Date } {
+    return (
+      facts.idleSince !== null &&
+      (LIVE_SANDBOX_STATES as readonly SandboxState[]).includes(facts.state)
+    );
   }
 
   takesRunOn(host: RunnerHost, now: Date): boolean {
@@ -330,9 +395,17 @@ export class Sandbox extends EventRecorder {
     return this.isRequested && (this.state.warm?.fits(offer) ?? false);
   }
 
-  keptBy(host: RunnerHost): boolean {
+  keptBy(host: RunnerHost, now: Date): boolean {
+    const holdsAnArchive =
+      this.isLive &&
+      this.state.leases.some(
+        (each) => each.isForArchive && !each.expiredAt(now),
+      );
+
     return (
-      this.isOpen && this.isOn(host.id) && !(host.isStopping && this.isIdle)
+      (this.isOpen || holdsAnArchive) &&
+      this.isOn(host.id) &&
+      !(host.isStopping && this.isIdle)
     );
   }
 
@@ -454,10 +527,7 @@ export class Sandbox extends EventRecorder {
     const holder = LeaseHolder.run(runId);
     const leases = this.state.leases.filter((each) => !each.isHeldBy(holder));
 
-    return this.with({
-      leases,
-      idleSince: leases.some((each) => each.isForRun) ? null : at,
-    });
+    return this.withLeases(leases, at);
   }
 
   retireRun(runId: RunId, at: Date): Sandbox {
@@ -467,7 +537,57 @@ export class Sandbox extends EventRecorder {
 
     const released = this.releaseRun(runId, at);
 
-    return released.leases.length === 0 ? released.drain() : released;
+    return released.leases.every((each) => each.isForArchive)
+      ? released.drain()
+      : released;
+  }
+
+  holdArchiveOf(runId: RunId, attempt: number, at: Date): Sandbox {
+    const holder = LeaseHolder.archive(runId);
+    const held = this.withoutExpiredLeases(at);
+    const ofAnotherAttempt = held.state.leases.some(
+      (each) => each.isHeldBy(holder) && each.attempt !== attempt,
+    );
+
+    if (
+      !held.isLive ||
+      held.state.key === null ||
+      !held.holdsRun(runId) ||
+      ofAnotherAttempt
+    ) {
+      return this;
+    }
+
+    return held.withArchiveLease(holder, attempt, at);
+  }
+
+  renewArchiveOf(runId: RunId, attempt: number, at: Date): Sandbox {
+    const holder = LeaseHolder.archive(runId);
+    const held = this.withoutExpiredLeases(at);
+
+    if (
+      !held.isLive ||
+      !held.state.leases.some((each) => each.isForArchiveOf(holder, attempt))
+    ) {
+      return this;
+    }
+
+    return held.withArchiveLease(holder, attempt, at);
+  }
+
+  releaseArchiveOf(runId: RunId, attempt: number, at: Date): Sandbox {
+    const holder = LeaseHolder.archive(runId);
+
+    if (
+      !this.state.leases.some((each) => each.isForArchiveOf(holder, attempt))
+    ) {
+      return this;
+    }
+
+    return this.withLeases(
+      this.state.leases.filter((each) => !each.isHeldBy(holder)),
+      at,
+    );
   }
 
   holdEditor(holder: LeaseHolder, at: Date): Sandbox {
@@ -501,7 +621,7 @@ export class Sandbox extends EventRecorder {
     );
   }
 
-  withoutExpiredEditors(now: Date): Sandbox {
+  withoutExpiredLeases(now: Date): Sandbox {
     const leases = this.state.leases.filter((each) => !each.expiredAt(now));
 
     return leases.length === this.state.leases.length
@@ -581,7 +701,7 @@ export class Sandbox extends EventRecorder {
   }
 
   drainedWhenDue(policy: SandboxDrainPolicy, now: Date): Sandbox {
-    const held = this.withoutExpiredEditors(now);
+    const held = this.withoutExpiredLeases(now);
 
     if (!held.drainDue(policy, now)) {
       return held;
@@ -594,12 +714,28 @@ export class Sandbox extends EventRecorder {
     return this.state.leases.some((each) => each.isHeldBy(holder));
   }
 
+  private withArchiveLease(
+    holder: LeaseHolder,
+    attempt: number,
+    at: Date,
+  ): Sandbox {
+    return this.with({
+      leases: [
+        ...this.state.leases.filter((each) => !each.isHeldBy(holder)),
+        SandboxLease.of(holder, at, attempt),
+      ],
+      idleSince: null,
+    });
+  }
+
   private withLeases(leases: readonly SandboxLease[], at: Date): Sandbox {
-    const idle = !leases.some((each) => each.isForRun);
+    if (leases.some((each) => each.occupies)) {
+      return this.with({ leases, idleSince: null });
+    }
 
     return this.with({
       leases,
-      idleSince: idle && leases.length === 0 ? at : this.state.idleSince,
+      idleSince: leases.length === 0 ? at : (this.state.idleSince ?? at),
     });
   }
 

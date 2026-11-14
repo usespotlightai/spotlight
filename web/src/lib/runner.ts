@@ -2,6 +2,7 @@ import type {
   CredentialSourceResponseDto,
   HostHarnessResponseDto,
   HostResponseDto,
+  IdleSandboxResponseDto,
   LeasedRunResponseDto,
   LiveRunnerResponseDto,
   RunnerActivityResponseDto,
@@ -17,8 +18,13 @@ export type ActiveRunner = LiveRunnerResponseDto & {
   readonly currentRun: LeasedRun | null;
 };
 
-export type Host = HostResponseDto & {
+export type IdleSandbox = IdleSandboxResponseDto & {
+  readonly lastRun: LeasedRun | null;
+};
+
+export type Host = Omit<HostResponseDto, 'idleSandboxes'> & {
   readonly runners: readonly ActiveRunner[];
+  readonly idleSandboxes: readonly IdleSandbox[];
 };
 
 export type PushPool = {
@@ -36,13 +42,18 @@ export const poolKeyOf = (source: CredentialSourceResponseDto): string =>
 
 export const withActivity = (
   fleet: RunnerFleetResponseDto,
-  activity: readonly RunnerActivityResponseDto[],
+  activity: RunnerActivityResponseDto,
 ): Fleet => {
   const runners: ActiveRunner[] = fleet.runners.map((runner) => ({
     ...runner,
     currentRun:
-      activity.find((each) => each.runnerId === runner.id)?.currentRun ?? null,
+      activity.runners.find((each) => each.runnerId === runner.id)
+        ?.currentRun ?? null,
   }));
+  const lastRunOf = (workingCopyKey: string | null): LeasedRun | null =>
+    activity.workingCopies.find(
+      (each) => each.workingCopyKey === workingCopyKey,
+    )?.lastRun ?? null;
   const unhosted = runners.filter((runner) => runner.hostId === null);
   const pools = [
     ...new Set(unhosted.map((runner) => poolKeyOf(runner.source))),
@@ -52,6 +63,10 @@ export const withActivity = (
     hosts: fleet.hosts.map((host) => ({
       ...host,
       runners: runners.filter((runner) => runner.hostId === host.id),
+      idleSandboxes: host.idleSandboxes.map((sandbox) => ({
+        ...sandbox,
+        lastRun: lastRunOf(sandbox.workingCopyKey),
+      })),
     })),
     pools: pools.flatMap((key) => {
       const pooled = unhosted.filter(
@@ -82,10 +97,11 @@ export const hostStatus = (host: Host): string => {
     return 'Offline';
   }
 
-  return host.running.length > 0
-    ? `Running ${host.running.length} of ${host.capacity}`
-    : 'Idle';
+  return host.runners.length > 0 ? `Running ${host.runners.length}` : 'Idle';
 };
+
+export const hostSlots = (host: Host): string | null =>
+  host.online ? `${host.slotsTaken} of ${host.capacity}` : null;
 
 export const sourceLabel = (source: CredentialSourceResponseDto): string => {
   const kind = source.kind === 'pool' ? 'Pool' : 'Trust';
@@ -168,9 +184,9 @@ export const hostInFilter = (filter: RunnerFilter, host: Host): boolean => {
     case 'all':
       return true;
     case 'running':
-      return host.online && host.running.length > 0;
+      return host.online && host.runners.length > 0;
     case 'idle':
-      return host.online && host.running.length === 0;
+      return host.online && host.runners.length === 0;
     case 'offline':
       return !host.online;
   }
@@ -238,6 +254,33 @@ export const leasedRunPath = (
   run?.kind === 'task' && run.readable && run.teamId !== null
     ? runPath(slug, run.teamId, run.id)
     : null;
+
+const WARM_SANDBOX = 'Warm sandbox';
+
+export const warmSandboxLabel = (lineName: string | undefined): string =>
+  lineName ? `${WARM_SANDBOX} for ${lineName}` : WARM_SANDBOX;
+
+export const idleSandboxLabel = (sandbox: IdleSandbox): string =>
+  sandbox.lastRun ? formatRun(sandbox.lastRun) : 'Idle sandbox';
+
+const IDLE_SANDBOX_STATUSES: Record<
+  IdleSandbox['status'],
+  { warm: string; kept: string }
+> = {
+  starting: { warm: 'Starting', kept: 'Starting' },
+  ready: { warm: 'Ready', kept: 'Waiting' },
+  draining: { warm: 'Stopping', kept: 'Stopping' },
+};
+
+export const idleSandboxStatus = (sandbox: IdleSandbox): string =>
+  IDLE_SANDBOX_STATUSES[sandbox.status][
+    sandbox.warmLineId === null ? 'kept' : 'warm'
+  ];
+
+export const idleSandboxActivity = (sandbox: IdleSandbox): string =>
+  sandbox.warmLineId === null
+    ? `Idle since ${since(sandbox.idleSince)}`
+    : `Started ${since(sandbox.startedAt)}`;
 
 export const NONE_IN_FILTER: Record<Exclude<RunnerFilter, 'all'>, string> = {
   running: 'No runs in progress.',

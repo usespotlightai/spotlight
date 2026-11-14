@@ -24,6 +24,8 @@ const stepOf = (text: string, detail: string | null = null): JournalStep => ({
 const journalOf = (attempt: number, steps: JournalStep[]): RunJournal => ({
   runId: 'run_1',
   attempt,
+  activity: null,
+  background: [],
   ms: null,
   spans: [],
   marks: {

@@ -1,5 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { STEP_KIND_NAMES } from '@work/application/dto/run-journal.dto';
+import {
+  BACKGROUND_KINDS,
+  AGENT_ACTIVITIES,
+  STEP_KIND_NAMES,
+} from '@work/application/dto/run-journal.dto';
 
 export class StepLocationResponseDto {
   @ApiProperty({ example: 'control-plane/src/app.module.ts' })
@@ -238,6 +242,27 @@ export class RunSpentResponseDto {
   }
 }
 
+export class BackgroundTaskResponseDto {
+  @ApiProperty({ example: 'toolu_01MDARfjBj5VLXgUXq89feTu' })
+  readonly id: string;
+
+  @ApiProperty({ enum: BACKGROUND_KINDS, example: 'command' })
+  readonly kind: (typeof BACKGROUND_KINDS)[number];
+
+  @ApiProperty({ example: 'npx vitest run' })
+  readonly description: string;
+
+  constructor(
+    id: string,
+    kind: (typeof BACKGROUND_KINDS)[number],
+    description: string,
+  ) {
+    this.id = id;
+    this.kind = kind;
+    this.description = description;
+  }
+}
+
 export class RunJournalResponseDto {
   @ApiProperty({ example: 'd71ef228-a533-49ab-9e92-7c0d0af80e25' })
   readonly runId: string;
@@ -269,6 +294,23 @@ export class RunJournalResponseDto {
   @ApiProperty({ type: RunSpentResponseDto, nullable: true })
   readonly spent: RunSpentResponseDto | null;
 
+  @ApiProperty({
+    enum: [...AGENT_ACTIVITIES, null],
+    nullable: true,
+    type: String,
+    description:
+      'What the agent does now: works, needs a person to allow an action, or waits for its background work. Null once the agent stopped, or for a harness that reports no session',
+  })
+  readonly activity: (typeof AGENT_ACTIVITIES)[number] | null;
+
+  @ApiProperty({
+    type: BackgroundTaskResponseDto,
+    isArray: true,
+    description:
+      'The background work the harness last listed. Empty for a harness that lists none',
+  })
+  readonly background: readonly BackgroundTaskResponseDto[];
+
   constructor(
     runId: string,
     attempt: number,
@@ -277,6 +319,8 @@ export class RunJournalResponseDto {
     ms: number | null,
     marks: RunMarksResponseDto,
     spent: RunSpentResponseDto | null,
+    activity: (typeof AGENT_ACTIVITIES)[number] | null,
+    background: readonly BackgroundTaskResponseDto[],
   ) {
     this.runId = runId;
     this.attempt = attempt;
@@ -285,6 +329,8 @@ export class RunJournalResponseDto {
     this.ms = ms;
     this.marks = marks;
     this.spent = spent;
+    this.activity = activity;
+    this.background = background;
   }
 }
 

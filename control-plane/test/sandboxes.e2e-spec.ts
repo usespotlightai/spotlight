@@ -344,6 +344,135 @@ describe('sandboxes (e2e)', () => {
     await claim(busy).expect(204);
   });
 
+  it('holds a sandbox for the archive of the run in it after the report, journals under the reporting attempt, and takes the next run once released', async () => {
+    const key = 'work/task-task_archive';
+    const runId = await queue({ key });
+    const claimed = (await claim().expect(200)).body as Claimed;
+    const { sandboxId, sandboxToken } = claimed;
+    await heartbeat([sandboxId]).expect(200);
+    const lease = `/api/sandboxes/${sandboxId}/archive-leases/${runId}`;
+    const events = (seq: number) =>
+      http()
+        .post(`${lease}/events`)
+        .set('Authorization', `Bearer ${sandboxToken}`)
+        .send({
+          events: [
+            {
+              seq,
+              type: 'output',
+              at: new Date().toISOString(),
+              message: 'archive',
+              data: 'Captured the workspace for the next run (2.0 KB)',
+            },
+          ],
+        });
+
+    await http()
+      .put(lease)
+      .set('Authorization', `Bearer ${claimed.token}`)
+      .send({ attempt: 1 })
+      .expect(404);
+    await http()
+      .put(`/api/sandboxes/${sandboxId}/archive-leases/${randomUUID()}`)
+      .set('Authorization', `Bearer ${sandboxToken}`)
+      .send({ attempt: 1 })
+      .expect(404);
+    await http()
+      .put(lease)
+      .set('Authorization', `Bearer ${sandboxToken}`)
+      .send({ attempt: 1 })
+      .expect(204);
+    await events(900).expect(409);
+
+    await complete(runId, claimed.token);
+    const archiving = await eventually(async () => {
+      const row = await sandboxRow(sandboxId);
+      return row?.leases.length === 1 ? row : null;
+    });
+    expect(archiving).toMatchObject({
+      state: 'open',
+      leases: [{ kind: 'archive', holder: runId }],
+      idleSince: null,
+    });
+
+    const next = await queue({ key });
+    await claim().expect(204);
+    await claim(sandboxId).expect(204);
+
+    await http()
+      .put(lease)
+      .set('Authorization', `Bearer ${sandboxToken}`)
+      .send({ attempt: 2 })
+      .expect(404);
+    await http()
+      .put(lease)
+      .set('Authorization', `Bearer ${sandboxToken}`)
+      .send({ attempt: 1 })
+      .expect(204);
+    await events(900).expect(204);
+    const journaled = await db
+      .select({
+        attempt: schema.runJournalEntry.attempt,
+        seq: schema.runJournalEntry.seq,
+      })
+      .from(schema.runJournalEntry)
+      .where(
+        and(
+          eq(schema.runJournalEntry.runId, runId),
+          eq(schema.runJournalEntry.message, 'archive'),
+        ),
+      );
+    expect(journaled).toEqual([{ attempt: 1, seq: 900 }]);
+
+    await http()
+      .delete(`${lease}?attempt=1`)
+      .set('Authorization', `Bearer ${sandboxToken}`)
+      .expect(204);
+    await events(902).expect(404);
+    expect((await sandboxRow(sandboxId))?.idleSince).not.toBeNull();
+    await expect(claim(sandboxId).expect(200)).resolves.toMatchObject({
+      body: { sandboxId, work: { kind: 'run', run: { id: next } } },
+    });
+  });
+
+  it('drops an archive lease nobody renewed, and the sandbox takes runs again', async () => {
+    const key = 'work/task-task_unrenewed';
+    const runId = await queue({ key });
+    const claimed = (await claim().expect(200)).body as Claimed;
+    const { sandboxId, sandboxToken } = claimed;
+    await heartbeat([sandboxId]).expect(200);
+    await http()
+      .put(`/api/sandboxes/${sandboxId}/archive-leases/${runId}`)
+      .set('Authorization', `Bearer ${sandboxToken}`)
+      .send({ attempt: 1 })
+      .expect(204);
+    await complete(runId, claimed.token);
+    const held = await eventually(async () => {
+      const row = await sandboxRow(sandboxId);
+      return row?.leases.length === 1 ? row : null;
+    });
+
+    await app.get(Sandboxes).drainIdle(new Date());
+    expect((await sandboxRow(sandboxId))?.leases).toHaveLength(1);
+
+    await db
+      .update(schema.sandbox)
+      .set({
+        leases: held.leases.map((each) => ({
+          ...each,
+          renewedAt: new Date(Date.now() - 2 * 60_000 - 1_000).toISOString(),
+        })),
+      })
+      .where(eq(schema.sandbox.id, sandboxId));
+    await app.get(Sandboxes).drainIdle(new Date());
+
+    expect(await sandboxRow(sandboxId)).toMatchObject({
+      state: 'open',
+      leases: [],
+      idleSince: expect.any(Date) as unknown,
+    });
+  });
+
   it('counts an idle sandbox and the claim that waits in it as one run against maxRuns', async () => {
     await db
       .update(schema.runnerPool)

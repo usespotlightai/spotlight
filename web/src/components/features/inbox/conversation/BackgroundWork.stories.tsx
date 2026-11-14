@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
-import type { Note, RunJournal } from '@/lib/inbox';
+import type { ConversationItem, Note, RunJournal } from '@/lib/inbox';
 
 const STARTED = Date.parse('2026-11-09T08:00:00.000Z');
 const STATION = {
@@ -33,9 +33,17 @@ const step = (seconds: number, over: Partial<Step>): Step => ({
   ...over,
 });
 
-const journal = (steps: Step[], live: boolean): RunJournal => ({
+const journal = (
+  steps: Step[],
+  live: boolean,
+  session: Pick<RunJournal, 'activity' | 'background'> = {
+    activity: null,
+    background: [],
+  },
+): RunJournal => ({
   runId: 'run_background',
   attempt: 1,
+  ...session,
   ms: 600_000,
   spans: [],
   marks: {
@@ -95,20 +103,26 @@ const note = (body: string, seconds: number): Note => ({
   connection: null,
 });
 
-const render = (worked: RunJournal[], said: Note) => () => (
-  <Conversation
-    item={{
-      id: 'task_background',
-      teamId: 'team_platform',
-      createdAt: at(0),
-      station: STATION,
-      progress: null,
-      notes: [said],
-    }}
-    worked={worked}
-    footer={null}
-  />
-);
+const render =
+  (
+    worked: RunJournal[],
+    said: Note,
+    progress: ConversationItem['progress'] = null,
+  ) =>
+  () => (
+    <Conversation
+      item={{
+        id: 'task_background',
+        teamId: 'team_platform',
+        createdAt: at(0),
+        station: STATION,
+        progress,
+        notes: [said],
+      }}
+      worked={worked}
+      footer={null}
+    />
+  );
 
 const client = new QueryClient({
   defaultOptions: { queries: { retry: false } },
@@ -158,6 +172,34 @@ export const Waiting: Story = {
   ),
 };
 
+export const InTheBackground: Story = {
+  render: render(
+    [
+      journal(started, true, {
+        activity: 'waiting-for-background',
+        background: [
+          { id: 'bash_1', kind: 'command', description: 'npx vitest run' },
+          {
+            id: 'agent_1',
+            kind: 'subagent',
+            description: 'Find where the agent chat shows its skeleton',
+          },
+        ],
+      }),
+    ],
+    note('I am waiting for the full test run in the background.', 72),
+    'in-progress',
+  ),
+};
+
+export const NeedsAPermission: Story = {
+  render: render(
+    [journal(started, true, { activity: 'needs-action', background: [] })],
+    note('I am looking for the cause.', 72),
+    'in-progress',
+  ),
+};
+
 export const WokeAndHandedOver: Story = {
   render: render(
     [
@@ -165,6 +207,7 @@ export const WokeAndHandedOver: Story = {
         [
           ...started,
           step(75, { kind: 'waited', text: 'npx vitest run', ms: 180_000 }),
+          step(255, { kind: 'turn', text: '', status: null, ms: 0 }),
           step(255, {
             kind: 'message',
             text: 'All 412 tests pass. I hand the task to Code Review.',

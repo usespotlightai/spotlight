@@ -7,10 +7,13 @@ import type {
   RunStepCounts,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalsPort } from '@runs/application/ports/run-journals.port';
-import { HARNESS_CONNECTED } from '@runs/domain/value-objects/journal-entry-type';
 import { isJournalledAttempt } from '@runs/domain/value-objects/run-journalled-attempts';
-import { ChangedPaths } from '@runs/infrastructure/acp/changed-paths';
-import { JournalBuilder } from '@runs/infrastructure/acp/journal-builder';
+import {
+  CHANGED_PATHS_TYPES,
+  ChangedPaths,
+} from '@runs/infrastructure/journal/changed-paths';
+import { HARNESS_FRAME } from '@runs/infrastructure/journal/harness-events';
+import { JournalBuilder } from '@runs/infrastructure/journal/journal-builder';
 import { Reported } from '@runs/infrastructure/otel/reported';
 import { RunSpecPersistence } from '@runs/infrastructure/persistence/drizzle/run-spec.persistence';
 import {
@@ -23,9 +26,7 @@ import {
   asc,
   eq,
   inArray,
-  isNotNull,
-  isNull,
-  or,
+  ne,
   type SQL,
   sql,
 } from 'drizzle-orm';
@@ -59,6 +60,8 @@ export class DrizzleRunJournals implements RunJournalsPort {
         marks: reading.journal.marks(),
         spent: reading.journal.spent(),
         egressEnforcement: reading.journal.egressEnforcement(),
+        activity: reading.journal.activity(),
+        background: reading.journal.background(),
       };
     });
   }
@@ -96,14 +99,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
     const outputs = await this.journalled(
       and(
         inArray(runJournalEntry.runId, ids),
-        or(
-          and(
-            eq(runJournalEntry.type, 'output'),
-            isNull(runJournalEntry.message),
-            isNotNull(runJournalEntry.data),
-          ),
-          eq(runJournalEntry.type, HARNESS_CONNECTED),
-        ),
+        inArray(runJournalEntry.type, [...CHANGED_PATHS_TYPES]),
       ) as SQL,
       [
         asc(run.createdAt),
@@ -136,11 +132,17 @@ export class DrizzleRunJournals implements RunJournalsPort {
   }
 
   private async readings(ids: string[]) {
-    const entries = await this.journalled(inArray(runJournalEntry.runId, ids), [
-      asc(runJournalEntry.runId),
-      asc(runJournalEntry.attempt),
-      asc(runJournalEntry.seq),
-    ]);
+    const entries = await this.journalled(
+      and(
+        inArray(runJournalEntry.runId, ids),
+        ne(runJournalEntry.type, HARNESS_FRAME),
+      ) as SQL,
+      [
+        asc(runJournalEntry.runId),
+        asc(runJournalEntry.attempt),
+        asc(runJournalEntry.seq),
+      ],
+    );
     const journals = new Map<
       string,
       { journal: JournalBuilder; reported: Reported }

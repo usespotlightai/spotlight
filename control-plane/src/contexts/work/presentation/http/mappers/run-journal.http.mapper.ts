@@ -5,6 +5,7 @@ import type {
   RunSpanDto,
 } from '@work/application/dto/run-journal.dto';
 import {
+  BackgroundTaskResponseDto,
   JournalledRunResponseDto,
   JournalStepResponseDto,
   RunJournalResponseDto,
@@ -77,6 +78,11 @@ export const RunJournalHttpMapper = {
             journal.spent.currency,
           )
         : null,
+      journal.activity,
+      journal.background.map(
+        ({ id, kind, description }) =>
+          new BackgroundTaskResponseDto(id, kind, description),
+      ),
     );
   },
 

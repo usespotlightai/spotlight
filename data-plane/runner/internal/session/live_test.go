@@ -3,10 +3,12 @@
 package session_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -27,18 +29,20 @@ func live(t *testing.T, name, briefing string, wait time.Duration) *journal {
 		o.briefing = briefing
 		o.handover = []string{"code-review", "review"}
 		o.wait = wait
+		o.frames = true
 		o.decision = protocol.PermissionAllow
 		o.log = slog.New(slog.NewTextHandler(os.Stderr, nil))
 		o.env = map[string]string{"CLAUDE_CODE_EXECUTABLE": os.Getenv("LIVE_CLAUDE")}
-		o.setup = protocol.HarnessSetup{Session: json.RawMessage(`{"claudeCode":{"emitRawSDKMessages":[` +
-			`{"type":"system","subtype":"session_state_changed"},` +
-			`{"type":"system","subtype":"background_tasks_changed"}]}}`)}
+		o.protocol = "acp/2"
 	})
 
 	raw, _ := json.MarshalIndent(written.events, "", " ")
 	out := filepath.Join(os.Getenv("LIVE_OUT"), name+".json")
 	if err := os.WriteFile(out, raw, 0o644); err != nil {
 		t.Fatal(err)
+	}
+	if dir := os.Getenv("LIVE_RECORD"); dir != "" {
+		record(t, filepath.Join(dir, name+".frames.jsonl"), written)
 	}
 	for _, kind := range []protocol.EventType{
 		protocol.EventHarnessConnected, protocol.EventBackgroundWait, protocol.EventBackgroundDone,
@@ -103,4 +107,40 @@ func TestLiveWorkStillRunningAtTheLimit(t *testing.T) {
 	if len(written.typed(protocol.EventBackgroundLost)) != 1 {
 		t.Error("no lost background work")
 	}
+}
+
+var answerID = regexp.MustCompile(`^\{"jsonrpc":"2.0","id":\d+,"result":\{"messageId"`)
+
+func record(t *testing.T, path string, written *journal) {
+	t.Helper()
+
+	var frames bytes.Buffer
+	turning := false
+	for _, event := range written.events {
+		switch event.Type {
+		case protocol.EventTurnStarted:
+			turning = true
+		case protocol.EventTurnEnded:
+			if turning {
+				if err := os.WriteFile(path, frames.Bytes(), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+		case protocol.EventHarnessFrame:
+			if !turning {
+				continue
+			}
+			var frame protocol.HarnessFrame
+			if err := json.Unmarshal(event.Data, &frame); err != nil {
+				t.Fatal(err)
+			}
+			line := bytes.TrimSpace(frame.Data)
+			if loc := answerID.FindIndex(line); loc != nil {
+				line = append([]byte(`{"jsonrpc":"2.0","id":"PROMPT","result":{"messageId"`), line[loc[1]:]...)
+			}
+			frames.Write(append(line, '\n'))
+		}
+	}
+	t.Fatal("no turn to record")
 }

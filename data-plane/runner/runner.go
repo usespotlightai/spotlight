@@ -153,6 +153,7 @@ type runner struct {
 	proxyEnv   map[string]string
 	unready    error
 	supervised bool
+	archives   *control.Sandbox
 }
 
 func (r runner) supervise(ctx context.Context, assigned protocol.Assignment, delivered <-chan os.Signal) {
@@ -178,6 +179,10 @@ func (r runner) supervise(ctx context.Context, assigned protocol.Assignment, del
 			each := r
 			each.transport = trustingTheSandbox(log)
 			each.supervised = true
+			each.archives = archives
+			if archives != nil && each.transport != nil {
+				archives.Through(each.transport)
+			}
 			each.serve(ctx, assigned)
 			if ctx.Err() != nil {
 				return
@@ -324,6 +329,11 @@ func (r runner) execute(ctx context.Context, client *control.Client, run protoco
 		journal = stoppingFirst{Journal: client, stop: func() { r.stopLeftovers(r.log) }}
 	}
 
+	var sandbox session.ArchivingSandbox
+	if r.archives != nil {
+		sandbox = r.archives
+	}
+
 	err := r.sandbox.Execute(running, run, session.Options{
 		Workspace:      r.cfg.Workspace,
 		Journal:        journal,
@@ -338,6 +348,8 @@ func (r runner) execute(ctx context.Context, client *control.Client, run protoco
 		Enforced:       r.enforced(),
 		Unready:        r.unready,
 		BackgroundWait: r.cfg.BackgroundWait,
+		Sandbox:        sandbox,
+		HarnessFrames:  r.cfg.HarnessFrames,
 	})
 	if err == nil {
 		return

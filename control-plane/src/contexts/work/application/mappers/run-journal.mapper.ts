@@ -70,6 +70,12 @@ export const RunJournalMapper = {
         cost: journal.spent.cost?.amount ?? null,
         currency: journal.spent.cost?.currency ?? null,
       },
+      activity: journal.activity,
+      background: journal.background.map(({ id, kind, description }) => ({
+        id,
+        kind,
+        description,
+      })),
     };
   },
 

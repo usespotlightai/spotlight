@@ -110,6 +110,8 @@ export const chatTurn = (
   return {
     runId,
     attempt: 1,
+    activity: null,
+    background: [],
     ms: Date.parse(endedAt) - Date.parse(startedAt),
     spans: [],
     marks: {

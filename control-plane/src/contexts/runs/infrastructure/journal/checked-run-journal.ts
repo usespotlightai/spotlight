@@ -4,26 +4,35 @@ import type {
   RunJournalPort,
 } from '@runs/application/ports/run-journal.port';
 import {
+  HARNESS_CONNECTED,
   HOOK_CALLED,
   TOOL_REFUSED,
-  TURN_USAGE,
 } from '@runs/domain/value-objects/journal-entry-type';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
+import {
+  HARNESS_EVENT_TYPES,
+  HARNESS_FRAME,
+} from '@runs/infrastructure/journal/harness-events';
 import { decoded } from '@runs/infrastructure/journal/journalled';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
 
-const OUTPUT = 'output';
-
 const SPAN = 'span';
 
-const CARRIES_JSON = new Set([TURN_USAGE, TOOL_REFUSED, HOOK_CALLED, SPAN]);
+const CARRIES_JSON = new Set([
+  TOOL_REFUSED,
+  HOOK_CALLED,
+  SPAN,
+  HARNESS_CONNECTED,
+  HARNESS_FRAME,
+  ...HARNESS_EVENT_TYPES,
+]);
 
 const NOTED_FOR_MS = 10 * 60_000;
 
 const carriesJson = (entry: JournalEntry): boolean =>
-  CARRIES_JSON.has(entry.type) || (entry.type === OUTPUT && !entry.message);
+  CARRIES_JSON.has(entry.type);
 
 const readable = (data: string): boolean => {
   try {

@@ -432,3 +432,32 @@ describe('the turn of a run that holds it', () => {
     ).toThrow('is suspended yet still');
   });
 });
+
+describe('the archive of a run’s turn', () => {
+  it('is in its turn only while its current attempt holds the lease', () => {
+    expect(claimed().attemptInTurn(1)).toEqual(RunAttempt.of(RUN, 1));
+    expect(claimed().attemptInTurn(2)).toBeNull();
+    expect(pending().attemptInTurn(1)).toBeNull();
+  });
+
+  it('journals after the turn under an attempt that reported it, never one in its turn or queued', () => {
+    const resumed = pending().resumed(
+      RunAttempt.of(RUN, 1),
+      'messages',
+      [],
+      later(5_000),
+    );
+
+    expect(() => claimed().journalAfterTurnOf(1)).toThrow(
+      InvalidRunTransitionError,
+    );
+    expect(pending().journalAfterTurnOf(1)).toEqual(RunAttempt.of(RUN, 1));
+    expect(resumed.journalAfterTurnOf(1)).toEqual(RunAttempt.of(RUN, 1));
+    expect(() => resumed.journalAfterTurnOf(2)).toThrow(
+      InvalidRunTransitionError,
+    );
+    expect(resumed.journalAfterTurnOf(3)).toBeNull();
+    expect(resumed.journalAfterTurnOf(0)).toBeNull();
+    expect(resumed.journalAfterTurnOf(1.5)).toBeNull();
+  });
+});

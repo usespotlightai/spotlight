@@ -37,6 +37,8 @@ const journal = (steps: JournalStep[]): RunJournal => ({
   },
   spent: null,
   egressEnforcement: null,
+  activity: null,
+  background: [],
 });
 
 describe('fileChangesOf', () => {

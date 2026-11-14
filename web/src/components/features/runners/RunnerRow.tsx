@@ -61,6 +61,8 @@ export function RunnerRow({ slug, runner, harnesses }: RunnerRowProps) {
         {runnerStatus(runner)}
       </StatusDot>
 
+      <span />
+
       <span className="flex min-w-0">
         {runner.image && (
           <ImagePill image={runner.image} title={runner.image} />

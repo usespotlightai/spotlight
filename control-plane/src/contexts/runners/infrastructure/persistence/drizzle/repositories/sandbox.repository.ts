@@ -55,6 +55,7 @@ const leaseOf = (record: SandboxLeaseRecord): SandboxLease =>
   SandboxLease.of(
     LeaseHolder.of(record.kind, record.holder),
     new Date(record.renewedAt),
+    record.attempt ?? null,
   );
 
 const sourceOf = (row: Row): CredentialSource | null => {
@@ -124,6 +125,7 @@ const columnsOf = (saved: Sandbox) => ({
       kind: each.holder.kind,
       holder: each.holder.id,
       renewedAt: each.renewedAt.toISOString(),
+      ...(each.attempt === null ? {} : { attempt: each.attempt }),
     }),
   ),
   idleSince: saved.idleSince,
@@ -341,6 +343,20 @@ export class DrizzleSandboxRepository implements SandboxRepository {
           eq(sandbox.state, 'open'),
           isNotNull(sandbox.idleSince),
           lte(sandbox.idleSince, cutoff),
+        ),
+      );
+
+    return rows.map(toSandbox);
+  }
+
+  async withArchiveLeaseRenewedBefore(cutoff: Date): Promise<readonly Sandbox[]> {
+    const rows = await this.context.db
+      .select()
+      .from(sandbox)
+      .where(
+        and(
+          ne(sandbox.state, 'gone'),
+          sql`exists (select 1 from jsonb_array_elements(${sandbox.leases}) as lease where lease->>'kind' = 'archive' and (lease->>'renewedAt')::timestamptz <= ${cutoff.toISOString()}::timestamptz)`,
         ),
       );
 

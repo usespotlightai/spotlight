@@ -48,6 +48,7 @@ const STEP_KINDS: Record<JournalStep['kind'], StepKind> = {
   waited: 'waited',
   lost: 'lost',
   reminded: 'reminded',
+  turn: 'turn',
 };
 
 export const RunReadingMapper = {

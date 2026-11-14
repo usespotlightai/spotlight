@@ -1,0 +1,9 @@
+{"type":"message","data":{"id":"ce7fc776-c129-43da-8f57-17115e6d975a","role":"user","text":"Reply with the single word: hello","replace":true}}
+{"type":"turn.started","data":{"turn":1,"origin":"prompt"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"context.changed","data":{"used":17538,"size":1000000}}
+{"type":"message","data":{"id":"msg_011Ch2vWZh4wyRAJ9KXs66Am","role":"agent","text":"hello"}}
+{"type":"context.changed","data":{"used":17538,"size":1000000}}
+{"type":"context.changed","data":{"used":17538,"size":1000000,"cost":{"amount":0.00147382,"currency":"USD"}}}
+{"type":"turn.ended","data":{"turn":1,"stop":"ended","reason":"end_turn","usage":{"input":2,"output":4,"cacheRead":11372,"cacheWrite":6160}}}
+{"type":"session.state","data":{"state":"idle"}}

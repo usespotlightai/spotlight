@@ -6418,6 +6418,160 @@
         ]
       }
     },
+    "/sandboxes/{sandboxId}/archive-leases/{runId}": {
+      "put": {
+        "description": "The bearer is the sandbox token. Take the lease for the attempt in its turn, while the run holds the sandbox, before the run reports the turn. Renew it with the same call and attempt; it expires 2 minutes after the last call.",
+        "operationId": "holdSandboxArchiveLease",
+        "parameters": [
+          {
+            "name": "sandboxId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HoldSandboxArchiveLeaseRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox, a run the sandbox does not hold, or no lease of this attempt to renew"
+          },
+          "409": {
+            "description": "The run does not archive a working copy for a later run"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Hold the sandbox for the archive of a run’s workspace: it takes no other run until the lease is released or expires",
+        "tags": [
+          "runners"
+        ]
+      },
+      "delete": {
+        "operationId": "releaseSandboxArchiveLease",
+        "parameters": [
+          {
+            "name": "sandboxId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attempt",
+            "required": true,
+            "in": "query",
+            "description": "The attempt the lease was held for",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Release the sandbox after the archive is sealed or failed, so it takes its next run",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/sandboxes/{sandboxId}/archive-leases/{runId}/events": {
+      "post": {
+        "operationId": "appendSandboxArchiveEvents",
+        "parameters": [
+          {
+            "name": "sandboxId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppendRunEventsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox, or no archive lease for this run"
+          },
+          "409": {
+            "description": "The attempt has not reported its turn"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add the archive step to the journal of the attempt the sandbox holds an archive lease for",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/pools/{id}/queue": {
       "get": {
         "operationId": "poolQueue",
@@ -6948,7 +7102,6 @@
     },
     "/workspaces/{slug}/runner-activity": {
       "get": {
-        "description": "A runner with no lease on a run is idle, and is not listed.",
         "operationId": "listRunnerActivity",
         "parameters": [
           {
@@ -6967,10 +7120,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/RunnerActivityResponseDto"
-                  }
+                  "$ref": "#/components/schemas/RunnerActivityResponseDto"
                 }
               }
             }
@@ -6982,7 +7132,7 @@
             "description": "No such workspace for this caller"
           }
         },
-        "summary": "Which run each of the workspace’s runners is working on",
+        "summary": "The run each busy runner works on, and the last run of each idle sandbox",
         "tags": [
           "runners"
         ]
@@ -24699,7 +24849,7 @@
           },
           "type": {
             "type": "string",
-            "example": "output"
+            "example": "tool.changed"
           },
           "at": {
             "type": "string",
@@ -24710,7 +24860,7 @@
           },
           "data": {
             "type": "string",
-            "description": "One session update as the agent reported it, JSON, base64"
+            "description": "The event's data as JSON, base64"
           }
         },
         "required": [
@@ -24997,6 +25147,19 @@
           "id",
           "url",
           "headers"
+        ]
+      },
+      "HoldSandboxArchiveLeaseRequestDto": {
+        "type": "object",
+        "properties": {
+          "attempt": {
+            "type": "number",
+            "example": 1,
+            "description": "The attempt of the run whose turn the archive follows, as the claim named it"
+          }
+        },
+        "required": [
+          "attempt"
         ]
       },
       "PoolQueueResponseDto": {
@@ -25789,7 +25952,7 @@
           "title"
         ]
       },
-      "RunnerActivityResponseDto": {
+      "BusyRunnerResponseDto": {
         "type": "object",
         "properties": {
           "runnerId": {
@@ -25808,6 +25971,51 @@
         "required": [
           "runnerId",
           "currentRun"
+        ]
+      },
+      "WorkingCopyResponseDto": {
+        "type": "object",
+        "properties": {
+          "workingCopyKey": {
+            "type": "string",
+            "example": "work/task-3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63",
+            "description": "The working copy that an idle sandbox keeps"
+          },
+          "lastRun": {
+            "description": "The last run that used the working copy",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LeasedRunResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "workingCopyKey",
+          "lastRun"
+        ]
+      },
+      "RunnerActivityResponseDto": {
+        "type": "object",
+        "properties": {
+          "runners": {
+            "description": "Each runner with a lease on a run. A runner with no lease is idle, and is not listed.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusyRunnerResponseDto"
+            }
+          },
+          "workingCopies": {
+            "description": "The last run of each working copy that an idle sandbox keeps",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkingCopyResponseDto"
+            }
+          }
+        },
+        "required": [
+          "runners",
+          "workingCopies"
         ]
       },
       "HarnessModelResponseDto": {
@@ -26142,6 +26350,53 @@
           "key"
         ]
       },
+      "IdleSandboxResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "ba339f88-9dcd-436b-bc96-c0d8c8136ed9"
+          },
+          "workingCopyKey": {
+            "type": "string",
+            "nullable": true,
+            "example": "work/task-3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63",
+            "description": "The working copy it keeps for the runs of one task or chat; null for a warm sandbox"
+          },
+          "warmLineId": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "The line whose first run it waits for, when it is a warm sandbox"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "ready",
+              "draining"
+            ],
+            "example": "ready",
+            "description": "Ready once its host reports it; draining while its host stops it"
+          },
+          "idleSince": {
+            "type": "string",
+            "example": "2026-09-25T11:30:00.000Z"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-09-25T11:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "workingCopyKey",
+          "warmLineId",
+          "status",
+          "idleSince",
+          "startedAt"
+        ]
+      },
       "HostHarnessResponseDto": {
         "type": "object",
         "properties": {
@@ -26240,11 +26495,16 @@
             "example": 4,
             "description": "How many sandboxes it runs at once"
           },
-          "running": {
-            "description": "The one-run runners in its sandboxes now",
+          "slotsTaken": {
+            "type": "number",
+            "example": 3,
+            "description": "How many of its slots are taken now: one for each runner on it, and one for each idle sandbox that no runner enters"
+          },
+          "idleSandboxes": {
+            "description": "Its sandboxes that hold no run now: warm sandboxes, and sandboxes that wait for the next run of their task or chat",
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/IdleSandboxResponseDto"
             }
           },
           "images": {
@@ -26281,7 +26541,8 @@
           "unavailableReason",
           "containerRuntime",
           "capacity",
-          "running",
+          "slotsTaken",
+          "idleSandboxes",
           "images",
           "firstHeartbeatAt",
           "onlineSince",
@@ -26349,7 +26610,7 @@
             }
           },
           "runners": {
-            "description": "Every runner at work now, one per run, on a host or provisioned by a push pool",
+            "description": "Every runner alive now, on a host or provisioned by a push pool: at work on a run, or started and yet to claim one",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/LiveRunnerResponseDto"
@@ -26920,7 +27181,8 @@
               "subagent",
               "waited",
               "lost",
-              "reminded"
+              "reminded",
+              "turn"
             ]
           },
           "text": {
@@ -29221,6 +29483,34 @@
           "currency"
         ]
       },
+      "BackgroundTaskResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "toolu_01MDARfjBj5VLXgUXq89feTu"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "command",
+              "monitor",
+              "subagent",
+              "other"
+            ],
+            "example": "command"
+          },
+          "description": {
+            "type": "string",
+            "example": "npx vitest run"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "description"
+        ]
+      },
       "RunJournalResponseDto": {
         "type": "object",
         "properties": {
@@ -29262,6 +29552,24 @@
                 "$ref": "#/components/schemas/RunSpentResponseDto"
               }
             ]
+          },
+          "activity": {
+            "type": "string",
+            "enum": [
+              "working",
+              "needs-action",
+              "waiting-for-background",
+              null
+            ],
+            "nullable": true,
+            "description": "What the agent does now: works, needs a person to allow an action, or waits for its background work. Null once the agent stopped, or for a harness that reports no session"
+          },
+          "background": {
+            "description": "The background work the harness last listed. Empty for a harness that lists none",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BackgroundTaskResponseDto"
+            }
           }
         },
         "required": [
@@ -29271,7 +29579,9 @@
           "spans",
           "ms",
           "marks",
-          "spent"
+          "spent",
+          "activity",
+          "background"
         ]
       },
       "TaskReviewResponseDto": {

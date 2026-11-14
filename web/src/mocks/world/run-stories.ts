@@ -791,6 +791,8 @@ const journalOf = (run: TaskRunResponseDto): RunJournalResponseDto => {
   return {
     runId: run.id,
     attempt: run.attempt,
+    activity: null,
+    background: [],
     steps,
     spans: [],
     ms: finished(run)

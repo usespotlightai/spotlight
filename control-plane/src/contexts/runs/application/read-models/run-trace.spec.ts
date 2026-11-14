@@ -57,6 +57,8 @@ const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
   },
   spent: null,
   egressEnforcement: null,
+  activity: null,
+  background: [],
   ...part,
 });
 
@@ -209,6 +211,29 @@ describe('traceOf', () => {
     expect(
       trace.roots[0]?.children[1]?.children.map((node) => node.category),
     ).toEqual(['agent', 'overhead']);
+  });
+
+  it('names a turn the agent started by itself', () => {
+    const trace = traceOf([
+      tracedRun({
+        journal: journal({
+          steps: [
+            step({
+              kind: 'turn',
+              text: '',
+              status: null,
+              tool: null,
+              startedAt: at(20_000),
+              ms: 0,
+            }),
+          ],
+        }),
+      }),
+    ]);
+
+    expect(names(trace.roots[0]?.children[1]?.children ?? [])).toEqual([
+      'Continued on its own',
+    ]);
   });
 
   describe('where the harness reports on itself', () => {

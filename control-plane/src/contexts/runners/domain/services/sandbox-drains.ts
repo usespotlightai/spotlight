@@ -5,8 +5,9 @@ import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.v
 export const sandboxesToDrainOn = (
   host: RunnerHost,
   live: readonly Sandbox[],
+  now: Date,
 ): readonly SandboxId[] => {
-  const kept = live.filter((sandbox) => sandbox.keptBy(host));
+  const kept = live.filter((sandbox) => sandbox.keptBy(host, now));
 
   return host.sandboxes.sandboxes.filter(
     (reported) => !kept.some((sandbox) => sandbox.id.equals(reported)),
