@@ -17,6 +17,7 @@ import {
   formatShortDuration,
   inboxItemPath,
   lastNoteAt,
+  liveSessionOf,
   noticeLinkPath,
   noticePath,
   noticePreviewOf,
@@ -420,6 +421,25 @@ describe('notices', () => {
     ];
 
     expect(new Set(entries.map(entryKey)).size).toBe(2);
+  });
+});
+
+describe('liveSessionOf', () => {
+  const journal = (endedAt: string | null) =>
+    ({
+      sessionStatus: 'idle',
+      background: [],
+      marks: { endedAt },
+    }) as unknown as RunJournal;
+
+  it('reads the session only from a journal that has not ended', () => {
+    const live = journal(null);
+
+    expect(liveSessionOf([journal('2026-11-14T10:00:00Z'), live])).toBe(live);
+    expect(
+      liveSessionOf([live, journal('2026-11-14T10:00:00Z')]),
+    ).toBeUndefined();
+    expect(liveSessionOf([])).toBeUndefined();
   });
 });
 

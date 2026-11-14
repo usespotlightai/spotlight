@@ -292,6 +292,13 @@ export const inboxChatPath = (slug: string, teamId: string, chatId: string) =>
 
 type LiveSession = Pick<RunJournal, 'sessionStatus' | 'background'>;
 
+export const liveSessionOf = (
+  journals: readonly RunJournal[],
+): LiveSession | undefined => {
+  const last = journals.at(-1);
+  return last?.marks.endedAt === null ? last : undefined;
+};
+
 const inProgressWordsOf = (station: string, session?: LiveSession): string => {
   if (session?.sessionStatus === 'needs-action') {
     return `${station} needs a permission…`;
