@@ -126,22 +126,23 @@ func run(version string) error {
 
 	live := liveSettings(cfg, version)
 	host := serve.New(serve.Options{
-		HostID:     id,
-		Name:       live.Name,
-		Version:    version,
-		Images:     live.Images,
-		Registry:   registry.From(cfg.Registry),
-		Updates:    binary,
-		AutoUpdate: live.AutoUpdate,
-		Capacity:   live.Capacity,
-		RunTimeout: live.RunTimeout,
-		ControlURL: cfg.URL,
-		SandboxURL: live.SandboxURL,
-		SandboxEnv: live.SandboxEnv,
-		Egress:     live.Egress,
-		Network:    live.Network,
-		ExtraHosts: live.ExtraHosts,
-		Tunnel:     editors,
+		HostID:        id,
+		Name:          live.Name,
+		Version:       version,
+		Images:        live.Images,
+		Registry:      registry.From(cfg.Registry),
+		Updates:       binary,
+		AutoUpdate:    live.AutoUpdate,
+		Capacity:      live.Capacity,
+		SandboxMemory: live.SandboxMemory,
+		RunTimeout:    live.RunTimeout,
+		ControlURL:    cfg.URL,
+		SandboxURL:    live.SandboxURL,
+		SandboxEnv:    live.SandboxEnv,
+		Egress:        live.Egress,
+		Network:       live.Network,
+		ExtraHosts:    live.ExtraHosts,
+		Tunnel:        editors,
 	}, claims, engine, mirrors, log.With("host", id))
 
 	if err := telemetry.ServeHealth(ctx, cfg.HealthAddr, host.Ready, log); err != nil {
@@ -247,12 +248,13 @@ func updateBinary(version string, args []string) error {
 
 func liveSettings(cfg config.Config, version string) serve.Settings {
 	return serve.Settings{
-		Name:       cfg.Name,
-		Images:     cfg.Images,
-		Capacity:   cfg.Capacity,
-		RunTimeout: cfg.RunTimeout,
-		SandboxURL: cfg.SandboxURL,
-		SandboxEnv: cfg.SandboxEnv,
+		Name:          cfg.Name,
+		Images:        cfg.Images,
+		Capacity:      cfg.Capacity,
+		SandboxMemory: cfg.SandboxMemory,
+		RunTimeout:    cfg.RunTimeout,
+		SandboxURL:    cfg.SandboxURL,
+		SandboxEnv:    cfg.SandboxEnv,
 		Egress: serve.Egress{
 			Image: cfg.Egress.Image, Allow: cfg.Egress.Allow, SecretAllow: cfg.Egress.SecretAllow,
 			Env: cfg.Egress.Env, CABundle: cfg.Egress.CABundle,

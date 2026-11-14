@@ -10,22 +10,23 @@ import (
 
 // Settings are the options a running host takes on a reload, without stopping its sandboxes.
 type Settings struct {
-	Name       string
-	Images     images.Allowed
-	Capacity   int
-	RunTimeout time.Duration
-	SandboxURL string
-	SandboxEnv []string
-	Egress     Egress
-	Network    string
-	ExtraHosts []string
-	AutoUpdate bool
+	Name          string
+	Images        images.Allowed
+	Capacity      int
+	SandboxMemory int64
+	RunTimeout    time.Duration
+	SandboxURL    string
+	SandboxEnv    []string
+	Egress        Egress
+	Network       string
+	ExtraHosts    []string
+	AutoUpdate    bool
 }
 
 func settingsOf(opts Options) Settings {
 	return Settings{
-		Name: opts.Name, Images: opts.Images, Capacity: opts.Capacity, RunTimeout: opts.RunTimeout,
-		SandboxURL: opts.SandboxURL, SandboxEnv: opts.SandboxEnv, Egress: opts.Egress,
+		Name: opts.Name, Images: opts.Images, Capacity: opts.Capacity, SandboxMemory: opts.SandboxMemory,
+		RunTimeout: opts.RunTimeout, SandboxURL: opts.SandboxURL, SandboxEnv: opts.SandboxEnv, Egress: opts.Egress,
 		Network: opts.Network, ExtraHosts: opts.ExtraHosts, AutoUpdate: opts.AutoUpdate,
 	}
 }
@@ -39,7 +40,7 @@ func (h *Host) Reload(settings Settings) {
 	h.live.Store(&settings)
 	h.slots.resize(settings.Capacity)
 	h.log.Info("the host reloaded its settings", "name", settings.Name, "capacity", h.slots.size(),
-		"default", settings.Images.Default)
+		"sandboxMemoryBytes", settings.SandboxMemory, "default", settings.Images.Default)
 
 	select {
 	case h.reloaded <- struct{}{}:

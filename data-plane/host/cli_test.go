@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -25,6 +26,7 @@ func settled(t *testing.T, body string) string {
 	dir := t.TempDir()
 	for _, name := range []string{
 		"SPOTLIGHT_URL", "SPOTLIGHT_POOL_TOKEN", "SPOTLIGHT_TRUST", "SPOTLIGHT_OIDC_TOKEN_FILE", "SPOTLIGHT_CAPACITY",
+		"SPOTLIGHT_SANDBOX_MEMORY",
 		"SPOTLIGHT_RUNNER_IMAGE", "SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_ENV", "SPOTLIGHT_EGRESS_ENV",
 	} {
 		t.Setenv(name, "")
@@ -85,7 +87,7 @@ func TestInitWithOneHalfOfATrustKeepsTheOther(t *testing.T) {
 	file, _ := config.Open(path)
 
 	f := initFlags{tokenFile: "/new-token", given: map[string]bool{"oidc-token-file": true}}
-	if err := settle(file, f, nil, "dev"); err != nil {
+	if err := settle(file, f, nil, "dev", 0); err != nil {
 		t.Fatal(err)
 	}
 	if got := file.Values(); got["SPOTLIGHT_TRUST"] != "trust_1" || got["SPOTLIGHT_OIDC_TOKEN_FILE"] != "/new-token" {
@@ -243,7 +245,7 @@ func TestInitTakesItsFlagsAndDefaultsWithoutATerminal(t *testing.T) {
 	file, _ := config.Open(path)
 
 	f := initFlags{url: "https://spotlight.test", token: "pool-token", given: map[string]bool{"url": true, "token": true}}
-	if err := settle(file, f, nil, "v1.2.0"); err != nil {
+	if err := settle(file, f, nil, "v1.2.0", 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -263,7 +265,8 @@ func TestInitAgainKeepsWhatIsSaved(t *testing.T) {
 	path := settled(t, "SPOTLIGHT_URL=https://self.test\nSPOTLIGHT_TRUST=trust_1\nSPOTLIGHT_OIDC_TOKEN_FILE=/token\nSPOTLIGHT_CAPACITY=3\nSPOTLIGHT_RUNNER_IMAGE=runner:2\n")
 	file, _ := config.Open(path)
 
-	if err := settle(file, initFlags{capacity: 6, given: map[string]bool{"capacity": true}}, nil, "v1.2.0"); err != nil {
+	f := initFlags{capacity: 6, given: map[string]bool{"capacity": true}}
+	if err := settle(file, f, nil, "v1.2.0", 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -274,9 +277,54 @@ func TestInitAgainKeepsWhatIsSaved(t *testing.T) {
 	}
 }
 
+func TestInitLimitsTheMemoryOfEachSandbox(t *testing.T) {
+	memoryFlag := map[string]bool{"sandbox-memory": true}
+	for _, each := range []struct {
+		name  string
+		saved string
+		f     initFlags
+		want  string
+	}{
+		{"by default", "", initFlags{capacity: 4, given: map[string]bool{"capacity": true}}, "5g"},
+		{"by its flag", "", initFlags{memory: "3g", given: memoryFlag}, "3g"},
+		{"as it was", "SPOTLIGHT_SANDBOX_MEMORY=7g\n", initFlags{given: map[string]bool{}}, "7g"},
+		{"not at all", "SPOTLIGHT_SANDBOX_MEMORY=7g\n", initFlags{memory: "none", given: memoryFlag}, "none"},
+		{"not at all, again", "SPOTLIGHT_SANDBOX_MEMORY=none\n", initFlags{given: map[string]bool{}}, "none"},
+	} {
+		file, _ := config.Open(settled(t, each.saved))
+		each.f.url, each.f.token = "https://spotlight.test", "pool-token"
+		each.f.given = maps.Clone(each.f.given)
+		each.f.given["url"], each.f.given["token"] = true, true
+		if err := settle(file, each.f, nil, "dev", 22<<30); err != nil {
+			t.Fatal(err)
+		}
+		if got := file.Values()["SPOTLIGHT_SANDBOX_MEMORY"]; got != each.want {
+			t.Errorf("%s: saved %q, want %q", each.name, got, each.want)
+		}
+	}
+}
+
+func TestSetsTheMemoryOfEachSandboxAndRefusesASizeItCannotRead(t *testing.T) {
+	path := settled(t, ready)
+
+	for _, value := range []string{"6g", "none"} {
+		if err := changeSettings(nil, new(bytes.Buffer), "dev", "set", []string{"sandbox-memory=" + value}); err != nil {
+			t.Fatal(err)
+		}
+		if got := saved(t, path); !strings.Contains(got, "SPOTLIGHT_SANDBOX_MEMORY="+value+"\n") {
+			t.Errorf("saved:\n%s", got)
+		}
+	}
+	err := changeSettings(nil, new(bytes.Buffer), "dev", "set", []string{"sandbox-memory=lots"})
+	if err == nil || !strings.Contains(err.Error(), `sandbox-memory: "lots" is not a size`) {
+		t.Errorf("error %v", err)
+	}
+}
+
 func TestInitNeedsATokenWithoutATerminal(t *testing.T) {
 	file, _ := config.Open(settled(t, ""))
-	if err := settle(file, initFlags{given: map[string]bool{}}, nil, "dev"); err == nil || !strings.Contains(err.Error(), "--token") {
+	err := settle(file, initFlags{given: map[string]bool{}}, nil, "dev", 0)
+	if err == nil || !strings.Contains(err.Error(), "--token") {
 		t.Errorf("error %v", err)
 	}
 }

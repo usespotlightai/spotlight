@@ -35,6 +35,7 @@ var Settings = []Setting{
 	{Key: "oidc-token-file", Env: envTokenFile, Group: GroupConnection},
 	{Key: "name", Env: envName, Group: GroupConnection, Live: true},
 	{Key: "capacity", Env: envCapacity, Group: GroupSandboxes, Live: true},
+	{Key: "sandbox-memory", Env: envMemory, Group: GroupSandboxes, Live: true},
 	{Key: "image", Env: envImage, Group: GroupSandboxes, Live: true},
 	{Key: "registry-config", Env: envRegistry, Group: GroupSandboxes},
 	{Key: "run-timeout", Env: envRunTimeout, Group: GroupSandboxes, Live: true},

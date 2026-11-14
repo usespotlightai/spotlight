@@ -1,6 +1,9 @@
 package host
 
-import "usespotlight.ai/data-plane/help"
+import (
+	"usespotlight.ai/data-plane/help"
+	"usespotlight.ai/data-plane/host/internal/config"
+)
 
 const docs = "spotlight-command"
 
@@ -47,6 +50,9 @@ var initHelp = help.Command{
 		{Name: "trust", Value: "<id>", Usage: "A runner trust. Use it in place of --token."},
 		{Name: "oidc-token-file", Value: "<path>", Usage: "The file with the OIDC token that the trust exchanges."},
 		{Name: "capacity", Value: "<n>", Usage: "How many sandboxes can run at the same time. Default: 5."},
+		{Name: "sandbox-memory", Value: "<size>", Usage: "The memory limit of each sandbox, such as 6g or 512m. " +
+			config.NoMemoryLimit + " sets no limit. Default: the runtime's memory less " +
+			config.FormatSize(config.HostHeadroom) + ", divided by the capacity."},
 		{Name: "image", Value: "<image>", Usage: "The runner image for sandboxes."},
 		{Name: "name", Value: "<name>", Usage: "The host's name on the Runners page."},
 		{Name: "no-service", Usage: "Save the settings, but do not install the service."},
@@ -103,6 +109,7 @@ var configSetHelp = help.Command{
 	},
 	Examples: []help.Example{
 		{Command: "spotlight host config set capacity=8"},
+		{Command: "spotlight host config set sandbox-memory=6g"},
 		{Command: "spotlight host config set image=ghcr.io/acme/runner:2 --now"},
 		{Command: "spotlight host config set token --stdin < token.txt"},
 	},
