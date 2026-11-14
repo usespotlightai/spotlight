@@ -1689,12 +1689,34 @@ export type LeasedRunResponseDto = {
   title: string | null;
 };
 
-export type RunnerActivityResponseDto = {
+export type BusyRunnerResponseDto = {
   runnerId: string;
   /**
    * The run the runner is working on
    */
   currentRun: LeasedRunResponseDto;
+};
+
+export type WorkingCopyResponseDto = {
+  /**
+   * The working copy that an idle sandbox keeps
+   */
+  workingCopyKey: string;
+  /**
+   * The last run that used the working copy
+   */
+  lastRun: LeasedRunResponseDto;
+};
+
+export type RunnerActivityResponseDto = {
+  /**
+   * Each runner with a lease on a run. A runner with no lease is idle, and is not listed.
+   */
+  runners: Array<BusyRunnerResponseDto>;
+  /**
+   * The last run of each working copy that an idle sandbox keeps
+   */
+  workingCopies: Array<WorkingCopyResponseDto>;
 };
 
 export type HarnessModelResponseDto = {
@@ -1855,6 +1877,24 @@ export type CredentialSourceResponseDto = {
   key: string | null;
 };
 
+export type IdleSandboxResponseDto = {
+  id: string;
+  /**
+   * The working copy it keeps for the runs of one task or chat; null for a warm sandbox
+   */
+  workingCopyKey: string | null;
+  /**
+   * The line whose first run it waits for, when it is a warm sandbox
+   */
+  warmLineId: string | null;
+  /**
+   * Ready once its host reports it; draining while its host stops it
+   */
+  status: 'starting' | 'ready' | 'draining';
+  idleSince: string;
+  startedAt: string;
+};
+
 export type HostHarnessResponseDto = {
   id: string;
   version: string | null;
@@ -1899,9 +1939,13 @@ export type HostResponseDto = {
    */
   capacity: number;
   /**
-   * The one-run runners in its sandboxes now
+   * How many of its slots are taken now: one for each runner on it, and one for each idle sandbox that no runner enters
    */
-  running: Array<string>;
+  slotsTaken: number;
+  /**
+   * Its sandboxes that hold no run now: warm sandboxes, and sandboxes that wait for the next run of their task or chat
+   */
+  idleSandboxes: Array<IdleSandboxResponseDto>;
   /**
    * The runner images it supports or cannot use, and what each contains
    */
@@ -1937,7 +1981,7 @@ export type LiveRunnerResponseDto = {
 export type RunnerFleetResponseDto = {
   hosts: Array<HostResponseDto>;
   /**
-   * Every runner at work now, one per run, on a host or provisioned by a push pool
+   * Every runner alive now, on a host or provisioned by a push pool: at work on a run, or started and yet to claim one
    */
   runners: Array<LiveRunnerResponseDto>;
 };
@@ -12429,7 +12473,7 @@ export type ListRunnerActivityErrors = {
 };
 
 export type ListRunnerActivityResponses = {
-  200: Array<RunnerActivityResponseDto>;
+  200: RunnerActivityResponseDto;
 };
 
 export type ListRunnerActivityResponse = ListRunnerActivityResponses[keyof ListRunnerActivityResponses];

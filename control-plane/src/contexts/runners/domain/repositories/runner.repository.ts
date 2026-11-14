@@ -3,6 +3,7 @@ import type { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface RunnerRepository {
   add(runner: Runner): Promise<void>;
@@ -18,6 +19,11 @@ export interface RunnerRepository {
   findByProxyCredentialHash(hash: TokenHash): Promise<Runner | null>;
 
   aliveIn(poolId: PoolId, now: Date): Promise<readonly Runner[]>;
+
+  aliveInWorkspace(
+    workspaceId: WorkspaceId,
+    now: Date,
+  ): Promise<readonly Runner[]>;
 
   findByWork(work: RunnerWork): Promise<readonly Runner[]>;
 }

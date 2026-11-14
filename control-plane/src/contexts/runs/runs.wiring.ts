@@ -25,6 +25,7 @@ import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import { ChangeNotices } from '@platform/live/change-notices';
 import { Leadership } from '@platform/redis/leadership';
 import { RedisConnection } from '@platform/redis/redis-connection';
+import { IDLE_WORKING_COPIES } from '@runners/application/ports/idle-working-copies.port';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
@@ -950,6 +951,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ListRunnerActivityQuery, ListRunnerActivityHandler, [
     WORKSPACE_ACCESS,
     RUNNER_ACTIVITY_READER,
+    IDLE_WORKING_COPIES,
     RunRequesterLabels,
     RunViewing,
   ]),

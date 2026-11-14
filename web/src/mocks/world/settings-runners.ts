@@ -1,18 +1,19 @@
 import type {
   HostImageResponseDto,
   HostResponseDto,
+  IdleSandboxResponseDto,
   LeasedRunResponseDto,
   LiveRunnerResponseDto,
   RunnerActivityResponseDto,
   RunnerPoolResourceResponseDto,
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
-import { GROWTH_ID, PLATFORM_ID } from '@/mocks/world';
+import { DELIVERY_ID, GROWTH_ID, PLATFORM_ID } from '@/mocks/world';
 
 export type Fleet = {
   hosts: HostResponseDto[];
   runners: LiveRunnerResponseDto[];
-  activity: RunnerActivityResponseDto[];
+  activity: RunnerActivityResponseDto;
 };
 
 const WORKSPACE_ID = 'workspace_acme';
@@ -54,6 +55,23 @@ const BUILD_FARM = { kind: 'pool', key: 'build-farm' } as const;
 
 const EPHEMERAL = { kind: 'pool', key: 'ephemeral' } as const;
 
+const KEPT_FOR_RETRIES = 'work/task-task_retries';
+
+const idleSandbox = (
+  over: Partial<IdleSandboxResponseDto> & { id: string; minutes: number },
+): IdleSandboxResponseDto => {
+  const { minutes, ...rest } = over;
+
+  return {
+    workingCopyKey: null,
+    warmLineId: null,
+    status: 'ready',
+    idleSince: minutesAgo(minutes),
+    startedAt: minutesAgo(minutes),
+    ...rest,
+  };
+};
+
 const HOSTS: HostResponseDto[] = [
   {
     id: BUILD_BOX,
@@ -63,7 +81,20 @@ const HOSTS: HostResponseDto[] = [
     unavailableReason: null,
     containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
     capacity: 4,
-    running: ['runner_build_1', 'runner_build_2'],
+    slotsTaken: 4,
+    idleSandboxes: [
+      idleSandbox({
+        id: 'sandbox_retries',
+        workingCopyKey: KEPT_FOR_RETRIES,
+        minutes: 7,
+        startedAt: minutesAgo(48),
+      }),
+      idleSandbox({
+        id: 'sandbox_warm_delivery',
+        warmLineId: DELIVERY_ID,
+        minutes: 95,
+      }),
+    ],
     images: [
       image(
         RUNNER_IMAGE,
@@ -88,7 +119,15 @@ const HOSTS: HostResponseDto[] = [
     unavailableReason: null,
     containerRuntime: 'OrbStack 1.9.2 (linux/arm64)',
     capacity: 2,
-    running: [],
+    slotsTaken: 1,
+    idleSandboxes: [
+      idleSandbox({
+        id: 'sandbox_warm_starting',
+        warmLineId: DELIVERY_ID,
+        status: 'starting',
+        minutes: 0,
+      }),
+    ],
     images: [
       image(
         RUNNER_IMAGE,
@@ -120,7 +159,8 @@ const HOSTS: HostResponseDto[] = [
       'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight update',
     containerRuntime: 'Podman Engine 5.2.1 (linux/amd64)',
     capacity: 8,
-    running: [],
+    slotsTaken: 0,
+    idleSandboxes: [],
     images: [
       image(
         RUNNER_IMAGE.replace('v0.3.0', 'v0.2.1'),
@@ -141,7 +181,8 @@ const HOSTS: HostResponseDto[] = [
     unavailableReason: null,
     containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
     capacity: 2,
-    running: [],
+    slotsTaken: 0,
+    idleSandboxes: [],
     images: [
       image(RUNNER_IMAGE.replace('v0.3.0', 'v0.7.0'), [], {
         isDefault: true,
@@ -161,7 +202,8 @@ const HOSTS: HostResponseDto[] = [
     unavailableReason: null,
     containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
     capacity: 2,
-    running: [],
+    slotsTaken: 0,
+    idleSandboxes: [],
     images: [
       image('ghcr.io/acme/claude-code:latest', [], {
         isDefault: true,
@@ -224,7 +266,7 @@ const leasedRun = (
   title,
 });
 
-const ACTIVITY: RunnerActivityResponseDto[] = [
+const BUSY_RUNNERS: RunnerActivityResponseDto['runners'] = [
   {
     runnerId: 'runner_build_1',
     currentRun: leasedRun(
@@ -267,13 +309,34 @@ const ACTIVITY: RunnerActivityResponseDto[] = [
   },
 ];
 
+const ACTIVITY: RunnerActivityResponseDto = {
+  runners: BUSY_RUNNERS,
+  workingCopies: [
+    {
+      workingCopyKey: KEPT_FOR_RETRIES,
+      lastRun: {
+        ...leasedRun(
+          'run_retries_2',
+          PLATFORM_ID,
+          'Drain the stuck retry queues',
+        ),
+        state: 'completed',
+      },
+    },
+  ],
+};
+
 export const FLEET: Fleet = {
   hosts: HOSTS,
   runners: RUNNERS,
   activity: ACTIVITY,
 };
 
-export const NO_FLEET: Fleet = { hosts: [], runners: [], activity: [] };
+export const NO_FLEET: Fleet = {
+  hosts: [],
+  runners: [],
+  activity: { runners: [], workingCopies: [] },
+};
 
 const pool = (
   key: string,

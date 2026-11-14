@@ -1,5 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { LeasedRunDto } from '@runs/application/dto/runner-activity.dto';
+import type {
+  LeasedRunDto,
+  RunnerActivityDto,
+} from '@runs/application/dto/runner-activity.dto';
 
 export class LeasedRunResponseDto {
   @ApiProperty({ example: '3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63' })
@@ -46,7 +49,7 @@ export class LeasedRunResponseDto {
   }
 }
 
-export class RunnerActivityResponseDto {
+export class BusyRunnerResponseDto {
   @ApiProperty({ example: '8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49' })
   readonly runnerId: string;
 
@@ -59,5 +62,56 @@ export class RunnerActivityResponseDto {
   constructor(runnerId: string, currentRun: LeasedRunResponseDto) {
     this.runnerId = runnerId;
     this.currentRun = currentRun;
+  }
+}
+
+export class WorkingCopyResponseDto {
+  @ApiProperty({
+    example: 'work/task-3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63',
+    description: 'The working copy that an idle sandbox keeps',
+  })
+  readonly workingCopyKey: string;
+
+  @ApiProperty({
+    type: LeasedRunResponseDto,
+    description: 'The last run that used the working copy',
+  })
+  readonly lastRun: LeasedRunResponseDto;
+
+  constructor(workingCopyKey: string, lastRun: LeasedRunResponseDto) {
+    this.workingCopyKey = workingCopyKey;
+    this.lastRun = lastRun;
+  }
+}
+
+export class RunnerActivityResponseDto {
+  @ApiProperty({
+    type: [BusyRunnerResponseDto],
+    description:
+      'Each runner with a lease on a run. A runner with no lease is idle, and is not listed.',
+  })
+  readonly runners: readonly BusyRunnerResponseDto[];
+
+  @ApiProperty({
+    type: [WorkingCopyResponseDto],
+    description: 'The last run of each working copy that an idle sandbox keeps',
+  })
+  readonly workingCopies: readonly WorkingCopyResponseDto[];
+
+  constructor(activity: RunnerActivityDto) {
+    this.runners = activity.runners.map(
+      (each) =>
+        new BusyRunnerResponseDto(
+          each.runnerId,
+          new LeasedRunResponseDto(each.currentRun),
+        ),
+    );
+    this.workingCopies = activity.workingCopies.map(
+      (each) =>
+        new WorkingCopyResponseDto(
+          each.workingCopyKey,
+          new LeasedRunResponseDto(each.lastRun),
+        ),
+    );
   }
 }

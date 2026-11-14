@@ -81,6 +81,52 @@ export class HostImageResponseDto {
   }
 }
 
+export class IdleSandboxResponseDto {
+  @ApiProperty({ example: 'ba339f88-9dcd-436b-bc96-c0d8c8136ed9' })
+  readonly id: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'work/task-3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63',
+    description:
+      'The working copy it keeps for the runs of one task or chat; null for a warm sandbox',
+  })
+  readonly workingCopyKey: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: null,
+    description:
+      'The line whose first run it waits for, when it is a warm sandbox',
+  })
+  readonly warmLineId: string | null;
+
+  @ApiProperty({
+    enum: ['starting', 'ready', 'draining'],
+    example: 'ready',
+    description:
+      'Ready once its host reports it; draining while its host stops it',
+  })
+  readonly status: 'starting' | 'ready' | 'draining';
+
+  @ApiProperty({ example: '2026-09-25T11:30:00.000Z' })
+  readonly idleSince: string;
+
+  @ApiProperty({ example: '2026-09-25T11:00:00.000Z' })
+  readonly startedAt: string;
+
+  constructor(fields: IdleSandboxResponseDto) {
+    this.id = fields.id;
+    this.workingCopyKey = fields.workingCopyKey;
+    this.warmLineId = fields.warmLineId;
+    this.status = fields.status;
+    this.idleSince = fields.idleSince;
+    this.startedAt = fields.startedAt;
+  }
+}
+
 export class HostResponseDto {
   @ApiProperty({ example: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' })
   readonly id: string;
@@ -114,11 +160,18 @@ export class HostResponseDto {
   readonly capacity: number;
 
   @ApiProperty({
-    type: String,
-    isArray: true,
-    description: 'The one-run runners in its sandboxes now',
+    example: 3,
+    description:
+      'How many of its slots are taken now: one for each runner on it, and one for each idle sandbox that no runner enters',
   })
-  readonly running: readonly string[];
+  readonly slotsTaken: number;
+
+  @ApiProperty({
+    type: [IdleSandboxResponseDto],
+    description:
+      'Its sandboxes that hold no run now: warm sandboxes, and sandboxes that wait for the next run of their task or chat',
+  })
+  readonly idleSandboxes: readonly IdleSandboxResponseDto[];
 
   @ApiProperty({
     type: [HostImageResponseDto],
@@ -154,7 +207,10 @@ export class HostResponseDto {
     this.unavailableReason = fields.unavailableReason;
     this.containerRuntime = fields.containerRuntime;
     this.capacity = fields.capacity;
-    this.running = fields.running;
+    this.slotsTaken = fields.slotsTaken;
+    this.idleSandboxes = fields.idleSandboxes.map(
+      (each) => new IdleSandboxResponseDto(each),
+    );
     this.images = fields.images.map((each) => new HostImageResponseDto(each));
     this.firstHeartbeatAt = fields.firstHeartbeatAt;
     this.onlineSince = fields.onlineSince;
@@ -218,7 +274,7 @@ export class RunnerFleetResponseDto {
   @ApiProperty({
     type: [LiveRunnerResponseDto],
     description:
-      'Every runner at work now, one per run, on a host or provisioned by a push pool',
+      'Every runner alive now, on a host or provisioned by a push pool: at work on a run, or started and yet to claim one',
   })
   readonly runners: readonly LiveRunnerResponseDto[];
 
