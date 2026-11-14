@@ -12,15 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1794605412176,
-      "tag": "20261113213012_initial_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1794657204471,
-      "tag": "20261114115324_chat_reopened_at",
+      "when": 1794660518498,
+      "tag": "20261114124838_initial_schema",
       "breakpoints": true
     }
   ]
