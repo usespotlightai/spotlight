@@ -875,7 +875,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('refuses an answer from a member once another person is the assignee', () => {
-      const taken = unowned().take(ASKED, ANA, MEMBERS);
+      const taken = unowned().assign(ANA, MEMBERS);
 
       expect(() => taken.answerAs(BEN, MEMBERS, ASKED, said(BEN))).toThrow(
         TaskTakenError,
@@ -894,45 +894,13 @@ describe('Task, what it is doing', () => {
     it('refuses an answer on the run from a member once another person is the assignee', () => {
       expect(() =>
         unowned()
-          .take(ASKED, ANA, MEMBERS)
+          .assign(ANA, MEMBERS)
           .receiveMessage(RUN, said(BEN), HERE, MEMBERS),
       ).toThrow(TaskTakenError);
     });
 
     it('stays without an assignee when the station answers', () => {
       expect(unowned().answer(ASKED, newNote).assignee).toBeNull();
-    });
-
-    it('goes to the person who takes it, and records the assignment', () => {
-      const task = unowned();
-      task.pullEvents();
-      const taken = task.take(ASKED, ANA, MEMBERS);
-
-      expect(taken.assignee).toEqual(ANA);
-      expect(taken.pullEvents().map((each) => each.kind)).toEqual([
-        'task.assigned',
-      ]);
-      expect(taken.take(ASKED, ANA, MEMBERS)).toBe(taken);
-    });
-
-    it('rejects a take once another person has it', () => {
-      expect(() =>
-        unowned().take(ASKED, ANA, MEMBERS).take(ASKED, BEN, MEMBERS),
-      ).toThrow(TaskTakenError);
-    });
-
-    it('rejects a take by a person outside the team', () => {
-      expect(() => unowned().take(ASKED, UserId.of('user_9'), MEMBERS)).toThrow(
-        NotOnTheTeamAskedError,
-      );
-    });
-
-    it('rejects a take once nothing waits on anyone', () => {
-      const resolved = unowned().resolveAt(ASKED, said(ANA));
-
-      expect(() => resolved.take(ASKED, ANA, MEMBERS)).toThrow(
-        InvalidTaskTransitionError,
-      );
     });
   });
 

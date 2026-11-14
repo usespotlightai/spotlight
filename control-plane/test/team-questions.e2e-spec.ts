@@ -130,28 +130,7 @@ describe('a question on a task without an assignee', () => {
     expect(await entryOf(cy, taskId)).toBeUndefined();
   });
 
-  it('goes to the person who takes it, and leaves the other inboxes', async () => {
-    const taskId = await asked();
-    const item = await entryOf(ben, taskId);
-
-    await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/take`)
-      .set(TEST_USER_HEADER, ben.value)
-      .expect(204);
-
-    expect(await assigneeOf(taskId)).toBe(ben.value);
-    expect(await entryOf(ben, taskId)).toMatchObject({
-      standing: 'assignee',
-    });
-    expect(await entryOf(team.owner, taskId)).toBeUndefined();
-
-    await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/take`)
-      .set(TEST_USER_HEADER, team.owner.value)
-      .expect(404);
-  });
-
-  it('goes to the first person who answers it', async () => {
+  it('goes to the first person who answers it, and leaves the other inboxes', async () => {
     const taskId = await asked();
     const item = await entryOf(team.owner, taskId);
 
@@ -162,7 +141,16 @@ describe('a question on a task without an assignee', () => {
       .expect(204);
 
     expect(await assigneeOf(taskId)).toBe(team.owner.value);
+    expect(await entryOf(team.owner, taskId)).toMatchObject({
+      standing: 'assignee',
+    });
     expect(await entryOf(ben, taskId)).toBeUndefined();
+
+    await served(app)
+      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
+      .set(TEST_USER_HEADER, ben.value)
+      .send({ body: 'From eu-west-2.' })
+      .expect(404);
   });
 
   it('goes to the first person who resolves it', async () => {
@@ -175,40 +163,6 @@ describe('a question on a task without an assignee', () => {
       .expect(204);
 
     expect(await assigneeOf(taskId)).toBe(ben.value);
-  });
-
-  it('refuses a take from a member who follows it once another member took it', async () => {
-    const taskId = await asked((task) =>
-      task.addMessage(note(Voice.person(ben))),
-    );
-    const item = await entryOf(ben, taskId);
-
-    await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/take`)
-      .set(TEST_USER_HEADER, team.owner.value)
-      .expect(204);
-
-    await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/take`)
-      .set(TEST_USER_HEADER, ben.value)
-      .expect(409);
-
-    expect(await assigneeOf(taskId)).toBe(team.owner.value);
-  });
-
-  it('refuses a take once nothing waits on anyone', async () => {
-    const taskId = await asked();
-    const item = await entryOf(ben, taskId);
-
-    await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/resolve`)
-      .set(TEST_USER_HEADER, ben.value)
-      .expect(204);
-
-    await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/take`)
-      .set(TEST_USER_HEADER, ben.value)
-      .expect(409);
   });
 
   it('stays out of the inbox of an admin who is not on the team, who cannot answer it', async () => {
@@ -226,14 +180,17 @@ describe('a question on a task without an assignee', () => {
     expect(await assigneeOf(taskId)).toBeNull();
   });
 
-  it('refuses a take by a person outside the team', async () => {
+  it('refuses an answer from a person outside the team', async () => {
     const taskId = await asked();
     const item = await entryOf(ben, taskId);
 
     await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/take`)
+      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
       .set(TEST_USER_HEADER, cy.value)
+      .send({ body: 'From eu-west-1.' })
       .expect(404);
+
+    expect(await assigneeOf(taskId)).toBeNull();
   });
 });
 

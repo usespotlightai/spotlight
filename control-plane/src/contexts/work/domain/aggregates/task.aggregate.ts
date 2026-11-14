@@ -665,16 +665,6 @@ export class Task extends EventRecorder {
     return this.assignedTo(null);
   }
 
-  take(from: NotePosition, person: UserId, members: TeamMembers): Task {
-    if (!this.isWaitingAt(from)) {
-      throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is not waiting on anyone at that note.`,
-      );
-    }
-
-    return this.heldBy(person, members);
-  }
-
   answerAs(
     answerer: UserId,
     members: TeamMembers,

@@ -40,7 +40,6 @@ import { ReopenNoticeCommand } from '@work/application/commands/reopen-notice.co
 import { ResolveConversationCommand } from '@work/application/commands/resolve-conversation.command';
 import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-inbox-request.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
-import { TakeConversationCommand } from '@work/application/commands/take-conversation.command';
 import type {
   InboxEntryDto,
   InboxItemDto,
@@ -344,34 +343,6 @@ export class InboxController {
     await this.commandBus.execute(
       new ResolveConversationCommand(itemId, user.id),
     );
-  }
-
-  @Post(':itemId/take')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'takeInboxItem',
-    summary:
-      'Assign the task of a conversation that waits for the team to the caller',
-  })
-  @ApiParam({ name: 'slug', type: String, example: 'acme' })
-  @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
-  @ApiNoContentResponse({ description: 'The caller is the assignee' })
-  @ApiNotFoundResponse({
-    description:
-      'No such conversation for this caller, or another person took it and the caller does not follow the task',
-  })
-  @ApiForbiddenResponse({
-    description: 'The caller follows the task but does not act on its team',
-  })
-  @ApiConflictResponse({
-    description:
-      'The caller is a member of the team who follows the task and another person is its assignee, or nothing waits on anyone at that conversation',
-  })
-  async takeInboxItem(
-    @Param('itemId') itemId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
-    await this.commandBus.execute(new TakeConversationCommand(itemId, user.id));
   }
 
   @Post('requests/:requestId/resolve')

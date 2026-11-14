@@ -280,20 +280,6 @@ const conversationHandlers = [
     return noContent();
   }),
 
-  api.post('/workspaces/:slug/inbox/:itemId/take', ({ params }) => {
-    const item = itemOf(param(params, 'itemId'));
-
-    if (!isOurs(params) || !item || item.inboxRequest) {
-      return notFound();
-    }
-    if (item.standing !== 'team') {
-      return problem(409, 'Task is assigned to another person.');
-    }
-    item.standing = 'assignee';
-
-    return noContent();
-  }),
-
   api.post('/workspaces/:slug/inbox/:itemId/resolve', ({ params }) => {
     const item = itemOf(param(params, 'itemId'));
 

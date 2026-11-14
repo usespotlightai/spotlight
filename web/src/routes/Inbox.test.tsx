@@ -379,15 +379,6 @@ describe('Inbox', () => {
     });
   });
 
-  describe('what waits for the team', () => {
-    it('marks a question on a task without an assignee', () => {
-      waiting.mockReturnValue([item({ standing: 'team', unread: true })]);
-      renderAt('/w/acme/inbox');
-
-      expect(screen.getAllByText('Waiting for team')[0]).toBeInTheDocument();
-    });
-  });
-
   describe('what the viewer follows', () => {
     beforeEach(() => {
       waiting.mockReturnValue([

@@ -14874,44 +14874,6 @@ export type ResolveInboxItemResponses = {
 
 export type ResolveInboxItemResponse = ResolveInboxItemResponses[keyof ResolveInboxItemResponses];
 
-export type TakeInboxItemData = {
-  body?: never;
-  path: {
-    itemId: string;
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/{itemId}/take';
-};
-
-export type TakeInboxItemErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * The caller follows the task but does not act on its team
-   */
-  403: unknown;
-  /**
-   * No such conversation for this caller, or another person took it and the caller does not follow the task
-   */
-  404: unknown;
-  /**
-   * The caller is a member of the team who follows the task and another person is its assignee, or nothing waits on anyone at that conversation
-   */
-  409: unknown;
-};
-
-export type TakeInboxItemResponses = {
-  /**
-   * The caller is the assignee
-   */
-  204: void;
-};
-
-export type TakeInboxItemResponse = TakeInboxItemResponses[keyof TakeInboxItemResponses];
-
 export type ResolveInboxRequestData = {
   body?: never;
   path: {
