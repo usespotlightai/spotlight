@@ -21,7 +21,7 @@ export interface RunnerActivityRow extends ActivityRunRow {
 }
 
 export interface WorkingCopyRunRow extends ActivityRunRow {
-  readonly key: string;
+  readonly workingCopyKey: string;
 }
 
 export interface RunnerActivityReaderPort {

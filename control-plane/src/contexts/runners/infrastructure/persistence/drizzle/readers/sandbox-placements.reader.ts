@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { isIdleSandbox } from '@runners/infrastructure/persistence/drizzle/idle-sandboxes';
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import { LIVE_SANDBOX_STATES } from '@runners/domain/aggregates/sandbox.aggregate';
 import {
@@ -8,7 +9,7 @@ import {
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
-import { and, eq, inArray, isNotNull, lte, ne, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, lte, or, sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleSandboxPlacements implements SandboxPlacementsPort {
@@ -19,11 +20,7 @@ export class DrizzleSandboxPlacements implements SandboxPlacementsPort {
       .select({ id: sandbox.id })
       .from(sandbox)
       .where(
-        and(
-          eq(sandbox.poolId, poolId.value),
-          ne(sandbox.state, 'gone'),
-          isNotNull(sandbox.idleSince),
-        ),
+        and(eq(sandbox.poolId, poolId.value), isIdleSandbox()),
       );
 
     return rows.map((row) => SandboxId.of(row.id));

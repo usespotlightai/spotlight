@@ -1,5 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { KeptWorkingCopiesPort } from '@runners/application/ports/kept-working-copies.port';
 import type {
   LeasedRunDto,
   RunnerActivityDto,
@@ -23,7 +23,7 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly activity: RunnerActivityReaderPort,
-    private readonly runners: RunnerReaderPort,
+    private readonly kept: KeptWorkingCopiesPort,
     private readonly labels: RunRequesterLabels,
     private readonly viewers: RunViewing,
   ) {}
@@ -39,15 +39,14 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
         return null;
       }
 
-      const [leased, idle] = await Promise.all([
+      const [leased, keys] = await Promise.all([
         this.activity.leasedIn(membership.workspaceId),
-        this.runners.idleSandboxesIn(membership.workspaceId),
+        this.kept.keptIn(membership.workspaceId),
       ]);
-      const lastRuns = await this.activity.lastRunsOf(membership.workspaceId, [
-        ...new Set(
-          idle.flatMap((each) => (each.key === null ? [] : [each.key])),
-        ),
-      ]);
+      const lastRuns = await this.activity.lastRunsOf(
+        membership.workspaceId,
+        keys,
+      );
       const runs = [...leased, ...lastRuns];
       const [labels, readable] = await Promise.all([
         this.labels.labelsOf(runs.map((each) => each.requester)),
@@ -75,7 +74,7 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
           currentRun: shown(each),
         })),
         workingCopies: lastRuns.map((each) => ({
-          key: each.key,
+          workingCopyKey: each.workingCopyKey,
           lastRun: shown(each),
         })),
       };

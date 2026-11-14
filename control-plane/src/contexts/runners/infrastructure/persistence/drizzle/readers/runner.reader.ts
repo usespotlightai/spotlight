@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import type { KeptWorkingCopiesPort } from '@runners/application/ports/kept-working-copies.port';
 import type {
   CredentialSourceSummary,
   HostSummary,
@@ -12,6 +13,7 @@ import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { isIdleSandbox } from '@runners/infrastructure/persistence/drizzle/idle-sandboxes';
 import {
   runner,
   runnerHost,
@@ -24,7 +26,7 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, gt, isNotNull, isNull, ne, or } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 
 const sourceOf = (row: {
   poolId: string | null;
@@ -36,7 +38,9 @@ const sourceOf = (row: {
     : { kind: 'trust', key: row.trustKey };
 
 @Injectable()
-export class DrizzleRunnerReader implements RunnerReaderPort {
+export class DrizzleRunnerReader
+  implements RunnerReaderPort, KeptWorkingCopiesPort
+{
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(CLOCK) private readonly clock: ClockPort,
@@ -246,9 +250,13 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     }));
   }
 
-  async idleSandboxesIn(
-    workspaceId: WorkspaceId,
+  async idleSandboxesOn(
+    hostIds: readonly string[],
   ): Promise<IdleSandboxSummary[]> {
+    if (hostIds.length === 0) {
+      return [];
+    }
+
     const rows = await this.db
       .select({
         id: sandbox.id,
@@ -261,29 +269,39 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       })
       .from(sandbox)
       .where(
-        and(
-          eq(sandbox.workspaceId, workspaceId.value),
-          isNotNull(sandbox.hostId),
-          isNotNull(sandbox.idleSince),
-          ne(sandbox.state, 'gone'),
-        ),
+        and(inArray(sandbox.hostId, [...hostIds]), isIdleSandbox()),
       )
       .orderBy(sandbox.startedAt);
 
     return rows.flatMap((row) =>
-      row.hostId !== null && row.idleSince !== null
+      row.hostId !== null && row.idleSince !== null && row.state !== 'gone'
         ? [
             {
               id: row.id,
               hostId: row.hostId,
               key: row.key,
               warmLineId: row.warm?.lineId ?? null,
-              draining: row.state === 'draining',
+              state: row.state,
               idleSince: row.idleSince,
               startedAt: row.startedAt,
             },
           ]
         : [],
     );
+  }
+
+  async keptIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
+    const rows = await this.db
+      .selectDistinct({ key: sandbox.key })
+      .from(sandbox)
+      .where(
+        and(
+          eq(sandbox.workspaceId, workspaceId.value),
+          isNotNull(sandbox.key),
+          isIdleSandbox(),
+        ),
+      );
+
+    return rows.flatMap((row) => (row.key === null ? [] : [row.key]));
   }
 }

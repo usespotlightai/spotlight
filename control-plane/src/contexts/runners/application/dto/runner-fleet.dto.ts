@@ -1,4 +1,5 @@
 import type { CredentialSourceKind } from '@runners/application/ports/runner-authenticator.port';
+import type { LiveSandboxStatus } from '@runners/domain/aggregates/sandbox.aggregate';
 
 export interface CredentialSourceDto {
   readonly kind: CredentialSourceKind;
@@ -21,9 +22,9 @@ interface HostImageDto {
 
 export interface IdleSandboxDto {
   readonly id: string;
-  readonly key: string | null;
+  readonly workingCopyKey: string | null;
   readonly warmLineId: string | null;
-  readonly status: 'starting' | 'ready' | 'draining';
+  readonly status: LiveSandboxStatus;
   readonly idleSince: string;
   readonly startedAt: string;
 }

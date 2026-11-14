@@ -58,7 +58,7 @@ const idleSandbox = (
   over: Partial<IdleSandboxResponseDto> = {},
 ): IdleSandboxResponseDto => ({
   id: 'sandbox_1',
-  key: 'work/task-task_1',
+  workingCopyKey: 'work/task-task_1',
   warmLineId: null,
   status: 'ready',
   idleSince: '2026-08-30T11:53:00.000Z',
@@ -167,7 +167,7 @@ describe('idle sandboxes', () => {
 
   it('calls a ready warm sandbox ready, and says when it started', () => {
     const warm = {
-      ...idleSandbox({ key: null, warmLineId: 'line_1' }),
+      ...idleSandbox({ workingCopyKey: null, warmLineId: 'line_1' }),
       lastRun: null,
     };
 
@@ -206,7 +206,11 @@ describe('withActivity', () => {
           host({
             idleSandboxes: [
               idleSandbox(),
-              idleSandbox({ id: 'sandbox_2', key: null, warmLineId: 'l_1' }),
+              idleSandbox({
+                id: 'sandbox_2',
+                workingCopyKey: null,
+                warmLineId: 'l_1',
+              }),
             ],
           }),
         ],
@@ -214,7 +218,9 @@ describe('withActivity', () => {
       },
       {
         runners: [],
-        workingCopies: [{ key: 'work/task-task_1', lastRun: LEASED_RUN }],
+        workingCopies: [
+          { workingCopyKey: 'work/task-task_1', lastRun: LEASED_RUN },
+        ],
       },
     );
 

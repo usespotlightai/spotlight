@@ -1,4 +1,5 @@
 import type { CredentialSourceKind } from '@runners/application/ports/runner-authenticator.port';
+import type { LiveSandboxState } from '@runners/domain/aggregates/sandbox.aggregate';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface CredentialSourceSummary {
@@ -22,7 +23,7 @@ export interface IdleSandboxSummary {
   readonly hostId: string;
   readonly key: string | null;
   readonly warmLineId: string | null;
-  readonly draining: boolean;
+  readonly state: LiveSandboxState;
   readonly idleSince: Date;
   readonly startedAt: Date;
 }
@@ -62,7 +63,7 @@ export interface RunnerReaderPort {
 
   hostsIn(workspaceId: WorkspaceId, since: Date): Promise<HostSummary[]>;
 
-  idleSandboxesIn(workspaceId: WorkspaceId): Promise<IdleSandboxSummary[]>;
+  idleSandboxesOn(hostIds: readonly string[]): Promise<IdleSandboxSummary[]>;
 
   readyToRun(workspaceId: WorkspaceId): Promise<boolean>;
 

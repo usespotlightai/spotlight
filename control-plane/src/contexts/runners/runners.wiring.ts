@@ -77,6 +77,7 @@ import {
 } from '@runners/application/ports/editor-sandboxes.port';
 import { EDITOR_SESSIONS } from '@runners/application/ports/editor-sessions.port';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
+import { KEPT_WORKING_COPIES } from '@runners/application/ports/kept-working-copies.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import {
   PROVISION_CALLS,
@@ -638,6 +639,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       platform: PlatformEgressSettings | null,
     ) => new DrizzleRunnerReader(db, clock, platform !== null),
   },
+  { provide: KEPT_WORKING_COPIES, useExisting: RUNNER_READER },
   { provide: RUNNER_RESOURCES, useClass: DrizzleRunnerResources },
   { provide: RUNNER_DEFINITIONS, useClass: RunnerDefinitions },
 
@@ -654,6 +656,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ListRunnersQuery, ListRunnersHandler, [
     WORKSPACE_ACCESS,
     RUNNER_READER,
+    DrizzleRunnerRepository,
     CLOCK,
   ]),
 

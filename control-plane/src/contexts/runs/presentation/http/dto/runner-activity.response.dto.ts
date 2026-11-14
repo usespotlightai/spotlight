@@ -70,7 +70,7 @@ export class WorkingCopyResponseDto {
     example: 'work/task-3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63',
     description: 'The working copy that an idle sandbox keeps',
   })
-  readonly key: string;
+  readonly workingCopyKey: string;
 
   @ApiProperty({
     type: LeasedRunResponseDto,
@@ -78,8 +78,8 @@ export class WorkingCopyResponseDto {
   })
   readonly lastRun: LeasedRunResponseDto;
 
-  constructor(key: string, lastRun: LeasedRunResponseDto) {
-    this.key = key;
+  constructor(workingCopyKey: string, lastRun: LeasedRunResponseDto) {
+    this.workingCopyKey = workingCopyKey;
     this.lastRun = lastRun;
   }
 }
@@ -109,7 +109,7 @@ export class RunnerActivityResponseDto {
     this.workingCopies = activity.workingCopies.map(
       (each) =>
         new WorkingCopyResponseDto(
-          each.key,
+          each.workingCopyKey,
           new LeasedRunResponseDto(each.lastRun),
         ),
     );

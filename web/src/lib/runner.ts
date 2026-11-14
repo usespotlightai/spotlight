@@ -50,8 +50,10 @@ export const withActivity = (
       activity.runners.find((each) => each.runnerId === runner.id)
         ?.currentRun ?? null,
   }));
-  const lastRunOf = (key: string | null): LeasedRun | null =>
-    activity.workingCopies.find((each) => each.key === key)?.lastRun ?? null;
+  const lastRunOf = (workingCopyKey: string | null): LeasedRun | null =>
+    activity.workingCopies.find(
+      (each) => each.workingCopyKey === workingCopyKey,
+    )?.lastRun ?? null;
   const unhosted = runners.filter((runner) => runner.hostId === null);
   const pools = [
     ...new Set(unhosted.map((runner) => poolKeyOf(runner.source))),
@@ -63,7 +65,7 @@ export const withActivity = (
       runners: runners.filter((runner) => runner.hostId === host.id),
       idleSandboxes: host.idleSandboxes.map((sandbox) => ({
         ...sandbox,
-        lastRun: lastRunOf(sandbox.key),
+        lastRun: lastRunOf(sandbox.workingCopyKey),
       })),
     })),
     pools: pools.flatMap((key) => {

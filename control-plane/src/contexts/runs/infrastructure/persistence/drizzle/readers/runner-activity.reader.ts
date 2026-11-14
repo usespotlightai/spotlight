@@ -90,24 +90,27 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
     const rows = await this.db
       .selectDistinctOn([run.workingCopyKey], {
         ...COLUMNS,
-        key: run.workingCopyKey,
+        workingCopyKey: run.workingCopyKey,
       })
       .from(run)
       .where(
         and(
           eq(run.workspaceId, workspaceId.value),
           inArray(run.workingCopyKey, [...keys]),
+          isNotNull(run.startedAt),
         ),
       )
       .orderBy(
         run.workingCopyKey,
-        desc(sql`coalesce(${run.endedAt}, ${run.startedAt}, ${run.createdAt})`),
+        desc(sql`coalesce(${run.endedAt}, ${run.startedAt})`),
         desc(run.createdAt),
         desc(run.id),
       );
 
     return rows.flatMap((row) =>
-      row.key === null ? [] : [{ ...activityRunOf(row), key: row.key }],
+      row.workingCopyKey === null
+        ? []
+        : [{ ...activityRunOf(row), workingCopyKey: row.workingCopyKey }],
     );
   }
 }

@@ -7,13 +7,13 @@ export interface LeasedRunDto {
   readonly title: string | null;
 }
 
-export interface BusyRunnerDto {
+interface BusyRunnerDto {
   readonly runnerId: string;
   readonly currentRun: LeasedRunDto;
 }
 
-export interface WorkingCopyDto {
-  readonly key: string;
+interface WorkingCopyDto {
+  readonly workingCopyKey: string;
   readonly lastRun: LeasedRunDto;
 }
 

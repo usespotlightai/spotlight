@@ -7504,7 +7504,7 @@
       "WorkingCopyResponseDto": {
         "type": "object",
         "properties": {
-          "key": {
+          "workingCopyKey": {
             "type": "string",
             "example": "work/task-3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63",
             "description": "The working copy that an idle sandbox keeps"
@@ -7519,7 +7519,7 @@
           }
         },
         "required": [
-          "key",
+          "workingCopyKey",
           "lastRun"
         ]
       },
@@ -7638,7 +7638,7 @@
             "type": "string",
             "example": "ba339f88-9dcd-436b-bc96-c0d8c8136ed9"
           },
-          "key": {
+          "workingCopyKey": {
             "type": "string",
             "nullable": true,
             "example": "work/task-3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63",
@@ -7671,7 +7671,7 @@
         },
         "required": [
           "id",
-          "key",
+          "workingCopyKey",
           "warmLineId",
           "status",
           "idleSince",

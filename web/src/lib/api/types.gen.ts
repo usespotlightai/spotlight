@@ -1701,7 +1701,7 @@ export type WorkingCopyResponseDto = {
   /**
    * The working copy that an idle sandbox keeps
    */
-  key: string;
+  workingCopyKey: string;
   /**
    * The last run that used the working copy
    */
@@ -1882,7 +1882,7 @@ export type IdleSandboxResponseDto = {
   /**
    * The working copy it keeps for the runs of one task or chat; null for a warm sandbox
    */
-  key: string | null;
+  workingCopyKey: string | null;
   /**
    * The line whose first run it waits for, when it is a warm sandbox
    */

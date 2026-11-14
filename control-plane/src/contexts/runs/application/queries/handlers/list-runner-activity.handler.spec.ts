@@ -1,5 +1,4 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import type { RunPolicyContract } from '@runs/application/contracts/run-order.contract';
 import type {
   RunnerActivityRow,
@@ -56,32 +55,13 @@ const { runnerId: _, ...lastTaskRun } = leasedRun(
 );
 
 const LAST_RUNS: WorkingCopyRunRow[] = [
-  { ...lastTaskRun, state: 'completed', key: 'work/task-task_1' },
+  { ...lastTaskRun, state: 'completed', workingCopyKey: 'work/task-task_1' },
 ];
 
 const listing = (member: boolean) => {
   const leasedIn = vi.fn(async () => LEASED);
   const lastRunsOf = vi.fn(async () => LAST_RUNS);
-  const idleSandboxesIn = vi.fn(async () => [
-    {
-      id: 'sandbox_1',
-      hostId: 'host_1',
-      key: 'work/task-task_1',
-      warmLineId: null,
-      draining: false,
-      idleSince: new Date(),
-      startedAt: new Date(),
-    },
-    {
-      id: 'sandbox_2',
-      hostId: 'host_1',
-      key: null,
-      warmLineId: 'line_1',
-      draining: false,
-      idleSince: new Date(),
-      startedAt: new Date(),
-    },
-  ]);
+  const keptIn = vi.fn(async () => ['work/task-task_1']);
   const labels = new RunRequesterLabels();
   labels.register({
     owner: 'work',
@@ -109,12 +89,12 @@ const listing = (member: boolean) => {
       ),
     } as unknown as WorkspaceAccessPort,
     { leasedIn, lastRunsOf },
-    { idleSandboxesIn } as unknown as RunnerReaderPort,
+    { keptIn },
     labels,
     viewers,
   );
 
-  return { handler, leasedIn, lastRunsOf, viewers };
+  return { handler, leasedIn, lastRunsOf, keptIn, viewers };
 };
 
 describe('ListRunnerActivityHandler', () => {
@@ -167,8 +147,8 @@ describe('ListRunnerActivityHandler', () => {
     );
   });
 
-  it('names the last run of each working copy that an idle sandbox keeps, and asks for no warm sandbox', async () => {
-    const { handler, lastRunsOf } = listing(true);
+  it('names the last run of each working copy that an idle sandbox keeps', async () => {
+    const { handler, lastRunsOf, keptIn } = listing(true);
 
     const activity = await handler.execute(
       new ListRunnerActivityQuery('acme', 'user_1'),
@@ -176,7 +156,7 @@ describe('ListRunnerActivityHandler', () => {
 
     expect(activity?.workingCopies).toEqual([
       {
-        key: 'work/task-task_1',
+        workingCopyKey: 'work/task-task_1',
         lastRun: {
           id: 'run_6',
           state: 'completed',
@@ -187,6 +167,7 @@ describe('ListRunnerActivityHandler', () => {
         },
       },
     ]);
+    expect(keptIn).toHaveBeenCalledWith(WORKSPACE);
     expect(lastRunsOf).toHaveBeenCalledWith(WORKSPACE, ['work/task-task_1']);
   });
 

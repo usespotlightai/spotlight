@@ -63,7 +63,7 @@ const idleSandbox = (
   const { minutes, ...rest } = over;
 
   return {
-    key: null,
+    workingCopyKey: null,
     warmLineId: null,
     status: 'ready',
     idleSince: minutesAgo(minutes),
@@ -85,7 +85,7 @@ const HOSTS: HostResponseDto[] = [
     idleSandboxes: [
       idleSandbox({
         id: 'sandbox_retries',
-        key: KEPT_FOR_RETRIES,
+        workingCopyKey: KEPT_FOR_RETRIES,
         minutes: 7,
         startedAt: minutesAgo(48),
       }),
@@ -313,7 +313,7 @@ const ACTIVITY: RunnerActivityResponseDto = {
   runners: BUSY_RUNNERS,
   workingCopies: [
     {
-      key: KEPT_FOR_RETRIES,
+      workingCopyKey: KEPT_FOR_RETRIES,
       lastRun: {
         ...leasedRun(
           'run_retries_2',

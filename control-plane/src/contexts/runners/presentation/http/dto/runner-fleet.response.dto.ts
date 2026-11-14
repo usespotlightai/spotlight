@@ -92,7 +92,7 @@ export class IdleSandboxResponseDto {
     description:
       'The working copy it keeps for the runs of one task or chat; null for a warm sandbox',
   })
-  readonly key: string | null;
+  readonly workingCopyKey: string | null;
 
   @ApiProperty({
     type: String,
@@ -119,7 +119,7 @@ export class IdleSandboxResponseDto {
 
   constructor(fields: IdleSandboxResponseDto) {
     this.id = fields.id;
-    this.key = fields.key;
+    this.workingCopyKey = fields.workingCopyKey;
     this.warmLineId = fields.warmLineId;
     this.status = fields.status;
     this.idleSince = fields.idleSince;
