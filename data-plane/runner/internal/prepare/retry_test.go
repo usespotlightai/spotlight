@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -19,6 +20,7 @@ import (
 type flakyServer struct {
 	failing  string
 	status   int
+	matched  atomic.Int32
 	failures atomic.Int32
 }
 
@@ -34,7 +36,7 @@ func (f fixture) served(t *testing.T, failing string, status int, times int32) (
 
 	flaky := &flakyServer{failing: failing, status: status}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, flaky.failing) && flaky.failures.Load() < times {
+		if strings.HasSuffix(r.URL.Path, flaky.failing) && flaky.matched.Add(1) <= times {
 			flaky.failures.Add(1)
 			http.Error(w, http.StatusText(flaky.status), flaky.status)
 			return
@@ -138,16 +140,21 @@ func TestStopsRetryingWhenTheServerKeepsFailing(t *testing.T) {
 
 func TestDoesNotRetryWhatTheServerRefuses(t *testing.T) {
 	requireHTTPBackend(t)
-	prepare.SetRetryDelays(t, time.Millisecond, time.Millisecond)
-	f := setUp(t)
-	flaky, remote := f.served(t, "/info/refs", http.StatusNotFound, 100)
 
-	checkout := protocol.Checkout{Remote: remote, Path: "acme/api"}
-	if _, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options()); err == nil {
-		t.Fatal("expected the clone to fail")
-	}
+	for _, status := range []int{http.StatusNotFound, http.StatusNotImplemented, http.StatusHTTPVersionNotSupported} {
+		t.Run(strconv.Itoa(status), func(t *testing.T) {
+			prepare.SetRetryDelays(t, time.Millisecond, time.Millisecond)
+			f := setUp(t)
+			flaky, remote := f.served(t, "/info/refs", status, 100)
 
-	if got := flaky.failures.Load(); got != 1 {
-		t.Fatalf("server saw %d attempts, want 1", got)
+			checkout := protocol.Checkout{Remote: remote, Path: "acme/api"}
+			if _, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options()); err == nil {
+				t.Fatal("expected the clone to fail")
+			}
+
+			if got := flaky.failures.Load(); got != 1 {
+				t.Fatalf("server saw %d attempts, want 1", got)
+			}
+		})
 	}
 }

@@ -17,7 +17,7 @@ const defaultTimeout = 10 * time.Minute
 
 var retryDelays = []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second}
 
-var serverError = regexp.MustCompile(`(?:returned error: |HTTP )(5\d\d)\b`)
+var serverError = regexp.MustCompile(`(?:returned error: |HTTP )(50[0234])\b`)
 
 type Author struct {
 	Name  string
