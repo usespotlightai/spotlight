@@ -10,6 +10,7 @@ import type {
   SandboxTakingRuns,
   StartedSandbox,
   WarmStart,
+  StartedWarmSandbox,
 } from '@runners/application/ports/sandboxes.port';
 import type { WarmSlotsPort } from '@runners/application/ports/warm-slots.port';
 import type { ClaimHostWorkCommand } from '@runs/application/commands/runner.commands';
@@ -418,13 +419,26 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
       registered.workspaceId.value,
     );
 
-    if (
-      requested.length === 0 ||
-      !(await this.warmSlots.roomForWarmOn(host, this.clock.now()))
-    ) {
+    if (requested.length === 0) {
       return null;
     }
 
+    const started = await this.warmSlots.startWarmIfRoomOn(
+      host,
+      this.clock.now(),
+      () => this.firstStartedWarm(requested, registered, host),
+    );
+
+    return started
+      ? { kind: 'sandbox', sandbox: started, warm: started.warm }
+      : null;
+  }
+
+  private async firstStartedWarm(
+    requested: readonly string[],
+    registered: RunnerClaimant,
+    host: string,
+  ): Promise<StartedWarmSandbox | null> {
     for (const each of requested) {
       const started = await this.sandboxes.startWarm(
         each,
@@ -434,7 +448,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
       );
 
       if (started) {
-        return { kind: 'sandbox', sandbox: started, warm: started.warm };
+        return started;
       }
     }
 
@@ -546,18 +560,16 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     registered: RunnerClaimant,
     host: string,
   ): Promise<void> {
-    const waits = await this.claims.waitsFor(
-      claimantOf(
-        runner,
-        registered,
-        await this.freshSandboxRouting(registered.workspaceId),
+    await this.warmSlots.drainWarmOn(host, this.clock.now(), async () =>
+      this.claims.waitsFor(
+        claimantOf(
+          runner,
+          registered,
+          await this.freshSandboxRouting(registered.workspaceId),
+        ),
+        this.clock.now(),
       ),
-      this.clock.now(),
     );
-
-    if (waits) {
-      await this.warmSlots.drainWarmOn(host, this.clock.now());
-    }
   }
 
   private async heldOrDropped(

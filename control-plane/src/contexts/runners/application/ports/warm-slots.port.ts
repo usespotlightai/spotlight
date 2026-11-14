@@ -1,7 +1,15 @@
 export const WARM_SLOTS = Symbol('WARM_SLOTS');
 
 export interface WarmSlotsPort {
-  roomForWarmOn(hostId: string, at: Date): Promise<boolean>;
+  startWarmIfRoomOn<T>(
+    hostId: string,
+    at: Date,
+    start: () => Promise<T | null>,
+  ): Promise<T | null>;
 
-  drainWarmOn(hostId: string, at: Date): Promise<void>;
+  drainWarmOn(
+    hostId: string,
+    at: Date,
+    runWaits: () => Promise<boolean>,
+  ): Promise<void>;
 }

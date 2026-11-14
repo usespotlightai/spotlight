@@ -1,3 +1,4 @@
+import type { HostSlotLocksPort } from '@runners/application/ports/host-slot-locks.port';
 import { HostWarmSlots } from '@runners/application/services/host-warm-slots.service';
 import {
   aHost,
@@ -64,44 +65,66 @@ const slotsOn = (input: {
     aliveInWorkspace: vi.fn(async () => input.alive),
   } as unknown as RunnerRepository;
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+  const held: string[] = [];
+  const locks: HostSlotLocksPort = {
+    holding: async (hostId, work) => {
+      held.push(hostId);
+      return work();
+    },
+  };
   const slots = new HostWarmSlots(
     sandboxes,
     hosts,
     runners,
+    locks,
     logger as unknown as LoggerPort,
   );
 
-  return { slots, stored, logger };
+  return { slots, stored, logger, held };
 };
+
+const started = (slots: HostWarmSlots, host: string) =>
+  slots.startWarmIfRoomOn(host, NOW, async () => 'started');
+
+const aRunWaits = async () => true;
 
 describe('HostWarmSlots', () => {
   it('has room for a warm sandbox while another slot of the host stays free', async () => {
     const claiming = aRunner({ id: 'claiming_1' });
 
     expect(
-      await slotsOn({
-        warm: ['sandbox_w1', 'sandbox_w2'],
-        alive: [claiming],
-      }).slots.roomForWarmOn(HOST.value, NOW),
-    ).toBe(true);
+      await started(
+        slotsOn({
+          warm: ['sandbox_w1', 'sandbox_w2'],
+          alive: [claiming],
+        }).slots,
+        HOST.value,
+      ),
+    ).toBe('started');
     expect(
-      await slotsOn({
-        warm: ['sandbox_w1', 'sandbox_w2', 'sandbox_w3'],
-        alive: [claiming],
-      }).slots.roomForWarmOn(HOST.value, NOW),
-    ).toBe(false);
+      await started(
+        slotsOn({
+          warm: ['sandbox_w1', 'sandbox_w2', 'sandbox_w3'],
+          alive: [claiming],
+        }).slots,
+        HOST.value,
+      ),
+    ).toBeNull();
   });
 
   it('counts a warm sandbox once while a runner waits in it for a run', async () => {
     expect(
-      await slotsOn({
-        warm: ['sandbox_w1', 'sandbox_w2'],
-        alive: [
-          aRunner({ id: 'claiming_1' }),
-          aRunner({ id: 'waiting_1', enters: 'sandbox_w1' }),
-        ],
-      }).slots.roomForWarmOn(HOST.value, NOW),
-    ).toBe(true);
+      await started(
+        slotsOn({
+          warm: ['sandbox_w1', 'sandbox_w2'],
+          alive: [
+            aRunner({ id: 'claiming_1' }),
+            aRunner({ id: 'waiting_1', enters: 'sandbox_w1' }),
+          ],
+        }).slots,
+        HOST.value,
+      ),
+    ).toBe('started');
   });
 
   it('drains the oldest warm sandbox of a full host, one at a time', async () => {
@@ -110,8 +133,8 @@ describe('HostWarmSlots', () => {
       alive: [running('running_1')],
     });
 
-    await slots.drainWarmOn(HOST.value, NOW);
-    await slots.drainWarmOn(HOST.value, NOW);
+    await slots.drainWarmOn(HOST.value, NOW, aRunWaits);
+    await slots.drainWarmOn(HOST.value, NOW, aRunWaits);
 
     expect(stored.get('sandbox_w1')?.current).toBe('draining');
     expect(stored.get('sandbox_w2')?.isWarm).toBe(true);
@@ -125,7 +148,7 @@ describe('HostWarmSlots', () => {
       alive: [aRunner({ id: 'claiming_1' })],
     });
 
-    await slots.drainWarmOn(HOST.value, NOW);
+    await slots.drainWarmOn(HOST.value, NOW, aRunWaits);
 
     expect(stored.get('sandbox_w1')?.isWarm).toBe(true);
   });
@@ -136,12 +159,44 @@ describe('HostWarmSlots', () => {
       alive: [running('running_1')],
     });
 
-    await slots.drainWarmOn(HOST.value, NOW);
-    await slots.drainWarmOn('01J8ZQ4Y7N3K5V2W9X6RTBHCDF', NOW);
+    await slots.drainWarmOn(HOST.value, NOW, aRunWaits);
+    await slots.drainWarmOn('01J8ZQ4Y7N3K5V2W9X6RTBHCDF', NOW, aRunWaits);
 
-    expect(await slots.roomForWarmOn('01J8ZQ4Y7N3K5V2W9X6RTBHCDF', NOW)).toBe(
-      false,
-    );
+    expect(await started(slots, '01J8ZQ4Y7N3K5V2W9X6RTBHCDF')).toBeNull();
     expect(stored.get('sandbox_w1')?.isWarm).toBe(true);
+  });
+
+  it('starts a warm sandbox and drains one while it holds the host’s slot lock', async () => {
+    const { slots, held } = slotsOn({
+      warm: ['sandbox_w1', 'sandbox_w2', 'sandbox_w3'],
+      alive: [running('running_1')],
+    });
+
+    await started(slots, HOST.value);
+    await slots.drainWarmOn(HOST.value, NOW, aRunWaits);
+
+    expect(held).toEqual([HOST.value, HOST.value]);
+  });
+
+  it('asks whether a run waits only when it would drain, and drains nothing when none waits', async () => {
+    const full = slotsOn({
+      warm: ['sandbox_w1', 'sandbox_w2', 'sandbox_w3'],
+      alive: [running('running_1')],
+    });
+    const free = slotsOn({
+      warm: ['sandbox_w1', 'sandbox_w2'],
+      alive: [running('running_1')],
+    });
+    const runWaits = vi.fn(async () => false);
+
+    await free.slots.drainWarmOn(HOST.value, NOW, runWaits);
+
+    expect(runWaits).not.toHaveBeenCalled();
+
+    await full.slots.drainWarmOn(HOST.value, NOW, runWaits);
+
+    expect(runWaits).toHaveBeenCalledTimes(1);
+    expect(full.stored.get('sandbox_w1')?.isWarm).toBe(true);
+    expect(full.held).toEqual([]);
   });
 });

@@ -973,6 +973,20 @@ describe('sandboxes (e2e)', () => {
       ).toEqual([null]);
     });
 
+    it('starts one warm sandbox when two claims of its host race for the last two free slots', async () => {
+      await keepsWarm(2);
+      await keep();
+
+      const claims = await Promise.all([claim(), claim()]);
+
+      expect(claims.map((each) => each.status)).toEqual(
+        expect.arrayContaining([200, 204]),
+      );
+      expect(
+        (await warmRows()).filter((each) => each.hostId !== null),
+      ).toHaveLength(1);
+    });
+
     it('drains on a full host, and a later run of a task starts afresh in the freed slot', async () => {
       const { sandboxId } = await startedWarm();
       await queue({ key: 'work/task-busy' });

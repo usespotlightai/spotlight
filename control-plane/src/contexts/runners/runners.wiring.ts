@@ -76,6 +76,10 @@ import {
   type EditorSandboxesPort,
 } from '@runners/application/ports/editor-sandboxes.port';
 import { EDITOR_SESSIONS } from '@runners/application/ports/editor-sessions.port';
+import {
+  HOST_SLOT_LOCKS,
+  type HostSlotLocksPort,
+} from '@runners/application/ports/host-slot-locks.port';
 import { IDLE_WORKING_COPIES } from '@runners/application/ports/idle-working-copies.port';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
@@ -165,6 +169,7 @@ import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-
 import { RunnerDefinitions } from '@runners/infrastructure/definitions/runner-definitions';
 import { RUNNERS_PAYLOAD_TYPES } from '@runners/infrastructure/events/runners-payload-types';
 import { InstallerAssets } from '@runners/infrastructure/installer/installer-assets';
+import { DrizzleHostSlotLocks } from '@runners/infrastructure/persistence/drizzle/host-slot-locks';
 import { DrizzleUsedTokens } from '@runners/infrastructure/persistence/drizzle/ledgers/used-tokens.ledger';
 import { DrizzleRunnerResources } from '@runners/infrastructure/persistence/drizzle/readers/runner-resources.reader';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
@@ -420,14 +425,20 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       DrizzleSandboxRepository,
       DrizzleRunnerHostRepository,
       DrizzleRunnerRepository,
+      HOST_SLOT_LOCKS,
       LOGGER,
     ],
     useFactory: (
       sandboxes: DrizzleSandboxRepository,
       hosts: DrizzleRunnerHostRepository,
       runners: DrizzleRunnerRepository,
+      locks: HostSlotLocksPort,
       logger: LoggerPort,
-    ) => new HostWarmSlots(sandboxes, hosts, runners, logger),
+    ) => new HostWarmSlots(sandboxes, hosts, runners, locks, logger),
+  },
+  {
+    provide: HOST_SLOT_LOCKS,
+    useClass: DrizzleHostSlotLocks,
   },
   {
     provide: HostAdmission,

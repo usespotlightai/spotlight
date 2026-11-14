@@ -220,9 +220,21 @@ const pulling = (
     ),
   } as unknown as WorkingCopyArchiveRepository;
   const waitsFor = vi.fn(async () => over.waits ?? false);
+  const drained: boolean[] = [];
+  const roomForWarmOn = vi.fn(
+    (_: string, __: Date) => over.roomForWarm ?? true,
+  );
   const warmSlots = {
-    roomForWarmOn: vi.fn(async () => over.roomForWarm ?? true),
-    drainWarmOn: vi.fn(async () => {}),
+    startWarmIfRoomOn: async <T>(
+      host: string,
+      at: Date,
+      start: () => Promise<T | null>,
+    ) => (roomForWarmOn(host, at) ? start() : null),
+    drainWarmOn: vi.fn(
+      async (_: string, __: Date, runWaits: () => Promise<boolean>) => {
+        drained.push(await runWaits());
+      },
+    ),
   } satisfies WarmSlotsPort;
   const handler = new ClaimHostWorkHandler(
     authenticator,
@@ -259,6 +271,8 @@ const pulling = (
     unclaim,
     waitsFor,
     warmSlots,
+    roomForWarmOn,
+    drained,
   };
 };
 
@@ -788,7 +802,7 @@ describe('ClaimHostWorkHandler', () => {
     });
 
     it('leaves the last free slot of its host to other work', async () => {
-      const { handler, sandboxes, warmSlots } = pulling({
+      const { handler, sandboxes, roomForWarmOn } = pulling({
         requestedWarm: ['sandbox_w'],
         startsWarm: warm,
         roomForWarm: false,
@@ -799,7 +813,7 @@ describe('ClaimHostWorkHandler', () => {
         outcome: 'claimed',
         work: { kind: 'check' },
       });
-      expect(warmSlots.roomForWarmOn).toHaveBeenCalledWith(HOST, NOW);
+      expect(roomForWarmOn).toHaveBeenCalledWith(HOST, NOW);
       expect(sandboxes.startWarm).not.toHaveBeenCalled();
     });
 
@@ -987,7 +1001,7 @@ describe('ClaimHostWorkHandler', () => {
     });
 
     it('asks its host to drain a warm sandbox when a fresh sandbox would take a waiting run', async () => {
-      const { handler, waitsFor, warmSlots, runners } = pulling({
+      const { handler, waitsFor, drained, runners } = pulling({
         taking: keeping,
         liveKeys: ['requester/subject-task_2'],
         waits: true,
@@ -1002,19 +1016,15 @@ describe('ClaimHostWorkHandler', () => {
         }),
         expect.any(Date),
       );
-      expect(warmSlots.drainWarmOn).toHaveBeenCalledWith(
-        HOST,
-        expect.any(Date),
-      );
+      expect(drained).toEqual([true]);
       expect(runners.release).toHaveBeenCalled();
     });
 
     it('keeps the warm sandboxes of its host when no run waits for a fresh sandbox', async () => {
-      const { handler, waitsFor, warmSlots } = pulling({ taking: keeping });
+      const { handler, drained } = pulling({ taking: keeping });
 
       expect(await handler.execute(into())).toEqual({ outcome: 'nothing' });
-      expect(waitsFor).toHaveBeenCalled();
-      expect(warmSlots.drainWarmOn).not.toHaveBeenCalled();
+      expect(drained).toEqual([false]);
     });
 
     it('drains no warm sandbox once it took a first run', async () => {

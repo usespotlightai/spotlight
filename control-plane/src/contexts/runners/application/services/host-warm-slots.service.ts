@@ -1,3 +1,4 @@
+import type { HostSlotLocksPort } from '@runners/application/ports/host-slot-locks.port';
 import type { WarmSlotsPort } from '@runners/application/ports/warm-slots.port';
 import { reviseOrRemoveSandbox } from '@runners/application/services/sandbox-revisions';
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
@@ -22,19 +23,64 @@ export class HostWarmSlots implements WarmSlotsPort {
     private readonly sandboxes: SandboxRepository,
     private readonly hosts: RunnerHostRepository,
     private readonly runners: RunnerRepository,
+    private readonly locks: HostSlotLocksPort,
     private readonly logger: LoggerPort,
   ) {}
 
-  async roomForWarmOn(hostId: string, at: Date): Promise<boolean> {
-    const slots = await this.slotsOn(hostId, at);
+  startWarmIfRoomOn<T>(
+    hostId: string,
+    at: Date,
+    start: () => Promise<T | null>,
+  ): Promise<T | null> {
+    return this.locks.holding(hostId, async () => {
+      const slots = await this.slotsOn(hostId, at);
 
-    return (
-      slots !== null &&
-      WarmSlots.roomForWarm(slots.host, this.holdersOf(slots, at))
-    );
+      return slots &&
+        WarmSlots.roomForWarm(slots.host, this.holdersOf(slots, at))
+        ? start()
+        : null;
+    });
   }
 
-  async drainWarmOn(hostId: string, at: Date): Promise<void> {
+  async drainWarmOn(
+    hostId: string,
+    at: Date,
+    runWaits: () => Promise<boolean>,
+  ): Promise<void> {
+    if (!(await this.toDrainOn(hostId, at)) || !(await runWaits())) {
+      return;
+    }
+
+    await this.locks.holding(hostId, async () => {
+      const found = await this.toDrainOn(hostId, at);
+
+      if (!found) {
+        return;
+      }
+
+      const drained = await reviseOrRemoveSandbox(
+        this.sandboxes,
+        found.chosen,
+        (sandbox) => sandbox.drainedForQueuedRun(found.host, at),
+      );
+
+      if (drained.kind === 'saved') {
+        this.logger.info(
+          {
+            sandboxId: found.chosen.id.value,
+            hostId,
+            lineId: found.chosen.warm?.lineId.value ?? null,
+          },
+          'Draining a warm sandbox so a queued run can take its slot',
+        );
+      }
+    });
+  }
+
+  private async toDrainOn(
+    hostId: string,
+    at: Date,
+  ): Promise<{ host: RunnerHost; chosen: Sandbox } | null> {
     const slots = await this.slotsOn(hostId, at);
     const chosen =
       slots &&
@@ -45,26 +91,7 @@ export class HostWarmSlots implements WarmSlotsPort {
         at,
       );
 
-    if (!slots || !chosen) {
-      return;
-    }
-
-    const drained = await reviseOrRemoveSandbox(
-      this.sandboxes,
-      chosen,
-      (sandbox) => sandbox.drainedForQueuedRun(slots.host, at),
-    );
-
-    if (drained.kind === 'saved') {
-      this.logger.info(
-        {
-          sandboxId: chosen.id.value,
-          hostId,
-          lineId: chosen.warm?.lineId.value ?? null,
-        },
-        'Draining a warm sandbox so a queued run can take its slot',
-      );
-    }
+    return slots && chosen ? { host: slots.host, chosen } : null;
   }
 
   private async slotsOn(hostId: string, at: Date): Promise<HostSlots | null> {
@@ -74,10 +101,8 @@ export class HostWarmSlots implements WarmSlotsPort {
       return null;
     }
 
-    const [onHost, alive] = await Promise.all([
-      this.sandboxes.liveOn(host.id),
-      this.runners.aliveInWorkspace(host.workspaceId, at),
-    ]);
+    const onHost = await this.sandboxes.liveOn(host.id);
+    const alive = await this.runners.aliveInWorkspace(host.workspaceId, at);
 
     return { host, onHost, alive };
   }
