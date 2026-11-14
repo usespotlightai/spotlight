@@ -194,6 +194,7 @@ const toChat = (
     createdAt: row.createdAt,
     resolvedAt: row.resolvedAt,
     readAt: row.readAt,
+    reopenedAt: row.reopenedAt,
     version: row.version,
   });
 
@@ -241,6 +242,7 @@ export class DrizzleChatRepository implements ChatRepository {
       createdAt: added.createdAt,
       resolvedAt: added.resolvedAt,
       readAt: added.readAt,
+      reopenedAt: added.reopenedAt,
     });
 
     if (added.marks.length > 0) {
@@ -292,6 +294,7 @@ export class DrizzleChatRepository implements ChatRepository {
         runnerId: saved.claimedBy?.value ?? null,
         resolvedAt: saved.resolvedAt,
         readAt: saved.readAt,
+        reopenedAt: saved.reopenedAt,
       })
       .where(and(eq(chat.id, saved.id.value), eq(chat.version, saved.version)))
       .returning({ id: chat.id });

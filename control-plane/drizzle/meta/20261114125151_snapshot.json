@@ -1,5 +1,5 @@
 {
-  "id": "e51ee595-e22c-457e-bab9-8ea82ed2e250",
+  "id": "4b61293f-e161-47d5-83b3-d97840e584aa",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -16551,6 +16551,12 @@
         },
         "read_at": {
           "name": "read_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reopened_at": {
+          "name": "reopened_at",
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false

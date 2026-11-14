@@ -79,6 +79,7 @@ export const chat = pgTable(
     workingCopyReleasedAt: timestamptz('working_copy_released_at'),
     resolvedAt: timestamptz('resolved_at'),
     readAt: timestamptz('read_at'),
+    reopenedAt: timestamptz('reopened_at'),
     version: integer('version').notNull().default(0),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
     updatedAt: timestamptz('updated_at')

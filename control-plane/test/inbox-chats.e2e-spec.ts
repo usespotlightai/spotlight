@@ -64,7 +64,10 @@ const scopeOf = (viewer: string): InboxScope => ({
   teamsJoined: new Set(),
 });
 
-const startedBy = (viewer: string, extra: { marks?: ChatMark[] } = {}) =>
+const startedBy = (
+  viewer: string,
+  extra: { marks?: ChatMark[]; now?: Date } = {},
+) =>
   Chat.start({
     lines: [],
     workspaceId: WorkspaceId.of(WORKSPACE),
@@ -73,7 +76,7 @@ const startedBy = (viewer: string, extra: { marks?: ChatMark[] } = {}) =>
     harness: HarnessId.of('dev'),
     body: ChatMessageBody.fromInput('Why do retries fail?'),
     marks: extra.marks,
-    now: START,
+    now: extra.now ?? START,
     newId: () => randomUUID(),
   });
 
@@ -130,6 +133,87 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
       progress: 'queued',
       resolved: false,
     });
+  });
+
+  it('lists running chats by their newest message, newest first', async () => {
+    const viewer = `user_${randomUUID()}`;
+    const older = startedBy(viewer, { now: new Date('2026-10-20T08:00:00Z') });
+    const newer = startedBy(viewer, { now: new Date('2026-10-20T08:30:00Z') });
+    await chats.add(older);
+    await chats.add(newer);
+
+    const ids = (await open(viewer)).map((each) => each.id);
+
+    expect(ids).toEqual([newer.id.value, older.id.value]);
+
+    const followed = (await chats.find(older.id))?.addMessage({
+      by: UserId.of(viewer),
+      body: ChatMessageBody.of('Any news?'),
+      at: new Date('2026-10-20T09:00:00Z'),
+    }) as Chat;
+    await chats.save(followed);
+
+    expect((await open(viewer)).map((each) => each.id)).toEqual([
+      older.id.value,
+      newer.id.value,
+    ]);
+  });
+
+  it('lists a reopened running chat above a chat with a newer message', async () => {
+    const viewer = `user_${randomUUID()}`;
+    const reopened = startedBy(viewer, {
+      now: new Date('2026-10-20T08:00:00Z'),
+    })
+      .resolve(UserId.of(viewer), new Date('2026-10-20T08:10:00Z'))
+      .assignRun(RunId.of(randomUUID()), START);
+    const messaged = startedBy(viewer, {
+      now: new Date('2026-10-20T09:00:00Z'),
+    });
+    await chats.add(reopened);
+    await chats.add(messaged);
+
+    expect((await open(viewer)).map((each) => each.id)).toEqual([
+      messaged.id.value,
+      reopened.id.value,
+    ]);
+
+    const back = (await chats.find(reopened.id))?.reopen(
+      UserId.of(viewer),
+      new Date('2026-10-20T09:30:00Z'),
+    ) as Chat;
+    await chats.save(back);
+
+    expect((await open(viewer)).map((each) => each.id)).toEqual([
+      reopened.id.value,
+      messaged.id.value,
+    ]);
+  });
+
+  it('lists open chats by arrival, even after a newer message', async () => {
+    const viewer = `user_${randomUUID()}`;
+    const early = repliedTo(
+      startedBy(viewer, { now: new Date('2026-10-20T08:00:00Z') }),
+    );
+    const late = repliedTo(
+      startedBy(viewer, { now: new Date('2026-10-20T08:30:00Z') }),
+    );
+    await chats.add(early);
+    await chats.add(late);
+    const followed = early.addMessage({
+      by: UserId.of(viewer),
+      body: ChatMessageBody.of('And then?'),
+      at: new Date('2026-10-20T09:00:00Z'),
+    });
+    await chats.save(followed);
+    await chats.save(repliedTo((await chats.find(early.id)) as Chat));
+
+    const entries = await open(viewer);
+
+    expect(entries.map((each) => each.section)).toEqual(['open', 'open']);
+    expect(entries.map((each) => each.id)).toEqual([
+      late.id.value,
+      early.id.value,
+    ]);
   });
 
   it('shows a chat with a run in progress as running', async () => {
@@ -234,7 +318,10 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
       chatEntry((await resolvedPage(viewer, {})).items, chat),
     ).toBeDefined();
 
-    const reopened = (await chats.find(chat.id))?.reopen(UserId.of(viewer));
+    const reopened = (await chats.find(chat.id))?.reopen(
+      UserId.of(viewer),
+      AFTER,
+    );
     await chats.save(reopened as Chat);
     expect(chatEntry(await open(viewer), chat)?.section).toBe('open');
     expect(

@@ -95,6 +95,7 @@ export class Chat extends EventRecorder {
     readonly createdAt: Date,
     readonly resolvedAt: Date | null,
     readonly readAt: Date | null,
+    readonly reopenedAt: Date | null,
     readonly version: number,
   ) {
     super();
@@ -159,6 +160,7 @@ export class Chat extends EventRecorder {
       input.now,
       null,
       null,
+      null,
       0,
     );
 
@@ -195,6 +197,7 @@ export class Chat extends EventRecorder {
     createdAt: Date;
     resolvedAt: Date | null;
     readAt: Date | null;
+    reopenedAt: Date | null;
     version: number;
   }): Chat {
     if (
@@ -246,6 +249,7 @@ export class Chat extends EventRecorder {
       input.createdAt,
       input.resolvedAt,
       input.readAt,
+      input.reopenedAt,
       input.version,
     );
   }
@@ -288,10 +292,12 @@ export class Chat extends EventRecorder {
     return this.resolvedAt ? this : this.with({ resolvedAt: at, readAt: at });
   }
 
-  reopen(by: UserId): Chat {
+  reopen(by: UserId, at: Date): Chat {
     this.assertStarter(by);
 
-    return this.resolvedAt ? this.with({ resolvedAt: null }) : this;
+    return this.resolvedAt
+      ? this.with({ resolvedAt: null, reopenedAt: at })
+      : this;
   }
 
   markRead(by: UserId, at: Date): Chat {
@@ -834,6 +840,7 @@ export class Chat extends EventRecorder {
     setup?: ConfigFolder | null;
     resolvedAt?: Date | null;
     readAt?: Date | null;
+    reopenedAt?: Date | null;
   }): Chat {
     const next = new Chat(
       this.id,
@@ -855,6 +862,7 @@ export class Chat extends EventRecorder {
       this.createdAt,
       part.resolvedAt !== undefined ? part.resolvedAt : this.resolvedAt,
       part.readAt !== undefined ? part.readAt : this.readAt,
+      part.reopenedAt !== undefined ? part.reopenedAt : this.reopenedAt,
       this.version,
     );
 

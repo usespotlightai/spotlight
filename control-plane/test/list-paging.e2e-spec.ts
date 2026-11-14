@@ -79,6 +79,7 @@ const aLine = async () => {
     stationId: string;
     rank?: string;
     finishedAt?: Date | null;
+    running?: boolean;
   }) => {
     const taskId = randomUUID();
 
@@ -92,6 +93,7 @@ const aLine = async () => {
       rank: input.rank ?? 'i',
       assigneeId: viewer,
       finishedAt: input.finishedAt ?? null,
+      currentRunId: input.running ? randomUUID() : null,
     });
 
     return taskId;
@@ -100,8 +102,9 @@ const aLine = async () => {
   const addNotes = async (
     taskId: string,
     kinds: readonly {
-      kind: 'asked' | 'answered' | 'passed' | 'reopened';
+      kind: 'asked' | 'answered' | 'passed' | 'reopened' | 'message';
       at: Date;
+      voice?: 'station' | 'person' | 'world';
       unseen?: boolean;
       form?: 'words' | 'resolved';
     }[],
@@ -132,13 +135,35 @@ const aLine = async () => {
         body: `${each.kind} ${position}`,
         at: each.at,
         voice:
-          each.kind === 'asked' ? ('station' as const) : ('person' as const),
+          each.voice ??
+          (each.kind === 'asked' ? ('station' as const) : ('person' as const)),
         kind: each.kind,
         form: each.form ?? ('words' as const),
         readAt: each.unseen ? null : each.at,
         closesConversation: closing.has(position),
       })),
     );
+  };
+
+  const addRequest = async (input: {
+    taskId: string;
+    openedAt: Date;
+    resolvedAt?: Date | null;
+  }) => {
+    const id = randomUUID();
+
+    await db.insert(schema.inboxRequest).values({
+      id,
+      workspaceId,
+      taskId: input.taskId,
+      form: 'memories',
+      about: id,
+      createdAt: input.openedAt,
+      openedAt: input.openedAt,
+      resolvedAt: input.resolvedAt ?? null,
+    });
+
+    return id;
   };
 
   return {
@@ -149,6 +174,7 @@ const aLine = async () => {
     viewer,
     addTask,
     addNotes,
+    addRequest,
   };
 };
 
@@ -244,6 +270,164 @@ describe('the inbox, open and resolved', () => {
       (two?.items[0] as InboxItemSummary | undefined)?.lastNote?.body,
     ).toBe('passed 1');
     expect(three).toEqual({ items: [], next: null });
+  });
+
+  it('lists open conversations by arrival, not by their newest note', async () => {
+    const line = await aLine();
+    const arrivedFirst = await line.addTask({ stationId: line.work });
+    const arrivedLast = await line.addTask({ stationId: line.work });
+
+    await line.addNotes(arrivedFirst, [
+      { kind: 'asked', at: at(0) },
+      { kind: 'answered', at: at(20) },
+    ]);
+    await line.addNotes(arrivedLast, [{ kind: 'asked', at: at(10) }]);
+
+    const open =
+      (await inboxOf(line.workspaceId, line.teamId).openForWorkspaceMember(
+        'acme',
+        UserId.of(line.viewer),
+      )) ?? [];
+
+    expect(open.map((each) => each.id)).toEqual([
+      `${arrivedLast}:0`,
+      `${arrivedFirst}:0`,
+    ]);
+  });
+
+  const runningTask = async (
+    line: Awaited<ReturnType<typeof aLine>>,
+    askedAt: number,
+    messageAt?: { minute: number; voice: 'station' | 'world' },
+  ) => {
+    const taskId = await line.addTask({ stationId: line.work, running: true });
+
+    await line.addNotes(taskId, [
+      { kind: 'asked', at: at(askedAt) },
+      { kind: 'answered', at: at(askedAt + 1) },
+      ...(messageAt
+        ? [
+            {
+              kind: 'message' as const,
+              at: at(messageAt.minute),
+              voice: messageAt.voice,
+            },
+          ]
+        : []),
+    ]);
+
+    return taskId;
+  };
+
+  const openIds = async (line: Awaited<ReturnType<typeof aLine>>) =>
+    (
+      (await inboxOf(line.workspaceId, line.teamId).openForWorkspaceMember(
+        'acme',
+        UserId.of(line.viewer),
+      )) ?? []
+    ).map((each) => each.id);
+
+  it('lists running tasks by their newest note, so an agent note or a world message moves one to the top', async () => {
+    const line = await aLine();
+    const plain = await runningTask(line, 10);
+    const agentNoted = await runningTask(line, 0, {
+      minute: 20,
+      voice: 'station',
+    });
+    const worldNoted = await runningTask(line, 2, {
+      minute: 30,
+      voice: 'world',
+    });
+
+    expect(await openIds(line)).toEqual([
+      `${worldNoted}:0`,
+      `${agentNoted}:0`,
+      `${plain}:0`,
+    ]);
+  });
+
+  it('keeps an open task in place when an agent note arrives', async () => {
+    const line = await aLine();
+    const noted = await line.addTask({ stationId: line.work });
+    const later = await line.addTask({ stationId: line.work });
+
+    await line.addNotes(noted, [
+      { kind: 'asked', at: at(0) },
+      { kind: 'message', at: at(20), voice: 'station' },
+    ]);
+    await line.addNotes(later, [{ kind: 'asked', at: at(5) }]);
+
+    expect(await openIds(line)).toEqual([`${later}:0`, `${noted}:0`]);
+  });
+
+  it('does not move a running task when its notes are marked read', async () => {
+    const line = await aLine();
+    const older = await runningTask(line, 0);
+    const newer = await runningTask(line, 10);
+
+    await db
+      .update(schema.taskNote)
+      .set({ readAt: at(40) })
+      .where(eq(schema.taskNote.taskId, older));
+
+    expect(await openIds(line)).toEqual([`${newer}:0`, `${older}:0`]);
+  });
+
+  it('pages resolved requests by resolve time without skipping or repeating one', async () => {
+    const line = await aLine();
+    const taskId = await line.addTask({ stationId: line.work });
+    const resolvedAt = [5, 5, 3, 3, 1];
+    const requests = await Promise.all(
+      resolvedAt.map((minute, place) =>
+        line.addRequest({
+          taskId,
+          openedAt: at(40 - place),
+          resolvedAt: at(minute),
+        }),
+      ),
+    );
+    const inbox = inboxOf(line.workspaceId, line.teamId);
+    const viewer = UserId.of(line.viewer);
+    const seen: string[] = [];
+    let before: string | null = null;
+
+    do {
+      const page: Awaited<ReturnType<typeof inbox.resolvedForWorkspaceMember>> =
+        await inbox.resolvedForWorkspaceMember(
+          'acme',
+          viewer,
+          pageAfter(before, 2),
+        );
+
+      seen.push(...(page?.items.map((each) => each.id) ?? []));
+      before = page?.next ?? null;
+    } while (before);
+
+    expect([...seen].sort()).toEqual([...requests].sort());
+    expect(new Set(seen).size).toBe(requests.length);
+    expect(
+      seen.map((id) => resolvedAt[(requests as string[]).indexOf(id)]),
+    ).toEqual(resolvedAt);
+  });
+
+  it('puts a reopened request at the top of Open', async () => {
+    const line = await aLine();
+    const taskId = await line.addTask({ stationId: line.work });
+    const kept = await line.addRequest({ taskId, openedAt: at(10) });
+    const reopened = await line.addRequest({
+      taskId,
+      openedAt: at(1),
+      resolvedAt: at(2),
+    });
+
+    expect(await openIds(line)).toEqual([kept]);
+
+    await db
+      .update(schema.inboxRequest)
+      .set({ openedAt: at(30), resolvedAt: null })
+      .where(eq(schema.inboxRequest.id, reopened));
+
+    expect(await openIds(line)).toEqual([reopened, kept]);
   });
 
   it('keeps a resolved conversation open while its ask is unseen, on a finished task too', async () => {
