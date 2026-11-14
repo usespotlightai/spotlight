@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { ToolCallInputs } from '@integrations/application/dto/declared-tool.dto';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
 import { DeclaredToolMapper } from '@integrations/application/mappers/declared-tool.mapper';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
@@ -779,7 +780,15 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     refreshToken: RefreshToken,
   ): Promise<RefreshResult> {
     const written = this.find(definitions, integration)?.connection?.oauth2;
-    const oauth2 = written ? await this.discovery.endpoints(written) : null;
+    const oauth2 = written
+      ? await this.discovery.endpoints(written).catch((error: unknown) => {
+          if (error instanceof EgressBlockedError) {
+            return null;
+          }
+
+          throw error;
+        })
+      : null;
     const client = oauth2
       ? await this.clients.existingFor(
           teamId,

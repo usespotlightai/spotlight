@@ -6,6 +6,7 @@ import {
   BeginOAuth2ConnectionHandler,
   FinishOAuth2ConnectionHandler,
 } from '@integrations/application/commands/handlers/oauth2-connection.handler';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import { OAuth2ClientMissingError } from '@integrations/application/errors/oauth2-client-missing.error';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
@@ -164,6 +165,18 @@ describe('BeginOAuth2ConnectionHandler', () => {
 
     await expect(handler.execute(command())).rejects.toBe(missing);
     expect(begin).not.toHaveBeenCalled();
+  });
+
+  it('passes on that the deployment blocks the OAuth server', async () => {
+    const { handler, registrationFor, clientFor } = beginning();
+    const blocked = new EgressBlockedError(
+      'mcp.linear.app',
+      'Host is not allowed.',
+    );
+    registrationFor.mockRejectedValueOnce(blocked);
+
+    await expect(handler.execute(command())).rejects.toBe(blocked);
+    expect(clientFor).not.toHaveBeenCalled();
   });
 
   it('refuses where the integration has no OAuth2 endpoints', async () => {

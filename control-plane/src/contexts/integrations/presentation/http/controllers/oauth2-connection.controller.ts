@@ -89,7 +89,7 @@ export class OAuth2ConnectionController {
   @ApiUnauthorizedResponse({ description: 'No valid session' })
   @ApiForbiddenResponse({
     description:
-      'The caller is not a workspace admin, and asks for a team account',
+      'The caller is not a workspace admin and asks for a team account, or the deployment blocks the OAuth2 server',
   })
   @ApiNotFoundResponse({
     description:

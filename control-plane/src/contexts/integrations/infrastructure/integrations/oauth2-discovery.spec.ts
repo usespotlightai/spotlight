@@ -1,3 +1,4 @@
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { OAuth2IR } from '@integrations/infrastructure/integrations/integration.compile';
 import { OAuth2Discovery } from '@integrations/infrastructure/integrations/oauth2-discovery';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
@@ -152,16 +153,57 @@ describe('OAuth2Discovery', () => {
     ).resolves.toBeNull();
   });
 
-  it('requests nothing from an authorization server on a host the deployment does not allow', async () => {
+  it('requests nothing from an authorization server on a host the deployment does not allow, and says so', async () => {
     const fetch = answering();
 
     await expect(
       discovery(fetch, ['mcp.tracker.example']).endpoints(DISCOVERED),
-    ).resolves.toBeNull();
+    ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(
       fetch.mock.calls.some(
         ([url]) => new URL(urlOf(url)).origin === new URL(ISSUER).origin,
       ),
     ).toBe(false);
+  });
+
+  it('checks what it found against the policy of each caller, also from its cache', async () => {
+    const fetch = answering();
+    const policy = allowingOutbound([
+      'mcp.tracker.example',
+      'auth.tracker.example',
+    ]);
+    const allow = policy.allow.bind(policy);
+    let blocked: string | null = null;
+    policy.allow = (url: string) => {
+      if (new URL(url).hostname === blocked) {
+        throw new EgressBlockedError(blocked, 'Host is not allowed.');
+      }
+
+      allow(url);
+    };
+    const found = new OAuth2Discovery(
+      policy,
+      clock,
+      { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      fetch,
+    );
+
+    await expect(found.endpoints(DISCOVERED)).resolves.not.toBeNull();
+    const requested = fetch.mock.calls.length;
+    blocked = 'auth.tracker.example';
+
+    await expect(found.endpoints(DISCOVERED)).rejects.toBeInstanceOf(
+      EgressBlockedError,
+    );
+    expect(fetch.mock.calls.length).toBe(requested);
+  });
+
+  it('refuses a server on a host the deployment does not allow, before any request', async () => {
+    const fetch = answering();
+
+    await expect(
+      discovery(fetch, ['auth.tracker.example']).endpoints(DISCOVERED),
+    ).rejects.toBeInstanceOf(EgressBlockedError);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

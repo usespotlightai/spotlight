@@ -17700,7 +17700,7 @@ export type ConnectIntegrationErrors = {
    */
   401: unknown;
   /**
-   * The caller is not a workspace admin, and asks for a team account
+   * The caller is not a workspace admin and asks for a team account, or the deployment blocks the OAuth2 server
    */
   403: unknown;
   /**

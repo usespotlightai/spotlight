@@ -3,6 +3,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type {
   OAuth2Client,
@@ -189,6 +190,22 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     intent: OpenedOAuth2Intent,
     returned: OAuth2Returned,
   ): Promise<OAuth2Authorized | OAuth2Refused> {
+    try {
+      return await this.exchangedWithinEgress(teamId, intent, returned);
+    } catch (error) {
+      if (error instanceof EgressBlockedError) {
+        return refused('egress-blocked', intent);
+      }
+
+      throw error;
+    }
+  }
+
+  private async exchangedWithinEgress(
+    teamId: TeamId,
+    intent: OpenedOAuth2Intent,
+    returned: OAuth2Returned,
+  ): Promise<OAuth2Authorized | OAuth2Refused> {
     const oauth2 = await oauth2Of(
       this.defined,
       this.reader,
@@ -196,6 +213,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       teamId,
       intent.integration,
     );
+
     if (!oauth2) {
       return refused('no-oauth2-endpoints', intent);
     }

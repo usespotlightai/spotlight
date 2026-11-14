@@ -1,3 +1,4 @@
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import type {
   OAuth2Endpoints,
@@ -121,25 +122,39 @@ export class OAuth2Discovery {
   }
 
   private async discovered(server: string): Promise<Discovered | null> {
+    try {
+      this.policy.allow(server);
+
+      const found = await this.foundOrDiscovered(server);
+
+      if (found) {
+        this.allowCallsTo(found);
+      }
+
+      return found;
+    } catch (error) {
+      if (error instanceof EgressBlockedError) {
+        this.warnOnce(server, error);
+      }
+
+      throw error;
+    }
+  }
+
+  private async foundOrDiscovered(server: string): Promise<Discovered | null> {
     const now = this.clock.now().getTime();
     const cached = this.#found.get(server);
 
     if (cached && cached.until > now) {
-      return this.allows(server) ? cached.discovered : null;
+      return cached.discovered;
     }
 
     const discovered = await this.discover(server).catch((error: unknown) => {
-      const host = hostOf(server);
-
-      if (this.#failed.due(host ?? server, this.clock.now())) {
-        this.logger.warn(
-          {
-            server: host,
-            error: error instanceof Error ? error.name : 'unknown',
-          },
-          'Could not discover the OAuth server of an integration',
-        );
+      if (error instanceof EgressBlockedError) {
+        throw error;
       }
+
+      this.warnOnce(server, error);
       return null;
     });
 
@@ -150,12 +165,26 @@ export class OAuth2Discovery {
     return discovered;
   }
 
-  private allows(server: string): boolean {
-    try {
-      this.policy.allow(server);
-      return true;
-    } catch {
-      return false;
+  private allowCallsTo(discovered: Discovered): void {
+    this.policy.allow(discovered.issuer);
+    this.policy.allow(discovered.token);
+
+    if (discovered.registration) {
+      this.policy.allow(discovered.registration);
+    }
+  }
+
+  private warnOnce(server: string, error: unknown): void {
+    const host = hostOf(server);
+
+    if (this.#failed.due(host ?? server, this.clock.now())) {
+      this.logger.warn(
+        {
+          server: host,
+          error: error instanceof Error ? error.name : 'unknown',
+        },
+        'Could not discover the OAuth server of an integration',
+      );
     }
   }
 
