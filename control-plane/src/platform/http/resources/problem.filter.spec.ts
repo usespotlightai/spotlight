@@ -190,7 +190,7 @@ describe('ProblemFilter', () => {
     ['a direct 53300', Object.assign(new Error('slots'), { code: '53300' })],
     [
       'a wrapped 53300',
-      new Error('Failed to get session', {
+      Object.assign(new Error('Failed to get session'), {
         cause: Object.assign(new Error('slots'), { code: '53300' }),
       }),
     ],

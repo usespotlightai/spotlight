@@ -1,6 +1,7 @@
 import { parseDatabaseEnv } from '@platform/config/env';
 import {
   createDatabase,
+  logPoolErrorToStderr,
   openPool,
 } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -24,7 +25,7 @@ const READ_ONLY: DomainEventDispatcher = {
 
 export const openReplayOutcomesRebuild = (): ReplayOutcomesRebuildSession => {
   const env = parseDatabaseEnv();
-  const pool = openPool(env, env.DATABASE_URL);
+  const pool = openPool(env, env.DATABASE_URL, logPoolErrorToStderr);
   const context = new DrizzleContext(createDatabase(pool));
   const outcomes = new DrizzleReplayOutcomes(context);
 

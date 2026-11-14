@@ -1,8 +1,11 @@
 import type { DatabaseEnv, Env } from '@platform/config/env.schema';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool, type PoolConfig } from 'pg';
 
 export type DrizzleDatabase = NodePgDatabase;
+
+export type PoolErrorHandler = (error: Error) => void;
 
 export const poolOptions = (
   env: DatabaseEnv,
@@ -14,21 +17,33 @@ export const poolOptions = (
   idleTimeoutMillis: env.DATABASE_IDLE_TIMEOUT_MS,
 });
 
-const quiet = (pool: Pool): Pool => {
-  // A dropped idle connection must not end the process.
-  pool.on('error', () => undefined);
-  return pool;
+export const logPoolErrorToStderr: PoolErrorHandler = (error) => {
+  process.stderr.write(
+    `${JSON.stringify({ level: 'error', msg: 'Database pool error', err: error.message })}\n`,
+  );
 };
 
-export const openPool = (env: DatabaseEnv, connectionString: string): Pool =>
-  quiet(new Pool(poolOptions(env, connectionString)));
+const logPoolError =
+  (logger: LoggerPort): PoolErrorHandler =>
+  (error) =>
+    logger.error({ err: error }, 'Database pool error');
 
-export const createPool = (env: Env): Pool =>
-  openPool(env, env.DATABASE_URL);
+export const openPool = (
+  env: DatabaseEnv,
+  connectionString: string,
+  onError: PoolErrorHandler,
+): Pool => new Pool(poolOptions(env, connectionString)).on('error', onError);
 
-export const createReadPool = (env: Env, pool: Pool): Pool =>
+export const createPool = (env: Env, logger: LoggerPort): Pool =>
+  openPool(env, env.DATABASE_URL, logPoolError(logger));
+
+export const createReadPool = (
+  env: Env,
+  pool: Pool,
+  logger: LoggerPort,
+): Pool =>
   env.DATABASE_READ_URL
-    ? openPool(env, env.DATABASE_READ_URL)
+    ? openPool(env, env.DATABASE_READ_URL, logPoolError(logger))
     : pool;
 
 export const createDatabase = (pool: Pool): DrizzleDatabase =>
