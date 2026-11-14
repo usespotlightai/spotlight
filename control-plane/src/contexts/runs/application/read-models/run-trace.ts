@@ -86,6 +86,9 @@ const named = (step: JournalStep): string => {
   if (step.kind === 'thought') {
     return 'Thought';
   }
+  if (step.kind === 'turn') {
+    return step.text || 'Continued on its own';
+  }
   return step.text;
 };
 

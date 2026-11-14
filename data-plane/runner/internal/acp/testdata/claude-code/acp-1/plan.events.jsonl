@@ -1,0 +1,6 @@
+{"type":"turn.started","data":{"turn":1,"origin":"prompt"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"plan.changed","data":{"entries":[{"content":"Reproduce the stuck queue","status":"completed","priority":"high"},{"content":"Drain it on restart","status":"in_progress","priority":"medium"}]}}
+{"type":"context.changed","data":{"used":53000,"size":200000,"cost":{"amount":0.42,"currency":"USD"}}}
+{"type":"turn.ended","data":{"turn":1,"stop":"ended","reason":"end_turn"}}
+{"type":"session.state","data":{"state":"idle"}}

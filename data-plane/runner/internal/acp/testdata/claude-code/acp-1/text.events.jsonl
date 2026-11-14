@@ -1,0 +1,7 @@
+{"type":"turn.started","data":{"turn":1,"origin":"prompt"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"message","data":{"id":"m1","role":"thought","text":"The queue looks stuck."}}
+{"type":"message","data":{"id":"m2","role":"agent","text":"Reproduced "}}
+{"type":"message","data":{"id":"m2","role":"agent","text":"on restart."}}
+{"type":"turn.ended","data":{"turn":1,"stop":"ended","reason":"end_turn","usage":{"input":120,"output":40,"cacheRead":900}}}
+{"type":"session.state","data":{"state":"idle"}}

@@ -277,10 +277,10 @@ import {
 } from '@runs/domain/repositories/working-copy-archive.repository';
 import { LinesWarmLines } from '@runs/infrastructure/acl/lines-warm-lines.adapter';
 import { RunnersWarmSandboxKeeping } from '@runs/infrastructure/acl/runners-warm-sandboxes.adapter';
-import { AcpHarnessToolNames } from '@runs/infrastructure/acp/harness-tools';
 import { RUNS_PAYLOAD_TYPES } from '@runs/infrastructure/events/runs-payload-types';
 import { BuiltInHarnesses } from '@runs/infrastructure/harnesses/built-in-harnesses';
 import { CheckedRunJournal } from '@runs/infrastructure/journal/checked-run-journal';
+import { HarnessToolNames } from '@runs/infrastructure/journal/harness-tools';
 import { DrizzleArchiveReferenceLocks } from '@runs/infrastructure/persistence/drizzle/archive-reference-locks';
 import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/drizzle/exclusive-claim-locks';
 import { DrizzleRunConnections } from '@runs/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
@@ -568,7 +568,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
 
-  { provide: HARNESS_TOOL_NAMES, useClass: AcpHarnessToolNames },
+  { provide: HARNESS_TOOL_NAMES, useClass: HarnessToolNames },
 
   { provide: HARNESS_PROFILE_REVIEW, useExisting: BuiltInHarnesses },
 

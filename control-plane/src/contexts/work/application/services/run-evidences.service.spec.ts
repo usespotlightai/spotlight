@@ -80,6 +80,8 @@ const journal: RunJournal = {
   },
   spent: null,
   egressEnforcement: null,
+  sessionStatus: null,
+  background: [],
 };
 
 const TASK_RUN = { runId: RunId.of('run_1'), checkouts: ['api'] };

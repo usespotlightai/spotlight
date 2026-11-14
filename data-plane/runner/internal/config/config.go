@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ type Config struct {
 	Author         prepare.Author
 	RunTimeout     time.Duration
 	BackgroundWait time.Duration
+	HarnessFrames  bool
 	Egress         Egress
 }
 
@@ -54,6 +56,7 @@ const (
 	envAuthorEmail     = "SPOTLIGHT_GIT_AUTHOR_EMAIL"
 	envRunTimeout      = protocol.RunTimeoutVar
 	envBackgroundWait  = "SPOTLIGHT_BACKGROUND_WAIT"
+	envHarnessFrames   = "SPOTLIGHT_HARNESS_FRAMES"
 	envEgressURL       = protocol.EgressURLVar
 	envProxyCredential = protocol.EgressProxyCredentialVar
 	envTraffic         = protocol.EgressTrafficVar
@@ -131,6 +134,15 @@ func Load(args []string) (Config, error) {
 			note(fmt.Errorf("%s: %q is not a duration such as 30m, or 0 for no wait", envBackgroundWait, raw))
 		} else {
 			cfg.BackgroundWait = wait
+		}
+	}
+
+	if raw := get(envHarnessFrames); raw != "" {
+		frames, err := strconv.ParseBool(raw)
+		if err != nil {
+			note(fmt.Errorf("%s: %q is not true or false", envHarnessFrames, raw))
+		} else {
+			cfg.HarnessFrames = frames
 		}
 	}
 

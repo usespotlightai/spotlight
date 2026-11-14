@@ -1,0 +1,5 @@
+{"type":"turn.started","data":{"turn":1,"origin":"prompt"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"message","data":{"id":"m1","role":"agent","text":"I can't help with that."}}
+{"type":"turn.ended","data":{"turn":1,"stop":"refused","reason":"refusal"}}
+{"type":"session.state","data":{"state":"idle"}}

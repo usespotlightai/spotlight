@@ -1,0 +1,9 @@
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"user_message","messageId":"ce7fc776-c129-43da-8f57-17115e6d975a","content":[{"text":"Reply with the single word: hello","type":"text"}]}}}
+{"jsonrpc":"2.0","id":"PROMPT","result":{"messageId":"ce7fc776-c129-43da-8f57-17115e6d975a"}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"state_update","state":"running","background":[]}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"usage_update","used":17538,"size":1000000}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"hello"},"messageId":"msg_011Ch2vWZh4wyRAJ9KXs66Am"}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"usage_update","used":17538,"size":1000000}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"usage_update","used":17538,"size":1000000,"cost":{"amount":0.00147382,"currency":"USD"}}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session_1","update":{"sessionUpdate":"state_update","state":"idle","stopReason":"end_turn","usage":{"inputTokens":2,"outputTokens":4,"cachedReadTokens":11372,"cachedWriteTokens":6160,"totalTokens":17538},"background":[]}}}
+{"jsonrpc":"2.0","id":5,"result":{"status":"open","state":{"state":"idle","background":[]}}}

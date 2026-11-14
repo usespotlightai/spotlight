@@ -56,6 +56,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { autoSearched, openApp, served, TEST_USER_HEADER } from './support/app';
 import { searchRunsSettled, searchStarted } from './support/auto-searches';
 import { eventually } from './support/eventually';
+import { changing } from './support/harness-events';
 import { keptSet } from './support/kept-sets';
 import { replayOf } from './support/replays';
 import { aDispatch, requestedByTask } from './support/runs';
@@ -186,52 +187,6 @@ const bearing = (token: string) => ({
       .set('Authorization', `Bearer ${token}`)
       .send(body ?? {}),
 });
-
-const sent = (update: Record<string, unknown>): string =>
-  Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
-    'base64',
-  );
-
-const changing = (message: string, line: string) => [
-  {
-    seq: 1,
-    type: 'output',
-    at: new Date().toISOString(),
-    data: sent({
-      sessionUpdate: 'agent_message_chunk',
-      content: { type: 'text', text: message },
-    }),
-  },
-  {
-    seq: 2,
-    type: 'output',
-    at: new Date().toISOString(),
-    data: sent({
-      sessionUpdate: 'tool_call',
-      toolCallId: 'call_1',
-      title: 'Edit',
-      rawInput: { file: 'queue.js' },
-    }),
-  },
-  {
-    seq: 3,
-    type: 'output',
-    at: new Date().toISOString(),
-    data: sent({
-      sessionUpdate: 'tool_call_update',
-      toolCallId: 'call_1',
-      status: 'completed',
-      content: [
-        {
-          type: 'diff',
-          path: '/workspace/api/queue.js',
-          oldText: 'stall()\n',
-          newText: `${line}\n`,
-        },
-      ],
-    }),
-  },
-];
 
 const diffOf = (line: string) =>
   [

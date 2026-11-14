@@ -35,7 +35,6 @@ type conversation struct {
 	keepLost     func([]workspace.LostTask)
 	lost         []workspace.LostTask
 	log          *slog.Logger
-	updates      atomic.Int64
 	leaseLost    atomic.Bool
 
 	stopped chan struct{}
@@ -129,23 +128,14 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 	steered, resent, nudged := false, false, false
 	var waitUntil time.Time
 
-	c.harness.Watch(func(update Update) {
-		c.updates.Add(1)
-		c.journal.append(protocol.Event{Type: protocol.EventOutput, Data: update.Raw})
-	})
+	c.harness.Watch(c.journal.append)
 
 	for {
 		turn, endTurn := context.WithCancel(ctx)
 		go c.steer(turn)
 
-		c.updates.Store(0)
-		result, err := c.harness.Prompt(ctx, c.sessionID, prompt)
-		updates := c.updates.Load()
+		result, err := c.harness.Prompt(ctx, prompt)
 		endTurn()
-
-		if err == nil && result.Used() {
-			c.journal.append(protocol.Event{Type: protocol.EventUsage, Data: result.Usage})
-		}
 		c.journal.flush(ctx)
 
 		if c.stopWasRequested() {
@@ -176,7 +166,7 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 		c.log.Info("turn finished", "stopReason", result.Reason)
 
 		// A harness can end the turn immediately after a cancel and not read the prompt.
-		if steered && !resent && updates == 0 && result.End == TurnEnded {
+		if steered && !resent && result.Silent && result.End == TurnEnded {
 			c.log.Info("the harness did not read the message; sending it again")
 			resent = true
 			continue
@@ -326,7 +316,7 @@ func (c *conversation) complete(ctx context.Context, exitCode int) error {
 	if held == nil {
 		c.archiver.archive(ctx)
 	}
-	c.journal.flush(ctx)
+	c.journal.drain(ctx)
 
 	if c.handOver != nil && !stopped {
 		c.handOver(ctx)
@@ -362,7 +352,7 @@ func (c *conversation) leave(ctx context.Context) error {
 
 	settled, cancel := settling(ctx)
 	defer cancel()
-	c.journal.flush(settled)
+	c.journal.drain(settled)
 
 	c.log.Info("the runner is stopping; the workspace is kept for the run's next attempt")
 	return ctx.Err()
@@ -416,7 +406,7 @@ func (c *conversation) steer(ctx context.Context) {
 			}
 			if len(messages) > 0 {
 				c.log.Info("a person sent a message mid-turn; steering")
-				if err := c.harness.Cancel(c.sessionID); err != nil {
+				if err := c.harness.Cancel(); err != nil {
 					c.log.Warn("could not cancel the turn", "error", err)
 				}
 				return

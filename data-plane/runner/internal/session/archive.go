@@ -271,7 +271,7 @@ func (a *archiver) archiveHeld(ctx context.Context, held *heldArchive, reported 
 	settled, done := settling(ctx)
 	defer done()
 
-	a.journal.flush(settled)
+	a.journal.drain(settled)
 	held.stopRenewing()
 	if err := held.sandbox.ReleaseArchiveLease(settled, a.run.ID); err != nil {
 		a.log.Warn("could not release the sandbox after the archive; the lease expires instead", "error", err)

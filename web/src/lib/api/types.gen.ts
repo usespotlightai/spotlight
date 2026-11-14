@@ -1181,7 +1181,7 @@ export type RunEventRequestDto = {
   at: string;
   message?: string;
   /**
-   * One session update as the agent reported it, JSON, base64
+   * The event's data as JSON, base64
    */
   data?: string;
 };
@@ -2228,7 +2228,7 @@ export type StepChangeResponseDto = {
 };
 
 export type JournalStepResponseDto = {
-  kind: 'message' | 'thought' | 'tool' | 'planned' | 'hook' | 'subagent' | 'waited' | 'lost' | 'reminded';
+  kind: 'message' | 'thought' | 'tool' | 'planned' | 'hook' | 'subagent' | 'waited' | 'lost' | 'reminded' | 'turn';
   text: string;
   status: string | null;
   /**
@@ -3094,6 +3094,12 @@ export type RunSpentResponseDto = {
   currency: string | null;
 };
 
+export type BackgroundTaskResponseDto = {
+  id: string;
+  kind: 'command' | 'monitor' | 'subagent' | 'other';
+  description: string;
+};
+
 export type RunJournalResponseDto = {
   runId: string;
   attempt: number;
@@ -3108,6 +3114,14 @@ export type RunJournalResponseDto = {
   ms: number | null;
   marks: RunMarksResponseDto;
   spent: RunSpentResponseDto | null;
+  /**
+   * What the harness last said its session does. Null for a harness that does not say
+   */
+  sessionStatus: 'running' | 'needs-action' | 'idle' | null;
+  /**
+   * The background work the harness last listed. Empty for a harness that lists none
+   */
+  background: Array<BackgroundTaskResponseDto>;
 };
 
 export type TaskReviewResponseDto = {

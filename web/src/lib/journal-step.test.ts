@@ -50,6 +50,12 @@ describe('shownStep', () => {
     expect(shown.body).toBe('Still running at the wait limit: npx vitest run');
   });
 
+  it('shows a turn the agent started by itself', () => {
+    expect(shownStep(step({ kind: 'turn' })).label).toBe(
+      'Continued on its own',
+    );
+  });
+
   it('shows background work that stopped with the run', () => {
     expect(
       shownStep(step({ kind: 'lost', text: 'npx vitest run with the sandbox' }))

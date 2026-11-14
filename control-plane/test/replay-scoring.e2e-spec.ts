@@ -53,6 +53,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { changing } from './support/harness-events';
 import { keptSet } from './support/kept-sets';
 import {
   plannedCandidate,
@@ -178,52 +179,6 @@ const bearing = (token: string) => ({
       .send(body ?? {}),
 });
 
-const sent = (update: Record<string, unknown>): string =>
-  Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
-    'base64',
-  );
-
-const changing = (from: number, message: string, line: string) => [
-  {
-    seq: from,
-    type: 'output',
-    at: new Date().toISOString(),
-    data: sent({
-      sessionUpdate: 'agent_message_chunk',
-      content: { type: 'text', text: message },
-    }),
-  },
-  {
-    seq: from + 1,
-    type: 'output',
-    at: new Date().toISOString(),
-    data: sent({
-      sessionUpdate: 'tool_call',
-      toolCallId: 'call_1',
-      title: 'Edit',
-      rawInput: { file: 'queue.js' },
-    }),
-  },
-  {
-    seq: from + 2,
-    type: 'output',
-    at: new Date().toISOString(),
-    data: sent({
-      sessionUpdate: 'tool_call_update',
-      toolCallId: 'call_1',
-      status: 'completed',
-      content: [
-        {
-          type: 'diff',
-          path: '/workspace/api/queue.js',
-          oldText: 'stall()\n',
-          newText: `${line}\n`,
-        },
-      ],
-    }),
-  },
-];
-
 const diffOf = (line: string) =>
   [
     'diff --git a/queue.js b/queue.js',
@@ -318,7 +273,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
   });
   await new DrizzleRunJournal(new DrizzleContext(db)).append(
     RunAttempt.of(RunId.of(runId), 1),
-    changing(1, 'Drained it.', 'drainInOrder()').map((each): JournalEntry => ({
+    changing('Drained it.', 'drainInOrder()').map((each): JournalEntry => ({
       ...each,
       at: new Date(each.at),
     })),
@@ -574,7 +529,7 @@ describe('a replay at a station that checks and judges', () => {
 
       await bearing(assignment.token)
         .post(`/api/runs/${assignment.runId}/events`, {
-          events: changing(1, `Drained it: score(${score}).`, 'drain()'),
+          events: changing(`Drained it: score(${score}).`, 'drain()'),
         })
         .expect(204);
       await bearing(assignment.token)

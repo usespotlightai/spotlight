@@ -318,7 +318,7 @@ process.stdin.on("data", (chunk) => {
       let usage;
       try { ` + doing + ` } catch (e) { output = String(e.message ?? e); }
       send({ jsonrpc: "2.0", method: "session/update",
-             params: { update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: output } } } });
+             params: { sessionId, update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: output } } } });
       send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "` + stopReason + `", ...(usage ? { usage } : {}) } });
     }
   }
@@ -419,6 +419,8 @@ type runOptions struct {
 	stopOnce      string
 	wait          time.Duration
 	quiet         time.Duration
+	frames        bool
+	protocol      string
 	log           *slog.Logger
 }
 
@@ -466,7 +468,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		ID:      settings.runID,
 		Attempt: settings.attempt,
 		Spec: protocol.Spec{
-			Command:       protocol.Command{Executable: executable, Env: settings.env},
+			Command:       protocol.Command{Executable: executable, Protocol: settings.protocol, Env: settings.env},
 			Briefing:      settings.briefing,
 			Handover:      protocol.HandoverSpec{Options: settings.handover},
 			Resume:        settings.resume,
@@ -491,6 +493,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		BackgroundWait: settings.wait,
 		SettleQuiet:    settings.quiet,
 		Sandbox:        held,
+		HarnessFrames:  settings.frames,
 	})
 	if err != nil && settings.stopOnce == "" && settings.completeErr == nil {
 		t.Fatalf("execute: %v", err)
@@ -509,28 +512,39 @@ func stopOnceWritten(ctx context.Context, stop context.CancelFunc, path string) 
 	}
 }
 
-func agentOutput(t *testing.T, written *journal) string {
+func agentChunks(t *testing.T, written *journal) []string {
 	t.Helper()
 
-	var output strings.Builder
-	for _, event := range written.typed(protocol.EventOutput) {
-		if event.Message != "" {
-			continue
+	var chunks []string
+	for _, event := range written.typed(protocol.EventMessage) {
+		var message protocol.AgentMessage
+		if err := json.Unmarshal(event.Data, &message); err != nil {
+			t.Fatalf("the journal recorded a message that does not read: %v", err)
 		}
-		var update struct {
-			Update struct {
-				Content struct {
-					Text string `json:"text"`
-				} `json:"content"`
-			} `json:"update"`
+		if message.Role == protocol.MessageFromAgent {
+			chunks = append(chunks, message.Text)
 		}
-		if err := json.Unmarshal(event.Data, &update); err != nil {
-			t.Fatalf("the journal recorded something that is not an update: %v", err)
-		}
-		output.WriteString(update.Update.Content.Text)
 	}
+	return chunks
+}
 
-	return output.String()
+func agentOutput(t *testing.T, written *journal) string {
+	t.Helper()
+	return strings.Join(agentChunks(t, written), "")
+}
+
+func turnsEnded(t *testing.T, written *journal) []protocol.TurnEnded {
+	t.Helper()
+
+	var ended []protocol.TurnEnded
+	for _, event := range written.typed(protocol.EventTurnEnded) {
+		var turn protocol.TurnEnded
+		if err := json.Unmarshal(event.Data, &turn); err != nil {
+			t.Fatalf("the journal recorded a turn end that does not read: %v", err)
+		}
+		ended = append(ended, turn)
+	}
+	return ended
 }
 
 func TestTakesARunFromNothingToAnOutcome(t *testing.T) {
@@ -547,48 +561,59 @@ func TestTakesARunFromNothingToAnOutcome(t *testing.T) {
 	}
 }
 
-func TestRecordsTheAgentsOutputAsItWasWritten(t *testing.T) {
+func TestKeepsNoFramesOfTheHarnessUnlessAsked(t *testing.T) {
 	written := run(t, harness(t, `output = "structured";`, "end_turn"))
 
-	output := written.typed(protocol.EventOutput)
-	if len(output) == 0 {
-		t.Fatal("nothing was recorded")
+	if frames := written.typed(protocol.EventHarnessFrame); len(frames) != 0 {
+		t.Errorf("kept %d frames", len(frames))
 	}
+}
 
-	var update map[string]any
-	if err := json.Unmarshal(output[0].Data, &update); err != nil {
-		t.Fatalf("not readable as an update: %v", err)
+func TestKeepsEachFrameOfTheHarnessAsItWasWritten(t *testing.T) {
+	written := run(t, harness(t, `output = "structured";`, "end_turn"), func(o *runOptions) { o.frames = true })
+
+	for _, event := range written.typed(protocol.EventHarnessFrame) {
+		var frame struct {
+			Protocol string `json:"protocol"`
+			Data     struct {
+				Method string `json:"method"`
+				Params struct {
+					Update map[string]any `json:"update"`
+				} `json:"params"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(event.Data, &frame); err != nil {
+			t.Fatalf("not readable as a frame: %v", err)
+		}
+		if frame.Protocol == "acp/1" && frame.Data.Method == "session/update" && frame.Data.Params.Update["sessionUpdate"] == "agent_message_chunk" {
+			return
+		}
 	}
-	if _, ok := update["update"]; !ok {
-		t.Errorf("recorded %v, which is not a session update", update)
-	}
+	t.Fatal("the agent's update was not kept as a frame")
 }
 
 func TestWhatATurnUsedIsRecordedAsTheHarnessReportedIt(t *testing.T) {
 	written := run(t, harness(t, `output = "cached"; usage = { totalTokens: 20, inputTokens: 3, outputTokens: 5, cachedReadTokens: 12 };`, "end_turn"))
 
-	used := written.typed(protocol.EventUsage)
-	if len(used) != 1 {
-		t.Fatalf("expected one usage per turn, got %d", len(used))
+	ended := turnsEnded(t, written)
+	if len(ended) != 1 || ended[0].Usage == nil {
+		t.Fatalf("expected one turn with its usage, got %+v", ended)
 	}
 
-	var usage map[string]any
-	if err := json.Unmarshal(used[0].Data, &usage); err != nil {
-		t.Fatalf("not readable as usage: %v", err)
+	usage := ended[0].Usage
+	if usage.CacheRead == nil || *usage.CacheRead != 12 || usage.Input == nil || *usage.Input != 3 {
+		t.Errorf("recorded %+v", usage)
 	}
-	if usage["cachedReadTokens"] != float64(12) {
-		t.Errorf("recorded %v", usage)
-	}
-	if _, found := usage["cachedWriteTokens"]; found {
-		t.Errorf("recorded a cache write the harness never reported: %v", usage)
+	if usage.CacheWrite != nil {
+		t.Errorf("recorded a cache write the harness never reported: %+v", usage)
 	}
 }
 
 func TestATurnThatReportsNoUsageRecordsNone(t *testing.T) {
 	written := run(t, harness(t, `output = "quiet";`, "end_turn"))
 
-	if used := written.typed(protocol.EventUsage); len(used) != 0 {
-		t.Errorf("recorded usage nobody reported: %v", used)
+	if ended := turnsEnded(t, written); len(ended) != 1 || ended[0].Usage != nil {
+		t.Errorf("recorded usage nobody reported: %+v", ended)
 	}
 }
 
@@ -1267,8 +1292,8 @@ func TestAMessageIsSentAgainWhereTheHarnessLetsItGoUnread(t *testing.T) {
 		t.Fatalf("the run should finish: %+v", written.done)
 	}
 
-	for _, event := range written.typed(protocol.EventOutput) {
-		if strings.Contains(string(event.Data), "got: actually, do this instead") {
+	for _, chunk := range agentChunks(t, written) {
+		if strings.Contains(chunk, "got: actually, do this instead") {
 			return
 		}
 	}
@@ -1607,22 +1632,7 @@ func handingOverWhen(condition string) string {
 func prompts(t *testing.T, written *journal) []string {
 	t.Helper()
 
-	var said strings.Builder
-	for _, event := range written.typed(protocol.EventOutput) {
-		var update struct {
-			Update struct {
-				SessionUpdate string `json:"sessionUpdate"`
-				Content       struct {
-					Text string `json:"text"`
-				} `json:"content"`
-			} `json:"update"`
-		}
-		if json.Unmarshal(event.Data, &update) == nil && update.Update.SessionUpdate == "agent_message_chunk" {
-			said.WriteString(update.Update.Content.Text)
-		}
-	}
-
-	output := said.String()
+	output := agentOutput(t, written)
 	if !strings.HasPrefix(output, "[") || !strings.HasSuffix(output, "]") {
 		t.Fatalf("the agent wrote %q", output)
 	}
@@ -1710,12 +1720,12 @@ func backgrounding(t *testing.T, finish string) string {
 
 	script := `#!/usr/bin/env node
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
-const frame = (message) => send({ jsonrpc: "2.0", method: "_claude/sdkMessage",
-  params: { sessionId: "session_opened", message: { type: "system", ...message } } });
-const state = (value) => frame({ subtype: "session_state_changed", state: value });
-const tasks = (list) => frame({ subtype: "background_tasks_changed", tasks: list });
-const say = (text) => send({ jsonrpc: "2.0", method: "session/update",
-  params: { sessionId: "session_opened", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text } } } });
+const update = (sessionUpdate, rest) => send({ jsonrpc: "2.0", method: "session/update",
+  params: { sessionId: "session_opened", update: { sessionUpdate, ...rest } } });
+let jobs = [];
+const state = (value, rest = {}) => update("state_update", { state: value, background: jobs, ...rest });
+let said = 0;
+const say = (text) => update("agent_message_chunk", { messageId: "m" + ++said, content: { type: "text", text } });
 const handOver = () => fetch(process.env.SPOTLIGHT_AGENT_API_URL, {
   method: "POST",
   headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_AGENT_API_TOKEN },
@@ -1729,30 +1739,33 @@ process.stdin.on("data", (chunk) => {
   for (const line of lines) {
     if (!line.trim()) continue;
     const msg = JSON.parse(line);
-    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 2 } });
     if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_opened" } });
     if (msg.method !== "session/prompt") continue;
     const prompt = msg.params.prompt.map((block) => block.text).join("");
-    state("running");
+    update("user_message", { messageId: "u" + msg.id, content: msg.params.prompt });
+    send({ jsonrpc: "2.0", id: msg.id, result: { messageId: "u" + msg.id } });
     if (!prompt.includes("do the work")) {
+      state("running");
       say("[" + prompt + "]");
-      send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
-      state("idle");
+      state("idle", { stopReason: "end_turn" });
       continue;
     }
-    tasks([{ task_id: "t1", task_type: "local_bash", description: "npx vitest run" },
-           { task_id: "t2", task_type: "dream", description: "housekeeping", ambient: true }]);
+    state("running");
+    update("terminal_update", { terminalId: "t1", command: "npx vitest run" });
     say("started the tests");
-    send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
-    state("idle");
+    jobs = [{ type: "terminal", terminalId: "t1" }];
+    state("idle", { stopReason: "end_turn" });
     if ("` + finish + `" === "dies") setTimeout(() => process.exit(0), 100);
     if ("` + finish + `" === "wakes") {
       setTimeout(async () => {
-        tasks([]);
+        update("terminal_update", { terminalId: "t1", exitStatus: { exitCode: 0 } });
+        jobs = [];
+        state("idle");
         state("running");
         say("the tests passed");
         await handOver();
-        state("idle");
+        state("idle", { stopReason: "end_turn" });
       }, 300);
     }
   }
@@ -1771,6 +1784,7 @@ process.stdin.on("data", (chunk) => {
 }
 
 func backgroundOptions(o *runOptions) {
+	o.protocol = "acp/2"
 	o.briefing = "do the work"
 	o.handover = []string{"code-review", "review"}
 	o.wait = 3 * time.Second
@@ -1782,18 +1796,8 @@ func said(t *testing.T, written *journal) string {
 	t.Helper()
 
 	var all strings.Builder
-	for _, event := range written.typed(protocol.EventOutput) {
-		var update struct {
-			Update struct {
-				SessionUpdate string `json:"sessionUpdate"`
-				Content       struct {
-					Text string `json:"text"`
-				} `json:"content"`
-			} `json:"update"`
-		}
-		if json.Unmarshal(event.Data, &update) == nil && update.Update.SessionUpdate == "agent_message_chunk" {
-			all.WriteString(update.Update.Content.Text + "|")
-		}
+	for _, chunk := range agentChunks(t, written) {
+		all.WriteString(chunk + "|")
 	}
 	return all.String()
 }
@@ -1808,8 +1812,7 @@ func TestTheRunWaitsForBackgroundWorkThatWakesTheAgent(t *testing.T) {
 		t.Fatalf("handover %+v", handover)
 	}
 	waiting := written.typed(protocol.EventBackgroundWait)
-	if len(waiting) != 1 || !strings.Contains(string(waiting[0].Data), "npx vitest run") ||
-		strings.Contains(string(waiting[0].Data), "housekeeping") {
+	if len(waiting) != 1 || !strings.Contains(string(waiting[0].Data), "npx vitest run") {
 		t.Errorf("waiting %+v", waiting)
 	}
 	if settled := written.typed(protocol.EventBackgroundDone); len(settled) != 1 {
@@ -1827,7 +1830,7 @@ func TestBackgroundWorkStillRunningAtTheLimitIsNamedInTheReminder(t *testing.T) 
 	})
 
 	got := said(t, written)
-	if !strings.Contains(got, "These background tasks still run: npx vitest run.") || strings.Contains(got, "housekeeping") {
+	if !strings.Contains(got, "These background tasks still run: npx vitest run.") {
 		t.Fatalf("the agent said %q", got)
 	}
 	if written.done == nil || written.done.Handover != nil {
@@ -1848,6 +1851,7 @@ func TestTheNextRunHearsWhichBackgroundTasksStopped(t *testing.T) {
 		o.sandbox, o.root = sandbox, root
 	})
 	written := run(t, backgrounding(t, "never"), func(o *runOptions) {
+		o.protocol = "acp/2"
 		o.briefing = "next station"
 		o.sandbox, o.root = sandbox, root
 	})
@@ -1856,6 +1860,7 @@ func TestTheNextRunHearsWhichBackgroundTasksStopped(t *testing.T) {
 		t.Fatalf("the agent said %q", got)
 	}
 	third := run(t, backgrounding(t, "never"), func(o *runOptions) {
+		o.protocol = "acp/2"
 		o.briefing = "after that"
 		o.sandbox, o.root = sandbox, root
 	})
@@ -1884,8 +1889,27 @@ func TestTheProtocolOfTheHarnessIsJournalled(t *testing.T) {
 	written := run(t, harness(t, `output = "worked";`, "end_turn"))
 
 	connected := written.typed(protocol.EventHarnessConnected)
-	if len(connected) != 1 || connected[0].Message != "acp/1" {
+	if len(connected) != 1 {
 		t.Fatalf("connected %+v", connected)
+	}
+	var said protocol.HarnessConnected
+	if err := json.Unmarshal(connected[0].Data, &said); err != nil {
+		t.Fatal(err)
+	}
+	if said.Protocol != "acp/1" || said.Events != protocol.HarnessEventsVersion || !said.Reports.TurnUsage || said.Reports.Background {
+		t.Fatalf("connected %+v", said)
+	}
+}
+
+func TestAHarnessThatAnswersWithV1IsSpokenToInV1(t *testing.T) {
+	written := run(t, harness(t, `output = "worked";`, "end_turn"), func(o *runOptions) { o.protocol = "acp/2" })
+
+	connected := written.typed(protocol.EventHarnessConnected)
+	if len(connected) != 1 || !strings.Contains(string(connected[0].Data), `"protocol":"acp/1"`) {
+		t.Fatalf("connected %+v", connected)
+	}
+	if written.done == nil || written.done.Failed {
+		t.Fatalf("completion %+v", written.done)
 	}
 }
 

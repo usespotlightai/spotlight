@@ -349,6 +349,7 @@ func (r runner) execute(ctx context.Context, client *control.Client, run protoco
 		Unready:        r.unready,
 		BackgroundWait: r.cfg.BackgroundWait,
 		Sandbox:        sandbox,
+		HarnessFrames:  r.cfg.HarnessFrames,
 	})
 	if err == nil {
 		return

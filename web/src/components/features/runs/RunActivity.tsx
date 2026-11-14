@@ -2,7 +2,7 @@ import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { StepsWork } from '@/components/features/inbox/conversation/StepsWork';
 import { useArrivals } from '@/hooks/useArrivals';
-import { ARRIVING, type RunJournal } from '@/lib/inbox';
+import { ARRIVING, liveSessionOf, type RunJournal } from '@/lib/inbox';
 import { stretchesOf } from '@/lib/journal-step';
 import type { ShownProgress } from '@/lib/run';
 import { cn } from '@/lib/utils';
@@ -67,6 +67,7 @@ export function RunActivity({
           stationColor={station.color}
           stationPosition={station.position}
           stationCount={station.count}
+          session={liveSessionOf(journals)}
         />
       )}
     </ol>

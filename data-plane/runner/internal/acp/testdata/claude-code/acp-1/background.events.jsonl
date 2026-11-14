@@ -1,0 +1,5 @@
+{"type":"turn.started","data":{"turn":1,"origin":"prompt"}}
+{"type":"session.state","data":{"state":"running"}}
+{"type":"message","data":{"id":"m1","role":"agent","text":"Started the tests."}}
+{"type":"turn.ended","data":{"turn":1,"stop":"ended","reason":"end_turn"}}
+{"type":"session.state","data":{"state":"idle"}}

@@ -6,7 +6,7 @@ export class RunEventRequestDto {
   @ApiProperty({ example: 1, description: 'Assigned by the runner, gapless' })
   readonly seq!: number;
 
-  @ApiProperty({ example: 'output' })
+  @ApiProperty({ example: 'tool.changed' })
   readonly type!: string;
 
   @ApiProperty({ example: '2026-08-23T18:00:00.000Z' })
@@ -16,7 +16,7 @@ export class RunEventRequestDto {
   readonly message?: string;
 
   @ApiPropertyOptional({
-    description: 'One session update as the agent reported it, JSON, base64',
+    description: "The event's data as JSON, base64",
   })
   readonly data?: string;
 }

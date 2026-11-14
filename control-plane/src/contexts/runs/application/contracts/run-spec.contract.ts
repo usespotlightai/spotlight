@@ -28,6 +28,7 @@ interface SessionOptionShape {
 export interface RunCommandShape {
   readonly executable: string;
   readonly args: readonly string[];
+  readonly protocol?: 'acp/1' | 'acp/2';
   readonly env?: Readonly<Record<string, string>>;
   readonly sessionOptions?: readonly SessionOptionShape[];
 }
