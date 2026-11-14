@@ -431,6 +431,30 @@ webhook:
       ).toContainEqual(expect.stringMatching(/names its own client/));
     });
 
+    it('refuses PKCE off for a client that has no secret to prove the exchange', () => {
+      const pkceOff = (lines: string) =>
+        complaining(
+          WHOLE_OAUTH.replace(
+            '    scopes:\n',
+            `    pkce: false\n${lines}    scopes:\n`,
+          ),
+          'connection.oauth2.pkce',
+        ).map((each) => each.reason);
+
+      expect(pkceOff('    client:\n      id: public-client\n')).toContainEqual(
+        expect.stringMatching(/only a client with a secret/),
+      );
+      expect(
+        pkceOff('    registration: https://slack.com/oauth/register\n'),
+      ).toContainEqual(expect.stringMatching(/only a client with a secret/));
+      expect(
+        pkceOff(
+          '    client:\n      id: own-client\n      secret: secret.SLACK_CLIENT_SECRET\n',
+        ),
+      ).toEqual([]);
+      expect(pkceOff('')).toEqual([]);
+    });
+
     it('refuses a key it does not know, so a misspelt pkce never leaves PKCE on', () => {
       expect(
         complaining(

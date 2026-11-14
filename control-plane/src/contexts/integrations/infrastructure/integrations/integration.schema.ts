@@ -392,7 +392,17 @@ const connectionSchema = z.object({
           path: ['client'],
           message:
             'names its own client, so it registers none: remove registration or client',
-        }),
+        })
+        .refine(
+          (oauth2) =>
+            oauth2.pkce ||
+            (oauth2.client ? !!oauth2.client.secret : !oauth2.registration),
+          {
+            path: ['pkce'],
+            message:
+              'is false, which only a client with a secret may use: give client.secret, or remove pkce: false',
+          },
+        ),
     ])
     .optional(),
   manual: z.object({ secrets: z.array(secretRef).default([]) }).optional(),

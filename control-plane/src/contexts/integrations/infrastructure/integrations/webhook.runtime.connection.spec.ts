@@ -191,6 +191,29 @@ describe('a webhook that calls back with the team’s connection', () => {
     expect(fetchedWith).toEqual(['xoxb-new']);
   });
 
+  it('refreshes only once, and keeps a lookup still unauthorized after it as a failed lookup', async () => {
+    const connection = connectionWith('xoxb-old', 'xoxb-new');
+    const { runtime, sentWith } = reading(connection, [401, 401]);
+
+    await expect(runtime.read(delivered)).resolves.toHaveLength(1);
+
+    expect(connection.unauthorized).toHaveBeenCalledOnce();
+    expect(sentWith).toEqual(['xoxb-old', 'xoxb-new']);
+  });
+
+  it('refreshes only once, and fails a file fetch still unauthorized after it', async () => {
+    const connection = connectionWith('xoxb-old', 'xoxb-new');
+    const { runtime, fetchedWith } = reading(connection, [200], [401, 401]);
+
+    const [read] = await runtime.read(delivered);
+
+    await expect(read?.attachments?.[0]?.fetch()).rejects.toThrow(
+      'fetching a file: the host answered 401 without it',
+    );
+    expect(connection.unauthorized).toHaveBeenCalledOnce();
+    expect(fetchedWith).toEqual(['xoxb-old', 'xoxb-new']);
+  });
+
   it('sends no token while the team has not connected', async () => {
     const { runtime, sentWith, fetchedWith } = reading(null);
 
