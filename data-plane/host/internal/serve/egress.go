@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/url"
 	"os"
 	"slices"
@@ -60,11 +61,9 @@ func (h *Host) egressSidecar(
 	ctx context.Context, name string, labels map[string]string, credential egressCredential, sandboxHosts []string,
 	harnessKeys []protocol.HarnessKey, wait time.Duration,
 ) (*egressSidecar, error) {
-	if wait <= 0 {
-		wait = egressWait
-	}
 	sidecar := &egressSidecar{
-		host: h, name: name, labels: labels, keys: harnessKeys, sandboxHosts: sandboxHosts, wait: wait, credential: rand.Text(),
+		host: h, name: name, labels: labels, keys: harnessKeys, sandboxHosts: sandboxHosts, wait: egressWaitOr(wait),
+		credential: rand.Text(),
 	}
 
 	sidecar.networkName = "spotlight-" + name
@@ -79,10 +78,19 @@ func (h *Host) egressSidecar(
 	return sidecar, sidecar.start(ctx, credential)
 }
 
-func (s *egressSidecar) rekey(ctx context.Context, token string) error {
+func egressWaitOr(wait time.Duration) time.Duration {
+	if wait <= 0 {
+		return egressWait
+	}
+	return wait
+}
+
+func (s *egressSidecar) rekey(ctx context.Context, token, runner string) error {
 	if token == "" {
 		return errors.New("the assignment has no credential for the sandbox's egress")
 	}
+	s.labels = maps.Clone(s.labels)
+	s.labels[LabelRunner] = runner
 
 	if s.container != "" {
 		if err := s.host.engine.Destroy(ctx, s.container); err != nil {
@@ -144,6 +152,9 @@ func (h *Host) startEgress(
 		env = append(slices.Clone(env), "SSL_CERT_DIR="+EgressCABundleDir)
 		files = append(files, sandbox.File{Path: EgressCABundleDir + "/trusted.pem", Mode: 0o644, DirMode: 0o755, Body: h.now().Egress.CABundle})
 	}
+
+	labels = maps.Clone(labels)
+	labels[LabelEgress] = name
 
 	return h.engine.Start(ctx, sandbox.Spec{
 		Name:       "spotlight-egress-" + name,

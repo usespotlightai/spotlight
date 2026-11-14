@@ -31,6 +31,9 @@ const (
 	LabelRunner  = "ai.usespotlight.runner"
 	LabelSandbox = "ai.usespotlight.sandbox"
 	LabelCall    = "ai.usespotlight.call"
+	LabelImage   = "ai.usespotlight.image"
+	LabelDigest  = "ai.usespotlight.digest"
+	LabelEgress  = "ai.usespotlight.egress"
 
 	AssignmentPath = "/run/spotlight/assignment.json"
 	MirrorRoot     = "/spotlight/mirrors"
@@ -176,6 +179,7 @@ type Host struct {
 	repositories map[string]bool
 	updateAfter  time.Time
 	updated      bool
+	handover     chan struct{}
 	restarting   bool
 	drainingAll  bool
 	stopClaiming context.CancelFunc
@@ -199,6 +203,7 @@ func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors
 		handedOut:    map[string]time.Time{},
 		repositories: map[string]bool{},
 		networks:     map[string]int{},
+		handover:     make(chan struct{}),
 	}
 	h.live.Store(new(settingsOf(opts)))
 
@@ -236,6 +241,8 @@ func (h *Host) Serve(ctx context.Context) error {
 	}
 	h.log.Info("reached the container runtime", "containerRuntime", h.containerRuntime)
 
+	left := h.takeOver(ctx)
+
 	if err := retried(ctx, h.log, "could not report to the control plane, still trying", func() error {
 		heartbeat, err := h.sendHeartbeat(ctx)
 		h.workspace = heartbeat.Workspace
@@ -244,7 +251,7 @@ func (h *Host) Serve(ctx context.Context) error {
 		return quiet(ctx, err)
 	}
 
-	h.reap(ctx)
+	h.reap(ctx, left)
 
 	tunneling, stopTunneling := context.WithCancel(ctx)
 	var tunnel sync.WaitGroup
@@ -277,7 +284,8 @@ func (h *Host) Serve(ctx context.Context) error {
 	}
 
 	if !h.wasUpdated() && !h.wasRestarted() {
-		h.log.Info("serving", "name", h.now().Name, "capacity", h.slots.size(), "default", h.now().Images.Default)
+		h.log.Info("serving", "name", h.now().Name, "capacity", h.slots.size(), "default", h.now().Images.Default,
+			"tookOver", len(left.taken))
 
 		reporting.Go(func() { h.watch(claiming, ctx, stop) })
 		reporting.Go(func() { h.sweep(claiming) })
@@ -288,6 +296,8 @@ func (h *Host) Serve(ctx context.Context) error {
 		})
 	}
 
+	h.superviseTaken(claiming, ctx, left.taken)
+
 	<-claiming.Done()
 	h.loops.Wait()
 	h.sandboxes.Wait()
@@ -296,10 +306,12 @@ func (h *Host) Serve(ctx context.Context) error {
 	stopBeating()
 	reporting.Wait()
 
-	deregistering, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
-	defer cancel()
-	if err := h.pool.Deregister(deregistering); err != nil {
-		h.log.Warn("could not deregister", "error", err)
+	if !h.wasUpdated() {
+		deregistering, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+		if err := h.pool.Deregister(deregistering); err != nil {
+			h.log.Warn("could not deregister", "error", err)
+		}
 	}
 
 	if failure == nil && (h.wasUpdated() || h.wasRestarted()) {
@@ -314,7 +326,7 @@ func (h *Host) follow(ctx context.Context, release string) {
 	}
 
 	if h.opts.Updates.Replaced() {
-		h.restartWhenDrained("the host binary was replaced")
+		h.handOver("the host binary was replaced")
 		return
 	}
 
@@ -336,20 +348,7 @@ func (h *Host) follow(ctx context.Context, release string) {
 		return
 	}
 
-	h.restartWhenDrained("updated to release " + release)
-}
-
-func (h *Host) restartWhenDrained(why string) {
-	h.mu.Lock()
-	h.updated = true
-	stop := h.stopClaiming
-	running := len(h.running)
-	h.mu.Unlock()
-
-	h.log.Info(why+"; it stops claiming and restarts once its sandboxes finish", "running", running)
-	if stop != nil {
-		stop()
-	}
+	h.handOver("updated to release " + release)
 }
 
 func (h *Host) wasUpdated() bool {
@@ -363,24 +362,6 @@ func quiet(ctx context.Context, err error) error {
 		return nil
 	}
 	return err
-}
-
-func (h *Host) reap(ctx context.Context) {
-	left, err := h.engine.Labelled(ctx, LabelHost, h.opts.HostID)
-	if err != nil {
-		h.log.Warn("could not look for sandboxes left behind", "error", err)
-		return
-	}
-
-	for _, id := range left {
-		if err := h.engine.Destroy(ctx, id); err != nil {
-			h.log.Warn("could not destroy a sandbox left behind", "sandbox", id, "error", err)
-			continue
-		}
-		h.log.Info("destroyed a sandbox left behind", "sandbox", id)
-	}
-
-	h.sweepNetworks(ctx)
 }
 
 func (h *Host) sweep(ctx context.Context) {
@@ -495,7 +476,7 @@ func (h *Host) report(ctx, claiming context.Context, stop func(error)) {
 		case <-ticker.C:
 		case <-stopped:
 			stopped = nil
-			h.stopping.Store(true)
+			h.stopping.Store(!h.wasUpdated())
 		}
 
 		if _, err := h.sendHeartbeat(ctx); err != nil {
@@ -674,7 +655,12 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	}
 
 	draining := h.hold(assignment.SandboxID)
-	defer h.release(assignment.SandboxID)
+	kept := false
+	defer func() {
+		if !kept {
+			h.release(assignment.SandboxID)
+		}
+	}()
 
 	if ctx.Err() != nil {
 		log.Info("the host is stopping, so the work is left to be claimed again")
@@ -726,7 +712,11 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	sandboxEnv, keys := standInsFor(h.now().SandboxEnv)
 
 	sidecar, err := h.egress(starting, assignment, keys, log)
-	defer sidecar.close()
+	defer func() {
+		if !kept {
+			sidecar.close()
+		}
+	}()
 	if err != nil {
 		log.Warn("failed the work: its egress sidecar did not start", "error", err)
 		h.reported(err, assignment)
@@ -752,7 +742,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		env = append(env, telemetry.TraceparentVar+"="+trace.Traceparent())
 	}
 
-	labels := map[string]string{LabelHost: h.opts.HostID}
+	labels := map[string]string{LabelHost: h.opts.HostID, LabelImage: image, LabelDigest: ready.digest}
 	if assignment.RunnerID != "" {
 		labels[LabelRunner] = assignment.RunnerID
 	}
@@ -769,25 +759,41 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		Files:   append([]sandbox.File{{Path: AssignmentPath, Mode: 0o400, Body: body}}, sidecar.files()...),
 		Network: sidecar.network,
 	})
-	defer h.destroy(id)
 	h.started(image, err == nil)
 	if err != nil {
+		h.destroy(id)
 		log.Error("could not start a sandbox; claiming from this image pauses", "image", ready.digest, "error", err)
 		h.reported(err, assignment)
 		return
 	}
 
 	stopRenewing()
-	h.placed(assignment.SandboxID, id)
-	if assignment.RunnerID != "" {
-		h.track(id, assignment.RunnerID)
-		defer h.untrack(id)
-	}
 	if assignment.StartsSandboxOnly() {
 		log.Info("started a sandbox with no run; it restores its workspace and waits for runs", "sandbox", id)
 	} else {
 		log.Info("started a sandbox", "sandbox", id)
 	}
+
+	kept = h.supervise(ctx, claiming, liveSandbox{
+		id: id, sandboxID: assignment.SandboxID, runnerID: assignment.RunnerID, image: image, digest: ready.digest,
+		sidecar: sidecar, started: time.Now(),
+	}, draining, time.Time{}, log)
+}
+
+func (h *Host) supervise(
+	ctx, claiming context.Context, live liveSandbox, draining <-chan struct{}, since time.Time, log *slog.Logger,
+) (kept bool) {
+	id := live.id
+	h.placed(live.sandboxID, id)
+	if live.runnerID != "" {
+		h.track(id, live.runnerID)
+	}
+	defer func() {
+		if !kept {
+			h.untrack(id)
+			h.destroy(id)
+		}
+	}()
 
 	watching, stopWatching := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopWatching()
@@ -795,7 +801,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	followed := make(chan struct{})
 	go func() {
 		defer close(followed)
-		if err := h.engine.Follow(watching, id, &echo{log: log}); err != nil && watching.Err() == nil {
+		if err := h.engine.Follow(watching, id, since, &echo{log: log}); err != nil && watching.Err() == nil {
 			log.Warn("stopped following the sandbox", "error", err)
 		}
 	}()
@@ -806,12 +812,12 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 
 	var timeout <-chan time.Time
 	broken := make(chan error, 1)
-	if assignment.SandboxID != "" {
-		live := liveSandbox{id: id, sandboxID: assignment.SandboxID, image: image, digest: ready.digest, sidecar: sidecar}
+	delivered, stopTaking := make(chan struct{}), func() {}
+	if live.sandboxID != "" {
 		delivering, stopDelivering := context.WithCancel(ctx)
-		taking, stopTaking := context.WithCancel(delivering)
+		var taking context.Context
+		taking, stopTaking = context.WithCancel(delivering)
 		stopFollowingClaims := context.AfterFunc(claiming, stopTaking)
-		delivered := make(chan struct{})
 		defer func() {
 			stopFollowingClaims()
 			stopDelivering()
@@ -824,7 +830,8 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 			}
 		}()
 	} else {
-		timer := time.NewTimer(h.now().RunTimeout)
+		close(delivered)
+		timer := time.NewTimer(h.now().RunTimeout - time.Since(live.started))
 		defer timer.Stop()
 		timeout = timer.C
 	}
@@ -837,13 +844,16 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		case <-drained.C:
 		}
 	}
-
-	select {
-	case code := <-exited:
+	finished := func(code int) bool {
 		close(gone)
 		drain()
 		log.Info("the sandbox finished", "exit", code)
-		return
+		return false
+	}
+
+	select {
+	case code := <-exited:
+		return finished(code)
 	case <-timeout:
 		log.Warn("the sandbox ran past its time", "timeout", h.now().RunTimeout)
 	case err := <-broken:
@@ -852,6 +862,20 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		log.Info("the control plane drains the sandbox")
 	case <-ctx.Done():
 		log.Info("the host is stopping, so is the sandbox")
+	case <-h.handover:
+		stopTaking()
+		select {
+		case <-delivered:
+		case code := <-exited:
+			return finished(code)
+		}
+		select {
+		case err := <-broken:
+			log.Warn("the sandbox stops, because a run could not be delivered into it", "error", err)
+		default:
+			log.Info("the host restarts, and leaves the sandbox running for the restarted host", "sandbox", id)
+			return true
+		}
 	}
 	close(gone)
 
@@ -861,6 +885,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		log.Warn("could not stop the sandbox", "error", err)
 	}
 	drain()
+	return false
 }
 
 func nameOf(assignment protocol.Assignment) string {
@@ -873,9 +898,11 @@ func nameOf(assignment protocol.Assignment) string {
 type liveSandbox struct {
 	id        string
 	sandboxID string
+	runnerID  string
 	image     string
 	digest    string
 	sidecar   *egressSidecar
+	started   time.Time
 }
 
 func (h *Host) nextRuns(
@@ -949,7 +976,7 @@ func (h *Host) deliver(
 		return err
 	}
 
-	if err := live.sidecar.rekey(ctx, assignment.EgressToken); err != nil {
+	if err := live.sidecar.rekey(ctx, assignment.EgressToken, assignment.RunnerID); err != nil {
 		return failed(fmt.Errorf("re-key the sandbox's egress: %w", err))
 	}
 	if err := h.engine.Put(ctx, live.id, live.sidecar.authorityFile()); err != nil {

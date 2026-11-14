@@ -401,7 +401,7 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.Ha
 	}
 
 	var output lines
-	if err := h.engine.Follow(ctx, id, &output); err != nil {
+	if err := h.engine.Follow(ctx, id, time.Time{}, &output); err != nil {
 		return protocol.Registration{}, err
 	}
 

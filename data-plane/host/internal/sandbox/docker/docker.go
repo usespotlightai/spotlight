@@ -429,8 +429,11 @@ func (e *Engine) extract(
 	return response.StatusCode, nil
 }
 
-func (e *Engine) Follow(ctx context.Context, id string, out io.Writer) error {
+func (e *Engine) Follow(ctx context.Context, id string, since time.Time, out io.Writer) error {
 	query := url.Values{"follow": {"1"}, "stdout": {"1"}, "stderr": {"1"}}
+	if !since.IsZero() {
+		query.Set("since", strconv.FormatInt(since.Unix(), 10))
+	}
 
 	response, err := e.send(ctx, http.MethodGet, "/containers/"+id+"/logs?"+query.Encode(), nil, "")
 	if err != nil {
@@ -567,21 +570,28 @@ func (e *Engine) Destroy(ctx context.Context, id string) error {
 	return nil
 }
 
-func (e *Engine) Labelled(ctx context.Context, key, value string) ([]string, error) {
+func (e *Engine) Labelled(ctx context.Context, key, value string) ([]sandbox.Container, error) {
 	filters, _ := json.Marshal(map[string][]string{"label": {key + "=" + value}})
 	query := url.Values{"all": {"1"}, "filters": {string(filters)}}
 
-	var listed []struct{ Id string }
+	var listed []struct {
+		Id      string
+		Labels  map[string]string
+		State   string
+		Created int64
+	}
 	if _, err := e.call(ctx, http.MethodGet, "/containers/json?"+query.Encode(), nil, &listed); err != nil {
 		return nil, fmt.Errorf("list sandboxes: %w", err)
 	}
 
-	ids := make([]string, 0, len(listed))
+	containers := make([]sandbox.Container, 0, len(listed))
 	for _, each := range listed {
-		ids = append(ids, each.Id)
+		containers = append(containers, sandbox.Container{
+			ID: each.Id, Labels: each.Labels, Running: each.State == "running", Created: time.Unix(each.Created, 0),
+		})
 	}
 
-	return ids, nil
+	return containers, nil
 }
 
 // Running gives the distinct values of label on running containers labelled key=value.

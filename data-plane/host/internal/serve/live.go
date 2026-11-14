@@ -97,6 +97,13 @@ func (s *slots) take(ctx context.Context) bool {
 	}
 }
 
+func (s *slots) occupy() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.used++
+}
+
 func (s *slots) give() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
