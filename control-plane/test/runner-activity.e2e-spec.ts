@@ -150,7 +150,7 @@ describe('which run each busy runner is working on', () => {
 });
 
 describe('the last run of each working copy', () => {
-  it('finds the newest run for each key asked about, and none for a key with no run', async () => {
+  it('finds the run that used each working copy last, by when it ended, and none for a key with no run', async () => {
     const taskId = randomUUID();
     const otherTaskId = randomUUID();
     const key = `work/task-${taskId}`;
@@ -164,20 +164,30 @@ describe('the last run of each working copy', () => {
         ...requestedByTask(taskId, { teamId: 'team_line' }),
         id: first,
         state: 'completed',
-        endedAt: new Date(),
+        endedAt: new Date('2026-11-14T10:30:00.000Z'),
         createdAt: new Date('2026-11-14T10:00:00.000Z'),
       }),
       leasedRun({
         ...requestedByTask(taskId, { teamId: 'team_line' }),
         id: last,
         state: 'completed',
-        endedAt: new Date(),
+        endedAt: new Date('2026-11-14T11:30:00.000Z'),
         createdAt: new Date('2026-11-14T11:00:00.000Z'),
       }),
       leasedRun({
         ...requestedByTask(otherTaskId, { teamId: 'team_line' }),
         id: other,
+        state: 'completed',
+        startedAt: new Date('2026-11-14T09:00:00.000Z'),
+        endedAt: new Date('2026-11-14T13:00:00.000Z'),
         createdAt: new Date('2026-11-14T09:00:00.000Z'),
+      }),
+      leasedRun({
+        ...requestedByTask(otherTaskId, { teamId: 'team_line' }),
+        state: 'completed',
+        startedAt: new Date('2026-11-14T10:00:00.000Z'),
+        endedAt: new Date('2026-11-14T10:30:00.000Z'),
+        createdAt: new Date('2026-11-14T10:00:00.000Z'),
       }),
       leasedRun({
         ...requestedByTask(randomUUID(), { teamId: 'team_line' }),
@@ -203,7 +213,7 @@ describe('the last run of each working copy', () => {
     ).toEqual(
       [
         { key, runId: last, state: 'completed', kind: 'task' },
-        { key: otherKey, runId: other, state: 'claimed', kind: 'task' },
+        { key: otherKey, runId: other, state: 'completed', kind: 'task' },
       ].sort((one, another) => one.key.localeCompare(another.key)),
     );
   });

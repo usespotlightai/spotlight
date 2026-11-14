@@ -11,7 +11,7 @@ import { isLeasedState } from '@runs/domain/value-objects/run-state';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 
 const COLUMNS = {
   id: run.id,
@@ -99,7 +99,12 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
           inArray(run.workingCopyKey, [...keys]),
         ),
       )
-      .orderBy(run.workingCopyKey, desc(run.createdAt), desc(run.id));
+      .orderBy(
+        run.workingCopyKey,
+        desc(sql`coalesce(${run.endedAt}, ${run.startedAt}, ${run.createdAt})`),
+        desc(run.createdAt),
+        desc(run.id),
+      );
 
     return rows.flatMap((row) =>
       row.key === null ? [] : [{ ...activityRunOf(row), key: row.key }],
