@@ -14,6 +14,7 @@ import {
   MEMORIES_REQUEST_ID,
   SETUP_ITEM_ID,
 } from '@/mocks/world/inbox';
+import { inboxStore } from '@/mocks/world/inbox-store';
 import { settingsWorld } from '@/mocks/world/settings';
 import { NO_FLEET } from '@/mocks/world/settings-runners';
 import { teamChats } from '@/mocks/world/team-chats';
@@ -38,6 +39,8 @@ const SETTING_UP = { arg: 'opened', eq: SETUP_ITEM_ID };
 
 type Configuration = 'not-started' | 'working' | 'done';
 
+type Standing = 'assignee' | 'team' | 'following';
+
 type InboxArgs = {
   readonly opened: string;
   readonly gitHubInstalled: boolean;
@@ -47,6 +50,7 @@ type InboxArgs = {
   readonly editingMemory: boolean;
   readonly approvingMemory: boolean;
   readonly answeringYes: boolean;
+  readonly standing: Standing;
 };
 
 const meta = {
@@ -67,6 +71,7 @@ const meta = {
       editingMemory: false,
       approvingMemory: false,
       answeringYes: false,
+      standing: 'assignee',
     },
     argTypes: {
       opened: choice('Open item', {
@@ -105,6 +110,11 @@ const meta = {
       editingMemory: toggle('Edit the first memory'),
       approvingMemory: toggle('Approve the open memory'),
       answeringYes: toggle('Answer Yes'),
+      standing: choice<Standing>('Viewer stands as', {
+        assignee: 'Assignee',
+        team: 'Team, nobody assigned',
+        following: 'Follower',
+      }),
     },
     world: ({
       opened,
@@ -112,7 +122,16 @@ const meta = {
       hostConnected,
       configuration,
       admin,
+      standing,
     }) => {
+      if (standing !== 'assignee') {
+        for (const entry of inboxStore().entries) {
+          if (entry.kind === 'task' && entry.id === opened) {
+            entry.standing = standing;
+          }
+        }
+      }
+
       if (opened !== SETUP_ITEM_ID) return;
 
       const settings = settingsWorld();

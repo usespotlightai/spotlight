@@ -4,6 +4,7 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { MarkConversationReadCommand } from '@work/application/commands/mark-conversation-read.command';
 import type { ConversationLoader } from '@work/application/services/conversation-loader.service';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { ConversationAudience } from '@work/domain/services/conversation-audience';
 
 export class MarkConversationReadHandler implements CommandHandlerPort<
   MarkConversationReadCommand,
@@ -17,12 +18,15 @@ export class MarkConversationReadHandler implements CommandHandlerPort<
 
   async execute(command: MarkConversationReadCommand): Promise<void> {
     try {
-      const { item, task } = await this.conversations.seenBy(
+      const { item, task, standing } = await this.conversations.seenBy(
         command.conversationId,
         command.readBy,
       );
 
-      if (task.unreadFrom(item.from)) {
+      if (
+        ConversationAudience.answers(standing) &&
+        task.unreadFrom(item.from)
+      ) {
         await this.tasks.save(task.read(item.from, this.clock.now()));
       }
     } catch (error) {

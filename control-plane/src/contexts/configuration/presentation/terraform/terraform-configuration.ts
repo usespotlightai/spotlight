@@ -575,6 +575,7 @@ const line = (
       ...present('role', definition.role),
       ...present('runners', definition.runners),
       ...present('warm_sandboxes', definition.warmSandboxes || undefined),
+      ...present('default_assignee', definition.defaultAssignee),
       ...definition.repositories.map(repository),
       ...definition.stations.map(station),
       ...definition.reactions.map(reaction),

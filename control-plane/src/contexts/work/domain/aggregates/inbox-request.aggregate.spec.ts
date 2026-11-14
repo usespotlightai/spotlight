@@ -219,4 +219,31 @@ describe('InboxRequest', () => {
       expect(InboxRequest.requiredAccess('alert')).toBe('actsOnTeam');
     });
   });
+
+  describe('how it reaches a person', () => {
+    const seen = (assignee: UserId | null, actsOnTeam: boolean) =>
+      InboxRequest.standingOf({
+        form: 'memories',
+        viewer: ADA,
+        assignee,
+        seesTeam: true,
+        actsOnTeam,
+      });
+
+    it('reaches its assignee as the assignee', () => {
+      expect(seen(ADA, false)).toBe('assignee');
+    });
+
+    it('reaches a person who acts on the team while nobody is the assignee', () => {
+      expect(seen(null, true)).toBe('team');
+    });
+
+    it('reaches a person who only sees the team as neither', () => {
+      expect(seen(null, false)).toBeNull();
+    });
+
+    it('reaches nobody else as the assignee or the team', () => {
+      expect(seen(BEA, true)).toBeNull();
+    });
+  });
 });

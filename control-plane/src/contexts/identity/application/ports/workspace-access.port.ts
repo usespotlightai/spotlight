@@ -41,6 +41,7 @@ interface TeamAccessEntry {
   readonly teamId: TeamId;
   readonly sees: boolean;
   readonly actsOn: boolean;
+  readonly joined: boolean;
 }
 
 export interface WorkspaceTeamAccess {
@@ -98,6 +99,8 @@ export interface WorkspaceAccessPort {
     teamId: TeamId,
     principal: Principal,
   ): Promise<TeamPermissions | null>;
+
+  joinedTeam(teamId: TeamId, principal: Principal): Promise<boolean>;
 
   mayPlan(principal: Principal): boolean;
 }

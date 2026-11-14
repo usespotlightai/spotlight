@@ -2564,7 +2564,7 @@ export type InboxChatResponseDto = {
   /**
    * The inbox section that shows it: running while a run works, open until the person or an accepted proposal resolves it
    */
-  section: 'open' | 'running' | 'resolved';
+  section: 'open' | 'running' | 'following' | 'resolved';
   /**
    * True when the person can open it again: once it is resolved
    */
@@ -2784,9 +2784,13 @@ export type InboxItemResponseDto = {
    */
   resolved: boolean;
   /**
-   * The inbox section that shows it: open, running or resolved. An unread item is always open
+   * The inbox section that shows it: open, running, following or resolved. An unread item is open, unless the person follows it
    */
-  section: 'open' | 'running' | 'resolved';
+  section: 'open' | 'running' | 'following' | 'resolved';
+  /**
+   * How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of
+   */
+  standing: 'assignee' | 'team' | 'following' | null;
   /**
    * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
    */
@@ -2866,7 +2870,7 @@ export type InboxNoticeResponseDto = {
   /**
    * The inbox section that shows it: open until a person resolves it
    */
-  section: 'open' | 'running' | 'resolved';
+  section: 'open' | 'running' | 'following' | 'resolved';
   /**
    * True when the person can open it again: once it is resolved
    */
@@ -2915,9 +2919,13 @@ export type InboxRunResponseDto = {
    */
   resolved: false;
   /**
-   * The inbox section that shows it: running
+   * The inbox section that shows it: running, or following
    */
-  section: 'open' | 'running' | 'resolved';
+  section: 'open' | 'running' | 'following' | 'resolved';
+  /**
+   * How it reaches the person: assignee when they are its assignee, following when they wrote in its task and someone else is the assignee
+   */
+  standing: 'assignee' | 'team' | 'following';
   /**
    * Never reopenable
    */
@@ -2966,9 +2974,13 @@ export type InboxItemViewResponseDto = {
    */
   resolved: boolean;
   /**
-   * The inbox section that shows it: open, running or resolved. An unread item is always open
+   * The inbox section that shows it: open, running, following or resolved. An unread item is open, unless the person follows it
    */
-  section: 'open' | 'running' | 'resolved';
+  section: 'open' | 'running' | 'following' | 'resolved';
+  /**
+   * How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of
+   */
+  standing: 'assignee' | 'team' | 'following' | null;
   /**
    * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
    */
@@ -14862,6 +14874,44 @@ export type ResolveInboxItemResponses = {
 
 export type ResolveInboxItemResponse = ResolveInboxItemResponses[keyof ResolveInboxItemResponses];
 
+export type TakeInboxItemData = {
+  body?: never;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/take';
+};
+
+export type TakeInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller follows the task but does not act on its team
+   */
+  403: unknown;
+  /**
+   * No such conversation for this caller, or another person took it and the caller does not follow the task
+   */
+  404: unknown;
+  /**
+   * The caller is a member of the team who follows the task and another person is its assignee, or nothing waits on anyone at that conversation
+   */
+  409: unknown;
+};
+
+export type TakeInboxItemResponses = {
+  /**
+   * The caller is the assignee
+   */
+  204: void;
+};
+
+export type TakeInboxItemResponse = TakeInboxItemResponses[keyof TakeInboxItemResponses];
+
 export type ResolveInboxRequestData = {
   body?: never;
   path: {
@@ -15515,7 +15565,7 @@ export type SendMessageErrors = {
    */
   401: unknown;
   /**
-   * The caller is not a member of the team, nor a workspace admin
+   * The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it
    */
   403: unknown;
   /**
@@ -15523,7 +15573,7 @@ export type SendMessageErrors = {
    */
   404: unknown;
   /**
-   * The task has moved on from that station
+   * The task has moved on from that station, or the message answers a question that another person is the assignee of
    */
   409: unknown;
 };

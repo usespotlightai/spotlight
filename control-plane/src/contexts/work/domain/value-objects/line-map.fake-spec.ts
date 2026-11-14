@@ -211,6 +211,7 @@ const mapped = (input: {
   teamId: TeamId;
   reviews?: ReviewIntake | null;
   repositories?: readonly RepositorySpec[];
+  defaultAssignee?: string | null;
 }): LineMap => {
   const ids = new Map(
     input.stations.map((each) => [each.key, StationId.of(input.newId())]),
@@ -227,6 +228,7 @@ const mapped = (input: {
     welcomesTeams: input.key === 'delivery',
     reviews: input.reviews ?? null,
     repositories: LineRepositories.of(input.repositories ?? [], null),
+    defaultAssignee: input.defaultAssignee ?? null,
     stations: input.stations.map((each, position) =>
       Station.of({
         id: idOf(each.key),
@@ -260,6 +262,7 @@ interface BuiltInLineInput {
   harness?: HarnessId | null;
   reviews?: ReviewIntake | null;
   repositories?: readonly RepositorySpec[];
+  defaultAssignee?: string | null;
 }
 
 export const deliveryLineOf = (input: BuiltInLineInput): LineMap =>

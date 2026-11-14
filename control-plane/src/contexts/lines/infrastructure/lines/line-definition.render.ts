@@ -124,6 +124,7 @@ export const renderLine = (line: Line): LineDefinition => {
       })),
     ...present('runners', placed(line.placement.requiredLabels)),
     warmSandboxes: line.warmSandboxes.value,
+    ...present('defaultAssignee', line.defaultAssignee?.email ?? null),
     stations: line.stations.map(renderStation),
     reactions: [...line.reactions].sort(inReactionOrder).map((each) => ({
       happening: each.happening.value,

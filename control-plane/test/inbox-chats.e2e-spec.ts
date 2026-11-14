@@ -61,6 +61,7 @@ const scopeOf = (viewer: string): InboxScope => ({
   viewer: UserId.of(viewer),
   teamsSeen: new Set(['team_1']),
   teamsActedOn: new Set(),
+  teamsJoined: new Set(),
 });
 
 const startedBy = (viewer: string, extra: { marks?: ChatMark[] } = {}) =>

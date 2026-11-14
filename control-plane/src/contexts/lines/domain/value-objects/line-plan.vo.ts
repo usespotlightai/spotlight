@@ -15,6 +15,7 @@ import {
 } from '@lines/domain/services/station-enables';
 import type { AgentPrompt } from '@lines/domain/value-objects/agent-prompt.vo';
 import type { ConfigSource } from '@lines/domain/value-objects/config-source.vo';
+import type { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
 import { LineRepositories } from '@lines/domain/value-objects/line-repositories.vo';
 import type { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import type { StationRule } from '@lines/domain/value-objects/plan-flaw';
@@ -110,6 +111,7 @@ export class LinePlan {
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
     readonly warmSandboxes: WarmSandboxCount,
+    readonly defaultAssignee: DefaultAssignee | null,
     readonly replayCheck: ReplayCheckPolicy | null,
     readonly search: LineSearchPolicy | null,
     readonly source: ConfigSource | null,
@@ -125,6 +127,7 @@ export class LinePlan {
     reviews?: ReviewPolicy | null;
     placement?: RunnerPlacement;
     warmSandboxes?: WarmSandboxCount;
+    defaultAssignee?: DefaultAssignee | null;
     replayCheck?: ReplayCheckPolicy | null;
     search?: LineSearchPolicy | null;
     source?: ConfigSource | null;
@@ -233,6 +236,7 @@ export class LinePlan {
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
       input.warmSandboxes ?? WarmSandboxCount.NONE,
+      input.defaultAssignee ?? null,
       input.replayCheck ?? null,
       input.search ?? null,
       input.source ?? null,

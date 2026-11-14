@@ -534,6 +534,64 @@ describe('ReactToHappenings', () => {
     expect(saved?.notes[1]?.voice.author?.value).toBe('user_9');
   });
 
+  it('assigns a task without an assignee to the member of the team whose Slack reply answers it', async () => {
+    const asked = Task.add({
+      line: line(),
+      at: StationId.of('station_2'),
+      title: TaskTitle.of('Alert fired'),
+      rank: TaskRank.of('i'),
+      now: NOW,
+      newId: () => 'task_1',
+    }).askedAbout(
+      {
+        voice: Voice.station(),
+        line: null,
+        body: TaskNoteBody.of('Which region does the alert come from?'),
+        at: NOW,
+      },
+      null,
+    );
+
+    await new ReactToHappenings(
+      tasks(asked),
+      tasks(asked),
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      { byEmail: async () => UserId.of('user_9') },
+      files,
+      processedEventsInMemory(),
+      logger,
+      channels,
+      NO_RUNS,
+      TEAMMATES,
+    ).react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [
+        {
+          happening: 'slack.message.replied',
+          summary: 'Replied in a Slack thread.',
+          answers: true,
+          state: 'raised',
+          correlationKeys: {
+            branch: null,
+            marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
+          },
+          message: { body: 'From eu-west-1.' },
+          authorEmail: 'ada@example.com',
+          ourOwn: false,
+          opens: null,
+        },
+      ],
+      'received-as',
+    );
+
+    expect(saved?.assignee?.value).toBe('user_9');
+  });
+
   it('takes a Slack thread reply as the answer a paused run waits for, so that same run is taken up', async () => {
     const paused = taskAt()
       .assignRun(RunId.of('run_1'), line())
@@ -1497,6 +1555,148 @@ describe('ReactToHappenings', () => {
 
     expect(stored.add).toHaveBeenCalledTimes(1);
     expect(added[0]?.stationId).toEqual((first.entry as Station).id);
+  });
+});
+
+describe('ReactToHappenings assigning a task it opens', () => {
+  const DIRECTORY: Record<string, string> = {
+    'dev@acme.test': 'user_dev',
+    'lead@acme.test': 'user_lead',
+    'outsider@acme.test': 'user_outsider',
+  };
+
+  const opening = (input: {
+    readonly assignEmail: string | null;
+    readonly defaultAssignee: string | null;
+  }) => {
+    let next = 0;
+    const onLine = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `id_${++next}`,
+      defaultAssignee: input.defaultAssignee,
+    });
+
+    let added: Task | undefined;
+    const stored = {
+      add: vi.fn(async (each: Task) => {
+        added = each;
+      }),
+      save: vi.fn(),
+      find: vi.fn(async () => null),
+      remove: vi.fn(),
+      placementsAt: vi.fn(async () => []),
+      findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
+      holdingMark: vi.fn(async () => []),
+      settingUpFor: vi.fn(async () => null),
+      settingUpIn: vi.fn(async () => []),
+      settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
+    } satisfies TaskRepository & TaskPlacementsPort;
+
+    const running = {
+      find: vi.fn(async () => onLine),
+      findByStation: vi.fn(async () => onLine),
+      ofWorkspace: vi.fn(async () => [onLine]),
+      ofTeam: vi.fn(async () => []),
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
+
+    const issueMark = Mark.of('linear.issue', 'ISS-1');
+    const filed: Happened = {
+      happening: 'linear.issue.created',
+      summary: 'An issue was filed.',
+      answers: false,
+      state: 'raised',
+      correlationKeys: { branch: null, marks: [issueMark] },
+      message: null,
+      ourOwn: false,
+      opens: {
+        lineRole: 'delivery',
+        station: null,
+        title: 'Drain the retry queue',
+        description: null,
+        assignEmail: input.assignEmail,
+        marks: [issueMark],
+      },
+    };
+
+    const assigned = async (): Promise<string | null> => {
+      await new ReactToHappenings(
+        stored,
+        stored,
+        running,
+        dispatch,
+        transaction,
+        clock,
+        ids,
+        {
+          byEmail: async (_workspaceId, email) => {
+            const found = DIRECTORY[email];
+
+            return found ? UserId.of(found) : null;
+          },
+        },
+        files,
+        processedEventsInMemory(),
+        logger,
+        channels,
+        NO_RUNS,
+        {
+          membersOf: async () =>
+            TeamMembers.of([UserId.of('user_dev'), UserId.of('user_lead')]),
+        },
+      ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
+
+      return added?.assignee?.value ?? null;
+    };
+
+    return { assigned };
+  };
+
+  it('assigns the person the happening names over the default assignee of the line', async () => {
+    expect(
+      await opening({
+        assignEmail: 'dev@acme.test',
+        defaultAssignee: 'lead@acme.test',
+      }).assigned(),
+    ).toBe('user_dev');
+  });
+
+  it('assigns the default assignee of the line where the happening names nobody', async () => {
+    expect(
+      await opening({
+        assignEmail: null,
+        defaultAssignee: 'lead@acme.test',
+      }).assigned(),
+    ).toBe('user_lead');
+  });
+
+  it('assigns the default assignee of the line where the person the happening names is not on the team', async () => {
+    expect(
+      await opening({
+        assignEmail: 'stranger@acme.test',
+        defaultAssignee: 'lead@acme.test',
+      }).assigned(),
+    ).toBe('user_lead');
+  });
+
+  it('leaves the task unassigned where the default assignee of the line is not on the team', async () => {
+    expect(
+      await opening({
+        assignEmail: null,
+        defaultAssignee: 'outsider@acme.test',
+      }).assigned(),
+    ).toBeNull();
+  });
+
+  it('leaves the task unassigned where neither the happening nor the line names anybody', async () => {
+    expect(
+      await opening({ assignEmail: null, defaultAssignee: null }).assigned(),
+    ).toBeNull();
   });
 });
 

@@ -36,6 +36,7 @@ export interface LineMapInput {
   readonly repositories?: LineRepositories;
   readonly reviews?: ReviewIntake | null;
   readonly placement?: RunnerPlacement;
+  readonly defaultAssignee?: string | null;
   readonly welcomesTeams?: boolean;
 }
 
@@ -71,6 +72,7 @@ export class LineMap {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewIntake | null,
     readonly placement: RunnerPlacement,
+    readonly defaultAssignee: string | null,
     readonly welcomesTeams: boolean,
   ) {}
 
@@ -96,6 +98,7 @@ export class LineMap {
       input.repositories ?? LineRepositories.none(),
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
+      input.defaultAssignee ?? null,
       input.welcomesTeams ?? false,
     );
   }

@@ -66,6 +66,7 @@ const connecting = (
       permissionsInSlug: vi.fn(),
       permissionsInWorkspaceOfTeam: vi.fn(),
       permissionsAsTeamMember: vi.fn(),
+      joinedTeam: vi.fn(),
       mayPlan: vi.fn(),
     } satisfies WorkspaceAccessPort,
     {

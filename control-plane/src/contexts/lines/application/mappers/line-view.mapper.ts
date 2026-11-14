@@ -81,6 +81,7 @@ export const LineViewMapper = {
       role: line.role?.value ?? null,
       runners: [...line.placement.requiredLabels],
       warmSandboxes: line.warmSandboxes.value,
+      defaultAssignee: line.defaultAssignee?.email ?? null,
       image: line.repositories.image?.value ?? null,
       repositories: line.repositories.entries.map((each) => ({
         repository: each.repository.value,

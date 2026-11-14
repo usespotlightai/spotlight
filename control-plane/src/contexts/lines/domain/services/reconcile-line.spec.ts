@@ -2,6 +2,7 @@ import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { LineInUseError } from '@lines/domain/exceptions/line-in-use.error';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { reconcileLine } from '@lines/domain/services/reconcile-line';
+import { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
 import {
   LinePlan,
   type StationPlan,
@@ -134,6 +135,26 @@ const reconciling = (
 };
 
 describe('reconciling a line with the plan describing it', () => {
+  it('takes the default assignee the plan names, and drops it where the plan names none', () => {
+    const plan = asPlan(existingLine());
+    const named = reconciling(
+      LinePlan.of({
+        key: plan.key,
+        name: plan.name,
+        stations: plan.stations,
+        defaultAssignee: DefaultAssignee.of('ada@example.com'),
+      }),
+    ).result;
+
+    expect(named.ok && named.line.defaultAssignee?.email).toBe(
+      'ada@example.com',
+    );
+
+    const dropped = named.ok && reconciling(plan, named.line).result;
+
+    expect(dropped && dropped.ok && dropped.line.defaultAssignee).toBeNull();
+  });
+
   it('keeps every station that is still described', () => {
     const { result } = reconciling(asPlan(existingLine()));
 
