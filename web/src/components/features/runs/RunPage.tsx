@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
+import type { AfterRun } from '@/components/features/inbox/conversation/Conversation';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunClosing } from '@/components/features/runs/RunClosing';
@@ -29,6 +30,17 @@ type RunPageProps = {
   conversation: ConversationData | undefined;
   worked: readonly RunJournal[];
   journalFailed: boolean;
+};
+
+const placeClosing = (
+  closing: ReactNode,
+  followedOn: boolean,
+  runId: string,
+): { closing?: ReactNode; afterRun?: AfterRun } => {
+  if (!followedOn) {
+    return { closing };
+  }
+  return closing ? { afterRun: { runId, content: closing } } : {};
 };
 
 export function RunPage({
@@ -112,12 +124,7 @@ export function RunPage({
                 progress={progress}
                 openAt={openAt}
                 live={live}
-                closing={followedOn ? undefined : closing}
-                afterRun={
-                  followedOn && closing
-                    ? { runId: run.id, content: closing }
-                    : undefined
-                }
+                {...placeClosing(closing, followedOn, run.id)}
                 footer={footer}
                 deciding={decide}
               />
