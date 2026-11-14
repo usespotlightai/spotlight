@@ -8,6 +8,13 @@ export const CONVERSATION_STANDINGS = [
 
 export type ConversationStanding = (typeof CONVERSATION_STANDINGS)[number];
 
+export const RUN_STANDINGS = [
+  'assignee',
+  'following',
+] as const satisfies readonly ConversationStanding[];
+
+export type RunStanding = (typeof RUN_STANDINGS)[number];
+
 export interface ConversationViewer {
   readonly person: UserId;
   readonly onTeam: boolean;
@@ -45,7 +52,7 @@ export const ConversationAudience = {
     return standing === 'assignee';
   },
 
-  listsRuns(standing: ConversationStanding): boolean {
+  listsRuns(standing: ConversationStanding): standing is RunStanding {
     return standing !== 'team';
   },
 };

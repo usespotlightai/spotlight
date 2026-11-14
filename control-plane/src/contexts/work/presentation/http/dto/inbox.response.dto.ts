@@ -3,6 +3,7 @@ import {
   APPROVAL_SUBJECTS,
   INBOX_APPROVAL_STATUSES,
   INBOX_DTO_SECTIONS,
+  INBOX_RUN_STANDINGS,
   INBOX_STANDINGS,
   INBOX_NOTICE_FORMS,
   INBOX_REQUEST_DTO_FORMS,
@@ -10,6 +11,7 @@ import {
   type InboxChatDto,
   type InboxConnectionDto,
   type InboxDtoSection,
+  type InboxRunStanding,
   type InboxStanding,
   type InboxFailureDto,
   type InboxNoticeDto,
@@ -787,12 +789,12 @@ export class InboxRunResponseDto {
   readonly section: InboxDtoSection;
 
   @ApiProperty({
-    enum: INBOX_STANDINGS,
+    enum: INBOX_RUN_STANDINGS,
     example: 'assignee',
     description:
       'How it reaches the person: assignee when they are its assignee, following when they wrote in its task and someone else is the assignee',
   })
-  readonly standing: InboxStanding;
+  readonly standing: InboxRunStanding;
 
   @ApiProperty({ enum: [false], description: 'Never reopenable' })
   readonly reopenable = false as const;

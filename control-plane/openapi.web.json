@@ -1785,10 +1785,10 @@
             "description": "No such conversation for this caller"
           },
           "409": {
-            "description": "Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with"
+            "description": "Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with"
           }
         },
-        "summary": "Answer what a conversation is waiting on, and let it carry on",
+        "summary": "Answer what a conversation is waiting on, and let it carry on. On a task with no assignee, the first member of the team who answers becomes its assignee",
         "tags": [
           "inbox"
         ]
@@ -1871,10 +1871,10 @@
             "description": "No such conversation for this caller"
           },
           "409": {
-            "description": "The conversation is already closed"
+            "description": "The conversation is already closed, or another person is the assignee of the task and the caller is a member of the team who follows it"
           }
         },
-        "summary": "Close a conversation without an answer, stopping any run of its task",
+        "summary": "Close a conversation without an answer, stopping any run of its task. On a task with no assignee, the first member of the team who resolves it becomes its assignee",
         "tags": [
           "inbox"
         ]
@@ -9415,7 +9415,6 @@
             "type": "string",
             "enum": [
               "assignee",
-              "team",
               "following"
             ],
             "example": "assignee",

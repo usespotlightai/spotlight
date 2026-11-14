@@ -2925,7 +2925,7 @@ export type InboxRunResponseDto = {
   /**
    * How it reaches the person: assignee when they are its assignee, following when they wrote in its task and someone else is the assignee
    */
-  standing: 'assignee' | 'team' | 'following';
+  standing: 'assignee' | 'following';
   /**
    * Never reopenable
    */
@@ -14792,7 +14792,7 @@ export type AnswerInboxItemErrors = {
    */
   404: unknown;
   /**
-   * Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with
+   * Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with
    */
   409: unknown;
 };
@@ -14860,7 +14860,7 @@ export type ResolveInboxItemErrors = {
    */
   404: unknown;
   /**
-   * The conversation is already closed
+   * The conversation is already closed, or another person is the assignee of the task and the caller is a member of the team who follows it
    */
   409: unknown;
 };

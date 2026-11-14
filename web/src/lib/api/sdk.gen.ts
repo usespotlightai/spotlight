@@ -1360,7 +1360,7 @@ export const readInboxItem = <ThrowOnError extends boolean = false>(options: Opt
 export const readInboxNotice = <ThrowOnError extends boolean = false>(options: Options<ReadInboxNoticeData, ThrowOnError>): RequestResult<ReadInboxNoticeResponses, ReadInboxNoticeErrors, ThrowOnError> => (options.client ?? client).get<ReadInboxNoticeResponses, ReadInboxNoticeErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/notices/{noticeId}', ...options });
 
 /**
- * Answer what a conversation is waiting on, and let it carry on
+ * Answer what a conversation is waiting on, and let it carry on. On a task with no assignee, the first member of the team who answers becomes its assignee
  */
 export const answerInboxItem = <ThrowOnError extends boolean = false>(options: Options<AnswerInboxItemData, ThrowOnError>): RequestResult<AnswerInboxItemResponses, AnswerInboxItemErrors, ThrowOnError> => (options.client ?? client).post<AnswerInboxItemResponses, AnswerInboxItemErrors, ThrowOnError>({
   url: '/workspaces/{slug}/inbox/{itemId}/answer',
@@ -1377,7 +1377,7 @@ export const answerInboxItem = <ThrowOnError extends boolean = false>(options: O
 export const markInboxItemRead = <ThrowOnError extends boolean = false>(options: Options<MarkInboxItemReadData, ThrowOnError>): RequestResult<MarkInboxItemReadResponses, MarkInboxItemReadErrors, ThrowOnError> => (options.client ?? client).post<MarkInboxItemReadResponses, MarkInboxItemReadErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}/read', ...options });
 
 /**
- * Close a conversation without an answer, stopping any run of its task
+ * Close a conversation without an answer, stopping any run of its task. On a task with no assignee, the first member of the team who resolves it becomes its assignee
  */
 export const resolveInboxItem = <ThrowOnError extends boolean = false>(options: Options<ResolveInboxItemData, ThrowOnError>): RequestResult<ResolveInboxItemResponses, ResolveInboxItemErrors, ThrowOnError> => (options.client ?? client).post<ResolveInboxItemResponses, ResolveInboxItemErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}/resolve', ...options });
 

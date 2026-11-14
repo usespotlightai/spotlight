@@ -264,7 +264,8 @@ export class InboxController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'answerInboxItem',
-    summary: 'Answer what a conversation is waiting on, and let it carry on',
+    summary:
+      'Answer what a conversation is waiting on, and let it carry on. On a task with no assignee, the first member of the team who answers becomes its assignee',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
@@ -272,7 +273,7 @@ export class InboxController {
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
   @ApiConflictResponse({
     description:
-      'Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with',
+      'Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with',
   })
   @ApiForbiddenResponse({
     description:
@@ -325,13 +326,16 @@ export class InboxController {
   @ApiOperation({
     operationId: 'resolveInboxItem',
     summary:
-      'Close a conversation without an answer, stopping any run of its task',
+      'Close a conversation without an answer, stopping any run of its task. On a task with no assignee, the first member of the team who resolves it becomes its assignee',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
   @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
-  @ApiConflictResponse({ description: 'The conversation is already closed' })
+  @ApiConflictResponse({
+    description:
+      'The conversation is already closed, or another person is the assignee of the task and the caller is a member of the team who follows it',
+  })
   @ApiForbiddenResponse({
     description:
       'The caller is not a member of the team, nor a workspace admin',

@@ -49,6 +49,7 @@ import {
 import {
   ConversationAudience,
   type ConversationStanding,
+  type RunStanding,
 } from '@work/domain/services/conversation-audience';
 import {
   type Conversation,
@@ -500,6 +501,7 @@ const conversationItem = (
 
 const runItem = (
   row: TaskRow,
+  standing: RunStanding,
   working: string,
   context: TaskContext,
 ): InboxRunSummary | null => {
@@ -524,9 +526,9 @@ const runItem = (
           unread: false,
           resolved: false,
           running: true,
-          following: row.standing === 'following',
+          following: standing === 'following',
         }),
-        standing: row.standing,
+        standing,
         reopenable: false,
       }
     : null;
@@ -895,7 +897,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         row.working &&
         ConversationAudience.listsRuns(row.standing) &&
         !listed.some(stillOpen)
-          ? runItem(row, row.working, context)
+          ? runItem(row, row.standing, row.working, context)
           : null;
 
       return [
