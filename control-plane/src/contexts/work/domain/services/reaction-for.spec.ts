@@ -27,6 +27,7 @@ import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -136,6 +137,7 @@ const ON = {
   voice: Voice.world(),
   attachments: [],
   ranksAtDestination: [],
+  members: TeamMembers.of([]),
 };
 
 const handed = (stationId: string) => taskAt(stationId).assignRun(RUN, LINE);

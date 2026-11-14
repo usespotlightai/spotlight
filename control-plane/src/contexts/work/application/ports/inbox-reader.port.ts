@@ -6,6 +6,7 @@ import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
+import type { ConversationStanding } from '@work/domain/services/conversation-audience';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
@@ -110,6 +111,7 @@ export interface InboxItemSummary {
   readonly askedAt: Date;
   readonly resolved: boolean;
   readonly section: InboxSection;
+  readonly standing: ConversationStanding | null;
   readonly reopenable: boolean;
   readonly progress: Progress | null;
   readonly runId: string | null;
@@ -159,6 +161,7 @@ export interface InboxRunSummary {
   readonly unread: false;
   readonly resolved: false;
   readonly section: InboxSection;
+  readonly standing: ConversationStanding;
   readonly reopenable: false;
 }
 
@@ -189,6 +192,7 @@ export interface InboxScope {
   readonly viewer: UserId;
   readonly teamsSeen: ReadonlySet<string>;
   readonly teamsActedOn: ReadonlySet<string>;
+  readonly teamsJoined: ReadonlySet<string>;
 }
 
 export interface InboxReaderPort {

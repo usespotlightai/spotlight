@@ -86,6 +86,7 @@ export class DrizzleLineRepository implements LineRepository {
         source: sourceRow(added.source),
         runners: [...added.placement.requiredLabels],
         warmSandboxes: added.warmSandboxes.value,
+        defaultAssignee: added.defaultAssignee?.email ?? null,
         version: added.version,
       });
     } catch (error) {
@@ -126,6 +127,7 @@ export class DrizzleLineRepository implements LineRepository {
         source: sourceRow(saved.source),
         runners: [...saved.placement.requiredLabels],
         warmSandboxes: saved.warmSandboxes.value,
+        defaultAssignee: saved.defaultAssignee?.email ?? null,
       })
       .where(and(eq(line.id, saved.id.value), eq(line.version, saved.version)))
       .returning({ id: line.id })

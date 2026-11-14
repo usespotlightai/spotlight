@@ -346,6 +346,33 @@ describe('compileLine', () => {
     );
   });
 
+  it('reads the default assignee a line names, without surrounding space, and none where it names none', () => {
+    const compiled = compileLine({
+      ...DELIVERY,
+      defaultAssignee: ' ada@example.com ',
+    });
+    const unnamed = compileLine(DELIVERY);
+
+    expect(compiled.ok && compiled.line.defaultAssignee?.email).toBe(
+      'ada@example.com',
+    );
+    expect(unnamed.ok && unnamed.line.defaultAssignee).toBeNull();
+  });
+
+  it.each([
+    ['', 'Default assignee is the email of a team member, and it is empty.'],
+    ['  ', 'Default assignee is the email of a team member, and it is empty.'],
+    [
+      'ada',
+      'Default assignee must be an email address, like ada@example.com, not "ada".',
+    ],
+  ])('points at a default assignee of "%s"', (defaultAssignee, reason) => {
+    const [problem] = problemsOf({ ...DELIVERY, defaultAssignee });
+
+    expect(dottedOf(problem?.field)).toBe('defaultAssignee');
+    expect(problem?.reason).toBe(reason);
+  });
+
   it('reads the threshold a planned change is checked against, filling in what it leaves out', () => {
     const compiled = compileLine({
       ...DELIVERY,

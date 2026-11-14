@@ -36,6 +36,9 @@ const inboxScopeOf = (
   teamsActedOn: new Set(
     access.teams.filter((each) => each.actsOn).map((each) => each.teamId.value),
   ),
+  teamsJoined: new Set(
+    access.teams.filter((each) => each.joined).map((each) => each.teamId.value),
+  ),
 });
 
 export class WorkAccess {
@@ -60,6 +63,10 @@ export class WorkAccess {
         PersonPrincipal.of(viewer),
       )) !== null
     );
+  }
+
+  joinsTeam(teamId: TeamId, viewer: UserId): Promise<boolean> {
+    return this.access.joinedTeam(teamId, PersonPrincipal.of(viewer));
   }
 
   async standingOn(teamId: TeamId, viewer: UserId): Promise<TeamStanding> {

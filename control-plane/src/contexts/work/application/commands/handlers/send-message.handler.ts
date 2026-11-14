@@ -19,6 +19,7 @@ import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 interface MessageTarget {
@@ -91,6 +92,8 @@ export class SendMessageHandler implements CommandHandlerPort<
       command.coAuthors,
     );
     const sent = DraftGeneration.sentAs(command.draftGeneration);
+    const members =
+      (await this.access.membersOf(line.teamId)) ?? TeamMembers.of([]);
 
     const received = task.sendDraft(sent).receiveMessage(
       target.runId,
@@ -102,6 +105,7 @@ export class SendMessageHandler implements CommandHandlerPort<
         attachments,
       },
       target.stationId,
+      members,
     );
 
     await this.tasks.save(await handedToRun(this.dispatch, received, line));

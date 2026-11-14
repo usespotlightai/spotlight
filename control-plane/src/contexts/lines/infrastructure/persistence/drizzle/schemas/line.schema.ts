@@ -101,6 +101,7 @@ export const line = pgTable(
     source: jsonb('source').$type<ConfigSourceRow>(),
     runners: jsonb('runners').$type<string[]>().notNull().default([]),
     warmSandboxes: integer('warm_sandboxes').notNull().default(0),
+    defaultAssignee: text('default_assignee'),
     version: integer('version').notNull().default(0),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
     updatedAt: timestamptz('updated_at')

@@ -76,7 +76,9 @@ const summaryOf = (
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     progress: chatProgress(facts, currentRunOf(row.currentRunId)),
-    waitingForYou: inboxSectionOf(chatInboxStanding(facts)) === 'open',
+    waitingForYou:
+      inboxSectionOf({ ...chatInboxStanding(facts), following: false }) ===
+      'open',
   };
 };
 

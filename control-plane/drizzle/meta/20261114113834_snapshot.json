@@ -1,5 +1,5 @@
 {
-  "id": "2d0c2584-6398-4a78-9f0d-e80839e85af8",
+  "id": "e51ee595-e22c-457e-bab9-8ea82ed2e250",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -8700,6 +8700,12 @@
           "notNull": true,
           "default": 0
         },
+        "default_assignee": {
+          "name": "default_assignee",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -16545,12 +16551,6 @@
         },
         "read_at": {
           "name": "read_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reopened_at": {
-          "name": "reopened_at",
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false

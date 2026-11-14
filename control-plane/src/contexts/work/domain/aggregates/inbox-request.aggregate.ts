@@ -8,6 +8,7 @@ import { InboxRequestMarkedRead } from '@work/domain/events/inbox-request-marked
 import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
 import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
+import type { ConversationStanding } from '@work/domain/services/conversation-audience';
 import {
   INBOX_REQUEST_FORMS,
   type InboxRequestForm,
@@ -178,6 +179,18 @@ export class InboxRequest extends EventRecorder {
     return visibility.assignee
       ? visibility.assignee.equals(audience.assignee)
       : audience.unassigned && visibility.seesTeam;
+  }
+
+  static standingOf(
+    visibility: InboxRequestVisibility,
+  ): ConversationStanding | null {
+    if (visibility.assignee?.equals(visibility.viewer)) {
+      return 'assignee';
+    }
+
+    return visibility.assignee === null && visibility.actsOnTeam
+      ? 'team'
+      : null;
   }
 
   static unread(seen: {

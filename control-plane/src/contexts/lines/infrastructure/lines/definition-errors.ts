@@ -1,5 +1,6 @@
 import { InvalidAgentPromptError } from '@lines/domain/exceptions/invalid-agent-prompt.error';
 import { InvalidConfigSourceError } from '@lines/domain/exceptions/invalid-config-source.error';
+import { InvalidDefaultAssigneeError } from '@lines/domain/exceptions/invalid-default-assignee.error';
 import { InvalidLinePlanError } from '@lines/domain/exceptions/invalid-line-plan.error';
 import { InvalidReplayCheckPolicyError } from '@lines/domain/exceptions/invalid-replay-check-policy.error';
 import { InvalidRepositorySetupError } from '@lines/domain/exceptions/invalid-repository-setup.error';
@@ -24,6 +25,7 @@ import { InvalidStationNameError } from '@shared-kernel/domain/exceptions/invali
 const DEFINITION_ERRORS = [
   InvalidAgentPromptError,
   InvalidConfigSourceError,
+  InvalidDefaultAssigneeError,
   InvalidEffortError,
   InvalidHarnessIdError,
   InvalidHarnessModelError,

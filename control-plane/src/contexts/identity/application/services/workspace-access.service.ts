@@ -65,6 +65,7 @@ const teamAccessOf = (
     teamId: team.id,
     sees: TeamAccess.permissionsInWorkspaceOf(team, workspace, principal).reads,
     actsOn: TeamAccess.actsOnTeam(team, workspace, principal),
+    joined: TeamAccess.joinedTeam(team, workspace, principal),
   })),
 });
 
@@ -205,6 +206,17 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
         ? published(workspace, workspace.permissionsFor(principal))
         : null,
     );
+  }
+
+  async joinedTeam(teamId: TeamId, principal: Principal): Promise<boolean> {
+    const team = await this.teams.find(teamId);
+    const workspace = team
+      ? await this.workspaces.find(team.workspaceId)
+      : null;
+
+    return team && workspace
+      ? TeamAccess.joinedTeam(team, workspace, principal)
+      : false;
   }
 
   mayPlan(principal: Principal): boolean {

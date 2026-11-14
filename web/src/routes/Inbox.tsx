@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 const SECTIONS_STORAGE_KEY = 'spotlight.inbox-sections-collapsed';
 const OPEN = 'open';
 const RUNNING = 'running';
+const FOLLOWING = 'following';
 const RESOLVED = 'resolved';
 
 const LIST_PANE = {
@@ -60,7 +61,11 @@ export function Inbox() {
     paneRef: listRef,
     handleProps: listHandle,
   } = usePaneWidth<HTMLDivElement>(LIST_PANE);
-  const sections = useCollapsed(SECTIONS_STORAGE_KEY, [RUNNING, RESOLVED]);
+  const sections = useCollapsed(SECTIONS_STORAGE_KEY, [
+    RUNNING,
+    FOLLOWING,
+    RESOLVED,
+  ]);
   const animating = useTimedFlag(DISCLOSURE_MS);
   const toggle = (section: string) => {
     animating.raise();
@@ -89,6 +94,7 @@ export function Inbox() {
 
   const waiting = entries.filter((each) => each.section === OPEN);
   const working = entries.filter((each) => each.section === RUNNING);
+  const following = entries.filter((each) => each.section === FOLLOWING);
   const done = entries.filter((each) => each.section === RESOLVED);
 
   return (
@@ -144,6 +150,15 @@ export function Inbox() {
                       entries={working}
                       {...section(RUNNING)}
                     />
+
+                    {following.length > 0 && (
+                      <InboxSection
+                        slug={slug}
+                        label="Following"
+                        entries={following}
+                        {...section(FOLLOWING)}
+                      />
+                    )}
 
                     <InboxDropZone id={RESOLVED_DROP}>
                       <InboxSection

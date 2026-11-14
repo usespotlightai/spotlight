@@ -3,12 +3,14 @@ import {
   APPROVAL_SUBJECTS,
   INBOX_APPROVAL_STATUSES,
   INBOX_DTO_SECTIONS,
+  INBOX_STANDINGS,
   INBOX_NOTICE_FORMS,
   INBOX_REQUEST_DTO_FORMS,
   type InboxApprovalDto,
   type InboxChatDto,
   type InboxConnectionDto,
   type InboxDtoSection,
+  type InboxStanding,
   type InboxFailureDto,
   type InboxNoticeDto,
   type InboxRequestDto,
@@ -484,9 +486,19 @@ export class InboxItemResponseDto {
     enum: INBOX_DTO_SECTIONS,
     example: 'open',
     description:
-      'The inbox section that shows it: open, running or resolved. An unread item is always open',
+      'The inbox section that shows it: open, running, following or resolved. An unread item is open, unless the person follows it',
   })
   readonly section: InboxDtoSection;
+
+  @ApiProperty({
+    enum: [...INBOX_STANDINGS, null],
+    nullable: true,
+    type: String,
+    example: 'assignee',
+    description:
+      'How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of',
+  })
+  readonly standing: InboxStanding | null;
 
   @ApiProperty({
     example: false,
@@ -566,6 +578,7 @@ export class InboxItemResponseDto {
     this.askedAt = item.askedAt;
     this.resolved = item.resolved;
     this.section = item.section;
+    this.standing = item.standing;
     this.reopenable = item.reopenable;
     this.progress = item.progress;
     this.runId = item.runId;
@@ -769,9 +782,17 @@ export class InboxRunResponseDto {
   @ApiProperty({
     enum: INBOX_DTO_SECTIONS,
     example: 'running',
-    description: 'The inbox section that shows it: running',
+    description: 'The inbox section that shows it: running, or following',
   })
   readonly section: InboxDtoSection;
+
+  @ApiProperty({
+    enum: INBOX_STANDINGS,
+    example: 'assignee',
+    description:
+      'How it reaches the person: assignee when they are its assignee, following when they wrote in its task and someone else is the assignee',
+  })
+  readonly standing: InboxStanding;
 
   @ApiProperty({ enum: [false], description: 'Never reopenable' })
   readonly reopenable = false as const;
@@ -788,6 +809,7 @@ export class InboxRunResponseDto {
     this.progress = entry.progress;
     this.askedAt = entry.askedAt;
     this.section = entry.section;
+    this.standing = entry.standing;
   }
 }
 

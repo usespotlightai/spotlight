@@ -69,6 +69,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   askedAt: asked,
   resolved: false,
   section: 'open',
+  standing: 'assignee',
   reopenable: false,
   progress: null,
   runId: null,
@@ -94,6 +95,7 @@ const SCOPE: InboxScope = {
   viewer: UserId.of('user_1'),
   teamsSeen: new Set(['team_1']),
   teamsActedOn: new Set(),
+  teamsJoined: new Set(),
 };
 
 const access = (scope: InboxScope | null = SCOPE): WorkAccess =>

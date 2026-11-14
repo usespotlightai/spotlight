@@ -135,3 +135,22 @@ describe('TeamAccess, reading a team', () => {
     ).toBe(false);
   });
 });
+
+describe('TeamAccess, joining a team', () => {
+  const joins = (principal: PersonPrincipal | TokenPrincipal) =>
+    TeamAccess.joinedTeam(PLATFORM, ACME, principal);
+
+  it('counts a member of the team who acts on it', () => {
+    expect(joins(PersonPrincipal.of(ON_PLATFORM))).toBe(true);
+    expect(joins(PersonPrincipal.of(OWNER))).toBe(true);
+  });
+
+  it('does not count an admin of the workspace who is not on the team', () => {
+    expect(joins(PersonPrincipal.of(ADMIN))).toBe(false);
+  });
+
+  it('does not count a member of another team or a token', () => {
+    expect(joins(PersonPrincipal.of(ON_PAYMENTS))).toBe(false);
+    expect(joins(tokenOf(['read', 'plan']))).toBe(false);
+  });
+});

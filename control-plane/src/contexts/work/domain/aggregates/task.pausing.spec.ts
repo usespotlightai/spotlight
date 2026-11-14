@@ -28,6 +28,7 @@ import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -35,6 +36,7 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-29T09:00:00.000Z');
 const RUN = RunId.of('run_1');
+const NOBODY = TeamMembers.of([]);
 const BUILD = StationId.of('station_build');
 const SHIP = StationId.of('station_ship');
 
@@ -186,6 +188,7 @@ describe('a task put to a person by its current run', () => {
       RUN,
       newNote('The default one.', Voice.person(UserId.of('user_1'))),
       BUILD,
+      NOBODY,
     );
 
     expect(received.awaitingReview).toBe(false);
@@ -210,6 +213,7 @@ describe('a task put to a person by its current run', () => {
       RUN,
       newNote('Why do you need it?', Voice.person(UserId.of('user_1'))),
       BUILD,
+      NOBODY,
     );
 
     expect(approving.decisionPending).toBe(true);
@@ -225,6 +229,7 @@ describe('a task put to a person by its current run', () => {
       RUN,
       newNote('Use the staging queue.', Voice.person(UserId.of('user_1'))),
       BUILD,
+      NOBODY,
     );
 
     expect(received.notes[0]?.kind).toBe('message');

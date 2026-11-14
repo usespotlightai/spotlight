@@ -1880,6 +1880,52 @@
         ]
       }
     },
+    "/workspaces/{slug}/inbox/{itemId}/take": {
+      "post": {
+        "operationId": "takeInboxItem",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "task_1:0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The caller is the assignee"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller follows the task but does not act on its team"
+          },
+          "404": {
+            "description": "No such conversation for this caller, or another person took it and the caller does not follow the task"
+          },
+          "409": {
+            "description": "The caller is a member of the team who follows the task and another person is its assignee, or nothing waits on anyone at that conversation"
+          }
+        },
+        "summary": "Assign the task of a conversation that waits for the team to the caller",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
     "/workspaces/{slug}/inbox/requests/{requestId}/resolve": {
       "post": {
         "operationId": "resolveInboxRequest",
@@ -2865,13 +2911,13 @@
             "description": "No valid session"
           },
           "403": {
-            "description": "The caller is not a member of the team, nor a workspace admin"
+            "description": "The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it"
           },
           "404": {
             "description": "No such run for this caller"
           },
           "409": {
-            "description": "The task has moved on from that station"
+            "description": "The task has moved on from that station, or the message answers a question that another person is the assignee of"
           }
         },
         "summary": "Send a message to the agent of a run",
@@ -8527,6 +8573,7 @@
             "enum": [
               "open",
               "running",
+              "following",
               "resolved"
             ],
             "example": "open",
@@ -9089,10 +9136,23 @@
             "enum": [
               "open",
               "running",
+              "following",
               "resolved"
             ],
             "example": "open",
-            "description": "The inbox section that shows it: open, running or resolved. An unread item is always open"
+            "description": "The inbox section that shows it: open, running, following or resolved. An unread item is open, unless the person follows it"
+          },
+          "standing": {
+            "type": "string",
+            "enum": [
+              "assignee",
+              "team",
+              "following",
+              null
+            ],
+            "nullable": true,
+            "example": "assignee",
+            "description": "How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of"
           },
           "reopenable": {
             "type": "boolean",
@@ -9175,6 +9235,7 @@
           "askedAt",
           "resolved",
           "section",
+          "standing",
           "reopenable",
           "progress",
           "runId",
@@ -9281,6 +9342,7 @@
             "enum": [
               "open",
               "running",
+              "following",
               "resolved"
             ],
             "example": "open",
@@ -9389,10 +9451,21 @@
             "enum": [
               "open",
               "running",
+              "following",
               "resolved"
             ],
             "example": "running",
-            "description": "The inbox section that shows it: running"
+            "description": "The inbox section that shows it: running, or following"
+          },
+          "standing": {
+            "type": "string",
+            "enum": [
+              "assignee",
+              "team",
+              "following"
+            ],
+            "example": "assignee",
+            "description": "How it reaches the person: assignee when they are its assignee, following when they wrote in its task and someone else is the assignee"
           },
           "reopenable": {
             "type": "boolean",
@@ -9417,6 +9490,7 @@
           "unread",
           "resolved",
           "section",
+          "standing",
           "reopenable"
         ]
       },
@@ -9510,10 +9584,23 @@
             "enum": [
               "open",
               "running",
+              "following",
               "resolved"
             ],
             "example": "open",
-            "description": "The inbox section that shows it: open, running or resolved. An unread item is always open"
+            "description": "The inbox section that shows it: open, running, following or resolved. An unread item is open, unless the person follows it"
+          },
+          "standing": {
+            "type": "string",
+            "enum": [
+              "assignee",
+              "team",
+              "following",
+              null
+            ],
+            "nullable": true,
+            "example": "assignee",
+            "description": "How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of"
           },
           "reopenable": {
             "type": "boolean",
@@ -9603,6 +9690,7 @@
           "askedAt",
           "resolved",
           "section",
+          "standing",
           "reopenable",
           "progress",
           "runId",
