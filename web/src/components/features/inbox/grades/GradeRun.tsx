@@ -1,3 +1,4 @@
+import { PinnedText } from '@/components/features/inbox/conversation/PinnedText';
 import { ClaimsGrade } from '@/components/features/inbox/grades/ClaimsGrade';
 import { GradeRubric } from '@/components/features/inbox/grades/GradeRubric';
 import { GradeRunSkeleton } from '@/components/features/inbox/grades/GradeRunSkeleton';
@@ -8,7 +9,6 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGradeRun } from '@/hooks/api/useGradeRun';
 import { useRunScores } from '@/hooks/api/useRunScores';
 import { notFound } from '@/lib/error';
@@ -61,12 +61,9 @@ export function GradeRun({ slug, teamId, runId }: GradeRunProps) {
       />
 
       {rubricBody !== null && (
-        <ScrollArea
-          className="max-h-48 rounded"
-          viewportClassName="overscroll-contain"
-        >
+        <PinnedText>
           <GradeRubric rubric={rubricBody} />
-        </ScrollArea>
+        </PinnedText>
       )}
 
       {scores.data.kind === 'claims' ? (
