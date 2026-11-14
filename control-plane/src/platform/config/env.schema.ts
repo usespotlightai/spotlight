@@ -33,6 +33,12 @@ const unsetWhenEmpty = <T extends z.ZodType>(schema: T) =>
 
 export const databaseSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
+  DATABASE_POOL_IDLE_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30_000),
 });
 
 export type DatabaseEnv = z.infer<typeof databaseSchema>;
