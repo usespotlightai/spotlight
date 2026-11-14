@@ -200,3 +200,40 @@ func TestNamesBackgroundWorkByWhatItIs(t *testing.T) {
 		t.Fatalf("named %+v", tasks)
 	}
 }
+
+func TestKeepsACharacterThatTwoChunksSplit(t *testing.T) {
+	euro := []byte("€")
+	chunk := func(raw []byte) string {
+		return `{"sessionUpdate":"terminal_output_chunk","terminalId":"t1","data":"` + base64.StdEncoding.EncodeToString(raw) + `"}`
+	}
+
+	events := translated(t,
+		`{"sessionUpdate":"tool_call_update","toolCallId":"c1","kind":"execute","content":[{"type":"terminal","terminalId":"t1"}]}`,
+		chunk(append([]byte("cost "), euro[:2]...)),
+		chunk(append(euro[2:], []byte("5\n")...)),
+	)
+
+	var printed string
+	for _, event := range events {
+		if event.Type == protocol.EventToolOutput {
+			var output protocol.ToolOutput
+			_ = json.Unmarshal(event.Data, &output)
+			printed += output.Text
+		}
+	}
+	if printed != "cost €5\n" {
+		t.Fatalf("printed %q", printed)
+	}
+}
+
+func TestClearsWhatACommandPrintedWhenItsOutputIsReplacedWithNothing(t *testing.T) {
+	output := last[protocol.ToolOutput](t, translated(t,
+		`{"sessionUpdate":"tool_call_update","toolCallId":"c1","content":[{"type":"terminal","terminalId":"t1"}]}`,
+		`{"sessionUpdate":"terminal_update","terminalId":"t1","output":{"data":"`+base64.StdEncoding.EncodeToString([]byte("old"))+`"}}`,
+		`{"sessionUpdate":"terminal_update","terminalId":"t1","output":{"data":""}}`,
+	), protocol.EventToolOutput)
+
+	if output.Text != "" || !output.Replace {
+		t.Fatalf("printed %+v", output)
+	}
+}

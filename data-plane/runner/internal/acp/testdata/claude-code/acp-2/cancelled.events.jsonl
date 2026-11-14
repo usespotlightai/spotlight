@@ -22,8 +22,8 @@
 {"type":"session.state","data":{"state":"idle"}}
 {"type":"tool.output","data":{"id":"toolu_011BU1ZGBbGNC19rn4rDiMxE","text":"bg\n","replace":true}}
 {"type":"background.changed","data":{"items":[]}}
-{"type":"turn.started","data":{"turn":2,"origin":"self"}}
 {"type":"session.state","data":{"state":"running"}}
+{"type":"turn.started","data":{"turn":2,"origin":"self"}}
 {"type":"context.changed","data":{"used":20211,"size":1000000}}
 {"type":"message","data":{"id":"msg_011Ch2va3unQ8vwwsS7Y6kwu","role":"agent","text":"The"}}
 {"type":"message","data":{"id":"msg_011Ch2va3unQ8vwwsS7Y6kwu","role":"agent","text":" background command"}}

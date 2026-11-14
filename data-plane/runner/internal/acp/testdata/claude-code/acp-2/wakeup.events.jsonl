@@ -24,8 +24,8 @@
 {"type":"context.changed","data":{"used":19780,"size":1000000,"cost":{"amount":0.00224976,"currency":"USD"}}}
 {"type":"turn.ended","data":{"turn":1,"stop":"ended","reason":"end_turn","usage":{"input":4,"output":311,"cacheRead":28836,"cacheWrite":8368}}}
 {"type":"session.state","data":{"state":"idle"}}
-{"type":"turn.started","data":{"turn":2,"origin":"self"}}
 {"type":"session.state","data":{"state":"running"}}
+{"type":"turn.started","data":{"turn":2,"origin":"self"}}
 {"type":"context.changed","data":{"used":19795,"size":1000000}}
 {"type":"message","data":{"id":"msg_011Ch2vcckYCA6bZWdN2GDMx","role":"agent","text":"awake"}}
 {"type":"context.changed","data":{"used":19795,"size":1000000,"cost":{"amount":0.002481,"currency":"USD"}}}

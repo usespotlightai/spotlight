@@ -4,7 +4,9 @@ import (
 	"cmp"
 	"encoding/base64"
 	"encoding/json"
+	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/acp"
@@ -98,6 +100,7 @@ type terminal struct {
 	call    string
 	command string
 	output  string
+	split   []byte
 }
 
 type child struct {
@@ -110,6 +113,12 @@ type translator struct {
 	tools     map[string]*protocol.ToolChanged
 	terminals map[string]*terminal
 	children  map[string]*child
+	last      said
+}
+
+type said struct {
+	id   string
+	text string
 }
 
 func newTranslator() *translator {
@@ -141,17 +150,19 @@ func (t *translator) translate(sessionID string, raw json.RawMessage) []protocol
 
 	switch u.SessionUpdate {
 	case "agent_message_chunk":
-		return said(session, u.MessageID, protocol.MessageFromAgent, textOf(u.Content), false)
+		t.remember(session, u.MessageID, textOf(u.Content), false)
+		return saying(session, u.MessageID, protocol.MessageFromAgent, textOf(u.Content), false)
 	case "agent_message":
-		return said(session, u.MessageID, protocol.MessageFromAgent, textIn(u.Content), true)
+		t.remember(session, u.MessageID, textIn(u.Content), true)
+		return saying(session, u.MessageID, protocol.MessageFromAgent, textIn(u.Content), true)
 	case "agent_thought_chunk":
-		return said(session, u.MessageID, protocol.MessageThought, textOf(u.Content), false)
+		return saying(session, u.MessageID, protocol.MessageThought, textOf(u.Content), false)
 	case "agent_thought":
-		return said(session, u.MessageID, protocol.MessageThought, textIn(u.Content), true)
+		return saying(session, u.MessageID, protocol.MessageThought, textIn(u.Content), true)
 	case "user_message_chunk":
-		return said(session, u.MessageID, protocol.MessageFromUser, textOf(u.Content), false)
+		return saying(session, u.MessageID, protocol.MessageFromUser, textOf(u.Content), false)
 	case "user_message":
-		return said(session, u.MessageID, protocol.MessageFromUser, textIn(u.Content), true)
+		return saying(session, u.MessageID, protocol.MessageFromUser, textIn(u.Content), true)
 	case "tool_call_update":
 		var patch toolPatch
 		if json.Unmarshal(raw, &patch) != nil {
@@ -200,7 +211,33 @@ func (t *translator) translate(sessionID string, raw json.RawMessage) []protocol
 	}
 }
 
-func said(session, id string, role protocol.MessageRole, text string, replace bool) []protocol.Event {
+func (t *translator) remember(session, id, text string, replace bool) {
+	if session != "" || id == "" {
+		return
+	}
+	if replace || id != t.last.id {
+		t.last = said{id: id, text: text}
+		return
+	}
+	t.last.text += text
+}
+
+func (t *translator) repeated(raw json.RawMessage) bool {
+	var u update
+	if json.Unmarshal(raw, &u) != nil || u.MessageID == "" || u.MessageID == t.last.id {
+		return false
+	}
+	switch u.SessionUpdate {
+	case "agent_message_chunk":
+		return textOf(u.Content) == t.last.text
+	case "agent_message":
+		return textIn(u.Content) == t.last.text
+	default:
+		return false
+	}
+}
+
+func saying(session, id string, role protocol.MessageRole, text string, replace bool) []protocol.Event {
 	if id == "" || (text == "" && !replace) {
 		return nil
 	}
@@ -356,17 +393,21 @@ func (t *translator) terminalUpdated(session string, u update) []protocol.Event 
 	return t.printed(session, u.TerminalID, decoded(u.Output.Data), true)
 }
 
-func (t *translator) printed(session, terminalID, text string, replace bool) []protocol.Event {
+func (t *translator) printed(session, terminalID string, raw []byte, replace bool) []protocol.Event {
 	if terminalID == "" {
 		return nil
 	}
 	term := t.terminalOf(session, terminalID)
+
+	var text string
 	if replace {
+		text, term.split = string(raw), nil
 		term.output = text
 	} else {
+		text, term.split = whole(append(term.split, raw...))
 		term.output += text
 	}
-	if term.call == "" || text == "" {
+	if term.call == "" || (text == "" && !replace) {
 		return nil
 	}
 	return []protocol.Event{protocol.HarnessEvent(protocol.EventToolOutput, protocol.ToolOutput{
@@ -540,12 +581,26 @@ func textIn(content json.RawMessage) string {
 	return strings.TrimSpace(strings.Join(texts, "\n"))
 }
 
-func decoded(data string) string {
+func decoded(data string) []byte {
 	raw, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
-		return ""
+		return nil
 	}
-	return string(raw)
+	return raw
+}
+
+func whole(raw []byte) (string, []byte) {
+	for back := 1; back <= utf8.UTFMax && back <= len(raw); back++ {
+		start := len(raw) - back
+		if !utf8.RuneStart(raw[start]) {
+			continue
+		}
+		if utf8.FullRune(raw[start:]) {
+			break
+		}
+		return string(raw[:start]), slices.Clone(raw[start:])
+	}
+	return string(raw), nil
 }
 
 func locationsOf(locations []location) []protocol.ToolLocation {

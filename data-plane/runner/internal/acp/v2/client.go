@@ -41,13 +41,19 @@ type Client struct {
 }
 
 type turn struct {
-	number int
-	heard  int
+	number    int
+	heard     int
+	announced bool
+	origin    protocol.TurnOrigin
+	repeats   bool
 }
 
 type prompt struct {
-	turn  *turn
-	ended chan Result
+	turn   *turn
+	echoed bool
+	joined bool
+	heard  int
+	ended  chan Result
 }
 
 func Start(ctx context.Context, opts acp.Options) (*Client, error) {
@@ -258,6 +264,7 @@ func (c *Client) promptFailed(waiting *prompt, err error) {
 	owned := open != nil && waiting.turn == open
 	if owned {
 		c.turn = nil
+		c.shown = protocol.SessionIdle
 	}
 	c.mu.Unlock()
 
@@ -310,36 +317,29 @@ func (c *Client) stateChanged(update state) {
 	}
 
 	c.mu.Lock()
-	var started *turn
-	origin := protocol.TurnFromSelf
 	if busy && c.turn == nil {
-		c.turns++
-		c.turn = &turn{number: c.turns}
-		started = c.turn
-		if c.prompted != nil && c.prompted.turn == nil {
-			c.prompted.turn = started
-			origin = protocol.TurnFromPrompt
-		}
+		events = append(events, c.startTurn()...)
 	}
 
 	var ended *turn
 	var resolve *prompt
-	if !busy && c.turn != nil {
+	switch {
+	case !busy && c.turn != nil:
 		ended, c.turn = c.turn, nil
-		if c.prompted != nil && c.prompted.turn == ended {
-			resolve, c.prompted = c.prompted, nil
-		}
+	case !busy && update.StopReason != nil && c.waiting():
+		events = append(events, c.startTurn()...)
+		ended, c.turn = c.turn, nil
+	}
+	if ended != nil && c.prompted != nil && c.prompted.turn == ended {
+		resolve, c.prompted = c.prompted, nil
 	}
 
 	shown := name != c.shown
 	c.shown = name
 	c.mu.Unlock()
 
-	if started != nil {
-		events = append(events, protocol.HarnessEvent(protocol.EventTurnStarted, protocol.TurnStarted{Turn: started.number, Origin: origin}))
-	}
-
-	if ended != nil {
+	var result Result
+	if ended != nil && ended.announced {
 		reason := ""
 		if update.StopReason != nil {
 			reason = *update.StopReason
@@ -349,10 +349,7 @@ func (c *Client) stateChanged(update state) {
 			ending.Error = update.Error.Message
 		}
 		events = append(events, protocol.HarnessEvent(protocol.EventTurnEnded, ending))
-
-		if resolve != nil {
-			resolve.ended <- Result{StopReason: reason, Error: ending.Error, Heard: ended.heard}
-		}
+		result = Result{StopReason: reason, Error: ending.Error}
 	}
 
 	if shown {
@@ -361,22 +358,72 @@ func (c *Client) stateChanged(update state) {
 
 	c.work.Apply(change)
 	c.emit(events...)
+
+	if resolve != nil {
+		result.Heard = resolve.heard
+		resolve.ended <- result
+	}
 }
 
-func (c *Client) echoed() {
+func (c *Client) waiting() bool {
+	return c.prompted != nil && c.prompted.echoed && c.prompted.turn == nil
+}
+
+func (c *Client) startTurn() []protocol.Event {
+	c.turns++
+	c.turn = &turn{number: c.turns, origin: protocol.TurnFromSelf}
+	if !c.waiting() {
+		return nil
+	}
+
+	c.prompted.turn = c.turn
+	c.turn.origin = protocol.TurnFromPrompt
+	c.turn.repeats = c.prompted.joined
+	return c.announce()
+}
+
+func (c *Client) announce() []protocol.Event {
+	if c.turn == nil || c.turn.announced {
+		return nil
+	}
+	c.turn.announced = true
+	return []protocol.Event{protocol.HarnessEvent(protocol.EventTurnStarted, protocol.TurnStarted{Turn: c.turn.number, Origin: c.turn.origin})}
+}
+
+func (c *Client) echoed() []protocol.Event {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.prompted != nil && c.prompted.turn == nil {
+
+	if c.prompted == nil || c.prompted.echoed {
+		return nil
+	}
+	c.prompted.echoed = true
+
+	switch {
+	case c.turn == nil:
+		return nil
+	case !c.turn.announced:
 		c.prompted.turn = c.turn
+		c.turn.origin = protocol.TurnFromPrompt
+		return c.announce()
+	default:
+		c.prompted.joined = true
+		return nil
 	}
 }
 
-func (c *Client) heard() {
+func (c *Client) heard() ([]protocol.Event, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.turn != nil {
-		c.turn.heard++
+
+	if c.prompted != nil && c.prompted.echoed {
+		c.prompted.heard++
 	}
+	if c.turn == nil {
+		return nil, false
+	}
+	c.turn.heard++
+	return c.announce(), c.turn.repeats
 }
 
 func (c *Client) emit(events ...protocol.Event) {

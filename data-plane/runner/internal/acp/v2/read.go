@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/acp"
 )
 
@@ -50,6 +51,8 @@ func (c *Client) updated(params json.RawMessage) {
 	_ = json.Unmarshal(frame.Update, &kind)
 
 	root := frame.SessionID == c.session()
+	var started []protocol.Event
+	repeats := false
 	switch {
 	case kind.SessionUpdate == "state_update" && root:
 		var update state
@@ -60,16 +63,19 @@ func (c *Client) updated(params json.RawMessage) {
 	case kind.SessionUpdate == "state_update":
 		return
 	case kind.SessionUpdate == "user_message" && root:
-		c.echoed()
+		started = c.echoed()
 	case root:
-		c.heard()
+		started, repeats = c.heard()
 	}
 
 	c.translating.Lock()
-	events := c.translator.translate(frame.SessionID, frame.Update)
+	var events []protocol.Event
+	if !repeats || !c.translator.repeated(frame.Update) {
+		events = c.translator.translate(frame.SessionID, frame.Update)
+	}
 	c.translating.Unlock()
 
-	c.emit(events...)
+	c.emit(append(started, events...)...)
 }
 
 func (c *Client) requested(id json.RawMessage, method string, params json.RawMessage) {

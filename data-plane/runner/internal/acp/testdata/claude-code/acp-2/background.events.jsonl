@@ -28,8 +28,8 @@
 {"type":"session.state","data":{"state":"idle"}}
 {"type":"tool.output","data":{"id":"toolu_01Wxga7FJq28u7aW7ophJkev","text":"done\n\n[exited with code 0]\n","replace":true}}
 {"type":"background.changed","data":{"items":[]}}
-{"type":"turn.started","data":{"turn":2,"origin":"self"}}
 {"type":"session.state","data":{"state":"running"}}
+{"type":"turn.started","data":{"turn":2,"origin":"self"}}
 {"type":"context.changed","data":{"used":20225,"size":1000000}}
 {"type":"message","data":{"id":"msg_011Ch2vYaAttppaakrVJ1Pee","role":"agent","text":"finished"}}
 {"type":"context.changed","data":{"used":20225,"size":1000000,"cost":{"amount":0.00252681,"currency":"USD"}}}

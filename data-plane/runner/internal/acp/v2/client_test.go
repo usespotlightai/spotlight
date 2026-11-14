@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -143,29 +144,97 @@ func TestATurnEndsWhenTheSessionIsIdleAgain(t *testing.T) {
 	}
 }
 
-func TestAPromptSentDuringASelfStartedTurnEndsWithThatTurn(t *testing.T) {
+func TestAPromptJoinedIntoASelfStartedTurnEndsWithTheTurnThatAnswersIt(t *testing.T) {
 	client, seen := started(t, `{
 		"session/prompt": (m) => {
-			update("user_message", { messageId: "u1", content: [{ type: "text", text: "go" }] });
+			update("user_message", { messageId: "u1", content: [{ type: "text", text: "Also say banana." }] });
 			send({ jsonrpc: "2.0", id: m.id, result: { messageId: "u1" } });
-			state("idle", { stopReason: "end_turn", background: [] });
+			update("agent_message_chunk", { messageId: "m1", content: { type: "text", text: "finished\n\nbanana" } });
+			state("idle", { stopReason: "end_turn", usage: { inputTokens: 0, outputTokens: 0 } });
+			state("running", { background: [] });
+			update("agent_message_chunk", { messageId: "m2", content: { type: "text", text: "finished\n\nbanana" } });
+			state("idle", { stopReason: "end_turn", usage: { inputTokens: 6, outputTokens: 92 } });
 		},
 		"session/new": (m) => {
 			send({ jsonrpc: "2.0", id: m.id, result: { sessionId: "session_1" } });
-			setTimeout(() => state("running", { background: [] }), 50);
+			setTimeout(() => {
+				state("running", { background: [] });
+				update("tool_call_update", { toolCallId: "c1", kind: "execute", rawInput: { command: "sleep 15" } });
+			}, 50);
 		},
 	}`, nil)
 
 	waitFor(t, func() bool { return len(seen.of(protocol.EventTurnStarted)) == 1 })
 
+	result, err := client.Prompt(within(t), "Also say banana.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Heard == 0 {
+		t.Fatal("the prompt heard nothing, though the agent answered it")
+	}
+
+	var origins []protocol.TurnOrigin
+	for _, raw := range seen.of(protocol.EventTurnStarted) {
+		var turn protocol.TurnStarted
+		_ = json.Unmarshal(raw, &turn)
+		origins = append(origins, turn.Origin)
+	}
+	if !slices.Equal(origins, []protocol.TurnOrigin{protocol.TurnFromSelf, protocol.TurnFromPrompt}) {
+		t.Fatalf("the turns started as %v", origins)
+	}
+
+	var said []string
+	for _, raw := range seen.of(protocol.EventMessage) {
+		var message protocol.AgentMessage
+		_ = json.Unmarshal(raw, &message)
+		if message.Role == protocol.MessageFromAgent {
+			said = append(said, message.Text)
+		}
+	}
+	if !slices.Equal(said, []string{"finished\n\nbanana"}) {
+		t.Fatalf("the agent said %q", said)
+	}
+}
+
+func TestATurnTheAgentStartedAndThatSaidNothingLeavesNoTurn(t *testing.T) {
+	client, seen := started(t, `{
+		"session/prompt": (m) => {
+			update("user_message", { messageId: "u1", content: [] });
+			send({ jsonrpc: "2.0", id: m.id, result: { messageId: "u1" } });
+			state("running", { background: [] });
+			update("agent_message_chunk", { messageId: "a1", content: { type: "text", text: "done" } });
+			state("idle", { stopReason: "end_turn", background: [] });
+			state("running", { background: [] });
+			state("idle", { stopReason: "end_turn", background: [] });
+		},
+	}`, nil)
+
 	if _, err := client.Prompt(within(t), "go"); err != nil {
 		t.Fatal(err)
 	}
+	waitFor(t, func() bool { return len(seen.of(protocol.EventSessionState)) >= 4 })
 
-	var turn protocol.TurnStarted
-	_ = json.Unmarshal(seen.of(protocol.EventTurnStarted)[0], &turn)
-	if turn.Origin != protocol.TurnFromSelf {
-		t.Fatalf("the first turn started as %+v", turn)
+	if started := seen.of(protocol.EventTurnStarted); len(started) != 1 {
+		t.Fatalf("%d turns started", len(started))
+	}
+}
+
+func TestAPromptEndsWhenItsTurnEndsWithoutRunning(t *testing.T) {
+	client, _ := started(t, `{
+		"session/prompt": (m) => {
+			update("user_message", { messageId: "u1", content: [] });
+			send({ jsonrpc: "2.0", id: m.id, result: { messageId: "u1" } });
+			state("idle", { stopReason: "refusal" });
+		},
+	}`, nil)
+
+	result, err := client.Prompt(within(t), "go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.StopReason != "refusal" {
+		t.Fatalf("ended with %+v", result)
 	}
 }
 

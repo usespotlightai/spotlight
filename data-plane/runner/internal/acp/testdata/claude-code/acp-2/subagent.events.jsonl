@@ -24,8 +24,8 @@
 {"type":"child.message","data":{"session":"ac8859fed08724e6b","from":"ac8859fed08724e6b","text":"sub done"}}
 {"type":"child.changed","data":{"child":"ac8859fed08724e6b","title":"Reply with sub done","description":"general-purpose","state":"idle","stop":"ended"}}
 {"type":"background.changed","data":{"items":[]}}
-{"type":"turn.started","data":{"turn":2,"origin":"self"}}
 {"type":"session.state","data":{"state":"running"}}
+{"type":"turn.started","data":{"turn":2,"origin":"self"}}
 {"type":"context.changed","data":{"used":20321,"size":1000000}}
 {"type":"message","data":{"id":"msg_011Ch2vX1MAhfKTs4sK743hd","role":"agent","text":"The subagent's"}}
 {"type":"message","data":{"id":"msg_011Ch2vX1MAhfKTs4sK743hd","role":"agent","text":" report came"}}
