@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	"usespotlight.ai/data-plane/host/internal/sandbox"
@@ -111,7 +112,10 @@ func (h *Host) adopted(
 	if err := json.Unmarshal(body, &kept); err != nil {
 		return liveSandbox{}, fmt.Errorf("read its egress settings: %w", err)
 	}
-	_, keys := standInsFor(h.now().SandboxEnv)
+	keys, err := h.harnessKeysNamed(kept.HarnessKeys)
+	if err != nil {
+		return liveSandbox{}, err
+	}
 
 	authority, err := h.engine.Read(ctx, egress.ID, protocol.EgressAuthority)
 	if err != nil {
@@ -152,6 +156,20 @@ func (h *Host) adopted(
 			authority:    authority,
 		},
 	}, nil
+}
+
+func (h *Host) harnessKeysNamed(names []string) ([]protocol.HarnessKey, error) {
+	_, held := standInsFor(h.now().SandboxEnv)
+
+	keys := make([]protocol.HarnessKey, 0, len(names))
+	for _, name := range names {
+		at := slices.IndexFunc(held, func(key protocol.HarnessKey) bool { return key.Name == name })
+		if at < 0 {
+			return nil, fmt.Errorf("its harness key %s is no longer in the host's sandbox-env", name)
+		}
+		keys = append(keys, held[at])
+	}
+	return keys, nil
 }
 
 func (h *Host) reap(ctx context.Context, left leftBehind) {

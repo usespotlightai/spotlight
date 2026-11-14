@@ -231,6 +231,79 @@ func TestTheRestartedHostReKeysASandboxItTookOverWithItsCredentialHostsAndHarnes
 	}
 }
 
+func TestTheRestartedHostReKeysASandboxItTookOverWithTheRotatedValueOfItsHarnessKey(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := updating(t, &updates{}, false)
+	opts.LeaseEvery = 5 * time.Millisecond
+	updatedWhileRunning(t, opts, engine, pool, sandboxOnly("sandbox_a"))
+
+	rotated := opts
+	rotated.SandboxEnv = []string{"ANTHROPIC_API_KEY=sk-rotated"}
+	restarted(t, rotated, engine, pool)
+	pool.into <- reused("runner_2", "sandbox_a")
+	eventually(t, "the egress re-keyed for the run", func() bool {
+		live := engine.liveEgressesOfSandbox("sandbox_a")
+		return len(live) == 1 && egressTokenOf(t, live[0]).Token == "egress-runner_2"
+	})
+
+	keys := egressTokenOf(t, engine.liveEgressesOfSandbox("sandbox_a")[0]).HarnessKeys
+	if len(keys) != 1 || keys[0].Name != "ANTHROPIC_API_KEY" || keys[0].Value != "sk-rotated" {
+		t.Errorf("the re-keyed egress wears %+v", keys)
+	}
+}
+
+func TestTheRestartedHostDestroysASandboxWhoseHarnessKeyItNoLongerHolds(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := updating(t, &updates{}, false)
+	id := updatedWhileRunning(t, opts, engine, pool, sandboxOnly("sandbox_a"))
+
+	changed := opts
+	changed.SandboxEnv = []string{"CLAUDE_CODE_OAUTH_TOKEN=oauth-test"}
+	restarted(t, changed, engine, pool)
+	eventually(t, "the sandbox destroyed", func() bool { return engine.wasDestroyed(id) })
+}
+
+func TestASandboxTakenOverAndReKeyedIsTakenOverAgainAfterTheNextUpdate(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := updating(t, &updates{}, false)
+	opts.LeaseEvery = 5 * time.Millisecond
+	id := updatedWhileRunning(t, opts, engine, pool, sandboxOnly("sandbox_a"))
+	before := egressTokenOf(t, engine.liveEgressesOfSandbox("sandbox_a")[0])
+
+	binary := &updates{}
+	again := opts
+	again.Version = "v0.7.0"
+	again.Updates = binary
+	_, stopped := serving(t, again, engine, pool)
+	pool.into <- reused("runner_2", "sandbox_a")
+	eventually(t, "the egress re-keyed for the run", func() bool {
+		live := engine.liveEgressesOfSandbox("sandbox_a")
+		return len(live) == 1 && egressTokenOf(t, live[0]).Token == "egress-runner_2"
+	})
+	binary.mu.Lock()
+	binary.replaced = true
+	binary.mu.Unlock()
+	if err := stopped(); !errors.Is(err, serve.ErrRestart) {
+		t.Fatalf("stopped with %v", err)
+	}
+
+	restarted(t, opts, engine, pool)
+	pool.into <- reused("runner_3", "sandbox_a")
+	eventually(t, "the egress re-keyed for the run after the second update", func() bool {
+		live := engine.liveEgressesOfSandbox("sandbox_a")
+		return len(live) == 1 && egressTokenOf(t, live[0]).Token == "egress-runner_3"
+	})
+
+	after := egressTokenOf(t, engine.liveEgressesOfSandbox("sandbox_a")[0])
+	if after.Credential != before.Credential || !slices.Equal(after.SandboxHosts, before.SandboxHosts) ||
+		!slices.Equal(after.HarnessKeys, before.HarnessKeys) {
+		t.Errorf("after two updates the egress got %+v, not the sandbox's %+v", after, before)
+	}
+	if engine.wasDestroyed(id) {
+		t.Fatal("the second restarted host destroyed the sandbox")
+	}
+}
+
 func TestStopsASandboxItTookOverWhenTheControlPlaneDrainsIt(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := updating(t, &updates{}, false)

@@ -2148,8 +2148,9 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 		json.Unmarshal(egress.Files[0].Body, &config) != nil {
 		t.Fatalf("egress got %+v", egress.Files)
 	}
-	if kept := string(egress.Files[1].Body); egress.Files[1].Mode != 0o400 || kept != `{"credential":"`+config.Credential+`"}` {
-		t.Errorf("egress keeps %s for a restarted host, more than the sandbox's own credential", kept)
+	if kept := string(egress.Files[1].Body); egress.Files[1].Path != "/run/spotlight-host/takeover.json" || egress.Files[1].Mode != 0o400 ||
+		kept != `{"credential":"`+config.Credential+`","harnessKeys":["ANTHROPIC_API_KEY"]}` {
+		t.Errorf("egress keeps %s for a restarted host, more than the sandbox's credential and key names", kept)
 	}
 	if config.Token != "egress-runner_1" || config.URL != opts.SandboxURL || !slices.Equal(config.Allow, []string{"api.anthropic.com"}) ||
 		!slices.Equal(config.SecretAllow, []string{"prod/*"}) || len(config.Credential) < 16 {
