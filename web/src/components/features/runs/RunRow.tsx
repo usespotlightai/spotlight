@@ -1,8 +1,11 @@
+import { CircleArrowRight, CircleSlash, type LucideIcon } from 'lucide-react';
+
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { RunPendingMarker } from '@/components/features/runs/RunPendingMarker';
+import { Pill } from '@/components/shared/Pill';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { type Run, runStatus, waitsOnPerson } from '@/lib/run';
+import { type Run, runStatus } from '@/lib/run';
 import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
@@ -24,9 +27,6 @@ export function RunRow({
   inTrail,
   gutter,
 }: RunRowProps) {
-  const waits = waitsOnPerson(run);
-  const status = runStatus(run);
-
   const title = taskTitle ?? run.station?.name ?? 'Unknown station';
 
   return (
@@ -76,9 +76,7 @@ export function RunRow({
 
             {run.progress && <ProgressState progress={run.progress} />}
 
-            {status && !waits && (
-              <span className="text-muted-foreground text-xs">{status}</span>
-            )}
+            <EndedPill run={run} />
 
             <span className="shrink-0 text-right text-muted-foreground text-xs tabular-nums @xl/pane:w-20">
               {since(run.startedAt)}
@@ -87,5 +85,25 @@ export function RunRow({
         </div>
       </div>
     </li>
+  );
+}
+
+const ENDED_ICONS: Partial<Record<Run['state'], LucideIcon>> = {
+  cancelled: CircleSlash,
+  superseded: CircleArrowRight,
+};
+
+function EndedPill({ run }: { run: Run }) {
+  const Icon = ENDED_ICONS[run.state];
+  const status = runStatus(run);
+
+  if (!Icon || !status) {
+    return null;
+  }
+
+  return (
+    <Pill lead={<Icon className="size-3.5 shrink-0" aria-hidden />}>
+      {status}
+    </Pill>
   );
 }

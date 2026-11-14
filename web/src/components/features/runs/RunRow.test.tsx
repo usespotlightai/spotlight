@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
@@ -83,6 +83,24 @@ describe('RunRow, what a run is doing', () => {
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
     expect(screen.queryByText('Queued')).not.toBeInTheDocument();
   });
+
+  it.each([
+    ['cancelled', 'Cancelled', 'lucide-circle-slash'],
+    ['superseded', 'Superseded', 'lucide-circle-arrow-right'],
+  ] as const)(
+    'shows a %s run in the same pill as waiting for you, with its own icon',
+    (state, label, icon) => {
+      const inRuns = shown(<RunRow run={run(state)} to="/runs/run_1" />);
+      const waiting = shown(<RunRow run={run('suspended')} to="/runs/run_1" />);
+
+      const pill = within(inRuns).getByText(label);
+
+      expect(pill.className).toEqual(
+        within(waiting).getByText('Waiting for you').className,
+      );
+      expect(pill.querySelector(`svg.${icon}`)).not.toBeNull();
+    },
+  );
 
   it('leads from waiting for you to where the person answers', () => {
     shown(
