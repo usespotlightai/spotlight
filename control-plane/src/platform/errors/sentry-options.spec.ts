@@ -1,5 +1,6 @@
 import { sentryOptions } from '@platform/errors/sentry-options';
 import type { Breadcrumb, ErrorEvent } from '@sentry/nestjs';
+import { DrizzleQueryError } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 const options = sentryOptions({ SENTRY_DSN: 'https://key@sentry.invalid/1' });
@@ -36,5 +37,112 @@ describe('sentryOptions', () => {
     }) as Breadcrumb;
 
     expect(breadcrumb.data?.url).toBe('https://api.github.com');
+  });
+
+  const queryError = (query: string, code: string) =>
+    new DrizzleQueryError(
+      query,
+      ['hello@example.com'],
+      Object.assign(new Error('raised'), { code }),
+    );
+
+  const sendEvent = (error: DrizzleQueryError) =>
+    options?.beforeSend?.(
+      {
+        type: undefined,
+        exception: {
+          values: [
+            { type: 'error', value: 'raised' },
+            { type: 'Error', value: error.message },
+          ],
+        },
+      },
+      { originalException: error },
+    ) as ErrorEvent;
+
+  const titleOf = (event: ErrorEvent) => {
+    const values = event.exception?.values ?? [];
+
+    return values[values.length - 1]?.value;
+  };
+
+  it('groups queries that fail because the database is unavailable', () => {
+    const first = sendEvent(queryError('select "id" from "task"', '53300'));
+    const second = sendEvent(queryError('select "id" from "run"', '53300'));
+
+    expect(first.fingerprint).toEqual(['database-unavailable', '53300']);
+    expect(second.fingerprint).toEqual(first.fingerprint);
+    expect(titleOf(first)).toBe('The database is unavailable: 53300');
+    expect(first.extra?.originalMessage).toBe(
+      'Failed query: select "id" from "task"',
+    );
+  });
+
+  it('keeps the grouping of a query that fails on its own', () => {
+    const event = sendEvent(queryError('insert into "task"', '23505'));
+
+    expect(event.fingerprint).toBeUndefined();
+    expect(titleOf(event)).toBe('Failed query: insert into "task"');
+  });
+
+  it('never sends the parameters of a failed query', () => {
+    const event = sendEvent(queryError('select 1', '53300'));
+
+    expect(JSON.stringify(event)).not.toContain('hello@example.com');
+  });
+
+  it('groups a report the HTTP filter made with the query it failed on', () => {
+    const report = Object.assign(
+      new Error('The database refused a connection'),
+      {
+        cause: queryError('select "id" from "task"', '53300'),
+      },
+    );
+
+    const event = options?.beforeSend?.(
+      {
+        type: undefined,
+        exception: { values: [{ type: 'Error', value: report.message }] },
+      },
+      { originalException: report },
+    ) as ErrorEvent;
+
+    expect(event.fingerprint).toEqual(['database-unavailable', '53300']);
+  });
+
+  it('never sends the parameters of a failed query in a breadcrumb', () => {
+    const breadcrumb = options?.beforeBreadcrumb?.({
+      category: 'console',
+      message: 'Failed query: select 1\nparams: hello@example.com',
+    }) as Breadcrumb;
+
+    expect(breadcrumb.message).toBe('Failed query: select 1');
+  });
+
+  it('never sends the parameters of a failed query a console call logged', () => {
+    const breadcrumb = options?.beforeBreadcrumb?.({
+      category: 'console',
+      data: {
+        arguments: ['Database failed:', queryError('select 1', '53300')],
+      },
+    }) as Breadcrumb;
+
+    expect(breadcrumb.data?.arguments).toEqual([
+      'Database failed:',
+      'Error: Failed query: select 1',
+    ]);
+  });
+
+  it('never sends the parameters of a failed query nested in a logged object', () => {
+    const breadcrumb = options?.beforeBreadcrumb?.({
+      category: 'console',
+      data: {
+        arguments: [{ err: queryError('select 1', '53300'), more: [1] }],
+      },
+    }) as Breadcrumb;
+
+    expect(breadcrumb.data?.arguments).toEqual([
+      { err: 'Error: Failed query: select 1', more: [1] },
+    ]);
   });
 });

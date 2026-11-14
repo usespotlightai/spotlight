@@ -45,7 +45,7 @@ const RETRY_AFTER_SECONDS = '5';
 const CONNECTIONS_REFUSED_METRIC = 'spotlight_db_connection_refused_total';
 
 class DatabaseConnectionsExhausted extends Error {
-  constructor() {
+  constructor(readonly cause: unknown) {
     super('The database refused a connection');
   }
 }
@@ -102,7 +102,7 @@ export class ProblemFilter implements ExceptionFilter {
 
     if (refused) {
       this.telemetry.count(CONNECTIONS_REFUSED_METRIC);
-      this.reports.report(new DatabaseConnectionsExhausted(), {
+      this.reports.report(new DatabaseConnectionsExhausted(exception), {
         source: 'db.pool_exhausted',
       });
       this.logger.error(

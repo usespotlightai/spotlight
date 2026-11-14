@@ -50,6 +50,8 @@ const PULL_REQUEST = Tool.of('pull-request');
 
 const CHECKS = Tool.of('checks');
 
+const OPEN_TASKS = Tool.of('open-tasks');
+
 const REVIEW = Tool.of('review');
 
 const REVIEW_COMMENT = Tool.of('review-comment');
@@ -108,8 +110,16 @@ do its job here.
 A small change still goes along the line rather than skipping ahead to the end
 of it.
 
-If the request is ambiguous, contradictory, or already done, that is a
-question for a person, not a guess for you to make.`;
+Run \`spotlight tools call open-tasks\` to see the other open tasks on this line.
+If the call fails, judge the request without it.
+The request is a duplicate when another task already covers it: the same
+change, or the same cause behind a different symptom. Two error reports are
+duplicates when one failure caused both, even if each names a different query
+or route.
+
+If the request is ambiguous, contradictory, already done, or a duplicate, that
+is a question for a person, not a guess for you to make. For a duplicate, name
+the task that already covers it.`;
 
 const SPEC = `## Spec
 
@@ -267,8 +277,9 @@ const TRIAGE_RUBRIC = `scores: yes-no
 The note says in a sentence or two what the request comes down to, and names
 what it leaves open or takes for granted. The run changed no file. The task
 went to Spec or Implementation only when a plan could be written against it,
-and to a person when the request was ambiguous, contradictory or already done.
-The note does not plan the change.`;
+and to a person when the request was ambiguous, contradictory, already done or
+a duplicate of an open task. The note names the task a duplicate repeats. The
+note does not plan the change.`;
 
 const SPEC_RUBRIC = `scores: yes-no
 
@@ -344,6 +355,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
       'Decides what the request wants and if it is clear enough to plan.',
     prompt: TRIAGE,
     rubric: TRIAGE_RUBRIC,
+    tools: [OPEN_TASKS],
     passesTo: ['spec', 'implementation'],
   }),
   opening({

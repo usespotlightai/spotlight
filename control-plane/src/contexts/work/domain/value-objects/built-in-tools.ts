@@ -19,6 +19,8 @@ export const PULL_REQUEST = Tool.of('pull-request');
 
 export const CHECKS = Tool.of('checks');
 
+export const OPEN_TASKS = Tool.of('open-tasks');
+
 export const PROPOSE_TASK = Tool.of('propose-task');
 
 export const SETUP_PULL_REQUEST = Tool.of('setup-pull-request');
@@ -152,6 +154,16 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           stdin: true,
         },
       ],
+    }),
+  },
+  {
+    worksOn: 'task',
+    skill: null,
+    declared: DeclaredTool.of({
+      tool: OPEN_TASKS,
+      description:
+        'List the other open tasks on the line of this task, with the start of each description and last note.',
+      inputs: [],
     }),
   },
   {
