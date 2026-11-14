@@ -8,7 +8,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const settleQuiet = 5 * time.Second
+const SettleQuiet = 5 * time.Second
 
 type Work struct {
 	Seen       bool
@@ -16,13 +16,13 @@ type Work struct {
 	Background []protocol.BackgroundTask
 }
 
-type workChange struct {
-	reported bool
-	busy     *bool
-	tasks    *[]protocol.BackgroundTask
+type WorkChange struct {
+	Reported bool
+	Busy     *bool
+	Tasks    *[]protocol.BackgroundTask
 }
 
-type workState struct {
+type WorkState struct {
 	mu        sync.Mutex
 	seen      bool
 	busy      bool
@@ -32,24 +32,24 @@ type workState struct {
 	quiet     time.Duration
 }
 
-func newWorkState(quiet time.Duration) *workState {
-	return &workState{changed: make(chan struct{}), quiet: quiet, changedAt: time.Now()}
+func NewWorkState(quiet time.Duration) *WorkState {
+	return &WorkState{changed: make(chan struct{}), quiet: quiet, changedAt: time.Now()}
 }
 
-func (w *workState) touch() {
+func (w *WorkState) Touch() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.changedLocked()
 }
 
-func (w *workState) changedLocked() {
+func (w *WorkState) changedLocked() {
 	w.changedAt = time.Now()
 	close(w.changed)
 	w.changed = make(chan struct{})
 }
 
-func (w *workState) apply(change workChange) {
-	if !change.reported {
+func (w *WorkState) Apply(change WorkChange) {
+	if !change.Reported {
 		return
 	}
 
@@ -57,25 +57,25 @@ func (w *workState) apply(change workChange) {
 	defer w.mu.Unlock()
 
 	w.seen = true
-	if change.busy != nil {
-		w.busy = *change.busy
+	if change.Busy != nil {
+		w.busy = *change.Busy
 	}
-	if change.tasks != nil {
-		w.live = append(w.live[:0], (*change.tasks)...)
+	if change.Tasks != nil {
+		w.live = append(w.live[:0], (*change.Tasks)...)
 	}
 	w.changedLocked()
 }
 
-func (w *workState) now() Work {
+func (w *WorkState) Now() Work {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return Work{Seen: w.seen, Background: append([]protocol.BackgroundTask(nil), w.live...)}
 }
 
-func (w *workState) settle(ctx context.Context, done <-chan struct{}) (Work, bool) {
+func (w *WorkState) Settle(ctx context.Context, done <-chan struct{}) (Work, bool) {
 	for {
 		if closed(done) {
-			gone := w.now()
+			gone := w.Now()
 			gone.Gone = true
 			return gone, false
 		}
@@ -91,7 +91,7 @@ func (w *workState) settle(ctx context.Context, done <-chan struct{}) (Work, boo
 		w.mu.Unlock()
 
 		if !busy && left <= 0 {
-			return w.now(), true
+			return w.Now(), true
 		}
 
 		var wait *time.Timer
@@ -111,7 +111,7 @@ func (w *workState) settle(ctx context.Context, done <-chan struct{}) (Work, boo
 			wait.Stop()
 		}
 		if ctx.Err() != nil {
-			return w.now(), false
+			return w.Now(), false
 		}
 	}
 }

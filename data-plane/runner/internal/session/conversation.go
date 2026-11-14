@@ -133,7 +133,7 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 		turn, endTurn := context.WithCancel(ctx)
 		go c.steer(turn)
 
-		result, err := c.harness.Prompt(ctx, c.sessionID, prompt)
+		result, err := c.harness.Prompt(ctx, prompt)
 		endTurn()
 		c.journal.flush(ctx)
 
@@ -398,7 +398,7 @@ func (c *conversation) steer(ctx context.Context) {
 			}
 			if len(messages) > 0 {
 				c.log.Info("a person sent a message mid-turn; steering")
-				if err := c.harness.Cancel(c.sessionID); err != nil {
+				if err := c.harness.Cancel(); err != nil {
 					c.log.Warn("could not cancel the turn", "error", err)
 				}
 				return

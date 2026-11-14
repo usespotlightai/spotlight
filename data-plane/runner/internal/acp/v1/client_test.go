@@ -1,4 +1,4 @@
-package acp_test
+package v1_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/acp"
+	v1 "usespotlight.ai/data-plane/runner/internal/acp/v1"
 )
 
 func said(event protocol.Event) string {
@@ -59,11 +60,11 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
-func start(t *testing.T, script string, answer acp.Permission) (*acp.Client, string) {
+func start(t *testing.T, script string, answer acp.Permission) (*v1.Client, string) {
 	t.Helper()
 
 	root := t.TempDir()
-	client, err := acp.Start(context.Background(), acp.Options{
+	client, err := v1.Start(context.Background(), acp.Options{
 		Executable: pretend(t, script),
 		Root:       root,
 		Answer:     answer,
@@ -98,7 +99,7 @@ func TestOpensASessionAndReportsTheAgentsOutput(t *testing.T) {
 			_ = json.Unmarshal(event.Data, &ended)
 		}
 	})
-	result, err := client.Prompt(ctx, sessionID, "do the thing")
+	result, err := client.Prompt(ctx, "do the thing")
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
@@ -212,14 +213,14 @@ func TestCancelEndsTheTurnInFlight(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	done := make(chan acp.Result, 1)
+	done := make(chan v1.Result, 1)
 	go func() {
-		result, _ := client.Prompt(ctx, "session_1", "keep working")
+		result, _ := client.Prompt(ctx, "keep working")
 		done <- result
 	}()
 
 	time.Sleep(200 * time.Millisecond)
-	if err := client.Cancel("session_1"); err != nil {
+	if err := client.Cancel(); err != nil {
 		t.Fatalf("cancel: %v", err)
 	}
 
@@ -246,7 +247,7 @@ func TestAnswersThePermissionTheAgentRequests(t *testing.T) {
 		})
 
 		ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
-		result, err := client.Prompt(ctx, "session_1", "do it")
+		result, err := client.Prompt(ctx, "do it")
 		stop()
 
 		if err != nil {
@@ -267,7 +268,7 @@ func TestReadsAndWritesWithinTheWorkspace(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	if _, err := client.Prompt(ctx, "session_1", "read it"); err != nil {
+	if _, err := client.Prompt(ctx, "read it"); err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
 
@@ -286,7 +287,7 @@ func TestRejectsAPathOutsideTheWorkspace(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	result, err := client.Prompt(ctx, "session_1", "read outside")
+	result, err := client.Prompt(ctx, "read outside")
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
@@ -342,6 +343,7 @@ process.stdin.on("data", (chunk) => {
     if (!line.trim()) continue;
     const msg = JSON.parse(line);
     if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_1" } });
     if (msg.method === "session/cancel") cancelled = "cancel sent to " + msg.params.sessionId;
     if (msg.method === "session/prompt") {
       promptId = msg.id;
@@ -379,7 +381,10 @@ func TestAPermissionIsAnsweredOnceNotForever(t *testing.T) {
 		})
 
 		ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
-		result, err := client.Prompt(ctx, "session_1", "clean up")
+		if _, err := client.NewSession(ctx); err != nil {
+			t.Fatal(err)
+		}
+		result, err := client.Prompt(ctx, "clean up")
 		stop()
 
 		if err != nil {
@@ -402,7 +407,7 @@ func TestAPermissionIsRefusedWhenNobodyAnswers(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	result, err := client.Prompt(ctx, "session_1", "clean up")
+	result, err := client.Prompt(ctx, "clean up")
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
@@ -461,7 +466,7 @@ func TestASessionOpensWithWhatTheHarnessIsSetUpWith(t *testing.T) {
 			options.Executable = pretend(t, opening)
 			options.Root = t.TempDir()
 
-			client, err := acp.Start(context.Background(), options)
+			client, err := v1.Start(context.Background(), options)
 			if err != nil {
 				t.Fatalf("start: %v", err)
 			}
@@ -478,7 +483,7 @@ func TestASessionOpensWithWhatTheHarnessIsSetUpWith(t *testing.T) {
 
 			var output string
 			client.Watch(func(event protocol.Event) { output += said(event) })
-			if _, err := client.Prompt(ctx, "session_1", "go"); err != nil {
+			if _, err := client.Prompt(ctx, "go"); err != nil {
 				t.Fatalf("%s, resuming=%v: prompt: %v", expected.name, resuming, err)
 			}
 			stop()
@@ -526,15 +531,15 @@ func TestSetsASessionConfigOption(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	sessionID, err := client.NewSession(ctx)
+	_, err := client.NewSession(ctx)
 	if err != nil {
 		t.Fatalf("new session: %v", err)
 	}
 
-	if err := client.SetConfigOption(ctx, sessionID, "effort", "high"); err != nil {
+	if err := client.SetConfigOption(ctx, "effort", "high"); err != nil {
 		t.Fatalf("set effort: %v", err)
 	}
-	if err := client.SetConfigOption(ctx, sessionID, "colour", "blue"); err == nil {
+	if err := client.SetConfigOption(ctx, "colour", "blue"); err == nil {
 		t.Fatal("an option the harness refuses did not fail")
 	}
 }
@@ -572,7 +577,7 @@ process.stdin.on("data", (chunk) => {
 `
 
 func TestUpdatesOutsideATurnReachTheWatcherButNotTheReplay(t *testing.T) {
-	client, err := acp.Start(context.Background(), acp.Options{
+	client, err := v1.Start(context.Background(), acp.Options{
 		Executable:  pretend(t, workingHarness),
 		Root:        t.TempDir(),
 		SettleQuiet: 50 * time.Millisecond,
@@ -598,7 +603,7 @@ func TestUpdatesOutsideATurnReachTheWatcherButNotTheReplay(t *testing.T) {
 	if err := client.Resume(ctx, "session_1"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Prompt(ctx, "session_1", "go"); err != nil {
+	if _, err := client.Prompt(ctx, "go"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -628,7 +633,7 @@ func TestAHarnessWithoutWorkFramesSettlesAtOnce(t *testing.T) {
 }
 
 func TestSettlingStopsAtTheDeadline(t *testing.T) {
-	client, err := acp.Start(context.Background(), acp.Options{
+	client, err := v1.Start(context.Background(), acp.Options{
 		Executable:  pretend(t, workingHarness),
 		Root:        t.TempDir(),
 		SettleQuiet: 50 * time.Millisecond,
@@ -640,7 +645,7 @@ func TestSettlingStopsAtTheDeadline(t *testing.T) {
 
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
-	if _, err := client.Prompt(ctx, "session_1", "go"); err != nil {
+	if _, err := client.Prompt(ctx, "go"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -653,7 +658,7 @@ func TestSettlingStopsAtTheDeadline(t *testing.T) {
 }
 
 func TestClaudeCodeTaskTypesBecomeSpotlightKinds(t *testing.T) {
-	client, err := acp.Start(context.Background(), acp.Options{
+	client, err := v1.Start(context.Background(), acp.Options{
 		Executable: pretend(t, `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "";
@@ -684,7 +689,7 @@ process.stdin.on("data", (chunk) => {
 	}
 	t.Cleanup(func() { _ = client.Close() })
 
-	if _, err := client.Prompt(context.Background(), "s", "go"); err != nil {
+	if _, err := client.Prompt(context.Background(), "go"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -725,7 +730,7 @@ func TestKeepsOnlyTheFramesOfTheSession(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	sessionID, err := client.NewSession(ctx)
+	_, err := client.NewSession(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -736,7 +741,7 @@ func TestKeepsOnlyTheFramesOfTheSession(t *testing.T) {
 			frames = append(frames, string(event.Data))
 		}
 	})
-	if _, err := client.Prompt(ctx, sessionID, "go"); err != nil {
+	if _, err := client.Prompt(ctx, "go"); err != nil {
 		t.Fatal(err)
 	}
 

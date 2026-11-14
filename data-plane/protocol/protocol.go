@@ -44,6 +44,7 @@ type Command struct {
 	Executable     string            `json:"executable"`
 	Args           []string          `json:"args,omitempty"`
 	Env            map[string]string `json:"env,omitempty"`
+	Protocol       string            `json:"protocol,omitempty"`
 	SessionOptions []SessionOption   `json:"sessionOptions,omitempty"`
 }
 

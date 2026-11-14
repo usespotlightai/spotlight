@@ -1,4 +1,4 @@
-package acp_test
+package v1_test
 
 import (
 	"bytes"
@@ -15,6 +15,7 @@ import (
 
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/acp"
+	v1 "usespotlight.ai/data-plane/runner/internal/acp/v1"
 )
 
 var update = flag.Bool("update", false, "write the expected events of each recording")
@@ -46,7 +47,7 @@ type journalled struct {
 }
 
 func TestEveryRecordingReadsAsItsExpectedEvents(t *testing.T) {
-	recordings, err := filepath.Glob(filepath.Join("testdata", "*", "acp-1", "*.frames.jsonl"))
+	recordings, err := filepath.Glob(filepath.Join("..", "testdata", "*", "acp-1", "*.frames.jsonl"))
 	if err != nil || len(recordings) == 0 {
 		t.Fatalf("no recordings: %v", err)
 	}
@@ -83,7 +84,7 @@ func played(t *testing.T, recording string) []byte {
 		t.Fatal(err)
 	}
 
-	client, err := acp.Start(context.Background(), acp.Options{
+	client, err := v1.Start(context.Background(), acp.Options{
 		Executable:  pretend(t, replaying),
 		Env:         map[string]string{"FRAMES": frames, "PATH": os.Getenv("PATH")},
 		Root:        t.TempDir(),
@@ -97,7 +98,7 @@ func played(t *testing.T, recording string) []byte {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	sessionID, err := client.NewSession(ctx)
+	_, err = client.NewSession(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +115,7 @@ func played(t *testing.T, recording string) []byte {
 		out.Write(append(line, '\n'))
 	})
 
-	if _, err := client.Prompt(ctx, sessionID, "go"); err != nil {
+	if _, err := client.Prompt(ctx, "go"); err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
 	if _, settled := client.Settle(ctx); !settled {

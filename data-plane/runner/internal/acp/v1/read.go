@@ -1,83 +1,45 @@
-package acp
+package v1
 
 import (
-	"bufio"
 	"cmp"
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"usespotlight.ai/data-plane/protocol"
+	"usespotlight.ai/data-plane/runner/internal/acp"
 )
 
-func (c *Client) read(stdout io.Reader) {
-	lines := bufio.NewScanner(stdout)
-	lines.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
-
-	for lines.Scan() {
-		line := lines.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-
-		var message struct {
-			ID     json.RawMessage `json:"id"`
-			Method string          `json:"method"`
-			Params json.RawMessage `json:"params"`
-			Result json.RawMessage `json:"result"`
-			Error  *responseError  `json:"error"`
-		}
-		if err := json.Unmarshal(line, &message); err != nil {
-			continue
-		}
-
-		if message.Method == "" || journaled[message.Method] {
-			c.framed(line)
-		}
-
-		switch {
-		case message.Method == "" && len(message.ID) > 0:
-			c.answered(message.ID, message.Result, message.Error)
-		case len(message.ID) > 0:
-			c.requested(message.ID, message.Method, message.Params)
-		default:
-			c.onNotification(message.Method, message.Params)
-		}
-	}
-
-	_ = c.Close()
-}
-
-func (c *Client) answered(id json.RawMessage, result json.RawMessage, failed *responseError) {
-	at, ok := idOf(id)
-	if !ok {
-		return
-	}
-
+func (c *Client) answered(id int, result json.RawMessage, failed *acp.ResponseError) {
 	c.mu.Lock()
-	waiting := c.waiting[at]
-	turn, prompted := c.prompts[at]
-	delete(c.prompts, at)
+	turn, prompted := c.prompts[id]
+	delete(c.prompts, id)
 	c.mu.Unlock()
 
 	if prompted {
 		c.promptAnswered(turn, result, failed)
 	}
-	if waiting != nil {
-		waiting <- response{ID: id, Result: result, Error: failed}
-	}
 }
 
-func (c *Client) framed(line []byte) {
-	if c.isReplaying() {
+func (c *Client) promptAnswered(turn int, result json.RawMessage, failed *acp.ResponseError) {
+	if failed != nil {
+		c.turnEnded(protocol.TurnEnded{Turn: turn, Stop: protocol.TurnStopFailed, Error: failed.Message})
 		return
 	}
-	c.emit(protocol.HarnessEvent(protocol.EventHarnessFrame, protocol.HarnessFrame{
-		Protocol: Protocol,
-		Data:     append(json.RawMessage(nil), line...),
-	}))
+
+	var out Result
+	_ = json.Unmarshal(result, &out)
+	c.turnEnded(protocol.TurnEnded{
+		Turn: turn, Stop: StopOf(out.StopReason), Reason: out.StopReason, Usage: usageOf(out.Usage),
+	})
+}
+
+func (c *Client) framed(line []byte, method string) {
+	if c.isReplaying() || (method != "" && !journaled[method]) {
+		return
+	}
+	c.emit(acp.Frame(Protocol, line))
 }
 
 var journaled = map[string]bool{
@@ -92,23 +54,23 @@ func (c *Client) isReplaying() bool {
 	return c.replaying
 }
 
-func (c *Client) onNotification(method string, params json.RawMessage) {
+func (c *Client) notified(method string, params json.RawMessage) {
 	if c.isReplaying() {
 		return
 	}
 
 	if method == claudeCodeFrame {
 		change := claudeCodeWork(params)
-		c.work.apply(change)
-		if change.tasks != nil {
-			c.emit(protocol.HarnessEvent(protocol.EventBackgroundChanged, protocol.BackgroundChanged{Items: *change.tasks}))
+		c.work.Apply(change)
+		if change.Tasks != nil {
+			c.emit(protocol.HarnessEvent(protocol.EventBackgroundChanged, protocol.BackgroundChanged{Items: *change.Tasks}))
 		}
 		return
 	}
 	if method != "session/update" {
 		return
 	}
-	c.work.touch()
+	c.work.Touch()
 
 	c.mu.Lock()
 	c.heard++
@@ -134,11 +96,6 @@ func (c *Client) requested(id json.RawMessage, method string, params json.RawMes
 	}
 }
 
-type option struct {
-	OptionID string `json:"optionId"`
-	Kind     string `json:"kind"`
-}
-
 func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 	var asked struct {
 		SessionID string `json:"sessionId"`
@@ -148,7 +105,7 @@ func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 			Title      string          `json:"title"`
 			RawInput   json.RawMessage `json:"rawInput"`
 		} `json:"toolCall"`
-		Options []option `json:"options"`
+		Options []acp.Option `json:"options"`
 	}
 	_ = json.Unmarshal(params, &asked)
 
@@ -157,7 +114,7 @@ func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 		input = nil
 	}
 
-	verdict := c.answer(c.life, Asked{
+	verdict := c.answer(c.life, acp.Asked{
 		SessionID:  asked.SessionID,
 		ToolCallID: asked.ToolCall.ToolCallID,
 		Kind:       asked.ToolCall.Kind,
@@ -165,15 +122,15 @@ func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 		Input:      input,
 	})
 
-	if verdict == Cancel {
-		_ = c.Cancel(asked.SessionID)
+	if verdict == acp.Cancel {
+		_ = c.conn.Notify("session/cancel", map[string]any{"sessionId": asked.SessionID})
 		c.reply(id, map[string]any{"outcome": map[string]any{"outcome": "cancelled"}})
 		return
 	}
 
-	chosen := pick(asked.Options, "reject")
-	if verdict == Allow {
-		chosen = cmp.Or(pick(asked.Options, "allow"), chosen)
+	chosen := acp.Pick(asked.Options, "reject")
+	if verdict == acp.Allow {
+		chosen = cmp.Or(acp.Pick(asked.Options, "allow"), chosen)
 	}
 
 	if chosen == "" {
@@ -184,19 +141,6 @@ func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 	c.reply(id, map[string]any{
 		"outcome": map[string]any{"outcome": "selected", "optionId": chosen},
 	})
-}
-
-func pick(options []option, kind string) string {
-	fallback := ""
-	for _, each := range options {
-		if each.Kind == kind+"_once" {
-			return each.OptionID
-		}
-		if fallback == "" && strings.HasPrefix(each.Kind, kind+"_") {
-			fallback = each.OptionID
-		}
-	}
-	return fallback
 }
 
 func (c *Client) within(path string) (string, bool) {
@@ -261,13 +205,9 @@ func (c *Client) writeFile(id json.RawMessage, params json.RawMessage) {
 }
 
 func (c *Client) reply(id json.RawMessage, result any) {
-	_ = c.write(response{JSONRPC: "2.0", ID: id, Result: result})
+	c.conn.Reply(id, result)
 }
 
 func (c *Client) reject(id json.RawMessage, because string) {
-	_ = c.write(response{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error:   &responseError{Code: -32601, Message: because},
-	})
+	c.conn.Reject(id, because)
 }

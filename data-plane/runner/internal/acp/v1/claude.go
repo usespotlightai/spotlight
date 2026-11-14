@@ -1,15 +1,16 @@
-package acp
+package v1
 
 import (
 	"encoding/json"
 	"strings"
 
 	"usespotlight.ai/data-plane/protocol"
+	"usespotlight.ai/data-plane/runner/internal/acp"
 )
 
 const claudeCodeFrame = "_claude/sdkMessage"
 
-func claudeCodeWork(params json.RawMessage) workChange {
+func claudeCodeWork(params json.RawMessage) acp.WorkChange {
 	var frame struct {
 		Message struct {
 			Type    string `json:"type"`
@@ -24,13 +25,13 @@ func claudeCodeWork(params json.RawMessage) workChange {
 		} `json:"message"`
 	}
 	if json.Unmarshal(params, &frame) != nil || frame.Message.Type != "system" {
-		return workChange{}
+		return acp.WorkChange{}
 	}
 
 	switch frame.Message.Subtype {
 	case "session_state_changed":
 		busy := frame.Message.State != "idle"
-		return workChange{reported: true, busy: &busy}
+		return acp.WorkChange{Reported: true, Busy: &busy}
 	case "background_tasks_changed":
 		tasks := []protocol.BackgroundTask{}
 		for _, task := range frame.Message.Tasks {
@@ -43,9 +44,9 @@ func claudeCodeWork(params json.RawMessage) workChange {
 				Description: task.Description,
 			})
 		}
-		return workChange{reported: true, tasks: &tasks}
+		return acp.WorkChange{Reported: true, Tasks: &tasks}
 	default:
-		return workChange{}
+		return acp.WorkChange{}
 	}
 }
 

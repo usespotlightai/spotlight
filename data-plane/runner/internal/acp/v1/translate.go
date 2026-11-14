@@ -1,4 +1,4 @@
-package acp
+package v1
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"usespotlight.ai/data-plane/protocol"
+	"usespotlight.ai/data-plane/runner/internal/acp"
 )
 
 const bridgeServer = "mcp__acp__"
@@ -206,10 +207,10 @@ func (t *translator) called(session string, frame notification) []protocol.Event
 	if update.Status != nil {
 		call.Status = protocol.ToolStatus(*update.Status)
 	}
-	if present(update.RawInput) {
+	if acp.Present(update.RawInput) {
 		call.Input = update.RawInput
 	}
-	if present(update.RawOutput) {
+	if acp.Present(update.RawOutput) {
 		call.Output = update.RawOutput
 	}
 	if update.Locations != nil {
@@ -333,10 +334,6 @@ func locationsOf(locations []location) []protocol.ToolLocation {
 		}
 	}
 	return found
-}
-
-func present(raw json.RawMessage) bool {
-	return len(raw) > 0 && string(raw) != "null"
 }
 
 func stringOf(value *string) string {

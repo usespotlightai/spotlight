@@ -31,9 +31,12 @@ type Harness interface {
 	Protocol() string
 	Reports() protocol.HarnessReports
 	Watch(saw func(protocol.Event))
-	Prompt(ctx context.Context, sessionID, text string) (Turn, error)
+	NewSession(ctx context.Context) (string, error)
+	Resume(ctx context.Context, sessionID string) error
+	SetConfigOption(ctx context.Context, id, value string) error
+	Prompt(ctx context.Context, text string) (Turn, error)
 	Settle(ctx context.Context) (Work, bool)
 	Current() Work
-	Cancel(sessionID string) error
+	Cancel() error
 	Close() error
 }

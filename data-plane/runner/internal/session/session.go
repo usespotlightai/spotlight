@@ -326,7 +326,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	env := granted(protocol.WithoutShadowedHarnessKeys(run.Spec.Command.Env, os.Getenv), channel, state, telemetry.URL, usesAPI(run.Spec, opts.ControlPlane))
 	maps.Copy(env, opts.ProxyEnv)
 
-	harness, err := acp.Start(ctx, acp.Options{
+	harness, err := startHarness(ctx, run.Spec.Command.Protocol, acp.Options{
 		Executable:  run.Spec.Command.Executable,
 		Args:        run.Spec.Command.Args,
 		Env:         env,
@@ -358,14 +358,14 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		leave()
 		return unopened(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
-	if err := configure(ctx, harness, sessionID, run.Spec.Command.SessionOptions, log); err != nil {
+	if err := configure(ctx, harness, run.Spec.Command.SessionOptions, log); err != nil {
 		leave()
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	talk := &conversation{
 		run:       run,
-		harness:   overACP(harness),
+		harness:   harness,
 		sessionID: sessionID,
 		joined:    joined,
 		unready:   unready,
@@ -472,7 +472,7 @@ func (o Options) generateStacks(
 	}
 }
 
-func open(ctx context.Context, harness *acp.Client, previous string, log *slog.Logger) (string, error) {
+func open(ctx context.Context, harness Harness, previous string, log *slog.Logger) (string, error) {
 	if previous != "" {
 		err := harness.Resume(ctx, previous)
 		if err == nil {
@@ -494,10 +494,10 @@ func open(ctx context.Context, harness *acp.Client, previous string, log *slog.L
 }
 
 func configure(
-	ctx context.Context, harness *acp.Client, sessionID string, options []protocol.SessionOption, log *slog.Logger,
+	ctx context.Context, harness Harness, options []protocol.SessionOption, log *slog.Logger,
 ) error {
 	for _, option := range options {
-		err := harness.SetConfigOption(ctx, sessionID, option.ID, option.Value)
+		err := harness.SetConfigOption(ctx, option.ID, option.Value)
 		if err == nil {
 			continue
 		}
