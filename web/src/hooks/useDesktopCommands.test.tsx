@@ -9,6 +9,8 @@ const TABS = ['a', 'b', 'c'].map((id) => ({
   id,
   path: `/w/acme/${id}`,
   title: id,
+  back: [],
+  forward: [],
 }));
 
 describe('tabFor', () => {
@@ -49,7 +51,13 @@ describe('useDesktopCommands', () => {
         },
       },
     });
-    const actions = { select: vi.fn(), close: vi.fn(), open: vi.fn() };
+    const actions = {
+      select: vi.fn(),
+      close: vi.fn(),
+      open: vi.fn(),
+      back: vi.fn(),
+      forward: vi.fn(),
+    };
     renderHook(
       () => useDesktopCommands('acme', { tabs, activeId: 'b', ...actions }),
       {
@@ -72,6 +80,16 @@ describe('useDesktopCommands', () => {
     expect(actions.open).toHaveBeenCalledOnce();
     expect(actions.select).toHaveBeenCalledWith('c');
     expect(actions.close).toHaveBeenCalledWith('b');
+  });
+
+  it('moves the active tab back and forward from the menu', () => {
+    const { send, actions } = listen();
+
+    send('back');
+    send('forward');
+
+    expect(actions.back).toHaveBeenCalledOnce();
+    expect(actions.forward).toHaveBeenCalledOnce();
   });
 
   it('closes the window when the last tab is closed', () => {

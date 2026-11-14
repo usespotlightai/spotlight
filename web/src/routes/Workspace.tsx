@@ -54,7 +54,11 @@ export function Workspace({ pages }: WorkspaceProps) {
       splitId={narrow ? undefined : tabs.splitId}
       onSelect={tabs.select}
       onClose={tabs.close}
+      canGoBack={tabs.canGoBack}
+      canGoForward={tabs.canGoForward}
       onOpen={tabs.open}
+      onBack={tabs.back}
+      onForward={tabs.forward}
     />
   );
   const paneOf = (id: string | undefined) => {

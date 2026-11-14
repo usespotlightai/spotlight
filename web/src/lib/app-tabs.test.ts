@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   type AppTabs,
+  TAB_HISTORY_LIMIT,
+  back,
   closed,
+  forward,
   moved,
   newTabPath,
   focused,
@@ -25,13 +28,31 @@ const TEAMS = [
   { id: 'team_2', name: 'Growth' },
 ];
 
-const inbox = { id: 'a', path: '/w/acme/inbox', title: 'Inbox' };
+const inbox = {
+  id: 'a',
+  path: '/w/acme/inbox',
+  title: 'Inbox',
+  back: [],
+  forward: [],
+};
 
 const three: AppTabs = {
   tabs: [
     inbox,
-    { id: 'b', path: '/w/acme/team/team_1/runs', title: 'Runs' },
-    { id: 'c', path: '/w/acme/team/team_1/memory', title: 'Memory' },
+    {
+      id: 'b',
+      path: '/w/acme/team/team_1/runs',
+      title: 'Runs',
+      back: [],
+      forward: [],
+    },
+    {
+      id: 'c',
+      path: '/w/acme/team/team_1/memory',
+      title: 'Memory',
+      back: [],
+      forward: [],
+    },
   ],
   activeId: 'b',
 };
@@ -91,6 +112,8 @@ describe('visited and titled', () => {
       id: 'b',
       path: '/w/acme/team/team_1/insights',
       title: 'Insights',
+      back: [{ path: '/w/acme/team/team_1/runs' }],
+      forward: [],
     });
     expect(next.tabs[0]).toBe(three.tabs[0]);
   });
@@ -104,6 +127,124 @@ describe('visited and titled', () => {
   });
 });
 
+describe('tab history', () => {
+  const runs = three.tabs[1];
+  const insights = { path: '/w/acme/team/team_1/insights' };
+  const agent = { path: '/w/acme/team/team_1/agent' };
+  const tabB = (tabs: AppTabs) => tabs.tabs[1];
+
+  it('pushes the page left behind and drops the forward entries', () => {
+    const stepped = back(visited(visited(three, insights), agent));
+    const next = visited(stepped, { path: '/w/acme/settings' });
+
+    expect(tabB(next)?.back).toEqual([{ path: runs.path }, insights]);
+    expect(tabB(next)?.forward).toEqual([]);
+  });
+
+  it('keeps the history when the same page is shown again', () => {
+    const state = { trail: [{ label: 'Runs' }] };
+    const next = visited(three, placeAt(runs.path, state));
+
+    expect(tabB(next)?.back).toEqual([]);
+    expect(tabB(next)?.state).toBe(state);
+  });
+
+  it('drops the old state when the same page is shown again without state', () => {
+    const state = { trail: [{ label: 'Runs' }] };
+    const next = visited(visited(three, placeAt(runs.path, state)), {
+      path: runs.path,
+    });
+
+    expect(tabB(next)?.state).toBeUndefined();
+  });
+
+  it('goes back and forward through the pages of the tab', () => {
+    const there = visited(visited(three, insights), agent);
+    const earlier = back(back(there));
+
+    expect(tabB(earlier)?.path).toBe(runs.path);
+    expect(tabB(earlier)?.forward).toEqual([insights, agent]);
+    expect(tabB(forward(forward(earlier)))).toEqual(tabB(there));
+  });
+
+  it('stays the same object with nothing to go back or forward to', () => {
+    expect(back(three)).toBe(three);
+    expect(forward(three)).toBe(three);
+  });
+
+  it('drops the oldest entry above the limit', () => {
+    let tabs = three;
+    for (let at = 0; at <= TAB_HISTORY_LIMIT; at += 1) {
+      tabs = visited(tabs, { path: `/w/acme/page-${at}` });
+    }
+
+    expect(tabB(tabs)?.back).toHaveLength(TAB_HISTORY_LIMIT);
+    expect(tabB(tabs)?.back[0]?.path).toBe('/w/acme/page-0');
+  });
+
+  it('moves only the tab with the given id', () => {
+    const split: AppTabs = { ...three, activeId: 'a', splitId: 'b' };
+    const there = visited(split, insights, 'b');
+    const earlier = back(there, 'b');
+
+    expect(tabB(earlier)?.path).toBe(runs.path);
+    expect(earlier.tabs[0]).toBe(three.tabs[0]);
+    expect(back(there)).toBe(there);
+  });
+
+  it('goes with the tab when it is closed', () => {
+    const there = visited(three, insights);
+    const next = closed(there, 'b');
+
+    expect(next.tabs.map((tab) => tab.id)).toEqual(['a', 'c']);
+    expect(JSON.stringify(next)).not.toContain(runs.path);
+  });
+
+  it('is stored and loaded again with its trails', () => {
+    const trail = [{ label: 'Platform', to: '/w/acme/team/team_1' }];
+    const there = visited(
+      visited(three, placeAt(insights.path, { trail, prompt: 'x' })),
+      agent,
+    );
+    const stored = JSON.stringify(storableTabs(back(there)));
+    const loaded = storedTabs(stored, 'new', { path: '/w/acme/other' });
+
+    expect(tabB(loaded)?.back).toEqual([{ path: runs.path }]);
+    expect(tabB(loaded)?.forward).toEqual([agent]);
+    expect(tabB(loaded)?.path).toBe(insights.path);
+    expect(tabB(loaded)?.state).toEqual({ trail });
+  });
+
+  it('loads saved tabs that have no history', () => {
+    const stored = JSON.stringify({
+      tabs: [{ id: 'a', path: '/w/acme/inbox', title: 'Inbox' }],
+      activeId: 'a',
+    });
+    const [tab] = storedTabs(stored, 'new', { path: '/w/acme/inbox' }).tabs;
+
+    expect(tab?.back).toEqual([]);
+    expect(tab?.forward).toEqual([]);
+  });
+
+  it('drops history entries that are malformed', () => {
+    const stored = JSON.stringify({
+      tabs: [
+        {
+          id: 'a',
+          path: '/w/acme/inbox',
+          back: [{ path: '/w/acme/ok' }, { path: 3 }, null, 'x'],
+          forward: 'nope',
+        },
+      ],
+      activeId: 'a',
+    });
+    const [tab] = storedTabs(stored, 'new', { path: '/w/acme/inbox' }).tabs;
+
+    expect(tab?.back).toEqual([{ path: '/w/acme/ok' }]);
+    expect(tab?.forward).toEqual([]);
+  });
+});
+
 describe('opened', () => {
   it('adds an untitled tab at the end and shows it', () => {
     const next = opened(three, 'd', '/w/acme/team/team_1/agent');
@@ -113,6 +254,8 @@ describe('opened', () => {
       id: 'd',
       path: '/w/acme/team/team_1/agent',
       title: null,
+      back: [],
+      forward: [],
     });
   });
 });
@@ -157,7 +300,9 @@ describe('storedTabs', () => {
 
   it('starts with one tab at the address when nothing is stored', () => {
     expect(storedTabs(null, 'new', here)).toEqual({
-      tabs: [{ id: 'new', path: here.path, title: null }],
+      tabs: [
+        { id: 'new', path: here.path, title: null, back: [], forward: [] },
+      ],
       activeId: 'new',
     });
   });
@@ -196,7 +341,13 @@ describe('storedTabs', () => {
     const [first, second] = storedTabs(stored, 'new', here).tabs;
 
     expect(first?.state).toEqual({ trail });
-    expect(second).toEqual({ id: 'b', path: '/w/acme/settings', title: null });
+    expect(second).toEqual({
+      id: 'b',
+      path: '/w/acme/settings',
+      title: null,
+      back: [],
+      forward: [],
+    });
   });
 });
 
