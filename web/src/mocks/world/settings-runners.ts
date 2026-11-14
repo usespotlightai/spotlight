@@ -51,6 +51,8 @@ const FRESH_VM = 'R2S5T8V1W4X7Y0Z3A6B9C2D5E8';
 
 const PRIVATE_IMAGE_BOX = 'F4G7H0J3K6L9M2N5P8Q1R4S7T0';
 
+const DELIVERY_BOX = 'V8W1X4Y7Z0A3B6C9D2E5F8G1H4';
+
 const BUILD_FARM = { kind: 'pool', key: 'build-farm' } as const;
 
 const EPHEMERAL = { kind: 'pool', key: 'ephemeral' } as const;
@@ -65,6 +67,7 @@ const idleSandbox = (
   return {
     workingCopyKey: null,
     warmLineId: null,
+    image: RUNNER_IMAGE,
     status: 'ready',
     idleSince: minutesAgo(minutes),
     startedAt: minutesAgo(minutes),
@@ -82,10 +85,12 @@ const HOSTS: HostResponseDto[] = [
     containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
     capacity: 4,
     slotsTaken: 4,
+    slotsOffered: 0,
     idleSandboxes: [
       idleSandbox({
         id: 'sandbox_retries',
         workingCopyKey: KEPT_FOR_RETRIES,
+        image: API_IMAGE,
         minutes: 7,
         startedAt: minutesAgo(48),
       }),
@@ -119,13 +124,20 @@ const HOSTS: HostResponseDto[] = [
     unavailableReason: null,
     containerRuntime: 'OrbStack 1.9.2 (linux/arm64)',
     capacity: 2,
-    slotsTaken: 1,
+    slotsTaken: 2,
+    slotsOffered: 0,
     idleSandboxes: [
       idleSandbox({
         id: 'sandbox_warm_starting',
         warmLineId: DELIVERY_ID,
         status: 'starting',
         minutes: 0,
+      }),
+      idleSandbox({
+        id: 'sandbox_warm_stopping',
+        warmLineId: DELIVERY_ID,
+        status: 'draining',
+        minutes: 140,
       }),
     ],
     images: [
@@ -160,6 +172,7 @@ const HOSTS: HostResponseDto[] = [
     containerRuntime: 'Podman Engine 5.2.1 (linux/amd64)',
     capacity: 8,
     slotsTaken: 0,
+    slotsOffered: 8,
     idleSandboxes: [],
     images: [
       image(
@@ -182,6 +195,7 @@ const HOSTS: HostResponseDto[] = [
     containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
     capacity: 2,
     slotsTaken: 0,
+    slotsOffered: 2,
     idleSandboxes: [],
     images: [
       image(RUNNER_IMAGE.replace('v0.3.0', 'v0.7.0'), [], {
@@ -203,6 +217,7 @@ const HOSTS: HostResponseDto[] = [
     containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
     capacity: 2,
     slotsTaken: 0,
+    slotsOffered: 2,
     idleSandboxes: [],
     images: [
       image('ghcr.io/acme/claude-code:latest', [], {
@@ -214,6 +229,38 @@ const HOSTS: HostResponseDto[] = [
     ],
     firstHeartbeatAt: minutesAgo(45),
     onlineSince: minutesAgo(45),
+    lastHeartbeatAt: minutesAgo(0),
+    online: true,
+  },
+  {
+    id: DELIVERY_BOX,
+    name: 'delivery-box',
+    source: BUILD_FARM,
+    release: 'v0.7.0',
+    unavailableReason: null,
+    containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
+    capacity: 6,
+    slotsTaken: 6,
+    slotsOffered: 0,
+    idleSandboxes: [32, 31, 31, 30, 30].map((minutes, at) =>
+      idleSandbox({
+        id: `sandbox_warm_delivery_${at + 1}`,
+        warmLineId: DELIVERY_ID,
+        minutes,
+      }),
+    ),
+    images: [
+      image(
+        RUNNER_IMAGE,
+        [
+          ['claude-code', '2.1.270'],
+          ['codex', '0.41.0'],
+        ],
+        { isDefault: true },
+      ),
+    ],
+    firstHeartbeatAt: minutesAgo(2 * 24 * 60),
+    onlineSince: minutesAgo(3 * 60),
     lastHeartbeatAt: minutesAgo(0),
     online: true,
   },
@@ -248,9 +295,9 @@ const pushed = (id: string, minutes: number): LiveRunnerResponseDto =>
 const RUNNERS: LiveRunnerResponseDto[] = [
   runner({ id: 'runner_build_1', minutes: 13 }),
   runner({ id: 'runner_build_2', minutes: 19, image: API_IMAGE }),
+  runner({ id: 'runner_delivery_1', minutes: 4, hostId: DELIVERY_BOX }),
   pushed('runner_push_1', 31),
   pushed('runner_push_2', 25),
-  pushed('runner_push_3', 9),
 ];
 
 const leasedRun = (
@@ -300,7 +347,7 @@ const BUSY_RUNNERS: RunnerActivityResponseDto['runners'] = [
     ),
   },
   {
-    runnerId: 'runner_push_3',
+    runnerId: 'runner_delivery_1',
     currentRun: leasedRun(
       'run_survey_1',
       GROWTH_ID,

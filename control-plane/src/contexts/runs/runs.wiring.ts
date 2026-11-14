@@ -46,6 +46,8 @@ import {
   WARM_SANDBOXES,
   type WarmSandboxesPort,
 } from '@runners/application/ports/warm-sandboxes.port';
+import { WARM_SLOTS } from '@runners/application/ports/warm-slots.port';
+import { WORKING_COPY_IMAGES } from '@runners/application/ports/working-copy-images.port';
 import {
   FetchRunSecretsCommand,
   FetchSharedRunSecretsCommand,
@@ -294,6 +296,7 @@ import { DrizzleRunJournalEntryReader } from '@runs/infrastructure/persistence/d
 import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
 import { DrizzleRunUsagesReader } from '@runs/infrastructure/persistence/drizzle/readers/run-usages.reader';
 import { DrizzleRunnerActivityReader } from '@runs/infrastructure/persistence/drizzle/readers/runner-activity.reader';
+import { DrizzleWorkingCopyImages } from '@runs/infrastructure/persistence/drizzle/readers/working-copy-images.reader';
 import { DrizzleNetworkCallRepository } from '@runs/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleStartingPointHoldRepository } from '@runs/infrastructure/persistence/drizzle/repositories/starting-point-hold.repository';
@@ -562,6 +565,8 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   { provide: ARCHIVE_HOLDERS, useExisting: ArchiveHolders },
 
   { provide: RUNNER_ACTIVITY_READER, useClass: DrizzleRunnerActivityReader },
+
+  { provide: WORKING_COPY_IMAGES, useClass: DrizzleWorkingCopyImages },
 
   RunRequesterLabels,
 
@@ -1027,6 +1032,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     SANDBOXES,
     SANDBOX_HOSTS,
     WORKING_COPY_ARCHIVE_REPOSITORY,
+    WARM_SLOTS,
   ]),
 
   {

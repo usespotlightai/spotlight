@@ -906,6 +906,16 @@ describe('Sandbox', () => {
       expect(drained !== 'removed' && drained.warm).toBeNull();
     });
 
+    it('drains for a queued run only while it waits on its host for a first run', () => {
+      const drained = placed().drainedForQueuedRun(reporting, NOW);
+      const adopted = placed().adoptFor(firstRun, reporting, NOW);
+
+      expect(drained.current).toBe('draining');
+      expect(drained.warm).toBeNull();
+      expect(adopted.drainedForQueuedRun(reporting, NOW)).toBe(adopted);
+      expect(placed().drainedForQueuedRun(silent, NOW).current).toBe('open');
+    });
+
     it('is left alone when retired once a run adopted it', () => {
       const adopted = placed().adoptFor(firstRun, reporting, NOW);
 

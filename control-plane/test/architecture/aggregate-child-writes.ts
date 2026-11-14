@@ -139,7 +139,6 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
     why: 'Runs append-only journal the runner reports',
     writers: [
       'contexts/runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger.ts',
-      'contexts/runs/infrastructure/persistence/drizzle/ledgers/acp-1-journals.ledger.ts',
     ],
   },
   run_usage: {

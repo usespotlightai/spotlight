@@ -41,11 +41,32 @@ export class RunClaims {
     }
   }
 
-  private async firstClaimed(
+  async waitsFor(by: Claimant, now: Date): Promise<boolean> {
+    let after: ClaimCursor | null = null;
+
+    for (;;) {
+      const page = await this.runs.claimCandidates(by, now, {
+        max: CLAIM_WINDOW,
+        after,
+      });
+
+      if ((await this.inOrder(page, by, now)).length > 0) {
+        return true;
+      }
+
+      if (page.waiting.length < CLAIM_WINDOW) {
+        return false;
+      }
+
+      after = ClaimOrder.cursorAfter(page.waiting);
+    }
+  }
+
+  private async inOrder(
     page: QueuedRuns,
     by: Claimant,
     now: Date,
-  ): Promise<Run | null> {
+  ): Promise<Run[]> {
     const archived = ClaimOrder.needsArchivedKeys(by)
       ? await this.archives.completedKeysAmong(
           by.workspaceId,
@@ -55,7 +76,15 @@ export class RunClaims {
         )
       : [];
 
-    for (const run of ClaimOrder.inOrder(page, by, now, archived)) {
+    return ClaimOrder.inOrder(page, by, now, archived);
+  }
+
+  private async firstClaimed(
+    page: QueuedRuns,
+    by: Claimant,
+    now: Date,
+  ): Promise<Run | null> {
+    for (const run of await this.inOrder(page, by, now)) {
       const claimed = run.claim(by, now);
 
       if (await this.saved(claimed)) {
