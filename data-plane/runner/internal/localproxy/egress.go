@@ -41,6 +41,10 @@ func (e *HTTPError) Error() string {
 }
 
 func To(address, credential string, roots *x509.CertPool) (*Egress, error) {
+	return toAs(address, protocol.EgressProxyUser, credential, roots)
+}
+
+func toAs(address, user, credential string, roots *x509.CertPool) (*Egress, error) {
 	at, err := url.Parse(address)
 	if err != nil || (at.Scheme != "https" && at.Scheme != "http") || at.Hostname() == "" {
 		return nil, fmt.Errorf("%s %q is not an address such as https://egress.example.com", protocol.EgressURLVar, address)
@@ -59,7 +63,7 @@ func To(address, credential string, roots *x509.CertPool) (*Egress, error) {
 	egress := &Egress{
 		url:           at,
 		address:       at.Host,
-		authorization: "Basic " + base64.StdEncoding.EncodeToString([]byte(protocol.EgressProxyUser+":"+credential)),
+		authorization: "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+credential)),
 		dialer:        dialer,
 		forward: &http.Transport{
 			Proxy:                 nil,

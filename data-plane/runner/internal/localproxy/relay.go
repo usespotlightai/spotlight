@@ -1,7 +1,6 @@
 package localproxy
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,6 +20,7 @@ type Relay struct {
 	listener net.Listener
 	server   *http.Server
 	plain    *http.Transport
+	forward  *httputil.ReverseProxy
 	log      *slog.Logger
 }
 
@@ -47,11 +47,10 @@ func PasswordProxy(getenv func(string) string) (*url.URL, bool) {
 
 func OpenRelay(upstream *url.URL, opts Options) (*Relay, error) {
 	password, _ := upstream.User.Password()
-	egress, err := To((&url.URL{Scheme: upstream.Scheme, Host: upstream.Host}).String(), password, nil)
+	egress, err := toAs((&url.URL{Scheme: upstream.Scheme, Host: upstream.Host}).String(), upstream.User.Username(), password, nil)
 	if err != nil {
 		return nil, err
 	}
-	egress.authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte(upstream.User.Username()+":"+password))
 
 	listener, err := net.Listen("tcp", or(opts.Listen, Listen))
 	if err != nil {
@@ -67,6 +66,17 @@ func OpenRelay(upstream *url.URL, opts Options) (*Relay, error) {
 			IdleConnTimeout: 90 * time.Second,
 		},
 		log: opts.Log,
+	}
+	relay.forward = &httputil.ReverseProxy{
+		Rewrite: func(out *httputil.ProxyRequest) {
+			out.Out.URL = out.In.URL
+			out.Out.Host = out.In.Host
+			out.Out.Header.Del("Proxy-Authorization")
+			out.Out.Header.Del("Proxy-Connection")
+		},
+		Transport:     relay.plain,
+		FlushInterval: -1,
+		ErrorHandler:  relay.failed,
 	}
 	relay.server = &http.Server{
 		Handler:           relay,
@@ -101,7 +111,7 @@ func (r *Relay) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	case req.Method == http.MethodConnect:
 		r.connect(rw, req)
 	case req.URL.IsAbs():
-		r.forward(rw, req)
+		r.forward.ServeHTTP(rw, req)
 	default:
 		http.Error(rw, "The proxy relay accepts only an absolute URL or CONNECT. Send an absolute URL, or CONNECT to a host.", http.StatusBadRequest)
 	}
@@ -132,21 +142,7 @@ func (r *Relay) connect(rw http.ResponseWriter, req *http.Request) {
 	tunnel.Relay(client, buffered, upstream)
 }
 
-func (r *Relay) forward(rw http.ResponseWriter, req *http.Request) {
-	host := req.URL.Host
-
-	(&httputil.ReverseProxy{
-		Rewrite: func(out *httputil.ProxyRequest) {
-			out.Out.URL = out.In.URL
-			out.Out.Host = out.In.Host
-			out.Out.Header.Del("Proxy-Authorization")
-			out.Out.Header.Del("Proxy-Connection")
-		},
-		Transport:     r.plain,
-		FlushInterval: -1,
-		ErrorHandler: func(rw http.ResponseWriter, _ *http.Request, err error) {
-			r.log.Warn("could not relay a request to egress", "host", host, "error", err)
-			http.Error(rw, fmt.Sprintf("The proxy relay could not reach egress for %s.", host), http.StatusBadGateway)
-		},
-	}).ServeHTTP(rw, req)
+func (r *Relay) failed(rw http.ResponseWriter, req *http.Request, err error) {
+	r.log.Warn("could not relay a request to egress", "host", req.URL.Host, "error", err)
+	http.Error(rw, fmt.Sprintf("The proxy relay could not reach egress for %s.", req.URL.Host), http.StatusBadGateway)
 }
