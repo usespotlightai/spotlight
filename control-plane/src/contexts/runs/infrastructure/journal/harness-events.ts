@@ -4,7 +4,7 @@ import {
   type Journalled,
 } from '@runs/infrastructure/journal/journalled';
 
-const HARNESS_EVENTS_VERSION = 1;
+export const HARNESS_EVENTS_VERSION = 1;
 
 interface HarnessReports {
   readonly background: boolean;

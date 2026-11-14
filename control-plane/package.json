@@ -26,6 +26,7 @@
     "db:studio": "drizzle-kit studio",
     "migrations:check": "node scripts/check-migrations.mjs",
     "facts:rebuild": "ts-node -r tsconfig-paths/register src/contexts/insights/presentation/cli/rebuild-run-facts.ts",
+    "journals:rewrite-acp-1": "ts-node -r tsconfig-paths/register src/contexts/runs/presentation/cli/rewrite-acp-1-journals.ts",
     "replay-outcomes:rebuild": "ts-node -r tsconfig-paths/register src/contexts/replays/presentation/cli/rebuild-replay-outcomes.ts",
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "auth:generate": "auth generate --config scripts/auth-config.ts --output src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts -y && node scripts/auth-schema-timestamptz.mjs src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts",
