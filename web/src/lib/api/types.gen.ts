@@ -1307,6 +1307,13 @@ export type ArchiveGrantResponseDto = {
   };
 };
 
+export type HoldSandboxArchiveLeaseRequestDto = {
+  /**
+   * The attempt of the run whose turn the archive follows, as the claim named it
+   */
+  attempt: number;
+};
+
 export type PoolQueueResponseDto = {
   /**
    * Runs and checks waiting that this pool could take, for an autoscaler to start runners for
@@ -12133,6 +12140,88 @@ export type CompleteSandboxArchiveResponses = {
 };
 
 export type CompleteSandboxArchiveResponse = CompleteSandboxArchiveResponses[keyof CompleteSandboxArchiveResponses];
+
+export type ReleaseSandboxArchiveLeaseData = {
+  body?: never;
+  path: {
+    sandboxId: string;
+    runId: string;
+  };
+  query: {
+    /**
+     * The attempt the lease was held for
+     */
+    attempt: number;
+  };
+  url: '/sandboxes/{sandboxId}/archive-leases/{runId}';
+};
+
+export type ReleaseSandboxArchiveLeaseErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+};
+
+export type ReleaseSandboxArchiveLeaseResponses = {
+  204: void;
+};
+
+export type ReleaseSandboxArchiveLeaseResponse = ReleaseSandboxArchiveLeaseResponses[keyof ReleaseSandboxArchiveLeaseResponses];
+
+export type HoldSandboxArchiveLeaseData = {
+  body: HoldSandboxArchiveLeaseRequestDto;
+  path: {
+    sandboxId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/archive-leases/{runId}';
+};
+
+export type HoldSandboxArchiveLeaseErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox, a run the sandbox does not hold, or no lease of this attempt to renew
+   */
+  404: unknown;
+  /**
+   * The run does not archive a working copy for a later run
+   */
+  409: unknown;
+};
+
+export type HoldSandboxArchiveLeaseResponses = {
+  204: void;
+};
+
+export type HoldSandboxArchiveLeaseResponse = HoldSandboxArchiveLeaseResponses[keyof HoldSandboxArchiveLeaseResponses];
+
+export type AppendSandboxArchiveEventsData = {
+  body: AppendRunEventsRequestDto;
+  path: {
+    sandboxId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/archive-leases/{runId}/events';
+};
+
+export type AppendSandboxArchiveEventsErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox, or no archive lease for this run
+   */
+  404: unknown;
+  /**
+   * The attempt has not reported its turn
+   */
+  409: unknown;
+};
+
+export type AppendSandboxArchiveEventsResponses = {
+  204: void;
+};
+
+export type AppendSandboxArchiveEventsResponse = AppendSandboxArchiveEventsResponses[keyof AppendSandboxArchiveEventsResponses];
 
 export type PoolQueueData = {
   body?: never;

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"usespotlight.ai/data-plane/protocol"
 )
@@ -65,6 +66,47 @@ func (s *Sandbox) CompleteArchive(ctx context.Context, archiveID string) error {
 
 	if err := s.client.do(ctx, http.MethodPost, path, nil, nil); err != nil {
 		return fmt.Errorf("complete the sandbox archive: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Sandbox) archiveLeasePath(runID string) string {
+	return fmt.Sprintf("/api/sandboxes/%s/archive-leases/%s", url.PathEscape(s.id), url.PathEscape(runID))
+}
+
+func (s *Sandbox) HoldArchiveLease(ctx context.Context, runID string, attempt int) error {
+	lease := struct {
+		Attempt int `json:"attempt"`
+	}{Attempt: attempt}
+
+	if err := s.client.do(ctx, http.MethodPut, s.archiveLeasePath(runID), lease, nil); err != nil {
+		return fmt.Errorf("hold the sandbox for the archive: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Sandbox) ReleaseArchiveLease(ctx context.Context, runID string, attempt int) error {
+	path := s.archiveLeasePath(runID) + "?attempt=" + strconv.Itoa(attempt)
+	if err := s.client.do(ctx, http.MethodDelete, path, nil, nil); err != nil {
+		return fmt.Errorf("release the sandbox after the archive: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Sandbox) AppendEvents(ctx context.Context, runID string, events []protocol.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	batch := struct {
+		Events []protocol.Event `json:"events"`
+	}{Events: events}
+
+	if err := s.client.do(ctx, http.MethodPost, s.archiveLeasePath(runID)+"/events", batch, nil); err != nil {
+		return fmt.Errorf("append the archive's events: %w", err)
 	}
 
 	return nil

@@ -26,6 +26,15 @@ export class AppendRunEventsRequestDto {
   readonly events!: RunEventRequestDto[];
 }
 
+export class HoldSandboxArchiveLeaseRequestDto {
+  @ApiProperty({
+    example: 1,
+    description:
+      'The attempt of the run whose turn the archive follows, as the claim named it',
+  })
+  readonly attempt!: number;
+}
+
 export class HandoverDto {
   @ApiProperty({
     example: 'code-review',

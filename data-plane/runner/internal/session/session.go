@@ -84,6 +84,7 @@ type Options struct {
 	BackgroundWait time.Duration
 	HarnessFrames  bool
 	SettleQuiet    time.Duration
+	Sandbox        ArchivingSandbox
 }
 
 type Sandbox struct {
@@ -374,6 +375,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		journal:   journal,
 		control:   opts.Journal,
 		archiver:  archiver,
+		sandbox:   opts.Sandbox,
 		lifecycle: lifecycle,
 		takeHandover: func() *protocol.Handover {
 			if handover := channel.TakeHandover(); handover != nil {
@@ -903,9 +905,13 @@ func (o Options) setUp(
 	return failures
 }
 
+type eventSink interface {
+	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
+}
+
 type journalWriter struct {
 	runID   string
-	journal Journal
+	journal eventSink
 	mu      sync.Mutex
 	sending sync.Mutex
 	seq     int
@@ -926,6 +932,14 @@ func (j *journalWriter) append(event protocol.Event) {
 	event.Seq = j.seq
 	event.At = time.Now().UTC()
 	j.pending = append(j.pending, event)
+}
+
+func (j *journalWriter) through(sink eventSink) {
+	j.sending.Lock()
+	defer j.sending.Unlock()
+
+	j.journal = sink
+	j.failed = 0
 }
 
 func (j *journalWriter) record(ctx context.Context, event protocol.Event) {

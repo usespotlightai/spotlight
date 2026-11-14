@@ -1,3 +1,5 @@
+import type { AppendedJournalEntry } from '@runs/application/commands/runner.commands';
+
 export class GrantWorkingCopyArchiveCommand {
   constructor(
     readonly runId: string,
@@ -21,6 +23,33 @@ export class GrantSandboxArchiveCommand {
     readonly token: string | undefined,
     readonly size: number,
     readonly sha256: string,
+  ) {}
+}
+
+export class HoldSandboxArchiveCommand {
+  constructor(
+    readonly sandboxId: string,
+    readonly token: string | undefined,
+    readonly runId: string,
+    readonly attempt: number,
+  ) {}
+}
+
+export class ReleaseSandboxArchiveCommand {
+  constructor(
+    readonly sandboxId: string,
+    readonly token: string | undefined,
+    readonly runId: string,
+    readonly attempt: number,
+  ) {}
+}
+
+export class AppendSandboxArchiveJournalCommand {
+  constructor(
+    readonly sandboxId: string,
+    readonly token: string | undefined,
+    readonly runId: string,
+    readonly entries: readonly AppendedJournalEntry[],
   ) {}
 }
 

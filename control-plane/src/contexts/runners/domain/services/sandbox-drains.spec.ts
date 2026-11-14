@@ -31,10 +31,9 @@ describe('sandboxesToDrainOn', () => {
       onHost('sandbox_2', 'task-task_2').drain(),
     ];
 
-    expect(sandboxesToDrainOn(host, live).map((each) => each.value)).toEqual([
-      'sandbox_2',
-      'sandbox_9',
-    ]);
+    expect(
+      sandboxesToDrainOn(host, live, AT).map((each) => each.value),
+    ).toEqual(['sandbox_2', 'sandbox_9']);
   });
 
   it('drains an idle sandbox once its host is stopping, and keeps a busy one', () => {
@@ -49,8 +48,8 @@ describe('sandboxesToDrainOn', () => {
       onHost('sandbox_2', 'task-task_2'),
     ];
 
-    expect(sandboxesToDrainOn(host, live).map((each) => each.value)).toEqual([
-      'sandbox_1',
-    ]);
+    expect(
+      sandboxesToDrainOn(host, live, AT).map((each) => each.value),
+    ).toEqual(['sandbox_1']);
   });
 });

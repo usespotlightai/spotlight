@@ -1,7 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const LEASE_HOLDER_KINDS = ['run', 'editor'] as const;
+const LEASE_HOLDER_KINDS = ['run', 'editor', 'archive'] as const;
 
 export type LeaseHolderKind = (typeof LEASE_HOLDER_KINDS)[number];
 
@@ -13,6 +13,10 @@ export class LeaseHolder {
 
   static run(runId: RunId): LeaseHolder {
     return new LeaseHolder('run', runId.value);
+  }
+
+  static archive(runId: RunId): LeaseHolder {
+    return new LeaseHolder('archive', runId.value);
   }
 
   static editor(connection: string): LeaseHolder {
@@ -42,6 +46,10 @@ export class LeaseHolder {
 
   get isEditor(): boolean {
     return this.kind === 'editor';
+  }
+
+  get isArchive(): boolean {
+    return this.kind === 'archive';
   }
 
   equals(other: LeaseHolder): boolean {

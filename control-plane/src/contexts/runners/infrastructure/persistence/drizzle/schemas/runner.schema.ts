@@ -228,6 +228,7 @@ export interface SandboxLeaseRecord {
   readonly kind: string;
   readonly holder: string;
   readonly renewedAt: string;
+  readonly attempt?: number;
 }
 
 export interface SandboxWarmRecord {

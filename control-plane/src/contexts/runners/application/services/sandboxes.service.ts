@@ -439,6 +439,76 @@ export class Sandboxes
     }
   }
 
+  async holdArchive(
+    sandboxId: string,
+    runId: string,
+    attempt: number,
+    at: Date,
+  ): Promise<boolean> {
+    return this.archiveLeased(sandboxId, runId, attempt, at, (sandbox, run) =>
+      sandbox.holdArchiveOf(run, attempt, at),
+    );
+  }
+
+  async renewArchive(
+    sandboxId: string,
+    runId: string,
+    attempt: number,
+    at: Date,
+  ): Promise<boolean> {
+    return this.archiveLeased(sandboxId, runId, attempt, at, (sandbox, run) =>
+      sandbox.renewArchiveOf(run, attempt, at),
+    );
+  }
+
+  async releaseArchive(
+    sandboxId: string,
+    runId: string,
+    attempt: number,
+    at: Date,
+  ): Promise<void> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    if (found) {
+      const run = RunId.of(runId);
+
+      await reviseSandbox(this.sandboxes, found, (sandbox) =>
+        sandbox.releaseArchiveOf(run, attempt, at),
+      );
+    }
+  }
+
+  async archivedAttemptOf(
+    sandboxId: string,
+    runId: string,
+    at: Date,
+  ): Promise<number | null> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    return found?.archivedAttemptOf(RunId.of(runId), at) ?? null;
+  }
+
+  private async archiveLeased(
+    sandboxId: string,
+    runId: string,
+    attempt: number,
+    at: Date,
+    revise: (sandbox: Sandbox, run: RunId) => Sandbox,
+  ): Promise<boolean> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    if (!found) {
+      return false;
+    }
+
+    const run = RunId.of(runId);
+    const leased = await reviseSandbox(this.sandboxes, found, (sandbox) =>
+      revise(sandbox, run),
+    );
+
+    return leased?.archivedAttemptOf(run, at) === attempt;
+  }
+
   async holdForEditor(
     sandboxId: string,
     holder: string,
@@ -469,7 +539,7 @@ export class Sandboxes
 
     return (
       !!found?.isOpen &&
-      found.withoutExpiredEditors(at).holdsEditor(LeaseHolder.editor(holder))
+      found.withoutExpiredLeases(at).holdsEditor(LeaseHolder.editor(holder))
     );
   }
 
@@ -545,7 +615,11 @@ export class Sandboxes
   }
 
   async toDrainOn(host: RunnerHost): Promise<readonly string[]> {
-    return sandboxesToDrainOn(host, await this.sandboxes.liveOn(host.id))
+    return sandboxesToDrainOn(
+      host,
+      await this.sandboxes.liveOn(host.id),
+      this.clock.now(),
+    )
       .map((each) => each.value)
       .sort();
   }
@@ -578,6 +652,14 @@ export class Sandboxes
           'Draining an idle sandbox',
         );
       }
+    }
+
+    for (const archiving of await this.sandboxes.withArchiveLeaseRenewedBefore(
+      SandboxLease.archiveRenewedBefore(now),
+    )) {
+      await reviseSandbox(this.sandboxes, archiving, (sandbox) =>
+        sandbox.withoutExpiredLeases(now),
+      );
     }
 
     for (const id of await this.placements.liveOnHostsSilentSince(

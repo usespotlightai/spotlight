@@ -1,5 +1,6 @@
 import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -27,5 +28,50 @@ export class SandboxArchives {
       workspaceId: WorkspaceId.of(found.workspaceId),
       key: found.key === null ? null : WorkingCopyKey.parse(found.key),
     };
+  }
+
+  holdArchive(
+    sandbox: ArchivingSandbox,
+    run: RunId,
+    attempt: number,
+    at: Date,
+  ): Promise<boolean> {
+    return this.sandboxes.holdArchive(sandbox.id.value, run.value, attempt, at);
+  }
+
+  renewArchive(
+    sandbox: ArchivingSandbox,
+    run: RunId,
+    attempt: number,
+    at: Date,
+  ): Promise<boolean> {
+    return this.sandboxes.renewArchive(
+      sandbox.id.value,
+      run.value,
+      attempt,
+      at,
+    );
+  }
+
+  releaseArchive(
+    sandbox: ArchivingSandbox,
+    run: RunId,
+    attempt: number,
+    at: Date,
+  ): Promise<void> {
+    return this.sandboxes.releaseArchive(
+      sandbox.id.value,
+      run.value,
+      attempt,
+      at,
+    );
+  }
+
+  archivedAttemptOf(
+    sandbox: ArchivingSandbox,
+    run: RunId,
+    at: Date,
+  ): Promise<number | null> {
+    return this.sandboxes.archivedAttemptOf(sandbox.id.value, run.value, at);
   }
 }
