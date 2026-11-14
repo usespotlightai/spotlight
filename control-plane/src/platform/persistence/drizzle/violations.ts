@@ -24,3 +24,24 @@ export const violates = (
     (raised.constraint ?? '').includes(constraint)
   );
 };
+
+export const TOO_MANY_CONNECTIONS = '53300';
+
+const POOL_TIMEOUT_MESSAGE = 'timeout exceeded when trying to connect';
+
+export const connectionsExhausted = (error: unknown): boolean => {
+  for (
+    let each = error as { code?: string; message?: string; cause?: unknown } | null;
+    each;
+    each = each.cause as typeof each
+  ) {
+    if (
+      each.code === TOO_MANY_CONNECTIONS ||
+      each.message === POOL_TIMEOUT_MESSAGE
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
