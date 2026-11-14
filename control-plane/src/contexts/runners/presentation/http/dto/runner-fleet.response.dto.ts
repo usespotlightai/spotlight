@@ -104,6 +104,15 @@ export class IdleSandboxResponseDto {
   readonly warmLineId: string | null;
 
   @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'ghcr.io/acme/api-runner:main',
+    description:
+      'The runner image it runs. A warm sandbox runs the image its line asks for, or the host’s default one. Any other sandbox runs the image of its last run. Null when the image is not known',
+  })
+  readonly image: string | null;
+
+  @ApiProperty({
     enum: ['starting', 'ready', 'draining'],
     example: 'ready',
     description:
@@ -121,6 +130,7 @@ export class IdleSandboxResponseDto {
     this.id = fields.id;
     this.workingCopyKey = fields.workingCopyKey;
     this.warmLineId = fields.warmLineId;
+    this.image = fields.image;
     this.status = fields.status;
     this.idleSince = fields.idleSince;
     this.startedAt = fields.startedAt;
@@ -162,9 +172,15 @@ export class HostResponseDto {
   @ApiProperty({
     example: 3,
     description:
-      'How many of its slots are taken now: one for each runner on it, and one for each idle sandbox that no runner enters',
+      'How many of its slots are taken now. Each run on it takes one, and each idle sandbox takes one',
   })
   readonly slotsTaken: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'How many of its slots are free for a new run now',
+  })
+  readonly slotsOffered: number;
 
   @ApiProperty({
     type: [IdleSandboxResponseDto],
@@ -208,6 +224,7 @@ export class HostResponseDto {
     this.containerRuntime = fields.containerRuntime;
     this.capacity = fields.capacity;
     this.slotsTaken = fields.slotsTaken;
+    this.slotsOffered = fields.slotsOffered;
     this.idleSandboxes = fields.idleSandboxes.map(
       (each) => new IdleSandboxResponseDto(each),
     );

@@ -1,12 +1,18 @@
-import { aHost } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import {
+  aHost,
+  aRunner,
+  HOST_ID,
+  STARTED_AT,
+} from '@runners/domain/aggregates/runner-pool.fake-spec';
+import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import {
   aSandbox,
   tokenHashOf,
 } from '@runners/domain/aggregates/sandbox.fake-spec';
+import { HostSlotHolders } from '@runners/domain/services/host-slot-holders';
 import { WarmSlots } from '@runners/domain/services/warm-slots';
-import { HostId } from '@runners/domain/value-objects/host-id.vo';
-import { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
+import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -15,11 +21,11 @@ import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const NOW = new Date('2026-11-14T12:00:00.000Z');
+const NOW = new Date(STARTED_AT.getTime() + 1_000);
 
 const earlier = (ms: number): Date => new Date(NOW.getTime() - ms);
 
-const HOST = HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDE');
+const HOST = HOST_ID;
 
 const WARM = WarmPart.of({
   lineId: LineId.of('line_1'),
@@ -47,19 +53,35 @@ const warmOn = (id: string, requestedAt = NOW): Sandbox =>
 const busy = (id: string): Sandbox =>
   aSandbox({ id, workspaceId: WorkspaceId.of('ws_1'), hostId: HOST, at: NOW });
 
-const occupied = (runners: number, idle: readonly Sandbox[]) =>
-  PoolOccupancy.of({
-    runners,
-    entered: [],
-    idleSandboxes: idle.filter((each) => each.isIdle).map((each) => each.id),
-  });
+const working = (id: string): Runner =>
+  aRunner({ id }).claim(RunnerWork.run(`run_of_${id}`), NOW);
+
+const claiming = (id: string): Runner => aRunner({ id });
+
+const held = (alive: readonly Runner[], live: readonly Sandbox[] = []) =>
+  HostSlotHolders.on(
+    HOST,
+    alive,
+    live.filter((each) => each.isIdle).map((each) => each.id),
+    NOW,
+  );
 
 describe('WarmSlots', () => {
   it('has room for a warm sandbox only while a slot stays free past the one the claim holds', () => {
     const host = hostReporting();
 
-    expect(WarmSlots.roomForWarm(host, occupied(3, []))).toBe(true);
-    expect(WarmSlots.roomForWarm(host, occupied(4, []))).toBe(false);
+    expect(
+      WarmSlots.roomForWarm(
+        host,
+        held([working('r1'), working('r2'), claiming('c1')]),
+      ),
+    ).toBe(true);
+    expect(
+      WarmSlots.roomForWarm(
+        host,
+        held([working('r1'), working('r2'), working('r3')]),
+      ),
+    ).toBe(false);
   });
 
   it('drains the oldest ready warm sandbox once its host has no free slot', () => {
@@ -72,8 +94,12 @@ describe('WarmSlots', () => {
     const host = hostReporting(...live.map((each) => each.id.value));
 
     expect(
-      WarmSlots.toDrainForQueuedRun(host, occupied(1, live), 0, live, NOW)?.id
-        .value,
+      WarmSlots.toDrainForQueuedRun(
+        host,
+        held([working('r1')], live),
+        live,
+        NOW,
+      )?.id.value,
     ).toBe('sandbox_w1');
   });
 
@@ -82,7 +108,12 @@ describe('WarmSlots', () => {
     const host = hostReporting('sandbox_w1', 'sandbox_w2');
 
     expect(
-      WarmSlots.toDrainForQueuedRun(host, occupied(1, live), 0, live, NOW),
+      WarmSlots.toDrainForQueuedRun(
+        host,
+        held([working('r1')], live),
+        live,
+        NOW,
+      ),
     ).toBeNull();
   });
 
@@ -91,11 +122,20 @@ describe('WarmSlots', () => {
     const host = hostReporting('sandbox_w1', 'sandbox_w2');
 
     expect(
-      WarmSlots.toDrainForQueuedRun(host, occupied(2, live), 1, live, NOW),
+      WarmSlots.toDrainForQueuedRun(
+        host,
+        held([working('r1'), claiming('c1')], live),
+        live,
+        NOW,
+      ),
     ).toBeNull();
     expect(
-      WarmSlots.toDrainForQueuedRun(host, occupied(2, live), 0, live, NOW)?.id
-        .value,
+      WarmSlots.toDrainForQueuedRun(
+        host,
+        held([working('r1'), working('r2')], live),
+        live,
+        NOW,
+      )?.id.value,
     ).toBe('sandbox_w1');
   });
 
@@ -108,7 +148,12 @@ describe('WarmSlots', () => {
     const host = hostReporting(...live.map((each) => each.id.value));
 
     expect(
-      WarmSlots.toDrainForQueuedRun(host, occupied(1, live), 0, live, NOW),
+      WarmSlots.toDrainForQueuedRun(
+        host,
+        held([working('r1')], live),
+        live,
+        NOW,
+      ),
     ).toBeNull();
   });
 
@@ -121,7 +166,12 @@ describe('WarmSlots', () => {
     const host = hostReporting('sandbox_run_1', 'sandbox_run_2');
 
     expect(
-      WarmSlots.toDrainForQueuedRun(host, occupied(3, live), 0, live, NOW),
+      WarmSlots.toDrainForQueuedRun(
+        host,
+        held([working('r1'), working('r2'), working('r3')], live),
+        live,
+        NOW,
+      ),
     ).toBeNull();
   });
 });

@@ -22,6 +22,7 @@ export interface IdleSandboxSummary {
   readonly hostId: string;
   readonly key: string | null;
   readonly warmLineId: string | null;
+  readonly warmImage: string | null;
   readonly state: LiveSandboxState;
   readonly idleSince: Date;
   readonly startedAt: Date;

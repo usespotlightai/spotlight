@@ -84,6 +84,17 @@ describe('Runner', () => {
     expect(aRunner().claim(RUN, later(0)).isOpenClaimAt(later(0))).toBe(false);
   });
 
+  it('waits in a sandbox only while it enters one of them and has no work', () => {
+    const idle = [SandboxId.of('sandbox_1'), SandboxId.of('sandbox_2')];
+
+    expect(aRunner({ enters: 'sandbox_2' }).waitsInOneOf(idle)).toBe(true);
+    expect(aRunner({ enters: 'sandbox_3' }).waitsInOneOf(idle)).toBe(false);
+    expect(aRunner().waitsInOneOf(idle)).toBe(false);
+    expect(
+      aRunner({ enters: 'sandbox_1' }).claim(RUN, later(0)).waitsInOneOf(idle),
+    ).toBe(false);
+  });
+
   it('claims only what was reserved for it, then nothing more', () => {
     const waiting = aRunner();
 

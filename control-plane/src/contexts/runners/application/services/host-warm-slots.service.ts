@@ -1,5 +1,4 @@
 import type { WarmSlotsPort } from '@runners/application/ports/warm-slots.port';
-import { occupancyOnHost } from '@runners/application/services/pool-occupancy';
 import { reviseOrRemoveSandbox } from '@runners/application/services/sandbox-revisions';
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
@@ -7,6 +6,7 @@ import type { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
+import { HostSlotHolders } from '@runners/domain/services/host-slot-holders';
 import { WarmSlots } from '@runners/domain/services/warm-slots';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -30,7 +30,7 @@ export class HostWarmSlots implements WarmSlotsPort {
 
     return (
       slots !== null &&
-      WarmSlots.roomForWarm(slots.host, this.occupancyOf(slots))
+      WarmSlots.roomForWarm(slots.host, this.holdersOf(slots, at))
     );
   }
 
@@ -40,12 +40,7 @@ export class HostWarmSlots implements WarmSlotsPort {
       slots &&
       WarmSlots.toDrainForQueuedRun(
         slots.host,
-        this.occupancyOf(slots),
-        slots.alive.filter(
-          (each) =>
-            (each.hostId?.equals(slots.host.id) ?? false) &&
-            each.isOpenClaimAt(at),
-        ).length,
+        this.holdersOf(slots, at),
         slots.onHost,
         at,
       );
@@ -87,11 +82,15 @@ export class HostWarmSlots implements WarmSlotsPort {
     return { host, onHost, alive };
   }
 
-  private occupancyOf({ host, onHost, alive }: HostSlots) {
-    return occupancyOnHost(
+  private holdersOf(
+    { host, onHost, alive }: HostSlots,
+    at: Date,
+  ): HostSlotHolders {
+    return HostSlotHolders.on(
       host.id,
       alive,
       onHost.filter((each) => each.isIdle).map((each) => each.id),
+      at,
     );
   }
 }

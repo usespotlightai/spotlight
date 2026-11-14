@@ -1,3 +1,4 @@
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { cn } from '@/lib/utils';
 
 export type Tone = 'busy' | 'ready' | 'gone';
@@ -10,19 +11,26 @@ const DOTS: Record<Tone, string> = {
 
 type StatusDotProps = {
   tone: Tone;
+  tip?: string | null;
   children: string;
 };
 
-export function StatusDot({ tone, children }: StatusDotProps) {
+export function StatusDot({ tone, tip, children }: StatusDotProps) {
   return (
     <span className="flex min-w-0 shrink-0 items-center gap-1.5 font-medium text-muted-foreground text-xs">
       <span
         aria-hidden
         className={cn('size-1.5 shrink-0 rounded-full', DOTS[tone])}
       />
-      <span title={children} className="truncate">
-        {children}
-      </span>
+      {tip ? (
+        <WithTooltip tooltip={tip} named={children}>
+          <span className="truncate">{children}</span>
+        </WithTooltip>
+      ) : (
+        <span title={children} className="truncate">
+          {children}
+        </span>
+      )}
     </span>
   );
 }
