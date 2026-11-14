@@ -114,6 +114,7 @@ import {
 } from '@runners/application/ports/sandbox-upkeep.port';
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import { WARM_SANDBOXES } from '@runners/application/ports/warm-sandboxes.port';
+import { WARM_SLOTS } from '@runners/application/ports/warm-slots.port';
 import { ImportEgressHandler } from '@runners/application/queries/handlers/import-egress.handler';
 import { ImportRunnerPoolHandler } from '@runners/application/queries/handlers/import-runner-pool.handler';
 import { ImportRunnerTrustHandler } from '@runners/application/queries/handlers/import-runner-trust.handler';
@@ -144,6 +145,7 @@ import {
 } from '@runners/application/queries/runner-resource.queries';
 import { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/delete-runners-of-deleted-workspace.service';
 import { HostAdmission } from '@runners/application/services/host-admission.service';
+import { HostWarmSlots } from '@runners/application/services/host-warm-slots.service';
 import { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
 import { RunnerAuthenticator } from '@runners/application/services/runner-authenticator.service';
 import { RunnerClaimants } from '@runners/application/services/runner-claimants.service';
@@ -410,6 +412,21 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       logger: LoggerPort,
     ) => new WarmSandboxes(sandboxes, ids, logger),
+  },
+  {
+    provide: WARM_SLOTS,
+    inject: [
+      DrizzleSandboxRepository,
+      DrizzleRunnerHostRepository,
+      DrizzleRunnerRepository,
+      LOGGER,
+    ],
+    useFactory: (
+      sandboxes: DrizzleSandboxRepository,
+      hosts: DrizzleRunnerHostRepository,
+      runners: DrizzleRunnerRepository,
+      logger: LoggerPort,
+    ) => new HostWarmSlots(sandboxes, hosts, runners, logger),
   },
   {
     provide: HostAdmission,

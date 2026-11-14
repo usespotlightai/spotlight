@@ -959,6 +959,57 @@ describe('sandboxes (e2e)', () => {
       expect((await sandboxRow(sandboxId))?.key).toBe('work/task-warm_4');
     });
 
+    it('is never started in the last free slot of its host', async () => {
+      await keepsWarm(2);
+      const { sandboxId } = await startedWarm();
+
+      await keep();
+      await claim().expect(204);
+
+      const rows = await warmRows();
+      expect(rows).toHaveLength(2);
+      expect(
+        rows.filter((each) => each.id !== sandboxId).map((each) => each.hostId),
+      ).toEqual([null]);
+    });
+
+    it('drains on a full host, and a later run of a task starts afresh in the freed slot', async () => {
+      const { sandboxId } = await startedWarm();
+      await queue({ key: 'work/task-busy' });
+      const busy = (await claim().expect(200)).body as Claimed;
+      await heartbeat([sandboxId, busy.sandboxId]).expect(200);
+      const archivedAt = new Date();
+      await db.insert(schema.workingCopyArchive).values({
+        id: randomUUID(),
+        workspaceId,
+        workingCopyKey: 'work/task-warm_7',
+        grantedToSandboxId: 'sandbox-earlier',
+        size: 1_024,
+        sha256: SHA256,
+        grantedAt: archivedAt,
+        completedAt: archivedAt,
+      });
+      const waiting = await queue({ key: 'work/task-warm_7', line: lineId });
+
+      await claim(sandboxId).expect(204);
+
+      expect(await sandboxRow(sandboxId)).toMatchObject({
+        state: 'draining',
+        warm: null,
+      });
+      await expect(
+        heartbeat([sandboxId, busy.sandboxId]).expect(200),
+      ).resolves.toMatchObject({ body: { drain: [sandboxId] } });
+
+      await heartbeat([busy.sandboxId]).expect(200);
+      const fresh = await claim().expect(200);
+      expect(fresh.body).toMatchObject({
+        reused: false,
+        work: { kind: 'run', run: { id: waiting } },
+      });
+      expect((fresh.body as Claimed).sandboxId).not.toBe(sandboxId);
+    });
+
     it('drains once its line keeps none', async () => {
       const { sandboxId } = await startedWarm();
 

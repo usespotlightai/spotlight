@@ -46,6 +46,7 @@ import {
   WARM_SANDBOXES,
   type WarmSandboxesPort,
 } from '@runners/application/ports/warm-sandboxes.port';
+import { WARM_SLOTS } from '@runners/application/ports/warm-slots.port';
 import {
   FetchRunSecretsCommand,
   FetchSharedRunSecretsCommand,
@@ -1027,6 +1028,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     SANDBOXES,
     SANDBOX_HOSTS,
     WORKING_COPY_ARCHIVE_REPOSITORY,
+    WARM_SLOTS,
   ]),
 
   {

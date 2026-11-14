@@ -265,6 +265,15 @@ export class Runner extends EventRecorder {
     return recordsStill ? work : null;
   }
 
+  isOpenClaimAt(now: Date): boolean {
+    return (
+      this.state.hostId !== null &&
+      this.state.enters === null &&
+      this.state.work === null &&
+      this.isAlive(now)
+    );
+  }
+
   claimsAt(now: Date): RunnerClaims {
     return this.state.work === null && this.isAlive(now)
       ? 'reserved'
