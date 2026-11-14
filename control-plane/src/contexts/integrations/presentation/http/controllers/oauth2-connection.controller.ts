@@ -15,7 +15,6 @@ import {
   Controller,
   Get,
   Inject,
-  NotFoundException,
   Param,
   Post,
   Query,
@@ -24,9 +23,11 @@ import {
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import {
+  ApiBadGatewayResponse,
   ApiBadRequestResponse,
   ApiBody,
   ApiExcludeEndpoint,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -85,9 +86,17 @@ export class OAuth2ConnectionController {
       'It requests a connection that acts as someone other than the team or the requester',
   })
   @ApiUnauthorizedResponse({ description: 'No valid session' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a workspace admin, and asks for a team account',
+  })
   @ApiNotFoundResponse({
     description:
-      'No such team, not yours to connect, or the integration does not take this connection',
+      'The team is not found, the integration does not take this connection, or the integration has no OAuth2 client',
+  })
+  @ApiBadGatewayResponse({
+    description:
+      'The OAuth2 endpoints of the integration are not found, or its client registration failed',
   })
   async connect(
     @Param('teamId') teamId: string,
@@ -106,7 +115,7 @@ export class OAuth2ConnectionController {
 
     const started = await this.commandBus.execute<
       BeginOAuth2ConnectionCommand,
-      OAuth2Start | null
+      OAuth2Start
     >(
       new BeginOAuth2ConnectionCommand(
         teamId,
@@ -116,10 +125,6 @@ export class OAuth2ConnectionController {
         typeof body?.returnTo === 'string' ? body.returnTo : null,
       ),
     );
-
-    if (!started) {
-      throw new NotFoundException();
-    }
 
     this.nonceCookie.set(response, started.nonce, started.expiresAt);
 

@@ -5,6 +5,10 @@ import type {
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import type { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
+import {
+  OAuth2ConnectionNotBegunError,
+  type OAuth2NotBegunReason,
+} from '@integrations/application/errors/oauth2-connection-not-begun.error';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type {
@@ -45,16 +49,9 @@ const takesConnection = async (
     .find((each) => each.key.equals(integration))
     ?.takesConnectionFrom(owner) ?? false;
 
-type NotBegun =
-  | 'not-allowed'
-  | 'takes-no-connection'
-  | 'no-oauth2-endpoints'
-  | 'no-client'
-  | 'not-begun';
-
 export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
   BeginOAuth2ConnectionCommand,
-  OAuth2Start | null
+  OAuth2Start
 > {
   constructor(
     private readonly access: WorkspaceAccessPort,
@@ -66,9 +63,7 @@ export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
     private readonly logger: LoggerPort,
   ) {}
 
-  async execute(
-    command: BeginOAuth2ConnectionCommand,
-  ): Promise<OAuth2Start | null> {
+  async execute(command: BeginOAuth2ConnectionCommand): Promise<OAuth2Start> {
     try {
       const viewer = UserId.of(command.viewerId);
       const teamId = TeamId.of(command.teamId);
@@ -79,19 +74,22 @@ export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
       );
       const membership = await this.access.inWorkspaceOfTeam(teamId, viewer);
 
-      const notBegun = (reason: NotBegun, registers?: boolean): null => {
+      const about = {
+        teamId: teamId.value,
+        integration: integration.value,
+        owner: owner.kind,
+      };
+      const notBegun = (reason: OAuth2NotBegunReason): never => {
         this.logger.info(
-          {
-            teamId: teamId.value,
-            integration: integration.value,
-            owner: owner.kind,
-            reason,
-            registers,
-          },
+          { ...about, reason },
           'Did not begin an OAuth2 connection',
         );
-        return null;
+        throw new OAuth2ConnectionNotBegunError(reason, about);
       };
+
+      if (!membership) {
+        return notBegun('not-a-member');
+      }
 
       if (!mayConnect(membership, owner, viewer)) {
         return notBegun('not-allowed');
@@ -127,7 +125,9 @@ export class BeginOAuth2ConnectionHandler implements CommandHandlerPort<
         );
 
         if (!client) {
-          return notBegun('no-client', registration.endpoint !== null);
+          return notBegun(
+            registration.endpoint === null ? 'no-client' : 'not-registered',
+          );
         }
 
         const started = await this.linking.begin(

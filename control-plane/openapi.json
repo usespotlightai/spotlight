@@ -17365,8 +17365,14 @@
           "401": {
             "description": "No valid session"
           },
+          "403": {
+            "description": "The caller is not a workspace admin, and asks for a team account"
+          },
           "404": {
-            "description": "No such team, not yours to connect, or the integration does not take this connection"
+            "description": "The team is not found, the integration does not take this connection, or the integration has no OAuth2 client"
+          },
+          "502": {
+            "description": "The OAuth2 endpoints of the integration are not found, or its client registration failed"
           }
         },
         "summary": "Begin connecting the team, or the caller, to an integration over OAuth2",
