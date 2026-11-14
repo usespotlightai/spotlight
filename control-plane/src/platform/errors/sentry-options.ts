@@ -11,6 +11,7 @@ import {
   type NodeOptions,
   openTelemetryIntegration,
 } from '@sentry/nestjs';
+import { DrizzleQueryError } from 'drizzle-orm';
 
 type SentryEnv = {
   readonly SENTRY_DSN?: string;
@@ -85,6 +86,10 @@ function scrubbed(event: ErrorEvent): ErrorEvent {
 
   event.breadcrumbs = event.breadcrumbs?.map(scrubBreadcrumb);
 
+  if (event.message !== undefined) {
+    event.message = stripParams(event.message);
+  }
+
   for (const exception of event.exception?.values ?? []) {
     exception.value = exception.value && stripParams(exception.value);
   }
@@ -106,31 +111,69 @@ const stripParams = (text: string): string => {
 
 const MAX_ARGUMENT_DEPTH = 3;
 
+const holdsFailedQuery = (error: Error): boolean =>
+  [...causeLinks(error)].some(
+    (each) =>
+      each instanceof DrizzleQueryError ||
+      (typeof each.message === 'string' && each.message.includes(FAILED_QUERY)),
+  );
+
+function* causeLinks(error: unknown): Generator<{ message?: unknown }> {
+  for (
+    let each = error, depth = 0;
+    each instanceof Error && depth < MAX_ARGUMENT_DEPTH;
+    depth += 1
+  ) {
+    yield each;
+    each = (each as { cause?: unknown }).cause;
+  }
+}
+
+const isPlainObject = (value: object): value is Record<string, unknown> => {
+  const prototype: unknown = Object.getPrototypeOf(value);
+
+  return prototype === Object.prototype || prototype === null;
+};
+
 const stripArgument = (argument: unknown, depth = 0): unknown => {
   if (typeof argument === 'string') {
     return stripParams(argument);
   }
 
   if (argument instanceof Error) {
-    return `${argument.name}: ${stripParams(argument.message)}`;
+    return holdsFailedQuery(argument)
+      ? `${argument.name}: ${stripParams(argument.message)}`
+      : argument;
   }
 
-  if (typeof argument !== 'object' || argument === null) {
+  if (
+    typeof argument !== 'object' ||
+    argument === null ||
+    depth >= MAX_ARGUMENT_DEPTH
+  ) {
     return argument;
   }
 
-  if (depth >= MAX_ARGUMENT_DEPTH) {
-    return '[Object]';
+  if (Array.isArray(argument)) {
+    const stripped = argument.map((each) => stripArgument(each, depth + 1));
+
+    return stripped.some((each, at) => each !== argument[at])
+      ? stripped
+      : argument;
   }
 
-  return Array.isArray(argument)
-    ? argument.map((each) => stripArgument(each, depth + 1))
-    : Object.fromEntries(
-        Object.entries(argument).map(([key, value]) => [
-          key,
-          stripArgument(value, depth + 1),
-        ]),
-      );
+  if (!isPlainObject(argument)) {
+    return argument;
+  }
+
+  const entries = Object.entries(argument);
+  const stripped = entries.map(
+    ([key, value]) => [key, stripArgument(value, depth + 1)] as const,
+  );
+
+  return stripped.some(([, value], at) => value !== entries[at]?.[1])
+    ? Object.fromEntries(stripped)
+    : argument;
 };
 
 function fingerprint(event: ErrorEvent, hint: EventHint): ErrorEvent {

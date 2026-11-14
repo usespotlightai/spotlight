@@ -100,7 +100,12 @@ export const unavailabilityReason = (error: unknown): string | null => {
       return message;
     }
 
-    if (query !== -1 && at > query && code !== null && UNREACHABLE_CODES.has(code)) {
+    if (
+      query !== -1 &&
+      at > query &&
+      code !== null &&
+      UNREACHABLE_CODES.has(code)
+    ) {
       return code;
     }
   }

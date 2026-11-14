@@ -27,24 +27,28 @@ export class OpenTasksToolUse implements BuiltInToolUse<TaskToolContext> {
 
     const newest = await this.tasks.newest(line.id, taskId, MAX_TASKS + 1);
 
-    return {
-      tasks: newest.slice(0, MAX_TASKS).flatMap((each) => {
-        const station = line.stationAt(each.stationId);
+    const tasks = newest.slice(0, MAX_TASKS).flatMap((each) => {
+      const station = line.stationAt(each.stationId);
 
-        return station
-          ? [
-              {
-                id: each.id.value,
-                title: each.title.value,
-                station: station.key.value,
-                createdAt: each.createdAt.toISOString(),
-                description: excerptOf(each.description, EXCERPT_LENGTH),
-                lastNote: excerptOf(each.lastNote, EXCERPT_LENGTH),
-              },
-            ]
-          : [];
-      }),
-      more: newest.length > MAX_TASKS,
+      return station
+        ? [
+            {
+              id: each.id.value,
+              title: each.title.value,
+              station: station.key.value,
+              createdAt: each.createdAt.toISOString(),
+              description: excerptOf(each.description, EXCERPT_LENGTH),
+              lastNote: excerptOf(each.lastNote, EXCERPT_LENGTH),
+            },
+          ]
+        : [];
+    });
+
+    return {
+      tasks,
+      more:
+        newest.length > MAX_TASKS ||
+        tasks.length < Math.min(newest.length, MAX_TASKS),
     };
   }
 }

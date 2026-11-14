@@ -145,4 +145,49 @@ describe('sentryOptions', () => {
       { err: 'Error: Failed query: select 1', more: [1] },
     ]);
   });
+
+  it('keeps a console argument that holds no failed query as it is', () => {
+    class Point {
+      constructor(readonly x: number) {}
+    }
+    const at = new Date('2026-11-14T12:00:00.000Z');
+    const point = new Point(1);
+    const unrelated = new Error('boom');
+    const nested = { a: { b: { c: { d: 'deep' } } } };
+
+    const breadcrumb = options?.beforeBreadcrumb?.({
+      category: 'console',
+      data: { arguments: ['at', at, point, unrelated, nested] },
+    }) as Breadcrumb;
+    const logged = breadcrumb.data?.arguments as unknown[];
+
+    expect(logged[1]).toBe(at);
+    expect(logged[2]).toBe(point);
+    expect(logged[3]).toBe(unrelated);
+    expect(logged[4]).toBe(nested);
+  });
+
+  it('strips an error that wraps a failed query', () => {
+    const wrapper = Object.assign(new Error('Failed to get session'), {
+      cause: queryError('select 1', '53300'),
+    });
+
+    const breadcrumb = options?.beforeBreadcrumb?.({
+      category: 'console',
+      data: { arguments: [wrapper] },
+    }) as Breadcrumb;
+
+    expect(breadcrumb.data?.arguments).toEqual([
+      'Error: Failed to get session',
+    ]);
+  });
+
+  it('never sends the parameters of a failed query in the event message', () => {
+    const event = options?.beforeSend?.(
+      { type: undefined, message: 'Failed query: select 1\nparams: x@y.z' },
+      {},
+    ) as ErrorEvent;
+
+    expect(event.message).toBe('Failed query: select 1');
+  });
 });

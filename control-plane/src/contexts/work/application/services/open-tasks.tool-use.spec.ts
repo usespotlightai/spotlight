@@ -181,7 +181,7 @@ describe('OpenTasksToolUse', () => {
     expect(answer.more).toBe(true);
   });
 
-  it('leaves out a task whose station the line no longer has', async () => {
+  it('leaves out a task whose station the line no longer has, and says the list is not whole', async () => {
     const { tool } = using(delivery, [
       reading('task_2', 'station_removed'),
       reading('task_3', 'station_spec'),
@@ -189,9 +189,11 @@ describe('OpenTasksToolUse', () => {
 
     const answer = (await tool.call(CONTEXT)) as {
       tasks: readonly { id: string }[];
+      more: boolean;
     };
 
     expect(answer.tasks.map((each) => each.id)).toEqual(['task_3']);
+    expect(answer.more).toBe(true);
   });
 
   it('fails when the station of the task is on no line', async () => {
