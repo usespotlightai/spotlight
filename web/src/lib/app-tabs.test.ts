@@ -149,6 +149,15 @@ describe('tab history', () => {
     expect(tabB(next)?.state).toBe(state);
   });
 
+  it('drops the old state when the same page is shown again without state', () => {
+    const state = { trail: [{ label: 'Runs' }] };
+    const next = visited(visited(three, placeAt(runs.path, state)), {
+      path: runs.path,
+    });
+
+    expect(tabB(next)?.state).toBeUndefined();
+  });
+
   it('goes back and forward through the pages of the tab', () => {
     const there = visited(visited(three, insights), agent);
     const earlier = back(back(there));

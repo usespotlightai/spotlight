@@ -75,7 +75,13 @@ export const visited = (
 ): AppTabs =>
   changeTab(tabs, id, (tab) => {
     if (place.path === tab.path) {
-      return { ...tab, ...placeAt(place.path, place.state) };
+      return {
+        id: tab.id,
+        title: tab.title,
+        back: tab.back,
+        forward: tab.forward,
+        ...placeAt(place.path, place.state),
+      };
     }
 
     return {
