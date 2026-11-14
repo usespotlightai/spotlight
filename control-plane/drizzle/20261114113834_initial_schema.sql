@@ -2019,7 +2019,6 @@ CREATE TABLE "chat" (
 	"working_copy_released_at" timestamp (3) with time zone,
 	"resolved_at" timestamp (3) with time zone,
 	"read_at" timestamp (3) with time zone,
-	"reopened_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
