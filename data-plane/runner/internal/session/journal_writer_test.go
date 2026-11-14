@@ -48,3 +48,15 @@ func TestEventsThatNeverGoThroughAreLetGo(t *testing.T) {
 		t.Fatalf("sent %+v", control.sent)
 	}
 }
+
+func TestTheLastEventsAreTriedAgainBeforeTheRunEnds(t *testing.T) {
+	control := &flaky{failing: 2}
+	journal := &journalWriter{runID: "run", journal: control}
+
+	journal.append(protocol.Event{Type: protocol.EventTurnEnded})
+	journal.drain(context.Background())
+
+	if len(control.sent) != 1 || control.sent[0][0].Type != protocol.EventTurnEnded {
+		t.Fatalf("sent %+v", control.sent)
+	}
+}

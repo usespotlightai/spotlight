@@ -70,8 +70,12 @@ func (c *Client) updated(params json.RawMessage) {
 
 	c.translating.Lock()
 	var events []protocol.Event
-	if !repeats || !c.translator.repeated(frame.Update) {
-		events = c.translator.translate(frame.SessionID, frame.Update)
+	dropped := false
+	if repeats {
+		events, dropped = c.translator.unrepeated(frame.Update)
+	}
+	if !dropped {
+		events = append(events, c.translator.translate(frame.SessionID, frame.Update)...)
 	}
 	c.translating.Unlock()
 

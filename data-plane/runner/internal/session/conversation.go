@@ -312,7 +312,7 @@ func (c *conversation) complete(ctx context.Context, exitCode int) error {
 
 	_ = c.harness.Close()
 	c.archiver.archive(ctx)
-	c.journal.flush(ctx)
+	c.journal.drain(ctx)
 
 	if c.handOver != nil && !stopped {
 		c.handOver(ctx)
@@ -344,7 +344,7 @@ func (c *conversation) leave(ctx context.Context) error {
 
 	settled, cancel := settling(ctx)
 	defer cancel()
-	c.journal.flush(settled)
+	c.journal.drain(settled)
 
 	c.log.Info("the runner is stopping; the workspace is kept for the run's next attempt")
 	return ctx.Err()

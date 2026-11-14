@@ -237,3 +237,43 @@ func TestClearsWhatACommandPrintedWhenItsOutputIsReplacedWithNothing(t *testing.
 		t.Fatalf("printed %+v", output)
 	}
 }
+
+func TestDropsARepeatedAnswerThatComesInPieces(t *testing.T) {
+	reading := newTranslator()
+	reading.opened("root")
+	reading.translate("root", json.RawMessage(`{"sessionUpdate":"agent_message_chunk","messageId":"m1","content":{"type":"text","text":"finished banana"}}`))
+
+	var kept []protocol.Event
+	for _, piece := range []string{"finished ", "banana"} {
+		raw := json.RawMessage(`{"sessionUpdate":"agent_message_chunk","messageId":"m2","content":{"type":"text","text":"` + piece + `"}}`)
+		if events, dropped := reading.unrepeated(raw); !dropped {
+			kept = append(kept, append(events, reading.translate("root", raw)...)...)
+		}
+	}
+	if len(kept) != 0 {
+		t.Fatalf("kept %v", kept)
+	}
+}
+
+func TestKeepsANewAnswerThatStartsLikeTheLastOne(t *testing.T) {
+	reading := newTranslator()
+	reading.opened("root")
+	reading.translate("root", json.RawMessage(`{"sessionUpdate":"agent_message_chunk","messageId":"m1","content":{"type":"text","text":"finished banana"}}`))
+
+	var said string
+	for _, piece := range []string{"finished ", "cherry"} {
+		raw := json.RawMessage(`{"sessionUpdate":"agent_message_chunk","messageId":"m2","content":{"type":"text","text":"` + piece + `"}}`)
+		events, dropped := reading.unrepeated(raw)
+		if !dropped {
+			events = append(events, reading.translate("root", raw)...)
+		}
+		for _, event := range events {
+			var message protocol.AgentMessage
+			_ = json.Unmarshal(event.Data, &message)
+			said += message.Text
+		}
+	}
+	if said != "finished cherry" {
+		t.Fatalf("said %q", said)
+	}
+}

@@ -778,7 +778,7 @@ func failed(
 		Type:    protocol.EventFailed,
 		Message: message,
 	})
-	journal.flush(ctx)
+	journal.drain(ctx)
 
 	if err := reporter.Complete(ctx, runID, protocol.Completion{
 		ExitCode:    -1,
@@ -911,7 +911,10 @@ type journalWriter struct {
 	failed  int
 }
 
-const flushTries = 5
+const (
+	flushTries   = 5
+	flushBackoff = 200 * time.Millisecond
+)
 
 func (j *journalWriter) append(event protocol.Event) {
 	j.mu.Lock()
@@ -928,7 +931,17 @@ func (j *journalWriter) record(ctx context.Context, event protocol.Event) {
 	j.flush(ctx)
 }
 
-func (j *journalWriter) flush(ctx context.Context) {
+func (j *journalWriter) drain(ctx context.Context) {
+	for try := 1; !j.flush(ctx) && try < flushTries; try++ {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Duration(try) * flushBackoff):
+		}
+	}
+}
+
+func (j *journalWriter) flush(ctx context.Context) bool {
 	j.sending.Lock()
 	defer j.sending.Unlock()
 
@@ -938,26 +951,27 @@ func (j *journalWriter) flush(ctx context.Context) {
 	j.mu.Unlock()
 
 	if len(batch) == 0 {
-		return
+		return true
 	}
 
 	err := j.journal.AppendEvents(ctx, j.runID, batch)
 	if err == nil {
 		j.failed = 0
-		return
+		return true
 	}
 
 	j.failed++
 	if j.failed >= flushTries {
 		slog.Warn("could not append events; they are lost", "run", j.runID, "count", len(batch), "error", err)
 		j.failed = 0
-		return
+		return true
 	}
 
 	slog.Warn("could not append events; they are sent again with the next ones", "run", j.runID, "count", len(batch), "error", err)
 	j.mu.Lock()
 	j.pending = append(batch, j.pending...)
 	j.mu.Unlock()
+	return false
 }
 
 func recall(ctx context.Context, journal Journal, runID string, request protocol.RecallRequest) (json.RawMessage, error) {

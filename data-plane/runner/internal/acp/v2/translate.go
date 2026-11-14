@@ -114,6 +114,7 @@ type translator struct {
 	terminals map[string]*terminal
 	children  map[string]*child
 	last      said
+	held      said
 }
 
 type said struct {
@@ -222,19 +223,36 @@ func (t *translator) remember(session, id, text string, replace bool) {
 	t.last.text += text
 }
 
-func (t *translator) repeated(raw json.RawMessage) bool {
+func (t *translator) unrepeated(raw json.RawMessage) ([]protocol.Event, bool) {
 	var u update
 	if json.Unmarshal(raw, &u) != nil || u.MessageID == "" || u.MessageID == t.last.id {
-		return false
+		return nil, false
 	}
+
 	switch u.SessionUpdate {
-	case "agent_message_chunk":
-		return textOf(u.Content) == t.last.text
 	case "agent_message":
-		return textIn(u.Content) == t.last.text
+		return nil, textIn(u.Content) == t.last.text
+	case "agent_message_chunk":
 	default:
-		return false
+		return nil, false
 	}
+
+	sofar := textOf(u.Content)
+	if t.held.id == u.MessageID {
+		sofar = t.held.text + sofar
+	}
+	if strings.HasPrefix(t.last.text, sofar) {
+		t.held = said{id: u.MessageID, text: sofar}
+		return nil, true
+	}
+
+	held := t.held
+	t.held = said{}
+	if held.id != u.MessageID || held.text == "" {
+		return nil, false
+	}
+	t.remember("", held.id, held.text, false)
+	return saying("", held.id, protocol.MessageFromAgent, held.text, false), false
 }
 
 func saying(session, id string, role protocol.MessageRole, text string, replace bool) []protocol.Event {

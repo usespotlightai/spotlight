@@ -289,7 +289,7 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) stateChanged(update state) {
-	busy := update.State != "idle"
+	busy := update.State == "running" || update.State == "requires_action"
 	change := acp.WorkChange{Reported: true, Busy: &busy}
 
 	var events []protocol.Event

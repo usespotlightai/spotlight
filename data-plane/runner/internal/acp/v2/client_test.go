@@ -392,3 +392,26 @@ func TestSettlingStopsAtTheDeadline(t *testing.T) {
 		t.Fatalf("settled=%v %+v", settled, work)
 	}
 }
+
+func TestAStateItDoesNotKnowDoesNotKeepTheSessionBusy(t *testing.T) {
+	client, _ := started(t, `{
+		"session/prompt": (m) => {
+			update("user_message", { messageId: "u1", content: [] });
+			send({ jsonrpc: "2.0", id: m.id, result: { messageId: "u1" } });
+			state("running", { background: [] });
+			state("idle", { stopReason: "end_turn", background: [] });
+			state("compacting", { background: [] });
+		},
+	}`, nil)
+
+	ctx := within(t)
+	if _, err := client.Prompt(ctx, "go"); err != nil {
+		t.Fatal(err)
+	}
+
+	short, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	if _, settled := client.Settle(short); !settled {
+		t.Fatal("an unknown state kept the session busy")
+	}
+}
