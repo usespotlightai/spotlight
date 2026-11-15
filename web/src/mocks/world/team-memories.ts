@@ -1,8 +1,4 @@
-import type {
-  MemoryPersonResponseDto,
-  MemoryProvenanceNoteResponseDto,
-  TeamMemoryDetailResponseDto,
-} from '@/lib/api';
+import type { MemoryPersonResponseDto, TeamMemoryResponseDto } from '@/lib/api';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
 import {
   DELIVERY_ID,
@@ -14,23 +10,9 @@ import {
 } from '@/mocks/world';
 import { minutesAfter, runEnded } from '@/mocks/world/inbox-places';
 import { MAYA, PRIYA, SAM, TOM } from '@/mocks/world/people';
-import {
-  DISK_DUMPS_MESSAGE,
-  DRAIN_ANSWER,
-  GONE_REMEMBER,
-  GONE_THOUGHT,
-  PAID_AT_MIGRATION,
-  PRICING_FLAG_MESSAGE,
-  provenanceStep,
-  SEARCH_SCAN_THOUGHT,
-} from '@/mocks/world/work-stories';
+import { PAID_AT_MIGRATION } from '@/mocks/world/work-stories';
 
 const DRAIN_APPROVED = () => minutesAfter(runEnded('run_retries_2'), 20);
-
-export type MemoryRecord = Omit<
-  TeamMemoryDetailResponseDto,
-  'superseded' | 'successor'
->;
 
 const person = ({ id, name, image }: MemoryPersonResponseDto) => ({
   id,
@@ -38,31 +20,13 @@ const person = ({ id, name, image }: MemoryPersonResponseDto) => ({
   image,
 });
 
-const personNote = (
-  position: number,
-  author: MemoryPersonResponseDto,
-  text: string,
-): MemoryProvenanceNoteResponseDto => ({
-  position,
-  by: 'person',
-  author: person(author),
-  text,
-});
-
-const fromAnotherTool = (
-  position: number,
-  text: string,
-): MemoryProvenanceNoteResponseDto => ({
-  position,
-  by: 'world',
-  author: null,
-  text,
-});
-
 const memory = (
-  over: Partial<MemoryRecord> &
-    Pick<MemoryRecord, 'id' | 'handle' | 'kind' | 'body' | 'approvedAt'>,
-): MemoryRecord => {
+  over: Partial<TeamMemoryResponseDto> &
+    Pick<
+      TeamMemoryResponseDto,
+      'id' | 'handle' | 'kind' | 'body' | 'approvedAt'
+    >,
+): TeamMemoryResponseDto => {
   const scope = over.stationId ? 'station' : over.lineId ? 'line' : 'team';
 
   return {
@@ -78,14 +42,11 @@ const memory = (
     retirement: null,
     provenance: null,
     runs: 0,
-    harness: null,
-    steps: [],
-    notes: [],
     ...over,
   };
 };
 
-const PLATFORM_MEMORIES: MemoryRecord[] = [
+const PLATFORM_MEMORIES: TeamMemoryResponseDto[] = [
   memory({
     id: 'memory_billing',
     handle: 'M-41',
@@ -95,8 +56,6 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     approvedAt: DRAIN_APPROVED(),
     provenance: { taskId: 'task_retries', runId: 'run_retries_2' },
     runs: 2,
-    harness: 'claude-code',
-    notes: [personNote(1, MAYA, DRAIN_ANSWER)],
   }),
   memory({
     id: 'memory_gone',
@@ -112,11 +71,6 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     approvedAt: DRAIN_APPROVED(),
     provenance: { taskId: 'task_retries', runId: 'run_retries_2' },
     runs: 1,
-    harness: 'claude-code',
-    steps: [
-      provenanceStep('run_retries_2', GONE_THOUGHT),
-      provenanceStep('run_retries_2', GONE_REMEMBER, 'remember'),
-    ],
   }),
   memory({
     id: 'memory_staging',
@@ -129,13 +83,6 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     approvedAt: hoursAgo(5),
     provenance: { taskId: 'task_retries', runId: 'run_retries_1' },
     runs: 3,
-    harness: 'claude-code',
-    notes: [
-      fromAnotherTool(
-        3,
-        'FYI the staging worker needs a restart after deploys or it keeps the old limits.',
-      ),
-    ],
   }),
   memory({
     id: 'memory_precision',
@@ -151,11 +98,6 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     approvedAt: hoursAgo(28),
     provenance: { taskId: 'task_postgres', runId: 'run_postgres_2' },
     runs: 5,
-    harness: 'claude-code',
-    steps: [
-      provenanceStep('run_postgres_2', 'npm test'),
-      provenanceStep('run_postgres_2', 'src/db/timestamps.ts'),
-    ],
   }),
   memory({
     id: 'memory_small_prs',
@@ -181,8 +123,6 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     approvedAt: hoursAgo(77),
     provenance: { taskId: 'task_disk', runId: 'run_disk_1' },
     runs: 1,
-    harness: 'claude-code',
-    steps: [provenanceStep('run_disk_1', DISK_DUMPS_MESSAGE)],
   }),
   memory({
     id: 'memory_search_index',
@@ -198,8 +138,6 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     approvedAt: daysAgo(16),
     provenance: { taskId: 'task_search', runId: 'run_search_2' },
     runs: 7,
-    harness: 'claude-code',
-    steps: [provenanceStep('run_search_2', SEARCH_SCAN_THOUGHT)],
   }),
   memory({
     id: 'memory_branches_ticket',
@@ -248,7 +186,7 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
   }),
 ];
 
-const GROWTH_MEMORIES: MemoryRecord[] = [
+const GROWTH_MEMORIES: TeamMemoryResponseDto[] = [
   memory({
     id: 'memory_copy_voice',
     handle: 'M-44',
@@ -271,8 +209,6 @@ const GROWTH_MEMORIES: MemoryRecord[] = [
     approvedAt: hoursAgo(37),
     provenance: { taskId: 'task_pricing_toggle', runId: 'run_pricing_1' },
     runs: 1,
-    harness: 'claude-code',
-    steps: [provenanceStep('run_pricing_1', PRICING_FLAG_MESSAGE)],
   }),
   memory({
     id: 'memory_posthog',
@@ -304,13 +240,14 @@ const GROWTH_MEMORIES: MemoryRecord[] = [
   }),
 ];
 
-export const MEMORY_SEED: Record<string, MemoryRecord[]> = {
+export const MEMORY_SEED: Record<string, TeamMemoryResponseDto[]> = {
   [PLATFORM_ID]: PLATFORM_MEMORIES,
   [GROWTH_ID]: GROWTH_MEMORIES,
 };
 
-export const teamMemories = perWorld((kind): Record<string, MemoryRecord[]> =>
-  kind === 'empty'
-    ? { [PLATFORM_ID]: [], [GROWTH_ID]: [] }
-    : structuredClone(MEMORY_SEED),
+export const teamMemories = perWorld(
+  (kind): Record<string, TeamMemoryResponseDto[]> =>
+    kind === 'empty'
+      ? { [PLATFORM_ID]: [], [GROWTH_ID]: [] }
+      : structuredClone(MEMORY_SEED),
 );

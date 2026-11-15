@@ -19789,7 +19789,7 @@
             "description": "No such memory for this caller"
           }
         },
-        "summary": "One memory with what it cites, and what it replaced or was replaced by",
+        "summary": "One memory, and what it replaced or was replaced by",
         "tags": [
           "memories"
         ]
@@ -20046,7 +20046,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                  "$ref": "#/components/schemas/RecalledMemoryResponseDto"
                 }
               }
             }
@@ -34792,24 +34792,6 @@
             "example": 3,
             "description": "How many runs were briefed with it or recalled it"
           },
-          "harness": {
-            "type": "string",
-            "nullable": true,
-            "example": "claude-code",
-            "description": "The harness of the run whose steps it cites"
-          },
-          "steps": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MemoryProvenanceStepResponseDto"
-            }
-          },
-          "notes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MemoryProvenanceNoteResponseDto"
-            }
-          },
           "superseded": {
             "nullable": true,
             "type": "object",
@@ -34847,9 +34829,6 @@
           "retirement",
           "provenance",
           "runs",
-          "harness",
-          "steps",
-          "notes",
           "superseded",
           "successor"
         ]
@@ -35066,6 +35045,175 @@
         },
         "required": [
           "words"
+        ]
+      },
+      "RecalledMemoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-12",
+            "description": "How runs and people name it, as in spotlight recall M-12"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "preference"
+          },
+          "body": {
+            "type": "string",
+            "example": "Name branches after the ticket."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "person",
+              "run",
+              "outside"
+            ],
+            "example": "person"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "retired"
+            ],
+            "example": "active"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "team",
+              "line",
+              "station"
+            ],
+            "example": "team"
+          },
+          "lineId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "approvedBy": {
+            "description": "Who approved or wrote it",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryPersonResponseDto"
+              }
+            ]
+          },
+          "approvedAt": {
+            "type": "string",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "supersedes": {
+            "type": "string",
+            "nullable": true,
+            "description": "The memory it replaced"
+          },
+          "retirement": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryRetirementResponseDto"
+              }
+            ]
+          },
+          "provenance": {
+            "nullable": true,
+            "description": "The task and run it cites; none where a person wrote it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryProvenanceResponseDto"
+              }
+            ]
+          },
+          "runs": {
+            "type": "number",
+            "example": 3,
+            "description": "How many runs were briefed with it or recalled it"
+          },
+          "superseded": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryLinkResponseDto"
+              }
+            ]
+          },
+          "successor": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryLinkResponseDto"
+              }
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryProvenanceStepResponseDto"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryProvenanceNoteResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "handle",
+          "kind",
+          "body",
+          "source",
+          "status",
+          "scope",
+          "lineId",
+          "stationId",
+          "repository",
+          "paths",
+          "approvedBy",
+          "approvedAt",
+          "supersedes",
+          "retirement",
+          "provenance",
+          "runs",
+          "superseded",
+          "successor",
+          "steps",
+          "notes"
         ]
       },
       "RememberRequestDto": {

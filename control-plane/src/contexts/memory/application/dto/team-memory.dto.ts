@@ -1,6 +1,4 @@
 import type {
-  MemoryProvenanceNoteDto,
-  MemoryProvenanceStepDto,
   PersonDto,
   ProposedMemoryDto,
 } from '@memory/application/dto/memory-review.dto';
@@ -47,9 +45,6 @@ export interface MemoryLinkDto {
 }
 
 export interface TeamMemoryDetailDto extends TeamMemoryDto {
-  readonly harness: string | null;
-  readonly steps: readonly MemoryProvenanceStepDto[];
-  readonly notes: readonly MemoryProvenanceNoteDto[];
   readonly superseded: MemoryLinkDto | null;
   readonly successor: MemoryLinkDto | null;
 }

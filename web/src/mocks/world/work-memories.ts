@@ -9,19 +9,12 @@ import type { HistoryRun } from '@/mocks/world/insights-history';
 import { historyRunOf, lineOfStation } from '@/mocks/world/past-work';
 import { MAYA } from '@/mocks/world/people';
 import { PLATFORM_ID } from '@/mocks/world/platform';
-import { MEMORY_SEED, type MemoryRecord } from '@/mocks/world/team-memories';
+import { MEMORY_SEED } from '@/mocks/world/team-memories';
 import {
   GONE_REMEMBER,
   GONE_THOUGHT,
   provenanceStep,
 } from '@/mocks/world/work-stories';
-
-const briefedOf = ({
-  harness: _harness,
-  steps: _steps,
-  notes: _notes,
-  ...memory
-}: MemoryRecord): TeamMemoryResponseDto => memory;
 
 const seeded = (id: string): TeamMemoryResponseDto => {
   const found = MEMORY_SEED[PLATFORM_ID]?.find((each) => each.id === id);
@@ -30,7 +23,7 @@ const seeded = (id: string): TeamMemoryResponseDto => {
     throw new Error(`No seeded memory ${id}`);
   }
 
-  return briefedOf(found);
+  return found;
 };
 
 const BILLING = seeded('memory_billing');
@@ -115,7 +108,7 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
 
 const MAX_BRIEFED = 4;
 
-const activeAt = (memory: MemoryRecord, at: string): boolean =>
+const activeAt = (memory: TeamMemoryResponseDto, at: string): boolean =>
   memory.approvedAt <= at &&
   (memory.retirement === null || memory.retirement.at > at);
 
@@ -124,7 +117,7 @@ type RunContext = Pick<
   'teamId' | 'lineId' | 'stationId' | 'repositories'
 > & { readonly startedAt: string };
 
-const matches = (memory: MemoryRecord, run: RunContext): boolean =>
+const matches = (memory: TeamMemoryResponseDto, run: RunContext): boolean =>
   (memory.lineId === null || memory.lineId === run.lineId) &&
   (memory.stationId === null || memory.stationId === run.stationId) &&
   (memory.repository === null ||
@@ -158,7 +151,6 @@ const briefedFor = (runId: string): TeamMemoryResponseDto[] => {
           (memory) => activeAt(memory, run.startedAt) && matches(memory, run),
         )
         .slice(0, MAX_BRIEFED)
-        .map(briefedOf)
     : [];
 };
 

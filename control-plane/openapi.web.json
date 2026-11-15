@@ -5335,7 +5335,7 @@
             "description": "No such memory for this caller"
           }
         },
-        "summary": "One memory with what it cites, and what it replaced or was replaced by",
+        "summary": "One memory, and what it replaced or was replaced by",
         "tags": [
           "memories"
         ]
@@ -13928,24 +13928,6 @@
             "example": 3,
             "description": "How many runs were briefed with it or recalled it"
           },
-          "harness": {
-            "type": "string",
-            "nullable": true,
-            "example": "claude-code",
-            "description": "The harness of the run whose steps it cites"
-          },
-          "steps": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MemoryProvenanceStepResponseDto"
-            }
-          },
-          "notes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MemoryProvenanceNoteResponseDto"
-            }
-          },
           "superseded": {
             "nullable": true,
             "type": "object",
@@ -13983,9 +13965,6 @@
           "retirement",
           "provenance",
           "runs",
-          "harness",
-          "steps",
-          "notes",
           "superseded",
           "successor"
         ]

@@ -2115,7 +2115,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                  "$ref": "#/components/schemas/RecalledMemoryResponseDto"
                 }
               }
             }
@@ -5633,7 +5633,20 @@
           "body"
         ]
       },
-      "TeamMemoryDetailResponseDto": {
+      "RecallMemoriesRequestDto": {
+        "type": "object",
+        "properties": {
+          "words": {
+            "type": "string",
+            "example": "upload retries",
+            "description": "Words to look for"
+          }
+        },
+        "required": [
+          "words"
+        ]
+      },
+      "RecalledMemoryResponseDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -5747,24 +5760,6 @@
             "example": 3,
             "description": "How many runs were briefed with it or recalled it"
           },
-          "harness": {
-            "type": "string",
-            "nullable": true,
-            "example": "claude-code",
-            "description": "The harness of the run whose steps it cites"
-          },
-          "steps": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MemoryProvenanceStepResponseDto"
-            }
-          },
-          "notes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MemoryProvenanceNoteResponseDto"
-            }
-          },
           "superseded": {
             "nullable": true,
             "type": "object",
@@ -5782,6 +5777,18 @@
                 "$ref": "#/components/schemas/MemoryLinkResponseDto"
               }
             ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryProvenanceStepResponseDto"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryProvenanceNoteResponseDto"
+            }
           }
         },
         "required": [
@@ -5802,24 +5809,10 @@
           "retirement",
           "provenance",
           "runs",
-          "harness",
-          "steps",
-          "notes",
           "superseded",
-          "successor"
-        ]
-      },
-      "RecallMemoriesRequestDto": {
-        "type": "object",
-        "properties": {
-          "words": {
-            "type": "string",
-            "example": "upload retries",
-            "description": "Words to look for"
-          }
-        },
-        "required": [
-          "words"
+          "successor",
+          "steps",
+          "notes"
         ]
       },
       "RememberRequestDto": {

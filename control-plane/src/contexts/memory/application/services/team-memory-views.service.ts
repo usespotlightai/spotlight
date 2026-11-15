@@ -5,12 +5,10 @@ import type {
 } from '@memory/application/dto/team-memory.dto';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { PeoplePort } from '@memory/application/ports/people.port';
-import type { WorkPort } from '@memory/application/ports/work.port';
 import {
   lookUpOnce,
   type PersonLookup,
 } from '@memory/application/services/people-lookup';
-import { provenanceNotes } from '@memory/application/services/provenance-notes';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -18,7 +16,6 @@ import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 export class TeamMemoryViews {
   constructor(
     private readonly memories: MemoryRepository,
-    private readonly work: WorkPort,
     private readonly people: PeoplePort,
     private readonly uses: MemoryUsesPort,
   ) {}
@@ -32,35 +29,19 @@ export class TeamMemoryViews {
     );
   }
 
-  async detail(memory: Memory): Promise<TeamMemoryDetailDto> {
-    const { provenance } = memory;
-    const person = lookUpOnce(this.people);
-    const [summary, steps, notes, harness, superseded, successor] =
-      await Promise.all([
-        this.uses
-          .runsUsing([memory.id])
-          .then((used) => this.summaryOf(memory, person, used)),
-        provenance ? this.work.reasoning(provenance.runId) : null,
-        provenance ? this.work.notesOf(provenance.taskId) : null,
-        provenance ? this.work.harnessOf(provenance.runId) : null,
-        this.linkTo(memory.supersedes),
-        this.linkTo(memory.retirement?.supersededBy ?? null),
-      ]);
+  async detail(
+    memory: Memory,
+    person: PersonLookup = lookUpOnce(this.people),
+  ): Promise<TeamMemoryDetailDto> {
+    const [summary, superseded, successor] = await Promise.all([
+      this.uses
+        .runsUsing([memory.id])
+        .then((used) => this.summaryOf(memory, person, used)),
+      this.linkTo(memory.supersedes),
+      this.linkTo(memory.retirement?.supersededBy ?? null),
+    ]);
 
-    return {
-      ...summary,
-      harness,
-      steps: (steps ?? []).filter((each) =>
-        provenance?.steps.includes(each.index),
-      ),
-      notes: await provenanceNotes(
-        notes ?? [],
-        provenance?.notes ?? [],
-        person,
-      ),
-      superseded,
-      successor,
-    };
+    return { ...summary, superseded, successor };
   }
 
   private async summaryOf(

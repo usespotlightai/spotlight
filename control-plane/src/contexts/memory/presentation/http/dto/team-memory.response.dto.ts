@@ -10,11 +10,7 @@ import {
   type TeamMemoryDetailDto,
   type TeamMemoryDto,
 } from '@memory/application/dto/team-memory.dto';
-import {
-  MemoryPersonResponseDto,
-  MemoryProvenanceNoteResponseDto,
-  MemoryProvenanceStepResponseDto,
-} from '@memory/presentation/http/dto/memory-review.response.dto';
+import { MemoryPersonResponseDto } from '@memory/presentation/http/dto/memory-review.response.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class MemoryRetirementResponseDto {
@@ -171,20 +167,6 @@ export class TeamMemoryResponseDto {
 }
 
 export class TeamMemoryDetailResponseDto extends TeamMemoryResponseDto {
-  @ApiProperty({
-    nullable: true,
-    type: String,
-    example: 'claude-code',
-    description: 'The harness of the run whose steps it cites',
-  })
-  readonly harness: string | null;
-
-  @ApiProperty({ type: MemoryProvenanceStepResponseDto, isArray: true })
-  readonly steps: readonly MemoryProvenanceStepResponseDto[];
-
-  @ApiProperty({ type: MemoryProvenanceNoteResponseDto, isArray: true })
-  readonly notes: readonly MemoryProvenanceNoteResponseDto[];
-
   @ApiProperty({ type: MemoryLinkResponseDto, nullable: true })
   readonly superseded: MemoryLinkResponseDto | null;
 
@@ -193,13 +175,6 @@ export class TeamMemoryDetailResponseDto extends TeamMemoryResponseDto {
 
   constructor(memory: TeamMemoryDetailDto) {
     super(memory);
-    this.harness = memory.harness;
-    this.steps = memory.steps.map(
-      (each) => new MemoryProvenanceStepResponseDto(each),
-    );
-    this.notes = memory.notes.map(
-      (each) => new MemoryProvenanceNoteResponseDto(each),
-    );
     this.superseded = memory.superseded
       ? new MemoryLinkResponseDto(memory.superseded)
       : null;
