@@ -1,8 +1,10 @@
 export interface DesktopBridge {
   readonly platform: string;
+  readonly extraWindow: boolean;
   setBadge(count: number): void;
   show(): void;
   authorize(url: string): void;
+  openWindow(path: string): void;
   setTheme(theme: string): void;
   close(): void;
   changeAddress(): void;

@@ -113,6 +113,7 @@ const address = () => screen.getByRole('status', { name: 'Address' });
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   Object.assign(window, { spotlightDesktop: { platform: 'darwin' } });
 });
 
@@ -278,5 +279,30 @@ describe('useAppTabs', () => {
         .map((each) => each.textContent),
     ).toEqual(['Inbox', 'Agent']);
     expect(tab('Agent')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('starts an extra desktop window with only its own page, and leaves the stored tabs alone', async () => {
+    const user = userEvent.setup();
+    const first = renderAt('/w/acme/inbox');
+
+    await user.click(tab('New tab'));
+    first.unmount();
+    const stored = localStorage.getItem(`${APP_TABS_KEY}.acme`);
+
+    Object.assign(window, {
+      spotlightDesktop: { platform: 'darwin', extraWindow: true },
+    });
+    const extra = renderAt('/w/acme/team/team_2/runs');
+
+    expect(
+      strip()
+        .getAllByRole('listitem')
+        .map((each) => each.textContent),
+    ).toEqual(['Runs']);
+
+    await user.click(tab('New tab'));
+    extra.unmount();
+
+    expect(localStorage.getItem(`${APP_TABS_KEY}.acme`)).toBe(stored);
   });
 });

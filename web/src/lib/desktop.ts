@@ -1,8 +1,10 @@
 export interface DesktopApp {
   readonly platform: string;
+  readonly extraWindow?: boolean;
   setBadge(count: number): void;
   show(): void;
   authorize(url: string): void;
+  openWindow?(path: string): void;
   setTheme?(theme: 'light' | 'dark' | 'system'): void;
   close?(): void;
   openNotificationSettings?(): void;

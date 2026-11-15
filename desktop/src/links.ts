@@ -72,15 +72,21 @@ export const pageOf = (link: string, origin: string): string | null => {
     return null;
   }
 
-  const path = url.pathname || '/';
+  return workspacePageOf(
+    `${url.pathname || '/'}${url.search}${url.hash}`,
+    origin,
+  );
+};
 
-  if (!path.startsWith('/w/')) {
-    return null;
-  }
+export const workspacePageOf = (
+  path: string,
+  origin: string,
+): string | null => {
+  const page = parsed(`${origin}${path}`);
 
-  const page = parsed(`${origin}${path}${url.search}${url.hash}`);
-
-  return page && page.origin === origin ? page.toString() : null;
+  return page?.origin === origin && page.pathname.startsWith('/w/')
+    ? page.toString()
+    : null;
 };
 
 export const isOrigin = (url: string, origin: string): boolean =>
