@@ -65,6 +65,7 @@ type Spec struct {
 	Briefing      string         `json:"briefing,omitempty"`
 	Handover      HandoverSpec   `json:"handover,omitzero"`
 	Manifest      []ToolManifest `json:"manifest,omitempty"`
+	ChangedTools  *ChangedTools  `json:"changedTools,omitempty"`
 	Resume        Resume         `json:"resume,omitzero"`
 	Attachments   []Attachment   `json:"attachments,omitempty"`
 	Skills        []SkillFile    `json:"skills,omitempty"`
@@ -76,6 +77,11 @@ type Spec struct {
 	SpotlightAPI  bool           `json:"spotlightApi,omitempty"`
 	Replay        *Replay        `json:"replay,omitempty"`
 	Search        *SearchSpec    `json:"search,omitempty"`
+}
+
+type ChangedTools struct {
+	Added   []string `json:"added"`
+	Removed []string `json:"removed"`
 }
 
 type Replay struct {

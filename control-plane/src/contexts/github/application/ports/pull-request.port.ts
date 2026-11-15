@@ -14,6 +14,13 @@ export interface PullRequestStatusDto {
   readonly closedAt: Date | null;
 }
 
+export interface CommitPullRequestDto {
+  readonly number: number;
+  readonly url: string;
+  readonly title: string;
+  readonly merged: boolean;
+}
+
 export interface PullRequestAt {
   readonly workspaceId: WorkspaceId;
   readonly repository: Repository;
@@ -59,4 +66,10 @@ export interface PullRequestPort {
     repository: Repository,
     pullRequest: PullRequestUrl,
   ): Promise<readonly string[]>;
+
+  ofCommit(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    sha: string,
+  ): Promise<readonly CommitPullRequestDto[]>;
 }

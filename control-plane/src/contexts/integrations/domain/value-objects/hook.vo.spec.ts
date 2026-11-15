@@ -59,6 +59,7 @@ const hook = (failure: HookOnFailure = 'continue') =>
 
 const provided = (approval: ApprovalNeeded | null = null) =>
   ProvidedTool.of({
+    readOnly: false,
     integration: IntegrationKey.of('linear'),
     name: 'comment',
     description: 'Comment on the issue.',

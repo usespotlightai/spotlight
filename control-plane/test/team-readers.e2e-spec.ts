@@ -47,6 +47,7 @@ const inboxRequestsIn = async (userId: string): Promise<string[]> => {
 const createInboxRequest = async (
   form: (typeof schema.inboxRequest.$inferInsert)['form'],
   assigneeId: string | null,
+  askedOfId: string | null = null,
 ): Promise<string> => {
   const taskId = randomUUID();
   const requestId = randomUUID();
@@ -66,6 +67,7 @@ const createInboxRequest = async (
     taskId,
     form,
     about: RUN,
+    askedOfId,
     createdAt: new Date(),
     openedAt: new Date(),
   });
@@ -328,6 +330,47 @@ describe('who is asked to grade a team’s run in their inbox', () => {
       (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, assignedElsewhere))
         .status,
     ).toBe(404);
+  });
+});
+
+describe('who is asked about a judge’s disagreement in their inbox', () => {
+  let askedOfOwner: string;
+  let askedOfAdmin: string;
+
+  beforeAll(async () => {
+    askedOfOwner = await createInboxRequest(
+      'judge-disagreement',
+      ADMIN,
+      team.owner.value,
+    );
+    askedOfAdmin = await createInboxRequest(
+      'judge-disagreement',
+      ELSEWHERE_IN_WORKSPACE,
+      ADMIN,
+    );
+  });
+
+  it('asks only the person who gave the outcome, whoever the task is assigned to', async () => {
+    const owners = await inboxRequestsIn(team.owner.value);
+    const admins = await inboxRequestsIn(ADMIN);
+
+    expect(owners).toContain(askedOfOwner);
+    expect(owners).not.toContain(askedOfAdmin);
+    expect(admins).toContain(askedOfAdmin);
+    expect(admins).not.toContain(askedOfOwner);
+  });
+
+  it('asks nobody else, nor lets them read it, even when the task is theirs', async () => {
+    expect(await inboxRequestsIn(ELSEWHERE_IN_WORKSPACE)).not.toContain(
+      askedOfAdmin,
+    );
+    expect(
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, askedOfAdmin)).status,
+    ).toBe(404);
+    expect((await markInboxRequestRead(ADMIN, askedOfOwner)).status).toBe(404);
+    expect(
+      (await markInboxRequestRead(team.owner.value, askedOfOwner)).status,
+    ).toBeLessThan(300);
   });
 });
 

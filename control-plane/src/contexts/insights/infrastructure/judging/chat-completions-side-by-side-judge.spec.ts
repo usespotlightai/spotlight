@@ -18,7 +18,6 @@ const hunk = (id: string, line: string) => ({
 });
 
 const REQUEST: SideBySideJudgeRequest = {
-  rubric: null,
   claims: ['It drains the queue in order.'],
   title: 'Drain the queue',
   description: 'It stalls on restart.',
@@ -85,7 +84,6 @@ describe('judging two changes side by side through a chat completions endpoint',
       '<claims>\n0. It drains the queue in order.\n</claims>',
     );
     expect(system).toContain('drawn by lot');
-    expect(system).not.toContain('<rubric>');
     expect(evidence.a.hunks[0].id).toBe('A:api/q.ts#1');
     expect(evidence.b.left_out).toBe(1);
     expect(evidence.reference.hunks[0].lines).toEqual(['+drainInOrder()']);

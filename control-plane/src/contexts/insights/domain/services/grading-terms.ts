@@ -5,58 +5,47 @@ import {
 } from '@insights/domain/services/judge-calibration';
 import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 
 export interface GradingTerms {
-  readonly scale: ScoreScale;
-  readonly rubricVersion: string | null;
-  readonly rubricBody: string | null;
+  readonly rubricVersion: string;
+  readonly passThreshold: number;
   readonly claims: readonly (string | null)[];
 }
 
 export interface Grade {
-  readonly scale: ScoreScale;
-  readonly value: number;
-  readonly claimResults: readonly boolean[] | null;
-  readonly rubricVersion: string | null;
+  readonly claimResults: readonly boolean[];
+  readonly passThreshold: number;
+  readonly rubricVersion: string;
 }
 
 export const gradeOn = (
-  terms: GradingTerms,
-  value: boolean | number | null,
-  claims: readonly boolean[] | null,
+  terms: GradingTerms | null,
+  claims: readonly boolean[],
 ): Grade => {
-  if (terms.scale.byClaims) {
-    if (claims === null || value !== null) {
-      throw new InvalidScoreError(
-        'on a claims scale must mark each claim as met or not met',
-      );
-    }
-
-    return {
-      scale: terms.scale,
-      value: terms.scale.valueOfClaims(claims, terms.claims.length),
-      claimResults: [...claims],
-      rubricVersion: terms.rubricVersion,
-    };
+  if (!terms) {
+    throw new InvalidScoreError('needs a judge with claims on the station');
   }
-  if (value === null || claims !== null) {
-    throw new InvalidScoreError('must include a grade');
+  if (claims.length === 0 || claims.length !== terms.claims.length) {
+    throw new InvalidScoreError(
+      `must mark all ${terms.claims.length} claims as met or not met`,
+    );
   }
 
   return {
-    scale: terms.scale,
-    value: terms.scale.valueOf(value),
-    claimResults: null,
+    claimResults: [...claims],
+    passThreshold: terms.passThreshold,
     rubricVersion: terms.rubricVersion,
   };
 };
 
+export const onEarlierClaims = (
+  terms: GradingTerms | null,
+  current: string | null,
+): boolean =>
+  terms !== null && current !== null && terms.rubricVersion !== current;
+
 interface StationTerms {
-  readonly scale: ScoreScale | null;
-  readonly rubricVersion: string;
-  readonly rubricBody: string | null;
-  readonly claims?: readonly string[];
+  readonly rubric: Rubric | null;
 }
 
 export const latestJudgeOf = (scores: readonly Scored[]): Scored | null =>
@@ -86,34 +75,29 @@ export const gradingTermsOf = (
   scores: readonly Scored[],
   station: StationTerms | null,
   judgedBy: Rubric | null,
-): GradingTerms => {
+): GradingTerms | null => {
   const judge = latestJudgeOf(scores);
 
   if (judge) {
-    const rubric = judgedBy?.version === judge.rubricVersion ? judgedBy : null;
+    const rubric =
+      [judgedBy, station?.rubric ?? null].find(
+        (each) => each?.version === judge.rubricVersion,
+      ) ?? null;
 
     return {
-      scale: judge.scale,
       rubricVersion: judge.rubricVersion,
-      rubricBody: rubric?.body ?? null,
-      claims: (judge.claimResults ?? []).map(
-        (_, at) => rubric?.criteria.claims[at] ?? null,
-      ),
-    };
-  }
-  if (station?.scale) {
-    return {
-      scale: station.scale,
-      rubricVersion: station.rubricVersion,
-      rubricBody: station.rubricBody,
-      claims: station.scale.byClaims ? [...(station.claims ?? [])] : [],
+      passThreshold: judge.passThreshold,
+      claims: judge.claimResults.map((_, at) => rubric?.claims[at] ?? null),
     };
   }
 
-  return {
-    scale: ScoreScale.yesNo(),
-    rubricVersion: null,
-    rubricBody: null,
-    claims: [],
-  };
+  const rubric = station?.rubric ?? null;
+
+  return (
+    rubric && {
+      rubricVersion: rubric.version,
+      passThreshold: rubric.passThreshold,
+      claims: [...rubric.claims],
+    }
+  );
 };

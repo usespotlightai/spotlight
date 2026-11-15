@@ -1,10 +1,8 @@
 import { RecordRecallCommand } from '@memory/application/commands/record-recall.command';
 import { RememberCommand } from '@memory/application/commands/remember.command';
 import type { ProposedMemoryDto } from '@memory/application/dto/memory-review.dto';
-import type {
-  TeamMemoryDetailDto,
-  TeamMemoryDto,
-} from '@memory/application/dto/team-memory.dto';
+import type { RecalledMemoryDto } from '@memory/application/dto/recalled-memory.dto';
+import type { TeamMemoryDto } from '@memory/application/dto/team-memory.dto';
 import { ReadProposedMemoryQuery } from '@memory/application/queries/read-proposed-memory.query';
 import { RecallMemoriesQuery } from '@memory/application/queries/recall-memories.query';
 import { RecallMemoryQuery } from '@memory/application/queries/recall-memory.query';
@@ -13,10 +11,8 @@ import {
   RecallMemoriesRequestDto,
   RememberRequestDto,
 } from '@memory/presentation/http/dto/runner-memory.request.dto';
-import {
-  TeamMemoryDetailResponseDto,
-  TeamMemoryResponseDto,
-} from '@memory/presentation/http/dto/team-memory.response.dto';
+import { RecalledMemoryResponseDto } from '@memory/presentation/http/dto/runner-memory.response.dto';
+import { TeamMemoryResponseDto } from '@memory/presentation/http/dto/team-memory.response.dto';
 import {
   Body,
   Controller,
@@ -103,7 +99,7 @@ export class RunnerMemoryController {
       'Read one of the team’s memories in full, by its handle. It records that the run recalled it',
   })
   @ApiParam({ name: 'handle', type: String, example: 'M-12' })
-  @ApiOkResponse({ type: TeamMemoryDetailResponseDto })
+  @ApiOkResponse({ type: RecalledMemoryResponseDto })
   @ApiUnprocessableEntityResponse({ description: 'Not a handle like M-12' })
   @ApiConflictResponse({
     description:
@@ -113,16 +109,16 @@ export class RunnerMemoryController {
     @Param('runId') runId: string,
     @Param('handle') handle: string,
     @CurrentMachine() runnerId: string,
-  ): Promise<TeamMemoryDetailResponseDto> {
+  ): Promise<RecalledMemoryResponseDto> {
     const recalled = await this.queryBus.execute<
       RecallMemoryQuery,
-      TeamMemoryDetailDto
+      RecalledMemoryDto
     >(new RecallMemoryQuery(runId, runnerId, handle));
     await this.commandBus.execute<RecordRecallCommand, void>(
       new RecordRecallCommand(runId, runnerId, [recalled.id]),
     );
 
-    return new TeamMemoryDetailResponseDto(recalled);
+    return new RecalledMemoryResponseDto(recalled);
   }
 
   @Post()

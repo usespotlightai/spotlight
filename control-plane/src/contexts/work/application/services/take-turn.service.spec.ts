@@ -28,6 +28,10 @@ import type {
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
+import {
+  NO_TOOL_CHANGE,
+  resumingWith,
+} from '@work/application/services/resume-task-run.fake-spec';
 import { RunRouting } from '@work/application/services/run-routing.service';
 import { TakeTurn } from '@work/application/services/take-turn.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
@@ -213,6 +217,7 @@ const turning = (over: Turning = {}) => {
       clock,
     ),
     runJournalReadings({ lastWordsIn: () => over.lastWords ?? null }),
+    resumingWith(held.runs, dispatches),
   );
 
   return {
@@ -311,6 +316,7 @@ describe('TakeTurn', () => {
         1,
         'messages',
         expect.any(Array),
+        NO_TOOL_CHANGE,
       );
       expect(turn.tasks).toEqual([]);
     });

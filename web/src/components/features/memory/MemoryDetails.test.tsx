@@ -13,9 +13,6 @@ const memoryState = {
   refetch: vi.fn(),
 };
 
-vi.mock('@/hooks/api/useHarnesses', () => ({
-  useHarnesses: () => ({ data: [{ id: 'claude-code', name: 'Claude Code' }] }),
-}));
 vi.mock('@/hooks/api/useTeamMemory', () => ({
   useTeamMemory: () => memoryState,
 }));
@@ -49,8 +46,6 @@ const detail = (over: Record<string, unknown> = {}) => ({
   supersedes: null,
   retirement: null,
   provenance: { taskId: 'task_1', runId: 'run_1' },
-  steps: [{ index: 3, kind: 'thought', text: 'A queue needs a worker.' }],
-  notes: [],
   superseded: null,
   successor: null,
   ...over,

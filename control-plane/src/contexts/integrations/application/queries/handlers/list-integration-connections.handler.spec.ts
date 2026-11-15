@@ -75,6 +75,7 @@ const listing = (membership: { isAdmin: boolean } | null) =>
             actions: DefinedActions.of([actionNamed('comment')]),
             writtenTools: [
               ProvidedTool.of({
+                readOnly: false,
                 integration: IntegrationKey.of('linear'),
                 name: 'comment',
                 description: 'comment',

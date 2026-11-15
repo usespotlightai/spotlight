@@ -7,6 +7,7 @@ import { RefreshReplaySets } from '@replays/application/services/refresh-replay-
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -139,7 +140,7 @@ const planned = (more: Record<string, unknown> = {}) => ({
   check: 'true',
   diffs: false,
   judge: {
-    rubric: 'scores: yes-no\nDid it build?',
+    claims: ['It builds.'],
     sample: 1,
     minAgreement: 0.5,
   },
@@ -974,6 +975,13 @@ describe('a stored replay check', () => {
       }),
       repeats: 1,
       scoringPinnedToLive: [],
+      judge: JudgeCalibration.of({
+        state: 'failing',
+        agreement: 0.31,
+        pairs: 12,
+        minPairs: 10,
+        minAgreement: 0.6,
+      }),
       createdAt: new Date(),
       by: ChangeActor.spotlight(set.workspaceId),
     });
@@ -981,6 +989,8 @@ describe('a stored replay check', () => {
     await checks.add(started);
 
     const found = await checks.find(started.id);
+
+    expect(found?.judge).toEqual(started.judge);
 
     expect(found?.replayId).toBeNull();
     expect(found?.reused?.seed.value).toBe(reused.seed.value);

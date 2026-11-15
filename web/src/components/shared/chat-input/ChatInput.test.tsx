@@ -11,6 +11,7 @@ import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
+import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { erase, restore, snapshot, textOf, write } from '@/test/lexical';
 
 const uploaded = vi.fn<(...args: unknown[]) => unknown>();
@@ -46,6 +47,29 @@ beforeEach(() => {
 });
 
 describe('ChatInput', () => {
+  it('moves the cursor into the reply with R', () => {
+    render(
+      <CommandsProvider>
+        <a href="#item">The focused item</a>
+        <ChatInput
+          slug="acme"
+          label="Message Triage"
+          placeholder="Write a message…"
+          pending={false}
+          settings={null}
+          onSend={vi.fn()}
+          focusOnReply
+        />
+      </CommandsProvider>,
+    );
+    const item = screen.getByRole('link', { name: 'The focused item' });
+    item.focus();
+
+    fireEvent.keyDown(item, { key: 'r' });
+
+    expect(box()).toHaveFocus();
+  });
+
   it('offers to send, not to stop, when nothing is running', () => {
     input({ running: false, onStop: vi.fn() });
 

@@ -1,6 +1,8 @@
+import type { RunToolChangeShape } from '@runs/application/contracts/run-spec.contract';
 import { InvalidRunSpecError } from '@runs/domain/exceptions/invalid-run-spec.error';
 import {
   type RunAttachment,
+  type RunChangedTools,
   type RunCheckout,
   isHarnessProtocol,
   type RunCommand,
@@ -8,6 +10,7 @@ import {
   type RunHarnessSetup,
   type RunMcpServer,
   type RunResume,
+  type RunToolChange,
   RunSpec,
   type RunToolApproval,
   type RunToolInput,
@@ -15,6 +18,7 @@ import {
   type SessionOption,
 } from '@runs/domain/value-objects/run-spec.vo';
 import { isJsonObject, isJsonValue } from '@shared-kernel/domain/json-value';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
 type Json = Record<string, unknown>;
 
@@ -186,6 +190,7 @@ const toolOf = (raw: unknown): RunToolManifest => {
     ...(input.output !== undefined
       ? { output: toolOutputOf(input.output) }
       : {}),
+    ...(input.readOnly === true ? { readOnly: true as const } : {}),
   };
 };
 
@@ -283,6 +288,17 @@ const handoverOf = (raw: unknown) => {
   };
 };
 
+const changedToolsOf = (raw: unknown): RunChangedTools => {
+  const changed = objectAt(raw, 'the tools it gained or lost');
+  const names = (value: unknown, what: string): string[] =>
+    listAt(value, what, (each) => stringAt(each, what));
+
+  return {
+    added: names(changed.added, 'the tools it gained'),
+    removed: names(changed.removed, 'the tools it lost'),
+  };
+};
+
 const read = (raw: unknown): RunSpec => {
   const input = objectAt(raw, 'the run');
   const checkouts = optionalListAt(
@@ -301,6 +317,10 @@ const read = (raw: unknown): RunSpec => {
     (each) => stringAt(each, 'where skills are stored'),
   );
   const manifest = optionalListAt(input.manifest, 'its tools', toolOf);
+  const changedTools =
+    input.changedTools === undefined
+      ? undefined
+      : changedToolsOf(input.changedTools);
   const catalog = optionalListAt(input.catalog, 'its catalog tools', (each) =>
     stringAt(each, 'its catalog tools'),
   );
@@ -349,6 +369,7 @@ const read = (raw: unknown): RunSpec => {
     ...(skills ? { skills } : {}),
     ...(skillHomes ? { skillHomes } : {}),
     ...(manifest ? { manifest } : {}),
+    ...(changedTools ? { changedTools } : {}),
     ...(catalog ? { catalog } : {}),
     ...(attachments ? { attachments } : {}),
     ...(diffs === undefined
@@ -405,5 +426,12 @@ export const RunSpecMapper = {
 
   received(raw: unknown): RunSpec {
     return read(raw);
+  },
+
+  toolChange(raw: RunToolChangeShape): RunToolChange {
+    return {
+      removed: raw.removed.map((each) => Tool.of(each)),
+      added: raw.added.map(toolOf),
+    };
   },
 };

@@ -76,7 +76,6 @@ const toCandidate = (row: CandidateRow): Candidate =>
         row.claims === null || row.passThreshold === null
           ? null
           : JudgeCriteria.of({
-              rubric: row.rubric,
               claims: row.claims,
               passThreshold: row.passThreshold,
             }),
@@ -165,7 +164,6 @@ export class DrizzleCandidateRepository implements CandidateRepository {
           scoringHash: added.hashes.scoring,
           lineFields: added.line?.value ?? null,
           checksChanges: added.scoring.checksChanges,
-          rubric: added.scoring.judge?.rubric ?? null,
           claims: added.scoring.judge ? [...added.scoring.judge.claims] : null,
           passThreshold: added.scoring.judge?.passThreshold ?? null,
           rubricVersion: added.scoring.rubricVersion,

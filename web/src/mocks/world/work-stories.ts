@@ -260,10 +260,10 @@ export const DRAIN_ANSWER =
 export const DISK_DUMPS_MESSAGE =
   '/var/crash contains 14 GB of core dumps from the image resizer, all from the last three days. Nothing rotates them.';
 
-export const PRICING_FLAG_MESSAGE =
+const PRICING_FLAG_MESSAGE =
   'Finance has not agreed the 20% annual discount yet, so the design keeps the toggle behind pricing_annual and shows monthly prices to everyone else.';
 
-export const SEARCH_SCAN_THOUGHT =
+const SEARCH_SCAN_THOUGHT =
   'ILIKE with a leading wildcard cannot use an index, so every search scans the whole task table: 1.8 seconds on the largest workspace.';
 
 export const RUN_STORIES: Record<string, RunStory> = {

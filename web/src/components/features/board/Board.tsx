@@ -1,5 +1,10 @@
 import { DndContext } from '@dnd-kit/core';
-import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useRef,
+} from 'react';
 
 import { BoardStation } from '@/components/features/board/BoardStation';
 import { SelectionBar } from '@/components/features/board/SelectionBar';
@@ -8,6 +13,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useBoardDrag } from '@/hooks/useBoardDrag';
 import { useCollapsed } from '@/hooks/useCollapsed';
+import { useCommands } from '@/hooks/useCommands';
+import { useListKeys } from '@/hooks/useListKeys';
 import type { LineResponseDto } from '@/lib/api';
 import { type BoardView, inView } from '@/lib/board';
 import { moveTargetFor, type Task } from '@/lib/task';
@@ -39,6 +46,7 @@ export function Board({
   after,
 }: BoardProps) {
   const stations = useCollapsed(STATIONS_STORAGE_KEY);
+  const rows = useRef<HTMLDivElement>(null);
   const moveTask = useMoveTask();
   const drag = useBoardDrag({
     teamId,
@@ -76,8 +84,24 @@ export function Board({
     onSelectedChange([]);
   };
 
+  useListKeys(
+    rows,
+    selected.length > 0 ? () => onSelectedChange([]) : undefined,
+  );
+  useCommands(
+    target && selected.length > 0
+      ? [
+          {
+            id: 'task.station',
+            title: `Move to ${target.name}`,
+            run: moveSelected,
+          },
+        ]
+      : [],
+  );
+
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div ref={rows} className="relative flex min-h-0 flex-1 flex-col">
       <DndContext
         sensors={drag.sensors}
         collisionDetection={drag.collisionDetection}

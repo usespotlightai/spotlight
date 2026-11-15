@@ -3,43 +3,40 @@ import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteri
 import { describe, expect, it } from 'vitest';
 
 describe('JudgeCriteria', () => {
-  it('scores on the scale its rubric names while it lists no claims', () => {
-    expect(
-      JudgeCriteria.of({ rubric: 'scores: 1-5\nHow well?' }).scale.kind,
-    ).toBe('number');
-  });
-
-  it('scores claim by claim once it lists claims, with or without a rubric', () => {
-    const alone = JudgeCriteria.of({
-      rubric: null,
-      claims: ['It retries.'],
-      passThreshold: 0.5,
-    });
-    const both = JudgeCriteria.of({
-      rubric: 'scores: 1-5\nHow well?',
-      claims: ['It retries.'],
+  it('trims its claims and passes only when every claim is met by default', () => {
+    const criteria = JudgeCriteria.of({
+      claims: [' It retries. ', 'It logs.'],
     });
 
-    expect(alone.scale.kind).toBe('claims');
-    expect(both.scale.kind).toBe('claims');
-    expect(both.passThreshold).toBe(1);
+    expect(criteria.claims).toEqual(['It retries.', 'It logs.']);
+    expect(criteria.passThreshold).toBe(1);
+    expect(criteria.passes([true, true])).toBe(true);
+    expect(criteria.passes([true, false])).toBe(false);
   });
 
-  it('needs no scale line on a rubric given beside claims', () => {
-    expect(
-      JudgeCriteria.of({ rubric: 'scores: stars\nGood?', claims: ['A claim.'] })
-        .scale.kind,
-    ).toBe('claims');
+  it('passes once the share of met claims reaches its threshold', () => {
+    const criteria = JudgeCriteria.of({
+      claims: ['A.', 'B.', 'C.'],
+      passThreshold: 2 / 3,
+    });
+
+    expect(criteria.passes([true, true, false])).toBe(true);
+    expect(criteria.passes([true, false, false])).toBe(false);
+  });
+
+  it('never passes claim results for another number of claims', () => {
+    expect(JudgeCriteria.of({ claims: ['A.'] }).passes([true, true])).toBe(
+      false,
+    );
   });
 
   it.each([
-    [{ rubric: null }],
-    [{ rubric: '  ' }],
-    [{ rubric: null, claims: [] }],
-    [{ rubric: null, claims: ['  '] }],
-    [{ rubric: null, claims: Array.from({ length: 21 }, () => 'A claim.') }],
-    [{ rubric: null, claims: ['A claim.'], passThreshold: 1.2 }],
-    [{ rubric: 'scores: stars\nGood?' }],
+    [{ claims: [] }],
+    [{ claims: ['  '] }],
+    [{ claims: ['x'.repeat(501)] }],
+    [{ claims: Array.from({ length: 21 }, () => 'A claim.') }],
+    [{ claims: ['A claim.'], passThreshold: 1.2 }],
+    [{ claims: ['A claim.'], passThreshold: 0 }],
   ])('rejects a judge it cannot judge by', (input) => {
     expect(() => JudgeCriteria.of(input)).toThrow(InvalidJudgeCriteriaError);
     expect(JudgeCriteria.readable(input)).toBeNull();

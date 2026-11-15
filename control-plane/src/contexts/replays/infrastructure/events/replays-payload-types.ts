@@ -7,6 +7,8 @@ import { ConfigPullRequestMerged } from '@replays/domain/events/config-pull-requ
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import { ConfigPullRequestReopened } from '@replays/domain/events/config-pull-request-reopened.event';
 import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
+import { JudgeClaimsPullRequestFailed } from '@replays/domain/events/judge-claims-pull-request-failed.event';
+import { JudgeClaimsPullRequestOpened } from '@replays/domain/events/judge-claims-pull-request-opened.event';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCeilingReached } from '@replays/domain/events/replay-ceiling-reached.event';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
@@ -55,6 +57,7 @@ import { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
 import { HealthSampleGroup } from '@replays/domain/value-objects/health-sample-group.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
+import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -171,6 +174,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   SearchReplaysPlanned,
   StationSearchSkipped,
   ReplayCheckId,
+  JudgeCalibration,
   ReplayThreshold,
   ReusedReplays,
   SearchPolicy,
@@ -187,4 +191,6 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ConfigPullRequestReopened,
   ConfigPullRequestMerged,
   ConfigPullRequestClosed,
+  JudgeClaimsPullRequestOpened,
+  JudgeClaimsPullRequestFailed,
 ] as const;

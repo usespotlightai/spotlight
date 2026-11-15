@@ -43,6 +43,7 @@ export interface HclGuardedBlock {
   readonly type: string;
   readonly expected: Readonly<Record<string, HclLiteral>> | null;
   readonly unset?: Readonly<Record<string, HclLiteral>>;
+  readonly desired?: Readonly<Record<string, HclLiteral>>;
 }
 
 export interface HclBlockEdit {
@@ -105,6 +106,12 @@ class HclEditFailure extends Error {
 }
 
 class OneLineBlock extends Error {}
+
+interface GuardedChange {
+  readonly type: string;
+  readonly name: string;
+  readonly desired: HclLiteral;
+}
 
 const fail = (
   code: HclEditErrorCode,
@@ -665,8 +672,10 @@ class Editing {
       });
     }
 
+    const rewritten: GuardedChange[] = [];
+
     for (const guarded of this.edit.blocks) {
-      await this.guard(block, guarded, unchecked);
+      rewritten.push(...(await this.guard(block, guarded, unchecked, edits)));
     }
 
     for (const write of writes) {
@@ -696,7 +705,7 @@ class Editing {
         this.text,
       );
 
-    await this.readBack(content, changed);
+    await this.readBack(content, changed, rewritten);
 
     return {
       files: [{ path: this.edit.file.path, content }, ...files],
@@ -708,7 +717,8 @@ class Editing {
     block: ParsedBlock,
     guarded: HclGuardedBlock,
     unchecked: string[],
-  ): Promise<void> {
+    edits: TextEdit[],
+  ): Promise<readonly GuardedChange[]> {
     const found = block.body.blocks.filter(
       (each) => each.type === guarded.type && each.labels.length === 0,
     );
@@ -723,7 +733,7 @@ class Editing {
       if (found.length > 0) {
         baseChanged();
       }
-      return;
+      return [];
     }
 
     const [nested] = found;
@@ -745,11 +755,66 @@ class Editing {
         baseChanged();
       }
     }
+
+    return this.rewritten(nested, guarded, edits);
+  }
+
+  private rewritten(
+    nested: ParsedBlock,
+    guarded: HclGuardedBlock,
+    edits: TextEdit[],
+  ): readonly GuardedChange[] {
+    const changes: GuardedChange[] = [];
+
+    for (const [name, desired] of Object.entries(guarded.desired ?? {})) {
+      const expected =
+        guarded.expected?.[name] ?? guarded.unset?.[name] ?? null;
+
+      if (same(expected, desired)) {
+        continue;
+      }
+
+      const attribute = `${guarded.type}.${name}`;
+      const existing = nested.body.attributes.find(
+        (each) => each.name === name,
+      );
+
+      if (!existing || existing.read.kind !== 'literal') {
+        return fail(
+          'edit-failed',
+          `\`${attribute}\` is not a plain value in the file. Spotlight changes only plain values. Please change it by hand.`,
+          {
+            attribute,
+            expression: existing?.sourceText ?? null,
+            wanted: desired,
+          },
+        );
+      }
+
+      const oneLine =
+        restOfLine(this.text, existing.value.end).trim().length > 0;
+
+      edits.push({
+        start: existing.value.start,
+        end: existing.value.end,
+        text: this.lined(
+          formatHclValue(
+            desired,
+            levelOf(indentAt(this.text, existing.span.start)),
+            !oneLine,
+          ),
+        ),
+      });
+      changes.push({ type: guarded.type, name, desired });
+    }
+
+    return changes;
   }
 
   private async readBack(
     content: string,
     changed: readonly HclField[],
+    rewritten: readonly GuardedChange[],
   ): Promise<void> {
     let parsed: ParsedBody;
 
@@ -789,6 +854,28 @@ class Editing {
           'edit-failed',
           `Spotlight's edit of \`${field.name}\` reads back with a different value. Please change it by hand.`,
           { attribute: field.name, wanted: field.desired },
+        );
+      }
+    }
+
+    for (const change of rewritten) {
+      const attribute = `${change.type}.${change.name}`;
+      const nested = block.body.blocks.find(
+        (each) => each.type === change.type && each.labels.length === 0,
+      );
+      const read = nested
+        ? await again.resolved(
+            nested.body.attributes.find((each) => each.name === change.name),
+            null,
+            attribute,
+          )
+        : null;
+
+      if (!read?.ok || !same(read.value, change.desired)) {
+        fail(
+          'edit-failed',
+          `Spotlight's edit of \`${attribute}\` reads back with a different value. Please change it by hand.`,
+          { attribute, wanted: change.desired },
         );
       }
     }

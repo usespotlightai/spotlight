@@ -9,6 +9,7 @@ import {
   type ConfigPullRequestFacts,
 } from '@replays/application/rendering/config-pull-request-body';
 import { taskRowsOf } from '@replays/application/rendering/task-rows';
+import type { JudgeCalibrations } from '@replays/application/services/judge-calibrations.service';
 import type { SearchFindings } from '@replays/application/services/search-findings.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
@@ -78,6 +79,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     private readonly healths: SetHealths,
     private readonly sets: ReplaySetRepository,
     private readonly findings: SearchFindings,
+    private readonly calibrations: Pick<JudgeCalibrations, 'liveAt'>,
   ) {}
 
   async processDue(): Promise<void> {
@@ -301,6 +303,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       replayOf(picked?.heldOutReplayId),
     );
     const health = set ? await this.healths.ofSet(set, live) : null;
+    const judge = set ? await this.calibrations.liveAt(set) : null;
 
     return {
       objective: search.objective,
@@ -362,6 +365,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
         minGain: live.minGain,
       },
       found,
+      judge,
     };
   }
 

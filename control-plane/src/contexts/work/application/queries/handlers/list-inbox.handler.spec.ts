@@ -152,7 +152,7 @@ describe('ListInboxHandler', () => {
               teamId: 'team_1',
               form: 'ended',
               headline: 'The search stalled',
-              points: ['Fix the rubric.'],
+              points: ['Fix the claims.'],
               link: 'lines/line_1/stations/station_1',
               linkLabel: 'Open the station',
               externalLink: {
@@ -175,7 +175,7 @@ describe('ListInboxHandler', () => {
       teamId: 'team_1',
       form: 'ended',
       headline: 'The search stalled',
-      points: ['Fix the rubric.'],
+      points: ['Fix the claims.'],
       link: 'lines/line_1/stations/station_1',
       linkLabel: 'Open the station',
       externalLink: {

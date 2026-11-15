@@ -40,7 +40,6 @@ import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import { SeenPullRequest } from '@insights/domain/value-objects/seen-pull-request.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
@@ -74,7 +73,6 @@ export const INSIGHTS_PAYLOAD_TYPES = [
   Rubric,
   ScoreId,
   ScoreFact,
-  ScoreScale,
   PairReason,
   SeenEvidence,
   SeenPullRequest,

@@ -12,7 +12,7 @@ export const TIMELINE =
 const fills: Record<TraceNode['category'], string> = {
   agent: 'bg-primary',
   overhead: 'bg-faint',
-  failed: 'bg-outcome-failed',
+  failed: 'bg-destructive',
 };
 
 export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {

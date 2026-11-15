@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
 
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
+import { RunCitationTargets } from '@/components/features/runs/RunCitationTargets';
 import { RunConversation } from '@/components/features/runs/RunConversation';
 import { RunFooter } from '@/components/features/runs/RunFooter';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
+import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import {
@@ -70,36 +72,40 @@ export function RunThread({
         </div>
       ) : (
         <RunSidePanel>
-          <JournalDemandContext value={journal.demand}>
-            <RunConversation
-              teamId={teamId}
-              conversation={conversation}
-              worked={journal.data ?? []}
-              progress={shownProgress(
-                progress,
-                latest?.id ?? null,
-                journal.data ?? [],
-              )}
-              openAt={lastNoteOf(
-                conversation.notes.filter(showsInThread),
-                runId,
-              )}
-              footer={
-                run && latest ? (
-                  <RunFooter
-                    slug={slug}
-                    teamId={teamId}
-                    run={run}
-                    latest={latest}
-                    conversation={conversation}
-                    deciding={decisionPending(conversation.notes)}
-                  />
-                ) : null
-              }
-              deciding={decide}
-              afterRun={{ runId, content: after }}
-            />
-          </JournalDemandContext>
+          <StepAnchorsProvider runId={runId} journals={journal.data ?? []}>
+            <RunCitationTargets runId={runId} journals={journal.data ?? []}>
+              <JournalDemandContext value={journal.demand}>
+                <RunConversation
+                  teamId={teamId}
+                  conversation={conversation}
+                  worked={journal.data ?? []}
+                  progress={shownProgress(
+                    progress,
+                    latest?.id ?? null,
+                    journal.data ?? [],
+                  )}
+                  openAt={lastNoteOf(
+                    conversation.notes.filter(showsInThread),
+                    runId,
+                  )}
+                  footer={
+                    run && latest ? (
+                      <RunFooter
+                        slug={slug}
+                        teamId={teamId}
+                        run={run}
+                        latest={latest}
+                        conversation={conversation}
+                        deciding={decisionPending(conversation.notes)}
+                      />
+                    ) : null
+                  }
+                  deciding={decide}
+                  afterRun={{ runId, content: after }}
+                />
+              </JournalDemandContext>
+            </RunCitationTargets>
+          </StepAnchorsProvider>
         </RunSidePanel>
       )}
     </div>

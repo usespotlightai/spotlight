@@ -216,6 +216,7 @@ const node = (
   cost: null,
   currency: null,
   step: null,
+  place: null,
   span: null,
   connection: null,
   egressEnforcement: null,
@@ -237,6 +238,7 @@ const stepNodes = (
       ms: step.ms,
       category: step.status === 'failed' ? 'failed' : 'agent',
       step,
+      place: index,
     }),
   );
 

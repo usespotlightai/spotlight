@@ -1,9 +1,9 @@
 import type {
-  ConfigChangeResponseDto,
+  InsightsConfigChangeResponseDto,
   FingerprintGroupResponseDto,
   LineResponseDto,
   RunTallyResponseDto,
-  RunUsageResponseDto,
+  StationRunUsageResponseDto,
   StationInsightsResponseDto,
   StationResponseDto,
   StationRunOutcomeResponseDto,
@@ -34,7 +34,7 @@ export type StationRun = {
 
 export type StationVersion = {
   readonly fingerprint: string;
-  readonly changes: readonly ConfigChangeResponseDto[];
+  readonly changes: readonly InsightsConfigChangeResponseDto[];
   readonly pullRequest: string | null;
 };
 
@@ -51,7 +51,7 @@ export const stationOf = (
 ): StationResponseDto | undefined =>
   lineOf(teamId, lineId)?.stations.find((each) => each.id === stationId);
 
-const usageOf = (run: HistoryRun): RunUsageResponseDto => {
+const usageOf = (run: HistoryRun): StationRunUsageResponseDto => {
   const story = storyOf(run.runId);
   const spent = story.spend;
 

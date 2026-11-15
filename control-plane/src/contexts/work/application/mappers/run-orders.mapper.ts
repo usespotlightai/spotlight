@@ -232,6 +232,7 @@ const manifestOf = (value: JsonValue): ToolManifestShape => {
     ...present('output', tool.output, (each) =>
       objectAt(each, 'spec tool output'),
     ),
+    ...(tool.readOnly === true ? { readOnly: true as const } : {}),
   };
 };
 

@@ -8,7 +8,6 @@ export const STATION_JUDGES = Symbol('INSIGHTS_STATION_JUDGES');
 export interface StationJudge {
   readonly teamId: TeamId;
   readonly lineId: LineId;
-  readonly rubric: string | null;
   readonly claims: readonly string[];
   readonly passThreshold: number;
   readonly rubricVersion: RubricVersion;

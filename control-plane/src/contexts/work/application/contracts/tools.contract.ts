@@ -22,4 +22,5 @@ export interface ToolDeclaration {
   readonly inputs: readonly ToolInputDeclaration[];
   readonly approval: ApprovalDeclaration | null;
   readonly inferredOutput: JsonObject | null;
+  readonly readOnly: boolean;
 }

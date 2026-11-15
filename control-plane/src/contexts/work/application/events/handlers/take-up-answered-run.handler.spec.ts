@@ -5,6 +5,10 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { recordingRuns } from '@work/application/ports/runs.fake-spec';
+import {
+  NO_TOOL_CHANGE,
+  resumingWith,
+} from '@work/application/services/resume-task-run.fake-spec';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
@@ -17,6 +21,9 @@ const TASK = TaskId.of('task_1');
 
 const takingUp = (takesUp = true) => {
   const runs = recordingRuns();
+  const dispatches = {
+    find: async () => null,
+  } as unknown as DispatchRepository;
   const handler = new TakeUpAnsweredRun(
     {
       find: async () =>
@@ -25,9 +32,9 @@ const takingUp = (takesUp = true) => {
           stationId: StationId.of('station_1'),
         }) as unknown as Task,
     } as unknown as TaskRepository,
-    { find: async () => null } as unknown as DispatchRepository,
+    dispatches,
     { findByStation: async () => null } as unknown as LineMapsPort,
-    runs,
+    resumingWith(runs, dispatches),
   );
 
   return { handler, runs };
@@ -42,7 +49,13 @@ describe('TakeUpAnsweredRun', () => {
 
     await handler.on(answered(AwaitedTurn.of(RUN, 1)));
 
-    expect(runs.resume).toHaveBeenCalledWith(RUN, 1, 'answered', []);
+    expect(runs.resume).toHaveBeenCalledWith(
+      RUN,
+      1,
+      'answered',
+      [],
+      NO_TOOL_CHANGE,
+    );
   });
 
   it('resumes whatever turn was kept on an answer that was to no turn', async () => {
@@ -50,7 +63,13 @@ describe('TakeUpAnsweredRun', () => {
 
     await handler.on(answered(null));
 
-    expect(runs.resume).toHaveBeenCalledWith(RUN, null, 'answered', []);
+    expect(runs.resume).toHaveBeenCalledWith(
+      RUN,
+      null,
+      'answered',
+      [],
+      NO_TOOL_CHANGE,
+    );
   });
 
   it('resumes no turn of another run', async () => {
@@ -58,7 +77,13 @@ describe('TakeUpAnsweredRun', () => {
 
     await handler.on(answered(AwaitedTurn.of(RunId.of('run_0'), 1)));
 
-    expect(runs.resume).toHaveBeenCalledWith(RUN, null, 'answered', []);
+    expect(runs.resume).toHaveBeenCalledWith(
+      RUN,
+      null,
+      'answered',
+      [],
+      NO_TOOL_CHANGE,
+    );
   });
 
   it('leaves the run alone while its task does not take it up', async () => {

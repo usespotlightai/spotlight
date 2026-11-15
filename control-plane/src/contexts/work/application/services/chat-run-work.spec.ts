@@ -35,6 +35,7 @@ const work = new ChatRunWork(
 
 const tool = (approval: ApprovalNeeded | null) =>
   DeclaredTool.of({
+    readOnly: false,
     tool: Tool.of('linear.comment'),
     description: 'Comment on the issue.',
     approval,

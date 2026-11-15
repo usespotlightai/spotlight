@@ -23,6 +23,7 @@ export interface OfferedChatTool {
 const declaredOf = (extension: ChatToolExtension): DeclaredTool =>
   DeclaredTool.of({
     tool: Tool.of(extension.declaration.tool),
+    readOnly: false,
     description: extension.declaration.description,
     inputs: extension.declaration.inputs.map((each) => ({
       name: each.name,

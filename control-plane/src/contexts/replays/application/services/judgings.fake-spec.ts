@@ -234,10 +234,7 @@ export const judgedOnce = async (
     .recordJudgment(
       {
         judged: true,
-        value: input.criteria.scale.kind === 'number' ? 5 : 1,
-        claimResults: input.criteria.scale.byClaims
-          ? input.criteria.claims.map(() => true)
-          : null,
+        claimResults: input.criteria.claims.map(() => true),
         reasons: [],
         guidance: null,
         referenced: false,

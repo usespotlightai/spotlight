@@ -1,10 +1,10 @@
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
-import { judgeGuidanceOf } from '@shared-kernel/domain/value-objects/judge-guidance';
 import {
-  isJudgeScaleKind,
-  JudgeScale,
-  type JudgeScaleKind,
-} from '@shared-kernel/domain/value-objects/judge-scale.vo';
+  claimShareOf,
+  claimsPass,
+  isPassThreshold,
+} from '@shared-kernel/domain/value-objects/claim-share';
+import { judgeGuidanceOf } from '@shared-kernel/domain/value-objects/judge-guidance';
 
 export interface CitedReason {
   readonly text: string;
@@ -13,14 +13,9 @@ export interface CitedReason {
   readonly claim: number | null;
 }
 
-const isRate = (value: number): boolean =>
-  Number.isFinite(value) && value >= 0 && value <= 1;
-
 export class JudgeVerdict {
   private constructor(
-    readonly scale: JudgeScaleKind,
-    readonly value: number,
-    readonly claimResults: readonly boolean[] | null,
+    readonly claimResults: readonly boolean[],
     readonly claims: readonly string[],
     readonly passThreshold: number,
     readonly model: string,
@@ -30,9 +25,7 @@ export class JudgeVerdict {
   ) {}
 
   static of(input: {
-    scale: string;
-    value: number;
-    claimResults: readonly boolean[] | null;
+    claimResults: readonly boolean[];
     claims: readonly string[];
     passThreshold: number;
     model: string;
@@ -42,37 +35,22 @@ export class JudgeVerdict {
   }): JudgeVerdict {
     const { claimResults, passThreshold } = input;
 
-    if (!isJudgeScaleKind(input.scale)) {
-      throw new InvalidReplayError(
-        `judge must score yes or no, 1 to 5, or by claims, not ${input.scale}`,
-      );
+    if (claimResults.length === 0) {
+      throw new InvalidReplayError('judge must mark each claim');
     }
-
-    const scale = JudgeScale.of(input.scale);
-
-    if (!scale.includes(input.value)) {
-      throw new InvalidReplayError(
-        `judge score ${input.value} is not on the ${input.scale} scale`,
-      );
-    }
-    if (!scale.marks(input.value, claimResults)) {
-      throw new InvalidReplayError(
-        'judge must mark claims only when it judges by claims',
-      );
-    }
-    if ((claimResults?.length ?? 0) !== input.claims.length) {
+    if (claimResults.length !== input.claims.length) {
       throw new InvalidReplayError(
         'judge must name exactly the claims it marks',
       );
     }
-    if (!isRate(passThreshold)) {
-      throw new InvalidReplayError('judge pass threshold must be from 0 to 1');
+    if (!isPassThreshold(passThreshold)) {
+      throw new InvalidReplayError(
+        'judge pass threshold must be above 0, up to 1',
+      );
     }
 
     return new JudgeVerdict(
-      input.scale,
-      input.value,
-      claimResults && [...claimResults],
+      [...claimResults],
       [...input.claims],
       passThreshold,
       input.model,
@@ -83,20 +61,22 @@ export class JudgeVerdict {
         hunks: [...each.hunks],
         claim: each.claim,
       })),
-      scale.passes(input.value, passThreshold)
+      claimsPass(claimResults, passThreshold)
         ? null
         : judgeGuidanceOf(input.guidance),
     );
   }
 
+  get value(): number {
+    return claimShareOf(this.claimResults);
+  }
+
   get passes(): boolean {
-    return JudgeScale.of(this.scale).passes(this.value, this.passThreshold);
+    return claimsPass(this.claimResults, this.passThreshold);
   }
 
   equals(other: JudgeVerdict): boolean {
     return (
-      this.scale === other.scale &&
-      this.value === other.value &&
       JSON.stringify(this.claimResults) ===
         JSON.stringify(other.claimResults) &&
       JSON.stringify(this.claims) === JSON.stringify(other.claims) &&

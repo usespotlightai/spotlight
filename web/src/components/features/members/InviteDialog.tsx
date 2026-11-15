@@ -61,9 +61,7 @@ export function InviteDialog({
             teams={teams}
             teamIds={teamIds}
             sending={sending}
-            failure={invite.isError ? invite.error.message : null}
             onSend={send}
-            onEdit={() => invite.isError && invite.reset()}
           />
         )}
       </DialogContent>

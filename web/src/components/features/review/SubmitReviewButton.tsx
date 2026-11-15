@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
+import { FieldTextarea } from '@/components/shared/form/FieldTextarea';
+import { RadioRow } from '@/components/shared/form/RadioRow';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -16,7 +17,6 @@ import {
   VERDICTS,
 } from '@/lib/review';
 import { useReviewing } from '@/lib/review-context';
-import { cn } from '@/lib/utils';
 
 const LANDS_ON: Record<PullRequestRoute, (comments: string) => string> = {
   routed: (comments) => `Spotlight posts ${comments} to the pull request.`,
@@ -91,40 +91,26 @@ export function SubmitReviewButton() {
           </p>
         </div>
 
-        <AutoGrowTextarea
+        <FieldTextarea
           aria-label="Review summary"
           placeholder="Leave a summary (optional)"
           value={body}
           onChange={(event) => setBody(event.target.value)}
-          className="max-h-48 min-h-16 rounded-md border-[0.5px] border-border bg-background px-2 py-1.5 text-sm leading-5"
         />
 
         <fieldset className="flex flex-col gap-1">
           <legend className="sr-only">Verdict</legend>
           {VERDICTS.map((each) => (
-            // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- the label wraps its input and names it with the text beside it
-            <label
+            <RadioRow
               key={each.id}
-              className={cn(
-                'flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted',
-                verdict === each.id && 'bg-muted',
-              )}
+              name="verdict"
+              value={each.id}
+              checked={verdict === each.id}
+              onChange={() => setVerdict(each.id)}
+              description={each.description}
             >
-              <input
-                type="radio"
-                name="verdict"
-                value={each.id}
-                checked={verdict === each.id}
-                onChange={() => setVerdict(each.id)}
-                className="mt-1"
-              />
-              <span className="flex flex-col">
-                <span className="text-foreground text-sm">{each.label}</span>
-                <span className="text-muted-foreground text-xs">
-                  {each.description}
-                </span>
-              </span>
-            </label>
+              {each.label}
+            </RadioRow>
           ))}
         </fieldset>
 

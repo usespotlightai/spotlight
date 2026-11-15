@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react';
 
-import { commandShortcut } from '@/lib/command';
+import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
 
 type SidebarSearchProps = {
   onOpen: () => void;
@@ -16,9 +16,11 @@ export function SidebarSearch({ onOpen }: SidebarSearchProps) {
     >
       <Search className="size-3.5 shrink-0" />
       <span className="truncate">Search</span>
-      <kbd className="ml-auto shrink-0 font-sans text-xs opacity-0 transition-opacity group-hover/search:opacity-100 group-focus-visible/search:opacity-100">
-        {commandShortcut(navigator.userAgent)}
-      </kbd>
+      <ShortcutKeys
+        id="palette.open"
+        plain
+        className="ml-auto opacity-0 transition-opacity group-hover/search:opacity-100 group-focus-visible/search:opacity-100"
+      />
     </button>
   );
 }

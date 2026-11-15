@@ -11,6 +11,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface HumanActionReceived {
@@ -18,6 +19,7 @@ export interface HumanActionReceived {
   readonly workspaceId: string;
   readonly stationId: string;
   readonly action: string;
+  readonly by: string;
   readonly afterRunId: string | null;
   readonly at: string;
   readonly tool: string | null;
@@ -39,7 +41,11 @@ export class RecordHumanAction {
       return;
     }
 
-    const action = HumanAction.of(kind, new Date(event.at));
+    const action = HumanAction.of(
+      kind,
+      new Date(event.at),
+      UserId.of(event.by),
+    );
     const tool = { tool: event.tool, server: event.server };
     const workspaceId = WorkspaceId.of(event.workspaceId);
     const taskId = TaskId.of(event.taskId);

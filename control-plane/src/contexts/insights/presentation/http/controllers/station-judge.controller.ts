@@ -24,7 +24,7 @@ export class StationJudgeController {
   @ApiOperation({
     operationId: 'readStationJudge',
     summary:
-      'How often the station’s judge agrees with people, under each of its rubrics',
+      'How often the station’s judge agrees with people, under each of its claims versions',
   })
   @ApiParam({ name: 'teamId', type: String })
   @ApiParam({ name: 'lineId', type: String })

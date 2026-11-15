@@ -4,8 +4,14 @@ import type { ReactNode } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { DropIndicator } from '@/components/features/board/task/DropIndicator';
+import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type StationSectionProps = {
@@ -19,6 +25,7 @@ type StationSectionProps = {
   share: number;
   to?: string;
   onAddTask?: () => void;
+  entry?: boolean;
   landing?: boolean;
   children?: ReactNode;
 };
@@ -34,6 +41,7 @@ export function StationSection({
   share,
   to,
   onAddTask,
+  entry = false,
   landing,
   children,
 }: StationSectionProps) {
@@ -94,14 +102,27 @@ export function StationSection({
         )}
 
         {onAddTask && (
-          <button
-            type="button"
-            onClick={onAddTask}
-            aria-label={`Add task to ${name}`}
-            className="relative ml-auto flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors after:absolute after:-inset-2 hover:bg-foreground/10 hover:text-foreground"
-          >
-            <Plus className="size-3.5" aria-hidden />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  onClick={onAddTask}
+                  aria-label={`Add task to ${name}`}
+                  className="relative ml-auto flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors after:absolute after:-inset-2 hover:bg-foreground/10 hover:text-foreground"
+                />
+              }
+            >
+              <Plus className="size-3.5" aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent align="end">
+              {entry ? (
+                <ShortcutHint id="task.create">Create a task</ShortcutHint>
+              ) : (
+                `Create a task in ${name}`
+              )}
+            </TooltipContent>
+          </Tooltip>
         )}
       </header>
 

@@ -266,6 +266,7 @@ const opening = () =>
     ),
     memory.setRepository,
     new SearchFindings(suppliers.trialableRuns),
+    suppliers.calibrations,
   );
 
 const following = () =>
@@ -462,13 +463,13 @@ describe('picking a search candidate', () => {
   });
 
   it('lists in the body what the edit could not check', async () => {
-    editor.answer = { ok: true, files: [], unchecked: ['judge.rubric'] };
+    editor.answer = { ok: true, files: [], unchecked: ['judge.claims'] };
     await pick();
     await opening().processDue();
 
     expect(only().current).toBe('opened');
     expect(configs.openings[0]?.body).toContain('## Not checked');
-    expect(configs.openings[0]?.body).toContain('`judge.rubric`');
+    expect(configs.openings[0]?.body).toContain('`judge.claims`');
   });
 
   it('fails for a repository the GitHub App cannot access, and for a file it does not contain', async () => {

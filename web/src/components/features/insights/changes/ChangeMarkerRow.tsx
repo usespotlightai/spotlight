@@ -16,6 +16,7 @@ import { formatCount, formatStation, type StationNames } from '@/lib/insights';
 import { type ChangeMarker, changeKey } from '@/lib/insights-changes';
 import { formatDay } from '@/lib/judge';
 import { pillClass } from '@/lib/pill';
+import { configChangesOf } from '@/lib/station-config';
 import { linePath } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
@@ -40,7 +41,8 @@ export function ChangeMarkerRow({
   const panel = useBeforeAfterPanel();
   const shown =
     panel.shown !== null && changeKey(panel.shown) === changeKey(marker);
-  const wide = hasTextDiff(marker.changes);
+  const changes = configChangesOf(marker.changes);
+  const wide = hasTextDiff(changes);
 
   return (
     <ExpandingRow slot="change-marker" className={ROW_DIVIDER}>
@@ -80,7 +82,7 @@ export function ChangeMarkerRow({
 
           <ClampedCell expansion={expansion} pinned={wide}>
             {marker.changes.length > 0 ? (
-              <ConfigPlan changes={marker.changes} />
+              <ConfigPlan changes={changes} />
             ) : (
               <p className="text-muted-foreground">Config not on record</p>
             )}
@@ -110,7 +112,7 @@ export function ChangeMarkerRow({
 
           {wide && (
             <RowDetail className="col-[4/-1]">
-              <ConfigPlan changes={marker.changes} />
+              <ConfigPlan changes={changes} />
             </RowDetail>
           )}
         </>

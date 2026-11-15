@@ -12,6 +12,7 @@ export const ToolDeclarationMapper = {
         ? { because: declared.approval.because }
         : null,
       inferredOutput: declared.inferredOutput,
+      readOnly: declared.readOnly,
     };
   },
 };

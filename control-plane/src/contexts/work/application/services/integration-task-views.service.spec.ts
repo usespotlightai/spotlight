@@ -198,6 +198,7 @@ describe('IntegrationTaskViews', () => {
         body: TaskNoteBody.of(
           ApprovalAsked.body(
             DeclaredTool.of({
+              readOnly: false,
               tool: Tool.of('linear.comment'),
               description: 'Comment on the issue.',
             }),

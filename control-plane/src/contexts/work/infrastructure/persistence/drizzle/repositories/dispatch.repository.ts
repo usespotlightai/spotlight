@@ -76,6 +76,7 @@ const failureOf = (failure: string | null): RunFailureCode | null => {
 
 const changing = (saved: Dispatch) => ({
   order: saved.order?.snapshot ?? null,
+  toolsOnMarks: saved.toolsOnMarks.map((each) => each.value),
   enqueued: saved.enqueued,
   refused: saved.refusedBecause,
   detachedAt: saved.detachedAt,
@@ -199,7 +200,6 @@ export class DrizzleDispatchRepository implements DispatchRepository {
           briefedMemories: added.briefedMemories.value,
           stationConfig: added.configuredAs?.parts ?? null,
           stationFingerprint: added.configuredAs?.fingerprint ?? null,
-          toolsOnMarks: added.toolsOnMarks.map((each) => each.value),
           orderedAt: added.orderedAt,
           version: added.version,
           ...changing(added),

@@ -457,6 +457,7 @@ describe('NoticeSearchResults', () => {
         'ceiling-too-low',
         'noisy',
         'judge-unstable',
+        'judge-disagrees-with-people',
         'flaky-checks',
       ].map((reason) => `${reason} ${NOW.toISOString()}`),
     );

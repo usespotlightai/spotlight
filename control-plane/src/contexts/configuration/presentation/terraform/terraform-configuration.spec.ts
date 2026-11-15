@@ -84,7 +84,9 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     ends      = true
 
     judge {
-      rubric        = file("\${path.module}/judges/core/delivery/implementation.md")
+      claims = [
+        "It changes only what the task requests.",
+      ]
       sample        = 0.2
       min_agreement = 0.6
     }
@@ -177,7 +179,6 @@ describe('workspaceTerraform', () => {
       'hooks-core.tf',
       'imports.tf',
       'integration-core-linear.tf',
-      'judges/core/delivery/implementation.md',
       'line-core-delivery.tf',
       'line-core-review.tf',
       'profiles-core.tf',
@@ -318,13 +319,7 @@ describe('workspaceTerraform', () => {
     ).toBe('Implement the task.\n\n');
   });
 
-  it('keeps each judge rubric in its own file byte for byte, read with file()', () => {
-    expect(
-      fileOf(CONFIGURATION, 'judges/core/delivery/implementation.md'),
-    ).toBe('A good run changes only what the task requests.\n');
-  });
-
-  it('writes a judge’s claims one to a line and its pass threshold, with a rubric file only where it has a rubric', () => {
+  it('writes a judge’s claims one to a line and its pass threshold, with no judge file', () => {
     const line = resourceOf('line');
     const claimsOnly: ExportableConfigurationDto = {
       ...CONFIGURATION,
@@ -361,7 +356,6 @@ describe('workspaceTerraform', () => {
     expect(main).toMatch(
       /judge \{\n\s+claims = \[\n\s+"It adds a test\.",\n\s+"It touches only what the task names\.",\n\s+\]\n\s+pass_threshold = 0\.5\n\s+sample\s+= 0\.2\n\s+min_agreement\s+= 0\.6\n\s+\}/,
     );
-    expect(main).not.toContain('judges/core/delivery/implementation.md');
     expect(
       workspaceTerraform(claimsOnly).some((each) =>
         each.path.startsWith('judges/'),
@@ -1038,10 +1032,6 @@ describe('resourceHcl', () => {
 
   it('hands over only the files that resource reads', () => {
     expect(resourceHcl(CONFIGURATION, resourceOf('line')).files).toEqual([
-      {
-        path: 'judges/core/delivery/implementation.md',
-        content: 'A good run changes only what the task requests.\n',
-      },
       {
         path: 'prompts/core/delivery/implementation.md',
         content: 'Implement the task.\n\n',

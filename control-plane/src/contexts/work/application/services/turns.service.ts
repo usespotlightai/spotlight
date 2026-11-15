@@ -15,6 +15,7 @@ import type {
   DueRetake,
   TurnRetakesPort,
 } from '@work/application/ports/turn-retakes.port';
+import type { ResumeTaskRun } from '@work/application/services/resume-task-run.service';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
@@ -42,6 +43,7 @@ export class Turns {
     private readonly ids: IdGeneratorPort,
     private readonly telemetry: TelemetryPort,
     private readonly logger: LoggerPort,
+    private readonly resuming: ResumeTaskRun,
   ) {}
 
   async retakePending(): Promise<void> {
@@ -105,12 +107,16 @@ export class Turns {
 
       const line = await this.lines.findByStation(task.stationId);
 
-      await this.runs.resume(
-        run.runId,
-        run.attempt,
-        'answered',
-        RunCheckoutsMapper.toRun(line ? checkoutsOf(task, line) : []),
-      );
+      await this.resuming.resume({
+        task,
+        line,
+        runId: run.runId,
+        attempt: run.attempt,
+        because: 'answered',
+        checkouts: RunCheckoutsMapper.toRun(
+          line ? checkoutsOf(task, line) : [],
+        ),
+      });
     }
   }
 

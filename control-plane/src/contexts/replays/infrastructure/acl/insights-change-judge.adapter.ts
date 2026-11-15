@@ -12,7 +12,6 @@ const judgmentOf = (judgment: InsightsChangeJudgment): ChangeJudgment =>
   judgment.judged
     ? {
         judged: true,
-        value: judgment.value,
         claimResults: judgment.claimResults,
         reasons: judgment.reasons.map((each) => ({
           text: each.text,

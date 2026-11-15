@@ -42,9 +42,7 @@ export function DetailHeader({
         <h2
           className={cn(
             'min-w-0 flex-1 break-words font-medium text-sm leading-5',
-            node.category === 'failed'
-              ? 'text-outcome-failed'
-              : 'text-foreground',
+            node.category === 'failed' ? 'text-destructive' : 'text-foreground',
           )}
         >
           {node.name}

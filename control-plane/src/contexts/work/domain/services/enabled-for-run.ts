@@ -92,6 +92,10 @@ export const describedTools = (
     return found ? [found] : [];
   });
 
+export const toolsForATrial = (
+  described: readonly DeclaredTool[],
+): DeclaredTool[] => described.filter((each) => each.callableInIsolatedRun);
+
 export const skillsForTools = (
   described: readonly DeclaredTool[],
 ): SkillKey[] =>

@@ -1,6 +1,6 @@
-import type { RunsPort } from '@runs/application/ports/runs.port';
 import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { ResumeTaskRun } from '@work/application/services/resume-task-run.service';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -11,7 +11,7 @@ export class TakeUpAnsweredRun {
     private readonly tasks: TaskRepository,
     private readonly dispatches: DispatchRepository,
     private readonly lines: LineMapsPort,
-    private readonly runs: RunsPort,
+    private readonly resuming: ResumeTaskRun,
   ) {}
 
   async on(event: TaskAnswered): Promise<void> {
@@ -30,11 +30,13 @@ export class TakeUpAnsweredRun {
       ? event.awaitedTurn.attempt
       : null;
 
-    await this.runs.resume(
+    await this.resuming.resume({
+      task,
+      line,
       runId,
-      turn,
-      'answered',
-      RunCheckoutsMapper.toRun(line ? checkoutsOf(task, line) : []),
-    );
+      attempt: turn,
+      because: 'answered',
+      checkouts: RunCheckoutsMapper.toRun(line ? checkoutsOf(task, line) : []),
+    });
   }
 }

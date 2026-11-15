@@ -4,7 +4,11 @@ import type { JudgeRequest } from '@insights/application/ports/judge.port';
 import { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import type { RunJudged } from '@insights/domain/events/run-judged.event';
 import type { Verdict } from '@insights/domain/services/grounded-verdict';
-import { JudgingsInMemory, queuedJudging } from '@insights/judging.fake-spec';
+import {
+  CLAIMS,
+  JudgingsInMemory,
+  queuedJudging,
+} from '@insights/judging.fake-spec';
 import { inTransaction } from '@insights/runs.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
@@ -87,17 +91,24 @@ const working = async (
   };
 };
 
-describe('WorkJudgings', () => {
-  it('judges the run on its rubric, steps and hunks, and records the grounded verdict', async () => {
-    const { requests, judging, judgings } = await working(async () => ({
-      value: true,
-      reasons: [
-        { text: 'It retries.', steps: [2], hunks: ['api/src/uploads.ts#1'] },
-      ],
-    }));
+const everyClaim = (
+  met: boolean,
+  reason: { text: string; steps: number[]; hunks: string[] },
+): Verdict => ({
+  claims: CLAIMS.map((_, index) => ({ index, met, reasons: [reason] })),
+});
 
-    expect(requests[0]?.rubric).toBe('Did the run retry uploads?');
-    expect(requests[0]?.scale).toBe('yes-no');
+describe('WorkJudgings', () => {
+  it('judges the run on its claims, steps and hunks, and records the grounded verdict', async () => {
+    const { requests, judging, judgings } = await working(async () =>
+      everyClaim(true, {
+        text: 'It retries.',
+        steps: [2],
+        hunks: ['api/src/uploads.ts#1'],
+      }),
+    );
+
+    expect(requests[0]?.claims).toEqual(CLAIMS);
     expect(requests[0]?.guidanceRequested).toBe(false);
     expect(requests[0]?.effectsBlocked).toBe(false);
     expect(requests[0]?.steps.map((each) => each.index)).toEqual([2]);
@@ -112,7 +123,7 @@ describe('WorkJudgings', () => {
 
   it('fails where the run’s evidence is gone', async () => {
     const { requests, judging } = await working(
-      async () => ({ value: true, reasons: [] }),
+      async () => ({ claims: [] }),
       null,
     );
 
@@ -132,10 +143,9 @@ describe('WorkJudgings', () => {
   });
 
   it('retries later when no reason cites what the judge read', async () => {
-    const { judging, judgings } = await working(async () => ({
-      value: false,
-      reasons: [{ text: 'Made up.', steps: [40], hunks: [] }],
-    }));
+    const { judging, judgings } = await working(async () =>
+      everyClaim(false, { text: 'Made up.', steps: [40], hunks: [] }),
+    );
 
     expect(judging?.hasPendingJob).toBe(true);
     expect(judgings.events).toEqual([]);

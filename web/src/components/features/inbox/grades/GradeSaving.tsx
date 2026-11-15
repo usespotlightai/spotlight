@@ -1,17 +1,19 @@
-import { SAVING_GRADE } from '@/lib/judge';
+import { formatDay, type Grade, SAVING_GRADE } from '@/lib/judge';
 
 type GradeSavingProps = {
   pending: boolean;
+  mine: Grade | null;
 };
 
-export function GradeSaving({ pending }: GradeSavingProps) {
+export function GradeSaving({ pending, mine }: GradeSavingProps) {
   return (
     <span
       role="status"
       aria-live="polite"
-      className="text-muted-foreground text-xs empty:hidden"
+      data-slot="grade-saving"
+      className="shrink-0 text-muted-foreground text-xs tabular-nums empty:hidden"
     >
-      {pending ? SAVING_GRADE : null}
+      {pending ? SAVING_GRADE : mine ? formatDay(mine.at.slice(0, 10)) : null}
     </span>
   );
 }

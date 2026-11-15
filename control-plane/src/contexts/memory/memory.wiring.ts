@@ -73,6 +73,7 @@ import { DeleteTeamMemories } from '@memory/application/services/delete-team-mem
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
+import { RecalledMemoryViews } from '@memory/application/services/recalled-memory-views.service';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import { RequestMemories } from '@memory/application/services/request-memories.service';
@@ -257,13 +258,18 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   { provide: TEAM_MEMORY_USE, useClass: DrizzleTeamMemoryUse },
   {
     provide: TeamMemoryViews,
-    inject: [MEMORIES, WORK, PEOPLE, MEMORY_USES],
+    inject: [MEMORIES, PEOPLE, MEMORY_USES],
     useFactory: (
       memories: MemoryRepository,
-      work: WorkPort,
       people: PeoplePort,
       uses: MemoryUsesPort,
-    ) => new TeamMemoryViews(memories, work, people, uses),
+    ) => new TeamMemoryViews(memories, people, uses),
+  },
+  {
+    provide: RecalledMemoryViews,
+    inject: [TeamMemoryViews, WORK, PEOPLE],
+    useFactory: (views: TeamMemoryViews, work: WorkPort, people: PeoplePort) =>
+      new RecalledMemoryViews(views, work, people),
   },
   {
     provide: RecordMemoryUses,
@@ -350,7 +356,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(RecallMemoryQuery, RecallMemoryHandler, [
     RunnerMemoryLoader,
     MEMORIES,
-    TeamMemoryViews,
+    RecalledMemoryViews,
   ]),
   ...bindCommandHandler(RecordRecallCommand, RecordRecallHandler, [
     RunnerMemoryLoader,

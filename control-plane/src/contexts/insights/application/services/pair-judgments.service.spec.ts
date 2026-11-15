@@ -56,7 +56,6 @@ const judging = async (
     otherRunId: RunId.of('replay_2'),
     reference: RunId.of('original_1'),
     criteria: JudgeCriteria.of({
-      rubric: null,
       claims: ['It drains.', 'It keeps the order.', 'It logs.'],
     }),
     orders: ORDERS,

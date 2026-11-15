@@ -36,6 +36,7 @@ export const TraceRow = memo(function TraceRow({
 
   return (
     <li
+      data-node-id={node.id}
       className={cn(
         'group relative flex h-7 items-center rounded-md text-sm transition-colors',
         picked ? 'bg-selected' : 'hover:bg-accent',
@@ -71,7 +72,7 @@ export const TraceRow = memo(function TraceRow({
           className={cn(
             'min-w-0 truncate text-left outline-none after:absolute after:inset-0',
             node.category === 'failed'
-              ? 'text-outcome-failed'
+              ? 'text-destructive'
               : 'text-muted-foreground',
           )}
         >

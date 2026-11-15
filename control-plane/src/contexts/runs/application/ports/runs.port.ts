@@ -1,5 +1,8 @@
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
-import type { RunCheckoutShape } from '@runs/application/contracts/run-spec.contract';
+import type {
+  RunCheckoutShape,
+  RunToolChangeShape,
+} from '@runs/application/contracts/run-spec.contract';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
@@ -19,6 +22,11 @@ export type RunEnqueueing =
   | { readonly outcome: 'refused'; readonly reason: string };
 
 export type ResumedBecause = 'messages' | 'answered';
+
+export type RunResumption =
+  | 'resumed'
+  | 'resumed-with-its-tools'
+  | 'not-resumed';
 
 export interface StopRequest {
   readonly pendingTurn: number | null;
@@ -41,6 +49,7 @@ export interface RunsPort {
     attempt: number | null,
     because: ResumedBecause,
     checkouts: readonly RunCheckoutShape[],
-  ): Promise<void>;
+    tools: RunToolChangeShape,
+  ): Promise<RunResumption>;
   finish(runId: RunId, attempt: number): Promise<void>;
 }

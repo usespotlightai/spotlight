@@ -222,6 +222,34 @@ describe('Dispatch', () => {
     ).toThrow(InvalidDispatchTransitionError);
   });
 
+  it('follows its task’s marks on a resume: it gains the tools they enable now and loses the others', () => {
+    const ISSUE = Tool.of('sentry.get-issue');
+    const EVENT = Tool.of('sentry.get-latest-event');
+    const LINEAR = Tool.of('linear.get-issue');
+    const dispatch = Dispatch.ordered({
+      ...ordering(),
+      configuredAs: StationConfig.rehydrate(
+        { ...CONFIG.parts, tools: ['pull-request'] },
+        CONFIG.fingerprint,
+      ),
+      toolsOnMarks: [LINEAR],
+      order: runOrderOf(RUN),
+    });
+
+    const changed = dispatch.withToolsOnMarks([
+      ISSUE,
+      EVENT,
+      ISSUE,
+      Tool.of('pull-request'),
+    ]);
+
+    expect(changed.added).toEqual([ISSUE, EVENT]);
+    expect(changed.removed).toEqual([LINEAR]);
+    expect(changed.dispatch.toolsOnMarks).toEqual([ISSUE, EVENT]);
+    expect(dispatch.withToolsOnMarks([LINEAR]).dispatch).toBe(dispatch);
+    expect(ordered(CHAT).withToolsOnMarks([ISSUE]).added).toEqual([]);
+  });
+
   it('says which memories it was briefed with once its run exists, and keeps no order after that', () => {
     const enqueued = ordered(TASK, MEMORIES);
     enqueued.pullEvents();

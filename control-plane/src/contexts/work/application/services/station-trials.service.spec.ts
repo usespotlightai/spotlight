@@ -19,6 +19,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { ToolDeclaration } from '@work/application/contracts/tools.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
 import type { NamedMemory } from '@work/application/ports/memories-briefed-before.port';
@@ -32,6 +33,7 @@ import { RunCatalog } from '@work/application/services/run-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import { StationTrials } from '@work/application/services/station-trials.service';
+import { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -187,22 +189,24 @@ const ORIGINAL_MEMORIES = BriefedMemories.of({
   omitted: [{ id: 'memory_2', handle: 'M-2' }],
 });
 
-const ORIGINAL_DISPATCH = Dispatch.ordered({
-  id: ORIGINAL,
-  workspaceId: WorkspaceId.of('ws_1'),
-  teamId: TeamId.of('team_1'),
-  subject: {
-    kind: 'task',
-    taskId: TaskId.of('task_1'),
-    revision: TaskRevision.of(1),
-    stationId: BUILD,
-  },
-  configuredAs: null,
-  briefedTask: BRIEFED,
-  briefedMemories: ORIGINAL_MEMORIES,
-  order: runOrderOf(ORIGINAL),
-  now: NOW,
-}).enqueuedAsRun();
+const originalDispatch = (toolsOnMarks: readonly Tool[] = []) =>
+  Dispatch.ordered({
+    id: ORIGINAL,
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of('team_1'),
+    subject: {
+      kind: 'task',
+      taskId: TaskId.of('task_1'),
+      revision: TaskRevision.of(1),
+      stationId: BUILD,
+    },
+    configuredAs: null,
+    briefedTask: BRIEFED,
+    briefedMemories: ORIGINAL_MEMORIES,
+    toolsOnMarks,
+    order: runOrderOf(ORIGINAL),
+    now: NOW,
+  }).enqueuedAsRun();
 
 const factsOf = (over: Partial<RunFacts> = {}): RunFacts =>
   ({
@@ -223,6 +227,27 @@ let candidate: LineMap = LINE;
 let gone: string[] = [];
 let taskGone = false;
 let taskNotes: TaskNote[] = [];
+let toolsOnMarks: Tool[] = [];
+
+const declaration = (
+  tool: string,
+  readOnly: boolean,
+  approval: { because: string } | null = null,
+): ToolDeclaration => ({
+  tool,
+  integrationName: tool.split('.')[0] ?? tool,
+  description: `Uses ${tool}.`,
+  inputs: [],
+  approval,
+  inferredOutput: null,
+  readOnly,
+});
+
+const DECLARED: readonly ToolDeclaration[] = [
+  declaration('linear.comment', false),
+  declaration('sentry.get-latest-event', true),
+  declaration('sentry.get-issue', true, { because: 'It reads private data.' }),
+];
 let trials: Dispatch[] = [];
 let requestedAgain: {
   place: BriefedContext;
@@ -235,7 +260,7 @@ const trialsOf = () =>
     {
       find: async (id: RunId) =>
         id.equals(ORIGINAL)
-          ? ORIGINAL_DISPATCH
+          ? originalDispatch(toolsOnMarks)
           : (trials.find((each) => each.id.equals(id)) ?? null),
       add: async (trial: Dispatch) => {
         trials.push(trial);
@@ -280,6 +305,16 @@ const trialsOf = () =>
       { named: async (_team, key) => (key === 'linear' ? LINEAR : null) },
       new Sha256ContentHash(),
     ),
+    new TeamIntegrations({
+      provided: async (_team, tools) =>
+        DECLARED.filter((each) => tools.includes(each.tool)),
+      toolsOnMarks: async () => {
+        throw new Error('a trial reads the tools its original had');
+      },
+      toolsOnAnyMark: async () => {
+        throw new Error('a trial reads the tools its original had');
+      },
+    }),
     {
       again: async (place, chosen) => {
         requestedAgain.push({ place, briefed: chosen.briefed });
@@ -359,6 +394,7 @@ describe('StationTrials', () => {
     gone = [];
     taskGone = false;
     taskNotes = [];
+    toolsOnMarks = [];
   });
 
   it('orders a trial of the run under the candidate, starting where the run started', async () => {
@@ -453,7 +489,7 @@ describe('StationTrials', () => {
     expect(trials).toEqual([]);
   });
 
-  it('enables no tools, MCP servers or secrets for the trial, and never requests where it started', async () => {
+  it('enables no tool that can change data, no MCP servers and no secrets for the trial, and never requests where it started', async () => {
     const spec = ordered(await trialsOf().order(request())).order.spec;
 
     expect(spec.manifest).toBeUndefined();
@@ -465,6 +501,29 @@ describe('StationTrials', () => {
       mcpServers: [],
       askKinds: ['execute'],
     });
+  });
+
+  it('enables the integration tools of the station and of its original’s marks that change nothing, and briefs the agent on them', async () => {
+    toolsOnMarks = [
+      Tool.of('sentry.get-latest-event'),
+      Tool.of('sentry.get-issue'),
+    ];
+    candidate = candidateOf(LINE, BUILD, {
+      tools: [Tool.of('linear.comment'), Tool.of('open-tasks')],
+    });
+
+    const spec = ordered(await trialsOf().order(request())).order.spec;
+
+    expect(spec.manifest).toEqual([
+      expect.objectContaining({
+        name: 'sentry.get-latest-event',
+        integration: 'sentry',
+        readOnly: true,
+      }),
+    ]);
+    expect(spec.catalog).toBeUndefined();
+    expect(spec.briefing).toContain('## Tools');
+    expect(spec.briefing).not.toContain('linear');
   });
 
   it('briefs the memories the original was briefed with, never searching afresh', async () => {

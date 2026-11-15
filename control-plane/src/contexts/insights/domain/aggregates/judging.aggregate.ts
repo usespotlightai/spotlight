@@ -8,6 +8,10 @@ import type { JudgeEvidence } from '@insights/domain/services/judge-evidence';
 import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
+import {
+  LIVE,
+  type ScoreOrigin,
+} from '@insights/domain/value-objects/score-origin';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
@@ -25,6 +29,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
     readonly location: RunLocation,
     readonly fingerprint: ConfigFingerprint | null,
     readonly rubric: Rubric,
+    readonly origin: ScoreOrigin,
     readonly queuedAt: Date,
     readonly job: PendingJob | null,
     readonly judgedAt: Date | null,
@@ -41,6 +46,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
     fingerprint: ConfigFingerprint | null;
     rubric: Rubric;
     now: Date;
+    origin?: ScoreOrigin;
   }): Judging {
     return new Judging(
       input.runId,
@@ -48,6 +54,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
       input.location,
       input.fingerprint,
       input.rubric,
+      input.origin ?? LIVE,
       input.now,
       PendingJob.fresh(),
       null,
@@ -62,6 +69,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
     location: RunLocation;
     fingerprint: string | null;
     rubric: Rubric;
+    origin?: ScoreOrigin;
     queuedAt: Date;
     job: PendingJob | null;
     judgedAt: Date | null;
@@ -85,12 +93,37 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
       input.location,
       ConfigFingerprint.optional(input.fingerprint),
       input.rubric,
+      input.origin ?? LIVE,
       input.queuedAt,
       input.job,
       input.judgedAt,
       input.failure,
       input.version,
     );
+  }
+
+  rejudged(rubric: Rubric, now: Date): Judging {
+    if (this.job || this.rubric.version === rubric.version) {
+      return this;
+    }
+
+    const next = new Judging(
+      this.runId,
+      this.workspaceId,
+      this.location,
+      this.fingerprint,
+      rubric,
+      'backfill',
+      now,
+      PendingJob.fresh(),
+      null,
+      null,
+      this.version,
+    );
+
+    next.inheritEvents(this);
+
+    return next;
   }
 
   get hasPendingJob(): boolean {
@@ -168,13 +201,13 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
         this.location,
         this.fingerprint,
         this.rubric.version,
-        this.rubric.scale,
-        grounded.value,
         grounded.claimResults,
+        this.rubric.passThreshold,
         input.model,
         grounded.reasons,
         input.evidence.seenFor(grounded.reasons),
         input.now,
+        this.origin,
       ),
     );
     return judged;
@@ -195,6 +228,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
       this.location,
       this.fingerprint,
       this.rubric,
+      this.origin,
       this.queuedAt,
       change.job !== undefined ? change.job : this.job,
       change.judgedAt ?? this.judgedAt,

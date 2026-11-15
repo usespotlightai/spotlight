@@ -14,6 +14,13 @@ import {
 } from '@replays/domain/value-objects/config-pull-request-state';
 import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { FailureCauseKind } from '@replays/domain/value-objects/failure-cause.vo';
+import type { JudgeCalibrationFields } from '@replays/domain/value-objects/judge-calibration';
+import {
+  JUDGE_CLAIMS_TRIGGERS,
+  type JudgeClaimsAgreement,
+  type JudgeClaimsDisagreementRun,
+} from '@replays/domain/value-objects/judge-claims-proposal';
+import { JUDGE_CLAIMS_PULL_REQUEST_STATES } from '@replays/domain/value-objects/judge-claims-pull-request-state';
 import { PAIR_ORDERS } from '@replays/domain/value-objects/pair-order';
 import { REFLECTION_RESULTS } from '@replays/domain/value-objects/reflection-result';
 import {
@@ -40,7 +47,6 @@ import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { SEARCH_STOP_REASONS } from '@replays/domain/value-objects/search-stop-reason';
 import { SEARCH_TRIGGERS } from '@replays/domain/value-objects/search-trigger';
 import { UNREPLAYABLE_REASONS } from '@replays/domain/value-objects/unreplayable-reason';
-import type { JudgeScaleKind } from '@shared-kernel/domain/value-objects/judge-scale.vo';
 import { JUDGING_FAILURE_CODES } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { sql } from 'drizzle-orm';
 import {
@@ -143,9 +149,7 @@ export interface StoredEntryReason {
 }
 
 export interface StoredEntryVerdict {
-  readonly scale: string;
-  readonly value: number;
-  readonly claimResults: readonly boolean[] | null;
+  readonly claimResults: readonly boolean[];
   readonly claims: readonly string[];
   readonly passThreshold: number;
   readonly model: string;
@@ -262,7 +266,6 @@ export interface StoredOutcomeEntry {
   } | null;
   readonly verdict: {
     readonly value: number;
-    readonly scale: JudgeScaleKind;
     readonly referenced: boolean;
   } | null;
   readonly pair: PairOutcome | null;
@@ -347,7 +350,6 @@ export const replayCandidate = pgTable(
     scoringHash: text('scoring_hash').notNull(),
     lineFields: jsonb('line_fields').$type<StoredPlannedLine>(),
     checksChanges: boolean('checks_changes').notNull(),
-    rubric: text('rubric'),
     claims: jsonb('claims').$type<string[]>(),
     passThreshold: doublePrecision('pass_threshold'),
     rubricVersion: text('rubric_version'),
@@ -664,6 +666,7 @@ export const replayCheck = pgTable(
       .$type<string[]>()
       .notNull(),
     baseline: replayCheckBaseline('baseline').notNull(),
+    judge: jsonb('judge').$type<JudgeCalibrationFields>(),
     createdAt: timestamptz('created_at').notNull(),
     version: integer('version').notNull().default(0),
   },
@@ -862,7 +865,6 @@ export const changeJudging = pgTable(
     attempt: integer('attempt').notNull(),
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
-    rubric: text('rubric'),
     claims: jsonb('claims').$type<string[]>().notNull(),
     passThreshold: doublePrecision('pass_threshold').notNull(),
     referenceRunId: text('reference_run_id'),
@@ -895,7 +897,6 @@ export const sideBySideJudging = pgTable(
     otherRunId: text('other_run_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
-    rubric: text('rubric'),
     claims: jsonb('claims').$type<string[]>().notNull(),
     passThreshold: doublePrecision('pass_threshold').notNull(),
     referenceRunId: text('reference_run_id').notNull(),
@@ -948,5 +949,54 @@ export const replayRunDecision = pgTable(
       'replay_run_decision_unreplayable_reason',
       sql`(${table.decided} = 'unreplayable') = (${table.unreplayableReason} is not null)`,
     ),
+  ],
+);
+
+export const judgeClaimsPullRequestState = pgEnum(
+  'judge_claims_pull_request_state',
+  JUDGE_CLAIMS_PULL_REQUEST_STATES,
+);
+
+export const judgeClaimsTrigger = pgEnum(
+  'judge_claims_trigger',
+  JUDGE_CLAIMS_TRIGGERS,
+);
+
+export const judgeClaimsPullRequest = pgTable(
+  'judge_claims_pull_request',
+  {
+    revisionId: text('revision_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    lineId: text('line_id').notNull(),
+    stationId: text('station_id').notNull(),
+    trigger: judgeClaimsTrigger('trigger').notNull(),
+    claimsBefore: jsonb('claims_before').$type<string[]>().notNull(),
+    claimsAfter: jsonb('claims_after').$type<string[]>().notNull(),
+    searched: jsonb('searched').$type<JudgeClaimsAgreement>().notNull(),
+    heldOut: jsonb('held_out').$type<JudgeClaimsAgreement>().notNull(),
+    disagreementRuns: jsonb('disagreement_runs')
+      .$type<JudgeClaimsDisagreementRun[]>()
+      .notNull(),
+    state: judgeClaimsPullRequestState('state').notNull(),
+    pending: boolean('pending').notNull(),
+    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobDueAt: timestamptz('job_due_at'),
+    lastCommit: text('last_commit'),
+    url: text('url'),
+    reason: text('reason'),
+    requestedAt: timestamptz('requested_at').notNull(),
+    updatedAt: timestamptz('updated_at').notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    check(
+      'judge_claims_pull_request_job_attempts_not_negative',
+      sql`${table.jobAttempts} >= 0`,
+    ),
+    index('judge_claims_pull_request_pending_idx')
+      .on(table.requestedAt)
+      .where(sql`${table.pending}`),
+    index('judge_claims_pull_request_team_idx').on(table.teamId),
   ],
 );

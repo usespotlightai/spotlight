@@ -16,7 +16,6 @@ const started = vi.fn<
     },
   ) => void
 >();
-const starting = { isError: false, error: null as unknown };
 const harnesses = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
@@ -29,7 +28,7 @@ vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: () => Promise.resolve({ id: 'attachment_1' }),
 }));
 vi.mock('@/hooks/api/useStartChat', () => ({
-  useStartChat: () => ({ mutate: started, isPending: false, ...starting }),
+  useStartChat: () => ({ mutate: started, isPending: false }),
 }));
 
 const CLAUDE = {
@@ -78,8 +77,6 @@ const box = () => screen.getByRole('textbox', { name: 'Plan with the agent' });
 beforeEach(() => {
   localStorage.clear();
   started.mockReset();
-  starting.isError = false;
-  starting.error = null;
   harnesses.mockReturnValue([CLAUDE]);
 });
 
@@ -210,30 +207,21 @@ describe('NewChatComposer', () => {
     );
   });
 
-  it('says why the chat could not start', () => {
-    starting.isError = true;
-    starting.error = {
-      detail: 'Config home folder must not contain . or .. parts.',
-    };
+  it('keeps the message after a failed start, with no inline error', async () => {
+    started.mockImplementation((_input, { onError }) =>
+      onError(new Error('refused')),
+    );
     showing();
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Config home folder must not contain . or .. parts.',
-    );
-  });
+    await write(box(), 'Plan the retries');
+    await pressEnter(box());
 
-  it('says that only a workspace owner or admin can set up configuration', () => {
-    starting.isError = true;
-    starting.error = {
-      status: 403,
-      detail:
-        'Only a workspace owner or admin can set up configuration as code. The setup creates the OIDC trusts that GitHub Actions signs in with.',
-    };
-    showing();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(textOf(box())).toBe('Plan the retries');
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Only a workspace owner or admin can set up configuration as code. The setup creates the OIDC trusts that GitHub Actions signs in with.',
-    );
+    await pressEnter(box());
+
+    expect(started).toHaveBeenCalledTimes(2);
   });
 
   it('lets the handed station go before starting', async () => {

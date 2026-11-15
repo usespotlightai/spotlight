@@ -101,6 +101,49 @@ describe('RunSpec', () => {
     ).toBeNull();
   });
 
+  it('takes read-only integration tools as keeping to the run, and any other tool as acting beyond it', () => {
+    const tool = (name: string) => ({
+      name,
+      description: `Uses ${name}.`,
+      inputs: [],
+      approval: null,
+      integration: name.split('.')[0] ?? name,
+    });
+
+    expect(
+      actsBeyondItselfIn(
+        parts({
+          manifest: [{ ...tool('sentry.get-latest-event'), readOnly: true }],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      actsBeyondItselfIn(
+        parts({
+          manifest: [
+            { ...tool('sentry.get-latest-event'), readOnly: true },
+            tool('linear.comment'),
+          ],
+        }),
+      ),
+    ).not.toBeNull();
+    expect(
+      actsBeyondItselfIn(
+        parts({
+          manifest: [
+            {
+              name: 'checks',
+              description: 'Uses checks.',
+              inputs: [],
+              approval: null,
+              readOnly: true,
+            },
+          ],
+        }),
+      ),
+    ).not.toBeNull();
+  });
+
   it('keeps that the run reports the diff it leaves', () => {
     expect(RunSpec.of(parts({ diffs: true })).value.diffs).toBe(true);
     expect(RunSpec.of(parts()).value.diffs).toBeUndefined();
@@ -206,6 +249,80 @@ describe('RunSpec', () => {
     expect(spec.enables(Tool.of('pull-request'))).toBe(true);
     expect(spec.enables(Tool.of('merge'))).toBe(false);
     expect(RunSpec.of(parts()).enables(Tool.of('pull-request'))).toBe(false);
+  });
+
+  it('gains and loses tools on a resume, and says which until the next one', () => {
+    const tool = (name: string) => ({
+      name,
+      description: name,
+      inputs: [],
+      approval: null,
+    });
+    const spec = RunSpec.of(
+      parts({ manifest: [tool('pull-request'), tool('linear.get-issue')] }),
+    );
+
+    const changed = spec.withToolChange({
+      removed: [Tool.of('linear.get-issue')],
+      added: [
+        tool('sentry.get-issue'),
+        tool('sentry.get-issue'),
+        tool('pull-request'),
+      ],
+    });
+
+    expect(changed.value.manifest?.map((each) => each.name)).toEqual([
+      'pull-request',
+      'sentry.get-issue',
+    ]);
+    expect(changed.value.changedTools).toEqual({
+      added: ['sentry.get-issue'],
+      removed: ['linear.get-issue'],
+    });
+    expect(spec.withToolChange({ removed: [], added: [] })).toBe(spec);
+    expect(
+      changed.withToolChange({ removed: [], added: [] }).value.changedTools,
+    ).toBeUndefined();
+  });
+
+  it('keeps a tool both taken away and given again, and lists it as neither', () => {
+    const tool = {
+      name: 'sentry.get-issue',
+      description: 'Read the Sentry issue.',
+      inputs: [],
+      approval: null,
+    };
+    const spec = RunSpec.of(parts({ manifest: [tool] }));
+
+    expect(
+      spec.withToolChange({
+        removed: [Tool.of('sentry.get-issue')],
+        added: [tool],
+      }),
+    ).toBe(spec);
+  });
+
+  it('rejects tools listed as changed that it did not gain or lose', () => {
+    const manifest = [
+      { name: 'pull-request', description: 'open', inputs: [], approval: null },
+    ];
+
+    expect(() =>
+      RunSpec.of(
+        parts({ manifest, changedTools: { added: ['merge'], removed: [] } }),
+      ),
+    ).toThrow(InvalidRunSpecError);
+    expect(() =>
+      RunSpec.of(
+        parts({
+          manifest,
+          changedTools: { added: [], removed: ['pull-request'] },
+        }),
+      ),
+    ).toThrow(InvalidRunSpecError);
+    expect(() =>
+      RunSpec.of(parts({ manifest, changedTools: { added: [], removed: [] } })),
+    ).toThrow(InvalidRunSpecError);
   });
 
   it('keeps nothing it was not described by', () => {

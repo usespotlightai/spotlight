@@ -2,6 +2,7 @@ import { ChangeReviewModule } from '@change-review/change-review.module';
 import { ConfigurationModule } from '@configuration/configuration.module';
 import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
+import { JUDGE_CLAIMS_PULL_REQUESTS } from '@insights/application/ports/judge-claims-pull-requests.port';
 import { STATION_CONFIG_PULL_REQUESTS } from '@insights/application/ports/station-config-pull-requests.port';
 import { InsightsModule } from '@insights/insights.module';
 import { LinesModule } from '@lines/lines.module';
@@ -14,7 +15,10 @@ import {
 import { RunsModule } from '@runs/runs.module';
 import { WorkModule } from '@work/work.module';
 
-const BINDINGS = contextBindings([STATION_CONFIG_PULL_REQUESTS]);
+const BINDINGS = contextBindings([
+  STATION_CONFIG_PULL_REQUESTS,
+  JUDGE_CLAIMS_PULL_REQUESTS,
+]);
 
 @Module({
   imports: [

@@ -9,7 +9,6 @@ import type {
 } from '@configuration/application/ports/hook-configs.port';
 import {
   IMPORTS_FILE,
-  judgeRubricFileOf,
   terraformNameOf as nameOf,
   stationFileOf,
   TERRAFORM_FILE,
@@ -46,6 +45,7 @@ import {
   inCodePointOrderOf,
 } from '@platform/ordering/code-point-order';
 import { PLATFORM_EGRESS } from '@runners/application/ports/runner-configuration.port';
+import { ALL_CLAIMS } from '@shared-kernel/domain/value-objects/claim-share';
 import type { FieldSegment } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { isToolName } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -368,29 +368,20 @@ const line = (
   const files: TerraformFile[] = [];
   const { definition } = resource;
 
-  const judge = (stationKey: string, set: LineDefinitionJudge): HclBlock => {
-    const path = judgeRubricFileOf(resource.teamKey, resource.key, stationKey);
-
-    if (set.rubric !== undefined) {
-      files.push({ path, content: set.rubric });
-    }
-
-    return block(
+  const judge = (set: LineDefinitionJudge): HclBlock =>
+    block(
       'judge',
       [],
       [
-        ...(set.rubric === undefined
-          ? []
-          : [attribute('rubric', HclExpression.moduleFile(path))]),
-        ...(set.claims === undefined
-          ? []
-          : [attribute('claims', HclLines.of(set.claims))]),
-        ...present(terraformAttributeOf('passThreshold'), set.passThreshold),
+        attribute('claims', HclLines.of(set.claims)),
+        ...present(
+          terraformAttributeOf('passThreshold'),
+          set.passThreshold === ALL_CLAIMS ? undefined : set.passThreshold,
+        ),
         attribute('sample', set.sample),
         attribute(terraformAttributeOf('minAgreement'), set.minAgreement),
       ],
     );
-  };
 
   const alert = (set: LineDefinitionAlert): HclBlock =>
     block(
@@ -481,7 +472,7 @@ const line = (
         ),
         attribute(terraformAttributeOf('passesTo'), each.passesTo),
         attribute('ends', each.ends),
-        ...(each.judge ? [judge(each.key, each.judge)] : []),
+        ...(each.judge ? [judge(each.judge)] : []),
         ...each.alerts.map(alert),
         ...(each.search ? [stationSearch(each.search)] : []),
       ],

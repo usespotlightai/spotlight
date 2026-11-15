@@ -70,6 +70,12 @@ function Shell() {
       >
         Move the first tab to the end
       </button>
+      <button
+        type="button"
+        onClick={() => tabs.openAt('/w/acme/team/team_2/runs/run_1')}
+      >
+        Open the run in a new tab
+      </button>
       <TabTitleContext value={tabs.titleFor(tabs.activeId)}>
         <Routes>
           <Route path="/w/:slug/inbox" element={<Page title="Inbox" />} />
@@ -107,6 +113,7 @@ const address = () => screen.getByRole('status', { name: 'Address' });
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   Object.assign(window, { spotlightDesktop: { platform: 'darwin' } });
 });
 
@@ -173,6 +180,19 @@ describe('useAppTabs', () => {
 
     expect(address()).toHaveTextContent('/w/acme/team/team_2/agent');
     expect(tab('Agent')).toHaveAttribute('aria-current', 'page');
+    expect(tab('Runs')).not.toHaveAttribute('aria-current');
+  });
+
+  it('opens a link in a new tab and keeps the tab it came from', async () => {
+    const user = userEvent.setup();
+    renderAt('/w/acme/team/team_2/runs');
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open the run in a new tab' }),
+    );
+
+    expect(address()).toHaveTextContent('/w/acme/team/team_2/runs/run_1');
+    expect(tab('Fix the login')).toHaveAttribute('aria-current', 'page');
     expect(tab('Runs')).not.toHaveAttribute('aria-current');
   });
 
@@ -259,5 +279,30 @@ describe('useAppTabs', () => {
         .map((each) => each.textContent),
     ).toEqual(['Inbox', 'Agent']);
     expect(tab('Agent')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('starts an extra desktop window with only its own page, and leaves the stored tabs alone', async () => {
+    const user = userEvent.setup();
+    const first = renderAt('/w/acme/inbox');
+
+    await user.click(tab('New tab'));
+    first.unmount();
+    const stored = localStorage.getItem(`${APP_TABS_KEY}.acme`);
+
+    Object.assign(window, {
+      spotlightDesktop: { platform: 'darwin', extraWindow: true },
+    });
+    const extra = renderAt('/w/acme/team/team_2/runs');
+
+    expect(
+      strip()
+        .getAllByRole('listitem')
+        .map((each) => each.textContent),
+    ).toEqual(['Runs']);
+
+    await user.click(tab('New tab'));
+    extra.unmount();
+
+    expect(localStorage.getItem(`${APP_TABS_KEY}.acme`)).toBe(stored);
   });
 });

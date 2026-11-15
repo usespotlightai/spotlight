@@ -73,7 +73,12 @@ const DELIVERY = randomUUID();
 const BUILD = randomUUID();
 const SHIP = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
-const RUBRIC = 'scores: 1-5\nDoes it drain the queue in order?';
+const CLAIMS = [
+  'It drains the queue in order.',
+  'It keeps the oldest job first.',
+  'It survives a restart.',
+  'It tests the order.',
+];
 
 const attachmentStore = {
   received: async () => [],
@@ -152,14 +157,17 @@ const judge: JudgePort = {
       model: 'stub/judge',
       guidance: null,
       verdict: {
-        value,
-        reasons: [
-          {
-            text: `It drains the queue as a ${value}.`,
-            steps: scoredStep ? [scoredStep.index] : [],
-            hunks: request.hunks.slice(0, 1).map((each) => each.id),
-          },
-        ],
+        claims: CLAIMS.map((_, index) => ({
+          index,
+          met: index < value - 1,
+          reasons: [
+            {
+              text: `It drains the queue as a ${value}.`,
+              steps: scoredStep ? [scoredStep.index] : [],
+              hunks: request.hunks.slice(0, 1).map((each) => each.id),
+            },
+          ],
+        })),
       },
     };
   },
@@ -431,9 +439,8 @@ beforeAll(async () => {
       diffs: true,
       check: 'npm test',
       judge: {
-        rubric: RUBRIC,
-        claims: [],
-        passThreshold: 1,
+        claims: CLAIMS,
+        passThreshold: 0.75,
         sample: 0.1,
         minAgreement: 0.6,
       },
@@ -648,9 +655,15 @@ describe('a replay at a station that checks and judges', () => {
     );
 
     const replay = await replayOf(app, id);
-    const comparison = taskComparisons(
-      replay.outcome(),
-      (await replayOf(app, baselineId)).outcome(),
+    const pastOrder = [first.runId, second.runId];
+    const comparison = [
+      ...taskComparisons(
+        replay.outcome(),
+        (await replayOf(app, baselineId)).outcome(),
+      ),
+    ].sort(
+      (one, other) =>
+        pastOrder.indexOf(one.original) - pastOrder.indexOf(other.original),
     );
 
     expect(replay.judges).toBe(true);
@@ -669,8 +682,8 @@ describe('a replay at a station that checks and judges', () => {
         each.baseline[0]?.succeeded,
       ]),
     ).toEqual([
-      [first.runId, false, 1, true, true],
-      [second.runId, false, -2, false, true],
+      [first.runId, false, 0.25, true, true],
+      [second.runId, false, -0.5, false, true],
     ]);
 
     const [steady, worse] = comparison.map((row) =>
@@ -695,23 +708,28 @@ describe('a replay at a station that checks and judges', () => {
       why: null,
     });
     expect(worse?.verdict).toMatchObject({
-      value: 2,
+      value: 0.25,
       passes: false,
       referenced: false,
     });
     expect(worse?.reasons.map((each) => each.code)).toEqual([
       'check-failed',
       'judge-failed',
+      'judge-failed',
+      'judge-failed',
+      'judge-failed',
     ]);
     expect(steady?.verdict).toMatchObject({
-      value: 5,
+      value: 1,
       passes: true,
       referenced: true,
     });
 
     const referenced = requests.find((each) => each.reference !== null);
     expect(referenced?.reference?.hunks[0]?.lines).toContain('+drainInOrder()');
-    expect(requests.every((each) => each.rubric === RUBRIC)).toBe(true);
+    expect(requests.every((each) => each.claims.join() === CLAIMS.join())).toBe(
+      true,
+    );
 
     const replayRuns = (
       await db

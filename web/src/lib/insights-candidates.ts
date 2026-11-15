@@ -183,7 +183,7 @@ export const replayedTasksOf = (tasks: number, runs: number): string =>
 export const replayedNote = (points: readonly ReplayedPoint[]): string => {
   const scored = Math.max(0, ...points.map((each) => each.scored));
 
-  return `Replayed points show replay success on up to ${formatRuns(scored)} of past tasks, not live outcomes. Each candidate’s own checks and judge score it. The task-size filter doesn’t apply.`;
+  return `Replayed points show replay success on up to ${formatRuns(scored)} of past tasks, not live outcomes. Each candidate’s own checks and judge decide whether it succeeded. The task-size filter doesn’t apply.`;
 };
 
 export const CANDIDATES_TRUNCATED =

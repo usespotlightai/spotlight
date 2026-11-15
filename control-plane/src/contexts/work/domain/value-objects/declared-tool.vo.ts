@@ -48,6 +48,7 @@ export class DeclaredTool {
     readonly approval: ApprovalNeeded | null,
     readonly providedBy: string | null,
     readonly inferredOutput: JsonObject | null,
+    readonly readOnly: boolean,
   ) {}
 
   static of(input: {
@@ -57,6 +58,7 @@ export class DeclaredTool {
     approval?: ApprovalNeeded | null;
     providedBy?: string | null;
     inferredOutput?: JsonObject | null;
+    readOnly: boolean;
   }): DeclaredTool {
     const description = input.description.trim();
     const inputs = input.inputs ?? [];
@@ -117,6 +119,15 @@ export class DeclaredTool {
       input.approval ?? null,
       input.providedBy?.trim() || null,
       input.inferredOutput ?? null,
+      input.readOnly,
+    );
+  }
+
+  get callableInIsolatedRun(): boolean {
+    return (
+      this.tool.origin === 'integration' &&
+      this.readOnly &&
+      this.approval === null
     );
   }
 
@@ -128,6 +139,7 @@ export class DeclaredTool {
       needed,
       this.providedBy,
       this.inferredOutput,
+      this.readOnly,
     );
   }
 

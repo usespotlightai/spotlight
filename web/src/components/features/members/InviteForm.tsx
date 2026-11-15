@@ -29,18 +29,14 @@ type InviteFormProps = {
   teams: readonly Team[];
   teamIds: readonly string[];
   sending: boolean;
-  failure: string | null;
   onSend: (spec: InviteToWorkspaceRequestDto) => void;
-  onEdit: () => void;
 };
 
 export function InviteForm({
   teams,
   teamIds,
   sending,
-  failure,
   onSend,
-  onEdit,
 }: InviteFormProps) {
   const [emails, setEmails] = useState('');
   const [checked, setChecked] = useState(false);
@@ -74,10 +70,7 @@ export function InviteForm({
       <form onSubmit={submit} className="contents">
         <InviteEmailsField
           value={emails}
-          onChange={(next) => {
-            setEmails(next);
-            onEdit();
-          }}
+          onChange={setEmails}
           onBlur={() => setChecked(emails.trim().length > 0)}
           invalid={checked ? parsed.invalid : []}
           disabled={sending}
@@ -112,12 +105,6 @@ export function InviteForm({
           <p role="alert" className="text-destructive text-xs">
             Sorry, the list has {parsed.valid.length} addresses. Please invite
             at most {MAX_INVITED_AT_ONCE} at once.
-          </p>
-        )}
-
-        {failure && (
-          <p role="alert" className="text-destructive text-xs">
-            {failure}
           </p>
         )}
 

@@ -20,7 +20,7 @@ import {
   InsightsPeriodResponseDto,
 } from '@insights/presentation/http/dto/insights-common.response.dto';
 import { MeasureVerdictResponseDto } from '@insights/presentation/http/dto/measure-verdict.response.dto';
-import { ConfigChangeResponseDto } from '@insights/presentation/http/dto/station-config.response.dto';
+import { InsightsConfigChangeResponseDto } from '@insights/presentation/http/dto/station-config.response.dto';
 import { RunTallyResponseDto } from '@insights/presentation/http/dto/station-insights.response.dto';
 import { JudgeCalibrationResponseDto } from '@insights/presentation/http/dto/station-judge.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
@@ -45,11 +45,11 @@ export class JudgeRateResponseDto {
     type: Number,
     example: 0.8,
     description:
-      'The judge’s mean score as a share of its scale, from 0 for the lowest to 1 for the highest; none where it judged none of the runs',
+      'The share of judged runs the judge passed, from 0 to 1; none where it judged none of the runs',
   })
   readonly mean: number | null;
 
-  @ApiProperty({ example: 6, description: 'Runs the judge scored' })
+  @ApiProperty({ example: 6, description: 'Runs the judge checked' })
   readonly judged: number;
 
   constructor(rate: JudgeRateDto) {
@@ -110,7 +110,7 @@ export class ChangeMarkerResponseDto {
     type: JudgeRateResponseDto,
     nullable: true,
     description:
-      'The judge’s scores of the runs before, only where the station’s judge is qualified',
+      'The judge’s verdicts on the runs before, only where the station’s judge is qualified',
   })
   readonly judgeBefore: JudgeRateResponseDto | null;
 
@@ -118,7 +118,7 @@ export class ChangeMarkerResponseDto {
     type: JudgeRateResponseDto,
     nullable: true,
     description:
-      'The judge’s scores of the runs after, only where the station’s judge is qualified',
+      'The judge’s verdicts on the runs after, only where the station’s judge is qualified',
   })
   readonly judgeAfter: JudgeRateResponseDto | null;
 
@@ -126,16 +126,16 @@ export class ChangeMarkerResponseDto {
     type: DeltaResponseDto,
     nullable: true,
     description:
-      'The judge’s mean score after against before, in points; none where either side went unjudged',
+      'The judge’s pass rate after against before, in points; none where either side went unjudged',
   })
   readonly judgeChange: DeltaResponseDto | null;
 
   @ApiProperty({
-    type: ConfigChangeResponseDto,
+    type: InsightsConfigChangeResponseDto,
     isArray: true,
     description: 'How the new config differs from the one before it',
   })
-  readonly changes: readonly ConfigChangeResponseDto[];
+  readonly changes: readonly InsightsConfigChangeResponseDto[];
 
   constructor(marker: ChangeMarkerDto) {
     this.lineId = marker.lineId;
@@ -157,7 +157,7 @@ export class ChangeMarkerResponseDto {
       ? new JudgeRateResponseDto(marker.judgeAfter)
       : null;
     this.changes = marker.changes.map(
-      (each) => new ConfigChangeResponseDto(each),
+      (each) => new InsightsConfigChangeResponseDto(each),
     );
   }
 }
@@ -270,7 +270,7 @@ export class AgentConfigOutcomesResponseDto {
     type: Number,
     example: 0.75,
     description:
-      'The judge’s mean score as a share of its scale, over runs at stations whose judge is qualified',
+      'The share of runs the judge passed, from 0 to 1, over runs at stations whose judge is qualified',
   })
   readonly judge: number | null;
 
@@ -325,7 +325,7 @@ export class AgentConfigOutcomeResponseDto {
     type: JudgeRateResponseDto,
     nullable: true,
     description:
-      'The judge’s scores of this agent config’s runs; none unless the comparison is narrowed to one station',
+      'The judge’s verdicts on this agent config’s runs; none unless the comparison is narrowed to one station',
   })
   readonly judge: JudgeRateResponseDto | null;
 
@@ -408,7 +408,7 @@ export class InsightsAgentConfigsResponseDto {
     enum: [...JUDGE_OMITTED_REASONS, null],
     nullable: true,
     description:
-      'Why no judge scores are compared: no_station where the comparison spans stations, whose judges each score against their own rubric',
+      'Why no judge verdicts are compared: no_station where the comparison spans stations, whose judges each check runs against their own claims',
   })
   readonly judgeOmitted: string | null;
 

@@ -62,7 +62,7 @@ export class RecordFailureCauseRequestDto {
   @ApiProperty({
     enum: FAILURE_CAUSES,
     description:
-      'config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work',
+      'config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge judged it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work',
   })
   readonly cause!: string;
 

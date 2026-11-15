@@ -44,7 +44,6 @@ export function AccountNotifications() {
   const [opensDesktop, setOpensDesktop] = useState(opensInDesktop);
   const { state, turnOn, turnOff } = notifications;
   const changing = turnOn.isPending || turnOff.isPending;
-  const refused = turnOn.isError || turnOff.isError;
 
   return (
     <SettingsPage
@@ -113,11 +112,7 @@ export function AccountNotifications() {
             label="New inbox items"
             htmlFor="browser-notifications"
             leading={<RowIcon icon={Bell} />}
-            description={
-              refused
-                ? 'Sorry, Spotlight could not change the setting. Please try again.'
-                : DESCRIPTIONS[state]
-            }
+            description={DESCRIPTIONS[state]}
           >
             <Switch
               id="browser-notifications"

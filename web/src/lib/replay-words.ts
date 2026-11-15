@@ -295,7 +295,7 @@ const judgeReading = (judge: SetHealth['judge']): HealthReading => {
         ...base,
         text,
         tone: 'bad',
-        advice: `The verdicts are partly chance. Please make the rubric more specific before you search.${pending}`,
+        advice: `The verdicts are partly chance. Please make the claims more specific before you search.${pending}`,
       }
     : {
         ...base,

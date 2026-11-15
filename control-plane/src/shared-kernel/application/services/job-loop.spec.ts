@@ -11,6 +11,7 @@ class Item implements HasPendingJob<Item> {
     readonly attempts: number,
     readonly state: 'pending' | 'leased' | 'done' | 'dead-lettered',
     readonly lastTry: boolean,
+    readonly spent = 0,
   ) {}
 
   get hasPendingJob(): boolean {
@@ -22,7 +23,7 @@ class Item implements HasPendingJob<Item> {
   }
 
   leaseJob(): Item {
-    return new Item(this.attempts + 1, 'leased', this.lastTry);
+    return new Item(this.attempts + 1, 'leased', this.lastTry, this.spent);
   }
 
   scheduleRetry(): Item {
@@ -30,16 +31,27 @@ class Item implements HasPendingJob<Item> {
       this.attempts,
       this.lastTry ? 'dead-lettered' : 'pending',
       this.lastTry,
+      this.spent,
     );
   }
 
   deadLetter(): Item {
-    return new Item(this.attempts, 'dead-lettered', this.lastTry);
+    return new Item(this.attempts, 'dead-lettered', this.lastTry, this.spent);
+  }
+
+  spending(more: number): Item {
+    return new Item(this.attempts, this.state, this.lastTry, this.spent + more);
   }
 }
 
-const looping = (start: Item, processed: (item: Item) => Promise<Item>) => {
+const looping = (
+  start: Item,
+  processed: (item: Item, save: (item: Item) => void) => Promise<Item>,
+) => {
   let stored = start;
+  const save = (item: Item) => {
+    stored = item;
+  };
   const report = vi.fn();
   const error = vi.fn();
   const logger = { error, warn: vi.fn() } as unknown as LoggerPort;
@@ -57,7 +69,7 @@ const looping = (start: Item, processed: (item: Item) => Promise<Item>) => {
       keyOf: () => 'item',
       ids: () => ({ workspaceId: 'workspace-1', runId: 'run-1' }),
       about: (item) => ({ attempts: item.attempts }),
-      process: processed,
+      process: (item) => processed(item, save),
       stale: () => false,
     },
     { inTransaction: <T>(work: () => Promise<T>) => work() },
@@ -80,6 +92,17 @@ const looping = (start: Item, processed: (item: Item) => Promise<Item>) => {
 };
 
 describe('JobLoop', () => {
+  it('schedules a retry on what a failed attempt saved, not on the job it started from', async () => {
+    const loop = looping(new Item(0, 'pending', false), async (item, save) => {
+      save(item.spending(5));
+      throw new Error('The code host did not answer.');
+    });
+
+    await loop.processOnce();
+
+    expect(loop.stored()).toMatchObject({ state: 'pending', spent: 5 });
+  });
+
   it('processes each job in a span with the ids of the job', async () => {
     const loop = looping(new Item(0, 'pending', false), async (item) =>
       item.scheduleRetry(),

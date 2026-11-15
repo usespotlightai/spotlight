@@ -10,8 +10,23 @@ import { PaneScroller } from '@/components/shared/PaneScroller';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { useDelayedValue } from '@/hooks/useDelayedValue';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
+import type { LineRange } from '@/lib/changes';
+import {
+  type CitationTargets,
+  CitationTargetsContext,
+  NO_CITATION_TARGETS,
+} from '@/lib/citation-targets';
 import { formatShortDuration } from '@/lib/inbox';
-import { NAMES_PANE, rowsOf, type Trace } from '@/lib/trace';
+import { lineRangeOf } from '@/lib/judge';
+import {
+  ancestorsOf,
+  lastChangeTo,
+  NAMES_PANE,
+  rowsOf,
+  stepNodeAt,
+  type Trace,
+  type TraceNode,
+} from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
 const LEAVING = 150;
@@ -24,6 +39,7 @@ type TraceViewProps = {
 export function TraceView({ trace, teamId }: TraceViewProps) {
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
+  const [cited, setCited] = useState<LineRange | null>(null);
   const {
     width: namesWidth,
     resizing: namesResizing,
@@ -78,20 +94,69 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
     });
   }, []);
 
-  const pick = useCallback((id: string) => setPicked(id), []);
+  const pick = useCallback((id: string) => {
+    setPicked(id);
+    setCited(null);
+  }, []);
+
+  const reveal = useCallback(
+    (node: TraceNode, lines: LineRange | null) => {
+      const above = ancestorsOf(trace.roots, node.id) ?? [];
+
+      setClosed((previous) => {
+        const next = new Set(previous);
+        for (const id of above) {
+          next.delete(id);
+        }
+        return next;
+      });
+      setPicked(node.id);
+      setCited(lines);
+
+      requestAnimationFrame(() =>
+        [...(listed.current?.children ?? [])]
+          .find(
+            (row) =>
+              row instanceof HTMLElement && row.dataset.nodeId === node.id,
+          )
+          ?.scrollIntoView({ block: 'nearest' }),
+      );
+    },
+    [trace],
+  );
+
+  const targets = useMemo<CitationTargets>(() => {
+    if (displayed?.kind !== 'run') {
+      return NO_CITATION_TARGETS;
+    }
+
+    return {
+      step: (index) => {
+        const node = stepNodeAt(displayed, index);
+        return node ? () => reveal(node, null) : null;
+      },
+      hunk: (hunk) => {
+        const node = hunk.path ? lastChangeTo(displayed, hunk.path) : null;
+        return node ? () => reveal(node, lineRangeOf(hunk)) : null;
+      },
+    };
+  }, [displayed, reveal]);
 
   return (
     <PaneScroller
       sidePanel={
         displayed && (
-          <SpanDetail
-            node={displayed}
-            teamId={teamId}
-            open={chosen !== null}
-            duration={LEAVING}
-            ref={panel}
-            onClose={() => setPicked(null)}
-          />
+          <CitationTargetsContext value={targets}>
+            <SpanDetail
+              node={displayed}
+              teamId={teamId}
+              open={chosen !== null}
+              lines={cited}
+              duration={LEAVING}
+              ref={panel}
+              onClose={() => setPicked(null)}
+            />
+          </CitationTargetsContext>
         )
       }
     >

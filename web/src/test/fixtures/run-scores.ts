@@ -1,14 +1,14 @@
-import type {
-  JudgeCalibrationResponseDto,
-  RunScoresResponseDto,
-} from '@/lib/api';
+import type { JudgeCalibrationResponseDto } from '@/lib/api';
+import type { RunScores } from '@/lib/judge';
 
-export const RUBRIC =
-  'Pass a run that fixes the reported bug without widening the change. Fail it where tests were skipped or the diff touches unrelated files.';
+export const CLAIMS = [
+  'Retries stop on a 410 Gone',
+  'Every other failure is retried later',
+  'The queue is drained',
+];
 
 const TRUSTED: JudgeCalibrationResponseDto = {
   qualified: true,
-  measure: 'kappa',
   agreement: 0.71,
   reading: 'substantial',
   pairs: 24,
@@ -21,29 +21,31 @@ const TRUSTED: JudgeCalibrationResponseDto = {
 export const runScoresOf = (
   runId: string,
   taskId: string,
-  over: Partial<RunScoresResponseDto> = {},
-): RunScoresResponseDto => ({
+  over: Partial<RunScores> = {},
+): RunScores => ({
   runId,
   taskId,
   stationId: 'station_implementation',
-  kind: 'yes-no',
-  rubricBody: RUBRIC,
-  claims: [],
+  gradable: true,
+  claims: CLAIMS,
+  earlierClaims: false,
   judged: true,
   calibration: TRUSTED,
   grades: [],
+  outcome: null,
+  agrees: null,
   judge: {
-    kind: 'yes-no',
-    value: 0,
-    claimResults: null,
-    label: 'no',
+    value: 1 / 3,
+    claimResults: [false, true, false],
+    passes: false,
+    label: '1 of 3 claims met',
     rubricVersion:
       '9c41e2d7a6b3f0851e2c4d6a8b0f1e3d5c7a9b1d3f5e7a9c1b3d5f7e9a1c3b5d',
     model: 'google/gemini-3.8-flash',
     at: new Date(Date.now() - 20 * 60_000).toISOString(),
     reasons: [
       {
-        claim: null,
+        claim: 2,
         text: 'It replayed the queue, but three jobs failed again and it asked instead of stopping the retries.',
         citations: [
           {
@@ -59,7 +61,12 @@ export const runScoresOf = (
         ],
       },
       {
-        claim: null,
+        claim: 1,
+        text: 'Other failures go to the retry queue.',
+        citations: [],
+      },
+      {
+        claim: 0,
         text: 'The change retries a 410 Gone like any other failure.',
         citations: [
           {
@@ -94,34 +101,3 @@ export const runScoresOf = (
   },
   ...over,
 });
-
-const CLAIMS = [
-  'Retries stop on a 410 Gone',
-  'Every other failure is retried later',
-  'The queue is drained',
-];
-
-export const claimsScoresOf = (
-  runId: string,
-  taskId: string,
-): RunScoresResponseDto => {
-  const scores = runScoresOf(runId, taskId);
-  const [drained, gone] = scores.judge?.reasons ?? [];
-
-  return {
-    ...scores,
-    kind: 'claims',
-    claims: CLAIMS,
-    judge: scores.judge && {
-      ...scores.judge,
-      kind: 'claims',
-      value: 1 / 3,
-      claimResults: [false, true, false],
-      label: '33% of claims met',
-      reasons: [
-        ...(gone ? [{ ...gone, claim: 0 }] : []),
-        ...(drained ? [{ ...drained, claim: 2 }] : []),
-      ],
-    },
-  };
-};

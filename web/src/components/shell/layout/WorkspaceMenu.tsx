@@ -2,6 +2,7 @@ import { ChevronsUpDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
+import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
 import { ThemeToggle } from '@/components/shell/layout/ThemeToggle';
 import {
   DropdownMenu,
@@ -20,6 +21,7 @@ import {
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
+import { useActiveCommand } from '@/hooks/useActiveCommand';
 import { useTheme } from '@/hooks/useTheme';
 import { membersPath } from '@/lib/members';
 import { settingsPath } from '@/lib/settings';
@@ -43,6 +45,7 @@ export function WorkspaceMenu({
   const { data: session } = useSession();
   const { data: workspaces } = useWorkspaces();
   const { theme, setTheme } = useTheme();
+  const settingsKey = useActiveCommand({ id: 'go.settings' });
 
   return (
     <DropdownMenu>
@@ -72,8 +75,13 @@ export function WorkspaceMenu({
 
         <DropdownMenuItem
           closeOnClick
-          render={<Link to={settingsPath(slug)}>Settings</Link>}
-        />
+          render={<Link to={settingsPath(slug)} />}
+        >
+          Settings
+          {settingsKey && (
+            <ShortcutKeys id="go.settings" plain className="ml-auto pl-4" />
+          )}
+        </DropdownMenuItem>
 
         {admin && (
           <DropdownMenuItem

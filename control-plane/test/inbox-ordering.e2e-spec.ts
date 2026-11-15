@@ -65,7 +65,7 @@ const noticeFor = (viewer: string, raisedAt: Date) =>
     }),
     wording: NoticeWording.of({
       headline: 'The search stalled',
-      points: ['Fix the rubric.'],
+      points: ['Fix the claims.'],
     }),
     at: raisedAt,
   });

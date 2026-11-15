@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { LineBoard } from '@/routes/LineBoard';
 
 const line = {
@@ -624,5 +625,122 @@ describe('LineBoard', () => {
       'href',
       '/w/acme/team/team_1',
     );
+  });
+
+  describe('keyboard', () => {
+    const renderWithKeys = (state?: unknown) =>
+      render(
+        <CommandsProvider>
+          <MemoryRouter
+            initialEntries={[
+              { pathname: '/w/acme/team/team_1/lines/line_1', state },
+            ]}
+          >
+            <Routes>
+              <Route
+                path="/w/:slug/team/:teamId/lines/:lineId"
+                element={<LineBoard />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </CommandsProvider>,
+      );
+
+    const press = (key: string, init: KeyboardEventInit = {}) =>
+      fireEvent.keyDown(document.activeElement ?? document.body, {
+        key,
+        ...init,
+      });
+
+    it('opens a new task at the first station with C', async () => {
+      renderWithKeys();
+
+      press('c');
+
+      expect(
+        await screen.findByRole('heading', { name: /New task/ }),
+      ).toHaveTextContent('Backlog');
+    });
+
+    it('opens a new task when it comes to the line to create one', async () => {
+      renderWithKeys({ creating: 1 });
+
+      expect(
+        await screen.findByRole('heading', { name: /New task/ }),
+      ).toHaveTextContent('Backlog');
+    });
+
+    it('moves through the tasks with J, picks one with X and moves it with S', () => {
+      renderWithKeys();
+
+      press('j');
+      press('j');
+      const focused = document.activeElement?.textContent ?? '';
+      press('x');
+
+      expect(
+        screen.getByRole('checkbox', { name: `Select ${focused}` }),
+      ).toBeChecked();
+
+      press('s');
+
+      expect(moved).toHaveBeenCalledWith(
+        expect.objectContaining({
+          taskId: tasks.find((task) => task.title === focused)?.id,
+        }),
+      );
+    });
+
+    it('drops the selection with Esc', () => {
+      renderWithKeys();
+
+      press('j');
+      press('j');
+      press('x');
+      press('Escape');
+
+      expect(
+        document.querySelector('[data-slot="selection-bar"]'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('opens the assignee menu of the focused task with A', async () => {
+      renderWithKeys();
+
+      press('j');
+      press('a');
+
+      expect(
+        await screen.findByRole('menuitem', { name: /No assignee/ }),
+      ).toBeInTheDocument();
+    });
+
+    it('opens the assignee menu of the hovered task with A', async () => {
+      renderWithKeys();
+
+      press('j');
+      const rows = document.querySelectorAll('[data-slot="task-row"]');
+      const hovered = rows[rows.length - 1] as HTMLElement;
+      fireEvent.pointerEnter(hovered);
+      press('a');
+
+      expect(
+        await screen.findByRole('menuitem', { name: /No assignee/ }),
+      ).toBeInTheDocument();
+      expect(hovered.querySelector('[aria-haspopup="menu"]')).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+    });
+
+    it('opens no assignee menu while no task has focus', () => {
+      renderWithKeys();
+
+      press('a');
+
+      expect(
+        screen.queryByRole('menuitem', { name: /No assignee/ }),
+      ).not.toBeInTheDocument();
+    });
   });
 });

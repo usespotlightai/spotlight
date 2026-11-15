@@ -1,12 +1,21 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { TaskState } from '@/components/features/board/task/TaskState';
 import { RunRow } from '@/components/features/runs/RunRow';
+import { WorkspaceContextMenu } from '@/components/shell/context-menu/WorkspaceContextMenu';
 import type { Run } from '@/lib/run';
 import type { Task } from '@/lib/task';
 import { progressOfState } from '@/mocks/world/run-progress';
+
+const stop = vi.hoisted(() => vi.fn());
+
+vi.mock('@/hooks/api/useStopRun', () => ({
+  useStopRun: () => ({ mutate: stop }),
+  useStopInFlight: () => false,
+}));
 
 const run = (state: Run['state'], review: Run['review'] = null) =>
   ({
@@ -129,4 +138,52 @@ describe('RunRow, what a run is doing', () => {
       screen.getByRole('link', { name: 'Waiting for you' }),
     ).toHaveAttribute('href', '/inbox/task_1:3');
   });
+});
+
+describe('RunRow, its menu', () => {
+  const rightClick = (state: Run['state']) => {
+    render(
+      <MemoryRouter>
+        <WorkspaceContextMenu slug="acme" onOpenTab={() => {}}>
+          <ul>
+            <RunRow
+              run={run(state)}
+              teamId="team_1"
+              to="/w/acme/team/team_1/runs/run_1"
+            />
+          </ul>
+        </WorkspaceContextMenu>
+      </MemoryRouter>,
+    );
+    fireEvent.contextMenu(screen.getByRole('link'), {
+      clientX: 10,
+      clientY: 10,
+    });
+  };
+
+  it('stops a run in progress', async () => {
+    const user = userEvent.setup();
+    stop.mockClear();
+    rightClick('claimed');
+
+    await user.click(await screen.findByRole('menuitem', { name: 'Stop run' }));
+
+    expect(stop).toHaveBeenCalledExactlyOnceWith({
+      teamId: 'team_1',
+      runId: 'run_1',
+    });
+  });
+
+  it.each(['queued', 'suspended', 'completed'] as const)(
+    'offers no stop for a %s run',
+    async (state) => {
+      rightClick(state);
+
+      expect(
+        (await screen.findAllByRole('menuitem')).map(
+          (item) => item.textContent,
+        ),
+      ).toEqual(['Copy link', 'Open in']);
+    },
+  );
 });

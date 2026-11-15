@@ -7,9 +7,11 @@ import {
   CLIENT_HEADER,
   headerIn,
   type RequestHeaders,
+  SOURCE_COMMIT_HEADER,
 } from '@platform/http/resources/resource-headers';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
+import { SourceCommit } from '@shared-kernel/domain/value-objects/source-commit.vo';
 
 export const CurrentActor = createParamDecorator(
   (_data: unknown, context: ExecutionContext): Actor => {
@@ -20,6 +22,7 @@ export const CurrentActor = createParamDecorator(
     return Actor.of(
       principalOf(request),
       Client.named(headerIn(request.headers, CLIENT_HEADER)),
+      SourceCommit.named(headerIn(request.headers, SOURCE_COMMIT_HEADER)),
     );
   },
 );

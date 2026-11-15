@@ -39,6 +39,7 @@ export function InboxComposer({
       pending={answer.isPending}
       running={running}
       shared={shared}
+      focusOnReply
       settings={<FixedAgent agent={currentStation} />}
       below={
         <FixedRepositories

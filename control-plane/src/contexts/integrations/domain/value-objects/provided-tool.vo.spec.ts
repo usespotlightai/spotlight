@@ -25,6 +25,7 @@ const provided = (
   description = 'Comment on the issue.',
 ) =>
   ProvidedTool.of({
+    readOnly: false,
     integration: IntegrationKey.of('linear'),
     name: 'comment',
     description,
@@ -73,6 +74,7 @@ describe('ProvidedTool', () => {
   it('rejects a tool needing approval that takes intent, which the agent says what it wants to do in', () => {
     const providing = (approval: ApprovalNeeded | null) =>
       ProvidedTool.of({
+        readOnly: false,
         integration: IntegrationKey.of('linear'),
         name: 'comment',
         description: 'Comment on the issue.',
@@ -103,6 +105,7 @@ describe('ProvidedTool', () => {
 
   it('is enabled on a mark of its own integration', () => {
     const tool = ProvidedTool.of({
+      readOnly: false,
       integration: IntegrationKey.of('linear'),
       name: 'comment',
       description: 'Comment on the issue.',
@@ -117,6 +120,7 @@ describe('ProvidedTool', () => {
   it('rejects a mark of another integration', () => {
     expect(() =>
       ProvidedTool.of({
+        readOnly: false,
         integration: IntegrationKey.of('linear'),
         name: 'comment',
         description: 'Comment on the issue.',

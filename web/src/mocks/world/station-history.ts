@@ -1,4 +1,4 @@
-import type { ConfigChangeResponseDto } from '@/lib/api';
+import type { InsightsConfigChangeResponseDto } from '@/lib/api';
 
 export const IMPLEMENTATION_ID = 'station_implementation';
 const TESTS_FIRST_PULL_REQUEST = 'https://github.com/acme/config/pull/58';
@@ -16,16 +16,22 @@ export const FINGERPRINTS = {
 } as const;
 
 const changed = (
-  part: ConfigChangeResponseDto['part'],
+  part: InsightsConfigChangeResponseDto['part'],
   was: string | null = null,
   now: string | null = null,
   name: string | null = null,
-): ConfigChangeResponseDto => ({ part, name, kind: 'changed', was, now });
+): InsightsConfigChangeResponseDto => ({
+  part,
+  name,
+  kind: 'changed',
+  was,
+  now,
+});
 
 const added = (
-  part: ConfigChangeResponseDto['part'],
+  part: InsightsConfigChangeResponseDto['part'],
   name: string,
-): ConfigChangeResponseDto => ({
+): InsightsConfigChangeResponseDto => ({
   part,
   name,
   kind: 'added',
@@ -202,7 +208,7 @@ export const IMPLEMENTATION_HISTORY: readonly PastRun[] = [
 export type ConfigVersion = {
   readonly fingerprint: string;
   readonly since: number;
-  readonly changes: readonly ConfigChangeResponseDto[];
+  readonly changes: readonly InsightsConfigChangeResponseDto[];
   readonly pullRequest: string | null;
 };
 
@@ -219,6 +225,7 @@ export const IMPLEMENTATION_VERSIONS: readonly ConfigVersion[] = [
     changes: [
       changed('effort', 'medium', 'high'),
       added('skill', 'grafana-dashboards'),
+      changed('judge', null, null, 'claims'),
     ],
     pullRequest: null,
   },

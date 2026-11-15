@@ -2,13 +2,17 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { INSIGHTS_PAYLOAD_TYPES } from '@insights/infrastructure/events/insights-payload-types';
+import { JUDGE_REPAIR_PAYLOAD_TYPES } from '@insights/infrastructure/events/judge-repair-payload-types';
 import { describe, expect, it } from 'vitest';
 
 const FOLDERS = ['value-objects', 'events'];
 
 describe('INSIGHTS_PAYLOAD_TYPES', () => {
   it('contains every class that can travel in an event', async () => {
-    const listed = new Set<unknown>(INSIGHTS_PAYLOAD_TYPES);
+    const listed = new Set<unknown>([
+      ...INSIGHTS_PAYLOAD_TYPES,
+      ...JUDGE_REPAIR_PAYLOAD_TYPES,
+    ]);
     const missing: string[] = [];
 
     for (const folder of FOLDERS) {

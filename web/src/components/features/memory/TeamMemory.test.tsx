@@ -58,9 +58,6 @@ vi.mock('@/hooks/api/useLines', () => ({
 vi.mock('@/components/features/memory/WriteMemoryButton', () => ({
   WriteMemoryButton: () => <button type="button">Write a memory</button>,
 }));
-vi.mock('@/components/features/memory/MemorySource', () => ({
-  MemorySource: () => null,
-}));
 const mutate = vi.fn();
 
 vi.mock('@/hooks/api/useWriteMemory', () => ({
@@ -190,6 +187,48 @@ describe('TeamMemory', () => {
     );
     expect(screen.getAllByText('Maya Chen')).toHaveLength(2);
     expect(requested[0]?.status).toBe('active');
+  });
+
+  it('links a memory from a run to that run, and leaves as plain text a person’s memory, even one corrected from a run, and a run’s memory with no run', () => {
+    memoriesState.data = [
+      memory({
+        id: 'memory_1',
+        body: 'Retry uploads in the request.',
+        source: 'run',
+        provenance: { taskId: 'task_1', runId: 'run_1' },
+      }),
+      memory({
+        id: 'memory_2',
+        body: 'Name branches after the ticket.',
+        source: 'person',
+        provenance: { taskId: 'task_2', runId: 'run_2' },
+      }),
+      memory({
+        id: 'memory_3',
+        body: 'Restart the staging worker after deploys.',
+        source: 'run',
+        provenance: null,
+      }),
+    ];
+
+    showing();
+
+    const rowOf = (body: string) =>
+      within(
+        screen
+          .getByText(body)
+          .closest<HTMLElement>('[data-slot="team-memory"]') as HTMLElement,
+      );
+    expect(
+      rowOf('Retry uploads in the request.').getByRole('link', { name: 'Run' }),
+    ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
+    for (const [body, source] of [
+      ['Name branches after the ticket.', 'Person'],
+      ['Restart the staging worker after deploys.', 'Run'],
+    ]) {
+      expect(rowOf(body).getByText(source)).toBeInTheDocument();
+      expect(rowOf(body).queryByRole('link', { name: source })).toBeNull();
+    }
   });
 
   it('requests the retired memories, and says why each was retired', async () => {

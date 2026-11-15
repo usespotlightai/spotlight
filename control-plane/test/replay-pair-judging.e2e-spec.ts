@@ -475,7 +475,6 @@ beforeAll(async () => {
       diffs: true,
       check: 'npm test',
       judge: {
-        rubric: null,
         claims: [...CLAIMS],
         passThreshold: 0.5,
         sample: 0.1,
@@ -706,7 +705,6 @@ describe('a replay at a station whose judge goes by claims', () => {
       );
 
       expect(mine?.verdict).toMatchObject({
-        scale: 'claims',
         value: 0.5,
         claimResults: [true, false],
         passThreshold: 0.5,
@@ -727,7 +725,6 @@ describe('a replay at a station whose judge goes by claims', () => {
       expect(theirs?.pairing).toBeNull();
     }
 
-    expect(requests.every((each) => each.scale === 'claims')).toBe(true);
     expect(requests.every((each) => each.claims.length === 2)).toBe(true);
     expect(pairRequests).toHaveLength(6);
     expect(

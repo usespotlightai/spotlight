@@ -1,9 +1,11 @@
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
+import type { RunToolChangeShape } from '@runs/application/contracts/run-spec.contract';
 import { RunSpecMapper } from '@runs/application/mappers/run-spec.mapper';
 import type { ContentHashPort } from '@runs/application/ports/content-hash.port';
 import type {
   QueuedRunCancellation,
   ResumedBecause,
+  RunResumption,
   RunCancellation,
   RunEnqueueing,
   RunLease,
@@ -178,15 +180,30 @@ export class Runs implements RunsPort {
     attempt: number | null,
     because: ResumedBecause,
     checkouts: readonly RunCheckout[],
-  ): Promise<void> {
-    await this.changed(runId, (run) =>
-      run.resumed(
+    tools: RunToolChangeShape,
+  ): Promise<RunResumption> {
+    const toolChange = RunSpecMapper.toolChange(tools);
+    const decided = await this.decided(runId, (run) => {
+      const resumed = run.resumed(
         attempt === null ? null : RunAttempt.reported(runId, attempt),
         because,
         checkouts,
         this.clock.now(),
-      ),
-    );
+        toolChange,
+      );
+
+      return {
+        run: resumed,
+        resumption:
+          resumed === run || resumed.state !== 'queued'
+            ? ('not-resumed' as const)
+            : resumed.spec.serves(toolChange)
+              ? ('resumed' as const)
+              : ('resumed-with-its-tools' as const),
+      };
+    });
+
+    return decided?.resumption ?? 'not-resumed';
   }
 
   async finish(runId: RunId, attempt: number): Promise<void> {

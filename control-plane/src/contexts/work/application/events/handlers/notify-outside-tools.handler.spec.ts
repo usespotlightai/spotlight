@@ -76,6 +76,7 @@ const gradeRequest = (task: Task) =>
     taskId: task.id,
     form: 'grade',
     about: InboxRequestSubject.of('decision_set_1'),
+    askedOf: null,
     now: new Date('2026-09-17T09:30:00.000Z'),
   });
 

@@ -67,6 +67,12 @@ export interface ToolManifestShape {
   readonly approval: { readonly because: string } | null;
   readonly integration?: string;
   readonly output?: JsonObject;
+  readonly readOnly?: true;
+}
+
+export interface RunToolChangeShape {
+  readonly removed: readonly string[];
+  readonly added: readonly ToolManifestShape[];
 }
 
 export interface SkillFileShape {

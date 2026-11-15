@@ -27,7 +27,7 @@ import {
   teamChats,
   turnEndsAt,
 } from '@/mocks/world/team-chats';
-import { type MemoryRecord, teamMemories } from '@/mocks/world/team-memories';
+import { teamMemories } from '@/mocks/world/team-memories';
 
 const KINDS = [
   'rationale',
@@ -51,20 +51,16 @@ const nextId = (prefix: string): string => {
 
 const now = (): string => new Date().toISOString();
 
-const isKind = (raw: unknown): raw is MemoryRecord['kind'] =>
+const isKind = (raw: unknown): raw is TeamMemoryResponseDto['kind'] =>
   KINDS.some((kind) => kind === raw);
 
-const memoriesOf = (teamId: string): MemoryRecord[] | undefined =>
+const memoriesOf = (teamId: string): TeamMemoryResponseDto[] | undefined =>
   teamMemories()[teamId];
 
-const summaryOf = ({
-  harness: _harness,
-  steps: _steps,
-  notes: _notes,
-  ...summary
-}: MemoryRecord): TeamMemoryResponseDto => summary;
-
-const linkTo = (memories: readonly MemoryRecord[], id: string | null) => {
+const linkTo = (
+  memories: readonly TeamMemoryResponseDto[],
+  id: string | null,
+) => {
   const found = memories.find((each) => each.id === id);
   return found
     ? { id: found.id, handle: found.handle, body: found.body }
@@ -72,18 +68,21 @@ const linkTo = (memories: readonly MemoryRecord[], id: string | null) => {
 };
 
 const detailOf = (
-  memories: readonly MemoryRecord[],
-  memory: MemoryRecord,
+  memories: readonly TeamMemoryResponseDto[],
+  memory: TeamMemoryResponseDto,
 ): TeamMemoryDetailResponseDto => ({
   ...memory,
   superseded: linkTo(memories, memory.supersedes),
   successor: linkTo(memories, memory.retirement?.supersededBy ?? null),
 });
 
-const sinceOf = (memory: MemoryRecord): number =>
+const sinceOf = (memory: TeamMemoryResponseDto): number =>
   Date.parse(memory.retirement?.at ?? memory.approvedAt);
 
-const listed = (memories: readonly MemoryRecord[], query: URLSearchParams) => {
+const listed = (
+  memories: readonly TeamMemoryResponseDto[],
+  query: URLSearchParams,
+) => {
   const status = query.get('status') || 'active';
   const kind = query.get('kind');
   const lineId = query.get('lineId');
@@ -101,8 +100,7 @@ const listed = (memories: readonly MemoryRecord[], query: URLSearchParams) => {
         (!repository || memory.repository === repository) &&
         (!path || memory.paths.some((each) => each.startsWith(path))),
     )
-    .sort((a, b) => sinceOf(b) - sinceOf(a))
-    .map(summaryOf);
+    .sort((a, b) => sinceOf(b) - sinceOf(a));
 };
 
 const nextHandle = (): string => {
@@ -115,7 +113,7 @@ const nextHandle = (): string => {
 };
 
 type Placed = Pick<
-  MemoryRecord,
+  TeamMemoryResponseDto,
   'kind' | 'body' | 'scope' | 'lineId' | 'stationId' | 'repository' | 'paths'
 >;
 
@@ -164,7 +162,7 @@ const placedFrom = (
   };
 };
 
-const writtenBySam = (placed: Placed): MemoryRecord => ({
+const writtenBySam = (placed: Placed): TeamMemoryResponseDto => ({
   id: nextId('memory'),
   handle: nextHandle(),
   source: 'person',
@@ -175,9 +173,6 @@ const writtenBySam = (placed: Placed): MemoryRecord => ({
   retirement: null,
   provenance: null,
   runs: 0,
-  harness: null,
-  steps: [],
-  notes: [],
   ...placed,
 });
 
@@ -250,13 +245,10 @@ const memoryHandlers = [
         return problem(422, placed);
       }
 
-      const successor: MemoryRecord = {
+      const successor: TeamMemoryResponseDto = {
         ...writtenBySam(placed),
         supersedes: old.id,
         provenance: old.provenance,
-        harness: old.harness,
-        steps: old.steps,
-        notes: old.notes,
       };
       old.status = 'retired';
       old.retirement = {

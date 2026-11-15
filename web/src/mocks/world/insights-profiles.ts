@@ -1,4 +1,4 @@
-import type { ConfigChangeResponseDto } from '@/lib/api';
+import type { InsightsConfigChangeResponseDto } from '@/lib/api';
 import type { PullRequestType } from '@/lib/insights-pull-requests';
 import {
   DELIVERY_ID,
@@ -30,7 +30,7 @@ export type Version = {
   readonly checksFailed: number;
   readonly judge: number;
   readonly skills: readonly string[];
-  readonly changes: readonly ConfigChangeResponseDto[];
+  readonly changes: readonly InsightsConfigChangeResponseDto[];
 };
 
 type ServerUse = {

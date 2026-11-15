@@ -29,12 +29,10 @@ const noteAvatar = (note: MemoryProvenanceNote) => {
 
 type MemoryProvenanceListProps = {
   provenance: MemoryProvenance;
-  compact?: boolean;
 };
 
 export function MemoryProvenanceList({
   provenance,
-  compact = false,
 }: MemoryProvenanceListProps) {
   const { data: harnesses } = useHarnesses();
   const agent = harnesses?.find((each) => each.id === provenance.harness)?.name;
@@ -61,39 +59,19 @@ export function MemoryProvenanceList({
     })),
   ];
 
-  if (!compact) {
-    return (
-      <ol className="flex flex-col">
-        {entries.map((each, at) => (
-          <ThreadEntry
-            key={each.key}
-            first={at === 0}
-            avatar={each.avatar}
-            author={each.name}
-          >
-            <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-5">
-              {each.text}
-            </p>
-          </ThreadEntry>
-        ))}
-      </ol>
-    );
-  }
-
   return (
-    <ol className="flex flex-col gap-2">
-      {entries.map((each) => (
-        <li key={each.key}>
-          <div className="flex flex-col gap-0.5 text-sm leading-5">
-            <div className="flex items-center gap-2.5">
-              {each.avatar}
-              <span className="min-w-0 truncate text-muted-foreground">
-                {each.name}
-              </span>
-            </div>
-            <p className="pl-8.5 text-foreground">{each.text}</p>
-          </div>
-        </li>
+    <ol className="flex flex-col">
+      {entries.map((each, at) => (
+        <ThreadEntry
+          key={each.key}
+          first={at === 0}
+          avatar={each.avatar}
+          author={each.name}
+        >
+          <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-5">
+            {each.text}
+          </p>
+        </ThreadEntry>
       ))}
     </ol>
   );

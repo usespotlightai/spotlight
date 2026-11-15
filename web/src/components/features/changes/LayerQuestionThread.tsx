@@ -143,12 +143,6 @@ export function LayerQuestionThread({
           }
         />
       )}
-
-      {answering.isError && !current && (
-        <p role="alert" className="text-destructive text-xs leading-5">
-          Sorry, the answer couldn’t be checked. Please try again.
-        </p>
-      )}
     </section>
   );
 }

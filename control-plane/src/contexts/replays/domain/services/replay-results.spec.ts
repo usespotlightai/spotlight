@@ -8,7 +8,7 @@ import {
   later,
   measuresOf,
   NOW,
-  RUBRIC,
+  JUDGE,
   ranToEnd,
   replayedAs,
   replayFor,
@@ -27,6 +27,7 @@ import {
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -71,7 +72,7 @@ const ran = (
   runs: readonly Ran[],
   costs: readonly number[],
   baseline = false,
-  rubric: string | null = null,
+  judge: JudgeCriteria | null = null,
 ) =>
   runs.reduce(
     (replay, how, at) => ranToEndHow(replay, at, how, costs[at] ?? 1),
@@ -83,22 +84,20 @@ const ran = (
       candidate: candidateOf(
         baseline ? 'live' : 'searched',
         `candidate_${id}`,
-        rubric,
+        judge,
       ),
     }).reserving(slots(runs.length), runIds()),
   );
 
 const scoredAs = (score: number) =>
   JudgeVerdict.of({
-    scale: 'number',
-    value: score,
-    claimResults: null,
-    claims: [],
-    passThreshold: 1,
+    claimResults: [2, 3, 4, 5].map((each) => score >= each),
+    claims: ['One.', 'Two.', 'Three.', 'Four.'],
+    passThreshold: 0.75,
     model: 'judge/model',
     referenced: true,
     reasons: [
-      { text: 'It drains the queue.', steps: [3], hunks: [], claim: null },
+      { text: 'It drains the queue.', steps: [3], hunks: [], claim: 0 },
     ],
     guidance: null,
   });
@@ -229,11 +228,11 @@ describe('taskComparisons', () => {
         replay,
       );
     const baseline = judged(
-      ran('baseline', ['passed', 'passed'], [], true, RUBRIC),
+      ran('baseline', ['passed', 'passed'], [], true, JUDGE),
       [5, 4],
     );
     const candidate = judged(
-      ran('candidate', ['passed', 'passed'], [], false, RUBRIC),
+      ran('candidate', ['passed', 'passed'], [], false, JUDGE),
       [4, 5],
     );
 
@@ -247,8 +246,8 @@ describe('taskComparisons', () => {
         each.candidateSuccess,
       ]),
     ).toEqual([
-      ['original_0', -1, false, 1],
-      ['original_1', 1, false, 1],
+      ['original_0', -0.25, false, 1],
+      ['original_1', 0.25, false, 1],
     ]);
   });
 
@@ -257,10 +256,8 @@ describe('taskComparisons', () => {
       replay.recordVerdict(
         run(0),
         JudgeVerdict.of({
-          scale: 'number',
-          value: 2,
-          claimResults: null,
-          claims: [],
+          claimResults: [false],
+          claims: ['It drains.'],
           passThreshold: 1,
           model: 'judge/model',
           referenced,
@@ -269,15 +266,18 @@ describe('taskComparisons', () => {
         }),
         later(90_000),
       );
-    const baseline = judged(
-      ran('baseline', ['passed'], [], true, RUBRIC),
-      true,
-    );
+    const baseline = judged(ran('baseline', ['passed'], [], true, JUDGE), true);
 
     expect(
       taskComparisons(
         judged(
-          ran('candidate', ['passed'], [], false, `${RUBRIC} More.`),
+          ran(
+            'candidate',
+            ['passed'],
+            [],
+            false,
+            JudgeCriteria.of({ claims: [...JUDGE.claims, 'More.'] }),
+          ),
           true,
         ).outcome(),
         baseline.outcome(),
@@ -285,16 +285,13 @@ describe('taskComparisons', () => {
     ).toMatchObject({ scoreDelta: null, scoreUncompared: 'other-rubric' });
     expect(
       taskComparisons(
-        judged(
-          ran('candidate', ['passed'], [], false, RUBRIC),
-          false,
-        ).outcome(),
+        judged(ran('candidate', ['passed'], [], false, JUDGE), false).outcome(),
         baseline.outcome(),
       )[0],
     ).toMatchObject({ scoreDelta: null, scoreUncompared: 'other-reference' });
     expect(
       taskComparisons(
-        judged(ran('candidate', ['passed'], [], false, RUBRIC), true).outcome(),
+        judged(ran('candidate', ['passed'], [], false, JUDGE), true).outcome(),
         baseline.outcome(),
       )[0],
     ).toMatchObject({ scoreDelta: 0, scoreUncompared: null });

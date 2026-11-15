@@ -12,7 +12,6 @@ import { StationJudgeReports } from '@insights/application/services/station-judg
 import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import {
   JudgingsInMemory,
   judgeScore,
@@ -37,21 +36,9 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const NUMBER_JUDGE: StationJudge = {
-  teamId: TeamId.of('team_1'),
-  lineId: LineId.of('line_1'),
-  rubric: 'scores: 1-5\nHow well did it retry?',
-  rubricVersion: RUBRIC_VERSION,
-  claims: [],
-  passThreshold: 1,
-  sample: 1,
-  minAgreement: 0.5,
-};
-
 const CLAIMS_JUDGE: StationJudge = {
   teamId: TeamId.of('team_1'),
   lineId: LineId.of('line_1'),
-  rubric: null,
   rubricVersion: RUBRIC_VERSION,
   claims: ['It retries the upload.', 'It adds a test.'],
   passThreshold: 1,
@@ -60,17 +47,15 @@ const CLAIMS_JUDGE: StationJudge = {
 };
 
 const grading = async (
-  judged: ScoreScale | null = ScoreScale.yesNo(),
-  station: StationJudge | null = null,
+  judged: readonly boolean[] | null = [true, false],
+  station: StationJudge | null = CLAIMS_JUDGE,
 ) => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
   const judgings = new JudgingsInMemory();
   await records.add(endedRecord('run_1'));
   if (judged) {
-    await scores.add(
-      judgeScore('run_1', judged, judged.values[0] ?? 0, { taskId: 'task_1' }),
-    );
+    await scores.add(judgeScore('run_1', judged, { taskId: 'task_1' }));
     scores.events.length = 0;
   }
   const evidence = {
@@ -122,10 +107,8 @@ const grading = async (
     judgings,
     reports,
     deletions,
-    grade: (value: boolean | number | null, by = 'user_ada', runId = 'run_1') =>
-      graded(new GradeRunCommand('team_1', runId, value, null, by)),
-    gradeClaims: (claims: readonly boolean[] | null, by = 'user_ada') =>
-      graded(new GradeRunCommand('team_1', 'run_1', null, claims, by)),
+    grade: (claims: readonly boolean[], by = 'user_ada', runId = 'run_1') =>
+      graded(new GradeRunCommand('team_1', runId, claims, by)),
   };
 };
 
@@ -136,62 +119,62 @@ describe('GradeRunHandler', () => {
     await run.deletions.markDeleted(
       DeletionScope.ofTask(WORKSPACE, TaskId.of('task_1')),
     );
-    await run.grade(true);
+    await run.grade([true, true]);
 
     expect(
       [...run.scores.stored.values()].filter((each) => !each.fromJudge),
     ).toEqual([]);
   });
 
-  it('records a person’s grade on the judge’s scale and rubric', async () => {
+  it('records a person’s grade claim by claim on the judge’s rubric and pass threshold', async () => {
     const run = await grading();
 
-    const scores = await run.grade(true);
+    const scores = await run.grade([true, false]);
 
+    expect(scores.claims).toEqual(CLAIMS_JUDGE.claims);
     expect(scores.grades).toEqual([
-      expect.objectContaining({ by: 'user_ada', mine: true, label: 'yes' }),
+      expect.objectContaining({
+        by: 'user_ada',
+        mine: true,
+        value: 0.5,
+        claimResults: [true, false],
+        passes: false,
+        label: '1 of 2 claims met',
+      }),
     ]);
     const grade = [...run.scores.stored.values()].find(
       (each) => !each.fromJudge,
     );
     expect(grade?.rubricVersion).toBe(RUBRIC_VERSION);
+    expect(grade?.passThreshold).toBe(1);
     expect((run.scores.events as ScoreRecorded[])[0]?.source).toBe('person');
   });
 
   it('replaces a person’s grade with their later one', async () => {
     const run = await grading();
 
-    await run.grade(true);
-    const scores = await run.grade(false);
+    await run.grade([true, true]);
+    const scores = await run.grade([false, false]);
 
-    expect(scores.grades.map((each) => each.label)).toEqual(['no']);
+    expect(scores.grades.map((each) => each.label)).toEqual([
+      '0 of 2 claims met',
+    ]);
   });
 
   it('keeps each person’s grade', async () => {
     const run = await grading();
 
-    await run.grade(true, 'user_ada');
-    const scores = await run.grade(false, 'user_grace');
+    await run.grade([true, true], 'user_ada');
+    const scores = await run.grade([false, true], 'user_grace');
 
     expect(scores.grades).toHaveLength(2);
   });
 
-  it('grades a claims judge claim by claim, naming the claims to grade, and rejects a single value or the wrong number of claims', async () => {
-    const run = await grading(null, CLAIMS_JUDGE);
+  it('rejects a grade that marks the wrong number of claims', async () => {
+    const run = await grading();
 
-    const scores = await run.gradeClaims([true, false]);
-
-    expect(scores.kind).toBe('claims');
-    expect(scores.claims).toEqual(CLAIMS_JUDGE.claims);
-    expect(scores.grades[0]).toMatchObject({
-      value: 0.5,
-      claimResults: [true, false],
-      label: '50% of claims met',
-    });
-    await expect(run.grade(true)).rejects.toBeInstanceOf(ApplicationError);
-    await expect(run.gradeClaims([true])).rejects.toBeInstanceOf(
-      ApplicationError,
-    );
+    await expect(run.grade([true])).rejects.toBeInstanceOf(ApplicationError);
+    await expect(run.grade([])).rejects.toMatchObject({ kind: 'invalid' });
   });
 
   it('names the claims the judge marked, even once the station’s claims changed', async () => {
@@ -200,10 +183,7 @@ describe('GradeRunHandler', () => {
       rubricVersion: RubricVersion.of('d'.repeat(64)),
     });
     await run.scores.add(
-      judgeScore('run_1', ScoreScale.claims(), 0, {
-        taskId: 'task_1',
-        claimResults: [true, true, false],
-      }),
+      judgeScore('run_1', [true, true, false], { taskId: 'task_1' }),
     );
     const marked = [
       'It retries the upload.',
@@ -211,29 +191,22 @@ describe('GradeRunHandler', () => {
       'It leaves the handler alone.',
     ];
     await run.judgings.add(
-      queuedJudging('run_1', rubricOf(null, RUBRIC_VERSION, marked)),
+      queuedJudging('run_1', rubricOf(RUBRIC_VERSION, marked)),
     );
 
-    const scores = await run.gradeClaims([true, true, true]);
+    const scores = await run.grade([true, true, true]);
 
     expect(scores.claims).toEqual(marked);
     expect(scores.grades[0]?.claimResults).toEqual([true, true, true]);
   });
 
-  it('grades on 1 to 5 where the judge did', async () => {
-    const run = await grading(ScoreScale.oneToFive());
+  it('grades a run the judge has yet to score on the station’s claims, and pairs the grade once the judge scores it', async () => {
+    const run = await grading(null);
 
-    expect((await run.grade(4)).grades[0]?.value).toBe(4);
-    await expect(run.grade(true)).rejects.toBeInstanceOf(ApplicationError);
-  });
-
-  it('grades a run the judge has yet to score on the station’s rubric, and pairs the grade once the judge scores it', async () => {
-    const run = await grading(null, NUMBER_JUDGE);
-
-    expect((await run.grade(4)).kind).toBe('number');
+    expect((await run.grade([true, true])).gradable).toBe(true);
 
     await run.scores.add(
-      judgeScore('run_1', ScoreScale.oneToFive(), 3, { taskId: 'task_1' }),
+      judgeScore('run_1', [true, false], { taskId: 'task_1' }),
     );
     const { report } = await run.reports.at({
       workspaceId: WORKSPACE,
@@ -243,30 +216,29 @@ describe('GradeRunHandler', () => {
     });
 
     expect(report.versions[0]?.agreement.pairs).toBe(1);
-    expect(report.versions[0]?.agreement.mae).toBe(1);
+    expect(report.versions[0]?.agreement.confusion.cells).toEqual([
+      [0, 1],
+      [0, 0],
+    ]);
   });
 
-  it('grades yes or no where no judge scored the run', async () => {
-    const run = await grading(null);
+  it('rejects a grade where neither the judge nor the station has claims', async () => {
+    const run = await grading(null, null);
 
-    expect((await run.grade(false)).kind).toBe('yes-no');
-  });
-
-  it('rejects a missing grade', async () => {
-    const run = await grading();
-
-    await expect(run.grade(null)).rejects.toMatchObject({
-      kind: 'invalid',
-    });
+    await expect(run.grade([true])).rejects.toMatchObject({ kind: 'invalid' });
   });
 
   it('finds no run for someone off the team, nor a run it does not know', async () => {
     const run = await grading();
 
-    await expect(run.grade(true, 'user_stranger')).rejects.toMatchObject({
+    await expect(
+      run.grade([true, true], 'user_stranger'),
+    ).rejects.toMatchObject({
       kind: 'not-found',
     });
-    await expect(run.grade(true, 'user_ada', 'run_9')).rejects.toMatchObject({
+    await expect(
+      run.grade([true, true], 'user_ada', 'run_9'),
+    ).rejects.toMatchObject({
       kind: 'not-found',
     });
   });

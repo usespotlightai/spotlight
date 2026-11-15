@@ -146,7 +146,6 @@ const CHANGES = {
       lineId: 'line_1',
       stationId: 'station_impl',
       qualified: true,
-      measure: 'kappa',
       agreement: 0.7,
       pairs: 20,
       minAgreement: 0.6,
@@ -333,10 +332,10 @@ describe('the Changes tab', () => {
     expect(
       accepted.querySelector('[data-slot="delta"]')?.getAttribute('data-tone'),
     ).toBe('good');
-    const judge = within(table).getByRole('row', { name: /Judge score/ });
+    const judge = within(table).getByRole('row', { name: /Judge pass rate/ });
     expect(judge).toHaveTextContent(/75%/);
     expect(
-      within(judge).getByRole('link', { name: 'Judge score' }),
+      within(judge).getByRole('link', { name: 'Judge pass rate' }),
     ).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_impl/judge',
@@ -352,7 +351,43 @@ describe('the Changes tab', () => {
     ).toBeInTheDocument();
   });
 
-  it('compares agent configs in a table, marking the frontier and keeping judge scores to stations with a qualified judge', async () => {
+  it('leaves the judge pass rate out of the impact of a change to the judge’s claims', async () => {
+    answer.changes = queried({
+      ...CHANGES,
+      markers: CHANGES.markers.map((marker) => ({
+        ...marker,
+        changes: [
+          ...marker.changes,
+          {
+            part: 'judge',
+            name: 'claims',
+            kind: 'changed',
+            was: null,
+            now: null,
+          },
+        ],
+      })),
+    });
+
+    showing();
+
+    const row = within(screen.getByRole('list', { name: 'Config changes' }))
+      .getByRole('link', { name: 'Implementation' })
+      .closest('[data-slot="change-marker"]') as HTMLElement;
+    await userEvent.click(within(row).getByRole('button', { name: 'Impact' }));
+
+    const table = screen.getByRole('table', {
+      name: 'Runs before and after the change',
+    });
+    expect(
+      within(table).getByRole('row', { name: /Accepted/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).queryByRole('row', { name: /Judge pass rate/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('compares agent configs in a table, marking the frontier and keeping judge verdicts to stations with a qualified judge', async () => {
     showing();
 
     await userEvent.click(screen.getByRole('button', { name: 'Table' }));
@@ -370,7 +405,7 @@ describe('the Changes tab', () => {
     expect(
       within(opus).getByLabelText('Best for the cost'),
     ).toBeInTheDocument();
-    expect(opus).toHaveTextContent('Judge score75%');
+    expect(opus).toHaveTextContent('Judge pass rate75%');
     const calibrations = document.querySelector(
       '[data-slot="judge-calibrations"]',
     ) as HTMLElement;
@@ -389,7 +424,7 @@ describe('the Changes tab', () => {
     ).toBeInTheDocument();
   });
 
-  it('leaves judge scores out of the table until a station is picked', async () => {
+  it('leaves judge verdicts out of the table until a station is picked', async () => {
     answer.agentConfigs = queried({
       ...AGENT_CONFIGS,
       stationId: null,
@@ -406,7 +441,7 @@ describe('the Changes tab', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     expect(
-      screen.queryByRole('columnheader', { name: 'Judge score' }),
+      screen.queryByRole('columnheader', { name: 'Judge pass rate' }),
     ).not.toBeInTheDocument();
   });
 
@@ -448,7 +483,7 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      /replay success on up to 18 runs of past tasks, not live outcomes. Each candidate’s own checks and judge score it/,
+      /replay success on up to 18 runs of past tasks, not live outcomes. Each candidate’s own checks and judge decide whether it succeeded/,
     );
   });
 

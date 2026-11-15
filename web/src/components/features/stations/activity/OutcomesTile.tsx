@@ -1,5 +1,5 @@
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
-import { TONE_FILL } from '@/components/features/stations/activity/outcome-tones';
+import { TONE_FILL } from '@/components/shared/outcome-tones';
 import { formatShare, type ShownDelta } from '@/lib/insights';
 import {
   OUTCOME_NOTE,

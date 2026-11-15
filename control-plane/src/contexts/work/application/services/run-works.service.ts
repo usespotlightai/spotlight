@@ -216,8 +216,14 @@ export class RunWorks {
       case 'trial':
         return new TrialRunWork(
           run,
-          (await this.dispatches.find(subject.basedOn))?.briefedTask ?? null,
-          subject.repositories,
+          {
+            taskId: subject.taskId,
+            stationId: subject.stationId,
+            briefed:
+              (await this.dispatches.find(subject.basedOn))?.briefedTask ??
+              null,
+            repositories: subject.repositories,
+          },
           this.runCommands,
         );
     }

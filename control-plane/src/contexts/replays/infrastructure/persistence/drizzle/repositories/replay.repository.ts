@@ -166,11 +166,7 @@ const judgingOf = (stored: StoredEntryJudging | null): EntryJudging | null => {
 const judgingRow = (judging: EntryJudging | null): StoredEntryJudging | null =>
   judging && {
     verdict: judging.verdict && {
-      scale: judging.verdict.scale,
-      value: judging.verdict.value,
-      claimResults: judging.verdict.claimResults && [
-        ...judging.verdict.claimResults,
-      ],
+      claimResults: [...judging.verdict.claimResults],
       claims: [...judging.verdict.claims],
       passThreshold: judging.verdict.passThreshold,
       model: judging.verdict.model,

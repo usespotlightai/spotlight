@@ -77,7 +77,6 @@ export class PairJudgments implements PairJudgmentsPort {
         }
 
         const { verdict, model } = await this.llmJudge.judgePair({
-          rubric: order.criteria.rubric,
           claims: order.criteria.claims,
           title: evidence.title,
           description: evidence.description,

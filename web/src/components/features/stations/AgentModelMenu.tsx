@@ -29,7 +29,7 @@ export function AgentModelMenu({
           {modelName ?? 'Default'}
         </span>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent sideOffset={8} className="min-w-52">
+      <DropdownMenuSubContent className="min-w-52">
         <DropdownMenuRadioGroup
           value={model || DEFAULT_CHOICE}
           onValueChange={(next) => onModel?.(chosen(next))}

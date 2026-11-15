@@ -12,6 +12,11 @@ const refetch = vi.fn();
 const older = vi.fn<(...args: unknown[]) => unknown>();
 const load = vi.fn();
 
+vi.mock('@/hooks/api/useStopRun', () => ({
+  useStopRun: () => ({ mutate: () => {} }),
+  useStopInFlight: () => false,
+}));
+
 vi.mock('@/hooks/api/useTeamRuns', () => ({
   useTeamRuns: () => ({
     data: runs(),

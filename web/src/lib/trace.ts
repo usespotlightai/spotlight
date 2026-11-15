@@ -1,4 +1,5 @@
 import type { TaskTraceResponseDto, TraceNodeResponseDto } from '@/lib/api';
+import { repoRelative } from '@/lib/changes';
 
 export type Trace = TaskTraceResponseDto;
 
@@ -40,6 +41,43 @@ export const laidOut = (
     width: (Math.max(node.ms, 0) / whole) * 100,
   };
 };
+
+const below = (node: TraceNode): TraceNode[] =>
+  node.children.flatMap((child) => [child, ...below(child)]);
+
+export const ancestorsOf = (
+  roots: readonly TraceNode[],
+  id: string,
+): string[] | null => {
+  for (const node of roots) {
+    if (node.id === id) {
+      return [];
+    }
+
+    const found = ancestorsOf(node.children, id);
+
+    if (found) {
+      return [node.id, ...found];
+    }
+  }
+
+  return null;
+};
+
+export const stepNodeAt = (run: TraceNode, place: number): TraceNode | null =>
+  below(run).find((node) => node.place === place) ?? null;
+
+export const lastChangeTo = (run: TraceNode, path: string): TraceNode | null =>
+  below(run)
+    .filter(
+      (node) =>
+        node.step?.change?.path && repoRelative(node.step.change.path) === path,
+    )
+    .reduce<TraceNode | null>(
+      (last, node) =>
+        last && (last.place ?? -1) > (node.place ?? -1) ? last : node,
+      null,
+    );
 
 const RUN = 'run:';
 

@@ -50,7 +50,6 @@ const stationOf = (
   decisions: station.decisions,
   memories: station.memories,
   judge: station.judge && {
-    rubric: station.judge.rubric,
     claims: [...station.judge.claims],
     passThreshold: station.judge.passThreshold,
     rubricVersion: station.judge.rubricVersion((text) => hash.sha256(text)),

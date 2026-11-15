@@ -82,7 +82,6 @@ const GUARDED: readonly {
 ];
 
 const JUDGE_FIELDS: readonly (keyof LineDefinitionJudge)[] = [
-  'rubric',
   'claims',
   'sample',
   'minAgreement',
@@ -157,7 +156,23 @@ const fieldsOf = (request: StationSourceEditRequest): readonly HclField[] => [
   }),
 ];
 
-const judgeOf = (seed: LineDefinitionStation): HclGuardedBlock => {
+const claimsOf = (judge: LineDefinitionStation['judge']): HclLiteral =>
+  typeof judge === 'object' && judge !== null
+    ? literalIn(judge, 'claims', null)
+    : null;
+
+const desiredClaimsOf = (
+  candidate: LineDefinitionStation,
+): Record<string, HclLiteral> => {
+  const claims = claimsOf(candidate.judge);
+
+  return claims === null ? {} : { [terraformAttributeOf('claims')]: claims };
+};
+
+const judgeOf = (
+  seed: LineDefinitionStation,
+  candidate: LineDefinitionStation,
+): HclGuardedBlock => {
   const judge = seed.judge;
 
   if (typeof judge !== 'object' || judge === null) {
@@ -176,6 +191,7 @@ const judgeOf = (seed: LineDefinitionStation): HclGuardedBlock => {
       [passThreshold, literalIn(judge, 'passThreshold', ALL_CLAIMS)],
     ]),
     unset: { [passThreshold]: ALL_CLAIMS },
+    desired: desiredClaimsOf(candidate),
   };
 };
 
@@ -188,7 +204,7 @@ export class HclStationSourceEdits implements StationSourceEditsPort {
 
     try {
       fields = fieldsOf(request);
-      judge = judgeOf(request.seed);
+      judge = judgeOf(request.seed, request.candidate);
     } catch (error) {
       if (error instanceof UnwritableValue) {
         return {

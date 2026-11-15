@@ -1,8 +1,8 @@
 import { MessageSquare } from 'lucide-react';
 
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
-import { ResolveToggle } from '@/components/features/inbox/ResolveToggle';
 import { useMarkInboxChatRead } from '@/hooks/api/useMarkInboxChatRead';
+import { useResolveAction } from '@/hooks/useResolveAction';
 import { chatPreviewOf, type InboxChat, inboxChatPath } from '@/lib/inbox';
 
 type ChatRowProps = {
@@ -11,6 +11,7 @@ type ChatRowProps = {
 };
 
 export function ChatRow({ slug, chat }: ChatRowProps) {
+  const resolve = useResolveAction(slug, chat);
   const markRead = useMarkInboxChatRead();
 
   return (
@@ -28,7 +29,7 @@ export function ChatRow({ slug, chat }: ChatRowProps) {
       unread={chat.unread}
       at={chat.askedAt}
       preview={chatPreviewOf(chat)}
-      action={<ResolveToggle slug={slug} entry={chat} />}
+      resolve={resolve}
     />
   );
 }

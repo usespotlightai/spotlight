@@ -18,26 +18,16 @@ import {
 
 export class StationJudgeResponseDto {
   @ApiProperty({
-    type: String,
-    nullable: true,
-    example: 'A good run changes only what the task requests.',
-    description:
-      'What a good run looks like, in Markdown. Null when the judge goes by its claims alone',
-  })
-  readonly rubric: string | null;
-
-  @ApiProperty({
     type: [String],
     example: ['The change adds a test that fails without it.'],
-    description:
-      'Checkable claims the judge marks met or unmet, in order. Empty when the judge goes by its rubric',
+    description: 'Checkable claims the judge marks met or not met, in order',
   })
   readonly claims: string[];
 
   @ApiProperty({
     example: 1,
     description:
-      'The share of claims a run must meet to pass, from 0 to 1. 1 means every claim',
+      'The share of claims a run must meet to pass, above 0, up to 1. 1 means every claim',
   })
   readonly passThreshold: number;
 
@@ -50,12 +40,11 @@ export class StationJudgeResponseDto {
   @ApiProperty({
     example: 0.6,
     description:
-      'How often the judge must agree with people, from 0 to 1, before its scores show',
+      'How often the judge must agree with people, from 0 to 1, before its verdicts show on runs.',
   })
   readonly minAgreement: number;
 
   constructor(judge: StationJudgeSummary) {
-    this.rubric = judge.rubric;
     this.claims = [...judge.claims];
     this.passThreshold = judge.passThreshold;
     this.sample = judge.sample;
@@ -316,7 +305,7 @@ export class StationResponseDto {
     type: StationJudgeResponseDto,
     nullable: true,
     description:
-      'Scores the station’s runs against a rubric. Null when none is set.',
+      'Judges the station’s runs against checkable claims. Null when none is set.',
   })
   readonly judge: StationJudgeResponseDto | null;
 

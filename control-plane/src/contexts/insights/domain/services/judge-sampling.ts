@@ -19,7 +19,7 @@ const mixed = (hash: number): number => {
   return mixing >>> 0;
 };
 
-const pointOf = (seed: string, runId: RunId): number => {
+export const samplePointOf = (seed: string, runId: RunId): number => {
   let hash = OFFSET;
 
   for (const char of `${seed}:${runId.value}`) {
@@ -39,7 +39,7 @@ export const judgesRunThatEnded = (ending: RunEnding): boolean =>
   JUDGED_ENDINGS.includes(ending);
 
 export const sampledForJudging = (runId: RunId, sample: number): boolean =>
-  within(sample, pointOf('judge', runId));
+  within(sample, samplePointOf('judge', runId));
 
 export const sampledForGrading = (runId: RunId): boolean =>
-  within(GRADING_RATE, pointOf('grade', runId));
+  within(GRADING_RATE, samplePointOf('grade', runId));

@@ -124,7 +124,7 @@ describe('a search for a better station config, when it stalls or loses its stat
         await causing(
           first?.taskId,
           'judge',
-          'Drop the line of the rubric that requires tests.',
+          'Drop the claim that requires tests.',
         ).expect(201)
       ).body,
     ).toEqual({
@@ -181,7 +181,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     });
     expect(notice?.points).toEqual([
       expect.stringMatching(
-        /^“Drain (the )?queue[^”]*”: the cause is the judge\. Drop the line of the rubric that requires tests\. Please fix the rubric of the judge\.$/,
+        /^“Drain (the )?queue[^”]*”: the cause is the judge\. Drop the claim that requires tests\. Please fix the claims of the judge\.$/,
       ),
       expect.stringMatching(
         /^“Drain (the )?queue[^”]*”: the cause is the task itself\. Take it out of the set\. Spotlight takes the task out of the replay set\.$/,

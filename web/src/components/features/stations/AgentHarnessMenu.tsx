@@ -29,7 +29,7 @@ export function AgentHarnessMenu({
           {offered?.name ?? 'No agent'}
         </span>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent sideOffset={8} className="min-w-52">
+      <DropdownMenuSubContent className="min-w-52">
         <DropdownMenuRadioGroup
           value={harness}
           onValueChange={(next) => onHarness?.(String(next))}

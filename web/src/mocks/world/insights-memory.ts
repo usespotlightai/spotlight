@@ -1,6 +1,7 @@
 import type {
   FlaggedMemoryResponseDto,
   InsightsMemoryResponseDto,
+  TeamMemoryResponseDto,
 } from '@/lib/api';
 import type { HistoryRun } from '@/mocks/world/insights-history';
 import {
@@ -10,16 +11,16 @@ import {
 } from '@/mocks/world/insights-measures';
 import { profileOf } from '@/mocks/world/insights-profiles';
 import { runsIn, tallyOf, verdictsOf } from '@/mocks/world/insights-tally';
-import { type MemoryRecord, teamMemories } from '@/mocks/world/team-memories';
+import { teamMemories } from '@/mocks/world/team-memories';
 
-const activeAt = (memory: MemoryRecord, at: number): boolean =>
+const activeAt = (memory: TeamMemoryResponseDto, at: number): boolean =>
   Date.parse(memory.approvedAt) <= at &&
   (memory.retirement === null || at < Date.parse(memory.retirement.at));
 
 const writesCode = (run: HistoryRun): boolean =>
   profileOf(run.stationId)?.checks ?? false;
 
-const matches = (memory: MemoryRecord, run: HistoryRun): boolean =>
+const matches = (memory: TeamMemoryResponseDto, run: HistoryRun): boolean =>
   (memory.lineId === null || memory.lineId === run.lineId) &&
   (memory.stationId === null || memory.stationId === run.stationId) &&
   (memory.repository === null ||
@@ -27,9 +28,9 @@ const matches = (memory: MemoryRecord, run: HistoryRun): boolean =>
   (memory.kind !== 'preference' || memory.lineId !== null || writesCode(run));
 
 const briefedWith = (
-  memories: readonly MemoryRecord[],
+  memories: readonly TeamMemoryResponseDto[],
   run: HistoryRun,
-): MemoryRecord[] =>
+): TeamMemoryResponseDto[] =>
   memories.filter((memory) => activeAt(memory, run.at) && matches(memory, run));
 
 const recalled = (run: HistoryRun): boolean =>
@@ -37,7 +38,9 @@ const recalled = (run: HistoryRun): boolean =>
     9 <
   2;
 
-const flaggedOf = (memory: MemoryRecord): FlaggedMemoryResponseDto | null =>
+const flaggedOf = (
+  memory: TeamMemoryResponseDto,
+): FlaggedMemoryResponseDto | null =>
   memory.retirement?.by && !memory.retirement.supersededBy
     ? {
         memoryId: memory.id,

@@ -29,15 +29,11 @@ export type ErrorReportingResponseDto = {
 
 export type StationJudgeResponseDto = {
   /**
-   * What a good run looks like, in Markdown. Null when the judge goes by its claims alone
-   */
-  rubric: string | null;
-  /**
-   * Checkable claims the judge marks met or unmet, in order. Empty when the judge goes by its rubric
+   * Checkable claims the judge marks met or not met, in order
    */
   claims: Array<string>;
   /**
-   * The share of claims a run must meet to pass, from 0 to 1. 1 means every claim
+   * The share of claims a run must meet to pass, above 0, up to 1. 1 means every claim
    */
   passThreshold: number;
   /**
@@ -45,7 +41,7 @@ export type StationJudgeResponseDto = {
    */
   sample: number;
   /**
-   * How often the judge must agree with people, from 0 to 1, before its scores show
+   * How often the judge must agree with people, from 0 to 1, before its verdicts show on runs.
    */
   minAgreement: number;
 };
@@ -169,7 +165,7 @@ export type StationResponseDto = {
    */
   agentPrompt: string | null;
   /**
-   * Scores the station’s runs against a rubric. Null when none is set.
+   * Judges the station’s runs against checkable claims. Null when none is set.
    */
   judge: StationJudgeResponseDto | null;
   /**
@@ -2366,6 +2362,10 @@ export type TraceNodeResponseDto = {
   cost: number | null;
   currency: string | null;
   step: JournalStepResponseDto | null;
+  /**
+   * On a row of a journal step: where the step sits in the run’s journal, from 0. A citation of a step names this place
+   */
+  place: number | null;
   span: RunSpanResponseDto | null;
   /**
    * On a connection row: a connection of the run with an error, as a shared egress recorded it
@@ -2422,7 +2422,7 @@ export type SkillViewResponseDto = {
 
 export type JudgeViewResponseDto = {
   /**
-   * The SHA-256 of the judge's rubric
+   * The SHA-256 of the judge's claims and pass threshold
    */
   rubricHash: string;
   /**
@@ -2435,7 +2435,7 @@ export type JudgeViewResponseDto = {
   minAgreement: number;
 };
 
-export type StationConfigResponseDto = {
+export type RunStationConfigResponseDto = {
   prompt: string | null;
   harness: string;
   model: string | null;
@@ -2455,10 +2455,10 @@ export type HistoryConfigResponseDto = {
    * The SHA-256 naming this station config
    */
   fingerprint: string;
-  config: StationConfigResponseDto;
+  config: RunStationConfigResponseDto;
 };
 
-export type RunUsageResponseDto = {
+export type HistoryRunUsageResponseDto = {
   ms: number | null;
   steps: number;
   errors: number;
@@ -2479,7 +2479,7 @@ export type RunOutcomeResponseDto = {
    * How many runs this station has taken on the task, this one included
    */
   visit: number;
-  usage: RunUsageResponseDto | null;
+  usage: HistoryRunUsageResponseDto | null;
   checks: 'passed' | 'failed' | 'skipped' | null;
   firstHumanAction: TaskHumanActionResponseDto | null;
   pullRequestState: 'open' | 'merged' | 'closed' | null;
@@ -2675,7 +2675,7 @@ export type InboxRequestResponseDto = {
   /**
    * The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
    */
-  form: 'memories' | 'grade' | 'alert';
+  form: 'memories' | 'grade' | 'alert' | 'judge-disagreement';
   /**
    * What it is about: for memories, the run that proposed them; for grade, the run to grade
    */
@@ -3308,7 +3308,7 @@ export type TeamRunPageResponseDto = {
   next: string | null;
 };
 
-export type ConfigChangeResponseDto = {
+export type RunConfigChangeResponseDto = {
   part: 'prompt' | 'harness' | 'model' | 'effort' | 'profile' | 'image' | 'repository' | 'skill' | 'tool' | 'decisions' | 'memories' | 'judge';
   /**
    * The repository, skill or tool changed, where the part has several, or the judge setting changed
@@ -3326,7 +3326,7 @@ export type ConfigChangedSinceResponseDto = {
   runId: string;
   taskId: string;
   fingerprint: string;
-  changes: Array<ConfigChangeResponseDto>;
+  changes: Array<RunConfigChangeResponseDto>;
 };
 
 export type RunConfigResponseDto = {
@@ -3334,7 +3334,7 @@ export type RunConfigResponseDto = {
    * The SHA-256 naming the station config the run ran with
    */
   fingerprint: string | null;
-  config: StationConfigResponseDto | null;
+  config: RunStationConfigResponseDto | null;
   changedSince: ConfigChangedSinceResponseDto | null;
   /**
    * The tools the run had because its task had a mark they are enabled on, and that its station config does not list
@@ -3999,7 +3999,7 @@ export type TerraformFileResponseDto = {
 
 export type WorkspaceTerraformResponseDto = {
   /**
-   * terraform.tf with the required provider; imports.tf with an import block for each resource; one file per concern (workspace.tf, secrets.tf, runners.tf, and per team team-<team>.tf, line-<team>-<line>.tf, integration-<team>-<integration>.tf, skills-<team>.tf, hooks-<team>.tf, profiles-<team>.tf) with references between them; variables.tf, declaring a sensitive variable for each value Spotlight never returns (secret values, runner tokens); .gitignore; and every prompt, rubric and skill file the module reads with file(), byte for byte; ordered by path
+   * terraform.tf with the required provider; imports.tf with an import block for each resource; one file per concern (workspace.tf, secrets.tf, runners.tf, and per team team-<team>.tf, line-<team>-<line>.tf, integration-<team>-<integration>.tf, skills-<team>.tf, hooks-<team>.tf, profiles-<team>.tf) with references between them; variables.tf, declaring a sensitive variable for each value Spotlight never returns (secret values, runner tokens); .gitignore; and every prompt and skill file the module reads with file(), byte for byte; ordered by path
    */
   files: Array<TerraformFileResponseDto>;
 };
@@ -5223,12 +5223,6 @@ export type TeamMemoryDetailResponseDto = {
    * How many runs were briefed with it or recalled it
    */
   runs: number;
-  /**
-   * The harness of the run whose steps it cites
-   */
-  harness: string | null;
-  steps: Array<MemoryProvenanceStepResponseDto>;
-  notes: Array<MemoryProvenanceNoteResponseDto>;
   superseded: MemoryLinkResponseDto | null;
   successor: MemoryLinkResponseDto | null;
 };
@@ -5319,6 +5313,45 @@ export type RecallMemoriesRequestDto = {
   words: string;
 };
 
+export type RecalledMemoryResponseDto = {
+  id: string;
+  /**
+   * How runs and people name it, as in spotlight recall M-12
+   */
+  handle: string;
+  kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
+  body: string;
+  source: 'person' | 'run' | 'outside';
+  status: 'active' | 'retired';
+  scope: 'team' | 'line' | 'station';
+  lineId: string | null;
+  stationId: string | null;
+  repository: string | null;
+  paths: Array<string>;
+  /**
+   * Who approved or wrote it
+   */
+  approvedBy: MemoryPersonResponseDto;
+  approvedAt: string;
+  /**
+   * The memory it replaced
+   */
+  supersedes: string | null;
+  retirement: MemoryRetirementResponseDto | null;
+  /**
+   * The task and run it cites; none where a person wrote it
+   */
+  provenance: MemoryProvenanceResponseDto | null;
+  /**
+   * How many runs were briefed with it or recalled it
+   */
+  runs: number;
+  superseded: MemoryLinkResponseDto | null;
+  successor: MemoryLinkResponseDto | null;
+  steps: Array<MemoryProvenanceStepResponseDto>;
+  notes: Array<MemoryProvenanceNoteResponseDto>;
+};
+
 export type RememberRequestDto = {
   kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
   body: string;
@@ -5344,11 +5377,93 @@ export type MemoryFileResponseDto = {
   body: string;
 };
 
+export type ConfigProfileResponseDto = {
+  key: string;
+  /**
+   * The settings that the profile applies to the harness
+   */
+  settings: {
+    [key: string]: unknown;
+  } | null;
+};
+
+export type ConfigRepositoryResponseDto = {
+  name: string;
+  setup: string | null;
+};
+
+export type ConfigSkillResponseDto = {
+  key: string;
+  /**
+   * The hash of the skill’s content that the station enabled for the run
+   */
+  hash: string;
+};
+
+export type ConfigJudgeResponseDto = {
+  /**
+   * The version of the claims the runs were judged by
+   */
+  rubricVersion: string;
+  /**
+   * The share of runs judged
+   */
+  sample: number;
+  /**
+   * How often the judge must agree with people
+   */
+  minAgreement: number;
+};
+
+export type InsightsStationConfigResponseDto = {
+  prompt: string | null;
+  harness: string;
+  model: string | null;
+  effort: string | null;
+  profile: ConfigProfileResponseDto | null;
+  image: string | null;
+  repositories: Array<ConfigRepositoryResponseDto>;
+  skills: Array<ConfigSkillResponseDto>;
+  tools: Array<string>;
+  /**
+   * Whether its runs record their decisions
+   */
+  decisions: boolean;
+  /**
+   * Whether Spotlight drafts memories after its runs
+   */
+  memories: boolean;
+  judge: ConfigJudgeResponseDto | null;
+};
+
+export type InsightsConfigChangeResponseDto = {
+  part: string;
+  /**
+   * Which one of the part changed, where the part is a list
+   */
+  name: string | null;
+  kind: 'added' | 'removed' | 'changed';
+  was: string | null;
+  now: string | null;
+};
+
 export type StationConfigPullRequestResponseDto = {
   /**
    * The pull request’s page on GitHub
    */
   url: string;
+};
+
+export type StationRunUsageResponseDto = {
+  ms: number | null;
+  steps: number;
+  errors: number;
+  /**
+   * Tokens of context used
+   */
+  contextTokens: number | null;
+  cost: number | null;
+  currency: string | null;
 };
 
 export type HumanActionResponseDto = {
@@ -5381,7 +5496,7 @@ export type StationRunOutcomeResponseDto = {
    * How many runs this station has taken on the task, this one included
    */
   visit: number;
-  usage: RunUsageResponseDto | null;
+  usage: StationRunUsageResponseDto | null;
   /**
    * How its change fared when checked, if it was
    */
@@ -5536,11 +5651,11 @@ export type FingerprintGroupResponseDto = {
    * Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or cancelled), which are kept apart from the group in force
    */
   ran: boolean;
-  config: StationConfigResponseDto | null;
+  config: InsightsStationConfigResponseDto | null;
   /**
    * How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force
    */
-  changes: Array<ConfigChangeResponseDto>;
+  changes: Array<InsightsConfigChangeResponseDto>;
   /**
    * The pull request Spotlight opened that proposes the group’s config, the latest opened where it opened more than one; none where Spotlight opened none, or for a group with no config
    */
@@ -5619,15 +5734,15 @@ export type StationInsightsResponseDto = {
 
 export type StationJudgeSettingsResponseDto = {
   /**
-   * The SHA-256 of the station’s current rubric
+   * The SHA-256 of the station’s current claims
    */
   rubricVersion: string;
   /**
-   * The scale its rubric scores on; none where it cannot be read
+   * Whether the judge’s claims can be read
    */
-  kind: 'yes-no' | 'number' | 'claims' | null;
+  readable: boolean;
   /**
-   * The claims the judge marks met or unmet, in order; empty where it goes by its rubric
+   * The claims the judge marks met or not met, in order
    */
   claims: Array<string>;
   /**
@@ -5640,50 +5755,34 @@ export type StationJudgeSettingsResponseDto = {
 
 export type JudgeCalibrationResponseDto = {
   /**
-   * Whether the judge agrees with people often enough for its scores to count
+   * Whether the judge agrees with people often enough for its verdicts to count
    */
   qualified: boolean;
   /**
-   * How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers
+   * Cohen’s kappa of the judge’s pass or fail against people’s, on the current claims
    */
-  measure: 'kappa' | 'spearman' | null;
   agreement: number | null;
   /**
-   * How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s
+   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa
    */
-  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | null;
   /**
-   * Runs of the current rubric with both a judge score and people’s
+   * Runs of the current claims with both a judge verdict and people’s
    */
   pairs: number;
   /**
-   * Runs with both a judge score and people’s that agreement needs before it counts
+   * Runs with both a judge verdict and people’s that agreement needs before it counts
    */
   minPairs: number;
   minAgreement: number | null;
   /**
-   * Why the judge’s scores are hidden, where they are
+   * Why the judge’s verdicts are hidden, where they are
    */
   hiddenReason: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-min-agreement' | null;
   /**
-   * Whether the judge’s scores are hidden for a reason other than too few runs with both scores
+   * Whether the judge’s verdicts are hidden for a reason other than too few runs with both verdicts
    */
   failing: boolean;
-};
-
-export type AgreementReadingsResponseDto = {
-  /**
-   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa
-   */
-  kappa: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | null;
-  /**
-   * How strong Pearson’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one
-   */
-  pearson: 'very-strong' | 'strong' | 'moderate' | 'weak' | 'inverse' | null;
-  /**
-   * How strong Spearman’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one
-   */
-  spearman: 'very-strong' | 'strong' | 'moderate' | 'weak' | 'inverse' | null;
 };
 
 export type ClaimAgreementResponseDto = {
@@ -5710,7 +5809,7 @@ export type ClaimAgreementResponseDto = {
 export type AgreementResponseDto = {
   pairs: number;
   /**
-   * Whether enough runs have both scores for the figures below to count
+   * Whether enough runs have both verdicts for the figures below to count
    */
   measured: boolean;
   /**
@@ -5718,42 +5817,32 @@ export type AgreementResponseDto = {
    */
   pairsProgress: number;
   /**
-   * Scores where the judge and people agree: runs, or claim marks for a judge of claims
+   * Runs where the judge and people gave the same verdict, pass or fail
    */
   agreed: number;
   /**
-   * Scores compared: runs, or claim marks for a judge of claims
+   * Runs compared
    */
   compared: number;
   /**
-   * Whether the headline measure, kappa or Spearman’s, is below the minimum agreement
+   * Whether the kappa is below the minimum agreement
    */
   belowMinimum: boolean;
   /**
-   * The share of pairs where the judge and people gave the same score
+   * The share of pairs where the judge and people gave the same verdict
    */
   observed: number | null;
   kappa: number | null;
-  spearman: number | null;
   /**
-   * Pearson’s correlation between the two scores, for a judge of numbers; none otherwise or where either side never changes
+   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa
    */
-  pearson: number | null;
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | null;
   /**
-   * The mean absolute difference between the two scores
-   */
-  mae: number | null;
-  /**
-   * The root mean square difference between the two scores, for a judge of numbers
-   */
-  rmse: number | null;
-  /**
-   * The F1 score of the judge’s yes, or met, against people’s, for a judge of yes or no or of claims; none where neither said yes
+   * The F1 score of the judge’s pass against people’s; none where neither passed the run
    */
   f1: number | null;
-  readings: AgreementReadingsResponseDto;
   /**
-   * For a judge of claims, how often it agrees with people on each claim; the figures above pool every claim. Empty otherwise
+   * How often the judge agrees with people on each claim, from grades only; it does not decide whether the judge is qualified
    */
   claims: Array<ClaimAgreementResponseDto>;
 };
@@ -5761,7 +5850,7 @@ export type AgreementResponseDto = {
 export type ConfusionResponseDto = {
   labels: Array<string>;
   /**
-   * Counts of runs, a row for each judge score and a column for each score people gave
+   * Counts of runs, a row for each judge verdict and a column for each verdict people gave
    */
   cells: Array<Array<number>>;
 };
@@ -5769,11 +5858,11 @@ export type ConfusionResponseDto = {
 export type ScoreCountResponseDto = {
   label: string;
   /**
-   * Runs the judge gave this score, among runs with both scores
+   * Runs the judge gave this verdict, among runs with both verdicts
    */
   judge: number;
   /**
-   * Runs people gave this score, among runs with both scores
+   * Runs people gave this verdict, among runs with both verdicts
    */
   people: number;
 };
@@ -5782,44 +5871,67 @@ export type TrendPointResponseDto = {
   day: string;
   judged: number;
   /**
-   * The judge’s mean score, or null while this rubric version is not the current qualified one
+   * The share of the day’s runs the judge passed, or null while this claims version is not the current qualified one
    */
   judge: number | null;
   labelled: number;
   /**
-   * The mean of people’s scores for the same runs
+   * The share of the same runs that people passed
    */
   people: number | null;
 };
 
+export type ClaimsSourcePullRequestResponseDto = {
+  number: number;
+  url: string;
+  title: string;
+};
+
+export type ClaimsSourceResponseDto = {
+  repository: string;
+  sha: string;
+  shortSha: string;
+  /**
+   * The commit on GitHub
+   */
+  url: string;
+  /**
+   * The pull request that merged the commit, or the first one that has it; null while none is known
+   */
+  pullRequest: ClaimsSourcePullRequestResponseDto | null;
+};
+
 export type RubricVersionResponseDto = {
   rubricVersion: string;
-  kind: 'yes-no' | 'number' | 'claims';
   /**
-   * Whether this is the station’s rubric now
+   * Whether these are the station’s claims now
    */
   current: boolean;
   judged: number;
   agreement: AgreementResponseDto;
   confusion: ConfusionResponseDto;
   /**
-   * How often each score was given, in the confusion’s order
+   * How often each verdict was given, in the confusion’s order
    */
   distribution: Array<ScoreCountResponseDto>;
   /**
-   * Daily means of the judge’s and people’s scores, the judge’s included while its scores are hidden on runs
+   * Daily pass rates of the judge and of people, the judge’s included while its verdicts are hidden on runs
    */
   trend: Array<TrendPointResponseDto>;
   /**
-   * Whether enough runs have both scores, over more than one day, to draw the trend
+   * Whether enough runs have both verdicts, over more than one day, to draw the trend
    */
   trendShown: boolean;
   /**
-   * Runs with both scores that the trend needs
+   * Runs with both verdicts that the trend needs
    */
   trendMinPairs: number;
   firstAt: string;
   lastAt: string;
+  /**
+   * The first commit that wrote these claims, as its line write named it in Spotlight-Source-Commit; null when no write named one
+   */
+  source: ClaimsSourceResponseDto | null;
 };
 
 export type JudgeCoverageRatesResponseDto = {
@@ -5849,7 +5961,7 @@ export type StationJudgeAgreementResponseDto = {
   judge: StationJudgeSettingsResponseDto | null;
   calibration: JudgeCalibrationResponseDto;
   /**
-   * How the judge agreed with people under each rubric, the latest first
+   * How the judge agreed with people under each claims version, the latest first
    */
   versions: Array<RubricVersionResponseDto>;
   coverage: JudgeCoverageResponseDto;
@@ -5885,26 +5997,40 @@ export type JudgeReasonResponseDto = {
   text: string;
   citations: Array<CitationResponseDto>;
   /**
-   * The place of the claim this reason is about, from 0; none on a rubric’s scale
+   * The place of the claim this reason is about, from 0; none only on a reason that names no claim
    */
   claim: number | null;
 };
 
 export type JudgeScoreResponseDto = {
-  kind: 'yes-no' | 'number' | 'claims';
   /**
-   * 1 for yes and 0 for no, a whole number from 1 to 5, or the share of claims met
+   * The share of claims met
    */
   value: number;
   /**
-   * Whether each claim was met, in order; none on a rubric’s scale
+   * Whether each claim was met, in order
    */
-  claimResults: Array<boolean> | null;
+  claimResults: Array<boolean>;
+  /**
+   * Whether the run passes: the share of claims met reaches the pass threshold
+   */
+  passes: boolean;
   label: string;
   rubricVersion: string;
   model: string;
   at: string;
   reasons: Array<JudgeReasonResponseDto>;
+};
+
+export type RunHumanOutcomeResponseDto = {
+  /**
+   * What gave the human outcome: a grade, the first action of a person on the run, or the task’s pull request
+   */
+  source: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'closed';
+  /**
+   * Whether people found the run good
+   */
+  passes: boolean;
 };
 
 export type GradeResponseDto = {
@@ -5913,12 +6039,18 @@ export type GradeResponseDto = {
    * Whether the caller gave this grade
    */
   mine: boolean;
-  kind: 'yes-no' | 'number' | 'claims';
+  /**
+   * The share of claims met
+   */
   value: number;
   /**
-   * Whether the person found each claim met, in order; none on a rubric’s scale
+   * Whether the person found each claim met, in order
    */
-  claimResults: Array<boolean> | null;
+  claimResults: Array<boolean>;
+  /**
+   * Whether the run passes on this grade: the share of claims met reaches the pass threshold
+   */
+  passes: boolean;
   label: string;
   at: string;
 };
@@ -5928,26 +6060,34 @@ export type RunScoresResponseDto = {
   taskId: string;
   stationId: string;
   /**
-   * The scale the run is graded on: its judge’s, else its station’s rubric’s, else yes or no
+   * Whether the run can be graded: its judge checked it, or its station has a judge with claims
    */
-  kind: 'yes-no' | 'number' | 'claims';
+  gradable: boolean;
   /**
-   * The body of the rubric the run is graded by: the rubric without the line or front matter naming its scale, so a person grades it by what the judge did; the judge’s own where it scored the run, else the station’s; null where there is none
-   */
-  rubricBody: string | null;
-  /**
-   * The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer stored
+   * The claims the run is graded on, in order: the ones the judge marked where it checked the run, else the station judge’s; a claim reads null only where the claims the judge was given are no longer stored; empty where the run cannot be graded
    */
   claims: Array<string | null>;
   /**
-   * Whether the judge scored the run
+   * Whether the run is graded on claims the station’s judge no longer uses: the judge checked it on earlier claims
+   */
+  earlierClaims: boolean;
+  /**
+   * Whether the judge checked the run
    */
   judged: boolean;
   /**
-   * The judge’s score and its reasons; none where it did not score the run, or where its scores are hidden
+   * The judge’s verdict and its reasons; none where it did not check the run, or where its verdicts are hidden
    */
   judge: JudgeScoreResponseDto | null;
   calibration: JudgeCalibrationResponseDto;
+  /**
+   * What people said of the run: a grade of the judge’s claims version, else their first action on the run, else the task’s pull request; none where people said nothing yet
+   */
+  outcome: RunHumanOutcomeResponseDto | null;
+  /**
+   * Whether the judge’s verdict is the human outcome; none where the judge’s verdict is hidden or people said nothing yet
+   */
+  agrees: boolean | null;
   /**
    * What people graded the run, the latest first
    */
@@ -5956,13 +6096,9 @@ export type RunScoresResponseDto = {
 
 export type GradeRunRequestDto = {
   /**
-   * Yes or no, or a whole number from 1 to 5, on the run’s scale; left out on a claims scale
+   * Whether each claim was met, in order
    */
-  value?: boolean | number;
-  /**
-   * Whether each claim was met, in order, on a claims scale; left out otherwise
-   */
-  claims?: Array<boolean>;
+  claims: Array<boolean>;
 };
 
 export type InsightsPeriodResponseDto = {
@@ -6948,11 +7084,11 @@ export type MeasureVerdictResponseDto = {
 
 export type JudgeRateResponseDto = {
   /**
-   * The judge’s mean score as a share of its scale, from 0 for the lowest to 1 for the highest; none where it judged none of the runs
+   * The share of judged runs the judge passed, from 0 to 1; none where it judged none of the runs
    */
   mean: number | null;
   /**
-   * Runs the judge scored
+   * Runs the judge checked
    */
   judged: number;
 };
@@ -6989,52 +7125,51 @@ export type ChangeMarkerResponseDto = {
    */
   verdicts: Array<MeasureVerdictResponseDto>;
   /**
-   * The judge’s scores of the runs before, only where the station’s judge is qualified
+   * The judge’s verdicts on the runs before, only where the station’s judge is qualified
    */
   judgeBefore: JudgeRateResponseDto | null;
   /**
-   * The judge’s scores of the runs after, only where the station’s judge is qualified
+   * The judge’s verdicts on the runs after, only where the station’s judge is qualified
    */
   judgeAfter: JudgeRateResponseDto | null;
   /**
-   * The judge’s mean score after against before, in points; none where either side went unjudged
+   * The judge’s pass rate after against before, in points; none where either side went unjudged
    */
   judgeChange: DeltaResponseDto | null;
   /**
    * How the new config differs from the one before it
    */
-  changes: Array<ConfigChangeResponseDto>;
+  changes: Array<InsightsConfigChangeResponseDto>;
 };
 
 export type StationJudgeCalibrationResponseDto = {
   /**
-   * Whether the judge agrees with people often enough for its scores to count
+   * Whether the judge agrees with people often enough for its verdicts to count
    */
   qualified: boolean;
   /**
-   * How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers
+   * Cohen’s kappa of the judge’s pass or fail against people’s, on the current claims
    */
-  measure: 'kappa' | 'spearman' | null;
   agreement: number | null;
   /**
-   * How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s
+   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa
    */
-  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | null;
   /**
-   * Runs of the current rubric with both a judge score and people’s
+   * Runs of the current claims with both a judge verdict and people’s
    */
   pairs: number;
   /**
-   * Runs with both a judge score and people’s that agreement needs before it counts
+   * Runs with both a judge verdict and people’s that agreement needs before it counts
    */
   minPairs: number;
   minAgreement: number | null;
   /**
-   * Why the judge’s scores are hidden, where they are
+   * Why the judge’s verdicts are hidden, where they are
    */
   hiddenReason: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-min-agreement' | null;
   /**
-   * Whether the judge’s scores are hidden for a reason other than too few runs with both scores
+   * Whether the judge’s verdicts are hidden for a reason other than too few runs with both verdicts
    */
   failing: boolean;
   lineId: string;
@@ -7087,7 +7222,7 @@ export type AgentConfigOutcomesResponseDto = {
    */
   merged: number | null;
   /**
-   * The judge’s mean score as a share of its scale, over runs at stations whose judge is qualified
+   * The share of runs the judge passed, from 0 to 1, over runs at stations whose judge is qualified
    */
   judge: number | null;
 };
@@ -7109,7 +7244,7 @@ export type AgentConfigOutcomeResponseDto = {
   priced: boolean;
   outcomes: AgentConfigOutcomesResponseDto;
   /**
-   * The judge’s scores of this agent config’s runs; none unless the comparison is narrowed to one station
+   * The judge’s verdicts on this agent config’s runs; none unless the comparison is narrowed to one station
    */
   judge: JudgeRateResponseDto | null;
   /**
@@ -7145,7 +7280,7 @@ export type InsightsAgentConfigsResponseDto = {
    */
   agentConfigs: Array<AgentConfigOutcomeResponseDto>;
   /**
-   * Why no judge scores are compared: no_station where the comparison spans stations, whose judges each score against their own rubric
+   * Why no judge verdicts are compared: no_station where the comparison spans stations, whose judges each check runs against their own claims
    */
   judgeOmitted: 'no_station' | null;
   /**
@@ -7951,6 +8086,132 @@ export type InsightsTracesResponseDto = {
   people: Array<PersonNameResponseDto>;
 };
 
+export type DisagreementCitationResponseDto = {
+  kind: 'step' | 'hunk';
+  /**
+   * The journal place of the cited step
+   */
+  step: number | null;
+  /**
+   * The id of the cited hunk
+   */
+  hunk: string | null;
+};
+
+export type DisagreementReasonResponseDto = {
+  text: string;
+  citations: Array<DisagreementCitationResponseDto>;
+};
+
+export type DisagreementClaimResponseDto = {
+  /**
+   * The place of the claim, from 0
+   */
+  index: number;
+  text: string;
+  /**
+   * Whether the judge found the claim met
+   */
+  judgeMet: boolean;
+  reasons: Array<DisagreementReasonResponseDto>;
+};
+
+export type ClaimAnswerResponseDto = {
+  /**
+   * The place of the claim, from 0
+   */
+  claim: number;
+  /**
+   * judge-right: the judge read the claim correctly. claim-wrong: the claim does not fit this run
+   */
+  answer: 'judge-right' | 'claim-wrong';
+  /**
+   * Why the person answered this claim so
+   */
+  note: string | null;
+  answeredBy: string;
+  answeredAt: string;
+};
+
+export type NotMetAnswerResponseDto = {
+  /**
+   * The claim that should have failed, or null where no claim covers what was wrong
+   */
+  claim: number | null;
+  /**
+   * What was wrong; always given where no claim covers it
+   */
+  note: string | null;
+  answeredBy: string;
+  answeredAt: string;
+};
+
+export type JudgeDisagreementResponseDto = {
+  id: string;
+  runId: string;
+  taskId: string;
+  lineId: string;
+  stationId: string;
+  rubricVersion: string;
+  /**
+   * judge-failed: the judge failed a run that a person passed. judge-passed: the judge passed a run that a person failed
+   */
+  direction: 'judge-failed' | 'judge-passed';
+  /**
+   * open: the question waits for an answer to at least one claim in dispute. answered: every claim in dispute has an answer, or, with none in dispute, what was not met. withdrawn: Spotlight withdrew the question, also after an answer
+   */
+  state: 'open' | 'answered' | 'withdrawn';
+  /**
+   * What gave the human outcome that disagrees with the judge
+   */
+  labelFrom: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'closed';
+  openedAt: string;
+  claims: Array<DisagreementClaimResponseDto>;
+  /**
+   * The places of the claims in dispute, each answered on its own, fixed when the question opened: where a grade gave the outcome, the claims it marked otherwise than the judge; else, where the judge failed the run, the claims it failed; else none, and the one answer says what was not met
+   */
+  disputedClaims: Array<number>;
+  /**
+   * One answer for each claim in dispute answered so far, in claim order
+   */
+  answers: Array<ClaimAnswerResponseDto>;
+  /**
+   * Where no claim is in dispute: the answer, naming the claim that should have failed or saying what was wrong
+   */
+  notMet: NotMetAnswerResponseDto | null;
+  /**
+   * The one person who can answer. Null when Spotlight asked the team: then anyone in the team can answer
+   */
+  askedOf: string | null;
+  /**
+   * When Spotlight withdrew the question
+   */
+  withdrawnAt: string | null;
+  /**
+   * Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome or grade that a person gave the run no longer exists. Null while not withdrawn
+   */
+  withdrawnBecause: 'verdicts-agree' | 'claims-changed' | 'label-gone' | null;
+};
+
+export type AnswerJudgeDisagreementRequestDto = {
+  /**
+   * The claim that should have failed, or null where no claim covers what was wrong
+   */
+  shouldHaveFailed: number | null;
+  /**
+   * What was wrong: required where no claim is named, optional otherwise; at most 2,000 characters
+   */
+  note: string | null;
+};
+
+export type AnswerDisagreementClaimRequestDto = {
+  answer: 'judge-right' | 'claim-wrong';
+  /**
+   * Why, optional; at most 2,000 characters
+   */
+  note: string | null;
+};
+
 export type PlannedReferenceRequestDto = {
   /**
    * The commit that plans the change
@@ -8033,6 +8294,29 @@ export type GainEstimateResponseDto = {
    * The tasks both sides scored, paired
    */
   tasks: number;
+};
+
+export type ReplayCheckJudgeResponseDto = {
+  /**
+   * qualified when the verdicts of the live judge agree with the verdicts of people well enough; unmeasured while too few runs have both verdicts, or while every verdict of the judge and of people is the same; failing when they do not agree well enough, or the claims of the judge cannot be read
+   */
+  state: 'qualified' | 'unmeasured' | 'failing';
+  /**
+   * Cohen’s kappa of the verdicts of the judge against the verdicts of people
+   */
+  agreement: number | null;
+  /**
+   * How many runs have both a verdict of the judge and a verdict of a person
+   */
+  pairs: number;
+  /**
+   * How many such runs Spotlight needs before it measures the agreement
+   */
+  minPairs: number;
+  /**
+   * The minimum agreement the station sets in `min_agreement`
+   */
+  minAgreement: number | null;
 };
 
 export type RateIntervalResponseDto = {
@@ -8148,10 +8432,18 @@ export type ReplayCheckResponseDto = {
    */
   gain: GainEstimateResponseDto | null;
   /**
-   * failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise
+   * failed as soon as more tasks regressed than the threshold allows, or when the check uses the live judge and its verdicts do not agree with the verdicts of people well enough; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise
    */
   result: 'running' | 'passed' | 'failed' | 'undecided';
   undecidedBecause: 'replay-gone' | 'stopped' | 'over-ceiling' | 'baseline-unfinished' | 'no-baseline' | 'too-few-scored' | null;
+  /**
+   * Why the check failed; none unless it failed
+   */
+  failedBecause: 'too-many-regressions' | 'judge-disagrees-with-people' | null;
+  /**
+   * How the verdicts of the live judge agree with the verdicts of people; none where the check is not scored by a judge
+   */
+  judge: ReplayCheckJudgeResponseDto | null;
   /**
    * How many tasks the station’s replay set replays
    */
@@ -8205,7 +8497,7 @@ export type RecordFailureCauseRequestDto = {
    */
   taskId: string;
   /**
-   * config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work
+   * config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge judged it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work
    */
   cause: 'config' | 'task' | 'judge' | 'check' | 'infra';
   /**
@@ -8574,12 +8866,12 @@ export type StationChangeResponseDto = {
    */
   part: string;
   /**
-   * Which one of the part changed: the repository, skill or tool, or the judge’s rubric, sample or minimum agreement
+   * Which one of the part changed: the repository, skill or tool, or the judge’s claims, sample or minimum agreement
    */
   name: string | null;
   kind: 'added' | 'removed' | 'changed';
   /**
-   * What it was, where it can be shown; the prompt is shown in full, skills and rubrics are compared but not shown
+   * What it was, where it can be shown; the prompt is shown in full, skills and claims are compared but not shown
    */
   was: string | null;
   now: string | null;
@@ -8997,6 +9289,10 @@ export type CreateLineData = {
      */
     'Spotlight-Client'?: string;
     /**
+     * The commit the definition comes from, as owner/name@sha on GitHub. Each new claims version of a station keeps the first commit that wrote it, and the pull request that merged it
+     */
+    'Spotlight-Source-Commit'?: string;
+    /**
      * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
@@ -9165,6 +9461,10 @@ export type UpdateLineData = {
      * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
+    /**
+     * The commit the definition comes from, as owner/name@sha on GitHub. Each new claims version of a station keeps the first commit that wrote it, and the pull request that merged it
+     */
+    'Spotlight-Source-Commit'?: string;
     /**
      * The ETag of the version this write was based on; a write to any other version fails with 409
      */
@@ -19051,7 +19351,7 @@ export type RecallMemoryErrors = {
 };
 
 export type RecallMemoryResponses = {
-  200: TeamMemoryDetailResponseDto;
+  200: RecalledMemoryResponseDto;
 };
 
 export type RecallMemoryResponse = RecallMemoryResponses[keyof RecallMemoryResponses];
@@ -19228,7 +19528,7 @@ export type GradeRunErrors = {
    */
   409: unknown;
   /**
-   * No grade, or one off the run’s scale
+   * No grade, or one that does not mark each claim
    */
   422: unknown;
 };
@@ -19864,6 +20164,119 @@ export type ListInsightsTracesResponses = {
 };
 
 export type ListInsightsTracesResponse = ListInsightsTracesResponses[keyof ListInsightsTracesResponses];
+
+export type ReadJudgeDisagreementData = {
+  body?: never;
+  path: {
+    teamId: string;
+    disagreementId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/judge-disagreements/{disagreementId}';
+};
+
+export type ReadJudgeDisagreementErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such disagreement for this caller
+   */
+  404: unknown;
+};
+
+export type ReadJudgeDisagreementResponses = {
+  200: JudgeDisagreementResponseDto;
+};
+
+export type ReadJudgeDisagreementResponse = ReadJudgeDisagreementResponses[keyof ReadJudgeDisagreementResponses];
+
+export type AnswerJudgeDisagreementData = {
+  body: AnswerJudgeDisagreementRequestDto;
+  path: {
+    teamId: string;
+    disagreementId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/judge-disagreements/{disagreementId}/answer';
+};
+
+export type AnswerJudgeDisagreementErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The question was asked of another person
+   */
+  403: unknown;
+  /**
+   * No such disagreement for this caller
+   */
+  404: unknown;
+  /**
+   * The disagreement already has an answer, is withdrawn, or changed meanwhile
+   */
+  409: unknown;
+  /**
+   * Claims are in dispute, so each takes its own answer; or the answer names no claim and says nothing
+   */
+  422: unknown;
+};
+
+export type AnswerJudgeDisagreementResponses = {
+  200: JudgeDisagreementResponseDto;
+};
+
+export type AnswerJudgeDisagreementResponse = AnswerJudgeDisagreementResponses[keyof AnswerJudgeDisagreementResponses];
+
+export type AnswerJudgeDisagreementClaimData = {
+  body: AnswerDisagreementClaimRequestDto;
+  path: {
+    teamId: string;
+    disagreementId: string;
+    /**
+     * The place of the claim, from 0
+     */
+    claim: number;
+  };
+  query?: never;
+  url: '/teams/{teamId}/judge-disagreements/{disagreementId}/claims/{claim}/answer';
+};
+
+export type AnswerJudgeDisagreementClaimErrors = {
+  /**
+   * The claim is not a whole number
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The question was asked of another person
+   */
+  403: unknown;
+  /**
+   * No such disagreement for this caller
+   */
+  404: unknown;
+  /**
+   * The claim already has an answer, the disagreement is withdrawn, or it changed meanwhile
+   */
+  409: unknown;
+  /**
+   * The claim is not in dispute, or the answer is not judge-right or claim-wrong
+   */
+  422: unknown;
+};
+
+export type AnswerJudgeDisagreementClaimResponses = {
+  200: JudgeDisagreementResponseDto;
+};
+
+export type AnswerJudgeDisagreementClaimResponse = AnswerJudgeDisagreementClaimResponses[keyof AnswerJudgeDisagreementClaimResponses];
 
 export type StartReplayCheckData = {
   body: StartReplayCheckRequestDto;

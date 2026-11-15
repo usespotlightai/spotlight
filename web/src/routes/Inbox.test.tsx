@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { Inbox } from '@/routes/Inbox';
 
 const waiting = vi.fn<(...args: unknown[]) => unknown>();
@@ -13,6 +14,11 @@ const reopen = vi.fn();
 const resolvedOnes = vi.fn<(...args: unknown[]) => unknown>();
 const moreResolved = vi.fn<(...args: unknown[]) => unknown>();
 const resolvedPending = vi.fn<(...args: unknown[]) => unknown>();
+
+vi.mock('@/hooks/api/useStopRun', () => ({
+  useStopRun: () => ({ mutate: () => {} }),
+  useStopInFlight: () => false,
+}));
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
@@ -86,7 +92,7 @@ const notice = (over: Record<string, unknown> = {}) => ({
   teamId: 'team_1',
   form: 'ended',
   headline: 'The search for a better Build config stalled',
-  points: ['Fix the judge’s rubric: it requires tests a rename never needs.'],
+  points: ['Fix the judge’s claims: one requires tests a rename never needs.'],
   link: 'lines/line_1/stations/station_1',
   linkLabel: 'Open the station',
   externalLink: null,
@@ -669,7 +675,7 @@ describe('Inbox', () => {
       expect(link).toHaveAttribute('href', '/w/acme/inbox/notices/notice_1');
       expect(link).toHaveTextContent('Unread');
       expect(link).toHaveTextContent(
-        'Fix the judge’s rubric: it requires tests a rename never needs.',
+        'Fix the judge’s claims: one requires tests a rename never needs.',
       );
       expect(
         link.querySelector('[data-slot="notice-icon"]'),
@@ -694,6 +700,70 @@ describe('Inbox', () => {
       expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
         '1',
       );
+    });
+  });
+
+  describe('keyboard', () => {
+    const renderWithKeys = (path: string) =>
+      render(<CommandsProvider>{tree(path)}</CommandsProvider>);
+
+    const press = (key: string) =>
+      fireEvent.keyDown(document.activeElement ?? document.body, { key });
+
+    it('moves the focus to the first item with J', () => {
+      renderWithKeys('/w/acme/inbox');
+
+      press('j');
+
+      expect(document.activeElement).toHaveTextContent('Fix the queue');
+    });
+
+    it('resolves the focused item with E', () => {
+      renderWithKeys('/w/acme/inbox');
+
+      press('j');
+      press('e');
+
+      expect(resolve).toHaveBeenCalledWith({
+        slug: 'acme',
+        entry: expect.objectContaining({ id: 'task_1:0' }) as unknown,
+      });
+    });
+
+    it('resolves the open item with E', () => {
+      renderWithKeys('/w/acme/inbox/task_1%3A0');
+
+      press('e');
+
+      expect(resolve).toHaveBeenCalledWith({
+        slug: 'acme',
+        entry: expect.objectContaining({ id: 'task_1:0' }) as unknown,
+      });
+    });
+
+    it('resolves the hovered item with E, over the open one', () => {
+      waiting.mockReturnValue([item(), notice()]);
+      renderWithKeys('/w/acme/inbox/task_1%3A0');
+
+      const row = screen
+        .getByText('The search for a better Build config stalled')
+        .closest('[data-list-item]');
+      fireEvent.pointerEnter(row as HTMLElement);
+      press('e');
+
+      expect(resolve).toHaveBeenCalledTimes(1);
+      expect(resolve).toHaveBeenCalledWith({
+        slug: 'acme',
+        entry: expect.objectContaining({ id: 'notice_1' }) as unknown,
+      });
+    });
+
+    it('resolves nothing with E while no item is open or focused', () => {
+      renderWithKeys('/w/acme/inbox');
+
+      press('e');
+
+      expect(resolve).not.toHaveBeenCalled();
     });
   });
 });

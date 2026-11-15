@@ -56,8 +56,8 @@ const REVIEW = Tool.of('review');
 
 const REVIEW_COMMENT = Tool.of('review-comment');
 
-const judgeOf = (rubric: string): StationJudge =>
-  StationJudge.of({ rubric, sample: 0.2, minAgreement: 0.6 });
+const judgeOf = (claims: readonly string[]): StationJudge =>
+  StationJudge.of({ claims, sample: 0.2, minAgreement: 0.6 });
 
 const opening = (input: {
   key: string;
@@ -71,7 +71,7 @@ const opening = (input: {
   diffs?: boolean;
   decisions?: boolean;
   memories?: boolean;
-  rubric?: string;
+  claims?: readonly string[];
   ends?: boolean;
 }): StationOpening => ({
   key: StationKey.of(input.key),
@@ -87,7 +87,7 @@ const opening = (input: {
   diffs: input.diffs ?? false,
   decisions: input.decisions ?? false,
   memories: input.memories ?? false,
-  judge: input.rubric ? judgeOf(input.rubric) : null,
+  judge: input.claims ? judgeOf(input.claims) : null,
   ends: input.ends ?? false,
 });
 
@@ -272,45 +272,49 @@ Make no edits and push nothing: the branch is theirs.
 
 Say in your note what you found, most serious first, and pass the task to \`done\`.`;
 
-const TRIAGE_RUBRIC = `scores: yes-no
+const TRIAGE_CLAIMS = [
+  'The note says in a sentence or two what the request comes down to.',
+  'The note names what the request leaves open or takes for granted.',
+  'The run changed no file.',
+  'The task went to Spec or Implementation only when a plan could be written against it.',
+  'The task went to a person when the request was ambiguous, contradictory, already done or a duplicate of an open task.',
+  'When the task duplicates an open task, the note names that task.',
+  'The note does not plan the change.',
+];
 
-The note says in a sentence or two what the request comes down to, and names
-what it leaves open or takes for granted. The run changed no file. The task
-went to Spec or Implementation only when a plan could be written against it,
-and to a person when the request was ambiguous, contradictory, already done or
-a duplicate of an open task. The note names the task a duplicate repeats. The
-note does not plan the change.`;
+const SPEC_CLAIMS = [
+  'The plan names the approach and why it beats the obvious alternative.',
+  'The plan names the real files and functions to change.',
+  'The plan says how to test the change and what is out of scope.',
+  'Someone could implement the plan without going back to the requester.',
+  'The plan does not reopen what the request wants.',
+  "A decision that is not the agent's to make went to a person.",
+];
 
-const SPEC_RUBRIC = `scores: yes-no
+const IMPLEMENTATION_CLAIMS = [
+  'The change does what the spec describes, and no more.',
+  'The change matches the surrounding code.',
+  'The change adds tests that fail without it.',
+  "The tests and the linter pass, and the change is pushed to the task's branch.",
+  'The note says what changed, what was tested, and what the spec did not anticipate.',
+  'A wrong spec went back to Spec, not into a different change.',
+];
 
-The plan names the approach and why it beats the obvious alternative, the real
-files and functions to change, how to test it, and what is out of scope.
-Someone could implement it without going back to the requester. It does not
-reopen what the request wants, and it puts a decision that is not the agent's
-to make to a person.`;
+const CODE_REVIEW_CLAIMS = [
+  'The review judges the change against the spec and the notes.',
+  'Each finding is real and has a severity that is not overstated.',
+  'Each finding says where it is, what goes wrong, when, and what would fix it.',
+  'A fault in the code went back to Implementation, and a fault in the plan to Spec.',
+  'A sound change got a pull request and went to done.',
+];
 
-const IMPLEMENTATION_RUBRIC = `scores: yes-no
-
-The change does what the spec describes, and no more. It matches the
-surrounding code, adds tests that fail without it, leaves the tests and the
-linter passing, and is pushed to the task's branch. The note says what changed,
-what was tested, and what the spec did not anticipate. A wrong spec went back
-to Spec, not into a different change.`;
-
-const CODE_REVIEW_RUBRIC = `scores: yes-no
-
-The review judges the change against the spec and the notes. Each finding is
-real, has a severity that is not overstated, and says where it is, what goes
-wrong, when, and what would fix it. A fault in the code went back to
-Implementation, and a fault in the plan to Spec. A sound change got a pull
-request and went to done.`;
-
-const PULL_REQUEST_REVIEW_RUBRIC = `scores: yes-no
-
-The review judges the pull request against its description. Each finding is a
-comment on its line, starts with a severity that is not overstated, and says
-what goes wrong, when, and what would fix it. The review requests changes only
-for a high finding. The run made no edit and pushed nothing.`;
+const PULL_REQUEST_REVIEW_CLAIMS = [
+  'Each finding is a comment on its line.',
+  'Each finding starts with a severity that is not overstated.',
+  'Each finding says what goes wrong, when, and what would fix it.',
+  'The review requests changes only for a high finding.',
+  'The run made no edit and pushed nothing.',
+];
 
 const REVIEW_STATIONS: readonly StationOpening[] = [
   opening({
@@ -326,7 +330,7 @@ const REVIEW_STATIONS: readonly StationOpening[] = [
     color: '#56b98d',
     description: 'Reviews a pull request and comments on the lines it changes.',
     prompt: PULL_REQUEST_REVIEW,
-    rubric: PULL_REQUEST_REVIEW_RUBRIC,
+    claims: PULL_REQUEST_REVIEW_CLAIMS,
     ends: true,
     diffs: true,
     tools: [REVIEW_COMMENT, REVIEW],
@@ -354,7 +358,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     description:
       'Decides what the request wants and if it is clear enough to plan.',
     prompt: TRIAGE,
-    rubric: TRIAGE_RUBRIC,
+    claims: TRIAGE_CLAIMS,
     tools: [OPEN_TASKS],
     passesTo: ['spec', 'implementation'],
   }),
@@ -365,7 +369,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     description:
       'Turns the triaged request into a plan someone can build from.',
     prompt: SPEC,
-    rubric: SPEC_RUBRIC,
+    claims: SPEC_CLAIMS,
     passesTo: ['implementation'],
   }),
   opening({
@@ -375,7 +379,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     description:
       'Makes the change the spec describes, with tests, and pushes it.',
     prompt: IMPLEMENTATION,
-    rubric: IMPLEMENTATION_RUBRIC,
+    claims: IMPLEMENTATION_CLAIMS,
     passesTo: ['code-review', 'spec'],
     decisions: true,
     tools: [CHECKS],
@@ -387,7 +391,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     description:
       'Reviews the change against the spec and opens the pull request.',
     prompt: CODE_REVIEW,
-    rubric: CODE_REVIEW_RUBRIC,
+    claims: CODE_REVIEW_CLAIMS,
     passesTo: ['spec', 'implementation'],
     ends: true,
     tools: [PULL_REQUEST],

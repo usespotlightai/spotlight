@@ -21,7 +21,7 @@ import {
   candidateOf,
   concludedAll,
   NOW,
-  RUBRIC,
+  JUDGE,
   runOf,
 } from '@replays/domain/replays.fake-spec';
 import { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
@@ -29,9 +29,9 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-const proposed = candidateOf('searched', 'candidate_proposed', RUBRIC);
+const proposed = candidateOf('searched', 'candidate_proposed', JUDGE);
 
-const live = candidateOf('live', 'candidate_live', RUBRIC);
+const live = candidateOf('live', 'candidate_live', JUDGE);
 
 let memory: InMemoryReplays;
 let insights: FakeInsights;

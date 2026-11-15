@@ -35,8 +35,8 @@ describe('ClaimAgreements', () => {
     ).getAllByRole('listitem');
 
     expect(rows.map((row) => row.textContent)).toEqual([
-      'Leaves the tests passing0.50Agreed75%Runs12',
-      'Claim 2–Agreed–Runs0',
+      '1. Leaves the tests passing0.50Same verdict75%Runs12',
+      'Claim 2–Same verdict–Runs0',
     ]);
   });
 });

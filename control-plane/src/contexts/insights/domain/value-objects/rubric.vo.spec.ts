@@ -4,57 +4,25 @@ import { RUBRIC_VERSION } from '@insights/judging.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 describe('Rubric', () => {
-  it('scores on the scale its first line names', () => {
-    expect(
-      Rubric.of({ text: 'scores: 1-5\nHow well?', version: RUBRIC_VERSION })
-        .scale.kind,
-    ).toBe('number');
-    expect(
-      Rubric.of({ text: 'Did it retry?', version: RUBRIC_VERSION }).scale.kind,
-    ).toBe('yes-no');
+  it('holds the claims and the pass threshold its version names', () => {
+    const rubric = Rubric.of({
+      claims: ['It retries.'],
+      passThreshold: 0.5,
+      version: RUBRIC_VERSION,
+    });
+
+    expect(rubric.claims).toEqual(['It retries.']);
+    expect(rubric.passThreshold).toBe(0.5);
+    expect(rubric.version).toBe(RUBRIC_VERSION);
   });
 
-  it('reads as its body once the scale it names is taken off', () => {
-    expect(
-      Rubric.of({
-        text: '---\nauthor: ada\nscores: 1-5\n---\nHow well?',
-        version: RUBRIC_VERSION,
-      }).body,
-    ).toBe('How well?');
-  });
-
-  it('keeps the whole of a rubric judged by claims, since claims set its scale', () => {
-    expect(
-      Rubric.of({
-        text: 'scores: yes-no',
-        version: RUBRIC_VERSION,
-        claims: ['It retries.'],
-      }).body,
-    ).toBe('scores: yes-no');
-    expect(
-      Rubric.of({
-        text: null,
-        claims: ['It retries.'],
-        version: RUBRIC_VERSION,
-      }).body,
-    ).toBeNull();
-  });
-
-  it('is named by the 64-character hash of its text', () => {
-    expect(() => Rubric.of({ text: 'Did it retry?', version: 'v1' })).toThrow(
+  it('is named by a 64-character hash', () => {
+    expect(() => Rubric.of({ claims: ['It retries.'], version: 'v1' })).toThrow(
       InvalidRubricError,
     );
   });
 
-  it.each(['stars', 'constructor', '__proto__'])(
-    'is unreadable, rather than wrong, when its scale is %s',
-    (named) => {
-      expect(
-        Rubric.readable({
-          text: `scores: ${named}\nHow well?`,
-          version: RUBRIC_VERSION,
-        }),
-      ).toBeNull();
-    },
-  );
+  it('is unreadable, rather than wrong, when it lists no claims', () => {
+    expect(Rubric.readable({ claims: [], version: RUBRIC_VERSION })).toBeNull();
+  });
 });

@@ -1,29 +1,29 @@
 import {
+  hasFreeLabel,
   type HumanLabel,
   humanLabelOf,
 } from '@insights/domain/services/human-label';
 import {
   type Agreement,
   agreementOf,
+  type ClaimsPair,
   type Coverage,
-  claimsAgreementOf,
   coverageOf,
-  type ScorePair,
   type TrendPoint,
   trendOf,
+  type VerdictPair,
 } from '@insights/domain/services/judge-agreement';
 import {
   calibrationOf,
   type JudgeCalibration,
   unreadableRubricCalibration,
 } from '@insights/domain/services/judge-calibration';
+import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 
 export interface RubricReport {
   readonly rubricVersion: string;
-  readonly scale: ScoreScale;
   readonly judged: number;
   readonly agreement: Agreement;
   readonly trend: readonly TrendPoint[];
@@ -38,7 +38,7 @@ export interface JudgeReport {
 
 export interface CurrentJudge {
   readonly rubricVersion: string;
-  readonly scale: ScoreScale | null;
+  readonly rubric: Rubric | null;
   readonly minAgreement: number;
 }
 
@@ -49,45 +49,29 @@ interface Labelling {
 
 const humanFor = (
   runId: string,
-  scale: ScoreScale,
-  rubricVersion: string | null,
+  rubricVersion: string,
   labelling: Labelling,
-): HumanLabel | null => {
-  return humanLabelOf({
-    scale,
+): HumanLabel | null =>
+  humanLabelOf({
     rubricVersion,
     fact: labelling.facts.get(runId) ?? null,
     grades: labelling.grades.get(runId) ?? [],
   });
-};
-
-const labelFor = (
-  runId: string,
-  scale: ScoreScale,
-  rubricVersion: string | null,
-  labelling: Labelling,
-): number | null =>
-  humanFor(runId, scale, rubricVersion, labelling)?.value ?? null;
 
 const reportOf = (
   rubricVersion: string,
   judged: readonly Scored[],
   labelling: Labelling,
 ): RubricReport => {
-  const scale = judged[0].scale;
   const humans = judged.map((score) => ({
     score,
-    label: humanFor(score.runId.value, scale, rubricVersion, labelling),
+    label: humanFor(score.runId.value, rubricVersion, labelling),
   }));
-  const labelled = humans.map(({ score, label }) => ({
-    score,
-    human: label?.value ?? null,
-  }));
-  const pairs: ScorePair[] = labelled.flatMap(({ score, human }) =>
-    human === null ? [] : [{ judge: score.value, human }],
+  const verdicts: VerdictPair[] = humans.flatMap(({ score, label }) =>
+    label ? [{ judge: score.passes, human: label.passes }] : [],
   );
-  const claimPairs = humans.flatMap(({ score, label }) =>
-    score.claimResults && label?.claimResults
+  const claims: ClaimsPair[] = humans.flatMap(({ score, label }) =>
+    label?.claimResults
       ? [{ judge: score.claimResults, human: label.claimResults }]
       : [],
   );
@@ -95,16 +79,13 @@ const reportOf = (
 
   return {
     rubricVersion,
-    scale,
     judged: judged.length,
-    agreement: scale.byClaims
-      ? claimsAgreementOf(claimPairs)
-      : agreementOf(scale, pairs),
+    agreement: agreementOf(verdicts, claims),
     trend: trendOf(
-      labelled.map(({ score, human }) => ({
+      humans.map(({ score, label }) => ({
         at: score.at,
-        judge: score.value,
-        human,
+        judge: score.passes,
+        human: label?.passes ?? null,
       })),
     ),
     firstAt: new Date(Math.min(...times)),
@@ -156,17 +137,15 @@ export const judgeReportOf = (input: {
         .filter((each) => each.ran)
         .map((fact) => {
           const judged = judgedRuns.get(fact.runId.value) ?? [];
-          const scale = judged[0]?.scale ?? ScoreScale.yesNo();
+          const rubricVersion = judged[0]?.rubricVersion ?? null;
 
           return {
             judged: judged.length > 0,
             labelled:
-              labelFor(
-                fact.runId.value,
-                scale,
-                judged[0]?.rubricVersion ?? null,
-                labelling,
-              ) !== null,
+              rubricVersion === null
+                ? hasFreeLabel(fact) ||
+                  (labelling.grades.get(fact.runId.value) ?? []).length > 0
+                : humanFor(fact.runId.value, rubricVersion, labelling) !== null,
           };
         }),
     ),
@@ -180,7 +159,7 @@ export const calibrationIn = (
   if (!current) {
     return calibrationOf(null);
   }
-  if (!current.scale) {
+  if (!current.rubric) {
     return unreadableRubricCalibration(current.minAgreement);
   }
 
@@ -190,11 +169,6 @@ export const calibrationIn = (
 
   return calibrationOf({
     minAgreement: current.minAgreement,
-    scale: current.scale,
-    agreement:
-      version?.agreement ??
-      (current.scale.byClaims
-        ? claimsAgreementOf([])
-        : agreementOf(current.scale, [])),
+    agreement: version?.agreement ?? agreementOf([], []),
   });
 };

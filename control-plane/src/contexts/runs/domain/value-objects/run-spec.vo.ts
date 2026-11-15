@@ -66,7 +66,20 @@ export interface RunToolManifest {
   readonly approval: RunToolApproval | null;
   readonly integration?: string;
   readonly output?: JsonObject;
+  readonly readOnly?: true;
 }
+
+export interface RunChangedTools {
+  readonly added: readonly string[];
+  readonly removed: readonly string[];
+}
+
+export interface RunToolChange {
+  readonly removed: readonly Tool[];
+  readonly added: readonly RunToolManifest[];
+}
+
+export const NO_TOOL_CHANGE: RunToolChange = { removed: [], added: [] };
 
 export interface RunFile {
   readonly path: string;
@@ -101,6 +114,7 @@ export interface RunSpecParts {
   readonly skills?: readonly RunFile[];
   readonly skillHomes?: readonly string[];
   readonly manifest?: readonly RunToolManifest[];
+  readonly changedTools?: RunChangedTools;
   readonly catalog?: readonly string[];
   readonly attachments?: readonly RunAttachment[];
   readonly diffs?: boolean;
@@ -122,6 +136,7 @@ export const RUN_SPEC_FIELDS = [
   'skills',
   'skillHomes',
   'manifest',
+  'changedTools',
   'catalog',
   'attachments',
   'diffs',
@@ -239,7 +254,16 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
           ...(each.output !== undefined
             ? { output: structuredClone(each.output) }
             : {}),
+          ...(each.readOnly ? { readOnly: true as const } : {}),
         })),
+      }
+    : {}),
+  ...(parts.changedTools
+    ? {
+        changedTools: {
+          added: [...parts.changedTools.added],
+          removed: [...parts.changedTools.removed],
+        },
       }
     : {}),
   ...(parts.catalog ? { catalog: [...parts.catalog] } : {}),
@@ -271,8 +295,12 @@ export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
     return 'uses Spotlight’s API';
   }
 
-  if ((parts.manifest?.length ?? 0) > 0) {
-    return 'enables tools';
+  if (
+    (parts.manifest ?? []).some(
+      (each) => !each.readOnly || each.integration === undefined,
+    )
+  ) {
+    return 'enables tools that can change data';
   }
 
   if ((parts.catalog?.length ?? 0) > 0) {
@@ -416,6 +444,25 @@ export class RunSpec {
       throw new InvalidRunSpecError('must say what checks its change');
     }
 
+    const changed = parts.changedTools;
+
+    if (
+      changed &&
+      (changed.added.length + changed.removed.length === 0 ||
+        changed.added.some(
+          (name) =>
+            changed.removed.includes(name) ||
+            !(parts.manifest ?? []).some((each) => each.name === name),
+        ) ||
+        changed.removed.some((name) =>
+          (parts.manifest ?? []).some((each) => each.name === name),
+        ))
+    ) {
+      throw new InvalidRunSpecError(
+        'must list as changed only the tools it gained or lost',
+      );
+    }
+
     return new RunSpec(copied(parts));
   }
 
@@ -479,6 +526,52 @@ export class RunSpec {
           ...this.parts,
           checkouts: [...(this.parts.checkouts ?? []), ...joining],
         });
+  }
+
+  withToolChange({ removed, added }: RunToolChange): RunSpec {
+    const manifest = this.parts.manifest ?? [];
+    const lost = manifest.filter(
+      (each) =>
+        removed.some((tool) => tool.called === each.name) &&
+        !added.some((other) => other.name === each.name),
+    );
+    const kept = manifest.filter((each) => !lost.includes(each));
+    const gained = added.filter(
+      (each, at) =>
+        !kept.some((other) => other.name === each.name) &&
+        added.findIndex((other) => other.name === each.name) === at,
+    );
+    const { changedTools, ...rest } = this.parts;
+
+    if (gained.length === 0 && lost.length === 0 && !changedTools) {
+      return this;
+    }
+
+    return RunSpec.of({
+      ...rest,
+      manifest: [...kept, ...gained],
+      ...(gained.length > 0 || lost.length > 0
+        ? {
+            changedTools: {
+              added: gained.map((each) => each.name),
+              removed: lost.map((each) => each.name),
+            },
+          }
+        : {}),
+    });
+  }
+
+  serves({ removed, added }: RunToolChange): boolean {
+    const names = (this.parts.manifest ?? []).map((each) => each.name);
+
+    return (
+      added.every((each) => names.includes(each.name)) &&
+      removed.every(
+        (tool) =>
+          !names.includes(tool.called) ||
+          added.some((each) => each.name === tool.called),
+      )
+    );
   }
 
   wearingHarnessKeys(keys: readonly SecretName[]): RunSpec {

@@ -115,11 +115,17 @@ const PAGES_TO_SKIP_OVER = 5;
 
 const requestAudience = (audience: InboxRequestAudience): SQL | undefined =>
   or(
-    eq(task.assigneeId, audience.assignee.value),
-    audience.unassigned ? isNull(task.assigneeId) : undefined,
-    audience.formsForTeamActors.length > 0
-      ? inArray(inboxRequest.form, [...audience.formsForTeamActors])
-      : undefined,
+    eq(inboxRequest.askedOfId, audience.askedOf.value),
+    and(
+      isNull(inboxRequest.askedOfId),
+      or(
+        eq(task.assigneeId, audience.assignee.value),
+        audience.unassigned ? isNull(task.assigneeId) : undefined,
+        audience.formsForTeamActors.length > 0
+          ? inArray(inboxRequest.form, [...audience.formsForTeamActors])
+          : undefined,
+      ),
+    ),
   );
 
 const noticeAudience = (audience: NoticeAudience): SQL | undefined =>
@@ -299,6 +305,7 @@ const requestsWhere = (
       id: inboxRequest.id,
       form: inboxRequest.form,
       about: inboxRequest.about,
+      askedOfId: inboxRequest.askedOfId,
       requestOpenedAt: inboxRequest.openedAt,
       cursorAt: sortableTime(orderedBy),
       readAt: inboxRequestRead.readAt,
@@ -565,6 +572,7 @@ const requestVisibilityOf = (
   form: row.form,
   viewer: scope.viewer,
   assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
+  askedOf: row.askedOfId ? UserId.of(row.askedOfId) : null,
   seesTeam: scope.teamsSeen.has(row.teamId),
   actsOnTeam: scope.teamsActedOn.has(row.teamId),
 });
