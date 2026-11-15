@@ -6,6 +6,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { CommandPalette } from '@/components/shell/command/CommandPalette';
 import { ShortcutSheet } from '@/components/shell/command/ShortcutSheet';
+import { WorkspaceContextMenu } from '@/components/shell/context-menu/WorkspaceContextMenu';
 import { AppSidebar } from '@/components/shell/layout/AppSidebar';
 import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
 import { AppTabStrip } from '@/components/shell/tabs/AppTabStrip';
@@ -23,6 +24,7 @@ import { useLastPlace } from '@/hooks/useLastPlace';
 import { useLiveStream } from '@/hooks/useLiveStream';
 import { useNarrowViewport } from '@/hooks/useNarrowViewport';
 import { useSlideFrom } from '@/hooks/useSlideFrom';
+import { useTabLinks } from '@/hooks/useTabLinks';
 import { useWorkspaceOverlays } from '@/hooks/useWorkspaceOverlays';
 import type { SplitSide } from '@/lib/app-tabs';
 import { failed, loading } from '@/lib/query';
@@ -46,6 +48,7 @@ export function Workspace({ pages }: WorkspaceProps) {
   useLiveStream(useInboxNotifier());
   useDesktopBadge(slug);
   useDesktopCommands(slug, tabs);
+  useTabLinks(slug, tabs.openAt);
   const strip = (
     <AppTabStrip
       tabs={tabs.tabs}
@@ -143,45 +146,47 @@ export function Workspace({ pages }: WorkspaceProps) {
   }
 
   return (
-    <TabDrag {...drag}>
-      <DashboardLayout
-        sidebar={
-          workspace.data && (
-            <AppSidebar
-              slug={slug}
-              workspace={workspace.data}
-              inSettings={inSettings}
-              from={slideFrom}
-              leftAt={leftAt}
-              onSearch={() => overlays.search()}
-            />
-          )
-        }
-        tabs={strip}
-        focused={tabs.panes.left === tabs.activeId ? 'main' : 'split'}
-        onCollapse={(section) =>
-          tabs.hidePane(section === 'main' ? 'left' : 'right')
-        }
-        panes={paneIds.map((id, index) => ({
-          key: id ?? 'main',
-          content: (
-            <>
-              {paneOf(id)}
-              <SplitDropZones sides={dropSides(index)} />
-            </>
-          ),
-        }))}
-      />
-
-      {workspace.data && (
-        <CommandPalette
-          slug={slug}
-          workspace={workspace.data}
-          {...overlays.palette}
+    <WorkspaceContextMenu slug={slug} onOpenTab={tabs.openAt}>
+      <TabDrag {...drag}>
+        <DashboardLayout
+          sidebar={
+            workspace.data && (
+              <AppSidebar
+                slug={slug}
+                workspace={workspace.data}
+                inSettings={inSettings}
+                from={slideFrom}
+                leftAt={leftAt}
+                onSearch={() => overlays.search()}
+              />
+            )
+          }
+          tabs={strip}
+          focused={tabs.panes.left === tabs.activeId ? 'main' : 'split'}
+          onCollapse={(section) =>
+            tabs.hidePane(section === 'main' ? 'left' : 'right')
+          }
+          panes={paneIds.map((id, index) => ({
+            key: id ?? 'main',
+            content: (
+              <>
+                {paneOf(id)}
+                <SplitDropZones sides={dropSides(index)} />
+              </>
+            ),
+          }))}
         />
-      )}
 
-      <ShortcutSheet {...overlays.sheet} />
-    </TabDrag>
+        {workspace.data && (
+          <CommandPalette
+            slug={slug}
+            workspace={workspace.data}
+            {...overlays.palette}
+          />
+        )}
+
+        <ShortcutSheet {...overlays.sheet} />
+      </TabDrag>
+    </WorkspaceContextMenu>
   );
 }

@@ -404,7 +404,7 @@ describe('Run', () => {
     };
 
     it('stops the later run while it works', async () => {
-      later({ state: 'claimed' });
+      later({ state: 'claimed', progress: 'in-progress' });
 
       renderRun();
       await userEvent.click(screen.getByRole('button', { name: 'Stop' }));

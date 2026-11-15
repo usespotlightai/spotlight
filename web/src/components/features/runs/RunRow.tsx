@@ -5,13 +5,16 @@ import { RunPendingMarker } from '@/components/features/runs/RunPendingMarker';
 import { Pill } from '@/components/shared/Pill';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { type Run, runStatus } from '@/lib/run';
+import { useMenuActions } from '@/hooks/useMenuActions';
+import { useStopRunAction } from '@/hooks/useStopRunAction';
+import { type Run, runStatus, stoppable } from '@/lib/run';
 import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
 type RunRowProps = {
   run: Run;
+  teamId?: string;
   to: string;
   taskTitle?: string | null;
   reviewTo?: string;
@@ -21,17 +24,21 @@ type RunRowProps = {
 
 export function RunRow({
   run,
+  teamId,
   to,
   taskTitle,
   reviewTo,
   inTrail,
   gutter,
 }: RunRowProps) {
+  const stop = useStopRunAction(teamId, run.id, stoppable(run));
+  const menu = useMenuActions(stop ? [stop] : []);
   const title = taskTitle ?? run.station?.name ?? 'Unknown station';
 
   return (
     <li
       data-list-item
+      {...menu}
       className={cn(
         'relative flex min-w-0 items-start gap-2 rounded-md py-2 text-sm transition-colors hover:bg-accent has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset @xl/pane:h-9 @xl/pane:items-center @xl/pane:py-0',
         gutter ? 'px-3' : 'px-2',
