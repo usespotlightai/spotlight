@@ -21,6 +21,7 @@ func warmSandbox(sandboxID, setup string) protocol.Assignment {
 
 func runWithSetup(runner, setup string) protocol.Assignment {
 	each := assignment(runner)
+	each.Work.Run.Line = "line_1"
 	each.Work.Run.Spec.Checkouts = []protocol.Checkout{{Path: "web", Setup: setup}}
 	return each
 }
@@ -117,6 +118,21 @@ func TestASandboxWithTheSameSetupStartsFromTheSetupImage(t *testing.T) {
 	eventually(t, "the other run's sandbox", func() bool { return len(engine.workSandboxes()) == 3 })
 	if got := engine.sandbox(engine.workSandboxes()[2]).Image; got != base {
 		t.Errorf("a run with another setup started from %s, not the runner image %s", got, base)
+	}
+}
+
+func TestARunOfAnotherLineDoesNotStartFromTheLinesSetupImage(t *testing.T) {
+	engine, pool, id := warmed(t, options(t))
+	base := engine.sandbox(id).Image
+	opened(t, engine, id, setUp())
+	eventually(t, "a setup image", func() bool { return len(engine.committedImages()) == 1 })
+
+	otherLine := runWithSetup("runner_1", "npm ci")
+	otherLine.Work.Run.Line = "line_2"
+	pool.work <- otherLine
+	eventually(t, "the other line's sandbox", func() bool { return len(engine.workSandboxes()) == 2 })
+	if got := engine.sandbox(engine.workSandboxes()[1]).Image; got != base {
+		t.Errorf("a run of another line started from %s, not the runner image %s", got, base)
 	}
 }
 

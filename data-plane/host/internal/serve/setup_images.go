@@ -64,38 +64,41 @@ type setupStart struct {
 	build  bool
 }
 
-func setupKey(workspace, digest string, setups map[string]string) string {
-	if workspace == "" || digest == "" || !slices.ContainsFunc(slices.Collect(maps.Values(setups)), func(setup string) bool { return setup != "" }) {
+func setupKey(workspace, line, digest string, setups map[string]string) string {
+	if workspace == "" || line == "" || digest == "" || !slices.ContainsFunc(slices.Collect(maps.Values(setups)), func(setup string) bool { return setup != "" }) {
 		return ""
 	}
 	paths := slices.Sorted(maps.Keys(setups))
 	hash := sha256.New()
-	fmt.Fprintf(hash, "%s\x00%s\x00", workspace, digest)
+	fmt.Fprintf(hash, "%s\x00%s\x00%s\x00", workspace, line, digest)
 	for _, path := range paths {
 		fmt.Fprintf(hash, "%s\x00%s\x00", path, setups[path])
 	}
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func setupsOf(work protocol.ClaimResponse) map[string]string {
-	setups := map[string]string{}
+func setupsOf(work protocol.ClaimResponse) (string, map[string]string) {
+	line, setups := "", map[string]string{}
 	add := func(path, setup string) { setups[path] = strings.TrimSpace(setup) }
 	switch {
 	case work.Warm != nil:
+		line = work.Warm.Line
 		for _, each := range work.Warm.Checkouts {
 			add(each.Path, each.Setup)
 		}
 	case work.Run != nil:
+		line = work.Run.Line
 		for _, each := range work.Run.Spec.Checkouts {
 			add(each.Path, each.Setup)
 		}
 	}
-	return setups
+	return line, setups
 }
 
 func (h *Host) setupStart(ctx context.Context, assignment protocol.Assignment, ready examined, log *slog.Logger) setupStart {
+	line, setups := setupsOf(assignment.Work)
 	start := setupStart{base: ready.id, digest: ready.digest, image: ready.id,
-		key: setupKey(h.workspace, ready.digest, setupsOf(assignment.Work))}
+		key: setupKey(h.workspace, line, ready.digest, setups)}
 	if start.key == "" {
 		return start
 	}

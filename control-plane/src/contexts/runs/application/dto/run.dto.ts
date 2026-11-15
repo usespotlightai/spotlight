@@ -6,6 +6,7 @@ interface ClaimedRunDto {
   readonly id: string;
   readonly harness: string;
   readonly attempt: number;
+  readonly line: string | null;
   readonly spec: RunSpecShape;
   readonly extensions: JsonObject;
   readonly workingCopyKey: string | null;

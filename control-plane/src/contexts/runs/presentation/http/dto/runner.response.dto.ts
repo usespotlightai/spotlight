@@ -183,14 +183,30 @@ export class ClaimedRunResponseDto {
   readonly attempt: number;
 
   @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '6b1d0f3e-8a2c-4e57-b9d4-3c5a7e1f0b28',
+    description:
+      'The line the run belongs to, so a host starts it only from a setup image of that line; null for a run of no line',
+  })
+  readonly line: string | null;
+
+  @ApiProperty({
     description: 'What the runner lays out and starts, as the runner reads it',
   })
   readonly spec: unknown;
 
-  constructor(id: string, harness: string, attempt: number, spec: unknown) {
+  constructor(
+    id: string,
+    harness: string,
+    attempt: number,
+    line: string | null,
+    spec: unknown,
+  ) {
     this.id = id;
     this.harness = harness;
     this.attempt = attempt;
+    this.line = line;
     this.spec = spec;
   }
 }

@@ -24587,6 +24587,12 @@
             "example": 1,
             "description": "Which attempt of the run this is, so what the runner reports for it is not taken for a later one"
           },
+          "line": {
+            "type": "string",
+            "nullable": true,
+            "example": "6b1d0f3e-8a2c-4e57-b9d4-3c5a7e1f0b28",
+            "description": "The line the run belongs to, so a host starts it only from a setup image of that line; null for a run of no line"
+          },
           "spec": {
             "type": "object",
             "description": "What the runner lays out and starts, as the runner reads it"
@@ -24596,6 +24602,7 @@
           "id",
           "harness",
           "attempt",
+          "line",
           "spec"
         ]
       },

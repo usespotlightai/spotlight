@@ -12,28 +12,30 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-func TestASetupKeyBelongsToOneWorkspaceRunnerImageAndSetup(t *testing.T) {
+func TestASetupKeyBelongsToOneWorkspaceLineRunnerImageAndSetup(t *testing.T) {
 	setups := map[string]string{"web": "npm ci", "api": "go mod download"}
-	key := setupKey("workspace_1", "runner@sha256:a", setups)
+	key := setupKey("workspace_1", "line_1", "runner@sha256:a", setups)
 
 	for name, other := range map[string]string{
-		"another workspace":    setupKey("workspace_2", "runner@sha256:a", setups),
-		"another runner image": setupKey("workspace_1", "runner@sha256:b", setups),
-		"another setup":        setupKey("workspace_1", "runner@sha256:a", map[string]string{"web": "npm install", "api": "go mod download"}),
-		"one checkout fewer":   setupKey("workspace_1", "runner@sha256:a", map[string]string{"web": "npm ci"}),
-		"one more checkout":    setupKey("workspace_1", "runner@sha256:a", map[string]string{"web": "npm ci", "api": "go mod download", "docs": ""}),
+		"another workspace":    setupKey("workspace_2", "line_1", "runner@sha256:a", setups),
+		"another line":         setupKey("workspace_1", "line_2", "runner@sha256:a", setups),
+		"another runner image": setupKey("workspace_1", "line_1", "runner@sha256:b", setups),
+		"another setup":        setupKey("workspace_1", "line_1", "runner@sha256:a", map[string]string{"web": "npm install", "api": "go mod download"}),
+		"one checkout fewer":   setupKey("workspace_1", "line_1", "runner@sha256:a", map[string]string{"web": "npm ci"}),
+		"one more checkout":    setupKey("workspace_1", "line_1", "runner@sha256:a", map[string]string{"web": "npm ci", "api": "go mod download", "docs": ""}),
 	} {
 		if other == key {
 			t.Errorf("%s has the same key", name)
 		}
 	}
-	if again := setupKey("workspace_1", "runner@sha256:a", map[string]string{"api": "go mod download", "web": "npm ci"}); again != key {
+	if again := setupKey("workspace_1", "line_1", "runner@sha256:a", map[string]string{"api": "go mod download", "web": "npm ci"}); again != key {
 		t.Error("the key depends on the order of the checkouts")
 	}
 	for name, none := range map[string]string{
-		"no setup":     setupKey("workspace_1", "runner@sha256:a", map[string]string{"docs": ""}),
-		"no workspace": setupKey("", "runner@sha256:a", setups),
-		"no digest":    setupKey("workspace_1", "", setups),
+		"no setup":     setupKey("workspace_1", "line_1", "runner@sha256:a", map[string]string{"docs": ""}),
+		"no workspace": setupKey("", "line_1", "runner@sha256:a", setups),
+		"no line":      setupKey("workspace_1", "", "runner@sha256:a", setups),
+		"no digest":    setupKey("workspace_1", "line_1", "", setups),
 	} {
 		if none != "" {
 			t.Errorf("%s has key %q", name, none)
@@ -42,14 +44,14 @@ func TestASetupKeyBelongsToOneWorkspaceRunnerImageAndSetup(t *testing.T) {
 }
 
 func TestAWarmSandboxAndARunOfTheSameLineHaveOneKey(t *testing.T) {
-	warm := setupsOf(protocol.ClaimResponse{Warm: &protocol.WarmSandbox{Checkouts: []protocol.WarmCheckout{
+	warmLine, warm := setupsOf(protocol.ClaimResponse{Warm: &protocol.WarmSandbox{Line: "line_1", Checkouts: []protocol.WarmCheckout{
 		{Path: "web", Setup: "npm ci\n"}, {Path: "docs"},
 	}}})
-	run := setupsOf(protocol.ClaimResponse{Run: &protocol.Run{Spec: protocol.Spec{Checkouts: []protocol.Checkout{
+	runLine, run := setupsOf(protocol.ClaimResponse{Run: &protocol.Run{Line: "line_1", Spec: protocol.Spec{Checkouts: []protocol.Checkout{
 		{Path: "web", Setup: " npm ci", Remote: "https://github.com/acme/web", Branch: "feat/x"}, {Path: "docs", Remote: "https://github.com/acme/docs"},
 	}}}})
-	if setupKey("w", "d", warm) != setupKey("w", "d", run) {
-		t.Errorf("warm %v and run %v have different keys", warm, run)
+	if setupKey("w", warmLine, "d", warm) != setupKey("w", runLine, "d", run) {
+		t.Errorf("warm %s %v and run %s %v have different keys", warmLine, warm, runLine, run)
 	}
 }
 

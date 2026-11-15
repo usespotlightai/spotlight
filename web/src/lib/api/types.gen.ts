@@ -1041,6 +1041,10 @@ export type ClaimedRunResponseDto = {
    */
   attempt: number;
   /**
+   * The line the run belongs to, so a host starts it only from a setup image of that line; null for a run of no line
+   */
+  line: string | null;
+  /**
    * What the runner lays out and starts, as the runner reads it
    */
   spec: {

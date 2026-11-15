@@ -23,6 +23,7 @@ export const ClaimedWorkHttpMapper = {
           claimed.run.id,
           claimed.run.harness,
           claimed.run.attempt,
+          claimed.run.line,
           wireSpecOf(claimed.run),
         ),
         null,

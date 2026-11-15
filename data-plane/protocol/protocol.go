@@ -255,6 +255,7 @@ type Run struct {
 	ID      string `json:"id"`
 	Harness string `json:"harness,omitempty"`
 	Attempt int    `json:"attempt,omitempty"`
+	Line    string `json:"line,omitempty"`
 	Spec    Spec   `json:"spec"`
 }
 

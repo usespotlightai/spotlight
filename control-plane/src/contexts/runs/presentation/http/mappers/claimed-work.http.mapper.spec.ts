@@ -6,6 +6,7 @@ import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -17,7 +18,7 @@ const COMMIT = 'c'.repeat(40);
 const wire = (run: Run) =>
   JSON.parse(
     JSON.stringify(ClaimedWorkHttpMapper.toResponse(claimedRun(run))),
-  ) as { kind: string; run: { spec: unknown } | null };
+  ) as { kind: string; run: { line: string | null; spec: unknown } | null };
 
 describe('the run a runner claims', () => {
   it('carries the requester’s extensions beside the spec and the working copy key as its resume key, as runners read them', () => {
@@ -81,5 +82,25 @@ describe('the run a runner claims', () => {
     expect(wire(run).run?.spec).toMatchObject({
       resume: { key: '', sessionId: 'session_1' },
     });
+  });
+
+  it('names the line of a line’s run, and no line for a run of none, so a host keeps setup images apart by line', () => {
+    const ofLine = (line: LineId | null) =>
+      Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        ...orderedFor.spec(),
+        line,
+        spec: RunSpec.of({
+          command: { executable: 'sh', args: [] },
+          briefing: 'Fix the queue.',
+          handover: { options: [], noteLimit: 0 },
+          resume: {},
+        }),
+      }).claim(claimer(RunnerId.of('runner_1')), NOW);
+
+    expect(wire(ofLine(LineId.of('line_1'))).run?.line).toBe('line_1');
+    expect(wire(ofLine(null)).run?.line).toBeNull();
   });
 });
