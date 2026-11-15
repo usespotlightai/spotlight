@@ -227,7 +227,7 @@ const toolSchema = z.object({
     )
     .default({}),
   output: expression.optional(),
-  readOnly: z.boolean().default(false),
+  readOnly: z.boolean().optional(),
   enabledOnMark: z
     .string()
     .regex(MARK_KIND, 'names its integration first, as in sentry.issue')
