@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent } from 'react';
 
-import { tabPathOf } from '@/lib/app-tabs';
+import { workspaceLinkAt } from '@/lib/app-tabs';
 
 const MIDDLE_BUTTON = 1;
 
@@ -18,20 +18,15 @@ export function useTabLinks(
       return;
     }
 
-    const anchor = (event.target as Element | null)?.closest?.('a[href]');
+    const link = workspaceLinkAt(
+      event.target instanceof Element ? event.target : null,
+      window.location.origin,
+      slug,
+    );
 
-    if (
-      !(anchor instanceof HTMLAnchorElement) ||
-      anchor.hasAttribute('download')
-    ) {
-      return;
-    }
-
-    const path = tabPathOf(anchor.href, window.location.origin, slug);
-
-    if (path) {
+    if (link) {
       event.preventDefault();
-      openAt(path);
+      openAt(link.path);
     }
   });
 

@@ -1,22 +1,25 @@
-import { use, useEffect, useId } from 'react';
+import { use, useEffect, useId, useRef } from 'react';
 
 import { type MenuAction, MenuActionsContext } from '@/lib/context-menu';
 
 export function useMenuActions(actions: readonly MenuAction[]) {
   const registry = use(MenuActionsContext);
   const id = useId();
+  const latest = useRef(actions);
+  const offered = registry !== null && actions.length > 0;
 
   useEffect(() => {
-    if (!registry || actions.length === 0) {
+    latest.current = actions;
+    registry?.changed(id);
+  });
+
+  useEffect(() => {
+    if (!registry || !offered) {
       return;
     }
 
-    registry.set(id, actions);
+    return registry.offer(id, () => latest.current);
+  }, [registry, id, offered]);
 
-    return () => {
-      registry.delete(id);
-    };
-  }, [registry, id, actions]);
-
-  return registry && actions.length > 0 ? { 'data-menu-actions': id } : {};
+  return offered ? { 'data-menu-actions': id } : {};
 }

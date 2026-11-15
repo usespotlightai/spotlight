@@ -6,9 +6,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { WorkspaceContextMenu } from '@/components/shell/context-menu/WorkspaceContextMenu';
 import { useMenuActions } from '@/hooks/useMenuActions';
 
-function Row({ onResolve }: { onResolve: () => void }) {
+function Row({
+  onResolve,
+  pending = false,
+}: {
+  onResolve: () => void;
+  pending?: boolean;
+}) {
   const menu = useMenuActions([
-    { label: 'Resolve', icon: Archive, onSelect: onResolve },
+    { label: 'Resolve', icon: Archive, onSelect: onResolve, disabled: pending },
   ]);
 
   return (
@@ -22,17 +28,25 @@ function Row({ onResolve }: { onResolve: () => void }) {
 const renderMenu = () => {
   const onOpenTab = vi.fn();
   const onResolve = vi.fn();
-  render(
+  const page = (pending: boolean) => (
     <WorkspaceContextMenu slug="acme" onOpenTab={onOpenTab}>
       <a href="/w/acme/team/team_1/runs">Runs</a>
       <a href="https://github.com/acme/api/pull/1">The pull request</a>
+      <a href="/w/acme/inbox/item_1/report.pdf" download>
+        The report
+      </a>
       <p>Plain text</p>
       <input aria-label="Title" />
-      <Row onResolve={onResolve} />
-    </WorkspaceContextMenu>,
+      <Row onResolve={onResolve} pending={pending} />
+    </WorkspaceContextMenu>
   );
+  const { rerender } = render(page(false));
 
-  return { onOpenTab, onResolve };
+  return {
+    onOpenTab,
+    onResolve,
+    resolving: () => rerender(page(true)),
+  };
 };
 
 const rightClick = (element: Element) =>
@@ -86,6 +100,22 @@ describe('WorkspaceContextMenu', () => {
     expect(onResolve).toHaveBeenCalledOnce();
   });
 
+  it('follows the row actions while the menu is open', async () => {
+    const user = userEvent.setup();
+    const { onResolve, resolving } = renderMenu();
+
+    rightClick(screen.getByText('14 Nov'));
+    await screen.findByRole('menuitem', { name: 'Resolve' });
+    resolving();
+    const resolve = screen.getByRole('menuitem', { name: 'Resolve' });
+
+    expect(resolve).toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(resolve);
+
+    expect(onResolve).not.toHaveBeenCalled();
+  });
+
   it('offers the row actions and the link items on the link in a row', async () => {
     renderMenu();
 
@@ -101,6 +131,7 @@ describe('WorkspaceContextMenu', () => {
 
     for (const element of [
       screen.getByText('The pull request'),
+      screen.getByText('The report'),
       screen.getByText('Plain text'),
       screen.getByRole('textbox', { name: 'Title' }),
     ]) {

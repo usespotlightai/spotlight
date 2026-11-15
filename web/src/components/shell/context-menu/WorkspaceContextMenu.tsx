@@ -1,30 +1,34 @@
-import { type ReactNode, useEffect, useEffectEvent, useState } from 'react';
+import {
+  type ReactNode,
+  useEffect,
+  useEffectEvent,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import {
   ContextMenuPopup,
-  type MenuLink,
   type MenuPoint,
 } from '@/components/shell/context-menu/ContextMenuPopup';
-import { tabPathOf } from '@/lib/app-tabs';
+import { type WorkspaceLink, workspaceLinkAt } from '@/lib/app-tabs';
 import {
   MENU_ACTIONS_ATTRIBUTE,
-  type MenuAction,
   MenuActionsContext,
-  type MenuActionsRegistry,
+  menuActionsRegistry,
 } from '@/lib/context-menu';
 
 type Menu = {
   readonly open: boolean;
   readonly at: MenuPoint;
-  readonly link: MenuLink | null;
-  readonly actions: readonly MenuAction[];
+  readonly link: WorkspaceLink | null;
+  readonly region: string | null;
 };
 
 const CLOSED: Menu = {
   open: false,
   at: { x: 0, y: 0 },
   link: null,
-  actions: [],
+  region: null,
 };
 
 const EDITABLE =
@@ -59,8 +63,12 @@ export function WorkspaceContextMenu({
   onOpenTab,
   children,
 }: WorkspaceContextMenuProps) {
-  const [registry] = useState<MenuActionsRegistry>(() => new Map());
+  const [registry] = useState(menuActionsRegistry);
   const [menu, setMenu] = useState<Menu>(CLOSED);
+  const actions = useSyncExternalStore(
+    (onChange) => registry.watch(menu.region, onChange),
+    () => registry.actionsOf(menu.region),
+  );
 
   const opened = useEffectEvent((event: MouseEvent) => {
     const target = event.target instanceof Element ? event.target : null;
@@ -74,29 +82,18 @@ export function WorkspaceContextMenu({
       return;
     }
 
-    const anchor = target.closest('a[href]');
-    const path =
-      anchor instanceof HTMLAnchorElement
-        ? tabPathOf(anchor.href, window.location.origin, slug)
-        : null;
-    const region = target.closest(`[${MENU_ACTIONS_ATTRIBUTE}]`);
-    const actions =
-      registry.get(region?.getAttribute(MENU_ACTIONS_ATTRIBUTE) ?? '') ?? [];
+    const link = workspaceLinkAt(target, window.location.origin, slug);
+    const region =
+      target
+        .closest(`[${MENU_ACTIONS_ATTRIBUTE}]`)
+        ?.getAttribute(MENU_ACTIONS_ATTRIBUTE) ?? null;
 
-    if (!path && actions.length === 0) {
+    if (!link && registry.actionsOf(region).length === 0) {
       return;
     }
 
     event.preventDefault();
-    setMenu({
-      open: true,
-      at: pointOf(event, target),
-      link:
-        anchor instanceof HTMLAnchorElement && path
-          ? { href: anchor.href, path }
-          : null,
-      actions,
-    });
+    setMenu({ open: true, at: pointOf(event, target), link, region });
   });
 
   useEffect(() => {
@@ -113,7 +110,7 @@ export function WorkspaceContextMenu({
         onOpenChange={(open) => setMenu((current) => ({ ...current, open }))}
         at={menu.at}
         link={menu.link}
-        actions={menu.actions}
+        actions={actions}
         onOpenTab={onOpenTab}
       />
     </MenuActionsContext>

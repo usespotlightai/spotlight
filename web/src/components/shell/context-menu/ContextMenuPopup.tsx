@@ -10,19 +10,18 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
+import type { WorkspaceLink } from '@/lib/app-tabs';
 import type { MenuAction } from '@/lib/context-menu';
 import { desktopApp } from '@/lib/desktop';
 import { toast } from '@/lib/toast';
 
 export type MenuPoint = { readonly x: number; readonly y: number };
 
-export type MenuLink = { readonly href: string; readonly path: string };
-
 type ContextMenuPopupProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   at: MenuPoint;
-  link: MenuLink | null;
+  link: WorkspaceLink | null;
   actions: readonly MenuAction[];
   onOpenTab: (path: string) => void;
 };

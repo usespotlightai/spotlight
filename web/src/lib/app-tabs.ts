@@ -309,6 +309,27 @@ export const tabPathOf = (
     : null;
 };
 
+export type WorkspaceLink = { readonly href: string; readonly path: string };
+
+export const workspaceLinkAt = (
+  target: Element | null,
+  origin: string,
+  slug: string,
+): WorkspaceLink | null => {
+  const anchor = target?.closest('a[href]');
+
+  if (
+    !(anchor instanceof HTMLAnchorElement) ||
+    anchor.hasAttribute('download')
+  ) {
+    return null;
+  }
+
+  const path = tabPathOf(anchor.href, origin, slug);
+
+  return path ? { href: anchor.href, path } : null;
+};
+
 const TAB_ICONS: readonly (readonly [string, LucideIcon])[] = [
   ['/w/:slug/inbox/*', Inbox],
   ['/w/:slug/settings/*', Settings2],
