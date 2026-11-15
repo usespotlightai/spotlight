@@ -36,16 +36,14 @@ export function ShortcutSheet({ open, onOpenChange }: ShortcutSheetProps) {
         data-slot="shortcut-sheet"
         className="top-3 right-3 bottom-3 left-auto flex w-[calc(100%-1.5rem)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-[360px] data-open:slide-in-from-right-4 data-closed:slide-out-to-right-4 data-open:zoom-in-100 data-closed:zoom-out-100"
       >
-        <DialogHeader className="gap-0 px-5 pt-5 pb-[15px]">
-          <DialogTitle className="font-semibold text-[15px] leading-[23px]">
-            Keyboard shortcuts
-          </DialogTitle>
+        <DialogHeader className="gap-0 px-5 pt-5 pb-4">
+          <DialogTitle>Keyboard shortcuts</DialogTitle>
           <DialogDescription className="sr-only">
             Every keyboard shortcut in Spotlight
           </DialogDescription>
         </DialogHeader>
 
-        <label className="mx-5 mb-[25px] flex h-11 items-center gap-2 rounded-[10px] border-[0.5px] border-border px-3 text-sm focus-within:border-primary">
+        <label className="mx-5 mb-5 flex h-8 items-center gap-2 rounded-md border-[0.5px] border-border bg-background px-2.5 text-foreground text-sm focus-within:border-input">
           <Search className="size-3.5 shrink-0 text-muted-foreground" />
           <input
             type="search"
