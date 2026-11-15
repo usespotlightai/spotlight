@@ -38,3 +38,6 @@ func SuggestedSandboxMemory(runtimeMemory int64, sandboxes int) string {
 	}
 	return FormatSize(share)
 }
+
+// DefaultSetupFloor is the free disk a host keeps when it makes a setup image.
+const DefaultSetupFloor = 20 * gibibyte

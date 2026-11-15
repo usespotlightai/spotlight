@@ -21,13 +21,15 @@ type Settings struct {
 	Network       string
 	ExtraHosts    []string
 	AutoUpdate    bool
+
+	SetupImageFloor int64
 }
 
 func settingsOf(opts Options) Settings {
 	return Settings{
 		Name: opts.Name, Images: opts.Images, Capacity: opts.Capacity, SandboxMemory: opts.SandboxMemory,
 		RunTimeout: opts.RunTimeout, SandboxURL: opts.SandboxURL, SandboxEnv: opts.SandboxEnv, Egress: opts.Egress,
-		Network: opts.Network, ExtraHosts: opts.ExtraHosts, AutoUpdate: opts.AutoUpdate,
+		Network: opts.Network, ExtraHosts: opts.ExtraHosts, AutoUpdate: opts.AutoUpdate, SetupImageFloor: opts.SetupImageFloor,
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -118,20 +119,193 @@ func (e *Engine) Memory(ctx context.Context) (int64, error) {
 	return info.MemTotal, nil
 }
 
-func (e *Engine) Inspect(ctx context.Context, image string) (sandbox.Image, error) {
-	var inspected struct {
-		ID          string `json:"Id"`
-		RepoDigests []string
-	}
+type inspectedImage struct {
+	ID          string `json:"Id"`
+	RepoDigests []string
+	Config      map[string]any
+	RootFS      struct{ Layers []string }
+	Size        int64
+}
+
+func (e *Engine) inspect(ctx context.Context, image string) (inspectedImage, error) {
+	var inspected inspectedImage
 	status, err := e.call(ctx, http.MethodGet, "/images/"+image+"/json", nil, &inspected)
 	if status == http.StatusNotFound {
-		return sandbox.Image{}, sandbox.ErrNoImage
+		return inspectedImage{}, sandbox.ErrNoImage
 	}
 	if err != nil {
-		return sandbox.Image{}, fmt.Errorf("look for image %s: %w", image, err)
+		return inspectedImage{}, fmt.Errorf("look for image %s: %w", image, err)
 	}
 
-	return sandbox.Image{ID: inspected.ID, Digests: inspected.RepoDigests}, nil
+	return inspected, nil
+}
+
+func (e *Engine) Inspect(ctx context.Context, image string) (sandbox.Image, error) {
+	inspected, err := e.inspect(ctx, image)
+	if err != nil {
+		return sandbox.Image{}, err
+	}
+
+	labels := map[string]string{}
+	if found, ok := inspected.Config["Labels"].(map[string]any); ok {
+		for key, value := range found {
+			if text, ok := value.(string); ok {
+				labels[key] = text
+			}
+		}
+	}
+
+	var volumes []string
+	if found, ok := inspected.Config["Volumes"].(map[string]any); ok {
+		volumes = slices.Sorted(maps.Keys(found))
+	}
+
+	return sandbox.Image{
+		ID: inspected.ID, Digests: inspected.RepoDigests, Labels: labels, Layers: len(inspected.RootFS.Layers),
+		Size: inspected.Size, Volumes: volumes,
+	}, nil
+}
+
+// Commit blanks every env and label key the sandbox has beyond its image: the engine merges the container's own config
+// into the committed one, so without this the run's proxy credential and labels would enter the image.
+func (e *Engine) Commit(ctx context.Context, id string, commit sandbox.Commit) (string, error) {
+	from, err := e.inspect(ctx, commit.ConfigFrom)
+	if err != nil {
+		return "", fmt.Errorf("read the config the image keeps: %w", err)
+	}
+
+	var running struct {
+		Config struct {
+			Env    []string
+			Labels map[string]string
+		}
+	}
+	if _, err := e.call(ctx, http.MethodGet, "/containers/"+id+"/json", nil, &running); err != nil {
+		return "", fmt.Errorf("read the sandbox's config: %w", err)
+	}
+
+	config := maps.Clone(from.Config)
+	if config == nil {
+		config = map[string]any{}
+	}
+	baseEnv, baseLabels := configEnv(from.Config), configLabels(from.Config)
+	config["Env"] = blankedEnv(baseEnv, running.Config.Env)
+	config["Labels"] = blankedLabels(baseLabels, running.Config.Labels, commit.Labels)
+
+	query := url.Values{"container": {id}, "pause": {"true"}}
+	var answer struct{ Id string }
+	if _, err := e.call(ctx, http.MethodPost, "/commit?"+query.Encode(), config, &answer); err != nil {
+		return "", fmt.Errorf("commit the sandbox to an image: %w", err)
+	}
+
+	committed, err := e.inspect(ctx, answer.Id)
+	if err == nil {
+		err = keepsOnly(configEnv(committed.Config), configLabels(committed.Config), baseEnv, baseLabels, commit.Labels)
+	}
+	if err != nil {
+		_ = e.Remove(context.WithoutCancel(ctx), answer.Id)
+		return "", fmt.Errorf("the committed image holds more than its base: %w", err)
+	}
+
+	tagged := url.Values{"repo": {commit.Repository}, "tag": {commit.Tag}}
+	if _, err := e.call(ctx, http.MethodPost, "/images/"+answer.Id+"/tag?"+tagged.Encode(), nil, nil); err != nil {
+		_ = e.Remove(context.WithoutCancel(ctx), answer.Id)
+		return "", fmt.Errorf("tag the committed image: %w", err)
+	}
+
+	return answer.Id, nil
+}
+
+func configEnv(config map[string]any) []string {
+	listed, _ := config["Env"].([]any)
+	env := make([]string, 0, len(listed))
+	for _, each := range listed {
+		if text, ok := each.(string); ok {
+			env = append(env, text)
+		}
+	}
+	return env
+}
+
+func configLabels(config map[string]any) map[string]string {
+	found, _ := config["Labels"].(map[string]any)
+	labels := make(map[string]string, len(found))
+	for key, value := range found {
+		if text, ok := value.(string); ok {
+			labels[key] = text
+		}
+	}
+	return labels
+}
+
+func envKey(entry string) string {
+	key, _, _ := strings.Cut(entry, "=")
+	return key
+}
+
+func blankedEnv(base, running []string) []string {
+	env := slices.Clone(base)
+	for _, entry := range running {
+		key := envKey(entry)
+		if !slices.ContainsFunc(env, func(each string) bool { return envKey(each) == key }) {
+			env = append(env, key+"=")
+		}
+	}
+	return env
+}
+
+func blankedLabels(base, running, added map[string]string) map[string]string {
+	labels := maps.Clone(base)
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	for key := range running {
+		if _, ok := labels[key]; !ok {
+			labels[key] = ""
+		}
+	}
+	maps.Copy(labels, added)
+	return labels
+}
+
+func keepsOnly(env []string, labels map[string]string, baseEnv []string, baseLabels, added map[string]string) error {
+	for _, entry := range env {
+		if !slices.Contains(baseEnv, entry) && !strings.HasSuffix(entry, "=") {
+			return fmt.Errorf("env %s", envKey(entry))
+		}
+		if strings.HasSuffix(entry, "=") && slices.ContainsFunc(baseEnv, func(each string) bool {
+			return envKey(each) == envKey(entry) && each != entry
+		}) {
+			return fmt.Errorf("env %s", envKey(entry))
+		}
+	}
+	for key, value := range labels {
+		want, inBase := baseLabels[key]
+		if added[key] != "" {
+			want, inBase = added[key], true
+		}
+		if value != "" && (!inBase || value != want) {
+			return fmt.Errorf("label %s", key)
+		}
+	}
+	return nil
+}
+
+func (e *Engine) Changes(ctx context.Context, id string) ([]sandbox.Change, error) {
+	var listed []struct {
+		Path string
+		Kind int
+	}
+	if _, err := e.call(ctx, http.MethodGet, "/containers/"+id+"/changes", nil, &listed); err != nil {
+		return nil, fmt.Errorf("list what changed in the sandbox: %w", err)
+	}
+
+	changes := make([]sandbox.Change, 0, len(listed))
+	for _, each := range listed {
+		changes = append(changes, sandbox.Change{Path: each.Path, Kind: sandbox.ChangeKind(each.Kind)})
+	}
+
+	return changes, nil
 }
 
 func (e *Engine) Pull(ctx context.Context, image, auth string) error {
@@ -228,6 +402,7 @@ func (e *Engine) Images(ctx context.Context) ([]sandbox.Image, error) {
 		ID          string `json:"Id"`
 		RepoTags    []string
 		RepoDigests []string
+		Labels      map[string]string
 		Size        int64
 	}
 	if _, err := e.call(ctx, http.MethodGet, "/images/json", nil, &listed); err != nil {
@@ -238,7 +413,7 @@ func (e *Engine) Images(ctx context.Context) ([]sandbox.Image, error) {
 	for _, each := range listed {
 		tags := slices.DeleteFunc(each.RepoTags, func(tag string) bool { return tag == "<none>:<none>" })
 		digests := slices.DeleteFunc(each.RepoDigests, func(digest string) bool { return digest == "<none>@<none>" })
-		found = append(found, sandbox.Image{ID: each.ID, Tags: tags, Digests: digests, Size: each.Size})
+		found = append(found, sandbox.Image{ID: each.ID, Tags: tags, Digests: digests, Labels: each.Labels, Size: each.Size})
 	}
 
 	return found, nil

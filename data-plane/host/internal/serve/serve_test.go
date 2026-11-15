@@ -78,6 +78,11 @@ type fakeEngine struct {
 	execs     map[string][][]string
 	created   map[string]time.Time
 	followed  map[string][]time.Time
+
+	freeKB    int64
+	changes   map[string][]sandbox.Change
+	commits   []committed
+	failImage string
 }
 
 func newEngine() *fakeEngine {
@@ -95,6 +100,9 @@ func newEngine() *fakeEngine {
 		execs:    map[string][][]string{},
 		created:  map[string]time.Time{},
 		followed: map[string][]time.Time{},
+
+		freeKB:  100 << 20,
+		changes: map[string][]sandbox.Change{},
 	}
 }
 
@@ -106,6 +114,25 @@ func (e *fakeEngine) Exec(_ context.Context, id string, command []string, _ io.W
 		return nil, sandbox.ErrGone
 	}
 	e.execs[id] = append(e.execs[id], command)
+	switch command[0] {
+	case "df":
+		return ended(fmt.Sprintf("Filesystem 1024-blocks Used Available Capacity Mounted on\noverlay 1 1 %d 1%% /\n", e.freeKB)), nil
+	case "rm":
+		for _, path := range command[1:] {
+			delete(e.put[id], path)
+		}
+		return ended(""), nil
+	case "sh":
+		if len(command) > 3 && strings.Contains(command[2], "readlink") {
+			var found []string
+			for _, path := range command[4:] {
+				if _, ok := e.put[id][path]; ok {
+					found = append(found, path)
+				}
+			}
+			return ended(strings.Join(found, "\n")), nil
+		}
+	}
 	ours, _ := net.Pipe()
 	return ours, nil
 }
@@ -236,7 +263,7 @@ func (e *fakeEngine) Images(context.Context) ([]sandbox.Image, error) {
 	for ref, each := range e.images {
 		found, ok := byID[each.ID]
 		if !ok {
-			found = &sandbox.Image{ID: each.ID, Digests: slices.Clone(each.Digests)}
+			found = &sandbox.Image{ID: each.ID, Digests: slices.Clone(each.Digests), Labels: each.Labels, Layers: each.Layers, Size: each.Size}
 			byID[each.ID] = found
 			order = append(order, each.ID)
 		}
@@ -325,6 +352,9 @@ func (e *fakeEngine) Start(_ context.Context, spec sandbox.Spec) (string, error)
 	}
 	if len(spec.Args) == 0 {
 		e.starts++
+		if e.failImage != "" && spec.Image == e.failImage {
+			return "", errors.New("no such image")
+		}
 		if e.failStart {
 			return "", errors.New("no such image")
 		}
@@ -659,6 +689,7 @@ func (c *runClient) check(stackID string) (protocol.StackCheckResult, bool) {
 type pool struct {
 	instant      bool
 	claims       int
+	intoClaims   []intoClaim
 	traces       []string
 	inUse        bool
 	work         chan protocol.Assignment
@@ -751,6 +782,9 @@ func (p *pool) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.A
 	}
 
 	if offer.Sandbox != "" {
+		p.mu.Lock()
+		p.intoClaims = append(p.intoClaims, intoClaim{sandbox: offer.Sandbox, at: time.Now()})
+		p.mu.Unlock()
 		select {
 		case assignment := <-p.into:
 			return &assignment, nil

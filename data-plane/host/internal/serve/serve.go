@@ -133,6 +133,8 @@ type Options struct {
 	Network        string
 	ExtraHosts     []string
 	Tunnel         Tunnel
+
+	SetupImageFloor int64
 }
 
 type Egress struct {
@@ -181,6 +183,9 @@ type Host struct {
 	egressFor    string
 	handedOut    map[string]time.Time
 	repositories map[string]bool
+	setupUsed    map[string]time.Time
+	setupBuilds  map[string]bool
+	setupStarts  map[string]int
 	updateAfter  time.Time
 	updated      bool
 	handover     chan struct{}
@@ -206,6 +211,9 @@ func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors
 		failures:     map[string]int{},
 		handedOut:    map[string]time.Time{},
 		repositories: map[string]bool{},
+		setupUsed:    map[string]time.Time{},
+		setupBuilds:  map[string]bool{},
+		setupStarts:  map[string]int{},
 		networks:     map[string]int{},
 		handover:     make(chan struct{}),
 	}
@@ -662,6 +670,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		log = log.With("sandboxId", assignment.SandboxID)
 	}
 
+	began := time.Now()
 	draining := h.hold(assignment.SandboxID)
 	kept := false
 	defer func() {
@@ -700,6 +709,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	if !ok {
 		return
 	}
+	readiedAt := time.Now()
 	if stopRequested() {
 		log.Info("a stop was requested, so no sandbox starts")
 		return
@@ -713,6 +723,8 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		log.Info("the host is stopping, so the work is left to be claimed again")
 		return
 	}
+
+	mirroredAt := time.Now()
 
 	starting, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
 	defer cancel()
@@ -732,10 +744,14 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		return
 	}
 
+	egressAt := time.Now()
 	if stopRequested() {
 		log.Info("a stop was requested, so no sandbox starts")
 		return
 	}
+
+	setup := h.setupStart(starting, assignment, ready, log)
+	setupAt := time.Now()
 
 	env := append(sandboxEnv, sidecar.env()...)
 	env = append(env,
@@ -758,16 +774,25 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		labels[LabelSandbox] = assignment.SandboxID
 	}
 
-	id, err := h.engine.Start(starting, sandbox.Spec{
+	spec := sandbox.Spec{
 		Name:    "spotlight-" + nameOf(assignment),
-		Image:   ready.id,
+		Image:   setup.image,
 		Env:     env,
 		Labels:  labels,
 		Mounts:  mounts,
 		Files:   append([]sandbox.File{{Path: AssignmentPath, Mode: 0o400, Body: body}}, sidecar.files()...),
 		Network: sidecar.network,
 		Limits:  h.sandboxLimits(),
-	})
+	}
+	id, err := h.engine.Start(starting, spec)
+	h.setupStarted(setup)
+	if err != nil && setup.from != "" {
+		log.Warn("could not start from the setup image, so the sandbox starts from the runner image", "setupImage", setup.from, "error", err)
+		h.destroy(id)
+		setup.image, setup.from = ready.id, ""
+		spec.Image = ready.id
+		id, err = h.engine.Start(starting, spec)
+	}
 	h.started(image, err == nil)
 	if err != nil {
 		h.destroy(id)
@@ -777,15 +802,19 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	}
 
 	stopRenewing()
+	startedAt := time.Now()
+	phases := []any{"sandbox", id, "setupImage", setup.from, "setupKey", setup.key,
+		"readyIn", readiedAt.Sub(began), "mirrorsIn", mirroredAt.Sub(readiedAt), "egressIn", egressAt.Sub(mirroredAt),
+		"setupImageIn", setupAt.Sub(egressAt), "startIn", startedAt.Sub(setupAt), "bootIn", startedAt.Sub(began)}
 	if assignment.StartsSandboxOnly() {
-		log.Info("started a sandbox with no run; it restores its workspace and waits for runs", "sandbox", id)
+		log.Info("started a sandbox with no run; it restores its workspace and waits for runs", phases...)
 	} else {
-		log.Info("started a sandbox", "sandbox", id)
+		log.Info("started a sandbox", phases...)
 	}
 
 	kept = h.supervise(ctx, claiming, liveSandbox{
 		id: id, sandboxID: assignment.SandboxID, runnerID: assignment.RunnerID, image: image, digest: ready.digest,
-		sidecar: sidecar, started: time.Now(),
+		sidecar: sidecar, started: startedAt, setup: setup,
 	}, draining, time.Time{}, log)
 }
 
@@ -834,6 +863,9 @@ func (h *Host) supervise(
 		}()
 		go func() {
 			defer close(delivered)
+			if live.setup.build {
+				h.buildSetupImage(taking, live, gone, log)
+			}
 			if err := h.nextRuns(taking, delivering, live, gone, log); err != nil {
 				broken <- err
 			}
@@ -912,6 +944,7 @@ type liveSandbox struct {
 	digest    string
 	sidecar   *egressSidecar
 	started   time.Time
+	setup     setupStart
 }
 
 func (h *Host) nextRuns(

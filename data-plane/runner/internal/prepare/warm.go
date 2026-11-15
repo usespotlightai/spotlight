@@ -11,7 +11,7 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/shell"
 )
 
-func FromMirror(ctx context.Context, mirrors, dir string, checkout protocol.WarmCheckout) error {
+func FromMirror(ctx context.Context, mirrors, dir string, checkout protocol.WarmCheckout, fromImage bool) error {
 	if !filepath.IsLocal(checkout.Path) || strings.ContainsAny(checkout.Path, `/\`) {
 		return fmt.Errorf("%q is not a name a checkout can have", checkout.Path)
 	}
@@ -21,16 +21,26 @@ func FromMirror(ctx context.Context, mirrors, dir string, checkout protocol.Warm
 	if mirrors == "" || !exists(source) {
 		return fmt.Errorf("this host has no mirror of %s", checkout.Path)
 	}
-	if exists(filepath.Join(tree, ".git")) {
+	cloned := exists(filepath.Join(tree, ".git"))
+	if cloned && !fromImage {
 		return nil
 	}
-
 	trusting, err := configTrustingOtherOwners()
 	if err != nil {
 		return err
 	}
 	defer os.Remove(trusting)
 	env := map[string]string{"GIT_CONFIG_GLOBAL": trusting}
+
+	if cloned {
+		if output, err := shell.GitWith(ctx, tree, env, nil, "fetch", "--quiet", source, "HEAD"); err != nil {
+			return fmt.Errorf("git fetch %s from the mirror: %w: %s", checkout.Path, err, shell.Tail(output))
+		}
+		if output, err := shell.GitWith(ctx, tree, env, nil, "reset", "--quiet", "--hard", "FETCH_HEAD"); err != nil {
+			return fmt.Errorf("move %s to the mirror's default branch: %w: %s", checkout.Path, err, shell.Tail(output))
+		}
+		return nil
+	}
 
 	if output, err := shell.GitWith(ctx, dir, env, nil, "clone", "--quiet", source, tree); err != nil {
 		return fmt.Errorf("git clone %s from the mirror: %w: %s", checkout.Path, err, shell.Tail(output))

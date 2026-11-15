@@ -40,6 +40,7 @@ func SetupInputs(ctx context.Context, tree, command string) (string, error) {
 	slices.Sort(names)
 	names = slices.Compact(names)
 
+	command = strings.TrimSpace(command)
 	hash := sha256.New()
 	fmt.Fprintf(hash, "command %d\n%s\n", len(command), command)
 	for _, name := range names {

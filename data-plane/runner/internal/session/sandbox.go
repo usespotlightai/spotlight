@@ -20,11 +20,12 @@ type SandboxArchives interface {
 }
 
 type SandboxOptions struct {
-	Workspace string
-	Archives  SandboxArchives
-	Transport http.RoundTripper
-	AgentUser *account.User
-	Log       *slog.Logger
+	Workspace   string
+	Archives    SandboxArchives
+	Transport   http.RoundTripper
+	AgentUser   *account.User
+	Log         *slog.Logger
+	SetupRecord string
 }
 
 func (s *Sandbox) Open(ctx context.Context, opts SandboxOptions) error {
@@ -33,6 +34,7 @@ func (s *Sandbox) Open(ctx context.Context, opts SandboxOptions) error {
 		return err
 	}
 	s.space = space
+	s.readPristine(opts.SetupRecord, opts.Log)
 
 	stored, err := opts.Archives.WorkingCopyArchive(ctx)
 	if err != nil {
@@ -42,7 +44,8 @@ func (s *Sandbox) Open(ctx context.Context, opts SandboxOptions) error {
 
 	restored := kept{archives: true}
 	if stored != nil {
-		if err := unpackInto(ctx, space, opts.Transport, *stored, nil, os.TempDir(), opts.Log); err != nil {
+		if err := unpackInto(ctx, space, opts.Transport, *stored, s.keptFromImage(ctx, opts.Log), os.TempDir(), opts.Log); err != nil {
+			s.pristine = nil
 			opts.Log.Warn("could not restore the workspace; the first run tries again", "error", err)
 			return nil
 		}
@@ -93,4 +96,18 @@ func (s *Sandbox) Archive(ctx context.Context, opts SandboxOptions) {
 
 	s.kept.archive, s.kept.baseline = stored.id, now
 	opts.Log.Info("archived the workspace", "archive", stored.id, "size", sized(stored.size))
+}
+
+// keptFromImage names what the image's setups put in place, so restoring an archive over it keeps them.
+func (s *Sandbox) keptFromImage(ctx context.Context, log *slog.Logger) []string {
+	if s.pristine == nil {
+		return nil
+	}
+	ignored, err := s.space.Ignored(ctx, s.pristine.paths())
+	if err != nil {
+		log.Warn("could not tell what the image's setups put in place; the first run sets up again", "error", err)
+		s.pristine = nil
+		return nil
+	}
+	return ignored
 }

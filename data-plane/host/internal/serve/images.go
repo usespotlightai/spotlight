@@ -150,6 +150,8 @@ func (h *Host) removeUnusedImages(ctx context.Context) {
 		h.log.Info("removed an image it no longer serves", "image", each.ID, "tags", each.Tags,
 			"digests", each.Digests, "megabytes", each.Size/1_000_000)
 	}
+
+	h.removeSetupImages(ctx, "", "")
 }
 
 func (h *Host) keptImages() (map[string]bool, map[string]bool) {

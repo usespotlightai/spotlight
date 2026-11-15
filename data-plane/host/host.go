@@ -143,6 +143,8 @@ func run(version string) error {
 		Network:       live.Network,
 		ExtraHosts:    live.ExtraHosts,
 		Tunnel:        editors,
+
+		SetupImageFloor: live.SetupImageFloor,
 	}, claims, engine, mirrors, log.With("host", id))
 
 	if err := telemetry.ServeHealth(ctx, cfg.HealthAddr, host.Ready, log); err != nil {
@@ -262,5 +264,7 @@ func liveSettings(cfg config.Config, version string) serve.Settings {
 		Network:    cfg.Network,
 		ExtraHosts: cfg.ExtraHosts,
 		AutoUpdate: cfg.AutoUpdate && version != "dev",
+
+		SetupImageFloor: cfg.SetupFloor,
 	}
 }

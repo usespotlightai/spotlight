@@ -164,6 +164,7 @@ func (r runner) supervise(ctx context.Context, assigned protocol.Assignment, del
 	if warm := assigned.Work.Warm; assigned.StartsSandboxOnly() && warm != nil {
 		if err := r.sandbox.Warm(ctx, *warm, session.WarmOptions{
 			Mirrors: os.Getenv("SPOTLIGHT_MIRRORS"), AgentUser: r.agentUser, ProxyEnv: r.proxyEnv, Log: log,
+			SetupRecord: protocol.SetupRecordPath,
 		}); err != nil {
 			log.Error("could not warm the sandbox, so it drains", "line", warm.Line, "error", err)
 			return
@@ -234,11 +235,12 @@ func (r runner) sandboxOptions(archives *control.Sandbox, log *slog.Logger) sess
 	}
 
 	return session.SandboxOptions{
-		Workspace: r.cfg.Workspace,
-		Archives:  archives,
-		Transport: transport,
-		AgentUser: r.agentUser,
-		Log:       log,
+		SetupRecord: protocol.SetupRecordPath,
+		Workspace:   r.cfg.Workspace,
+		Archives:    archives,
+		Transport:   transport,
+		AgentUser:   r.agentUser,
+		Log:         log,
 	}
 }
 
@@ -335,6 +337,7 @@ func (r runner) execute(ctx context.Context, client *control.Client, run protoco
 	}
 
 	err := r.sandbox.Execute(running, run, session.Options{
+		SetupRecord:    protocol.SetupRecordPath,
 		Workspace:      r.cfg.Workspace,
 		Journal:        journal,
 		Log:            r.log,

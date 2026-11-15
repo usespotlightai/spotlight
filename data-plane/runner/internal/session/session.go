@@ -85,12 +85,33 @@ type Options struct {
 	HarnessFrames  bool
 	SettleQuiet    time.Duration
 	Sandbox        ArchivingSandbox
+	SetupRecord    string
 }
 
 type Sandbox struct {
 	space *workspace.Workspace
 	kept  *kept
 	setUp setUps
+	// pristine records the setups of the sandbox's image while no run has used the sandbox yet.
+	pristine     setUps
+	pristineRead bool
+}
+
+func (s *Sandbox) readPristine(file string, log *slog.Logger) {
+	if !s.pristineRead {
+		s.pristine, s.pristineRead = readSetupRecord(file, log), true
+	}
+}
+
+// firstSetups answers the image's setups only for the first run, because a run can change what setup put in place.
+func (s *Sandbox) firstSetups(file string, log *slog.Logger) setUps {
+	s.readPristine(file, log)
+	done := s.pristine.clone()
+	s.pristine = nil
+	if done == nil {
+		return setUps{}
+	}
+	return done
 }
 
 func Execute(ctx context.Context, run protocol.Run, opts Options) error {
@@ -130,7 +151,11 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	defer func() { s.kept = new(archiver.keep()) }()
 	if s.kept == nil || archiver.replays() {
 		s.setUp = nil
-		if err := archiver.restore(ctx); err != nil {
+		err := archiver.restore(ctx)
+		if archiver.lostSetups {
+			s.pristine, s.pristineRead = nil, true
+		}
+		if err != nil {
 			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 	} else {
@@ -220,9 +245,10 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	}
 
 	if s.setUp == nil {
-		s.setUp = setUps{}
+		s.setUp = s.firstSetups(opts.SetupRecord, log)
 	}
-	unready := opts.setUp(ctx, space.Dir, run.Spec.Checkouts, s.setUp, journal, log)
+	s.pristine = nil
+	unready, _ := opts.setUp(ctx, space.Dir, run.Spec.Checkouts, s.setUp, journal, log)
 
 	if err := lifecycle.advance(WorkspaceReady); err != nil {
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -859,7 +885,7 @@ const parallelSetups = 4
 
 func (o Options) setUp(
 	ctx context.Context, dir string, checkouts []protocol.Checkout, done setUps, journal *journalWriter, log *slog.Logger,
-) []setupFailure {
+) ([]setupFailure, int) {
 	var missed []protocol.Checkout
 	for _, checkout := range checkouts {
 		if checkout.Setup == "" {
@@ -902,7 +928,7 @@ func (o Options) setUp(
 		}
 		done.record(ctx, filepath.Join(dir, checkout.Path), checkout, log)
 	}
-	return failures
+	return failures, len(missed)
 }
 
 type eventSink interface {

@@ -277,6 +277,13 @@ func (s *egressSidecar) files() []sandbox.File {
 	return []sandbox.File{s.authorityFile()}
 }
 
+func (s *egressSidecar) authorityPEM() []byte {
+	if s == nil {
+		return nil
+	}
+	return s.authority
+}
+
 func (s *egressSidecar) authorityFile() sandbox.File {
 	return sandbox.File{Path: AuthorityPath, Mode: 0o644, DirMode: 0o755, Body: s.authority}
 }

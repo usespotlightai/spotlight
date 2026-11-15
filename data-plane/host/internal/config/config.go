@@ -33,6 +33,7 @@ type Config struct {
 	Workload      trust.Workload
 	Capacity      int
 	SandboxMemory int64
+	SetupFloor    int64
 	Images        images.Allowed
 	Registry      string
 	RunTimeout    time.Duration
@@ -68,6 +69,7 @@ const (
 	envTokenFile   = "SPOTLIGHT_OIDC_TOKEN_FILE"
 	envCapacity    = "SPOTLIGHT_CAPACITY"
 	envMemory      = "SPOTLIGHT_SANDBOX_MEMORY"
+	envSetupFloor  = "SPOTLIGHT_SETUP_IMAGE_DISK_FLOOR"
 	envImage       = "SPOTLIGHT_RUNNER_IMAGE"
 	envRegistry    = "SPOTLIGHT_REGISTRY_CONFIG"
 	envRunTimeout  = protocol.RunTimeoutVar
@@ -200,6 +202,14 @@ func parse(version string, saved map[string]string, fromEnv bool) (Config, error
 		cfg.SandboxMemory, err = parseSandboxMemory(raw)
 		if err != nil {
 			note(fmt.Errorf("%s: %w", envMemory, err))
+		}
+	}
+
+	cfg.SetupFloor = DefaultSetupFloor
+	if raw := get(envSetupFloor); raw != "" {
+		cfg.SetupFloor, err = ParseSize(raw)
+		if err != nil {
+			note(fmt.Errorf("%s: %w", envSetupFloor, err))
 		}
 	}
 

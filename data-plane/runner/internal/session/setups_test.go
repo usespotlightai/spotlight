@@ -31,7 +31,8 @@ func TestASandboxSkipsASetupWhoseInputsDidNotChange(t *testing.T) {
 	journal := &journalWriter{}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	setUp := func() []setupFailure {
-		return Options{}.setUp(context.Background(), dir, checkouts, done, journal, log)
+		failures, _ := Options{}.setUp(context.Background(), dir, checkouts, done, journal, log)
+		return failures
 	}
 
 	count := func() int {
@@ -100,7 +101,10 @@ func TestSetupsThatMissRunAtTheSameTime(t *testing.T) {
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	failures := Options{}.setUp(context.Background(), dir, checkouts, setUps{}, &journalWriter{}, log)
+	failures, ran := Options{}.setUp(context.Background(), dir, checkouts, setUps{}, &journalWriter{}, log)
+	if ran != 4 {
+		t.Errorf("ran %d setups, want 4", ran)
+	}
 
 	if len(failures) != 2 || failures[0].path != "cli" || failures[1].path != "infra" {
 		t.Errorf("the setups that wait for each other did not overlap, or the failures are not in checkout order: %+v", failures)

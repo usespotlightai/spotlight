@@ -46,6 +46,7 @@ type archiver struct {
 	leftOut      []string
 	current      string
 	inherits     bool
+	lostSetups   bool
 }
 
 type kept struct {
@@ -148,6 +149,7 @@ func (a *archiver) restoredExactly(ctx context.Context, wanted string) error {
 
 func (a *archiver) unpacked(ctx context.Context, stored protocol.StoredArchive) error {
 	if err := unpackInto(ctx, a.space, a.through, stored, a.rebuilt(ctx), a.scratch, a.log); err != nil {
+		a.lostSetups = true
 		return err
 	}
 
@@ -430,6 +432,7 @@ func (a *archiver) rebuilt(ctx context.Context) []string {
 	ignored, err := a.space.Ignored(ctx, setUp)
 	if err != nil {
 		a.log.Warn("could not tell what the checkouts ignore", "error", err)
+		a.lostSetups = true
 	}
 	return ignored
 }

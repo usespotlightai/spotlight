@@ -23,7 +23,31 @@ type Image struct {
 	ID      string
 	Tags    []string
 	Digests []string
+	Labels  map[string]string
+	Layers  int
 	Size    int64
+	Volumes []string
+}
+
+// Commit keeps the config of ConfigFrom, so nothing a sandbox was started with (its env, labels, entrypoint) enters the image.
+type Commit struct {
+	Repository string
+	Tag        string
+	ConfigFrom string
+	Labels     map[string]string
+}
+
+type ChangeKind int
+
+const (
+	Modified ChangeKind = iota
+	Added
+	Deleted
+)
+
+type Change struct {
+	Path string
+	Kind ChangeKind
 }
 
 type Spec struct {
@@ -98,4 +122,6 @@ type Engine interface {
 	Unnetwork(ctx context.Context, id string) error
 	Networks(ctx context.Context, key, value string) ([]Network, error)
 	Attached(ctx context.Context, network string) ([]string, error)
+	Commit(ctx context.Context, id string, commit Commit) (string, error)
+	Changes(ctx context.Context, id string) ([]Change, error)
 }
