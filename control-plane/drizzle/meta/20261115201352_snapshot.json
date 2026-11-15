@@ -1,5 +1,5 @@
 {
-  "id": "d424d901-d0da-475c-b7c2-b51528b8cb5c",
+  "id": "3bea0b39-34db-427e-b02f-5e8ea8a78bf9",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -8747,6 +8747,12 @@
         },
         "owner": {
           "name": "owner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_id": {
+          "name": "client_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true

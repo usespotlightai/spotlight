@@ -87,6 +87,7 @@ const connection = (
     teamId,
     integration: LINEAR,
     owner,
+    client: OAuth2ClientId.of('client_1'),
     tokens: OAuthTokens.of({
       accessToken,
       refreshToken: `${accessToken}-refresh`,
@@ -123,7 +124,12 @@ describe('integration connections stored per owner', () => {
         teamId,
       ),
     ).toEqual([
-      { integration: 'linear', linkedAccount: '@team', refreshFailedAt: null },
+      {
+        integration: 'linear',
+        linkedAccount: '@team',
+        client: 'client_1',
+        refreshFailedAt: null,
+      },
     ]);
     expect(
       (
@@ -216,6 +222,7 @@ describe('integration connections stored per owner', () => {
     await connections.save(
       first.reconnectedWith(
         OAuthTokens.of({ accessToken: 'alice-again' }),
+        OAuth2ClientId.of('client_1'),
         reconnectedAt,
       ),
     );

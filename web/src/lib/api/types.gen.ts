@@ -4796,6 +4796,10 @@ export type IntegrationViewResponseDto = {
    */
   connectionStatus: 'not-required' | 'disconnected' | 'connected';
   /**
+   * Why the team connection no longer works: it was made through another OAuth client than the definition names now, or its token stopped working and did not refresh. Null while it works or where there is none
+   */
+  connectionProblem: 'other-client' | 'refresh-failed' | null;
+  /**
    * Whose connection its tools act with: the team’s, or that of the person who started the task
    */
   actsAs: 'team' | 'requester';

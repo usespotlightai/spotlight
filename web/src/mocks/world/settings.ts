@@ -96,6 +96,7 @@ const integration = (
   logo: null,
   path: `integrations/${key}`,
   connectionStatus: 'connected',
+  connectionProblem: null,
   actsAs: 'team',
   linkedAccount: null,
   spec: null,

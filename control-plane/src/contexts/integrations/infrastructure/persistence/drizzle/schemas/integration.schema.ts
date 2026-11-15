@@ -42,6 +42,7 @@ export const integrationConnection = pgTable(
     teamId: text('team_id').notNull(),
     integration: text('integration').notNull(),
     owner: text('owner').notNull(),
+    clientId: text('client_id').notNull(),
     accessToken: text('access_token').notNull(),
     refreshToken: text('refresh_token'),
     expiresAt: timestamptz('expires_at'),

@@ -9,10 +9,14 @@ import type {
   ConfiguredOAuth2ClientsPort,
 } from '@integrations/application/ports/configured-oauth2-clients.port';
 import type { OAuth2ClientRegistrarPort } from '@integrations/application/ports/oauth2-client-registrar.port';
+import type { OAuth2ClientSecretsPort } from '@integrations/application/ports/oauth2-client-secrets.port';
 import type {
   OAuth2Client,
+  OAuth2ClientSource,
   OAuth2ClientsPort,
+  OwnOAuth2Client,
 } from '@integrations/application/ports/oauth2-clients.port';
+import type { OAuth2Registration } from '@integrations/application/ports/oauth2-linking.port';
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/domain/exceptions/oauth2-client-registration-version-conflict.error';
 import { TeamNotFoundError } from '@integrations/domain/exceptions/team-not-found.error';
@@ -55,13 +59,18 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     private readonly clock: ClockPort,
     private readonly callback: string,
     private readonly logger: LoggerPort,
+    private readonly secrets: OAuth2ClientSecretsPort,
   ) {}
 
   async existingFor(
     teamId: TeamId,
     integration: IntegrationKey,
-    server: AuthorizationServer | null,
+    { own, server }: OAuth2ClientSource,
   ): Promise<OAuth2Client | null> {
+    if (own) {
+      return this.ownClient(teamId, own);
+    }
+
     const configured = this.configured.of(integration.value);
 
     if (configured) {
@@ -78,9 +87,12 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
   async clientFor(
     teamId: TeamId,
     integration: IntegrationKey,
-    registration: string | null,
-    server: AuthorizationServer | null,
+    { own, server, endpoint: registration }: OAuth2Registration,
   ): Promise<OAuth2Client> {
+    if (own) {
+      return this.ownClient(teamId, own);
+    }
+
     const configured = this.configured.of(integration.value);
 
     if (configured) {
@@ -108,12 +120,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       return clientOf(existing);
     }
 
-    const team = await this.teams.find(teamId);
-
-    if (!team) {
-      throw new TeamNotFoundError(teamId.value);
-    }
-
+    const team = await this.teamOf(teamId);
     const answered = await this.registrar.register(
       wanted.registrationEndpoint,
       wanted.redirectUri,
@@ -159,6 +166,36 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     }
 
     return clientOf(registered);
+  }
+
+  private async ownClient(
+    teamId: TeamId,
+    own: OwnOAuth2Client,
+  ): Promise<OAuth2Client> {
+    if (!own.secret) {
+      return { id: own.id, secret: null };
+    }
+
+    const team = await this.teamOf(teamId);
+
+    return {
+      id: own.id,
+      secret: await this.secrets.sentTo(
+        team.workspaceId,
+        own.secret,
+        own.token,
+      ),
+    };
+  }
+
+  private async teamOf(teamId: TeamId) {
+    const team = await this.teams.find(teamId);
+
+    if (!team) {
+      throw new TeamNotFoundError(teamId.value);
+    }
+
+    return team;
   }
 
   private missing(

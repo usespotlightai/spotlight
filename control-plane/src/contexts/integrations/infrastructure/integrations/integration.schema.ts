@@ -357,6 +357,17 @@ const scheduleSchema = z.object({
 
 const scope = z.string().refine(OAuthScope.isToken, OAuthScope.SHAPE);
 
+const tokenHosts = z
+  .array(
+    z
+      .string()
+      .regex(
+        /^[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?$/i,
+        'names a host, as in files.slack.com',
+      ),
+  )
+  .optional();
+
 const connectionSchema = z.object({
   actsAs: z.enum(ACTS_AS).default('team'),
   oauth2: z
@@ -367,17 +378,45 @@ const connectionSchema = z.object({
           scopes: z.array(scope).default([]),
           identity: expression.optional(),
           resource: z.url().optional(),
+          hosts: tokenHosts,
         })
         .strict(),
-      z.object({
-        discover: z.literal(false).default(false),
-        authorize: z.url(),
-        token: z.url(),
-        scopes: z.array(scope).default([]),
-        identity: expression.optional(),
-        registration: z.url().optional(),
-        resource: z.url().optional(),
-      }),
+      z
+        .object({
+          discover: z.literal(false).default(false),
+          authorize: z.url(),
+          token: z.url(),
+          scopes: z.array(scope).default([]),
+          identity: expression.optional(),
+          registration: z.url().optional(),
+          resource: z.url().optional(),
+          hosts: tokenHosts,
+          scopeSeparator: z.enum([' ', ',']).default(' '),
+          pkce: z.boolean().default(true),
+          client: z
+            .object({
+              id: z.string().min(1, 'is the client ID the provider gave'),
+              secret: secretRef.optional(),
+            })
+            .strict()
+            .optional(),
+        })
+        .strict()
+        .refine((oauth2) => !(oauth2.client && oauth2.registration), {
+          path: ['client'],
+          message:
+            'names its own client, so it registers none: remove registration or client',
+        })
+        .refine(
+          (oauth2) =>
+            oauth2.pkce ||
+            (oauth2.client ? !!oauth2.client.secret : !oauth2.registration),
+          {
+            path: ['pkce'],
+            message:
+              'is false, which only a client with a secret may use: give client.secret, or remove pkce: false',
+          },
+        ),
     ])
     .optional(),
   manual: z.object({ secrets: z.array(secretRef).default([]) }).optional(),

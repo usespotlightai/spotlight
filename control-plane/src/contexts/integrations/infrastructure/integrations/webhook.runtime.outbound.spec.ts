@@ -92,6 +92,7 @@ const runtimeFor = (...hosts: string[]) => {
       credentialsFor(),
       unlimited,
       scopedTo(...hosts),
+      async () => null,
     ),
   };
 };

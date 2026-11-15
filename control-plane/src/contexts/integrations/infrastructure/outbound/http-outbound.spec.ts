@@ -347,6 +347,76 @@ actions:
     );
   });
 
+  describe('the hosts that get the connection token', () => {
+    const TOKENED = `
+integration: demo
+connection:
+  oauth2:
+    authorize: https://slack.com/oauth/authorize
+    token: https://slack.com/api/oauth.v2.access
+    hosts: [files.slack.com]
+actions:
+  post-message:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      auth:
+        oauth2:
+          connection: true
+`;
+    const postMessage = (): RequestIR => {
+      const read = compileIntegration(parseYaml(TOKENED), expressions);
+
+      if (!read.ok) {
+        throw new Error('did not compile');
+      }
+
+      return read.readable.actions.get('post-message') as RequestIR;
+    };
+    const to = (url: string): RequestIR => ({
+      ...postMessage(),
+      url: { parts: [url] },
+    });
+    const sent = (fetch: ReturnType<typeof replying>) =>
+      (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
+        .headers as Record<string, string>;
+
+    it('sends the token to a host in connection.oauth2.hosts', async () => {
+      const fetch = replying({ ok: true });
+      const out = new HttpOutbound(
+        allowingOutbound(['files.slack.com']),
+        fetch,
+      );
+
+      await out.run(
+        to('https://files.slack.com/files-pri/T1/shot.png'),
+        { ...against, connection: 'xoxb-live' },
+        SLACK,
+      );
+
+      expect(sent(fetch).authorization).toBe('Bearer xoxb-live');
+    });
+
+    it('refuses to send the token to a host that the integration does not name', async () => {
+      const fetch = replying({ ok: true });
+      const out = new HttpOutbound(
+        allowingOutbound(['uploads.example.com']),
+        fetch,
+      );
+
+      await expect(
+        out.run(
+          to('https://uploads.example.com/steal'),
+          { ...against, connection: 'xoxb-live' },
+          SLACK,
+        ),
+      ).rejects.toThrow(
+        'uploads.example.com is not a host the integration names, so Spotlight did not send the connection token there. Add uploads.example.com to connection.oauth2.hosts.',
+      );
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe('fetching a file', () => {
     const FILE = `
 integration: demo

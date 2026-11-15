@@ -285,6 +285,7 @@ const teamHandlers = [
         ];
       } else {
         integration.connectionStatus = 'connected';
+        integration.connectionProblem = null;
         integration.linkedAccount = 'Acme';
       }
 

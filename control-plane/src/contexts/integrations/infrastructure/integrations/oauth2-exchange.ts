@@ -30,13 +30,13 @@ export class OAuth2Exchange {
     client: OAuth2Client,
     code: string,
     redirectUri: string,
-    verifier: string,
+    verifier: string | null,
   ): Promise<OAuthTokens | null> {
     return this.post(oauth2, client, oauth2.identity, {
       grant_type: 'authorization_code',
       code,
       redirect_uri: redirectUri,
-      code_verifier: verifier,
+      ...(verifier === null ? {} : { code_verifier: verifier }),
     });
   }
 

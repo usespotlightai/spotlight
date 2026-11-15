@@ -90,6 +90,7 @@ const integration = (over: Record<string, unknown> = {}) => ({
   logo: null,
   path: 'integrations/pagerduty.tf',
   connectionStatus: 'not-required',
+  connectionProblem: null,
   actsAs: 'team',
   linkedAccount: null,
   spec: null,
@@ -367,6 +368,28 @@ describe('TeamIntegrations', () => {
 
     expect(team).toHaveTextContent('acme-production');
     expect(team).toHaveTextContent('Agents’ tools act as this account.');
+  });
+
+  it('says the team account was made through another OAuth app, and asks to connect again', async () => {
+    configuration.mockReturnValue(
+      read([
+        integration({
+          connectionStatus: 'disconnected',
+          connectionProblem: 'other-client',
+          linkedAccount: 'Acme',
+          name: 'Slack',
+          integration: 'slack',
+        }),
+      ]),
+    );
+    showing();
+
+    const team = fact(await opening('Slack'), 'Team account');
+
+    expect(team).toHaveTextContent('Made through another OAuth app');
+    expect(
+      within(team).getByRole('button', { name: /Connect team account/ }),
+    ).toBeInTheDocument();
   });
 
   it('opens and closes a row from anywhere on it', async () => {

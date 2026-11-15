@@ -10,6 +10,7 @@ import type { CallFailureFact } from '@integrations/domain/value-objects/hook-fa
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import type { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
@@ -157,6 +158,7 @@ export type PostResult =
 export type RefreshResult =
   | { readonly kind: 'refreshed'; readonly tokens: OAuthTokens }
   | { readonly kind: 'failed' }
+  | { readonly kind: 'other-client' }
   | { readonly kind: 'not-refreshable' };
 
 export type CallAttempt =
@@ -216,5 +218,6 @@ export interface IntegrationRuntimePort {
     owner: { readonly teamId: TeamId; readonly workspaceId: WorkspaceId },
     integration: IntegrationKey,
     refreshToken: RefreshToken,
+    madeThrough: (client: OAuth2ClientId) => boolean,
   ): Promise<RefreshResult>;
 }

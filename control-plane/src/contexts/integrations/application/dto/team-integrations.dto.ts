@@ -1,4 +1,7 @@
-import type { IntegrationConnectionStatus } from '@integrations/domain/services/integration-connection-status';
+import type {
+  ConnectionProblem,
+  IntegrationConnectionStatus,
+} from '@integrations/domain/services/integration-connection-status';
 import type { ActsAsKind } from '@integrations/domain/value-objects/acts-as.vo';
 
 export interface TeamIntegrationSpecDto {
@@ -14,6 +17,7 @@ export interface TeamIntegrationDto {
   readonly logo: string | null;
   readonly path: string;
   readonly connectionStatus: IntegrationConnectionStatus;
+  readonly connectionProblem: ConnectionProblem | null;
   readonly actsAs: ActsAsKind;
   readonly linkedAccount: string | null;
   readonly spec: TeamIntegrationSpecDto | null;

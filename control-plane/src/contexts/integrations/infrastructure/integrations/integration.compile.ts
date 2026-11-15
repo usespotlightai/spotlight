@@ -119,7 +119,7 @@ export type AuthIR =
       readonly header: string | null;
     }
   | { readonly kind: 'secrets'; readonly secrets: readonly SecretName[] }
-  | { readonly kind: 'oauth2' }
+  | { readonly kind: 'oauth2'; readonly hosts: readonly string[] }
   | {
       readonly kind: 'asymmetric';
       readonly algorithm: 'ed25519' | 'rsa-sha256';
@@ -232,6 +232,11 @@ interface PollIR {
   readonly events: readonly EventIR[];
 }
 
+interface OAuth2ClientIR {
+  readonly id: string;
+  readonly secret: string | null;
+}
+
 export interface OAuth2Endpoints {
   readonly issuer: string | null;
   readonly authorize: string;
@@ -240,6 +245,9 @@ export interface OAuth2Endpoints {
   readonly identity: Expression | null;
   readonly registration: string | null;
   readonly resource: string | null;
+  readonly client: OAuth2ClientIR | null;
+  readonly scopeSeparator: ' ' | ',';
+  readonly pkce: boolean;
 }
 
 export type OAuth2IR =
@@ -366,6 +374,7 @@ class Compiler {
   readonly warnings: ConfigurationProblem[] = [];
   readonly secretReferences: SecretReferenceAt[] = [];
   readonly places = new Map<string, Place>();
+  private readonly tokenHosts: string[] = [];
   private readonly warned = new Set<string>();
 
   constructor(
@@ -383,6 +392,18 @@ class Compiler {
     this.secretReferences.push({ path, name });
 
     return name;
+  }
+
+  sendsTokenTo(url: string | null | undefined): void {
+    const host = url ? writtenHostOf(url) : null;
+
+    if (host && !this.tokenHosts.includes(host)) {
+      this.tokenHosts.push(host);
+    }
+  }
+
+  sealTokenHosts(): void {
+    Object.freeze(this.tokenHosts);
   }
 
   part<T>(at: FieldPath, build: () => T): T | null {
@@ -656,10 +677,14 @@ class Compiler {
       };
     }
 
-    return { kind: 'oauth2' };
+    return { kind: 'oauth2', hosts: this.tokenHosts };
   }
 
   request(request: RequestFile, at: Place): RequestIR {
+    if (request.auth?.oauth2) {
+      this.sendsTokenTo(request.url);
+    }
+
     const place = at.adding(
       this.hinting && request.response ? { response: request.response } : {},
     );
@@ -952,6 +977,7 @@ const oauth2Of = (
   written: NonNullable<NonNullable<IntegrationFile['connection']>['oauth2']>,
   mcp: string | null,
   identity: Expression | null,
+  client: OAuth2ClientIR | null,
 ): OAuth2IR =>
   written.discover
     ? {
@@ -968,6 +994,9 @@ const oauth2Of = (
         registration: written.registration ?? null,
         resource: written.resource ?? null,
         identity,
+        client,
+        scopeSeparator: written.scopeSeparator,
+        pkce: written.pkce,
       };
 
 const inputSchemaOf = (input: ToolInputFile): InputSchema =>
@@ -991,6 +1020,23 @@ const addressOf = (raw: unknown): string => {
       : INTEGRATIONS;
   } catch {
     return INTEGRATIONS;
+  }
+};
+
+const WRITTEN_HOST = /^(https?):\/\/([^/?#]+)(?:[/?#]|$)/i;
+
+export const writtenHostOf = (url: string): string | null => {
+  const cut = url.indexOf('${{');
+  const found = WRITTEN_HOST.exec(cut === -1 ? url : url.slice(0, cut));
+
+  if (!found?.[2] || (cut !== -1 && found[0].endsWith(found[2]))) {
+    return null;
+  }
+
+  try {
+    return new URL(`${found[1]}://${found[2]}`).host;
+  } catch {
+    return null;
   }
 };
 
@@ -1198,6 +1244,9 @@ export const compileIntegration = (
   }
 
   const oauth2File = file.connection?.oauth2;
+  for (const host of oauth2File?.hosts ?? []) {
+    compiler.sendsTokenTo(`https://${host}/`);
+  }
   const connection: ConnectionIR | null = file.connection
     ? {
         actsAs: ActsAs.of(file.connection.actsAs),
@@ -1212,6 +1261,22 @@ export const compileIntegration = (
                       root.to('connection.oauth2.identity'),
                     )
                   : null,
+                oauth2File.discover || !oauth2File.client
+                  ? null
+                  : {
+                      id: oauth2File.client.id,
+                      secret: oauth2File.client.secret
+                        ? compiler.referenced(
+                            oauth2File.client.secret,
+                            FieldPath.of([
+                              'connection',
+                              'oauth2',
+                              'client',
+                              'secret',
+                            ]),
+                          )
+                        : null,
+                    },
               ),
             )
           : null,
@@ -1254,6 +1319,12 @@ export const compileIntegration = (
           const auth = written.file.auth
             ? compiler.auth(written.file.auth, root.to(written.kind).to('auth'))
             : null;
+          if (auth?.kind === 'oauth2') {
+            compiler.sendsTokenTo(written.file.url);
+            compiler.sendsTokenTo(
+              written.kind === 'openapi' ? written.file.baseUrl : null,
+            );
+          }
           const spec = compiler.part(FieldPath.of([written.kind]), () =>
             apiSpecOf(written, auth),
           );
@@ -1452,6 +1523,8 @@ export const compileIntegration = (
       integration,
       generation?.tools ?? [],
     );
+
+    compiler.sealTokenHosts();
 
     return {
       ok: true,

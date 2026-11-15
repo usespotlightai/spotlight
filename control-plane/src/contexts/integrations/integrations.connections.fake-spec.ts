@@ -18,6 +18,7 @@ const storedAs = (connection: IntegrationConnection, version: number) =>
     teamId: connection.teamId,
     integration: connection.integration,
     owner: connection.owner,
+    client: connection.client,
     accessToken: connection.accessToken,
     refreshToken: connection.refreshToken,
     expiresAt: connection.expiresAt,

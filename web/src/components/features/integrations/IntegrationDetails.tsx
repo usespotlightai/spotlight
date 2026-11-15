@@ -13,6 +13,7 @@ import {
   type Integration,
   type Joined,
   type MyConnection,
+  formatConnectionProblem,
   teamAccountPurpose,
   usesTeamAccount,
 } from '@/lib/integration';
@@ -45,6 +46,7 @@ export function IntegrationDetails({
             <IntegrationAccount
               linkedAccount={integration.linkedAccount}
               connected={integration.connectionStatus === 'connected'}
+              problem={formatConnectionProblem(integration)}
               purpose={teamAccountPurpose(integration)}
               action={
                 admin &&

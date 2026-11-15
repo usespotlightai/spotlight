@@ -26,8 +26,17 @@ export class RefreshConnections {
       };
 
       try {
-        if ((await this.connectionRefresh.ahead(connection)) === 'failed') {
+        const result = await this.connectionRefresh.ahead(connection);
+
+        if (result === 'failed') {
           this.log.warn(about, 'The integration did not refresh a connection');
+        }
+
+        if (result === 'other-client') {
+          this.log.info(
+            about,
+            'Did not refresh a connection made through another OAuth client',
+          );
         }
       } catch (error) {
         this.log.warn(

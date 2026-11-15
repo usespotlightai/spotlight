@@ -6,6 +6,7 @@ import { ConnectionOwner } from '@integrations/domain/value-objects/connection-o
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -40,6 +41,7 @@ const rehydrated = (
     teamId: TEAM,
     integration: SLACK,
     owner: ConnectionOwner.team(),
+    client: OAuth2ClientId.of('client_1'),
     accessToken: AccessToken.of('xoxb-old'),
     refreshToken: RefreshToken.maybe(
       'refreshToken' in over ? over.refreshToken : 'xoxe-old',
@@ -60,6 +62,7 @@ describe('IntegrationConnection', () => {
       teamId: TEAM,
       integration: SLACK,
       owner: ConnectionOwner.team(),
+      client: OAuth2ClientId.of('client_1'),
       tokens: tokens(),
       at: new Date('2026-09-01T00:00:00.000Z'),
     });
@@ -161,6 +164,7 @@ describe('IntegrationConnection', () => {
         teamId: TEAM,
         integration: SLACK,
         owner: ConnectionOwner.team(),
+        client: OAuth2ClientId.of('client_1'),
         accessToken: AccessToken.of('x'),
         refreshToken: null,
         expiresAt: null,
@@ -180,6 +184,7 @@ describe('IntegrationConnection', () => {
       teamId: TEAM,
       integration: SLACK,
       owner: ConnectionOwner.person(UserId.of('user_1')),
+      client: OAuth2ClientId.of('client_1'),
       tokens: tokens(),
       at: new Date('2026-09-01T00:00:00.000Z'),
     }).pullEvents() as IntegrationConnected[];
@@ -195,6 +200,7 @@ describe('IntegrationConnection', () => {
       teamId: TEAM,
       integration: SLACK,
       owner: ConnectionOwner.person(UserId.of('user_1')),
+      client: OAuth2ClientId.of('client_1'),
       tokens: tokens(),
       at: new Date('2026-09-01T00:00:00.000Z'),
     });
@@ -253,10 +259,24 @@ describe('IntegrationConnection', () => {
     expect(rehydrated().refreshFailed(NOW).usable).toBe(false);
   });
 
+  it('remembers the OAuth client it was made through, and takes the new one when connected again', () => {
+    const connection = rehydrated();
+    const again = connection.reconnectedWith(
+      tokens(),
+      OAuth2ClientId.of('client_2'),
+      NOW,
+    );
+
+    expect(connection.madeThrough(OAuth2ClientId.of('client_1'))).toBe(true);
+    expect(connection.madeThrough(OAuth2ClientId.of('client_2'))).toBe(false);
+    expect(again.madeThrough(OAuth2ClientId.of('client_2'))).toBe(true);
+  });
+
   it('takes new tokens when connected again, clearing a failed refresh and a claim, and says so', () => {
     const at = new Date('2026-09-08T10:00:00.000Z');
     const reconnected = rehydrated({ refreshFailedAt: NOW }).reconnectedWith(
       tokens({ accessToken: 'xoxb-new' }),
+      OAuth2ClientId.of('client_2'),
       at,
     );
 
@@ -269,7 +289,10 @@ describe('IntegrationConnection', () => {
       'integration.connected',
     ]);
     expect(
-      rehydrated().claimRefresh(NOW).reconnectedWith(tokens(), at).refreshClaim,
+      rehydrated()
+        .claimRefresh(NOW)
+        .reconnectedWith(tokens(), OAuth2ClientId.of('client_1'), at)
+        .refreshClaim,
     ).toBeNull();
   });
 
@@ -287,6 +310,7 @@ describe('IntegrationConnection', () => {
         teamId: TEAM,
         integration: SLACK,
         owner: ConnectionOwner.team(),
+        client: OAuth2ClientId.of('client_1'),
         accessToken: AccessToken.of('x'),
         refreshToken: null,
         expiresAt: null,

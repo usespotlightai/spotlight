@@ -18,6 +18,7 @@ export class DrizzleConnectedIntegrations implements ConnectedIntegrationsPort {
       .select({
         integration: integrationConnection.integration,
         linkedAccount: integrationConnection.linkedAccount,
+        client: integrationConnection.clientId,
         refreshFailedAt: integrationConnection.refreshFailedAt,
       })
       .from(integrationConnection)

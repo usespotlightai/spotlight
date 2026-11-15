@@ -2,7 +2,10 @@ import type {
   TeamIntegrationDto,
   TeamIntegrationSpecDto,
 } from '@integrations/application/dto/team-integrations.dto';
-import { INTEGRATION_CONNECTION_STATUSES } from '@integrations/domain/services/integration-connection-status';
+import {
+  CONNECTION_PROBLEMS,
+  INTEGRATION_CONNECTION_STATUSES,
+} from '@integrations/domain/services/integration-connection-status';
 import { ACTS_AS } from '@integrations/domain/value-objects/acts-as.vo';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -81,6 +84,15 @@ export class IntegrationViewResponseDto {
 
   @ApiProperty({
     description:
+      'Why the team connection no longer works: it was made through another OAuth client than the definition names now, or its token stopped working and did not refresh. Null while it works or where there is none',
+    enum: [...CONNECTION_PROBLEMS, null],
+    example: 'other-client',
+    nullable: true,
+  })
+  readonly connectionProblem: TeamIntegrationDto['connectionProblem'];
+
+  @ApiProperty({
+    description:
       'Whose connection its tools act with: the team’s, or that of the person who started the task',
     enum: ACTS_AS,
     example: 'team',
@@ -110,6 +122,7 @@ export class IntegrationViewResponseDto {
     this.logo = integration.logo;
     this.path = integration.path;
     this.connectionStatus = integration.connectionStatus;
+    this.connectionProblem = integration.connectionProblem;
     this.actsAs = integration.actsAs;
     this.linkedAccount = integration.linkedAccount;
     this.spec = integration.spec

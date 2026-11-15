@@ -1,4 +1,5 @@
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import type { OwnOAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import type {
   OAuth2Endpoints,
@@ -18,6 +19,7 @@ import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -62,6 +64,19 @@ export const authorizationServerOf = (
         token: endpoints.token,
       });
 
+export const ownClientOf = (
+  endpoints: OAuth2Endpoints,
+): OwnOAuth2Client | null =>
+  endpoints.client
+    ? {
+        id: endpoints.client.id,
+        secret: endpoints.client.secret
+          ? SecretName.of(endpoints.client.secret)
+          : null,
+        token: endpoints.token,
+      }
+    : null;
+
 const hostOf = (url: string): string | undefined => {
   try {
     return new URL(url).host;
@@ -103,6 +118,9 @@ export class OAuth2Discovery {
         identity: oauth2.identity,
         registration: oauth2.registration,
         resource: oauth2.resource,
+        client: oauth2.client,
+        scopeSeparator: oauth2.scopeSeparator,
+        pkce: oauth2.pkce,
       };
     }
 
@@ -117,6 +135,9 @@ export class OAuth2Discovery {
           resource: oauth2.resource ?? discovered.resource,
           scopes: oauth2.scopes.length > 0 ? oauth2.scopes : discovered.scopes,
           identity: oauth2.identity,
+          client: null,
+          scopeSeparator: ' ',
+          pkce: true,
         }
       : null;
   }
