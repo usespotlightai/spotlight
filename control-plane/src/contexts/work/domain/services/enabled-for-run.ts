@@ -92,6 +92,13 @@ export const describedTools = (
     return found ? [found] : [];
   });
 
+export const toolsForATrial = (
+  described: readonly DeclaredTool[],
+): DeclaredTool[] =>
+  described.filter(
+    (each) => each.tool.origin === 'integration' && each.changesNothing,
+  );
+
 export const skillsForTools = (
   described: readonly DeclaredTool[],
 ): SkillKey[] =>

@@ -17,6 +17,7 @@ export interface StationConfigFacts {
   readonly diffs: boolean;
   readonly judge: StationConfigJudge | null;
   readonly rubricHash: string | null;
+  readonly trialTools: readonly string[];
 }
 
 export type ValidatedStationConfig =

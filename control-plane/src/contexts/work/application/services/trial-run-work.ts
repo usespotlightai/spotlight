@@ -1,10 +1,11 @@
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { GitService } from '@work/application/dto/git-call.dto';
-import type { ToolContext } from '@work/application/ports/integration-tools.port';
+import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import type {
   Cleared,
   ConnectionAsked,
@@ -12,22 +13,28 @@ import type {
   RunWork,
 } from '@work/application/services/run-work';
 import { NotAllowedForIsolatedRunError } from '@work/domain/exceptions/not-allowed-for-isolated-run.error';
-import { ToolNotEnabledError } from '@work/domain/exceptions/tool-not-enabled.error';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
+import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import {
   type TrialRepository,
   trialRepositoryNamed,
 } from '@work/domain/value-objects/dispatch-subject';
 
-const NO_TOOLS =
-  'This run uses no tools: it acts on nothing beyond its own result.';
+const NO_PERSON =
+  'This run asks no person: it acts on nothing beyond its own result.';
+
+export interface TrialOf {
+  readonly taskId: TaskId;
+  readonly stationId: StationId;
+  readonly briefed: BriefedTask | null;
+  readonly repositories: readonly TrialRepository[];
+}
 
 export class TrialRunWork implements RunWork {
   constructor(
     private readonly run: LeasedRunFacts,
-    private readonly briefed: BriefedTask | null,
-    private readonly repositories: readonly TrialRepository[],
+    private readonly trial: TrialOf,
     private readonly asking: RunsPort,
   ) {}
 
@@ -43,7 +50,7 @@ export class TrialRunWork implements RunWork {
 
   attachment(attachmentId: string): Attachment | null {
     return (
-      this.briefed?.allAttachments.find(
+      this.trial.briefed?.allAttachments.find(
         (each) => each.id.value === attachmentId,
       ) ?? null
     );
@@ -57,19 +64,28 @@ export class TrialRunWork implements RunWork {
       throw new NotAllowedForIsolatedRunError(`push to ${name}`);
     }
 
-    return trialRepositoryNamed(this.repositories, name);
+    return trialRepositoryNamed(this.trial.repositories, name);
   }
 
-  async toolContext(tool: Tool): Promise<ToolContext> {
-    throw new ToolNotEnabledError(tool.value);
+  async toolContext(): Promise<TaskToolContext> {
+    return {
+      kind: 'task',
+      runId: this.run.runId,
+      workspaceId: this.run.workspaceId,
+      taskId: this.trial.taskId,
+      stationId: this.trial.stationId,
+      requester: null,
+    };
   }
 
-  async clearFor(): Promise<Cleared> {
-    return { kind: 'dismissed', reason: NO_TOOLS };
+  async clearFor(declared: DeclaredTool): Promise<Cleared> {
+    return declared.changesNothing
+      ? { kind: 'approved', edited: null, returned: async () => {} }
+      : { kind: 'dismissed', reason: NO_PERSON };
   }
 
   async askToConnect(): Promise<ConnectionAsked> {
-    return { kind: 'denied', reason: NO_TOOLS };
+    return { kind: 'denied', reason: NO_PERSON };
   }
 
   async clearPermission(): Promise<PermissionCleared> {

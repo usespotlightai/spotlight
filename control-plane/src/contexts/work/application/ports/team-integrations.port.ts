@@ -13,4 +13,6 @@ export interface TeamIntegrationsPort {
     teamId: TeamId,
     kinds: readonly string[],
   ): Promise<readonly string[]>;
+
+  toolsOnAnyMark(teamId: TeamId): Promise<readonly string[]>;
 }

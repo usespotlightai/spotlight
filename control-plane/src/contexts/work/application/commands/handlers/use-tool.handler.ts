@@ -80,6 +80,11 @@ export class UseToolHandler implements CommandHandlerPort<
         throw new UnknownToolError(tool.value);
       }
 
+      ToolEnablement.assertCallable(resolved.declared, {
+        actsBeyondItself: run.policy.actsBeyondItself,
+        manifest: run.manifest,
+      });
+
       if (resolved.missing) {
         const asked = await work.askToConnect(
           resolved.declared,

@@ -19,6 +19,7 @@ const LIVE: LiveStationConfig = {
     diffs: true,
     judge: null,
     rubricHash: null,
+    trialTools: ['sentry.get-latest-event'],
   },
 };
 
@@ -32,12 +33,13 @@ const live = () =>
   ).live(LineId.of('line_1'), StationId.of('station_1'));
 
 describe('StationConfigCandidates.live', () => {
-  it('names the config by the hashes of how it behaves and how it is scored', async () => {
+  it('names the config by the hashes of how it behaves, with the tools a replay of it can call, and how it is scored', async () => {
     const behaviour = sha256(
       JSON.stringify({
         fingerprint: 'a'.repeat(64),
         options: ['ship'],
         ends: false,
+        trialTools: ['sentry.get-latest-event'],
       }),
     );
     const read = await live();

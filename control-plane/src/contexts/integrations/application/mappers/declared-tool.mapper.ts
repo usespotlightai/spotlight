@@ -19,6 +19,7 @@ export const DeclaredToolMapper = {
         ? { because: provided.approval.because }
         : null,
       inferredOutput: null,
+      readOnly: provided.readOnly,
     };
   },
 };

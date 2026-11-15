@@ -19,6 +19,7 @@ const declared = (tool: string, over: Partial<ToolDeclaration> = {}) => ({
   inputs: [],
   approval: null,
   inferredOutput: null,
+  readOnly: false,
   ...over,
 });
 
@@ -49,7 +50,11 @@ const providing = async (declarations: readonly ToolDeclaration[]) => {
   }
 
   return integrationsOf(
-    { declared: async () => declarations, enabledOnMarks: () => [] },
+    {
+      declared: async () => declarations,
+      enabledOnMarks: () => [],
+      enabledOnAnyMark: () => [],
+    },
     schemas,
   ).provided(
     TEAM,
@@ -78,6 +83,7 @@ describe('TeamIntegrations', () => {
 
     const tools = await integrationsOf({
       declared: async () => [],
+      enabledOnAnyMark: () => [],
       enabledOnMarks: (_definitions, kinds) => {
         asked = kinds;
         return [ToolName.of('sentry.get-issue')];
@@ -86,5 +92,15 @@ describe('TeamIntegrations', () => {
 
     expect(tools).toEqual(['sentry.get-issue']);
     expect(asked.map((each) => each.value)).toEqual(['sentry.issue']);
+  });
+
+  it('names the tools enabled on any mark', async () => {
+    expect(
+      await integrationsOf({
+        declared: async () => [],
+        enabledOnMarks: () => [],
+        enabledOnAnyMark: () => [ToolName.of('sentry.get-issue')],
+      }).toolsOnAnyMark(TEAM),
+    ).toEqual(['sentry.get-issue']);
   });
 });

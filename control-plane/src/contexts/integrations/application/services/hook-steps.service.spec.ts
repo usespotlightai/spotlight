@@ -130,6 +130,7 @@ const resolvedTool = (
       actsAs,
     }),
     provided: ProvidedTool.of({
+      readOnly: false,
       integration: IntegrationKey.of('slack'),
       name: 'post-message',
       description: 'Post',

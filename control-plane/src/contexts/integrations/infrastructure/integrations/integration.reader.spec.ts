@@ -110,6 +110,9 @@ tools:
       'linear.get-issue',
     ]);
     expect(named(['linear.team'])).toEqual([]);
+    expect(
+      reader.enabledOnAnyMark([defined(ENABLING)]).map((each) => each.value),
+    ).toEqual(['linear.get-issue']);
   });
 
   it('keeps reading past a definition that will not', () => {

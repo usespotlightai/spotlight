@@ -101,6 +101,33 @@ describe('RunSpec', () => {
     ).toBeNull();
   });
 
+  it('takes tools that change nothing as keeping to the run, and any other tool as acting beyond it', () => {
+    const tool = (name: string) => ({
+      name,
+      description: `Uses ${name}.`,
+      inputs: [],
+      approval: null,
+    });
+
+    expect(
+      actsBeyondItselfIn(
+        parts({
+          manifest: [{ ...tool('sentry.get-latest-event'), readOnly: true }],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      actsBeyondItselfIn(
+        parts({
+          manifest: [
+            { ...tool('sentry.get-latest-event'), readOnly: true },
+            tool('linear.comment'),
+          ],
+        }),
+      ),
+    ).not.toBeNull();
+  });
+
   it('keeps that the run reports the diff it leaves', () => {
     expect(RunSpec.of(parts({ diffs: true })).value.diffs).toBe(true);
     expect(RunSpec.of(parts()).value.diffs).toBeUndefined();

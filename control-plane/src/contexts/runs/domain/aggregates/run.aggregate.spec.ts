@@ -1468,6 +1468,19 @@ describe('Run', () => {
       expect(ordered(orderedFor.isolated()).policy.actsBeyondItself).toBe(
         false,
       );
+      expect(() =>
+        ordered(orderedFor.isolated(), {
+          manifest: [
+            {
+              name: 'sentry.get-latest-event',
+              description: 'Read the latest event.',
+              inputs: [],
+              approval: null,
+              readOnly: true,
+            },
+          ],
+        }),
+      ).not.toThrow();
     });
 
     it('grants Spotlight’s API exactly when its spec uses it', () => {

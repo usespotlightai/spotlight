@@ -18,4 +18,5 @@ export interface DeclaredTool {
   readonly inputs: readonly DeclaredToolInput[];
   readonly approval: { readonly because: string } | null;
   readonly inferredOutput: JsonObject | null;
+  readonly readOnly: boolean;
 }

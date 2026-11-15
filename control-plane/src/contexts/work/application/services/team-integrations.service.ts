@@ -36,4 +36,10 @@ export class TeamIntegrations {
         ).map((each) => Tool.of(each))
       : [];
   }
+
+  async toolsOnAnyMark(line: LineMap): Promise<readonly Tool[]> {
+    return (await this.integrations.toolsOnAnyMark(line.teamId)).map((each) =>
+      Tool.of(each),
+    );
+  }
 }

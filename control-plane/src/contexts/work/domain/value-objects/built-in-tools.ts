@@ -35,6 +35,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     skill: OPENING_PULL_REQUESTS,
     declared: DeclaredTool.of({
       tool: PULL_REQUEST,
+      readOnly: false,
       description:
         'Open a pull request for the branch of this task in one repository, or change the title and body of the one it has there.',
       inputs: [
@@ -72,6 +73,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     skill: null,
     declared: DeclaredTool.of({
       tool: CHECKS,
+      readOnly: true,
       description:
         'List the failed checks on each pull request of this task, with the failed step and the end of the log of each job from GitHub Actions.',
       inputs: [],
@@ -82,6 +84,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     skill: REVIEWING_PULL_REQUESTS,
     declared: DeclaredTool.of({
       tool: REVIEW_COMMENT,
+      readOnly: false,
       description:
         'Leave a comment on a line of the pull request this task reviews. Spotlight stores it until the review is submitted.',
       inputs: [
@@ -134,6 +137,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     skill: REVIEWING_PULL_REQUESTS,
     declared: DeclaredTool.of({
       tool: REVIEW,
+      readOnly: false,
       description:
         'Submit the comments left so far as one review of the pull request this task reviews.',
       inputs: [
@@ -161,6 +165,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     skill: null,
     declared: DeclaredTool.of({
       tool: OPEN_TASKS,
+      readOnly: true,
       description:
         'List the other open tasks on the line of this task, with the start of each description and last note.',
       inputs: [],
@@ -171,6 +176,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     skill: null,
     declared: DeclaredTool.of({
       tool: PROPOSE_TASK,
+      readOnly: false,
       description:
         'Propose a task for the person to create at a station. Nothing is created until they accept it.',
       inputs: [
@@ -223,6 +229,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     skill: null,
     declared: DeclaredTool.of({
       tool: SETUP_PULL_REQUEST,
+      readOnly: false,
       description:
         'Open the pull request with the team’s configuration, from a branch pushed to the configuration’s repository.',
       inputs: [

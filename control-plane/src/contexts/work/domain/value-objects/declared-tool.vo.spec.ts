@@ -35,6 +35,22 @@ describe('DeclaredTool', () => {
     expect(tool.inputs.map((each) => each.name)).toEqual(['issue', 'body']);
   });
 
+  it('changes nothing only where it is read-only and needs no approval, and stays read-only with an approval', () => {
+    const reading = DeclaredTool.of({
+      tool: Tool.of('sentry.get-latest-event'),
+      description: 'Read the latest event.',
+      readOnly: true,
+    });
+    const gated = reading.withApproval(
+      ApprovalNeeded.of(reading.tool.value, 'It reads private data.'),
+    );
+
+    expect(declared([]).changesNothing).toBe(false);
+    expect(reading.changesNothing).toBe(true);
+    expect(gated.readOnly).toBe(true);
+    expect(gated.changesNothing).toBe(false);
+  });
+
   it('rejects a tool that does not say what it is for', () => {
     expect(() => declared([], '  ')).toThrow(InvalidToolError);
   });

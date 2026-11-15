@@ -14,6 +14,7 @@ const LINEAR: ToolDeclaration = {
   inputs: [],
   approval: null,
   inferredOutput: null,
+  readOnly: false,
 };
 
 const nothing = async () => [];
@@ -24,6 +25,7 @@ describe('TeamIntegrations', () => {
     const service = new TeamIntegrations({
       provided,
       toolsOnMarks: nothing,
+      toolsOnAnyMark: nothing,
     });
 
     const tools = await service.provided({ teamId: TEAM } as LineMap, [
@@ -42,6 +44,7 @@ describe('TeamIntegrations', () => {
     const service = new TeamIntegrations({
       provided: vi.fn(async () => [{ ...LINEAR, inferredOutput }]),
       toolsOnMarks: nothing,
+      toolsOnAnyMark: nothing,
     });
 
     const [tool] = await service.provided({ teamId: TEAM } as LineMap, [
@@ -56,6 +59,7 @@ describe('TeamIntegrations', () => {
     const service = new TeamIntegrations({
       provided,
       toolsOnMarks: nothing,
+      toolsOnAnyMark: nothing,
     });
 
     expect(
@@ -71,6 +75,7 @@ describe('TeamIntegrations', () => {
     const service = new TeamIntegrations({
       provided: nothing,
       toolsOnMarks,
+      toolsOnAnyMark: nothing,
     });
 
     const tools = await service.toolsOnMarks({ teamId: TEAM } as LineMap, [
@@ -92,11 +97,26 @@ describe('TeamIntegrations', () => {
     const service = new TeamIntegrations({
       provided: nothing,
       toolsOnMarks,
+      toolsOnAnyMark: nothing,
     });
 
     expect(await service.toolsOnMarks({ teamId: TEAM } as LineMap, [])).toEqual(
       [],
     );
     expect(toolsOnMarks).not.toHaveBeenCalled();
+  });
+
+  it('names each tool the line’s team’s integrations enable on any mark', async () => {
+    const toolsOnAnyMark = vi.fn(async () => ['sentry.get-issue']);
+    const service = new TeamIntegrations({
+      provided: nothing,
+      toolsOnMarks: nothing,
+      toolsOnAnyMark,
+    });
+
+    const tools = await service.toolsOnAnyMark({ teamId: TEAM } as LineMap);
+
+    expect(tools.map((each) => each.value)).toEqual(['sentry.get-issue']);
+    expect(toolsOnAnyMark).toHaveBeenCalledWith(TEAM);
   });
 });

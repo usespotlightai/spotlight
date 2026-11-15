@@ -19,6 +19,7 @@ export const CatalogEntitledMapper = {
       inputs: tool.inputs,
       approval: null,
       inferredOutput: null,
+      readOnly: false,
     });
   },
 
