@@ -46,7 +46,6 @@ export function WorkspaceMenu({
   const { data: workspaces } = useWorkspaces();
   const { theme, setTheme } = useTheme();
   const settingsKey = useActiveCommand({ id: 'go.settings' });
-  const shortcuts = useActiveCommand({ id: 'shortcuts.show' });
 
   return (
     <DropdownMenu>
@@ -91,13 +90,6 @@ export function WorkspaceMenu({
               <Link to={membersPath(slug)}>Invite and manage members</Link>
             }
           />
-        )}
-
-        {shortcuts && (
-          <DropdownMenuItem onClick={shortcuts.run}>
-            Keyboard shortcuts
-            <ShortcutKeys id="shortcuts.show" plain className="ml-auto pl-4" />
-          </DropdownMenuItem>
         )}
 
         <DropdownMenuSeparator />

@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useState } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
@@ -52,6 +53,7 @@ export function TaskRow({
     animateLayoutChanges: () => false,
   });
   const { focused, handlers } = useFocusWithin();
+  const [hovered, setHovered] = useState(false);
 
   return (
     <li
@@ -60,6 +62,8 @@ export function TaskRow({
       {...attributes}
       {...listeners}
       {...handlers}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
       data-slot="task-row"
       data-list-item
       className={cn(
@@ -118,7 +122,7 @@ export function TaskRow({
           <TaskState task={task} reviewTo={reviewTo} />
         </span>
 
-        <CommandScope active={focused} rank={2}>
+        <CommandScope active={focused || hovered} rank={hovered ? 3 : 2}>
           <AssigneePicker teamId={teamId} task={task} className="-ml-1" />
         </CommandScope>
 

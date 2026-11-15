@@ -33,9 +33,11 @@ export function useApproveKey(key: ApproveKey) {
   const { focused, handlers } = useFocusWithin();
   const approve = approvalOf(key);
 
+  const keyed = focused && approve !== null;
+
   useCommands(
-    focused && approve ? [{ id: 'approval.approve', run: approve }] : [],
+    keyed && approve ? [{ id: 'approval.approve', run: approve }] : [],
   );
 
-  return handlers;
+  return { handlers, keyed };
 }
