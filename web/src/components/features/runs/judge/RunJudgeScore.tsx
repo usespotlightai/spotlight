@@ -22,9 +22,81 @@ import {
   HIDDEN_VERDICT,
   JUDGE_LABEL,
   PEOPLE_LABEL,
+  type RunScores,
   VERDICTS_TITLE,
 } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
+
+function VerdictsSkeleton() {
+  return (
+    <DetailSection title={VERDICTS_TITLE}>
+      <div role="status" aria-label="Loading the verdicts">
+        <dl>
+          <DetailProperty name={PEOPLE_LABEL}>
+            <SkeletonLine className="w-36" />
+          </DetailProperty>
+          <DetailProperty name={JUDGE_LABEL}>
+            <SkeletonLine className="w-36" />
+          </DetailProperty>
+        </dl>
+      </div>
+    </DetailSection>
+  );
+}
+
+function GradeVerdictValue({
+  grade,
+  judged,
+}: {
+  grade: RunScores['grades'][number];
+  judged: boolean;
+}) {
+  if (judged) {
+    return <span data-slot="grade-verdict">{formatVerdict(grade)}</span>;
+  }
+
+  return (
+    <span
+      data-slot="grade-verdict"
+      className="inline-flex items-center gap-1.5"
+    >
+      {formatVerdict(grade)}
+      <InfoTooltip tooltip={formatClaimsMet(grade.claimResults)} />
+    </span>
+  );
+}
+
+function JudgeVerdictValue({
+  judge,
+  agrees,
+  calibration,
+}: Pick<RunScores, 'judge' | 'agrees' | 'calibration'>) {
+  if (!judge) {
+    return (
+      <span
+        data-slot="judge-hidden"
+        className="inline-flex items-center gap-1.5 text-muted-foreground"
+      >
+        {HIDDEN_VERDICT}
+        <InfoTooltip tooltip={formatCalibration(calibration)} />
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span data-slot="judge-verdict">{formatVerdict(judge)}</span>
+      {agrees === false && (
+        <WarningTooltip
+          data-slot="judge-disagrees"
+          label={DISAGREES_LABEL}
+          tooltip={DISAGREES_NOTE}
+          tone="warning"
+        />
+      )}
+    </span>
+  );
+}
 
 type RunJudgeScoreProps = {
   teamId: string;
@@ -36,20 +108,7 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
   const members = useMembers(teamId).data;
 
   if (loading(query)) {
-    return (
-      <DetailSection title={VERDICTS_TITLE}>
-        <div role="status" aria-label="Loading the verdicts">
-          <dl>
-            <DetailProperty name={PEOPLE_LABEL}>
-              <SkeletonLine className="w-36" />
-            </DetailProperty>
-            <DetailProperty name={JUDGE_LABEL}>
-              <SkeletonLine className="w-36" />
-            </DetailProperty>
-          </dl>
-        </div>
-      </DetailSection>
-    );
+    return <VerdictsSkeleton />;
   }
 
   if (failed(query) && notFound(query.error)) {
@@ -93,17 +152,7 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
               key={`${each.by}-${each.at}`}
               name={graderName(each, members)}
             >
-              {judge ? (
-                <span data-slot="grade-verdict">{formatVerdict(each)}</span>
-              ) : (
-                <span
-                  data-slot="grade-verdict"
-                  className="inline-flex items-center gap-1.5"
-                >
-                  {formatVerdict(each)}
-                  <InfoTooltip tooltip={formatClaimsMet(each.claimResults)} />
-                </span>
-              )}
+              <GradeVerdictValue grade={each} judged={judge !== null} />
             </DetailProperty>
           ))}
           {grades.length === 0 && outcome && (
@@ -112,27 +161,11 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
             </DetailProperty>
           )}
           <DetailProperty name={JUDGE_LABEL}>
-            {judge ? (
-              <span className="inline-flex items-center gap-1.5">
-                <span data-slot="judge-verdict">{formatVerdict(judge)}</span>
-                {agrees === false && (
-                  <WarningTooltip
-                    data-slot="judge-disagrees"
-                    label={DISAGREES_LABEL}
-                    tooltip={DISAGREES_NOTE}
-                    tone="warning"
-                  />
-                )}
-              </span>
-            ) : (
-              <span
-                data-slot="judge-hidden"
-                className="inline-flex items-center gap-1.5 text-muted-foreground"
-              >
-                {HIDDEN_VERDICT}
-                <InfoTooltip tooltip={formatCalibration(calibration)} />
-              </span>
-            )}
+            <JudgeVerdictValue
+              judge={judge}
+              agrees={agrees}
+              calibration={calibration}
+            />
           </DetailProperty>
         </dl>
 

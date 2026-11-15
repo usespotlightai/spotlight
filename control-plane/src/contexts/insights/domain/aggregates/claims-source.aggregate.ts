@@ -14,9 +14,9 @@ import type { StationId } from '@shared-kernel/domain/value-objects/station-id.v
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const LOOKUP_DELAYS_MS = [60_000, 5 * 60_000, 30 * 60_000] as const;
+const LOOKUP_DELAYS_MS = [60_000, 5 * 60_000, 30 * 60_000] as const;
 
-export const MAX_LOOKUPS = LOOKUP_DELAYS_MS.length + 1;
+const MAX_LOOKUPS = LOOKUP_DELAYS_MS.length + 1;
 
 export interface SourcedStation {
   readonly workspaceId: WorkspaceId;

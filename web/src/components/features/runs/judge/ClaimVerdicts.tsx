@@ -38,7 +38,7 @@ export function ClaimVerdicts({
               marks={graded === undefined ? [met] : [met, graded]}
               scorers={scorers}
               reasons={reasons.filter((each) => each.claim === at)}
-              openAtFirst={
+              defaultOpen={
                 graded === undefined || graded === null ? !met : graded !== met
               }
             />

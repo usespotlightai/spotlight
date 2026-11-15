@@ -13,7 +13,7 @@ type ClaimVerdictRowProps = {
   marks: readonly (boolean | null)[];
   scorers: readonly string[];
   reasons: readonly JudgeReason[];
-  openAtFirst: boolean;
+  defaultOpen: boolean;
 };
 
 export function ClaimVerdictRow({
@@ -22,9 +22,9 @@ export function ClaimVerdictRow({
   marks,
   scorers,
   reasons,
-  openAtFirst,
+  defaultOpen,
 }: ClaimVerdictRowProps) {
-  const [open, setOpen] = useState(openAtFirst);
+  const [open, setOpen] = useState(defaultOpen);
   const expandable = reasons.length > 0;
   const shown = expandable && open;
 
