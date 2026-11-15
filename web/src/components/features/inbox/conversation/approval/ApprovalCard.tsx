@@ -57,7 +57,7 @@ export function ApprovalCard({
         : undefined,
     });
 
-  const handlers = useApproveKey({
+  const { handlers, keyed } = useApproveKey({
     mode,
     ready: Boolean(deciding) && !pending,
     blank,
@@ -97,6 +97,7 @@ export function ApprovalCard({
           pending={pending}
           onlyFor={onlyFor}
           blank={blank}
+          keyed={keyed}
           reason={reason}
           onReason={setReason}
           onMode={toMode}

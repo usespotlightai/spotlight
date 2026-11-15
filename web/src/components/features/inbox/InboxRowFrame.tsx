@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { NavLink, useLocation, useResolvedPath } from 'react-router';
 
 import { ResolveToggle } from '@/components/features/inbox/ResolveToggle';
@@ -37,6 +37,7 @@ export function InboxRowFrame({
 }: InboxRowFrameProps) {
   const trail = useForwardTrail();
   const { focused, handlers } = useFocusWithin();
+  const [hovered, setHovered] = useState(false);
   const target = useResolvedPath(to).pathname;
   const { pathname } = useLocation();
   const current = pathname === target || pathname.startsWith(`${target}/`);
@@ -49,6 +50,8 @@ export function InboxRowFrame({
       data-list-item
       {...handlers}
       {...menu}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
       className="group/row relative flex items-start gap-2 rounded-md px-2 py-2 transition-colors hover:bg-accent has-[a[aria-current=page]]:bg-accent has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset"
     >
       <NavLink
@@ -94,7 +97,10 @@ export function InboxRowFrame({
       </NavLink>
 
       <span className="relative z-10 flex h-5 shrink-0 items-center gap-1">
-        <CommandScope active={focused || current} rank={focused ? 2 : 1}>
+        <CommandScope
+          active={hovered || focused || current}
+          rank={hovered ? 3 : focused ? 2 : 1}
+        >
           {resolve && <ResolveToggle action={resolve} />}
         </CommandScope>
 

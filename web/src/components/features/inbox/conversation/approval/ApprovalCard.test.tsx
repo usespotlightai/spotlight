@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -343,6 +349,31 @@ describe('ApprovalCard', () => {
       approveKey();
 
       expect(onDecide).not.toHaveBeenCalled();
+    });
+
+    it('shows Command Enter on Approve only while the key approves', async () => {
+      showingWithKeys(COMMENT);
+      const approve = screen.getByRole('button', {
+        name: 'Approve linear.comment',
+      });
+
+      await userEvent.hover(approve);
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      expect(
+        document.querySelector('[data-slot="shortcut-hint"]'),
+      ).not.toBeInTheDocument();
+
+      await userEvent.unhover(approve);
+      act(() =>
+        screen.getByRole('button', { name: 'Dismiss linear.comment' }).focus(),
+      );
+      await userEvent.hover(approve);
+
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-slot="shortcut-hint"]'),
+        ).toBeInTheDocument(),
+      );
     });
 
     it('approves nothing with a single key', () => {

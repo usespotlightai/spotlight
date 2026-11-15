@@ -741,6 +741,23 @@ describe('Inbox', () => {
       });
     });
 
+    it('resolves the hovered item with E, over the open one', () => {
+      waiting.mockReturnValue([item(), notice()]);
+      renderWithKeys('/w/acme/inbox/task_1%3A0');
+
+      const row = screen
+        .getByText('The search for a better Build config stalled')
+        .closest('[data-list-item]');
+      fireEvent.pointerEnter(row as HTMLElement);
+      press('e');
+
+      expect(resolve).toHaveBeenCalledTimes(1);
+      expect(resolve).toHaveBeenCalledWith({
+        slug: 'acme',
+        entry: expect.objectContaining({ id: 'notice_1' }) as unknown,
+      });
+    });
+
     it('resolves nothing with E while no item is open or focused', () => {
       renderWithKeys('/w/acme/inbox');
 
