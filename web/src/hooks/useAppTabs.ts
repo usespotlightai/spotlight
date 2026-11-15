@@ -24,13 +24,17 @@ import {
   visited,
   withoutPane,
 } from '@/lib/app-tabs';
+import { desktopApp } from '@/lib/desktop';
 import type { ReportTitle } from '@/lib/tab-title';
 import type { Team } from '@/lib/team';
+
+const tabStorage = (): Storage =>
+  desktopApp()?.extraWindow ? sessionStorage : localStorage;
 
 const readTabs = (storageKey: string, here: Place): AppTabs => {
   let stored: string | null = null;
   try {
-    stored = localStorage.getItem(storageKey);
+    stored = tabStorage().getItem(storageKey);
   } catch {}
   return visited(storedTabs(stored, crypto.randomUUID(), here), here);
 };
@@ -105,7 +109,7 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(
+      tabStorage().setItem(
         shown.storageKey,
         JSON.stringify(storableTabs(shown.tabs)),
       );

@@ -1,4 +1,4 @@
-import { ExternalLink, Globe, Link, Plus } from 'lucide-react';
+import { AppWindow, ExternalLink, Globe, Link, Plus } from 'lucide-react';
 import { useMemo } from 'react';
 
 import {
@@ -25,6 +25,28 @@ type ContextMenuPopupProps = {
   actions: readonly MenuAction[];
   onOpenTab: (path: string) => void;
 };
+
+function OpenOutside({ link }: { link: WorkspaceLink }) {
+  const desktop = desktopApp();
+
+  if (desktop?.openWindow) {
+    return (
+      <DropdownMenuItem onClick={() => desktop.openWindow?.(link.path)}>
+        <AppWindow aria-hidden />
+        New window
+      </DropdownMenuItem>
+    );
+  }
+
+  return (
+    <DropdownMenuItem
+      onClick={() => window.open(link.href, '_blank', 'noopener')}
+    >
+      <Globe aria-hidden />
+      {desktop ? 'Browser' : 'Browser tab'}
+    </DropdownMenuItem>
+  );
+}
 
 const copyLink = async (href: string) => {
   try {
@@ -88,12 +110,7 @@ export function ContextMenuPopup({
                   <Plus aria-hidden />
                   New tab
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => window.open(link.href, '_blank', 'noopener')}
-                >
-                  <Globe aria-hidden />
-                  {desktopApp() ? 'Browser' : 'Browser tab'}
-                </DropdownMenuItem>
+                <OpenOutside link={link} />
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           </>

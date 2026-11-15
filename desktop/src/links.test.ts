@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { deepLinkIn, navigationOf, originOf, pageOf } from './links';
+import {
+  deepLinkIn,
+  navigationOf,
+  originOf,
+  pageOf,
+  workspacePageOf,
+} from './links';
 
 const ORIGIN = 'https://app.usespotlight.ai';
 
@@ -91,5 +97,23 @@ describe('deepLinkIn', () => {
       deepLinkIn(['/Applications/Spotlight.app', 'spotlight://open/w/acme']),
     ).toBe('spotlight://open/w/acme');
     expect(deepLinkIn(['/Applications/Spotlight.app'])).toBeNull();
+  });
+});
+
+describe('workspacePageOf', () => {
+  it('opens a workspace page of the Spotlight address', () => {
+    expect(workspacePageOf('/w/acme/inbox?tab=notes#top', ORIGIN)).toBe(
+      `${ORIGIN}/w/acme/inbox?tab=notes#top`,
+    );
+  });
+
+  it.each([
+    '//evil.example.com/w/acme',
+    'https://evil.example.com/w/acme',
+    '/api/auth/sign-out',
+    'w/acme/inbox',
+    '',
+  ])('opens nothing for %s', (path) => {
+    expect(workspacePageOf(path, ORIGIN)).toBeNull();
   });
 });

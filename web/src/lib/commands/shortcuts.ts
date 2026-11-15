@@ -124,6 +124,7 @@ export type DesktopShortcut = {
 
 export const DESKTOP_SHORTCUTS: readonly DesktopShortcut[] = [
   { title: 'New tab', keys: ['mod+t'] },
+  { title: 'New window', keys: ['mod+n'] },
   { title: 'Close the tab', keys: ['mod+w'] },
   { title: 'Show the next tab', keys: ['ctrl+tab'] },
   { title: 'Show the previous tab', keys: ['ctrl+shift+tab'] },
@@ -136,6 +137,7 @@ export const DESKTOP_SHORTCUTS: readonly DesktopShortcut[] = [
 
 export const DESKTOP_CHORDS = [
   'mod+t',
+  'mod+n',
   'mod+w',
   'mod+shift+[',
   'mod+shift+]',

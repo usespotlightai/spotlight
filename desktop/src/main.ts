@@ -25,6 +25,7 @@ import {
   navigationOf,
   pageOf,
   SCHEME,
+  workspacePageOf,
 } from './links';
 import {
   openAtLoginOnFirstRun,
@@ -34,6 +35,7 @@ import {
 import { ErrorReporting } from './reporting';
 import { SettingsFile } from './settings';
 import {
+  type Bounds,
   DEFAULT_SIZE,
   MINIMUM_SIZE,
   restorable,
@@ -44,6 +46,7 @@ const UPDATE_EVERY_MS = 4 * 60 * 60 * 1000;
 const MAX_BADGE = 99;
 
 let main: BrowserWindow | null = null;
+const extras = new Set<BrowserWindow>();
 let connect: BrowserWindow | null = null;
 let quitting = false;
 let pendingLink: string | null = null;
@@ -74,6 +77,20 @@ const shown = (window: BrowserWindow) => {
   window.show();
   window.focus();
 };
+
+const isSpotlightWindow = (
+  window: BrowserWindow | null,
+): window is BrowserWindow =>
+  window !== null && (window === main || extras.has(window));
+
+const frontWindow = (): BrowserWindow | null => {
+  const focused = BrowserWindow.getFocusedWindow();
+
+  return isSpotlightWindow(focused) ? focused : main;
+};
+
+const spotlightWindows = (): BrowserWindow[] =>
+  main ? [main, ...extras] : [...extras];
 
 const opened = (url: string) => {
   switch (navigationOf(url, origin)) {
@@ -148,13 +165,17 @@ const rememberPlaceOf = (window: BrowserWindow) => {
   window.on('closed', () => clearTimeout(pending));
 };
 
-const createMain = () => {
-  const saved = restorable(
-    windowState.read(),
-    screen.getAllDisplays().map((each) => each.workArea),
-  );
+const EXTRA_WINDOW = '--spotlight-extra-window';
+const CASCADE = 24;
+
+const workAreas = () => screen.getAllDisplays().map((each) => each.workArea);
+
+const spotlightWindow = (
+  bounds: Partial<Bounds> & typeof DEFAULT_SIZE,
+  extra: boolean,
+) => {
   const window = new BrowserWindow({
-    ...(saved?.bounds ?? DEFAULT_SIZE),
+    ...bounds,
     minWidth: MINIMUM_SIZE.width,
     minHeight: MINIMUM_SIZE.height,
     title: 'Spotlight',
@@ -170,6 +191,7 @@ const createMain = () => {
       sandbox: true,
       nodeIntegration: false,
       backgroundThrottling: false,
+      additionalArguments: extra ? [EXTRA_WINDOW] : [],
     },
   });
 
@@ -191,20 +213,6 @@ const createMain = () => {
       }
     },
   );
-
-  window.once('ready-to-show', () => {
-    if (saved?.maximized) {
-      window.maximize();
-    }
-
-    window.show();
-
-    if (saved?.fullScreen) {
-      window.setFullScreen(true);
-    }
-  });
-
-  rememberPlaceOf(window);
 
   window.webContents.on('dom-ready', () => {
     if (navigationOf(window.webContents.getURL(), origin) !== 'blocked') {
@@ -232,6 +240,27 @@ const createMain = () => {
     }
   });
 
+  return window;
+};
+
+const createMain = () => {
+  const saved = restorable(windowState.read(), workAreas());
+  const window = spotlightWindow(saved?.bounds ?? DEFAULT_SIZE, false);
+
+  window.once('ready-to-show', () => {
+    if (saved?.maximized) {
+      window.maximize();
+    }
+
+    window.show();
+
+    if (saved?.fullScreen) {
+      window.setFullScreen(true);
+    }
+  });
+
+  rememberPlaceOf(window);
+
   window.on('close', (event) => {
     remember(window);
 
@@ -252,16 +281,37 @@ const createMain = () => {
   void window.loadURL((link && pageOf(link, origin)) ?? origin).catch(ignored);
 };
 
+const openWindow = (page: string, from: BrowserWindow | null) => {
+  const beside = from?.getNormalBounds();
+  const cascaded =
+    beside &&
+    restorable(
+      {
+        bounds: { ...beside, x: beside.x + CASCADE, y: beside.y + CASCADE },
+        maximized: false,
+        fullScreen: false,
+      },
+      workAreas(),
+    );
+  const window = spotlightWindow(cascaded?.bounds ?? DEFAULT_SIZE, true);
+
+  window.once('ready-to-show', () => window.show());
+  window.on('closed', () => extras.delete(window));
+
+  extras.add(window);
+  void window.loadURL(page).catch(ignored);
+};
+
 let authorizing: BrowserWindow | null = null;
 
-const authorize = (url: string) => {
+const authorize = (url: string, from: BrowserWindow) => {
   authorizing?.close();
 
   const window = new BrowserWindow({
     width: 560,
     height: 760,
     title: 'Connect',
-    parent: main ?? undefined,
+    parent: from,
     webPreferences: {
       contextIsolation: true,
       sandbox: true,
@@ -276,9 +326,9 @@ const authorize = (url: string) => {
 
     event.preventDefault();
     window.close();
-    if (main) {
-      void main.loadURL(to).catch(ignored);
-      shown(main);
+    if (!from.isDestroyed()) {
+      void from.loadURL(to).catch(ignored);
+      shown(from);
     }
   };
 
@@ -311,7 +361,7 @@ const CONNECT_SHADOW = 48;
 const CONNECT_FROM_TOP = 0.28;
 
 const fitConnect = (window: BrowserWindow, height: number) => {
-  const area = main?.getBounds() ?? window.getBounds();
+  const area = (window.getParentWindow() ?? window).getBounds();
   const x = Math.round(
     area.x + (area.width - CONNECT_WIDTH) / 2 - CONNECT_SHADOW,
   );
@@ -350,7 +400,7 @@ const openConnect = () => {
     fullscreenable: false,
     show: false,
     title: 'Spotlight address',
-    parent: main ?? undefined,
+    parent: frontWindow() ?? undefined,
     webPreferences: {
       preload: join(__dirname, 'connect-preload.js'),
       contextIsolation: true,
@@ -367,13 +417,15 @@ const openConnect = () => {
 };
 
 const sendCommand = (command: Command) => {
-  if (!main) {
+  if (!frontWindow()) {
     createMain();
   }
 
-  if (main) {
-    shown(main);
-    main.webContents.send('spotlight:command', command);
+  const window = frontWindow();
+
+  if (window) {
+    shown(window);
+    window.webContents.send('spotlight:command', command);
   }
 };
 
@@ -443,6 +495,12 @@ const menu = (): MenuItemConstructorOptions[] => [
   {
     label: 'Window',
     submenu: [
+      {
+        label: 'New Window',
+        accelerator: 'CmdOrCtrl+N',
+        click: () => openWindow(origin, frontWindow()),
+      },
+      { type: 'separator' },
       { role: 'minimize' },
       { role: 'zoom' },
       { type: 'separator' },
@@ -475,10 +533,12 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', (_event, argv) => {
     const link = deepLinkIn(argv);
 
+    const front = frontWindow();
+
     if (link) {
       followLink(link);
-    } else if (main) {
-      shown(main);
+    } else if (front) {
+      shown(front);
     }
   });
 
@@ -486,7 +546,11 @@ if (!app.requestSingleInstanceLock()) {
     quitting = true;
   });
 
-  app.on('activate', () => {
+  app.on('activate', (_event, hasVisibleWindows) => {
+    if (hasVisibleWindows) {
+      return;
+    }
+
     if (main) {
       shown(main);
     } else {
@@ -518,8 +582,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   ipcMain.on('spotlight:close', (event) => {
-    if (fromSpotlight(event.senderFrame) && main) {
-      main.close();
+    const window = BrowserWindow.fromWebContents(event.sender);
+
+    if (fromSpotlight(event.senderFrame) && isSpotlightWindow(window)) {
+      window.close();
     }
   });
 
@@ -530,18 +596,32 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   ipcMain.on('spotlight:show', (event) => {
-    if (fromSpotlight(event.senderFrame) && main) {
-      shown(main);
+    const window = BrowserWindow.fromWebContents(event.sender);
+
+    if (fromSpotlight(event.senderFrame) && isSpotlightWindow(window)) {
+      shown(window);
+    }
+  });
+
+  ipcMain.on('spotlight:open-window', (event, path: unknown) => {
+    const page =
+      typeof path === 'string' ? workspacePageOf(path, origin) : null;
+
+    if (fromSpotlight(event.senderFrame) && page) {
+      openWindow(page, BrowserWindow.fromWebContents(event.sender));
     }
   });
 
   ipcMain.on('spotlight:authorize', (event, url: unknown) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+
     if (
       fromSpotlight(event.senderFrame) &&
+      isSpotlightWindow(window) &&
       typeof url === 'string' &&
       authorizable(url)
     ) {
-      authorize(url);
+      authorize(url, window);
     }
   });
 
@@ -562,7 +642,9 @@ if (!app.requestSingleInstanceLock()) {
 
     origin = saved;
     connect?.close();
-    void main?.loadURL(origin).catch(ignored);
+    for (const window of spotlightWindows()) {
+      void window.loadURL(origin).catch(ignored);
+    }
     return true;
   });
 
