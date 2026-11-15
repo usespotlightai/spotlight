@@ -311,23 +311,29 @@ export const tabPathOf = (
 
 export type WorkspaceLink = { readonly href: string; readonly path: string };
 
+export const LINK_ATTRIBUTE = 'data-link';
+
+const hrefAt = (target: Element | null, origin: string): string | null => {
+  const holder = target?.closest(`a[href], [${LINK_ATTRIBUTE}]`);
+
+  if (holder instanceof HTMLAnchorElement) {
+    return holder.hasAttribute('download') ? null : holder.href;
+  }
+
+  const path = holder?.getAttribute(LINK_ATTRIBUTE);
+
+  return path ? new URL(path, origin).href : null;
+};
+
 export const workspaceLinkAt = (
   target: Element | null,
   origin: string,
   slug: string,
 ): WorkspaceLink | null => {
-  const anchor = target?.closest('a[href]');
+  const href = hrefAt(target, origin);
+  const path = href && tabPathOf(href, origin, slug);
 
-  if (
-    !(anchor instanceof HTMLAnchorElement) ||
-    anchor.hasAttribute('download')
-  ) {
-    return null;
-  }
-
-  const path = tabPathOf(anchor.href, origin, slug);
-
-  return path ? { href: anchor.href, path } : null;
+  return path ? { href, path } : null;
 };
 
 const TAB_ICONS: readonly (readonly [string, LucideIcon])[] = [
