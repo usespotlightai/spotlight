@@ -57,14 +57,14 @@ describe('StationConfig', () => {
     ]);
   });
 
-  it('says the rubric changed without showing it, and shows the sample and minimum agreement it moved between', () => {
+  it('says the claims changed without showing them, and shows the sample and minimum agreement it moved between', () => {
     const was = configured({ judge: JUDGE });
     const now = configured({
       judge: { rubricHash: 'c'.repeat(64), sample: 0.5, minAgreement: 0.8 },
     });
 
     expect(now.changesFrom(was)).toEqual([
-      { part: 'judge', name: 'rubric', kind: 'changed', was: null, now: null },
+      { part: 'judge', name: 'claims', kind: 'changed', was: null, now: null },
       {
         part: 'judge',
         name: 'sample',

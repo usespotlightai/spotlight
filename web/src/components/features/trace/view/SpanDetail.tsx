@@ -11,6 +11,7 @@ import { CodeDiff } from '@/components/shared/CodeDiff';
 import { IconAction } from '@/components/shared/IconAction';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { LineRange } from '@/lib/changes';
 import {
   answeredBy,
   contentsOf,
@@ -33,6 +34,7 @@ export function SpanDetail({
   node,
   teamId,
   open,
+  lines = null,
   duration,
   ref,
   onClose,
@@ -40,6 +42,7 @@ export function SpanDetail({
   node: TraceNode;
   teamId: string;
   open: boolean;
+  lines?: LineRange | null;
   onClose: () => void;
   duration?: number;
   ref?: Ref<HTMLElement>;
@@ -109,6 +112,7 @@ export function SpanDetail({
               path={step.change.path}
               before={step.change.before}
               after={step.change.after}
+              lines={lines}
             />
           </DetailSection>
         )}

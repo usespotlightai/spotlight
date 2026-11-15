@@ -9,7 +9,7 @@ export function RunChangeFile({ file }: { file: FileChange }) {
   const { selected, open } = useRunSidePanel();
   const { added, removed } = useMemo(() => tallyFile(file), [file]);
 
-  const active = selected === file;
+  const active = selected?.path === file.path;
 
   return (
     <li>

@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
+import { COLLAPSE_MS } from '@/components/shared/Collapsible';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
 import { StepAnchorsContext, stepAnchor } from '@/lib/step-anchors';
 
@@ -32,13 +33,13 @@ export function StepAnchorsProvider({
       return;
     }
 
-    const found = requestAnimationFrame(() =>
-      document
-        .getElementById(focused)
-        ?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+    const settled = setTimeout(
+      () =>
+        document.getElementById(focused)?.scrollIntoView({ block: 'center' }),
+      COLLAPSE_MS,
     );
 
-    return () => cancelAnimationFrame(found);
+    return () => clearTimeout(settled);
   }, [focused]);
 
   const value = useMemo(

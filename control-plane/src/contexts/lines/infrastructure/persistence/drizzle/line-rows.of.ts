@@ -101,7 +101,6 @@ export const stationColumnsOf = (each: Station) => ({
   memories: each.memories,
   judge: each.judge
     ? {
-        rubric: each.judge.rubric,
         claims: [...each.judge.claims],
         passThreshold: each.judge.passThreshold,
         sample: each.judge.sample,

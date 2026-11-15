@@ -55,9 +55,7 @@ export class ChangeJudgments implements ChangeJudgmentsPort {
 
     try {
       const answer = await this.llmJudge.judge({
-        rubric: order.criteria.rubric,
         claims: order.criteria.claims,
-        scale: order.criteria.scale.kind,
         title: evidence.title,
         description: evidence.description,
         steps: evidence.steps,
@@ -80,7 +78,6 @@ export class ChangeJudgments implements ChangeJudgmentsPort {
 
       return {
         judged: true,
-        value: grounded.value,
         claimResults: grounded.claimResults,
         reasons: grounded.reasons.map((reason) => ({
           text: reason.text,

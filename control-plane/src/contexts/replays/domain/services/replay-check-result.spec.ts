@@ -14,6 +14,7 @@ import {
 } from '@replays/domain/replays.fake-spec';
 import { evaluationOf } from '@replays/domain/services/replay-check-result';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import type { RunResult } from '@replays/domain/value-objects/replay-ending';
@@ -23,7 +24,10 @@ import { describe, expect, it } from 'vitest';
 
 const SET = aSet(4);
 
-const checkOf = (maxRegressions = 0): ReplayCheck =>
+const checkOf = (
+  maxRegressions = 0,
+  judge: JudgeCalibration | null = null,
+): ReplayCheck =>
   ReplayCheck.start({
     id: ReplayCheckId.of('check_1'),
     station: SET.station,
@@ -48,6 +52,7 @@ const checkOf = (maxRegressions = 0): ReplayCheck =>
     }),
     repeats: 1,
     scoringPinnedToLive: [],
+    judge,
     createdAt: NOW,
     by: BY,
   });
@@ -66,7 +71,63 @@ const failingOn =
   (original: string): RunResult =>
     originals.includes(original) ? 'failed' : 'completed';
 
+const judgeIn = (state: 'qualified' | 'unmeasured' | 'failing') =>
+  JudgeCalibration.of({
+    state,
+    agreement: state === 'unmeasured' ? null : 0.3,
+    pairs: 12,
+    minPairs: 10,
+    minAgreement: 0.6,
+  });
+
 describe('evaluationOf', () => {
+  it('fails while the live judge disagrees with people, whatever the replay shows', () => {
+    const finished = replayedAs(candidate(), () => 'completed');
+
+    for (const replay of [candidate(), finished]) {
+      expect(
+        evaluationOf(
+          checkOf(0, judgeIn('failing')),
+          replay.outcome(),
+          baseline().outcome(),
+          false,
+        ),
+      ).toMatchObject({
+        result: 'failed',
+        because: null,
+        failedBecause: 'judge-disagrees-with-people',
+        judge: judgeIn('failing'),
+      });
+    }
+    expect(
+      evaluationOf(
+        checkOf(0, judgeIn('failing')),
+        null,
+        baseline().outcome(),
+        true,
+      ),
+    ).toMatchObject({
+      result: 'failed',
+      failedBecause: 'judge-disagrees-with-people',
+    });
+  });
+
+  it('decides as usual for a judge nobody checked against people yet, and carries its calibration', () => {
+    const finished = replayedAs(candidate(), () => 'completed');
+
+    expect(
+      evaluationOf(
+        checkOf(0, judgeIn('unmeasured')),
+        finished.outcome(),
+        baseline().outcome(),
+        false,
+      ),
+    ).toMatchObject({
+      result: 'passed',
+      failedBecause: null,
+      judge: judgeIn('unmeasured'),
+    });
+  });
   it('runs while its replay runs', () => {
     expect(
       evaluationOf(
@@ -114,9 +175,11 @@ describe('evaluationOf', () => {
     );
 
     expect(
-      evaluationOf(checkOf(1), replay.outcome(), baseline().outcome(), false)
-        .result,
-    ).toBe('failed');
+      evaluationOf(checkOf(1), replay.outcome(), baseline().outcome(), false),
+    ).toMatchObject({
+      result: 'failed',
+      failedBecause: 'too-many-regressions',
+    });
     expect(
       evaluationOf(
         checkOf(0),

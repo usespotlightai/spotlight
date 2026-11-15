@@ -31,7 +31,7 @@ const ENDED: EndedRun = {
 const requesting = (
   change: {
     sample?: number;
-    rubric?: string;
+    claims?: readonly string[];
     judged?: boolean;
     available?: boolean;
     hasEvidence?: boolean;
@@ -43,7 +43,7 @@ const requesting = (
     available: change.available ?? true,
     judge: async () => ({
       model: 'some/model',
-      verdict: { value: true, reasons: [] },
+      verdict: { claims: [] },
       guidance: null,
     }),
   };
@@ -67,9 +67,8 @@ const requesting = (
           : {
               teamId: TeamId.of('team_1'),
               lineId: LineId.of('line_1'),
-              rubric: change.rubric ?? 'Did the run retry uploads?',
               rubricVersion: RUBRIC_VERSION,
-              claims: [],
+              claims: change.claims ?? ['It retries the upload.'],
               passThreshold: 1,
               sample: change.sample ?? 1,
               minAgreement: 0.6,
@@ -118,13 +117,13 @@ describe('RequestJudging', () => {
     expect(requested.judgings.stored.size).toBe(0);
   });
 
-  it('requests a verdict on a sampled run of a judged station, with its rubric', async () => {
+  it('requests a verdict on a sampled run of a judged station, with its claims', async () => {
     const requested = requesting();
 
     await requested.ended();
 
     const judging = await requested.judgings.of(RunId.of('run_1'));
-    expect(judging?.rubric.text).toBe('Did the run retry uploads?');
+    expect(judging?.rubric.claims).toEqual(['It retries the upload.']);
     expect(judging?.location.stationId.value).toBe('station_1');
     expect(judging?.fingerprint).toBe(FIRST_CONFIG);
   });
@@ -141,7 +140,7 @@ describe('RequestJudging', () => {
   it.each([
     ['no model to judge with', { available: false }],
     ['a station without a judge', { judged: false }],
-    ['a rubric whose scale is unknown', { rubric: 'scores: stars\nWell?' }],
+    ['a judge with no claims', { claims: [] }],
     ['a run left out of the sample', { sample: 0 }],
     [
       'a run whose task was deleted before its end was received',

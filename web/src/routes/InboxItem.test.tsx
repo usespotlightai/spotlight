@@ -76,6 +76,17 @@ vi.mock('@/components/features/inbox/memories/MemoryThread', () => ({
   ),
 }));
 
+vi.mock(
+  '@/components/features/inbox/disagreements/JudgeDisagreementThread',
+  () => ({
+    JudgeDisagreementThread: ({
+      disagreementId,
+    }: {
+      disagreementId: string;
+    }) => <p>The thread of disagreement {disagreementId}</p>,
+  }),
+);
+
 vi.mock('@/components/features/inbox/grades/GradeThread', () => ({
   GradeThread: ({ runId }: { runId: string }) => (
     <p>The thread of run {runId}, asking for a grade</p>
@@ -243,6 +254,26 @@ describe('InboxItem', () => {
         screen.getByText('The thread of run run_9, asking for a grade'),
       ).toBeInTheDocument();
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('when it asks why the judge disagrees with people', () => {
+    it('shows the question about the disagreement it names', () => {
+      waiting.mockReturnValue([
+        {
+          ...item([])[0],
+          id: 'request_3',
+          unread: false,
+          inboxRequest: { form: 'judge-disagreement', about: 'disagreement_1' },
+        },
+      ]);
+      journal.mockReturnValue(undefined);
+
+      renderItem('request_3');
+
+      expect(
+        screen.getByText('The thread of disagreement disagreement_1'),
+      ).toBeInTheDocument();
     });
   });
 

@@ -1,4 +1,3 @@
-import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { PillButton } from '@/components/shared/PillButton';
 import { useConnectIntegration } from '@/hooks/api/useConnectIntegration';
 import type { Integration } from '@/lib/integration';
@@ -15,20 +14,18 @@ export function TeamAccountButton({
   const connect = useConnectIntegration(teamId);
 
   return (
-    <ActionWithAlert alert={connect.error?.message ?? null}>
-      <PillButton
-        data-need="team"
-        variant="default"
-        aria-label={
-          connect.isPending
-            ? undefined
-            : `Connect team account for ${integration.name}`
-        }
-        disabled={connect.isPending}
-        onClick={() => connect.mutate({ integration: integration.integration })}
-      >
-        {connect.isPending ? 'Opening…' : 'Connect team account'}
-      </PillButton>
-    </ActionWithAlert>
+    <PillButton
+      data-need="team"
+      variant="default"
+      aria-label={
+        connect.isPending
+          ? undefined
+          : `Connect team account for ${integration.name}`
+      }
+      disabled={connect.isPending}
+      onClick={() => connect.mutate({ integration: integration.integration })}
+    >
+      {connect.isPending ? 'Opening…' : 'Connect team account'}
+    </PillButton>
   );
 }

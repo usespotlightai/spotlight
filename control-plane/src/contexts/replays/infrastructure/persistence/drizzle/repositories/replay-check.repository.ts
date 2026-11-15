@@ -1,3 +1,8 @@
+import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
+import {
+  JudgeCalibration,
+  type JudgeCalibrationFields,
+} from '@replays/domain/value-objects/judge-calibration';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -43,6 +48,17 @@ import { and, asc, eq, type SQL } from 'drizzle-orm';
 const ATTEMPT_OF_CHANGE = 'replay_check_attempt_idx';
 
 type CheckRow = typeof replayCheck.$inferSelect;
+
+const judgeOf = (fields: JudgeCalibrationFields): JudgeCalibration => {
+  try {
+    return JudgeCalibration.of(fields);
+  } catch (error) {
+    if (error instanceof InvalidReplayCheckError) {
+      throw new InconsistentStateError('replay check', error.message);
+    }
+    throw error;
+  }
+};
 
 const scoringFieldOf = (raw: string): ScoringField => {
   const field = SCORING_FIELDS.find((each) => each === raw);
@@ -113,6 +129,7 @@ const toCheck = (row: CheckRow): ReplayCheck =>
     repeats: row.repeats,
     scoringPinnedToLive: row.scoringPinnedToLive.map(scoringFieldOf),
     baseline: row.baseline,
+    judge: row.judge && judgeOf(row.judge),
     createdAt: row.createdAt,
     version: row.version,
   });
@@ -209,6 +226,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           repeats: added.repeats,
           scoringPinnedToLive: [...added.scoringPinnedToLive],
           baseline: added.baseline,
+          judge: added.judge?.toFields() ?? null,
           createdAt: added.createdAt,
           version: added.version,
         })

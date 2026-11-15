@@ -8,13 +8,14 @@ import { ReadLineQuery } from '@lines/application/queries/read-line.query';
 import { LineResourceResponseDto } from '@lines/presentation/http/dto/line-resource.response.dto';
 import { Body, Param, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
-import { ApiBody, ApiParam } from '@nestjs/swagger';
+import { ApiBody, ApiHeader, ApiParam } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import { SOURCE_COMMIT_HEADER } from '@platform/http/resources/resource-headers';
 import {
   respondCreated,
   respondDeleted,
@@ -75,6 +76,17 @@ const DEFINITION = ApiBody({
   },
 });
 
+const SOURCE_COMMIT = ApiHeader({
+  name: SOURCE_COMMIT_HEADER,
+  required: false,
+  description:
+    'The commit the definition comes from, as owner/name@sha on GitHub. Each new claims version of a station keeps the first commit that wrote it, and the pull request that merged it',
+  schema: {
+    type: 'string',
+    example: 'acme/spotlight-config@3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f',
+  },
+});
+
 const ID = ApiParam({
   name: 'id',
   example: '3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03',
@@ -98,6 +110,7 @@ export class LineResourceController {
   @LineResource.Create('teams/:teamId/lines', 'Create a line for a team')
   @ApiParam({ name: 'teamId', example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
   @DEFINITION
+  @SOURCE_COMMIT
   async create(
     @Param('teamId') teamId: string,
     @IdempotencyKeyHeader() key: string,
@@ -128,6 +141,7 @@ export class LineResourceController {
   )
   @ID
   @DEFINITION
+  @SOURCE_COMMIT
   async update(
     @Param('id') id: string,
     @IfMatch() version: number,

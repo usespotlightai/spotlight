@@ -22,12 +22,6 @@ export const stationFileOf = (
 ): string =>
   `prompts/${teamKey}/${lineKey}/${stationKey}${field === 'prompt' ? '' : `.${field}`}.md`;
 
-export const judgeRubricFileOf = (
-  teamKey: string,
-  lineKey: string,
-  stationKey: string,
-): string => `judges/${teamKey}/${lineKey}/${stationKey}.md`;
-
 export const TERRAFORM_FILE = 'terraform.tf';
 
 export const IMPORTS_FILE = 'imports.tf';

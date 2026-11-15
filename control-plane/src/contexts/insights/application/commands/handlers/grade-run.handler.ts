@@ -60,7 +60,7 @@ export class GradeRunHandler implements CommandHandlerPort<
           await this.scores.ofRuns([runId]),
         );
         const graded = {
-          ...gradeOn(terms, command.value, command.claims),
+          ...gradeOn(terms, command.claims),
           at: this.clock.now(),
         };
 

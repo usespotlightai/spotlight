@@ -31,7 +31,7 @@ const ORDER = {
   enabled: { profile: null, stationTools: [], toolsOnMarks: [], tools: [] },
 } as unknown as RunOrder;
 
-const RUBRIC = 'A good run changes only what the task requests.\n';
+const CLAIMS = ['It changes only what the task requests.'];
 
 const station = (
   over: Partial<Parameters<typeof stationOf>[0]> = {},
@@ -49,19 +49,17 @@ const configured = (at: Station, order: RunOrder = ORDER) =>
   stationConfigOf({ station: at, line: LINE, order, folders: [] }, sha256);
 
 describe('stationConfigOf', () => {
-  it('configures the judge by its rubric hash, sample and minimum agreement', () => {
+  it('configures the judge by the hash of its claims, sample and minimum agreement', () => {
     const judged = station({
       judge: judgeOf({
-        rubric: RUBRIC,
+        claims: CLAIMS,
         sample: 0.2,
         minAgreement: 0.6,
       }),
     });
 
     expect(configured(judged).parts.judge).toEqual({
-      rubricHash: sha256(
-        JSON.stringify({ rubric: RUBRIC, claims: [], passThreshold: 1 }),
-      ),
+      rubricHash: sha256(JSON.stringify({ claims: CLAIMS, passThreshold: 1 })),
       sample: 0.2,
       minAgreement: 0.6,
     });
@@ -72,7 +70,6 @@ describe('stationConfigOf', () => {
       configured(
         station({
           judge: judgeOf({
-            rubric: RUBRIC,
             claims: ['It retries.'],
             passThreshold,
             sample: 0.2,
@@ -86,7 +83,7 @@ describe('stationConfigOf', () => {
       configured(
         station({
           judge: judgeOf({
-            rubric: RUBRIC,
+            claims: CLAIMS,
             sample: 0.2,
             minAgreement: 0.6,
           }),

@@ -1,7 +1,9 @@
-import type { RequestHandler } from 'msw';
+import { delay, type RequestHandler } from 'msw';
 
 import type {
   AnswerInboxItemRequestDto,
+  AnswerDisagreementClaimRequestDto,
+  AnswerJudgeDisagreementRequestDto,
   ApproveMemoriesRequestDto,
   CodeReviewResponseDto,
   DisputeDecisionRequestDto,
@@ -9,11 +11,12 @@ import type {
   EditReviewCommentRequestDto,
   GradeResponseDto,
   GradeRunRequestDto,
+  JudgeDisagreementResponseDto,
   MemoryReviewResponseDto,
   ProposedMemoryResponseDto,
-  RunScoresResponseDto,
   SubmitReviewRequestDto,
 } from '@/lib/api';
+import type { RunScores } from '@/lib/judge';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
 import { taskOfRun, teamOfTask, world } from '@/mocks/world';
@@ -85,12 +88,15 @@ const taskOfAnyRun = (runId: string) =>
     ? historyRunOf(runId)?.taskId
     : undefined);
 
-const resolveInboxRequests = (form: 'grade' | 'memories', runId: string) => {
+const resolveInboxRequests = (
+  form: 'grade' | 'memories' | 'judge-disagreement',
+  about: string,
+) => {
   for (const entry of inboxStore().entries) {
     if (
       entry.kind === 'task' &&
       entry.inboxRequest?.form === form &&
-      entry.inboxRequest.about === runId
+      entry.inboxRequest.about === about
     ) {
       entry.resolved = true;
       entry.unread = false;
@@ -444,41 +450,22 @@ const alertHandlers = [
   }),
 ];
 
-const gradeOf = (
-  kind: GradeResponseDto['kind'],
-  input: GradeRunRequestDto,
-): GradeResponseDto => {
-  const base = { by: SAM.id, mine: true, kind, at: now() };
-
-  if (input.claims) {
-    const met = input.claims.filter(Boolean).length;
-    const share = input.claims.length ? met / input.claims.length : 0;
-
-    return {
-      ...base,
-      value: share,
-      claimResults: input.claims,
-      label: `${Math.round(share * 100)}% of claims met`,
-    };
-  }
-  if (typeof input.value === 'boolean') {
-    return {
-      ...base,
-      value: input.value ? 1 : 0,
-      claimResults: null,
-      label: input.value ? 'yes' : 'no',
-    };
-  }
+const gradeOf = (input: GradeRunRequestDto): GradeResponseDto => {
+  const met = input.claims.filter(Boolean).length;
+  const share = input.claims.length ? met / input.claims.length : 0;
 
   return {
-    ...base,
-    value: input.value ?? 0,
-    claimResults: null,
-    label: `${input.value ?? 0}`,
+    by: SAM.id,
+    mine: true,
+    at: now(),
+    value: share,
+    claimResults: input.claims,
+    passes: input.claims.length > 0 && met === input.claims.length,
+    label: `${met} of ${input.claims.length} claims met`,
   };
 };
 
-const scoresFor = (runId: string): RunScoresResponseDto | undefined => {
+const scoresFor = (runId: string): RunScores | undefined => {
   const store = inboxStore();
   const found = store.scores[runId];
   if (found) {
@@ -494,7 +481,11 @@ const scoresFor = (runId: string): RunScoresResponseDto | undefined => {
 };
 
 const scoreHandlers = [
-  api.get('/teams/:teamId/runs/:runId/scores', ({ params }) => {
+  api.get('/teams/:teamId/runs/:runId/scores', async ({ params }) => {
+    if (inboxStore().scoresWait) {
+      await delay('infinite');
+    }
+
     const scores = scoresFor(param(params, 'runId'));
 
     return scores ? json(scores) : notFound();
@@ -508,15 +499,192 @@ const scoreHandlers = [
       return notFound();
     }
 
+    if (inboxStore().gradeSave === 'saving') {
+      await delay('infinite');
+    }
+    if (inboxStore().gradeSave === 'fails-once') {
+      inboxStore().gradeSave = 'saves';
+      return problem(503, 'The grade could not be saved.');
+    }
+    if (inboxStore().gradeSave === 'fails') {
+      return problem(503, 'The grade could not be saved.');
+    }
+
     const input = (await request.json()) as GradeRunRequestDto;
-    scores.grades = [
-      gradeOf(scores.kind, input),
-      ...scores.grades.filter((grade) => !grade.mine),
-    ];
+    const grade = gradeOf(input);
+    scores.grades = [grade, ...scores.grades.filter((each) => !each.mine)];
+    scores.outcome = { source: 'grade', passes: grade.passes };
+    scores.agrees =
+      scores.judge && scores.calibration.qualified
+        ? scores.judge.passes === grade.passes
+        : null;
     resolveInboxRequests('grade', runId);
 
     return json(scores);
   }),
+];
+
+const disagreementOf = (
+  params: Params,
+): JudgeDisagreementResponseDto | undefined => {
+  const disagreement =
+    inboxStore().disagreements[param(params, 'disagreementId')];
+
+  return disagreement &&
+    teamOfAnyTask(disagreement.taskId) === param(params, 'teamId')
+    ? disagreement
+    : undefined;
+};
+
+const notMetFits = (
+  disagreement: JudgeDisagreementResponseDto,
+  answer: AnswerJudgeDisagreementRequestDto,
+): boolean =>
+  answer.shouldHaveFailed === null
+    ? Boolean(answer.note?.trim())
+    : disagreement.claims.some(
+        (each) => each.index === answer.shouldHaveFailed,
+      );
+
+const refusedAnswer = (
+  disagreement: JudgeDisagreementResponseDto,
+): Response | null => {
+  if (disagreement.withdrawnAt) {
+    return problem(
+      409,
+      `Judge disagreement ${disagreement.id} is withdrawn. The judge and people agree now, the claims changed, or the outcome a person gave is gone.`,
+    );
+  }
+  if (disagreement.askedOf && disagreement.askedOf !== SAM.id) {
+    return problem(
+      403,
+      `Judge disagreement ${disagreement.id} asks another person. Only that person can answer it.`,
+    );
+  }
+
+  return null;
+};
+
+const answeredWhole = (disagreement: JudgeDisagreementResponseDto): void => {
+  disagreement.state = 'answered';
+  resolveInboxRequests('judge-disagreement', disagreement.id);
+};
+
+const disagreementHandlers = [
+  api.get(
+    '/teams/:teamId/judge-disagreements/:disagreementId',
+    ({ params }) => {
+      const disagreement = disagreementOf(params);
+
+      return disagreement ? json(disagreement) : notFound();
+    },
+  ),
+
+  api.post(
+    '/teams/:teamId/judge-disagreements/:disagreementId/answer',
+    async ({ params, request }) => {
+      const disagreement = disagreementOf(params);
+
+      if (!disagreement) {
+        return notFound();
+      }
+
+      const refused = refusedAnswer(disagreement);
+
+      if (refused) {
+        return refused;
+      }
+      if (disagreement.notMet) {
+        return problem(409, 'Someone already answered this question.');
+      }
+
+      const answer =
+        (await request.json()) as AnswerJudgeDisagreementRequestDto;
+
+      if (
+        disagreement.disputedClaims.length > 0 ||
+        !notMetFits(disagreement, answer)
+      ) {
+        return problem(
+          422,
+          disagreement.disputedClaims.length > 0
+            ? 'Please answer each claim in dispute on its own.'
+            : 'Please name the claim the run did not meet, or say what was wrong.',
+        );
+      }
+
+      disagreement.notMet = {
+        claim: answer.shouldHaveFailed,
+        note: answer.note?.trim() || null,
+        answeredBy: SAM.id,
+        answeredAt: now(),
+      };
+      answeredWhole(disagreement);
+
+      return json(disagreement);
+    },
+  ),
+
+  api.post(
+    '/teams/:teamId/judge-disagreements/:disagreementId/claims/:claim/answer',
+    async ({ params, request }) => {
+      const disagreement = disagreementOf(params);
+      const claim = Number(param(params, 'claim'));
+
+      if (!disagreement) {
+        return notFound();
+      }
+
+      const refused = refusedAnswer(disagreement);
+
+      if (refused) {
+        return refused;
+      }
+      if (!disagreement.disputedClaims.includes(claim)) {
+        return problem(
+          422,
+          `Claim ${claim + 1} is not in dispute in judge disagreement ${disagreement.id}. Answer only a claim the judge and people read differently.`,
+        );
+      }
+      if (disagreement.answers.some((each) => each.claim === claim)) {
+        return problem(
+          409,
+          `Claim ${claim + 1} of judge disagreement ${disagreement.id} already has an answer.`,
+        );
+      }
+
+      const answer =
+        (await request.json()) as AnswerDisagreementClaimRequestDto;
+
+      if (answer.answer !== 'judge-right' && answer.answer !== 'claim-wrong') {
+        return problem(
+          422,
+          'A judge disagreement must answer a claim with judge-right or claim-wrong.',
+        );
+      }
+
+      disagreement.answers = [
+        ...disagreement.answers,
+        {
+          claim,
+          answer: answer.answer,
+          note: answer.note?.trim() || null,
+          answeredBy: SAM.id,
+          answeredAt: now(),
+        },
+      ].toSorted((one, other) => one.claim - other.claim);
+
+      if (
+        disagreement.disputedClaims.every((each) =>
+          disagreement.answers.some((given) => given.claim === each),
+        )
+      ) {
+        answeredWhole(disagreement);
+      }
+
+      return json(disagreement);
+    },
+  ),
 ];
 
 const codeReviewOf = (runId: string): CodeReviewResponseDto | undefined => {
@@ -832,6 +1000,7 @@ export const inboxHandlers: RequestHandler[] = [
   ...conversationHandlers,
   ...alertHandlers,
   ...scoreHandlers,
+  ...disagreementHandlers,
   ...reviewHandlers,
   ...decisionHandlers,
   ...memoryHandlers,

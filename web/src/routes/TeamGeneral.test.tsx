@@ -385,13 +385,12 @@ describe('TeamGeneral', () => {
     ).toBeInTheDocument();
   });
 
-  it('says when a member could not be added', () => {
+  it('keeps Add a member after a failed add, with no inline error', () => {
     adding.mockReturnValue('failed');
     showing();
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Sorry, the member couldn’t be added.',
-    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add a member' })).toBeEnabled();
   });
 
   it('invites someone new with this team already chosen', async () => {

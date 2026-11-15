@@ -81,10 +81,8 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     memories: row.memories,
     judge: row.judge
       ? StationJudge.of({
-          rubric: row.judge.rubric,
-          claims: row.judge.claims.length > 0 ? row.judge.claims : null,
-          passThreshold:
-            row.judge.claims.length > 0 ? row.judge.passThreshold : null,
+          claims: row.judge.claims,
+          passThreshold: row.judge.passThreshold,
           sample: row.judge.sample,
           minAgreement: row.judge.minAgreement,
         })

@@ -2,15 +2,18 @@ import type {
   CitationResponseDto,
   CitedHunkResponseDto,
   ClaimAgreementResponseDto,
+  ClaimsSourceResponseDto,
   GradeResponseDto,
   JudgeCalibrationResponseDto,
   JudgeCoverageResponseDto,
   JudgeReasonResponseDto,
   RubricVersionResponseDto,
+  RunHumanOutcomeResponseDto,
   RunScoresResponseDto,
   StationJudgeAgreementResponseDto,
   TrendPointResponseDto,
 } from '@/lib/api';
+import type { LineRange } from '@/lib/changes';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import type { TooltipNote } from '@/lib/tooltip-note';
 
@@ -26,6 +29,8 @@ export type TrendPoint = TrendPointResponseDto;
 
 export type RunScores = RunScoresResponseDto;
 
+export type RunOutcome = RunHumanOutcomeResponseDto;
+
 export type JudgeReason = JudgeReasonResponseDto;
 
 export type Citation = CitationResponseDto;
@@ -36,83 +41,84 @@ export type Grade = GradeResponseDto;
 
 export type ClaimAgreement = ClaimAgreementResponseDto;
 
-export type ScoreKind = RunScores['kind'];
-
-export type RatedKind = Exclude<ScoreKind, 'claims'>;
-
-export type GradeValue = boolean | number;
-
-export type GradeAnswer =
-  | { readonly value: GradeValue }
-  | { readonly claims: readonly boolean[] };
-
-export type GradeOption = {
-  readonly value: GradeValue;
-  readonly label: string;
-};
-
-const YES_NO: readonly GradeOption[] = [
-  { value: true, label: 'Yes' },
-  { value: false, label: 'No' },
-];
-
-const ONE_TO_FIVE: readonly GradeOption[] = [1, 2, 3, 4, 5].map((value) => ({
-  value,
-  label: String(value),
-}));
-
-export const gradeOptions = (kind: RatedKind): readonly GradeOption[] =>
-  kind === 'yes-no' ? YES_NO : ONE_TO_FIVE;
-
-export const valueOfGrade = (kind: RatedKind, value: GradeValue): number =>
-  kind === 'yes-no' ? (value ? 1 : 0) : Number(value);
-
-const formatClaimsMet = (marks: readonly boolean[]): string =>
+export const formatClaimsMet = (marks: readonly boolean[]): string =>
   `${marks.filter(Boolean).length} of ${marks.length} claims met`;
 
-export const formatScore = (score: {
-  readonly kind: ScoreKind;
-  readonly label: string;
-  readonly claimResults?: readonly boolean[] | null;
-}): string => {
-  switch (score.kind) {
-    case 'yes-no':
-      return score.label === 'yes' ? 'Yes' : 'No';
-    case 'number':
-      return `${score.label} of 5`;
-    case 'claims':
-      return score.claimResults
-        ? formatClaimsMet(score.claimResults)
-        : score.label;
+export const formatVerdict = (score: { readonly passes: boolean }): string =>
+  score.passes ? 'Passed' : 'Failed';
+
+const OUTCOMES: Record<Exclude<RunOutcome['source'], 'grade'>, string> = {
+  accepted: 'Accepted',
+  'sent-back': 'Sent back',
+  merged: 'Pull request merged',
+  closed: 'Pull request closed',
+};
+
+export const formatOutcome = (outcome: RunOutcome): string => {
+  if (outcome.source === 'grade') {
+    return outcome.passes ? 'Passed by people' : 'Failed by people';
   }
+
+  return OUTCOMES[outcome.source];
 };
 
-export const sharesOn = (kind: ScoreKind): boolean => kind !== 'number';
+export const formatJudgeOutcome = (passes: boolean): string =>
+  passes ? 'Passed by the judge' : 'Failed by the judge';
 
-const TREND_CAPTIONS: Record<ScoreKind, string> = {
-  'yes-no': 'share scored yes, by day',
-  number: 'mean score, by day',
-  claims: 'share of claims met, by day',
+export const DISAGREES_LABEL = 'The judge disagrees with people';
+
+export const DISAGREES_NOTE =
+  'The judge and people give different verdicts on this run. Spotlight asks the person why, to improve the claims.';
+
+export const VERDICTS_TITLE = 'Verdicts';
+
+export const PEOPLE_LABEL = 'People';
+
+export const JUDGE_LABEL = 'Judge';
+
+export const HIDDEN_VERDICT = 'Hidden';
+
+export const graderName = (
+  grade: Grade,
+  members: readonly { readonly id: string; readonly name: string }[] = [],
+): string =>
+  grade.mine
+    ? 'You'
+    : (members.find((each) => each.id === grade.by)?.name ?? 'Someone');
+
+export type ClaimGrade = {
+  readonly grader: string;
+  readonly marks: readonly boolean[];
 };
 
-export const TREND_TITLE = 'Scores by day';
+export const graderColumnName = (
+  grade: Grade,
+  members: readonly { readonly id: string; readonly name: string }[] = [],
+): string => {
+  const name = graderName(grade, members);
+  return name.split(' ')[0] ?? name;
+};
 
-export const formatTrendCaption = (kind: ScoreKind): string =>
-  sentenceOf(TREND_CAPTIONS[kind]);
+export const CLAIM_ANSWERS = [
+  { met: true, label: 'Yes' },
+  { met: false, label: 'No' },
+] as const;
 
-const sentenceOf = (words: string): string =>
-  `${words.charAt(0).toUpperCase()}${words.slice(1)}.`;
+export const TREND_TITLE = 'Pass rate by day';
+
+export const TREND_CAPTION =
+  'The share of runs that pass each day, by the judge and by people. Lines far apart mean they disagree.';
 
 export const trendWaitNote = (version: RubricVersion): string =>
-  `No trend yet. It shows at ${version.trendMinPairs} runs with both scores, on more than one day.`;
+  `No trend yet. It shows at ${version.trendMinPairs} runs with both verdicts, on more than one day.`;
 
 export const coverageTitle = (coverage: JudgeCoverage): string =>
-  `Last ${coverage.runs} runs by scorer`;
+  `Verdicts on the last ${coverage.runs} runs`;
 
-export const COVERAGE_SKELETON_TITLE = 'Last runs by scorer';
+export const COVERAGE_SKELETON_TITLE = 'Verdicts on the last runs';
 
 export const COVERAGE_NOTE =
-  'Who scored each of the station’s last runs, on any rubric. Only runs with both scores count towards agreement.';
+  'Who gave a verdict on each of the station’s last runs, on any version of its claims. Only runs with both verdicts count towards agreement.';
 
 export const CLAIMS_TITLE = 'Agreement by claim';
 
@@ -130,46 +136,42 @@ export const formatPassThreshold = (passThreshold: number): string =>
 
 export const CLAIMS_LABEL = 'Claims';
 
-const CLAIMS_QUESTION = 'Does the run meet each claim?';
-
-export const RUBRIC_LABEL = 'Rubric';
-
-const gradeQuestion = (kind: RatedKind, byRubric: boolean): string => {
-  if (kind === 'yes-no') {
-    return byRubric ? 'Does this run meet the rubric?' : 'Is this a good run?';
-  }
-
-  return byRubric
-    ? 'How well does this run meet the rubric, from 1 to 5?'
-    : 'How good is this run, from 1 to 5?';
-};
-
-export const gradeHeading = (kind: ScoreKind, byRubric: boolean): string =>
-  kind === 'claims' ? CLAIMS_QUESTION : gradeQuestion(kind, byRubric);
+export const CLAIMS_QUESTION = 'Does the run meet each claim?';
 
 export const SAVING_GRADE = 'Saving…';
 
-export const RUBRIC_TEXT_LABEL = 'The judge’s rubric';
+export const WAITING_FOR_GRADE = 'Waiting for your grade';
+
+export const GRADED_BY_YOU = 'Graded by you';
+
+export const SAVE_GRADE = 'Save grade';
+
+export const ANSWER_EVERY_CLAIM_TO_SAVE = 'Answer every claim to save';
+
+export const CHANGE_AN_ANSWER_TO_SAVE = 'Change an answer to save again';
+
+export const EARLIER_CLAIMS_NOTE =
+  'This run ran on earlier claims. Grade it on the claims it ran with.';
 
 const CLAIM_COLUMN = 'Claim';
 
 const KAPPA_COLUMN = 'Cohen’s kappa';
 
-const AGREED_COLUMN = 'Agreed';
+const SAME_VERDICT_COLUMN = 'Same verdict';
+
+const CLAIMS_VERSION_COLUMN = 'Claims';
 
 const RUNS_COLUMN = 'Runs';
 
-export const YOUR_GRADE = 'Your grade';
+const MINIMUM_NOTE = 'Below the minimum, judge verdicts are hidden.';
 
-const MEASURES: Record<NonNullable<JudgeCalibration['measure']>, string> = {
-  kappa: 'Cohen’s kappa',
-  spearman: 'Spearman’s ρ',
-};
+export const belowMinimumNote = (calibration: JudgeCalibration): string =>
+  `Below the minimum, ${formatStat(calibration.minAgreement)}. Judge verdicts are hidden on runs.`;
 
-const formatMeasure = (measure: JudgeCalibration['measure']): string =>
-  measure ? MEASURES[measure] : 'Agreement';
+export const tooFewRunsNote = (calibration: JudgeCalibration): string =>
+  `Agreement shows at ${calibration.minPairs} runs with a verdict from the judge and from people. Runs so far: ${calibration.pairs}.`;
 
-const MINIMUM_NOTE = 'Below the minimum, judge scores are hidden.';
+export const NOT_MEASURED = 'Not measured';
 
 type Reading = NonNullable<JudgeCalibration['reading']>;
 
@@ -180,34 +182,22 @@ const READING_WORDS: Record<Reading, string> = {
   fair: 'Fair',
   slight: 'Slight',
   chance: 'No better than chance',
-  'very-strong': 'Very strong',
-  strong: 'Strong',
-  weak: 'Weak',
-  inverse: 'Inverse',
 };
 
 export const readingWord = (reading: Reading | null): string | null =>
   reading ? READING_WORDS[reading] : null;
 
 const KAPPA_ROWS: TooltipNote['rows'] = [
-  ['0.81 – 1.00', 'Almost perfect'],
-  ['0.61 – 0.80', 'Substantial'],
-  ['0.41 – 0.60', 'Moderate'],
-  ['0.21 – 0.40', 'Fair'],
-  ['0.01 – 0.20', 'Slight'],
+  ['0.81 to 1.00', 'Almost perfect'],
+  ['0.61 to 0.80', 'Substantial'],
+  ['0.41 to 0.60', 'Moderate'],
+  ['0.21 to 0.40', 'Fair'],
+  ['0.01 to 0.20', 'Slight'],
   ['0 and below', 'No better than chance'],
 ];
 
-const CORRELATION_ROWS: TooltipNote['rows'] = [
-  ['0.90 – 1.00', 'Very strong'],
-  ['0.70 – 0.89', 'Strong'],
-  ['0.50 – 0.69', 'Moderate'],
-  ['0 – 0.49', 'Weak'],
-  ['Below 0', 'Inverse'],
-];
-
 const KAPPA_BODY =
-  'How often the judge and people give the same score to the same run, beyond what chance would give. 1 is perfect agreement.';
+  'How often the judge and people give the same verdict, pass or fail, to the same run, beyond what chance would give. 1 is perfect agreement.';
 
 const kappaNoteOf = (lead: string | null = null): TooltipNote => ({
   title: 'Cohen’s kappa',
@@ -215,31 +205,10 @@ const kappaNoteOf = (lead: string | null = null): TooltipNote => ({
   rows: KAPPA_ROWS,
 });
 
-const correlationNoteOf = (title: string, ranked: boolean): TooltipNote => ({
-  title,
-  body: ranked
-    ? 'How closely the judge ranks runs the way people do. 1 means the same order and 0 means no relation.'
-    : 'How closely the judge’s scores rise and fall with people’s. 1 means they move in step and 0 means no relation.',
-  rows: CORRELATION_ROWS,
+export const measureNote = (): TooltipNote => ({
+  ...kappaNoteOf(),
+  body: `${KAPPA_BODY} ${MINIMUM_NOTE}`,
 });
-
-const MEASURE_NOTES: Record<
-  NonNullable<JudgeCalibration['measure']>,
-  TooltipNote
-> = {
-  kappa: kappaNoteOf(),
-  spearman: correlationNoteOf('Spearman’s ρ', true),
-};
-
-export const measureNote = (
-  measure: JudgeCalibration['measure'],
-): TooltipNote | null =>
-  measure
-    ? {
-        ...MEASURE_NOTES[measure],
-        body: `${MEASURE_NOTES[measure].body} ${MINIMUM_NOTE}`,
-      }
-    : null;
 
 export const formatStat = (value: number | null): string =>
   value === null ? '–' : value.toFixed(2);
@@ -252,20 +221,22 @@ const PERCENT = new Intl.NumberFormat('en', {
 export const formatPercent = (share: number | null): string =>
   share === null ? '–' : PERCENT.format(share);
 
+export const NO_JUDGE = 'This station has no judge.';
+
 export const formatCalibration = (calibration: JudgeCalibration): string => {
   switch (calibration.hiddenReason) {
     case null:
-      return `Qualified. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)} over ${calibration.pairs} runs. Minimum required: ${formatStat(calibration.minAgreement)}`;
+      return `Qualified. Cohen’s kappa: ${formatStat(calibration.agreement)} over ${calibration.pairs} runs. Minimum required: ${formatStat(calibration.minAgreement)}`;
     case 'no-judge':
-      return 'This station has no judge. There are no scores to trust.';
+      return NO_JUDGE;
     case 'unreadable-rubric':
-      return 'Judge scores are hidden. The rubric names a scale that cannot be read.';
+      return 'Judge verdicts are hidden. The judge’s claims cannot be read.';
     case 'too-few-pairs':
-      return `Judge scores are hidden until ${calibration.minPairs} runs have scores from both the judge and people. Runs so far: ${calibration.pairs}.`;
+      return `Judge verdicts are hidden until ${calibration.minPairs} runs have a verdict from the judge and from people. Runs so far: ${calibration.pairs}.`;
     case 'no-agreement':
-      return 'Judge scores are hidden. Agreement cannot be measured while all scores are the same.';
+      return 'Judge verdicts are hidden. Agreement cannot be measured while every verdict is the same.';
     case 'below-min-agreement':
-      return `Judge scores are hidden. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)}. Minimum required: ${formatStat(calibration.minAgreement)}.`;
+      return `Judge verdicts are hidden. Cohen’s kappa: ${formatStat(calibration.agreement)}. Minimum required: ${formatStat(calibration.minAgreement)}.`;
   }
 };
 
@@ -276,24 +247,24 @@ export type ScoreVisibility = {
   readonly reason: string | null;
 };
 
-const SHOWN_TEXT = 'Judge scores show on runs.';
+const SHOWN_TEXT = 'Judge verdicts show on runs.';
 
-const HIDDEN_TEXT = 'Judge scores are hidden on runs.';
+const HIDDEN_TEXT = 'Judge verdicts are hidden on runs.';
 
 const hiddenBecause = (calibration: JudgeCalibration): string => {
   switch (calibration.hiddenReason) {
     case 'too-few-pairs':
-      return `They show when ${calibration.minPairs} runs have scores from both the judge and people.`;
+      return `They show when ${calibration.minPairs} runs have a verdict from the judge and from people.`;
     case 'below-min-agreement':
-      return `${formatMeasure(calibration.measure)} is below the minimum, ${formatStat(calibration.minAgreement)}.`;
+      return `Cohen’s kappa is below the minimum, ${formatStat(calibration.minAgreement)}.`;
     case 'no-agreement':
-      return 'Agreement cannot be measured while all scores are the same.';
+      return 'Agreement cannot be measured while every verdict is the same.';
     case 'unreadable-rubric':
-      return 'The rubric names a scale that cannot be read.';
+      return 'The judge’s claims cannot be read.';
     case 'no-judge':
     case null:
     default:
-      return 'This station has no judge.';
+      return NO_JUDGE;
   }
 };
 
@@ -309,9 +280,6 @@ export const scoreVisibility = (
         reason: hiddenBecause(calibration),
       };
 
-export const formatPairsProgress = (calibration: JudgeCalibration): string =>
-  `${calibration.pairs} of ${calibration.minPairs} runs`;
-
 export const formatDay = (day: string): string =>
   new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
     month: 'short',
@@ -319,16 +287,37 @@ export const formatDay = (day: string): string =>
     timeZone: 'UTC',
   });
 
-export const formatHunk = (hunk: CitedHunk): string =>
-  hunk.path
-    ? `${hunk.path.slice(hunk.path.lastIndexOf('/') + 1)} ${hunk.header ?? ''}`.trim()
-    : hunk.id;
+const NEW_SIDE = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))?/;
+
+export const formatHunk = (hunk: CitedHunk): string => {
+  if (!hunk.path) {
+    return hunk.id;
+  }
+
+  const file = hunk.path.slice(hunk.path.lastIndexOf('/') + 1);
+  const line = hunk.header?.match(NEW_SIDE)?.[1];
+
+  return line ? `${file}:${line}` : file;
+};
+
+export const lineRangeOf = (hunk: CitedHunk): LineRange | null => {
+  const found = hunk.header?.match(NEW_SIDE);
+
+  if (!found?.[1]) {
+    return null;
+  }
+
+  const start = Number(found[1]);
+  const count = found[2] === undefined ? 1 : Number(found[2]);
+
+  return { start, end: start + Math.max(count, 1) - 1 };
+};
 
 export const formatStep = (citation: Citation): string =>
-  `Step ${citation.step?.index ?? ''}`.trim();
+  `step ${citation.step?.index ?? ''}`.trim();
 
 export const COVERAGE_PARTS = [
-  { key: 'both', label: 'Both scores' },
+  { key: 'both', label: 'Both' },
   { key: 'judgeOnly', label: 'Judge only' },
   { key: 'peopleOnly', label: 'People only' },
   { key: 'neither', label: 'Neither' },
@@ -351,13 +340,7 @@ export type PairsStat = {
   readonly note: TooltipNote;
 };
 
-const PAIRS_LABEL = 'Runs both scored';
-
-const PENDING_FIGURES: Record<ScoreKind, string> = {
-  'yes-no': 'Kappa, same score and F1',
-  claims: 'Kappa, same score and F1',
-  number: 'Correlations and errors',
-};
+export const PAIRS_LABEL = 'Runs with both verdicts';
 
 export const pairsStat = (
   version: RubricVersion,
@@ -371,47 +354,26 @@ export const pairsStat = (
     value: measured ? String(pairs) : `${pairs} of ${minPairs}`,
     detail: measured
       ? `Of ${version.judged} judged`
-      : `${PENDING_FIGURES[version.kind]} show at ${minPairs} runs.`,
+      : `Kappa and same verdict show at ${minPairs} runs.`,
     progress: measured ? null : pairsProgress,
     note: {
       title: PAIRS_LABEL,
-      body: `Runs on this rubric that both the judge and people scored, out of the runs on this rubric that the judge scored. Agreement needs ${minPairs} runs. The trend needs ${version.trendMinPairs} runs.`,
+      body: `Runs on these claims that have a verdict from the judge and from people, out of the runs on these claims that the judge judged. Agreement needs ${minPairs} runs. The trend needs ${version.trendMinPairs} runs.`,
     },
   };
 };
 
-const UNITS: Record<ScoreKind, readonly [one: string, many: string]> = {
-  'yes-no': ['run', 'runs'],
-  number: ['run', 'runs'],
-  claims: ['claim', 'claims'],
-};
+const unitOf = (count: number): string => (count === 1 ? 'run' : 'runs');
 
-const unitOf = (kind: ScoreKind, count: number): string =>
-  UNITS[kind][count === 1 ? 0 : 1];
-
-const sameScoreDetail = (version: RubricVersion): string =>
-  `${version.agreement.agreed} of ${version.agreement.compared} ${unitOf(version.kind, version.agreement.compared)}`;
-
-const readingDetail = (
-  reading: string | null,
-  version: RubricVersion,
-  calibration: JudgeCalibration,
-): string | null =>
-  version.agreement.belowMinimum && reading
-    ? `${reading} · minimum ${formatStat(calibration.minAgreement)}`
-    : reading;
-
-const ERROR_NOTE = (title: string, body: string): TooltipNote => ({
-  title,
-  body: `${body} Lower is better.`,
-});
+const sameVerdictDetail = (version: RubricVersion): string =>
+  `${version.agreement.agreed} of ${version.agreement.compared} ${unitOf(version.agreement.compared)}`;
 
 export const comparisonStats = (
   version: RubricVersion,
   calibration: JudgeCalibration,
 ): ComparisonStat[] =>
   version.agreement.measured
-    ? measuredStats(version, calibration).map((stat) =>
+    ? measuredStats(version).map((stat) =>
         stat.gauge === undefined || calibration.minAgreement === null
           ? stat
           : {
@@ -424,81 +386,25 @@ export const comparisonStats = (
       )
     : [];
 
-const measuredStats = (
-  version: RubricVersion,
-  calibration: JudgeCalibration,
-): ComparisonStat[] => {
+const measuredStats = (version: RubricVersion): ComparisonStat[] => {
   const { agreement } = version;
-  const { readings } = agreement;
-
-  if (version.kind === 'number') {
-    return [
-      {
-        label: 'Pearson’s r',
-        value: formatStat(agreement.pearson),
-        detail: readingWord(readings.pearson),
-        note: correlationNoteOf('Pearson’s r, the Pearson correlation', false),
-      },
-      {
-        label: 'Spearman’s ρ',
-        value: formatStat(agreement.spearman),
-        detail: readingDetail(
-          readingWord(readings.spearman),
-          version,
-          calibration,
-        ),
-        gauge: agreement.spearman,
-        failing: agreement.belowMinimum,
-        note: correlationNoteOf('Spearman’s ρ, the Spearman correlation', true),
-      },
-      {
-        label: 'MAE',
-        value: formatStat(agreement.mae),
-        detail: null,
-        note: ERROR_NOTE(
-          'Mean absolute error (MAE)',
-          'How far the judge’s score is from people’s on average, in points on the rubric’s scale.',
-        ),
-      },
-      {
-        label: 'RMSE',
-        value: formatStat(agreement.rmse),
-        detail: null,
-        note: ERROR_NOTE(
-          'Root mean square error (RMSE)',
-          'Like mean absolute error, but large misses count for more.',
-        ),
-      },
-    ];
-  }
-
   return [
     {
       label: 'Cohen’s kappa',
       value: formatStat(agreement.kappa),
-      detail: readingDetail(readingWord(readings.kappa), version, calibration),
+      detail: readingWord(agreement.reading),
       gauge: agreement.kappa,
       failing: agreement.belowMinimum,
-      note: kappaNoteOf(
-        version.kind === 'claims' ? 'It covers every claim together.' : null,
-      ),
+      note: kappaNoteOf(),
     },
     {
-      label: 'Same score',
+      label: 'Same verdict',
       value: formatPercent(agreement.observed),
-      detail: sameScoreDetail(version),
+      detail: sameVerdictDetail(version),
       note: {
-        title: 'Same score',
-        body: 'The share of runs where the judge and people gave the same score. It also counts scores that agree by chance. Read it together with kappa.',
-      },
-    },
-    {
-      label: 'F1 score',
-      value: formatStat(agreement.f1),
-      detail: null,
-      note: {
-        title: 'F1 score',
-        body: 'How well the judge finds the runs people scored yes. 1 is a perfect match.',
+        title: 'Same verdict',
+        body: 'The share of runs where the judge and people gave the same verdict, pass or fail. It also counts verdicts that agree by chance. Read it together with kappa. The F1 score shows how well the judge finds the runs that people passed, where 1 is a perfect match.',
+        rows: [['F1 score', formatStat(agreement.f1)]],
       },
     },
   ];
@@ -506,23 +412,72 @@ const measuredStats = (
 
 export const formatRubric = (version: RubricVersion): string =>
   version.current
-    ? 'Current rubric'
-    : `Rubric until ${formatDay(version.lastAt.slice(0, 10))}`;
+    ? 'Current claims'
+    : `Claims until ${formatDay(version.lastAt.slice(0, 10))}`;
+
+export const CURRENT_VERSION = 'Current';
+
+type ClaimsSource = ClaimsSourceResponseDto;
+
+export type VersionLink = {
+  readonly label: string;
+  readonly href: string;
+  readonly title: string;
+};
+
+export const versionLinkOf = (
+  source: ClaimsSource | null,
+): VersionLink | null => {
+  if (!source) {
+    return null;
+  }
+
+  const { pullRequest } = source;
+
+  return pullRequest
+    ? {
+        label: source.shortSha,
+        href: pullRequest.url,
+        title: pullRequest.title || `Pull request #${pullRequest.number}`,
+      }
+    : {
+        label: source.shortSha,
+        href: source.url,
+        title: `Commit in ${source.repository}`,
+      };
+};
 
 export const CLAIM_HEADINGS: readonly NestedHeading[] = [
   { label: CLAIM_COLUMN, indent: 'edge', size: 'minmax(12rem,3fr)' },
   { label: KAPPA_COLUMN, size: 'minmax(10rem,2fr)' },
-  { label: AGREED_COLUMN, numeric: true, size: SPREAD },
+  { label: SAME_VERDICT_COLUMN, numeric: true, size: SPREAD },
   { label: RUNS_COLUMN, numeric: true, size: SPREAD },
 ];
 
+export const VERSIONS_TITLE = 'Agreement by claims version';
+
+export const VERSION_HEADINGS: readonly NestedHeading[] = [
+  { label: CLAIMS_VERSION_COLUMN, indent: 'edge', size: 'minmax(12rem,3fr)' },
+  { label: KAPPA_COLUMN, size: 'minmax(10rem,2fr)' },
+  { label: SAME_VERDICT_COLUMN, numeric: true, size: SPREAD },
+  { label: RUNS_COLUMN, numeric: true, size: SPREAD },
+];
+
+export const SAME_VERDICT = SAME_VERDICT_COLUMN;
+
+export const RUNS = RUNS_COLUMN;
+
 export const kappaNote = (): TooltipNote => kappaNoteOf();
 
+const AXIS_LABELS: Readonly<Record<string, string>> = {
+  passes: 'Passed',
+  fails: 'Failed',
+};
+
 export const formatAxisLabel = (label: string): string =>
-  `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+  AXIS_LABELS[label] ?? `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
 
 export const confusionCellNote = (
-  kind: ScoreKind,
   judge: string,
   people: string,
   count: number,
@@ -531,17 +486,13 @@ export const confusionCellNote = (
   rows: [
     ['Judge', formatAxisLabel(judge)],
     ['People', formatAxisLabel(people)],
-    [formatAxisLabel(UNITS[kind][1]), `${count} ${unitOf(kind, count)}`],
+    ['Runs', `${count} ${unitOf(count)}`],
   ],
 });
 
-export const CONFUSION_TITLE = 'Judge against people';
+export const CONFUSION_TITLE = 'Judge compared with people';
 
-export const confusionNote = (kind: ScoreKind): TooltipNote => {
-  const units = UNITS[kind][1];
-
-  return {
-    title: CONFUSION_TITLE,
-    body: `Rows are the judge’s score. Columns are people’s score. Cells on the diagonal are ${units} where they agree, in grey. Cells off the diagonal are ${units} where they disagree, in red. A stronger colour means more ${units}.${kind === 'claims' ? ' Each run counts once per claim.' : ''}`,
-  };
-};
+export const confusionNote = (): TooltipNote => ({
+  title: CONFUSION_TITLE,
+  body: 'Rows are the judge’s verdict. Columns are people’s verdict. Cells on the diagonal are runs where they agree, in indigo. Cells off the diagonal are runs where they disagree, in red. A stronger colour means more runs.',
+});

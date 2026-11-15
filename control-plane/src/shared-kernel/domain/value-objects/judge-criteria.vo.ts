@@ -1,65 +1,48 @@
 import { InvalidJudgeCriteriaError } from '@shared-kernel/domain/exceptions/invalid-judge-criteria.error';
-import { InvalidRubricScaleError } from '@shared-kernel/domain/exceptions/invalid-rubric-scale.error';
-import { JudgeScale } from '@shared-kernel/domain/value-objects/judge-scale.vo';
-import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo';
+import {
+  ALL_CLAIMS,
+  claimsPass,
+  isPassThreshold,
+} from '@shared-kernel/domain/value-objects/claim-share';
 
-const MAX_CLAIMS = 20;
+export const MAX_CLAIMS = 20;
 
-const scaleOfRubric = (text: string): JudgeScale => {
-  try {
-    return JudgeScale.of(RubricScale.of(text).kind);
-  } catch (error) {
-    if (error instanceof InvalidRubricScaleError) {
-      throw new InvalidJudgeCriteriaError(
-        `rubric is invalid. ${error.message.replace(/\.$/, '')}`,
-      );
-    }
-    throw error;
-  }
-};
+export const MAX_CLAIM_LENGTH = 500;
 
 export class JudgeCriteria {
   private constructor(
-    readonly rubric: string | null,
     readonly claims: readonly string[],
     readonly passThreshold: number,
-    readonly scale: JudgeScale,
   ) {}
 
   static of(input: {
-    rubric: string | null;
-    claims?: readonly string[];
+    claims: readonly string[];
     passThreshold?: number;
   }): JudgeCriteria {
-    const rubric = input.rubric?.trim() ? input.rubric : null;
-    const claims = (input.claims ?? []).map((each) => each.trim());
-    const passThreshold = input.passThreshold ?? 1;
+    const claims = input.claims.map((each) => each.trim());
+    const passThreshold = input.passThreshold ?? ALL_CLAIMS;
 
-    if (rubric === null && claims.length === 0) {
-      throw new InvalidJudgeCriteriaError('needs a rubric or claims');
-    }
-    if (claims.length > MAX_CLAIMS || claims.some((each) => !each)) {
+    if (claims.length === 0 || claims.length > MAX_CLAIMS) {
       throw new InvalidJudgeCriteriaError(
-        `claims must be at most ${MAX_CLAIMS}, none empty`,
+        `must list 1 to ${MAX_CLAIMS} claims`,
       );
     }
-    if (
-      !Number.isFinite(passThreshold) ||
-      passThreshold < 0 ||
-      passThreshold > 1
-    ) {
-      throw new InvalidJudgeCriteriaError('pass threshold must be from 0 to 1');
+    if (claims.some((each) => !each || each.length > MAX_CLAIM_LENGTH)) {
+      throw new InvalidJudgeCriteriaError(
+        `claims must each be 1 to ${MAX_CLAIM_LENGTH} characters`,
+      );
+    }
+    if (!isPassThreshold(passThreshold)) {
+      throw new InvalidJudgeCriteriaError(
+        'pass threshold must be above 0, up to 1',
+      );
     }
 
-    const scale =
-      claims.length > 0 ? JudgeScale.of('claims') : scaleOfRubric(rubric ?? '');
-
-    return new JudgeCriteria(rubric, claims, passThreshold, scale);
+    return new JudgeCriteria(claims, passThreshold);
   }
 
   static readable(input: {
-    rubric: string | null;
-    claims?: readonly string[];
+    claims: readonly string[];
     passThreshold?: number;
   }): JudgeCriteria | null {
     try {
@@ -72,9 +55,15 @@ export class JudgeCriteria {
     }
   }
 
+  passes(claimResults: readonly boolean[]): boolean {
+    return (
+      claimResults.length === this.claims.length &&
+      claimsPass(claimResults, this.passThreshold)
+    );
+  }
+
   equals(other: JudgeCriteria): boolean {
     return (
-      this.rubric === other.rubric &&
       this.passThreshold === other.passThreshold &&
       this.claims.length === other.claims.length &&
       this.claims.every((each, at) => each === other.claims[at])

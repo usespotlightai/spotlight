@@ -5,13 +5,21 @@ import type { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import {
+  LIVE,
+  type ScoreOrigin,
+} from '@insights/domain/value-objects/score-origin';
 import {
   fromJudgeSource,
   type ScoreSource,
 } from '@insights/domain/value-objects/score-source';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import {
+  claimShareOf,
+  isPassThreshold,
+  passesAt,
+} from '@shared-kernel/domain/value-objects/claim-share';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -25,10 +33,10 @@ interface ScoreFields {
   readonly location: RunLocation;
   readonly fingerprint: string | null;
   readonly source: ScoreSource;
-  readonly scale: ScoreScale;
-  readonly value: number;
-  readonly claimResults: readonly boolean[] | null;
-  readonly rubricVersion: string | null;
+  readonly origin: ScoreOrigin;
+  readonly claimResults: readonly boolean[];
+  readonly passThreshold: number;
+  readonly rubricVersion: string;
   readonly model: string | null;
   readonly reasons: readonly JudgeReason[];
   readonly seen: SeenEvidence;
@@ -42,55 +50,43 @@ interface ScoreState extends Omit<
   'fingerprint' | 'rubricVersion'
 > {
   readonly fingerprint: ConfigFingerprint | null;
-  readonly rubricVersion: RubricVersion | null;
+  readonly rubricVersion: RubricVersion;
 }
 
-const claimResultsValid = (state: ScoreState): boolean => {
-  const { claimResults } = state;
-
-  if (!state.scale.marks(state.value, claimResults)) {
-    return false;
-  }
-  if (claimResults === null) {
-    return state.reasons.every((each) => each.claim === null);
-  }
-
-  return (
-    state.source !== 'judge' ||
-    (state.reasons.every(
-      (each) => each.claim !== null && each.claim < claimResults.length,
-    ) &&
-      claimResults.every((_, at) =>
-        state.reasons.some((each) => each.claim === at),
-      ))
+const reasonsMarkEachClaim = (state: ScoreState): boolean =>
+  state.reasons.every(
+    (each) => each.claim !== null && each.claim < state.claimResults.length,
+  ) &&
+  state.claimResults.every((_, at) =>
+    state.reasons.some((each) => each.claim === at),
   );
-};
 
 const checked = (fields: ScoreFields): ScoreState => {
   const state: ScoreState = {
     ...fields,
+    claimResults: [...fields.claimResults],
     fingerprint: ConfigFingerprint.optional(fields.fingerprint),
-    rubricVersion: RubricVersion.optional(fields.rubricVersion),
+    rubricVersion: RubricVersion.of(fields.rubricVersion),
   };
 
-  if (!state.scale.includes(state.value)) {
-    throw new InvalidScoreError(
-      `${state.value} is not on the ${state.scale.kind} scale`,
-    );
+  if (state.claimResults.length === 0) {
+    throw new InvalidScoreError('must mark each claim as met or not met');
   }
-  if (!claimResultsValid(state)) {
-    throw new InvalidScoreError('must mark claims only on a claims scale');
+  if (!isPassThreshold(state.passThreshold)) {
+    throw new InvalidScoreError('pass threshold must be above 0, up to 1');
   }
 
   if (state.source === 'judge') {
-    if (state.rubricVersion === null || !state.model?.trim()) {
-      throw new InvalidScoreError(
-        'from the judge must name its rubric and model',
-      );
+    if (!state.model?.trim()) {
+      throw new InvalidScoreError('from the judge must name its model');
     }
-    if (state.reasons.length === 0 || state.by !== null) {
+    if (
+      state.reasons.length === 0 ||
+      state.by !== null ||
+      !reasonsMarkEachClaim(state)
+    ) {
       throw new InvalidScoreError(
-        'from the judge must state reasons and no grader',
+        'from the judge must give a reason for each claim and no grader',
       );
     }
     if (
@@ -103,12 +99,13 @@ const checked = (fields: ScoreFields): ScoreState => {
     }
   } else if (
     state.by === null ||
+    state.origin !== LIVE ||
     state.model !== null ||
     state.reasons.length > 0 ||
     !state.seen.isEmpty
   ) {
     throw new InvalidScoreError(
-      'from a person must name its grader, without model or reasons',
+      'from a person must name its grader, without model, reasons or backfill',
     );
   }
 
@@ -128,15 +125,16 @@ export class Score extends EventRecorder {
     workspaceId: WorkspaceId;
     location: RunLocation;
     fingerprint: string | null;
-    scale: ScoreScale;
-    value: number;
-    claimResults: readonly boolean[] | null;
+    claimResults: readonly boolean[];
+    passThreshold: number;
     rubricVersion: string;
     model: string;
     reasons: readonly JudgeReason[];
     seen: SeenEvidence;
     at: Date;
+    origin?: ScoreOrigin;
   }): Score {
+    const origin = input.origin ?? LIVE;
     const judged = new Score(
       checked({
         ...input,
@@ -144,12 +142,20 @@ export class Score extends EventRecorder {
           .citedBy(input.reasons.flatMap((each) => each.citations))
           .within(MAX_SEEN_CHARS),
         source: 'judge',
+        origin,
         by: null,
         version: 0,
       }),
     );
     judged.record(
-      new ScoreRecorded(input.id, input.runId, input.location, 'judge'),
+      new ScoreRecorded(
+        input.id,
+        input.runId,
+        input.workspaceId,
+        input.location,
+        'judge',
+        origin,
+      ),
     );
     return judged;
   }
@@ -160,10 +166,9 @@ export class Score extends EventRecorder {
     workspaceId: WorkspaceId;
     location: RunLocation;
     fingerprint: string | null;
-    scale: ScoreScale;
-    value: number;
-    claimResults: readonly boolean[] | null;
-    rubricVersion: string | null;
+    claimResults: readonly boolean[];
+    passThreshold: number;
+    rubricVersion: string;
     by: UserId;
     at: Date;
   }): Score {
@@ -171,6 +176,7 @@ export class Score extends EventRecorder {
       checked({
         ...input,
         source: 'person',
+        origin: LIVE,
         model: null,
         reasons: [],
         seen: SeenEvidence.none(),
@@ -178,7 +184,14 @@ export class Score extends EventRecorder {
       }),
     );
     graded.record(
-      new ScoreRecorded(input.id, input.runId, input.location, 'person'),
+      new ScoreRecorded(
+        input.id,
+        input.runId,
+        input.workspaceId,
+        input.location,
+        'person',
+        LIVE,
+      ),
     );
     return graded;
   }
@@ -211,19 +224,27 @@ export class Score extends EventRecorder {
     return this.state.source;
   }
 
-  get scale(): ScoreScale {
-    return this.state.scale;
+  get origin(): ScoreOrigin {
+    return this.state.origin;
   }
 
   get value(): number {
-    return this.state.value;
+    return claimShareOf(this.state.claimResults);
   }
 
-  get claimResults(): readonly boolean[] | null {
+  get claimResults(): readonly boolean[] {
     return this.state.claimResults;
   }
 
-  get rubricVersion(): RubricVersion | null {
+  get passThreshold(): number {
+    return this.state.passThreshold;
+  }
+
+  get passes(): boolean {
+    return passesAt(this.value, this.state.passThreshold);
+  }
+
+  get rubricVersion(): RubricVersion {
     return this.state.rubricVersion;
   }
 
@@ -256,10 +277,9 @@ export class Score extends EventRecorder {
   }
 
   regrade(input: {
-    scale: ScoreScale;
-    value: number;
-    claimResults: readonly boolean[] | null;
-    rubricVersion: string | null;
+    claimResults: readonly boolean[];
+    passThreshold: number;
+    rubricVersion: string;
     at: Date;
   }): Score {
     if (this.fromJudge) {
@@ -267,8 +287,7 @@ export class Score extends EventRecorder {
     }
 
     if (
-      this.state.scale.equals(input.scale) &&
-      this.state.value === input.value &&
+      this.state.passThreshold === input.passThreshold &&
       JSON.stringify(this.state.claimResults) ===
         JSON.stringify(input.claimResults) &&
       this.state.rubricVersion === input.rubricVersion
@@ -279,7 +298,14 @@ export class Score extends EventRecorder {
     const regraded = new Score(checked({ ...this.state, ...input }));
     regraded.inheritEvents(this);
     regraded.record(
-      new ScoreRecorded(this.id, this.runId, this.location, 'person'),
+      new ScoreRecorded(
+        this.id,
+        this.runId,
+        this.workspaceId,
+        this.location,
+        'person',
+        LIVE,
+      ),
     );
     return regraded;
   }

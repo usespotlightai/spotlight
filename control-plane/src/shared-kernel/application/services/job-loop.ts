@@ -136,7 +136,7 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
         return;
       }
 
-      const later = job.scheduleRetry(this.clock.now());
+      const later = (await this.latest(job)).scheduleRetry(this.clock.now());
 
       await this.source
         .save(later)
@@ -152,6 +152,16 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
       if (!later.hasPendingJob) {
         this.reports.report(error, this.aboutError(job));
       }
+    }
+  }
+
+  private async latest(job: Job): Promise<Job> {
+    try {
+      const found = await this.source.find(this.source.keyOf(job));
+
+      return found?.hasPendingJob ? found : job;
+    } catch {
+      return job;
     }
   }
 

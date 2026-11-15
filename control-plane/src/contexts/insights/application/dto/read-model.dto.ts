@@ -1,14 +1,10 @@
-import type {
-  CorrelationReading,
-  KappaReading,
-} from '@insights/domain/services/agreement-reading';
+import type { KappaReading } from '@insights/domain/services/agreement-reading';
 import type { MeasureVerdict } from '@insights/domain/services/change-verdict';
 import type {
   RunFailureSummary,
   TaskFailureSummary,
 } from '@insights/domain/services/failure-summaries';
 import type {
-  AgreementReadings,
   Coverage,
   TrendPoint,
 } from '@insights/domain/services/judge-agreement';
@@ -30,11 +26,7 @@ import type {
   SkillWeek,
 } from '@insights/domain/services/tool-insights';
 
-export type CorrelationReadingDto = CorrelationReading;
-
 export type KappaReadingDto = KappaReading;
-
-export type AgreementReadingsDto = AgreementReadings;
 
 export type CoverageDto = Coverage;
 

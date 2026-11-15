@@ -37,6 +37,7 @@ import {
   BY,
   candidateOf,
   HASHES,
+  JUDGE,
   LIVE_FINGERPRINT,
   LIVE_HASHES,
   NOW,
@@ -50,10 +51,12 @@ import {
   slots,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import { ReplayedCandidate } from '@replays/domain/value-objects/replayed-candidate.vo';
+import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import { ScoringHash } from '@replays/domain/value-objects/scoring-hash.vo';
 import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
@@ -81,6 +84,21 @@ const CHECKED = CandidateScoring.of({
   checksChanges: true,
   judge: null,
   rubricVersion: null,
+});
+
+const calibrationIn = (state: 'qualified' | 'unmeasured' | 'failing') =>
+  JudgeCalibration.of({
+    state,
+    agreement: state === 'unmeasured' ? null : 0.3,
+    pairs: 12,
+    minPairs: 10,
+    minAgreement: 0.6,
+  });
+
+const JUDGED = CandidateScoring.of({
+  checksChanges: true,
+  judge: JUDGE,
+  rubricVersion: RubricVersion.of('e'.repeat(64)),
 });
 
 const FRESH: IdempotentCreatesPort = {
@@ -184,6 +202,7 @@ const start = async (
     clock,
     TRANSACTION,
     QUIET,
+    suppliers.calibrations,
   ).execute(
     new StartReplayCheckCommand(
       'team_1',
@@ -664,6 +683,71 @@ describe('ReadReplayCheckHandler', () => {
       expect.anything(),
     ]);
     expect(await read(id)).not.toHaveProperty('replayUrl');
+  });
+
+  const judgedLive = () => {
+    const live = suppliers.configs.live.bind(suppliers.configs);
+
+    suppliers.configs.live = async (...args) => {
+      const read = await live(...args);
+      return read && { ...read, scoring: JUDGED };
+    };
+  };
+
+  it('fails a check scored by a live judge that disagrees with people, and says why', async () => {
+    keptAtStation();
+    judgedLive();
+    suppliers.insights.calibration = calibrationIn('failing');
+    const id = idOf(await start());
+
+    expect(await read(id)).toMatchObject({
+      result: 'failed',
+      undecidedBecause: null,
+      failedBecause: 'judge-disagrees-with-people',
+      judge: calibrationIn('failing'),
+    });
+    expect(checkOf(id).replayId).toBeNull();
+    expect(memory.replays.size).toBe(0);
+  });
+
+  it('keeps the calibration the judge had when the check started', async () => {
+    keptAtStation();
+    judgedLive();
+    suppliers.insights.calibration = calibrationIn('failing');
+    const failed = idOf(await start());
+    suppliers.insights.calibration = calibrationIn('qualified');
+
+    expect(await read(failed)).toMatchObject({
+      result: 'failed',
+      failedBecause: 'judge-disagrees-with-people',
+      judge: calibrationIn('failing'),
+    });
+  });
+
+  it('carries an unmeasured calibration without failing the check', async () => {
+    keptAtStation();
+    judgedLive();
+    suppliers.insights.calibration = calibrationIn('unmeasured');
+    const id = idOf(await start());
+    suppliers.insights.calibration = calibrationIn('failing');
+
+    expect(await read(id)).toMatchObject({
+      result: 'running',
+      failedBecause: null,
+      judge: calibrationIn('unmeasured'),
+    });
+  });
+
+  it('reads no calibration where no judge scores the live config', async () => {
+    keptAtStation();
+    suppliers.insights.calibration = calibrationIn('failing');
+    const id = idOf(await start());
+
+    expect(await read(id)).toMatchObject({
+      result: 'running',
+      failedBecause: null,
+      judge: null,
+    });
   });
 
   it('finds no check for one off the team', async () => {

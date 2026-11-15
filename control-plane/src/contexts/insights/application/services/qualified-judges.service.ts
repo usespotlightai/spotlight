@@ -44,7 +44,6 @@ export class QualifiedJudges {
               stationId: station.stationId,
               rubricVersion: shape.rubricVersion,
               qualified: shape.qualified,
-              measure: shape.measure,
               agreement: shape.agreement,
               pairs: shape.pairs,
               minAgreement: shape.minAgreement,

@@ -100,6 +100,15 @@ export class TraceNodeResponseDto {
   @ApiProperty({ nullable: true, type: () => JournalStepResponseDto })
   readonly step: JournalStepResponseDto | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 11,
+    description:
+      'On a row of a journal step: where the step sits in the run’s journal, from 0. A citation of a step names this place',
+  })
+  readonly place: number | null;
+
   @ApiProperty({ nullable: true, type: () => RunSpanResponseDto })
   readonly span: RunSpanResponseDto | null;
 
@@ -132,6 +141,7 @@ export class TraceNodeResponseDto {
     cost: number | null,
     currency: string | null,
     step: JournalStepResponseDto | null,
+    place: number | null,
     span: RunSpanResponseDto | null,
     connection: TraceConnectionResponseDto | null,
     egressEnforcement: 'enforced' | 'not-enforced' | null,
@@ -146,6 +156,7 @@ export class TraceNodeResponseDto {
     this.cost = cost;
     this.currency = currency;
     this.step = step;
+    this.place = place;
     this.span = span;
     this.connection = connection;
     this.egressEnforcement = egressEnforcement;

@@ -9,6 +9,13 @@ export type LaidOutStation = {
   readonly kind: LaidOutStationKind;
   readonly color: string;
   readonly position: number;
+  readonly rubricVersion: string | null;
+  readonly claimsChanged: boolean;
+};
+
+export type LineSourceCommit = {
+  readonly repository: string;
+  readonly sha: string;
 };
 
 export type LineChangedIntegrationEvent = {
@@ -22,4 +29,5 @@ export type LineChangedIntegrationEvent = {
   readonly deleted: boolean;
   readonly stations: readonly LaidOutStation[];
   readonly stationIds: readonly string[];
+  readonly sourceCommit: LineSourceCommit | null;
 };

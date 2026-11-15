@@ -215,6 +215,21 @@ const ERASED: readonly {
     erase: (deleting, scope) => deleting.alertStates(scope),
   },
   {
+    name: 'judge-disagreements',
+    scopes: EVERY_SCOPE,
+    erase: (deleting, scope) => deleting.judgeDisagreements(scope),
+  },
+  {
+    name: 'claims-revisions',
+    scopes: ['team', 'workspace'],
+    erase: (deleting, scope) => deleting.claimsRevisions(scope),
+  },
+  {
+    name: 'claims-sources',
+    scopes: ['team', 'workspace'],
+    erase: (deleting, scope) => deleting.claimsSources(scope),
+  },
+  {
     name: 'chats',
     scopes: ['team', 'workspace'],
     erase: (deleting, scope) => deleting.chats(scope),

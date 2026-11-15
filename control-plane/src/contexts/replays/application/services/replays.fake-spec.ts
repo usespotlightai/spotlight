@@ -24,6 +24,7 @@ import type {
   RunReplayability,
   TrialableRunsPort,
 } from '@replays/application/ports/trialable-runs.port';
+import { JudgeCalibrations } from '@replays/application/services/judge-calibrations.service';
 import { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import { PendingSearchSteps } from '@replays/application/services/pending-search-steps.service';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
@@ -91,6 +92,7 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
 import { ChangeStackId } from '@replays/domain/value-objects/change-stack-id.vo';
 import type { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
+import type { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -760,6 +762,8 @@ export class FakeSuppliers {
   readonly lines = new FakeLines();
   readonly candidates = new FakeStationConfigCandidates();
   readonly configs = new StationConfigs(this.candidates, this.lines);
+  readonly insights = new FakeInsights();
+  readonly calibrations = new JudgeCalibrations(this.configs, this.insights);
   readonly trialableRuns = new FakeTrialableRuns();
   readonly holds = new FakeStartingPointHolds();
   readonly dispatch = new FakeRunDispatch();
@@ -810,6 +814,11 @@ export class FakeChangeReview implements ChangeReviewPort {
 export class FakeInsights implements InsightsPort {
   readonly accepted = new Set<string>();
   readonly sentBack = new Set<string>();
+  calibration: JudgeCalibration | null = null;
+
+  async judgeCalibration(): Promise<JudgeCalibration | null> {
+    return this.calibration;
+  }
 
   async acceptedAfter(run: RunId): Promise<boolean> {
     return this.accepted.has(run.value);
@@ -1127,6 +1136,7 @@ export class InMemoryChecks implements ReplayCheckRepository {
           repeats: check.repeats,
           scoringPinnedToLive: check.scoringPinnedToLive,
           baseline: check.baseline,
+          judge: check.judge,
           createdAt: check.createdAt,
           version: check.version + 1,
         }),

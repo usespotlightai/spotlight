@@ -173,4 +173,51 @@ describe('HclStationSourceEdits', () => {
     );
     expect(!baseChanged.ok && baseChanged.failure.code).toBe('base-changed');
   });
+  it('rewrites only the judge claims when the candidate changes them', async () => {
+    const judge = {
+      claims: ['It adds a test.'],
+      passThreshold: 0.5,
+      sample: 0.2,
+      minAgreement: 0.6,
+    };
+    const file = LINE.replace(
+      '    skills  = []\n',
+      '    skills  = []\n\n    judge {\n      claims         = ["It adds a test."]\n      pass_threshold = 0.5\n      sample         = 0.2\n      min_agreement  = 0.6\n    }\n',
+    );
+    const seed = { ...SEED, judge };
+
+    const result = await edited(
+      { judge: { ...judge, claims: ['It adds a test.', 'It keeps the API.'] } },
+      file,
+      seed,
+    );
+
+    expect(result.ok).toBe(true);
+    const content = result.ok ? (result.files[0]?.content ?? '') : '';
+    expect(content).toContain('"It keeps the API."');
+    expect(content).toContain('pass_threshold = 0.5');
+    expect(content.replace(/claims\s*=\s*\[[^\]]*\]/, 'claims = X')).toBe(
+      file.replace(/claims\s*=\s*\[[^\]]*\]/, 'claims = X'),
+    );
+  });
+
+  it('fails when the judge claims are not a plain value in the file', async () => {
+    const judge = {
+      claims: ['It adds a test.'],
+      sample: 0.2,
+      minAgreement: 0.6,
+    };
+    const file = LINE.replace(
+      '    skills  = []\n',
+      '    skills  = []\n\n    judge {\n      claims        = local.claims\n      sample        = 0.2\n      min_agreement = 0.6\n    }\n',
+    );
+
+    const result = await edited(
+      { judge: { ...judge, claims: ['It keeps the API.'] } },
+      file,
+      { ...SEED, judge },
+    );
+
+    expect(!result.ok && result.failure.code).toBe('edit-failed');
+  });
 });

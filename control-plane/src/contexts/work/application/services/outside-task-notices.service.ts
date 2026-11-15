@@ -12,6 +12,7 @@ const FORMS: Readonly<Record<InboxRequestForm, InboxRequestFormName>> = {
   memories: 'memories',
   grade: 'grade',
   alert: 'alert',
+  'judge-disagreement': 'judge-disagreement',
 };
 
 export interface OutboundTaskNotifier {

@@ -50,7 +50,7 @@ describe('ReflectionNoticeWording', () => {
 
     expect(points).toEqual([
       'No config change can fix the 2 tasks still failing. The rest of the budget stays unspent.',
-      '“Drain the queue on restart”: the cause is the judge. Drop the test requirement. Please fix the rubric of the judge.',
+      '“Drain the queue on restart”: the cause is the judge. Drop the test requirement. Please fix the claims of the judge.',
       'Untitled task: the cause is the task itself. Evidence 2. Spotlight takes the task out of the replay set.',
     ]);
   });
@@ -113,7 +113,7 @@ describe('ReflectionNoticeWording', () => {
     );
 
     expect(point?.length).toBeLessThanOrEqual(1_000);
-    expect(point).toMatch(/… {1,2}Please fix the rubric of the judge\.$/);
+    expect(point).toMatch(/… {1,2}Please fix the claims of the judge\.$/);
   });
 
   it('always says what happened first, even with nothing for a person to fix', () => {

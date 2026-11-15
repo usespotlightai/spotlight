@@ -1,9 +1,13 @@
 import { InvalidRubricError } from '@insights/domain/exceptions/invalid-rubric.error';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { InvalidJudgeCriteriaError } from '@shared-kernel/domain/exceptions/invalid-judge-criteria.error';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
-import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo';
+
+interface RubricInput {
+  readonly claims: readonly string[];
+  readonly passThreshold?: number;
+  readonly version: string;
+}
 
 export class Rubric {
   private constructor(
@@ -11,18 +15,11 @@ export class Rubric {
     readonly version: RubricVersion,
   ) {}
 
-  static of(input: {
-    text: string | null;
-    claims?: readonly string[];
-    passThreshold?: number;
-    version: string;
-  }): Rubric {
+  static of(input: RubricInput): Rubric {
     const criteria = JudgeCriteria.of({
-      rubric: input.text,
       claims: input.claims,
       passThreshold: input.passThreshold,
     });
-
     const version = RubricVersion.readable(input.version);
 
     if (!version) {
@@ -32,12 +29,7 @@ export class Rubric {
     return new Rubric(criteria, version);
   }
 
-  static readable(input: {
-    text: string | null;
-    claims?: readonly string[];
-    passThreshold?: number;
-    version: string;
-  }): Rubric | null {
+  static readable(input: RubricInput): Rubric | null {
     try {
       return Rubric.of(input);
     } catch (error) {
@@ -51,23 +43,11 @@ export class Rubric {
     }
   }
 
-  get text(): string | null {
-    return this.criteria.rubric;
+  get claims(): readonly string[] {
+    return this.criteria.claims;
   }
 
-  get body(): string | null {
-    const text = this.criteria.rubric;
-
-    if (text === null) {
-      return null;
-    }
-
-    return (
-      (this.scale.byClaims ? text.trim() : RubricScale.bodyOf(text)) || null
-    );
-  }
-
-  get scale(): ScoreScale {
-    return ScoreScale.of(this.criteria.scale.kind);
+  get passThreshold(): number {
+    return this.criteria.passThreshold;
   }
 }

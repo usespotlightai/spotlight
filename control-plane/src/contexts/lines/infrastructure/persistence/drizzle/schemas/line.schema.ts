@@ -67,7 +67,6 @@ export interface ConfigSourceRow {
 }
 
 export interface StationJudgeRow {
-  readonly rubric: string | null;
   readonly claims: readonly string[];
   readonly passThreshold: number;
   readonly sample: number;

@@ -127,6 +127,20 @@ describe('previewOf', () => {
     expect(previewOf(alert(false))).toBe('Station alert fired.');
     expect(previewOf(alert(true))).toBe('Station alert resolved.');
   });
+
+  it('says the judge and people disagree on a run, and that someone answered', () => {
+    const disagreement = (resolved: boolean) =>
+      ({
+        ...item(null),
+        resolved,
+        inboxRequest: { form: 'judge-disagreement', about: 'disagreement_1' },
+      }) as InboxItem;
+
+    expect(previewOf(disagreement(false))).toBe(
+      'The judge and people disagree on a run. Spotlight asks why.',
+    );
+    expect(previewOf(disagreement(true))).toBe('Disagreement resolved.');
+  });
 });
 
 describe('decisionPending', () => {

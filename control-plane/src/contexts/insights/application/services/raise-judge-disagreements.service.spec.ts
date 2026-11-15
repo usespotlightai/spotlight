@@ -1,0 +1,341 @@
+import { RaiseJudgeDisagreements } from '@insights/application/services/raise-judge-disagreements.service';
+import type { Score } from '@insights/domain/aggregates/score.aggregate';
+import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
+import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
+import {
+  type Acted,
+  ACTOR,
+  clockAt,
+  judgeOf,
+  judgesWith,
+  NEXT_JUDGE,
+  sequence,
+  stationWith,
+} from '@insights/judge-repair-setup.fake-spec';
+import {
+  JudgeDisagreementsInMemory,
+  openDisagreement,
+} from '@insights/judge-repair.fake-spec';
+import {
+  judgeScore,
+  NEXT_RUBRIC_VERSION,
+  personGrade,
+} from '@insights/judging.fake-spec';
+import { inTransaction, WORKSPACE } from '@insights/runs.fake-spec';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { describe, expect, it } from 'vitest';
+
+const recordedOf = (score: Score): ScoreRecorded =>
+  new ScoreRecorded(
+    score.id,
+    score.runId,
+    WORKSPACE,
+    score.location,
+    score.source,
+    score.origin,
+  );
+
+const setUp = async (
+  acted: Acted,
+  scores: readonly Score[],
+  judge = judgesWith(),
+) => {
+  const station = await stationWith([{ runId: 'run_1', acted, scores }]);
+  const disagreements = new JudgeDisagreementsInMemory();
+  const raising = new RaiseJudgeDisagreements(
+    disagreements,
+    station.facts,
+    judge,
+    station.recorder,
+    inTransaction,
+    sequence('disagreement'),
+    clockAt(),
+  );
+
+  return { disagreements, raising, station };
+};
+
+const FAILED = () => judgeScore('run_1', [true, false, false]);
+
+const PASSED = () => judgeScore('run_1', [true, true, true]);
+
+describe('RaiseJudgeDisagreements', () => {
+  it('opens a disagreement where the live judge failed a run a person accepted', async () => {
+    const score = FAILED();
+    const { disagreements, raising } = await setUp('accepted', [score]);
+
+    await raising.scoreRecorded(recordedOf(score));
+
+    const [disagreement] = [...disagreements.stored.values()];
+    expect(disagreement?.direction).toBe('judge-failed');
+    expect(disagreement?.labelFrom).toBe('accepted');
+    expect(disagreement?.disputedClaims).toEqual([1, 2]);
+    expect(disagreement?.verdict.scoreId).toEqual(score.id);
+    expect(disagreement?.askedOf).toEqual(ACTOR);
+    expect(disagreements.events.map((each) => each.kind)).toEqual([
+      'judge-disagreement.opened',
+    ]);
+  });
+
+  it('opens a disagreement where the live judge passed a run a person sent back', async () => {
+    const score = PASSED();
+    const { disagreements, raising } = await setUp('sent-back', [score]);
+
+    await raising.scoreRecorded(recordedOf(score));
+
+    expect([...disagreements.stored.values()][0]?.direction).toBe(
+      'judge-passed',
+    );
+    expect([...disagreements.stored.values()][0]?.askedOf).toEqual(ACTOR);
+  });
+
+  it('opens at most one disagreement for a run', async () => {
+    const score = FAILED();
+    const { disagreements, raising } = await setUp('accepted', [score]);
+
+    await raising.scoreRecorded(recordedOf(score));
+    await raising.outcomeChanged(
+      new RunOutcomeChanged(RunId.of('run_1'), WORKSPACE, score.location),
+    );
+
+    expect(disagreements.stored.size).toBe(1);
+  });
+
+  it('opens nothing where the judge and the person agree', async () => {
+    const score = PASSED();
+    const { disagreements, raising } = await setUp('accepted', [score]);
+
+    await raising.scoreRecorded(recordedOf(score));
+
+    expect(disagreements.stored.size).toBe(0);
+  });
+
+  it('opens nothing before a person gave an outcome', async () => {
+    const score = FAILED();
+    const { disagreements, raising } = await setUp(null, [score]);
+
+    await raising.scoreRecorded(recordedOf(score));
+
+    expect(disagreements.stored.size).toBe(0);
+  });
+
+  it('opens nothing for a backfill score', async () => {
+    const score = judgeScore('run_1', [true, false, false], {
+      origin: 'backfill',
+    });
+    const { disagreements, raising } = await setUp('accepted', [score]);
+
+    await raising.scoreRecorded(recordedOf(score));
+
+    expect(disagreements.stored.size).toBe(0);
+  });
+
+  it('opens nothing for a score of claims that changed since', async () => {
+    const score = FAILED();
+    const { disagreements, raising } = await setUp(
+      'accepted',
+      [score],
+      judgesWith(NEXT_JUDGE),
+    );
+
+    await raising.scoreRecorded(recordedOf(score));
+
+    expect(disagreements.stored.size).toBe(0);
+  });
+
+  it('compares the live judge with a grade first', async () => {
+    const score = FAILED();
+    const grade = personGrade('run_1', [true, true, true]);
+    const { disagreements, raising } = await setUp('sent-back', [score, grade]);
+
+    await raising.scoreRecorded(recordedOf(grade));
+
+    const [disagreement] = [...disagreements.stored.values()];
+    expect(disagreement?.labelFrom).toBe('grade');
+    expect(disagreement?.askedOf).toEqual(grade.by);
+  });
+
+  it('asks the person the run’s first act names, whatever the task’s history holds', async () => {
+    const score = FAILED();
+    const { disagreements, raising, station } = await setUp('accepted', [
+      score,
+    ]);
+    station.humanActions.stored.clear();
+
+    await raising.scoreRecorded(recordedOf(score));
+
+    expect([...disagreements.stored.values()][0]?.askedOf).toEqual(ACTOR);
+  });
+
+  it('withdraws the disagreement when a later grade agrees with the judge, and opens none again for those claims', async () => {
+    const score = FAILED();
+    const { disagreements, raising, station } = await setUp('accepted', [
+      score,
+    ]);
+    await raising.scoreRecorded(recordedOf(score));
+    const grade = personGrade('run_1', [true, false, false]);
+    await station.scores.add(grade);
+
+    await raising.scoreRecorded(recordedOf(grade));
+    await raising.outcomeChanged(
+      new RunOutcomeChanged(RunId.of('run_1'), WORKSPACE, score.location),
+    );
+
+    const [disagreement] = [...disagreements.stored.values()];
+    expect(disagreements.stored.size).toBe(1);
+    expect(disagreement?.state).toBe('withdrawn');
+    expect(disagreement?.withdrawnBecause).toBe('verdicts-agree');
+    expect(disagreements.events.map((each) => each.kind)).toEqual([
+      'judge-disagreement.opened',
+      'judge-disagreement.withdrawn',
+    ]);
+  });
+
+  it('withdraws the disagreement when the grade that disagreed is gone', async () => {
+    const score = FAILED();
+    const grade = personGrade('run_1', [true, true, true]);
+    const { disagreements, raising, station } = await setUp(null, [
+      score,
+      grade,
+    ]);
+    await raising.scoreRecorded(recordedOf(grade));
+    station.scores.stored.delete(grade.id.value);
+
+    await raising.outcomeChanged(
+      new RunOutcomeChanged(RunId.of('run_1'), WORKSPACE, score.location),
+    );
+
+    const [disagreement] = [...disagreements.stored.values()];
+    expect(disagreement?.state).toBe('withdrawn');
+    expect(disagreement?.withdrawnBecause).toBe('label-gone');
+  });
+
+  it('withdraws the open disagreements of a station whose claims changed, and keeps them while the claims stay', async () => {
+    const score = FAILED();
+    let judge = judgeOf();
+    const { disagreements, raising } = await setUp('accepted', [score], {
+      judgeAt: async () => judge,
+      judgesOnTeam: async () => new Map(),
+    });
+    await raising.scoreRecorded(recordedOf(score));
+    const changed = {
+      workspaceId: WORKSPACE.value,
+      deleted: false,
+      stationIds: [score.location.stationId.value],
+    };
+
+    await raising.lineChanged(changed);
+    expect([...disagreements.stored.values()][0]?.state).toBe('open');
+
+    judge = NEXT_JUDGE;
+    await raising.lineChanged(changed);
+    expect([...disagreements.stored.values()][0]).toMatchObject({
+      state: 'withdrawn',
+      withdrawnBecause: 'claims-changed',
+    });
+  });
+
+  it('withdraws every outdated disagreement of a station, more than one batch holds', async () => {
+    const { disagreements, raising } = await setUp('accepted', [], {
+      judgeAt: async () => NEXT_JUDGE,
+      judgesOnTeam: async () => new Map(),
+    });
+    const outdated = Array.from({ length: 250 }, (_, at) =>
+      openDisagreement(`run_${at + 2}`),
+    );
+    for (const each of outdated) {
+      each.pullEvents();
+      disagreements.stored.set(each.id.value, each);
+    }
+
+    await raising.lineChanged({
+      workspaceId: WORKSPACE.value,
+      deleted: false,
+      stationIds: [openDisagreement('run_0').location.stationId.value],
+    });
+
+    expect(
+      [...disagreements.stored.values()].every((each) => each.isWithdrawn),
+    ).toBe(true);
+    expect(disagreements.events.map((each) => each.kind)).toEqual(
+      outdated.map(() => 'judge-disagreement.withdrawn'),
+    );
+  });
+
+  it('opens a new disagreement under new claims once the old one is withdrawn', async () => {
+    const score = FAILED();
+    let judge = judgeOf();
+    const { disagreements, raising, station } = await setUp(
+      'accepted',
+      [score],
+      {
+        judgeAt: async () => judge,
+        judgesOnTeam: async () => new Map(),
+      },
+    );
+    await raising.scoreRecorded(recordedOf(score));
+    judge = NEXT_JUDGE;
+    const next = judgeScore('run_1', [false], {
+      rubricVersion: NEXT_RUBRIC_VERSION,
+    });
+    await station.scores.add(next);
+
+    await raising.scoreRecorded(recordedOf(next));
+
+    const stored = [...disagreements.stored.values()];
+    expect(
+      stored.map((each) => [
+        each.rubricVersion,
+        each.state,
+        each.withdrawnBecause,
+      ]),
+    ).toEqual([
+      [score.rubricVersion, 'withdrawn', 'claims-changed'],
+      [NEXT_RUBRIC_VERSION, 'open', null],
+    ]);
+  });
+
+  it('opens one disagreement when two subscribers try at once, and the late one ends quietly', async () => {
+    const score = FAILED();
+    const { disagreements, raising } = await setUp('accepted', [score]);
+    disagreements.ofRun = async () => [];
+
+    await raising.scoreRecorded(recordedOf(score));
+    await expect(
+      raising.outcomeChanged(
+        new RunOutcomeChanged(RunId.of('run_1'), WORKSPACE, score.location),
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(disagreements.stored.size).toBe(1);
+  });
+
+  it('opens a disagreement when a person acts after the judge scored', async () => {
+    const score = FAILED();
+    const { disagreements, raising } = await setUp('accepted', [score]);
+
+    await raising.outcomeChanged(
+      new RunOutcomeChanged(RunId.of('run_1'), WORKSPACE, score.location),
+    );
+
+    expect(disagreements.stored.size).toBe(1);
+  });
+
+  it('never compares a backfill score of new claims', async () => {
+    const score = judgeScore('run_1', [true, false, false], {
+      rubricVersion: NEXT_RUBRIC_VERSION,
+      origin: 'backfill',
+    });
+    const { disagreements, raising } = await setUp(
+      'accepted',
+      [score],
+      judgesWith(NEXT_JUDGE),
+    );
+
+    await raising.outcomeChanged(
+      new RunOutcomeChanged(RunId.of('run_1'), WORKSPACE, score.location),
+    );
+
+    expect(disagreements.stored.size).toBe(0);
+  });
+});

@@ -4,7 +4,6 @@ import type { ConfigChangeShape } from '@work/application/contracts/station-conf
 export const STATION_CONFIG_CANDIDATES = Symbol('STATION_CONFIG_CANDIDATES');
 
 interface StationConfigJudge {
-  readonly rubric: string | null;
   readonly claims: readonly string[];
   readonly passThreshold: number;
 }

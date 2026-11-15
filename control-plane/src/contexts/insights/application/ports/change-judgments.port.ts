@@ -27,8 +27,7 @@ export interface UnjudgedJudgment {
 export type ChangeJudgment =
   | {
       readonly judged: true;
-      readonly value: number;
-      readonly claimResults: readonly boolean[] | null;
+      readonly claimResults: readonly boolean[];
       readonly reasons: readonly ChangeJudgmentReason[];
       readonly guidance: string | null;
       readonly referenced: boolean;

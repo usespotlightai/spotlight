@@ -15,8 +15,8 @@ import {
   PersonNameResponseDto,
   SpreadResponseDto,
 } from '@insights/presentation/http/dto/insights-common.response.dto';
-import { MoneyResponseDto } from '@insights/presentation/http/dto/station-insights.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
+import { MoneyResponseDto } from '@platform/http/dto/money.response.dto';
 
 export class HeadlineResponseDto {
   @ApiProperty({

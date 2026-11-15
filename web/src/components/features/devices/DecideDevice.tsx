@@ -36,12 +36,6 @@ export function DecideDevice({ userCode }: DecideDeviceProps) {
             : 'Approve'}
         </Button>
       </div>
-
-      {decide.isError && (
-        <p role="alert" className="text-center text-destructive text-sm">
-          {decide.error.message}
-        </p>
-      )}
     </div>
   );
 }

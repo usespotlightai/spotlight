@@ -1,5 +1,6 @@
 import type { TaskRow } from '@replays/application/dto/task-rows.dto';
 import { ConfigPullRequestBody } from '@replays/application/rendering/config-pull-request-body';
+import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { describe, expect, it } from 'vitest';
 
@@ -110,11 +111,77 @@ const FACTS = {
     minGain: 0.05,
   },
   found: [
-    '“Drain on restart”: the cause is the judge. Please fix the rubric of the judge.',
+    '“Drain on restart”: the cause is the judge. Please fix the claims of the judge.',
   ],
+  judge: null,
 };
 
+const CALIBRATION = { pairs: 12, minPairs: 10, minAgreement: 0.6 };
+
 describe('ConfigPullRequestBody', () => {
+  it('warns that the scores come from a judge nobody checked against people yet', () => {
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      judge: JudgeCalibration.of({
+        ...CALIBRATION,
+        state: 'unmeasured',
+        agreement: null,
+        pairs: 4,
+      }),
+    });
+
+    expect(body).toContain(
+      'Spotlight has not yet checked the judge of the station against people: 4 of the 10 runs it needs have both a verdict of the judge and a verdict of a person.',
+    );
+  });
+
+  it('warns that the agreement of a judge cannot be measured yet when every run got one same verdict', () => {
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      judge: JudgeCalibration.of({
+        ...CALIBRATION,
+        state: 'unmeasured',
+        agreement: null,
+        pairs: 12,
+      }),
+    });
+
+    expect(body).toContain(
+      'Spotlight cannot yet measure how well the judge of the station agrees with people: on all 12 runs that have both verdicts, every verdict of the judge and of people was the same: all pass or all fail.',
+    );
+    expect(body).not.toContain('runs it needs');
+  });
+
+  it('warns that the scores come from a judge that disagrees with people, with its agreement', () => {
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      judge: JudgeCalibration.of({
+        ...CALIBRATION,
+        state: 'failing',
+        agreement: 0.31,
+      }),
+    });
+
+    expect(body).toContain(
+      'The verdicts of the judge of the station do not agree with the verdicts of people often enough. Its agreement with people is 0.31, below the minimum of 0.6 (`min_agreement`).',
+    );
+  });
+
+  it('says nothing of a qualified judge or of scoring with no judge', () => {
+    for (const judge of [
+      JudgeCalibration.of({
+        ...CALIBRATION,
+        state: 'qualified',
+        agreement: 0.8,
+      }),
+      null,
+    ]) {
+      expect(ConfigPullRequestBody.of({ ...FACTS, judge })).not.toContain(
+        'against people',
+      );
+    }
+  });
+
   it('fences the agent’s hypothesis in a fence longer than any backtick run in it', () => {
     const body = ConfigPullRequestBody.of(FACTS);
 
@@ -401,7 +468,7 @@ describe('ConfigPullRequestBody', () => {
       '- Noise: Success on the replay set moves by up to 6 points between repeats of the same runs. The line counts a gain of at least 5 points as real (`min_gain`).',
     );
     expect(body).toContain(
-      '## What else Spotlight found\n\n- “Drain on restart”: the cause is the judge. Please fix the rubric of the judge.',
+      '## What else Spotlight found\n\n- “Drain on restart”: the cause is the judge. Please fix the claims of the judge.',
     );
     expect(ConfigPullRequestBody.of({ ...FACTS, found: [] })).not.toContain(
       '## What else Spotlight found',

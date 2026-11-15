@@ -54,7 +54,7 @@ export class ConfigSkillResponseDto {
 
 export class ConfigJudgeResponseDto {
   @ApiProperty({
-    description: 'The version of the rubric the runs were judged by',
+    description: 'The version of the claims the runs were judged by',
   })
   readonly rubricVersion: string;
 
@@ -78,7 +78,7 @@ export class ConfigJudgeResponseDto {
   }
 }
 
-export class StationConfigResponseDto {
+export class InsightsStationConfigResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly prompt: string | null;
 
@@ -137,7 +137,7 @@ export class StationConfigResponseDto {
   }
 }
 
-export class ConfigChangeResponseDto {
+export class InsightsConfigChangeResponseDto {
   @ApiProperty({ example: 'model' })
   readonly part: string;
 

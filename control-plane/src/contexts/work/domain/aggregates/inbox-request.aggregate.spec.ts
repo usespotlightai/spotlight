@@ -18,13 +18,16 @@ const LATER = new Date('2026-09-27T11:00:00.000Z');
 const ADA = UserId.of('user_ada');
 const BEA = UserId.of('user_bea');
 
-const created = (change: { form?: string; about?: string } = {}) =>
+const created = (
+  change: { form?: string; about?: string; askedOf?: UserId } = {},
+) =>
   InboxRequest.create({
     id: InboxRequestId.of('request_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     taskId: TaskId.of('task_1'),
     form: inboxRequestForm(change.form ?? 'memories'),
     about: InboxRequestSubject.of(change.about ?? ' run_1 '),
+    askedOf: change.askedOf ?? null,
     now: NOW,
   });
 
@@ -118,6 +121,7 @@ describe('InboxRequest', () => {
         taskId: TaskId.of('task_1'),
         form: 'memories',
         about: InboxRequestSubject.of('run_1'),
+        askedOf: null,
         createdAt: NOW,
         openedAt: LATER,
         reads,
@@ -139,6 +143,7 @@ describe('InboxRequest', () => {
           taskId: TaskId.of('task_1'),
           form: 'memories',
           about: InboxRequestSubject.of('run_1'),
+          askedOf: null,
           createdAt: LATER,
           openedAt: NOW,
           reads: [],
@@ -164,6 +169,7 @@ describe('InboxRequest', () => {
         form: 'memories',
         viewer: BEA,
         assignee: null,
+        askedOf: null,
         seesTeam: true,
         actsOnTeam: true,
         ...change,
@@ -213,19 +219,36 @@ describe('InboxRequest', () => {
       ).toBe(false);
     });
 
+    it('is only the person it asks, while that person sees the team', () => {
+      const asked = { form: 'judge-disagreement', askedOf: ADA } as const;
+
+      expect(attending({ ...asked, viewer: ADA, assignee: BEA })).toBe(true);
+      expect(attending({ ...asked, viewer: BEA, assignee: BEA })).toBe(false);
+      expect(attending({ ...asked, viewer: BEA })).toBe(false);
+      expect(attending({ ...asked, viewer: ADA, seesTeam: false })).toBe(false);
+    });
+
     it('needs only the access its form requires', () => {
       expect(InboxRequest.requiredAccess('memories')).toBe('seesTeam');
       expect(InboxRequest.requiredAccess('grade')).toBe('actsOnTeam');
       expect(InboxRequest.requiredAccess('alert')).toBe('actsOnTeam');
+      expect(InboxRequest.requiredAccess('judge-disagreement')).toBe(
+        'seesTeam',
+      );
     });
   });
 
   describe('how it reaches a person', () => {
-    const seen = (assignee: UserId | null, actsOnTeam: boolean) =>
+    const seen = (
+      assignee: UserId | null,
+      actsOnTeam: boolean,
+      askedOf: UserId | null = null,
+    ) =>
       InboxRequest.standingOf({
         form: 'memories',
         viewer: ADA,
         assignee,
+        askedOf,
         seesTeam: true,
         actsOnTeam,
       });
@@ -244,6 +267,12 @@ describe('InboxRequest', () => {
 
     it('reaches nobody else as the assignee or the team', () => {
       expect(seen(BEA, true)).toBeNull();
+    });
+
+    it('reaches only the person it asks, as the assignee', () => {
+      expect(seen(BEA, true, ADA)).toBe('assignee');
+      expect(seen(ADA, true, BEA)).toBeNull();
+      expect(seen(null, true, BEA)).toBeNull();
     });
   });
 });

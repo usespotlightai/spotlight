@@ -7,7 +7,7 @@ import type {
   AgentConfigCounts,
 } from '@insights/domain/services/agent-config-comparison';
 import type { RubricRates } from '@insights/domain/services/judge-rates';
-import { rateOfScore } from '@insights/infrastructure/persistence/drizzle/readers/insights/judge-rate.sql';
+import { passOfScore } from '@insights/infrastructure/persistence/drizzle/readers/insights/judge-rate.sql';
 import {
   counted,
   endedIn,
@@ -42,7 +42,7 @@ interface RubricRow extends Record<string, unknown> {
   readonly effort: string | null;
   readonly profile_key: string | null;
   readonly rubric_version: string;
-  readonly sum: number;
+  readonly passed: number;
   readonly judged: number;
 }
 
@@ -113,7 +113,7 @@ const rubricsIn = async (
       ${runFact.effort} as effort,
       ${runFact.profileKey} as profile_key,
       ${score.rubricVersion} as rubric_version,
-      sum(${rateOfScore} order by ${inEndOrder})::float8 as sum,
+      sum(${passOfScore} order by ${inEndOrder})::int as passed,
       count(*)::int as judged
     from (${endedFor(team, filter)}) as ${runFact}
     join ${score}
@@ -168,7 +168,7 @@ export const agentConfigCountsIn = async (
           .map(
             (each): RubricRates => ({
               rubricVersion: each.rubric_version,
-              sum: each.sum,
+              passed: each.passed,
               judged: each.judged,
             }),
           ),

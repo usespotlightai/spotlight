@@ -16,10 +16,6 @@ vi.mock('@/hooks/api/useInviteToWorkspace', () => ({
     reset: vi.fn(),
     isPending: mutationState() === 'pending',
     isError: mutationState() === 'failed',
-    error:
-      mutationState() === 'failed'
-        ? new Error('Sorry, those teams are not in this workspace.')
-        : null,
   }),
 }));
 
@@ -204,13 +200,17 @@ describe('InviteDialog', () => {
     ]);
   });
 
-  it('says why the invites could not be sent', () => {
+  it('keeps the addresses and sends them again after a failed send, with no inline error', async () => {
     mutationState.mockReturnValue('failed');
     const dialog = opened();
 
-    expect(within(dialog).getByRole('alert')).toHaveTextContent(
-      'Sorry, those teams are not in this workspace.',
-    );
+    const field = await typed(dialog, 'ada@acme.dev');
+    await send(dialog);
+    await send(dialog);
+
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+    expect(field).toHaveValue('ada@acme.dev');
+    expect(invite).toHaveBeenCalledTimes(2);
   });
 
   it('locks the form while the invites are sent', () => {

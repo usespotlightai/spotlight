@@ -3,6 +3,7 @@ import {
   clippedText,
   markdownText,
 } from '@replays/application/rendering/markdown-text';
+import type { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 
 interface ShownInterval {
@@ -96,6 +97,7 @@ export interface ConfigPullRequestFacts {
   };
   readonly search: SearchFacts;
   readonly found: readonly string[];
+  readonly judge: JudgeCalibration | null;
 }
 
 const PICKED_BECAUSE: Readonly<Record<SearchObjective, string>> = {
@@ -184,6 +186,27 @@ const describeOverfit = (facts: ConfigPullRequestFacts): string | null => {
     case 'too-few-held-out':
       return `It gained ${points(searched.gain)} points on the searched tasks, but only ${plural(heldOut.tasks, 'held-out task')} scored on both sides, too few to tell whether the gain also shows on tasks the search never showed its agent.`;
     case null:
+      return null;
+  }
+};
+
+const agreementOf = (judge: JudgeCalibration): string =>
+  judge.agreement !== null && judge.minAgreement !== null
+    ? ` Its agreement with people is ${judge.agreement.toFixed(2)}, below the minimum of ${judge.minAgreement} (\`min_agreement\`).`
+    : '';
+
+const describeJudge = (facts: ConfigPullRequestFacts): string | null => {
+  const { judge } = facts;
+
+  switch (judge?.state) {
+    case 'failing':
+      return `The verdicts of the judge of the station do not agree with the verdicts of people often enough.${agreementOf(judge)} The scores below come from the verdicts of that judge, so weigh that before merging.`;
+    case 'unmeasured':
+      return judge.pairs >= judge.minPairs
+        ? `Spotlight cannot yet measure how well the judge of the station agrees with people: on all ${judge.pairs} runs that have both verdicts, every verdict of the judge and of people was the same: all pass or all fail. The scores below come from the verdicts of that judge, so weigh that before merging.`
+        : `Spotlight has not yet checked the judge of the station against people: ${judge.pairs} of the ${judge.minPairs} runs it needs have both a verdict of the judge and a verdict of a person. The scores below come from the verdicts of that judge, so weigh that before merging.`;
+    case 'qualified':
+    case undefined:
       return null;
   }
 };
@@ -451,9 +474,11 @@ export const ConfigPullRequestBody = {
 
     return fitBody([
       `Spotlight searched for a better config of the \`${facts.stationKey}\` station on the \`${facts.lineKey}\` line and found \`${defused(facts.candidateName)}\`. ${PICKED_BECAUSE[facts.objective]} This changes the station as the candidate has it: ${[...new Set(facts.changes.map((each) => each.part))].map((each) => `\`${each}\``).join(', ')}.`,
-      ...[describeOverfit(facts), describeRegressionLimit(facts)].flatMap(
-        (each) => (each ? [each] : []),
-      ),
+      ...[
+        describeJudge(facts),
+        describeOverfit(facts),
+        describeRegressionLimit(facts),
+      ].flatMap((each) => (each ? [each] : [])),
       describeChanges(facts.changes),
       ...(facts.hypothesis
         ? [

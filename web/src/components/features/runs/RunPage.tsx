@@ -3,6 +3,7 @@ import { type ReactNode, useState } from 'react';
 import type { AfterRun } from '@/components/features/inbox/conversation/Conversation';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
+import { RunCitationTargets } from '@/components/features/runs/RunCitationTargets';
 import { RunClosing } from '@/components/features/runs/RunClosing';
 import { RunConversation } from '@/components/features/runs/RunConversation';
 import { RunEmpty } from '@/components/features/runs/RunEmpty';
@@ -116,33 +117,35 @@ export function RunPage({
 
         <RunSidePanel>
           <StepAnchorsProvider runId={run.id} journals={worked}>
-            {conversation && notes.length > 0 ? (
-              <RunConversation
-                teamId={teamId}
-                conversation={conversation}
-                worked={worked}
-                progress={progress}
-                openAt={openAt}
-                live={live}
-                {...placeClosing(closing, followedOn, run.id)}
-                footer={footer}
-                deciding={decide}
-              />
-            ) : (
-              <RunBriefing
-                run={run}
-                attachments={conversation?.attachments ?? []}
-                closing={closing}
-                activity={
-                  stayedQuiet(run, ran, journalFailed) ? (
-                    <RunEmpty slug={slug} teamId={teamId} run={run} />
-                  ) : (
-                    activity
-                  )
-                }
-                footer={footer}
-              />
-            )}
+            <RunCitationTargets runId={run.id} journals={worked}>
+              {conversation && notes.length > 0 ? (
+                <RunConversation
+                  teamId={teamId}
+                  conversation={conversation}
+                  worked={worked}
+                  progress={progress}
+                  openAt={openAt}
+                  live={live}
+                  {...placeClosing(closing, followedOn, run.id)}
+                  footer={footer}
+                  deciding={decide}
+                />
+              ) : (
+                <RunBriefing
+                  run={run}
+                  attachments={conversation?.attachments ?? []}
+                  closing={closing}
+                  activity={
+                    stayedQuiet(run, ran, journalFailed) ? (
+                      <RunEmpty slug={slug} teamId={teamId} run={run} />
+                    ) : (
+                      activity
+                    )
+                  }
+                  footer={footer}
+                />
+              )}
+            </RunCitationTargets>
           </StepAnchorsProvider>
         </RunSidePanel>
       </FileDropZone>

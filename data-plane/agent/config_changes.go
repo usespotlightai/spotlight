@@ -118,7 +118,7 @@ func configChanges(was, now protocol.StationConfig) []string {
 		changed("judge removed")
 	case was.Judge != nil:
 		if was.Judge.RubricHash != now.Judge.RubricHash {
-			changed("judge rubric changed")
+			changed("judge claims changed")
 		}
 		if was.Judge.Sample != now.Judge.Sample {
 			changed("judge sample %s → %s", number(was.Judge.Sample), number(now.Judge.Sample))

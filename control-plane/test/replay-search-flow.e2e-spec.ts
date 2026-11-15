@@ -184,7 +184,7 @@ describe('a search for a better station config', () => {
         .map((each) => each.id),
     ).toEqual([id]);
 
-    await drained(() => ({ score: 4, cost: 0.2 }));
+    await drained(() => ({ score: 5, cost: 0.2 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
     const agent = await leasedSearchRun(id, 1);
@@ -503,7 +503,7 @@ describe('a search for a better station config', () => {
       ceiling: 1,
     });
 
-    await drained(() => ({ score: 4, cost: 5 }));
+    await drained(() => ({ score: 5, cost: 5 }));
     await eventually(
       async () => (await searchState(capped.id)) === 'finished',
       WITHIN,

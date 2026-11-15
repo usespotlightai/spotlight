@@ -7,7 +7,6 @@ import { FactRecorder } from '@insights/application/services/fact-recorder.servi
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
 import { RunJudged } from '@insights/domain/events/run-judged.event';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import {
   locationOf,
@@ -32,11 +31,10 @@ const judged = (): RunJudged =>
     locationOf('task_1'),
     FIRST_CONFIG,
     RUBRIC_VERSION,
-    ScoreScale.yesNo(),
+    [true],
     1,
-    null,
     'some/model',
-    [reasonOf()],
+    [reasonOf('It retried.', 0)],
     SeenEvidence.none(),
     new Date('2026-09-30T10:00:00.000Z'),
   );

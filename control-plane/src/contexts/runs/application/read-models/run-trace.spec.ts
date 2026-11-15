@@ -236,6 +236,38 @@ describe('traceOf', () => {
     ]);
   });
 
+  it('gives each row of a journal step the step’s place in the journal, whatever the order of the rows', () => {
+    const trace = traceOf([
+      tracedRun({
+        journal: journal({
+          steps: [
+            step({ text: 'npm test', startedAt: at(30_000), ms: 1_000 }),
+            step({
+              kind: 'message',
+              text: 'Reading the spec',
+              startedAt: at(20_000),
+              ms: 1_000,
+            }),
+            step({ text: 'npm run lint', startedAt: at(40_000), ms: 5_000 }),
+          ],
+          spans: [span({ id: 's1', startedAt: at(40_100), ms: 4_800 })],
+        }),
+      }),
+    ]);
+
+    const run = trace.roots[0];
+    const turn = run?.children[1];
+    expect(
+      turn?.children.map((node) => [node.kind, node.name, node.place]),
+    ).toEqual([
+      ['step', 'Message', 1],
+      ['step', 'npm test', 0],
+      ['span', 'npm run lint', 2],
+    ]);
+    expect(run?.place).toBeNull();
+    expect(turn?.place).toBeNull();
+  });
+
   describe('where the harness reports on itself', () => {
     it('draws one row where a span and a step are the same call', () => {
       const trace = traceOf([

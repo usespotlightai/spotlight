@@ -4,7 +4,6 @@ import type {
   FlakyCheckDto,
   GainEstimateDto,
   JudgeConsistencyDto,
-  MoneyDto,
   OracleReadingDto,
   RateIntervalDto,
   SetHealthDto,
@@ -426,18 +425,5 @@ export class SetHealthResponseDto {
     this.oracle = health.oracle
       ? new OracleReadingResponseDto(health.oracle)
       : null;
-  }
-}
-
-export class MoneyResponseDto {
-  @ApiProperty({ example: 4.2 })
-  readonly amount: number;
-
-  @ApiProperty({ example: 'USD' })
-  readonly currency: string;
-
-  constructor(spend: MoneyDto) {
-    this.amount = spend.amount;
-    this.currency = spend.currency;
   }
 }

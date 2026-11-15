@@ -23,7 +23,8 @@ export function JudgeCalibrations({
   return (
     <div data-slot="judge-calibrations" className="flex flex-col gap-1 text-xs">
       <p className="text-muted-foreground">
-        Judge scores count only for judges that agree with people often enough.
+        Judge verdicts count only for judges that agree with people often
+        enough.
       </p>
       <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
         {judges.map((judge) => (

@@ -5617,7 +5617,7 @@
             "description": "No such team for this caller"
           }
         },
-        "summary": "How often the station’s judge agrees with people, under each of its rubrics",
+        "summary": "How often the station’s judge agrees with people, under each of its claims versions",
         "tags": [
           "insights"
         ]
@@ -5662,7 +5662,7 @@
             "description": "No such run for this caller"
           }
         },
-        "summary": "The judge’s score for a run, with the reasons it cites, and the grades people gave it",
+        "summary": "The judge’s verdict on a run, with the reasons it cites, and the grades people gave it",
         "tags": [
           "insights"
         ]
@@ -5720,10 +5720,195 @@
             "description": "The grade changed meanwhile"
           },
           "422": {
-            "description": "No grade, or one off the run’s scale"
+            "description": "No grade, or one that does not mark each claim"
           }
         },
         "summary": "Grade a run; a later grade by the same person replaces theirs, and nothing waits on it",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/teams/{teamId}/judge-disagreements/{disagreementId}": {
+      "get": {
+        "operationId": "readJudgeDisagreement",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "disagreementId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgeDisagreementResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such disagreement for this caller"
+          }
+        },
+        "summary": "A run where the judge and a person disagree: the judge’s claims, results and reasons, and the answer",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/teams/{teamId}/judge-disagreements/{disagreementId}/answer": {
+      "post": {
+        "operationId": "answerJudgeDisagreement",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "disagreementId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerJudgeDisagreementRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgeDisagreementResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The question was asked of another person"
+          },
+          "404": {
+            "description": "No such disagreement for this caller"
+          },
+          "409": {
+            "description": "The disagreement already has an answer, is withdrawn, or changed meanwhile"
+          },
+          "422": {
+            "description": "Claims are in dispute, so each takes its own answer; or the answer names no claim and says nothing"
+          }
+        },
+        "summary": "Where no claim is in dispute, say which claim should have failed, or what was wrong; the answer helps revise the claims and never changes the agreement",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/teams/{teamId}/judge-disagreements/{disagreementId}/claims/{claim}/answer": {
+      "post": {
+        "operationId": "answerJudgeDisagreementClaim",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "disagreementId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "claim",
+            "required": true,
+            "in": "path",
+            "description": "The place of the claim, from 0",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerDisagreementClaimRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgeDisagreementResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The claim is not a whole number"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The question was asked of another person"
+          },
+          "404": {
+            "description": "No such disagreement for this caller"
+          },
+          "409": {
+            "description": "The claim already has an answer, the disagreement is withdrawn, or it changed meanwhile"
+          },
+          "422": {
+            "description": "The claim is not in dispute, or the answer is not judge-right or claim-wrong"
+          }
+        },
+        "summary": "Answer one claim in dispute, with its own note; the disagreement is answered once every claim in dispute has an answer, and answers never change the agreement",
         "tags": [
           "insights"
         ]
@@ -5780,17 +5965,11 @@
       "StationJudgeResponseDto": {
         "type": "object",
         "properties": {
-          "rubric": {
-            "type": "string",
-            "nullable": true,
-            "example": "A good run changes only what the task requests.",
-            "description": "What a good run looks like, in Markdown. Null when the judge goes by its claims alone"
-          },
           "claims": {
             "example": [
               "The change adds a test that fails without it."
             ],
-            "description": "Checkable claims the judge marks met or unmet, in order. Empty when the judge goes by its rubric",
+            "description": "Checkable claims the judge marks met or not met, in order",
             "type": "array",
             "items": {
               "type": "string"
@@ -5799,7 +5978,7 @@
           "passThreshold": {
             "type": "number",
             "example": 1,
-            "description": "The share of claims a run must meet to pass, from 0 to 1. 1 means every claim"
+            "description": "The share of claims a run must meet to pass, above 0, up to 1. 1 means every claim"
           },
           "sample": {
             "type": "number",
@@ -5809,11 +5988,10 @@
           "minAgreement": {
             "type": "number",
             "example": 0.6,
-            "description": "How often the judge must agree with people, from 0 to 1, before its scores show"
+            "description": "How often the judge must agree with people, from 0 to 1, before its verdicts show on runs."
           }
         },
         "required": [
-          "rubric",
           "claims",
           "passThreshold",
           "sample",
@@ -6052,7 +6230,7 @@
           },
           "judge": {
             "nullable": true,
-            "description": "Scores the station’s runs against a rubric. Null when none is set.",
+            "description": "Judges the station’s runs against checkable claims. Null when none is set.",
             "type": "object",
             "allOf": [
               {
@@ -8298,6 +8476,12 @@
               }
             ]
           },
+          "place": {
+            "type": "number",
+            "nullable": true,
+            "example": 11,
+            "description": "On a row of a journal step: where the step sits in the run’s journal, from 0. A citation of a step names this place"
+          },
           "span": {
             "nullable": true,
             "type": "object",
@@ -8344,6 +8528,7 @@
           "cost",
           "currency",
           "step",
+          "place",
           "span",
           "connection",
           "egressEnforcement",
@@ -8444,7 +8629,7 @@
         "properties": {
           "rubricHash": {
             "type": "string",
-            "description": "The SHA-256 of the judge's rubric"
+            "description": "The SHA-256 of the judge's claims and pass threshold"
           },
           "sample": {
             "type": "number",
@@ -8463,7 +8648,7 @@
           "minAgreement"
         ]
       },
-      "StationConfigResponseDto": {
+      "RunStationConfigResponseDto": {
         "type": "object",
         "properties": {
           "prompt": {
@@ -8548,41 +8733,6 @@
           "decisions",
           "memories",
           "judge"
-        ]
-      },
-      "RunUsageResponseDto": {
-        "type": "object",
-        "properties": {
-          "ms": {
-            "type": "number",
-            "nullable": true
-          },
-          "steps": {
-            "type": "number"
-          },
-          "errors": {
-            "type": "number"
-          },
-          "contextTokens": {
-            "type": "number",
-            "nullable": true
-          },
-          "cost": {
-            "type": "number",
-            "nullable": true
-          },
-          "currency": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "ms",
-          "steps",
-          "errors",
-          "contextTokens",
-          "cost",
-          "currency"
         ]
       },
       "InboxChatResponseDto": {
@@ -8782,7 +8932,8 @@
             "enum": [
               "memories",
               "grade",
-              "alert"
+              "alert",
+              "judge-disagreement"
             ],
             "example": "memories",
             "description": "The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run"
@@ -9366,7 +9517,7 @@
           },
           "points": {
             "example": [
-              "Fix the judge: the rubric requires tests the task never needed."
+              "Fix the judge: a claim requires tests the task never needed."
             ],
             "description": "What happened, then what it suggests, one point each",
             "type": "array",
@@ -10417,7 +10568,7 @@
           "next"
         ]
       },
-      "ConfigChangeResponseDto": {
+      "RunConfigChangeResponseDto": {
         "type": "object",
         "properties": {
           "part": {
@@ -10487,7 +10638,7 @@
           "changes": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConfigChangeResponseDto"
+              "$ref": "#/components/schemas/RunConfigChangeResponseDto"
             }
           }
         },
@@ -10511,7 +10662,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/StationConfigResponseDto"
+                "$ref": "#/components/schemas/RunStationConfigResponseDto"
               }
             ]
           },
@@ -14170,6 +14321,214 @@
           "reviewItemId"
         ]
       },
+      "ConfigProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "careful-claude"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "The settings that the profile applies to the harness"
+          }
+        },
+        "required": [
+          "key",
+          "settings"
+        ]
+      },
+      "ConfigRepositoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "acme/api"
+          },
+          "setup": {
+            "type": "string",
+            "nullable": true,
+            "example": "npm ci"
+          }
+        },
+        "required": [
+          "name",
+          "setup"
+        ]
+      },
+      "ConfigSkillResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "write-tests"
+          },
+          "hash": {
+            "type": "string",
+            "example": "9f2c1e…",
+            "description": "The hash of the skill’s content that the station enabled for the run"
+          }
+        },
+        "required": [
+          "key",
+          "hash"
+        ]
+      },
+      "ConfigJudgeResponseDto": {
+        "type": "object",
+        "properties": {
+          "rubricVersion": {
+            "type": "string",
+            "description": "The version of the claims the runs were judged by"
+          },
+          "sample": {
+            "type": "number",
+            "example": 0.2,
+            "description": "The share of runs judged"
+          },
+          "minAgreement": {
+            "type": "number",
+            "example": 0.6,
+            "description": "How often the judge must agree with people"
+          }
+        },
+        "required": [
+          "rubricVersion",
+          "sample",
+          "minAgreement"
+        ]
+      },
+      "InsightsStationConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "nullable": true
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "opus"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
+          },
+          "profile": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigProfileResponseDto"
+              }
+            ]
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "node:22"
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigRepositoryResponseDto"
+            }
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigSkillResponseDto"
+            }
+          },
+          "tools": {
+            "example": [
+              "github.comment"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "decisions": {
+            "type": "boolean",
+            "description": "Whether its runs record their decisions"
+          },
+          "memories": {
+            "type": "boolean",
+            "description": "Whether Spotlight drafts memories after its runs"
+          },
+          "judge": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigJudgeResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "prompt",
+          "harness",
+          "model",
+          "effort",
+          "profile",
+          "image",
+          "repositories",
+          "skills",
+          "tools",
+          "decisions",
+          "memories",
+          "judge"
+        ]
+      },
+      "InsightsConfigChangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": "string",
+            "example": "model"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "example": "write-tests",
+            "description": "Which one of the part changed, where the part is a list"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "changed"
+            ]
+          },
+          "was": {
+            "type": "string",
+            "nullable": true,
+            "example": "sonnet"
+          },
+          "now": {
+            "type": "string",
+            "nullable": true,
+            "example": "opus"
+          }
+        },
+        "required": [
+          "part",
+          "name",
+          "kind",
+          "was",
+          "now"
+        ]
+      },
       "StationConfigPullRequestResponseDto": {
         "type": "object",
         "properties": {
@@ -14181,6 +14540,48 @@
         },
         "required": [
           "url"
+        ]
+      },
+      "StationRunUsageResponseDto": {
+        "type": "object",
+        "properties": {
+          "ms": {
+            "type": "number",
+            "nullable": true,
+            "example": 184000
+          },
+          "steps": {
+            "type": "number",
+            "example": 42
+          },
+          "errors": {
+            "type": "number",
+            "example": 1
+          },
+          "contextTokens": {
+            "type": "number",
+            "nullable": true,
+            "example": 120000,
+            "description": "Tokens of context used"
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.42
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true,
+            "example": "USD"
+          }
+        },
+        "required": [
+          "ms",
+          "steps",
+          "errors",
+          "contextTokens",
+          "cost",
+          "currency"
         ]
       },
       "HumanActionResponseDto": {
@@ -14277,7 +14678,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/RunUsageResponseDto"
+                "$ref": "#/components/schemas/StationRunUsageResponseDto"
               }
             ]
           },
@@ -14594,7 +14995,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/StationConfigResponseDto"
+                "$ref": "#/components/schemas/InsightsStationConfigResponseDto"
               }
             ]
           },
@@ -14602,7 +15003,7 @@
             "description": "How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConfigChangeResponseDto"
+              "$ref": "#/components/schemas/InsightsConfigChangeResponseDto"
             }
           },
           "pullRequest": {
@@ -14787,24 +15188,17 @@
         "properties": {
           "rubricVersion": {
             "type": "string",
-            "description": "The SHA-256 of the station’s current rubric"
+            "description": "The SHA-256 of the station’s current claims"
           },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "yes-no",
-              "number",
-              "claims",
-              null
-            ],
-            "nullable": true,
-            "description": "The scale its rubric scores on; none where it cannot be read"
+          "readable": {
+            "type": "boolean",
+            "description": "Whether the judge’s claims can be read"
           },
           "claims": {
             "example": [
               "The change adds a test that fails without it."
             ],
-            "description": "The claims the judge marks met or unmet, in order; empty where it goes by its rubric",
+            "description": "The claims the judge marks met or not met, in order",
             "type": "array",
             "items": {
               "type": "string"
@@ -14826,7 +15220,7 @@
         },
         "required": [
           "rubricVersion",
-          "kind",
+          "readable",
           "claims",
           "passThreshold",
           "sample",
@@ -14838,22 +15232,13 @@
         "properties": {
           "qualified": {
             "type": "boolean",
-            "description": "Whether the judge agrees with people often enough for its scores to count"
-          },
-          "measure": {
-            "type": "string",
-            "enum": [
-              "kappa",
-              "spearman",
-              null
-            ],
-            "nullable": true,
-            "description": "How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers"
+            "description": "Whether the judge agrees with people often enough for its verdicts to count"
           },
           "agreement": {
             "type": "number",
             "nullable": true,
-            "example": 0.71
+            "example": 0.71,
+            "description": "Cohen’s kappa of the judge’s pass or fail against people’s, on the current claims"
           },
           "reading": {
             "type": "string",
@@ -14864,24 +15249,20 @@
               "fair",
               "slight",
               "chance",
-              "very-strong",
-              "strong",
-              "weak",
-              "inverse",
               null
             ],
             "nullable": true,
-            "description": "How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s"
+            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
           },
           "pairs": {
             "type": "number",
             "example": 24,
-            "description": "Runs of the current rubric with both a judge score and people’s"
+            "description": "Runs of the current claims with both a judge verdict and people’s"
           },
           "minPairs": {
             "type": "number",
             "example": 10,
-            "description": "Runs with both a judge score and people’s that agreement needs before it counts"
+            "description": "Runs with both a judge verdict and people’s that agreement needs before it counts"
           },
           "minAgreement": {
             "type": "number",
@@ -14899,16 +15280,15 @@
               null
             ],
             "nullable": true,
-            "description": "Why the judge’s scores are hidden, where they are"
+            "description": "Why the judge’s verdicts are hidden, where they are"
           },
           "failing": {
             "type": "boolean",
-            "description": "Whether the judge’s scores are hidden for a reason other than too few runs with both scores"
+            "description": "Whether the judge’s verdicts are hidden for a reason other than too few runs with both verdicts"
           }
         },
         "required": [
           "qualified",
-          "measure",
           "agreement",
           "reading",
           "pairs",
@@ -14916,56 +15296,6 @@
           "minAgreement",
           "hiddenReason",
           "failing"
-        ]
-      },
-      "AgreementReadingsResponseDto": {
-        "type": "object",
-        "properties": {
-          "kappa": {
-            "type": "string",
-            "enum": [
-              "almost-perfect",
-              "substantial",
-              "moderate",
-              "fair",
-              "slight",
-              "chance",
-              null
-            ],
-            "nullable": true,
-            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
-          },
-          "pearson": {
-            "type": "string",
-            "enum": [
-              "very-strong",
-              "strong",
-              "moderate",
-              "weak",
-              "inverse",
-              null
-            ],
-            "nullable": true,
-            "description": "How strong Pearson’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one"
-          },
-          "spearman": {
-            "type": "string",
-            "enum": [
-              "very-strong",
-              "strong",
-              "moderate",
-              "weak",
-              "inverse",
-              null
-            ],
-            "nullable": true,
-            "description": "How strong Spearman’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one"
-          }
-        },
-        "required": [
-          "kappa",
-          "pearson",
-          "spearman"
         ]
       },
       "ClaimAgreementResponseDto": {
@@ -15028,7 +15358,7 @@
           },
           "measured": {
             "type": "boolean",
-            "description": "Whether enough runs have both scores for the figures below to count"
+            "description": "Whether enough runs have both verdicts for the figures below to count"
           },
           "pairsProgress": {
             "type": "number",
@@ -15038,62 +15368,50 @@
           "agreed": {
             "type": "number",
             "example": 21,
-            "description": "Scores where the judge and people agree: runs, or claim marks for a judge of claims"
+            "description": "Runs where the judge and people gave the same verdict, pass or fail"
           },
           "compared": {
             "type": "number",
             "example": 24,
-            "description": "Scores compared: runs, or claim marks for a judge of claims"
+            "description": "Runs compared"
           },
           "belowMinimum": {
             "type": "boolean",
-            "description": "Whether the headline measure, kappa or Spearman’s, is below the minimum agreement"
+            "description": "Whether the kappa is below the minimum agreement"
           },
           "observed": {
             "type": "number",
             "nullable": true,
             "example": 0.83,
-            "description": "The share of pairs where the judge and people gave the same score"
+            "description": "The share of pairs where the judge and people gave the same verdict"
           },
           "kappa": {
             "type": "number",
             "nullable": true,
             "example": 0.62
           },
-          "spearman": {
-            "type": "number",
+          "reading": {
+            "type": "string",
+            "enum": [
+              "almost-perfect",
+              "substantial",
+              "moderate",
+              "fair",
+              "slight",
+              "chance",
+              null
+            ],
             "nullable": true,
-            "example": 0.58
-          },
-          "pearson": {
-            "type": "number",
-            "nullable": true,
-            "example": 0.61,
-            "description": "Pearson’s correlation between the two scores, for a judge of numbers; none otherwise or where either side never changes"
-          },
-          "mae": {
-            "type": "number",
-            "nullable": true,
-            "example": 0.7,
-            "description": "The mean absolute difference between the two scores"
-          },
-          "rmse": {
-            "type": "number",
-            "nullable": true,
-            "example": 0.9,
-            "description": "The root mean square difference between the two scores, for a judge of numbers"
+            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
           },
           "f1": {
             "type": "number",
             "nullable": true,
             "example": 0.8,
-            "description": "The F1 score of the judge’s yes, or met, against people’s, for a judge of yes or no or of claims; none where neither said yes"
-          },
-          "readings": {
-            "$ref": "#/components/schemas/AgreementReadingsResponseDto"
+            "description": "The F1 score of the judge’s pass against people’s; none where neither passed the run"
           },
           "claims": {
-            "description": "For a judge of claims, how often it agrees with people on each claim; the figures above pool every claim. Empty otherwise",
+            "description": "How often the judge agrees with people on each claim, from grades only; it does not decide whether the judge is qualified",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ClaimAgreementResponseDto"
@@ -15109,12 +15427,8 @@
           "belowMinimum",
           "observed",
           "kappa",
-          "spearman",
-          "pearson",
-          "mae",
-          "rmse",
+          "reading",
           "f1",
-          "readings",
           "claims"
         ]
       },
@@ -15123,8 +15437,8 @@
         "properties": {
           "labels": {
             "example": [
-              "no",
-              "yes"
+              "fails",
+              "passes"
             ],
             "type": "array",
             "items": {
@@ -15149,7 +15463,7 @@
                 16
               ]
             ],
-            "description": "Counts of runs, a row for each judge score and a column for each score people gave"
+            "description": "Counts of runs, a row for each judge verdict and a column for each verdict people gave"
           }
         },
         "required": [
@@ -15162,17 +15476,17 @@
         "properties": {
           "label": {
             "type": "string",
-            "example": "yes"
+            "example": "passes"
           },
           "judge": {
             "type": "number",
             "example": 18,
-            "description": "Runs the judge gave this score, among runs with both scores"
+            "description": "Runs the judge gave this verdict, among runs with both verdicts"
           },
           "people": {
             "type": "number",
             "example": 15,
-            "description": "Runs people gave this score, among runs with both scores"
+            "description": "Runs people gave this verdict, among runs with both verdicts"
           }
         },
         "required": [
@@ -15196,7 +15510,7 @@
             "type": "number",
             "nullable": true,
             "example": 0.75,
-            "description": "The judge’s mean score, or null while this rubric version is not the current qualified one"
+            "description": "The share of the day’s runs the judge passed, or null while this claims version is not the current qualified one"
           },
           "labelled": {
             "type": "number",
@@ -15206,7 +15520,7 @@
             "type": "number",
             "nullable": true,
             "example": 0.67,
-            "description": "The mean of people’s scores for the same runs"
+            "description": "The share of the same runs that people passed"
           }
         },
         "required": [
@@ -15217,23 +15531,76 @@
           "people"
         ]
       },
+      "ClaimsSourcePullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number",
+            "example": 42
+          },
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/spotlight-config/pull/42"
+          },
+          "title": {
+            "type": "string",
+            "example": "Tighten the review claims"
+          }
+        },
+        "required": [
+          "number",
+          "url",
+          "title"
+        ]
+      },
+      "ClaimsSourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "example": "acme/spotlight-config"
+          },
+          "sha": {
+            "type": "string",
+            "example": "3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f"
+          },
+          "shortSha": {
+            "type": "string",
+            "example": "3f1c9a7"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/spotlight-config/commit/3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f",
+            "description": "The commit on GitHub"
+          },
+          "pullRequest": {
+            "nullable": true,
+            "description": "The pull request that merged the commit, or the first one that has it; null while none is known",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClaimsSourcePullRequestResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "repository",
+          "sha",
+          "shortSha",
+          "url",
+          "pullRequest"
+        ]
+      },
       "RubricVersionResponseDto": {
         "type": "object",
         "properties": {
           "rubricVersion": {
             "type": "string"
           },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "yes-no",
-              "number",
-              "claims"
-            ]
-          },
           "current": {
             "type": "boolean",
-            "description": "Whether this is the station’s rubric now"
+            "description": "Whether these are the station’s claims now"
           },
           "judged": {
             "type": "number",
@@ -15246,14 +15613,14 @@
             "$ref": "#/components/schemas/ConfusionResponseDto"
           },
           "distribution": {
-            "description": "How often each score was given, in the confusion’s order",
+            "description": "How often each verdict was given, in the confusion’s order",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ScoreCountResponseDto"
             }
           },
           "trend": {
-            "description": "Daily means of the judge’s and people’s scores, the judge’s included while its scores are hidden on runs",
+            "description": "Daily pass rates of the judge and of people, the judge’s included while its verdicts are hidden on runs",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TrendPointResponseDto"
@@ -15261,12 +15628,12 @@
           },
           "trendShown": {
             "type": "boolean",
-            "description": "Whether enough runs have both scores, over more than one day, to draw the trend"
+            "description": "Whether enough runs have both verdicts, over more than one day, to draw the trend"
           },
           "trendMinPairs": {
             "type": "number",
             "example": 30,
-            "description": "Runs with both scores that the trend needs"
+            "description": "Runs with both verdicts that the trend needs"
           },
           "firstAt": {
             "type": "string",
@@ -15275,11 +15642,20 @@
           "lastAt": {
             "type": "string",
             "example": "2026-09-30T10:00:00.000Z"
+          },
+          "source": {
+            "nullable": true,
+            "description": "The first commit that wrote these claims, as its line write named it in Spotlight-Source-Commit; null when no write named one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClaimsSourceResponseDto"
+              }
+            ]
           }
         },
         "required": [
           "rubricVersion",
-          "kind",
           "current",
           "judged",
           "agreement",
@@ -15289,7 +15665,8 @@
           "trendShown",
           "trendMinPairs",
           "firstAt",
-          "lastAt"
+          "lastAt",
+          "source"
         ]
       },
       "JudgeCoverageRatesResponseDto": {
@@ -15385,7 +15762,7 @@
             "$ref": "#/components/schemas/JudgeCalibrationResponseDto"
           },
           "versions": {
-            "description": "How the judge agreed with people under each rubric, the latest first",
+            "description": "How the judge agreed with people under each claims version, the latest first",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RubricVersionResponseDto"
@@ -15520,7 +15897,7 @@
             "type": "number",
             "nullable": true,
             "example": 0,
-            "description": "The place of the claim this reason is about, from 0; none on a rubric’s scale"
+            "description": "The place of the claim this reason is about, from 0; none only on a reason that names no claim"
           }
         },
         "required": [
@@ -15532,34 +15909,29 @@
       "JudgeScoreResponseDto": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "yes-no",
-              "number",
-              "claims"
-            ]
-          },
           "value": {
             "type": "number",
-            "example": 1,
-            "description": "1 for yes and 0 for no, a whole number from 1 to 5, or the share of claims met"
+            "example": 0.5,
+            "description": "The share of claims met"
           },
           "claimResults": {
-            "nullable": true,
             "example": [
               true,
               false
             ],
-            "description": "Whether each claim was met, in order; none on a rubric’s scale",
+            "description": "Whether each claim was met, in order",
             "type": "array",
             "items": {
               "type": "boolean"
             }
           },
+          "passes": {
+            "type": "boolean",
+            "description": "Whether the run passes: the share of claims met reaches the pass threshold"
+          },
           "label": {
             "type": "string",
-            "example": "yes"
+            "example": "1 of 2 claims met"
           },
           "rubricVersion": {
             "type": "string"
@@ -15580,14 +15952,38 @@
           }
         },
         "required": [
-          "kind",
           "value",
           "claimResults",
+          "passes",
           "label",
           "rubricVersion",
           "model",
           "at",
           "reasons"
+        ]
+      },
+      "RunHumanOutcomeResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "grade",
+              "accepted",
+              "sent-back",
+              "merged",
+              "closed"
+            ],
+            "description": "What gave the human outcome: a grade, the first action of a person on the run, or the task’s pull request"
+          },
+          "passes": {
+            "type": "boolean",
+            "description": "Whether people found the run good"
+          }
+        },
+        "required": [
+          "source",
+          "passes"
         ]
       },
       "GradeResponseDto": {
@@ -15601,33 +15997,29 @@
             "type": "boolean",
             "description": "Whether the caller gave this grade"
           },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "yes-no",
-              "number",
-              "claims"
-            ]
-          },
           "value": {
             "type": "number",
-            "example": 1
+            "example": 0.5,
+            "description": "The share of claims met"
           },
           "claimResults": {
-            "nullable": true,
             "example": [
               true,
               false
             ],
-            "description": "Whether the person found each claim met, in order; none on a rubric’s scale",
+            "description": "Whether the person found each claim met, in order",
             "type": "array",
             "items": {
               "type": "boolean"
             }
           },
+          "passes": {
+            "type": "boolean",
+            "description": "Whether the run passes on this grade: the share of claims met reaches the pass threshold"
+          },
           "label": {
             "type": "string",
-            "example": "yes"
+            "example": "1 of 2 claims met"
           },
           "at": {
             "type": "string",
@@ -15637,9 +16029,9 @@
         "required": [
           "by",
           "mine",
-          "kind",
           "value",
           "claimResults",
+          "passes",
           "label",
           "at"
         ]
@@ -15659,19 +16051,9 @@
             "type": "string",
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
           },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "yes-no",
-              "number",
-              "claims"
-            ],
-            "description": "The scale the run is graded on: its judge’s, else its station’s rubric’s, else yes or no"
-          },
-          "rubricBody": {
-            "type": "string",
-            "nullable": true,
-            "description": "The body of the rubric the run is graded by: the rubric without the line or front matter naming its scale, so a person grades it by what the judge did; the judge’s own where it scored the run, else the station’s; null where there is none"
+          "gradable": {
+            "type": "boolean",
+            "description": "Whether the run can be graded: its judge checked it, or its station has a judge with claims"
           },
           "claims": {
             "type": "array",
@@ -15679,15 +16061,19 @@
               "type": "string",
               "nullable": true
             },
-            "description": "The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer stored"
+            "description": "The claims the run is graded on, in order: the ones the judge marked where it checked the run, else the station judge’s; a claim reads null only where the claims the judge was given are no longer stored; empty where the run cannot be graded"
+          },
+          "earlierClaims": {
+            "type": "boolean",
+            "description": "Whether the run is graded on claims the station’s judge no longer uses: the judge checked it on earlier claims"
           },
           "judged": {
             "type": "boolean",
-            "description": "Whether the judge scored the run"
+            "description": "Whether the judge checked the run"
           },
           "judge": {
             "nullable": true,
-            "description": "The judge’s score and its reasons; none where it did not score the run, or where its scores are hidden",
+            "description": "The judge’s verdict and its reasons; none where it did not check the run, or where its verdicts are hidden",
             "type": "object",
             "allOf": [
               {
@@ -15697,6 +16083,21 @@
           },
           "calibration": {
             "$ref": "#/components/schemas/JudgeCalibrationResponseDto"
+          },
+          "outcome": {
+            "nullable": true,
+            "description": "What people said of the run: a grade of the judge’s claims version, else their first action on the run, else the task’s pull request; none where people said nothing yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunHumanOutcomeResponseDto"
+              }
+            ]
+          },
+          "agrees": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Whether the judge’s verdict is the human outcome; none where the judge’s verdict is hidden or people said nothing yet"
           },
           "grades": {
             "description": "What people graded the run, the latest first",
@@ -15710,44 +16111,344 @@
           "runId",
           "taskId",
           "stationId",
-          "kind",
-          "rubricBody",
+          "gradable",
           "claims",
+          "earlierClaims",
           "judged",
           "judge",
           "calibration",
+          "outcome",
+          "agrees",
           "grades"
         ]
       },
       "GradeRunRequestDto": {
         "type": "object",
         "properties": {
-          "value": {
-            "oneOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 5
-              }
-            ],
-            "example": true,
-            "description": "Yes or no, or a whole number from 1 to 5, on the run’s scale; left out on a claims scale"
-          },
           "claims": {
             "example": [
               true,
               false
             ],
-            "description": "Whether each claim was met, in order, on a claims scale; left out otherwise",
+            "description": "Whether each claim was met, in order",
             "type": "array",
             "items": {
               "type": "boolean"
             }
           }
-        }
+        },
+        "required": [
+          "claims"
+        ]
+      },
+      "DisagreementCitationResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "step",
+              "hunk"
+            ]
+          },
+          "step": {
+            "type": "number",
+            "nullable": true,
+            "example": 12,
+            "description": "The journal place of the cited step"
+          },
+          "hunk": {
+            "type": "string",
+            "nullable": true,
+            "example": "api/src/uploads.ts#2",
+            "description": "The id of the cited hunk"
+          }
+        },
+        "required": [
+          "kind",
+          "step",
+          "hunk"
+        ]
+      },
+      "DisagreementReasonResponseDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "example": "The upload has no retry."
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DisagreementCitationResponseDto"
+            }
+          }
+        },
+        "required": [
+          "text",
+          "citations"
+        ]
+      },
+      "DisagreementClaimResponseDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "example": 0,
+            "description": "The place of the claim, from 0"
+          },
+          "text": {
+            "type": "string",
+            "example": "The upload retries on a network error."
+          },
+          "judgeMet": {
+            "type": "boolean",
+            "description": "Whether the judge found the claim met"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DisagreementReasonResponseDto"
+            }
+          }
+        },
+        "required": [
+          "index",
+          "text",
+          "judgeMet",
+          "reasons"
+        ]
+      },
+      "ClaimAnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "claim": {
+            "type": "number",
+            "example": 0,
+            "description": "The place of the claim, from 0"
+          },
+          "answer": {
+            "type": "string",
+            "enum": [
+              "judge-right",
+              "claim-wrong"
+            ],
+            "description": "judge-right: the judge read the claim correctly. claim-wrong: the claim does not fit this run"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why the person answered this claim so"
+          },
+          "answeredBy": {
+            "type": "string"
+          },
+          "answeredAt": {
+            "type": "string",
+            "example": "2026-11-15T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "claim",
+          "answer",
+          "note",
+          "answeredBy",
+          "answeredAt"
+        ]
+      },
+      "NotMetAnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "claim": {
+            "type": "number",
+            "nullable": true,
+            "example": 1,
+            "description": "The claim that should have failed, or null where no claim covers what was wrong"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "What was wrong; always given where no claim covers it"
+          },
+          "answeredBy": {
+            "type": "string"
+          },
+          "answeredAt": {
+            "type": "string",
+            "example": "2026-11-15T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "claim",
+          "note",
+          "answeredBy",
+          "answeredAt"
+        ]
+      },
+      "JudgeDisagreementResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "lineId": {
+            "type": "string"
+          },
+          "stationId": {
+            "type": "string"
+          },
+          "rubricVersion": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "judge-failed",
+              "judge-passed"
+            ],
+            "description": "judge-failed: the judge failed a run that a person passed. judge-passed: the judge passed a run that a person failed"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "answered",
+              "withdrawn"
+            ],
+            "description": "open: the question waits for an answer to at least one claim in dispute. answered: every claim in dispute has an answer, or, with none in dispute, what was not met. withdrawn: Spotlight withdrew the question, also after an answer"
+          },
+          "labelFrom": {
+            "type": "string",
+            "enum": [
+              "grade",
+              "accepted",
+              "sent-back",
+              "merged",
+              "closed"
+            ],
+            "description": "What gave the human outcome that disagrees with the judge"
+          },
+          "openedAt": {
+            "type": "string",
+            "example": "2026-11-14T10:00:00.000Z"
+          },
+          "claims": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DisagreementClaimResponseDto"
+            }
+          },
+          "disputedClaims": {
+            "description": "The places of the claims in dispute, each answered on its own, fixed when the question opened: where a grade gave the outcome, the claims it marked otherwise than the judge; else, where the judge failed the run, the claims it failed; else none, and the one answer says what was not met",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "answers": {
+            "description": "One answer for each claim in dispute answered so far, in claim order",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimAnswerResponseDto"
+            }
+          },
+          "notMet": {
+            "nullable": true,
+            "description": "Where no claim is in dispute: the answer, naming the claim that should have failed or saying what was wrong",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotMetAnswerResponseDto"
+              }
+            ]
+          },
+          "askedOf": {
+            "type": "string",
+            "nullable": true,
+            "description": "The one person who can answer. Null when Spotlight asked the team: then anyone in the team can answer"
+          },
+          "withdrawnAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When Spotlight withdrew the question"
+          },
+          "withdrawnBecause": {
+            "type": "string",
+            "enum": [
+              "verdicts-agree",
+              "claims-changed",
+              "label-gone",
+              null
+            ],
+            "nullable": true,
+            "description": "Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome or grade that a person gave the run no longer exists. Null while not withdrawn"
+          }
+        },
+        "required": [
+          "id",
+          "runId",
+          "taskId",
+          "lineId",
+          "stationId",
+          "rubricVersion",
+          "direction",
+          "state",
+          "labelFrom",
+          "openedAt",
+          "claims",
+          "disputedClaims",
+          "answers",
+          "notMet",
+          "askedOf",
+          "withdrawnAt",
+          "withdrawnBecause"
+        ]
+      },
+      "AnswerJudgeDisagreementRequestDto": {
+        "type": "object",
+        "properties": {
+          "shouldHaveFailed": {
+            "type": "number",
+            "nullable": true,
+            "description": "The claim that should have failed, or null where no claim covers what was wrong"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "What was wrong: required where no claim is named, optional otherwise; at most 2,000 characters"
+          }
+        },
+        "required": [
+          "shouldHaveFailed",
+          "note"
+        ]
+      },
+      "AnswerDisagreementClaimRequestDto": {
+        "type": "object",
+        "properties": {
+          "answer": {
+            "type": "string",
+            "enum": [
+              "judge-right",
+              "claim-wrong"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why, optional; at most 2,000 characters"
+          }
+        },
+        "required": [
+          "answer",
+          "note"
+        ]
       }
     }
   }

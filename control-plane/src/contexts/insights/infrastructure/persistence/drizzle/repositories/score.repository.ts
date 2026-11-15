@@ -29,9 +29,10 @@ const toScore = (row: ScoreRow): Score =>
   Score.rehydrate(scoreFieldsOfRow(row));
 
 const columnsOf = (stored: Score) => ({
-  kind: stored.scale.kind,
   value: stored.value,
-  claimResults: stored.claimResults && [...stored.claimResults],
+  claimResults: [...stored.claimResults],
+  passThreshold: stored.passThreshold,
+  passes: stored.passes,
   rubricVersion: stored.rubricVersion,
   at: stored.at,
 });
@@ -65,6 +66,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
           taskId: added.location.taskId.value,
           fingerprint: added.fingerprint,
           source: added.source,
+          origin: added.origin,
           model: added.model,
           reasons: storedReasons(added),
           seen: { steps: added.seen.steps, hunks: added.seen.hunks },

@@ -4,32 +4,28 @@ import {
   judgeReportOf,
 } from '@insights/domain/services/judge-report';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import {
   judgeScore,
   NEXT_RUBRIC_VERSION,
   personGrade,
   RUBRIC_VERSION,
+  rubricOf,
 } from '@insights/judging.fake-spec';
 import { endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { describe, expect, it } from 'vitest';
 
-const YES_NO = ScoreScale.yesNo();
 const AT = new Date('2026-09-30T11:00:00.000Z');
 
 const runs = (count: number, agreeing: number) =>
   Array.from({ length: count }, (_, at) => {
     const runId = `run_${at}`;
-    const judged = at % 2;
+    const passes = at % 2 === 1;
     const agrees = at < agreeing;
 
     return {
-      score: judgeScore(runId, YES_NO, judged),
+      score: judgeScore(runId, [passes]),
       record: endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
-        HumanAction.of(
-          (judged === 1) === agrees ? 'accepted' : 'sent-back',
-          AT,
-        ),
+        HumanAction.of(passes === agrees ? 'accepted' : 'sent-back', AT),
       ),
     };
   });
@@ -48,12 +44,12 @@ const reportOf = (count: number, agreeing: number) => {
 
 const CURRENT = {
   rubricVersion: RUBRIC_VERSION,
-  scale: YES_NO,
+  rubric: rubricOf(),
   minAgreement: 0.6,
 };
 
 describe('judgeReportOf', () => {
-  it('pairs each judge score with what people did on the run', () => {
+  it('pairs each judge verdict with what people did on the run', () => {
     const report = reportOf(12, 12);
     const [version] = report.versions;
 
@@ -64,8 +60,8 @@ describe('judgeReportOf', () => {
 
   it('uses a person’s grade for the run instead of what they did', () => {
     const report = judgeReportOf({
-      judged: [judgeScore('run_1', YES_NO, 1)],
-      grades: [personGrade('run_1', YES_NO, 0)],
+      judged: [judgeScore('run_1', [true])],
+      grades: [personGrade('run_1', [false])],
       facts: factsWith([
         endedRecord('run_1', { taskId: 'task_run_1' }).recordAction(
           HumanAction.of('accepted', AT),
@@ -83,10 +79,10 @@ describe('judgeReportOf', () => {
   it('reports each rubric version apart, the latest first', () => {
     const report = judgeReportOf({
       judged: [
-        judgeScore('run_1', YES_NO, 1, {
+        judgeScore('run_1', [true], {
           at: new Date('2026-09-29T10:00:00Z'),
         }),
-        judgeScore('run_2', YES_NO, 0, {
+        judgeScore('run_2', [false], {
           rubricVersion: NEXT_RUBRIC_VERSION,
           at: new Date('2026-09-30T10:00:00Z'),
         }),
@@ -107,7 +103,6 @@ describe('calibrationIn', () => {
   it('qualifies a judge that agrees with people as often as the station requests', () => {
     expect(calibrationIn(reportOf(12, 12), CURRENT)).toMatchObject({
       qualified: true,
-      measure: 'kappa',
       hiddenReason: null,
     });
   });
@@ -147,7 +142,7 @@ describe('calibrationIn', () => {
 describe('calibrationIn, for a rubric it cannot read', () => {
   it('hides the scores and says the rubric cannot be read', () => {
     expect(
-      calibrationIn(reportOf(12, 12), { ...CURRENT, scale: null }),
+      calibrationIn(reportOf(12, 12), { ...CURRENT, rubric: null }),
     ).toMatchObject({ qualified: false, hiddenReason: 'unreadable-rubric' });
   });
 });

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import type { TraceNodeResponseDto } from '@/lib/api';
-import { laidOut, rowsOf, type Trace } from '@/lib/trace';
+import {
+  ancestorsOf,
+  lastChangeTo,
+  laidOut,
+  rowsOf,
+  stepNodeAt,
+  type Trace,
+} from '@/lib/trace';
 
 const AT = Date.UTC(2026, 7, 29, 12, 0, 0);
 const iso = (ms: number) => new Date(AT + ms).toISOString();
@@ -16,6 +23,7 @@ const node = (
   cost: null,
   currency: null,
   step: null,
+  place: null,
   span: null,
   connection: null,
   egressEnforcement: null,
@@ -123,5 +131,61 @@ describe('laidOut', () => {
       left: 20,
       width: (38 / 60) * 100,
     });
+  });
+});
+
+describe('citation targets in a trace', () => {
+  const changing = (id: string, place: number | null, path: string) =>
+    node({
+      id,
+      name: id,
+      place,
+      step: {
+        kind: 'tool',
+        text: id,
+        status: 'completed',
+        tool: 'edit',
+        detail: null,
+        ms: 0,
+        startedAt: iso(0),
+        locations: [],
+        input: null,
+        output: null,
+        change: { path, before: '', after: 'x' },
+      },
+    });
+
+  const run = node({
+    id: 'run:run_1',
+    name: 'Run',
+    kind: 'run',
+    children: [
+      node({
+        id: 'turn',
+        name: 'Turn',
+        kind: 'phase',
+        children: [
+          changing('late', 5, '/workspace/src/a.ts'),
+          changing('early', 1, '/workspace/src/a.ts'),
+          changing('other', 3, '/workspace/src/b.ts'),
+        ],
+      }),
+    ],
+  });
+
+  it('finds a step by its place in the journal, not its order in the trace', () => {
+    expect(stepNodeAt(run, 1)?.id).toBe('early');
+    expect(stepNodeAt(run, 2)).toBeNull();
+  });
+
+  it('finds the last step that changed a file', () => {
+    expect(lastChangeTo(run, 'src/a.ts')?.id).toBe('late');
+    expect(lastChangeTo(run, 'src/c.ts')).toBeNull();
+  });
+
+  it('lists the rows a node is folded under, from the top', () => {
+    expect(ancestorsOf([run], 'early')).toEqual(['run:run_1', 'turn']);
+    expect(ancestorsOf([run], 'run:run_1')).toEqual([]);
+    expect(ancestorsOf([run], 'missing')).toBeNull();
   });
 });

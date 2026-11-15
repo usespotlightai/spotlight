@@ -7,12 +7,10 @@ import { reasonOf } from '@replays/domain/value-objects/entry-reason';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { describe, expect, it } from 'vitest';
 
-const verdictOf = (value: number, guidance: string | null) =>
+const verdictOf = (passes: boolean, guidance: string | null) =>
   JudgeVerdict.of({
-    scale: 'number',
-    value,
-    claimResults: null,
-    claims: [],
+    claimResults: [passes],
+    claims: ['It drains the queue without dropping a job.'],
     passThreshold: 1,
     model: 'judge/model',
     referenced: false,
@@ -21,7 +19,7 @@ const verdictOf = (value: number, guidance: string | null) =>
         text: 'It never drains the queue without dropping a job.',
         steps: [2],
         hunks: [],
-        claim: null,
+        claim: 0,
       },
     ],
     guidance,
@@ -59,17 +57,17 @@ describe('visibleReasonsOf', () => {
 
 describe('visibleGuidanceOf', () => {
   it('hands a failing verdict its guidance, never the judge’s reasons', () => {
-    expect(visibleGuidanceOf(verdictOf(2, 'Finish taken jobs first.'))).toBe(
-      'Finish taken jobs first.',
-    );
+    expect(
+      visibleGuidanceOf(verdictOf(false, 'Finish taken jobs first.')),
+    ).toBe('Finish taken jobs first.');
   });
 
   it('falls back to a fixed sentence when a failing verdict has no line', () => {
-    expect(visibleGuidanceOf(verdictOf(2, null))).toBe(DEFAULT_GUIDANCE);
+    expect(visibleGuidanceOf(verdictOf(false, null))).toBe(DEFAULT_GUIDANCE);
   });
 
   it('has nothing to improve on a passing verdict, or without one', () => {
-    expect(visibleGuidanceOf(verdictOf(5, 'Finish taken jobs first.'))).toBe(
+    expect(visibleGuidanceOf(verdictOf(true, 'Finish taken jobs first.'))).toBe(
       null,
     );
     expect(visibleGuidanceOf(null)).toBeNull();

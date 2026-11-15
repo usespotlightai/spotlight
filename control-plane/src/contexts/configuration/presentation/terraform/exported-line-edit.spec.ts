@@ -43,7 +43,7 @@ const SEED: LineDefinitionStation = {
   check: 'npm test',
   passesTo: [],
   judge: {
-    rubric: 'A good run changes only what the task requests.\n',
+    claims: ['It changes only what the task requests.'],
     sample: 0.2,
     minAgreement: 0.6,
   },

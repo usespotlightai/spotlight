@@ -11,7 +11,7 @@ import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo'
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import type { ScoreOrigin } from '@insights/domain/value-objects/score-origin';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import { FIRST_CONFIG, WORKSPACE } from '@insights/runs.fake-spec';
 import { inScope, removeVersioned } from '@insights/scoped.fake-spec';
@@ -27,21 +27,20 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 export const RUBRIC_VERSION = RubricVersion.of('c'.repeat(64));
 export const NEXT_RUBRIC_VERSION = RubricVersion.of('d'.repeat(64));
 
-export const rubricOf = (
-  text: string | null = 'Did the run retry uploads?',
-  version = RUBRIC_VERSION,
-  claims: readonly string[] = [],
-  passThreshold = 1,
-): Rubric => Rubric.of({ text, claims, passThreshold, version });
-
-const CLAIMS = [
+export const CLAIMS = [
   'It retries the upload.',
   'It adds a test for the retry.',
   'It leaves the request handler alone.',
 ] as const;
 
+export const rubricOf = (
+  version = RUBRIC_VERSION,
+  claims: readonly string[] = CLAIMS,
+  passThreshold = 1,
+): Rubric => Rubric.of({ claims, passThreshold, version });
+
 export const claimsCriteria = (passThreshold = 1): JudgeCriteria =>
-  JudgeCriteria.of({ rubric: null, claims: CLAIMS, passThreshold });
+  JudgeCriteria.of({ claims: CLAIMS, passThreshold });
 
 export const locationOf = (
   taskId = 'task_1',
@@ -74,19 +73,16 @@ export const reasonOf = (
 ): JudgeReason =>
   JudgeReason.of({ text, citations: [Citation.ofStep(1)], claim });
 
-const shareOf = (claimResults: readonly boolean[]): number =>
-  claimResults.filter(Boolean).length / claimResults.length;
-
 export const judgeScore = (
   runId: string,
-  scale: ScoreScale,
-  value: number,
+  claimResults: readonly boolean[],
   change: {
     at?: Date;
     rubricVersion?: string;
     taskId?: string;
     stationId?: string;
-    claimResults?: readonly boolean[];
+    passThreshold?: number;
+    origin?: ScoreOrigin;
   } = {},
 ): Score =>
   Score.judge({
@@ -95,28 +91,25 @@ export const judgeScore = (
     workspaceId: WORKSPACE,
     location: locationOf(change.taskId ?? `task_${runId}`, change.stationId),
     fingerprint: FIRST_CONFIG,
-    scale,
-    value: change.claimResults ? shareOf(change.claimResults) : value,
-    claimResults: change.claimResults ?? null,
+    claimResults,
+    passThreshold: change.passThreshold ?? 1,
     rubricVersion: change.rubricVersion ?? RUBRIC_VERSION,
     model: 'some/model',
-    reasons: change.claimResults
-      ? change.claimResults.map((_, at) => reasonOf(`Claim ${at}.`, at))
-      : [reasonOf()],
+    reasons: claimResults.map((_, at) => reasonOf(`Claim ${at}.`, at)),
     seen: SeenEvidence.none(),
     at: change.at ?? new Date('2026-09-30T10:00:00.000Z'),
+    origin: change.origin,
   });
 
 export const personGrade = (
   runId: string,
-  scale: ScoreScale,
-  value: number,
+  claimResults: readonly boolean[],
   change: {
     by?: string;
     at?: Date;
     taskId?: string;
-    rubricVersion?: string | null;
-    claimResults?: readonly boolean[];
+    rubricVersion?: string;
+    passThreshold?: number;
   } = {},
 ): Score =>
   Score.grade({
@@ -125,13 +118,9 @@ export const personGrade = (
     workspaceId: WORKSPACE,
     location: locationOf(change.taskId ?? `task_${runId}`),
     fingerprint: FIRST_CONFIG,
-    scale,
-    value: change.claimResults ? shareOf(change.claimResults) : value,
-    claimResults: change.claimResults ?? null,
-    rubricVersion:
-      change.rubricVersion === undefined
-        ? RUBRIC_VERSION
-        : change.rubricVersion,
+    claimResults,
+    passThreshold: change.passThreshold ?? 1,
+    rubricVersion: change.rubricVersion ?? RUBRIC_VERSION,
     by: UserId.of(change.by ?? 'user_ada'),
     at: change.at ?? new Date('2026-09-30T11:00:00.000Z'),
   });
@@ -244,9 +233,9 @@ export class ScoresInMemory implements ScoreRepository {
         location: score.location,
         fingerprint: score.fingerprint,
         source: score.source,
-        scale: score.scale,
-        value: score.value,
+        origin: score.origin,
         claimResults: score.claimResults,
+        passThreshold: score.passThreshold,
         rubricVersion: score.rubricVersion,
         model: score.model,
         reasons: score.reasons,

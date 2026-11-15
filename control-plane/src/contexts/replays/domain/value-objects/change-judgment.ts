@@ -3,8 +3,7 @@ import type { JudgingFailureCode } from '@shared-kernel/domain/value-objects/jud
 
 export interface JudgedChange {
   readonly judged: true;
-  readonly value: number;
-  readonly claimResults: readonly boolean[] | null;
+  readonly claimResults: readonly boolean[];
   readonly reasons: readonly CitedReason[];
   readonly guidance: string | null;
   readonly referenced: boolean;

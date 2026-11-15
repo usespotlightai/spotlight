@@ -2,7 +2,6 @@ import { LoaderCircle, Pencil } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
 
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
-import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
 import {
   DropdownMenu,
@@ -11,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { AvatarChange } from '@/hooks/api/useAvatar';
-import { messageOf } from '@/lib/error';
 import { cn } from '@/lib/utils';
 
 const ACCEPTED = 'image/png,image/jpeg,image/webp,image/gif';
@@ -27,8 +25,6 @@ type AvatarSettingProps = {
     readonly mutate: (change: AvatarChange) => void;
     readonly reset: () => void;
     readonly isPending: boolean;
-    readonly isError: boolean;
-    readonly error: unknown;
   };
 };
 
@@ -79,13 +75,7 @@ export function AvatarSetting({
   return (
     <SettingsRow label="Avatar" description="Recommended size is 256×256 px">
       {editable ? (
-        <ActionWithAlert
-          alert={
-            change.isError
-              ? messageOf(change.error, 'Sorry, the avatar couldn’t be saved.')
-              : null
-          }
-        >
+        <>
           {avatarUrl ? (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -136,7 +126,7 @@ export function AvatarSetting({
               }
             }}
           />
-        </ActionWithAlert>
+        </>
       ) : (
         avatar
       )}

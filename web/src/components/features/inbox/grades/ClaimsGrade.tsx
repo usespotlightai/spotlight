@@ -1,75 +1,73 @@
-import { useState } from 'react';
+import { useId } from 'react';
 
-import { GradeOptionButton } from '@/components/features/inbox/grades/GradeOptionButton';
-import { formatClaim, type Grade, gradeOptions, YOUR_GRADE } from '@/lib/judge';
+import { NumberedClaim } from '@/components/features/runs/judge/NumberedClaim';
+import { RadioRow } from '@/components/shared/form/RadioRow';
+import { CLAIM_ANSWERS, CLAIMS_QUESTION } from '@/lib/judge';
 
 type ClaimsGradeProps = {
   claims: readonly (string | null)[];
-  mine: Grade | null;
+  answers: readonly (boolean | null)[];
   pending: boolean;
-  onGrade: (claims: readonly boolean[]) => void;
+  onChange: (at: number, met: boolean) => void;
 };
-
-const answered = (
-  answers: readonly (boolean | null)[],
-): answers is readonly boolean[] => answers.every((each) => each !== null);
 
 export function ClaimsGrade({
   claims,
-  mine,
+  answers,
   pending,
-  onGrade,
+  onChange,
 }: ClaimsGradeProps) {
-  const [answers, setAnswers] = useState<readonly (boolean | null)[]>(() =>
-    claims.map((_, at) => mine?.claimResults?.[at] ?? null),
-  );
-
-  const answer = (at: number, met: boolean) => {
-    if (answers[at] === met) {
-      return;
-    }
-
-    const next = answers.map((each, place) => (place === at ? met : each));
-    setAnswers(next);
-
-    if (answered(next)) {
-      onGrade(next);
-    }
-  };
+  const id = useId();
 
   return (
-    <ol
-      data-slot="claims-grade"
-      aria-label={YOUR_GRADE}
-      className="flex flex-col gap-3"
-    >
-      {claims.map((_, at) => (
-        <li
-          // oxlint-disable-next-line react/no-array-index-key -- the position of a claim in the judge's list identifies it
-          key={at}
-          data-slot="claim-to-grade"
-        >
-          <fieldset className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
-            <legend className="float-left w-full break-words p-0 text-foreground text-sm leading-6">
-              <span aria-hidden className="text-muted-foreground tabular-nums">
-                {at + 1}.{' '}
-              </span>
-              {formatClaim(claims, at)}
-            </legend>
-            <div className="flex flex-wrap items-center gap-2">
-              {gradeOptions('yes-no').map((option) => (
-                <GradeOptionButton
+    <div className="flex flex-col gap-2">
+      <p
+        id={`${id}-question`}
+        className="text-muted-foreground text-sm leading-6"
+      >
+        {CLAIMS_QUESTION}
+      </p>
+      <ol
+        data-slot="claims-grade"
+        aria-labelledby={`${id}-question`}
+        className="flex flex-col gap-2"
+      >
+        {claims.map((_, at) => (
+          <li
+            // oxlint-disable-next-line react/no-array-index-key -- the position of a claim in the judge's list identifies it
+            key={at}
+            data-slot="claim-to-grade"
+            className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1"
+          >
+            <NumberedClaim
+              index={at}
+              id={`${id}-${at}`}
+              className="flex-1 text-foreground text-sm leading-6"
+            >
+              {claims[at]}
+            </NumberedClaim>
+            <div
+              role="radiogroup"
+              aria-labelledby={`${id}-${at}`}
+              className="flex shrink-0 gap-1"
+            >
+              {CLAIM_ANSWERS.map((option) => (
+                <RadioRow
+                  compact
                   key={option.label}
-                  label={option.label}
-                  chosen={answers[at] === option.value}
-                  pending={pending}
-                  onClick={() => answer(at, option.value === true)}
-                />
+                  name={`${id}-claim-${at}`}
+                  value={option.met ? 'yes' : 'no'}
+                  checked={answers[at] === option.met}
+                  disabled={pending}
+                  onChange={() => onChange(at, option.met)}
+                >
+                  {option.label}
+                </RadioRow>
               ))}
             </div>
-          </fieldset>
-        </li>
-      ))}
-    </ol>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

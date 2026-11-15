@@ -1,3 +1,4 @@
+import { NumberedClaim } from '@/components/features/runs/judge/NumberedClaim';
 import { KappaBar } from '@/components/features/stations/judge/KappaBar';
 import {
   EDGE_INDENT,
@@ -9,8 +10,9 @@ import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   CLAIM_HEADINGS,
   type ClaimAgreement,
-  formatClaim,
   formatPercent,
+  RUNS,
+  SAME_VERDICT,
 } from '@/lib/judge';
 import { cn } from '@/lib/utils';
 
@@ -39,7 +41,9 @@ export function ClaimAgreements({
               EDGE_INDENT,
             )}
           >
-            {formatClaim(claims, each.index)}
+            <NumberedClaim index={each.index}>
+              {claims[each.index]}
+            </NumberedClaim>
           </span>
           <span className="col-span-full min-w-0 @4xl:col-span-1">
             <KappaBar
@@ -49,10 +53,10 @@ export function ClaimAgreements({
               minAgreement={minAgreement}
             />
           </span>
-          <NestedCell heading="Agreed">
+          <NestedCell heading={SAME_VERDICT}>
             {formatPercent(each.observed)}
           </NestedCell>
-          <NestedCell heading="Runs">{each.pairs}</NestedCell>
+          <NestedCell heading={RUNS}>{each.pairs}</NestedCell>
         </li>
       ))}
     </NestedTable>

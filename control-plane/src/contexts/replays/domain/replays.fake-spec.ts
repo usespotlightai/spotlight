@@ -101,20 +101,20 @@ export const UNSCORED = CandidateScoring.of({
   rubricVersion: null,
 });
 
-export const RUBRIC =
-  'scores: 1-5\nDid it drain the queue without dropping a job?';
+export const JUDGE = JudgeCriteria.of({
+  claims: [
+    'It drains the queue without dropping a job.',
+    'It keeps the order of the jobs.',
+  ],
+});
 
 export const candidateOf = (
   kind: 'live' | 'searched',
   id = `candidate_${kind}`,
-  rubric: string | JudgeCriteria | null = null,
+  judge: JudgeCriteria | null = null,
   check: string | null = null,
   fingerprint = FINGERPRINT,
 ): Candidate => {
-  const judge =
-    typeof rubric === 'string'
-      ? JudgeCriteria.of({ rubric, claims: [], passThreshold: 1 })
-      : rubric;
   const made = {
     id: CandidateId.of(id),
     station: STATION,
@@ -126,13 +126,8 @@ export const candidateOf = (
       ...(judge
         ? {
             judge: {
-              ...(judge.rubric === null ? {} : { rubric: judge.rubric }),
-              ...(judge.claims.length > 0
-                ? {
-                    claims: [...judge.claims],
-                    passThreshold: judge.passThreshold,
-                  }
-                : {}),
+              claims: [...judge.claims],
+              passThreshold: judge.passThreshold,
               sample: 0.1,
               minAgreement: 0.6,
             },
@@ -149,7 +144,6 @@ export const candidateOf = (
         ? RubricVersion.of(
             versionOf(
               JSON.stringify({
-                rubric: judge.rubric,
                 claims: judge.claims,
                 passThreshold: judge.passThreshold,
               }),
@@ -235,6 +229,7 @@ export const aCheck = (setId = ReplaySetId.of('set_1')): ReplayCheck =>
     }),
     repeats: 1,
     scoringPinnedToLive: ['diffs', 'check'],
+    judge: null,
     createdAt: NOW,
     by: BY,
   });
@@ -489,10 +484,8 @@ export const CONCLUDING_CHECKS = ChangeChecks.of([
 ]);
 
 export const CONCLUDING_VERDICT = JudgeVerdict.of({
-  scale: 'number',
-  value: 4,
-  claimResults: null,
-  claims: [],
+  claimResults: [true, false],
+  claims: ['It drains the queue.', 'It keeps the order.'],
   passThreshold: 1,
   model: 'judge/model',
   referenced: true,

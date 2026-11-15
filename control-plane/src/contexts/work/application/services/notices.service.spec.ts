@@ -78,7 +78,7 @@ const STALLED: NoticeOf = {
   linkLabel: 'Open the station',
   externalLink: null,
   headline: 'The search stalled',
-  points: ['Fix the rubric.'],
+  points: ['Fix the claims.'],
 };
 
 describe('Notices', () => {

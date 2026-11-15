@@ -7,7 +7,6 @@ import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.err
 import { Citation } from '@insights/domain/value-objects/citation.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import {
   judgeScore,
@@ -21,9 +20,32 @@ import { describe, expect, it } from 'vitest';
 
 const LATER = new Date('2026-09-30T12:00:00.000Z');
 
+const judged = (over: Partial<Parameters<typeof Score.judge>[0]> = {}) =>
+  Score.judge({
+    id: ScoreId.of('score_1'),
+    runId: RunId.of('run_1'),
+    workspaceId: WORKSPACE,
+    location: locationOf(),
+    fingerprint: null,
+    claimResults: [true],
+    passThreshold: 1,
+    rubricVersion: RUBRIC_VERSION,
+    model: 'some/model',
+    reasons: [
+      JudgeReason.of({
+        text: 'It retries.',
+        citations: [Citation.ofStep(1)],
+        claim: 0,
+      }),
+    ],
+    seen: SeenEvidence.none(),
+    at: LATER,
+    ...over,
+  });
+
 describe('Score', () => {
   it('from the judge names its rubric and model, and says it was recorded', () => {
-    const score = judgeScore('run_1', ScoreScale.yesNo(), 1);
+    const score = judgeScore('run_1', [true]);
     const [event] = score.pullEvents() as ScoreRecorded[];
 
     expect(score.fromJudge).toBe(true);
@@ -31,22 +53,48 @@ describe('Score', () => {
     expect(event?.source).toBe('judge');
   });
 
+  it('is the share of claims met, marked one by one', () => {
+    const score = judgeScore('run_1', [true, false, true, true]);
+
+    expect(score.value).toBe(0.75);
+    expect(score.claimResults).toEqual([true, false, true, true]);
+  });
+
+  it('passes when the share of claims met reaches its pass threshold', () => {
+    expect(judgeScore('run_1', [true, true]).passes).toBe(true);
+    expect(judgeScore('run_1', [true, false]).passes).toBe(false);
+    expect(
+      judgeScore('run_1', [true, false], { passThreshold: 0.5 }).passes,
+    ).toBe(true);
+    expect(
+      judgeScore('run_1', [true, false, false], { passThreshold: 1 / 3 })
+        .passes,
+    ).toBe(true);
+  });
+
+  it('marks at least one claim, and has a pass threshold from 0 to 1', () => {
+    expect(() => judgeScore('run_1', [])).toThrow(InvalidScoreError);
+    expect(() => judgeScore('run_1', [true], { passThreshold: 1.5 })).toThrow(
+      InvalidScoreError,
+    );
+  });
+
   it('from the judge always gives its reasons', () => {
+    expect(() => judged({ reasons: [] })).toThrow(InvalidScoreError);
+  });
+
+  it('from the judge gives a reason for every claim, each naming its claim', () => {
+    expect(() => judged({ claimResults: [true, false] })).toThrow(
+      InvalidScoreError,
+    );
     expect(() =>
-      Score.judge({
-        id: ScoreId.of('score_1'),
-        runId: RunId.of('run_1'),
-        workspaceId: WORKSPACE,
-        location: locationOf(),
-        fingerprint: null,
-        scale: ScoreScale.yesNo(),
-        value: 1,
-        claimResults: null,
-        rubricVersion: RUBRIC_VERSION,
-        model: 'some/model',
-        reasons: [],
-        seen: SeenEvidence.none(),
-        at: LATER,
+      judged({
+        reasons: [
+          JudgeReason.of({
+            text: 'It retries.',
+            citations: [Citation.ofStep(1)],
+          }),
+        ],
       }),
     ).toThrow(InvalidScoreError);
   });
@@ -55,19 +103,9 @@ describe('Score', () => {
     const citations = Array.from({ length: 10 }, (_, at) =>
       Citation.ofHunk(`api/src/big.ts#${at}`),
     );
-    const score = Score.judge({
-      id: ScoreId.of('score_1'),
-      runId: RunId.of('run_1'),
-      workspaceId: WORKSPACE,
-      location: locationOf(),
-      fingerprint: null,
-      scale: ScoreScale.yesNo(),
-      value: 1,
-      claimResults: null,
-      rubricVersion: RUBRIC_VERSION,
-      model: 'some/model',
+    const score = judged({
       reasons: Array.from({ length: 5 }, (_, at) =>
-        JudgeReason.of({ text: `Reason ${at}.`, citations }),
+        JudgeReason.of({ text: `Reason ${at}.`, citations, claim: 0 }),
       ),
       seen: SeenEvidence.of({
         steps: [{ index: 9, kind: 'message', tool: null, text: 'Uncited.' }],
@@ -78,7 +116,6 @@ describe('Score', () => {
           lines: Array.from({ length: 20 }, () => `+${'x'.repeat(400)}`),
         })),
       }),
-      at: LATER,
     });
 
     expect(score.seen.steps).toEqual([]);
@@ -95,55 +132,49 @@ describe('Score', () => {
         location: locationOf(),
         fingerprint: null,
         source: 'person',
-        scale: ScoreScale.yesNo(),
-        value: 1,
-        claimResults: null,
-        rubricVersion: null,
+        origin: 'live',
+        claimResults: [true],
+        passThreshold: 1,
+        rubricVersion: RUBRIC_VERSION,
         model: null,
         reasons: [],
         seen: SeenEvidence.of({
           steps: [{ index: 1, kind: 'message', tool: null, text: 'Seen.' }],
           hunks: [],
         }),
-        by: personGrade('run_1', ScoreScale.yesNo(), 1).by,
+        by: personGrade('run_1', [true]).by,
         at: LATER,
         version: 0,
       }),
     ).toThrow(InvalidScoreError);
   });
 
-  it('stays on its scale', () => {
-    expect(() => judgeScore('run_1', ScoreScale.yesNo(), 3)).toThrow(
-      InvalidScoreError,
-    );
-  });
-
-  it('from a person is replaced by their later grade', () => {
-    const grade = personGrade('run_1', ScoreScale.yesNo(), 1);
+  it('from a person is regraded claim by claim', () => {
+    const grade = personGrade('run_1', [true, true]);
     grade.pullEvents();
 
     const regraded = grade.regrade({
-      scale: ScoreScale.yesNo(),
-      value: 0,
-      claimResults: null,
+      claimResults: [true, false],
+      passThreshold: 1,
       rubricVersion: RUBRIC_VERSION,
       at: LATER,
     });
 
-    expect(regraded.value).toBe(0);
+    expect(regraded.claimResults).toEqual([true, false]);
+    expect(regraded.value).toBe(0.5);
+    expect(regraded.passes).toBe(false);
     expect(regraded.at).toEqual(LATER);
     expect(regraded.id.equals(grade.id)).toBe(true);
     expect(regraded.pullEvents()).toHaveLength(1);
   });
 
   it('from a person stays as it is when graded the same again', () => {
-    const grade = personGrade('run_1', ScoreScale.yesNo(), 1);
+    const grade = personGrade('run_1', [true]);
 
     expect(
       grade.regrade({
-        scale: ScoreScale.yesNo(),
-        value: 1,
-        claimResults: null,
+        claimResults: [true],
+        passThreshold: 1,
         rubricVersion: RUBRIC_VERSION,
         at: LATER,
       }),
@@ -152,84 +183,12 @@ describe('Score', () => {
 
   it('from the judge is never graded again', () => {
     expect(() =>
-      judgeScore('run_1', ScoreScale.yesNo(), 1).regrade({
-        scale: ScoreScale.yesNo(),
-        value: 0,
-        claimResults: null,
+      judgeScore('run_1', [true]).regrade({
+        claimResults: [false],
+        passThreshold: 1,
         rubricVersion: RUBRIC_VERSION,
         at: LATER,
       }),
     ).toThrow(InvalidScoreError);
-  });
-
-  it('on a claims scale is the share of claims met, marked one by one', () => {
-    const score = judgeScore('run_1', ScoreScale.claims(), 0, {
-      claimResults: [true, false, true, true],
-    });
-
-    expect(score.value).toBe(0.75);
-    expect(score.claimResults).toEqual([true, false, true, true]);
-    expect(score.scale.labelOf(score.value)).toBe('75% of claims met');
-  });
-
-  it('on a claims scale from the judge gives a reason for every claim, each naming its claim', () => {
-    expect(() =>
-      Score.judge({
-        id: ScoreId.of('score_1'),
-        runId: RunId.of('run_1'),
-        workspaceId: WORKSPACE,
-        location: locationOf(),
-        fingerprint: null,
-        scale: ScoreScale.claims(),
-        value: 0.5,
-        claimResults: [true, false],
-        rubricVersion: RUBRIC_VERSION,
-        model: 'some/model',
-        reasons: [
-          JudgeReason.of({
-            text: 'It retries.',
-            citations: [Citation.ofStep(1)],
-            claim: 0,
-          }),
-        ],
-        seen: SeenEvidence.none(),
-        at: LATER,
-      }),
-    ).toThrow(InvalidScoreError);
-  });
-
-  it('on a claims scale has a value that is the rate its claim results give, and claim results only there', () => {
-    expect(() =>
-      personGrade('run_1', ScoreScale.claims(), 0).regrade({
-        scale: ScoreScale.claims(),
-        value: 1,
-        claimResults: [true, false],
-        rubricVersion: RUBRIC_VERSION,
-        at: LATER,
-      }),
-    ).toThrow(InvalidScoreError);
-    expect(() =>
-      personGrade('run_1', ScoreScale.yesNo(), 1, { claimResults: [true] }),
-    ).toThrow(InvalidScoreError);
-    expect(() => personGrade('run_1', ScoreScale.claims(), 1)).toThrow(
-      InvalidScoreError,
-    );
-  });
-
-  it('from a person on a claims scale is regraded claim by claim', () => {
-    const grade = personGrade('run_1', ScoreScale.claims(), 0, {
-      claimResults: [true, true],
-    });
-
-    const regraded = grade.regrade({
-      scale: ScoreScale.claims(),
-      value: 0.5,
-      claimResults: [true, false],
-      rubricVersion: RUBRIC_VERSION,
-      at: LATER,
-    });
-
-    expect(regraded.claimResults).toEqual([true, false]);
-    expect(regraded.value).toBe(0.5);
   });
 });

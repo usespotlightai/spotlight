@@ -8,6 +8,7 @@ import type {
   NoteResponseDto,
   RunJournalResponseDto,
 } from '@/lib/api';
+import { RESOLVED_PREVIEW, OPEN_PREVIEW } from '@/lib/judge-disagreement';
 import type { Person } from '@/lib/person';
 import type { ShownProgress } from '@/lib/run';
 import { teamPath } from '@/lib/team';
@@ -373,6 +374,10 @@ export const previewOf = (item: InboxItem): string => {
 
   if (item.inboxRequest?.form === 'alert') {
     return item.resolved ? 'Station alert resolved.' : 'Station alert fired.';
+  }
+
+  if (item.inboxRequest?.form === 'judge-disagreement') {
+    return item.resolved ? RESOLVED_PREVIEW : OPEN_PREVIEW;
   }
 
   if (item.inboxRequest?.form === 'grade') {

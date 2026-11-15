@@ -71,7 +71,12 @@ const DELIVERY = randomUUID();
 const BUILD = randomUUID();
 const SHIP = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
-const RUBRIC = 'scores: 1-5\nDoes it drain the queue in order?';
+const CLAIMS = [
+  'It drains the queue in order.',
+  'It keeps the oldest job first.',
+  'It survives a restart.',
+  'It tests the order.',
+];
 
 const attachmentStore = {
   received: async () => [],
@@ -161,14 +166,17 @@ const judge: JudgePort = {
       model: 'stub/judge',
       guidance: null,
       verdict: {
-        value,
-        reasons: [
-          {
-            text: `It drains the queue as a ${value}.`,
-            steps: scoredStep ? [scoredStep.index] : [],
-            hunks: request.hunks.slice(0, 1).map((each) => each.id),
-          },
-        ],
+        claims: CLAIMS.map((_, index) => ({
+          index,
+          met: index < value - 1,
+          reasons: [
+            {
+              text: `It drains the queue as a ${value}.`,
+              steps: scoredStep ? [scoredStep.index] : [],
+              hunks: request.hunks.slice(0, 1).map((each) => each.id),
+            },
+          ],
+        })),
       },
     };
   },
@@ -656,8 +664,7 @@ beforeAll(async () => {
       diffs: true,
       check: 'npm test',
       judge: {
-        rubric: RUBRIC,
-        claims: [],
+        claims: CLAIMS,
         passThreshold: 1,
         sample: 0.1,
         minAgreement: 0.6,

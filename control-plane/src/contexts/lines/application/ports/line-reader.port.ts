@@ -3,7 +3,6 @@ import type { RepositoryHost } from '@shared-kernel/domain/value-objects/reposit
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface StationJudgeSummary {
-  readonly rubric: string | null;
   readonly claims: readonly string[];
   readonly passThreshold: number;
   readonly sample: number;

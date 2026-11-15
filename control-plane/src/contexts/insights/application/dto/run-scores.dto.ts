@@ -1,6 +1,6 @@
 import type { JudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
+import type { LabelSource } from '@insights/domain/services/human-label';
 import type { CitationKind } from '@insights/domain/value-objects/citation.vo';
-import type { ScoreKind } from '@insights/domain/value-objects/score-scale.vo';
 
 export interface CitedStepDto {
   readonly index: number;
@@ -29,9 +29,9 @@ export interface JudgeReasonDto {
 }
 
 export interface JudgeScoreDto {
-  readonly kind: ScoreKind;
   readonly value: number;
-  readonly claimResults: readonly boolean[] | null;
+  readonly claimResults: readonly boolean[];
+  readonly passes: boolean;
   readonly label: string;
   readonly rubricVersion: string;
   readonly model: string;
@@ -42,22 +42,29 @@ export interface JudgeScoreDto {
 export interface GradeDto {
   readonly by: string;
   readonly mine: boolean;
-  readonly kind: ScoreKind;
   readonly value: number;
-  readonly claimResults: readonly boolean[] | null;
+  readonly claimResults: readonly boolean[];
+  readonly passes: boolean;
   readonly label: string;
   readonly at: string;
+}
+
+export interface RunOutcomeDto {
+  readonly source: LabelSource;
+  readonly passes: boolean;
 }
 
 export interface RunScoresDto {
   readonly runId: string;
   readonly taskId: string;
   readonly stationId: string;
-  readonly kind: ScoreKind;
-  readonly rubricBody: string | null;
+  readonly gradable: boolean;
   readonly claims: readonly (string | null)[];
+  readonly earlierClaims: boolean;
   readonly judged: boolean;
   readonly judge: JudgeScoreDto | null;
   readonly calibration: JudgeCalibrationDto;
+  readonly outcome: RunOutcomeDto | null;
+  readonly agrees: boolean | null;
   readonly grades: readonly GradeDto[];
 }

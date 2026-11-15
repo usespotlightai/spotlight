@@ -20,7 +20,7 @@ describe('InsightsChangeJudge', () => {
 
     await new InsightsChangeJudge(judgments).judge({
       run: RunId.of('replay_1'),
-      criteria: JudgeCriteria.of({ rubric: 'It drains.' }),
+      criteria: JudgeCriteria.of({ claims: ['It drains.'] }),
       reference: null,
       guidanceRequested: false,
     });
@@ -28,7 +28,7 @@ describe('InsightsChangeJudge', () => {
     expect(orders).toEqual([
       {
         runId: RunId.of('replay_1'),
-        criteria: JudgeCriteria.of({ rubric: 'It drains.' }),
+        criteria: JudgeCriteria.of({ claims: ['It drains.'] }),
         reference: null,
         guidanceRequested: false,
         effectsBlocked: true,

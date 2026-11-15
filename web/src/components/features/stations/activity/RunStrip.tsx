@@ -1,4 +1,4 @@
-import { TONE_FILL } from '@/components/features/stations/activity/outcome-tones';
+import { TONE_FILL } from '@/components/shared/outcome-tones';
 import {
   outcomeTone,
   type StationRunOutcome,

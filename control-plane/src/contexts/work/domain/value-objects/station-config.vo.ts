@@ -220,7 +220,7 @@ const judgeChanges = (
       : [
           {
             part: 'judge' as const,
-            name: 'rubric',
+            name: 'claims',
             kind: 'changed' as const,
             was: null,
             now: null,

@@ -25,7 +25,7 @@ export function PaneScroller({
         className="min-w-0 flex-1"
         contentClassName="flex min-h-full flex-col"
       >
-        <div className="flex flex-1 flex-col">{children}</div>
+        <div className="@container/pane flex flex-1 flex-col">{children}</div>
         {footer && <div className="sticky bottom-0 z-20">{footer}</div>}
       </ScrollArea>
 

@@ -8,6 +8,7 @@ import { serveMockApi } from '@/mocks/testing';
 import { PLATFORM_ID, SLUG } from '@/mocks/world';
 import { MockApplication } from '@/stories/MockApplication';
 import { quietBrowser } from '@/test/signed-in';
+import { findToast } from '@/test/toasts';
 
 vi.mock('@/hooks/api/useSession', async () => ({
   useSession: (await import('@/test/signed-in')).signedInSession,
@@ -62,7 +63,7 @@ describe('TeamGeneral on the mock API', () => {
     );
   });
 
-  it('says why someone added meanwhile could not be added, in the server’s words', async () => {
+  it('shows why someone added meanwhile could not be added in a toast', async () => {
     await opened();
     const lena = await offered(/^Lena Park/);
     await addTeamMember({
@@ -73,15 +74,9 @@ describe('TeamGeneral on the mock API', () => {
 
     await userEvent.click(lena);
 
-    await waitFor(
-      () =>
-        expect(
-          screen
-            .getAllByText('Platform already includes this person.')
-            .some((each) => each.getAttribute('role') === 'alert'),
-        ).toBe(true),
-      WAIT,
-    );
+    expect(
+      await findToast('Platform already includes this person.'),
+    ).toBeInTheDocument();
     expect(await listed('Lena Park')).toBeInTheDocument();
   });
 });
