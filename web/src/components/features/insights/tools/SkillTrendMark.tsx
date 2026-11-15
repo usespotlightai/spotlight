@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 const TONES: Record<SkillTrend, string> = {
   rising: 'text-chart-primary',
-  falling: 'text-outcome-failed',
+  falling: 'text-destructive',
   flat: 'text-muted-foreground',
 };
 

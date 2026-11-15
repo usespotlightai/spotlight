@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 
 const INKS: Record<GainSignificanceCode, string> = {
   better: 'var(--chart-primary)',
-  worse: 'var(--outcome-failed)',
+  worse: 'var(--destructive)',
   'within-noise':
     'color-mix(in oklab, var(--muted-foreground) 70%, transparent)',
 };

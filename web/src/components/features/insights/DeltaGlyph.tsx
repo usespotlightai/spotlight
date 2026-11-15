@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 const TONES: Record<ShownDelta['tone'], string> = {
   good: 'text-outcome-done',
-  bad: 'text-outcome-failed',
+  bad: 'text-destructive',
   flat: 'text-muted-foreground',
 };
 

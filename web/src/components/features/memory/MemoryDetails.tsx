@@ -85,7 +85,7 @@ export function MemoryDetails({
             Edit
           </DecisionButton>
           <DecisionButton
-            className="min-w-0 hover:text-outcome-failed"
+            className="min-w-0 hover:text-destructive"
             onClick={() => setRetiring(true)}
           >
             Retire

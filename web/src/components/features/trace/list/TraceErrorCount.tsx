@@ -18,7 +18,7 @@ export function TraceErrorCount({
   return (
     <span
       className={cn(
-        'flex shrink-0 items-center gap-0.5 text-outcome-failed text-xs tabular-nums',
+        'flex shrink-0 items-center gap-0.5 text-destructive text-xs tabular-nums',
         className,
       )}
       title={label}

@@ -60,7 +60,7 @@ export function AgreementValue({
         <span className="tabular-nums">{formatStat(agreement)}</span>
         {band && <span className="text-muted-foreground">{band}</span>}
         {below && (
-          <span className="whitespace-nowrap text-outcome-failed">
+          <span className="whitespace-nowrap text-destructive">
             · below the minimum
           </span>
         )}

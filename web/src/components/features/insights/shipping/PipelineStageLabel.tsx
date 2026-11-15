@@ -24,7 +24,7 @@ export function PipelineStageLabel({
       <span
         className={cn(
           'max-w-32 truncate text-xs',
-          worst ? 'text-outcome-failed' : 'text-foreground',
+          worst ? 'text-destructive' : 'text-foreground',
         )}
       >
         {stage.label}

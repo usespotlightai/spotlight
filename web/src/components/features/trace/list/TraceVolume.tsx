@@ -151,7 +151,7 @@ export function TraceVolume({
             <Bar
               dataKey="errors"
               name="Errors"
-              fill="var(--outcome-failed)"
+              fill="var(--destructive)"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
             />

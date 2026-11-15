@@ -113,7 +113,7 @@ export function TraceRow({
         className={cn(
           'truncate text-right text-xs tabular-nums',
           CELL.errors,
-          trace.errors > 0 ? 'text-outcome-failed' : 'text-muted-foreground',
+          trace.errors > 0 ? 'text-destructive' : 'text-muted-foreground',
         )}
         title={errorsLabel}
         aria-label={errorsLabel}
