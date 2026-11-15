@@ -45,7 +45,7 @@ jobs:
       - name: Unused code and dependencies
         run: npm run knip
 
-      - name: Typecheck sources, tests, scripts and bench
+      - name: Typecheck sources, tests and scripts
         run: npm run typecheck
 
       - name: Build

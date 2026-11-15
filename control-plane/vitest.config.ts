@@ -67,7 +67,6 @@ export default defineConfig({
           include: [
             'src/**/*.spec.ts',
             'test/architecture/**/*.spec.ts',
-            'bench/**/*.spec.ts',
           ],
           restoreMocks: true,
         },
