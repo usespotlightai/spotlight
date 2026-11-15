@@ -131,7 +131,7 @@ const reading = (input: {
     } as unknown as MemoryDraftRepository,
     uses,
     new MemoryReviews(work, people),
-    new TeamMemoryViews(memories, work, people, uses),
+    new TeamMemoryViews(memories, people, uses),
     { reviewItemOf: async () => 'request_1' } as unknown as ReviewsPort,
   ).execute(new ReadRunMemoriesQuery('team_1', 'run_1', 'user_1'));
 };

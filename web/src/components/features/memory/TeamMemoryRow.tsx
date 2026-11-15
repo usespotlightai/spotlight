@@ -12,13 +12,14 @@ import { MemoryKindLabel } from '@/components/features/memory/MemoryKindLabel';
 import { MemoryKindSelect } from '@/components/features/memory/MemoryKindSelect';
 import { MemoryPlace } from '@/components/features/memory/MemoryPlace';
 import { MemoryPlaceEditor } from '@/components/features/memory/MemoryPlaceEditor';
-import { MemorySource } from '@/components/features/memory/MemorySource';
 import { RetirementNote } from '@/components/features/memory/RetirementNote';
+import { SectionLink } from '@/components/shared/SectionLink';
 import { useMemoryEditing } from '@/hooks/useMemoryEditing';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useRowExpansion } from '@/hooks/useRowExpansion';
 import type { LineResponseDto } from '@/lib/api';
 import { placeTreeOf, SOURCE_LABELS, type TeamMemory } from '@/lib/memory';
+import { runPath } from '@/lib/run';
 import { cn } from '@/lib/utils';
 
 type TeamMemoryRowProps = {
@@ -120,22 +121,26 @@ export function TeamMemoryRow({
           )}
         </span>
 
-        <div
+        <span
           className={cn(
-            'relative z-10 flex min-w-0 flex-col gap-2 text-muted-foreground text-sm leading-5 group-data-clamped/row:pointer-events-none',
+            'relative z-10 flex min-w-0 flex-col items-start text-muted-foreground text-sm leading-5 group-data-clamped/row:pointer-events-none',
             MEMORY_DETAIL_CELL,
           )}
         >
-          <span className="flex min-w-0 flex-col">
-            <MemoryCellLabel>Source</MemoryCellLabel>
-            <span className="truncate">{SOURCE_LABELS[memory.source]}</span>
-          </span>
-          {seen && (
-            <div className="group-data-clamped/row:hidden">
-              <MemorySource slug={slug} teamId={teamId} memoryId={memory.id} />
-            </div>
+          <MemoryCellLabel>Source</MemoryCellLabel>
+          {memory.source === 'run' && memory.provenance ? (
+            <SectionLink
+              to={runPath(slug, teamId, memory.provenance.runId)}
+              className="text-sm hover:bg-border/70"
+            >
+              {SOURCE_LABELS[memory.source]}
+            </SectionLink>
+          ) : (
+            <span className="max-w-full truncate">
+              {SOURCE_LABELS[memory.source]}
+            </span>
           )}
-        </div>
+        </span>
 
         <span
           className={cn(

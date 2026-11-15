@@ -542,6 +542,44 @@ describe('remembering from inside a run', () => {
     expect((again.body as Proposed).id).toBe((first.body as Proposed).id);
   });
 
+  it('recalls an approved memory with the steps it cites, which the team’s own read leaves out', async () => {
+    const proposed = (
+      await remember({ body: 'Webhooks retry with backoff.' }).expect(201)
+    ).body as Proposed;
+    const review = `/api/teams/${team.teamId.value}/tasks/${team.list.id.value}/runs/${runId}/memories`;
+    await http()
+      .post(`${review}/approve`)
+      .set(TEST_USER_HEADER, team.owner.value)
+      .send({ memories: [{ id: proposed.id }] })
+      .expect(200);
+    const approved = await eventually(async () =>
+      (
+        (
+          await http()
+            .get(`/api/teams/${team.teamId.value}/memories`)
+            .set(TEST_USER_HEADER, team.owner.value)
+        ).body as Recalled[]
+      ).find((each) => each.body === 'Webhooks retry with backoff.'),
+    );
+
+    const recalled = await recallOne(approved.handle);
+    const read = await http()
+      .get(`/api/teams/${team.teamId.value}/memories/${approved.id}`)
+      .set(TEST_USER_HEADER, team.owner.value)
+      .expect(200);
+
+    expect(recalled.status).toBe(200);
+    expect(
+      (recalled.body as { steps: Proposed['steps'] }).steps.map(
+        (each) => each.kind,
+      ),
+    ).toEqual(['remember']);
+    expect(recalled.body).toMatchObject({ notes: [] });
+    expect(read.body).toMatchObject({ provenance: { runId } });
+    expect(read.body).not.toHaveProperty('steps');
+    expect(read.body).not.toHaveProperty('notes');
+  });
+
   it('rejects a kind or a path it cannot take, saying what would work', async () => {
     const gossip = await remember({ kind: 'gossip', body: 'Something.' });
     const elsewhere = await remember({

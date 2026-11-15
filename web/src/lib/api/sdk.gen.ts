@@ -2249,7 +2249,7 @@ export const writeMemory = <ThrowOnError extends boolean = false>(options: Optio
 });
 
 /**
- * One memory with what it cites, and what it replaced or was replaced by
+ * One memory, and what it replaced or was replaced by
  */
 export const readTeamMemory = <ThrowOnError extends boolean = false>(options: Options<ReadTeamMemoryData, ThrowOnError>): RequestResult<ReadTeamMemoryResponses, ReadTeamMemoryErrors, ThrowOnError> => (options.client ?? client).get<ReadTeamMemoryResponses, ReadTeamMemoryErrors, ThrowOnError>({ url: '/teams/{teamId}/memories/{memoryId}', ...options });
 

@@ -5219,12 +5219,6 @@ export type TeamMemoryDetailResponseDto = {
    * How many runs were briefed with it or recalled it
    */
   runs: number;
-  /**
-   * The harness of the run whose steps it cites
-   */
-  harness: string | null;
-  steps: Array<MemoryProvenanceStepResponseDto>;
-  notes: Array<MemoryProvenanceNoteResponseDto>;
   superseded: MemoryLinkResponseDto | null;
   successor: MemoryLinkResponseDto | null;
 };
@@ -5313,6 +5307,45 @@ export type RecallMemoriesRequestDto = {
    * Words to look for
    */
   words: string;
+};
+
+export type RecalledMemoryResponseDto = {
+  id: string;
+  /**
+   * How runs and people name it, as in spotlight recall M-12
+   */
+  handle: string;
+  kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
+  body: string;
+  source: 'person' | 'run' | 'outside';
+  status: 'active' | 'retired';
+  scope: 'team' | 'line' | 'station';
+  lineId: string | null;
+  stationId: string | null;
+  repository: string | null;
+  paths: Array<string>;
+  /**
+   * Who approved or wrote it
+   */
+  approvedBy: MemoryPersonResponseDto;
+  approvedAt: string;
+  /**
+   * The memory it replaced
+   */
+  supersedes: string | null;
+  retirement: MemoryRetirementResponseDto | null;
+  /**
+   * The task and run it cites; none where a person wrote it
+   */
+  provenance: MemoryProvenanceResponseDto | null;
+  /**
+   * How many runs were briefed with it or recalled it
+   */
+  runs: number;
+  superseded: MemoryLinkResponseDto | null;
+  successor: MemoryLinkResponseDto | null;
+  steps: Array<MemoryProvenanceStepResponseDto>;
+  notes: Array<MemoryProvenanceNoteResponseDto>;
 };
 
 export type RememberRequestDto = {
@@ -19047,7 +19080,7 @@ export type RecallMemoryErrors = {
 };
 
 export type RecallMemoryResponses = {
-  200: TeamMemoryDetailResponseDto;
+  200: RecalledMemoryResponseDto;
 };
 
 export type RecallMemoryResponse = RecallMemoryResponses[keyof RecallMemoryResponses];
