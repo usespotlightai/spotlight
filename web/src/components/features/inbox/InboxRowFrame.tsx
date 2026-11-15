@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
-import { NavLink } from 'react-router';
+import { NavLink, useLocation, useResolvedPath } from 'react-router';
 
+import { CommandScope } from '@/components/shell/command/CommandScope';
+import { useFocusWithin } from '@/hooks/useFocusWithin';
 import { createdOn } from '@/lib/task';
 import { useForwardTrail } from '@/lib/trail';
 import { cn } from '@/lib/utils';
@@ -29,9 +31,17 @@ export function InboxRowFrame({
   onOpen,
 }: InboxRowFrameProps) {
   const trail = useForwardTrail();
+  const { focused, handlers } = useFocusWithin();
+  const target = useResolvedPath(to).pathname;
+  const { pathname } = useLocation();
+  const current = pathname === target || pathname.startsWith(`${target}/`);
 
   return (
-    <div className="group/row relative flex items-start gap-2 rounded-md px-2 py-2 transition-colors hover:bg-accent has-[a[aria-current=page]]:bg-accent has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring/50">
+    <div
+      data-list-item
+      {...handlers}
+      className="group/row relative flex items-start gap-2 rounded-md px-2 py-2 transition-colors hover:bg-accent has-[a[aria-current=page]]:bg-accent has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset"
+    >
       <NavLink
         to={to}
         onClick={onOpen}
@@ -75,7 +85,9 @@ export function InboxRowFrame({
       </NavLink>
 
       <span className="relative z-10 flex h-5 shrink-0 items-center gap-1">
-        {action}
+        <CommandScope active={focused || current} rank={focused ? 2 : 1}>
+          {action}
+        </CommandScope>
 
         <time
           dateTime={at}

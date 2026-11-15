@@ -5,6 +5,7 @@ import { ApprovalControls } from '@/components/features/inbox/conversation/appro
 import { ApprovalFields } from '@/components/features/inbox/conversation/approval/ApprovalFields';
 import { ApprovalHeader } from '@/components/features/inbox/conversation/approval/ApprovalHeader';
 import { DecisionCard } from '@/components/shared/DecisionCard';
+import { useApproveKey } from '@/hooks/useApproveKey';
 import {
   type Approval,
   type ApprovalAnswer,
@@ -34,6 +35,7 @@ export function ApprovalCard({
   const deciding = approval.status === 'pending' ? onDecide : undefined;
   const changed = differs(approval.inputs, edits);
   const onlyFor = approvedOnlyBy(approval, viewerId);
+  const blank = blanked(approval.inputs, edits);
 
   const toMode = (next: ApprovalMode) => {
     if (next === 'viewing') {
@@ -55,8 +57,17 @@ export function ApprovalCard({
         : undefined,
     });
 
+  const handlers = useApproveKey({
+    mode,
+    ready: Boolean(deciding) && !pending,
+    blank,
+    onlyFor,
+    onApprove: () => deciding?.({ approve: true, body: '' }),
+    onApproveEdited: approveEdited,
+  });
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" {...handlers}>
       <p className="text-foreground text-sm leading-6">{askedFor(approval)}</p>
 
       <DecisionCard aria-label={approval.name}>
@@ -85,7 +96,7 @@ export function ApprovalCard({
           mode={mode}
           pending={pending}
           onlyFor={onlyFor}
-          blank={blanked(approval.inputs, edits)}
+          blank={blank}
           reason={reason}
           onReason={setReason}
           onMode={toMode}

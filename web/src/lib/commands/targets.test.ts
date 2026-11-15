@@ -5,14 +5,12 @@ import {
   type CommandTarget,
   commandKeywords,
   commandMatch,
-  commandShortcut,
-  isCommandShortcut,
   lineTargets,
   navigationTargets,
   settingsTargets,
   stationTargets,
   taskTargets,
-} from '@/lib/command';
+} from '@/lib/commands/targets';
 import { world } from '@/mocks/world';
 import { PLATFORM_ID } from '@/mocks/world/platform';
 
@@ -139,30 +137,5 @@ describe('commandMatch', () => {
         'Growth',
       ]),
     ).toBe(0);
-  });
-});
-
-describe('isCommandShortcut', () => {
-  const press = (init: KeyboardEventInit) =>
-    isCommandShortcut(new KeyboardEvent('keydown', init));
-
-  it('takes K with Command or Ctrl', () => {
-    expect(press({ key: 'k', metaKey: true })).toBe(true);
-    expect(press({ key: 'K', ctrlKey: true })).toBe(true);
-  });
-
-  it('leaves K alone without a modifier, or with Shift or Alt', () => {
-    expect(press({ key: 'k' })).toBe(false);
-    expect(press({ key: 'k', metaKey: true, shiftKey: true })).toBe(false);
-    expect(press({ key: 'k', ctrlKey: true, altKey: true })).toBe(false);
-  });
-});
-
-describe('commandShortcut', () => {
-  it('names the Command key on a Mac and Ctrl elsewhere', () => {
-    expect(commandShortcut('Mozilla/5.0 (Macintosh; Intel Mac OS X)')).toBe(
-      '⌘K',
-    );
-    expect(commandShortcut('Mozilla/5.0 (Windows NT 10.0)')).toBe('Ctrl K');
   });
 });

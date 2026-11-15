@@ -11,7 +11,7 @@ export const TYPE_COLORS: Record<PullRequestType, string> = {
 };
 
 export const bottleneckColor = (bottleneckRatio: number): string =>
-  `color-mix(in oklab, var(--outcome-failed) ${Math.round(bottleneckRatio ** 2 * 100)}%, var(--chart-2))`;
+  `color-mix(in oklab, var(--destructive) ${Math.round(bottleneckRatio ** 2 * 100)}%, var(--chart-2))`;
 
 const GUTTER = 28;
 const FREE_HALF = 40;

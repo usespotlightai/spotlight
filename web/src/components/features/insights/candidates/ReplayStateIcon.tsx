@@ -19,7 +19,7 @@ const ICONS: Record<ShownState, { icon: LucideIcon; className: string }> = {
     className: 'animate-spin text-chart-primary motion-reduce:animate-none',
   },
   stopped: { icon: CircleStop, className: 'text-muted-foreground' },
-  'ceiling-reached': { icon: CircleAlert, className: 'text-outcome-failed' },
+  'ceiling-reached': { icon: CircleAlert, className: 'text-destructive' },
 };
 
 export function ReplayStateIcon({ state }: { state: ShownState }) {

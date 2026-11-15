@@ -89,7 +89,7 @@ export function PipelineFlowTable({
                           <span
                             role="img"
                             aria-label="Slowest stage"
-                            className="size-1.5 rounded-full bg-outcome-failed"
+                            className="size-1.5 rounded-full bg-destructive"
                           />
                         </span>
                       </WithTooltip>

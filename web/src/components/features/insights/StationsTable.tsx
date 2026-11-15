@@ -79,7 +79,7 @@ export function StationsTable({
                   className={cn(
                     'hover:underline',
                     column.label === 'Failed' && report.tally.failed > 0
-                      ? 'text-outcome-failed'
+                      ? 'text-destructive'
                       : 'text-foreground',
                   )}
                 >

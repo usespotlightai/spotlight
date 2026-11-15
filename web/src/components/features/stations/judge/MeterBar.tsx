@@ -27,7 +27,7 @@ export function MeterBar({
         <span
           className={cn(
             'absolute inset-y-0 left-0 rounded-full',
-            failing ? 'bg-outcome-failed' : 'bg-chart-primary',
+            failing ? 'bg-destructive' : 'bg-chart-primary',
           )}
           style={{ width: percent(share) }}
         />

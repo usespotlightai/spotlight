@@ -25,7 +25,7 @@ const inkOf = (
   }
   const strength = Math.round((agree ? 8 : 12) + (count / max) * 30);
 
-  return `color-mix(in oklab, var(${agree ? '--muted-foreground' : '--outcome-failed'}) ${strength}%, transparent)`;
+  return `color-mix(in oklab, var(${agree ? '--muted-foreground' : '--destructive'}) ${strength}%, transparent)`;
 };
 
 type ConfusionMatrixProps = {

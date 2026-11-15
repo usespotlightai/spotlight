@@ -11,13 +11,13 @@ const SIGNS: Record<PlanMark, string> = {
 
 const TONES: Record<PlanMark, string> = {
   added: 'text-outcome-done',
-  removed: 'text-outcome-failed',
+  removed: 'text-destructive',
   changed: 'text-muted-foreground',
 };
 
 const BACKGROUNDS: Record<PlanMark, string | null> = {
   added: 'bg-outcome-done/8',
-  removed: 'bg-outcome-failed/8',
+  removed: 'bg-destructive/8',
   changed: null,
 };
 

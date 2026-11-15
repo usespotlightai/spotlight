@@ -62,7 +62,7 @@ export function DailyRunBars({ trend }: { trend: readonly TrendPoint[] }) {
                 y={HEIGHT - failed}
                 width={bar}
                 height={failed}
-                fill="var(--outcome-failed)"
+                fill="var(--destructive)"
               />
             )}
           </g>

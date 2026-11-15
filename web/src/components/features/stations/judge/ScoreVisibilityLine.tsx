@@ -21,7 +21,7 @@ export function ScoreVisibilityLine({
         aria-hidden
         className={cn(
           'mt-0.5 size-4 shrink-0',
-          visibility.failing && 'text-outcome-failed',
+          visibility.failing && 'text-destructive',
         )}
       />
       <span className="flex items-center gap-1.5">

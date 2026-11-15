@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router';
 
 import { RequireAuth } from './components/shell/auth/RequireAuth.tsx';
 import { RequireGuest } from './components/shell/auth/RequireGuest.tsx';
+import { CommandsProvider } from './components/shell/command/CommandsProvider.tsx';
 import { DesktopHandoff } from './components/shell/DesktopHandoff.tsx';
 import { PageErrorBoundary } from './components/shell/layout/PageErrorBoundary.tsx';
 import { lazyPage } from './lib/lazy-page.ts';
@@ -64,7 +65,11 @@ export default function App() {
               <Route path="/github/installed" element={<GitHubInstalled />} />
               <Route
                 path="/w/:slug"
-                element={<Workspace pages={workspacePages} />}
+                element={
+                  <CommandsProvider>
+                    <Workspace pages={workspacePages} />
+                  </CommandsProvider>
+                }
               >
                 {workspacePages}
               </Route>

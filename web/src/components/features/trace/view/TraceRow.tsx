@@ -71,7 +71,7 @@ export const TraceRow = memo(function TraceRow({
           className={cn(
             'min-w-0 truncate text-left outline-none after:absolute after:inset-0',
             node.category === 'failed'
-              ? 'text-outcome-failed'
+              ? 'text-destructive'
               : 'text-muted-foreground',
           )}
         >

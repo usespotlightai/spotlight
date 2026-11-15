@@ -19,7 +19,7 @@ export function DetailProperty({
       <dd
         className={cn(
           'min-w-0 flex-1 truncate text-sm tabular-nums',
-          failed ? 'text-outcome-failed' : 'text-foreground',
+          failed ? 'text-destructive' : 'text-foreground',
         )}
       >
         {children}

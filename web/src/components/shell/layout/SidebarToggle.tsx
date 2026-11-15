@@ -1,6 +1,13 @@
 import type { Ref } from 'react';
 
+import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useActiveCommand } from '@/hooks/useActiveCommand';
 import { cn } from '@/lib/utils';
 
 type SidebarToggleProps = {
@@ -31,12 +38,14 @@ export function SidebarToggle({
   disabled,
   onToggle,
 }: SidebarToggleProps) {
-  return (
+  const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  const command = useActiveCommand({ id: 'sidebar.toggle' });
+  const button = (
     <Button
       ref={ref}
       variant="ghost"
       size="icon-sm"
-      aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      aria-label={label}
       aria-expanded={!collapsed}
       aria-controls={controls}
       disabled={disabled}
@@ -67,5 +76,18 @@ export function SidebarToggle({
         />
       </svg>
     </Button>
+  );
+
+  if (!command || disabled) {
+    return button;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={button} />
+      <TooltipContent>
+        <ShortcutHint id="sidebar.toggle">{label}</ShortcutHint>
+      </TooltipContent>
+    </Tooltip>
   );
 }
