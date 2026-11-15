@@ -547,13 +547,9 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on('activate', (_event, hasVisibleWindows) => {
-    if (hasVisibleWindows) {
-      return;
-    }
-
-    if (main) {
+    if (main && (!hasVisibleWindows || !main.isVisible())) {
       shown(main);
-    } else {
+    } else if (!main && !hasVisibleWindows) {
       createMain();
     }
   });

@@ -111,6 +111,9 @@ describe('workspacePageOf', () => {
     '//evil.example.com/w/acme',
     'https://evil.example.com/w/acme',
     '/api/auth/sign-out',
+    '/w/../api/auth/sign-out',
+    '/w/%2e%2e/api/auth/sign-out',
+    '/w/acme/../../api/auth/sign-out',
     'w/acme/inbox',
     '',
   ])('opens nothing for %s', (path) => {

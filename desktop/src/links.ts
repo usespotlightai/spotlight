@@ -82,13 +82,11 @@ export const workspacePageOf = (
   path: string,
   origin: string,
 ): string | null => {
-  if (!path.startsWith('/w/')) {
-    return null;
-  }
-
   const page = parsed(`${origin}${path}`);
 
-  return page && page.origin === origin ? page.toString() : null;
+  return page?.origin === origin && page.pathname.startsWith('/w/')
+    ? page.toString()
+    : null;
 };
 
 export const isOrigin = (url: string, origin: string): boolean =>
