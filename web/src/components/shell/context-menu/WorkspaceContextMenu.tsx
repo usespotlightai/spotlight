@@ -13,6 +13,7 @@ import {
 import { type WorkspaceLink, workspaceLinkAt } from '@/lib/app-tabs';
 import {
   MENU_ACTIONS_ATTRIBUTE,
+  type MenuAction,
   MenuActionsContext,
   menuActionsRegistry,
 } from '@/lib/context-menu';
@@ -22,6 +23,7 @@ type Menu = {
   readonly at: MenuPoint;
   readonly link: WorkspaceLink | null;
   readonly region: string | null;
+  readonly closing: readonly MenuAction[];
 };
 
 const CLOSED: Menu = {
@@ -29,6 +31,7 @@ const CLOSED: Menu = {
   at: { x: 0, y: 0 },
   link: null,
   region: null,
+  closing: [],
 };
 
 const EDITABLE =
@@ -65,7 +68,7 @@ export function WorkspaceContextMenu({
 }: WorkspaceContextMenuProps) {
   const [registry] = useState(menuActionsRegistry);
   const [menu, setMenu] = useState<Menu>(CLOSED);
-  const actions = useSyncExternalStore(
+  const live = useSyncExternalStore(
     (onChange) => registry.watch(menu.region, onChange),
     () => registry.actionsOf(menu.region),
   );
@@ -93,7 +96,13 @@ export function WorkspaceContextMenu({
     }
 
     event.preventDefault();
-    setMenu({ open: true, at: pointOf(event, target), link, region });
+    setMenu({
+      open: true,
+      at: pointOf(event, target),
+      link,
+      region,
+      closing: [],
+    });
   });
 
   useEffect(() => {
@@ -107,10 +116,13 @@ export function WorkspaceContextMenu({
       {children}
       <ContextMenuPopup
         open={menu.open}
-        onOpenChange={(open) => setMenu((current) => ({ ...current, open }))}
+        onOpenChange={(open) => {
+          const closing = open ? [] : live;
+          setMenu((current) => ({ ...current, open, closing }));
+        }}
         at={menu.at}
         link={menu.link}
-        actions={actions}
+        actions={menu.open ? live : menu.closing}
         onOpenTab={onOpenTab}
       />
     </MenuActionsContext>
