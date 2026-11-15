@@ -715,6 +715,24 @@ describe('LineBoard', () => {
       ).toBeInTheDocument();
     });
 
+    it('opens the assignee menu of the hovered task with A', async () => {
+      renderWithKeys();
+
+      press('j');
+      const rows = document.querySelectorAll('[data-slot="task-row"]');
+      const hovered = rows[rows.length - 1] as HTMLElement;
+      fireEvent.pointerEnter(hovered);
+      press('a');
+
+      expect(
+        await screen.findByRole('menuitem', { name: /No assignee/ }),
+      ).toBeInTheDocument();
+      expect(hovered.querySelector('[aria-haspopup="menu"]')).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+    });
+
     it('opens no assignee menu while no task has focus', () => {
       renderWithKeys();
 

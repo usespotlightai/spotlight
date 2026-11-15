@@ -12,6 +12,7 @@ type ApprovalApproveButtonProps = {
   approval: Approval;
   disabled: boolean;
   disabledBecause?: string | null;
+  keyed?: boolean;
   onApprove?: () => void;
 };
 
@@ -19,11 +20,12 @@ export function ApprovalApproveButton({
   approval,
   disabled,
   disabledBecause = null,
+  keyed = false,
   onApprove,
 }: ApprovalApproveButtonProps) {
   if (!disabled) {
     return (
-      <Tooltip>
+      <Tooltip disabled={!keyed}>
         <TooltipTrigger
           render={
             <DecisionButton

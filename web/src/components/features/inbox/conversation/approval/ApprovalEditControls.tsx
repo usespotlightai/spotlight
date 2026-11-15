@@ -7,6 +7,7 @@ type ApprovalEditControlsProps = {
   approval: Approval;
   pending: boolean;
   blank: boolean;
+  keyed: boolean;
   onApprove: () => void;
   onCancel: () => void;
 };
@@ -15,6 +16,7 @@ export function ApprovalEditControls({
   approval,
   pending,
   blank,
+  keyed,
   onApprove,
   onCancel,
 }: ApprovalEditControlsProps) {
@@ -27,6 +29,7 @@ export function ApprovalEditControls({
         approval={approval}
         disabled={pending || blank}
         disabledBecause={blank ? 'Fill in every input to approve' : null}
+        keyed={keyed}
         onApprove={onApprove}
       />
     </DecisionControls>
