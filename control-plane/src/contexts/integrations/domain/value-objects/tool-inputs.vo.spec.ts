@@ -20,6 +20,7 @@ const input = (over: Partial<ProvidedToolInput> = {}): ProvidedToolInput => ({
 });
 
 const COMMENT = ProvidedTool.of({
+  readOnly: false,
   integration: IntegrationKey.of('linear'),
   name: 'comment',
   description: 'Comment on the issue.',

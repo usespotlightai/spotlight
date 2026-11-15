@@ -24,8 +24,12 @@ import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
+import {
+  runOrderOf,
+  trialOrderOf,
+} from '@work/domain/value-objects/dispatch-order.fake-spec';
 import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 
 const ORDERED_AT = new Date('2026-09-01T09:00:00.000Z');
@@ -55,6 +59,45 @@ export const aTaskDispatch = (
 
 export const aChatDispatch = (id: RunId, chatId: ChatId): Dispatch =>
   dispatched(id, { kind: 'chat', chatId });
+
+export const aTrialDispatch = (
+  id: RunId,
+  basedOn: RunId,
+  taskId: TaskId,
+  stationId: StationId,
+): Dispatch =>
+  Dispatch.trialOrdered({
+    id,
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: null,
+    subject: {
+      kind: 'trial',
+      basedOn,
+      taskId,
+      stationId,
+      asOf: ORDERED_AT,
+      repositories: [],
+      followUp: null,
+    },
+    configuredAs: StationConfig.rehydrate(
+      {
+        prompt: null,
+        harness: 'dev',
+        model: null,
+        effort: null,
+        profile: null,
+        image: null,
+        repositories: [],
+        skills: [],
+        tools: [],
+        decisions: false,
+        memories: false,
+      },
+      'f'.repeat(64),
+    ),
+    order: trialOrderOf(id),
+    now: ORDERED_AT,
+  });
 
 export const dispatchesOf = (
   ...dispatches: readonly Dispatch[]

@@ -146,6 +146,12 @@ export class IntegrationReader implements ToolDeclarationsPort {
     );
   }
 
+  enabledOnAnyMark(
+    definitions: readonly DefinedIntegration[],
+  ): readonly ToolName[] {
+    return this.offered(definitions).flatMap((each) => each.enabledOnAnyMark);
+  }
+
   async providedTool(
     definitions: readonly DefinedIntegration[],
     tool: string,

@@ -13,6 +13,7 @@ export const resumingWith = (
   integrations: TeamIntegrationsPort = {
     provided: async () => [],
     toolsOnMarks: async () => [],
+    toolsOnAnyMark: async () => [],
   },
   logger: LoggerPort = {
     debug: () => undefined,

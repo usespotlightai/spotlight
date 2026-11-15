@@ -190,6 +190,7 @@ const toolOf = (raw: unknown): RunToolManifest => {
     ...(input.output !== undefined
       ? { output: toolOutputOf(input.output) }
       : {}),
+    ...(input.readOnly === true ? { readOnly: true as const } : {}),
   };
 };
 

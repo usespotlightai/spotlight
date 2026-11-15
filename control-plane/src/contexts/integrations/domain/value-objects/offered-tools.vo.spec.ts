@@ -18,7 +18,13 @@ const HASH = ContentHash.of('a'.repeat(64));
 const OTHER_HASH = ContentHash.of('b'.repeat(64));
 
 const tool = (name: string, backing: ToolBacking) =>
-  ProvidedTool.of({ integration: LINEAR, name, description: name, backing });
+  ProvidedTool.of({
+    readOnly: false,
+    integration: LINEAR,
+    name,
+    description: name,
+    backing,
+  });
 
 const integration = (actsAs = ActsAs.team()) =>
   Integration.of({
@@ -105,6 +111,7 @@ describe('OfferedTools', () => {
         actions: DefinedActions.of([actionNamed('post')]),
         writtenTools: [
           ProvidedTool.of({
+            readOnly: false,
             integration: LINEAR,
             name: 'comment',
             description: 'comment',
@@ -126,5 +133,8 @@ describe('OfferedTools', () => {
         .map((each) => each.value),
     ).toEqual(['linear.comment']);
     expect(offered.enabledOnMarks([MarkKind.of('linear.team')])).toEqual([]);
+    expect(offered.enabledOnAnyMark.map((each) => each.value)).toEqual([
+      'linear.comment',
+    ]);
   });
 });

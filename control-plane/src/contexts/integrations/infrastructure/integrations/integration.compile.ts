@@ -1370,6 +1370,7 @@ export const compileIntegration = (
         description: file.tools[tool.name]?.description ?? '',
         backing: ToolBacking.action(file.tools[tool.name]?.action ?? ''),
         approval: approvalOf(file.tools[tool.name]?.approval, tool.name),
+        readOnly: file.tools[tool.name]?.readOnly ?? false,
         enabledOnMark: enabledOnMarkOf(file.tools[tool.name]?.enabledOnMark),
         inputs: tool.inputs.map((input) => ({
           name: input.name,

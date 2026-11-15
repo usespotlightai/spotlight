@@ -101,6 +101,12 @@ export class OfferedTools {
       .map((each) => each.tool);
   }
 
+  get enabledOnAnyMark(): readonly ToolName[] {
+    return this.written
+      .filter((each) => each.enabledOnMark !== null)
+      .map((each) => each.tool);
+  }
+
   get all(): readonly ToolName[] {
     return [...this.written.map((each) => each.tool), ...this.generated];
   }

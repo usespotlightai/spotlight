@@ -15,6 +15,7 @@ export interface StationIdentityFacts {
     readonly passThreshold: number;
   } | null;
   readonly rubricHash: string | null;
+  readonly trialTools: readonly string[];
 }
 
 export type Sha256 = (text: string) => string;
@@ -28,6 +29,7 @@ export const stationHashesOf = (
       fingerprint: facts.fingerprint,
       options: facts.handoverWords,
       ends: facts.ends,
+      trialTools: facts.trialTools,
     }),
   );
 

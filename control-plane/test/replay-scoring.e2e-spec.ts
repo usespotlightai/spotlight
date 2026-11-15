@@ -648,9 +648,15 @@ describe('a replay at a station that checks and judges', () => {
     );
 
     const replay = await replayOf(app, id);
-    const comparison = taskComparisons(
-      replay.outcome(),
-      (await replayOf(app, baselineId)).outcome(),
+    const pastOrder = [first.runId, second.runId];
+    const comparison = [
+      ...taskComparisons(
+        replay.outcome(),
+        (await replayOf(app, baselineId)).outcome(),
+      ),
+    ].sort(
+      (one, other) =>
+        pastOrder.indexOf(one.original) - pastOrder.indexOf(other.original),
     );
 
     expect(replay.judges).toBe(true);

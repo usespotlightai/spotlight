@@ -18,6 +18,7 @@ export const ToolDeclarationMapper = {
         : null,
       providedBy: declaration.integrationName,
       inferredOutput: declaration.inferredOutput,
+      readOnly: declaration.readOnly,
     });
   },
 };

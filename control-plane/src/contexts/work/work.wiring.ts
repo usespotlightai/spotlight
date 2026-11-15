@@ -1567,6 +1567,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RunCatalog,
       STATION_PROFILES,
       CONTENT_HASH,
+      TeamIntegrations,
       MEMORIES_BRIEFED_BEFORE,
       ATTACHMENT_STORE,
       TRACE_PARENT,
@@ -1585,6 +1586,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       catalog: RunCatalog,
       profiles: StationProfilesPort,
       hash: ContentHashPort,
+      integrations: TeamIntegrations,
       memories: MemoriesBriefedBeforePort,
       files: AttachmentStorePort,
       tracing: TraceParentPort,
@@ -1605,6 +1607,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           profiles,
           hash,
         ),
+        integrations,
         memories,
         files,
         tracing,
@@ -1651,9 +1654,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: STATION_CONFIG_CANDIDATES,
-    inject: [CandidateLines],
-    useFactory: (candidates: CandidateLines) =>
-      new StationConfigCandidates(candidates),
+    inject: [CandidateLines, TeamIntegrations],
+    useFactory: (candidates: CandidateLines, integrations: TeamIntegrations) =>
+      new StationConfigCandidates(candidates, integrations),
   },
 
   {

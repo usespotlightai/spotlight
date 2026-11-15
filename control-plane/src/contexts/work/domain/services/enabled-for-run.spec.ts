@@ -150,6 +150,7 @@ describe('enabledAt, for a station that names a harness profile', () => {
 describe('describedTools', () => {
   it('describes Spotlight’s own and those offered, and leaves out the rest', () => {
     const offered = DeclaredTool.of({
+      readOnly: false,
       tool: Tool.of('linear.comment'),
       description: 'Comment on the issue.',
     });
@@ -168,7 +169,11 @@ describe('describedTools', () => {
 
 describe('skillsForTools', () => {
   const declared = (tool: string) =>
-    DeclaredTool.of({ tool: Tool.of(tool), description: 'Does it.' });
+    DeclaredTool.of({
+      readOnly: false,
+      tool: Tool.of(tool),
+      description: 'Does it.',
+    });
 
   it('enables the skill of finding and calling tools with an integration’s tool or the catalog’s', () => {
     expect(skillsForTools([declared('linear.comment')])).toEqual([USING_TOOLS]);

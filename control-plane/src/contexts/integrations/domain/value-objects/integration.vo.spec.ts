@@ -128,6 +128,7 @@ describe('Integration', () => {
         key: LINEAR,
         writtenTools: [
           ProvidedTool.of({
+            readOnly: false,
             integration: LINEAR,
             name: 'comment',
             description: 'Comment.',

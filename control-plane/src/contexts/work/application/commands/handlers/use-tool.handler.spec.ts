@@ -51,6 +51,7 @@ import type { IntegrationToolResolver } from '@work/application/services/integra
 import { RunCatalog } from '@work/application/services/run-catalog.service';
 import {
   aChatDispatch,
+  aTrialDispatch,
   aTaskDispatch,
   dispatchesOf,
   runWorksOver,
@@ -159,6 +160,7 @@ const NEEDS_APPROVAL = ApprovalNeeded.of(
 );
 
 const LINEAR_COMMENT = DeclaredTool.of({
+  readOnly: false,
   tool: Tool.of('linear.comment'),
   description: 'Comment on the issue.',
   inputs: [
@@ -187,12 +189,16 @@ const describedAs = (tool: string) => {
     builtInTool(Tool.of(tool))?.declared ??
     (tool === LINEAR_COMMENT.tool.value
       ? LINEAR_COMMENT
-      : DeclaredTool.of({ tool: Tool.of(tool), description: `Use ${tool}.` }));
+      : DeclaredTool.of({
+          readOnly: false,
+          tool: Tool.of(tool),
+          description: `Use ${tool}.`,
+        }));
 
   return toolManifestOf(declared);
 };
 
-type Requested = 'task' | 'chat' | 'spec' | 'search';
+type Requested = 'task' | 'chat' | 'spec' | 'search' | 'replay';
 
 const REQUESTERS: Readonly<Record<Requested, RunRequesterContract>> = {
   task: WorkRequesters.task(
@@ -215,10 +221,17 @@ const REQUESTERS: Readonly<Record<Requested, RunRequesterContract>> = {
     token: '1',
     team: 'team_1',
   },
+  replay: {
+    owner: 'replays',
+    kind: 'replay',
+    id: 'replay_1',
+    token: '1',
+    team: 'team_1',
+  },
 };
 
 const policyFor = (requested: Requested): RunPolicyContract =>
-  requested === 'search'
+  requested === 'search' || requested === 'replay'
     ? {
         holdsTurn: false,
         gated: false,
@@ -287,6 +300,7 @@ const using = (
     dispatchedAt?: string;
     task?: Task;
     approval?: ApprovalNeeded | null;
+    readOnly?: boolean;
     failing?: boolean;
     changedWhileCalling?: boolean;
     movedOnWhileCalling?: boolean;
@@ -366,15 +380,17 @@ const using = (
         : saved;
     },
   } as unknown as TaskRepository;
-  const linear = over.approval
-    ? DeclaredTool.of({
-        tool: LINEAR_COMMENT.tool,
-        description: LINEAR_COMMENT.description,
-        inputs: LINEAR_COMMENT.inputs,
-        approval: over.approval,
-        providedBy: LINEAR_COMMENT.providedBy,
-      })
-    : LINEAR_COMMENT;
+  const linear =
+    over.approval || over.readOnly
+      ? DeclaredTool.of({
+          tool: LINEAR_COMMENT.tool,
+          description: LINEAR_COMMENT.description,
+          inputs: LINEAR_COMMENT.inputs,
+          approval: over.approval ?? null,
+          providedBy: LINEAR_COMMENT.providedBy,
+          readOnly: over.readOnly ?? false,
+        })
+      : LINEAR_COMMENT;
 
   const builtIns = new BuiltInTools(
     [
@@ -479,7 +495,16 @@ const using = (
         ]
       : requested
         ? [aChatDispatch(run.runId, requested.chat)]
-        : []),
+        : run.requester.kind === 'replay'
+          ? [
+              aTrialDispatch(
+                run.runId,
+                RunId.of('run_0'),
+                TaskId.of('task_1'),
+                StationId.of('station_1'),
+              ),
+            ]
+          : []),
   );
   const handler = new UseToolHandler(
     runWorksOver(
@@ -834,6 +859,60 @@ describe('UseToolHandler', () => {
       rule: ToolRule.of(rule),
       personId: ALICE,
       personName: 'Alice',
+    });
+
+    describe('in a replay, which keeps to itself', () => {
+      const replaying = () =>
+        claimed(['linear.comment'], { requested: 'replay' });
+
+      it('calls a read-only tool on the task of its original, as no person, with no hook', async () => {
+        const { useTool, called, hooked } = using(replaying(), {
+          readOnly: true,
+        });
+
+        await useTool('linear.comment', { body: 'What happened?' });
+
+        expect(called.map((each) => each.context)).toEqual([
+          expect.objectContaining({
+            kind: 'task',
+            taskId: TaskId.of('task_1'),
+            requester: null,
+          }),
+        ]);
+        expect(hooked.before).toEqual([]);
+      });
+
+      it('refuses a tool that can change data before it asks anyone to connect, and calls nothing', async () => {
+        const { useTool, called, current } = using(replaying(), {
+          missing: {
+            integration: 'linear',
+            integrationName: 'Linear',
+            personId: ALICE.value,
+            because: 'not-connected',
+          },
+        });
+        const before = current().notes.length;
+
+        await expect(
+          useTool('linear.comment', { body: 'Fixed.' }),
+        ).rejects.toThrow(/acts on nothing beyond its own result/);
+        expect(called).toEqual([]);
+        expect(current().notes).toHaveLength(before);
+      });
+
+      it('asks no person to approve a read-only tool that a person’s rule gates, and calls nothing', async () => {
+        const { useTool, called, current } = using(replaying(), {
+          readOnly: true,
+          personRule: ruling('needs-approval'),
+        });
+        const before = current().notes.length;
+
+        await expect(
+          useTool('linear.comment', { body: 'What happened?' }),
+        ).rejects.toThrow(/asks no person/);
+        expect(called).toEqual([]);
+        expect(current().notes).toHaveLength(before);
+      });
     });
 
     const lastAsked = (current: () => Task) =>
@@ -1263,6 +1342,7 @@ describe('UseToolHandler', () => {
     expect(
       toolManifestOf(
         DeclaredTool.of({
+          readOnly: false,
           tool: LINEAR_COMMENT.tool,
           description: LINEAR_COMMENT.description,
           approval: NEEDS_APPROVAL,

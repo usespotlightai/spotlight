@@ -34,6 +34,7 @@ export class ProvidedTool {
     readonly backing: ToolBacking,
     readonly approval: ApprovalNeeded | null,
     readonly enabledOnMark: MarkKind | null,
+    readonly readOnly: boolean,
   ) {}
 
   static of(input: {
@@ -44,6 +45,7 @@ export class ProvidedTool {
     backing: ToolBacking;
     approval?: ApprovalNeeded | null;
     enabledOnMark?: MarkKind | null;
+    readOnly: boolean;
   }): ProvidedTool {
     const name = input.name.trim();
     const description = input.description.trim();
@@ -115,6 +117,7 @@ export class ProvidedTool {
       input.backing,
       input.approval ?? null,
       input.enabledOnMark ?? null,
+      input.readOnly,
     );
   }
 

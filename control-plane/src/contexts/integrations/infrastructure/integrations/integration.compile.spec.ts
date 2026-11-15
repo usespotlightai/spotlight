@@ -1085,6 +1085,30 @@ tools:
     ).toHaveLength(1);
   });
 
+  it('takes a tool as read-only only where the file says so, whatever its action sends', () => {
+    const readOnly = (text: string) => {
+      const compiled = read(text);
+
+      return (
+        compiled.ok &&
+        compiled.readable.integration.writtenTool(ToolName.of('linear.comment'))
+          ?.readOnly
+      );
+    };
+
+    expect(readOnly(PROVIDING.replace('method: POST', 'method: GET'))).toBe(
+      false,
+    );
+    expect(
+      readOnly(
+        PROVIDING.replace(
+          '    action: comment',
+          '    action: comment\n    readOnly: true',
+        ),
+      ),
+    ).toBe(true);
+  });
+
   it('offers a tool no approval where the file requests none', () => {
     const compiled = read(PROVIDING);
 
@@ -1407,6 +1431,14 @@ openapi:
       compiled.ok &&
         compiled.generated.map((each) => each.backing.spec?.operation),
     ).toEqual(['find-pet', 'add-pet', 'delete-pet']);
+  });
+
+  it('never takes a tool generated from a spec as read-only, even one that only reads', () => {
+    const compiled = read(PETSTORE);
+
+    expect(
+      compiled.ok && compiled.generated.map((each) => each.readOnly),
+    ).toEqual([false, false, false]);
   });
 
   it('warns of an approval naming no operation of the description', () => {

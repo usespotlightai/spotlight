@@ -15,4 +15,8 @@ export interface ToolDeclarationsPort {
     definitions: readonly DefinedIntegration[],
     kinds: readonly MarkKind[],
   ): readonly ToolName[];
+
+  enabledOnAnyMark(
+    definitions: readonly DefinedIntegration[],
+  ): readonly ToolName[];
 }

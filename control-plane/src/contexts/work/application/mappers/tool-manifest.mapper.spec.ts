@@ -19,6 +19,7 @@ const tool = (
   providedBy: string | null = null,
 ) =>
   DeclaredTool.of({
+    readOnly: false,
     tool: Tool.of('linear.comment'),
     description: 'Comment on the issue.',
     inputs: [BODY],
@@ -52,6 +53,7 @@ describe('toolManifestOf', () => {
   it('says what the tool answered before', () => {
     const inferredOutput = { type: 'string' };
     const inferred = DeclaredTool.of({
+      readOnly: false,
       tool: Tool.of('linear.comment'),
       description: 'Comment on the issue.',
       inferredOutput,

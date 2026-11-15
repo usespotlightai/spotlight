@@ -101,6 +101,49 @@ describe('RunSpec', () => {
     ).toBeNull();
   });
 
+  it('takes read-only integration tools as keeping to the run, and any other tool as acting beyond it', () => {
+    const tool = (name: string) => ({
+      name,
+      description: `Uses ${name}.`,
+      inputs: [],
+      approval: null,
+      integration: name.split('.')[0] ?? name,
+    });
+
+    expect(
+      actsBeyondItselfIn(
+        parts({
+          manifest: [{ ...tool('sentry.get-latest-event'), readOnly: true }],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      actsBeyondItselfIn(
+        parts({
+          manifest: [
+            { ...tool('sentry.get-latest-event'), readOnly: true },
+            tool('linear.comment'),
+          ],
+        }),
+      ),
+    ).not.toBeNull();
+    expect(
+      actsBeyondItselfIn(
+        parts({
+          manifest: [
+            {
+              name: 'checks',
+              description: 'Uses checks.',
+              inputs: [],
+              approval: null,
+              readOnly: true,
+            },
+          ],
+        }),
+      ),
+    ).not.toBeNull();
+  });
+
   it('keeps that the run reports the diff it leaves', () => {
     expect(RunSpec.of(parts({ diffs: true })).value.diffs).toBe(true);
     expect(RunSpec.of(parts()).value.diffs).toBeUndefined();

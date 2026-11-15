@@ -50,6 +50,7 @@ const declared = (tool: Tool): ToolDeclaration => ({
   inputs: [],
   approval: null,
   inferredOutput: null,
+  readOnly: true,
 });
 
 const dispatchedWith = (toolsOnMarks: readonly Tool[]) =>
@@ -121,6 +122,7 @@ const resuming = ({
         tools
           .filter((each) => !undescribed.some((tool) => tool.value === each))
           .map((each) => declared(Tool.of(each))),
+      toolsOnAnyMark: async () => [],
       toolsOnMarks: async (_team, kinds) => {
         if (lookupFails) {
           throw new Error('Integrations unavailable');
