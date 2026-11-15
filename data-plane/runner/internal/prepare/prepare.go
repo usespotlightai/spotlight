@@ -2,18 +2,23 @@ package prepare
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/shell"
 )
 
-const defaultTimeout = 10 * time.Minute
+const (
+	defaultTimeout    = 10 * time.Minute
+	parallelCheckouts = 4
+)
 
 var retryDelays = []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second}
 
@@ -47,17 +52,29 @@ func Checkouts(ctx context.Context, checkouts []protocol.Checkout, opts Options)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	var out output
-	for _, checkout := range checkouts {
-		if err := opts.checkout(ctx, checkout, &out); err != nil {
-			if ctx.Err() != nil {
-				err = fmt.Errorf("preparing %s did not finish within %s", checkout.Path, timeout)
+	outs := make([]output, len(checkouts))
+	errs := make([]error, len(checkouts))
+	slots := make(chan struct{}, parallelCheckouts)
+	var preparing sync.WaitGroup
+	for i, checkout := range checkouts {
+		preparing.Go(func() {
+			slots <- struct{}{}
+			defer func() { <-slots }()
+			if err := opts.checkout(ctx, checkout, &outs[i]); err != nil {
+				if ctx.Err() != nil {
+					err = fmt.Errorf("preparing %s did not finish within %s", checkout.Path, timeout)
+				}
+				errs[i] = err
 			}
-			return strings.Join(out.lines, "\n"), err
-		}
+		})
 	}
+	preparing.Wait()
 
-	return strings.Join(out.lines, "\n"), nil
+	var lines []string
+	for _, out := range outs {
+		lines = append(lines, out.lines...)
+	}
+	return strings.Join(lines, "\n"), errors.Join(errs...)
 }
 
 func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *output) error {
@@ -82,6 +99,7 @@ func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *
 				return err
 			}
 		}
+		o.fetchFromMirror(ctx, checkout, out)
 		if err := git("fetch", "--quiet", "origin"); err != nil {
 			return err
 		}
@@ -147,6 +165,27 @@ func fastForward(checkout protocol.Checkout, git func(args ...string) bool, out 
 		out.add("left %s behind the remote's %s: uncommitted changes here block the fast-forward", checkout.Path, checkout.Branch)
 	default:
 		out.add("caught %s up with what was pushed to %s", checkout.Path, checkout.Branch)
+	}
+}
+
+func (o Options) fetchFromMirror(ctx context.Context, checkout protocol.Checkout, out *output) {
+	source := filepath.Join(o.Mirrors, checkout.Path+".git")
+	if o.Mirrors == "" || !exists(source) {
+		return
+	}
+
+	trusting, err := configTrustingOtherOwners()
+	if err != nil {
+		out.add("fetching %s from origin alone: could not trust the host's mirror: %v", checkout.Path, err)
+		return
+	}
+	defer os.Remove(trusting)
+
+	tree := filepath.Join(o.Dir, checkout.Path)
+	output, err := shell.GitWith(ctx, tree, map[string]string{"GIT_CONFIG_GLOBAL": trusting}, nil,
+		"fetch", "--quiet", "--no-tags", source, "+refs/heads/*:refs/remotes/origin/*")
+	if err != nil {
+		out.add("fetching %s from origin alone: git fetch from the host's mirror: %v: %s", checkout.Path, err, shell.Tail(output))
 	}
 }
 

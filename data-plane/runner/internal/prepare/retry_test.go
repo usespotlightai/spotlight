@@ -24,16 +24,21 @@ type flakyServer struct {
 	failures atomic.Int32
 }
 
-func (f fixture) served(t *testing.T, failing string, status int, times int32) (*flakyServer, string) {
+func (f fixture) backend(t *testing.T) http.Handler {
 	t.Helper()
 
 	execPath := strings.TrimSpace(git(t, f.origin, "--exec-path"))
-	backend := &cgi.Handler{
+	return &cgi.Handler{
 		Path:       filepath.Join(execPath, "git-http-backend"),
 		Env:        []string{"GIT_PROJECT_ROOT=" + filepath.Dir(f.origin), "GIT_HTTP_EXPORT_ALL=1"},
 		InheritEnv: []string{"PATH", "HOME"},
 	}
+}
 
+func (f fixture) served(t *testing.T, failing string, status int, times int32) (*flakyServer, string) {
+	t.Helper()
+
+	backend := f.backend(t)
 	flaky := &flakyServer{failing: failing, status: status}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, flaky.failing) && flaky.matched.Add(1) <= times {

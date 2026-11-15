@@ -2,6 +2,7 @@ package prepare_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -367,5 +368,132 @@ func TestSetupThatTakesTooLongIsStopped(t *testing.T) {
 	_, err := prepare.Setup(context.Background(), t.TempDir(), "sleep 5", nil, 100*time.Millisecond, nil)
 	if err == nil || !strings.Contains(err.Error(), "did not finish") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func (f fixture) mirrored(t *testing.T) prepare.Options {
+	t.Helper()
+
+	mirror := filepath.Join(filepath.Dir(f.workspace), "mirrors", "acme", "api.git")
+	git(t, filepath.Dir(f.workspace), "clone", "--quiet", "--bare", f.origin, mirror)
+
+	options := f.options()
+	options.Mirrors = filepath.Dir(filepath.Dir(mirror))
+	return options
+}
+
+func TestFetchesAReusedCheckoutFromTheHostsMirrorFirst(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	options := f.mirrored(t)
+	mirror := filepath.Join(options.Mirrors, "acme", "api.git")
+
+	git(t, f.origin, "switch", "--quiet", "-c", "feature")
+	onlyMirrored := f.commit(t, "feature.md", "mirrored\n")
+	git(t, f.origin, "switch", "--quiet", "main")
+	git(t, mirror, "fetch", "--quiet", f.origin, "feature:feature")
+	git(t, f.origin, "branch", "--quiet", "-D", "feature")
+
+	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, options)
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, output)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "refs/remotes/origin/feature"); got != onlyMirrored {
+		t.Errorf("origin/feature is at %s, want the mirror's %s", got, onlyMirrored)
+	}
+	if output != "reusing acme/api" {
+		t.Errorf("output %q", output)
+	}
+}
+
+func TestFetchesFromOriginWhatTheHostsMirrorDoesNotHaveYet(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	options := f.mirrored(t)
+
+	pushed := f.push(t, "spotlight/task-1", "REVIEW.md", "a person's fix\n")
+	git(t, f.origin, "branch", "--quiet", "spotlight/task-2", pushed)
+	latest := f.commit(t, "CHANGELOG.md", "moved on\n")
+
+	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, options)
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, output)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != pushed {
+		t.Errorf("the branch is at %s, want what was pushed, %s", got, pushed)
+	}
+	if got := git(t, f.tree(), "rev-parse", "refs/remotes/origin/spotlight/task-2"); got != pushed {
+		t.Errorf("origin/spotlight/task-2 is at %s, want %s", got, pushed)
+	}
+	if got := git(t, f.tree(), "rev-parse", "refs/remotes/origin/main"); got != latest {
+		t.Errorf("origin/main is at %s, want origin's %s", got, latest)
+	}
+	if !strings.Contains(output, "caught acme/api up") {
+		t.Errorf("output %q", output)
+	}
+}
+
+func TestFetchesFromOriginAloneWhenTheHostsMirrorIsBroken(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	options := f.mirrored(t)
+	if err := os.RemoveAll(filepath.Join(options.Mirrors, "acme", "api.git", "objects")); err != nil {
+		t.Fatal(err)
+	}
+
+	latest := f.commit(t, "CHANGELOG.md", "moved on\n")
+
+	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, options)
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, output)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "refs/remotes/origin/main"); got != latest {
+		t.Errorf("origin/main is at %s, want origin's %s", got, latest)
+	}
+	if !strings.Contains(output, "fetching acme/api from origin alone") {
+		t.Errorf("output %q", output)
+	}
+}
+
+func (f fixture) many(n int, remote func(i int) string) []protocol.Checkout {
+	checkouts := make([]protocol.Checkout, n)
+	for i := range checkouts {
+		checkouts[i] = protocol.Checkout{Remote: remote(i), Path: fmt.Sprintf("acme/repo-%d", i)}
+	}
+	return checkouts
+}
+
+func TestKeepsEachCheckoutsOutputInOrderAndPreparesTheRestWhenOneFails(t *testing.T) {
+	f := setUp(t)
+	checkouts := f.many(6, func(i int) string {
+		if i == 2 || i == 4 {
+			return filepath.Join(f.origin, "missing")
+		}
+		return f.origin
+	})
+
+	output, err := prepare.Checkouts(context.Background(), checkouts, f.options())
+	if err == nil {
+		t.Fatalf("expected two checkouts to fail\n%s", output)
+	}
+
+	var want []string
+	for _, checkout := range checkouts {
+		want = append(want, "cloning "+checkout.Path)
+	}
+	if output != strings.Join(want, "\n") {
+		t.Errorf("output %q", output)
+	}
+	for i, checkout := range checkouts {
+		failed := i == 2 || i == 4
+		if got := strings.Contains(err.Error(), "git clone "+checkout.Path+":"); got != failed {
+			t.Errorf("the error names %s: %t, want %t\n%v", checkout.Path, got, failed, err)
+		}
+		if _, statErr := os.Stat(filepath.Join(f.workspace, checkout.Path, ".git")); (statErr == nil) == failed {
+			t.Errorf("%s cloned: %t, want %t", checkout.Path, statErr == nil, !failed)
+		}
 	}
 }
