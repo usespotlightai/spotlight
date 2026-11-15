@@ -311,7 +311,7 @@ export const tabPathOf = (
 
 export type WorkspaceLink = { readonly href: string; readonly path: string };
 
-export const LINK_ATTRIBUTE = 'data-link';
+const LINK_ATTRIBUTE = 'data-link';
 
 const hrefAt = (target: Element | null, origin: string): string | null => {
   const holder = target?.closest(`a[href], [${LINK_ATTRIBUTE}]`);
