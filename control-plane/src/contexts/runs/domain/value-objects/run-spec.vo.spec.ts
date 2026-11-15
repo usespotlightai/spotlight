@@ -101,12 +101,13 @@ describe('RunSpec', () => {
     ).toBeNull();
   });
 
-  it('takes tools that change nothing as keeping to the run, and any other tool as acting beyond it', () => {
+  it('takes read-only integration tools as keeping to the run, and any other tool as acting beyond it', () => {
     const tool = (name: string) => ({
       name,
       description: `Uses ${name}.`,
       inputs: [],
       approval: null,
+      integration: name.split('.')[0] ?? name,
     });
 
     expect(
@@ -122,6 +123,21 @@ describe('RunSpec', () => {
           manifest: [
             { ...tool('sentry.get-latest-event'), readOnly: true },
             tool('linear.comment'),
+          ],
+        }),
+      ),
+    ).not.toBeNull();
+    expect(
+      actsBeyondItselfIn(
+        parts({
+          manifest: [
+            {
+              name: 'checks',
+              description: 'Uses checks.',
+              inputs: [],
+              approval: null,
+              readOnly: true,
+            },
           ],
         }),
       ),

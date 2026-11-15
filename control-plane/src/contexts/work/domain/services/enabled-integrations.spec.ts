@@ -5,7 +5,12 @@ import { IntegrationName } from '@work/domain/value-objects/integration-name.vo'
 import { describe, expect, it } from 'vitest';
 
 const declared = (tool: string, providedBy: string | null = null) =>
-  DeclaredTool.of({ tool: Tool.of(tool), description: 'Does it.', providedBy });
+  DeclaredTool.of({
+    readOnly: false,
+    tool: Tool.of(tool),
+    description: 'Does it.',
+    providedBy,
+  });
 
 describe('enabledIntegrations', () => {
   it('counts the tools from each integration under its name, in the order given', () => {

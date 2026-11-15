@@ -56,6 +56,21 @@ describe('ToolEnablement', () => {
     ).toThrow(NotAllowedForIsolatedRunError);
   });
 
+  it('refuses a run that keeps to itself a built-in tool, though it only reads', () => {
+    const checks = DeclaredTool.of({
+      tool: Tool.of('checks'),
+      description: 'List the failed checks.',
+      readOnly: true,
+    });
+
+    expect(() =>
+      ToolEnablement.assertCallable(checks, {
+        actsBeyondItself: false,
+        manifest: [checks.tool.value],
+      }),
+    ).toThrow(NotAllowedForIsolatedRunError);
+  });
+
   it('lets a run that acts beyond itself call any tool it has', () => {
     expect(() =>
       ToolEnablement.assertCallable(WRITES, {

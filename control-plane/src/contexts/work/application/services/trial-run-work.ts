@@ -79,7 +79,7 @@ export class TrialRunWork implements RunWork {
   }
 
   async clearFor(declared: DeclaredTool): Promise<Cleared> {
-    return declared.changesNothing
+    return declared.callableInIsolatedRun
       ? { kind: 'approved', edited: null, returned: async () => {} }
       : { kind: 'dismissed', reason: NO_PERSON };
   }

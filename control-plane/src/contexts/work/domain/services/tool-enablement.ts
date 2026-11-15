@@ -20,7 +20,7 @@ export const ToolEnablement = {
   },
 
   assertCallable(declared: DeclaredTool, run: ToolGrantingRun): void {
-    if (!run.actsBeyondItself && !declared.changesNothing) {
+    if (!run.actsBeyondItself && !declared.callableInIsolatedRun) {
       throw new NotAllowedForIsolatedRunError(
         `call ${declared.tool.value}, which can change data or needs a person’s approval`,
       );

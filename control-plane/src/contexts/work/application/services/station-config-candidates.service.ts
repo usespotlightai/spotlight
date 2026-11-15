@@ -1,6 +1,7 @@
 import { distinct } from '@shared-kernel/domain/distinct';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type {
   LiveStationConfig,
   StationConfigCandidatesPort,
@@ -86,13 +87,13 @@ export class StationConfigCandidates implements StationConfigCandidatesPort {
             built.line,
             built.station,
             config,
-            await this.trialToolsOf(built.line, built.station),
+            await this.trialToolsOf(built.line, config),
           ),
           live: factsOf(
             current.line,
             current.station,
             live,
-            await this.trialToolsOf(current.line, current.station),
+            await this.trialToolsOf(current.line, live),
           ),
           changes: config.changesFrom(live),
         }
@@ -115,7 +116,7 @@ export class StationConfigCandidates implements StationConfigCandidatesPort {
             current.line,
             current.station,
             config,
-            await this.trialToolsOf(current.line, current.station),
+            await this.trialToolsOf(current.line, config),
           ),
         }
       : null;
@@ -123,10 +124,10 @@ export class StationConfigCandidates implements StationConfigCandidatesPort {
 
   private async trialToolsOf(
     line: LineMap,
-    station: Station,
+    config: StationConfig,
   ): Promise<readonly string[]> {
     const tools = distinct([
-      ...station.tools,
+      ...config.parts.tools.map((each) => Tool.of(each)),
       ...(await this.integrations.toolsOnAnyMark(line)),
     ]);
 

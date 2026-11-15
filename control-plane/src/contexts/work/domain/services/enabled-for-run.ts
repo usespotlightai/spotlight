@@ -94,10 +94,7 @@ export const describedTools = (
 
 export const toolsForATrial = (
   described: readonly DeclaredTool[],
-): DeclaredTool[] =>
-  described.filter(
-    (each) => each.tool.origin === 'integration' && each.changesNothing,
-  );
+): DeclaredTool[] => described.filter((each) => each.callableInIsolatedRun);
 
 export const skillsForTools = (
   described: readonly DeclaredTool[],

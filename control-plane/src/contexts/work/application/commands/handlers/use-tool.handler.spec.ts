@@ -160,6 +160,7 @@ const NEEDS_APPROVAL = ApprovalNeeded.of(
 );
 
 const LINEAR_COMMENT = DeclaredTool.of({
+  readOnly: false,
   tool: Tool.of('linear.comment'),
   description: 'Comment on the issue.',
   inputs: [
@@ -188,7 +189,11 @@ const describedAs = (tool: string) => {
     builtInTool(Tool.of(tool))?.declared ??
     (tool === LINEAR_COMMENT.tool.value
       ? LINEAR_COMMENT
-      : DeclaredTool.of({ tool: Tool.of(tool), description: `Use ${tool}.` }));
+      : DeclaredTool.of({
+          readOnly: false,
+          tool: Tool.of(tool),
+          description: `Use ${tool}.`,
+        }));
 
   return toolManifestOf(declared);
 };
@@ -1337,6 +1342,7 @@ describe('UseToolHandler', () => {
     expect(
       toolManifestOf(
         DeclaredTool.of({
+          readOnly: false,
           tool: LINEAR_COMMENT.tool,
           description: LINEAR_COMMENT.description,
           approval: NEEDS_APPROVAL,

@@ -54,22 +54,23 @@ const lineWith = (tools: readonly Tool[]): LineMap =>
     ],
   });
 
-const CONFIG = StationConfig.rehydrate(
-  {
-    prompt: null,
-    harness: 'dev',
-    model: null,
-    effort: null,
-    profile: null,
-    image: null,
-    repositories: [],
-    skills: [],
-    tools: [],
-    decisions: false,
-    memories: false,
-  },
-  'f'.repeat(64),
-);
+const configWith = (tools: readonly Tool[]): StationConfig =>
+  StationConfig.rehydrate(
+    {
+      prompt: null,
+      harness: 'dev',
+      model: null,
+      effort: null,
+      profile: null,
+      image: null,
+      repositories: [],
+      skills: [],
+      tools: tools.map((each) => each.value),
+      decisions: false,
+      memories: false,
+    },
+    'f'.repeat(64),
+  );
 
 const declaration = (
   tool: string,
@@ -99,7 +100,7 @@ const trialToolsOf = async (
   const line = lineWith(stationTools);
   const candidates = {
     live: async () => ({ line, station: line.stationAt(BUILD) as Station }),
-    configOf: async () => CONFIG,
+    configOf: async () => configWith(stationTools),
   } as unknown as CandidateLines;
   const integrations = new TeamIntegrations({
     provided: async (_team, tools) =>

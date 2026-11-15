@@ -1476,6 +1476,7 @@ describe('Run', () => {
               description: 'Read the latest event.',
               inputs: [],
               approval: null,
+              integration: 'sentry',
               readOnly: true,
             },
           ],

@@ -295,7 +295,11 @@ export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
     return 'uses Spotlight’s API';
   }
 
-  if ((parts.manifest ?? []).some((each) => !each.readOnly)) {
+  if (
+    (parts.manifest ?? []).some(
+      (each) => !each.readOnly || each.integration === undefined,
+    )
+  ) {
     return 'enables tools that can change data';
   }
 

@@ -58,7 +58,7 @@ export class DeclaredTool {
     approval?: ApprovalNeeded | null;
     providedBy?: string | null;
     inferredOutput?: JsonObject | null;
-    readOnly?: boolean;
+    readOnly: boolean;
   }): DeclaredTool {
     const description = input.description.trim();
     const inputs = input.inputs ?? [];
@@ -119,12 +119,16 @@ export class DeclaredTool {
       input.approval ?? null,
       input.providedBy?.trim() || null,
       input.inferredOutput ?? null,
-      input.readOnly ?? false,
+      input.readOnly,
     );
   }
 
-  get changesNothing(): boolean {
-    return this.readOnly && this.approval === null;
+  get callableInIsolatedRun(): boolean {
+    return (
+      this.tool.origin === 'integration' &&
+      this.readOnly &&
+      this.approval === null
+    );
   }
 
   withApproval(needed: ApprovalNeeded): DeclaredTool {
