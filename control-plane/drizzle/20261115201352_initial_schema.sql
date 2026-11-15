@@ -1082,6 +1082,7 @@ CREATE TABLE "integration_connection" (
 	"team_id" text NOT NULL,
 	"integration" text NOT NULL,
 	"owner" text NOT NULL,
+	"client_id" text NOT NULL,
 	"access_token" text NOT NULL,
 	"refresh_token" text,
 	"expires_at" timestamp (3) with time zone,
