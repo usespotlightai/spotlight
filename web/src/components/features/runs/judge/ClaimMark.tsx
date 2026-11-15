@@ -1,22 +1,26 @@
-import { Check, X } from 'lucide-react';
-
+import { OutcomeIcon } from '@/components/shared/OutcomeIcon';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatMark } from '@/lib/judge';
-import { cn } from '@/lib/utils';
 
-export function ClaimMark({ met }: { met: boolean }) {
-  const Icon = met ? Check : X;
+type ClaimMarkProps = {
+  met: boolean;
+  scorer: string;
+};
+
+export function ClaimMark({ met, scorer }: ClaimMarkProps) {
+  const label = formatMark(met);
 
   return (
-    <span
-      data-slot="claim-mark"
-      data-met={met}
-      className={cn(
-        'inline-flex shrink-0 items-center gap-0.5 font-medium text-xs',
-        met ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive',
-      )}
-    >
-      <Icon aria-hidden className="size-3.5" />
-      {formatMark(met)}
-    </span>
+    <WithTooltip tooltip={label}>
+      <span
+        role="img"
+        aria-label={`${scorer}: ${label}`}
+        data-slot="claim-mark"
+        data-met={met}
+        className="inline-flex size-6 shrink-0 cursor-default items-center justify-center"
+      >
+        <OutcomeIcon tone={met ? 'done' : 'failed'} />
+      </span>
+    </WithTooltip>
   );
 }

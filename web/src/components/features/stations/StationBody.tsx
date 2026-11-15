@@ -5,6 +5,7 @@ import {
 import { StationConfig } from '@/components/features/stations/config/StationConfig';
 import { JudgeAgreement } from '@/components/features/stations/judge/JudgeAgreement';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
+import { NO_JUDGE } from '@/lib/judge';
 import type { StationTab } from '@/lib/station';
 
 const ENDS = {
@@ -48,9 +49,7 @@ export function StationBody({
             stationId={station.id}
           />
         ) : (
-          <p className="text-muted-foreground text-sm">
-            No judge. Only people score runs here.
-          </p>
+          <p className="text-muted-foreground text-sm">{NO_JUDGE}</p>
         )}
       </div>
     );

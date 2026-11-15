@@ -46,7 +46,7 @@ const notice = (over: Record<string, unknown> = {}) => ({
   form: 'ended',
   headline: 'The search for a better Build config stalled',
   points: [
-    'Fix the judge’s rubric: it requires tests a rename never needs.',
+    'Fix the judge’s claims: one requires tests a rename never needs.',
     'Fix the station’s check: it needs a database the runner never starts.',
   ],
   link: 'lines/line_1/stations/station_1',

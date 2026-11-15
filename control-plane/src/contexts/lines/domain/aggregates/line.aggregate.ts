@@ -171,7 +171,7 @@ export class Line extends EventRecorder {
         ConfigurationChange.created(created.whatChanged, input.by),
         created.version,
         created.name,
-        created.laidOut,
+        created.laidOutSince(null),
       ),
     );
 
@@ -309,7 +309,7 @@ export class Line extends EventRecorder {
         ],
         this.nextVersion,
         updated.name,
-        updated.laidOut,
+        updated.laidOutSince(this),
       ),
     );
 
@@ -426,15 +426,23 @@ export class Line extends EventRecorder {
     return this.search ?? LineSearchPolicy.DEFAULT;
   }
 
-  private get laidOut(): readonly LaidOutStation[] {
-    return this.stations.map((each) => ({
-      id: each.id,
-      key: each.key,
-      name: each.name,
-      kind: each.kind,
-      color: each.color,
-      position: each.position,
-    }));
+  private laidOutSince(previous: Line | null): readonly LaidOutStation[] {
+    return this.stations.map((each) => {
+      const before = previous?.stationAt(each.id)?.judge ?? null;
+
+      return {
+        id: each.id,
+        key: each.key,
+        name: each.name,
+        kind: each.kind,
+        color: each.color,
+        position: each.position,
+        judge: each.judge,
+        claimsChanged:
+          each.judge !== null &&
+          (before === null || !each.judge.sameClaimsAs(before)),
+      };
+    });
   }
 
   private get whatChanged() {

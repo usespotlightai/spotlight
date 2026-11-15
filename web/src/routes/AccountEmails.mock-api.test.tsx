@@ -7,6 +7,7 @@ import { serveMockApi } from '@/mocks/testing';
 import { SLUG } from '@/mocks/world';
 import { MockApplication } from '@/stories/MockApplication';
 import { quietBrowser } from '@/test/signed-in';
+import { findToast } from '@/test/toasts';
 
 vi.mock('@/hooks/api/useSession', async () => ({
   useSession: (await import('@/test/signed-in')).signedInSession,
@@ -56,7 +57,7 @@ describe('AccountEmails on the mock API', () => {
     expect(list.getByText('Verification link sent')).toBeVisible();
   });
 
-  it('says why the sign-in email cannot be added, in the server’s words', async () => {
+  it('shows why the sign-in email cannot be added in a toast, and keeps the address', async () => {
     render(<MockApplication at={emailsPath(SLUG)} />);
 
     await userEvent.click(
@@ -67,9 +68,17 @@ describe('AccountEmails on the mock API', () => {
       'sam@example.com{Enter}',
     );
 
-    expect(await screen.findByRole('alert', undefined, WAIT)).toHaveTextContent(
-      'sam@example.com is your sign-in email. It is not an additional email.',
+    expect(
+      await findToast(
+        'sam@example.com is your sign-in email. It is not an additional email.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue(
+      'sam@example.com',
     );
+    expect(
+      screen.getByRole('button', { name: 'Send verification link' }),
+    ).toBeEnabled();
   });
 
   it('removes an email', async () => {

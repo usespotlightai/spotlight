@@ -59,6 +59,7 @@ export class InboxRequestLoader {
         form: inboxRequest.form,
         viewer,
         assignee: task.assignee,
+        askedOf: inboxRequest.askedOf,
         seesTeam: standing.seesTasks,
         actsOnTeam: standing.actsOnTasks,
       })

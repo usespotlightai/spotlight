@@ -13,6 +13,11 @@ import {
   TaskFailuresInMemory,
   TaskHumanActionsInMemory,
 } from '@insights/insights.fake-spec';
+import {
+  ClaimsRevisionsInMemory,
+  ClaimsSourcesInMemory,
+  JudgeDisagreementsInMemory,
+} from '@insights/judge-repair.fake-spec';
 import { JudgingsInMemory, ScoresInMemory } from '@insights/judging.fake-spec';
 import {
   observedOf,
@@ -46,6 +51,9 @@ const repositoriesInMemory = () => ({
   pullRequests: new PullRequestRecordsInMemory(),
   alertStates: new StationAlertStatesInMemory(),
   chats: chatsInMemory(),
+  disagreements: new JudgeDisagreementsInMemory(),
+  revisions: new ClaimsRevisionsInMemory(),
+  sources: new ClaimsSourcesInMemory(),
   deletions: deletionsInMemory(),
 });
 

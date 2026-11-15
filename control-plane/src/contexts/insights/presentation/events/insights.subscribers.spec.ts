@@ -25,12 +25,16 @@ import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-reco
 import { RunJudged } from '@insights/domain/events/run-judged.event';
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import {
   TaskFailuresInMemory,
   TaskHumanActionsInMemory,
 } from '@insights/insights.fake-spec';
+import {
+  ClaimsRevisionsInMemory,
+  ClaimsSourcesInMemory,
+  JudgeDisagreementsInMemory,
+} from '@insights/judge-repair.fake-spec';
 import {
   JudgingsInMemory,
   judgeScore,
@@ -166,6 +170,9 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         pullRequests,
         alertStates,
         chats,
+        disagreements: new JudgeDisagreementsInMemory(),
+        revisions: new ClaimsRevisionsInMemory(),
+        sources: new ClaimsSourcesInMemory(),
       },
       deletions,
       inTransaction,
@@ -181,9 +188,8 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         judgeAt: async () => ({
           teamId: TeamId.of('team_1'),
           lineId: LineId.of('line_1'),
-          rubric: 'Did the run retry uploads?',
           rubricVersion: RUBRIC_VERSION,
-          claims: [],
+          claims: ['It retries the upload.'],
           passThreshold: 1,
           sample: 1,
           minAgreement: 0.6,
@@ -193,7 +199,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         available: true,
         judge: async () => ({
           model: 'some/model',
-          verdict: { value: true, reasons: [] },
+          verdict: { claims: [] },
           guidance: null,
           usage: null,
         }),
@@ -214,14 +220,21 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         },
       },
     ),
-    grading: new GradeInboxRequests({
-      ask: async (taskId, runId) => {
-        asked.push(`ask ${taskId.value} ${runId.value}`);
+    grading: new GradeInboxRequests(
+      {
+        ask: async (taskId, runId) => {
+          asked.push(`ask ${taskId.value} ${runId.value}`);
+        },
+        resolve: async (taskId, runId) => {
+          asked.push(`resolve ${taskId.value} ${runId.value}`);
+        },
       },
-      resolve: async (taskId, runId) => {
-        asked.push(`resolve ${taskId.value} ${runId.value}`);
+      new StationFactsInMemory(records, { scores }),
+      {
+        now: () => new Date('2026-09-30T12:00:00.000Z'),
+        sleep: async () => {},
       },
-    }),
+    ),
     recordingUsage: new RecordRunUsageSummary(
       WORK,
       records,
@@ -1249,11 +1262,10 @@ describe('insightsSubscribers', () => {
       queuedJudging().location,
       null,
       RUBRIC_VERSION,
-      ScoreScale.yesNo(),
+      [true],
       1,
-      null,
       'some/model',
-      [reasonOf()],
+      [reasonOf('It retried.', 0)],
       SeenEvidence.none(),
       new Date('2026-09-30T10:05:00.000Z'),
     );
@@ -1298,11 +1310,10 @@ describe('insightsSubscribers', () => {
         queuedJudging().location,
         null,
         RUBRIC_VERSION,
-        ScoreScale.yesNo(),
+        [true],
         1,
-        null,
         'some/model',
-        [reasonOf()],
+        [reasonOf('It retried.', 0)],
         SeenEvidence.none(),
         new Date('2026-09-30T10:05:00.000Z'),
       ) as never,
@@ -1329,7 +1340,7 @@ describe('insightsSubscribers', () => {
     const subscriber = subscribed();
     await subscriber.deliver('insights.judge-ended-run', runEnded());
     await subscriber.scores.add(
-      judgeScore('run_1', ScoreScale.yesNo(), 1, { taskId: 'task_1' }),
+      judgeScore('run_1', [true], { taskId: 'task_1' }),
     );
     const deleted = {
       kind: TASK_DELETED,

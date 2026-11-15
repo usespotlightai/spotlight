@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { ICON_ACTION } from '@/components/shared/icon-action';
 import {
   Tooltip,
   TooltipContent,
@@ -35,7 +36,8 @@ export function IconAction({
             disabled={disabled}
             onClick={onClick}
             className={cn(
-              'relative flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-3.5 pointer-coarse:after:absolute pointer-coarse:after:-inset-2',
+              ICON_ACTION,
+              'disabled:pointer-events-none disabled:opacity-50',
               pressed && 'bg-accent text-foreground',
             )}
           >

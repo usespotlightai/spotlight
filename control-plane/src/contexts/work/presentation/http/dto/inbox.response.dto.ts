@@ -651,9 +651,7 @@ export class InboxNoticeResponseDto {
   @ApiProperty({
     type: String,
     isArray: true,
-    example: [
-      'Fix the judge: the rubric requires tests the task never needed.',
-    ],
+    example: ['Fix the judge: a claim requires tests the task never needed.'],
     description: 'What happened, then what it suggests, one point each',
   })
   readonly points: readonly string[];

@@ -60,6 +60,7 @@ export interface TraceNodeDto {
   readonly cost: number | null;
   readonly currency: string | null;
   readonly step: JournalStepDto | null;
+  readonly place: number | null;
   readonly span: RunSpanDto | null;
   readonly connection: TraceConnectionDto | null;
   readonly egressEnforcement: EgressEnforcement | null;

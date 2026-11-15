@@ -944,3 +944,79 @@ func TestUndecidedSaysWhyThereIsNoBaseline(t *testing.T) {
 		t.Fatal(describeUndecided("no-baseline"))
 	}
 }
+
+func judgedReport(t *testing.T, read string) *checkReport {
+	t.Helper()
+
+	var check checkRead
+	if err := json.Unmarshal([]byte(read), &check); err != nil {
+		t.Fatal(err)
+	}
+
+	return &checkReport{Stations: []*stationCheck{{Station: "core/delivery/build", Status: check.Result, Check: &check}}}
+}
+
+func printedAndSummarised(t *testing.T, report *checkReport) (string, string) {
+	t.Helper()
+
+	var out bytes.Buffer
+	report.print(&out)
+	path := filepath.Join(t.TempDir(), "summary.md")
+	if err := report.summarise(path); err != nil {
+		t.Fatal(err)
+	}
+	written, _ := os.ReadFile(path)
+
+	return out.String(), string(written)
+}
+
+func TestCheckSaysTheCheckFailedBecauseTheJudgeDisagreesWithPeople(t *testing.T) {
+	report := judgedReport(t, `{"result":"failed","failedBecause":"judge-disagrees-with-people","taskCount":3,
+  "judge":{"state":"failing","agreement":0.3125,"pairs":12,"minPairs":10,"minAgreement":0.6}}`)
+
+	out, summary := printedAndSummarised(t, report)
+
+	want := "failed: the verdicts of the judge of the station do not agree with the verdicts of people often enough (agreement 0.31, minimum 0.6). Please change the claims of the judge until its verdicts agree with the verdicts of people."
+	if !strings.Contains(out, "core/delivery/build: FAILED\n") || !strings.Contains(out, "  "+want+"\n") {
+		t.Fatalf("output lacks %q:\n%s", want, out)
+	}
+	if !strings.Contains(summary, "### core/delivery/build") || !strings.Contains(summary, "verdicts of people often enough (agreement 0.31, minimum 0.6)") {
+		t.Fatalf("summary lacks the cause:\n%s", summary)
+	}
+	if report.exitCode() != regressedExit {
+		t.Fatalf("code = %d", report.exitCode())
+	}
+}
+
+func TestCheckNotesAJudgeNobodyCheckedAgainstPeopleYet(t *testing.T) {
+	out, summary := printedAndSummarised(t, judgedReport(t, `{"result":"passed","failedBecause":null,"taskCount":3,
+  "judge":{"state":"unmeasured","agreement":null,"pairs":4,"minPairs":10,"minAgreement":0.6}}`))
+
+	want := "note: Spotlight has not yet checked the judge of the station against people: 4 of the 10 runs it needs have both a verdict of the judge and a verdict of a person. The scores come from the verdicts of that judge."
+	if !strings.Contains(out, "  "+want+"\n") || !strings.Contains(summary, "4 of the 10 runs it needs") {
+		t.Fatalf("output lacks %q:\n%s\nsummary:\n%s", want, out, summary)
+	}
+}
+
+func TestCheckSaysNothingOfAQualifiedJudgeOrOfNoJudge(t *testing.T) {
+	for _, read := range []string{
+		`{"result":"passed","failedBecause":null,"taskCount":3,"judge":{"state":"qualified","agreement":0.8,"pairs":12,"minPairs":10,"minAgreement":0.6}}`,
+		`{"result":"failed","failedBecause":"too-many-regressions","taskCount":3,"judge":null}`,
+	} {
+		out, summary := printedAndSummarised(t, judgedReport(t, read))
+
+		if strings.Contains(out, "people") || strings.Contains(summary, "people") {
+			t.Fatalf("output speaks of the judge:\n%s\nsummary:\n%s", out, summary)
+		}
+	}
+}
+
+func TestCheckNotesAJudgeWhoseAgreementCannotBeMeasuredYet(t *testing.T) {
+	out, _ := printedAndSummarised(t, judgedReport(t, `{"result":"passed","failedBecause":null,"taskCount":3,
+  "judge":{"state":"unmeasured","agreement":null,"pairs":12,"minPairs":10,"minAgreement":0.6}}`))
+
+	want := "note: Spotlight cannot yet measure how well the judge of the station agrees with people: on all 12 runs that have both verdicts, every verdict of the judge and of people was the same: all pass or all fail. The scores come from the verdicts of that judge."
+	if !strings.Contains(out, "  "+want+"\n") || strings.Contains(out, "runs it needs") {
+		t.Fatalf("output lacks %q:\n%s", want, out)
+	}
+}

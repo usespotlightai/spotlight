@@ -53,7 +53,7 @@ import {
   later,
   measuresOf,
   NOW,
-  RUBRIC,
+  JUDGE,
   replayedAs,
   runIds,
   STATION,
@@ -78,7 +78,6 @@ import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
-import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -681,7 +680,7 @@ describe('a stalled search looking into why', () => {
         run,
         searchedAt(0).taskId.value,
         'judge',
-        'Loosen the rubric.',
+        'Loosen the claims.',
       ),
     ).toEqual({
       taskId: searchedAt(0).taskId.value,
@@ -696,7 +695,7 @@ describe('a stalled search looking into why', () => {
     expect(noticed).toEqual([]);
     expect(await findings().findingsOf(theSearch())).toEqual([
       'No config change can fix the 2 tasks still failing. The rest of the budget stays unspent.',
-      '“Drain the queue”: the cause is the judge. Loosen the rubric. Please fix the rubric of the judge.',
+      '“Drain the queue”: the cause is the judge. Loosen the claims. Please fix the claims of the judge.',
       `Untitled task: the cause is what the run needed around the work. Task ${searchedAt(1).taskId.value} failed for the infra. Please fix the setup that the run needs.`,
     ]);
 
@@ -726,7 +725,7 @@ describe('a stalled search looking into why', () => {
       headline:
         'The search of the Build station stalled on causes outside the config',
       points: [
-        '“Drain the queue”: the cause is the judge. Loosen the rubric. Please fix the rubric of the judge.',
+        '“Drain the queue”: the cause is the judge. Loosen the claims. Please fix the claims of the judge.',
         `Untitled task: the cause is what the run needed around the work. Task ${searchedAt(1).taskId.value} failed for the infra. Please fix the setup that the run needs.`,
       ],
     });
@@ -1010,11 +1009,7 @@ describe('SearchVisibilities', () => {
       ...live,
       scoring: CandidateScoring.of({
         checksChanges: true,
-        judge: JudgeCriteria.of({
-          rubric: RUBRIC,
-          claims: [],
-          passThreshold: 1,
-        }),
+        judge: JUDGE,
         rubricVersion: RubricVersion.of('c'.repeat(64)),
       }),
     });
@@ -1053,10 +1048,8 @@ describe('SearchVisibilities', () => {
           .recordVerdict(
             run,
             JudgeVerdict.of({
-              scale: 'number',
-              value: 2,
-              claimResults: null,
-              claims: [],
+              claimResults: [false, true],
+              claims: [...JUDGE.claims],
               passThreshold: 1,
               model: 'judge/model',
               referenced: false,
@@ -1065,7 +1058,7 @@ describe('SearchVisibilities', () => {
                   text: `It does not ${RUBRIC_PHRASE}.`,
                   steps: [2],
                   hunks: [],
-                  claim: null,
+                  claim: 0,
                 },
               ],
               guidance: at % 2 === 0 ? 'Finish taken jobs first.' : null,

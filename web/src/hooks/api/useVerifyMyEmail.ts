@@ -8,6 +8,7 @@ export function useVerifyMyEmail(token: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { quiet: true },
     mutationFn: async () => {
       const { data, error, response } = await verifyMyEmail({
         path: { token: token as string },

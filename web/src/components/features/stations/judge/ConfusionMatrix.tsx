@@ -3,7 +3,6 @@ import {
   confusionCellNote,
   formatAxisLabel,
   type RubricVersion,
-  type ScoreKind,
 } from '@/lib/judge';
 import { cn } from '@/lib/utils';
 
@@ -20,23 +19,21 @@ const inkOf = (
   if (count === 0) {
     return 'transparent';
   }
-  if (!measured) {
-    return 'color-mix(in oklab, var(--muted-foreground) 14%, transparent)';
+  if (!measured && agree) {
+    return 'color-mix(in oklab, var(--chart-primary) 10%, transparent)';
   }
   const strength = Math.round((agree ? 8 : 12) + (count / max) * 30);
 
-  return `color-mix(in oklab, var(${agree ? '--muted-foreground' : '--destructive'}) ${strength}%, transparent)`;
+  return `color-mix(in oklab, var(${agree ? '--chart-primary' : '--destructive'}) ${strength}%, transparent)`;
 };
 
 type ConfusionMatrixProps = {
-  kind: ScoreKind;
   measured: boolean;
   confusion: RubricVersion['confusion'];
   distribution: RubricVersion['distribution'];
 };
 
 export function ConfusionMatrix({
-  kind,
   measured,
   confusion,
   distribution,
@@ -47,7 +44,7 @@ export function ConfusionMatrix({
   return (
     <table
       data-slot="confusion-matrix"
-      aria-label="Judge scores against people’s scores"
+      aria-label="Judge verdicts compared with people’s verdicts"
       className="self-start border-separate border-spacing-1 text-sm tabular-nums"
     >
       <thead>
@@ -107,7 +104,7 @@ export function ConfusionMatrix({
                     className={cn(CELL, 'rounded-md')}
                   >
                     <WithTooltip
-                      tooltip={confusionCellNote(kind, label, people, count)}
+                      tooltip={confusionCellNote(label, people, count)}
                     >
                       <span
                         className={cn(

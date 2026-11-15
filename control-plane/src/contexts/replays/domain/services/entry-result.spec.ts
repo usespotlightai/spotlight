@@ -40,14 +40,12 @@ const completed = (more: Partial<EntryFacts> = {}): EntryFacts => ({
   ...more,
 });
 
-const verdict = (scale: 'yes-no' | 'number', value: number) =>
+const verdict = (claimResults: boolean[], passThreshold = 1) =>
   EntryJudging.judged(
     JudgeVerdict.of({
-      scale,
-      value,
-      claimResults: null,
-      claims: [],
-      passThreshold: 1,
+      claimResults,
+      claims: claimResults.map((_, at) => `Claim ${at}.`),
+      passThreshold,
       model: 'judge/model',
       referenced: false,
       reasons: [
@@ -55,7 +53,7 @@ const verdict = (scale: 'yes-no' | 'number', value: number) =>
           text: 'It drops a job.',
           steps: [4],
           hunks: ['api/q.ts#1'],
-          claim: null,
+          claim: 0,
         },
       ],
       guidance: null,
@@ -94,19 +92,20 @@ describe('whether a replayed task succeeded', () => {
 
   it('needs the judge to pass it too, where the candidate has a judge', () => {
     expect(
-      resultOf(completed({ judging: verdict('yes-no', 1) }), JUDGED).succeeded,
+      resultOf(completed({ judging: verdict([true]) }), JUDGED).succeeded,
     ).toBe(true);
     expect(
-      resultOf(completed({ judging: verdict('yes-no', 0) }), JUDGED).succeeded,
+      resultOf(completed({ judging: verdict([false]) }), JUDGED).succeeded,
     ).toBe(false);
   });
 
-  it('passes a number score at four or more', () => {
+  it('passes when the share of claims met reaches the pass threshold', () => {
     expect(
-      resultOf(completed({ judging: verdict('number', 4) }), JUDGED).succeeded,
+      resultOf(completed({ judging: verdict([true, false], 0.5) }), JUDGED)
+        .succeeded,
     ).toBe(true);
     expect(
-      resultOf(completed({ judging: verdict('number', 3) }), JUDGED),
+      resultOf(completed({ judging: verdict([true, false]) }), JUDGED),
     ).toMatchObject({
       succeeded: false,
       reasons: [
@@ -126,7 +125,7 @@ describe('whether a replayed task succeeded', () => {
 
     expect(
       resultOf(
-        completed({ ...unchecked, judging: verdict('yes-no', 1) }),
+        completed({ ...unchecked, judging: verdict([true]) }),
         judgedOnly,
       ).succeeded,
     ).toBe(true);
@@ -134,7 +133,7 @@ describe('whether a replayed task succeeded', () => {
       resultOf(
         completed({
           checks: ChangeChecks.of([stack('unchecked')]),
-          judging: verdict('yes-no', 1),
+          judging: verdict([true]),
         }),
         judgedOnly,
       ).succeeded,
@@ -152,7 +151,7 @@ describe('whether a replayed task succeeded', () => {
     const result = resultOf(
       completed({
         checks: ChangeChecks.of([]),
-        judging: verdict('yes-no', 1),
+        judging: verdict([true]),
       }),
       JUDGED,
     );
@@ -169,7 +168,7 @@ describe('whether a replayed task succeeded', () => {
       completed({
         checks: ChangeChecks.of([]),
         measures: measuresOf(1, 60_000, 10, 'USD', 0),
-        judging: verdict('yes-no', 0),
+        judging: verdict([false]),
       }),
       JUDGED,
     );

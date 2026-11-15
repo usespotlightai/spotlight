@@ -6,7 +6,7 @@ import type {
   HistoryUsage,
   RunnerHistoryDto,
 } from '@work/application/dto/runner-history.dto';
-import { StationConfigResponseDto } from '@work/presentation/http/dto/station-config.response.dto';
+import { RunStationConfigResponseDto } from '@work/presentation/http/dto/station-config.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 
 export class HistoryPlaceResponseDto {
@@ -26,16 +26,16 @@ export class HistoryConfigResponseDto {
   @ApiProperty({ description: 'The SHA-256 naming this station config' })
   readonly fingerprint: string;
 
-  @ApiProperty({ type: () => StationConfigResponseDto })
-  readonly config: StationConfigResponseDto;
+  @ApiProperty({ type: () => RunStationConfigResponseDto })
+  readonly config: RunStationConfigResponseDto;
 
   constructor(from: RunnerHistoryDto['configs'][number]) {
     this.fingerprint = from.fingerprint;
-    this.config = new StationConfigResponseDto(from.config);
+    this.config = new RunStationConfigResponseDto(from.config);
   }
 }
 
-export class RunUsageResponseDto {
+export class HistoryRunUsageResponseDto {
   @ApiProperty({ nullable: true, type: Number })
   readonly ms: number | null;
 
@@ -109,8 +109,8 @@ export class RunOutcomeResponseDto {
   })
   readonly visit: number;
 
-  @ApiProperty({ nullable: true, type: () => RunUsageResponseDto })
-  readonly usage: RunUsageResponseDto | null;
+  @ApiProperty({ nullable: true, type: () => HistoryRunUsageResponseDto })
+  readonly usage: HistoryRunUsageResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -131,7 +131,7 @@ export class RunOutcomeResponseDto {
     this.ending = from.ending;
     this.failure = from.failure;
     this.visit = from.visit;
-    this.usage = from.usage ? new RunUsageResponseDto(from.usage) : null;
+    this.usage = from.usage ? new HistoryRunUsageResponseDto(from.usage) : null;
     this.checks = from.checks;
     this.firstHumanAction = from.firstHumanAction
       ? new TaskHumanActionResponseDto(from.firstHumanAction)

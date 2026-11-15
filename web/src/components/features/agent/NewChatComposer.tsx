@@ -10,7 +10,6 @@ import { useChatDraft } from '@/hooks/useChatDraft';
 import type { ChatSetup, SharedTrace, TargetStation } from '@/lib/chat';
 import { prefillSignature, validSettings } from '@/lib/chat-draft';
 import { stationReference, traceReference } from '@/lib/chat-input';
-import { messageOf } from '@/lib/error';
 
 type NewChatComposerProps = {
   slug: string;
@@ -103,22 +102,12 @@ export function NewChatComposer({
         />
       }
       below={
-        <>
-          <RepositoriesSelect
-            slug={slug}
-            value={repositories}
-            onChange={chooseRepositories}
-            className="h-6 w-auto pointer-coarse:h-9"
-          />
-          {start.isError && (
-            <p
-              role="alert"
-              className="w-full text-destructive text-sm leading-6"
-            >
-              {messageOf(start.error, 'Sorry, the chat could not start.')}
-            </p>
-          )}
-        </>
+        <RepositoriesSelect
+          slug={slug}
+          value={repositories}
+          onChange={chooseRepositories}
+          className="h-6 w-auto pointer-coarse:h-9"
+        />
       }
       onSend={({ body, attachments, traces, targetStation }, restore) =>
         start.mutate(

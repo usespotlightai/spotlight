@@ -19,7 +19,7 @@ describe('scoredLive', () => {
         prompt: 'Build it carefully.',
         check: 'true',
         judge: {
-          rubric: 'scores: yes-no\nAll good?',
+          claims: ['It is all good.'],
           sample: 1,
           minAgreement: 0,
         },

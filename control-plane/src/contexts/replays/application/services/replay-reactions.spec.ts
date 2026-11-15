@@ -56,7 +56,7 @@ import {
   later,
   measuresOf,
   NOW,
-  RUBRIC,
+  JUDGE,
   STATION,
   slots,
 } from '@replays/domain/replays.fake-spec';
@@ -71,7 +71,6 @@ import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -836,10 +835,10 @@ describe('scoring a replayed task', () => {
   const started = async (candidate = JUDGED): Promise<string> => {
     const replay = aReplay({
       count: 1,
-      candidate: candidateOf('searched', candidate, RUBRIC),
+      candidate: candidateOf('searched', candidate, JUDGE),
     }).reserving(slots(1), () => RunId.of('replay_run_0'));
     await memory.candidateRepository.add(
-      candidateOf('searched', JUDGED, RUBRIC),
+      candidateOf('searched', JUDGED, JUDGE),
     );
     await memory.replayRepository.add(replay);
     memory.events.length = 0;
@@ -903,15 +902,11 @@ describe('scoring a replayed task', () => {
     expect(judging?.runId).toEqual(RunId.of(run));
     expect(judging?.workspaceId).toEqual(STATION.workspaceId);
     expect(judging?.teamId).toEqual(STATION.teamId);
-    expect(
-      judging?.criteria.equals(
-        JudgeCriteria.of({ rubric: RUBRIC, claims: [], passThreshold: 1 }),
-      ),
-    ).toBe(true);
+    expect(judging?.criteria.equals(JUDGE)).toBe(true);
     expect(judging?.reference).toEqual(RunId.of('original_0'));
   });
 
-  it('requests judging on the rubric alone when people did not accept the original’s change', async () => {
+  it('requests judging on the claims alone when people did not accept the original’s change', async () => {
     const run = await started();
 
     await completed(run);
@@ -962,16 +957,12 @@ describe('scoring a replayed task', () => {
 
   const dropsAJob = () =>
     JudgeVerdict.of({
-      scale: 'yes-no',
-      value: 0,
-      claimResults: null,
-      claims: [],
+      claimResults: [false],
+      claims: ['It drains the queue without dropping a job.'],
       passThreshold: 1,
       model: 'judge/model',
       referenced: true,
-      reasons: [
-        { text: 'It drops a job.', steps: [2], hunks: [], claim: null },
-      ],
+      reasons: [{ text: 'It drops a job.', steps: [2], hunks: [], claim: 0 }],
       guidance: null,
     });
 
@@ -1035,16 +1026,12 @@ describe('scoring a replayed task', () => {
     await judging().judged(
       RunId.of(run),
       JudgeVerdict.of({
-        scale: 'yes-no',
-        value: 0,
-        claimResults: null,
-        claims: [],
+        claimResults: [false],
+        claims: ['It drains the queue without dropping a job.'],
         passThreshold: 1,
         model: 'judge/model',
         referenced: true,
-        reasons: [
-          { text: 'It drops a job.', steps: [2], hunks: [], claim: null },
-        ],
+        reasons: [{ text: 'It drops a job.', steps: [2], hunks: [], claim: 0 }],
         guidance: 'Finish the jobs already taken before stopping.',
       }),
     );
@@ -1077,10 +1064,10 @@ describe('scoring a replayed task', () => {
   it('stops the replay once the judge model account has no credits, so the runs left spend nothing', async () => {
     const replay = aReplay({
       count: 2,
-      candidate: candidateOf('searched', JUDGED, RUBRIC),
+      candidate: candidateOf('searched', JUDGED, JUDGE),
     }).reserving(slots(1), () => RunId.of('replay_run_0'));
     await memory.candidateRepository.add(
-      candidateOf('searched', JUDGED, RUBRIC),
+      candidateOf('searched', JUDGED, JUDGE),
     );
     await memory.replayRepository.add(replay);
 
@@ -1097,10 +1084,10 @@ describe('scoring a replayed task', () => {
   it('keeps replaying after a judge request fails for another reason', async () => {
     const replay = aReplay({
       count: 2,
-      candidate: candidateOf('searched', JUDGED, RUBRIC),
+      candidate: candidateOf('searched', JUDGED, JUDGE),
     }).reserving(slots(1), () => RunId.of('replay_run_0'));
     await memory.candidateRepository.add(
-      candidateOf('searched', JUDGED, RUBRIC),
+      candidateOf('searched', JUDGED, JUDGE),
     );
     await memory.replayRepository.add(replay);
 
@@ -1134,7 +1121,7 @@ describe('probing a set', () => {
       candidate: candidateOf(
         'live',
         'candidate_calibration',
-        RUBRIC,
+        JUDGE,
         'npm test',
       ),
     }).reserving(slots(2), () => RunId.of(`calibration_run_${next++}`));
@@ -1149,10 +1136,8 @@ describe('probing a set', () => {
         .recordVerdict(
           run,
           JudgeVerdict.of({
-            scale: 'yes-no',
-            value: 1,
-            claimResults: null,
-            claims: [],
+            claimResults: [true],
+            claims: ['It drains the queue without dropping a job.'],
             passThreshold: 1,
             model: 'judge/model',
             referenced: false,
@@ -1192,7 +1177,7 @@ describe('probing a set', () => {
         run: RunId.of(run),
         workspaceId: STATION.workspaceId,
         teamId: STATION.teamId,
-        criteria: JudgeCriteria.of({ rubric: RUBRIC }),
+        criteria: JUDGE,
       });
     }
   };
@@ -1254,10 +1239,8 @@ describe('probing a set', () => {
     await judging.rejudged(
       RunId.of('calibration_run_0'),
       JudgeVerdict.of({
-        scale: 'yes-no',
-        value: 0,
-        claimResults: null,
-        claims: [],
+        claimResults: [false],
+        claims: ['It drains the queue without dropping a job.'],
         passThreshold: 1,
         model: 'judge/model',
         referenced: false,

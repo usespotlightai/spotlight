@@ -1,7 +1,6 @@
 import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 
 export type StationJudgeField =
-  | 'rubric'
   | 'claims'
   | 'passThreshold'
   | 'sample'

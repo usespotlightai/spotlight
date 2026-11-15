@@ -4,7 +4,6 @@ import {
 } from '@insights/domain/services/grounded-verdict';
 import { JudgeEvidence } from '@insights/domain/services/judge-evidence';
 import { claimsCriteria } from '@insights/judging.fake-spec';
-import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -45,15 +44,14 @@ const claim = (
 const allThree = (...claims: ClaimVerdict[]) =>
   groundedVerdict(claimsCriteria(), { claims }, EVIDENCE);
 
-describe('groundedVerdict on claims', () => {
-  it('scores the share of claims met, keeping each claim’s result and naming the claim on every reason', () => {
+describe('groundedVerdict', () => {
+  it('keeps each claim’s result in claim order, and names the claim on every reason', () => {
     const verdict = allThree(claim(2, true), claim(0, true), claim(1, false));
 
     expect(verdict).toMatchObject({
       grounded: true,
       claimResults: [true, false, true],
     });
-    expect(verdict.grounded && verdict.value).toBeCloseTo(2 / 3);
     expect(
       verdict.grounded && verdict.reasons.map((each) => each.claim),
     ).toEqual([0, 1, 2]);
@@ -86,32 +84,5 @@ describe('groundedVerdict on claims', () => {
         claim(2, true),
       ),
     ).toEqual({ grounded: false, failure: 'ungrounded' });
-  });
-
-  it('is unreadable when the judge answers a rubric’s verdict for claims, or claims for a rubric', () => {
-    expect(
-      groundedVerdict(
-        claimsCriteria(),
-        { value: true, reasons: [grounded] },
-        EVIDENCE,
-      ),
-    ).toEqual({ grounded: false, failure: 'unreadable' });
-    expect(
-      groundedVerdict(
-        JudgeCriteria.of({ rubric: 'Did it retry?' }),
-        { claims: [claim(0, true)] },
-        EVIDENCE,
-      ),
-    ).toEqual({ grounded: false, failure: 'unreadable' });
-  });
-
-  it('scores a rubric as before, with no claim results', () => {
-    expect(
-      groundedVerdict(
-        JudgeCriteria.of({ rubric: 'Did it retry?' }),
-        { value: true, reasons: [grounded] },
-        EVIDENCE,
-      ),
-    ).toMatchObject({ grounded: true, value: 1, claimResults: null });
   });
 });

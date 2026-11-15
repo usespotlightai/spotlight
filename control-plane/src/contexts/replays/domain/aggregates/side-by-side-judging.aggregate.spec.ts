@@ -23,7 +23,7 @@ const queued = () =>
     otherRunId: AGAINST,
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
-    criteria: JudgeCriteria.of({ rubric: null, claims: ['It drains.'] }),
+    criteria: JudgeCriteria.of({ claims: ['It drains.'] }),
     reference: RunId.of('original_1'),
     now: NOW,
   });
@@ -51,7 +51,7 @@ describe('SideBySideJudging', () => {
         otherRunId: RUN,
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
-        criteria: JudgeCriteria.of({ rubric: 'Good?' }),
+        criteria: JudgeCriteria.of({ claims: ['It drains.'] }),
         reference: RunId.of('original_1'),
         now: NOW,
       }),

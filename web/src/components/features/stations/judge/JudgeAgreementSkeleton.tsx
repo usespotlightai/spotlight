@@ -10,14 +10,14 @@ import {
   CONFUSION_TITLE,
   COVERAGE_PARTS,
   COVERAGE_SKELETON_TITLE,
+  PAIRS_LABEL,
   TREND_TITLE,
 } from '@/lib/judge';
 
 const TILES = [
-  { label: 'Runs both scored', detail: true },
+  { label: PAIRS_LABEL, detail: true },
   { label: null, detail: true },
   { label: null, detail: true },
-  { label: null },
 ];
 
 export function JudgeAgreementSkeleton() {

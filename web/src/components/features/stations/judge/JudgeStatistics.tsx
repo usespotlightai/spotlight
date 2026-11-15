@@ -38,7 +38,13 @@ export function JudgeStatistics({
             className={leads ? '@max-xl/pane:odd:last:col-span-1' : undefined}
             label={stat.label}
             value={stat.value}
-            detail={stat.detail}
+            detail={
+              stat.failing && stat.detail ? (
+                <span className="text-destructive">{stat.detail}</span>
+              ) : (
+                stat.detail
+              )
+            }
             tooltip={stat.note}
             visual={
               typeof stat.gauge === 'number' && (

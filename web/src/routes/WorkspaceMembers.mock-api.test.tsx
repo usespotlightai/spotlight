@@ -13,6 +13,7 @@ import { membersWorld } from '@/mocks/world/members';
 import { SIGNED_IN } from '@/mocks/world/settings';
 import { MockApplication } from '@/stories/MockApplication';
 import { quietBrowser } from '@/test/signed-in';
+import { findToast } from '@/test/toasts';
 
 vi.mock('@/hooks/api/useSession', async () => ({
   useSession: (await import('@/test/signed-in')).signedInSession,
@@ -62,7 +63,7 @@ describe('WorkspaceMembers on the mock API', () => {
   const server = serveMockApi();
   quietBrowser();
 
-  it('says why a role could not be changed, in the server’s words', async () => {
+  it('shows why a role could not be changed in a toast, and keeps the role', async () => {
     await opened();
     const me = membersWorld().people.find((each) => each.id === SIGNED_IN.id);
     if (me) {
@@ -80,12 +81,8 @@ describe('WorkspaceMembers on the mock API', () => {
     );
 
     expect(
-      await within(rowOf('Members', 'Priya Nair')).findByRole(
-        'alert',
-        undefined,
-        WAIT,
-      ),
-    ).toHaveTextContent('You can only set roles for people below you.');
+      await findToast('You can only set roles for people below you.'),
+    ).toBeInTheDocument();
     expect(
       within(rowOf('Members', 'Priya Nair')).getByText('Admin'),
     ).toBeInTheDocument();
@@ -105,7 +102,7 @@ describe('WorkspaceMembers on the mock API', () => {
     ).toHaveTextContent('Resent');
   });
 
-  it('says why an invite accepted meanwhile could not be resent, and drops it from the list', async () => {
+  it('shows in a toast why an invite accepted meanwhile could not be resent, and drops it from the list', async () => {
     await opened();
     await acceptInvite({
       path: { token: 'invite_platform' },
@@ -115,11 +112,7 @@ describe('WorkspaceMembers on the mock API', () => {
     await actOnInvite('Resend invite');
 
     expect(
-      await screen.findByText(
-        'This invite has already been accepted.',
-        undefined,
-        WAIT,
-      ),
+      await findToast('This invite has already been accepted.'),
     ).toBeInTheDocument();
     await waitFor(
       () =>
@@ -130,7 +123,7 @@ describe('WorkspaceMembers on the mock API', () => {
     );
   });
 
-  it('says why an invite accepted meanwhile could not be revoked', async () => {
+  it('shows in a toast why an invite accepted meanwhile could not be revoked', async () => {
     await opened();
     await acceptInvite({
       path: { token: 'invite_platform' },
@@ -140,11 +133,7 @@ describe('WorkspaceMembers on the mock API', () => {
     await actOnInvite('Revoke invite');
 
     expect(
-      await screen.findByText(
-        'This invite has already been accepted.',
-        undefined,
-        WAIT,
-      ),
+      await findToast('This invite has already been accepted.'),
     ).toBeInTheDocument();
   });
 
@@ -165,7 +154,7 @@ describe('WorkspaceMembers on the mock API', () => {
     ).toBeInTheDocument();
   });
 
-  it('says so once inviting is no longer allowed', async () => {
+  it('shows in a toast that inviting is no longer allowed, and keeps the addresses', async () => {
     await opened();
     const dialog = await openInvite();
     setScenario({ account: 'member' });
@@ -176,10 +165,16 @@ describe('WorkspaceMembers on the mock API', () => {
     );
 
     expect(
-      await within(dialog).findByRole('alert', undefined, WAIT),
-    ).toHaveTextContent(
-      'Sorry, you can no longer invite people to this workspace.',
-    );
+      await findToast(
+        'Sorry, you can no longer invite people to this workspace.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('textbox', { name: 'Email addresses' }),
+    ).toHaveValue('ada@acme.dev');
+    expect(
+      within(dialog).getByRole('button', { name: 'Send invites' }),
+    ).toBeEnabled();
   });
 
   it('starts afresh when opened again', async () => {

@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MoneyResponseDto } from '@platform/http/dto/money.response.dto';
 import type {
+  CheckJudgeDto,
   CheckSideDto,
   ReplayCheckDto,
 } from '@replays/application/dto/replay-checks.dto';
@@ -11,8 +13,10 @@ import {
 import { SCORING_FIELDS } from '@replays/domain/services/live-scoring';
 import {
   CHECK_RESULTS,
+  FAILED_BECAUSE,
   UNDECIDED_BECAUSE,
 } from '@replays/domain/services/replay-check-result';
+import { JUDGE_CALIBRATION_STATES } from '@replays/domain/value-objects/judge-calibration';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import { REPLAY_STOP_CAUSES } from '@replays/domain/value-objects/replay-stop-cause';
@@ -20,7 +24,6 @@ import {
   GainEstimateResponseDto,
   gainResponse,
   intervalResponse,
-  MoneyResponseDto,
   RateIntervalResponseDto,
 } from '@replays/presentation/http/dto/replays.response.dto';
 
@@ -260,6 +263,54 @@ export class ReplayCheckTaskResponseDto {
   }
 }
 
+export class ReplayCheckJudgeResponseDto {
+  @ApiProperty({
+    enum: JUDGE_CALIBRATION_STATES,
+    description:
+      'qualified when the verdicts of the live judge agree with the verdicts of people well enough; unmeasured while too few runs have both verdicts, or while every verdict of the judge and of people is the same; failing when they do not agree well enough, or the claims of the judge cannot be read',
+  })
+  readonly state: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.72,
+    description:
+      'Cohen’s kappa of the verdicts of the judge against the verdicts of people',
+  })
+  readonly agreement: number | null;
+
+  @ApiProperty({
+    example: 12,
+    description:
+      'How many runs have both a verdict of the judge and a verdict of a person',
+  })
+  readonly pairs: number;
+
+  @ApiProperty({
+    example: 10,
+    description:
+      'How many such runs Spotlight needs before it measures the agreement',
+  })
+  readonly minPairs: number;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.6,
+    description: 'The minimum agreement the station sets in `min_agreement`',
+  })
+  readonly minAgreement: number | null;
+
+  constructor(judge: CheckJudgeDto) {
+    this.state = judge.state;
+    this.agreement = judge.agreement;
+    this.pairs = judge.pairs;
+    this.minPairs = judge.minPairs;
+    this.minAgreement = judge.minAgreement;
+  }
+}
+
 export class ReplayCheckResponseDto {
   @ApiProperty({ example: '6a2d9f4c-1e83-4b7a-9c5d-2f8e0b3a7d61' })
   readonly id: string;
@@ -351,7 +402,7 @@ export class ReplayCheckResponseDto {
   @ApiProperty({
     enum: CHECK_RESULTS,
     description:
-      'failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise',
+      'failed as soon as more tasks regressed than the threshold allows, or when the check uses the live judge and its verdicts do not agree with the verdicts of people well enough; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise',
   })
   readonly result: string;
 
@@ -361,6 +412,22 @@ export class ReplayCheckResponseDto {
     type: String,
   })
   readonly undecidedBecause: string | null;
+
+  @ApiProperty({
+    enum: [...FAILED_BECAUSE, null],
+    nullable: true,
+    type: String,
+    description: 'Why the check failed; none unless it failed',
+  })
+  readonly failedBecause: string | null;
+
+  @ApiProperty({
+    type: ReplayCheckJudgeResponseDto,
+    nullable: true,
+    description:
+      'How the verdicts of the live judge agree with the verdicts of people; none where the check is not scored by a judge',
+  })
+  readonly judge: ReplayCheckJudgeResponseDto | null;
 
   @ApiProperty({
     description: 'How many tasks the station’s replay set replays',
@@ -414,6 +481,10 @@ export class ReplayCheckResponseDto {
     this.gain = gainResponse(check.gain);
     this.result = check.result;
     this.undecidedBecause = check.undecidedBecause;
+    this.failedBecause = check.failedBecause;
+    this.judge = check.judge
+      ? new ReplayCheckJudgeResponseDto(check.judge)
+      : null;
     this.taskCount = check.taskCount;
     this.compared = check.compared;
     this.candidate = new ReplayCheckSideResponseDto(check.candidate);

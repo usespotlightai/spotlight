@@ -21,7 +21,11 @@ export const SKIP_ADVICE: Readonly<
   ],
   'judge-unstable': [
     'The judge of the station does not give the same verdict twice for the same run.',
-    'Please make the rubric of the judge more exact.',
+    'Please make the claims of the judge more exact.',
+  ],
+  'judge-disagrees-with-people': [
+    'The verdicts of the judge of the station do not agree with the verdicts of people often enough. Spotlight cannot trust the verdicts of the judge to score a config.',
+    'Please change the claims of the judge until its verdicts agree with the verdicts of people.',
   ],
   'flaky-checks': [
     'The check of the station gives a different result when it runs twice on the same change.',

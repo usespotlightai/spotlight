@@ -1,19 +1,48 @@
-import { PinnedText } from '@/components/features/inbox/conversation/PinnedText';
+import { useState } from 'react';
+
 import { ClaimsGrade } from '@/components/features/inbox/grades/ClaimsGrade';
-import { GradeRubric } from '@/components/features/inbox/grades/GradeRubric';
 import { GradeRunSkeleton } from '@/components/features/inbox/grades/GradeRunSkeleton';
 import { GradeSaving } from '@/components/features/inbox/grades/GradeSaving';
-import { QuickGrade } from '@/components/features/inbox/grades/QuickGrade';
 import { MembersOnly } from '@/components/features/team/MembersOnly';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionCard } from '@/components/shared/DecisionCard';
+import { DecisionControls } from '@/components/shared/DecisionControls';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
+import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { useGradeRun } from '@/hooks/api/useGradeRun';
 import { useRunScores } from '@/hooks/api/useRunScores';
 import { notFound } from '@/lib/error';
-import { type GradeAnswer, gradeHeading } from '@/lib/judge';
+import {
+  ANSWER_EVERY_CLAIM_TO_SAVE,
+  CHANGE_AN_ANSWER_TO_SAVE,
+  EARLIER_CLAIMS_NOTE,
+  type Grade,
+  GRADED_BY_YOU,
+  SAVE_GRADE,
+  WAITING_FOR_GRADE,
+} from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
+
+type Answers = readonly (boolean | null)[];
+
+const answered = (answers: Answers): answers is readonly boolean[] =>
+  answers.every((each) => each !== null);
+
+const sameAs = (answers: Answers, mine: Grade | null): boolean =>
+  mine !== null &&
+  answers.length === mine.claimResults.length &&
+  answers.every((each, at) => each === mine.claimResults[at]);
+
+const saveBlockedReason = (answers: Answers, mine: Grade | null) => {
+  if (!answered(answers)) {
+    return ANSWER_EVERY_CLAIM_TO_SAVE;
+  }
+
+  return sameAs(answers, mine) ? CHANGE_AN_ANSWER_TO_SAVE : null;
+};
 
 type GradeRunProps = {
   slug: string;
@@ -24,6 +53,7 @@ type GradeRunProps = {
 export function GradeRun({ slug, teamId, runId }: GradeRunProps) {
   const scores = useRunScores(teamId, runId);
   const grade = useGradeRun();
+  const [edited, setEdited] = useState<Answers | null>(null);
 
   if (loading(scores)) {
     return <GradeRunSkeleton />;
@@ -45,41 +75,67 @@ export function GradeRun({ slug, teamId, runId }: GradeRunProps) {
   }
 
   const mine = scores.data.grades.find((each) => each.mine) ?? null;
-  const { stationId, rubricBody, kind } = scores.data;
-  const gradeWith = (answer: GradeAnswer) =>
-    grade.mutate({ slug, teamId, runId, stationId, ...answer });
+  const { stationId, gradable, claims, earlierClaims } = scores.data;
+  const answers =
+    edited ?? claims.map((_, at) => mine?.claimResults[at] ?? null);
+  const blocked = grade.isPending ? null : saveBlockedReason(answers, mine);
+  const canSave = !grade.isPending && blocked === null;
+
+  const change = (at: number, met: boolean) =>
+    setEdited(answers.map((each, place) => (place === at ? met : each)));
+
+  const save = () => {
+    if (answered(answers)) {
+      grade.mutate({ slug, teamId, runId, stationId, claims: answers });
+    }
+  };
 
   return (
     <DecisionCard data-slot="grade-run" aria-label="Grade this run">
       <DecisionHeader
         title={
-          <DecisionTitle status={mine ? 'approved' : 'pending'}>
-            {gradeHeading(kind, rubricBody !== null)}
-          </DecisionTitle>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <DecisionTitle status={mine ? 'approved' : 'pending'}>
+              {mine ? GRADED_BY_YOU : WAITING_FOR_GRADE}
+            </DecisionTitle>
+            {gradable && earlierClaims && (
+              <span data-slot="earlier-claims" className="flex shrink-0">
+                <InfoTooltip tooltip={EARLIER_CLAIMS_NOTE} />
+              </span>
+            )}
+          </span>
         }
-        trailing={<GradeSaving pending={grade.isPending} />}
+        trailing={<GradeSaving pending={grade.isPending} mine={mine} />}
       />
 
-      {rubricBody !== null && (
-        <PinnedText>
-          <GradeRubric rubric={rubricBody} />
-        </PinnedText>
-      )}
-
-      {scores.data.kind === 'claims' ? (
-        <ClaimsGrade
-          claims={scores.data.claims}
-          mine={mine}
-          pending={grade.isPending}
-          onGrade={(claims) => gradeWith({ claims })}
-        />
+      {gradable ? (
+        <>
+          <ClaimsGrade
+            claims={claims}
+            answers={answers}
+            pending={grade.isPending}
+            onChange={change}
+          />
+          <DecisionControls>
+            <DisabledReasonTooltip reason={blocked}>
+              {(describedBy) => (
+                <DecisionButton
+                  type="button"
+                  variant="default"
+                  disabled={!canSave}
+                  aria-describedby={describedBy}
+                  onClick={save}
+                >
+                  {SAVE_GRADE}
+                </DecisionButton>
+              )}
+            </DisabledReasonTooltip>
+          </DecisionControls>
+        </>
       ) : (
-        <QuickGrade
-          kind={scores.data.kind}
-          mine={mine}
-          pending={grade.isPending}
-          onGrade={(value) => gradeWith({ value })}
-        />
+        <p data-slot="not-gradable" className="text-muted-foreground text-sm">
+          This run cannot be graded. Its station has no judge with claims.
+        </p>
       )}
     </DecisionCard>
   );

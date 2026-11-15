@@ -36,6 +36,7 @@ export const TraceRow = memo(function TraceRow({
 
   return (
     <li
+      data-node-id={node.id}
       className={cn(
         'group relative flex h-7 items-center rounded-md text-sm transition-colors',
         picked ? 'bg-selected' : 'hover:bg-accent',

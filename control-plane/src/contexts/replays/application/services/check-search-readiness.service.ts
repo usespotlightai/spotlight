@@ -1,4 +1,5 @@
 import type { HashPort } from '@replays/application/ports/hash.port';
+import type { JudgeCalibrations } from '@replays/application/services/judge-calibrations.service';
 import type { SearchRunDispatching } from '@replays/application/services/search-run-dispatch.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -54,6 +55,7 @@ export class CheckSearchReadiness {
   constructor(
     private readonly sets: ReplaySetRepository,
     private readonly healths: SetHealths,
+    private readonly calibrations: Pick<JudgeCalibrations, 'liveAt'>,
     private readonly searchRuns: SearchRunDispatching,
     private readonly hash: HashPort,
     private readonly ids: IdGeneratorPort,
@@ -83,7 +85,12 @@ export class CheckSearchReadiness {
     const verdict = setVerdict({
       now: this.clock.now(),
       tooSmall: split === 'too-small',
-      warnings: searchWarningsOf(health, standard.minGain, budget.repeats),
+      warnings: searchWarningsOf(
+        health,
+        standard.minGain,
+        budget.repeats,
+        await this.calibrations.liveAt(set),
+      ),
       freshHeldOut: split !== 'no-fresh',
       affordable:
         typeof split === 'string' || budget.affords(split, calibrates),

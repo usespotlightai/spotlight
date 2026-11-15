@@ -100,6 +100,14 @@ export class ReadReplayCheckHandler implements QueryHandlerPort<
         gain: gainView(evaluation.gain),
         result: evaluation.result,
         undecidedBecause: evaluation.because,
+        failedBecause: evaluation.failedBecause,
+        judge: evaluation.judge && {
+          state: evaluation.judge.state,
+          agreement: evaluation.judge.agreement,
+          pairs: evaluation.judge.pairs,
+          minPairs: evaluation.judge.minPairs,
+          minAgreement: evaluation.judge.minAgreement,
+        },
         taskCount: evaluation.entries,
         compared: evaluation.compared,
         candidate: sideOf(

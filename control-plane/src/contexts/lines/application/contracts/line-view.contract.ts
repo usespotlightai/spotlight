@@ -19,7 +19,6 @@ export const PLAIN_STATION_COLOR: string = StationColor.plain().value;
 export type StationKindView = 'backlog' | 'work' | 'completed';
 
 export interface StationJudgeView {
-  readonly rubric: string | null;
   readonly claims: readonly string[];
   readonly passThreshold: number;
   readonly rubricVersion: string;

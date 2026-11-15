@@ -31,6 +31,7 @@ export type SetSkipReason = Extract<
   | 'set-too-small'
   | 'noisy'
   | 'judge-unstable'
+  | 'judge-disagrees-with-people'
   | 'flaky-checks'
   | 'no-headroom'
   | 'no-fresh-held-out'
@@ -197,6 +198,7 @@ export interface SetInput {
 const HEALTH_SKIPS = [
   'noisy',
   'judge-unstable',
+  'judge-disagrees-with-people',
   'flaky-checks',
   'no-headroom',
 ] as const satisfies readonly (SearchSkipReason & SearchWarning['kind'])[];

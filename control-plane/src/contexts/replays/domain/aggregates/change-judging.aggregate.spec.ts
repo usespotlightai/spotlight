@@ -20,7 +20,7 @@ const requested = () =>
     runId: RUN,
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
-    criteria: JudgeCriteria.of({ rubric: null, claims: CLAIMS }),
+    criteria: JudgeCriteria.of({ claims: CLAIMS }),
     reference: null,
     now: NOW,
   });
@@ -28,7 +28,6 @@ const requested = () =>
 const judged = (guidance: string | null, met = [true, false, false]) =>
   ({
     judged: true,
-    value: met.filter(Boolean).length / met.length,
     claimResults: met,
     reasons: met.map((_, claim) => ({
       text: 'It retries.',
@@ -51,7 +50,7 @@ describe('ChangeJudging', () => {
         runId: RUN,
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
-        criteria: JudgeCriteria.of({ rubric: null, claims: CLAIMS }),
+        criteria: JudgeCriteria.of({ claims: CLAIMS }),
         reference: RUN,
         now: NOW,
       }),
@@ -63,7 +62,6 @@ describe('ChangeJudging', () => {
     const [event] = judging.pullEvents() as ChangeJudged[];
 
     expect(judging.hasPendingJob).toBe(false);
-    expect(event?.verdict.scale).toBe('claims');
     expect(event?.verdict.claims).toEqual(CLAIMS);
     expect(event?.verdict.guidance).toBe(
       'Cover the retry path with its own test.',

@@ -92,7 +92,11 @@ const named = (step: JournalStep): string => {
   return step.text;
 };
 
-const nodeOfStep = (step: JournalStep, id: string): TraceNode => ({
+const nodeOfStep = (
+  step: JournalStep,
+  id: string,
+  place: number,
+): TraceNode => ({
   id,
   kind: 'step',
   name: named(step),
@@ -100,6 +104,7 @@ const nodeOfStep = (step: JournalStep, id: string): TraceNode => ({
   to: ending(step.startedAt, step.ms),
   category: categoryOf(step),
   step,
+  place,
   span: null,
   cost: null,
   connection: null,
@@ -113,6 +118,7 @@ const nodeOfSpan = (
   span: RunSpan,
   children: readonly TraceNode[],
   step: JournalStep | null,
+  place: number | null,
 ): TraceNode => ({
   id: `span:${span.id}`,
   kind: 'span',
@@ -121,6 +127,7 @@ const nodeOfSpan = (
   to: ending(span.startedAt, span.ms),
   category: span.failed || (step && faulted(step.status)) ? 'failed' : 'agent',
   step,
+  place,
   span,
   cost: null,
   connection: null,
@@ -178,6 +185,7 @@ export const paired = (
 const nested = (
   spans: readonly RunSpan[],
   pairs: ReadonlyMap<string, JournalStep>,
+  places: ReadonlyMap<JournalStep, number>,
 ): TraceNode[] => {
   const ids = new Set(spans.map((span) => span.id));
   const under = new Map<string, RunSpan[]>();
@@ -191,14 +199,18 @@ const nested = (
     }
   }
 
-  const grow = (span: RunSpan): TraceNode =>
-    nodeOfSpan(
+  const grow = (span: RunSpan): TraceNode => {
+    const step = pairs.get(span.id) ?? null;
+
+    return nodeOfSpan(
       span,
       (under.get(span.id) ?? [])
         .sort((one, other) => at(one.startedAt) - at(other.startedAt))
         .map(grow),
-      pairs.get(span.id) ?? null,
+      step,
+      step ? (places.get(step) ?? null) : null,
     );
+  };
 
   return roots.map(grow);
 };
@@ -280,6 +292,7 @@ const nodeOfGroup = ({ first, all }: Group, until: Date): TraceNode => ({
   ),
   category: 'failed',
   step: null,
+  place: null,
   span: null,
   cost: null,
   connection: { connection: first.connection, count: all.length },
@@ -362,12 +375,19 @@ const runNode = (run: TracedRun): TraceNode => {
   const spans = journal?.spans ?? [];
   const pairs = paired(spans, steps);
   const merged = new Set(pairs.values());
+  const places = new Map(steps.map((step, place) => [step, place] as const));
 
   const nodes: TraceNode[] = [
     ...steps
       .filter((step) => !merged.has(step))
-      .map((step, index) => nodeOfStep(step, `${run.id.value}:step:${index}`)),
-    ...nested(spans, pairs),
+      .map((step, index) =>
+        nodeOfStep(
+          step,
+          `${run.id.value}:step:${index}`,
+          places.get(step) ?? index,
+        ),
+      ),
+    ...nested(spans, pairs, places),
   ].sort((one, other) => at(one.from) - at(other.from));
 
   const phases = journal ? phasesOf(run, journal) : [];
@@ -383,6 +403,7 @@ const runNode = (run: TracedRun): TraceNode => {
     to: phase.to,
     category: phase.isAgent ? 'agent' : 'overhead',
     step: null,
+    place: null,
     span: null,
     cost: null,
     connection: null,
@@ -409,6 +430,7 @@ const runNode = (run: TracedRun): TraceNode => {
       to: new Date(Math.max(run.endedAt.getTime(), run.startedAt.getTime())),
       category: run.failed ? 'failed' : 'agent',
       step: null,
+      place: null,
       span: null,
       cost: journal?.spent?.cost ?? null,
       connection: null,

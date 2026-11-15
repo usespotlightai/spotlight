@@ -46,11 +46,6 @@ export function YourToolRules({
           />
         </li>
       ))}
-      {setting.isError && (
-        <li role="alert" className="text-destructive text-xs">
-          Could not set that rule. Try again.
-        </li>
-      )}
     </ul>
   );
 }

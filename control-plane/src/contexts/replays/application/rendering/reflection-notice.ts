@@ -27,7 +27,7 @@ const CAUSES: Readonly<Record<OutsideConfig, string>> = {
 
 const FIXES: Readonly<Record<OutsideConfig, string>> = {
   task: 'Spotlight takes the task out of the replay set.',
-  judge: 'Please fix the rubric of the judge.',
+  judge: 'Please fix the claims of the judge.',
   check: 'Please fix the check of the station.',
   infra: 'Please fix the setup that the run needs.',
 };

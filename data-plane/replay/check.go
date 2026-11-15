@@ -59,15 +59,25 @@ type checkTask struct {
 	Candidate     taskSide `json:"candidate"`
 }
 
+type checkJudge struct {
+	State        string   `json:"state"`
+	Agreement    *float64 `json:"agreement"`
+	Pairs        int      `json:"pairs"`
+	MinPairs     int      `json:"minPairs"`
+	MinAgreement *float64 `json:"minAgreement"`
+}
+
 type checkRead struct {
-	ID                  string   `json:"id"`
-	ReplayID            *string  `json:"replayId"`
-	ReusedReplayIDs     []string `json:"reusedReplayIds"`
-	ScoringPinnedToLive []string `json:"scoringPinnedToLive"`
-	Result              string   `json:"result"`
-	UndecidedBecause    *string  `json:"undecidedBecause"`
-	TaskCount           int      `json:"taskCount"`
-	Compared            int      `json:"compared"`
+	ID                  string      `json:"id"`
+	ReplayID            *string     `json:"replayId"`
+	ReusedReplayIDs     []string    `json:"reusedReplayIds"`
+	ScoringPinnedToLive []string    `json:"scoringPinnedToLive"`
+	Result              string      `json:"result"`
+	UndecidedBecause    *string     `json:"undecidedBecause"`
+	FailedBecause       *string     `json:"failedBecause"`
+	Judge               *checkJudge `json:"judge"`
+	TaskCount           int         `json:"taskCount"`
+	Compared            int         `json:"compared"`
 	Threshold           struct {
 		MaxRegressions int     `json:"maxRegressions"`
 		MinGain        float64 `json:"minGain"`
@@ -436,6 +446,9 @@ func (r *checkReport) print(out io.Writer) {
 		if read.UndecidedBecause != nil {
 			fmt.Fprintf(out, "  undecided: %s\n", read.undecided())
 		}
+		if judge := read.judged(); judge != "" {
+			fmt.Fprintf(out, "  %s\n", judge)
+		}
 		if read.Repeats > 1 {
 			fmt.Fprintf(out, "  each run replayed %d times\n", read.Repeats)
 		}
@@ -496,7 +509,7 @@ func (r *checkReport) summarise(path string) error {
 	}
 
 	for _, each := range r.Stations {
-		if each.Message == "" && (each.Check == nil || (len(each.Check.Tasks) == 0 && each.Check.Gain == nil)) {
+		if each.Message == "" && (each.Check == nil || (len(each.Check.Tasks) == 0 && each.Check.Gain == nil && each.Check.judged() == "")) {
 			continue
 		}
 		fmt.Fprintf(&written, "\n### %s\n\n", markdownCell(each.Station))
@@ -505,6 +518,9 @@ func (r *checkReport) summarise(path string) error {
 		}
 		if each.Check != nil && each.Check.UndecidedBecause != nil {
 			fmt.Fprintf(&written, "Undecided: %s\n\n", markdownCell(each.Check.undecided()))
+		}
+		if each.Check != nil && each.Check.judged() != "" {
+			fmt.Fprintf(&written, "%s\n\n", markdownCell(each.Check.judged()))
 		}
 		if each.Check != nil && each.Check.Gain != nil {
 			fmt.Fprintf(&written, "%s\n\n", markdownCell(describeGain(*each.Check.Gain, "the baseline")))
@@ -542,6 +558,27 @@ func (r *checkRead) undecided() string {
 	default:
 		return because
 	}
+}
+
+func (r *checkRead) judged() string {
+	switch {
+	case r.FailedBecause != nil && *r.FailedBecause == "judge-disagrees-with-people":
+		return "failed: the verdicts of the judge of the station do not agree with the verdicts of people often enough" + describeAgreement(r.Judge) + ". Please change the claims of the judge until its verdicts agree with the verdicts of people."
+	case r.Judge != nil && r.Judge.State == "unmeasured" && r.Judge.Pairs >= r.Judge.MinPairs:
+		return fmt.Sprintf("note: Spotlight cannot yet measure how well the judge of the station agrees with people: on all %d runs that have both verdicts, every verdict of the judge and of people was the same: all pass or all fail. The scores come from the verdicts of that judge.", r.Judge.Pairs)
+	case r.Judge != nil && r.Judge.State == "unmeasured":
+		return fmt.Sprintf("note: Spotlight has not yet checked the judge of the station against people: %d of the %d runs it needs have both a verdict of the judge and a verdict of a person. The scores come from the verdicts of that judge.", r.Judge.Pairs, r.Judge.MinPairs)
+	default:
+		return ""
+	}
+}
+
+func describeAgreement(judge *checkJudge) string {
+	if judge == nil || judge.Agreement == nil || judge.MinAgreement == nil {
+		return ""
+	}
+
+	return fmt.Sprintf(" (agreement %.2f, minimum %g)", *judge.Agreement, *judge.MinAgreement)
 }
 
 func describeStop(cause string) string {

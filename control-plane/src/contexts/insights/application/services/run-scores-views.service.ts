@@ -11,10 +11,17 @@ import type { StationJudgeReports } from '@insights/application/services/station
 import { UnknownRunError } from '@insights/domain/exceptions/unknown-run.error';
 import {
   latestJudgeOf,
+  onEarlierClaims,
   visibleJudgeOf,
 } from '@insights/domain/services/grading-terms';
+import {
+  judgeAgreesOf,
+  outcomeRubricVersionOf,
+  runOutcomeOf,
+} from '@insights/domain/services/run-outcome';
 import type { Citation } from '@insights/domain/value-objects/citation.vo';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
 import type { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
@@ -25,6 +32,7 @@ export interface RunOnTeam {
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
   readonly end: RunEnd;
+  readonly fact: RunFact;
 }
 
 const citationOf = (citation: Citation, seen: SeenEvidence): CitationDto => {
@@ -59,14 +67,20 @@ const citationOf = (citation: Citation, seen: SeenEvidence): CitationDto => {
   };
 };
 
+const labelOf = (score: Scored): string => {
+  const claims = score.claimResults.length;
+
+  return `${score.claimResults.filter(Boolean).length} of ${claims} ${claims === 1 ? 'claim' : 'claims'} met`;
+};
+
 const judgeOf = (score: Scored): JudgeScoreDto => ({
-  kind: score.scale.kind,
   value: score.value,
-  label: score.scale.labelOf(score.value),
-  rubricVersion: score.rubricVersion ?? '',
+  claimResults: [...score.claimResults],
+  passes: score.passes,
+  label: labelOf(score),
+  rubricVersion: score.rubricVersion,
   model: score.model ?? '',
   at: score.at.toISOString(),
-  claimResults: score.claimResults && [...score.claimResults],
   reasons: score.reasons.map((reason) => ({
     text: reason.text,
     claim: reason.claim,
@@ -77,10 +91,10 @@ const judgeOf = (score: Scored): JudgeScoreDto => ({
 const gradeOf = (score: Scored, viewer: string): GradeDto => ({
   by: score.by?.value ?? '',
   mine: score.by?.value === viewer,
-  kind: score.scale.kind,
   value: score.value,
-  claimResults: score.claimResults && [...score.claimResults],
-  label: score.scale.labelOf(score.value),
+  claimResults: [...score.claimResults],
+  passes: score.passes,
+  label: labelOf(score),
   at: score.at.toISOString(),
 });
 
@@ -98,7 +112,12 @@ export class RunScoresViews {
       throw new UnknownRunError(runId);
     }
 
-    return { runId: fact.runId, workspaceId: fact.workspaceId, end: fact.end };
+    return {
+      runId: fact.runId,
+      workspaceId: fact.workspaceId,
+      end: fact.end,
+      fact,
+    };
   }
 
   async of(access: ViewedTeam, run: RunOnTeam): Promise<RunScoresDto> {
@@ -111,17 +130,28 @@ export class RunScoresViews {
     });
     const judge = visibleJudgeOf(scores, calibration, rubricVersion);
     const terms = await this.terms.of(run, scores);
+    const outcome = runOutcomeOf({
+      rubricVersion: outcomeRubricVersionOf({
+        visibleJudge: judge,
+        currentRubricVersion: rubricVersion,
+        latestJudge: latestJudgeOf(scores),
+      }),
+      fact: run.fact,
+      grades: scores,
+    });
 
     return {
       runId: run.runId.value,
       taskId: run.end.location.taskId.value,
       stationId: run.end.location.stationId.value,
-      kind: terms.scale.kind,
-      rubricBody: terms.rubricBody,
-      claims: [...terms.claims],
+      gradable: terms !== null,
+      claims: [...(terms?.claims ?? [])],
+      earlierClaims: onEarlierClaims(terms, rubricVersion),
       judged: latestJudgeOf(scores) !== null,
       judge: judge ? judgeOf(judge) : null,
       calibration: judgeCalibrationOf(calibration),
+      outcome,
+      agrees: judgeAgreesOf(judge, outcome),
       grades: scores
         .filter((each) => !each.fromJudge)
         .sort((one, other) => other.at.getTime() - one.at.getTime())

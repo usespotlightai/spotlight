@@ -1,13 +1,27 @@
 import type { ReactNode } from 'react';
 
+import { cn } from '@/lib/utils';
+
 export const FACT_LABEL = 'text-muted-foreground text-sm leading-6';
 
 export const FACT_VALUE =
   'whitespace-pre-wrap break-words text-foreground text-sm leading-6';
 
-export function FactRow({ children }: { children: ReactNode }) {
+type FactRowProps = {
+  wide?: boolean;
+  children: ReactNode;
+};
+
+export function FactRow({ wide = false, children }: FactRowProps) {
   return (
-    <div className="grid grid-cols-1 gap-x-4 py-1 first:pt-0 last:pb-0 @md/pane:grid-cols-[6rem_minmax(0,1fr)]">
+    <div
+      className={cn(
+        'grid grid-cols-1 gap-x-4 py-1 first:pt-0 last:pb-0',
+        wide
+          ? '@md/pane:grid-cols-[8rem_minmax(0,1fr)]'
+          : '@md/pane:grid-cols-[6rem_minmax(0,1fr)]',
+      )}
+    >
       {children}
     </div>
   );

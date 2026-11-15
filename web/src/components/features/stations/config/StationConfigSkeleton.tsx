@@ -65,9 +65,13 @@ export function StationConfigSkeleton() {
         </TabSection>
         <TabSection title="Judge">
           <dl className={PROPERTY_GRID}>
-            <dt className="text-muted-foreground">Scores</dt>
+            <dt className="text-muted-foreground">Judged</dt>
             <dd>
               <SkeletonLine className="w-24" />
+            </dd>
+            <dt className="text-muted-foreground">Passes when</dt>
+            <dd>
+              <SkeletonLine className="w-28" />
             </dd>
             <dt className="text-muted-foreground">Agreement</dt>
             <dd>

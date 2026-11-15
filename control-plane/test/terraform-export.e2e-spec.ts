@@ -45,7 +45,7 @@ const PROMPTED = BUILT_IN.stations.find(
   (station) => station.prompt !== undefined,
 );
 
-const RUBRIC = 'A good run changes only what the task requests.\n\n';
+const CLAIMS = ['The change touches only what the task requests.'];
 
 const DELIVERY = {
   ...BUILT_IN,
@@ -61,7 +61,7 @@ const DELIVERY = {
           profile: 'careful',
           skills: ['grafana'],
           tools: ['linear.comment'],
-          judge: { rubric: RUBRIC, sample: 0.2, minAgreement: 0.6 },
+          judge: { claims: CLAIMS, sample: 0.2, minAgreement: 0.6 },
           alerts: [
             { measure: 'sent_back_rate', risesBy: 0.2, over: 20 },
             { measure: 'cost_per_run', above: 5, over: 10 },
@@ -318,7 +318,6 @@ describe('a workspace exported as Terraform (e2e)', () => {
         ...DELIVERY.stations
           .filter((station) => station.prompt !== undefined)
           .map((station) => `prompts/team/delivery/${station.key}.md`),
-        `judges/team/delivery/${PROMPTED?.key}.md`,
       ]),
     );
 
@@ -468,20 +467,18 @@ describe('a workspace exported as Terraform (e2e)', () => {
     }
   });
 
-  it('writes a station’s judge reading its rubric with file(), and its alerts in order', async () => {
+  it('writes a station’s judge with its claims inline, and its alerts in order', async () => {
     const main = moduleOf(await exported());
 
     expect(main).toContain(
-      `    judge {\n      rubric        = file("\${path.module}/judges/team/delivery/${PROMPTED?.key}.md")\n      sample        = 0.2\n      min_agreement = 0.6\n    }\n\n    alert {\n      measure  = "sent_back_rate"\n      rises_by = 0.2\n      over     = 20\n    }\n\n    alert {\n      measure = "cost_per_run"\n      above   = 5\n      over    = 10\n    }\n\n    alert {\n      measure  = "accepted_rate"\n      falls_by = 0.1\n      over     = 20\n    }\n\n    alert {\n      measure = "merged_rate"\n      below   = 0.4\n      over    = 20\n    }\n  }\n`,
+      `    judge {\n      claims = [\n        "The change touches only what the task requests.",\n      ]\n      sample        = 0.2\n      min_agreement = 0.6\n    }\n\n    alert {\n      measure  = "sent_back_rate"\n      rises_by = 0.2\n      over     = 20\n    }\n\n    alert {\n      measure = "cost_per_run"\n      above   = 5\n      over    = 10\n    }\n\n    alert {\n      measure  = "accepted_rate"\n      falls_by = 0.1\n      over     = 20\n    }\n\n    alert {\n      measure = "merged_rate"\n      below   = 0.4\n      over    = 20\n    }\n  }\n`,
     );
   });
 
-  it('keeps each prompt, judge rubric and skill file byte for byte', async () => {
+  it('keeps each prompt and skill file byte for byte, and writes no judge file', async () => {
     const files = await exported();
 
-    expect(fileOf(files, `judges/team/delivery/${PROMPTED?.key}.md`)).toBe(
-      RUBRIC,
-    );
+    expect(files.some((each) => each.path.startsWith('judges/'))).toBe(false);
     expect(fileOf(files, `prompts/team/delivery/${PROMPTED?.key}.md`)).toBe(
       PROMPTED?.prompt,
     );

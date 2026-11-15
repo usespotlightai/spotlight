@@ -60,7 +60,6 @@ export class RequestJudging {
     }
 
     const rubric = Rubric.readable({
-      text: settings.rubric,
       claims: settings.claims,
       passThreshold: settings.passThreshold,
       version: settings.rubricVersion,

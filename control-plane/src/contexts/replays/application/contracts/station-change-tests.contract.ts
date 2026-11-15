@@ -47,6 +47,7 @@ export const STATION_CHANGE_REFUSALS = [
   'ceiling-too-low',
   'noisy',
   'judge-unstable',
+  'judge-disagrees-with-people',
   'flaky-checks',
   'no-headroom',
 ] as const satisfies readonly StationChangeRefusal[];

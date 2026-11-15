@@ -132,7 +132,7 @@ describe('compileLine', () => {
       withStation(1, {
         ...DELIVERY.stations[1],
         judge: {
-          rubric: 'A good run is small.\n',
+          claims: ['It keeps the change small.'],
           sample: 0.2,
           minAgreement: 0.6,
         },
@@ -147,7 +147,8 @@ describe('compileLine', () => {
     const judged = compiled.ok ? compiled.line.stations[1] : undefined;
 
     expect(judged?.judge).toMatchObject({
-      rubric: 'A good run is small.\n',
+      claims: ['It keeps the change small.'],
+      passThreshold: 1,
       sample: 0.2,
       minAgreement: 0.6,
     });
@@ -168,13 +169,13 @@ describe('compileLine', () => {
       problemsOf(
         withStation(1, {
           ...DELIVERY.stations[1],
-          judge: { rubric: 'A good run.', sample: 1.5, minAgreement: 0.6 },
+          judge: { claims: ['A claim.'], sample: 1.5, minAgreement: 0.6 },
         }),
       )[0],
     ).toMatchObject({ field: FieldPath.dotted('stations.1.judge.sample') });
   });
 
-  it('reads a judge of claims, and rejects one with neither a rubric nor claims at its rubric', () => {
+  it('reads a judge of claims, and rejects one with no claims at its claims', () => {
     const compiled = compileLine(
       withStation(1, {
         ...DELIVERY.stations[1],
@@ -188,7 +189,6 @@ describe('compileLine', () => {
     );
 
     expect(compiled.ok && compiled.line.stations[1]?.judge).toMatchObject({
-      rubric: null,
       claims: ['It adds a test.'],
       passThreshold: 1,
     });
@@ -199,7 +199,7 @@ describe('compileLine', () => {
           judge: { sample: 0.2, minAgreement: 0.6 },
         }),
       )[0],
-    ).toMatchObject({ field: FieldPath.dotted('stations.1.judge.rubric') });
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.judge.claims') });
     expect(
       problemsOf(
         withStation(1, {
@@ -261,7 +261,7 @@ describe('compileLine', () => {
       problemsOf(
         withStation(0, {
           ...DELIVERY.stations[0],
-          judge: { rubric: 'A good run.', sample: 0.2, minAgreement: 0.6 },
+          judge: { claims: ['A claim.'], sample: 0.2, minAgreement: 0.6 },
         }),
       )[0],
     ).toMatchObject({ field: FieldPath.dotted('stations.0.judge') });

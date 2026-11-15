@@ -6,6 +6,7 @@ export const SEARCH_SKIP_REASONS = [
   'ceiling-too-low',
   'noisy',
   'judge-unstable',
+  'judge-disagrees-with-people',
   'flaky-checks',
   'no-headroom',
   'monthly-ceiling',

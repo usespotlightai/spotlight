@@ -16,7 +16,7 @@ import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request
 import { PULL_REQUEST_TYPES } from '@insights/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
 import { RUN_RESOLUTIONS } from '@insights/domain/value-objects/run-resolution';
-import { SCORE_KINDS } from '@insights/domain/value-objects/score-scale.vo';
+import { SCORE_ORIGINS } from '@insights/domain/value-objects/score-origin';
 import { SCORE_SOURCES } from '@insights/domain/value-objects/score-source';
 import type {
   SeenHunk,
@@ -122,9 +122,9 @@ export const pullRequestAuthor = pgEnum(
 export const reviewRoundBucket = pgEnum('review_round_bucket', ROUND_BUCKETS);
 export const runSize = pgEnum('run_size', RUN_SIZES);
 export const scoreSource = pgEnum('score_source', SCORE_SOURCES);
+export const scoreOrigin = pgEnum('score_origin', SCORE_ORIGINS);
 export const alertMeasure = pgEnum('alert_measure', ALERT_MEASURES);
 export const alertCondition = pgEnum('alert_condition', ALERT_CONDITIONS);
-export const scoreKind = pgEnum('score_kind', SCORE_KINDS);
 export const judgingFailure = pgEnum('judging_failure', JUDGING_FAILURE_CODES);
 
 export const runRecord = pgTable(
@@ -155,6 +155,7 @@ export const runRecord = pgTable(
     checkedAt: timestamptz('checked_at'),
     firstHumanAction: humanAction('first_human_action'),
     firstHumanActionAt: timestamptz('first_human_action_at'),
+    firstHumanActionBy: text('first_human_action_by'),
     approvalAnsweredAt: timestamptz('approval_answered_at'),
     passedTo: text('passed_to'),
     passedAt: timestamptz('passed_at'),
@@ -225,6 +226,7 @@ export const runFact = pgTable(
     checkedAt: timestamptz('checked_at'),
     firstHumanAction: humanAction('first_human_action'),
     firstHumanActionAt: timestamptz('first_human_action_at'),
+    firstHumanActionBy: text('first_human_action_by'),
     approvalAnsweredAt: timestamptz('approval_answered_at'),
     passedTo: text('passed_to'),
     passedAt: timestamptz('passed_at'),
@@ -496,10 +498,10 @@ export const judging = pgTable(
     stationId: text('station_id').notNull(),
     taskId: text('task_id').notNull(),
     fingerprint: text('fingerprint'),
-    rubric: text('rubric'),
     claims: jsonb('claims').$type<string[]>().notNull(),
     passThreshold: doublePrecision('pass_threshold').notNull(),
     rubricVersion: text('rubric_version').notNull(),
+    origin: scoreOrigin('origin').notNull().default('live'),
     queuedAt: timestamptz('queued_at').notNull(),
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
@@ -531,10 +533,12 @@ export const score = pgTable(
     taskId: text('task_id').notNull(),
     fingerprint: text('fingerprint'),
     source: scoreSource('source').notNull(),
-    kind: scoreKind('kind').notNull(),
+    origin: scoreOrigin('origin').notNull().default('live'),
     value: doublePrecision('value').notNull(),
-    claimResults: jsonb('claim_results').$type<boolean[]>(),
-    rubricVersion: text('rubric_version'),
+    claimResults: jsonb('claim_results').$type<boolean[]>().notNull(),
+    passThreshold: doublePrecision('pass_threshold').notNull(),
+    passes: boolean('passes').notNull(),
+    rubricVersion: text('rubric_version').notNull(),
     model: text('model'),
     reasons: jsonb('reasons').$type<StoredReason[]>().notNull().default([]),
     seen: jsonb('seen')

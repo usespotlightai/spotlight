@@ -2,8 +2,16 @@ import type {
   RunAcceptancePort,
   RunDisposition,
 } from '@insights/application/ports/run-acceptance.port';
-import type { InsightsPort } from '@replays/application/ports/insights.port';
+import type {
+  PublishedCalibration,
+  StationJudgeCalibrationsPort,
+} from '@insights/application/ports/station-judge-calibrations.port';
+import type {
+  CalibratedJudge,
+  InsightsPort,
+} from '@replays/application/ports/insights.port';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
+import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const outcomeOf = (disposition: RunDisposition): OriginalOutcome => {
@@ -21,8 +29,20 @@ const outcomeOf = (disposition: RunDisposition): OriginalOutcome => {
   }
 };
 
+const calibrationOf = (published: PublishedCalibration): JudgeCalibration =>
+  JudgeCalibration.of({
+    state: published.state,
+    agreement: published.agreement,
+    pairs: published.pairs,
+    minPairs: published.minPairs,
+    minAgreement: published.minAgreement,
+  });
+
 export class Insights implements InsightsPort {
-  constructor(private readonly acceptance: RunAcceptancePort) {}
+  constructor(
+    private readonly acceptance: RunAcceptancePort,
+    private readonly calibrations: StationJudgeCalibrationsPort,
+  ) {}
 
   acceptedAfter(run: RunId): Promise<boolean> {
     return this.acceptance.acceptedAfter(run.value);
@@ -41,5 +61,19 @@ export class Insights implements InsightsPort {
         outcomeOf(disposition),
       ]),
     );
+  }
+
+  async judgeCalibration(
+    judge: CalibratedJudge,
+  ): Promise<JudgeCalibration | null> {
+    const published = await this.calibrations.calibrationOf({
+      workspaceId: judge.workspaceId.value,
+      teamId: judge.teamId.value,
+      lineId: judge.lineId.value,
+      stationId: judge.stationId.value,
+      rubricVersion: judge.rubricVersion,
+    });
+
+    return published && calibrationOf(published);
   }
 }

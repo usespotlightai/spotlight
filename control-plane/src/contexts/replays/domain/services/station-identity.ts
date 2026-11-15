@@ -10,7 +10,6 @@ export interface StationIdentityFacts {
   readonly check: string | null;
   readonly diffs: boolean;
   readonly judge: {
-    readonly rubric: string | null;
     readonly claims: readonly string[];
     readonly passThreshold: number;
   } | null;

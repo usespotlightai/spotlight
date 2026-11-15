@@ -4401,6 +4401,12 @@
               }
             ]
           },
+          "place": {
+            "type": "number",
+            "nullable": true,
+            "example": 11,
+            "description": "On a row of a journal step: where the step sits in the run’s journal, from 0. A citation of a step names this place"
+          },
           "span": {
             "nullable": true,
             "type": "object",
@@ -4447,6 +4453,7 @@
           "cost",
           "currency",
           "step",
+          "place",
           "span",
           "connection",
           "egressEnforcement",
@@ -4564,7 +4571,7 @@
         "properties": {
           "rubricHash": {
             "type": "string",
-            "description": "The SHA-256 of the judge's rubric"
+            "description": "The SHA-256 of the judge's claims and pass threshold"
           },
           "sample": {
             "type": "number",
@@ -4583,7 +4590,7 @@
           "minAgreement"
         ]
       },
-      "StationConfigResponseDto": {
+      "RunStationConfigResponseDto": {
         "type": "object",
         "properties": {
           "prompt": {
@@ -4678,7 +4685,7 @@
             "description": "The SHA-256 naming this station config"
           },
           "config": {
-            "$ref": "#/components/schemas/StationConfigResponseDto"
+            "$ref": "#/components/schemas/RunStationConfigResponseDto"
           }
         },
         "required": [
@@ -4686,7 +4693,7 @@
           "config"
         ]
       },
-      "RunUsageResponseDto": {
+      "HistoryRunUsageResponseDto": {
         "type": "object",
         "properties": {
           "ms": {
@@ -4773,7 +4780,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/RunUsageResponseDto"
+                "$ref": "#/components/schemas/HistoryRunUsageResponseDto"
               }
             ]
           },
@@ -5945,7 +5952,7 @@
               "check",
               "infra"
             ],
-            "description": "config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work"
+            "description": "config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge judged it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work"
           },
           "evidence": {
             "type": "string",

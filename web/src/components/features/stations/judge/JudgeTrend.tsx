@@ -10,30 +10,18 @@ import {
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { ResponsiveChart } from '@/components/shared/chart/ResponsiveChart';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
-import {
-  formatDay,
-  formatPercent,
-  formatStat,
-  type ScoreKind,
-  sharesOn,
-  type TrendPoint,
-} from '@/lib/judge';
+import { formatDay, formatPercent, type TrendPoint } from '@/lib/judge';
 
 const TREND_HEIGHT = 176;
-
-const scoreOf = (kind: ScoreKind, value: number | null): string =>
-  sharesOn(kind) ? formatPercent(value) : formatStat(value);
 
 const TipContent = ({
   placement,
   active,
   payload,
-  kind,
 }: {
   placement: TipPlacement;
   active?: boolean;
   payload?: { payload: TrendPoint }[];
-  kind: ScoreKind;
 }) => {
   const point = payload?.[0]?.payload;
 
@@ -47,21 +35,18 @@ const TipContent = ({
       note={{
         title: formatDay(point.day),
         rows: [
-          ['Judge', `${scoreOf(kind, point.judge)} over ${point.judged}`],
-          ['People', `${scoreOf(kind, point.people)} over ${point.labelled}`],
+          ['Judge', `${formatPercent(point.judge)} of ${point.judged} runs`],
+          [
+            'People',
+            `${formatPercent(point.people)} of ${point.labelled} runs`,
+          ],
         ],
       }}
     />
   );
 };
 
-export function JudgeTrend({
-  trend,
-  kind,
-}: {
-  trend: readonly TrendPoint[];
-  kind: ScoreKind;
-}) {
+export function JudgeTrend({ trend }: { trend: readonly TrendPoint[] }) {
   const cursor = useCursorTooltip();
   if (trend.length === 0) {
     return null;
@@ -96,9 +81,9 @@ export function JudgeTrend({
                 minTickGap={24}
               />
               <YAxis
-                domain={sharesOn(kind) ? [0, 1] : [1, 5]}
-                ticks={sharesOn(kind) ? [0, 0.5, 1] : [1, 3, 5]}
-                tickFormatter={(value: number) => scoreOf(kind, value)}
+                domain={[0, 1]}
+                ticks={[0, 0.5, 1]}
+                tickFormatter={(value: number) => formatPercent(value)}
                 tickLine={false}
                 axisLine={false}
                 width={40}
@@ -107,9 +92,7 @@ export function JudgeTrend({
               <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
               <Tooltip
                 {...cursor.tooltip}
-                content={
-                  <TipContent placement={cursor.placement} kind={kind} />
-                }
+                content={<TipContent placement={cursor.placement} />}
                 cursor={{ stroke: 'var(--chart-grid)' }}
               />
               <Line

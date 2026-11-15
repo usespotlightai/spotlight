@@ -59,7 +59,7 @@ export const SearchBriefing = {
 
     return [
       '# Searching for a better station',
-      `You are iteration ${facts.iteration} of ${facts.iterations} of a search for a better config of the ${facts.stationName} station (\`${key}\`) on the \`${line}\` line. Spotlight replays each candidate you propose on the station's own past tasks and scores it as the station is scored: its checks and its judge. Work from what those replays actually did, not from guesses.`,
+      `You are iteration ${facts.iteration} of ${facts.iterations} of a search for a better config of the ${facts.stationName} station (\`${key}\`) on the \`${line}\` line. Spotlight replays each candidate you propose on the station's own past tasks and scores it with the station's own checks and judge. Work from what those replays actually did, not from guesses.`,
       AIMS[facts.objective],
       ...foundOf(facts.configCauses),
       `## Where the search started\n\nEvery candidate is a change to this station block, the station's live config when the search started:\n\n\`\`\`json\n${JSON.stringify(facts.seed.value, null, 2)}\n\`\`\``,

@@ -207,6 +207,19 @@ describe('setVerdict', () => {
       [
         {
           warnings: [
+            {
+              kind: 'judge-disagrees-with-people',
+              agreement: 0.2,
+              minAgreement: 0.6,
+              pairs: 12,
+            },
+          ],
+        },
+        'judge-disagrees-with-people',
+      ],
+      [
+        {
+          warnings: [
             { kind: 'no-headroom', gain: 0, low: -0.1, high: 0.1, answered: 5 },
           ],
         },
@@ -226,13 +239,14 @@ describe('setVerdict', () => {
     }
   });
 
-  it('starts despite warnings that do not skip: unmeasured noise and saturation', () => {
+  it('starts despite warnings that do not skip: unmeasured noise, saturation and a judge nobody checked against people yet', () => {
     expect(
       setVerdict(
         set({
           warnings: [
             { kind: 'noise-unmeasured' },
             { kind: 'saturated', rate: 1 },
+            { kind: 'judge-unmeasured', pairs: 3, minPairs: 10 },
           ],
         }),
       ),

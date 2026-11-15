@@ -1,23 +1,25 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CLAIM_ANSWERS,
   comparisonStats,
   confusionCellNote,
   confusionNote,
   formatCalibration,
-  formatScore,
-  gradeOptions,
+  formatClaimsMet,
+  formatHunk,
+  formatJudgeOutcome,
+  formatVerdict,
+  lineRangeOf,
   pairsStat,
   type RubricVersion,
   scoreVisibility,
-  valueOfGrade,
 } from '@/lib/judge';
 
 const CALIBRATION = {
   qualified: false,
-  measure: 'spearman' as const,
   agreement: 0.3,
-  reading: 'weak' as const,
+  reading: 'fair' as const,
   pairs: 4,
   minPairs: 10,
   minAgreement: 0.5,
@@ -26,60 +28,71 @@ const CALIBRATION = {
 };
 
 describe('judge', () => {
-  it('shows a score in words people use', () => {
-    expect(formatScore({ kind: 'yes-no', label: 'yes' })).toBe('Yes');
-    expect(formatScore({ kind: 'number', label: '4' })).toBe('4 of 5');
+  it('names a cited hunk by its file and first new line', () => {
     expect(
-      formatScore({
-        kind: 'claims',
-        label: '67% of claims met',
-        claimResults: [true, false, true],
+      formatHunk({
+        id: 'web/src/lib/timestamps.ts#1',
+        path: 'web/src/lib/timestamps.ts',
+        header: '@@ -1,3 +1,4 @@',
+        lines: [],
       }),
-    ).toBe('2 of 3 claims met');
-    expect(formatScore({ kind: 'claims', label: '67% of claims met' })).toBe(
-      '67% of claims met',
-    );
+    ).toBe('timestamps.ts:1');
+    expect(
+      formatHunk({
+        id: 'web/src/lib/timestamps.ts#2',
+        path: 'web/src/lib/timestamps.ts',
+        header: null,
+        lines: [],
+      }),
+    ).toBe('timestamps.ts');
   });
 
-  it('offers the grades a scale allows, and reads them back as values', () => {
-    expect(gradeOptions('yes-no').map((each) => each.label)).toEqual([
-      'Yes',
-      'No',
+  it('names the judge’s verdict on a trace row', () => {
+    expect(formatJudgeOutcome(true)).toBe('Passed by the judge');
+    expect(formatJudgeOutcome(false)).toBe('Failed by the judge');
+  });
+
+  it('shows a verdict in the past tense, and the claims met apart', () => {
+    expect(formatVerdict({ passes: false })).toBe('Failed');
+    expect(formatVerdict({ passes: true })).toBe('Passed');
+    expect(formatClaimsMet([true, false, true])).toBe('2 of 3 claims met');
+  });
+
+  it('offers yes or no for each claim', () => {
+    expect(CLAIM_ANSWERS.map((each) => [each.label, each.met])).toEqual([
+      ['Yes', true],
+      ['No', false],
     ]);
-    expect(gradeOptions('number')).toHaveLength(5);
-    expect(valueOfGrade('yes-no', true)).toBe(1);
-    expect(valueOfGrade('number', 3)).toBe(3);
   });
 
-  it('says why a judge’s scores are hidden', () => {
+  it('says why a judge’s verdicts are hidden', () => {
     expect(formatCalibration(CALIBRATION)).toBe(
-      'Judge scores are hidden until 10 runs have scores from both the judge and people. Runs so far: 4.',
+      'Judge verdicts are hidden until 10 runs have a verdict from the judge and from people. Runs so far: 4.',
     );
     expect(
       formatCalibration({ ...CALIBRATION, hiddenReason: 'no-agreement' }),
     ).toBe(
-      'Judge scores are hidden. Agreement cannot be measured while all scores are the same.',
+      'Judge verdicts are hidden. Agreement cannot be measured while every verdict is the same.',
     );
   });
 
-  it('says so when the station’s rubric cannot be read', () => {
+  it('says so when the station’s claims cannot be read', () => {
     expect(
       formatCalibration({ ...CALIBRATION, hiddenReason: 'unreadable-rubric' }),
-    ).toMatch(/cannot be read/);
+    ).toBe('Judge verdicts are hidden. The judge’s claims cannot be read.');
   });
 
-  it('states whether judge scores show on runs, with the reason apart', () => {
+  it('states whether judge verdicts show on runs, with the reason apart', () => {
     expect(scoreVisibility(CALIBRATION)).toEqual({
       hidden: true,
       failing: false,
-      text: 'Judge scores are hidden on runs.',
+      text: 'Judge verdicts are hidden on runs.',
       reason:
-        'They show when 10 runs have scores from both the judge and people.',
+        'They show when 10 runs have a verdict from the judge and from people.',
     });
     expect(
       scoreVisibility({
         ...CALIBRATION,
-        measure: 'kappa',
         hiddenReason: 'below-min-agreement',
         failing: true,
       }),
@@ -89,7 +102,7 @@ describe('judge', () => {
     });
     expect(
       scoreVisibility({ ...CALIBRATION, qualified: true, hiddenReason: null }),
-    ).toMatchObject({ hidden: false, text: 'Judge scores show on runs.' });
+    ).toMatchObject({ hidden: false, text: 'Judge verdicts show on runs.' });
   });
 });
 
@@ -103,11 +116,9 @@ const QUALIFIED = {
 };
 
 const version = (
-  kind: RubricVersion['kind'],
   agreement: Partial<RubricVersion['agreement']> = {},
 ): RubricVersion =>
   ({
-    kind,
     judged: 30,
     agreement: {
       pairs: 24,
@@ -118,28 +129,24 @@ const version = (
       belowMinimum: false,
       observed: null,
       kappa: null,
-      spearman: null,
-      pearson: null,
-      mae: null,
-      rmse: null,
+      reading: null,
       f1: null,
-      readings: { kappa: null, pearson: null, spearman: null },
       claims: [],
       ...agreement,
     },
   }) as unknown as RubricVersion;
 
 describe('comparisonStats', () => {
-  it('words a yes-no rubric’s agreement by the reading the server gives', () => {
-    const yesNo = version('yes-no', {
+  it('words the agreement on verdicts by the reading the server gives', () => {
+    const measured = version({
       kappa: 0.71,
       observed: 0.875,
       f1: 30 / 33,
-      readings: { kappa: 'substantial', pearson: null, spearman: null },
+      reading: 'substantial',
     });
 
     expect(
-      comparisonStats(yesNo, QUALIFIED).map((stat) => [
+      comparisonStats(measured, QUALIFIED).map((stat) => [
         stat.label,
         stat.value,
         stat.detail,
@@ -147,29 +154,33 @@ describe('comparisonStats', () => {
       ]),
     ).toEqual([
       ['Cohen’s kappa', '0.71', 'Substantial', 0.71],
-      ['Same score', '88%', '21 of 24 runs', undefined],
-      ['F1 score', '0.91', null, undefined],
+      ['Same verdict', '88%', '21 of 24 runs', undefined],
     ]);
   });
 
-  it('names the minimum next to the reading when the server flags agreement below it', () => {
+  it('keeps the F1 score in the note on the same verdict', () => {
+    const [, same] = comparisonStats(
+      version({ kappa: 0.71, observed: 0.875, f1: 30 / 33 }),
+      QUALIFIED,
+    );
+
+    expect(same?.note.rows).toEqual([['F1 score', '0.91']]);
+  });
+
+  it('marks the reading as failing when the server flags agreement below the minimum', () => {
     const [kappa] = comparisonStats(
-      version('yes-no', {
-        kappa: 0.19,
-        belowMinimum: true,
-        readings: { kappa: 'slight', pearson: null, spearman: null },
-      }),
+      version({ kappa: 0.19, belowMinimum: true, reading: 'slight' }),
       QUALIFIED,
     );
 
     expect(kappa).toMatchObject({
-      detail: 'Slight · minimum 0.60',
+      detail: 'Slight',
       failing: true,
     });
   });
 
-  it('shows no figures while the server says too few runs have both scores, only how far along they are', () => {
-    const few = version('yes-no', {
+  it('shows no figures while the server says too few runs have both verdicts, only how far along they are', () => {
+    const few = version({
       pairs: 3,
       measured: false,
       pairsProgress: 0.3,
@@ -180,56 +191,26 @@ describe('comparisonStats', () => {
     expect(comparisonStats(few, calibration)).toEqual([]);
     expect(pairsStat(few, calibration)).toMatchObject({
       value: '3 of 10',
-      detail: 'Kappa, same score and F1 show at 10 runs.',
+      detail: 'Kappa and same verdict show at 10 runs.',
       progress: 0.3,
     });
-    expect(pairsStat(version('yes-no'), calibration)).toMatchObject({
+    expect(pairsStat(version(), calibration)).toMatchObject({
       value: '24',
       detail: 'Of 30 judged',
       progress: null,
     });
   });
 
-  it('counts claims, not runs, on a rubric of claims', () => {
-    const [, same] = comparisonStats(
-      version('claims', { agreed: 94, compared: 108, observed: 94 / 108 }),
-      QUALIFIED,
-    );
-
-    expect(same?.detail).toBe('94 of 108 claims');
-    expect(
-      confusionCellNote('claims', 'met', 'not met', 1).rows,
-    ).toContainEqual(['Claims', '1 claim']);
-    expect(confusionNote('claims').body).toMatch(
-      /Each run counts once per claim\.$/,
-    );
-  });
-
-  it('shows a number rubric’s agreement as correlations and errors', () => {
-    const exact = version('number', {
-      spearman: 1,
-      pearson: 1,
-      mae: 0,
-      rmse: 0,
-      readings: { kappa: null, pearson: 'very-strong', spearman: 'weak' },
-    });
-
-    expect(
-      comparisonStats(exact, QUALIFIED).map((stat) => [
-        stat.label,
-        stat.value,
-        stat.detail,
-      ]),
-    ).toEqual([
-      ['Pearson’s r', '1.00', 'Very strong'],
-      ['Spearman’s ρ', '1.00', 'Weak'],
-      ['MAE', '0.00', null],
-      ['RMSE', '0.00', null],
+  it('counts runs in the confusion notes', () => {
+    expect(confusionCellNote('passes', 'fails', 1).rows).toContainEqual([
+      'Runs',
+      '1 run',
     ]);
+    expect(confusionNote().body).toMatch(/^Rows are the judge’s verdict\./);
   });
 
   it('notes no reading where there is no figure, and gives the scale as rows', () => {
-    const [kappa] = comparisonStats(version('yes-no'), QUALIFIED);
+    const [kappa] = comparisonStats(version(), QUALIFIED);
 
     expect(kappa?.detail).toBeNull();
     expect(kappa?.note.rows?.map(([, word]) => word)).toEqual([
@@ -240,5 +221,36 @@ describe('comparisonStats', () => {
       'Slight',
       'No better than chance',
     ]);
+  });
+});
+
+describe('lineRangeOf', () => {
+  const hunk = (header: string | null) => ({
+    id: 'web/src/lib/timestamps.ts#1',
+    path: 'web/src/lib/timestamps.ts',
+    header,
+    lines: [],
+  });
+
+  it('takes the lines a hunk adds to, from its header', () => {
+    expect(lineRangeOf(hunk('@@ -1,3 +12,4 @@ export const at'))).toEqual({
+      start: 12,
+      end: 15,
+    });
+  });
+
+  it('takes one line where the header gives no count', () => {
+    expect(lineRangeOf(hunk('@@ -1 +7 @@'))).toEqual({ start: 7, end: 7 });
+  });
+
+  it('takes the line at the start where the hunk adds no lines', () => {
+    expect(lineRangeOf(hunk('@@ -4,2 +3,0 @@'))).toEqual({
+      start: 3,
+      end: 3,
+    });
+  });
+
+  it('has no lines without a header', () => {
+    expect(lineRangeOf(hunk(null))).toBeNull();
   });
 });

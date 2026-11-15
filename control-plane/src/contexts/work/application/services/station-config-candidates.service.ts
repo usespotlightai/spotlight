@@ -41,7 +41,6 @@ const factsOf = (
   check: station.check,
   diffs: station.diffs,
   judge: station.judge && {
-    rubric: station.judge.rubric,
     claims: station.judge.claims,
     passThreshold: station.judge.passThreshold,
   },

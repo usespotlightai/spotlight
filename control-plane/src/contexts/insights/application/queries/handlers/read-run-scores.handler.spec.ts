@@ -7,10 +7,13 @@ import { RunScoresViews } from '@insights/application/services/run-scores-views.
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { Score } from '@insights/domain/aggregates/score.aggregate';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import {
+  HumanAction,
+  type HumanActionKind,
+} from '@insights/domain/value-objects/human-action.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
+import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import {
   JudgingsInMemory,
@@ -37,9 +40,8 @@ import { describe, expect, it } from 'vitest';
 const JUDGE: StationJudge = {
   teamId: TeamId.of('team_1'),
   lineId: LineId.of('line_1'),
-  rubric: 'Did the run retry uploads?',
   rubricVersion: RUBRIC_VERSION,
-  claims: [],
+  claims: ['It retries the upload.'],
   passThreshold: 1,
   sample: 1,
   minAgreement: 0.5,
@@ -47,13 +49,21 @@ const JUDGE: StationJudge = {
 
 const AT = new Date('2026-09-30T11:00:00.000Z');
 
-const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
+const reading = async (
+  agreeing: boolean,
+  scoredBy: RubricVersion = RUBRIC_VERSION,
+  action: HumanActionKind | null = null,
+) => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
   const judgings = new JudgingsInMemory();
-  await records.add(endedRecord('run_1'));
+  await records.add(
+    action
+      ? endedRecord('run_1').recordAction(HumanAction.of(action, AT))
+      : endedRecord('run_1'),
+  );
   await judgings.add(
-    queuedJudging('run_1', rubricOf('scores: yes-no\nDid it retry?', scoredBy)),
+    queuedJudging('run_1', rubricOf(scoredBy, ['Did it retry?'])),
   );
   await scores.add(
     Score.judge({
@@ -62,9 +72,8 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
       workspaceId: WORKSPACE,
       location: locationOf(),
       fingerprint: null,
-      scale: ScoreScale.yesNo(),
-      value: 1,
-      claimResults: null,
+      claimResults: [true],
+      passThreshold: 1,
       rubricVersion: scoredBy,
       model: 'some/model',
       reasons: [
@@ -74,6 +83,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
             Citation.ofStep(5),
             Citation.ofHunk('api/src/uploads.ts#1'),
           ],
+          claim: 0,
         }),
       ],
       seen: SeenEvidence.of({
@@ -101,7 +111,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
         HumanAction.of(yes === agreeing ? 'accepted' : 'sent-back', AT),
       ),
     );
-    await scores.add(judgeScore(runId, ScoreScale.yesNo(), yes ? 1 : 0));
+    await scores.add(judgeScore(runId, [yes]));
   }
 
   const evidence = {
@@ -136,23 +146,30 @@ const scoresOf = async (
   agreeing: boolean,
   team = 'team_1',
   scoredBy = RUBRIC_VERSION,
+  action: HumanActionKind | null = null,
 ) =>
-  (await reading(agreeing, scoredBy)).execute(
+  (await reading(agreeing, scoredBy, action)).execute(
     new ReadRunScoresQuery(team, 'run_1', 'user_ada'),
   );
 
 describe('ReadRunScoresHandler', () => {
-  it('grades by the rubric the judge was given, whatever the station’s rubric says now', async () => {
+  it('grades by the claims the judge was given, whatever the station’s claims say now', async () => {
     const scores = await scoresOf(true, 'team_1', NEXT_RUBRIC_VERSION);
 
-    expect(scores.rubricBody).toBe('Did it retry?');
+    expect(scores.claims).toEqual(['Did it retry?']);
+    expect(scores.earlierClaims).toBe(true);
+  });
+
+  it('grades on the current claims where the judge scored the run by them', async () => {
+    expect((await scoresOf(true)).earlierClaims).toBe(false);
   });
 
   it('lays out a qualified judge’s score with each cited step and hunk as the judge read it', async () => {
     const scores = await scoresOf(true);
 
     expect(scores.calibration.qualified).toBe(true);
-    expect(scores.judge?.label).toBe('yes');
+    expect(scores.judge?.label).toBe('1 of 1 claim met');
+    expect(scores.judge?.passes).toBe(true);
     expect(scores.judge?.reasons[0]?.citations).toEqual([
       {
         kind: 'step',
@@ -189,6 +206,35 @@ describe('ReadRunScoresHandler', () => {
     expect(scores.calibration.qualified).toBe(true);
     expect(scores.judged).toBe(true);
     expect(scores.judge).toBeNull();
+  });
+
+  it('answers what people did with the run beside a judge that agrees with them', async () => {
+    const scores = await scoresOf(true, 'team_1', RUBRIC_VERSION, 'accepted');
+
+    expect(scores.outcome).toEqual({ source: 'accepted', passes: true });
+    expect(scores.agrees).toBe(true);
+  });
+
+  it('marks a judge that passed a run people sent back', async () => {
+    const scores = await scoresOf(true, 'team_1', RUBRIC_VERSION, 'sent-back');
+
+    expect(scores.outcome).toEqual({ source: 'sent-back', passes: false });
+    expect(scores.agrees).toBe(false);
+  });
+
+  it('answers the human outcome but no agreement where the judge’s score is hidden', async () => {
+    const scores = await scoresOf(false, 'team_1', RUBRIC_VERSION, 'accepted');
+
+    expect(scores.judge).toBeNull();
+    expect(scores.outcome).toEqual({ source: 'accepted', passes: true });
+    expect(scores.agrees).toBeNull();
+  });
+
+  it('answers no outcome while people did nothing with the run', async () => {
+    const scores = await scoresOf(true);
+
+    expect(scores.outcome).toBeNull();
+    expect(scores.agrees).toBeNull();
   });
 
   it('finds no run on another team', async () => {

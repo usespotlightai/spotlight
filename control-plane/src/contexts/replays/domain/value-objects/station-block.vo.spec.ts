@@ -5,7 +5,7 @@ const LIVE = StationBlock.of({
   key: 'code-review',
   name: 'Code Review',
   color: '#56b98d',
-  judge: { rubric: 'scores: yes-no', sample: 0.2 },
+  judge: { claims: ['It builds.'], sample: 0.2 },
   effort: 'high',
 });
 

@@ -73,6 +73,7 @@ const acting = async (...runs: Ended[]) => {
         workspaceId: 'ws_1',
         stationId: 'station_1',
         action: act,
+        by: 'user_alice',
         afterRunId: after,
         at: at(hour).toISOString(),
         tool: tool?.tool ?? null,
@@ -88,6 +89,8 @@ const acting = async (...runs: Ended[]) => {
       null,
     next: async (runId: string) =>
       (await records.of(RunId.of(runId)))?.firstHumanAction?.kind ?? null,
+    actor: async (runId: string) =>
+      (await records.of(RunId.of(runId)))?.firstHumanAction?.by?.value ?? null,
   };
 };
 
@@ -121,6 +124,14 @@ describe('recording what a person did after a run', () => {
 
     expect(await recorder.next('run_1')).toBe('sent-back');
     expect(await recorder.next('run_2')).toBeNull();
+  });
+
+  it('keeps the person who acted on the run’s first act', async () => {
+    const recorder = await acting(['run_1', 9]);
+
+    await recorder.acted('accepted', 10, 'run_1');
+
+    expect(await recorder.actor('run_1')).toBe('user_alice');
   });
 
   it('attributes an act that names no run to the task’s latest run that ended before it', async () => {

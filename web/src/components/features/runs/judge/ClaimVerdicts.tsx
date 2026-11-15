@@ -1,44 +1,50 @@
-import { ClaimMark } from '@/components/features/runs/judge/ClaimMark';
-import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
-import { CLAIMS_LABEL, formatClaim, type JudgeReason } from '@/lib/judge';
+import { ClaimMarkScorers } from '@/components/features/runs/judge/ClaimMarkScorers';
+import { ClaimVerdictRow } from '@/components/features/runs/judge/ClaimVerdictRow';
+import {
+  CLAIMS_LABEL,
+  type ClaimGrade,
+  JUDGE_LABEL,
+  type JudgeReason,
+} from '@/lib/judge';
 
 type ClaimVerdictsProps = {
   claims: readonly (string | null)[];
   marks: readonly boolean[];
+  grade: ClaimGrade | null;
   reasons: readonly JudgeReason[];
 };
 
-export function ClaimVerdicts({ claims, marks, reasons }: ClaimVerdictsProps) {
-  return (
-    <ol
-      data-slot="claim-verdicts"
-      aria-label={CLAIMS_LABEL}
-      className="flex flex-col gap-2"
-    >
-      {marks.map((met, at) => {
-        const why = reasons.filter((each) => each.claim === at);
+export function ClaimVerdicts({
+  claims,
+  marks,
+  grade,
+  reasons,
+}: ClaimVerdictsProps) {
+  const scorers = grade ? [JUDGE_LABEL, grade.grader] : [JUDGE_LABEL];
 
-        return (
-          <li
-            // oxlint-disable-next-line react/no-array-index-key -- the position of a claim in the judge's list identifies it
-            key={at}
-            data-slot="claim-verdict"
-            className="flex flex-col gap-1"
-          >
-            <p className="flex items-baseline gap-2 text-foreground text-sm leading-6">
-              <ClaimMark met={met} />
-              <span>{formatClaim(claims, at)}</span>
-            </p>
-            {why.length > 0 && (
-              <JudgeReasons
-                reasons={why}
-                label={`Why, on ${formatClaim(claims, at)}`}
-                className="pl-5"
-              />
-            )}
-          </li>
-        );
-      })}
-    </ol>
+  return (
+    <div data-slot="claim-verdicts" className="flex flex-col gap-0.5">
+      {grade && <ClaimMarkScorers scorers={scorers} />}
+      <ol aria-label={CLAIMS_LABEL} className="flex flex-col gap-1">
+        {marks.map((met, at) => {
+          const graded = grade ? (grade.marks[at] ?? null) : undefined;
+
+          return (
+            <ClaimVerdictRow
+              // oxlint-disable-next-line react/no-array-index-key -- the position of a claim in the judge's list identifies it
+              key={at}
+              index={at}
+              text={claims[at]}
+              marks={graded === undefined ? [met] : [met, graded]}
+              scorers={scorers}
+              reasons={reasons.filter((each) => each.claim === at)}
+              openAtFirst={
+                graded === undefined || graded === null ? !met : graded !== met
+              }
+            />
+          );
+        })}
+      </ol>
+    </div>
   );
 }

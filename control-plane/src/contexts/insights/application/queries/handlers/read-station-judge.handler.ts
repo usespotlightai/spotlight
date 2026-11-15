@@ -6,6 +6,7 @@ import {
 import type { ReadStationJudgeQuery } from '@insights/application/queries/read-station-judge.query';
 import type { InsightsAccess } from '@insights/application/services/insights-access.service';
 import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
+import type { ClaimsSourceRepository } from '@insights/domain/repositories/claims-source.repository';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -20,6 +21,7 @@ export class ReadStationJudgeHandler implements QueryHandlerPort<
   constructor(
     private readonly access: InsightsAccess,
     private readonly reports: StationJudgeReports,
+    private readonly sources: ClaimsSourceRepository,
   ) {}
 
   async execute(query: ReadStationJudgeQuery): Promise<StationJudgeDto> {
@@ -28,20 +30,26 @@ export class ReadStationJudgeHandler implements QueryHandlerPort<
         TeamId.of(query.teamId),
         UserId.of(query.viewerId),
       );
+      const stationId = StationId.of(query.stationId);
       const { judge, report, calibration } = await this.reports.at({
         workspaceId: access.workspaceId,
         teamId: access.teamId,
         lineId: LineId.of(query.lineId),
-        stationId: StationId.of(query.stationId),
+        stationId,
       });
       const current = judge?.rubricVersion ?? null;
+      const sources = new Map(
+        (await this.sources.ofStation(stationId))
+          .filter((each) => each.station.workspaceId.equals(access.workspaceId))
+          .map((each) => [each.rubricVersion as string, each]),
+      );
 
       return {
         stationId: query.stationId,
         judge: judge
           ? {
               rubricVersion: judge.rubricVersion,
-              kind: judge.scale?.kind ?? null,
+              readable: judge.rubric !== null,
               claims: [...judge.claims],
               passThreshold: judge.passThreshold,
               sample: judge.sample,
@@ -50,7 +58,12 @@ export class ReadStationJudgeHandler implements QueryHandlerPort<
           : null,
         calibration: judgeCalibrationOf(calibration),
         versions: report.versions.map((each) =>
-          rubricVersionOf(each, current, calibration),
+          rubricVersionOf(
+            each,
+            current,
+            calibration,
+            sources.get(each.rubricVersion) ?? null,
+          ),
         ),
         coverage: report.coverage,
       };

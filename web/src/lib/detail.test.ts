@@ -13,6 +13,7 @@ const node = (
   cost: null,
   currency: null,
   step: null,
+  place: null,
   span: null,
   connection: null,
   egressEnforcement: null,

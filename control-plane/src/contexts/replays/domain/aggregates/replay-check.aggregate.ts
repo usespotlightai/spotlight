@@ -10,6 +10,7 @@ import type { CheckResult } from '@replays/domain/services/replay-check-result';
 import type { BaselineStatus } from '@replays/domain/value-objects/baseline-status';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
+import type { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
@@ -51,6 +52,7 @@ interface State {
   readonly repeats: number;
   readonly scoringPinnedToLive: readonly ScoringField[];
   readonly baseline: BaselineStatus;
+  readonly judge: JudgeCalibration | null;
   readonly createdAt: Date;
   readonly version: number;
 }
@@ -84,8 +86,11 @@ export class ReplayCheck extends EventRecorder {
     const { by, setRuns, replayId, ...rest } = input;
     const state: State = {
       ...rest,
-      replayId: rest.reused?.coversAll(setRuns) ? null : replayId,
-      baseline: 'awaiting',
+      replayId:
+        rest.judge?.fails() || rest.reused?.coversAll(setRuns)
+          ? null
+          : replayId,
+      baseline: rest.judge?.fails() ? 'unavailable' : 'awaiting',
       version: 0,
     };
 
@@ -213,6 +218,10 @@ export class ReplayCheck extends EventRecorder {
     return CheckedChange.of(this.state.candidateHashes, this.state.liveHashes);
   }
 
+  get judge(): JudgeCalibration | null {
+    return this.state.judge;
+  }
+
   get liveHashes(): StationHashes {
     return this.state.liveHashes;
   }
@@ -334,8 +343,11 @@ export class ReplayCheck extends EventRecorder {
     result: CheckResult,
     reference: PlannedReference,
     reused: ReusedReplays | null,
+    judge: JudgeCalibration | null,
   ): boolean {
     return (
+      !this.state.judge?.fails() &&
+      (this.state.judge?.state ?? null) === (judge?.state ?? null) &&
       (reused === null || (this.state.reused?.equals(reused) ?? false)) &&
       change.equals(this.change) &&
       setId.equals(this.state.setId) &&

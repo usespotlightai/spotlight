@@ -10,7 +10,6 @@ import type {
   OutcomeVerdict,
   ReplayOutcome,
 } from '@replays/domain/value-objects/replay-outcome.vo';
-import { JudgeScale } from '@shared-kernel/domain/value-objects/judge-scale.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReplayTotals {
@@ -156,11 +155,8 @@ const tallyOf = (repeats: readonly EntryOutcome[]): Tally => {
   };
 };
 
-const scoreTallyOf = (
-  scale: JudgeScale,
-  verdicts: readonly OutcomeVerdict[],
-): Tally => ({
-  successes: verdicts.reduce((sum, each) => sum + scale.shareOf(each.value), 0),
+const scoreTallyOf = (verdicts: readonly OutcomeVerdict[]): Tally => ({
+  successes: verdicts.reduce((sum, each) => sum + each.value, 0),
   trials: verdicts.length,
 });
 
@@ -314,19 +310,13 @@ const scoresOf = (
   if (every.some((each) => each.referenced !== first.referenced)) {
     return { delta: null, uncompared: 'other-reference', worse: false };
   }
-  if (every.some((each) => each.scale !== first.scale)) {
-    return { delta: null, uncompared: null, worse: false };
-  }
-
-  const scale = JudgeScale.of(first.scale);
-
   return {
     delta: delta(
       mean(ours.map((each) => each.value)),
       mean(theirs.map((each) => each.value)),
     ),
     uncompared: null,
-    worse: clearlyWorse(scoreTallyOf(scale, ours), scoreTallyOf(scale, theirs)),
+    worse: clearlyWorse(scoreTallyOf(ours), scoreTallyOf(theirs)),
   };
 };
 

@@ -144,6 +144,7 @@ const setUp = (
         comment: vi.fn(),
         changedOn: vi.fn(),
         changedIn,
+        ofCommit: vi.fn(),
       },
       clock,
       causation,

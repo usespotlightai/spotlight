@@ -23,11 +23,13 @@ export interface InboxRequestVisibility {
   readonly form: InboxRequestForm;
   readonly viewer: UserId;
   readonly assignee: UserId | null;
+  readonly askedOf: UserId | null;
   readonly seesTeam: boolean;
   readonly actsOnTeam: boolean;
 }
 
 export interface InboxRequestAudience {
+  readonly askedOf: UserId;
   readonly assignee: UserId;
   readonly unassigned: boolean;
   readonly formsForTeamActors: readonly InboxRequestForm[];
@@ -40,6 +42,7 @@ export class InboxRequest extends EventRecorder {
     readonly taskId: TaskId,
     readonly form: InboxRequestForm,
     readonly about: InboxRequestSubject,
+    readonly askedOf: UserId | null,
     readonly createdAt: Date,
     readonly openedAt: Date,
     readonly reads: readonly InboxRequestRead[],
@@ -55,6 +58,7 @@ export class InboxRequest extends EventRecorder {
     taskId: TaskId;
     form: InboxRequestForm;
     about: InboxRequestSubject;
+    askedOf: UserId | null;
     now: Date;
   }): InboxRequest {
     const created = new InboxRequest(
@@ -63,6 +67,7 @@ export class InboxRequest extends EventRecorder {
       input.taskId,
       input.form,
       input.about,
+      input.askedOf,
       input.now,
       input.now,
       [],
@@ -87,6 +92,7 @@ export class InboxRequest extends EventRecorder {
     taskId: TaskId;
     form: InboxRequestForm;
     about: InboxRequestSubject;
+    askedOf: UserId | null;
     createdAt: Date;
     openedAt: Date;
     reads: readonly InboxRequestRead[];
@@ -137,6 +143,7 @@ export class InboxRequest extends EventRecorder {
       input.taskId,
       input.form,
       input.about,
+      input.askedOf,
       input.createdAt,
       input.openedAt,
       input.reads,
@@ -152,6 +159,7 @@ export class InboxRequest extends EventRecorder {
   static requiredAccess(form: InboxRequestForm): InboxRequestAccess {
     switch (form) {
       case 'memories':
+      case 'judge-disagreement':
         return 'seesTeam';
       case 'grade':
       case 'alert':
@@ -161,6 +169,7 @@ export class InboxRequest extends EventRecorder {
 
   static audienceOf(viewer: UserId): InboxRequestAudience {
     return {
+      askedOf: viewer,
       assignee: viewer,
       unassigned: true,
       formsForTeamActors: INBOX_REQUEST_FORMS.filter(
@@ -171,6 +180,15 @@ export class InboxRequest extends EventRecorder {
 
   static visibleTo(visibility: InboxRequestVisibility): boolean {
     const audience = InboxRequest.audienceOf(visibility.viewer);
+
+    if (visibility.askedOf) {
+      return (
+        visibility.askedOf.equals(audience.askedOf) &&
+        (InboxRequest.requiredAccess(visibility.form) === 'actsOnTeam'
+          ? visibility.actsOnTeam
+          : visibility.seesTeam)
+      );
+    }
 
     if (audience.formsForTeamActors.includes(visibility.form)) {
       return visibility.actsOnTeam;
@@ -184,6 +202,10 @@ export class InboxRequest extends EventRecorder {
   static standingOf(
     visibility: InboxRequestVisibility,
   ): ConversationStanding | null {
+    if (visibility.askedOf) {
+      return visibility.askedOf.equals(visibility.viewer) ? 'assignee' : null;
+    }
+
     if (visibility.assignee?.equals(visibility.viewer)) {
       return 'assignee';
     }
@@ -264,6 +286,7 @@ export class InboxRequest extends EventRecorder {
       this.taskId,
       this.form,
       this.about,
+      this.askedOf,
       this.createdAt,
       now,
       [],
@@ -296,6 +319,7 @@ export class InboxRequest extends EventRecorder {
       this.taskId,
       this.form,
       this.about,
+      this.askedOf,
       this.createdAt,
       this.openedAt,
       change.reads ?? this.reads,

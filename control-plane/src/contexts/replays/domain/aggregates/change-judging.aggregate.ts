@@ -201,8 +201,6 @@ export class ChangeJudging
 
     const { criteria } = this.state;
     const verdict = JudgeVerdict.of({
-      scale: criteria.scale.kind,
-      value: judgment.value,
       claimResults: judgment.claimResults,
       claims: criteria.claims,
       passThreshold: criteria.passThreshold,

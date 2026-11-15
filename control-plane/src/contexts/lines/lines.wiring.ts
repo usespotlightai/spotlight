@@ -19,7 +19,7 @@ import { UpdateLineHandler } from '@lines/application/commands/handlers/update-l
 import { UpdateLineCommand } from '@lines/application/commands/update-line.command';
 import { DeleteTeamLines } from '@lines/application/events/handlers/delete-team-lines.handler';
 import { SeedLines } from '@lines/application/events/handlers/seed-lines.handler';
-import { LINES_EVENT_MAPPERS } from '@lines/application/integration-events/lines.event-mappers';
+import { linesEventMappers } from '@lines/application/integration-events/lines.event-mappers';
 import {
   type ContentHashPort,
   LINES_CONTENT_HASH,
@@ -199,6 +199,7 @@ export const LINES_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       LOGGER,
       SEEDING_HARNESS,
+      LINES_CONTENT_HASH,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -210,9 +211,10 @@ export const LINES_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       logger: LoggerPort,
       seedingHarness: SeedingHarnessPort,
+      hash: ContentHashPort,
     ) => {
       types.register('lines', LINES_PAYLOAD_TYPES);
-      mappers.register(LINES_EVENT_MAPPERS);
+      mappers.register(linesEventMappers(hash));
       subscribers.register(
         linesSubscribers({
           seeding: new SeedLines(lines, ids, seedingHarness.harness),

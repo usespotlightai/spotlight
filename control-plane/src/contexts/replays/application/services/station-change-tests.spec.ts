@@ -25,6 +25,7 @@ import {
   aSearch,
   aSet,
   BY,
+  JUDGE,
   LIVE_FINGERPRINT,
   LIVE_HASHES,
   NOW,
@@ -35,8 +36,10 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
+import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
@@ -52,6 +55,21 @@ const CHECKED = CandidateScoring.of({
   checksChanges: true,
   judge: null,
   rubricVersion: null,
+});
+
+const calibrationIn = (state: 'qualified' | 'unmeasured' | 'failing') =>
+  JudgeCalibration.of({
+    state,
+    agreement: state === 'unmeasured' ? null : 0.3,
+    pairs: 12,
+    minPairs: 10,
+    minAgreement: 0.6,
+  });
+
+const JUDGED = CandidateScoring.of({
+  checksChanges: true,
+  judge: JUDGE,
+  rubricVersion: RubricVersion.of('e'.repeat(64)),
 });
 
 let memory: InMemoryReplays;
@@ -106,6 +124,7 @@ const tests = () => {
     new CheckSearchReadiness(
       memory.setRepository,
       healths,
+      suppliers.calibrations,
       suppliers.dispatch,
       { sha256: (text: string) => text },
       IDS,
@@ -329,6 +348,22 @@ describe('StationChangeTests', () => {
     memory.sets.clear();
 
     expect(await asked()).toMatchObject({ code: 'no-replay-set' });
+  });
+
+  it('refuses a station whose judge disagrees with people, but not one whose judge nobody checked yet', async () => {
+    scoring = JUDGED;
+    suppliers.insights.calibration = calibrationIn('failing');
+
+    expect(await asked()).toMatchObject({
+      outcome: 'refused',
+      code: 'judge-disagrees-with-people',
+      reason:
+        'The verdicts of the judge of the station do not agree with the verdicts of people often enough. Spotlight cannot trust the verdicts of the judge to score a config. Please change the claims of the judge until its verdicts agree with the verdicts of people.',
+    });
+
+    suppliers.insights.calibration = calibrationIn('unmeasured');
+
+    expect(await asked()).toMatchObject({ outcome: 'started' });
   });
 
   it('refuses while a config pull request of the station is open, or the last search has not given its result', async () => {

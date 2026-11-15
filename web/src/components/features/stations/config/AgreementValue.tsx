@@ -1,82 +1,68 @@
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import {
+  belowMinimumNote,
   formatCalibration,
-  formatPairsProgress,
   formatStat,
   type JudgeCalibration,
   measureNote,
+  NOT_MEASURED,
   readingWord,
+  tooFewRunsNote,
 } from '@/lib/judge';
+
+const VALUE = 'flex flex-wrap items-center gap-x-1.5';
 
 export function AgreementValue({
   calibration,
 }: {
   calibration: JudgeCalibration;
 }) {
-  const { agreement, minAgreement, measure, qualified, hiddenReason } =
-    calibration;
-  const note = measureNote(measure);
+  const { agreement, qualified, hiddenReason } = calibration;
+  const band = readingWord(calibration.reading);
+  const below = hiddenReason === 'below-min-agreement';
 
-  if (hiddenReason === 'too-few-pairs') {
+  if (agreement === null || (hiddenReason !== null && !below)) {
     return (
       <span
         data-slot="judge-calibration"
         data-qualified={qualified}
-        className="flex items-center gap-1.5"
+        className={VALUE}
       >
-        <span>Not measured</span>
-        <span className="text-muted-foreground tabular-nums">
-          · {formatPairsProgress(calibration)}
-        </span>
+        <span>{NOT_MEASURED}</span>
         <InfoTooltip
-          tooltip={{ ...note, body: formatCalibration(calibration) }}
+          tooltip={
+            hiddenReason === 'too-few-pairs'
+              ? tooFewRunsNote(calibration)
+              : formatCalibration(calibration)
+          }
         />
       </span>
     );
   }
 
-  if (agreement === null || minAgreement === null) {
-    return (
-      <span
-        data-slot="judge-calibration"
-        data-qualified={qualified}
-        className="text-muted-foreground"
-      >
-        {formatCalibration(calibration)}
-      </span>
-    );
-  }
-
-  const band = readingWord(calibration.reading);
-  const below = hiddenReason === 'below-min-agreement';
-
   return (
-    <div
+    <span
       data-slot="judge-calibration"
       data-qualified={qualified}
-      className="flex flex-col"
+      className={VALUE}
     >
-      <span className="flex flex-wrap items-center gap-x-1.5">
-        <span className="tabular-nums">{formatStat(agreement)}</span>
-        {band && <span className="text-muted-foreground">{band}</span>}
-        {below && (
-          <span className="whitespace-nowrap text-destructive">
-            · below the minimum
-          </span>
-        )}
-        {note && (
-          <InfoTooltip
-            tooltip={
-              below ? { ...note, body: formatCalibration(calibration) } : note
-            }
-          />
-        )}
+      <span
+        className={below ? 'text-destructive tabular-nums' : 'tabular-nums'}
+      >
+        {formatStat(agreement)}
       </span>
-      {!qualified && !below && (
-        <span className="text-muted-foreground">
-          {formatCalibration(calibration)}
-        </span>
+      {band && <span className="text-muted-foreground">{band}</span>}
+      {below ? (
+        <WarningTooltip
+          data-slot="below-minimum"
+          label="Below the minimum"
+          tooltip={belowMinimumNote(calibration)}
+          tone="destructive"
+        />
+      ) : (
+        <InfoTooltip tooltip={measureNote()} />
       )}
-    </div>
+    </span>
   );
 }

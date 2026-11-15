@@ -1,5 +1,8 @@
 import type { ChatsPort } from '@insights/application/ports/chats.port';
 import type { DeletionsPort } from '@insights/application/ports/deletions.port';
+import type { ClaimsRevisionRepository } from '@insights/domain/repositories/claims-revision.repository';
+import type { ClaimsSourceRepository } from '@insights/domain/repositories/claims-source.repository';
+import type { JudgeDisagreementRepository } from '@insights/domain/repositories/judge-disagreement.repository';
 import type { JudgingRepository } from '@insights/domain/repositories/judging.repository';
 import type { PullRequestRecordRepository } from '@insights/domain/repositories/pull-request-record.repository';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
@@ -28,6 +31,9 @@ export interface InsightsRepositories {
   readonly pullRequests: PullRequestRecordRepository;
   readonly alertStates: StationAlertStateRepository;
   readonly chats: ChatsPort;
+  readonly disagreements: JudgeDisagreementRepository;
+  readonly revisions: ClaimsRevisionRepository;
+  readonly sources: ClaimsSourceRepository;
 }
 
 export class DeleteInsights {
@@ -108,6 +114,33 @@ export class DeleteInsights {
       this.repositories.alertStates,
       (alertState) => alertState.erasing(scope),
       (alertState) => alertState.delete(),
+    );
+  }
+
+  judgeDisagreements(scope: DeletionScope): Promise<void> {
+    return this.erase(
+      scope,
+      this.repositories.disagreements,
+      () => null,
+      (disagreement) => disagreement.delete(),
+    );
+  }
+
+  claimsRevisions(scope: DeletionScope): Promise<void> {
+    return this.erase(
+      scope,
+      this.repositories.revisions,
+      () => null,
+      (revision) => revision.delete(),
+    );
+  }
+
+  claimsSources(scope: DeletionScope): Promise<void> {
+    return this.erase(
+      scope,
+      this.repositories.sources,
+      () => null,
+      (source) => source.delete(),
     );
   }
 

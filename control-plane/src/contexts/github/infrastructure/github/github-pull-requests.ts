@@ -1,4 +1,5 @@
 import type {
+  CommitPullRequestDto,
   OpenedPullRequestDto,
   PullRequestAt,
   PullRequestEditing,
@@ -55,6 +56,25 @@ const openedOf = (opened: Opened | undefined): OpenedPullRequestDto | null => {
 
 const dateOf = (raw: string | null | undefined): Date | null =>
   raw ? new Date(raw) : null;
+
+interface Associated {
+  readonly number?: number;
+  readonly html_url?: string;
+  readonly title?: string;
+  readonly merged_at?: string | null;
+}
+
+const associatedOf = (found: Associated): CommitPullRequestDto[] =>
+  found.number && found.html_url
+    ? [
+        {
+          number: found.number,
+          url: found.html_url,
+          title: found.title ?? '',
+          merged: Boolean(found.merged_at),
+        },
+      ]
+    : [];
 
 interface ChangedFile {
   readonly filename?: string;
@@ -200,6 +220,22 @@ export class GitHubPullRequests implements PullRequestPort {
           `GitHub would not list the files that ${pullRequest.value} changes`,
         ),
     );
+  }
+
+  async ofCommit(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    sha: string,
+  ): Promise<readonly CommitPullRequestDto[]> {
+    const found = await answered<Associated[]>(
+      await call(
+        `${this.at(repository)}/commits/${encodeURIComponent(sha)}/pulls?per_page=${FILES_PER_PAGE}`,
+        await this.tokenFor(workspaceId),
+      ),
+      `GitHub would not list the pull requests of ${repository.value}@${sha}`,
+    );
+
+    return found.flatMap(associatedOf);
   }
 
   private async paged(

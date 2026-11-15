@@ -31,6 +31,7 @@ const REASONS: Readonly<
   'ceiling-too-low': advised('ceiling-too-low'),
   noisy: advised('noisy'),
   'judge-unstable': advised('judge-unstable'),
+  'judge-disagrees-with-people': advised('judge-disagrees-with-people'),
   'flaky-checks': advised('flaky-checks'),
   'no-headroom':
     'The live config already does about as well as the best past runs on the replay set. A change cannot show a gain.',

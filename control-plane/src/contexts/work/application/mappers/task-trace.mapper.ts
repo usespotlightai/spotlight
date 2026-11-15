@@ -21,6 +21,7 @@ const nodeToDto = (node: TraceNode): TraceNodeDto => ({
   cost: node.cost?.amount ?? null,
   currency: node.cost?.currency ?? null,
   step: node.step && stepToDto(node.step),
+  place: node.place,
   span: node.span && spanToDto(node.span),
   connection: node.connection && {
     host: node.connection.connection.host,

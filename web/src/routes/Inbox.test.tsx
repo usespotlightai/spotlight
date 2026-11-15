@@ -92,7 +92,7 @@ const notice = (over: Record<string, unknown> = {}) => ({
   teamId: 'team_1',
   form: 'ended',
   headline: 'The search for a better Build config stalled',
-  points: ['Fix the judge’s rubric: it requires tests a rename never needs.'],
+  points: ['Fix the judge’s claims: one requires tests a rename never needs.'],
   link: 'lines/line_1/stations/station_1',
   linkLabel: 'Open the station',
   externalLink: null,
@@ -675,7 +675,7 @@ describe('Inbox', () => {
       expect(link).toHaveAttribute('href', '/w/acme/inbox/notices/notice_1');
       expect(link).toHaveTextContent('Unread');
       expect(link).toHaveTextContent(
-        'Fix the judge’s rubric: it requires tests a rename never needs.',
+        'Fix the judge’s claims: one requires tests a rename never needs.',
       );
       expect(
         link.querySelector('[data-slot="notice-icon"]'),

@@ -4,6 +4,7 @@ import {
   neededRepeatsFor,
   suggestedRepeatsFor,
 } from '@replays/domain/services/set-noise';
+import type { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 
 export type SearchWarning =
   | { readonly kind: 'noise-unmeasured' }
@@ -19,6 +20,17 @@ export type SearchWarning =
       readonly kind: 'judge-unstable';
       readonly agreement: number;
       readonly compared: number;
+    }
+  | {
+      readonly kind: 'judge-disagrees-with-people';
+      readonly agreement: number | null;
+      readonly minAgreement: number | null;
+      readonly pairs: number;
+    }
+  | {
+      readonly kind: 'judge-unmeasured';
+      readonly pairs: number;
+      readonly minPairs: number;
     }
   | {
       readonly kind: 'flaky-checks';
@@ -96,11 +108,40 @@ const healthWarnings = (health: SetHealth): readonly SearchWarning[] => {
   ];
 };
 
+export const calibrationWarningsOf = (
+  calibration: JudgeCalibration | null,
+): readonly SearchWarning[] => {
+  switch (calibration?.state) {
+    case 'failing':
+      return [
+        {
+          kind: 'judge-disagrees-with-people',
+          agreement: calibration.agreement,
+          minAgreement: calibration.minAgreement,
+          pairs: calibration.pairs,
+        },
+      ];
+    case 'unmeasured':
+      return [
+        {
+          kind: 'judge-unmeasured',
+          pairs: calibration.pairs,
+          minPairs: calibration.minPairs,
+        },
+      ];
+    case 'qualified':
+    case undefined:
+      return [];
+  }
+};
+
 export const searchWarningsOf = (
   health: SetHealth,
   minGain: number,
   repeats: number,
+  calibration: JudgeCalibration | null,
 ): readonly SearchWarning[] => [
   ...noiseWarnings(health, minGain, repeats),
   ...healthWarnings(health),
+  ...calibrationWarningsOf(calibration),
 ];

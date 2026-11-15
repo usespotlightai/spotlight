@@ -16,6 +16,7 @@ import {
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
+import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -50,6 +51,7 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
     }),
     repeats: 1,
     scoringPinnedToLive: ['diffs', 'check'],
+    judge: null,
     createdAt: NOW,
     by: BY,
     ...more,
@@ -58,6 +60,15 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
 const SET = aSet(2);
 
 const OWN = PlannedReference.of({ pullRequest: 42 });
+
+const calibrationOf = (state: 'qualified' | 'unmeasured' | 'failing') =>
+  JudgeCalibration.of({
+    state,
+    agreement: state === 'unmeasured' ? null : 0.3,
+    pairs: 12,
+    minPairs: 10,
+    minAgreement: 0.6,
+  });
 
 describe('ReplayCheck', () => {
   it('records that it started, named by the change it checks, recording what it pinned to live in order', () => {
@@ -112,6 +123,7 @@ describe('ReplayCheck', () => {
         result,
         OWN,
         null,
+        null,
       );
 
     expect(reusable('running')).toBe(true);
@@ -128,6 +140,7 @@ describe('ReplayCheck', () => {
         'passed',
         OWN,
         null,
+        null,
       ),
     ).toBe(false);
     expect(
@@ -139,6 +152,7 @@ describe('ReplayCheck', () => {
         1,
         'passed',
         OWN,
+        null,
         null,
       ),
     ).toBe(false);
@@ -161,6 +175,7 @@ describe('ReplayCheck', () => {
         'passed',
         OWN,
         null,
+        null,
       ),
     ).toBe(false);
     expect(
@@ -172,6 +187,7 @@ describe('ReplayCheck', () => {
         1,
         'passed',
         OWN,
+        null,
         null,
       ),
     ).toBe(false);
@@ -199,6 +215,7 @@ describe('ReplayCheck', () => {
         result,
         reference,
         null,
+        null,
       );
     const ofCommit = started({
       setId: SET.id,
@@ -218,6 +235,7 @@ describe('ReplayCheck', () => {
         1,
         'running',
         other,
+        null,
         null,
       ),
     ).toBe(true);
@@ -246,6 +264,7 @@ describe('ReplayCheck', () => {
         'passed',
         OWN,
         null,
+        null,
       ),
     ).toBe(true);
     expect(
@@ -257,6 +276,7 @@ describe('ReplayCheck', () => {
         1,
         'passed',
         OWN,
+        null,
         null,
       ),
     ).toBe(false);
@@ -282,6 +302,7 @@ describe('ReplayCheck', () => {
         1,
         'passed',
         OWN,
+        null,
         null,
       ),
     ).toBe(true);
@@ -317,6 +338,62 @@ describe('ReplayCheck', () => {
     expect(check.recordBaseline().markBaselineUnavailable().baseline).toBe(
       'found',
     );
+  });
+
+  it('replays nothing when the judge already fails against people, so it spends nothing', () => {
+    const judged = (state: 'qualified' | 'unmeasured' | 'failing') =>
+      started({ judge: calibrationOf(state) });
+
+    expect(judged('failing').replayId).toBeNull();
+    expect(judged('unmeasured').replayId?.value).toBe('replay_1');
+    expect(judged('qualified').replayId?.value).toBe('replay_1');
+  });
+
+  it('waits for no baseline when the judge already fails against people', () => {
+    const failing = started({ judge: calibrationOf('failing') });
+
+    expect(failing.baseline).toBe('unavailable');
+    expect(failing.awaitsBaseline).toBe(false);
+    expect(started({ judge: calibrationOf('unmeasured') }).baseline).toBe(
+      'awaiting',
+    );
+  });
+
+  it('is reused only under the same judge calibration, and never once the judge failed it', () => {
+    const threshold = ReplayThreshold.of({
+      maxRegressions: 0,
+      ceiling: 10,
+      currency: 'USD',
+      minGain: 0.05,
+    });
+    const reusable = (
+      check: ReplayCheck,
+      result: 'passed' | 'failed',
+      judge: JudgeCalibration | null,
+    ) =>
+      check.reusableFor(
+        check.change,
+        check.setId,
+        check.setEntries,
+        threshold,
+        1,
+        result,
+        OWN,
+        null,
+        judge,
+      );
+    const qualified = started({ judge: calibrationOf('qualified') });
+    const failing = started({ judge: calibrationOf('failing') });
+
+    expect(reusable(qualified, 'passed', calibrationOf('qualified'))).toBe(
+      true,
+    );
+    expect(reusable(qualified, 'passed', calibrationOf('unmeasured'))).toBe(
+      false,
+    );
+    expect(reusable(qualified, 'passed', null)).toBe(false);
+    expect(reusable(started(), 'passed', null)).toBe(true);
+    expect(reusable(failing, 'failed', calibrationOf('failing'))).toBe(false);
   });
 
   it('takes a threshold of whole tasks and a ceiling a replay may spend', () => {
@@ -411,6 +488,7 @@ describe('ReplayCheck, reusing a search’s replays', () => {
         'passed',
         OWN,
         reused,
+        null,
       );
 
     expect(reusableWith(reusing(FIRST))).toBe(true);
@@ -426,6 +504,7 @@ describe('ReplayCheck, reusing a search’s replays', () => {
         'passed',
         OWN,
         reusing(FIRST),
+        null,
       ),
     ).toBe(false);
   });

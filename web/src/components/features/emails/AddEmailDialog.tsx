@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useAddMyEmail } from '@/hooks/api/useAddMyEmail';
-import { messageOf } from '@/lib/error';
 
 const LONGEST_EMAIL = 254;
 
@@ -80,18 +79,9 @@ export function AddEmailDialog({ open, onOpenChange }: AddEmailDialogProps) {
               maxLength={LONGEST_EMAIL}
               disabled={busy}
               value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                if (add.isError) add.reset();
-              }}
+              onChange={(event) => setEmail(event.target.value)}
             />
           </div>
-
-          {add.isError && (
-            <p role="alert" className="text-destructive text-xs">
-              {messageOf(add.error, 'Sorry, the email couldn’t be added.')}
-            </p>
-          )}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" size="sm" />}>

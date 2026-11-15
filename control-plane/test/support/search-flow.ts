@@ -70,7 +70,12 @@ export const BUILD = randomUUID();
 export const POLISH = randomUUID();
 const SHIP = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
-const RUBRIC = 'scores: 1-5\nDoes it drain the queue in order?';
+const CLAIMS = [
+  'It drains the queue in order.',
+  'It keeps the oldest job first.',
+  'It survives a restart.',
+  'It tests the order.',
+];
 const SCORED = /score\((\d)\)/;
 export const WITHIN = 60_000;
 export const STUB_GUIDANCE = 'Keep the oldest job first after a restart.';
@@ -103,14 +108,17 @@ const judge: JudgePort = {
       model: 'stub/judge',
       guidance: value <= 2 ? STUB_GUIDANCE : null,
       verdict: {
-        value,
-        reasons: [
-          {
-            text: `It drains the queue as a ${value}.`,
-            steps: scoredStep ? [scoredStep.index] : [],
-            hunks: [],
-          },
-        ],
+        claims: CLAIMS.map((_, index) => ({
+          index,
+          met: index < value - 1,
+          reasons: [
+            {
+              text: `It drains the queue as a ${value}.`,
+              steps: scoredStep ? [scoredStep.index] : [],
+              hunks: [],
+            },
+          ],
+        })),
       },
     };
   },
@@ -133,7 +141,7 @@ export const CONFIG_LINE = `resource "spotlight_line" "core_delivery" {
     passes_to = ["ship"]
 
     judge {
-      rubric        = ${JSON.stringify(RUBRIC)}
+      claims        = ${JSON.stringify(CLAIMS)}
       sample        = 0.1
       min_agreement = 0.6
     }
@@ -225,6 +233,7 @@ const pullRequests: PullRequestPort = {
   },
   changedOn: async () => [],
   changedIn: async () => [],
+  ofCommit: async () => [],
 };
 
 // oxlint-disable-next-line import/no-mutable-exports -- openSearchFlow sets it in beforeAll; specs read the live binding
@@ -820,8 +829,7 @@ export const openSearchFlow = (): void => {
       repository: Repository.of('acme/api').value,
     });
     const judged = {
-      rubric: RUBRIC,
-      claims: [],
+      claims: CLAIMS,
       passThreshold: 1,
       sample: 0.1,
       minAgreement: 0.6,

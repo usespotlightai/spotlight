@@ -12,6 +12,7 @@ export function useResolveInboxNotice() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { quiet: true },
     mutationFn: async ({ slug, noticeId }: ResolveInboxNoticeInput) => {
       await resolveInboxNotice({
         path: { slug, noticeId },

@@ -39,7 +39,6 @@ const toSideBySideJudging = (row: Row): SideBySideJudging =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     teamId: TeamId.of(row.teamId),
     criteria: JudgeCriteria.of({
-      rubric: row.rubric,
       claims: row.claims,
       passThreshold: row.passThreshold,
     }),
@@ -98,7 +97,6 @@ export class DrizzleSideBySideJudgingRepository
           otherRunId: added.otherRunId.value,
           workspaceId: added.workspaceId.value,
           teamId: added.teamId.value,
-          rubric: added.criteria.rubric,
           claims: [...added.criteria.claims],
           passThreshold: added.criteria.passThreshold,
           referenceRunId: added.reference.value,

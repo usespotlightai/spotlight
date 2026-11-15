@@ -17,7 +17,7 @@ const requested = (run: string, other: string) =>
     otherRunId: RunId.of(other),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
-    criteria: JudgeCriteria.of({ rubric: null, claims: ['It retries.'] }),
+    criteria: JudgeCriteria.of({ claims: ['It retries.'] }),
     reference: RunId.of('run_reference'),
     now: NOW,
   });

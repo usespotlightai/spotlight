@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import {
-  ConfigChangeResponseDto,
-  StationConfigResponseDto,
+  RunConfigChangeResponseDto,
+  RunStationConfigResponseDto,
 } from '@work/presentation/http/dto/station-config.response.dto';
 
 export class ConfigChangedSinceResponseDto {
@@ -17,15 +17,15 @@ export class ConfigChangedSinceResponseDto {
   @ApiProperty()
   readonly fingerprint: string;
 
-  @ApiProperty({ type: () => [ConfigChangeResponseDto] })
-  readonly changes: ConfigChangeResponseDto[];
+  @ApiProperty({ type: () => [RunConfigChangeResponseDto] })
+  readonly changes: RunConfigChangeResponseDto[];
 
   constructor(from: NonNullable<RunConfigDto['changedSince']>) {
     this.runId = from.runId;
     this.taskId = from.taskId;
     this.fingerprint = from.fingerprint;
     this.changes = from.changes.map(
-      (each) => new ConfigChangeResponseDto(each),
+      (each) => new RunConfigChangeResponseDto(each),
     );
   }
 }
@@ -38,8 +38,8 @@ export class RunConfigResponseDto {
   })
   readonly fingerprint: string | null;
 
-  @ApiProperty({ nullable: true, type: () => StationConfigResponseDto })
-  readonly config: StationConfigResponseDto | null;
+  @ApiProperty({ nullable: true, type: () => RunStationConfigResponseDto })
+  readonly config: RunStationConfigResponseDto | null;
 
   @ApiProperty({ nullable: true, type: () => ConfigChangedSinceResponseDto })
   readonly changedSince: ConfigChangedSinceResponseDto | null;
@@ -55,7 +55,7 @@ export class RunConfigResponseDto {
   constructor(from: RunConfigDto) {
     this.fingerprint = from.fingerprint;
     this.config = from.config
-      ? new StationConfigResponseDto(from.config)
+      ? new RunStationConfigResponseDto(from.config)
       : null;
     this.changedSince = from.changedSince
       ? new ConfigChangedSinceResponseDto(from.changedSince)
