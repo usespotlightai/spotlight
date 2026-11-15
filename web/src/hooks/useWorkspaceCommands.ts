@@ -60,6 +60,7 @@ export function useWorkspaceCommands({
       ? [
           {
             id: 'go.lines' as const,
+            title: `Go to ${firstLine.name}`,
             ...go(linePath(slug, team.id, firstLine.id)),
           },
         ]

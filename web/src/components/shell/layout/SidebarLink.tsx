@@ -1,6 +1,14 @@
 import type { ComponentType, ReactNode } from 'react';
 import { NavLink } from 'react-router';
 
+import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useActiveCommand } from '@/hooks/useActiveCommand';
+import { shortcutOf } from '@/lib/commands/shortcuts';
 import { cn } from '@/lib/utils';
 
 type SidebarLinkProps = {
@@ -20,7 +28,8 @@ export function SidebarLink({
   active,
   children,
 }: SidebarLinkProps) {
-  return (
+  const command = useActiveCommand({ to });
+  const link = (
     <NavLink
       to={to}
       className={({ isActive }) =>
@@ -39,5 +48,20 @@ export function SidebarLink({
         <span className="ml-auto shrink-0 tabular-nums">{trailing}</span>
       )}
     </NavLink>
+  );
+
+  if (!command) {
+    return link;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={link} />
+      <TooltipContent side="right" align="center">
+        <ShortcutHint id={command.id}>
+          {command.title ?? shortcutOf(command.id).title}
+        </ShortcutHint>
+      </TooltipContent>
+    </Tooltip>
   );
 }
