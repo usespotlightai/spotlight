@@ -1,5 +1,6 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
+import { useStopRunAction } from '@/hooks/useStopRunAction';
 import { type InboxRun, inboxRunPath, workingWordsOf } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 
@@ -9,6 +10,12 @@ type InboxRunRowProps = {
 };
 
 export function InboxRunRow({ slug, run }: InboxRunRowProps) {
+  const stop = useStopRunAction(
+    run.teamId,
+    run.id,
+    run.progress === 'in-progress',
+  );
+
   return (
     <InboxRowFrame
       to={inboxRunPath(slug, run.teamId, run.id)}
@@ -22,6 +29,7 @@ export function InboxRunRow({ slug, run }: InboxRunRowProps) {
       unread={false}
       at={run.askedAt}
       preview={workingWordsOf(run.progress, run.station)}
+      menuActions={stop ? [stop] : []}
     />
   );
 }

@@ -26,6 +26,11 @@ const failing = vi.fn();
 const refetch = vi.fn();
 const stacked = vi.fn((): unknown => ({ latest: null }));
 
+vi.mock('@/hooks/api/useStopRun', () => ({
+  useStopRun: () => ({ mutate: () => {} }),
+  useStopInFlight: () => false,
+}));
+
 vi.mock('@/hooks/api/useTasks', () => ({
   useTask: (_teamId: string, taskId: string) => ({
     data: (listed() as { id: string }[] | undefined)?.find(

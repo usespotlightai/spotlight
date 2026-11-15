@@ -1,8 +1,11 @@
 import type { ReactNode } from 'react';
 import { NavLink, useLocation, useResolvedPath } from 'react-router';
 
+import { ResolveToggle } from '@/components/features/inbox/ResolveToggle';
 import { CommandScope } from '@/components/shell/command/CommandScope';
 import { useFocusWithin } from '@/hooks/useFocusWithin';
+import { useMenuActions } from '@/hooks/useMenuActions';
+import type { MenuAction } from '@/lib/context-menu';
 import { createdOn } from '@/lib/task';
 import { useForwardTrail } from '@/lib/trail';
 import { cn } from '@/lib/utils';
@@ -15,7 +18,8 @@ type InboxRowFrameProps = {
   at: string;
   preview: string;
   badge?: ReactNode;
-  action?: ReactNode;
+  resolve?: MenuAction | null;
+  menuActions?: readonly MenuAction[];
   onOpen?: () => void;
 };
 
@@ -27,7 +31,8 @@ export function InboxRowFrame({
   at,
   preview,
   badge,
-  action,
+  resolve,
+  menuActions = [],
   onOpen,
 }: InboxRowFrameProps) {
   const trail = useForwardTrail();
@@ -35,11 +40,15 @@ export function InboxRowFrame({
   const target = useResolvedPath(to).pathname;
   const { pathname } = useLocation();
   const current = pathname === target || pathname.startsWith(`${target}/`);
+  const menu = useMenuActions(
+    resolve ? [resolve, ...menuActions] : menuActions,
+  );
 
   return (
     <div
       data-list-item
       {...handlers}
+      {...menu}
       className="group/row relative flex items-start gap-2 rounded-md px-2 py-2 transition-colors hover:bg-accent has-[a[aria-current=page]]:bg-accent has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset"
     >
       <NavLink
@@ -86,7 +95,7 @@ export function InboxRowFrame({
 
       <span className="relative z-10 flex h-5 shrink-0 items-center gap-1">
         <CommandScope active={focused || current} rank={focused ? 2 : 1}>
-          {action}
+          {resolve && <ResolveToggle action={resolve} />}
         </CommandScope>
 
         <time

@@ -70,6 +70,12 @@ function Shell() {
       >
         Move the first tab to the end
       </button>
+      <button
+        type="button"
+        onClick={() => tabs.openAt('/w/acme/team/team_2/runs/run_1')}
+      >
+        Open the run in a new tab
+      </button>
       <TabTitleContext value={tabs.titleFor(tabs.activeId)}>
         <Routes>
           <Route path="/w/:slug/inbox" element={<Page title="Inbox" />} />
@@ -173,6 +179,19 @@ describe('useAppTabs', () => {
 
     expect(address()).toHaveTextContent('/w/acme/team/team_2/agent');
     expect(tab('Agent')).toHaveAttribute('aria-current', 'page');
+    expect(tab('Runs')).not.toHaveAttribute('aria-current');
+  });
+
+  it('opens a link in a new tab and keeps the tab it came from', async () => {
+    const user = userEvent.setup();
+    renderAt('/w/acme/team/team_2/runs');
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open the run in a new tab' }),
+    );
+
+    expect(address()).toHaveTextContent('/w/acme/team/team_2/runs/run_1');
+    expect(tab('Fix the login')).toHaveAttribute('aria-current', 'page');
     expect(tab('Runs')).not.toHaveAttribute('aria-current');
   });
 

@@ -13,6 +13,7 @@ import { matchPath } from 'react-router';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { inboxPath } from '@/lib/inbox';
 import { type Team, teamSectionPath } from '@/lib/team';
+import { workspacePath } from '@/lib/workspace';
 
 export const APP_TABS_KEY = 'spotlight.tabs';
 
@@ -285,6 +286,27 @@ export const newTabPath = (
   const team = teams.find((each) => each.id === here) ?? teams[0];
 
   return team ? teamSectionPath(slug, team.id, 'agent') : inboxPath(slug);
+};
+
+export const tabPathOf = (
+  href: string,
+  origin: string,
+  slug: string,
+): string | null => {
+  let url: URL;
+  try {
+    url = new URL(href, origin);
+  } catch {
+    return null;
+  }
+
+  const workspace = workspacePath(slug);
+  const inWorkspace =
+    url.pathname === workspace || url.pathname.startsWith(`${workspace}/`);
+
+  return url.origin === origin && inWorkspace
+    ? `${url.pathname}${url.search}${url.hash}`
+    : null;
 };
 
 const TAB_ICONS: readonly (readonly [string, LucideIcon])[] = [

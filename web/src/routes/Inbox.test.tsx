@@ -15,6 +15,11 @@ const resolvedOnes = vi.fn<(...args: unknown[]) => unknown>();
 const moreResolved = vi.fn<(...args: unknown[]) => unknown>();
 const resolvedPending = vi.fn<(...args: unknown[]) => unknown>();
 
+vi.mock('@/hooks/api/useStopRun', () => ({
+  useStopRun: () => ({ mutate: () => {} }),
+  useStopInFlight: () => false,
+}));
+
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
   useInbox: () => ({

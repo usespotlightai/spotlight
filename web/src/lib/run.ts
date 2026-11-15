@@ -39,6 +39,9 @@ export const shownProgress = (
 export const underway = (run: Pick<Run, 'state'>): boolean =>
   run.state === 'queued' || run.state === 'claimed';
 
+export const stoppable = (run: Pick<Run, 'state' | 'progress'>): boolean =>
+  run.state === 'claimed' && run.progress !== 'stopping';
+
 export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
   run.state === 'failed'
     ? 'The run failed before the agent started.'

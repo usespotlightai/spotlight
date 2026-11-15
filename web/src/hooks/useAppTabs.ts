@@ -167,5 +167,6 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
           newTabPath(slug, teams, activeTabOf(tabs).path),
         ),
       ),
+    openAt: (path: string) => show(opened(tabs, crypto.randomUUID(), path)),
   };
 }
