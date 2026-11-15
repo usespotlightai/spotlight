@@ -1,5 +1,5 @@
 import { DndContext } from '@dnd-kit/core';
-import type { ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
 import { useMatch, useParams, useResolvedPath } from 'react-router';
 
 import { InboxDragOverlay } from '@/components/features/inbox/InboxDragOverlay';
@@ -19,6 +19,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInbox, useResolvedInbox } from '@/hooks/api/useInbox';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { OPEN_DROP, RESOLVED_DROP, useInboxDrag } from '@/hooks/useInboxDrag';
+import { useListKeys } from '@/hooks/useListKeys';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { useTimedFlag } from '@/hooks/useTimedFlag';
 import { entryKey, inboxPath } from '@/lib/inbox';
@@ -76,6 +77,8 @@ export function Inbox() {
     onToggle: () => toggle(id),
   });
   const resolvedInbox = useResolvedInbox(slug);
+  const rows = useRef<HTMLDivElement>(null);
+  useListKeys(rows);
   const open = inbox.data ?? [];
   const opened = new Set(open.map(entryKey));
   const entries = [
@@ -118,67 +121,69 @@ export function Inbox() {
             />
 
             <DndContext sensors={drag.sensors} {...drag.handlers}>
-              <ScrollArea
-                className="min-h-0 flex-1"
-                scrollbar={animating.on ? 'hidden' : 'while-scrolling'}
-                contentClassName="min-h-full flex flex-col gap-0.5 p-2"
-              >
-                {loading(inbox) && (
-                  <InboxListSkeleton
-                    open={section(OPEN)}
-                    running={section(RUNNING)}
-                    resolved={section(RESOLVED)}
-                  />
-                )}
-
-                {inbox.data && (
-                  <InboxDropZone id={OPEN_DROP}>
-                    <InboxSection
-                      slug={slug}
-                      label="Open"
-                      entries={waiting}
-                      {...section(OPEN)}
+              <div ref={rows} className="contents">
+                <ScrollArea
+                  className="min-h-0 flex-1"
+                  scrollbar={animating.on ? 'hidden' : 'while-scrolling'}
+                  contentClassName="min-h-full flex flex-col gap-0.5 p-2"
+                >
+                  {loading(inbox) && (
+                    <InboxListSkeleton
+                      open={section(OPEN)}
+                      running={section(RUNNING)}
+                      resolved={section(RESOLVED)}
                     />
-                  </InboxDropZone>
-                )}
+                  )}
 
-                {inbox.data && (
-                  <div className="mt-auto pt-4">
-                    <InboxSection
-                      slug={slug}
-                      label="Running"
-                      entries={working}
-                      {...section(RUNNING)}
-                    />
-
-                    {following.length > 0 && (
+                  {inbox.data && (
+                    <InboxDropZone id={OPEN_DROP}>
                       <InboxSection
                         slug={slug}
-                        label="Following"
-                        entries={following}
-                        {...section(FOLLOWING)}
-                      />
-                    )}
-
-                    <InboxDropZone id={RESOLVED_DROP}>
-                      <InboxSection
-                        slug={slug}
-                        label="Resolved"
-                        entries={done}
-                        count={resolvedCount(resolvedInbox, done.length)}
-                        {...section(RESOLVED)}
-                        after={
-                          <ShowMore
-                            list={resolvedInbox}
-                            what="Resolved items"
-                            skeleton={<InboxRowSkeleton />}
-                          />
-                        }
+                        label="Open"
+                        entries={waiting}
+                        {...section(OPEN)}
                       />
                     </InboxDropZone>
-                  </div>
-                )}
-              </ScrollArea>
+                  )}
+
+                  {inbox.data && (
+                    <div className="mt-auto pt-4">
+                      <InboxSection
+                        slug={slug}
+                        label="Running"
+                        entries={working}
+                        {...section(RUNNING)}
+                      />
+
+                      {following.length > 0 && (
+                        <InboxSection
+                          slug={slug}
+                          label="Following"
+                          entries={following}
+                          {...section(FOLLOWING)}
+                        />
+                      )}
+
+                      <InboxDropZone id={RESOLVED_DROP}>
+                        <InboxSection
+                          slug={slug}
+                          label="Resolved"
+                          entries={done}
+                          count={resolvedCount(resolvedInbox, done.length)}
+                          {...section(RESOLVED)}
+                          after={
+                            <ShowMore
+                              list={resolvedInbox}
+                              what="Resolved items"
+                              skeleton={<InboxRowSkeleton />}
+                            />
+                          }
+                        />
+                      </InboxDropZone>
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
 
               <InboxDragOverlay slug={slug} entry={drag.dragged} />
             </DndContext>

@@ -1,6 +1,8 @@
 import { ChevronsUpDown } from 'lucide-react';
+import { useState } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,6 +10,12 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useCommands } from '@/hooks/useCommands';
 import type { StationResponseDto } from '@/lib/api';
 import { stationShare } from '@/lib/station';
 import { movableByHand } from '@/lib/task';
@@ -40,24 +48,41 @@ export function StationSelect({
   const offered = currentStation
     ? stations.filter((each) => movableByHand(currentStation, each))
     : [];
+  const [open, setOpen] = useState(false);
+  useCommands(
+    offered.length > 1
+      ? [{ id: 'task.station', run: () => setOpen(true) }]
+      : [],
+  );
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label="Station"
-        className="group/station flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
-      >
-        <StationIcon
-          share={shareOf(value)}
-          color={currentStation?.color}
-          className="transition-[filter] group-hover/station:brightness-90"
-        />
-        <span className="truncate text-foreground">{currentStation?.name}</span>
-        <ChevronsUpDown
-          className="ml-auto size-3 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
-      </DropdownMenuTrigger>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              aria-label="Station"
+              className="group/station flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
+            />
+          }
+        >
+          <StationIcon
+            share={shareOf(value)}
+            color={currentStation?.color}
+            className="transition-[filter] group-hover/station:brightness-90"
+          />
+          <span className="truncate text-foreground">
+            {currentStation?.name}
+          </span>
+          <ChevronsUpDown
+            className="ml-auto size-3 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+        </TooltipTrigger>
+        <TooltipContent>
+          <ShortcutHint id="task.station">Move to a station</ShortcutHint>
+        </TooltipContent>
+      </Tooltip>
 
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-52">
         <DropdownMenuRadioGroup

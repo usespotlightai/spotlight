@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { APP_TABS_KEY } from '@/lib/app-tabs';
@@ -456,6 +457,130 @@ describe('Workspace', () => {
       await user.click(screen.getByRole('button', { name: 'Home' }));
 
       expect(screen.getByText('runs slot')).toBe(runs);
+    });
+  });
+
+  describe('keyboard', () => {
+    const renderWithKeys = (rest = '') =>
+      render(
+        <CommandsProvider>
+          <MemoryRouter initialEntries={[`/w/acme-inc${rest}`]}>
+            <Routes>
+              <Route path="/w/:slug" element={<Workspace pages={pages} />}>
+                {pages}
+              </Route>
+            </Routes>
+            <WindowAddress />
+          </MemoryRouter>
+        </CommandsProvider>,
+      );
+
+    const press = (...keys: string[]) => {
+      for (const key of keys) {
+        fireEvent.keyDown(document.activeElement ?? document.body, { key });
+      }
+    };
+
+    it('goes to the Inbox with G then I', () => {
+      loaded(acme);
+      renderWithKeys();
+
+      press('g', 'i');
+
+      expect(
+        screen.getByText('Window at /w/acme-inc/inbox'),
+      ).toBeInTheDocument();
+    });
+
+    it('goes to a section of the team in the address with G and its key', () => {
+      loaded({
+        ...acme,
+        teams: [
+          { id: 'team_0', name: 'Growth' },
+          { id: 'team_1', name: 'Platform' },
+        ],
+      });
+      renderWithKeys('/team/team_1/runs');
+
+      press('g', 'm');
+
+      expect(
+        screen.getByText('Window at /w/acme-inc/team/team_1/memory'),
+      ).toBeInTheDocument();
+    });
+
+    it('goes to the only line of the team with G then L', () => {
+      loaded(acme);
+      renderWithKeys();
+
+      press('g', 'l');
+
+      expect(
+        screen.getByText('Window at /w/acme-inc/team/team_1/lines/line_1'),
+      ).toBeInTheDocument();
+    });
+
+    it('goes to the line to create a task with C', () => {
+      loaded(acme);
+      renderWithKeys();
+
+      press('c');
+
+      expect(
+        screen.getByText('Window at /w/acme-inc/team/team_1/lines/line_1'),
+      ).toBeInTheDocument();
+    });
+
+    it('shows the keyboard shortcuts with ?', async () => {
+      loaded(acme);
+      renderWithKeys();
+
+      press('?');
+
+      expect(
+        await screen.findByRole('dialog', { name: 'Keyboard shortcuts' }),
+      ).toBeInTheDocument();
+    });
+
+    it('opens the palette with Command K and lists the commands with their keys', async () => {
+      loaded(acme);
+      renderWithKeys();
+
+      fireEvent.keyDown(document.body, { key: 'k', metaKey: true });
+
+      const palette = await screen.findByRole('dialog', { name: 'Search' });
+      const actions = within(palette).getByRole('group', { name: 'Actions' });
+      expect(
+        within(actions).getByRole('option', {
+          name: /Show keyboard shortcuts/,
+        }),
+      ).toHaveTextContent('?');
+    });
+
+    it('runs a command picked in the palette', async () => {
+      const user = userEvent.setup();
+      loaded(acme);
+      renderWithKeys();
+
+      fireEvent.keyDown(document.body, { key: 'k', metaKey: true });
+      await user.click(
+        await screen.findByRole('option', { name: /Show keyboard shortcuts/ }),
+      );
+
+      expect(
+        await screen.findByRole('dialog', { name: 'Keyboard shortcuts' }),
+      ).toBeInTheDocument();
+    });
+
+    it('opens the palette on the lines with O then L', async () => {
+      loaded(acme);
+      renderWithKeys();
+
+      press('o', 'l');
+
+      expect(
+        await screen.findByPlaceholderText('Open a line…'),
+      ).toBeInTheDocument();
     });
   });
 });

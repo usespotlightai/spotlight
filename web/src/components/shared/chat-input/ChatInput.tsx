@@ -14,6 +14,7 @@ import { SendOrStop } from '@/components/shared/chat-input/SendOrStop';
 import type { DraftHandle } from '@/hooks/useChatDraft';
 import { useChatMessage } from '@/hooks/useChatMessage';
 import { useChatSend } from '@/hooks/useChatSend';
+import { useCommands } from '@/hooks/useCommands';
 import { useFileDropTarget } from '@/hooks/useFileDropTarget';
 import { useOneLineFit } from '@/hooks/useOneLineFit';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
@@ -45,6 +46,7 @@ type ChatInputProps = Sending & {
   below?: ReactNode;
   shared?: SharedDraft | null;
   draft?: DraftHandle;
+  focusOnReply?: boolean;
 };
 
 const NO_REFERENCES: readonly Reference[] = [];
@@ -140,6 +142,7 @@ export function ChatInput({
   disabled = false,
   shared = null,
   draft,
+  focusOnReply = false,
 }: ChatInputProps) {
   const cursors = useRef<HTMLDivElement>(null);
   const message = useChatMessage(
@@ -150,6 +153,11 @@ export function ChatInput({
     draft,
   );
   useFileDropTarget(message.attach, { disabled });
+  useCommands(
+    focusOnReply && !disabled
+      ? [{ id: 'inbox.reply', run: () => message.editor.current?.focus() }]
+      : [],
+  );
   const lifted = message.images.length > 0;
   const { inner, writing, height, expanded } = useOneLineFit(
     message.written,

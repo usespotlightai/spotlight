@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { Inbox } from '@/routes/Inbox';
 
 const waiting = vi.fn<(...args: unknown[]) => unknown>();
@@ -694,6 +695,53 @@ describe('Inbox', () => {
       expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
         '1',
       );
+    });
+  });
+
+  describe('keyboard', () => {
+    const renderWithKeys = (path: string) =>
+      render(<CommandsProvider>{tree(path)}</CommandsProvider>);
+
+    const press = (key: string) =>
+      fireEvent.keyDown(document.activeElement ?? document.body, { key });
+
+    it('moves the focus to the first item with J', () => {
+      renderWithKeys('/w/acme/inbox');
+
+      press('j');
+
+      expect(document.activeElement).toHaveTextContent('Fix the queue');
+    });
+
+    it('resolves the focused item with E', () => {
+      renderWithKeys('/w/acme/inbox');
+
+      press('j');
+      press('e');
+
+      expect(resolve).toHaveBeenCalledWith({
+        slug: 'acme',
+        entry: expect.objectContaining({ id: 'task_1:0' }) as unknown,
+      });
+    });
+
+    it('resolves the open item with E', () => {
+      renderWithKeys('/w/acme/inbox/task_1%3A0');
+
+      press('e');
+
+      expect(resolve).toHaveBeenCalledWith({
+        slug: 'acme',
+        entry: expect.objectContaining({ id: 'task_1:0' }) as unknown,
+      });
+    });
+
+    it('resolves nothing with E while no item is open or focused', () => {
+      renderWithKeys('/w/acme/inbox');
+
+      press('e');
+
+      expect(resolve).not.toHaveBeenCalled();
     });
   });
 });

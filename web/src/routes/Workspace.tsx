@@ -1,10 +1,11 @@
-import { type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link, useMatch, useParams } from 'react-router';
 
 import { SettingUpWorkspace } from '@/components/features/onboarding/SettingUpWorkspace';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { CommandPalette } from '@/components/shell/command/CommandPalette';
+import { ShortcutSheet } from '@/components/shell/command/ShortcutSheet';
 import { AppSidebar } from '@/components/shell/layout/AppSidebar';
 import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
 import { AppTabStrip } from '@/components/shell/tabs/AppTabStrip';
@@ -15,7 +16,6 @@ import { buttonVariants } from '@/components/ui/button-variants';
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useAppTabs } from '@/hooks/useAppTabs';
-import { useCommandShortcut } from '@/hooks/useCommandShortcut';
 import { useDesktopBadge } from '@/hooks/useDesktopBadge';
 import { useDesktopCommands } from '@/hooks/useDesktopCommands';
 import { useInboxNotifier } from '@/hooks/useInboxNotifier';
@@ -23,7 +23,9 @@ import { useLastPlace } from '@/hooks/useLastPlace';
 import { useLiveStream } from '@/hooks/useLiveStream';
 import { useNarrowViewport } from '@/hooks/useNarrowViewport';
 import { useSlideFrom } from '@/hooks/useSlideFrom';
+import { useWorkspaceCommands } from '@/hooks/useWorkspaceCommands';
 import type { SplitSide } from '@/lib/app-tabs';
+import type { PaletteSection } from '@/lib/commands/targets';
 import { failed, loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
@@ -42,8 +44,22 @@ export function Workspace({ pages }: WorkspaceProps) {
   const tabs = useAppTabs(slug ?? '', workspace.data?.teams ?? []);
   const narrow = useNarrowViewport();
   const [searching, setSearching] = useState(false);
-  const toggleSearch = useCallback(() => setSearching((open) => !open), []);
-  useCommandShortcut(toggleSearch);
+  const [section, setSection] = useState<PaletteSection | undefined>();
+  const [showingShortcuts, setShowingShortcuts] = useState(false);
+  const search = (wanted?: PaletteSection) => {
+    setSection(wanted);
+    setSearching(true);
+  };
+  useWorkspaceCommands({
+    slug: slug ?? '',
+    teams: workspace.data?.teams ?? [],
+    onPalette: search,
+    onTogglePalette: () => {
+      setSection(undefined);
+      setSearching((open) => !open);
+    },
+    onShortcuts: () => setShowingShortcuts(true),
+  });
   useLiveStream(useInboxNotifier());
   useDesktopBadge(slug);
   useDesktopCommands(slug, tabs);
@@ -154,7 +170,7 @@ export function Workspace({ pages }: WorkspaceProps) {
               inSettings={inSettings}
               from={slideFrom}
               leftAt={leftAt}
-              onSearch={() => setSearching(true)}
+              onSearch={() => search()}
             />
           )
         }
@@ -179,9 +195,15 @@ export function Workspace({ pages }: WorkspaceProps) {
           slug={slug}
           workspace={workspace.data}
           open={searching}
+          section={section}
           onOpenChange={setSearching}
         />
       )}
+
+      <ShortcutSheet
+        open={showingShortcuts}
+        onOpenChange={setShowingShortcuts}
+      />
     </TabDrag>
   );
 }

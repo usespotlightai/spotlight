@@ -42,6 +42,8 @@ export type CommandTarget = {
   readonly to: string;
 };
 
+export type PaletteSection = 'Lines' | 'Stations' | 'Tasks';
+
 export type CommandSection = {
   readonly heading: string;
   readonly targets: readonly CommandTarget[];
@@ -66,12 +68,6 @@ export const commandMatch = (
     ? Math.min(...words.map((word) => defaultFilter(text, word)))
     : 0;
 };
-
-export const isCommandShortcut = (event: KeyboardEvent): boolean =>
-  event.key.toLowerCase() === 'k' &&
-  (event.metaKey || event.ctrlKey) &&
-  !event.shiftKey &&
-  !event.altKey;
 
 export const navigationTargets = (
   slug: string,
@@ -195,6 +191,3 @@ export const settingsTargets = (
     })),
   ),
 ];
-
-export const commandShortcut = (userAgent: string): string =>
-  /Mac|iPhone|iPad/.test(userAgent) ? '⌘K' : 'Ctrl K';

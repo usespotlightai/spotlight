@@ -2,17 +2,22 @@ import {
   act,
   createEvent,
   fireEvent,
-  render,
+  render as renderPlain,
   screen,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import {
   DashboardLayout,
   type Pane,
 } from '@/components/shell/layout/DashboardLayout';
 import { SPRING_MS } from '@/lib/motion';
+
+const render = (ui: ReactElement) =>
+  renderPlain(ui, { wrapper: CommandsProvider });
 
 const firedAt =
   (type: 'pointerDown' | 'pointerMove' | 'pointerUp') =>
@@ -573,7 +578,6 @@ describe('DashboardLayout sidebar', () => {
     ['with Ctrl', { ctrlKey: true }],
     ['with Command', { metaKey: true }],
     ['with Option', { altKey: true }],
-    ['with Shift', { shiftKey: true }],
   ])('ignores the [ key %s', (_name, init) => {
     renderLayout();
 

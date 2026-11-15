@@ -1,5 +1,6 @@
-import { MousePointer2, X } from 'lucide-react';
+import { MousePointer2 } from 'lucide-react';
 
+import { ClearSelection } from '@/components/shared/ClearSelection';
 import { Button } from '@/components/ui/button';
 
 type TraceSelectionBarProps = {
@@ -33,15 +34,7 @@ export function TraceSelectionBar({
         Discuss with the agent
       </Button>
 
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={onClear}
-        aria-label="Clear selection"
-        className="rounded-full"
-      >
-        <X />
-      </Button>
+      <ClearSelection onClear={onClear} />
     </div>
   );
 }

@@ -1,7 +1,12 @@
-import { X } from 'lucide-react';
-
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { ClearSelection } from '@/components/shared/ClearSelection';
+import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 type SelectionBarProps = {
   count: number;
@@ -30,26 +35,30 @@ export function SelectionBar({
       </span>
 
       {moveTo && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onMove}
-          className="rounded-full bg-card shadow-none"
-        >
-          <StationIcon share={moveTo.share} className="text-muted-foreground" />
-          Move to {moveTo.name}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onMove}
+                className="rounded-full bg-card shadow-none"
+              />
+            }
+          >
+            <StationIcon
+              share={moveTo.share}
+              className="text-muted-foreground"
+            />
+            Move to {moveTo.name}
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <ShortcutHint id="task.station">Move to {moveTo.name}</ShortcutHint>
+          </TooltipContent>
+        </Tooltip>
       )}
 
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={onClear}
-        aria-label="Clear selection"
-        className="rounded-full"
-      >
-        <X />
-      </Button>
+      <ClearSelection onClear={onClear} />
     </div>
   );
 }

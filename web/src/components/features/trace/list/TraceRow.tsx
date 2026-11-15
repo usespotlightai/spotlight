@@ -32,6 +32,7 @@ export function TraceRow({
         TABLE_ROW,
         'group/trace transition-colors [contain-intrinsic-size:auto_2.25rem] [content-visibility:auto]',
         selected ? 'bg-selected' : 'hover:bg-accent',
+        'has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset',
         TRACE_COLUMNS,
       )}
     >

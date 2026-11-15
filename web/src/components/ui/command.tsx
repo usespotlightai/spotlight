@@ -44,7 +44,7 @@ function CommandDialog({
       <DialogContent
         showCloseButton={false}
         className={cn(
-          "top-[20%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-xl",
+          "top-[20%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-[708px]",
           className
         )}
       >
@@ -65,7 +65,7 @@ function CommandInput({
   return (
     <div
       data-slot="command-input-wrapper"
-      className="flex h-11 items-center gap-2 px-3"
+      className="flex h-11 items-center gap-2 border-b-[0.5px] border-border px-4"
     >
       <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
       <CommandPrimitive.Input
@@ -88,7 +88,7 @@ function CommandList({
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        "max-h-80 scroll-py-1 overflow-x-hidden overflow-y-auto p-1",
+        "max-h-[min(460px,60vh)] scroll-py-1 overflow-x-hidden overflow-y-auto p-1",
         className
       )}
       {...props}
@@ -133,7 +133,7 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
+        "relative flex cursor-default h-11.5 items-center gap-3 rounded-md px-3 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
         className
       )}
       {...props}

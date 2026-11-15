@@ -31,8 +31,9 @@ export function RunRow({
 
   return (
     <li
+      data-list-item
       className={cn(
-        'relative flex min-w-0 items-start gap-2 rounded-md py-2 text-sm transition-colors hover:bg-accent @xl/pane:h-9 @xl/pane:items-center @xl/pane:py-0',
+        'relative flex min-w-0 items-start gap-2 rounded-md py-2 text-sm transition-colors hover:bg-accent has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset @xl/pane:h-9 @xl/pane:items-center @xl/pane:py-0',
         gutter ? 'px-3' : 'px-2',
       )}
     >
