@@ -83,7 +83,7 @@ export function ContextMenuPopup({
                 <ExternalLink aria-hidden />
                 Open in
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent sideOffset={8} className="min-w-36">
+              <DropdownMenuSubContent className="min-w-36">
                 <DropdownMenuItem onClick={() => onOpenTab(link.path)}>
                   <Plus aria-hidden />
                   New tab
