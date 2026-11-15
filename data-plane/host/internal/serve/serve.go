@@ -789,6 +789,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	if err != nil && setup.from != "" {
 		log.Warn("could not start from the setup image, so the sandbox starts from the runner image", "setupImage", setup.from, "error", err)
 		h.destroy(id)
+		h.dropSetupImage(starting, setup.from, log)
 		setup.image, setup.from = ready.id, ""
 		spec.Image = ready.id
 		id, err = h.engine.Start(starting, spec)
@@ -864,7 +865,10 @@ func (h *Host) supervise(
 		go func() {
 			defer close(delivered)
 			if live.setup.build {
-				h.buildSetupImage(taking, live, gone, log)
+				if err := h.buildSetupImage(taking, live, gone, log); err != nil {
+					broken <- err
+					return
+				}
 			}
 			if err := h.nextRuns(taking, delivering, live, gone, log); err != nil {
 				broken <- err

@@ -83,6 +83,7 @@ type fakeEngine struct {
 	changes   map[string][]sandbox.Change
 	commits   []committed
 	failImage string
+	failPut   string
 }
 
 func newEngine() *fakeEngine {
@@ -147,6 +148,9 @@ func (e *fakeEngine) Put(_ context.Context, id string, file sandbox.File) error 
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	if file.Path == e.failPut && len(e.commits) > 0 {
+		return errors.New("the sandbox is gone")
+	}
 	if e.put[id] == nil {
 		e.put[id] = map[string]sandbox.File{}
 	}

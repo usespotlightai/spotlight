@@ -37,6 +37,8 @@ const (
 	setupUnchecked       = 15 * time.Minute
 )
 
+var errNotPutBack = errors.New("could not put a runner file back after the setup image")
+
 var (
 	setupImageHolds = []string{"/workspace", "/home", protocol.SetupRecordPath}
 	setupImageDirs  = []string{"/", "/home", "/var", "/var/lib", "/var/lib/spotlight", "/run", "/run/spotlight",
@@ -66,13 +68,7 @@ func setupKey(workspace, digest string, setups map[string]string) string {
 	if workspace == "" || digest == "" || !slices.ContainsFunc(slices.Collect(maps.Values(setups)), func(setup string) bool { return setup != "" }) {
 		return ""
 	}
-	paths := slices.Sorted(func(yield func(string) bool) {
-		for path := range setups {
-			if !yield(path) {
-				return
-			}
-		}
-	})
+	paths := slices.Sorted(maps.Keys(setups))
 	hash := sha256.New()
 	fmt.Fprintf(hash, "%s\x00%s\x00", workspace, digest)
 	for _, path := range paths {
@@ -179,7 +175,7 @@ func builtAt(image sandbox.Image) time.Time {
 	return at
 }
 
-func (h *Host) buildSetupImage(ctx context.Context, live liveSandbox, gone <-chan struct{}, log *slog.Logger) {
+func (h *Host) buildSetupImage(ctx context.Context, live liveSandbox, gone <-chan struct{}, log *slog.Logger) error {
 	setup := live.setup
 	log = log.With("setupKey", setup.key)
 
@@ -187,25 +183,25 @@ func (h *Host) buildSetupImage(ctx context.Context, live liveSandbox, gone <-cha
 		if ctx.Err() == nil {
 			log.Warn("the warm sandbox did not open its workspace in time, so no setup image is made")
 		}
-		return
+		return nil
 	}
 
 	record, err := h.setupRecord(ctx, live.id)
 	switch {
 	case err != nil:
 		log.Warn("could not read the warm sandbox's setups, so no setup image is made", "error", err)
-		return
+		return nil
 	case !record.Complete:
 		log.Info("a warm setup failed, so no setup image is made")
-		return
+		return nil
 	case !record.Ran:
 		log.Info("the warm sandbox's setup image is up to date", "setupImage", setup.from)
-		return
+		return nil
 	}
 
 	if !h.claimSetupBuild(setup.key) {
 		log.Info("another sandbox makes this setup image")
-		return
+		return nil
 	}
 	defer h.releaseSetupBuild(setup.key)
 
@@ -214,18 +210,21 @@ func (h *Host) buildSetupImage(ctx context.Context, live liveSandbox, gone <-cha
 	switch {
 	case err != nil:
 		log.Warn("could not read the free disk, so no setup image is made", "error", err)
-		return
+		return nil
 	case free < floor:
 		log.Warn("the disk is below the setup image floor, so no setup image is made",
 			"freeBytes", free, "floorBytes", floor)
-		return
+		return nil
 	}
 
 	started := time.Now()
 	image, err := h.commitSetup(ctx, live, gone, log)
+	if errors.Is(err, errNotPutBack) {
+		return err
+	}
 	if err != nil {
 		log.Warn("could not make a setup image; the sandbox serves runs as before", "error", err)
-		return
+		return nil
 	}
 
 	took := time.Since(started)
@@ -243,6 +242,7 @@ func (h *Host) buildSetupImage(ctx context.Context, live liveSandbox, gone <-cha
 		"took", took, "freeBytes", free)
 
 	h.removeSetupImages(ctx, setup.key, image)
+	return nil
 }
 
 func (h *Host) workspaceOpened(ctx context.Context, id string, gone <-chan struct{}) bool {
@@ -327,7 +327,7 @@ func (h *Host) output(ctx context.Context, id string, command []string) (string,
 	return string(body), nil
 }
 
-func (h *Host) commitSetup(ctx context.Context, live liveSandbox, gone <-chan struct{}, log *slog.Logger) (string, error) {
+func (h *Host) commitSetup(ctx context.Context, live liveSandbox, gone <-chan struct{}, log *slog.Logger) (image string, err error) {
 	base, err := h.engine.Inspect(ctx, live.setup.base)
 	if err != nil {
 		return "", fmt.Errorf("read the runner image: %w", err)
@@ -351,8 +351,8 @@ func (h *Host) commitSetup(ctx context.Context, live liveSandbox, gone <-chan st
 		restoring, cancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupBudget)
 		defer cancel()
 		for _, path := range order {
-			if err := h.engine.Put(restoring, live.id, sandbox.File{Path: path, Mode: 0o644, DirMode: 0o755, Body: aside[path]}); err != nil {
-				log.Error("could not put a runner file back after the setup image; the sandbox may not serve runs", "path", path, "error", err)
+			if putErr := h.engine.Put(restoring, live.id, sandbox.File{Path: path, Mode: 0o644, DirMode: 0o755, Body: aside[path]}); putErr != nil {
+				err = errors.Join(err, fmt.Errorf("%w: %s: %w", errNotPutBack, path, putErr))
 			}
 		}
 	}()
@@ -400,6 +400,30 @@ func (h *Host) commitSetup(ctx context.Context, live liveSandbox, gone <-chan st
 			LabelBuiltAt:    time.Now().UTC().Format(time.RFC3339Nano),
 		},
 	})
+}
+
+func (h *Host) dropSetupImage(ctx context.Context, id string, log *slog.Logger) {
+	h.mu.Lock()
+	starting := h.setupStarts[id] > 0
+	h.mu.Unlock()
+	if starting {
+		return
+	}
+	image, err := h.engine.Inspect(ctx, id)
+	if err == nil {
+		err = h.removeImage(ctx, image)
+	}
+	switch {
+	case errors.Is(err, sandbox.ErrInUse):
+	case err != nil:
+		log.Warn("could not remove the setup image that did not start", "setupImage", id, "error", err)
+	default:
+		h.mu.Lock()
+		delete(h.setupUsed, id)
+		h.mu.Unlock()
+		log.Info("removed a setup image", "setupImage", id, "setupKey", image.Labels[LabelSetupKey],
+			"reason", "a sandbox could not start from it", "megabytes", image.Size/1_000_000)
+	}
 }
 
 func heldVolume(volumes []string) string {

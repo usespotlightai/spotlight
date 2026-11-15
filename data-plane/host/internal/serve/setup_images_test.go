@@ -236,4 +236,21 @@ func TestASandboxWhoseSetupImageWillNotStartStartsFromTheRunnerImage(t *testing.
 	if got := engine.sandbox(engine.workSandboxes()[1]).Image; got != base {
 		t.Errorf("started from %s, want the runner image %s", got, base)
 	}
+	failed := engine.committedImages()[0].image
+	images, _ := engine.Images(context.Background())
+	if slices.ContainsFunc(images, func(each sandbox.Image) bool { return each.ID == failed }) {
+		t.Error("the setup image that did not start is still there, so the next sandbox tries it again")
+	}
+}
+
+func TestAWarmSandboxThatDidNotGetItsFilesBackAfterTheCommitStops(t *testing.T) {
+	engine, pool, id := warmed(t, options(t))
+	engine.set(func(e *fakeEngine) { e.failPut = protocol.SandboxWorkspaceOpen })
+
+	opened(t, engine, id, setUp())
+	eventually(t, "a setup image", func() bool { return len(engine.committedImages()) == 1 })
+	eventually(t, "the warm sandbox stopped", func() bool { return engine.wasDestroyed(id) })
+	if claims := pool.sandboxClaims(); len(claims) > 0 {
+		t.Error("the sandbox claimed a run without its files")
+	}
 }
