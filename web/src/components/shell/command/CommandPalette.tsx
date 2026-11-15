@@ -17,9 +17,11 @@ import { paletteActions, shortcutFor } from '@/lib/commands/palette';
 import {
   commandKeywords,
   commandMatch,
+  type PalettePick,
   type PaletteSection,
 } from '@/lib/commands/targets';
 import type { Role } from '@/lib/role';
+import { creatingState } from '@/lib/task-create';
 import type { Team } from '@/lib/team';
 
 type CommandPaletteProps = {
@@ -29,7 +31,7 @@ type CommandPaletteProps = {
     readonly teams: readonly Team[];
   };
   open: boolean;
-  section?: PaletteSection;
+  pick?: PalettePick;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -43,9 +45,10 @@ export function CommandPalette({
   slug,
   workspace,
   open,
-  section,
+  pick,
   onOpenChange,
 }: CommandPaletteProps) {
+  const section = pick?.section;
   const navigate = useNavigate();
   const sections = useCommandSections(slug, workspace, open);
   const commands = useActiveCommands();
@@ -68,9 +71,11 @@ export function CommandPalette({
       <Command filter={commandMatch}>
         <CommandInput
           placeholder={
-            section
-              ? PLACEHOLDERS[section]
-              : 'Search commands, pages, lines, stations and tasks…'
+            pick?.creating
+              ? 'Create a task on a line…'
+              : section
+                ? PLACEHOLDERS[section]
+                : 'Search commands, pages, lines, stations and tasks…'
           }
         />
         <CommandList>
@@ -100,7 +105,10 @@ export function CommandPalette({
                     keywords={commandKeywords(target)}
                     onSelect={() => {
                       close();
-                      void navigate(target.to);
+                      void navigate(
+                        target.to,
+                        pick?.creating ? { state: creatingState() } : undefined,
+                      );
                     }}
                   >
                     <target.icon />

@@ -13,20 +13,14 @@ import { SidebarExpand } from '@/components/shell/layout/SidebarExpand';
 import { SidebarPeekLayer } from '@/components/shell/layout/SidebarPeekLayer';
 import { useCoarsePointer } from '@/hooks/useCoarsePointer';
 import { useCollapsedSidebar } from '@/hooks/useCollapsedSidebar';
-import { useCommands } from '@/hooks/useCommands';
 import { useDragToClose } from '@/hooks/useDragToClose';
 import { useNarrowViewport } from '@/hooks/useNarrowViewport';
 import { usePaneWidth, WORKSPACE_SIDEBAR } from '@/hooks/usePaneWidth';
 import { useSettling } from '@/hooks/useSettling';
+import { useSidebarKey } from '@/hooks/useSidebarKey';
 import { framesWindow } from '@/lib/desktop';
 import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
-
-const SHOWS_SIDEBAR = '(min-width: 48rem)';
-
-const sidebarShown = () =>
-  typeof window.matchMedia !== 'function' ||
-  window.matchMedia(SHOWS_SIDEBAR).matches;
 
 const CLOSES_AT_PX = 96;
 
@@ -159,17 +153,7 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
     narrow,
   });
 
-  useCommands(
-    children
-      ? [
-          {
-            id: 'sidebar.toggle',
-            run: () => setCollapsed(!collapsed),
-            enabled: sidebarShown,
-          },
-        ]
-      : [],
-  );
+  useSidebarKey(() => setCollapsed(!collapsed), Boolean(children));
 
   const closes = (wanted: number, velocity: number) =>
     wanted < CLOSES_AT_PX ||

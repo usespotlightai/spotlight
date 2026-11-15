@@ -28,9 +28,17 @@ export const chordOf = (event: KeyboardEvent): Chord | null => {
     return null;
   }
 
+  const altGraph =
+    event.getModifierState('AltGraph') ||
+    (event.ctrlKey &&
+      event.altKey &&
+      !event.metaKey &&
+      !named &&
+      !LETTER.test(key));
+
   return [
-    (event.metaKey || event.ctrlKey) && 'mod',
-    event.altKey && 'alt',
+    (event.metaKey || (event.ctrlKey && !altGraph)) && 'mod',
+    event.altKey && !altGraph && 'alt',
     event.shiftKey && (named || LETTER.test(key)) && 'shift',
     key,
   ]

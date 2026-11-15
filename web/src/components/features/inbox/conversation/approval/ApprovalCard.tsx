@@ -5,8 +5,7 @@ import { ApprovalControls } from '@/components/features/inbox/conversation/appro
 import { ApprovalFields } from '@/components/features/inbox/conversation/approval/ApprovalFields';
 import { ApprovalHeader } from '@/components/features/inbox/conversation/approval/ApprovalHeader';
 import { DecisionCard } from '@/components/shared/DecisionCard';
-import { useCommands } from '@/hooks/useCommands';
-import { useFocusWithin } from '@/hooks/useFocusWithin';
+import { useApproveKey } from '@/hooks/useApproveKey';
 import {
   type Approval,
   type ApprovalAnswer,
@@ -37,7 +36,6 @@ export function ApprovalCard({
   const changed = differs(approval.inputs, edits);
   const onlyFor = approvedOnlyBy(approval, viewerId);
   const blank = blanked(approval.inputs, edits);
-  const { focused, handlers } = useFocusWithin();
 
   const toMode = (next: ApprovalMode) => {
     if (next === 'viewing') {
@@ -59,20 +57,14 @@ export function ApprovalCard({
         : undefined,
     });
 
-  const approveNow =
-    !deciding || pending
-      ? null
-      : mode === 'editing'
-        ? blank
-          ? null
-          : approveEdited
-        : mode === 'viewing' && !onlyFor
-          ? () => deciding({ approve: true, body: '' })
-          : null;
-
-  useCommands(
-    focused && approveNow ? [{ id: 'approval.approve', run: approveNow }] : [],
-  );
+  const handlers = useApproveKey({
+    mode,
+    ready: Boolean(deciding) && !pending,
+    blank,
+    onlyFor,
+    onApprove: () => deciding?.({ approve: true, body: '' }),
+    onApproveEdited: approveEdited,
+  });
 
   return (
     <div className="flex flex-col gap-2" {...handlers}>

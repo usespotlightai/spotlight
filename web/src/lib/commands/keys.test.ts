@@ -39,6 +39,37 @@ describe('chordOf', () => {
   });
 });
 
+describe('chordOf with AltGr', () => {
+  it('reads a key typed with AltGr as the key alone', () => {
+    const event = new KeyboardEvent('keydown', {
+      key: '[',
+      ctrlKey: true,
+      altKey: true,
+    });
+
+    expect(chordOf(event)).toBe('[');
+  });
+
+  it('reads AltGr from the modifier state', () => {
+    const event = new KeyboardEvent('keydown', { key: 'ą', ctrlKey: true });
+    Object.defineProperty(event, 'getModifierState', {
+      value: (modifier: string) => modifier === 'AltGraph',
+    });
+
+    expect(chordOf(event)).toBe('ą');
+  });
+
+  it('keeps Ctrl and Alt on a letter', () => {
+    const event = new KeyboardEvent('keydown', {
+      key: 'k',
+      ctrlKey: true,
+      altKey: true,
+    });
+
+    expect(chordOf(event)).toBe('mod+alt+k');
+  });
+});
+
 describe('startsWith', () => {
   it('finds the start of a sequence', () => {
     expect(startsWith(['g', 'i'], ['g'])).toBe(true);

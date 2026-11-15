@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Package } from 'lucide-react';
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +8,7 @@ import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { APP_TABS_KEY } from '@/lib/app-tabs';
+import { creatingOf } from '@/lib/task-create';
 import { Workspace } from '@/routes/Workspace';
 import { quietBrowser } from '@/test/signed-in';
 
@@ -17,18 +19,20 @@ vi.mock('@/hooks/useInboxNotifier', () => ({ useInboxNotifier: vi.fn() }));
 vi.mock('@/hooks/useDesktopBadge', () => ({ useDesktopBadge: vi.fn() }));
 vi.mock('@/hooks/useDesktopCommands', () => ({ useDesktopCommands: vi.fn() }));
 
+const fixtures = vi.hoisted(() => ({
+  lines: [] as { id: string; name: string; stations: never[] }[],
+  sections: [] as unknown[],
+}));
+
 vi.mock('@/hooks/api/useLines', () => ({
-  useLines: () => ({
-    data: [{ id: 'line_1', name: 'Default', stations: [] }],
-    isPending: false,
-  }),
+  useLines: () => ({ data: fixtures.lines, isPending: false }),
 }));
 vi.mock('@/hooks/api/useTasks', () => ({
   useTasks: () => ({ data: [], isPending: false }),
   useTask: () => ({ data: undefined, isPending: false }),
 }));
 vi.mock('@/hooks/useCommandSections', () => ({
-  useCommandSections: () => [],
+  useCommandSections: () => fixtures.sections,
 }));
 vi.mock('@/hooks/api/useSignOut', () => ({
   useSignOut: () => ({ mutate: vi.fn(), isPending: false }),
@@ -83,9 +87,16 @@ const acme = {
 };
 
 function WindowAddress() {
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const state: unknown = location.state;
+  const { pathname } = location;
 
-  return <p>Window at {pathname}</p>;
+  return (
+    <p>
+      Window at {pathname}
+      {creatingOf(state) !== null && ', creating a task'}
+    </p>
+  );
 }
 
 const pages = (
@@ -132,6 +143,8 @@ const splitTabs = () =>
   );
 
 beforeEach(() => {
+  fixtures.lines = [{ id: 'line_1', name: 'Default', stations: [] }];
+  fixtures.sections = [];
   mockWorkspace.mockReset();
   mockSettingUp.mockReturnValue(false);
   refetch.mockClear();
@@ -527,7 +540,43 @@ describe('Workspace', () => {
       press('c');
 
       expect(
-        screen.getByText('Window at /w/acme-inc/team/team_1/lines/line_1'),
+        screen.getByText(
+          'Window at /w/acme-inc/team/team_1/lines/line_1, creating a task',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('asks for the line with C when the team has several lines', async () => {
+      const user = userEvent.setup();
+      loaded(acme);
+      fixtures.lines = [
+        { id: 'line_1', name: 'Default', stations: [] },
+        { id: 'line_2', name: 'Incidents', stations: [] },
+      ];
+      fixtures.sections = [
+        {
+          heading: 'Lines',
+          targets: [
+            {
+              id: 'line:line_2',
+              label: 'Incidents',
+              icon: Package,
+              to: '/w/acme-inc/team/team_1/lines/line_2',
+            },
+          ],
+        },
+      ];
+      renderWithKeys();
+
+      press('c');
+      await user.click(
+        await screen.findByRole('option', { name: /Incidents/ }),
+      );
+
+      expect(
+        screen.getByText(
+          'Window at /w/acme-inc/team/team_1/lines/line_2, creating a task',
+        ),
       ).toBeInTheDocument();
     });
 

@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link, useMatch, useParams } from 'react-router';
 
 import { SettingUpWorkspace } from '@/components/features/onboarding/SettingUpWorkspace';
@@ -23,9 +23,8 @@ import { useLastPlace } from '@/hooks/useLastPlace';
 import { useLiveStream } from '@/hooks/useLiveStream';
 import { useNarrowViewport } from '@/hooks/useNarrowViewport';
 import { useSlideFrom } from '@/hooks/useSlideFrom';
-import { useWorkspaceCommands } from '@/hooks/useWorkspaceCommands';
+import { useWorkspaceOverlays } from '@/hooks/useWorkspaceOverlays';
 import type { SplitSide } from '@/lib/app-tabs';
-import type { PaletteSection } from '@/lib/commands/targets';
 import { failed, loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
@@ -43,23 +42,7 @@ export function Workspace({ pages }: WorkspaceProps) {
   const slideFrom = useSlideFrom(inSettings);
   const tabs = useAppTabs(slug ?? '', workspace.data?.teams ?? []);
   const narrow = useNarrowViewport();
-  const [searching, setSearching] = useState(false);
-  const [section, setSection] = useState<PaletteSection | undefined>();
-  const [showingShortcuts, setShowingShortcuts] = useState(false);
-  const search = (wanted?: PaletteSection) => {
-    setSection(wanted);
-    setSearching(true);
-  };
-  useWorkspaceCommands({
-    slug: slug ?? '',
-    teams: workspace.data?.teams ?? [],
-    onPalette: search,
-    onTogglePalette: () => {
-      setSection(undefined);
-      setSearching((open) => !open);
-    },
-    onShortcuts: () => setShowingShortcuts(true),
-  });
+  const overlays = useWorkspaceOverlays(slug, workspace.data?.teams);
   useLiveStream(useInboxNotifier());
   useDesktopBadge(slug);
   useDesktopCommands(slug, tabs);
@@ -170,7 +153,7 @@ export function Workspace({ pages }: WorkspaceProps) {
               inSettings={inSettings}
               from={slideFrom}
               leftAt={leftAt}
-              onSearch={() => search()}
+              onSearch={() => overlays.search()}
             />
           )
         }
@@ -194,16 +177,11 @@ export function Workspace({ pages }: WorkspaceProps) {
         <CommandPalette
           slug={slug}
           workspace={workspace.data}
-          open={searching}
-          section={section}
-          onOpenChange={setSearching}
+          {...overlays.palette}
         />
       )}
 
-      <ShortcutSheet
-        open={showingShortcuts}
-        onOpenChange={setShowingShortcuts}
-      />
+      <ShortcutSheet {...overlays.sheet} />
     </TabDrag>
   );
 }

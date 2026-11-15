@@ -4,7 +4,7 @@ import { useLines } from '@/hooks/api/useLines';
 import { useCommands } from '@/hooks/useCommands';
 import { useCurrentTeam } from '@/hooks/useCurrentTeam';
 import type { Command } from '@/lib/commands/registry';
-import type { PaletteSection } from '@/lib/commands/targets';
+import type { PalettePick } from '@/lib/commands/targets';
 import { inboxPath } from '@/lib/inbox';
 import { workspaceGeneralPath } from '@/lib/settings';
 import { creatingState } from '@/lib/task-create';
@@ -18,10 +18,12 @@ import {
 type WorkspaceCommands = {
   slug: string;
   teams: readonly Team[];
-  onPalette: (section?: PaletteSection) => void;
+  onPalette: (pick?: PalettePick) => void;
   onTogglePalette: () => void;
   onShortcuts: () => void;
 };
+
+const LINES: PalettePick = { section: 'Lines' };
 
 const SECTION_KEYS = {
   agent: 'go.agent',
@@ -61,19 +63,21 @@ export function useWorkspaceCommands({
             ...go(linePath(slug, team.id, firstLine.id)),
           },
         ]
-      : [{ id: 'go.lines' as const, run: () => onPalette('Lines') }]),
+      : [{ id: 'go.lines' as const, run: () => onPalette(LINES) }]),
     { id: 'go.settings', ...go(workspaceGeneralPath(slug)) },
-    { id: 'open.line', run: () => onPalette('Lines') },
-    { id: 'open.station', run: () => onPalette('Stations') },
-    { id: 'open.task', run: () => onPalette('Tasks') },
+    { id: 'open.line', run: () => onPalette(LINES) },
+    { id: 'open.station', run: () => onPalette({ section: 'Stations' }) },
+    { id: 'open.task', run: () => onPalette({ section: 'Tasks' }) },
     ...(team && firstLine
       ? [
           {
             id: 'task.create' as const,
             run: () =>
-              void navigate(linePath(slug, team.id, firstLine.id), {
-                state: creatingState(),
-              }),
+              lines.length === 1
+                ? void navigate(linePath(slug, team.id, firstLine.id), {
+                    state: creatingState(),
+                  })
+                : onPalette({ section: 'Lines', creating: true }),
           },
         ]
       : []),

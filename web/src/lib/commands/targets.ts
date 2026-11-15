@@ -44,6 +44,11 @@ export type CommandTarget = {
 
 export type PaletteSection = 'Lines' | 'Stations' | 'Tasks';
 
+export type PalettePick = {
+  readonly section: PaletteSection;
+  readonly creating?: boolean;
+};
+
 export type CommandSection = {
   readonly heading: string;
   readonly targets: readonly CommandTarget[];

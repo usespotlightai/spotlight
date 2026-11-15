@@ -14,9 +14,9 @@ import { SendOrStop } from '@/components/shared/chat-input/SendOrStop';
 import type { DraftHandle } from '@/hooks/useChatDraft';
 import { useChatMessage } from '@/hooks/useChatMessage';
 import { useChatSend } from '@/hooks/useChatSend';
-import { useCommands } from '@/hooks/useCommands';
 import { useFileDropTarget } from '@/hooks/useFileDropTarget';
 import { useOneLineFit } from '@/hooks/useOneLineFit';
+import { useReplyKey } from '@/hooks/useReplyKey';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
 import {
   type Outgoing,
@@ -153,11 +153,7 @@ export function ChatInput({
     draft,
   );
   useFileDropTarget(message.attach, { disabled });
-  useCommands(
-    focusOnReply && !disabled
-      ? [{ id: 'inbox.reply', run: () => message.editor.current?.focus() }]
-      : [],
-  );
+  useReplyKey(message.editor, focusOnReply && !disabled);
   const lifted = message.images.length > 0;
   const { inner, writing, height, expanded } = useOneLineFit(
     message.written,
