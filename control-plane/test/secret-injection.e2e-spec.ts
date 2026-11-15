@@ -8,6 +8,7 @@ import {
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import type { INestApplication } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
@@ -398,6 +399,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
         teamId: TeamId.of(workspaceId),
         integration: IntegrationKey.of('slack'),
         owner: ConnectionOwner.team(),
+        client: OAuth2ClientId.of('client_1'),
         tokens: OAuthTokens.of({
           accessToken: 'xoxb-encrypted-1',
           refreshToken: 'xoxe-encrypted-1',

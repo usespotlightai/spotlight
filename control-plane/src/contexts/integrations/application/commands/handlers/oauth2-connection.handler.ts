@@ -194,12 +194,13 @@ export class FinishOAuth2ConnectionHandler implements CommandHandlerPort<
 
         await this.connections.save(
           existing
-            ? existing.reconnectedWith(authorized.tokens, at)
+            ? existing.reconnectedWith(authorized.tokens, authorized.client, at)
             : IntegrationConnection.connectFrom({
                 workspaceId: membership.workspaceId,
                 teamId,
                 integration,
                 owner,
+                client: authorized.client,
                 tokens: authorized.tokens,
                 at,
               }),

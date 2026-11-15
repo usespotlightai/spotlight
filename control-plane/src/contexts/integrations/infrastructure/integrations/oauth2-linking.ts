@@ -22,6 +22,7 @@ import type {
 } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { oauth2Of } from '@integrations/infrastructure/integrations/oauth2-config';
 import {
@@ -258,6 +259,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       by: UserId.of(intent.by),
       owner: intent.owner,
       returnTo: intent.returnTo,
+      client: OAuth2ClientId.of(client.id),
       tokens,
     };
   }

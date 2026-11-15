@@ -214,13 +214,12 @@ describe('a webhook that calls back with the team’s connection', () => {
     expect(fetchedWith).toEqual(['xoxb-old', 'xoxb-new']);
   });
 
-  it('sends no token while the team has not connected', async () => {
-    const { runtime, sentWith, fetchedWith } = reading(null);
+  it('fails the delivery, and sends no request, while the team has not connected', async () => {
+    const { runtime, sentWith } = reading(null);
 
-    const [read] = await runtime.read(delivered);
-    await read?.attachments?.[0]?.fetch();
-
-    expect(sentWith).toEqual([undefined]);
-    expect(fetchedWith).toEqual([undefined]);
+    await expect(runtime.read(delivered)).rejects.toThrow(
+      /^Integration \w+ has no team connection\. Connect the team account to read its deliveries\.$/,
+    );
+    expect(sentWith).toEqual([]);
   });
 });

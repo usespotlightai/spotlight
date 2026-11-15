@@ -3,6 +3,7 @@ import { SpecOperation } from '@integrations/domain/value-objects/spec-operation
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
   compileIntegration,
+  writtenHostOf,
   IntegrationCompiler,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
@@ -1633,7 +1634,7 @@ graphql:
       readable: {
         apiSpec: {
           spec: { kind: 'graphql', depth: 3, connected: true },
-          auth: { kind: 'oauth2' },
+          auth: { kind: 'oauth2', hosts: ['api.linear.app'] },
         },
       },
     });
@@ -2154,5 +2155,99 @@ on:
     ).toEqual([
       ['tools.post-files.action', expect.stringContaining('uploads files')],
     ]);
+  });
+});
+
+describe('the hosts that get the connection token', () => {
+  it('reads a host only where the definition writes it out', () => {
+    expect(writtenHostOf('https://slack.com/api/chat.postMessage')).toBe(
+      'slack.com',
+    );
+    expect(writtenHostOf('https://API.Linear.app')).toBe('api.linear.app');
+    expect(writtenHostOf(`https://slack.com/api/\${{ inputs.method }}`)).toBe(
+      'slack.com',
+    );
+    expect(writtenHostOf(`https://\${{ body.host }}/files`)).toBeNull();
+    expect(
+      writtenHostOf(`https://api.\${{ body.region }}.example/x`),
+    ).toBeNull();
+    expect(writtenHostOf(`\${{ file.url_private_download }}`)).toBeNull();
+  });
+
+  it('reads the port of a host as the request sends it', () => {
+    expect(writtenHostOf('https://api.example:443/x')).toBe('api.example');
+    expect(writtenHostOf('http://api.example:80/x')).toBe('api.example');
+    expect(writtenHostOf('http://api.example:443/x')).toBe('api.example:443');
+    expect(writtenHostOf('https://api.example:8443/x')).toBe(
+      'api.example:8443',
+    );
+  });
+
+  it('collects the written hosts of oauth2 requests and of connection.oauth2.hosts', () => {
+    const read = compileIntegration(
+      parseYaml(`integration: chat
+connection:
+  oauth2:
+    authorize: https://chat.example/oauth/authorize
+    token: https://auth.chat.example/oauth/token
+    hosts: [files.chat.example]
+actions:
+  post:
+    request:
+      url: https://api.chat.example/post
+      auth:
+        oauth2:
+          connection: true
+  forward:
+    request:
+      url: https://\${{ inputs.host }}/post
+      inputs:
+        host:
+          type: string
+      auth:
+        oauth2:
+          connection: true
+  ping:
+    request:
+      url: https://status.example/ping
+`),
+      expressions,
+    );
+
+    if (!read.ok) {
+      throw new Error(read.problems.map((each) => each.reason).join(', '));
+    }
+
+    expect(read.readable.actions.get('post')?.auth).toEqual({
+      kind: 'oauth2',
+      hosts: ['api.chat.example', 'files.chat.example'],
+    });
+  });
+
+  it('refuses a host that is not a host name', () => {
+    expect(
+      compileIntegration(
+        parseYaml(`integration: chat
+connection:
+  oauth2:
+    authorize: https://chat.example/oauth/authorize
+    token: https://chat.example/oauth/token
+    hosts: ['https://files.chat.example/']
+actions:
+  ping:
+    request:
+      url: https://status.example/ping
+`),
+        expressions,
+      ),
+    ).toMatchObject({
+      ok: false,
+      problems: [
+        expect.objectContaining({
+          field: FieldPath.of(['connection', 'oauth2', 'hosts', 0]),
+          reason: 'names a host, as in files.slack.com',
+        }),
+      ],
+    });
   });
 });

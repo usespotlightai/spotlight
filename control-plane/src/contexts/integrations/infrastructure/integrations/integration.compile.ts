@@ -119,7 +119,7 @@ export type AuthIR =
       readonly header: string | null;
     }
   | { readonly kind: 'secrets'; readonly secrets: readonly SecretName[] }
-  | { readonly kind: 'oauth2' }
+  | { readonly kind: 'oauth2'; readonly hosts: readonly string[] }
   | {
       readonly kind: 'asymmetric';
       readonly algorithm: 'ed25519' | 'rsa-sha256';
@@ -374,6 +374,7 @@ class Compiler {
   readonly warnings: ConfigurationProblem[] = [];
   readonly secretReferences: SecretReferenceAt[] = [];
   readonly places = new Map<string, Place>();
+  private readonly tokenHosts: string[] = [];
   private readonly warned = new Set<string>();
 
   constructor(
@@ -391,6 +392,18 @@ class Compiler {
     this.secretReferences.push({ path, name });
 
     return name;
+  }
+
+  sendsTokenTo(url: string | null | undefined): void {
+    const host = url ? writtenHostOf(url) : null;
+
+    if (host && !this.tokenHosts.includes(host)) {
+      this.tokenHosts.push(host);
+    }
+  }
+
+  sealTokenHosts(): void {
+    Object.freeze(this.tokenHosts);
   }
 
   part<T>(at: FieldPath, build: () => T): T | null {
@@ -664,10 +677,14 @@ class Compiler {
       };
     }
 
-    return { kind: 'oauth2' };
+    return { kind: 'oauth2', hosts: this.tokenHosts };
   }
 
   request(request: RequestFile, at: Place): RequestIR {
+    if (request.auth?.oauth2) {
+      this.sendsTokenTo(request.url);
+    }
+
     const place = at.adding(
       this.hinting && request.response ? { response: request.response } : {},
     );
@@ -1006,6 +1023,23 @@ const addressOf = (raw: unknown): string => {
   }
 };
 
+const WRITTEN_HOST = /^(https?):\/\/([^/?#]+)(?:[/?#]|$)/i;
+
+export const writtenHostOf = (url: string): string | null => {
+  const cut = url.indexOf('${{');
+  const found = WRITTEN_HOST.exec(cut === -1 ? url : url.slice(0, cut));
+
+  if (!found?.[2] || (cut !== -1 && found[0].endsWith(found[2]))) {
+    return null;
+  }
+
+  try {
+    return new URL(`${found[1]}://${found[2]}`).host;
+  } catch {
+    return null;
+  }
+};
+
 export const compileIntegration = (
   raw: unknown,
   expressions: ExpressionEnginePort,
@@ -1210,6 +1244,9 @@ export const compileIntegration = (
   }
 
   const oauth2File = file.connection?.oauth2;
+  for (const host of oauth2File?.hosts ?? []) {
+    compiler.sendsTokenTo(`https://${host}/`);
+  }
   const connection: ConnectionIR | null = file.connection
     ? {
         actsAs: ActsAs.of(file.connection.actsAs),
@@ -1282,6 +1319,12 @@ export const compileIntegration = (
           const auth = written.file.auth
             ? compiler.auth(written.file.auth, root.to(written.kind).to('auth'))
             : null;
+          if (auth?.kind === 'oauth2') {
+            compiler.sendsTokenTo(written.file.url);
+            compiler.sendsTokenTo(
+              written.kind === 'openapi' ? written.file.baseUrl : null,
+            );
+          }
           const spec = compiler.part(FieldPath.of([written.kind]), () =>
             apiSpecOf(written, auth),
           );
@@ -1479,6 +1522,8 @@ export const compileIntegration = (
       integration,
       generation?.tools ?? [],
     );
+
+    compiler.sealTokenHosts();
 
     return {
       ok: true,

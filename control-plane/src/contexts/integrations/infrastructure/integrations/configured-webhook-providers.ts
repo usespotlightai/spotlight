@@ -5,8 +5,8 @@ import type {
 } from '@integrations/application/ports/configured-webhook-providers.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
+import type { TeamConnectionsPort } from '@integrations/application/ports/team-connections.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
-import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import {
   SpotlightCredentials,
@@ -29,7 +29,7 @@ export class ConfiguredWebhookProviders implements ConfiguredWebhookProvidersPor
     private readonly limits: OutboundLimitsPort,
     private readonly scope: WorkspaceOutboundScopePort,
     private readonly clock: ClockPort,
-    private readonly callAuth: CallAuthResolver,
+    private readonly connections: TeamConnectionsPort,
   ) {}
 
   async find(
@@ -65,9 +65,7 @@ export class ConfiguredWebhookProviders implements ConfiguredWebhookProvidersPor
           credentials,
           this.limits,
           this.scope,
-          async () =>
-            (await this.callAuth.of(team.teamId, readable.integration))
-              .connection,
+          () => this.connections.activeOf(team.teamId, readable.integration),
         ),
       );
     }

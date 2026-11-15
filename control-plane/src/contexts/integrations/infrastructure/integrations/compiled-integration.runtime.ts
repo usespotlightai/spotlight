@@ -36,6 +36,7 @@ import {
 } from '@integrations/domain/value-objects/binding.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
@@ -769,9 +770,16 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     owner: { readonly teamId: TeamId; readonly workspaceId: WorkspaceId },
     integration: IntegrationKey,
     refreshToken: RefreshToken,
+    madeThrough: (client: OAuth2ClientId) => boolean,
   ): Promise<RefreshResult> {
     return this.scope.within(owner.workspaceId, () =>
-      this.refreshInScope(definitions, owner.teamId, integration, refreshToken),
+      this.refreshInScope(
+        definitions,
+        owner.teamId,
+        integration,
+        refreshToken,
+        madeThrough,
+      ),
     );
   }
 
@@ -780,6 +788,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     teamId: TeamId,
     integration: IntegrationKey,
     refreshToken: RefreshToken,
+    madeThrough: (client: OAuth2ClientId) => boolean,
   ): Promise<RefreshResult> {
     const written = this.find(definitions, integration)?.connection?.oauth2;
     const oauth2 = written
@@ -808,6 +817,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     if (!oauth2 || !client) {
       return { kind: 'not-refreshable' };
+    }
+
+    if (!madeThrough(OAuth2ClientId.of(client.id))) {
+      return { kind: 'other-client' };
     }
 
     const tokens = await this.exchange.refresh(

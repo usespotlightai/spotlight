@@ -5,6 +5,7 @@ import type {
 import type { ConnectionOwnerKind } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import type { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -32,6 +33,7 @@ export interface OAuth2LinkInput {
 }
 
 export interface OAuth2Authorized extends OAuth2LinkInput {
+  readonly client: OAuth2ClientId;
   readonly tokens: OAuthTokens;
 }
 

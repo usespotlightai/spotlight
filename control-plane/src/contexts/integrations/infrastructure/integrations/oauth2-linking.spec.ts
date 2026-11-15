@@ -15,6 +15,7 @@ import type { OAuth2LinkInput } from '@integrations/application/ports/oauth2-lin
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-linking';
@@ -274,6 +275,7 @@ describe('OAuth2Linking', () => {
     expect(authorized.owner).toBe('person');
     expect(authorized.returnTo).toBe('/w/acme/inbox/task_1');
     expect(authorized.tokens.accessToken.value).toBe('xoxb-1');
+    expect(authorized.client).toEqual(OAuth2ClientId.of('c-1'));
   });
 
   it('exchanges the code within the outbound scope of the team’s workspace', async () => {

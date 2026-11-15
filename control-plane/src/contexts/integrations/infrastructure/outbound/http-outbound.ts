@@ -1,4 +1,5 @@
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { TokenHostRefusedError } from '@integrations/application/errors/token-host-refused.error';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import type {
   AuthIR,
@@ -349,6 +350,10 @@ export class HttpOutbound {
     credentials: Credentials,
   ): Promise<InjectedSecrets> {
     if (auth?.kind === 'oauth2' && connection) {
+      if (!auth.hosts.includes(url.host)) {
+        throw new TokenHostRefusedError(url.host);
+      }
+
       headers.authorization = `Bearer ${connection}`;
     }
 

@@ -480,6 +480,7 @@ const settingUp = ({
         teamId: TEAM,
         integration: LINEAR,
         owner: ConnectionOwner.person(ALICE),
+        client: OAuth2ClientId.of('dcr-client'),
         accessToken: OAuthTokens.of({ accessToken }).accessToken,
         refreshToken: OAuthTokens.of({ accessToken, refreshToken })
           .refreshToken,

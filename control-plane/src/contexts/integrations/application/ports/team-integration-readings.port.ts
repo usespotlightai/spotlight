@@ -10,6 +10,7 @@ export interface TeamIntegrationReading {
   readonly name: string;
   readonly logo: string | null;
   readonly requiresConnection: boolean;
+  readonly ownClient: string | null;
   readonly actsAs: ActsAsKind;
   readonly spec: {
     readonly kind: ApiSpecKind;

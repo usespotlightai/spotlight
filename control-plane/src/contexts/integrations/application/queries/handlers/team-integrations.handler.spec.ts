@@ -22,6 +22,8 @@ const reading = (
     linkedAccount?: string | null;
     refreshFailedAt?: Date;
     requiresConnection?: boolean;
+    ownClient?: string;
+    client?: string;
     spec?: boolean;
   } = {},
 ) =>
@@ -42,6 +44,7 @@ const reading = (
                 logo: 'https://example.com/linear.svg',
                 path: 'integrations/linear',
                 requiresConnection: over.requiresConnection ?? false,
+                ownClient: over.ownClient ?? null,
                 actsAs: 'team',
                 spec: over.spec
                   ? {
@@ -63,6 +66,7 @@ const reading = (
               {
                 integration: 'linear',
                 linkedAccount: over.linkedAccount,
+                client: over.client ?? 'client_1',
                 refreshFailedAt: over.refreshFailedAt ?? null,
               },
             ],
@@ -135,7 +139,38 @@ describe('TeamIntegrationsHandler', () => {
       refreshFailedAt: new Date('2026-11-07T10:00:00.000Z'),
     }).execute(query());
 
-    expect(read?.integrations[0]?.connectionStatus).toBe('disconnected');
+    expect(read?.integrations[0]).toMatchObject({
+      connectionStatus: 'disconnected',
+      connectionProblem: 'refresh-failed',
+    });
+  });
+
+  it('says the team connection was made through another OAuth client than the definition names now', async () => {
+    const read = await reading({
+      requiresConnection: true,
+      linkedAccount: 'Acme',
+      ownClient: 'lin_new',
+      client: 'lin_old',
+    }).execute(query());
+
+    expect(read?.integrations[0]).toMatchObject({
+      connectionStatus: 'disconnected',
+      connectionProblem: 'other-client',
+    });
+  });
+
+  it('keeps a connection made through the client the definition names', async () => {
+    const read = await reading({
+      requiresConnection: true,
+      linkedAccount: 'Acme',
+      ownClient: 'lin_new',
+      client: 'lin_new',
+    }).execute(query());
+
+    expect(read?.integrations[0]).toMatchObject({
+      connectionStatus: 'connected',
+      connectionProblem: null,
+    });
   });
 
   it('says an integration needs no connection where it requires none', async () => {

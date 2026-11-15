@@ -8,6 +8,7 @@ import {
 
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
+import { TeamConnectionMissingError } from '@integrations/application/errors/team-connection-missing.error';
 import type {
   ActiveConnection,
   Credentials,
@@ -456,14 +457,22 @@ export class WebhookRuntime implements WebhookProviderPort {
     return send(withToken(against, refreshed));
   }
 
-  private connectionFor(request: RequestIR): Promise<ActiveConnection | null> {
+  private async connectionFor(
+    request: RequestIR,
+  ): Promise<ActiveConnection | null> {
     if (request.auth?.kind !== 'oauth2') {
-      return Promise.resolve(null);
+      return null;
     }
 
     this.#connection ??= this.connectionOf();
 
-    return this.#connection;
+    const connection = await this.#connection;
+
+    if (!connection) {
+      throw new TeamConnectionMissingError(this.readable.integration.name);
+    }
+
+    return connection;
   }
 
   private async onBehalfOf<T>(work: () => Promise<T>): Promise<T> {

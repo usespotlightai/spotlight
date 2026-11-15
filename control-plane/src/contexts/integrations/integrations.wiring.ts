@@ -132,6 +132,10 @@ import {
   SPEC_READER,
   type SpecReaderPort,
 } from '@integrations/application/ports/spec-reader.port';
+import {
+  TEAM_CONNECTIONS,
+  type TeamConnectionsPort,
+} from '@integrations/application/ports/team-connections.port';
 import { TEAM_INTEGRATION_READINGS } from '@integrations/application/ports/team-integration-readings.port';
 import {
   TOOL_DECLARATIONS,
@@ -914,6 +918,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   { provide: OAUTH2_CLIENTS, useExisting: OAuth2ClientResolution },
 
+  { provide: TEAM_CONNECTIONS, useExisting: CallAuthResolver },
+
   {
     provide: OAuth2ClientResolution,
     inject: [
@@ -1174,7 +1180,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OUTBOUND_LIMITS,
       WORKSPACE_OUTBOUND_SCOPE,
       CLOCK,
-      CallAuthResolver,
+      TEAM_CONNECTIONS,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -1185,7 +1191,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       limits: OutboundLimitsPort,
       scope: WorkspaceOutboundScopePort,
       clock: ClockPort,
-      callAuth: CallAuthResolver,
+      connections: TeamConnectionsPort,
     ) =>
       new ConfiguredWebhookProviders(
         defined,
@@ -1196,7 +1202,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         limits,
         scope,
         clock,
-        callAuth,
+        connections,
       ),
   },
 

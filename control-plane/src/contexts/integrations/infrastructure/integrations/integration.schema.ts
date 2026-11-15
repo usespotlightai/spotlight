@@ -356,6 +356,17 @@ const scheduleSchema = z.object({
 
 const scope = z.string().refine(OAuthScope.isToken, OAuthScope.SHAPE);
 
+const tokenHosts = z
+  .array(
+    z
+      .string()
+      .regex(
+        /^[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?$/i,
+        'names a host, as in files.slack.com',
+      ),
+  )
+  .optional();
+
 const connectionSchema = z.object({
   actsAs: z.enum(ACTS_AS).default('team'),
   oauth2: z
@@ -366,6 +377,7 @@ const connectionSchema = z.object({
           scopes: z.array(scope).default([]),
           identity: expression.optional(),
           resource: z.url().optional(),
+          hosts: tokenHosts,
         })
         .strict(),
       z
@@ -377,6 +389,7 @@ const connectionSchema = z.object({
           identity: expression.optional(),
           registration: z.url().optional(),
           resource: z.url().optional(),
+          hosts: tokenHosts,
           scopeSeparator: z.enum([' ', ',']).default(' '),
           pkce: z.boolean().default(true),
           client: z

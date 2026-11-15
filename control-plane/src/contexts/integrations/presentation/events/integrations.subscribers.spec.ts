@@ -8,6 +8,7 @@ import { IntegrationConnection } from '@integrations/domain/aggregates/integrati
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { integrationsSubscribers } from '@integrations/presentation/events/integrations.subscribers';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -21,6 +22,7 @@ const connected = (owner: ConnectionOwner) =>
     teamId: TeamId.of('team_1'),
     integration: IntegrationKey.of('linear'),
     owner,
+    client: OAuth2ClientId.of('client_1'),
     tokens: OAuthTokens.of({ accessToken: 'lin-1' }),
     at: new Date('2026-09-01T00:00:00.000Z'),
   }).pullEvents()[0];

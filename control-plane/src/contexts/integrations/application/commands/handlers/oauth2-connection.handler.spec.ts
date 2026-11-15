@@ -24,6 +24,7 @@ import { ConnectionOwner } from '@integrations/domain/value-objects/connection-o
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -269,6 +270,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     by: UserId.of('user_1'),
     owner: 'team',
     returnTo: null,
+    client: OAuth2ClientId.of('client_1'),
     tokens: OAuthTokens.of({ accessToken: 'xoxb-1', linkedAccount: 'Acme' }),
   };
 
@@ -350,6 +352,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     expect(connection?.teamId.value).toBe('team_1');
     expect(connection?.workspaceId.value).toBe('ws_1');
     expect(connection?.accessToken.value).toBe('xoxb-1');
+    expect(connection?.client).toEqual(OAuth2ClientId.of('client_1'));
     expect(dispatch.mock.calls[0]?.[0]?.map((each) => each.kind)).toContain(
       'integration.connected',
     );
@@ -364,6 +367,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
       teamId: TeamId.of('team_1'),
       integration: IntegrationKey.of('slack'),
       owner: ConnectionOwner.team(),
+      client: OAuth2ClientId.of('client_1'),
       accessToken: AccessToken.of('xoxb-old'),
       refreshToken: RefreshToken.of('xoxe-old'),
       expiresAt: null,
@@ -374,12 +378,16 @@ describe('FinishOAuth2ConnectionHandler', () => {
       connectedAt: new Date('2026-09-01T10:00:00.000Z'),
       version: 4,
     });
-    const { handler, save, dispatch } = finishing({ existing });
+    const { handler, save, dispatch } = finishing({
+      existing,
+      authorized: { ...authorized, client: OAuth2ClientId.of('client_2') },
+    });
 
     await handler.execute(command());
 
     const connection = save.mock.calls[0]?.[0];
     expect(connection?.version).toBe(4);
+    expect(connection?.client).toEqual(OAuth2ClientId.of('client_2'));
     expect(connection?.accessToken.value).toBe('xoxb-1');
     expect(connection?.refreshToken).toBeNull();
     expect(connection?.usable).toBe(true);
