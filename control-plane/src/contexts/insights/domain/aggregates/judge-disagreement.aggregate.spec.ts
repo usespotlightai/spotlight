@@ -297,8 +297,11 @@ describe('JudgeDisagreement', () => {
   });
 
   it('takes answers from anyone on the team when it asks the team', () => {
+    const teamQuestion = openDisagreement('run_1');
+
+    expect(teamQuestion.askedOf).toBeNull();
     expect(
-      openDisagreement('run_1')
+      teamQuestion
         .answerClaim(claimAnswer(1, GRACE))
         .answerClaim(claimAnswer(2, ADA))
         .claimAnswers.map((each) => each.by),
