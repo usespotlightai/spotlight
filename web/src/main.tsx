@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 
 import { Toaster } from '@/components/ui/toast';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { storedTheme } from '@/hooks/useTheme';
 import { client } from '@/lib/api/client.gen';
 import { desktopApp, frameWindow } from '@/lib/desktop';
@@ -59,9 +60,11 @@ const render = () =>
         persistOptions={persistOptions(import.meta.env.VITE_API_SHAPE)}
       >
         <Toaster>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
+          <TooltipProvider>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </TooltipProvider>
         </Toaster>
       </PersistQueryClientProvider>
     </StrictMode>,
