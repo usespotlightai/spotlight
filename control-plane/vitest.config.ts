@@ -64,10 +64,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: [
-            'src/**/*.spec.ts',
-            'test/architecture/**/*.spec.ts',
-          ],
+          include: ['src/**/*.spec.ts', 'test/architecture/**/*.spec.ts'],
           restoreMocks: true,
         },
       },
