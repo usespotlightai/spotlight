@@ -32,6 +32,7 @@ import {
   opensAtLogin,
   setOpensAtLogin,
 } from './login-item';
+import { grants } from './permissions';
 import { ErrorReporting } from './reporting';
 import { SettingsFile } from './settings';
 import {
@@ -665,14 +666,11 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     session.defaultSession.setPermissionRequestHandler(
       (_contents, permission, grant, details) =>
-        grant(
-          permission === 'notifications' &&
-            isOrigin(details.requestingUrl, origin),
-        ),
+        grant(grants(permission, details.requestingUrl, origin)),
     );
     session.defaultSession.setPermissionCheckHandler(
       (_contents, permission, requestingOrigin) =>
-        permission === 'notifications' && requestingOrigin === origin,
+        grants(permission, requestingOrigin, origin),
     );
 
     void reporting.refresh(origin);
