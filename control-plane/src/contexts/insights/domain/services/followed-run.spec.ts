@@ -1,5 +1,5 @@
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import { followedAtOf } from '@insights/domain/services/later-visit';
+import { followedAtOf } from '@insights/domain/services/followed-run';
 import { endedRecord, endOf, WORKSPACE } from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

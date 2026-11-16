@@ -2575,6 +2575,7 @@ CREATE INDEX "run_record_ended_idx" ON "run_record" USING btree ("ended_at");-->
 CREATE UNIQUE INDEX "score_judge_idx" ON "score" USING btree ("run_id","rubric_version") WHERE "score"."source" = 'judge';--> statement-breakpoint
 CREATE UNIQUE INDEX "score_person_idx" ON "score" USING btree ("run_id","scored_by_id") WHERE "score"."source" = 'person';--> statement-breakpoint
 CREATE INDEX "score_station_idx" ON "score" USING btree ("station_id","at");--> statement-breakpoint
+CREATE INDEX "score_live_judge_idx" ON "score" USING btree ("at","id") WHERE "score"."source" = 'judge' and "score"."origin" = 'live';--> statement-breakpoint
 CREATE INDEX "score_task_idx" ON "score" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "score_workspace_idx" ON "score" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "station_alert_station_idx" ON "station_alert" USING btree ("station_id","fired_at");--> statement-breakpoint

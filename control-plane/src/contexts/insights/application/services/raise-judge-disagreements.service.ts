@@ -49,6 +49,17 @@ const newestLiveOf = (
     )
     .sort((one, other) => other.at.getTime() - one.at.getTime())[0] ?? null;
 
+export interface Reconsidered {
+  readonly runId: RunId;
+  readonly workspaceId: WorkspaceId;
+  readonly location: RunLocation;
+}
+
+export interface NotReconsidered {
+  readonly runId: RunId;
+  readonly error: unknown;
+}
+
 export class RaiseJudgeDisagreements {
   constructor(
     private readonly disagreements: JudgeDisagreementRepository,
@@ -100,12 +111,7 @@ export class RaiseJudgeDisagreements {
     workspaceId: WorkspaceId,
     at: { stationId: StationId | null },
   ): Promise<void> {
-    const rubrics = new Map<string, Promise<Rubric | null>>();
-    const rubricOf = (stationId: StationId) => {
-      const rubric = rubrics.get(stationId.value) ?? this.rubricAt(stationId);
-      rubrics.set(stationId.value, rubric);
-      return rubric;
-    };
+    const rubricOf = this.rubricsAt();
 
     for (const fact of await this.facts.ofTasks([taskId])) {
       if (
@@ -121,6 +127,38 @@ export class RaiseJudgeDisagreements {
         );
       }
     }
+  }
+
+  async reconsider(
+    runs: readonly Reconsidered[],
+  ): Promise<readonly NotReconsidered[]> {
+    const rubricOf = this.rubricsAt();
+    const failed: NotReconsidered[] = [];
+
+    for (const run of runs) {
+      try {
+        await this.consider(
+          run.runId,
+          run.workspaceId,
+          run.location,
+          await rubricOf(run.location.stationId),
+        );
+      } catch (error) {
+        failed.push({ runId: run.runId, error });
+      }
+    }
+
+    return failed;
+  }
+
+  private rubricsAt(): (stationId: StationId) => Promise<Rubric | null> {
+    const rubrics = new Map<string, Promise<Rubric | null>>();
+
+    return (stationId) => {
+      const rubric = rubrics.get(stationId.value) ?? this.rubricAt(stationId);
+      rubrics.set(stationId.value, rubric);
+      return rubric;
+    };
   }
 
   private async consider(
@@ -149,7 +187,15 @@ export class RaiseJudgeDisagreements {
     }
   }
 
-  private async withdrawingStale(runId: RunId, rubric: Rubric | null) {
+  private async withdrawingStale(
+    runId: RunId,
+    rubric: Rubric | null,
+    retried = false,
+  ): Promise<{
+    label: HumanLabel | null;
+    scores: readonly Scored[];
+    known: readonly JudgeDisagreement[];
+  }> {
     const [fact] = await this.facts.ofRuns([runId]);
     const scores = await this.facts.scoresOfRuns([runId]);
     const label = rubric
@@ -168,7 +214,17 @@ export class RaiseJudgeDisagreements {
       }) ?? null;
 
     if (standing && reason) {
-      await this.withdrawing(standing, reason);
+      try {
+        await this.withdrawn(standing, reason);
+      } catch (error) {
+        if (
+          error instanceof JudgeDisagreementVersionConflictError &&
+          !retried
+        ) {
+          return this.withdrawingStale(runId, rubric, true);
+        }
+        throw error;
+      }
     }
 
     return { label, scores, known };
@@ -245,20 +301,27 @@ export class RaiseJudgeDisagreements {
     retried = false,
   ): Promise<void> {
     try {
-      await this.transaction.inTransaction(() =>
-        this.recorder.record(this.disagreements, {
-          owner: this.ownerOf(open.workspaceId, open.location),
-          load: () => this.disagreements.find(open.id),
-          deleted: (existing) => existing.delete(),
-          change: (existing) => existing.withdraw(this.clock.now(), reason),
-        }),
-      );
+      await this.withdrawn(open, reason);
     } catch (error) {
       if (error instanceof JudgeDisagreementVersionConflictError && !retried) {
         return this.withdrawing(open, reason, true);
       }
       throw error;
     }
+  }
+
+  private withdrawn(
+    open: JudgeDisagreement,
+    reason: WithdrawalReason,
+  ): Promise<unknown> {
+    return this.transaction.inTransaction(() =>
+      this.recorder.record(this.disagreements, {
+        owner: this.ownerOf(open.workspaceId, open.location),
+        load: () => this.disagreements.find(open.id),
+        deleted: (existing) => existing.delete(),
+        change: (existing) => existing.withdraw(this.clock.now(), reason),
+      }),
+    );
   }
 
   private async rubricAt(stationId: StationId): Promise<Rubric | null> {

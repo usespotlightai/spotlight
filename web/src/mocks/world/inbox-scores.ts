@@ -24,7 +24,10 @@ import {
   stationOfRun,
   taskOfSeededRun,
 } from '@/mocks/world/inbox-places';
-import { type HistoryRun, history } from '@/mocks/world/insights-history';
+import {
+  type HistoryRun,
+  isLastCompletedVisit,
+} from '@/mocks/world/insights-history';
 import { MAYA, SAM } from '@/mocks/world/people';
 import { PLATFORM_LINES } from '@/mocks/world/platform';
 import { storyOf } from '@/mocks/world/run-stories';
@@ -450,24 +453,13 @@ const pastJudgeOf = (
   };
 };
 
-const lastCompletedVisit = (run: HistoryRun): boolean =>
-  run.ending === 'completed' &&
-  !history().runs.some(
-    (other) =>
-      other.runId !== run.runId &&
-      other.taskId === run.taskId &&
-      other.stationId === run.stationId &&
-      other.ending === 'completed' &&
-      other.endedAt > run.endedAt,
-  );
-
 const pastOutcomeOf = (run: HistoryRun): RunScores['outcome'] => {
   const acted = run.firstHumanAction?.kind;
 
   if (acted === 'accepted' || acted === 'sent-back') {
     return { source: acted, passes: acted === 'accepted' };
   }
-  if (run.pullRequestState === 'merged' && lastCompletedVisit(run)) {
+  if (run.pullRequestState === 'merged' && isLastCompletedVisit(run)) {
     return { source: 'merged', passes: true };
   }
 

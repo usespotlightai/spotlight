@@ -495,6 +495,63 @@ describe('judge scores at many stations, read at once', () => {
 });
 
 describe('how often the judge agrees with people', () => {
+  it('lists live judge verdicts since a time in time order, a page at a time', async () => {
+    const since = new Date('2027-01-01T00:00:00.000Z');
+    const placeOf = (taskId: string) =>
+      RunLocation.of({
+        teamId: TEAM,
+        lineId: LineId.of('line_1'),
+        stationId: StationId.of('station_since'),
+        taskId: TaskId.of(taskId),
+      });
+    const hoursAfter = (hours: number) =>
+      new Date(since.getTime() + hours * 60 * 60_000);
+    const live = (runId: string, at: Date, origin?: 'backfill') =>
+      Score.judge({
+        id: ScoreId.of(`judge_${runId}`),
+        runId: RunId.of(runId),
+        workspaceId: WORKSPACE,
+        location: placeOf(`task_${runId}`),
+        fingerprint: CONFIG,
+        claimResults: [true],
+        passThreshold: 1,
+        rubricVersion: VERSION,
+        model: 'some/model',
+        reasons: [reason()],
+        seen: seen(),
+        at,
+        origin,
+      });
+    for (const each of [
+      live('since_b', hoursAfter(1)),
+      live('since_a', hoursAfter(2)),
+      live('since_c', since),
+      live('since_before', hoursAfter(-1)),
+      live('since_backfilled', hoursAfter(1), 'backfill'),
+    ]) {
+      await scores.add(each);
+    }
+
+    const first = await facts.liveJudgedSince({ since, after: null, max: 2 });
+    const second = await facts.liveJudgedSince({
+      since,
+      after: first[1] ?? null,
+      max: 2,
+    });
+
+    expect(first.map((each) => each.runId.value)).toEqual([
+      'since_c',
+      'since_b',
+    ]);
+    expect(second.map((each) => each.runId.value)).toEqual(['since_a']);
+    expect(first[1]).toMatchObject({
+      scoreId: ScoreId.of('judge_since_b'),
+      at: hoursAfter(1),
+      workspaceId: WORKSPACE,
+      location: placeOf('task_since_b'),
+    });
+  });
+
   it('pairs the station’s judge scores with what people did, and qualifies it once it agrees enough', async () => {
     for (let at = 0; at < 12; at += 1) {
       const runId = `run_${at}`;

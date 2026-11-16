@@ -756,7 +756,7 @@ describe('run facts', () => {
     expect(await factFor(PULL)).toMatchObject({ madeBy: 'people' });
   });
 
-  it('marks a run followed once the station’s next run on its task completes, and takes it back when that run is superseded', async () => {
+  it('marks a run followed once the station’s next run on its task completes', async () => {
     await records.add(ended('run_1', 'task_1', { endedHoursAgo: 2 }));
 
     expect(await factOf('run_1')).toMatchObject({ followedAt: null });
@@ -765,17 +765,9 @@ describe('run facts', () => {
 
     expect(await factOf('run_1')).toMatchObject({ followedAt: at(1) });
     expect(await factOf('run_2')).toMatchObject({ followedAt: null });
-
-    await records.save(
-      ((await records.of(RunId.of('run_2'))) as RunRecord).supersededByItsTask(
-        at(0.5),
-      ),
-    );
-
-    expect(await factOf('run_1')).toMatchObject({ followedAt: null });
   });
 
-  it('keeps a run followed when its task’s pull request merges after the station’s next run', async () => {
+  it('keeps a run followed, and not accepted, when its task’s pull request merges after the station’s next run', async () => {
     await records.add(ended('run_1', 'task_1', { endedHoursAgo: 2 }));
     await records.add(ended('run_2', 'task_1', { endedHoursAgo: 1 }));
     await pullRequests.add(opened('task_1', TEAM));
@@ -784,10 +776,12 @@ describe('run facts', () => {
     expect(await factOf('run_1')).toMatchObject({
       followedAt: at(1),
       pullRequestState: 'merged',
+      resolution: 'other',
     });
     expect(await factOf('run_2')).toMatchObject({
       followedAt: null,
       pullRequestState: 'merged',
+      resolution: 'accepted',
     });
   });
 

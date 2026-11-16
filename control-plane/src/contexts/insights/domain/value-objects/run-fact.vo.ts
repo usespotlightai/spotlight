@@ -163,6 +163,7 @@ export class RunFact implements RunFactParts {
       approvalAnsweredAt: this.approvalAnsweredAt,
       passed: this.passed !== null,
       merged: this.merged,
+      followed: this.followedAt !== null,
     };
   }
 

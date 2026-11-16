@@ -18,6 +18,7 @@ import {
   emptyTally,
   MEASURES,
   resolutionTallyOf,
+  runResolutionOf,
   quantile,
   type Reading,
   shareOf,
@@ -88,7 +89,9 @@ export const tallyOf = (runs: readonly HistoryRun[]): RunTallyResponseDto => {
     stopped: count((run) => run.ending === 'stopped'),
     checksPassed: count((run) => run.checks === 'passed'),
     checksFailed: count((run) => run.checks === 'failed'),
-    ...resolutionTallyOf(runs),
+    ...resolutionTallyOf(
+      runs.map((run) => ({ resolution: runResolutionOf(run) })),
+    ),
     passed: count((run) => run.passed !== null),
     merged: mergedTasksOf(runs),
     cost: moneyOf(spendOf(runs)),

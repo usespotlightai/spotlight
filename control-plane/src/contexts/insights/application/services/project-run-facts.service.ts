@@ -7,7 +7,7 @@ import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate
 import type { PullRequestRecordRepository } from '@insights/domain/repositories/pull-request-record.repository';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
 import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
-import { followedAtOf } from '@insights/domain/services/later-visit';
+import { followedAtOf } from '@insights/domain/services/followed-run';
 import type {
   RunFact,
   TaskOpeningFact,

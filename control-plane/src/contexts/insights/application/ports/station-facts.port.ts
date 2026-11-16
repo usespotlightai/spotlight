@@ -5,7 +5,9 @@ import type { AlertFiring } from '@insights/domain/value-objects/alert-firing.vo
 import type { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
+import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
+import type { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -21,6 +23,20 @@ export interface StationRuns {
   readonly lineId: LineId | null;
   readonly stationId: StationId;
   readonly last: number;
+}
+
+export interface LiveJudgedSince {
+  readonly since: Date;
+  readonly after: LiveJudgedRun | null;
+  readonly max: number;
+}
+
+export interface LiveJudgedRun {
+  readonly scoreId: ScoreId;
+  readonly at: Date;
+  readonly runId: RunId;
+  readonly workspaceId: WorkspaceId;
+  readonly location: RunLocation;
 }
 
 export interface StationScores {
@@ -73,4 +89,6 @@ export interface StationFactsPort {
   judgedAtStation(criteria: StationScores): Promise<readonly ScoreFact[]>;
 
   judgedAtStations(criteria: StationsScores): Promise<readonly ScoreFact[]>;
+
+  liveJudgedSince(criteria: LiveJudgedSince): Promise<readonly LiveJudgedRun[]>;
 }

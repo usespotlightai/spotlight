@@ -420,27 +420,6 @@ describe('RaiseJudgeDisagreements', () => {
       expect(disagreement?.withdrawnBecause).toBe('label-gone');
     });
 
-    it('opens the first visit’s disagreement once the later visit that took the merge is superseded', async () => {
-      const { records, disagreements, raising, score, visit, added } =
-        await visits();
-      await added(visit('run_1', 10));
-      const later = visit('run_2', 12);
-      await added(later);
-      await raising.scoreRecorded(recordedOf(score));
-      expect(disagreements.stored.size).toBe(0);
-
-      const superseded = later.supersededByItsTask(day('2026-09-30', 14));
-      const [changed] = superseded.pullEvents();
-      expect(changed).toBeInstanceOf(RunOutcomeChanged);
-      await records.save(superseded);
-      await raising.outcomeChanged(changed as RunOutcomeChanged);
-
-      const [disagreement] = [...disagreements.stored.values()];
-      expect(disagreement?.runId).toEqual(RunId.of('run_1'));
-      expect(disagreement?.labelFrom).toBe('merged');
-      expect(disagreement?.state).not.toBe('withdrawn');
-    });
-
     it('withdraws a disagreement it opened while a later visit took the merge', async () => {
       const { disagreements, raising, score, visit, added } = await visits();
       await added(visit('run_1', 10));

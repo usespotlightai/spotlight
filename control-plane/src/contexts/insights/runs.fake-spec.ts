@@ -1,4 +1,6 @@
 import type {
+  LiveJudgedRun,
+  LiveJudgedSince,
   FiredAlert,
   StationFactsPort,
   StationRuns,
@@ -21,7 +23,7 @@ import {
   earliestBounds,
 } from '@insights/domain/services/config-intervals';
 import type { LocatedFailure } from '@insights/domain/services/failure-summaries';
-import { followedAtOf } from '@insights/domain/services/later-visit';
+import { followedAtOf } from '@insights/domain/services/followed-run';
 import {
   inStartOrder,
   type StartedRun,
@@ -38,6 +40,7 @@ import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
+import { LIVE } from '@insights/domain/value-objects/score-origin';
 import { inScope, removeVersioned } from '@insights/scoped.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -467,6 +470,34 @@ export class StationFactsInMemory implements StationFactsPort {
       )
       .slice(0, criteria.last)
       .map(scoreFactOf);
+  }
+
+  async liveJudgedSince(
+    criteria: LiveJudgedSince,
+  ): Promise<readonly LiveJudgedRun[]> {
+    return [...(this.sources.scores?.stored.values() ?? [])]
+      .filter(
+        (each) =>
+          each.fromJudge &&
+          each.origin === LIVE &&
+          each.at.getTime() >= criteria.since.getTime() &&
+          (criteria.after === null ||
+            each.at.getTime() > criteria.after.at.getTime() ||
+            (each.at.getTime() === criteria.after.at.getTime() &&
+              each.id.value > criteria.after.scoreId.value)),
+      )
+      .sort(
+        (a, b) =>
+          a.at.getTime() - b.at.getTime() || (a.id.value < b.id.value ? -1 : 1),
+      )
+      .slice(0, criteria.max)
+      .map((each) => ({
+        scoreId: each.id,
+        at: each.at,
+        runId: each.runId,
+        workspaceId: each.workspaceId,
+        location: each.location,
+      }));
   }
 
   async judgedAtStations(

@@ -107,6 +107,7 @@ import { ProjectPullRequestFacts } from '@insights/application/services/project-
 import { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
 import { PurgeExpiredTombstones } from '@insights/application/services/purge-expired-tombstones.service';
 import { QualifiedJudges } from '@insights/application/services/qualified-judges.service';
+import { RecheckJudgeDisagreements } from '@insights/application/services/recheck-judge-disagreements.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
@@ -661,6 +662,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       EndOverdueClaimsRevisions,
       PurgeExpiredTombstones,
       CheckRunFacts,
+      RecheckJudgeDisagreements,
       LOGGER,
     ],
     useFactory: (
@@ -670,10 +672,19 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       overdue: EndOverdueClaimsRevisions,
       tombstones: PurgeExpiredTombstones,
       facts: CheckRunFacts,
+      disagreements: RecheckJudgeDisagreements,
       logger: LoggerPort,
     ) =>
       new PendingJobWorker(
-        [judgings, revisions, sources, overdue, tombstones, facts],
+        [
+          judgings,
+          revisions,
+          sources,
+          overdue,
+          tombstones,
+          facts,
+          disagreements,
+        ],
         logger,
       ),
   },
