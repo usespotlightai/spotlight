@@ -67,15 +67,11 @@ const DELIVERY_STATIONS: StationResponseDto[] = [
         value: 'pull-request',
         called: 'pull-request',
         origin: 'built-in',
-        direct: true,
-        skills: [],
       },
       {
         value: 'grafana.search',
         called: 'grafana.search',
         origin: 'integration',
-        direct: false,
-        skills: ['grafana-dashboards'],
       },
     ],
     judge: {

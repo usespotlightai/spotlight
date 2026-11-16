@@ -14,8 +14,6 @@ export interface StationToolDto {
   readonly value: string;
   readonly called: string;
   readonly origin: ToolOrigin;
-  readonly direct: boolean;
-  readonly skills: readonly string[];
 }
 
 export interface StationDto {

@@ -177,22 +177,16 @@ describe('ListLinesHandler', () => {
         value: 'grep',
         called: 'grep',
         origin: 'built-in',
-        direct: true,
-        skills: ['research'],
       },
       {
         value: 'pull-request',
         called: 'pull-request',
         origin: 'built-in',
-        direct: true,
-        skills: [],
       },
       {
         value: 'catalog.web-search@1.1.0',
         called: 'catalog.web-search',
         origin: 'catalog',
-        direct: false,
-        skills: ['research'],
       },
     ]);
   });

@@ -261,27 +261,10 @@ export class StationToolResponseDto {
   })
   readonly origin: ToolOrigin;
 
-  @ApiProperty({
-    example: true,
-    description: 'True when the station sets this tool itself',
-  })
-  readonly direct: boolean;
-
-  @ApiProperty({
-    example: ['our-migrations'],
-    isArray: true,
-    type: String,
-    description:
-      'Every skill of the station that brings this tool. Empty when only the station sets it.',
-  })
-  readonly skills: string[];
-
   constructor(tool: StationToolDto) {
     this.value = tool.value;
     this.called = tool.called;
     this.origin = tool.origin;
-    this.direct = tool.direct;
-    this.skills = [...tool.skills];
   }
 }
 

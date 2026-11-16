@@ -7,7 +7,7 @@ const SKILL_TOOLS = new Map([
 ]);
 
 describe('StationToolsMapper', () => {
-  it('lists the station’s own tools as direct, in station order', () => {
+  it('lists the station’s own tools in station order', () => {
     expect(
       StationToolsMapper.toDtos(['pull-request', 'grep'], [], new Map()),
     ).toEqual([
@@ -15,20 +15,16 @@ describe('StationToolsMapper', () => {
         value: 'pull-request',
         called: 'pull-request',
         origin: 'built-in',
-        direct: true,
-        skills: [],
       },
       {
         value: 'grep',
         called: 'grep',
         origin: 'built-in',
-        direct: true,
-        skills: [],
       },
     ]);
   });
 
-  it('lists a tool only a skill brings as not direct, with the origin and called name', () => {
+  it('lists a tool only a skill brings, with the origin and called name', () => {
     expect(
       StationToolsMapper.toDtos(
         [],
@@ -43,20 +39,16 @@ describe('StationToolsMapper', () => {
         value: 'catalog.web-search@1.1.0',
         called: 'catalog.web-search',
         origin: 'catalog',
-        direct: false,
-        skills: ['research'],
       },
       {
         value: 'linear.comment',
         called: 'linear.comment',
         origin: 'integration',
-        direct: false,
-        skills: ['review'],
       },
     ]);
   });
 
-  it('shows a tool once as direct when a skill brings it too', () => {
+  it('shows a tool once when the station sets it and a skill brings it', () => {
     expect(
       StationToolsMapper.toDtos(['grep'], ['research'], SKILL_TOOLS),
     ).toEqual([
@@ -64,23 +56,17 @@ describe('StationToolsMapper', () => {
         value: 'grep',
         called: 'grep',
         origin: 'built-in',
-        direct: true,
-        skills: ['research'],
       },
       expect.objectContaining({ value: 'catalog.web-search@1.1.0' }),
     ]);
   });
 
-  it('names every skill that brings the same tool, once each', () => {
-    const [search, grep, comment] = StationToolsMapper.toDtos(
-      [],
-      ['research', 'review', 'research'],
-      SKILL_TOOLS,
-    );
-
-    expect(search.skills).toEqual(['research']);
-    expect(grep.skills).toEqual(['research', 'review']);
-    expect(comment.skills).toEqual(['review']);
+  it('shows a tool once when two skills bring it', () => {
+    expect(
+      StationToolsMapper.toDtos([], ['research', 'review'], SKILL_TOOLS).map(
+        (each) => each.value,
+      ),
+    ).toEqual(['catalog.web-search@1.1.0', 'grep', 'linear.comment']);
   });
 
   it('orders skill tools by the station’s skills, then each skill’s tools', () => {

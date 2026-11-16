@@ -145,14 +145,6 @@ export type StationToolResponseDto = {
    * Where the tool comes from
    */
   origin: 'built-in' | 'integration' | 'catalog';
-  /**
-   * True when the station sets this tool itself
-   */
-  direct: boolean;
-  /**
-   * Every skill of the station that brings this tool. Empty when only the station sets it.
-   */
-  skills: Array<string>;
 };
 
 export type StationResponseDto = {

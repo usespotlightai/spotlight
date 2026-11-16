@@ -22693,29 +22693,12 @@
               "catalog"
             ],
             "description": "Where the tool comes from"
-          },
-          "direct": {
-            "type": "boolean",
-            "example": true,
-            "description": "True when the station sets this tool itself"
-          },
-          "skills": {
-            "example": [
-              "our-migrations"
-            ],
-            "description": "Every skill of the station that brings this tool. Empty when only the station sets it.",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
           }
         },
         "required": [
           "value",
           "called",
-          "origin",
-          "direct",
-          "skills"
+          "origin"
         ]
       },
       "StationResponseDto": {
