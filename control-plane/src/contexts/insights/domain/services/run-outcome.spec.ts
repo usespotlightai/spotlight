@@ -73,7 +73,9 @@ describe('judgeAgreesOf', () => {
   });
 
   it('says nothing without a judge verdict or a human outcome', () => {
-    expect(judgeAgreesOf(null, { source: 'closed', passes: false })).toBeNull();
+    expect(
+      judgeAgreesOf(null, { source: 'sent-back', passes: false }),
+    ).toBeNull();
     expect(judgeAgreesOf({ passes: true }, null)).toBeNull();
   });
 });

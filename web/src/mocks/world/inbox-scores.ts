@@ -24,7 +24,10 @@ import {
   stationOfRun,
   taskOfSeededRun,
 } from '@/mocks/world/inbox-places';
-import type { HistoryRun } from '@/mocks/world/insights-history';
+import {
+  type HistoryRun,
+  isLastCompletedVisit,
+} from '@/mocks/world/insights-history';
 import { MAYA, SAM } from '@/mocks/world/people';
 import { PLATFORM_LINES } from '@/mocks/world/platform';
 import { storyOf } from '@/mocks/world/run-stories';
@@ -456,11 +459,8 @@ const pastOutcomeOf = (run: HistoryRun): RunScores['outcome'] => {
   if (acted === 'accepted' || acted === 'sent-back') {
     return { source: acted, passes: acted === 'accepted' };
   }
-  if (run.pullRequestState === 'merged' || run.pullRequestState === 'closed') {
-    return {
-      source: run.pullRequestState,
-      passes: run.pullRequestState === 'merged',
-    };
+  if (run.pullRequestState === 'merged' && isLastCompletedVisit(run)) {
+    return { source: 'merged', passes: true };
   }
 
   return null;

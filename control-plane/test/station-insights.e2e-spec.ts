@@ -569,12 +569,17 @@ describe('how a station’s runs turned out', () => {
       },
       cost: { amount: 0.4, currency: 'USD' },
     });
+    expect(outcomes.groups[0]?.tally).toMatchObject({
+      runs: 1,
+      resolutions: { accepted: 1, other: 0 },
+      merged: 1,
+    });
     expect(outcomes.groups[3]?.tally).toMatchObject({
       runs: 1,
       cancelled: 0,
       stopped: 0,
       checksPassed: 1,
-      resolutions: { accepted: 1 },
+      resolutions: { accepted: 0, other: 1 },
       merged: 1,
       cost: { amount: 0.4, currency: 'USD' },
     });

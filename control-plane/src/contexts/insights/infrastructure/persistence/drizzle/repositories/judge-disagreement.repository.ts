@@ -209,6 +209,25 @@ export class DrizzleJudgeDisagreementRepository implements JudgeDisagreementRepo
     return rows.map(toDisagreement);
   }
 
+  async standing(
+    after: JudgeDisagreementId | null,
+    max: number,
+  ): Promise<readonly JudgeDisagreement[]> {
+    const rows = await this.context.db
+      .select()
+      .from(judgeDisagreement)
+      .where(
+        and(
+          isNull(judgeDisagreement.withdrawnAt),
+          after ? gt(judgeDisagreement.id, after.value) : undefined,
+        ),
+      )
+      .orderBy(judgeDisagreement.id)
+      .limit(max);
+
+    return rows.map(toDisagreement);
+  }
+
   async outdatedAtStation(
     stationId: StationId,
     current: RubricVersion | null,

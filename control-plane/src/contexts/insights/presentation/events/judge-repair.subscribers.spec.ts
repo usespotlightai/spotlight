@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 const OUTSIDE_THE_DELIVERY = [
   'insights.disagree-with-judge-after-score',
+  'insights.disagree-with-judge-after-run-ended',
   'insights.disagree-with-judge-after-run-outcome-changed',
   'insights.disagree-with-judge-after-closed-pull-request',
   'insights.withdraw-judge-disagreements-after-line-changed',

@@ -10,6 +10,7 @@ import type { JudgeDisagreementOpened } from '@insights/domain/events/judge-disa
 import type { JudgeDisagreementWithdrawn } from '@insights/domain/events/judge-disagreement-withdrawn.event';
 import type { PullRequestRecordClosed } from '@insights/domain/events/pull-request-record-closed.event';
 import type { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
+import type { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import {
   LINE_CHANGED,
@@ -50,6 +51,12 @@ export const judgeRepairSubscribers = (
     'insights.disagree-with-judge-after-score',
     ['score.recorded'],
     (event) => handlers.disagreeing.scoreRecorded(event),
+    { callsOut: true },
+  ),
+  subscribing<RunRecordEnded>(
+    'insights.disagree-with-judge-after-run-ended',
+    ['run-record.ended'],
+    (event) => handlers.disagreeing.runEnded(event),
     { callsOut: true },
   ),
   subscribing<RunOutcomeChanged>(

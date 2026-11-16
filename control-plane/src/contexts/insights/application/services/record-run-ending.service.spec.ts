@@ -113,7 +113,7 @@ describe('recording that a run ended', () => {
 
     expect((await recorder.stored('run_1'))?.end?.asked).toBe(true);
     expect(
-      (await recorder.stored('run_1'))?.factWith(null, null)?.disposition,
+      (await recorder.stored('run_1'))?.factWith(null, null, null)?.disposition,
     ).toBe('asked');
     expect((await recorder.stored('run_2'))?.end?.asked).toBe(false);
   });
@@ -123,9 +123,9 @@ describe('recording that a run ended', () => {
 
     await recorder.ended('run_1', 'stopped');
 
-    expect((await recorder.stored('run_1'))?.factWith(null, null)?.ending).toBe(
-      'stopped',
-    );
+    expect(
+      (await recorder.stored('run_1'))?.factWith(null, null, null)?.ending,
+    ).toBe('stopped');
   });
 
   it('takes the visit Work counted for the run', async () => {
@@ -173,9 +173,9 @@ describe('recording that a run ended', () => {
     );
     await recorder.ended('run_1');
 
-    expect((await recorder.stored('run_1'))?.factWith(null, null)?.ending).toBe(
-      'superseded',
-    );
+    expect(
+      (await recorder.stored('run_1'))?.factWith(null, null, null)?.ending,
+    ).toBe('superseded');
   });
 
   it('marks a recorded run superseded once, however often it is told', async () => {
@@ -196,7 +196,7 @@ describe('recording that a run ended', () => {
     );
 
     const record = await recorder.stored('run_1');
-    expect(record?.factWith(null, null)?.ending).toBe('superseded');
+    expect(record?.factWith(null, null, null)?.ending).toBe('superseded');
     expect(record?.version).toBe(1);
   });
 

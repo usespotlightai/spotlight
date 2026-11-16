@@ -59,7 +59,7 @@ type ServerCalls = {
 
 type RunEnding = NonNullable<TraceRunResponseDto['ending']>;
 
-export type HistoryRun = {
+type MadeRun = {
   readonly runId: string;
   readonly taskId: string;
   readonly lineId: string;
@@ -124,6 +124,13 @@ export type HistoryTask = {
   readonly openedAt: number;
   readonly repository: string | null;
   pullRequest: PullRequestRecord | null;
+};
+
+export type HistoryRun = MadeRun & { readonly followed: boolean };
+
+type Made = {
+  readonly runs: readonly MadeRun[];
+  readonly tasks: readonly HistoryTask[];
 };
 
 export type History = {
@@ -249,7 +256,7 @@ type Outcome =
   | { readonly kind: 'ask'; readonly to: string | null };
 
 type Ran = {
-  readonly run: HistoryRun;
+  readonly run: MadeRun;
   readonly onward: boolean;
   readonly at: number;
 };
@@ -292,7 +299,7 @@ const makeRun = (
     profile.judged && ended && chance(draw, 0.2)
       ? Math.min(1, Math.max(0, version.judge + (draw() - 0.5) * 0.4))
       : null;
-  const run: HistoryRun = {
+  const run: MadeRun = {
     runId: id,
     taskId: task.id,
     lineId: profile.lineId,
@@ -364,7 +371,7 @@ const chainOf = (
   steps: readonly Step[],
   ids: () => string,
   cutoff: number,
-  runs: HistoryRun[],
+  runs: MadeRun[],
   start: number,
 ): number | null => {
   let at = start;
@@ -532,7 +539,7 @@ const pullRequestOf = (
 
 const pullRequestStateOf = (
   pullRequest: PullRequestRecord | null,
-): HistoryRun['pullRequestState'] => pullRequest?.state ?? null;
+): MadeRun['pullRequestState'] => pullRequest?.state ?? null;
 
 const runDeliveryTask = (
   draw: Draw,
@@ -540,7 +547,7 @@ const runDeliveryTask = (
   type: PullRequestType,
   ids: () => string,
   cutoff: number,
-  runs: HistoryRun[],
+  runs: MadeRun[],
 ) => {
   let at = chainOf(draw, task, deliverySteps, ids, cutoff, runs, task.openedAt);
   let openedAt: number | null = null;
@@ -612,7 +619,7 @@ const runExperiment = (
   type: PullRequestType,
   ids: () => string,
   cutoff: number,
-  runs: HistoryRun[],
+  runs: MadeRun[],
 ) => {
   const before = runs.length;
   const doneAt = chainOf(
@@ -644,10 +651,10 @@ const runExperiment = (
   }
 };
 
-const syntheticHistory = (cutoff: number): History => {
+const syntheticHistory = (cutoff: number): Made => {
   tallies.clear();
   const draw = seeded(20_261_008);
-  const runs: HistoryRun[] = [];
+  const runs: MadeRun[] = [];
   const tasks: HistoryTask[] = [];
   const today = cutoff;
   let runCount = 0;
@@ -783,9 +790,9 @@ const worldRuns = (
   tasks: readonly TaskResponseDto[],
   runsOf: Record<string, TaskRunResponseDto[]>,
   lineOf: (stationId: string) => string,
-): History => {
+): Made => {
   const draw = seeded(7);
-  const history: HistoryRun[] = [];
+  const history: MadeRun[] = [];
   const records: HistoryTask[] = [];
 
   for (const task of tasks) {
@@ -874,7 +881,7 @@ const namedRunOf = (
   profile: Profile,
   past: PastRun,
   reviewAt: (hours: number) => string,
-): HistoryRun => {
+): MadeRun => {
   const endedAt = Date.now() - past.endedHoursAgo * HOUR_MS;
   const runningMs = Math.round(spread(past.runId, 5, 21) * MINUTE_MS);
   const startedAt = endedAt - runningMs;
@@ -936,7 +943,7 @@ const namedRunOf = (
   };
 };
 
-const namedHistory = (): History => {
+const namedHistory = (): Made => {
   const profile = profileOf(IMPLEMENTATION_ID);
   if (!profile) {
     return { runs: [], tasks: [] };
@@ -947,7 +954,7 @@ const namedHistory = (): History => {
     byTask.set(past.taskId, [...(byTask.get(past.taskId) ?? []), past]);
   }
 
-  return [...byTask.entries()].reduce<History>(
+  return [...byTask.entries()].reduce<Made>(
     (made, [taskId, pasts], place) => {
       const openedBy = NAMED_PEOPLE[place % NAMED_PEOPLE.length] ?? SAM.id;
       const runs = pasts.map((past) => ({
@@ -1020,6 +1027,28 @@ const PLATFORM_LINE_OF = (stationId: string): string =>
     ? INCIDENTS_ID
     : DELIVERY_ID;
 
+const endsAfter = (other: MadeRun, run: MadeRun): boolean =>
+  other.endedAt > run.endedAt ||
+  (other.endedAt === run.endedAt && other.runId > run.runId);
+
+const withFollowed = (runs: readonly MadeRun[]): HistoryRun[] => {
+  const completed = new Map<string, MadeRun[]>();
+
+  for (const run of runs) {
+    if (run.ending === 'completed') {
+      const key = `${run.taskId}:${run.stationId}`;
+      completed.set(key, [...(completed.get(key) ?? []), run]);
+    }
+  }
+
+  return runs.map((run) => ({
+    ...run,
+    followed: (completed.get(`${run.taskId}:${run.stationId}`) ?? []).some(
+      (other) => other.runId !== run.runId && endsAfter(other, run),
+    ),
+  }));
+};
+
 const buildHistory = (): History => {
   const cutoff = Date.now() - 2 * HOUR_MS;
   const synthetic = syntheticHistory(cutoff);
@@ -1038,12 +1067,11 @@ const buildHistory = (): History => {
   );
 
   return {
-    runs: [
-      ...synthetic.runs,
-      ...named.runs,
-      ...platform.runs,
-      ...growth.runs,
-    ].sort((one, other) => other.at - one.at),
+    runs: withFollowed(
+      [...synthetic.runs, ...named.runs, ...platform.runs, ...growth.runs].sort(
+        (one, other) => other.at - one.at,
+      ),
+    ),
     tasks: [
       ...synthetic.tasks,
       ...named.tasks,
@@ -1071,3 +1099,6 @@ export const runsOfTeam = (teamId: string): readonly HistoryRun[] =>
 
 export const tasksOfTeam = (teamId: string): readonly HistoryTask[] =>
   history().tasks.filter((task) => task.teamId === teamId);
+
+export const isLastCompletedVisit = (run: HistoryRun): boolean =>
+  run.ending === 'completed' && !run.followed;

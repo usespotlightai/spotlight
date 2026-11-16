@@ -1,5 +1,5 @@
 {
-  "id": "3bea0b39-34db-427e-b02f-5e8ea8a78bf9",
+  "id": "d7738c5f-fc02-4066-86a2-2b5bcf3783fa",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -5735,6 +5735,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "followed_at": {
+          "name": "followed_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "checks": {
           "name": "checks",
           "type": "run_record_checks",
@@ -6670,6 +6676,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "score_live_judge_idx": {
+          "name": "score_live_judge_idx",
+          "columns": [
+            {
+              "expression": "at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"score\".\"source\" = 'judge' and \"score\".\"origin\" = 'live'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -20239,8 +20267,7 @@
         "grade",
         "accepted",
         "sent-back",
-        "merged",
-        "closed"
+        "merged"
       ]
     },
     "public.delivery_state": {

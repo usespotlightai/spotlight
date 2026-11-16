@@ -37,7 +37,7 @@ CREATE TYPE "public"."claims_revision_outcome" AS ENUM('proposed', 'ended');--> 
 CREATE TYPE "public"."claims_revision_trigger" AS ENUM('claim-wrong', 'calibration-failed', 'claim-missing');--> statement-breakpoint
 CREATE TYPE "public"."judge_disagreement_direction" AS ENUM('judge-failed', 'judge-passed');--> statement-breakpoint
 CREATE TYPE "public"."judge_disagreement_withdrawal_reason" AS ENUM('verdicts-agree', 'claims-changed', 'label-gone');--> statement-breakpoint
-CREATE TYPE "public"."judge_label_source" AS ENUM('grade', 'accepted', 'sent-back', 'merged', 'closed');--> statement-breakpoint
+CREATE TYPE "public"."judge_label_source" AS ENUM('grade', 'accepted', 'sent-back', 'merged');--> statement-breakpoint
 CREATE TYPE "public"."delivery_state" AS ENUM('pending', 'working', 'done', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."hook_firing_state" AS ENUM('pending', 'working', 'done', 'failed', 'superseded', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."station_kind" AS ENUM('backlog', 'work', 'completed');--> statement-breakpoint
@@ -726,6 +726,7 @@ CREATE TABLE "run_fact" (
 	"visit" integer NOT NULL,
 	"asked" boolean NOT NULL,
 	"superseded_at" timestamp (3) with time zone,
+	"followed_at" timestamp (3) with time zone,
 	"checks" "run_record_checks",
 	"checked_at" timestamp (3) with time zone,
 	"first_human_action" "human_action",
@@ -2574,6 +2575,7 @@ CREATE INDEX "run_record_ended_idx" ON "run_record" USING btree ("ended_at");-->
 CREATE UNIQUE INDEX "score_judge_idx" ON "score" USING btree ("run_id","rubric_version") WHERE "score"."source" = 'judge';--> statement-breakpoint
 CREATE UNIQUE INDEX "score_person_idx" ON "score" USING btree ("run_id","scored_by_id") WHERE "score"."source" = 'person';--> statement-breakpoint
 CREATE INDEX "score_station_idx" ON "score" USING btree ("station_id","at");--> statement-breakpoint
+CREATE INDEX "score_live_judge_idx" ON "score" USING btree ("at","id") WHERE "score"."source" = 'judge' and "score"."origin" = 'live';--> statement-breakpoint
 CREATE INDEX "score_task_idx" ON "score" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "score_workspace_idx" ON "score" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "station_alert_station_idx" ON "station_alert" USING btree ("station_id","fired_at");--> statement-breakpoint

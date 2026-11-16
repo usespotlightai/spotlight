@@ -47,6 +47,7 @@ import { JudgeDisagreementInbox } from '@insights/application/services/judge-dis
 import { LabelledRuns } from '@insights/application/services/labelled-runs.service';
 import { ProposeClaimsRevisions } from '@insights/application/services/propose-claims-revisions.service';
 import { RaiseJudgeDisagreements } from '@insights/application/services/raise-judge-disagreements.service';
+import { RecheckJudgeDisagreements } from '@insights/application/services/recheck-judge-disagreements.service';
 import { StartClaimsRevisions } from '@insights/application/services/start-claims-revisions.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { TeamJudgeDisagreements } from '@insights/application/services/team-judge-disagreements.service';
@@ -211,6 +212,30 @@ export const JUDGE_REPAIR_PROVIDERS: readonly Provider[] = [
         transaction,
         ids,
         clock,
+      ),
+  },
+  {
+    provide: RecheckJudgeDisagreements,
+    inject: [
+      RaiseJudgeDisagreements,
+      DrizzleJudgeDisagreementRepository,
+      STATION_FACTS,
+      CLOCK,
+      LOGGER,
+    ],
+    useFactory: (
+      raising: RaiseJudgeDisagreements,
+      disagreements: JudgeDisagreementRepository,
+      facts: StationFactsPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) =>
+      new RecheckJudgeDisagreements(
+        raising,
+        disagreements,
+        facts,
+        clock,
+        logger,
       ),
   },
   {

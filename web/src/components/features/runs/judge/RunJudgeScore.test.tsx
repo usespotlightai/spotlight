@@ -221,7 +221,6 @@ describe('RunJudgeScore', () => {
     [{ source: 'accepted', passes: true }, 'Accepted'],
     [{ source: 'sent-back', passes: false }, 'Sent back'],
     [{ source: 'merged', passes: true }, 'Pull request merged'],
-    [{ source: 'closed', passes: false }, 'Pull request closed'],
     [{ source: 'grade', passes: true }, 'Passed by people'],
     [{ source: 'grade', passes: false }, 'Failed by people'],
   ] as const)(

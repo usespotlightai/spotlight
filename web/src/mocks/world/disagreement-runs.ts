@@ -1,4 +1,8 @@
-import { type HistoryRun, history } from '@/mocks/world/insights-history';
+import {
+  type HistoryRun,
+  history,
+  isLastCompletedVisit,
+} from '@/mocks/world/insights-history';
 import { isCoreTask } from '@/mocks/world/past-work';
 import { PLATFORM_ID } from '@/mocks/world/platform';
 import { onEarlierRubric } from '@/mocks/world/station-judge';
@@ -48,7 +52,9 @@ export const askedOfOtherRun = (): HistoryRun | null =>
 
 export const mergedRun = (): HistoryRun | null =>
   newest(
-    acceptedRuns().filter((run) => run.pullRequestState === 'merged'),
+    acceptedRuns().filter(
+      (run) => run.pullRequestState === 'merged' && isLastCompletedVisit(run),
+    ),
     2,
   );
 

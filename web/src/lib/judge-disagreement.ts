@@ -116,8 +116,6 @@ const factOf = (disagreement: JudgeDisagreement, labeller: string): string => {
       return `${labeller} sent this run back. The judge passed it.`;
     case 'merged':
       return 'The pull request was merged. The judge failed the run.';
-    case 'closed':
-      return 'The pull request was closed without a merge. The judge passed the run.';
   }
 };
 

@@ -222,6 +222,7 @@ export const runFact = pgTable(
     visit: integer('visit').notNull(),
     asked: boolean('asked').notNull(),
     supersededAt: timestamptz('superseded_at'),
+    followedAt: timestamptz('followed_at'),
     checks: runRecordChecks('checks'),
     checkedAt: timestamptz('checked_at'),
     firstHumanAction: humanAction('first_human_action'),
@@ -557,6 +558,9 @@ export const score = pgTable(
       .on(table.runId, table.scoredById)
       .where(sql`${table.source} = 'person'`),
     index('score_station_idx').on(table.stationId, table.at),
+    index('score_live_judge_idx')
+      .on(table.at, table.id)
+      .where(sql`${table.source} = 'judge' and ${table.origin} = 'live'`),
     index('score_task_idx').on(table.taskId),
     index('score_workspace_idx').on(table.workspaceId, table.teamId),
   ],

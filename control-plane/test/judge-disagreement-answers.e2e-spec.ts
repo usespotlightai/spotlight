@@ -172,4 +172,23 @@ describe('answers to a judge disagreement, one claim at a time', () => {
     expect(withdrawn.withdrawnAt).toEqual(SECOND);
     expect(withdrawn.withdrawnBecause).toBe('label-gone');
   });
+
+  it('lists the disagreements still standing in id order, a page at a time', async () => {
+    for (const runId of ['run_s1', 'run_s2', 'run_s3']) {
+      await disagreements.add(openDisagreement(runId));
+    }
+    await disagreements.save(
+      (await stored('run_s2')).withdraw(SECOND, 'label-gone'),
+    );
+    const after = JudgeDisagreementId.of('disagreement_run_r');
+
+    const first = await disagreements.standing(after, 1);
+    const second = await disagreements.standing(first[0]?.id ?? null, 1);
+
+    expect(first.map((each) => each.runId.value)).toEqual(['run_s1']);
+    expect(second.map((each) => each.runId.value)).toEqual(['run_s3']);
+    expect(
+      (await disagreements.standing(after, 10)).map((each) => each.runId.value),
+    ).toEqual(['run_s1', 'run_s3']);
+  });
 });

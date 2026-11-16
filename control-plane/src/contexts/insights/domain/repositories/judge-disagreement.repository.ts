@@ -20,6 +20,11 @@ export interface JudgeDisagreementRepository extends ScopedRemoval<JudgeDisagree
 
   ofRun(runId: RunId): Promise<readonly JudgeDisagreement[]>;
 
+  standing(
+    after: JudgeDisagreementId | null,
+    max: number,
+  ): Promise<readonly JudgeDisagreement[]>;
+
   outdatedAtStation(
     stationId: StationId,
     current: RubricVersion | null,

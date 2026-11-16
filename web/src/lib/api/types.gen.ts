@@ -6024,9 +6024,9 @@ export type JudgeScoreResponseDto = {
 
 export type RunHumanOutcomeResponseDto = {
   /**
-   * What gave the human outcome: a grade, the first action of a person on the run, or the task’s pull request
+   * What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task
    */
-  source: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'closed';
+  source: 'grade' | 'accepted' | 'sent-back' | 'merged';
   /**
    * Whether people found the run good
    */
@@ -8164,7 +8164,7 @@ export type JudgeDisagreementResponseDto = {
   /**
    * What gave the human outcome that disagrees with the judge
    */
-  labelFrom: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'closed';
+  labelFrom: 'grade' | 'accepted' | 'sent-back' | 'merged';
   openedAt: string;
   claims: Array<DisagreementClaimResponseDto>;
   /**

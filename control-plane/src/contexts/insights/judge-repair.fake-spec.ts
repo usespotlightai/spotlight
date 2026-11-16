@@ -179,6 +179,19 @@ export class JudgeDisagreementsInMemory implements JudgeDisagreementRepository {
     return [...this.stored.values()].filter((each) => each.runId.equals(runId));
   }
 
+  async standing(
+    after: JudgeDisagreementId | null,
+    max: number,
+  ): Promise<readonly JudgeDisagreement[]> {
+    return [...this.stored.values()]
+      .filter(
+        (each) =>
+          !each.isWithdrawn && (after === null || each.id.value > after.value),
+      )
+      .sort((a, b) => (a.id.value < b.id.value ? -1 : 1))
+      .slice(0, max);
+  }
+
   async outdatedAtStation(
     stationId: StationId,
     current: RubricVersion | null,

@@ -37153,10 +37153,9 @@
               "grade",
               "accepted",
               "sent-back",
-              "merged",
-              "closed"
+              "merged"
             ],
-            "description": "What gave the human outcome: a grade, the first action of a person on the run, or the task’s pull request"
+            "description": "What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task"
           },
           "passes": {
             "type": "boolean",
@@ -42282,8 +42281,7 @@
               "grade",
               "accepted",
               "sent-back",
-              "merged",
-              "closed"
+              "merged"
             ],
             "description": "What gave the human outcome that disagrees with the judge"
           },
