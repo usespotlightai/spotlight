@@ -85,8 +85,8 @@ const acting = async (...runs: Ended[]) => {
         server: each.server,
       })) ?? [],
     disposition: async (runId: string) =>
-      (await records.of(RunId.of(runId)))?.factWith(null, null)?.disposition ??
-      null,
+      (await records.of(RunId.of(runId)))?.factWith(null, null, null)
+        ?.disposition ?? null,
     next: async (runId: string) =>
       (await records.of(RunId.of(runId)))?.firstHumanAction?.kind ?? null,
     actor: async (runId: string) =>

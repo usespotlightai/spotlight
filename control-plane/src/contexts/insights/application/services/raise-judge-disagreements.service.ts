@@ -4,6 +4,7 @@ import type { FactRecorder } from '@insights/application/services/fact-recorder.
 import { JudgeDisagreement } from '@insights/domain/aggregates/judge-disagreement.aggregate';
 import type { PullRequestRecordClosed } from '@insights/domain/events/pull-request-record-closed.event';
 import type { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
+import type { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { JudgeDisagreementVersionConflictError } from '@insights/domain/exceptions/judge-disagreement-version-conflict.error';
 import type { JudgeDisagreementRepository } from '@insights/domain/repositories/judge-disagreement.repository';
@@ -24,6 +25,7 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface JudgedLineChanged {
@@ -66,14 +68,16 @@ export class RaiseJudgeDisagreements {
     await this.consider(event.runId, event.workspaceId, event.location);
   }
 
-  outcomeChanged(event: RunOutcomeChanged): Promise<void> {
-    return this.consider(event.runId, event.workspaceId, event.location);
+  runEnded(event: RunRecordEnded): Promise<void> {
+    return this.considerTask(event.location.taskId, event.workspaceId);
   }
 
-  async pullRequestClosed(event: PullRequestRecordClosed): Promise<void> {
-    for (const fact of await this.facts.ofTasks([event.taskId])) {
-      await this.consider(fact.runId, event.workspaceId, fact.end.location);
-    }
+  outcomeChanged(event: RunOutcomeChanged): Promise<void> {
+    return this.considerTask(event.location.taskId, event.workspaceId);
+  }
+
+  pullRequestClosed(event: PullRequestRecordClosed): Promise<void> {
+    return this.considerTask(event.taskId, event.workspaceId);
   }
 
   async lineChanged(event: JudgedLineChanged): Promise<void> {
@@ -85,33 +89,38 @@ export class RaiseJudgeDisagreements {
     }
   }
 
+  private async considerTask(
+    taskId: TaskId,
+    workspaceId: WorkspaceId,
+  ): Promise<void> {
+    const rubrics = new Map<string, Promise<Rubric | null>>();
+    const rubricOf = (stationId: StationId) => {
+      const rubric = rubrics.get(stationId.value) ?? this.rubricAt(stationId);
+      rubrics.set(stationId.value, rubric);
+      return rubric;
+    };
+
+    for (const fact of await this.facts.ofTasks([taskId])) {
+      if (fact.workspaceId.equals(workspaceId)) {
+        await this.consider(
+          fact.runId,
+          workspaceId,
+          fact.end.location,
+          await rubricOf(fact.end.location.stationId),
+        );
+      }
+    }
+  }
+
   private async consider(
     runId: RunId,
     workspaceId: WorkspaceId,
     location: RunLocation,
+    judged?: Rubric | null,
   ): Promise<void> {
-    const rubric = await this.rubricAt(location.stationId);
-    const [fact] = await this.facts.ofRuns([runId]);
-    const scores = await this.facts.scoresOfRuns([runId]);
-    const label = rubric
-      ? humanLabelOf({
-          rubricVersion: rubric.version,
-          fact: fact ?? null,
-          grades: scores.filter((each) => !each.fromJudge),
-        })
-      : null;
-    const known = await this.disagreements.ofRun(runId);
-    const standing = known.find((each) => !each.isWithdrawn) ?? null;
-
-    const reason =
-      standing?.noLongerHoldsBecause({
-        rubricVersion: rubric?.version ?? null,
-        label,
-      }) ?? null;
-
-    if (standing && reason) {
-      await this.withdrawing(standing, reason);
-    }
+    const rubric =
+      judged === undefined ? await this.rubricAt(location.stationId) : judged;
+    const { label, scores, known } = await this.withdrawingStale(runId, rubric);
 
     if (
       !rubric ||
@@ -125,7 +134,33 @@ export class RaiseJudgeDisagreements {
 
     if (live && label.passes !== live.passes) {
       await this.opening({ runId, workspaceId, rubric, live, label });
+      await this.withdrawingStale(runId, rubric);
     }
+  }
+
+  private async withdrawingStale(runId: RunId, rubric: Rubric | null) {
+    const [fact] = await this.facts.ofRuns([runId]);
+    const scores = await this.facts.scoresOfRuns([runId]);
+    const label = rubric
+      ? humanLabelOf({
+          rubricVersion: rubric.version,
+          fact: fact ?? null,
+          grades: scores.filter((each) => !each.fromJudge),
+        })
+      : null;
+    const known = await this.disagreements.ofRun(runId);
+    const standing = known.find((each) => !each.isWithdrawn) ?? null;
+    const reason =
+      standing?.noLongerHoldsBecause({
+        rubricVersion: rubric?.version ?? null,
+        label,
+      }) ?? null;
+
+    if (standing && reason) {
+      await this.withdrawing(standing, reason);
+    }
+
+    return { label, scores, known };
   }
 
   private async opening(input: {
@@ -193,18 +228,25 @@ export class RaiseJudgeDisagreements {
     }
   }
 
-  private withdrawing(
+  private async withdrawing(
     open: JudgeDisagreement,
     reason: WithdrawalReason,
   ): Promise<void> {
-    return this.transaction.inTransaction(() =>
-      this.recorder.record(this.disagreements, {
-        owner: this.ownerOf(open.workspaceId, open.location),
-        load: () => this.disagreements.find(open.id),
-        deleted: (existing) => existing.delete(),
-        change: (existing) => existing.withdraw(this.clock.now(), reason),
-      }),
-    );
+    try {
+      await this.transaction.inTransaction(() =>
+        this.recorder.record(this.disagreements, {
+          owner: this.ownerOf(open.workspaceId, open.location),
+          load: () => this.disagreements.find(open.id),
+          deleted: (existing) => existing.delete(),
+          change: (existing) => existing.withdraw(this.clock.now(), reason),
+        }),
+      );
+    } catch (error) {
+      if (error instanceof JudgeDisagreementVersionConflictError) {
+        return;
+      }
+      throw error;
+    }
   }
 
   private async rubricAt(stationId: StationId): Promise<Rubric | null> {

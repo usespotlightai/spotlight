@@ -197,7 +197,7 @@ export class RunHumanOutcomeResponseDto {
   @ApiProperty({
     enum: LABEL_SOURCES,
     description:
-      'What gave the human outcome: a grade, the first action of a person on the run, or the task’s pull request',
+      'What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task',
   })
   readonly source: string;
 

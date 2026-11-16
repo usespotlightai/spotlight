@@ -396,9 +396,9 @@ describe('insightsSubscribers', () => {
 
     await subscriber.deliver('insights.record-ended-run', runEnded());
 
-    expect((await subscriber.record())?.factWith(null, null)?.ending).toBe(
-      'completed',
-    );
+    expect(
+      (await subscriber.record())?.factWith(null, null, null)?.ending,
+    ).toBe('completed');
   });
 
   it('records a run a person stopped as stopped', async () => {
@@ -409,9 +409,9 @@ describe('insightsSubscribers', () => {
       runEnded({ stopped: true }),
     );
 
-    expect((await subscriber.record())?.factWith(null, null)?.ending).toBe(
-      'stopped',
-    );
+    expect(
+      (await subscriber.record())?.factWith(null, null, null)?.ending,
+    ).toBe('stopped');
   });
 
   it('records nothing for a run at no station', async () => {
@@ -472,7 +472,7 @@ describe('insightsSubscribers', () => {
     const record = await subscriber.record();
     expect(record?.checks).toBe('passed');
     expect(record?.firstHumanAction?.kind).toBe('sent-back');
-    expect(record?.factWith(null, null)?.ending).toBe('superseded');
+    expect(record?.factWith(null, null, null)?.ending).toBe('superseded');
   });
 
   it('follows the task’s pull request from opened to merged', async () => {

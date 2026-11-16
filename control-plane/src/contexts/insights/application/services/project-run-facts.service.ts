@@ -7,6 +7,7 @@ import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate
 import type { PullRequestRecordRepository } from '@insights/domain/repositories/pull-request-record.repository';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
 import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
+import { followedAtOf } from '@insights/domain/services/later-visit';
 import type {
   RunFact,
   TaskOpeningFact,
@@ -32,6 +33,23 @@ const AT_ONCE = 100;
 
 const placeKey = (workspaceId: string, taskId: string): string =>
   `${workspaceId}\u0000${taskId}`;
+
+const withTaskRecords = (
+  records: readonly RunRecord[],
+  taskRecords: readonly RunRecord[],
+): readonly RunRecord[] => {
+  const byRun = new Map(records.map((each) => [each.runId.value, each]));
+
+  for (const each of taskRecords) {
+    byRun.set(each.runId.value, byRun.get(each.runId.value) ?? each);
+  }
+
+  return [...byRun.values()];
+};
+
+const distinct = (taskIds: readonly TaskId[]): readonly TaskId[] => [
+  ...new Map(taskIds.map((each) => [each.value, each])).values(),
+];
 
 const tasksOf = (records: readonly RunRecord[]): readonly TaskId[] =>
   [
@@ -60,9 +78,15 @@ export class ProjectRunFacts implements RunFactsMaintenance {
       const records = await this.records.ofRuns(runIds);
       const projectedTasks = await this.facts.tasksOfRuns(runIds);
 
-      await this.facts.lockTasks([...tasksOf(records), ...projectedTasks]);
+      const tasks = distinct([...tasksOf(records), ...projectedTasks]);
 
-      const projected = await this.factsOf(records);
+      await this.facts.lockTasks(tasks);
+
+      const taskRecords = await this.records.ofTasks(tasks);
+      const projected = await this.factsOf(
+        withTaskRecords(records, taskRecords),
+        taskRecords,
+      );
       const kept = new Set(projected.map((each) => each.runId.value));
 
       await this.facts.put(projected);
@@ -78,7 +102,8 @@ export class ProjectRunFacts implements RunFactsMaintenance {
     return this.transaction.inTransaction(async () => {
       await this.facts.lockTasks(taskIds);
 
-      const projected = await this.factsOf(await this.records.ofTasks(taskIds));
+      const records = await this.records.ofTasks(taskIds);
+      const projected = await this.factsOf(records, records);
       const kept = new Set(projected.map((each) => each.runId.value));
 
       await this.facts.put(projected);
@@ -138,7 +163,12 @@ export class ProjectRunFacts implements RunFactsMaintenance {
       }
 
       checked += records.length;
-      const differing = await this.facts.differing(await this.factsOf(records));
+      const differing = await this.facts.differing(
+        await this.factsOf(
+          records,
+          await this.records.ofTasks(tasksOf(records)),
+        ),
+      );
 
       for (const runId of differing) {
         repaired.set(runId.value, runId);
@@ -217,6 +247,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
 
   private async factsOf(
     records: readonly RunRecord[],
+    siblings: readonly RunRecord[],
   ): Promise<readonly RunFact[]> {
     const ended = records.filter((each) => each.hasEnded);
     const tasks = tasksOf(ended);
@@ -237,6 +268,14 @@ export class ProjectRunFacts implements RunFactsMaintenance {
     }
 
     const owned = new Map<string, PullRequestRecord[]>();
+    const taskRecords = new Map<string, RunRecord[]>();
+
+    for (const each of withTaskRecords(ended, siblings)) {
+      if (each.taskId) {
+        const key = placeKey(each.workspaceId.value, each.taskId.value);
+        taskRecords.set(key, [...(taskRecords.get(key) ?? []), each]);
+      }
+    }
 
     for (const each of await this.pullRequests.ownedBy(tasks)) {
       if (each.owner) {
@@ -253,6 +292,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
       const fact = record.factWith(
         openings.get(key) ?? null,
         PullRequestRecord.taskFactOf(owned.get(key) ?? []),
+        followedAtOf(record, taskRecords.get(key) ?? []),
       );
 
       return fact ? [fact] : [];

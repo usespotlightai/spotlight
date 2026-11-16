@@ -37,7 +37,7 @@ CREATE TYPE "public"."claims_revision_outcome" AS ENUM('proposed', 'ended');--> 
 CREATE TYPE "public"."claims_revision_trigger" AS ENUM('claim-wrong', 'calibration-failed', 'claim-missing');--> statement-breakpoint
 CREATE TYPE "public"."judge_disagreement_direction" AS ENUM('judge-failed', 'judge-passed');--> statement-breakpoint
 CREATE TYPE "public"."judge_disagreement_withdrawal_reason" AS ENUM('verdicts-agree', 'claims-changed', 'label-gone');--> statement-breakpoint
-CREATE TYPE "public"."judge_label_source" AS ENUM('grade', 'accepted', 'sent-back', 'merged', 'closed');--> statement-breakpoint
+CREATE TYPE "public"."judge_label_source" AS ENUM('grade', 'accepted', 'sent-back', 'merged');--> statement-breakpoint
 CREATE TYPE "public"."delivery_state" AS ENUM('pending', 'working', 'done', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."hook_firing_state" AS ENUM('pending', 'working', 'done', 'failed', 'superseded', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."station_kind" AS ENUM('backlog', 'work', 'completed');--> statement-breakpoint
@@ -726,6 +726,7 @@ CREATE TABLE "run_fact" (
 	"visit" integer NOT NULL,
 	"asked" boolean NOT NULL,
 	"superseded_at" timestamp (3) with time zone,
+	"followed_at" timestamp (3) with time zone,
 	"checks" "run_record_checks",
 	"checked_at" timestamp (3) with time zone,
 	"first_human_action" "human_action",

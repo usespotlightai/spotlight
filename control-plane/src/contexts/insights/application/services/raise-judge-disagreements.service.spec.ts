@@ -1,7 +1,13 @@
+import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RaiseJudgeDisagreements } from '@insights/application/services/raise-judge-disagreements.service';
+import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { Score } from '@insights/domain/aggregates/score.aggregate';
+import { PullRequestRecordClosed } from '@insights/domain/events/pull-request-record-closed.event';
 import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
+import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
+import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
 import {
   type Acted,
   ACTOR,
@@ -20,9 +26,20 @@ import {
   judgeScore,
   NEXT_RUBRIC_VERSION,
   personGrade,
+  ScoresInMemory,
 } from '@insights/judging.fake-spec';
-import { inTransaction, WORKSPACE } from '@insights/runs.fake-spec';
+import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
+import {
+  endedRecord,
+  inTransaction,
+  RunRecordsInMemory,
+  StationFactsInMemory,
+  TEAM,
+  WORKSPACE,
+} from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const recordedOf = (score: Score): ScoreRecorded =>
@@ -337,5 +354,158 @@ describe('RaiseJudgeDisagreements', () => {
     );
 
     expect(disagreements.stored.size).toBe(0);
+  });
+
+  describe('on a task whose pull request merged', () => {
+    const visits = async () => {
+      const records = new RunRecordsInMemory();
+      const scores = new ScoresInMemory();
+      const pullRequests = new PullRequestRecordsInMemory();
+      await pullRequests.add(
+        taskPullRequestOf('task_1', {
+          openedAt: day('2026-09-30', 9),
+          closedAt: day('2026-09-30', 13),
+        }),
+      );
+      const facts = new StationFactsInMemory(records, { scores, pullRequests });
+      const disagreements = new JudgeDisagreementsInMemory();
+      const raising = new RaiseJudgeDisagreements(
+        disagreements,
+        facts,
+        judgesWith(),
+        new FactRecorder(deletionsInMemory()),
+        inTransaction,
+        sequence('disagreement'),
+        clockAt(),
+      );
+      const score = judgeScore('run_1', [true, false, false], {
+        taskId: 'task_1',
+      });
+      await scores.add(score);
+      const visit = (runId: string, hour: number) =>
+        endedRecord(runId, {
+          taskId: 'task_1',
+          endedAt: day('2026-09-30', hour),
+        });
+      const added = async (record: RunRecord) => {
+        const events = record.pullEvents();
+        await records.add(record);
+        return events;
+      };
+
+      return {
+        records,
+        pullRequests,
+        disagreements,
+        raising,
+        score,
+        visit,
+        added,
+      };
+    };
+
+    it('withdraws the first visit’s disagreement once a later visit of the station completes and takes the merge', async () => {
+      const { disagreements, raising, score, visit, added } = await visits();
+      await added(visit('run_1', 10));
+      await raising.scoreRecorded(recordedOf(score));
+      expect([...disagreements.stored.values()][0]?.labelFrom).toBe('merged');
+
+      const [ended] = await added(visit('run_2', 12));
+      await raising.runEnded(ended as RunRecordEnded);
+
+      const [disagreement] = [...disagreements.stored.values()];
+      expect(disagreement?.state).toBe('withdrawn');
+      expect(disagreement?.withdrawnBecause).toBe('label-gone');
+    });
+
+    it('opens the first visit’s disagreement once the later visit that took the merge is superseded', async () => {
+      const { records, disagreements, raising, score, visit, added } =
+        await visits();
+      await added(visit('run_1', 10));
+      const later = visit('run_2', 12);
+      await added(later);
+      await raising.scoreRecorded(recordedOf(score));
+      expect(disagreements.stored.size).toBe(0);
+
+      const superseded = later.supersededByItsTask(day('2026-09-30', 14));
+      const [changed] = superseded.pullEvents();
+      expect(changed).toBeInstanceOf(RunOutcomeChanged);
+      await records.save(superseded);
+      await raising.outcomeChanged(changed as RunOutcomeChanged);
+
+      const [disagreement] = [...disagreements.stored.values()];
+      expect(disagreement?.runId).toEqual(RunId.of('run_1'));
+      expect(disagreement?.labelFrom).toBe('merged');
+      expect(disagreement?.state).not.toBe('withdrawn');
+    });
+
+    it('withdraws a disagreement it opened while a later visit took the merge', async () => {
+      const { disagreements, raising, score, visit, added } = await visits();
+      await added(visit('run_1', 10));
+      const opened = disagreements.add.bind(disagreements);
+      disagreements.add = async (disagreement) => {
+        await added(visit('run_2', 12));
+        await opened(disagreement);
+      };
+
+      await raising.scoreRecorded(recordedOf(score));
+
+      const [disagreement] = [...disagreements.stored.values()];
+      expect(disagreement?.state).toBe('withdrawn');
+      expect(disagreement?.withdrawnBecause).toBe('label-gone');
+    });
+
+    it('ends quietly when another subscriber withdrew the disagreement first', async () => {
+      const { disagreements, raising, score, visit, added } = await visits();
+      await added(visit('run_1', 10));
+      await raising.scoreRecorded(recordedOf(score));
+      const [ended] = await added(visit('run_2', 12));
+      const saved = disagreements.save.bind(disagreements);
+      disagreements.save = async (disagreement) => {
+        disagreements.save = saved;
+        await saved(disagreement);
+        await saved(disagreement);
+      };
+
+      await expect(
+        raising.runEnded(ended as RunRecordEnded),
+      ).resolves.toBeUndefined();
+      expect([...disagreements.stored.values()][0]?.state).toBe('withdrawn');
+    });
+
+    it('withdraws the first visit’s disagreement when the pull request closes after a later visit completed', async () => {
+      const { pullRequests, disagreements, raising, score, visit, added } =
+        await visits();
+      await added(visit('run_1', 10));
+      await raising.scoreRecorded(recordedOf(score));
+      await added(visit('run_2', 12));
+      const [merged] = [...pullRequests.stored.values()];
+
+      await raising.pullRequestClosed(
+        new PullRequestRecordClosed(
+          WORKSPACE,
+          merged.pullRequest,
+          TaskId.of('task_1'),
+          TEAM,
+          true,
+        ),
+      );
+
+      expect([...disagreements.stored.values()][0]?.withdrawnBecause).toBe(
+        'label-gone',
+      );
+    });
+
+    it('considers only the runs of the event’s workspace', async () => {
+      const { disagreements, raising, visit, added } = await visits();
+      const [ended] = await added(visit('run_1', 10));
+      const event = ended as RunRecordEnded;
+
+      await raising.runEnded(
+        new RunRecordEnded(event.runId, WorkspaceId.of('ws_2'), event.location),
+      );
+
+      expect(disagreements.stored.size).toBe(0);
+    });
   });
 });

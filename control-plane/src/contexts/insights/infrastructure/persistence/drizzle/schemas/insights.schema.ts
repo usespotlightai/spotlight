@@ -222,6 +222,7 @@ export const runFact = pgTable(
     visit: integer('visit').notNull(),
     asked: boolean('asked').notNull(),
     supersededAt: timestamptz('superseded_at'),
+    followedAt: timestamptz('followed_at'),
     checks: runRecordChecks('checks'),
     checkedAt: timestamptz('checked_at'),
     firstHumanAction: humanAction('first_human_action'),

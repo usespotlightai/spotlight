@@ -44,7 +44,7 @@ describe('RunFact', () => {
     );
 
     expect(factOf(accepted).disposition).toBe(
-      accepted.factWith(null, null)?.disposition,
+      accepted.factWith(null, null, null)?.disposition,
     );
     expect(factOf(accepted).disposition).toBe('accepted');
   });
@@ -56,7 +56,7 @@ describe('RunFact', () => {
       .recordAction(HumanAction.of('approved', LATER))
       .recordAction(HumanAction.of('accepted', LATER))
       .passTo(StationPass.of(StationId.of('station_2'), LATER))
-      .factWith(null, PULL_REQUEST);
+      .factWith(null, PULL_REQUEST, null);
     const known = fact?.asOf(AT);
 
     expect(known?.ending).toBe('completed');

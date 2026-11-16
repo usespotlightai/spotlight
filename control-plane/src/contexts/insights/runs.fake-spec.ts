@@ -21,6 +21,7 @@ import {
   earliestBounds,
 } from '@insights/domain/services/config-intervals';
 import type { LocatedFailure } from '@insights/domain/services/failure-summaries';
+import { followedAtOf } from '@insights/domain/services/later-visit';
 import {
   inStartOrder,
   type StartedRun,
@@ -138,7 +139,7 @@ export const costedRecord = (
   );
 
 export const factOf = (record: RunRecord): RunFact => {
-  const fact = record.factWith(null, null);
+  const fact = record.factWith(null, null, null);
 
   if (!fact) {
     throw new Error(`run ${record.runId.value} has not ended`);
@@ -160,6 +161,7 @@ export const factsWith = (
             record.taskId !== null && each.owner?.taskId.equals(record.taskId),
         ),
       ),
+      followedAtOf(record, records),
     );
 
     return fact ? [fact] : [];
@@ -378,6 +380,7 @@ export class StationFactsInMemory implements StationFactsPort {
             (each) => taskId !== null && each.owner?.taskId.equals(taskId),
           ),
         ),
+        followedAtOf(record, ended),
       );
 
       return fact ? [fact] : [];

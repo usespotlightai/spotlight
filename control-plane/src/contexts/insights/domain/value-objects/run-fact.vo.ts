@@ -49,6 +49,7 @@ export interface RunFactParts {
   readonly workspaceId: WorkspaceId;
   readonly end: RunEnd;
   readonly supersededAt: Date | null;
+  readonly followedAt: Date | null;
   readonly checks: CheckVerdict | null;
   readonly checkedAt: Date | null;
   readonly firstHumanAction: HumanAction | null;
@@ -92,6 +93,7 @@ export class RunFact implements RunFactParts {
   readonly workspaceId!: WorkspaceId;
   readonly end!: RunEnd;
   readonly supersededAt!: Date | null;
+  readonly followedAt!: Date | null;
   readonly checks!: CheckVerdict | null;
   readonly checkedAt!: Date | null;
   readonly firstHumanAction!: HumanAction | null;
@@ -111,6 +113,14 @@ export class RunFact implements RunFactParts {
   static of(parts: RunFactParts): RunFact {
     if ((parts.checks === null) !== (parts.checkedAt === null)) {
       throw new InvalidOutcomeError('must say when its change was checked');
+    }
+    if (
+      parts.followedAt !== null &&
+      parts.followedAt.getTime() < parts.end.endedAt.getTime()
+    ) {
+      throw new InvalidOutcomeError(
+        'can be followed only by a run that ended after it',
+      );
     }
     if (parts.firstHumanAction?.answersApproval) {
       throw new InvalidOutcomeError(
@@ -177,6 +187,7 @@ export class RunFact implements RunFactParts {
       // oxlint-disable-next-line typescript/no-misused-spread -- rebuilds it from its fields
       ...this,
       supersededAt: known(this.supersededAt) ? this.supersededAt : null,
+      followedAt: known(this.followedAt) ? this.followedAt : null,
       checks: checked ? this.checks : null,
       checkedAt: checked ? this.checkedAt : null,
       firstHumanAction: known(this.firstHumanAction?.at)

@@ -7,7 +7,6 @@ export const LABEL_SOURCES = [
   'accepted',
   'sent-back',
   'merged',
-  'closed',
 ] as const;
 
 export type LabelSource = (typeof LABEL_SOURCES)[number];
@@ -47,11 +46,12 @@ export const freeLabelOf = (fact: RunFact | null): HumanLabel | null => {
       by: action.by,
     };
   }
-  if (pullRequest?.state === 'merged') {
+  if (
+    pullRequest?.state === 'merged' &&
+    fact?.ending === 'completed' &&
+    fact.followedAt === null
+  ) {
     return { passes: true, claimResults: null, from: 'merged', by: null };
-  }
-  if (pullRequest?.state === 'closed') {
-    return { passes: false, claimResults: null, from: 'closed', by: null };
   }
 
   return null;

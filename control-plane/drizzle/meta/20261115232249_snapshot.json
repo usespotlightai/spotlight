@@ -1,5 +1,5 @@
 {
-  "id": "3bea0b39-34db-427e-b02f-5e8ea8a78bf9",
+  "id": "c40f8708-842e-4188-81f4-fbd4ca3bb05b",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -5731,6 +5731,12 @@
         },
         "superseded_at": {
           "name": "superseded_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "followed_at": {
+          "name": "followed_at",
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
@@ -20239,8 +20245,7 @@
         "grade",
         "accepted",
         "sent-back",
-        "merged",
-        "closed"
+        "merged"
       ]
     },
     "public.delivery_state": {

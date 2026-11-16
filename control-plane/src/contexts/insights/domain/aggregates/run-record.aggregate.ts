@@ -162,6 +162,7 @@ export class RunRecord extends EventRecorder {
   factWith(
     opening: TaskOpeningFact | null,
     pullRequest: RunPullRequest | null,
+    followedAt: Date | null,
   ): RunFact | null {
     return this.end
       ? RunFact.of({
@@ -169,6 +170,7 @@ export class RunRecord extends EventRecorder {
           workspaceId: this.workspaceId,
           end: this.end,
           supersededAt: this.supersededAt,
+          followedAt,
           checks: this.checks,
           checkedAt: this.checkedAt,
           firstHumanAction: this.firstHumanAction,
