@@ -130,9 +130,9 @@ export class GenerateChangeStack {
       now: this.clock.now(),
     });
 
-    if (!(await this.generator.availableTo(run.workspaceId.value))) {
+    if (!(await this.generator.availableTo(stack.workspaceId.value))) {
       this.logger.debug(
-        { workspaceId: run.workspaceId.value },
+        { workspaceId: stack.workspaceId.value },
         'No model endpoint is set for the workspace; change stacks are unavailable',
       );
       throw new ChangeStacksUnavailableError();

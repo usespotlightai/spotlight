@@ -7,7 +7,11 @@ import { inWorkspace } from '@/stories/inference';
 const meta = {
   title: 'Team/Runs/Change stack/No inference endpoint',
   component: ChangeStackNotice,
-  args: { slug: SLUG, stack: null, runTo: `/w/${SLUG}` },
+  args: {
+    slug: SLUG,
+    stack: null,
+    back: { to: `/w/${SLUG}`, label: 'Back to the run' },
+  },
   decorators: [inWorkspace('unset')],
 } satisfies Meta<typeof ChangeStackNotice>;
 
