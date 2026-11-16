@@ -12,15 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1794820524271,
-      "tag": "20261116091524_initial_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1794833203613,
-      "tag": "20261116124643_add_inference_endpoint",
+      "when": 1794858311554,
+      "tag": "20261116194511_initial_schema",
       "breakpoints": true
     }
   ]
