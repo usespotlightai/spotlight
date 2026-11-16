@@ -5,6 +5,7 @@ import type { PairedChange } from '@insights/domain/services/pair-evidence';
 export const SIDE_BY_SIDE_JUDGE = Symbol('INSIGHTS_SIDE_BY_SIDE_JUDGE');
 
 export interface SideBySideJudgeRequest {
+  readonly workspaceId: string;
   readonly claims: readonly string[];
   readonly title: string;
   readonly description: string | null;
@@ -19,7 +20,7 @@ export interface SideBySideJudgeAnswer {
 }
 
 export interface SideBySideJudgePort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   judgePair(request: SideBySideJudgeRequest): Promise<SideBySideJudgeAnswer>;
 }

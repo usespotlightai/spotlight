@@ -99,7 +99,7 @@ const archiveStore: WorkingCopyArchiveStorePort = {
 };
 
 const generator: ChangeStackGeneratorPort = {
-  available: true,
+  availableTo: async () => true,
   outline: async () => {
     throw new Error('A diff this small is not split');
   },
@@ -147,7 +147,7 @@ const SCORED = /score\((\d)\)/;
 const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
-  available: true,
+  availableTo: async () => true,
   judge: async (request) => {
     requests.push(request);
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
@@ -336,6 +336,15 @@ interface Claimed {
   readonly stackId: string | null;
 }
 
+const runOfStack = async (stackId: string): Promise<string> => {
+  const [stack] = await db
+    .select({ runId: schema.changeStack.runId })
+    .from(schema.changeStack)
+    .where(eq(schema.changeStack.id, stackId));
+
+  return stack?.runId ?? '';
+};
+
 const claimed = async (): Promise<Claimed> => {
   const assignment = (
     await http()
@@ -348,14 +357,18 @@ const claimed = async (): Promise<Claimed> => {
     work: {
       kind: 'run' | 'check';
       run: { id: string } | null;
-      check: { runId: string; stackId: string } | null;
+      check: { stackId: string } | null;
     };
   };
 
   return {
     token: assignment.token,
     kind: assignment.work.kind,
-    runId: assignment.work.run?.id ?? assignment.work.check?.runId ?? '',
+    runId:
+      assignment.work.run?.id ??
+      (assignment.work.check
+        ? await runOfStack(assignment.work.check.stackId)
+        : ''),
     stackId: assignment.work.check?.stackId ?? null,
   };
 };
@@ -567,19 +580,16 @@ describe('a replay at a station that checks and judges', () => {
       expect(await replayState(entry?.replayId ?? '')).toBe('running');
 
       await bearing(assignment.token)
-        .post(
-          `/api/runs/${assignment.runId}/change-stack-checks/${assignment.stackId}`,
-          {
-            steps: [
-              {
-                step: 'whole',
-                passed: passes,
-                output: passes ? 'ok' : '1 failing',
-                durationMs: 900,
-              },
-            ],
-          },
-        )
+        .post(`/api/change-stacks/${assignment.stackId}/checks`, {
+          steps: [
+            {
+              step: 'whole',
+              passed: passes,
+              output: passes ? 'ok' : '1 failing',
+              durationMs: 900,
+            },
+          ],
+        })
         .expect(204);
       reported.add(assignment.stackId ?? '');
     };

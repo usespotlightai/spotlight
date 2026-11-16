@@ -167,7 +167,7 @@ describe('layerCohort', () => {
     questions: [],
   });
   const generator: ChangeStackGeneratorPort = {
-    available: true,
+    availableTo: async () => true,
     generate: async () => {
       throw new Error('not used');
     },
@@ -201,6 +201,7 @@ describe('layerCohort', () => {
   };
   const layering = (redrafting?: StackCohort) =>
     layerCohort(generator, {
+      workspaceId: 'workspace-1',
       diff: DIFF,
       facts: FACTS,
       repository: null,

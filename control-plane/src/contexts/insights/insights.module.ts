@@ -1,6 +1,7 @@
 import { ConfigurationModule } from '@configuration/configuration.module';
 import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
+import { InferenceModule } from '@inference/inference.module';
 import { CHANGE_JUDGMENTS } from '@insights/application/ports/change-judgments.port';
 import { CLAIMS_REVISION_PULL_REQUESTS } from '@insights/application/ports/claims-revision-pull-requests.port';
 import { PAIR_JUDGMENTS } from '@insights/application/ports/pair-judgments.port';
@@ -30,6 +31,7 @@ const BINDINGS = contextBindings([RUN_RESULTS]);
     LinesModule,
     WorkModule,
     MemoryModule,
+    InferenceModule,
     ConfigurationModule,
   ],
   controllers: [...INSIGHTS_CONTROLLERS, ...JUDGE_REPAIR_CONTROLLERS],

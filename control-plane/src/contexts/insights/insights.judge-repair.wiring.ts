@@ -65,14 +65,10 @@ import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/d
 import { judgeRepairSubscribers } from '@insights/presentation/events/judge-repair.subscribers';
 import { JudgeDisagreementsController } from '@insights/presentation/http/controllers/judge-disagreements.controller';
 import type { Provider, Type } from '@nestjs/common';
-import { ENV } from '@platform/config/config.constants';
-import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
-import { MODEL_PRICES, type ModelPrices } from '@platform/llm/model-prices';
 import {
   CLOCK,
   type ClockPort,
@@ -85,6 +81,10 @@ import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
+import {
+  INFERENCE_CALLS,
+  type InferenceCallsPort,
+} from '@shared-kernel/application/ports/inference-calls.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -165,11 +165,9 @@ export const JUDGE_REPAIR_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: CLAIMS_DRAFTER,
-    inject: [ENV, MODEL_PRICES],
-    useFactory: (env: Env, prices: ModelPrices) =>
-      new ChatCompletionsClaimsDrafter(
-        modelEndpointOf(env, env.JUDGE_MODEL, prices),
-      ),
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) =>
+      new ChatCompletionsClaimsDrafter(calls),
   },
   {
     provide: LabelledRuns,

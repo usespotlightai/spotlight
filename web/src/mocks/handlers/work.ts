@@ -29,6 +29,7 @@ import {
   placeStation,
   readableTask,
   runStationIn,
+  taskChangeStacksOf,
   taskTraceOf,
   teamRunsOf,
 } from '@/mocks/world/work';
@@ -297,15 +298,15 @@ export const workHandlers: RequestHandler[] = [
       : notFound();
   }),
 
+  api.get('/teams/:teamId/tasks/:taskId/change-stacks', ({ params }) =>
+    findTask(String(params.teamId), String(params.taskId))
+      ? json({ stacks: taskChangeStacksOf(String(params.taskId)) })
+      : notFound(),
+  ),
+
   api.post(
-    '/teams/:teamId/runs/:runId/change-stacks/:stackId/questions/:questionId/answers',
+    '/teams/:teamId/change-stacks/:stackId/questions/:questionId/answers',
     async ({ params, request }) => {
-      const located = locateRun(String(params.teamId), String(params.runId));
-
-      if (!located) {
-        return notFound();
-      }
-
       const body = (await request.json()) as AnswerQuestionRequestDto;
 
       return json(

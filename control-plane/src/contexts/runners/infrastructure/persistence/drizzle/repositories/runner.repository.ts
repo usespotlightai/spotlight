@@ -9,8 +9,8 @@ import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import {
+  RUNNER_WORK_KINDS,
   RunnerWork,
-  type RunnerWorkKind,
 } from '@runners/domain/value-objects/runner-work.vo';
 import { runner } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
@@ -31,14 +31,12 @@ import { and, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
 
 type Row = typeof runner.$inferSelect;
 
-const WORK_KINDS: readonly RunnerWorkKind[] = ['run', 'check'];
-
 const workOf = (row: Row): RunnerWork | null => {
   if (row.workKind === null || row.workId === null) {
     return null;
   }
 
-  const kind = WORK_KINDS.find((each) => each === row.workKind);
+  const kind = RUNNER_WORK_KINDS.find((each) => each === row.workKind);
 
   if (!kind) {
     throw new InconsistentStateError(

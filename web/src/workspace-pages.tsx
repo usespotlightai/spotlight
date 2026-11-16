@@ -93,6 +93,11 @@ const Task = lazyPage(
   (module) => module.Task,
 );
 
+const TaskChangeStack = lazyPage(
+  () => import('./routes/TaskChangeStack.tsx'),
+  (module) => module.TaskChangeStack,
+);
+
 const TaskTrace = lazyPage(
   () => import('./routes/TaskTrace.tsx'),
   (module) => module.TaskTrace,
@@ -128,6 +133,11 @@ const WorkspaceGeneral = lazyPage(
   (module) => module.WorkspaceGeneral,
 );
 
+const WorkspaceInference = lazyPage(
+  () => import('./routes/WorkspaceInference.tsx'),
+  (module) => module.WorkspaceInference,
+);
+
 const WorkspaceIndex = lazyPage(
   () => import('./routes/WorkspaceIndex.tsx'),
   (module) => module.WorkspaceIndex,
@@ -145,6 +155,7 @@ export const workspacePages = (
       />
       <Route path="tasks/:taskId" element={<Task />} />
       <Route path="tasks/:taskId/trace" element={<TaskTrace />} />
+      <Route path="tasks/:taskId/changes" element={<TaskChangeStack />} />
       <Route path="agent" element={<Agent />} />
       <Route path="agent/:chatId" element={<AgentChat />} />
       <Route path="runs" element={<Runs />} />
@@ -169,6 +180,7 @@ export const workspacePages = (
       <Route path="members" element={<WorkspaceMembers />} />
       <Route path="runners" element={<Runners />} />
       <Route path="runners/new" element={<AddHost />} />
+      <Route path="inference" element={<WorkspaceInference />} />
       <Route path="api-access" element={<ApiAccess />} />
       <Route path="team/:teamId">
         <Route index element={<Navigate to="general" replace />} />

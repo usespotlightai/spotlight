@@ -30,7 +30,7 @@ type reporter struct {
 	renewErr error
 }
 
-func (r *reporter) RenewCheckLease(_ context.Context, _, _ string, _ bool) (bool, error) {
+func (r *reporter) RenewCheckLease(_ context.Context, _ string, _ bool) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.renewals++
@@ -38,7 +38,7 @@ func (r *reporter) RenewCheckLease(_ context.Context, _, _ string, _ bool) (bool
 }
 
 func (r *reporter) RecordChangeStackCheck(
-	_ context.Context, _ string, stackID string, _ bool, checked protocol.StackCheckResult,
+	_ context.Context, stackID string, _ bool, checked protocol.StackCheckResult,
 ) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -143,7 +143,6 @@ func (r remote) options() stackcheck.Options {
 func (r remote) check(steps ...protocol.CheckStep) protocol.StackCheck {
 	return protocol.StackCheck{
 		StackID:    "stack-1",
-		RunID:      "run-1",
 		Repository: "widgets",
 		Base:       r.base,
 		Command:    consistent,

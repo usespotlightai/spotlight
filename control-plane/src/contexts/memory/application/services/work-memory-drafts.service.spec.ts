@@ -201,7 +201,7 @@ const working = (input: {
         return REJECTIONS;
       },
     } satisfies RejectedMemoriesPort,
-    { available: true, draft },
+    { availableTo: async () => true, draft },
     {
       generate: () => {
         ids += 1;
@@ -245,6 +245,7 @@ describe('drafting what a run should leave the team remembering', () => {
     await worked.tick();
 
     expect(worked.draft).toHaveBeenCalledWith({
+      workspaceId: 'ws_1',
       lineName: 'Delivery',
       stationName: 'Implementation',
       repositories: ['acme/api'],

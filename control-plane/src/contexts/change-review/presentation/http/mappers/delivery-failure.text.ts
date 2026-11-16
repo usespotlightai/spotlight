@@ -1,4 +1,4 @@
-import type { DeliveryFailureDto } from '@change-review/application/dto/run-review.dto';
+import type { DeliveryFailureDto } from '@change-review/application/dto/task-review.dto';
 import type { DeliveryFailureCode } from '@change-review/domain/value-objects/delivery-failure.vo';
 
 const UNREACHABLE = 'Spotlight couldn’t reach GitHub.';

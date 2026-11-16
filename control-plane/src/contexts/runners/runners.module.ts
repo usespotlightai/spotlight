@@ -7,6 +7,7 @@ import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenti
 import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
+import { RUNNER_LEASES } from '@runners/application/ports/runner-leases.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
@@ -31,6 +32,7 @@ import { SecretsModule } from '@secrets/secrets.module';
     RUNNER_CONFIGURATION,
     RUNNER_POOLS,
     RUNNERS,
+    RUNNER_LEASES,
     SANDBOXES,
     WARM_SANDBOXES,
     WARM_SLOTS,

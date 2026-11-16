@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
-import { CheckAccess } from '@change-review/application/services/check-access.service';
+import { ReviewWorkAccess } from '@change-review/application/services/review-work-access.service';
+import { PushDiff } from '@change-review/domain/aggregates/push-diff.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
+import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
+import { DrizzleChangeStackReader } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.reader';
+import { DrizzlePushDiffRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/push-diff.repository';
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -17,9 +23,11 @@ import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fa
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -499,7 +507,7 @@ describe('deleting the checks of a deleted task', () => {
   });
 });
 
-describe('a runner reaching git for a run whose check it leases', () => {
+describe('a runner reaching git for the work it leases', () => {
   const checkOf = (runId: RunId) =>
     StackCheck.begin({
       stackId: ChangeStackId.of(randomUUID()),
@@ -513,30 +521,101 @@ describe('a runner reaching git for a run whose check it leases', () => {
       now: NOW,
     });
 
-  it('leases the check only while its lease runs and only to the runner that claimed it', async () => {
+  const diffs = () =>
+    new DrizzlePushDiffRepository(new DrizzleContext(db), {
+      dispatch: async () => {},
+    });
+
+  const stacks = () => new DrizzleChangeStackReader(new DrizzleContext(db));
+
+  const sha = (digit: string) =>
+    CommitSha.parsed(digit.repeat(40)) as CommitSha;
+
+  it('leases the check of a stack only while its lease runs and only to the runner that claimed it', async () => {
     const runId = RunId.of(randomUUID());
     const runner = RunnerId.of(randomUUID());
     const waiting = checkOf(runId);
+    const other = checkOf(RunId.of(randomUUID()));
     await checks.add(await withStack(waiting));
-    await checks.add(await withStack(checkOf(RunId.of(randomUUID()))));
+    await checks.add(await withStack(other));
     const claimed = waiting.claimedFor(runner, RunnerOffer.none(), NOW);
     await checks.save(claimed);
-    const access = new CheckAccess(checks);
+    const access = new ReviewWorkAccess(checks, stacks(), diffs());
     const expired = new Date(
       (claimed.claim.leaseExpiresAt?.getTime() ?? 0) + 1,
     );
 
-    await expect(access.isCheckOfRunLeasedBy(runId, runner, NOW)).resolves.toBe(
-      true,
+    await expect(
+      access.leasedWork(
+        { kind: 'check', id: waiting.stackId.value },
+        runner,
+        NOW,
+      ),
+    ).resolves.toEqual({ runId, taskId: null, repository: null });
+    await expect(
+      access.leasedWork(
+        { kind: 'check', id: waiting.stackId.value },
+        RunnerId.of(randomUUID()),
+        NOW,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      access.leasedWork(
+        { kind: 'check', id: other.stackId.value },
+        runner,
+        NOW,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      access.leasedWork(
+        { kind: 'check', id: waiting.stackId.value },
+        runner,
+        expired,
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it('leases a push diff to the runner that claimed it, for the task it belongs to', async () => {
+    const repository = diffs();
+    const runner = RunnerId.of(randomUUID());
+    const taskId = TaskId.of(randomUUID());
+    const diff = PushDiff.record({
+      id: PushDiffId.of(randomUUID()),
+      workspaceId: WorkspaceId.of(randomUUID()),
+      taskId,
+      pullRequest: PullRequestUrl.of('https://github.com/acme/widgets/pull/7'),
+      push: {
+        head: sha('b'),
+        baseTip: sha('a'),
+        pushedBy: Pusher.of('octocat'),
+        pushedAt: NOW,
+      },
+      placement: RunnerPlacement.anywhere(),
+      now: NOW,
+    });
+    await repository.add(diff);
+    const claimed = diff.claimedFor(runner, RunnerOffer.none(), NOW);
+    await repository.save(claimed);
+    const access = new ReviewWorkAccess(checks, stacks(), repository);
+    const expired = new Date(
+      (claimed.claim.leaseExpiresAt?.getTime() ?? 0) + 1,
     );
+
     await expect(
-      access.isCheckOfRunLeasedBy(runId, RunnerId.of(randomUUID()), NOW),
-    ).resolves.toBe(false);
+      access.leasedWork({ kind: 'diff', id: diff.id.value }, runner, NOW),
+    ).resolves.toEqual({ runId: null, taskId, repository: 'widgets' });
     await expect(
-      access.isCheckOfRunLeasedBy(RunId.of(randomUUID()), runner, NOW),
-    ).resolves.toBe(false);
+      access.leasedWork(
+        { kind: 'diff', id: diff.id.value },
+        RunnerId.of(randomUUID()),
+        NOW,
+      ),
+    ).resolves.toBeNull();
     await expect(
-      access.isCheckOfRunLeasedBy(runId, runner, expired),
-    ).resolves.toBe(false);
+      access.leasedWork({ kind: 'diff', id: diff.id.value }, runner, expired),
+    ).resolves.toBeNull();
+    await expect(
+      access.leasedWork({ kind: 'check', id: diff.id.value }, runner, NOW),
+    ).resolves.toBeNull();
   });
 });

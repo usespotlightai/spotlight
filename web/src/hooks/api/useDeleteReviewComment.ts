@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { reviewKeys } from '@/hooks/api/useRunReview';
+import { reviewKeys } from '@/hooks/api/useTaskReview';
 import { deleteReviewComment } from '@/lib/api';
 
 type DeleteReviewCommentInput = {
   teamId: string;
-  runId: string;
+  taskId: string;
   commentId: string;
 };
 
@@ -15,16 +15,16 @@ export function useDeleteReviewComment() {
   return useMutation({
     mutationFn: async ({
       teamId,
-      runId,
+      taskId,
       commentId,
     }: DeleteReviewCommentInput) => {
       await deleteReviewComment({
-        path: { teamId, runId, commentId },
+        path: { teamId, taskId, commentId },
         throwOnError: true,
       });
     },
 
-    onSuccess: (_, { runId }) =>
-      queryClient.invalidateQueries({ queryKey: reviewKeys.forRun(runId) }),
+    onSuccess: (_, { taskId }) =>
+      queryClient.invalidateQueries({ queryKey: reviewKeys.forTask(taskId) }),
   });
 }

@@ -689,26 +689,26 @@ const disagreementHandlers = [
   ),
 ];
 
-const codeReviewOf = (runId: string): CodeReviewResponseDto | undefined => {
+const codeReviewOf = (taskId: string): CodeReviewResponseDto | undefined => {
   const store = inboxStore();
-  const found = store.codeReviews[runId];
+  const found = store.codeReviews[taskId];
 
   if (found) {
     return found;
   }
 
-  const taskId = taskOfAnyRun(runId);
+  const task = anyTaskOf(taskId);
 
-  if (!taskId) {
+  if (!task) {
     return undefined;
   }
 
   const made: CodeReviewResponseDto = {
-    landings: landingsOf(anyTaskOf(taskId)?.pullRequests ?? []),
+    landings: landingsOf(task.pullRequests),
     comments: [],
     reviews: [],
   };
-  store.codeReviews[runId] = made;
+  store.codeReviews[taskId] = made;
 
   return made;
 };
@@ -744,16 +744,16 @@ const draftedComment = (
 };
 
 const reviewHandlers = [
-  api.get('/teams/:teamId/runs/:runId/review', ({ params }) => {
-    const review = codeReviewOf(param(params, 'runId'));
+  api.get('/teams/:teamId/tasks/:taskId/review', ({ params }) => {
+    const review = codeReviewOf(param(params, 'taskId'));
 
     return review ? json(review) : notFound();
   }),
 
   api.post(
-    '/teams/:teamId/runs/:runId/review/comments',
+    '/teams/:teamId/tasks/:taskId/review/comments',
     async ({ params, request }) => {
-      const review = codeReviewOf(param(params, 'runId'));
+      const review = codeReviewOf(param(params, 'taskId'));
 
       if (!review) {
         return notFound();
@@ -773,9 +773,9 @@ const reviewHandlers = [
   ),
 
   api.patch(
-    '/teams/:teamId/runs/:runId/review/comments/:commentId',
+    '/teams/:teamId/tasks/:taskId/review/comments/:commentId',
     async ({ params, request }) => {
-      const comment = codeReviewOf(param(params, 'runId'))?.comments.find(
+      const comment = codeReviewOf(param(params, 'taskId'))?.comments.find(
         (each) => each.id === param(params, 'commentId') && each.viewerIsAuthor,
       );
 
@@ -792,9 +792,9 @@ const reviewHandlers = [
   ),
 
   api.delete(
-    '/teams/:teamId/runs/:runId/review/comments/:commentId',
+    '/teams/:teamId/tasks/:taskId/review/comments/:commentId',
     ({ params }) => {
-      const review = codeReviewOf(param(params, 'runId'));
+      const review = codeReviewOf(param(params, 'taskId'));
       const commentId = param(params, 'commentId');
 
       if (
@@ -810,49 +810,52 @@ const reviewHandlers = [
     },
   ),
 
-  api.post('/teams/:teamId/runs/:runId/review', async ({ params, request }) => {
-    const review = codeReviewOf(param(params, 'runId'));
+  api.post(
+    '/teams/:teamId/tasks/:taskId/review',
+    async ({ params, request }) => {
+      const review = codeReviewOf(param(params, 'taskId'));
 
-    if (!review) {
-      return notFound();
-    }
-    const submitted = (await request.json()) as SubmitReviewRequestDto;
-    const landsOn = review.landings.find(
-      (each) => each.repository === (submitted.repository ?? null),
-    )?.pullRequest;
-
-    if (!landsOn) {
-      return problem(409, 'Sorry, there is no pull request to review yet.');
-    }
-    const id = nextId('review');
-
-    for (const comment of review.comments) {
-      if (
-        comment.viewerIsAuthor &&
-        comment.state === 'draft' &&
-        (!submitted.repository ||
-          comment.repository === null ||
-          comment.repository === submitted.repository)
-      ) {
-        comment.state = 'posted';
-        comment.url = `${landsOn}#discussion_${comment.id}`;
+      if (!review) {
+        return notFound();
       }
-    }
-    review.reviews.push({
-      id,
-      repository: submitted.repository ?? null,
-      authorName: SAM.name,
-      viewerIsAuthor: true,
-      isAgentAuthored: false,
-      verdict: submitted.verdict,
-      body: submitted.body ?? '',
-      state: 'posted',
-      failure: null,
-      submittedAt: now(),
-    });
+      const submitted = (await request.json()) as SubmitReviewRequestDto;
+      const landsOn = review.landings.find(
+        (each) => each.repository === (submitted.repository ?? null),
+      )?.pullRequest;
 
-    return json({ id }, 201);
-  }),
+      if (!landsOn) {
+        return problem(409, 'Sorry, there is no pull request to review yet.');
+      }
+      const id = nextId('review');
+
+      for (const comment of review.comments) {
+        if (
+          comment.viewerIsAuthor &&
+          comment.state === 'draft' &&
+          (!submitted.repository ||
+            comment.repository === null ||
+            comment.repository === submitted.repository)
+        ) {
+          comment.state = 'posted';
+          comment.url = `${landsOn}#discussion_${comment.id}`;
+        }
+      }
+      review.reviews.push({
+        id,
+        repository: submitted.repository ?? null,
+        authorName: SAM.name,
+        viewerIsAuthor: true,
+        isAgentAuthored: false,
+        verdict: submitted.verdict,
+        body: submitted.body ?? '',
+        state: 'posted',
+        failure: null,
+        submittedAt: now(),
+      });
+
+      return json({ id }, 201);
+    },
+  ),
 ];
 
 const decisionsOf = (taskId: string) => {

@@ -4,8 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { LayerQuestionThread } from '@/components/features/changes/LayerQuestionThread';
 import type { LayerQuestion } from '@/lib/change-stack';
-import type { CodeReview } from '@/lib/review';
-import { ReviewContext } from '@/lib/review-context';
+import { StackTeamContext } from '@/lib/review-context';
 import { INVITATIONS } from '@/test/fixtures/change-stack';
 
 const mutate = vi.fn();
@@ -16,6 +15,9 @@ vi.mock('@/hooks/api/useAnswerStackQuestion', () => ({
     isError: false,
     mutate,
   }),
+}));
+vi.mock('@/hooks/useInferenceUnset', () => ({
+  useInferenceUnset: () => false,
 }));
 vi.mock('@/hooks/useMe', () => ({
   useMe: () => ({ id: 'user_1', name: 'Maya Chen', image: null }),
@@ -30,24 +32,13 @@ const QUESTION: LayerQuestion = {
 
 const shown = (question: LayerQuestion, onReveal = vi.fn()) =>
   render(
-    <ReviewContext
-      value={{
-        teamId: 'team_1',
-        runId: 'run_1',
-        repository: null,
-        review: { comments: [] } as unknown as CodeReview,
-        threads: [],
-        composing: null,
-        composerAppears: false,
-        compose: vi.fn(),
-      }}
-    >
+    <StackTeamContext value="team_1">
       <LayerQuestionThread
         stack={INVITATIONS}
         question={question}
         onReveal={onReveal}
       />
-    </ReviewContext>,
+    </StackTeamContext>,
   );
 
 describe('LayerQuestionThread', () => {
@@ -62,7 +53,6 @@ describe('LayerQuestionThread', () => {
 
     expect(mutate).toHaveBeenLastCalledWith({
       teamId: 'team_1',
-      runId: 'run_1',
       stackId: INVITATIONS.id,
       questionId: 'c1.l2.q1',
       reply: 'It is refused.',

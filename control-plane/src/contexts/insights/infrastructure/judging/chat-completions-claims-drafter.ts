@@ -2,12 +2,8 @@ import type {
   ClaimsDrafterPort,
   ClaimsDraftRequest,
 } from '@insights/application/ports/claims-drafter.port';
-import {
-  type Fetch,
-  JsonSchema,
-  type ModelEndpoint,
-  requestJson,
-} from '@platform/llm/chat-completions';
+import { JsonSchema } from '@platform/llm/chat-completions';
+import type { InferenceCallsPort } from '@shared-kernel/application/ports/inference-calls.port';
 import {
   MAX_CLAIM_LENGTH,
   MAX_CLAIMS,
@@ -52,25 +48,20 @@ const promptOf = (request: ClaimsDraftRequest): string =>
   });
 
 export class ChatCompletionsClaimsDrafter implements ClaimsDrafterPort {
-  constructor(
-    private readonly endpoint: ModelEndpoint | null,
-    private readonly fetch: Fetch = globalThis.fetch,
-  ) {}
+  constructor(private readonly calls: InferenceCallsPort) {}
 
-  get available(): boolean {
-    return this.endpoint !== null;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.calls.availableTo(workspaceId);
   }
 
   async drafted(
     request: ClaimsDraftRequest,
   ): Promise<readonly (readonly string[])[]> {
-    if (!this.endpoint) {
+    if (!(await this.calls.availableTo(request.workspaceId))) {
       return [];
     }
 
-    const { answer } = await requestJson({
-      endpoint: this.endpoint,
-      fetch: this.fetch,
+    const { answer } = await this.calls.json(request.workspaceId, {
       system: systemOf(request),
       prompt: promptOf(request),
       maxTokens: MAX_OUTPUT,

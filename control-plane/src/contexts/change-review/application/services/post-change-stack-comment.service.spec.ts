@@ -4,10 +4,12 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { MarkdownCommentBodies } from '@change-review/infrastructure/rendering/markdown-comment-bodies';
 import type { StickyComment } from '@github/application/ports/pull-request-comments.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -18,7 +20,7 @@ const NOW = new Date('2026-09-16T10:00:00Z');
 const ready = (repository: string | null = null, run = 'run-1') =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of(`stack-${repository ?? 'only'}`),
-    runId: RunId.of(run),
+    origin: StackOrigin.run(RunId.of(run)),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
     trial: false,
@@ -97,7 +99,6 @@ const posting = (
 
           return {
             id: stack.id.value,
-            runId: stack.runId,
             repository: stack.repository?.value ?? null,
             state: stack.state,
             cohorts: stack.cohorts,
@@ -107,6 +108,9 @@ const posting = (
           };
         }),
       ofRun: async () => [],
+      ofTask: async () => [],
+      visibilityOf: async () => null,
+      repositoryOf: async () => null,
       answerOf: async () => null,
     },
     {
@@ -131,6 +135,7 @@ const posting = (
           trial: over.trial ?? false,
           isolated: over.trial ?? false,
           checkouts: 1,
+          placement: RunnerPlacement.anywhere(),
         };
       },
       teamOfRun: async () => null,
@@ -168,8 +173,8 @@ const posting = (
     },
     { now: () => NOW, sleep: async () => undefined },
     {
-      changeStackOf: ({ runId }) =>
-        `https://app.example/runs/${runId.value}/changes`,
+      changeStackOf: ({ taskId, repository }) =>
+        `https://app.example/tasks/${taskId.value}/changes${repository ? `?repository=${repository}` : ''}`,
       decisionsOf: ({ taskId }) =>
         `https://app.example/tasks/${taskId.value}#decisions`,
     },
@@ -188,7 +193,7 @@ describe('PostChangeStackComment', () => {
     expect(upserted).toHaveLength(1);
     expect(upserted[0]?.repository.name).toBe('widgets');
     expect(upserted[0]?.body).toContain(
-      'https://app.example/runs/run-1/changes',
+      'https://app.example/tasks/task-1/changes',
     );
   });
 
@@ -210,11 +215,15 @@ describe('PostChangeStackComment', () => {
       [
         [
           'https://github.com/acme/widgets/pull/66',
-          expect.stringContaining('https://app.example/runs/run-1/changes'),
+          expect.stringContaining(
+            'https://app.example/tasks/task-1/changes?repository=widgets',
+          ),
         ],
         [
           'https://github.com/acme/Docs/pull/7',
-          expect.stringContaining('https://app.example/runs/run-2/changes'),
+          expect.stringContaining(
+            'https://app.example/tasks/task-1/changes?repository=docs',
+          ),
         ],
       ],
     );
@@ -238,7 +247,7 @@ describe('PostChangeStackComment', () => {
       'https://github.com/acme/widgets/pull/66',
     ]);
     expect(upserted[0]?.body).toContain(
-      'https://app.example/runs/run-1/changes',
+      'https://app.example/tasks/task-1/changes?repository=widgets',
     );
   });
 

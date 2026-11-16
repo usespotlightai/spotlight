@@ -4224,7 +4224,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunChangeStacksResponseDto"
+                  "$ref": "#/components/schemas/ChangeStacksResponseDto"
                 }
               }
             }
@@ -4242,9 +4242,9 @@
         ]
       }
     },
-    "/teams/{teamId}/runs/{runId}/change-stacks/{stackId}/questions/{questionId}/answers": {
-      "post": {
-        "operationId": "answerStackQuestion",
+    "/teams/{teamId}/tasks/{taskId}/change-stacks": {
+      "get": {
+        "operationId": "listTaskChangeStacks",
         "parameters": [
           {
             "name": "teamId",
@@ -4255,7 +4255,44 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeStacksResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "The newest change stack of each repository that did not fail",
+        "tags": [
+          "change-stacks"
+        ]
+      }
+    },
+    "/teams/{teamId}/change-stacks/{stackId}/questions/{questionId}/answers": {
+      "post": {
+        "operationId": "answerStackQuestion",
+        "parameters": [
+          {
+            "name": "teamId",
             "required": true,
             "in": "path",
             "schema": {
@@ -4305,6 +4342,9 @@
           },
           "401": {
             "description": "No valid session"
+          },
+          "402": {
+            "description": "The inference endpoint has no credits left"
           },
           "403": {
             "description": "The caller is not a member of the team, nor a workspace admin"
@@ -4557,9 +4597,9 @@
         ]
       }
     },
-    "/teams/{teamId}/runs/{runId}/review": {
+    "/teams/{teamId}/tasks/{taskId}/review": {
       "get": {
-        "operationId": "readRunReview",
+        "operationId": "readTaskReview",
         "parameters": [
           {
             "name": "teamId",
@@ -4570,7 +4610,7 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -4590,10 +4630,10 @@
             }
           },
           "404": {
-            "description": "No such run for this caller"
+            "description": "No such task for this caller"
           }
         },
-        "summary": "The review of what a run changed: comments on its lines, and reviews submitted",
+        "summary": "The review of what a task changed: comments on its lines, and reviews submitted",
         "tags": [
           "reviews"
         ]
@@ -4610,7 +4650,7 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -4652,7 +4692,7 @@
         ]
       }
     },
-    "/teams/{teamId}/runs/{runId}/review/comments": {
+    "/teams/{teamId}/tasks/{taskId}/review/comments": {
       "post": {
         "operationId": "draftReviewComment",
         "parameters": [
@@ -4665,7 +4705,7 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -4698,7 +4738,7 @@
             "description": "The caller is not a member of the team, nor a workspace admin"
           },
           "404": {
-            "description": "No such run or comment for this caller"
+            "description": "No such task or comment for this caller"
           },
           "422": {
             "description": "The comment has no text, or names no file"
@@ -4710,7 +4750,7 @@
         ]
       }
     },
-    "/teams/{teamId}/runs/{runId}/review/comments/{commentId}": {
+    "/teams/{teamId}/tasks/{taskId}/review/comments/{commentId}": {
       "patch": {
         "operationId": "editReviewComment",
         "parameters": [
@@ -4723,7 +4763,7 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -4774,7 +4814,7 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -12700,6 +12740,24 @@
           "layers"
         ]
       },
+      "PushOriginResponseDto": {
+        "type": "object",
+        "properties": {
+          "head": {
+            "type": "string",
+            "description": "The commit that the person pushed"
+          },
+          "pushedBy": {
+            "type": "string",
+            "nullable": true,
+            "description": "The GitHub login of the person who pushed"
+          }
+        },
+        "required": [
+          "head",
+          "pushedBy"
+        ]
+      },
       "ChangeStackResponseDto": {
         "type": "object",
         "properties": {
@@ -12750,6 +12808,21 @@
                 "$ref": "#/components/schemas/StackCheckResponseDto"
               }
             ]
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run whose changes the stack shows, or null for a push"
+          },
+          "push": {
+            "nullable": true,
+            "description": "The push to the pull request that the stack shows, or null for a run",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PushOriginResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -12760,10 +12833,12 @@
           "files",
           "cohorts",
           "removed",
-          "check"
+          "check",
+          "runId",
+          "push"
         ]
       },
-      "RunChangeStacksResponseDto": {
+      "ChangeStacksResponseDto": {
         "type": "object",
         "properties": {
           "stacks": {
@@ -12795,10 +12870,6 @@
       "LatestChangeStackResponseDto": {
         "type": "object",
         "properties": {
-          "runId": {
-            "type": "string",
-            "description": "The run whose page shows the stack"
-          },
           "repository": {
             "type": "string",
             "nullable": true
@@ -12833,7 +12904,6 @@
           }
         },
         "required": [
-          "runId",
           "repository",
           "state",
           "checkStatus",

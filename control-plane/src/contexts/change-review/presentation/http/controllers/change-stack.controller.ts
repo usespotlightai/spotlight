@@ -2,9 +2,10 @@ import { AnswerQuestionCommand } from '@change-review/application/commands/answe
 import type {
   LatestChangeStackDto,
   QuestionAnswerDto,
-  RunChangeStacksDto,
+  ChangeStacksDto,
 } from '@change-review/application/dto/change-stack.dto';
 import { ListRunChangeStacksQuery } from '@change-review/application/queries/list-run-change-stacks.query';
+import { ListTaskChangeStacksQuery } from '@change-review/application/queries/list-task-change-stacks.query';
 import { ReadQuestionAnswerQuery } from '@change-review/application/queries/read-question-answer.query';
 import { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
 import { RUN_CHANGE_STACKS } from '@change-review/presentation/http/change-stack-routes';
@@ -13,7 +14,7 @@ import {
   LatestChangeStackResponseDto,
   NewestChangeStackResponseDto,
   QuestionAnswerResponseDto,
-  RunChangeStacksResponseDto,
+  ChangeStacksResponseDto,
 } from '@change-review/presentation/http/dto/change-stack.response.dto';
 import { ChangeStackHttpMapper } from '@change-review/presentation/http/mappers/change-stack.http.mapper';
 import {
@@ -36,6 +37,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -71,16 +73,16 @@ export class ChangeStackController {
       'The change stacks that Spotlight generated from what a run changed, newest first',
   })
   @ApiParam({ name: 'runId', type: String })
-  @ApiOkResponse({ type: RunChangeStacksResponseDto })
+  @ApiOkResponse({ type: ChangeStacksResponseDto })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
   async changeStacks(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<RunChangeStacksResponseDto> {
+  ): Promise<ChangeStacksResponseDto> {
     const found = await this.queryBus.execute<
       ListRunChangeStacksQuery,
-      RunChangeStacksDto | null
+      ChangeStacksDto | null
     >(new ListRunChangeStacksQuery(teamId, runId, user.id));
 
     if (!found) {
@@ -90,13 +92,37 @@ export class ChangeStackController {
     return ChangeStackHttpMapper.toResponse(found);
   }
 
-  @Post('runs/:runId/change-stacks/:stackId/questions/:questionId/answers')
+  @Get('tasks/:taskId/change-stacks')
+  @ApiOperation({
+    operationId: 'listTaskChangeStacks',
+    summary: 'The newest change stack of each repository that did not fail',
+  })
+  @ApiParam({ name: 'taskId', type: String })
+  @ApiOkResponse({ type: ChangeStacksResponseDto })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  async taskChangeStacks(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ChangeStacksResponseDto> {
+    const found = await this.queryBus.execute<
+      ListTaskChangeStacksQuery,
+      ChangeStacksDto | null
+    >(new ListTaskChangeStacksQuery(teamId, taskId, user.id));
+
+    if (!found) {
+      throw new NotFoundException(`Task ${taskId} not found.`);
+    }
+
+    return ChangeStackHttpMapper.toResponse(found);
+  }
+
+  @Post('change-stacks/:stackId/questions/:questionId/answers')
   @ApiOperation({
     operationId: 'answerStackQuestion',
     summary:
       'Answer a question about a layer of a change stack, and get it graded against the expected answer',
   })
-  @ApiParam({ name: 'runId', type: String })
   @ApiParam({ name: 'stackId', type: String })
   @ApiParam({ name: 'questionId', type: String })
   @ApiBody({ type: AnswerQuestionRequestDto })
@@ -112,9 +138,12 @@ export class ChangeStackController {
     description: 'No such change stack or question for this caller',
   })
   @ApiConflictResponse({ description: 'The caller already answered it' })
+  @ApiResponse({
+    status: 402,
+    description: 'The inference endpoint has no credits left',
+  })
   async answer(
     @Param('teamId') teamId: string,
-    @Param('runId') runId: string,
     @Param('stackId') stackId: string,
     @Param('questionId') questionId: string,
     @Body() body: AnswerQuestionRequestDto,
@@ -123,7 +152,6 @@ export class ChangeStackController {
     await this.commandBus.execute<AnswerQuestionCommand, void>(
       new AnswerQuestionCommand(
         teamId,
-        runId,
         stackId,
         questionId,
         user.id,
@@ -133,7 +161,7 @@ export class ChangeStackController {
     const answered = await this.queryBus.execute<
       ReadQuestionAnswerQuery,
       QuestionAnswerDto | null
-    >(new ReadQuestionAnswerQuery(teamId, runId, stackId, questionId, user.id));
+    >(new ReadQuestionAnswerQuery(teamId, stackId, questionId, user.id));
 
     if (!answered) {
       throw new NotFoundException(`Change stack ${stackId} not found.`);
@@ -162,7 +190,6 @@ export class ChangeStackController {
     return new NewestChangeStackResponseDto(
       latest &&
         new LatestChangeStackResponseDto(
-          latest.runId,
           latest.repository,
           latest.state,
           latest.checkStatus,

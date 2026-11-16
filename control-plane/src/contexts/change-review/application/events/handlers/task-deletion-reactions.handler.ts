@@ -1,6 +1,7 @@
 import type { ReviewDeliveriesPort } from '@change-review/application/ports/review-deliveries.port';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
+import type { PushDiffRepository } from '@change-review/domain/repositories/push-diff.repository';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
@@ -17,6 +18,7 @@ export class TaskDeletionReactions {
     private readonly answers: QuestionAnswerRepository,
     private readonly stacks: ChangeStackRepository,
     private readonly sets: DecisionSetRepository,
+    private readonly diffs: PushDiffRepository,
     private readonly clock: ClockPort,
   ) {}
 
@@ -53,6 +55,14 @@ export class TaskDeletionReactions {
   async removeStacks(taskId: TaskId): Promise<void> {
     for (const stack of await this.stacks.ofTask(taskId)) {
       await this.stacks.remove(stack);
+    }
+  }
+
+  async removePushDiffs(taskId: TaskId): Promise<void> {
+    const now = this.clock.now();
+
+    for (const diff of await this.diffs.ofTask(taskId)) {
+      await this.diffs.remove(diff.delete(now));
     }
   }
 

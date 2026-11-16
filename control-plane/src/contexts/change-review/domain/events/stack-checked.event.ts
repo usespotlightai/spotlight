@@ -9,7 +9,7 @@ export class StackChecked implements DomainEvent {
 
   constructor(
     readonly checkId: StackCheckId,
-    readonly runId: RunId,
+    readonly runId: RunId | null,
     readonly taskId: TaskId | null,
     readonly workspaceId: WorkspaceId,
     readonly passed: boolean | null,

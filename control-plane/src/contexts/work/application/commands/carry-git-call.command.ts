@@ -5,7 +5,7 @@ import type {
 
 export class CarryGitCallCommand {
   constructor(
-    readonly runId: string,
+    readonly workId: string,
     readonly runnerId: string,
     readonly repo: string,
     readonly service: GitService,

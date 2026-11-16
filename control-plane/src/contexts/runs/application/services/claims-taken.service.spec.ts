@@ -1,5 +1,5 @@
 import type { RunnersPort } from '@runners/application/ports/runners.port';
-import type { CheckWorkPort } from '@runs/application/ports/check-work.port';
+import type { ReviewWorkPort } from '@runs/application/ports/review-work.port';
 import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
@@ -8,8 +8,8 @@ import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -76,7 +76,7 @@ const taking = (
     runners,
     taken: new ClaimsTaken(
       runs,
-      checks as unknown as CheckWorkPort,
+      checks as unknown as ReviewWorkPort,
       runners as unknown as RunnersPort,
       { now: () => NOW } as ClockPort,
       { warn, info } as unknown as LoggerPort,
@@ -143,11 +143,11 @@ describe('ClaimsTaken', () => {
     const { taken, checks } = taking({ tookFails: true });
 
     await expect(
-      taken.check(
+      taken.reviewWork(
         {
-          checkId: CheckWorkId.of('stack_1'),
-          repeat: false,
-          runId: RunId.of('run_1'),
+          kind: 'check',
+          checkId: ReviewWorkId.of('stack_1'),
+          recheck: false,
           repository: null,
           base: null,
           setup: null,
@@ -158,8 +158,32 @@ describe('ClaimsTaken', () => {
       ),
     ).rejects.toThrow('pooled_1 is spent');
     expect(checks.unclaim).toHaveBeenCalledWith(
-      CheckWorkId.of('stack_1'),
-      false,
+      { kind: 'check', id: ReviewWorkId.of('stack_1'), recheck: false },
+      RUNNER,
+      NOW,
+    );
+  });
+
+  it('leases a push diff to its runner as check work, and unclaims it as a diff', async () => {
+    const { taken, checks, runners } = taking({ tookFails: true });
+    const diff = {
+      kind: 'diff' as const,
+      diffId: ReviewWorkId.of('diff_1'),
+      repository: 'widgets',
+      baseTip: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+    };
+
+    await expect(taken.reviewWork(diff, RUNNER)).rejects.toThrow(
+      'pooled_1 is spent',
+    );
+    expect(runners.claim).toHaveBeenCalledWith(
+      RUNNER,
+      { kind: 'diff', id: 'diff_1' },
+      NOW,
+    );
+    expect(checks.unclaim).toHaveBeenCalledWith(
+      { kind: 'diff', id: ReviewWorkId.of('diff_1') },
       RUNNER,
       NOW,
     );

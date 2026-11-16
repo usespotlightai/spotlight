@@ -7,9 +7,12 @@ import type {
   SecretRecord,
   SecretResourcesPort,
 } from '@secrets/application/ports/secret-resources.port';
+import { RESERVED_SECRET_PREFIX } from '@secrets/domain/value-objects/reserved-secret-name';
 import { secret } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, type SQL } from 'drizzle-orm';
+import { and, asc, eq, not, like, type SQL } from 'drizzle-orm';
+
+const visible = not(like(secret.name, `${RESERVED_SECRET_PREFIX}%`));
 
 const recordOf = (row: typeof secret.$inferSelect): SecretRecord => ({
   id: row.id,
@@ -33,12 +36,16 @@ export class DrizzleSecretResources
   constructor(private readonly context: DrizzleContext) {}
 
   withId(id: string): Promise<SecretRecord | null> {
-    return this.first(eq(secret.id, id));
+    return this.first(and(eq(secret.id, id), visible));
   }
 
   named(workspaceId: WorkspaceId, name: string): Promise<SecretRecord | null> {
     return this.first(
-      and(eq(secret.workspaceId, workspaceId.value), eq(secret.name, name)),
+      and(
+        eq(secret.workspaceId, workspaceId.value),
+        eq(secret.name, name),
+        visible,
+      ),
     );
   }
 
@@ -47,7 +54,7 @@ export class DrizzleSecretResources
       await this.context.db
         .select()
         .from(secret)
-        .where(eq(secret.workspaceId, workspaceId.value))
+        .where(and(eq(secret.workspaceId, workspaceId.value), visible))
     ).map(recordOf);
   }
 
@@ -56,7 +63,7 @@ export class DrizzleSecretResources
       await this.context.db
         .select({ name: secret.name })
         .from(secret)
-        .where(eq(secret.workspaceId, workspaceId))
+        .where(and(eq(secret.workspaceId, workspaceId), visible))
         .orderBy(asc(secret.name))
     ).map((each) => each.name);
   }

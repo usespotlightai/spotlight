@@ -25,6 +25,7 @@ export type RunnerClaims = 'reserved' | 'nothing';
 const HEARTBEAT_TIMEOUT_MS: Readonly<Record<RunnerWorkKind, number>> = {
   run: 3 * 60_000,
   check: 12 * 60_000,
+  diff: 12 * 60_000,
 };
 
 const MAX_HEARTBEAT_TIMEOUT_MS = Math.max(

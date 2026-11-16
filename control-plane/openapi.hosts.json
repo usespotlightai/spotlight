@@ -85,7 +85,7 @@
     },
     "/runners/claim": {
       "post": {
-        "description": "Work is either a run to carry out or a change stack check to run against a fresh checkout. A run always comes first.",
+        "description": "Work is a run to carry out, a change stack check to run against a fresh checkout, or the diff of a push to make from one. A run always comes first.",
         "operationId": "claimRun",
         "parameters": [],
         "responses": {
@@ -153,19 +153,11 @@
         ]
       }
     },
-    "/runs/{runId}/change-stack-checks/{stackId}/lease": {
+    "/change-stacks/{stackId}/checks/lease": {
       "post": {
         "description": "The runner with the lease on a check renews that lease while the check runs, so a second runner does not claim a long check. The answer carries back whether the runner should stop checking.",
         "operationId": "renewCheckLease",
         "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "stackId",
             "required": true,
@@ -186,11 +178,11 @@
         ],
         "responses": {
           "200": {
-            "description": "",
+            "description": "The lease is renewed, or the runner no longer holds it and answers stop: true",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RenewCheckLeaseResponseDto"
+                  "$ref": "#/components/schemas/RenewReviewWorkLeaseResponseDto"
                 }
               }
             }
@@ -199,13 +191,54 @@
             "description": "Missing, no longer valid or wrong runner token"
           },
           "404": {
-            "description": "No such runner, or the check this runner leases is of another run"
+            "description": "No such runner"
           },
           "409": {
             "description": "The check kept moving on while it was renewed"
           }
         },
         "summary": "Say the check of a change stack is still in progress",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/push-diffs/{diffId}/lease": {
+      "post": {
+        "description": "The runner with the lease on a push diff renews that lease while it makes the diff, so a second runner does not claim it. The answer carries back whether the runner should stop.",
+        "operationId": "renewPushDiffLease",
+        "parameters": [
+          {
+            "name": "diffId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The lease is renewed, or the runner no longer holds it and answers stop: true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewReviewWorkLeaseResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such runner"
+          },
+          "409": {
+            "description": "The push diff kept moving on while it was renewed"
+          }
+        },
+        "summary": "Say the diff of a push is still being made",
         "tags": [
           "runners"
         ]
@@ -982,7 +1015,7 @@
             "bearer": []
           }
         ],
-        "summary": "Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run",
+        "summary": "Long-poll for one run, check or push diff, assigned with a one-run runner’s credential, or for a sandbox to start with no run",
         "tags": [
           "runners"
         ]
@@ -1968,18 +2001,10 @@
         ]
       }
     },
-    "/runs/{runId}/change-stack-checks/{stackId}": {
+    "/change-stacks/{stackId}/checks": {
       "post": {
         "operationId": "recordChangeStackCheck",
         "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "stackId",
             "required": true,
@@ -2016,7 +2041,7 @@
             "description": "Missing, no longer valid or wrong runner token"
           },
           "404": {
-            "description": "Not a run this runner claimed, or no such stack of it"
+            "description": "No change stack with a check to record"
           },
           "409": {
             "description": "This runner does not have the lease on the check of that stack"
@@ -2026,6 +2051,98 @@
           }
         },
         "summary": "Report whether each layer of a change stack passed its check",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/push-diffs/{diffId}/diff": {
+      "post": {
+        "operationId": "recordPushDiff",
+        "parameters": [
+          {
+            "name": "diffId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPushDiffRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The diff is recorded. Spotlight records a diff it refuses to stack as failed. A diff it cannot stack for now goes back to wait, or fails once every runner attempt is used. A report on a diff already settled answers the same."
+          },
+          "400": {
+            "description": "The body has no diff or no base as text"
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such push diff"
+          },
+          "409": {
+            "description": "The diff still waits and this runner does not hold its lease, or the push diff kept changing while it was recorded"
+          }
+        },
+        "summary": "Hand over the diff of a push to a pull request, so that Spotlight redrafts its change stack",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/push-diffs/{diffId}/failure": {
+      "post": {
+        "operationId": "failPushDiff",
+        "parameters": [
+          {
+            "name": "diffId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FailPushDiffRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The report is taken: the diff goes back to wait, or fails once every runner attempt is used. A report on a diff already settled answers the same."
+          },
+          "400": {
+            "description": "The body has no reason as text"
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such push diff"
+          },
+          "409": {
+            "description": "The diff still waits and this runner does not hold its lease, or the push diff kept changing while it was recorded"
+          }
+        },
+        "summary": "Report that the runner could not make the diff of a push",
         "tags": [
           "runners"
         ]
@@ -2699,10 +2816,6 @@
             "type": "boolean",
             "description": "It is a repeat check; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found"
           },
-          "runId": {
-            "type": "string",
-            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
-          },
           "repository": {
             "type": "object",
             "nullable": true,
@@ -2732,12 +2845,42 @@
         "required": [
           "stackId",
           "recheck",
-          "runId",
           "repository",
           "base",
           "setup",
           "command",
           "steps"
+        ]
+      },
+      "ClaimedPushDiffResponseDto": {
+        "type": "object",
+        "properties": {
+          "diffId": {
+            "type": "string",
+            "example": "3f9a1c2e-7b4d-4e8a-9c1f-5d2b6e0a8f47",
+            "description": "The push diff; the runner names it when it renews the lease and reports the diff"
+          },
+          "repository": {
+            "type": "string",
+            "example": "spotlight",
+            "description": "The repository the push went to"
+          },
+          "baseTip": {
+            "type": "string",
+            "example": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+            "description": "The tip of the base branch: the diff is from the merge base of this and the head"
+          },
+          "head": {
+            "type": "string",
+            "example": "9a7c3e1f2b4d6e8a0c1f3b5d7e9a2c4f6b8d0e1a",
+            "description": "The pushed commit"
+          }
+        },
+        "required": [
+          "diffId",
+          "repository",
+          "baseTip",
+          "head"
         ]
       },
       "WarmCheckoutResponseDto": {
@@ -2786,9 +2929,10 @@
             "enum": [
               "run",
               "check",
-              "sandbox"
+              "sandbox",
+              "diff"
             ],
-            "description": "`sandbox` is only for a host claim: start a sandbox with no run in it"
+            "description": "`sandbox` is only for a host claim: start a sandbox with no run in it. `diff` is the diff of a push to make from a fresh checkout"
           },
           "run": {
             "nullable": true,
@@ -2808,6 +2952,15 @@
               }
             ]
           },
+          "diff": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClaimedPushDiffResponseDto"
+              }
+            ]
+          },
           "warm": {
             "description": "Only for a `sandbox` that is warm: clone and set up these repositories before a task’s first run is claimed into it",
             "allOf": [
@@ -2820,7 +2973,8 @@
         "required": [
           "kind",
           "run",
-          "check"
+          "check",
+          "diff"
         ]
       },
       "RenewLeaseResponseDto": {
@@ -2836,7 +2990,7 @@
           "stop"
         ]
       },
-      "RenewCheckLeaseResponseDto": {
+      "RenewReviewWorkLeaseResponseDto": {
         "type": "object",
         "properties": {
           "stop": {
@@ -5205,6 +5359,35 @@
             }
           }
         }
+      },
+      "RecordPushDiffRequestDto": {
+        "type": "object",
+        "properties": {
+          "diff": {
+            "type": "string",
+            "description": "The changes of the pull request, as the output of git diff"
+          },
+          "base": {
+            "type": "string",
+            "description": "The merge base of the pushed head and the base branch"
+          }
+        },
+        "required": [
+          "diff",
+          "base"
+        ]
+      },
+      "FailPushDiffRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Why the runner could not make the diff"
+          }
+        },
+        "required": [
+          "reason"
+        ]
       },
       "MemoryDecisionResponseDto": {
         "type": "object",

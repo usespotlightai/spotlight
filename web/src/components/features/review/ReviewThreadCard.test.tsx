@@ -36,7 +36,7 @@ const within_ = (review: CodeReview, children: ReactNode) => (
     <ReviewContext
       value={{
         teamId: 'team_1',
-        runId: 'run_1',
+        taskId: 'task_1',
         repository: null,
         review,
         threads: threadsOf(review.comments),
@@ -146,7 +146,7 @@ describe('ReviewThreadCard', () => {
     expect(drafting).toHaveBeenCalledWith(
       {
         teamId: 'team_1',
-        runId: 'run_1',
+        taskId: 'task_1',
         repository: null,
         body: 'Agreed',
         on: { replyTo: 'comment_expiry' },
@@ -183,7 +183,7 @@ describe('ReviewThreadCard', () => {
     expect(deleting).toHaveBeenCalledWith(
       {
         teamId: 'team_1',
-        runId: 'run_1',
+        taskId: 'task_1',
         commentId: 'comment_expiry_reply',
       },
       expect.anything(),
@@ -198,7 +198,7 @@ describe('ReviewThreadCard', () => {
     expect(editing).toHaveBeenCalledWith(
       {
         teamId: 'team_1',
-        runId: 'run_1',
+        taskId: 'task_1',
         commentId: 'comment_expiry_reply',
         body: 'They are filtered out.',
       },

@@ -97,7 +97,7 @@ const archiveStore: WorkingCopyArchiveStorePort = {
 };
 
 const generator: ChangeStackGeneratorPort = {
-  available: true,
+  availableTo: async () => true,
   outline: async () => {
     throw new Error('A diff this small is not split');
   },
@@ -149,7 +149,7 @@ const judgedRuns = new Map<string, number>();
 let judgeFlipsLeft = 4;
 
 const judge: JudgePort = {
-  available: true,
+  availableTo: async () => true,
   judge: async (request: JudgeRequest) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const run = MARKED.exec(scoredStep?.text ?? '')?.[1] ?? '';
@@ -344,6 +344,15 @@ interface Claimed {
   readonly recheck: boolean;
 }
 
+const runOfStack = async (stackId: string): Promise<string> => {
+  const [stack] = await db
+    .select({ runId: schema.changeStack.runId })
+    .from(schema.changeStack)
+    .where(eq(schema.changeStack.id, stackId));
+
+  return stack?.runId ?? '';
+};
+
 const claimed = async (): Promise<Claimed | null> => {
   const answer = await http()
     .post('/api/hosts/claim')
@@ -359,14 +368,18 @@ const claimed = async (): Promise<Claimed | null> => {
     work: {
       kind: 'run' | 'check';
       run: { id: string } | null;
-      check: { runId: string; stackId: string; recheck: boolean } | null;
+      check: { stackId: string; recheck: boolean } | null;
     };
   };
 
   return {
     token: assignment.token,
     kind: assignment.work.kind,
-    runId: assignment.work.run?.id ?? assignment.work.check?.runId ?? '',
+    runId:
+      assignment.work.run?.id ??
+      (assignment.work.check
+        ? await runOfStack(assignment.work.check.stackId)
+        : ''),
     stackId: assignment.work.check?.stackId ?? null,
     recheck: assignment.work.check?.recheck ?? false,
   };
@@ -434,7 +447,7 @@ const check = async (assignment: Claimed) => {
   checked.set(stack, times);
   expect(assignment.recheck).toBe(times > 1);
 
-  const path = `/api/runs/${assignment.runId}/change-stack-checks/${stack}`;
+  const path = `/api/change-stacks/${stack}/checks`;
 
   if (assignment.recheck) {
     staleRetries.push(

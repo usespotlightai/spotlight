@@ -112,12 +112,13 @@ const PLACE: Readonly<Record<ExportableResourceDto['kind'], number>> = {
   egress: 4,
   'runner-pool': 5,
   'workspace-runners': 6,
-  team: 7,
-  line: 8,
-  skill: 9,
-  integration: 10,
-  hook: 11,
-  'harness-profile': 12,
+  'inference-endpoint': 7,
+  team: 8,
+  line: 9,
+  skill: 10,
+  integration: 11,
+  hook: 12,
+  'harness-profile': 13,
 };
 
 const teamOf = (resource: ExportableResourceDto): string => {
@@ -954,6 +955,46 @@ const egress = (
   );
 };
 
+const INFERENCE_API_KEY = 'inference_api_key';
+
+const inferenceEndpoint = (
+  resource: ResourceOf<'inference-endpoint'>,
+  importedAs: string,
+  refer: Referring,
+): Rendered =>
+  withImportBlock(
+    resource,
+    nameOf(resource.address),
+    importedAs,
+    [
+      ...refer.owner(resource),
+      attribute('base_url', resource.baseUrl),
+      attribute('model', resource.model),
+      ...(resource.apiKeySet
+        ? [
+            attribute(
+              'api_key_wo',
+              HclExpression.traversal('var', INFERENCE_API_KEY),
+            ),
+          ]
+        : []),
+      ...(resource.apiKeyVersion === null
+        ? []
+        : [attribute('api_key_wo_version', resource.apiKeyVersion)]),
+    ],
+    {
+      variables: resource.apiKeySet
+        ? [
+            variable(
+              INFERENCE_API_KEY,
+              'The API key of the inference endpoint, which Spotlight stores and never returns',
+              false,
+            ),
+          ]
+        : [],
+    },
+  );
+
 const rendered = (
   resource: ExportableResourceDto,
   configuration: ExportableConfigurationDto,
@@ -1019,6 +1060,8 @@ const rendered = (
       return pool(resource, importedAs, refer);
     case 'egress':
       return egress(resource, importedAs, refer);
+    case 'inference-endpoint':
+      return inferenceEndpoint(resource, importedAs, refer);
     case 'line':
       return line(resource, importedAs, refer);
     case 'skill':

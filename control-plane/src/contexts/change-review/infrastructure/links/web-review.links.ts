@@ -8,15 +8,19 @@ export class WebReviewLinks implements ReviewLinksPort {
   constructor(private readonly publicUrl: string) {}
 
   changeStackOf(page: ChangeStackPage): string {
-    return this.at([
+    const changes = this.at([
       'w',
       page.slug,
       'team',
       page.teamId.value,
-      'runs',
-      page.runId.value,
+      'tasks',
+      page.taskId.value,
       'changes',
     ]);
+
+    return page.repository
+      ? `${changes}?${new URLSearchParams({ repository: page.repository }).toString()}`
+      : changes;
   }
 
   decisionsOf(page: DecisionsPage): string {

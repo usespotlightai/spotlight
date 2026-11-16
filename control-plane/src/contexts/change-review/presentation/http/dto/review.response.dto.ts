@@ -3,7 +3,7 @@ import {
   REVIEW_COMMENT_STATE_NAMES,
   REVIEW_SIDE_NAMES,
   REVIEW_VERDICT_NAMES,
-} from '@change-review/application/dto/run-review.dto';
+} from '@change-review/application/dto/task-review.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
 type ReviewCommentStateName = (typeof REVIEW_COMMENT_STATE_NAMES)[number];

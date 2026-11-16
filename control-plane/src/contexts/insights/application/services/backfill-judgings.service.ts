@@ -38,7 +38,7 @@ export class BackfillJudgings {
   ) {}
 
   async lineChanged(event: ChangedLine): Promise<void> {
-    if (event.deleted || !this.judge.available) {
+    if (event.deleted || !(await this.judge.availableTo(event.workspaceId))) {
       return;
     }
 

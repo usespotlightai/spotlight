@@ -32,12 +32,12 @@ import {
   CompleteRunCommand,
   RecordRunImageCommand,
   RecordStartingPointCommand,
-  RenewCheckLeaseCommand,
+  RenewReviewWorkLeaseCommand,
   RenewLeaseCommand,
 } from '@runs/application/commands/runner.commands';
 import type { HarnessDto } from '@runs/application/dto/harness.dto';
 import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
-import type { CheckLeaseRenewal } from '@runs/application/ports/check-work.port';
+import type { ReviewWorkLeaseRenewal } from '@runs/application/ports/review-work.port';
 import { HarnessCatalogueQuery } from '@runs/application/queries/list-harnesses.query';
 import { RunStopRequestedQuery } from '@runs/application/queries/run-stop-requested.query';
 import { HarnessProbeResponseDto } from '@runs/presentation/http/dto/harness-probe.response.dto';
@@ -49,7 +49,7 @@ import {
 } from '@runs/presentation/http/dto/runner.request.dto';
 import {
   ClaimedWorkResponseDto,
-  RenewCheckLeaseResponseDto,
+  RenewReviewWorkLeaseResponseDto,
   RenewLeaseResponseDto,
 } from '@runs/presentation/http/dto/runner.response.dto';
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
@@ -136,8 +136,8 @@ export class RunnerController {
     operationId: 'claimRun',
     summary: 'Long-poll for work, answering empty when the queue is',
     description:
-      'Work is either a run to carry out or a change stack check to run ' +
-      'against a fresh checkout. A run always comes first.',
+      'Work is a run to carry out, a change stack check to run ' +
+      'against a fresh checkout, or the diff of a push to make from one. A run always comes first.',
   })
   @ApiOkResponse({ type: ClaimedWorkResponseDto })
   @ApiNoContentResponse({ description: 'Nothing queued for this pool' })
@@ -189,7 +189,7 @@ export class RunnerController {
     return new RenewLeaseResponseDto(stop);
   }
 
-  @Post('runs/:runId/change-stack-checks/:stackId/lease')
+  @Post('change-stacks/:stackId/checks/lease')
   @RecordsMachineHeartbeat()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -206,26 +206,50 @@ export class RunnerController {
     type: Boolean,
     description: 'true when the check is a repeat check, as its claim said',
   })
-  @ApiOkResponse({ type: RenewCheckLeaseResponseDto })
-  @ApiNotFoundResponse({
+  @ApiOkResponse({
+    type: RenewReviewWorkLeaseResponseDto,
     description:
-      'No such runner, or the check this runner leases is of another run',
+      'The lease is renewed, or the runner no longer holds it and answers stop: true',
   })
+  @ApiNotFoundResponse({ description: 'No such runner' })
   @ApiConflictResponse({
     description: 'The check kept moving on while it was renewed',
   })
   async renewCheckLease(
-    @Param('runId') runId: string,
     @Param('stackId') stackId: string,
     @Query('recheck') recheck: string | undefined,
     @CurrentMachine() runnerId: string,
-  ): Promise<RenewCheckLeaseResponseDto> {
-    const renewal = await this.commandBus.execute<
-      RenewCheckLeaseCommand,
-      CheckLeaseRenewal
-    >(new RenewCheckLeaseCommand(runId, stackId, recheck === 'true', runnerId));
+  ): Promise<RenewReviewWorkLeaseResponseDto> {
+    return this.renewedWorkLease(
+      { kind: 'check', stackId, recheck: recheck === 'true' },
+      runnerId,
+    );
+  }
 
-    return new RenewCheckLeaseResponseDto(renewal === 'stop');
+  @Post('push-diffs/:diffId/lease')
+  @RecordsMachineHeartbeat()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'renewPushDiffLease',
+    summary: 'Say the diff of a push is still being made',
+    description:
+      'The runner with the lease on a push diff renews that lease while it makes the diff, ' +
+      'so a second runner does not claim it. The answer carries back whether the runner should stop.',
+  })
+  @ApiOkResponse({
+    type: RenewReviewWorkLeaseResponseDto,
+    description:
+      'The lease is renewed, or the runner no longer holds it and answers stop: true',
+  })
+  @ApiNotFoundResponse({ description: 'No such runner' })
+  @ApiConflictResponse({
+    description: 'The push diff kept moving on while it was renewed',
+  })
+  async renewPushDiffLease(
+    @Param('diffId') diffId: string,
+    @CurrentMachine() runnerId: string,
+  ): Promise<RenewReviewWorkLeaseResponseDto> {
+    return this.renewedWorkLease({ kind: 'diff', diffId }, runnerId);
   }
 
   @Post('runs/:runId/image')
@@ -336,5 +360,17 @@ export class RunnerController {
         body.heads ?? [],
       ),
     );
+  }
+
+  private async renewedWorkLease(
+    work: RenewReviewWorkLeaseCommand['work'],
+    runnerId: string,
+  ): Promise<RenewReviewWorkLeaseResponseDto> {
+    const renewal = await this.commandBus.execute<
+      RenewReviewWorkLeaseCommand,
+      ReviewWorkLeaseRenewal
+    >(new RenewReviewWorkLeaseCommand(work, runnerId));
+
+    return new RenewReviewWorkLeaseResponseDto(renewal === 'stop');
   }
 }

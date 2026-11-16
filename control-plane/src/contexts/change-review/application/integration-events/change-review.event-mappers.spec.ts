@@ -139,4 +139,25 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       },
     ]);
   });
+
+  it('publishes nothing for the check of a pushed stack, which has no run', () => {
+    const checked = (recheck: boolean) =>
+      new StackChecked(
+        StackCheckId.of(ChangeStackId.of('stack_1'), recheck),
+        null,
+        TaskId.of('task_1'),
+        WorkspaceId.of('ws_1'),
+        true,
+        false,
+        new Date('2026-10-02T09:30:00.000Z'),
+      );
+
+    expect(
+      [checked(false), checked(true)].flatMap((event) =>
+        CHANGE_REVIEW_EVENT_MAPPERS.filter(
+          (each) => each.from === event.kind,
+        ).map((each) => each.map(event, new Date())),
+      ),
+    ).toEqual([null, null]);
+  });
 });

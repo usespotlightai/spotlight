@@ -1,5 +1,6 @@
 import type { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import type { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
+import type { PullRequestPushed } from '@github/domain/events/pull-request-pushed.event';
 import type { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
 import type { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import type { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
@@ -12,6 +13,10 @@ import {
   PULL_REQUEST_PURGED,
   type PullRequestPurgedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-purged.integration-event';
+import {
+  PULL_REQUEST_PUSHED,
+  type PullRequestPushedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-pushed.integration-event';
 import {
   PULL_REQUEST_REOPENED,
   type PullRequestReopenedIntegrationEvent,
@@ -90,6 +95,20 @@ export const GITHUB_EVENT_MAPPERS = [
       repository: event.repository.value,
       gitHubId: event.gitHubId,
       reopenedAt: event.reopenedAt?.toISOString() ?? null,
+    }),
+  ),
+  mapping<PullRequestPushed>(
+    'pull-request.pushed',
+    (event): PullRequestPushedIntegrationEvent => ({
+      kind: PULL_REQUEST_PUSHED,
+      workspaceId: event.workspaceId.value,
+      pullRequest: event.pullRequest.value,
+      repository: event.repository.value,
+      head: event.head,
+      baseTip: event.baseTip,
+      pushedBy: event.pushedBy,
+      byBot: event.byBot,
+      pushedAt: event.pushedAt.toISOString(),
     }),
   ),
   mapping<PullRequestUpdated>(

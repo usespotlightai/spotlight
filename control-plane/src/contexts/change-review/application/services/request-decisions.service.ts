@@ -25,14 +25,19 @@ export class RequestDecisions {
     runId: RunId,
     drivenByAPerson: boolean,
   ): Promise<void> {
-    if (drivenByAPerson || !this.generator.available) {
+    if (drivenByAPerson) {
       return;
     }
 
     const run = await this.work.run(runId);
     const task = run ? await this.work.task(taskId) : null;
 
-    if (!run || !task || !decidesFrom(run, task)) {
+    if (
+      !run ||
+      !task ||
+      !decidesFrom(run, task) ||
+      !(await this.generator.availableTo(task.workspaceId.value))
+    ) {
       return;
     }
 

@@ -1,8 +1,8 @@
-import { MAX_LEASE_MS } from '@change-review/domain/value-objects/check-claim.vo';
+import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/runner-assignment.vo';
+import { MAX_LEASE_MS } from '@change-review/domain/value-objects/runner-claim.vo';
 import {
   type CheckStatusInput,
   checkStatusAt,
-  WAITING_LIMIT_MS,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import { describe, expect, it } from 'vitest';
 

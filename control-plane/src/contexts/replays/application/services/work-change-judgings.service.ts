@@ -74,6 +74,7 @@ export class WorkChangeJudgings implements PendingJobsPort {
 
   private async judged(judging: ChangeJudging): Promise<ChangeJudging> {
     const judgment = await this.judge.judge({
+      workspaceId: judging.workspaceId.value,
       run: judging.runId,
       criteria: judging.criteria,
       reference: judging.reference,

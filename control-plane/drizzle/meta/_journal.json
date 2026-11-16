@@ -12,29 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1794820524271,
-      "tag": "20261116091524_initial_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1794838393462,
-      "tag": "20261116141313_task_takeovers",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1794843408081,
-      "tag": "20261116153648_backfill_turn_report_heads",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1794853234333,
-      "tag": "20261116182034_task_note_handed_back",
+      "when": 1794863876043,
+      "tag": "20261116211756_initial_schema",
       "breakpoints": true
     }
   ]

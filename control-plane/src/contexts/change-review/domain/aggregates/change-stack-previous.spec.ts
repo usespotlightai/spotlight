@@ -10,6 +10,7 @@ import type {
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -104,7 +105,7 @@ const started = (
 
   return ChangeStack.startGeneration({
     id: ChangeStackId.of(id),
-    runId: RunId.of(`run-${id}`),
+    origin: StackOrigin.run(RunId.of(`run-${id}`)),
     taskId,
     teamOfRun: taskId ? null : TeamId.of('team-1'),
     trial: false,

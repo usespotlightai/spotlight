@@ -8,6 +8,8 @@ const patch = (header: string, lines: string[]): string =>
 
 export const INVITATIONS: ChangeStackResponseDto = {
   id: 'stack_invitations',
+  runId: 'run_invitations',
+  push: null,
   repository: null,
   state: 'ready',
   failure: null,

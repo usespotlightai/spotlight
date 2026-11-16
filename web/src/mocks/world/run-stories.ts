@@ -631,6 +631,8 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
     : [
         {
           id: `stack_${runId}`,
+          runId,
+          push: null,
           repository: task.pullRequest.repository,
           state: 'ready',
           failure: null,

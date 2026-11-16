@@ -18,7 +18,7 @@ import {
   readInboxItem,
   readJudgeDisagreement,
   readMemoryReview,
-  readRunReview,
+  readTaskReview,
   readRunScores,
   readStationAlert,
   readTaskDecisions,
@@ -74,6 +74,7 @@ const RETRIES = {
 };
 
 const POSTGRES_RUN = { teamId: PLATFORM_ID, runId: 'run_postgres_2' };
+const POSTGRES_TASK = { teamId: PLATFORM_ID, taskId: 'task_postgres' };
 
 const approvalIn = async (itemId: string) =>
   (await itemIn(itemId))?.notes.findLast((note) => note.approval)?.approval;
@@ -529,27 +530,27 @@ describe('the mock inbox', () => {
 
   it('drafts, edits, deletes and submits review comments', async () => {
     const { data: drafted } = await draftReviewComment({
-      path: POSTGRES_RUN,
+      path: POSTGRES_TASK,
       body: { body: 'Batch it.', replyTo: 'comment_batching' },
       throwOnError: true,
     });
     await editReviewComment({
-      path: { ...POSTGRES_RUN, commentId: drafted.id },
+      path: { ...POSTGRES_TASK, commentId: drafted.id },
       body: { body: 'Batch it, 50k a time.' },
       throwOnError: true,
     });
     await deleteReviewComment({
-      path: { ...POSTGRES_RUN, commentId: 'comment_pool_timeout' },
+      path: { ...POSTGRES_TASK, commentId: 'comment_pool_timeout' },
       throwOnError: true,
     });
     await submitReview({
-      path: POSTGRES_RUN,
+      path: POSTGRES_TASK,
       body: { verdict: 'request-changes', body: 'Run the rewrite in batches.' },
       throwOnError: true,
     });
 
-    const { data } = await readRunReview({
-      path: POSTGRES_RUN,
+    const { data } = await readTaskReview({
+      path: POSTGRES_TASK,
       throwOnError: true,
     });
     const mine = data.comments.find((each) => each.id === drafted.id);
@@ -674,7 +675,7 @@ describe('the mock inbox in an empty workspace', () => {
           }),
         ),
         statusOf(readRunScores({ path: POSTGRES_RUN })),
-        statusOf(readRunReview({ path: POSTGRES_RUN })),
+        statusOf(readTaskReview({ path: POSTGRES_TASK })),
         statusOf(
           readTaskDecisions({
             path: { teamId: PLATFORM_ID, taskId: 'task_postgres' },

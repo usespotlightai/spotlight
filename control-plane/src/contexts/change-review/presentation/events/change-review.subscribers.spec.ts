@@ -2,21 +2,30 @@ import type { ChangeStackReactions } from '@change-review/application/events/han
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
 import type { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
-import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
+import type { ReviewWorkRunnersPort } from '@change-review/application/ports/review-work-runners.port';
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import type { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
+import type { StackPushes } from '@change-review/application/services/stack-pushes.service';
 import { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
+import { PushDiffLeaseReleased } from '@change-review/domain/events/push-diff-lease-released.event';
+import { PushDiffRecorded } from '@change-review/domain/events/push-diff-recorded.event';
+import { PushDiffReservationDropped } from '@change-review/domain/events/push-diff-reservation-dropped.event';
 import { StackCheckLayersFailed } from '@change-review/domain/events/stack-check-layers-failed.event';
 import { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
 import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
 import type { DispatchEndedIntegrationEvent } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import {
+  PULL_REQUEST_PUSHED,
+  type PullRequestPushedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-pushed.integration-event';
 import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
 import type { TaskRunAssignedIntegrationEvent } from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -56,6 +65,7 @@ const receiving = () => {
     {} as unknown as ReviewReactions,
     { receive } as unknown as ReceiveReviewComment,
     {} as unknown as SignalReviewing,
+    {} as never,
     {} as never,
     {} as never,
     {} as never,
@@ -126,6 +136,7 @@ describe('change review receiving a run begin and end', () => {
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       { began, ended } as unknown as SignalReviewing,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -213,6 +224,7 @@ describe('change review receiving a run end', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     ).find((each) => each.name === 'change-review.request-decisions');
 
     const ofTask: DispatchEndedIntegrationEvent = {
@@ -275,6 +287,7 @@ describe('change review receiving a pull request close', () => {
       { closed } as unknown as ApplyPullRequestClose,
       {} as never,
       {} as never,
+      {} as never,
     ).find((each) => each.name === 'change-review.apply-pull-request-close');
 
     const merged: PullRequestClosedIntegrationEvent = {
@@ -315,7 +328,8 @@ describe('change review receiving a stack’s check end', () => {
       {} as never,
       {} as never,
       {} as never,
-      { released } as unknown as CheckRunnersPort,
+      { checkReleased: released } as unknown as ReviewWorkRunnersPort,
+      {} as never,
     ).find(
       (each) => each.name === 'change-review.release-runner-of-checked-stack',
     );
@@ -374,7 +388,8 @@ describe('change review receiving that a check was deleted while a runner leased
       {} as never,
       {} as never,
       {} as never,
-      { released } as unknown as CheckRunnersPort,
+      { checkReleased: released } as unknown as ReviewWorkRunnersPort,
+      {} as never,
     ).find(
       (each) => each.name === 'change-review.release-runner-of-deleted-check',
     );
@@ -408,7 +423,8 @@ describe('change review receiving a check drop the runner reserved for it', () =
       {} as never,
       {} as never,
       {} as never,
-      { reservationDropped } as unknown as CheckRunnersPort,
+      { reservationDropped } as unknown as ReviewWorkRunnersPort,
+      {} as never,
     ).find((each) => each.name === 'change-review.release-reserved-runner');
 
     if (!subscriber) {
@@ -434,6 +450,109 @@ describe('change review receiving a check drop the runner reserved for it', () =
   });
 });
 
+describe('change review receiving a push to a pull request', () => {
+  const subscribed = (name: string) => {
+    const pushed = vi.fn(async () => {});
+    const supersedeEarlier = vi.fn(async () => {});
+    const diffReleased = vi.fn(async () => {});
+    const reservationDropped = vi.fn(async () => {});
+    const subscriber = changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as StickyCommentPosterPort,
+      {} as unknown as TaskDeletionReactions,
+      {} as never,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      {} as unknown as SignalReviewing,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { diffReleased, reservationDropped } as unknown as ReviewWorkRunnersPort,
+      { pushed, supersedeEarlier } as unknown as StackPushes,
+    ).find((each) => each.name === name);
+
+    if (!subscriber) {
+      throw new Error(`nobody subscribes as ${name}`);
+    }
+
+    return {
+      subscriber,
+      pushed,
+      supersedeEarlier,
+      diffReleased,
+      reservationDropped,
+    };
+  };
+
+  it('hands the push to be diffed, in the workspace GitHub named, apart from the delivery transaction', async () => {
+    const { subscriber, pushed } = subscribed(
+      'change-review.diff-pushed-pull-request',
+    );
+    const event: PullRequestPushedIntegrationEvent = {
+      kind: PULL_REQUEST_PUSHED,
+      workspaceId: 'ws_1',
+      pullRequest: 'https://github.com/acme/api/pull/7',
+      repository: 'acme/api',
+      head: 'b'.repeat(40),
+      baseTip: 'a'.repeat(40),
+      pushedBy: 'octocat',
+      byBot: false,
+      pushedAt: '2026-09-16T09:00:00.000Z',
+    };
+
+    await subscriber.handle(event);
+
+    expect(subscriber.callsOut).toBe(true);
+    expect(pushed).toHaveBeenCalledWith({
+      workspaceId: WorkspaceId.of('ws_1'),
+      pullRequest: 'https://github.com/acme/api/pull/7',
+      head: 'b'.repeat(40),
+      baseTip: 'a'.repeat(40),
+      pushedBy: 'octocat',
+      byBot: false,
+      pushedAt: new Date('2026-09-16T09:00:00.000Z'),
+    });
+  });
+
+  it('supersedes the pushes before one recorded, apart from the transaction that recorded it', async () => {
+    const { subscriber, supersedeEarlier } = subscribed(
+      'change-review.supersede-earlier-pushes',
+    );
+
+    await subscriber.handle(new PushDiffRecorded(PushDiffId.of('diff_1')));
+
+    expect(subscriber.kinds).toEqual(['push-diff.recorded']);
+    expect(subscriber.callsOut).toBe(true);
+    expect(supersedeEarlier).toHaveBeenCalledWith(PushDiffId.of('diff_1'));
+  });
+
+  it('releases the runner of a push diff that ended', async () => {
+    const { subscriber, diffReleased } = subscribed(
+      'change-review.release-runner-of-push-diff',
+    );
+
+    await subscriber.handle(new PushDiffLeaseReleased(PushDiffId.of('diff_1')));
+
+    expect(diffReleased).toHaveBeenCalledWith(PushDiffId.of('diff_1'));
+  });
+
+  it('releases the runner reserved for a push diff that no longer waits', async () => {
+    const { subscriber, reservationDropped } = subscribed(
+      'change-review.release-reserved-runner-of-push-diff',
+    );
+
+    await subscriber.handle(
+      new PushDiffReservationDropped(
+        PushDiffId.of('diff_1'),
+        RunnerId.of('pooled_1'),
+      ),
+    );
+
+    expect(reservationDropped).toHaveBeenCalledWith(RunnerId.of('pooled_1'));
+  });
+});
+
 describe('change review removing what a deleted task or team owned', () => {
   const removeStacks = vi.fn(async () => {});
   const subscribers = changeReviewSubscribers(
@@ -444,6 +563,7 @@ describe('change review removing what a deleted task or team owned', () => {
     {} as unknown as ReviewReactions,
     {} as unknown as ReceiveReviewComment,
     {} as unknown as SignalReviewing,
+    {} as never,
     {} as never,
     {} as never,
     {} as never,
@@ -464,10 +584,55 @@ describe('change review removing what a deleted task or team owned', () => {
       ['change-review.remove-stack-checks-of-deleted-task', true],
       ['change-review.remove-question-answers-of-deleted-task', true],
       ['change-review.remove-change-stacks-of-deleted-task', true],
+      ['change-review.remove-push-diffs-of-deleted-task', true],
       ['change-review.remove-stack-checks-of-deleted-team', true],
       ['change-review.remove-question-answers-of-deleted-team', true],
       ['change-review.remove-change-stacks-of-deleted-team', true],
     ]);
+  });
+
+  it('changes the runners in the runners context apart from the delivery transaction', () => {
+    const releasing = subscribers.filter((each) =>
+      each.name.startsWith('change-review.release-'),
+    );
+
+    expect(releasing.map((each) => [each.name, each.callsOut])).toEqual([
+      ['change-review.release-runner-of-checked-stack', true],
+      ['change-review.release-runner-of-deleted-check', true],
+      ['change-review.release-runner-of-push-diff', true],
+      ['change-review.release-reserved-runner-of-push-diff', true],
+      ['change-review.release-reserved-runner', true],
+    ]);
+  });
+
+  it('removes the push diffs of a deleted task, releasing their runners', async () => {
+    const removePushDiffs = vi.fn(async () => {});
+    const subscriber = changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as StickyCommentPosterPort,
+      { removePushDiffs } as unknown as TaskDeletionReactions,
+      {} as never,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      {} as unknown as SignalReviewing,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    ).find(
+      (each) => each.name === 'change-review.remove-push-diffs-of-deleted-task',
+    );
+
+    expect(subscriber?.kinds).toEqual(['work.task-deleted.v1']);
+    await subscriber?.handle({
+      kind: 'work.task-deleted.v1',
+      workspaceId: 'ws_1',
+      taskId: 'task_1',
+    } as never);
+
+    expect(removePushDiffs).toHaveBeenCalledWith(TaskId.of('task_1'));
   });
 
   it('removes the stacks a deleted team owned without a task', async () => {

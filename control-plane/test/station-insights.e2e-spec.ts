@@ -288,7 +288,7 @@ beforeAll(async () => {
         judgeAt: async () => null,
       },
       {
-        available: false,
+        availableTo: async () => false,
         judge: async () => ({
           model: 'some/model',
           verdict: { claims: [] },

@@ -2,16 +2,16 @@ import { RecheckTrialChanges } from '@change-review/application/services/recheck
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { StackCheckStatus } from '@change-review/domain/value-objects/stack-check.vo';
 import {
   queueTimeout,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
-import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
+import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -50,7 +50,7 @@ const checkOf = (
             layers: [],
             checkedAt: NOW,
           },
-    claim: CheckClaim.none(),
+    claim: RunnerClaim.none(),
     waitingSince: NOW,
     reservation: null,
     provisioning: Provisioning.none(),
@@ -88,14 +88,14 @@ describe('RecheckTrialChanges', () => {
       checkOf('task', 'checked', { trial: false }),
     ]);
 
-    expect(await service.recheckable(RUN)).toEqual([CheckWorkId.of('passed')]);
+    expect(await service.recheckable(RUN)).toEqual([ReviewWorkId.of('passed')]);
   });
 
   it('checks one stack again, once however often it is requested', async () => {
     const { added, service } = rechecking([checkOf('passed', 'checked')]);
 
-    await service.recheck(RUN, CheckWorkId.of('passed'));
-    await service.recheck(RUN, CheckWorkId.of('passed'));
+    await service.recheck(RUN, ReviewWorkId.of('passed'));
+    await service.recheck(RUN, ReviewWorkId.of('passed'));
 
     expect(added.map((each) => [each.stackId.value, each.recheck])).toEqual([
       ['passed', true],
@@ -108,9 +108,9 @@ describe('RecheckTrialChanges', () => {
       checkOf('passed', 'checked'),
     ]);
 
-    await service.recheck(RUN, CheckWorkId.of('skipped'));
-    await service.recheck(RunId.of('replay-2'), CheckWorkId.of('passed'));
-    await service.recheck(RUN, CheckWorkId.of('missing'));
+    await service.recheck(RUN, ReviewWorkId.of('skipped'));
+    await service.recheck(RunId.of('replay-2'), ReviewWorkId.of('passed'));
+    await service.recheck(RUN, ReviewWorkId.of('missing'));
 
     expect(added).toEqual([]);
   });

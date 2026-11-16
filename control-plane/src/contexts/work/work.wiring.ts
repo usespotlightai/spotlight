@@ -68,6 +68,10 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { s3ClientsOf } from '@platform/storage/s3-clients';
 import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
 import {
+  RUNNER_LEASES,
+  type RunnerLeasesPort,
+} from '@runners/application/ports/runner-leases.port';
+import {
   RUNNER_READER,
   type RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
@@ -262,10 +266,6 @@ import {
   type ChatReaderPort,
 } from '@work/application/ports/chat-reader.port';
 import { CHAT_TOOL_EXTENSIONS } from '@work/application/ports/chat-tool-extensions.port';
-import {
-  CHECK_ACCESS,
-  type CheckAccessPort,
-} from '@work/application/ports/check-access.port';
 import { CONNECTION_ASKS } from '@work/application/ports/connection-asks.port';
 import {
   CONTENT_HASH,
@@ -320,6 +320,10 @@ import {
   PULL_REQUEST_REVIEWING,
   type PullRequestReviewingPort,
 } from '@work/application/ports/pull-request-reviewing.port';
+import {
+  REVIEW_WORK_ACCESS,
+  type ReviewWorkAccessPort,
+} from '@work/application/ports/review-work-access.port';
 import {
   RUN_EVIDENCE,
   type RunEvidencePort,
@@ -1367,16 +1371,18 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RunWorks,
       WORKSPACE_CONNECTIONS,
       REPOSITORY_GIT,
-      CHECK_ACCESS,
+      REVIEW_WORK_ACCESS,
+      RUNNER_LEASES,
       CLOCK,
     ],
     useFactory: (
       works: RunWorks,
       workspaces: WorkspaceConnectionsPort,
       git: RepositoryGitPort,
-      checking: CheckAccessPort,
+      checking: ReviewWorkAccessPort,
+      leases: RunnerLeasesPort,
       clock: ClockPort,
-    ) => new CarryGitCall(works, workspaces, git, checking, clock),
+    ) => new CarryGitCall(works, workspaces, git, checking, leases, clock),
   },
 
   {

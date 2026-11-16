@@ -547,6 +547,70 @@ describe('GitHubWebhookParser', () => {
     });
   });
 
+  describe('reading a push to a pull request', () => {
+    const HEAD = 'a'.repeat(40);
+    const BASE = 'b'.repeat(40);
+
+    const pushed = (body: Record<string, unknown> = {}) =>
+      eventsOf('pull_request', {
+        action: 'synchronize',
+        repository: { full_name: 'acme/api' },
+        sender: { type: 'User', login: 'ada' },
+        pull_request: pull({
+          merged: false,
+          head: { ref: 'fix/uploads', sha: HEAD.toUpperCase() },
+          base: { sha: BASE },
+          updated_at: '2026-11-16T10:00:00Z',
+        }),
+        ...body,
+      }).filter((each) => each.kind === 'pull-request-pushed');
+
+    it('reads who pushed which head onto which base tip', () => {
+      expect(pushed()).toEqual([
+        expect.objectContaining({
+          kind: 'pull-request-pushed',
+          pullRequest: 'https://github.com/acme/api/pull/7',
+          repository: 'acme/api',
+          head: HEAD,
+          baseTip: BASE,
+          pushedBy: 'ada',
+          byBot: false,
+          pushedAt: new Date('2026-11-16T10:00:00Z'),
+        }),
+      ]);
+    });
+
+    it('says when a bot made the push', () => {
+      expect(
+        pushed({ sender: { type: 'Bot', login: 'spotlight[bot]' } }),
+      ).toEqual([expect.objectContaining({ byBot: true })]);
+    });
+
+    it('reads nothing when GitHub sends no full commit for the head or the base', () => {
+      expect(
+        pushed({
+          pull_request: pull({
+            head: { ref: 'fix/uploads', sha: 'abc123' },
+            base: { sha: BASE },
+            updated_at: '2026-11-16T10:00:00Z',
+          }),
+        }),
+      ).toEqual([]);
+      expect(
+        pushed({
+          pull_request: pull({
+            head: { ref: 'fix/uploads', sha: HEAD },
+            updated_at: '2026-11-16T10:00:00Z',
+          }),
+        }),
+      ).toEqual([]);
+    });
+
+    it('reads no push from other pull request actions', () => {
+      expect(pushed({ action: 'edited' })).toEqual([]);
+    });
+  });
+
   describe('reading what a pull request is', () => {
     const snapshotIn = (
       body: Record<string, unknown>,

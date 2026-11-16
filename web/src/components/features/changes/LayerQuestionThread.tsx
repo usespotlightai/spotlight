@@ -1,3 +1,4 @@
+import { AnswerFailed } from '@/components/features/changes/AnswerFailed';
 import { CitedPlaces } from '@/components/features/changes/CitedPlaces';
 import { QuestionVerdict } from '@/components/features/changes/QuestionVerdict';
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
@@ -15,7 +16,7 @@ import {
   type LayerQuestion,
 } from '@/lib/change-stack';
 import { YOU } from '@/lib/person';
-import { useReviewing } from '@/lib/review-context';
+import { useStackTeam } from '@/lib/review-context';
 
 type LayerQuestionThreadProps = {
   stack: ChangeStack;
@@ -30,17 +31,16 @@ export function LayerQuestionThread({
   question,
   onReveal,
 }: LayerQuestionThreadProps) {
-  const reviewing = useReviewing();
+  const teamId = useStackTeam();
   const me = useMe();
   const answering = useAnswerStackQuestion();
   const { answered } = question;
   const current = answered && !answered.outdated ? answered : null;
 
   const answer = (reply: string | null) => {
-    if (reviewing) {
+    if (teamId) {
       answering.mutate({
-        teamId: reviewing.teamId,
-        runId: reviewing.runId,
+        teamId,
         stackId: stack.id,
         questionId: question.id,
         reply,
@@ -142,6 +142,10 @@ export function LayerQuestionThread({
             </Button>
           }
         />
+      )}
+
+      {answering.isError && !current && (
+        <AnswerFailed error={answering.error} />
       )}
     </section>
   );
