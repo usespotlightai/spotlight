@@ -96,10 +96,8 @@ export const stackedLater = (
       (each.status === 'diffed' || showsPush(latest, each.push.head)),
   );
 
-export const waitingBefore = (
-  diffs: readonly PushDiff[],
-  next: PushDiff,
-): boolean => supersededBy(diffs, next).length > 0;
+const waitingBefore = (diffs: readonly PushDiff[], next: PushDiff): boolean =>
+  supersededBy(diffs, next).length > 0;
 
 export const pushPlacement = (
   followed: ChangeStack | null,

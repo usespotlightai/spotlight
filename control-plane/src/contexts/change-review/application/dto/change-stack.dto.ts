@@ -146,7 +146,7 @@ export interface ChangeStackDto {
   readonly push: PushOriginDto | null;
 }
 
-export interface PushOriginDto {
+interface PushOriginDto {
   readonly head: string;
   readonly pushedBy: string | null;
 }
