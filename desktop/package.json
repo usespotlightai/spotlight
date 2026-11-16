@@ -16,7 +16,7 @@
     "knip": "knip"
   },
   "dependencies": {
-    "@sentry/electron": "8.3.0",
+    "@sentry/electron": "8.4.0",
     "electron-updater": "6.8.11"
   },
   "devDependencies": {
