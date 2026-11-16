@@ -357,6 +357,7 @@ export class RunnerController {
         body.stopped ?? false,
         body.setupFailed ?? false,
         body.timedOut ?? false,
+        body.heads ?? [],
       ),
     );
   }

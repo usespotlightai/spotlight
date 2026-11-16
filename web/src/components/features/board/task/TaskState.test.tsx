@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { TaskState } from '@/components/features/board/task/TaskState';
 import type { Task } from '@/lib/task';
@@ -19,10 +19,34 @@ const task = (over: Partial<Task> = {}) =>
     ...over,
   }) as Task;
 
+vi.mock('@/hooks/useMe', () => ({
+  useMe: () => ({ id: 'user_1', name: 'Leon', image: null }),
+}));
+
 const renderIn = (ui: ReactElement) =>
   render(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe('TaskState', () => {
+  it('says a person put the task on hold, before anything else', () => {
+    renderIn(
+      <TaskState
+        task={task({
+          progress: 'in-progress',
+          hold: {
+            by: { id: 'user_2', name: 'Maya', image: null },
+            verdict: 'not-right',
+            startedAt: '2026-08-28T10:00:00.000Z',
+            runId: 'run_1',
+            heldMoveTo: null,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText('On hold')).toBeInTheDocument();
+    expect(screen.queryByText('In progress')).not.toBeInTheDocument();
+  });
+
   it('says nothing about a task that is simply waiting its turn', () => {
     const { container } = renderIn(<TaskState task={task()} />);
 
@@ -56,7 +80,7 @@ describe('TaskState', () => {
     renderIn(
       <TaskState
         task={task({ awaitingReview: { conversationId: 'task_1:5' } })}
-        reviewTo="/w/acme/inbox/task_1%3A5"
+        stateTo="/w/acme/inbox/task_1%3A5"
       />,
     );
 

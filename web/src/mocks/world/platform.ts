@@ -217,7 +217,9 @@ const task = (
   createdAt: hoursAgo(24),
   progress: null,
   awaitingReview: null,
+  finished: false,
   pullRequests: [],
+  hold: null,
   createdBy: SAM,
   assignee: null,
   note: null,
@@ -330,6 +332,7 @@ const run = (
     station: runStationOf(stations, stationId),
     review: null,
     ...rest,
+    driver: rest.driver ?? 'line',
     progress: progressOfState(rest.state ?? 'completed'),
   };
 };

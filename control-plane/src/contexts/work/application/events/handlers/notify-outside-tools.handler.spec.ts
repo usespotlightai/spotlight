@@ -121,7 +121,7 @@ describe('NotifyOutsideTools', () => {
     const { handler, task, notify } = notifying();
 
     await handler.on(
-      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
+      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date(), 'line'),
     );
 
     expect(notify).toHaveBeenCalledWith(task, 'task.asked');
@@ -188,7 +188,7 @@ describe('NotifyOutsideTools', () => {
     ]);
 
     await handler.on(
-      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
+      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date(), 'line'),
     );
 
     expect(save.mock.calls[0]?.[0].marks.map((each) => each.kind)).toContain(
@@ -201,7 +201,7 @@ describe('NotifyOutsideTools', () => {
     const { handler, task, save } = notifying([thread]);
 
     await handler.on(
-      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
+      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date(), 'line'),
     );
 
     const [marked] = save.mock.calls.map(([each]) => each);
@@ -216,7 +216,7 @@ describe('NotifyOutsideTools', () => {
     const { handler, task, save } = notifying();
 
     await handler.on(
-      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
+      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date(), 'line'),
     );
 
     expect(save).not.toHaveBeenCalled();

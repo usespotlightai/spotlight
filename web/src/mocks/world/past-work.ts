@@ -95,6 +95,7 @@ const exitCodeOf = (run: HistoryRun): number | null =>
 
 const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
   id: run.runId,
+  driver: 'line',
   state: stateOf(run),
   progress: progressOfState(stateOf(run)),
   attempt: visitOf(run.runId),
@@ -125,6 +126,7 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   createdAt: new Date(task.openedAt).toISOString(),
   progress: null,
   awaitingReview: null,
+  finished: false,
   pullRequests: task.pullRequest
     ? [pullRequestUrlOf(task.teamId, task.id)].filter((url) => url !== null)
     : [],
@@ -132,6 +134,7 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   assignee: null,
   note: null,
   source: null,
+  hold: null,
 });
 
 export const pastTaskOf = (taskId: string): TaskResponseDto | undefined => {

@@ -49,7 +49,6 @@ import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
 import { RunUsage } from '@runs/domain/value-objects/run-usage.vo';
-import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import { ToolUse } from '@runs/domain/value-objects/tool-use.vo';
@@ -94,7 +93,6 @@ export const RUNS_PAYLOAD_TYPES = [
   RunSpec,
   WorkingCopyArchiveId,
   RestoredArchive,
-  StartedCheckout,
   StartingPoint,
   RunExhausted,
   RunCancelled,

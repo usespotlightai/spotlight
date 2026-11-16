@@ -1,4 +1,5 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
@@ -16,6 +17,7 @@ import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
+import { LineResumed } from '@work/domain/events/line-resumed.event';
 import { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
@@ -23,6 +25,7 @@ import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
+import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
@@ -33,6 +36,7 @@ import {
   DispatchEnding,
   type DispatchOutcome,
 } from '@work/domain/value-objects/dispatch-ending.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
@@ -66,6 +70,7 @@ const dispatchEnded = (
       stopped,
       askedAPerson: false,
     }),
+    'line',
   );
 
 const TASK = TaskId.of('task_1');
@@ -181,6 +186,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           TaskFailure.fromHook('notify', 'loop').again().again(),
           null,
           new Date('2026-09-26T09:00:00Z'),
+          'line',
         ),
       ),
     ).toEqual([
@@ -195,6 +201,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         code: 'loop',
         occurrences: 3,
         at: '2026-09-26T09:00:00.000Z',
+        driver: 'line',
       },
     ]);
   });
@@ -249,7 +256,7 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a task put to a person, and when', () => {
+  it('publishes a task put to a person, when, and who drove the run that asked', () => {
     expect(
       published(
         new TaskAsked(
@@ -258,6 +265,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           StationId.of('station_1'),
           null,
           new Date('2026-09-26T09:00:00Z'),
+          'person',
         ),
       ),
     ).toEqual([
@@ -267,6 +275,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         workspaceId: 'ws_1',
         stationId: 'station_1',
         at: '2026-09-26T09:00:00.000Z',
+        driver: 'person',
       },
     ]);
   });
@@ -344,11 +353,78 @@ describe('WORK_EVENT_MAPPERS', () => {
         failure: null,
         stopped: true,
         asked: false,
+        driver: 'line',
       },
     ]);
     expect(published(dispatchEnded('exhausted', 'runner-lost'))[0]).toEqual(
       expect.objectContaining({ failure: 'runner-lost', stopped: false }),
     );
+  });
+
+  it('publishes who took a task over, where and from which run', () => {
+    expect(
+      published(
+        new TaskHeld(
+          TASK,
+          WORKSPACE,
+          TeamId.of('team_1'),
+          HoldId.of('hold_1'),
+          StationId.of('station_1'),
+          UserId.of('user_1'),
+          RUN,
+          'not-right',
+          RECORDED_AT,
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.task-held.v1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        holdId: 'hold_1',
+        stationId: 'station_1',
+        by: 'user_1',
+        fromRunId: 'run_1',
+        verdict: 'not-right',
+        at: RECORDED_AT.toISOString(),
+      },
+    ]);
+  });
+
+  it('publishes how a person handed a task back, with their turns and commits', () => {
+    const head = (commit: string) =>
+      CheckoutHead.of({ path: '/workspace/app', commit: commit.repeat(40) });
+
+    expect(
+      published(
+        new LineResumed(
+          TASK,
+          WORKSPACE,
+          TeamId.of('team_1'),
+          HoldId.of('hold_1'),
+          StationId.of('station_1'),
+          UserId.of('user_1'),
+          null,
+          'exploring',
+          'move-on',
+          [RunId.of('run_turn')],
+          [head('a')],
+          [head('b')],
+          RECORDED_AT,
+          RECORDED_AT,
+        ),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'work.line-resumed.v1',
+        fromRunId: null,
+        end: 'move-on',
+        turnRunIds: ['run_turn'],
+        fromHeads: [{ path: '/workspace/app', commit: 'a'.repeat(40) }],
+        toHeads: [{ path: '/workspace/app', commit: 'b'.repeat(40) }],
+      }),
+    ]);
   });
 
   it('publishes a run its task superseded', () => {
@@ -428,6 +504,7 @@ describe('WORK_EVENT_MAPPERS', () => {
             briefed: [{ id: 'memory_1', handle: 'M-1' }],
             omitted: [{ id: 'memory_2', handle: 'M-2' }],
           }),
+          'line',
         ),
       ),
     ).toEqual([
@@ -437,6 +514,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         workspaceId: 'ws_1',
         taskId: 'task_1',
         memories: ['memory_1'],
+        driver: 'line',
       },
     ]);
   });

@@ -1,5 +1,5 @@
 {
-  "id": "147216ce-0df1-4841-91a0-0573f6801f46",
+  "id": "80317cf6-8908-4092-ad0c-3031f0456586",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -16496,6 +16496,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "end_heads": {
+          "name": "end_heads",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
         "asked_a_person": {
           "name": "asked_a_person",
           "type": "boolean",
@@ -18316,6 +18323,14 @@
           "primaryKey": false,
           "notNull": false
         },
+        "driver": {
+          "name": "driver",
+          "type": "dispatch_driver",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'line'"
+        },
         "chat_id": {
           "name": "chat_id",
           "type": "text",
@@ -19498,6 +19513,188 @@
       },
       "isRLSEnabled": false
     },
+    "public.task_hold": {
+      "name": "task_hold",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "held_by": {
+          "name": "held_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_run_id": {
+          "name": "from_run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "verdict": {
+          "name": "verdict",
+          "type": "hold_verdict",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "turn_run_ids": {
+          "name": "turn_run_ids",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "held_move_to": {
+          "name": "held_move_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "from_heads": {
+          "name": "from_heads",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "to_heads": {
+          "name": "to_heads",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "hold_end": {
+          "name": "hold_end",
+          "type": "hold_end",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "task_hold_open_uidx": {
+          "name": "task_hold_open_uidx",
+          "columns": [
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"task_hold\".\"ended_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_hold_task_idx": {
+          "name": "task_hold_task_idx",
+          "columns": [
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_hold_station_idx": {
+          "name": "task_hold_station_idx",
+          "columns": [
+            {
+              "expression": "station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "task_hold_task_fk": {
+          "name": "task_hold_task_fk",
+          "tableFrom": "task_hold",
+          "tableTo": "task",
+          "columnsFrom": [
+            "workspace_id",
+            "task_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "task_hold_ends_with_an_end": {
+          "name": "task_hold_ends_with_an_end",
+          "value": "(\"task_hold\".\"ended_at\" is null) = (\"task_hold\".\"hold_end\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.task_mark": {
       "name": "task_mark",
       "schema": "",
@@ -19715,6 +19912,12 @@
         },
         "connection_ask": {
           "name": "connection_ask",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resumption": {
+          "name": "resumption",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
@@ -20496,7 +20699,8 @@
         "parked",
         "accepted",
         "answered",
-        "sent-back"
+        "sent-back",
+        "held"
       ]
     },
     "public.judging_failure": {
@@ -20665,7 +20869,8 @@
         "grade",
         "accepted",
         "sent-back",
-        "merged"
+        "merged",
+        "held"
       ]
     },
     "public.delivery_state": {
@@ -21102,6 +21307,14 @@
         "proposed"
       ]
     },
+    "public.dispatch_driver": {
+      "name": "dispatch_driver",
+      "schema": "public",
+      "values": [
+        "line",
+        "person"
+      ]
+    },
     "public.dispatch_follow_up": {
       "name": "dispatch_follow_up",
       "schema": "public",
@@ -21156,6 +21369,23 @@
         "advice"
       ]
     },
+    "public.hold_end": {
+      "name": "hold_end",
+      "schema": "public",
+      "values": [
+        "continue",
+        "move-on",
+        "finish"
+      ]
+    },
+    "public.hold_verdict": {
+      "name": "hold_verdict",
+      "schema": "public",
+      "values": [
+        "not-right",
+        "exploring"
+      ]
+    },
     "public.task_note_form": {
       "name": "task_note_form",
       "schema": "public",
@@ -21166,7 +21396,9 @@
         "approval",
         "decision",
         "failure",
-        "connection"
+        "connection",
+        "held",
+        "resumed"
       ]
     },
     "public.task_note_kind": {

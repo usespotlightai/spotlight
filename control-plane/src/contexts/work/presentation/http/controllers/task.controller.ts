@@ -33,6 +33,7 @@ import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
+import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
@@ -61,6 +62,7 @@ import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.qu
 import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.dto';
 import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.request.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
+import { ResumeLineRequestDto } from '@work/presentation/http/dto/resume-line.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
 import { SendMessageRequestDto } from '@work/presentation/http/dto/task-run.request.dto';
 import {
@@ -549,6 +551,49 @@ export class TaskController {
   ): Promise<TaskResponseDto> {
     await this.commandBus.execute<AssignTaskCommand, void>(
       new AssignTaskCommand(teamId, taskId, body.assigneeId ?? null, user.id),
+    );
+
+    return this.readBack(teamId, taskId, user);
+  }
+
+  @Post('tasks/:taskId/resume')
+  @ApiOperation({
+    operationId: 'resumeLine',
+    summary: 'Resume the line on a task that you put on hold',
+    description:
+      'Sending a message to a station run that is not an answer puts the task on hold. The line waits until you resume it here, until you move the task, or until the agent resumes it because you asked it to.',
+  })
+  @ApiParam({
+    name: 'taskId',
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+  })
+  @ApiOkResponse({ type: TaskResponseDto })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  @ApiConflictResponse({
+    description:
+      'The task is not on hold, someone else put it on hold, or it cannot move on to that station',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
+  async resumeLine(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @Body() body: ResumeLineRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto> {
+    await this.commandBus.execute<ResumeLineCommand, void>(
+      new ResumeLineCommand(
+        teamId,
+        taskId,
+        user.id,
+        body.next,
+        body.stationId ?? null,
+        body.verdict ?? null,
+        body.summary ?? null,
+      ),
     );
 
     return this.readBack(teamId, taskId, user);

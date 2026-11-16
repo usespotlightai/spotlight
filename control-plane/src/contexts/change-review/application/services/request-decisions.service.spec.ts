@@ -85,10 +85,18 @@ describe('requesting the decisions a run made', () => {
   it('opens a set for the task and generates decisions for the run', async () => {
     const { service, stored } = requesting();
 
-    await service.runEnded(TASK, RUN);
+    await service.runEnded(TASK, RUN, false);
 
     expect(stored()?.taskId.equals(TASK)).toBe(true);
     expect(stored()?.generation?.isFor(RUN)).toBe(true);
+  });
+
+  it('generates nothing for a turn a person drove', async () => {
+    const { service, stored } = requesting();
+
+    await service.runEnded(TASK, RUN, true);
+
+    expect(stored()).toBeNull();
   });
 
   it('generates decisions for a later run into the set the task already has', async () => {
@@ -99,7 +107,7 @@ describe('requesting the decisions a run made', () => {
     });
     const { service, stored } = requesting({ existing });
 
-    await service.runEnded(TASK, RUN);
+    await service.runEnded(TASK, RUN, false);
 
     expect(stored()?.id.value).toBe('set_0');
     expect(stored()?.generation?.isFor(RUN)).toBe(true);
@@ -116,7 +124,7 @@ describe('requesting the decisions a run made', () => {
   ])('requests none where %s', async (_, over) => {
     const { service, stored } = requesting(over);
 
-    await service.runEnded(TASK, RUN);
+    await service.runEnded(TASK, RUN, false);
 
     expect(stored()).toBeNull();
   });

@@ -15,6 +15,7 @@ import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo
 import type { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import type { Resumption } from '@work/domain/value-objects/resumption.vo';
 import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -38,7 +39,11 @@ export const TASK_NOTE_FORMS = [
   'decision',
   'failure',
   'connection',
+  'held',
+  'resumed',
 ] as const;
+
+const FOR_THE_AGENT: readonly TaskNoteForm[] = ['held', 'resumed'];
 
 export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
 
@@ -61,6 +66,7 @@ export class TaskNote {
     readonly failure: TaskFailure | null,
     readonly deferredMove: DeferredMove | null,
     readonly connectionAsk: ConnectionAsk | null,
+    readonly resumption: Resumption | null,
   ) {}
 
   static of(input: {
@@ -81,12 +87,14 @@ export class TaskNote {
     failure?: TaskFailure | null;
     deferredMove?: DeferredMove | null;
     connectionAsk?: ConnectionAsk | null;
+    resumption?: Resumption | null;
   }): TaskNote {
     const form = input.form ?? 'words';
     const carried = {
       approval: input.approval ?? null,
       failure: input.failure ?? null,
       connection: input.connectionAsk ?? null,
+      resumed: input.resumption ?? null,
     } as const;
 
     for (const [payload, value] of Object.entries(carried)) {
@@ -109,6 +117,13 @@ export class TaskNote {
       throw new InconsistentStateError(
         'task note',
         'has form connection but carries no connection ask',
+      );
+    }
+
+    if (form === 'resumed' && carried['resumed'] === null) {
+      throw new InconsistentStateError(
+        'task note',
+        'has form resumed but carries no resume',
       );
     }
 
@@ -151,6 +166,7 @@ export class TaskNote {
       input.failure ?? null,
       input.deferredMove ?? null,
       input.connectionAsk ?? null,
+      input.resumption ?? null,
     );
   }
 
@@ -164,7 +180,9 @@ export class TaskNote {
 
   get unacknowledged(): boolean {
     return (
-      (this.kind === 'message' || this.kind === 'answered') &&
+      (this.kind === 'message' ||
+        this.kind === 'answered' ||
+        FOR_THE_AGENT.includes(this.form)) &&
       !this.voice.isStation &&
       this.acknowledgedAt === null
     );
@@ -234,6 +252,7 @@ export class TaskNote {
           as,
           this.deferredMove,
           this.connectionAsk,
+          this.resumption,
         )
       : this;
   }
@@ -248,13 +267,19 @@ export class TaskNote {
     return this.unacknowledged ? this.with({ acknowledgedAt: at }) : this;
   }
 
+  heldForTheAgent(): TaskNote {
+    return this.acknowledgedAt === null
+      ? this
+      : this.with({ acknowledgedAt: null });
+  }
+
   read(at: Date): TaskNote {
     return this.unread ? this.with({ readAt: at }) : this;
   }
 
   private with(part: {
     readAt?: Date;
-    acknowledgedAt?: Date;
+    acknowledgedAt?: Date | null;
     answeredAt?: Date;
     approval?: Approval;
     connectionAsk?: ConnectionAsk;
@@ -270,13 +295,16 @@ export class TaskNote {
       part.answeredAt ?? this.answeredAt,
       this.kind,
       part.readAt ?? this.readAt,
-      part.acknowledgedAt ?? this.acknowledgedAt,
+      part.acknowledgedAt === undefined
+        ? this.acknowledgedAt
+        : part.acknowledgedAt,
       this.form,
       this.attachments,
       part.approval ?? this.approval,
       this.failure,
       this.deferredMove,
       part.connectionAsk ?? this.connectionAsk,
+      this.resumption,
     );
   }
 }

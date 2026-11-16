@@ -21,11 +21,13 @@ const summaries: TaskSummary[] = [
     createdAt: created,
     progress: null,
     awaitingReview: null,
+    finished: false,
     pullRequests: [],
     createdBy: null,
     assignee: null,
     note: null,
     source: null,
+    hold: null,
   },
   {
     id: 'task_2',
@@ -37,11 +39,13 @@ const summaries: TaskSummary[] = [
     createdAt: created,
     progress: null,
     awaitingReview: null,
+    finished: false,
     pullRequests: [],
     createdBy: null,
     assignee: null,
     note: null,
     source: null,
+    hold: null,
   },
 ];
 

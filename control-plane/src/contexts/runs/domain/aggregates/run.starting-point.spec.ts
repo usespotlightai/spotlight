@@ -6,11 +6,11 @@ import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.er
 import { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
-import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -67,8 +67,8 @@ const restored = (
 ): RunStart => ({
   restored: archive,
   checkouts: [
-    StartedCheckout.of({ path: 'api', commit: api }),
-    StartedCheckout.of({ path: 'web', commit: WEB }),
+    CheckoutHead.of({ path: 'api', commit: api }),
+    CheckoutHead.of({ path: 'web', commit: WEB }),
   ],
 });
 
@@ -174,13 +174,13 @@ describe('where a run started', () => {
   it('names exactly the checkouts of the run', () => {
     const missing: RunStart = {
       restored: null,
-      checkouts: [StartedCheckout.of({ path: 'api', commit: API })],
+      checkouts: [CheckoutHead.of({ path: 'api', commit: API })],
     };
     const extra: RunStart = {
       restored: null,
       checkouts: [
         ...restored(null).checkouts,
-        StartedCheckout.of({ path: 'docs', commit: WEB }),
+        CheckoutHead.of({ path: 'docs', commit: WEB }),
       ],
     };
 
@@ -193,10 +193,15 @@ describe('where a run started', () => {
   });
 
   describe('rehydrated', () => {
-    const rehydrated = (reports: boolean, startedFrom: StartingPoint) => {
+    const rehydrated = (
+      reports: boolean,
+      startedFrom: StartingPoint,
+      endHeads: readonly CheckoutHead[] = [],
+    ) => {
       const run = queued(reports);
 
       return Run.rehydrate({
+        endHeads,
         id: run.id,
         workspaceId: run.workspaceId,
         harness: run.harness,
@@ -231,6 +236,14 @@ describe('where a run started', () => {
 
     it('cannot have started from somewhere when it reports no starting point', () => {
       expect(() => rehydrated(false, point(1))).toThrow(InconsistentStateError);
+    });
+
+    it('cannot hold the heads its workspace ended at before it has ended or waits', () => {
+      expect(() =>
+        rehydrated(true, point(1), [
+          CheckoutHead.of({ path: 'api', commit: 'c'.repeat(40) }),
+        ]),
+      ).toThrow(InconsistentStateError);
     });
   });
 });

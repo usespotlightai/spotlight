@@ -1,6 +1,8 @@
+import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -13,11 +15,14 @@ import type { DraftSending } from '@work/application/services/draft-sending.serv
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import { handedToRun } from '@work/application/services/handed-to-run';
 import type { WorkAccess } from '@work/application/services/work-access.service';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -42,6 +47,8 @@ export class SendMessageHandler implements CommandHandlerPort<
     private readonly files: FilesLoader,
     private readonly access: WorkAccess,
     private readonly drafts: DraftSending,
+    private readonly facts: RunFactsPort,
+    private readonly ids: IdGeneratorPort,
   ) {}
 
   async execute(command: SendMessageCommand): Promise<void> {
@@ -95,22 +102,56 @@ export class SendMessageHandler implements CommandHandlerPort<
     const members =
       (await this.access.membersOf(line.teamId)) ?? TeamMembers.of([]);
 
-    const received = task.sendDraft(sent).receiveMessage(
+    const at = this.clock.now();
+    const newNote = {
+      line,
+      body: TaskNoteBody.fromInput(command.body, attachments),
+      at,
+      voice: Voice.person(sentBy, coAuthors),
+      attachments,
+    };
+    const drafted = task.sendDraft(sent);
+    const received = drafted.holdsOnMessage(
       target.runId,
-      {
-        line,
-        body: TaskNoteBody.fromInput(command.body, attachments),
-        at: this.clock.now(),
-        voice: Voice.person(sentBy, coAuthors),
-        attachments,
-      },
+      newNote.voice,
       target.stationId,
-      members,
-    );
+      line,
+    )
+      ? (await this.held(drafted, line, sentBy, members, at)).addMessage(
+          newNote,
+          target.stationId,
+        )
+      : drafted.receiveMessage(
+          target.runId,
+          newNote,
+          target.stationId,
+          members,
+        );
 
     await this.tasks.save(await handedToRun(this.dispatch, received, line));
     await this.files.takenIn(task.workspaceId, attachments);
 
     return sent && received.draftGeneration;
+  }
+
+  private async held(
+    task: Task,
+    line: LineMap,
+    by: UserId,
+    members: TeamMembers,
+    at: Date,
+  ): Promise<Task> {
+    const current = task.currentRunId;
+    const [facts] = current ? await this.facts.of([current]) : [];
+
+    return task.hold({
+      id: HoldId.of(this.ids.generate()),
+      by,
+      members,
+      line,
+      verdict: null,
+      currentRunStarted: facts?.started ?? false,
+      at,
+    });
   }
 }

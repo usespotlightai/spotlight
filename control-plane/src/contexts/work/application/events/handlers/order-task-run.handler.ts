@@ -40,6 +40,7 @@ export class OrderTaskRun {
         taskId: task.id,
         revision: task.revision,
         stationId: task.stationId,
+        driver: task.driverOf(event.runId),
       },
       configuredAs: ordered?.configuredAs ?? null,
       toolsOnMarks: ordered?.toolsOnMarks ?? [],

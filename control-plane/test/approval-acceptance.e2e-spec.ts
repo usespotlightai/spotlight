@@ -152,6 +152,7 @@ beforeAll(async () => {
       workspaceId: team.workspaceId.value,
       taskId: taskId.value,
       stationId: team.stationId.value,
+      driver: 'line',
       outcome: 'completed',
       failure: null,
       stopped: false,

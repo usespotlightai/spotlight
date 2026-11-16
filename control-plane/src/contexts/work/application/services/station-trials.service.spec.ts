@@ -199,6 +199,7 @@ const originalDispatch = (toolsOnMarks: readonly Tool[] = []) =>
       taskId: TaskId.of('task_1'),
       revision: TaskRevision.of(1),
       stationId: BUILD,
+      driver: 'line' as const,
     },
     configuredAs: null,
     briefedTask: BRIEFED,

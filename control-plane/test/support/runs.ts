@@ -104,6 +104,7 @@ export const aTurn = (
   turnReport: {
     handover: { next: 'review', note: 'Which queue?', attachments: [] },
     session: null,
+    heads: [],
     reportedBy: 'runner_1',
   },
 });

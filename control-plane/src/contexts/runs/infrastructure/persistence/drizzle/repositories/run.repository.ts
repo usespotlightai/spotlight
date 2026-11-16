@@ -34,6 +34,7 @@ import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { LEASED_RUN_STATES } from '@runs/domain/value-objects/run-state';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
@@ -507,6 +508,7 @@ const startOf = (saving: Run) => ({
   startedFromCheckouts: saving.startedFrom?.parts.checkouts ?? null,
   startedFromAttempt: saving.startedFrom?.attempt ?? null,
   startedFromAt: saving.startedFrom?.at ?? null,
+  endHeads: saving.endHeads.map((each) => each.parts),
 });
 
 const startFrom = (row: Row): StartingPoint | null => {
@@ -566,7 +568,7 @@ const turnOf = (saved: Run) => {
     return { turn: null, turnReport: null, suspendedAt: null };
   }
 
-  const { handover, session } = turn.report;
+  const { handover, session, heads } = turn.report;
 
   return {
     turn: turn.state,
@@ -583,6 +585,7 @@ const turnOf = (saved: Run) => {
         })),
       },
       session: session?.value ?? null,
+      heads: heads.map((each) => each.parts),
       reportedBy: turn.reportedBy.value,
     },
   };
@@ -600,7 +603,7 @@ const turnFrom = (row: Row): RunTurn | null => {
     );
   }
 
-  const { handover, session, reportedBy } = row.turnReport;
+  const { handover, session, heads, reportedBy } = row.turnReport;
 
   return RunTurn.rehydrate({
     state: row.turn,
@@ -615,6 +618,7 @@ const turnFrom = (row: Row): RunTurn | null => {
           })
         : null,
       session: session ? HarnessSession.of(session) : null,
+      heads: heads.map((each) => CheckoutHead.rehydrate(each)),
     }),
     reportedBy: RunnerId.of(reportedBy),
     suspendedAt: row.suspendedAt,
@@ -703,4 +707,5 @@ export const toRun = ({ run: row }: Selected): Run =>
     endedAt: row.endedAt,
     queuedAt: row.queuedAt,
     createdAt: row.createdAt,
+    endHeads: row.endHeads.map((each) => CheckoutHead.rehydrate(each)),
   });

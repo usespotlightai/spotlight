@@ -183,6 +183,16 @@ export class LineMap {
     ];
   }
 
+  resumeOptionsAt(stationId: StationId): readonly HandoverOption[] {
+    const here = this.stationAt(stationId);
+
+    return [
+      ...(here ? [HandoverOption.station(here.key, here.name)] : []),
+      ...this.optionsFrom(stationId).filter((each) => each.kind === 'station'),
+      HandoverOption.done(),
+    ];
+  }
+
   passDenial(from: StationId, to: Station): PassDenial | null {
     if (to.id.equals(from)) {
       return 'already-there';

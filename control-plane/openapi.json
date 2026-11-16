@@ -13872,6 +13872,70 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/resume": {
+      "post": {
+        "description": "Sending a message to a station run that is not an answer puts the task on hold. The line waits until you resume it here, until you move the task, or until the agent resumes it because you asked it to.",
+        "operationId": "resumeLine",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeLineRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          },
+          "409": {
+            "description": "The task is not on hold, someone else put it on hold, or it cannot move on to that station"
+          }
+        },
+        "summary": "Resume the line on a task that you put on hold",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/chats": {
       "get": {
         "operationId": "listChats",
@@ -22460,7 +22524,8 @@
                 "parked",
                 "accepted",
                 "answered",
-                "sent-back"
+                "sent-back",
+                "held"
               ],
               "type": "string"
             }
@@ -23880,6 +23945,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "passesTo": {
+            "example": [
+              "station_review"
+            ],
+            "description": "The stations this one may pass a task on to",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -23897,7 +23972,8 @@
           "alerts",
           "search",
           "kind",
-          "skills"
+          "skills",
+          "passesTo"
         ]
       },
       "ReactionResponseDto": {
@@ -26144,7 +26220,7 @@
           "image"
         ]
       },
-      "StartedCheckoutRequestDto": {
+      "CheckoutHeadRequestDto": {
         "type": "object",
         "properties": {
           "path": {
@@ -26155,7 +26231,7 @@
           "commit": {
             "type": "string",
             "example": "4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a",
-            "description": "The commit HEAD was at once the working copy was restored and the checkout prepared, as its full SHA"
+            "description": "The commit HEAD was at when the runner read it, as its full SHA-1 or SHA-256. For a starting point, after the working copy was restored and the checkout prepared. For a completion, at the end of the turn."
           }
         },
         "required": [
@@ -26181,7 +26257,7 @@
             "maxItems": 100,
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StartedCheckoutRequestDto"
+              "$ref": "#/components/schemas/CheckoutHeadRequestDto"
             }
           }
         },
@@ -26300,6 +26376,14 @@
             "type": "boolean",
             "example": false,
             "description": "A person stopped the run rather than the agent finishing it."
+          },
+          "heads": {
+            "maxItems": 100,
+            "description": "The commit HEAD was at in each checkout when the turn ended, as the run received the checkouts. Sent only by runs that report their starting point.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckoutHeadRequestDto"
+            }
           }
         },
         "required": [
@@ -29887,6 +29971,37 @@
           "met"
         ]
       },
+      "NoteResumptionResponseDto": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "string",
+            "enum": [
+              "continue",
+              "move-on",
+              "finish"
+            ],
+            "example": "move-on",
+            "description": "Where the task went: it runs again at its station, it moved on to another station, or it is completed"
+          },
+          "station": {
+            "type": "string",
+            "example": "Review",
+            "description": "The station the task is at after the resume: the same station, the next one, or the completed one"
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true,
+            "example": "Moved the button into the header.",
+            "description": "What the person wrote when they handed the task back"
+          }
+        },
+        "required": [
+          "next",
+          "station",
+          "summary"
+        ]
+      },
       "NoteResponseDto": {
         "type": "object",
         "properties": {
@@ -29915,7 +30030,9 @@
               "approval",
               "decision",
               "failure",
-              "connection"
+              "connection",
+              "held",
+              "resumed"
             ],
             "description": "What it shows, which is not what it did"
           },
@@ -30020,6 +30137,16 @@
                 "$ref": "#/components/schemas/InboxConnectionResponseDto"
               }
             ]
+          },
+          "resumption": {
+            "nullable": true,
+            "description": "How a person handed the task back to the line, where the note says so",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NoteResumptionResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -30040,7 +30167,8 @@
           "deferredTo",
           "approval",
           "failure",
-          "connection"
+          "connection",
+          "resumption"
         ]
       },
       "InboxItemResponseDto": {
@@ -31015,6 +31143,51 @@
           "body"
         ]
       },
+      "HoldVerdict": {
+        "type": "string",
+        "enum": [
+          "not-right",
+          "exploring"
+        ],
+        "description": "not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out"
+      },
+      "TaskHoldResponseDto": {
+        "type": "object",
+        "properties": {
+          "by": {
+            "$ref": "#/components/schemas/TaskPersonResponseDto"
+          },
+          "verdict": {
+            "description": "not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HoldVerdict"
+              }
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-11-16T09:15:00.000Z"
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run of the last turn, where the person talks to the agent"
+          },
+          "heldMoveTo": {
+            "type": "string",
+            "nullable": true,
+            "description": "The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station."
+          }
+        },
+        "required": [
+          "by",
+          "verdict",
+          "startedAt",
+          "runId",
+          "heldMoveTo"
+        ]
+      },
       "TaskResponseDto": {
         "type": "object",
         "properties": {
@@ -31074,6 +31247,10 @@
               }
             ]
           },
+          "finished": {
+            "type": "boolean",
+            "description": "Whether the line finished the task. A message to a finished task sends it back to its station."
+          },
           "pullRequests": {
             "example": [
               "https://github.com/acme/widgets/pull/7"
@@ -31119,6 +31296,16 @@
             "nullable": true,
             "example": "linear",
             "description": "The integration that opened it, or null where a person created it"
+          },
+          "hold": {
+            "nullable": true,
+            "description": "The person who drives the task at its station in place of the line, or null where the line drives it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskHoldResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -31131,11 +31318,13 @@
           "createdAt",
           "progress",
           "awaitingReview",
+          "finished",
           "pullRequests",
           "createdBy",
           "assignee",
           "note",
-          "source"
+          "source",
+          "hold"
         ]
       },
       "TaskPageResponseDto": {
@@ -31291,6 +31480,15 @@
             "example": "in-progress",
             "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           },
+          "driver": {
+            "type": "string",
+            "enum": [
+              "line",
+              "person"
+            ],
+            "example": "line",
+            "description": "Who drove it: the line, or a person who put the task on hold, one turn per run"
+          },
           "taskId": {
             "type": "string",
             "nullable": true
@@ -31318,6 +31516,7 @@
           "station",
           "review",
           "progress",
+          "driver",
           "taskId",
           "taskTitle",
           "taskDescription"
@@ -31760,6 +31959,15 @@
             "nullable": true,
             "example": "in-progress",
             "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
+          },
+          "driver": {
+            "type": "string",
+            "enum": [
+              "line",
+              "person"
+            ],
+            "example": "line",
+            "description": "Who drove it: the line, or a person who put the task on hold, one turn per run"
           }
         },
         "required": [
@@ -31773,7 +31981,8 @@
           "image",
           "station",
           "review",
-          "progress"
+          "progress",
+          "driver"
         ]
       },
       "AddTaskRequestDto": {
@@ -31840,6 +32049,49 @@
         },
         "required": [
           "assigneeId"
+        ]
+      },
+      "HoldEnd": {
+        "type": "string",
+        "enum": [
+          "continue",
+          "move-on",
+          "finish"
+        ],
+        "description": "continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line."
+      },
+      "ResumeLineRequestDto": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "description": "continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HoldEnd"
+              }
+            ]
+          },
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
+            "description": "With move-on: a station the task’s station passes work to"
+          },
+          "verdict": {
+            "description": "Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HoldVerdict"
+              }
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "example": "Cards are flat now. Keep the spacing.",
+            "description": "What the station agent and the record should know"
+          }
+        },
+        "required": [
+          "next"
         ]
       },
       "ChatTargetStationResponseDto": {
@@ -37078,7 +37330,8 @@
               "parked",
               "accepted",
               "answered",
-              "sent-back"
+              "sent-back",
+              "held"
             ]
           },
           "at": {
@@ -38455,7 +38708,8 @@
               "grade",
               "accepted",
               "sent-back",
-              "merged"
+              "merged",
+              "held"
             ],
             "description": "What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task"
           },
@@ -43583,7 +43837,8 @@
               "grade",
               "accepted",
               "sent-back",
-              "merged"
+              "merged",
+              "held"
             ],
             "description": "What gave the human outcome that disagrees with the judge"
           },

@@ -99,6 +99,15 @@ export class CompleteRunRequestDto {
     description: 'A person stopped the run rather than the agent finishing it.',
   })
   readonly stopped?: boolean;
+
+  @ApiPropertyOptional({
+    type: () => CheckoutHeadRequestDto,
+    isArray: true,
+    maxItems: MAX_STARTED_CHECKOUTS,
+    description:
+      'The commit HEAD was at in each checkout when the turn ended, as the run received the checkouts. Sent only by runs that report their starting point.',
+  })
+  readonly heads?: readonly CheckoutHeadRequestDto[];
 }
 
 export class EnqueueRunRequestDto {
@@ -132,7 +141,7 @@ export class RecordRunImageRequestDto {
   readonly image!: string;
 }
 
-export class StartedCheckoutRequestDto {
+export class CheckoutHeadRequestDto {
   @ApiProperty({
     example: 'service',
     description:
@@ -143,7 +152,7 @@ export class StartedCheckoutRequestDto {
   @ApiProperty({
     example: '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a',
     description:
-      'The commit HEAD was at once the working copy was restored and the checkout prepared, as its full SHA',
+      'The commit HEAD was at when the runner read it, as its full SHA-1 or SHA-256. For a starting point, after the working copy was restored and the checkout prepared. For a completion, at the end of the turn.',
   })
   readonly commit!: string;
 }
@@ -166,9 +175,9 @@ export class RecordStartingPointRequestDto {
   readonly archiveId!: string | null;
 
   @ApiProperty({
-    type: StartedCheckoutRequestDto,
+    type: CheckoutHeadRequestDto,
     isArray: true,
     maxItems: MAX_STARTED_CHECKOUTS,
   })
-  readonly checkouts!: StartedCheckoutRequestDto[];
+  readonly checkouts!: CheckoutHeadRequestDto[];
 }

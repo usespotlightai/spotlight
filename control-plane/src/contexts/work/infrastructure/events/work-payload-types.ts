@@ -15,6 +15,7 @@ import { InboxRequestMarkedRead } from '@work/domain/events/inbox-request-marked
 import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
 import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
+import { LineResumed } from '@work/domain/events/line-resumed.event';
 import { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import { NoticeResolved } from '@work/domain/events/notice-resolved.event';
@@ -37,6 +38,7 @@ import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskDraftSent } from '@work/domain/events/task-draft-sent.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
+import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskMarkReleased } from '@work/domain/events/task-mark-released.event';
 import { TaskMarked } from '@work/domain/events/task-marked.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
@@ -91,6 +93,7 @@ import { HarnessPermission } from '@work/domain/value-objects/harness-permission
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
 import { HistoryAccess } from '@work/domain/value-objects/history-access.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
@@ -114,6 +117,7 @@ import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
+import { Resumption } from '@work/domain/value-objects/resumption.vo';
 import { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
@@ -140,6 +144,7 @@ import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
 import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
+import { TurnHeads } from '@work/domain/value-objects/turn-heads.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WorkingCopyRelease } from '@work/domain/value-objects/working-copy-release.vo';
 
@@ -171,6 +176,7 @@ export const WORK_PAYLOAD_TYPES = [
   HarnessPermission,
   ProfileMissing,
   HandoverOption,
+  Resumption,
   HarnessSession,
   TargetStation,
   DeferredMove,
@@ -269,6 +275,10 @@ export const WORK_PAYLOAD_TYPES = [
   TaskTurnAwaited,
   TaskPassed,
   TaskActedOn,
+  TaskHeld,
+  LineResumed,
+  HoldId,
+  TurnHeads,
   TaskAnswered,
   TaskAsked,
   TaskAssigned,

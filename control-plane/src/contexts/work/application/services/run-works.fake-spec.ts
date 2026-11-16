@@ -55,6 +55,7 @@ export const aTaskDispatch = (
     taskId,
     revision: TaskRevision.of(0),
     stationId,
+    driver: 'line',
   });
 
 export const aChatDispatch = (id: RunId, chatId: ChatId): Dispatch =>

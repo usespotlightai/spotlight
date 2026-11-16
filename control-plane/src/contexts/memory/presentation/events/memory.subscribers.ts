@@ -50,6 +50,7 @@ export const memorySubscribers = (
           taskId: event.taskId ? TaskId.of(event.taskId) : null,
         },
         event.memories,
+        event.driver === 'person',
       ),
   ),
   subscribing<MemoryReviewRequested>(
@@ -76,18 +77,25 @@ export const memorySubscribers = (
     'memory.record-memories-read',
     [DISPATCH_ENDED],
     (event) =>
-      recording.runEnded({
-        id: RunId.of(event.runId),
-        workspaceId: WorkspaceId.of(event.workspaceId),
-        taskId: event.taskId ? TaskId.of(event.taskId) : null,
-      }),
+      recording.runEnded(
+        {
+          id: RunId.of(event.runId),
+          workspaceId: WorkspaceId.of(event.workspaceId),
+          taskId: event.taskId ? TaskId.of(event.taskId) : null,
+        },
+        event.driver === 'person',
+      ),
   ),
   subscribing<DispatchEndedIntegrationEvent>(
     'memory.request-memories',
     [DISPATCH_ENDED],
     (event) =>
       event.taskId
-        ? requesting.runEnded(TaskId.of(event.taskId), RunId.of(event.runId))
+        ? requesting.runEnded(
+            TaskId.of(event.taskId),
+            RunId.of(event.runId),
+            event.driver === 'person',
+          )
         : Promise.resolve(),
   ),
   subscribing<TaskDeletedIntegrationEvent>(

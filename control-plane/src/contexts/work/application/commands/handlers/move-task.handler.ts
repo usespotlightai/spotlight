@@ -10,6 +10,7 @@ import type { TaskPlacementsPort } from '@work/application/ports/task-placements
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { handedToRun } from '@work/application/services/handed-to-run';
 import type { LineLoader } from '@work/application/services/line-loader.service';
+import type { LineResuming } from '@work/application/services/line-resuming.service';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -29,6 +30,7 @@ export class MoveTaskHandler implements CommandHandlerPort<
     private readonly transaction: TransactionPort,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
+    private readonly resuming: LineResuming,
   ) {}
 
   async execute(command: MoveTaskCommand): Promise<void> {
@@ -93,6 +95,7 @@ export class MoveTaskHandler implements CommandHandlerPort<
           voice: Voice.station(),
         },
         { mover: UserId.of(command.viewerId) },
+        await this.resuming.turnHeads(task.openHold),
       );
       const moved = placed.task;
 

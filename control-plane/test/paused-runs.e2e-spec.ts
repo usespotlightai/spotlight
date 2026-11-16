@@ -612,20 +612,22 @@ const sendMessage = (runId: string, body: string) =>
     .expect(204);
 
 describe('a message in a run chat', () => {
-  it('goes to the run still working the task, starting no other', async () => {
+  it('stops the run still working the task and puts the task on hold for the sender', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
-    const token = await claimed(runId);
+    await claimed(runId);
 
     await sendMessage(runId, 'Drain the default one first.');
 
-    const pending = (
-      await runner(token).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as PendingMessage[];
-    expect(pending.map((each) => each.body)).toEqual([
-      'Drain the default one first.',
-    ]);
-    expect((await runRow(runId))?.state).toBe('claimed');
-    expect((await taskRow(taskId))?.currentRunId).toBe(runId);
+    const [hold] = await db
+      .select()
+      .from(schema.taskHold)
+      .where(eq(schema.taskHold.taskId, taskId));
+    expect(hold?.heldBy).toBe(team.owner.value);
+    expect(hold?.endedAt).toBeNull();
+    expect((await taskRow(taskId))?.currentRunId).not.toBe(runId);
+    await eventually(async () =>
+      (await runRow(runId))?.stopRequestedAt ? true : null,
+    );
   });
 
   it('starts the station again for a task finished there, taking up its conversation', async () => {

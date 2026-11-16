@@ -187,3 +187,24 @@ describe('RunRow, its menu', () => {
     },
   );
 });
+
+describe('RunRow, a turn a person drove', () => {
+  it('marks the run as a turn', () => {
+    shown(
+      <RunRow
+        run={{ ...run('completed'), driver: 'person' }}
+        to="/runs/run_1"
+      />,
+    );
+
+    expect(screen.getByText('Turn')).toBeInTheDocument();
+  });
+
+  it('marks no run the line drove as a turn', () => {
+    shown(
+      <RunRow run={{ ...run('completed'), driver: 'line' }} to="/runs/run_1" />,
+    );
+
+    expect(screen.queryByText('Turn')).toBeNull();
+  });
+});

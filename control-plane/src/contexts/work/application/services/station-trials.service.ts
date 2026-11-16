@@ -303,6 +303,7 @@ export class StationTrials implements StationTrialsPort {
         spec: {
           ...this.ordering.laid(laidOut, {
             briefing,
+            drivenByAPerson: false,
             naming: this.tracing.for(original.trial.taskId, runId),
             attachments: original.briefed.allAttachments,
           }),

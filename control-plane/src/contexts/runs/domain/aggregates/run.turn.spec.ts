@@ -16,6 +16,7 @@ import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -34,6 +35,12 @@ const CLEAN = RunOutcome.of({ exitCode: ExitCode.of(0), failed: false });
 const ASKED = HandoverReport.of({
   handover: Handover.of({ next: 'review', note: 'Which queue?' }),
   session: HarnessSession.of('session_1'),
+});
+const HEAD = CheckoutHead.of({ path: 'app', commit: 'c'.repeat(40) });
+const ASKED_AT_HEAD = HandoverReport.of({
+  handover: Handover.of({ next: 'review', note: 'Which queue?' }),
+  session: HarnessSession.of('session_1'),
+  heads: [HEAD],
 });
 const quiet = (run: Run): Run => {
   run.pullEvents();
@@ -61,6 +68,13 @@ const pending = () => claimed().reportTurn(RUNNER, CLEAN, ASKED, NOW);
 const kept = () => pending().keep(RunAttempt.of(RUN, 1), NOW);
 
 const events = (run: Run) => [...run.pullEvents()];
+
+const stored = (run: Run) => ({
+  ...run,
+  ...run.ordered,
+  attempt: run.attempt.number,
+  suspendedAttempts: run.suspendedAttempts.map((each) => each.number),
+});
 
 describe('the turn of a run that holds it', () => {
   describe('handed over', () => {
@@ -188,6 +202,37 @@ describe('the turn of a run that holds it', () => {
 
       expect(run.state).toBe('completed');
       expect(run.outcome?.stopped).toBe(true);
+    });
+  });
+
+  describe('at the heads its workspace ended at', () => {
+    it('keeps the heads its runner reported while it waits', () => {
+      const run = claimed().reportTurn(RUNNER, CLEAN, ASKED_AT_HEAD, NOW);
+
+      expect(run.endHeads).toEqual([HEAD]);
+    });
+
+    it('keeps them when it resumes, until a later turn reports new ones', () => {
+      const run = claimed()
+        .reportTurn(RUNNER, CLEAN, ASKED_AT_HEAD, NOW)
+        .resumed(RunAttempt.of(RUN, 1), 'messages', [], later(5_000));
+
+      expect(run.state).toBe('queued');
+      expect(run.endHeads).toEqual([HEAD]);
+      expect(() => Run.rehydrate(stored(run))).not.toThrow();
+    });
+
+    it('tells two reports apart by their heads', () => {
+      expect(ASKED.equals(ASKED_AT_HEAD)).toBe(false);
+      expect(
+        ASKED_AT_HEAD.equals(
+          HandoverReport.of({
+            handover: Handover.of({ next: 'review', note: 'Which queue?' }),
+            session: HarnessSession.of('session_1'),
+            heads: [CheckoutHead.of({ path: 'app', commit: 'c'.repeat(40) })],
+          }),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -518,13 +563,6 @@ describe('the turn of a run that holds it', () => {
   });
 
   it('reads back as stored: a turn only while suspended, and never leased', () => {
-    const stored = (run: Run) => ({
-      ...run,
-      ...run.ordered,
-      attempt: run.attempt.number,
-      suspendedAttempts: run.suspendedAttempts.map((each) => each.number),
-    });
-
     expect(
       Run.rehydrate(stored(pending())).turnAt(RunAttempt.of(RUN, 1))?.state,
     ).toBe('pending');

@@ -84,12 +84,13 @@ const requesting = (
   return {
     judgings,
     deletions,
-    ended: (ending: RunEnding = 'completed') =>
+    ended: (ending: RunEnding = 'completed', drivenByAPerson = false) =>
       service.runEnded({
         runId: 'run_1',
         taskId: 'task_1',
         stationId: 'station_1',
         ending,
+        drivenByAPerson,
       }),
   };
 };
@@ -115,6 +116,14 @@ describe('RequestJudging', () => {
     await requested.ended();
 
     expect(requested.judgings.stored.size).toBe(0);
+  });
+
+  it('requests no verdict on a turn a person drove', async () => {
+    const requested = requesting();
+
+    await requested.ended('completed', true);
+
+    expect(await requested.judgings.of(RunId.of('run_1'))).toBeNull();
   });
 
   it('requests a verdict on a sampled run of a judged station, with its claims', async () => {

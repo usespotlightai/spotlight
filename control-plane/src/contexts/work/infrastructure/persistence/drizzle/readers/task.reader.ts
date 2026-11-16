@@ -19,6 +19,7 @@ import type {
   TaskNoteSummary,
   TaskReaderPort,
   TaskSummary,
+  TaskHoldSummary,
 } from '@work/application/ports/task-reader.port';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
@@ -32,9 +33,43 @@ import {
   task,
   taskNote,
   taskPullRequest,
+  taskHold,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
-import { and, asc, desc, eq, inArray, ne, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  type SQL,
+} from 'drizzle-orm';
+
+interface OpenHoldRow {
+  readonly heldBy: string;
+  readonly verdict: TaskHoldSummary['verdict'];
+  readonly startedAt: Date;
+  readonly turnRunIds: readonly string[];
+  readonly heldMoveTo: string | null;
+}
+
+type HoldPerson = TaskHoldSummary['by'];
+
+const holdOf = (
+  row: OpenHoldRow | null,
+  person: (id: string) => HoldPerson,
+): TaskHoldSummary | null =>
+  row
+    ? {
+        by: person(row.heldBy),
+        verdict: row.verdict,
+        startedAt: row.startedAt,
+        runId: row.turnRunIds[row.turnRunIds.length - 1] ?? null,
+        heldMoveTo: row.heldMoveTo,
+      }
+    : null;
 
 @Injectable()
 export class DrizzleTaskReader implements TaskReaderPort {
@@ -103,13 +138,25 @@ export class DrizzleTaskReader implements TaskReaderPort {
         description: task.description,
         createdAt: task.createdAt,
         currentRunId: task.currentRunId,
+        finishedAt: task.finishedAt,
         reviewedPullRequest: task.reviewedPullRequest,
         createdById: task.createdById,
         assigneeId: task.assigneeId,
         openedFrom: task.openedFrom,
+        hold: {
+          heldBy: taskHold.heldBy,
+          verdict: taskHold.verdict,
+          startedAt: taskHold.startedAt,
+          turnRunIds: taskHold.turnRunIds,
+          heldMoveTo: taskHold.heldMoveTo,
+        },
       })
       .from(task)
       .innerJoin(workStation, eq(workStation.stationId, task.stationId))
+      .leftJoin(
+        taskHold,
+        and(eq(taskHold.taskId, task.id), isNull(taskHold.endedAt)),
+      )
       .where(and(eq(workStation.teamId, teamId.value), narrowedTo))
       .orderBy(asc(task.rank), asc(task.id))
       .$dynamic();
@@ -128,11 +175,10 @@ export class DrizzleTaskReader implements TaskReaderPort {
           rows.map((row) => row.id),
         ),
         this.people.findMany(
-          rows.flatMap((row) =>
-            [row.createdById, row.assigneeId].flatMap((id) =>
-              id ? [UserId.of(id)] : [],
-            ),
-          ),
+          [
+            ...rows.flatMap((row) => [row.createdById, row.assigneeId]),
+            ...rows.map((row) => row.hold?.heldBy),
+          ].flatMap((id) => (id ? [UserId.of(id)] : [])),
         ),
         progressOfCurrentRuns(
           this.progress,
@@ -149,10 +195,12 @@ export class DrizzleTaskReader implements TaskReaderPort {
     return rows.map(
       ({
         currentRunId,
+        finishedAt,
         createdById,
         assigneeId,
         reviewedPullRequest,
         openedFrom,
+        hold,
         ...rest
       }) => ({
         ...rest,
@@ -164,10 +212,12 @@ export class DrizzleTaskReader implements TaskReaderPort {
         awaitingReview: awaited.has(rest.id)
           ? { conversationId: awaited.get(rest.id) as string }
           : null,
+        finished: finishedAt !== null,
         createdBy: createdById ? person(createdById) : null,
         assignee: assigneeId ? person(assigneeId) : null,
         note: notes.get(rest.id) ?? null,
         source: TaskOrigin.decode(openedFrom).integration?.value ?? null,
+        hold: holdOf(hold, person),
       }),
     );
   }

@@ -14,7 +14,7 @@ import (
 func replaying(archive *string) func(*runOptions) {
 	return func(o *runOptions) {
 		o.resume = protocol.Resume{Key: "replay-run_1"}
-		o.replay = &protocol.Replay{Archive: archive, Checkouts: []protocol.StartedCheckout{}}
+		o.replay = &protocol.Replay{Archive: archive, Checkouts: []protocol.CheckoutHead{}}
 	}
 }
 

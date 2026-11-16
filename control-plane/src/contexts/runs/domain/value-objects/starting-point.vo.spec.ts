@@ -1,34 +1,47 @@
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
-import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { InvalidCheckoutHeadError } from '@shared-kernel/domain/exceptions/invalid-checkout-head.error';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { describe, expect, it } from 'vitest';
 
 const AT = new Date('2026-10-01T09:00:00.000Z');
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 
 const checkout = (path: string, commit = COMMIT) =>
-  StartedCheckout.of({ path, commit });
+  CheckoutHead.of({ path, commit });
 
-describe('StartedCheckout', () => {
+describe('CheckoutHead', () => {
   it('names the commit a checkout began at by its full SHA', () => {
     expect(checkout(' api ').parts).toEqual({ path: 'api', commit: COMMIT });
   });
 
+  it('names a commit of a SHA-256 repository by its full SHA too', () => {
+    const sha256 = COMMIT.slice(0, 32).repeat(2);
+
+    expect(checkout('api', sha256).commit).toBe(sha256);
+  });
+
   it('rejects a short, upper-case or missing commit', () => {
     for (const commit of [COMMIT.slice(0, 12), COMMIT.toUpperCase(), '']) {
-      expect(() => checkout('api', commit)).toThrow(InvalidStartingPointError);
+      expect(() => checkout('api', commit)).toThrow(InvalidCheckoutHeadError);
     }
   });
 
   it('rejects a checkout with no path', () => {
-    expect(() => checkout('  ')).toThrow(InvalidStartingPointError);
+    expect(() => checkout('  ')).toThrow(InvalidCheckoutHeadError);
+  });
+
+  it('takes a stored head that no longer reads for a fault in what was stored', () => {
+    expect(() =>
+      CheckoutHead.rehydrate({ path: 'api', commit: 'abc' }),
+    ).toThrow(InconsistentStateError);
   });
 });
 
 describe('StartingPoint', () => {
-  const point = (...checkouts: StartedCheckout[]) =>
+  const point = (...checkouts: CheckoutHead[]) =>
     StartingPoint.of({
       archive: WorkingCopyArchiveId.of('archive_1'),
       checkouts,

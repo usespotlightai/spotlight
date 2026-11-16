@@ -3,6 +3,7 @@ import type { StationId } from '@shared-kernel/domain/value-objects/station-id.v
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { RunDriver } from '@work/domain/value-objects/dispatch-subject';
 
 export class TaskAsked implements DomainEvent {
   readonly kind = 'task.asked';
@@ -13,5 +14,6 @@ export class TaskAsked implements DomainEvent {
     readonly stationId: StationId,
     readonly assignee: UserId | null,
     readonly at: Date,
+    readonly driver: RunDriver,
   ) {}
 }

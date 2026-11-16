@@ -99,6 +99,19 @@ describe('LifecycleHookTriggers', () => {
     });
   });
 
+  it('fires nothing for a turn a person drove', async () => {
+    const { triggers, queue } = setUp();
+
+    await triggers.runEnded({
+      runId: 'run_1',
+      taskId: 'task_1',
+      driver: 'person',
+      outcome: 'handed-over',
+    } as never);
+
+    expect(queue).not.toHaveBeenCalled();
+  });
+
   it('fires nothing for a run of no task, or a task gone', async () => {
     const taskless = setUp();
     const gone = setUp(null);

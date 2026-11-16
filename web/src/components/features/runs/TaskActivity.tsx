@@ -1,15 +1,22 @@
 import { ReviewMarker } from '@/components/features/runs/ReviewMarker';
 import { RunRow } from '@/components/features/runs/RunRow';
 import { useTaskRuns } from '@/hooks/api/useTaskRuns';
+import type { TaskHoldResponseDto } from '@/lib/api';
 import { runPath } from '@/lib/run';
 
 type TaskActivityProps = {
   slug: string | undefined;
   teamId: string | undefined;
   taskId: string;
+  hold: TaskHoldResponseDto | null;
 };
 
-export function TaskActivity({ slug, teamId, taskId }: TaskActivityProps) {
+export function TaskActivity({
+  slug,
+  teamId,
+  taskId,
+  hold,
+}: TaskActivityProps) {
   const { data: runs } = useTaskRuns(teamId, taskId);
 
   const worked = runs ?? [];
@@ -39,6 +46,7 @@ export function TaskActivity({ slug, teamId, taskId }: TaskActivityProps) {
             teamId={teamId}
             to={slug && teamId ? runPath(slug, teamId, run.id) : ''}
             inTrail
+            onHold={hold?.runId === run.id ? hold : null}
           />,
         ])}
       </ul>

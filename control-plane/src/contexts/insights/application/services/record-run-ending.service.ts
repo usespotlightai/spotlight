@@ -17,6 +17,7 @@ export interface RunEnded {
   readonly ending: RunEnding | null;
   readonly failure: string | null;
   readonly asked: boolean;
+  readonly drivenByAPerson: boolean;
 }
 
 const endOf = (
@@ -61,7 +62,7 @@ export class RecordRunEnding {
   async ended(event: RunEnded): Promise<void> {
     const { ending } = event;
 
-    if (!ending || !event.taskId || !event.stationId) {
+    if (!ending || !event.taskId || !event.stationId || event.drivenByAPerson) {
       return;
     }
 

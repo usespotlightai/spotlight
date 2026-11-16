@@ -35,6 +35,7 @@ const bare = {
   },
   kind: 'work' as const,
   skills: [],
+  passesTo: [],
 };
 
 const board: LineDetail = {

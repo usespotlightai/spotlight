@@ -84,6 +84,12 @@ vi.mock('@/hooks/api/useTaskStation', () => ({
   useTaskStation: () => taskStation(),
 }));
 
+const resumption = vi.fn();
+
+vi.mock('@/hooks/api/useHold', () => ({
+  useResumeLine: () => ({ mutate: resumption, isPending: false }),
+}));
+
 const send = vi.fn();
 const inFlight = vi.fn((): unknown[] => []);
 
@@ -196,6 +202,7 @@ const renderRun = (client = new QueryClient()) =>
 describe('Run', () => {
   beforeEach(() => {
     taskStation.mockReturnValue({});
+    resumption.mockReset();
     send.mockReset();
     stop.mockReset();
     inFlight.mockReturnValue([]);
@@ -685,10 +692,15 @@ describe('Run', () => {
   describe('once the task is idle at the station', () => {
     const idle = {
       station: { id: 'station_3', harness: 'claude-code', kind: 'work' },
-      task: { id: 'task_1', progress: null, awaitingReview: null },
+      task: {
+        id: 'task_1',
+        progress: null,
+        awaitingReview: null,
+        finished: true,
+      },
     };
 
-    it('offers to send the work back to the station, which starts it again', () => {
+    it('offers to send the finished work back to the station, which starts it again', () => {
       taskStation.mockReturnValue(idle);
 
       renderRun();
@@ -751,6 +763,172 @@ describe('Run', () => {
           name: 'Message Implementation',
         }),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('on hold', () => {
+    const working = {
+      station: {
+        id: 'station_3',
+        name: 'Implementation',
+        harness: 'claude-code',
+        kind: 'work',
+        passesTo: [],
+      },
+      task: { id: 'task_1', progress: null, hold: null, finished: false },
+    };
+    const mine = (over: Record<string, unknown> = {}) => ({
+      ...working,
+      line: {
+        stations: [
+          working.station,
+          { id: 'station_done', name: 'Completed', kind: 'completed' },
+        ],
+      },
+      task: {
+        ...working.task,
+        hold: {
+          by: { id: 'user_1', name: 'Sam Rivera', image: null },
+          verdict: 'not-right',
+          startedAt: '2026-08-29T09:00:00.000Z',
+          runId: 'run_1',
+          heldMoveTo: null,
+        },
+        ...over,
+      },
+    });
+
+    it('says a message puts the task on hold', () => {
+      taskStation.mockReturnValue(working);
+
+      renderRun();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute(
+        'aria-placeholder',
+        'Your message puts the task on hold…',
+      );
+    });
+
+    it('resumes the line at its station', async () => {
+      const user = userEvent.setup();
+      taskStation.mockReturnValue(mine());
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Resume' }));
+      const dialog = await screen.findByRole('dialog', {
+        name: 'Resume the line',
+      });
+      await user.click(within(dialog).getByRole('button', { name: 'Resume' }));
+
+      expect(resumption).toHaveBeenCalledWith(
+        { teamId: 'team_1', taskId: 'task_1', next: 'continue' },
+        expect.anything(),
+      );
+    });
+
+    it('says an event asked to finish the task while it was on hold', async () => {
+      const user = userEvent.setup();
+      const theirs = mine();
+      taskStation.mockReturnValue({
+        ...theirs,
+        task: {
+          ...theirs.task,
+          hold: { ...theirs.task.hold, heldMoveTo: 'station_done' },
+        },
+      });
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Resume' }));
+      const dialog = await screen.findByRole('dialog');
+
+      expect(
+        within(dialog).getByText(
+          'An event asked to finish the task while it was on hold. The task moves to Completed. Spotlight does not push your commits.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(dialog).getByRole('radio', { name: /^Resume the line/ }),
+      ).toBeInTheDocument();
+    });
+
+    it('waits for a turn in progress before it resumes the line', async () => {
+      const user = userEvent.setup();
+      taskStation.mockReturnValue(mine({ progress: 'in-progress' }));
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Resume' }));
+      const dialog = await screen.findByRole('dialog');
+
+      expect(
+        within(dialog).getByText(
+          'A turn is in progress. You can resume the line when it ends.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(dialog).getByRole('button', { name: 'Resume' }),
+      ).toBeDisabled();
+      expect(
+        within(dialog).getByRole('button', { name: 'Stop the turn' }),
+      ).toBeInTheDocument();
+    });
+
+    it('lets only the person who put the task on hold resume the line', () => {
+      const theirs = mine();
+      taskStation.mockReturnValue({
+        ...theirs,
+        task: {
+          ...theirs.task,
+          hold: {
+            ...theirs.task.hold,
+            by: { id: 'user_2', name: 'Maya Chen', image: null },
+          },
+        },
+      });
+
+      renderRun();
+
+      expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
+    });
+
+    it('tells a teammate that the agent reads their message after the line resumes', () => {
+      taskStation.mockReturnValue({
+        ...working,
+        task: {
+          ...working.task,
+          hold: {
+            by: { id: 'user_2', name: 'Maya Chen', image: null },
+            verdict: 'not-right',
+            startedAt: '2026-08-29T09:00:00.000Z',
+            runId: 'run_1',
+            heldMoveTo: null,
+          },
+        },
+      });
+
+      renderRun();
+
+      expect(
+        screen.getByText(
+          'Maya Chen put the task on hold. The agent reads new messages after they resume the line.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('textbox', {
+          name: /^(Message|Send it back to|Answer) /,
+        }),
+      ).toBeNull();
+    });
+
+    it('asks the person who holds the task for the next turn', () => {
+      taskStation.mockReturnValue(mine());
+
+      renderRun();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute('aria-placeholder', 'Tell the agent what to do next…');
     });
   });
 

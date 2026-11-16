@@ -19,6 +19,7 @@ import {
   type StationJudgeRow,
   type StationSearchRow,
   station,
+  stationRoute,
   stationSkill,
 } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
 import {
@@ -92,6 +93,11 @@ type SkillRow = {
   skill: string;
 };
 
+type RouteRow = {
+  stationId: string;
+  to: string;
+};
+
 const hasStation = (row: Row): row is Row & StationRow =>
   row.stationId !== null;
 
@@ -145,7 +151,17 @@ export class DrizzleLineReader implements LineReaderPort {
       .where(eq(line.teamId, teamId.value))
       .orderBy(stationSkill.position);
 
-    return group(rows, reactions, repositories, skills);
+    const routes = await this.db
+      .select({
+        stationId: stationRoute.stationId,
+        to: stationRoute.toStationId,
+      })
+      .from(stationRoute)
+      .innerJoin(station, eq(station.id, stationRoute.stationId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .where(eq(line.teamId, teamId.value));
+
+    return group(rows, reactions, repositories, skills, routes);
   }
 }
 
@@ -153,6 +169,7 @@ const summaryOf = (
   row: StationRow,
   search: LineSearchPolicy,
   skills: readonly SkillRow[],
+  routes: readonly RouteRow[],
 ): StationSummary => ({
   id: row.stationId,
   key: row.stationKey,
@@ -176,6 +193,9 @@ const summaryOf = (
   skills: skills
     .filter((each) => each.stationId === row.stationId)
     .map((each) => each.skill),
+  passesTo: routes
+    .filter((each) => each.stationId === row.stationId)
+    .map((each) => each.to),
 });
 
 const group = (
@@ -183,6 +203,7 @@ const group = (
   reacting: readonly ReactionRow[],
   working: readonly RepositoryRow[],
   skills: readonly SkillRow[],
+  routes: readonly RouteRow[],
 ): LineDetail[] => {
   const lines = new Map<
     string,
@@ -216,7 +237,7 @@ const group = (
     };
 
     if (hasStation(row)) {
-      line.stations.push(summaryOf(row, line.search, skills));
+      line.stations.push(summaryOf(row, line.search, skills, routes));
     }
 
     lines.set(row.lineId, line);

@@ -344,6 +344,7 @@ const runEnded = (change: Record<string, unknown> = {}) => ({
   workspaceId: 'ws_1',
   taskId: 'task_1',
   stationId: 'station_1',
+  driver: 'line',
   outcome: 'completed',
   failure: null,
   stopped: false,
@@ -412,6 +413,17 @@ describe('insightsSubscribers', () => {
     expect(
       (await subscriber.record())?.factWith(null, null, null)?.ending,
     ).toBe('stopped');
+  });
+
+  it('records nothing for a turn a person drove', async () => {
+    const subscriber = subscribed();
+
+    await subscriber.deliver(
+      'insights.record-ended-run',
+      runEnded({ driver: 'person' }),
+    );
+
+    expect(await subscriber.record()).toBeNull();
   });
 
   it('records nothing for a run at no station', async () => {
@@ -691,6 +703,7 @@ describe('insightsSubscribers', () => {
       code: 'loop',
       occurrences,
       at,
+      driver: 'line',
     });
 
     await subscriber.deliver(
@@ -712,6 +725,35 @@ describe('insightsSubscribers', () => {
     ]);
   });
 
+  it('keeps no ask and no failure of a turn a person drove', async () => {
+    const subscriber = subscribed();
+
+    await subscriber.deliver('insights.record-inbox-ask', {
+      kind: TASK_ASKED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      at: '2026-09-30T10:10:00.000Z',
+      driver: 'person',
+    });
+    await subscriber.deliver('insights.record-task-failure', {
+      kind: TASK_FAILED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      stationId: 'station_1',
+      runId: 'run_turn',
+      source: 'run',
+      code: 'exited',
+      occurrences: 1,
+      at: '2026-09-30T10:00:00.000Z',
+      driver: 'person',
+    });
+
+    expect(await subscriber.humanActions.of(TaskId.of('task_1'))).toBeNull();
+    expect(await subscriber.failures.of(TaskId.of('task_1'))).toBeNull();
+  });
+
   it('keeps who opened a task, what it asked of people and what they did', async () => {
     const subscriber = subscribed();
 
@@ -721,6 +763,7 @@ describe('insightsSubscribers', () => {
       workspaceId: 'ws_1',
       stationId: 'station_1',
       at: '2026-09-30T10:10:00.000Z',
+      driver: 'line',
     });
     await subscriber.deliver('insights.record-task-opening', {
       kind: TASK_OPENED,
@@ -780,6 +823,7 @@ describe('insightsSubscribers', () => {
       workspaceId: 'ws_1',
       stationId: 'station_1',
       at: '2026-09-30T10:10:00.000Z',
+      driver: 'line',
     });
     await subscriber.deliver('insights.record-task-failure', {
       kind: TASK_FAILED,
@@ -792,6 +836,7 @@ describe('insightsSubscribers', () => {
       code: 'exited',
       occurrences: 1,
       at: '2026-09-30T10:00:00.000Z',
+      driver: 'line',
     });
     await subscriber.deliver('insights.record-started-chat', {
       kind: CHAT_STARTED,
@@ -1019,6 +1064,7 @@ describe('insightsSubscribers', () => {
       workspaceId: 'ws_1',
       stationId: 'station_1',
       at: '2026-09-30T10:10:00.000Z',
+      driver: 'line',
     });
     await subscriber.deliver('insights.record-task-failure', {
       kind: TASK_FAILED,
@@ -1055,6 +1101,7 @@ describe('insightsSubscribers', () => {
       workspaceId: 'ws_1',
       stationId: 'station_1',
       at: '2026-09-30T10:10:00.000Z',
+      driver: 'line',
     });
     await subscriber.deliver('insights.delete-chats-of-deleted-team', {
       kind: TEAM_DELETED,

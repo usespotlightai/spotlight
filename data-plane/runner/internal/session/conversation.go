@@ -329,6 +329,7 @@ func (c *conversation) complete(ctx context.Context, exitCode int) (*heldArchive
 		Stopped:   stopped,
 		Handover:  c.handover,
 		SessionID: c.sessionID,
+		Heads:     c.archiver.heads(ctx),
 	}
 
 	_ = c.harness.Close()

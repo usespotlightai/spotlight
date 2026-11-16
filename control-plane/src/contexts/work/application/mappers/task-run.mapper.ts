@@ -24,6 +24,7 @@ export const TaskRunMapper = {
         conversationId: summary.review.conversationId,
       },
       progress: summary.progress,
+      driver: summary.driver,
     };
   },
 

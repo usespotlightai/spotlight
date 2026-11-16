@@ -83,6 +83,7 @@ const recording = (runs: readonly EndedRun[]) => {
         stationId: 'station_1',
         ending,
         failure: ending === 'failed' ? 'exited' : null,
+        drivenByAPerson: false,
         asked,
       }),
     stored: async (runId: string) => records.of(RunId.of(runId)),

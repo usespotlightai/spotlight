@@ -61,7 +61,8 @@ const requesting = (input: {
   );
 
   return {
-    runEnded: (runId = RUN) => service.runEnded(TASK, runId),
+    runEnded: (runId = RUN, drivenByAPerson = false) =>
+      service.runEnded(TASK, runId, drivenByAPerson),
     added,
     saved,
   };
@@ -87,6 +88,14 @@ describe('requesting memories when a run ends', () => {
 
     expect(again.added).toHaveLength(0);
     expect(again.saved).toHaveLength(1);
+  });
+
+  it('requests nothing after a turn a person drove', async () => {
+    const requested = requesting({});
+
+    await requested.runEnded(RUN, true);
+
+    expect(requested.added).toHaveLength(0);
   });
 
   it('requests nothing where the station does not have memories turned on', async () => {

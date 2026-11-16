@@ -103,7 +103,7 @@ func TestAReplayHandsOverItsChangeBeforeItEndsFromABaseItsCheckCanFetch(t *testi
 			Resume:    protocol.Resume{Key: "replay-run_1"},
 			Checkouts: []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
 			Diffs:     true,
-			Replay: &protocol.Replay{Checkouts: []protocol.StartedCheckout{
+			Replay: &protocol.Replay{Checkouts: []protocol.CheckoutHead{
 				{Path: "api", Commit: served.commit},
 			}},
 		},

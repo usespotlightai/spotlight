@@ -85,8 +85,8 @@ type ChangedTools struct {
 }
 
 type Replay struct {
-	Archive   *string           `json:"archive"`
-	Checkouts []StartedCheckout `json:"checkouts"`
+	Archive   *string        `json:"archive"`
+	Checkouts []CheckoutHead `json:"checkouts"`
 }
 
 type HarnessSetup struct {
@@ -336,14 +336,15 @@ type HandedFile struct {
 }
 
 type Completion struct {
-	ExitCode    int       `json:"exitCode"`
-	Failed      bool      `json:"failed"`
-	SetupFailed bool      `json:"setupFailed,omitempty"`
-	TimedOut    bool      `json:"timedOut,omitempty"`
-	Stopped     bool      `json:"stopped,omitempty"`
-	Message     string    `json:"message,omitempty"`
-	Handover    *Handover `json:"handover,omitempty"`
-	SessionID   string    `json:"sessionId,omitempty"`
+	ExitCode    int            `json:"exitCode"`
+	Failed      bool           `json:"failed"`
+	SetupFailed bool           `json:"setupFailed,omitempty"`
+	TimedOut    bool           `json:"timedOut,omitempty"`
+	Stopped     bool           `json:"stopped,omitempty"`
+	Message     string         `json:"message,omitempty"`
+	Handover    *Handover      `json:"handover,omitempty"`
+	SessionID   string         `json:"sessionId,omitempty"`
+	Heads       []CheckoutHead `json:"heads,omitempty"`
 }
 
 type StoredArchive struct {
@@ -353,15 +354,15 @@ type StoredArchive struct {
 	SHA256 string `json:"sha256"`
 }
 
-type StartedCheckout struct {
+type CheckoutHead struct {
 	Path   string `json:"path"`
 	Commit string `json:"commit"`
 }
 
 type StartingPoint struct {
-	Attempt   int               `json:"attempt"`
-	ArchiveID *string           `json:"archiveId"`
-	Checkouts []StartedCheckout `json:"checkouts"`
+	Attempt   int            `json:"attempt"`
+	ArchiveID *string        `json:"archiveId"`
+	Checkouts []CheckoutHead `json:"checkouts"`
 }
 
 type ArchiveRequest struct {

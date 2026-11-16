@@ -23,7 +23,7 @@ export interface ClassifiedRun {
 }
 
 export const resolutionOf = (run: ClassifiedRun): RunResolution => {
-  if (run.firstHumanAction?.sendsBack) {
+  if (run.firstHumanAction?.rejectsRun) {
     return 'sent-back';
   }
   if (run.firstHumanAction?.accepts) {
@@ -48,7 +48,7 @@ export const dispositionOf = (run: AnsweredRun): RunDisposition => {
   if (run.firstHumanAction?.accepts) {
     return 'accepted';
   }
-  if (run.firstHumanAction?.sendsBack) {
+  if (run.firstHumanAction?.rejectsRun) {
     return 'sent-back';
   }
   if (run.ending === 'failed') {

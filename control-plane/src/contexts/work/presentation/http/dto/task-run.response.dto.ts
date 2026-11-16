@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   REVIEW_STATE_NAMES,
+  RUN_DRIVER_NAMES,
   RUN_STATE_NAMES,
 } from '@work/application/dto/task-run.dto';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
@@ -279,6 +280,14 @@ export class TaskRunResponseDto {
   })
   readonly progress: string | null;
 
+  @ApiProperty({
+    enum: RUN_DRIVER_NAMES,
+    example: 'line',
+    description:
+      'Who drove it: the line, or a person who put the task on hold, one turn per run',
+  })
+  readonly driver: string;
+
   constructor(
     id: string,
     state: string,
@@ -291,6 +300,7 @@ export class TaskRunResponseDto {
     station: RunStationResponseDto | null,
     review: RunReviewResponseDto | null,
     progress: string | null,
+    driver: string,
   ) {
     this.id = id;
     this.state = state;
@@ -303,6 +313,7 @@ export class TaskRunResponseDto {
     this.station = station;
     this.review = review;
     this.progress = progress;
+    this.driver = driver;
   }
 }
 
@@ -338,6 +349,7 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
       run.station,
       run.review,
       run.progress,
+      run.driver,
     );
     this.taskId = taskId;
     this.taskTitle = taskTitle;

@@ -241,6 +241,12 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	if len(s.options) == 0 {
+		fail(writer, http.StatusUnprocessableEntity, "this run takes no handover: say what you did, then stop")
+
+		return
+	}
+
 	next, allowed := s.option(handover.Next)
 	if !allowed {
 		fail(writer, http.StatusUnprocessableEntity, fmt.Sprintf(

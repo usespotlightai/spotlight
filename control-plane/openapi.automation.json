@@ -948,7 +948,8 @@
                 "parked",
                 "accepted",
                 "answered",
-                "sent-back"
+                "sent-back",
+                "held"
               ],
               "type": "string"
             }

@@ -6,4 +6,5 @@ export type DispatchBriefedIntegrationEvent = {
   readonly workspaceId: string;
   readonly taskId: string | null;
   readonly memories: readonly string[];
+  readonly driver: 'line' | 'person';
 };

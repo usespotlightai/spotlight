@@ -54,6 +54,10 @@ export interface RunFacts {
   readonly exitCode: number | null;
   readonly image: string | null;
   readonly startedFrom: RunStartedFromFact | null;
+  readonly endHeads: readonly {
+    readonly path: string;
+    readonly commit: string;
+  }[];
 }
 
 interface RunStartedFromFact {
