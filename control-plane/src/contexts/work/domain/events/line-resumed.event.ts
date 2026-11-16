@@ -1,11 +1,11 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import type { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 import type { HoldEnd } from '@work/domain/value-objects/hold-end';
 import type { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import type { HoldVerdict } from '@work/domain/value-objects/hold-verdict';

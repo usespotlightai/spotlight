@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
-import { CheckoutHead } from '@runs/domain/value-objects/checkout-head.vo';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';

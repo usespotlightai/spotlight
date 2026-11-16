@@ -21,7 +21,6 @@ import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-start
 import { RunActsOnlyOnItselfError } from '@runs/domain/exceptions/run-acts-only-on-itself.error';
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
 import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
-import type { CheckoutHead } from '@runs/domain/value-objects/checkout-head.vo';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RequeueCount } from '@runs/domain/value-objects/requeue-count.vo';
@@ -60,6 +59,7 @@ import type {
 } from '@runs/domain/value-objects/working-copy-key.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';

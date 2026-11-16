@@ -1,9 +1,9 @@
-import { InvalidCheckoutHeadError } from '@runs/domain/exceptions/invalid-checkout-head.error';
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
-import { CheckoutHead } from '@runs/domain/value-objects/checkout-head.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { InvalidCheckoutHeadError } from '@shared-kernel/domain/exceptions/invalid-checkout-head.error';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { describe, expect, it } from 'vitest';
 
 const AT = new Date('2026-10-01T09:00:00.000Z');

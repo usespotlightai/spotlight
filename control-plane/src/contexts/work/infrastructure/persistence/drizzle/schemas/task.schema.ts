@@ -6,7 +6,7 @@ import {
 } from '@work/domain/entities/task-note.entity';
 import { HOLD_ENDS, type HoldEnd } from '@work/domain/value-objects/hold-end';
 import { HOLD_VERDICTS } from '@work/domain/value-objects/hold-verdict';
-import type { CheckoutHeadParts } from '@work/domain/value-objects/checkout-head.vo';
+import type { CheckoutHeadParts } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';

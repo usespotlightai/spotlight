@@ -73,7 +73,6 @@ import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatReply } from '@work/domain/value-objects/chat-reply.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
-import { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { CoAuthors } from '@work/domain/value-objects/co-authors.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
@@ -278,7 +277,6 @@ export const WORK_PAYLOAD_TYPES = [
   TaskActedOn,
   TaskHeld,
   LineResumed,
-  CheckoutHead,
   HoldId,
   TurnHeads,
   TaskAnswered,

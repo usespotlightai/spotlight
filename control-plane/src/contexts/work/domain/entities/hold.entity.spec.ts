@@ -1,13 +1,13 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { InvalidCheckoutHeadError } from '@shared-kernel/domain/exceptions/invalid-checkout-head.error';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { Hold } from '@work/domain/entities/hold.entity';
-import { InvalidCheckoutHeadError } from '@work/domain/exceptions/invalid-checkout-head.error';
 import { InvalidHoldTransitionError } from '@work/domain/exceptions/invalid-hold-transition.error';
 import { InvalidHoldError } from '@work/domain/exceptions/invalid-hold.error';
 import { InvalidTurnHeadsError } from '@work/domain/exceptions/invalid-turn-heads.error';
-import { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 import { holdEndOf } from '@work/domain/value-objects/hold-end';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import { holdVerdictOf } from '@work/domain/value-objects/hold-verdict';

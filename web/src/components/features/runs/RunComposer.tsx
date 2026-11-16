@@ -22,6 +22,38 @@ type RunComposerProps = {
   onSent?: () => void;
 };
 
+type Mode = 'answering' | 'driving' | 'holds' | 'restarts' | 'message';
+
+type Flags = Record<Exclude<Mode, 'message'>, boolean>;
+
+const modeOf = (flags: Flags): Mode =>
+  (['answering', 'driving', 'holds', 'restarts'] as const).find(
+    (each) => flags[each],
+  ) ?? 'message';
+
+const labelFor = (mode: Mode, station: string): string => {
+  if (mode === 'answering') {
+    return `Answer ${station}`;
+  }
+  if (mode === 'restarts') {
+    return `Send it back to ${station}`;
+  }
+  return `Message ${station}`;
+};
+
+const PLACEHOLDERS: Record<Mode, string> = {
+  answering: 'Answer the question to continue the run…',
+  driving: 'Tell the agent what to do next…',
+  holds: 'Your message puts the task on hold…',
+  restarts: 'Say what to change…',
+  message: 'Write a message…',
+};
+
+const placeholderFor = (mode: Mode, running: boolean): string =>
+  mode === 'holds' && running
+    ? 'Your message stops the run and puts the task on hold…'
+    : PLACEHOLDERS[mode];
+
 export function RunComposer({
   slug,
   teamId,
@@ -41,37 +73,19 @@ export function RunComposer({
     task,
   } = useTaskStation(teamId, taskId);
   const me = useMe();
-  const driving = heldByMe(task?.hold, me?.id);
-  const restarts =
-    !answering &&
-    !driving &&
-    startsAgainOnMessage(task, currentStation, stationId);
-  const holds = !answering && holdsOnMessage(task, currentStation, stationId);
+  const mode = modeOf({
+    answering,
+    driving: heldByMe(task?.hold, me?.id),
+    holds: holdsOnMessage(task, currentStation, stationId),
+    restarts: startsAgainOnMessage(task, currentStation, stationId),
+  });
   const shared = useSharedDraft(taskId);
 
   return (
     <ChatInput
       slug={slug}
-      label={
-        answering
-          ? `Answer ${station}`
-          : restarts
-            ? `Send it back to ${station}`
-            : `Message ${station}`
-      }
-      placeholder={
-        answering
-          ? 'Answer the question to continue the run…'
-          : driving
-            ? 'Tell the agent what to do next…'
-            : holds
-              ? running
-                ? 'Your message stops the run and puts the task on hold…'
-                : 'Your message puts the task on hold…'
-              : restarts
-                ? 'Say what to change…'
-                : 'Write a message…'
-      }
+      label={labelFor(mode, station)}
+      placeholder={placeholderFor(mode, running)}
       pending={send.isPending}
       running={running}
       shared={shared}
@@ -98,7 +112,7 @@ export function RunComposer({
             coAuthors,
             draftGeneration,
             answers: answering,
-            startsWork: answering || restarts || driving || holds,
+            startsWork: mode !== 'message',
           },
           { onError: restore },
         );

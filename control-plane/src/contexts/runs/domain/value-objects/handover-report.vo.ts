@@ -1,6 +1,6 @@
-import type { CheckoutHead } from '@runs/domain/value-objects/checkout-head.vo';
 import type { Handover } from '@runs/domain/value-objects/handover.vo';
 import type { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
+import type { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 
 export class HandoverReport {
   private constructor(

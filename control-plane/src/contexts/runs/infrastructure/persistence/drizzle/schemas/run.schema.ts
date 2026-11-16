@@ -11,7 +11,7 @@ import {
   TERMINAL_RUN_STATES,
 } from '@runs/domain/value-objects/run-state';
 import { RUN_TURN_STATES } from '@runs/domain/value-objects/run-turn.vo';
-import type { CheckoutHeadParts } from '@runs/domain/value-objects/checkout-head.vo';
+import type { CheckoutHeadParts } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { WORKING_COPY_RESTORES } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { JsonValue } from '@shared-kernel/domain/json-value';
 import { sql } from 'drizzle-orm';

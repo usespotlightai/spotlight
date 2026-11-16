@@ -53,7 +53,7 @@ export interface InboxConnection {
   readonly met: boolean;
 }
 
-export interface InboxResumption {
+interface InboxResumption {
   readonly next: HoldEnd;
   readonly station: string;
   readonly summary: string | null;

@@ -1,4 +1,5 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
@@ -31,7 +32,6 @@ import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 import {
   DispatchEnding,
   type DispatchOutcome,

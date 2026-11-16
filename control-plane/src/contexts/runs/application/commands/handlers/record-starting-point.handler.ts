@@ -9,13 +9,13 @@ import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import { UnknownRunnerError } from '@runs/domain/exceptions/unknown-runner.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
-import { CheckoutHead } from '@runs/domain/value-objects/checkout-head.vo';
 import type { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 

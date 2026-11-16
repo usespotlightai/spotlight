@@ -1,11 +1,11 @@
-import { InvalidCheckoutHeadError } from '@runs/domain/exceptions/invalid-checkout-head.error';
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { InvalidCheckoutHeadError } from '@shared-kernel/domain/exceptions/invalid-checkout-head.error';
 import {
   CheckoutHead,
   type CheckoutHeadParts,
-} from '@runs/domain/value-objects/checkout-head.vo';
-import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+} from '@shared-kernel/domain/value-objects/checkout-head.vo';
 
 export interface ReportedStart {
   readonly archive: WorkingCopyArchiveId | null;

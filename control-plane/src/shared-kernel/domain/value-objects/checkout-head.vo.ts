@@ -1,5 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { InvalidCheckoutHeadError } from '@work/domain/exceptions/invalid-checkout-head.error';
+import { InvalidCheckoutHeadError } from '@shared-kernel/domain/exceptions/invalid-checkout-head.error';
 
 const FULL_COMMIT = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
@@ -18,9 +18,13 @@ export class CheckoutHead {
     const path = parts.path.trim();
     const commit = parts.commit.trim();
 
-    if (!path || !FULL_COMMIT.test(commit)) {
+    if (!path) {
+      throw new InvalidCheckoutHeadError('must name its checkout by its path');
+    }
+
+    if (!FULL_COMMIT.test(commit)) {
       throw new InvalidCheckoutHeadError(
-        `needs a checkout path and a full commit SHA, not ${JSON.stringify(parts)}`,
+        `must name the commit of ${path} by its full SHA, not ${commit || 'nothing'}`,
       );
     }
 

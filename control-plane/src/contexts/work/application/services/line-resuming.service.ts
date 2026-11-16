@@ -1,5 +1,6 @@
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -9,7 +10,6 @@ import { handedToRun } from '@work/application/services/handed-to-run';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Hold } from '@work/domain/entities/hold.entity';
 import { Placement } from '@work/domain/services/placement';
-import { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 import type { HoldEnd } from '@work/domain/value-objects/hold-end';
 import type { HoldVerdict } from '@work/domain/value-objects/hold-verdict';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';

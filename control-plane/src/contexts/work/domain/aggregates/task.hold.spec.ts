@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -20,7 +21,6 @@ import { TaskHeld } from '@work/domain/events/task-held.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
 import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
-import { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   lineMapOf,

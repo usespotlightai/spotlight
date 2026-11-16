@@ -1,5 +1,6 @@
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -56,6 +57,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const SHARED_KERNEL_PAYLOAD_TYPES = [
+  CheckoutHead,
   Actor,
   ChangeActor,
   ReviewWorkId,

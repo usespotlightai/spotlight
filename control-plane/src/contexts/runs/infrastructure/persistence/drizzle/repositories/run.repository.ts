@@ -34,7 +34,7 @@ import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { LEASED_RUN_STATES } from '@runs/domain/value-objects/run-state';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
-import { CheckoutHead } from '@runs/domain/value-objects/checkout-head.vo';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';

@@ -31,10 +31,11 @@ export const HOLD_VERDICTS: readonly Choice<HoldVerdict>[] = [
 export const moveOnTargets = (
   stations: readonly StationResponseDto[],
   station: StationResponseDto,
-): StationResponseDto[] =>
-  stations.filter(
-    (each) => Boolean(each.harness) && station.passesTo.includes(each.id),
-  );
+): StationResponseDto[] => {
+  const next = new Set(station.passesTo);
+
+  return stations.filter((each) => Boolean(each.harness) && next.has(each.id));
+};
 
 export const heldUntilResumed = (
   hold: TaskHoldResponseDto,

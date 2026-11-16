@@ -16,7 +16,7 @@ export const RUN_STATE_NAMES = TASK_RUN_STATES;
 
 export const RUN_DRIVER_NAMES = RUN_DRIVERS;
 
-export type RunDriverName = RunDriver;
+type RunDriverName = RunDriver;
 
 export interface RunStationDto {
   readonly id: string;

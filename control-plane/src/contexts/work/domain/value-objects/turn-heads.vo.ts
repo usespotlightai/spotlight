@@ -1,6 +1,6 @@
+import type { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { InvalidTurnHeadsError } from '@work/domain/exceptions/invalid-turn-heads.error';
-import type { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 
 const repeatsAPath = (heads: readonly CheckoutHead[]): boolean =>
   new Set(heads.map((each) => each.path)).size !== heads.length;

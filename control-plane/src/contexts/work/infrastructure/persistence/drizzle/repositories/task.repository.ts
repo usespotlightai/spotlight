@@ -22,7 +22,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { StationNotKnownYetError } from '@work/application/errors/station-not-known-yet.error';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Hold } from '@work/domain/entities/hold.entity';
-import { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-already-opened.error';
 import { TaskBranchTakenError } from '@work/domain/exceptions/task-branch-taken.error';

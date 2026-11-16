@@ -2,9 +2,9 @@ import type { HoldVerdictPublished } from '@shared-kernel/application/integratio
 
 export const LINE_RESUMED = 'work.line-resumed.v1';
 
-export type HoldEndPublished = 'continue' | 'move-on' | 'finish';
+type HoldEndPublished = 'continue' | 'move-on' | 'finish';
 
-export type CheckoutHeadPublished = {
+type CheckoutHeadPublished = {
   readonly path: string;
   readonly commit: string;
 };
