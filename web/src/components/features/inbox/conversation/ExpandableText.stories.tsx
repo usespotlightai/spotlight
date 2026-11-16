@@ -13,7 +13,10 @@ const FAILURE = [
   'Failed: generate.',
   '**generate** failed at the step "The committed client matches the schema". The end of its log:',
   '```',
-  ...Array.from({ length: 20 }, (_, line) => `-   line ${line + 1} of the diff`),
+  ...Array.from(
+    { length: 20 },
+    (_, line) => `-   line ${line + 1} of the diff`,
+  ),
   '```',
 ].join('\n');
 

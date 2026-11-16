@@ -47,10 +47,7 @@ export function WorldMessage({
               initialValue={body}
               placeholder=""
               ariaLabel={from ? `What came from ${from}` : 'What came in'}
-              className={cn(
-                'border-none bg-transparent p-0',
-                signed && 'pr-7',
-              )}
+              className={cn('border-none bg-transparent p-0', signed && 'pr-7')}
             />
           </ExpandableText>
         </MessageCard>
