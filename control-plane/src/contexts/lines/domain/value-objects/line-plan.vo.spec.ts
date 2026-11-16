@@ -239,7 +239,7 @@ describe('LinePlan', () => {
           backlog({
             passesTo: [StationKey.of('code-review')],
             judge: StationJudge.of({
-              rubric: 'A good run.',
+              claims: ['It changes only what the task asks for.'],
               sample: 0.2,
               minAgreement: 0.6,
             }),
@@ -375,7 +375,7 @@ describe('LinePlan', () => {
           station('code-review', {
             ends: true,
             judge: StationJudge.of({
-              rubric: 'A good run.',
+              claims: ['It changes only what the task asks for.'],
               sample: 0.2,
               minAgreement: 0.6,
             }),

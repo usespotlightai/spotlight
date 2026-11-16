@@ -30,6 +30,7 @@ import type {
   ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import {
   NO_INDEX,
   type SymbolIndex,
@@ -179,11 +180,10 @@ const LARGE_INPUT = {
 };
 
 const RUN = {
-  id: RunId.of('run-1'),
+  origin: StackOrigin.run(RunId.of('run-1')),
   taskId: null,
   teamOfRun: TeamId.of('team_1'),
   trial: false,
-  isolated: false,
   checkouts: 1,
   workspaceId: WorkspaceId.of('workspace-1'),
 };
@@ -231,6 +231,8 @@ const generating = (
 ) => {
   const saved: ChangeStack[] = [];
   const dispatched: DomainEvent[] = [];
+  const steps: string[] = [];
+  let transacting = false;
   const requests: ChangeStackGenerationRequest[] = [];
   const answers = [...(over.answers ?? [[cohort(['h1', 'h2'])]])];
   const outlines = [...(over.outlines ?? [])];
@@ -244,6 +246,7 @@ const generating = (
 
   const stacks: ChangeStackRepository = {
     add: async (stack) => {
+      steps.push(transacting ? 'add in transaction' : 'add');
       saved.push(stack);
       dispatched.push(...stack.pullEvents());
     },
@@ -255,19 +258,25 @@ const generating = (
       [...saved].reverse().find((each) => each.id.equals(id)) ?? null,
     nextDueJob: async () => null,
     ofRun: async () => [],
-    ofTask: async (taskId) => [
-      ...new Map(
-        saved
-          .filter((each) => each.taskId?.equals(taskId))
-          .map((each) => [each.id.value, each]),
-      ).values(),
-    ],
+    ofTask: async (taskId) => {
+      if (transacting) {
+        steps.push(`read ${taskId.value} in transaction`);
+      }
+
+      return [
+        ...new Map(
+          saved
+            .filter((each) => each.taskId?.equals(taskId))
+            .map((each) => [each.id.value, each]),
+        ).values(),
+      ];
+    },
     ofTeam: async () => [],
     remove: async () => undefined,
   };
 
   const generator: ChangeStackGeneratorPort = {
-    available: over.available ?? true,
+    availableTo: async () => over.available ?? true,
     generate: async (request) => {
       requests.push(request);
       const answer = answers.shift();
@@ -331,6 +340,20 @@ const generating = (
     READER,
     READING,
     { index: over.index ?? (async () => NO_INDEX) },
+    {
+      stackingFor: async <T>(
+        taskId: TaskId,
+        work: () => Promise<T>,
+      ): Promise<T> => {
+        transacting = true;
+        steps.push(`lock ${taskId.value} in transaction`);
+        try {
+          return await work();
+        } finally {
+          transacting = false;
+        }
+      },
+    },
     { generate: over.ids ?? (() => 'stack-1') },
     {
       now: () => new Date('2026-09-16T10:00:00Z'),
@@ -350,6 +373,7 @@ const generating = (
   return {
     service,
     saved,
+    steps,
     requests,
     outlined,
     layered,
@@ -1246,6 +1270,89 @@ describe('for a task that had a stack before', () => {
 
     return { ...generation, next, done };
   };
+
+  it('keeps nothing while it prepares a stack, and starts it after the task stacks it is given', async () => {
+    const generation = generating({
+      ids: counted(),
+      answers: [[cohort(['h1', 'h2'])]],
+    });
+    const input = { repository: 'web', base: null, request: null };
+    const first = await generation.service.generated(
+      await generation.service.begin(TASK_RUN, { ...input, diff: DIFF }),
+    );
+    await generation.stacks.save(first);
+
+    const prepared = await generation.service.prepare(TASK_RUN, {
+      ...input,
+      diff: DIFF,
+    });
+
+    expect(
+      (await generation.stacks.ofTask(TaskId.of('task-1'))).map(
+        (each) => each.id.value,
+      ),
+    ).toEqual([first.id.value]);
+
+    const started = await generation.service.start(prepared, [first]);
+
+    expect(started.id.equals(prepared.id)).toBe(true);
+    expect(started.previous?.equals(first.id)).toBe(true);
+    expect(
+      (await generation.stacks.ofTask(TaskId.of('task-1'))).map(
+        (each) => each.id.value,
+      ),
+    ).toEqual([first.id.value, started.id.value]);
+  });
+
+  it('locks the task stacks in one transaction before it reads them and starts a stack', async () => {
+    const generation = generating({ answers: [[cohort(['h1', 'h2'])]] });
+
+    await generation.service.begin(TASK_RUN, {
+      diff: DIFF,
+      repository: 'web',
+      base: null,
+      request: null,
+    });
+
+    expect(generation.steps).toEqual([
+      'lock task-1 in transaction',
+      'read task-1 in transaction',
+      'add in transaction',
+    ]);
+  });
+
+  it('starts a stack of no task without a lock', async () => {
+    const generation = generating({ answers: [[cohort(['h1', 'h2'])]] });
+
+    await generation.service.begin(RUN, {
+      diff: DIFF,
+      repository: 'web',
+      base: null,
+      request: null,
+    });
+
+    expect(generation.steps).toEqual(['add']);
+  });
+
+  it('starts a prepared stack after none when it is given no task stacks', async () => {
+    const generation = generating({
+      ids: counted(),
+      answers: [[cohort(['h1', 'h2'])]],
+    });
+    const input = { repository: 'web', base: null, request: null };
+    await generation.stacks.save(
+      await generation.service.generated(
+        await generation.service.begin(TASK_RUN, { ...input, diff: DIFF }),
+      ),
+    );
+
+    const started = await generation.service.start(
+      await generation.service.prepare(TASK_RUN, { ...input, diff: DIFF }),
+      [],
+    );
+
+    expect(started.previous).toBeNull();
+  });
 
   it('reuses the earlier stack without a model call when the diff is the same', async () => {
     const { next, done, requests } = await twice(DIFF, [

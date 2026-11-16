@@ -2,6 +2,8 @@ import type { Preview } from '@storybook/react-vite';
 import { onlineManager } from '@tanstack/react-query';
 import { sb } from 'storybook/test';
 
+import { TooltipProvider } from '../src/components/ui/tooltip';
+
 import '../src/index.css';
 
 sb.mock(import('../src/lib/send.ts'));
@@ -11,9 +13,11 @@ sb.mock(import('../src/hooks/api/useCreateWorkspaceToken.ts'), { spy: true });
 const preview: Preview = {
   decorators: [
     (Story) => (
-      <div className="@container/pane">
-        <Story />
-      </div>
+      <TooltipProvider>
+        <div className="@container/pane">
+          <Story />
+        </div>
+      </TooltipProvider>
     ),
   ],
   parameters: {
@@ -32,7 +36,7 @@ const preview: Preview = {
             'GitHub installed',
           ],
           'Inbox',
-          ['Items', 'Notices'],
+          ['Items', 'Notices', 'Grade card', 'Disagreement card'],
           'Team',
           [
             'Landing',
@@ -69,7 +73,14 @@ const preview: Preview = {
           'Settings',
           [
             'Workspace',
-            ['General', 'Members', 'Runners', 'API access'],
+            [
+              'General',
+              'Members',
+              'Inference',
+              'Inference required',
+              'Runners',
+              'API access',
+            ],
             'Team',
             ['General', 'Integrations', 'Skills'],
           ],

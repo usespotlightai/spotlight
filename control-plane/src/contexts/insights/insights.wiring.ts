@@ -53,6 +53,7 @@ import {
   STATION_FACTS,
   type StationFactsPort,
 } from '@insights/application/ports/station-facts.port';
+import { STATION_JUDGE_CALIBRATIONS } from '@insights/application/ports/station-judge-calibrations.port';
 import {
   STATION_JUDGES,
   type StationJudgesPort,
@@ -96,6 +97,7 @@ import { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import { ChangeJudgments } from '@insights/application/services/change-judgments.service';
 import { CheckRunFacts } from '@insights/application/services/check-run-facts.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
+import { EndOverdueClaimsRevisions } from '@insights/application/services/end-overdue-claims-revisions.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
 import { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
@@ -105,6 +107,7 @@ import { ProjectPullRequestFacts } from '@insights/application/services/project-
 import { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
 import { PurgeExpiredTombstones } from '@insights/application/services/purge-expired-tombstones.service';
 import { QualifiedJudges } from '@insights/application/services/qualified-judges.service';
+import { RecheckJudgeDisagreements } from '@insights/application/services/recheck-judge-disagreements.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
@@ -122,10 +125,13 @@ import { RequestJudging } from '@insights/application/services/request-judging.s
 import { RunAcceptance } from '@insights/application/services/run-acceptance.service';
 import { RunOutcomes } from '@insights/application/services/run-outcomes.service';
 import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
+import { StationJudgeCalibrations } from '@insights/application/services/station-judge-calibrations.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { TeamPullRequests } from '@insights/application/services/team-pull-requests.service';
 import { TeamScopes } from '@insights/application/services/team-scopes.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
+import { WorkClaimsRevisions } from '@insights/application/services/work-claims-revisions.service';
+import { WorkClaimsSources } from '@insights/application/services/work-claims-sources.service';
 import { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import { AlertInboxRequests } from '@insights/infrastructure/acl/alert-inbox-requests.adapter';
 import { DefinedSkills } from '@insights/infrastructure/acl/defined-skills.adapter';
@@ -147,6 +153,9 @@ import { DrizzleRunFacts } from '@insights/infrastructure/persistence/drizzle/pr
 import { DrizzleFirstSeen } from '@insights/infrastructure/persistence/drizzle/readers/first-seen.reader';
 import { DrizzleInsightsReader } from '@insights/infrastructure/persistence/drizzle/readers/insights.reader';
 import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
+import { DrizzleClaimsRevisionRepository } from '@insights/infrastructure/persistence/drizzle/repositories/claims-revision.repository';
+import { DrizzleClaimsSourceRepository } from '@insights/infrastructure/persistence/drizzle/repositories/claims-source.repository';
+import { DrizzleJudgeDisagreementRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judge-disagreement.repository';
 import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
@@ -167,16 +176,12 @@ import {
   type TeamMemoryUsePort,
 } from '@memory/application/ports/team-memory-use.port';
 import type { Provider, Type } from '@nestjs/common';
-import { ENV } from '@platform/config/config.constants';
-import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
-import { MODEL_PRICES, type ModelPrices } from '@platform/llm/model-prices';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
@@ -190,6 +195,10 @@ import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
+import {
+  INFERENCE_CALLS,
+  type InferenceCallsPort,
+} from '@shared-kernel/application/ports/inference-calls.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -277,17 +286,14 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: JUDGE,
-    inject: [ENV, MODEL_PRICES],
-    useFactory: (env: Env, prices: ModelPrices) =>
-      new ChatCompletionsJudge(modelEndpointOf(env, env.JUDGE_MODEL, prices)),
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) => new ChatCompletionsJudge(calls),
   },
   {
     provide: SIDE_BY_SIDE_JUDGE,
-    inject: [ENV, MODEL_PRICES],
-    useFactory: (env: Env, prices: ModelPrices) =>
-      new ChatCompletionsSideBySideJudge(
-        modelEndpointOf(env, env.JUDGE_MODEL, prices),
-      ),
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) =>
+      new ChatCompletionsSideBySideJudge(calls),
   },
   DrizzleRunFacts,
   DrizzlePullRequestFacts,
@@ -482,6 +488,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadStationJudgeQuery, ReadStationJudgeHandler, [
     InsightsAccess,
     StationJudgeReports,
+    DrizzleClaimsSourceRepository,
   ]),
   ...bindQueryHandler(ReadRunScoresQuery, ReadRunScoresHandler, [
     InsightsAccess,
@@ -581,6 +588,12 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     useFactory: (facts: StationFactsPort) => new RunAcceptance(facts),
   },
   {
+    provide: STATION_JUDGE_CALIBRATIONS,
+    inject: [StationJudgeReports],
+    useFactory: (reports: StationJudgeReports) =>
+      new StationJudgeCalibrations(reports),
+  },
+  {
     provide: PurgeExpiredTombstones,
     inject: [DrizzlePullRequestRecordRepository, TRANSACTION, CLOCK],
     useFactory: (
@@ -639,13 +652,38 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: PendingJobWorker,
-    inject: [WorkJudgings, PurgeExpiredTombstones, CheckRunFacts, LOGGER],
+    inject: [
+      WorkJudgings,
+      WorkClaimsRevisions,
+      WorkClaimsSources,
+      EndOverdueClaimsRevisions,
+      PurgeExpiredTombstones,
+      CheckRunFacts,
+      RecheckJudgeDisagreements,
+      LOGGER,
+    ],
     useFactory: (
       judgings: WorkJudgings,
+      revisions: WorkClaimsRevisions,
+      sources: WorkClaimsSources,
+      overdue: EndOverdueClaimsRevisions,
       tombstones: PurgeExpiredTombstones,
       facts: CheckRunFacts,
+      disagreements: RecheckJudgeDisagreements,
       logger: LoggerPort,
-    ) => new PendingJobWorker([judgings, tombstones, facts], logger),
+    ) =>
+      new PendingJobWorker(
+        [
+          judgings,
+          revisions,
+          sources,
+          overdue,
+          tombstones,
+          facts,
+          disagreements,
+        ],
+        logger,
+      ),
   },
   {
     provide: RecordJudgeScore,
@@ -659,8 +697,12 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: GradeInboxRequests,
-    inject: [GRADES],
-    useFactory: (grades: GradesPort) => new GradeInboxRequests(grades),
+    inject: [GRADES, STATION_FACTS, CLOCK],
+    useFactory: (
+      grades: GradesPort,
+      facts: StationFactsPort,
+      clock: ClockPort,
+    ) => new GradeInboxRequests(grades, facts, clock),
   },
   {
     provide: RecordRunEnding,
@@ -787,6 +829,9 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       DrizzlePullRequestRecordRepository,
       DrizzleStationAlertStateRepository,
       DrizzleChats,
+      DrizzleJudgeDisagreementRepository,
+      DrizzleClaimsRevisionRepository,
+      DrizzleClaimsSourceRepository,
       DrizzleDeletions,
       TRANSACTION,
     ],
@@ -800,6 +845,9 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       pullRequests: DrizzlePullRequestRecordRepository,
       alertStates: DrizzleStationAlertStateRepository,
       chats: DrizzleChats,
+      disagreements: DrizzleJudgeDisagreementRepository,
+      revisions: DrizzleClaimsRevisionRepository,
+      sources: DrizzleClaimsSourceRepository,
       deletions: DrizzleDeletions,
       transaction: TransactionPort,
     ) =>
@@ -814,6 +862,9 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
           pullRequests,
           alertStates,
           chats,
+          disagreements,
+          revisions,
+          sources,
         },
         deletions,
         transaction,

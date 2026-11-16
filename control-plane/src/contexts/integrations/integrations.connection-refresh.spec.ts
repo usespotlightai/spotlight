@@ -14,6 +14,7 @@ import { ConnectionOwner } from '@integrations/domain/value-objects/connection-o
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -82,12 +83,15 @@ webhook:
 
 const config = () => [defined(CONFIG)];
 
-const nearing = (over: { refreshToken?: string | null } = {}) =>
+const nearing = (
+  over: { refreshToken?: string | null; client?: string } = {},
+) =>
   IntegrationConnection.rehydrate({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     integration: SLACK,
     owner: ConnectionOwner.team(),
+    client: OAuth2ClientId.of(over.client ?? 'c-1'),
     accessToken: AccessToken.of('xoxb-old'),
     refreshToken: RefreshToken.maybe(
       'refreshToken' in over ? over.refreshToken : 'xoxe-old',
@@ -126,6 +130,7 @@ const refreshing = (
   });
   const clock = { now: () => NOW } as ClockPort;
   const warn = vi.fn();
+  const info = vi.fn();
 
   const it = new RefreshConnections(
     connections,
@@ -142,10 +147,10 @@ const refreshing = (
       { for: async () => {} },
     ),
     clock,
-    { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    { warn, info, error: vi.fn(), debug: vi.fn() },
   );
 
-  return { it, connections, refresh, warn, allowedWhileRefreshing };
+  return { it, connections, refresh, warn, info, allowedWhileRefreshing };
 };
 
 const storedNow = (connections: InMemoryIntegrationConnections) =>
@@ -199,6 +204,24 @@ describe('RefreshConnections', () => {
     expect(warn).toHaveBeenCalledWith(
       { team: 'team_1', integration: 'slack', owner: 'team' },
       'The integration did not refresh a connection',
+    );
+  });
+
+  it('does not refresh a connection made through another OAuth client, and asks to connect again', async () => {
+    const { it, connections, refresh, info } = refreshing([
+      nearing({ client: 'c-old' }),
+    ]);
+
+    await it.refresh();
+
+    const stored = await storedNow(connections);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(stored?.accessToken.value).toBe('xoxb-old');
+    expect(stored?.refreshFailedAt).toEqual(NOW);
+    expect(stored?.usable).toBe(false);
+    expect(info).toHaveBeenCalledWith(
+      { team: 'team_1', integration: 'slack', owner: 'team' },
+      'Did not refresh a connection made through another OAuth client',
     );
   });
 

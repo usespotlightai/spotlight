@@ -3,6 +3,7 @@ import { SpecOperation } from '@integrations/domain/value-objects/spec-operation
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
   compileIntegration,
+  writtenHostOf,
   IntegrationCompiler,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
@@ -397,6 +398,74 @@ webhook:
       expect(
         read.ok && read.readable.connection?.oauth2?.identity,
       ).not.toBeNull();
+    });
+
+    it('keeps the team’s own client, and counts its secret as a credential', () => {
+      const read = compileIntegration(
+        parseYaml(
+          WHOLE_OAUTH.replace(
+            '    scopes:\n',
+            '    client:\n      id: own-client\n      secret: secret.SLACK_CLIENT_SECRET\n    scopes:\n',
+          ),
+        ),
+        expressions,
+      );
+
+      expect(read.ok && read.readable.connection?.oauth2).toMatchObject({
+        client: { id: 'own-client', secret: 'SLACK_CLIENT_SECRET' },
+      });
+      expect(
+        read.ok &&
+          read.readable.integration.credentials.map((each) => each.value),
+      ).toContain('SLACK_CLIENT_SECRET');
+    });
+
+    it('refuses its own client together with a registration endpoint', () => {
+      expect(
+        complaining(
+          WHOLE_OAUTH.replace(
+            '    scopes:\n',
+            '    registration: https://slack.com/oauth/register\n    client:\n      id: own-client\n    scopes:\n',
+          ),
+          'connection.oauth2.client',
+        ).map((each) => each.reason),
+      ).toContainEqual(expect.stringMatching(/names its own client/));
+    });
+
+    it('refuses PKCE off for a client that has no secret to prove the exchange', () => {
+      const pkceOff = (lines: string) =>
+        complaining(
+          WHOLE_OAUTH.replace(
+            '    scopes:\n',
+            `    pkce: false\n${lines}    scopes:\n`,
+          ),
+          'connection.oauth2.pkce',
+        ).map((each) => each.reason);
+
+      expect(pkceOff('    client:\n      id: public-client\n')).toContainEqual(
+        expect.stringMatching(/only a client with a secret/),
+      );
+      expect(
+        pkceOff('    registration: https://slack.com/oauth/register\n'),
+      ).toContainEqual(expect.stringMatching(/only a client with a secret/));
+      expect(
+        pkceOff(
+          '    client:\n      id: own-client\n      secret: secret.SLACK_CLIENT_SECRET\n',
+        ),
+      ).toEqual([]);
+      expect(pkceOff('')).toEqual([]);
+    });
+
+    it('refuses a key it does not know, so a misspelt pkce never leaves PKCE on', () => {
+      expect(
+        complaining(
+          WHOLE_OAUTH.replace(
+            '    scopes:\n',
+            '    pcke: false\n    scopes:\n',
+          ),
+          'connection.oauth2',
+        ),
+      ).not.toEqual([]);
     });
 
     it('takes the team’s connection unless it says each requester’s', () => {
@@ -1085,6 +1154,30 @@ tools:
     ).toHaveLength(1);
   });
 
+  it('takes a tool as read-only only where the file says so, whatever its action sends', () => {
+    const readOnly = (text: string) => {
+      const compiled = read(text);
+
+      return (
+        compiled.ok &&
+        compiled.readable.integration.writtenTool(ToolName.of('linear.comment'))
+          ?.readOnly
+      );
+    };
+
+    expect(readOnly(PROVIDING.replace('method: POST', 'method: GET'))).toBe(
+      false,
+    );
+    expect(
+      readOnly(
+        PROVIDING.replace(
+          '    action: comment',
+          '    action: comment\n    readOnly: true',
+        ),
+      ),
+    ).toBe(true);
+  });
+
   it('offers a tool no approval where the file requests none', () => {
     const compiled = read(PROVIDING);
 
@@ -1409,6 +1502,14 @@ openapi:
     ).toEqual(['find-pet', 'add-pet', 'delete-pet']);
   });
 
+  it('never takes a tool generated from a spec as read-only, even one that only reads', () => {
+    const compiled = read(PETSTORE);
+
+    expect(
+      compiled.ok && compiled.generated.map((each) => each.readOnly),
+    ).toEqual([false, false, false]);
+  });
+
   it('warns of an approval naming no operation of the description', () => {
     const compiled = read(
       PETSTORE.replace('      add-pet: false', '      add-pets: false'),
@@ -1565,7 +1666,7 @@ graphql:
       readable: {
         apiSpec: {
           spec: { kind: 'graphql', depth: 3, connected: true },
-          auth: { kind: 'oauth2' },
+          auth: { kind: 'oauth2', hosts: ['api.linear.app'] },
         },
       },
     });
@@ -1671,6 +1772,14 @@ mcp:
         ),
       ).map((each) => each.reason),
     ).toContainEqual(expect.stringMatching(/Unrecognized key: "token"/));
+    expect(
+      problems(
+        TRACKER.replace(
+          '    discover: true\n',
+          '    discover: true\n    client:\n      id: own-client\n',
+        ),
+      ).map((each) => each.reason),
+    ).toContainEqual(expect.stringMatching(/Unrecognized key: "client"/));
   });
 });
 
@@ -2078,5 +2187,99 @@ on:
     ).toEqual([
       ['tools.post-files.action', expect.stringContaining('uploads files')],
     ]);
+  });
+});
+
+describe('the hosts that get the connection token', () => {
+  it('reads a host only where the definition writes it out', () => {
+    expect(writtenHostOf('https://slack.com/api/chat.postMessage')).toBe(
+      'slack.com',
+    );
+    expect(writtenHostOf('https://API.Linear.app')).toBe('api.linear.app');
+    expect(writtenHostOf(`https://slack.com/api/\${{ inputs.method }}`)).toBe(
+      'slack.com',
+    );
+    expect(writtenHostOf(`https://\${{ body.host }}/files`)).toBeNull();
+    expect(
+      writtenHostOf(`https://api.\${{ body.region }}.example/x`),
+    ).toBeNull();
+    expect(writtenHostOf(`\${{ file.url_private_download }}`)).toBeNull();
+  });
+
+  it('reads the port of a host as the request sends it', () => {
+    expect(writtenHostOf('https://api.example:443/x')).toBe('api.example');
+    expect(writtenHostOf('http://api.example:80/x')).toBe('api.example');
+    expect(writtenHostOf('http://api.example:443/x')).toBe('api.example:443');
+    expect(writtenHostOf('https://api.example:8443/x')).toBe(
+      'api.example:8443',
+    );
+  });
+
+  it('collects the written hosts of oauth2 requests and of connection.oauth2.hosts', () => {
+    const read = compileIntegration(
+      parseYaml(`integration: chat
+connection:
+  oauth2:
+    authorize: https://chat.example/oauth/authorize
+    token: https://auth.chat.example/oauth/token
+    hosts: [files.chat.example]
+actions:
+  post:
+    request:
+      url: https://api.chat.example/post
+      auth:
+        oauth2:
+          connection: true
+  forward:
+    request:
+      url: https://\${{ inputs.host }}/post
+      inputs:
+        host:
+          type: string
+      auth:
+        oauth2:
+          connection: true
+  ping:
+    request:
+      url: https://status.example/ping
+`),
+      expressions,
+    );
+
+    if (!read.ok) {
+      throw new Error(read.problems.map((each) => each.reason).join(', '));
+    }
+
+    expect(read.readable.actions.get('post')?.auth).toEqual({
+      kind: 'oauth2',
+      hosts: ['api.chat.example', 'files.chat.example'],
+    });
+  });
+
+  it('refuses a host that is not a host name', () => {
+    expect(
+      compileIntegration(
+        parseYaml(`integration: chat
+connection:
+  oauth2:
+    authorize: https://chat.example/oauth/authorize
+    token: https://chat.example/oauth/token
+    hosts: ['https://files.chat.example/']
+actions:
+  ping:
+    request:
+      url: https://status.example/ping
+`),
+        expressions,
+      ),
+    ).toMatchObject({
+      ok: false,
+      problems: [
+        expect.objectContaining({
+          field: FieldPath.of(['connection', 'oauth2', 'hosts', 0]),
+          reason: 'names a host, as in files.slack.com',
+        }),
+      ],
+    });
   });
 });

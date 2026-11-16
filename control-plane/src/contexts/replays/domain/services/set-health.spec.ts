@@ -10,7 +10,7 @@ import {
   later,
   measuresOf,
   NOW,
-  RUBRIC,
+  JUDGE,
   replayedAs,
   runIds,
   slots,
@@ -34,7 +34,7 @@ const MIN_GAIN = 0.05;
 
 const SET = aSet(6);
 
-const SCORED = candidateOf('live', 'candidate_scored', RUBRIC, 'npm test');
+const SCORED = candidateOf('live', 'candidate_scored', JUDGE, 'npm test');
 
 const PLAIN = candidateOf('live', 'candidate_plain');
 
@@ -51,10 +51,8 @@ const checksOf = (state: 'passed' | 'failed') =>
 
 const verdictOf = (passes: boolean) =>
   JudgeVerdict.of({
-    scale: 'number',
-    value: passes ? 5 : 2,
-    claimResults: null,
-    claims: [],
+    claimResults: [passes],
+    claims: ['It drains the queue.'],
     passThreshold: 1,
     model: 'judge/model',
     referenced: false,

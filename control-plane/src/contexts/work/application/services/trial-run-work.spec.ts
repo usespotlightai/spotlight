@@ -2,14 +2,16 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { recordingRuns } from '@work/application/ports/runs.fake-spec';
 import { leasedRunFor } from '@work/application/services/run-works.fake-spec';
 import { TrialRunWork } from '@work/application/services/trial-run-work';
 import { NotAllowedForIsolatedRunError } from '@work/domain/exceptions/not-allowed-for-isolated-run.error';
-import { ToolNotEnabledError } from '@work/domain/exceptions/tool-not-enabled.error';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
+import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { describe, expect, it } from 'vitest';
 
 const RUNNER = RunnerId.of('runner_1');
@@ -33,17 +35,29 @@ const briefed = BriefedTask.of({
 });
 
 const RUN = RunId.of('run_2');
+const TASK = TaskId.of('task_1');
+
+const reading = DeclaredTool.of({
+  tool: Tool.of('sentry.get-latest-event'),
+  description: 'Read the latest event of a Sentry issue.',
+  readOnly: true,
+});
 
 const working = () => {
   const runs = recordingRuns();
+  const leased = leasedRunFor(RUN, 'dev', 'trial', { claimedBy: RUNNER });
   const work = new TrialRunWork(
-    leasedRunFor(RUN, 'dev', 'trial', { claimedBy: RUNNER }),
-    briefed,
-    [{ path: 'api', repository: Repository.of('acme/api') }],
+    leased,
+    {
+      taskId: TASK,
+      stationId: BUILD,
+      briefed,
+      repositories: [{ path: 'api', repository: Repository.of('acme/api') }],
+    },
     runs,
   );
 
-  return { work, runs };
+  return { work, runs, leased };
 };
 
 describe('the work of a trial', () => {
@@ -71,13 +85,38 @@ describe('the work of a trial', () => {
     expect(work.attachment('another')).toBeNull();
   });
 
-  it('uses no tool', async () => {
+  it('calls a tool on the task of its original, acting as no person', async () => {
+    const { work, leased } = working();
+
+    expect(await work.toolContext()).toEqual({
+      kind: 'task',
+      runId: RUN,
+      workspaceId: leased.workspaceId,
+      taskId: TASK,
+      stationId: BUILD,
+      requester: null,
+    });
+  });
+
+  it('calls a tool that needs no approval, and asks no person to approve one that does', async () => {
     const { work } = working();
 
-    await expect(work.toolContext(Tool.of('linear.comment'))).rejects.toThrow(
-      ToolNotEnabledError,
-    );
-    expect((await work.clearFor()).kind).toBe('dismissed');
+    expect((await work.clearFor(reading)).kind).toBe('approved');
+    expect(
+      (
+        await work.clearFor(
+          reading.withApproval(
+            ApprovalNeeded.of(reading.tool.value, 'It reads private data.'),
+          ),
+        )
+      ).kind,
+    ).toBe('dismissed');
+  });
+
+  it('asks no person to connect', async () => {
+    const { work } = working();
+
+    expect((await work.askToConnect()).kind).toBe('denied');
   });
 
   it('takes up nothing a person says', async () => {

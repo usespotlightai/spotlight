@@ -35,7 +35,7 @@ export function NewReviewComment({ spot, open }: NewReviewCommentProps) {
           draft.mutate(
             {
               teamId: reviewing.teamId,
-              runId: reviewing.runId,
+              taskId: reviewing.taskId,
               repository: reviewing.repository,
               body,
               on: spot,

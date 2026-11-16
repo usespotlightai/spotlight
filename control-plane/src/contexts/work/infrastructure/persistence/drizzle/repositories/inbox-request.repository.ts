@@ -35,6 +35,7 @@ const toInboxRequest = (row: Row, reads: readonly ReadRow[]): InboxRequest =>
     taskId: TaskId.of(row.taskId),
     form: row.form,
     about: InboxRequestSubject.of(row.about),
+    askedOf: row.askedOfId ? UserId.of(row.askedOfId) : null,
     createdAt: row.createdAt,
     openedAt: row.openedAt,
     reads: reads.map((each) =>
@@ -61,6 +62,7 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
           taskId: added.taskId.value,
           form: added.form,
           about: added.about.value,
+          askedOfId: added.askedOf?.value ?? null,
           createdAt: added.createdAt,
           openedAt: added.openedAt,
           resolvedAt: added.resolvedAt,

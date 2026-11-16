@@ -6,6 +6,8 @@ export const API_VERSION_HEADER = 'Spotlight-Api-Version';
 
 export const CLIENT_HEADER = 'Spotlight-Client';
 
+export const SOURCE_COMMIT_HEADER = 'Spotlight-Source-Commit';
+
 export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key';
 
 export const IDEMPOTENT_REPLAY_HEADER = 'Idempotent-Replayed';

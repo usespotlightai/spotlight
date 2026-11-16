@@ -9,6 +9,7 @@ type ApprovalControlsProps = {
   pending: boolean;
   onlyFor: string | null;
   blank: boolean;
+  keyed: boolean;
   reason: string;
   onReason: (reason: string) => void;
   onMode: (mode: ApprovalMode) => void;
@@ -22,6 +23,7 @@ export function ApprovalControls({
   pending,
   onlyFor,
   blank,
+  keyed,
   reason,
   onReason,
   onMode,
@@ -38,6 +40,7 @@ export function ApprovalControls({
         approval={approval}
         pending={pending}
         blank={blank}
+        keyed={keyed}
         onApprove={onApproveEdited}
         onCancel={() => onMode('viewing')}
       />
@@ -62,6 +65,7 @@ export function ApprovalControls({
       approval={approval}
       pending={pending}
       onlyFor={onlyFor}
+      keyed={keyed}
       onApprove={
         onlyFor ? undefined : () => onDecide({ approve: true, body: '' })
       }

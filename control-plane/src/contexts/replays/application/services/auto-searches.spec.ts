@@ -94,6 +94,7 @@ const auto = () =>
         memory.replayRepository,
         memory.candidateRepository,
       ),
+      suppliers.calibrations,
       suppliers.dispatch,
       { sha256 },
       IDS,

@@ -12,7 +12,6 @@ import type { ReplayState } from '@replays/domain/value-objects/replay-state';
 import type { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { JudgeScaleKind } from '@shared-kernel/domain/value-objects/judge-scale.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -24,7 +23,6 @@ interface OutcomeMeasures {
 
 export interface OutcomeVerdict {
   readonly value: number;
-  readonly scale: JudgeScaleKind;
   readonly referenced: boolean;
 }
 

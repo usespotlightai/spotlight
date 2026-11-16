@@ -9,6 +9,7 @@ import {
   type Run,
   runStatus,
   shownProgress,
+  stoppable,
   underway,
   waitsOnPerson,
 } from '@/lib/run';
@@ -110,6 +111,20 @@ describe('underway', () => {
   it('is not under way while it waits on a person, or once it is over', () => {
     expect(underway(run('suspended'))).toBe(false);
     expect(underway(run('completed'))).toBe(false);
+  });
+});
+
+describe('stoppable', () => {
+  const run = (progress: Run['progress']) => ({ progress }) as Run;
+
+  it('is true while the run is in progress', () => {
+    expect(stoppable(run('in-progress'))).toBe(true);
+  });
+
+  it('is false while it waits for a runner, is stopping, or does nothing', () => {
+    expect(stoppable(run('queued'))).toBe(false);
+    expect(stoppable(run('stopping'))).toBe(false);
+    expect(stoppable(run(null))).toBe(false);
   });
 });
 

@@ -78,21 +78,18 @@ export const stationOf = (input: {
   });
 
 export const judgeOf = (input: {
-  rubric?: string | null;
   claims?: readonly string[] | null;
   passThreshold?: number | null;
   sample: number;
   minAgreement: number;
 }): JudgeSettings =>
   JudgeSettings.of({
-    rubric: input.rubric ?? null,
-    claims: input.claims ?? [],
+    claims: input.claims ?? ['It retries the upload.'],
     passThreshold: input.passThreshold ?? 1,
     rubricVersion: createHash('sha256')
       .update(
         JSON.stringify({
-          rubric: input.rubric ?? null,
-          claims: input.claims ?? [],
+          claims: input.claims ?? ['It retries the upload.'],
           passThreshold: input.passThreshold ?? 1,
         }),
       )

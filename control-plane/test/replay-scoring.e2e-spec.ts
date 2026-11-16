@@ -73,7 +73,12 @@ const DELIVERY = randomUUID();
 const BUILD = randomUUID();
 const SHIP = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
-const RUBRIC = 'scores: 1-5\nDoes it drain the queue in order?';
+const CLAIMS = [
+  'It drains the queue in order.',
+  'It keeps the oldest job first.',
+  'It survives a restart.',
+  'It tests the order.',
+];
 
 const attachmentStore = {
   received: async () => [],
@@ -94,7 +99,7 @@ const archiveStore: WorkingCopyArchiveStorePort = {
 };
 
 const generator: ChangeStackGeneratorPort = {
-  available: true,
+  availableTo: async () => true,
   outline: async () => {
     throw new Error('A diff this small is not split');
   },
@@ -142,7 +147,7 @@ const SCORED = /score\((\d)\)/;
 const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
-  available: true,
+  availableTo: async () => true,
   judge: async (request) => {
     requests.push(request);
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
@@ -152,14 +157,17 @@ const judge: JudgePort = {
       model: 'stub/judge',
       guidance: null,
       verdict: {
-        value,
-        reasons: [
-          {
-            text: `It drains the queue as a ${value}.`,
-            steps: scoredStep ? [scoredStep.index] : [],
-            hunks: request.hunks.slice(0, 1).map((each) => each.id),
-          },
-        ],
+        claims: CLAIMS.map((_, index) => ({
+          index,
+          met: index < value - 1,
+          reasons: [
+            {
+              text: `It drains the queue as a ${value}.`,
+              steps: scoredStep ? [scoredStep.index] : [],
+              hunks: request.hunks.slice(0, 1).map((each) => each.id),
+            },
+          ],
+        })),
       },
     };
   },
@@ -328,6 +336,15 @@ interface Claimed {
   readonly stackId: string | null;
 }
 
+const runOfStack = async (stackId: string): Promise<string> => {
+  const [stack] = await db
+    .select({ runId: schema.changeStack.runId })
+    .from(schema.changeStack)
+    .where(eq(schema.changeStack.id, stackId));
+
+  return stack?.runId ?? '';
+};
+
 const claimed = async (): Promise<Claimed> => {
   const assignment = (
     await http()
@@ -340,14 +357,18 @@ const claimed = async (): Promise<Claimed> => {
     work: {
       kind: 'run' | 'check';
       run: { id: string } | null;
-      check: { runId: string; stackId: string } | null;
+      check: { stackId: string } | null;
     };
   };
 
   return {
     token: assignment.token,
     kind: assignment.work.kind,
-    runId: assignment.work.run?.id ?? assignment.work.check?.runId ?? '',
+    runId:
+      assignment.work.run?.id ??
+      (assignment.work.check
+        ? await runOfStack(assignment.work.check.stackId)
+        : ''),
     stackId: assignment.work.check?.stackId ?? null,
   };
 };
@@ -431,9 +452,8 @@ beforeAll(async () => {
       diffs: true,
       check: 'npm test',
       judge: {
-        rubric: RUBRIC,
-        claims: [],
-        passThreshold: 1,
+        claims: CLAIMS,
+        passThreshold: 0.75,
         sample: 0.1,
         minAgreement: 0.6,
       },
@@ -560,19 +580,16 @@ describe('a replay at a station that checks and judges', () => {
       expect(await replayState(entry?.replayId ?? '')).toBe('running');
 
       await bearing(assignment.token)
-        .post(
-          `/api/runs/${assignment.runId}/change-stack-checks/${assignment.stackId}`,
-          {
-            steps: [
-              {
-                step: 'whole',
-                passed: passes,
-                output: passes ? 'ok' : '1 failing',
-                durationMs: 900,
-              },
-            ],
-          },
-        )
+        .post(`/api/change-stacks/${assignment.stackId}/checks`, {
+          steps: [
+            {
+              step: 'whole',
+              passed: passes,
+              output: passes ? 'ok' : '1 failing',
+              durationMs: 900,
+            },
+          ],
+        })
         .expect(204);
       reported.add(assignment.stackId ?? '');
     };
@@ -648,9 +665,15 @@ describe('a replay at a station that checks and judges', () => {
     );
 
     const replay = await replayOf(app, id);
-    const comparison = taskComparisons(
-      replay.outcome(),
-      (await replayOf(app, baselineId)).outcome(),
+    const pastOrder = [first.runId, second.runId];
+    const comparison = [
+      ...taskComparisons(
+        replay.outcome(),
+        (await replayOf(app, baselineId)).outcome(),
+      ),
+    ].sort(
+      (one, other) =>
+        pastOrder.indexOf(one.original) - pastOrder.indexOf(other.original),
     );
 
     expect(replay.judges).toBe(true);
@@ -669,8 +692,8 @@ describe('a replay at a station that checks and judges', () => {
         each.baseline[0]?.succeeded,
       ]),
     ).toEqual([
-      [first.runId, false, 1, true, true],
-      [second.runId, false, -2, false, true],
+      [first.runId, false, 0.25, true, true],
+      [second.runId, false, -0.5, false, true],
     ]);
 
     const [steady, worse] = comparison.map((row) =>
@@ -695,23 +718,28 @@ describe('a replay at a station that checks and judges', () => {
       why: null,
     });
     expect(worse?.verdict).toMatchObject({
-      value: 2,
+      value: 0.25,
       passes: false,
       referenced: false,
     });
     expect(worse?.reasons.map((each) => each.code)).toEqual([
       'check-failed',
       'judge-failed',
+      'judge-failed',
+      'judge-failed',
+      'judge-failed',
     ]);
     expect(steady?.verdict).toMatchObject({
-      value: 5,
+      value: 1,
       passes: true,
       referenced: true,
     });
 
     const referenced = requests.find((each) => each.reference !== null);
     expect(referenced?.reference?.hunks[0]?.lines).toContain('+drainInOrder()');
-    expect(requests.every((each) => each.rubric === RUBRIC)).toBe(true);
+    expect(requests.every((each) => each.claims.join() === CLAIMS.join())).toBe(
+      true,
+    );
 
     const replayRuns = (
       await db

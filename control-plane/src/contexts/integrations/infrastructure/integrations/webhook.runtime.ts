@@ -8,7 +8,9 @@ import {
 
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
+import { TeamConnectionMissingError } from '@integrations/application/errors/team-connection-missing.error';
 import type {
+  ActiveConnection,
   Credentials,
   SigningSecrets,
 } from '@integrations/application/ports/integration-runtime.port';
@@ -19,12 +21,14 @@ import type {
   WebhookHeaders,
   WebhookProviderPort,
 } from '@integrations/application/ports/webhook-provider.port';
+import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
 import type {
   AuthIR,
   EventIR,
   ReadableIntegration,
+  RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import type { JwksResolver } from '@integrations/infrastructure/integrations/jwks';
 import {
@@ -38,6 +42,7 @@ import {
 } from '@platform/expressions/cel-variables';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
 import { evaluateText, isTrue, value } from '@platform/expressions/readings';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -53,7 +58,18 @@ const headed = (headers: WebhookHeaders, name: string): string | undefined => {
 
 const DIGEST = { sha256: 'sha256', sha1: 'sha1', sha512: 'sha512' } as const;
 
+const UNAUTHORIZED = 401;
+
+const withToken = (
+  against: CelVariables,
+  token: AccessToken | null,
+): CelVariables => (token ? { ...against, connection: token.value } : against);
+
 export class WebhookRuntime implements WebhookProviderPort {
+  #connection: Promise<ActiveConnection | null> | null = null;
+
+  #refreshed: AccessToken | null = null;
+
   constructor(
     private readonly readable: ReadableIntegration,
     private readonly workspaceId: WorkspaceId,
@@ -64,6 +80,7 @@ export class WebhookRuntime implements WebhookProviderPort {
     private readonly credentials: Credentials,
     private readonly limits: OutboundLimitsPort,
     private readonly scope: WorkspaceOutboundScopePort,
+    private readonly connectionOf: () => Promise<ActiveConnection | null>,
   ) {}
 
   get key(): string {
@@ -322,9 +339,33 @@ export class WebhookRuntime implements WebhookProviderPort {
       (against) => (ignoreWhen ? isTrue(ignoreWhen, against) : false),
       (event, against) => this.enriched(event, against),
       (request, against) =>
-        this.onBehalfOf(() =>
-          this.outbound.bytes(request, against, this.credentials),
-        ),
+        this.onBehalfOf(async () => {
+          const fetched = await this.connected(
+            request,
+            against,
+            (bound) =>
+              this.outbound.bytes(request, bound, this.credentials).then(
+                (bytes) => ({ bytes }),
+                (error: unknown) => {
+                  if (
+                    error instanceof UpstreamError &&
+                    error.status === UNAUTHORIZED
+                  ) {
+                    return { refused: error };
+                  }
+
+                  throw error;
+                },
+              ),
+            (sent) => 'refused' in sent,
+          );
+
+          if ('refused' in fetched) {
+            throw fetched.refused;
+          }
+
+          return fetched.bytes;
+        }),
     );
   }
 
@@ -342,7 +383,7 @@ export class WebhookRuntime implements WebhookProviderPort {
 
     try {
       result = await this.onBehalfOf(() =>
-        this.outbound.run(lookup.request, against, this.credentials),
+        this.lookedUp(lookup.request, against),
       );
     } catch (error) {
       if (error instanceof ExpressionFailedError) {
@@ -380,6 +421,58 @@ export class WebhookRuntime implements WebhookProviderPort {
       headers: sanitizedForCel(delivered.headers ?? {}),
       raw: delivered.raw ? Buffer.from(delivered.raw).toString('utf8') : '',
     };
+  }
+
+  private lookedUp(request: RequestIR, against: CelVariables) {
+    return this.connected(
+      request,
+      against,
+      (bound) => this.outbound.run(request, bound, this.credentials),
+      (sent) => sent.status === UNAUTHORIZED,
+    );
+  }
+
+  private async connected<T>(
+    request: RequestIR,
+    against: CelVariables,
+    send: (bound: CelVariables) => Promise<T>,
+    unauthorized: (sent: T) => boolean,
+  ): Promise<T> {
+    const connection = await this.connectionFor(request);
+    const token = connection ? (this.#refreshed ?? connection.token) : null;
+    const first = await send(withToken(against, token));
+
+    if (!connection || !token || !unauthorized(first)) {
+      return first;
+    }
+
+    const refreshed = await connection.unauthorized(token);
+
+    if (!refreshed) {
+      return first;
+    }
+
+    this.#refreshed = refreshed;
+
+    return send(withToken(against, refreshed));
+  }
+
+  private async connectionFor(
+    request: RequestIR,
+  ): Promise<ActiveConnection | null> {
+    if (request.auth?.kind !== 'oauth2') {
+      return null;
+    }
+
+    this.#connection ??= this.connectionOf();
+
+    const connection = await this.#connection;
+
+    if (!connection) {
+      throw new TeamConnectionMissingError(this.readable.integration.name);
+    }
+
+    return connection;
   }
 
   private async onBehalfOf<T>(work: () => Promise<T>): Promise<T> {

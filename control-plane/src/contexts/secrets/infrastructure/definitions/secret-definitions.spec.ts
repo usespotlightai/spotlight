@@ -67,4 +67,10 @@ describe('SecretDefinitions', () => {
     expect(read.ok).toBe(false);
     expect(JSON.stringify(read)).not.toContain('x'.repeat(100));
   });
+
+  it('refuses a name that Spotlight keeps for its own secrets', () => {
+    expect(
+      problemsAt({ name: 'SPOTLIGHT_INFERENCE_API_KEY', valueWo: 'sk-1' }),
+    ).toEqual(['name']);
+  });
 });

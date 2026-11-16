@@ -4,6 +4,7 @@ import type { IntegrationConnectionRepository } from '@integrations/domain/repos
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
@@ -130,6 +131,7 @@ export class DrizzleIntegrationConnections
 
   private async stored(connection: IntegrationConnection): Promise<void> {
     const written = {
+      clientId: connection.client.value,
       accessToken: await this.encrypted(
         connection,
         'access',
@@ -222,6 +224,7 @@ export class DrizzleIntegrationConnections
       teamId: TeamId.of(row.teamId),
       integration: IntegrationKey.rehydrate(row.integration),
       owner: ConnectionOwner.fromKey(row.owner),
+      client: OAuth2ClientId.rehydrate(row.clientId),
       accessToken: AccessToken.of(
         await this.decrypted(row, 'access', row.accessToken),
       ),

@@ -57,7 +57,7 @@ interface Payload {
     readonly head_branch?: unknown;
     readonly pull_requests?: readonly { readonly html_url?: unknown }[];
   };
-  readonly sender?: { readonly type?: unknown };
+  readonly sender?: { readonly type?: unknown; readonly login?: unknown };
   readonly repository?: {
     readonly full_name?: unknown;
   };
@@ -85,7 +85,8 @@ interface Pull extends DetailsPayload {
   readonly additions?: unknown;
   readonly deletions?: unknown;
   readonly changed_files?: unknown;
-  readonly head?: { readonly ref?: unknown };
+  readonly head?: { readonly ref?: unknown; readonly sha?: unknown };
+  readonly base?: { readonly sha?: unknown };
 }
 
 interface CommentPayload {
@@ -126,6 +127,14 @@ const named = (value: unknown): string | null =>
   /^\d+$/.test(String(value).trim())
     ? String(value).trim()
     : null;
+
+const COMMIT = /^[0-9a-f]{40}$/;
+
+const commit = (value: unknown): string | null => {
+  const sha = typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+  return COMMIT.test(sha) ? sha : null;
+};
 
 const writtenAt = (value: unknown): Date | null => {
   const written = typeof value === 'string' ? new Date(value) : null;
@@ -454,6 +463,40 @@ const pullRequestReopened = (payload: Payload): WebhookEvent[] => {
   ];
 };
 
+const pullRequestPushed = (payload: Payload): WebhookEvent[] => {
+  const pull = payload.pull_request;
+  const pullRequest = text(pull?.html_url);
+  const repository = text(payload.repository?.full_name);
+  const head = commit(pull?.head?.sha);
+  const baseTip = commit(pull?.base?.sha);
+  const pushedAt = writtenAt(pull?.updated_at);
+
+  if (
+    payload.action !== 'synchronize' ||
+    !pullRequest ||
+    !repository ||
+    !head ||
+    !baseTip ||
+    !pushedAt
+  ) {
+    return [];
+  }
+
+  return [
+    {
+      kind: 'pull-request-pushed',
+      pullRequest,
+      repository,
+      head,
+      baseTip,
+      pushedBy: text(payload.sender?.login),
+      byBot: payload.sender?.type === 'Bot',
+      pushedAt,
+      snapshot: snapshotOf(payload),
+    },
+  ];
+};
+
 const REVIEW_STATES: ReadonlyMap<string, ReviewState> = new Map([
   ['approved', 'approved'],
   ['changes_requested', 'changes-requested'],
@@ -523,6 +566,7 @@ const eventsIn = (
     ...(event === 'pull_request' ? pullRequestSnapshot(payload) : []),
     ...(event === 'pull_request' ? pullRequestClosed(payload) : []),
     ...(event === 'pull_request' ? pullRequestReopened(payload) : []),
+    ...(event === 'pull_request' ? pullRequestPushed(payload) : []),
     ...(event === 'pull_request_review' ? pullRequestReviewed(payload) : []),
     ...(event === 'pull_request_review' ? reviewDismissed(payload) : []),
     ...pullRequestActivity(event, payload),

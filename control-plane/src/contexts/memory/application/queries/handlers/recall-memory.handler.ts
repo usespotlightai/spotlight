@@ -1,7 +1,7 @@
-import type { TeamMemoryDetailDto } from '@memory/application/dto/team-memory.dto';
+import type { RecalledMemoryDto } from '@memory/application/dto/recalled-memory.dto';
 import type { RecallMemoryQuery } from '@memory/application/queries/recall-memory.query';
+import type { RecalledMemoryViews } from '@memory/application/services/recalled-memory-views.service';
 import type { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
-import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { recallableBy } from '@memory/domain/services/recall-policy';
@@ -13,15 +13,15 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 export class RecallMemoryHandler implements QueryHandlerPort<
   RecallMemoryQuery,
-  TeamMemoryDetailDto
+  RecalledMemoryDto
 > {
   constructor(
     private readonly loader: RunnerMemoryLoader,
     private readonly memories: MemoryRepository,
-    private readonly views: TeamMemoryViews,
+    private readonly views: RecalledMemoryViews,
   ) {}
 
-  async execute(query: RecallMemoryQuery): Promise<TeamMemoryDetailDto> {
+  async execute(query: RecallMemoryQuery): Promise<RecalledMemoryDto> {
     try {
       const handle = MemoryHandle.parse(query.handle);
       const run = await this.loader.recalling(
@@ -34,7 +34,7 @@ export class RecallMemoryHandler implements QueryHandlerPort<
         throw new UnknownMemoryError(handle.value);
       }
 
-      return await this.views.detail(memory);
+      return await this.views.recalled(memory);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

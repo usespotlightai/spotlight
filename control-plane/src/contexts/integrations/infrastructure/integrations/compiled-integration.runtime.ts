@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { ToolCallInputs } from '@integrations/application/dto/declared-tool.dto';
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { OAuth2ClientSecretRefusedError } from '@integrations/application/errors/oauth2-client-secret-refused.error';
 import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
 import { DeclaredToolMapper } from '@integrations/application/mappers/declared-tool.mapper';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
@@ -35,6 +36,7 @@ import {
 } from '@integrations/domain/value-objects/binding.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
@@ -53,6 +55,7 @@ import type {
 } from '@integrations/infrastructure/integrations/integration.reader';
 import {
   authorizationServerOf,
+  ownClientOf,
   type OAuth2Discovery,
 } from '@integrations/infrastructure/integrations/oauth2-discovery';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -767,9 +770,16 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     owner: { readonly teamId: TeamId; readonly workspaceId: WorkspaceId },
     integration: IntegrationKey,
     refreshToken: RefreshToken,
+    madeThrough: (client: OAuth2ClientId) => boolean,
   ): Promise<RefreshResult> {
     return this.scope.within(owner.workspaceId, () =>
-      this.refreshInScope(definitions, owner.teamId, integration, refreshToken),
+      this.refreshInScope(
+        definitions,
+        owner.teamId,
+        integration,
+        refreshToken,
+        madeThrough,
+      ),
     );
   }
 
@@ -778,6 +788,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     teamId: TeamId,
     integration: IntegrationKey,
     refreshToken: RefreshToken,
+    madeThrough: (client: OAuth2ClientId) => boolean,
   ): Promise<RefreshResult> {
     const written = this.find(definitions, integration)?.connection?.oauth2;
     const oauth2 = written
@@ -790,15 +801,26 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         })
       : null;
     const client = oauth2
-      ? await this.clients.existingFor(
-          teamId,
-          integration,
-          authorizationServerOf(oauth2),
-        )
+      ? await this.clients
+          .existingFor(teamId, integration, {
+            own: ownClientOf(oauth2),
+            server: authorizationServerOf(oauth2),
+          })
+          .catch((error: unknown) => {
+            if (error instanceof OAuth2ClientSecretRefusedError) {
+              return null;
+            }
+
+            throw error;
+          })
       : null;
 
     if (!oauth2 || !client) {
       return { kind: 'not-refreshable' };
+    }
+
+    if (!madeThrough(OAuth2ClientId.of(client.id))) {
+      return { kind: 'other-client' };
     }
 
     const tokens = await this.exchange.refresh(

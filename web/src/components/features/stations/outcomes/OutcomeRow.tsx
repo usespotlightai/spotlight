@@ -1,4 +1,3 @@
-import { OutcomeIcon } from '@/components/features/stations/activity/OutcomeIcon';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import {
   EDGE_INDENT,
@@ -7,6 +6,7 @@ import {
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { OutcomeIcon } from '@/components/shared/OutcomeIcon';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { since } from '@/lib/since';
 import {

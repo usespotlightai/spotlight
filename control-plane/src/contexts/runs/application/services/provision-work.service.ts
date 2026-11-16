@@ -3,15 +3,15 @@ import type {
   RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
 import type {
-  LeasedWork,
   ProvisionedRunner,
   RunnersPort,
+  WorkToProvision,
 } from '@runners/application/ports/runners.port';
 import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import type {
-  CheckProvisioningPort,
-  WaitingCheck,
-} from '@runs/application/ports/check-provisioning.port';
+  ReviewWorkProvisioningPort,
+  WaitingReviewWork,
+} from '@runs/application/ports/review-work-provisioning.port';
 import type { ProvisionFailures } from '@runs/application/services/provision-failures.service';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
@@ -31,7 +31,6 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 
@@ -107,7 +106,7 @@ export class ProvisionWork {
 
   constructor(
     private readonly runs: RunRepository,
-    private readonly checks: CheckProvisioningPort,
+    private readonly reviewWork: ReviewWorkProvisioningPort,
     private readonly pools: RunnerPoolsPort,
     private readonly runners: RunnersPort,
     private readonly sandboxes: SandboxesPort,
@@ -203,15 +202,17 @@ export class ProvisionWork {
         };
       },
       async (skip: number) => {
-        const checks = await this.checks.awaiting(
+        const awaiting = await this.reviewWork.awaiting(
           first.workspaceId,
           this.clock.now(),
           { skip, max: PAGE },
         );
 
         return {
-          read: checks.length,
-          found: checks.map((check) => this.provisionableCheck(check)),
+          read: awaiting.length,
+          found: awaiting.map((waiting) =>
+            this.provisionableReviewWork(waiting),
+          ),
         };
       },
     ]) {
@@ -268,11 +269,11 @@ export class ProvisionWork {
       }
     }
 
-    for (const check of await this.checks.expired(now)) {
-      await this.checks.failed(
-        check.checkId,
-        check.runner,
-        ProvisionFailure.expired(check.until),
+    for (const expired of await this.reviewWork.expired(now)) {
+      await this.reviewWork.failed(
+        expired.work,
+        expired.runner,
+        ProvisionFailure.expired(expired.until),
         now,
       );
     }
@@ -317,13 +318,17 @@ export class ProvisionWork {
     };
   }
 
-  private provisionableCheck(check: WaitingCheck): Provisionable {
+  private provisionableReviewWork(waiting: WaitingReviewWork): Provisionable {
     return {
-      key: `check:${check.checkId.value}`,
-      ids: { runId: check.runId.value, checkId: check.checkId.value },
-      placement: check.placement,
+      key: `${waiting.work.kind}:${waiting.work.id.value}`,
+      ids: {
+        runId: waiting.runId?.value,
+        workKind: waiting.work.kind,
+        workId: waiting.work.id.value,
+      },
+      placement: waiting.placement,
       needsEgress: false,
-      on: (pool, last) => this.checkOn(check, pool, last),
+      on: (pool, last) => this.reviewWorkOn(waiting, pool, last),
     };
   }
 
@@ -365,7 +370,6 @@ export class ProvisionWork {
       () =>
         this.provisioned(pool, runnerId, {
           work: { kind: 'run', id: reserved.id.value },
-          runId: reserved.id,
           tags: reserved.tags.value,
           placement: reserved.placement,
           needsEgress: reserved.injectsSecrets,
@@ -385,14 +389,14 @@ export class ProvisionWork {
     );
   }
 
-  private async checkOn(
-    check: WaitingCheck,
+  private async reviewWorkOn(
+    waiting: WaitingReviewWork,
     pool: OfferedPool,
     last: boolean,
   ): Promise<Provisioned> {
     const runnerId = RunnerId.of(this.ids.generate());
-    const until = await this.checks.reserve(
-      check.checkId,
+    const until = await this.reviewWork.reserve(
+      waiting.work,
       runnerId,
       pool.pool,
       this.clock.now(),
@@ -405,22 +409,28 @@ export class ProvisionWork {
     return this.attempted(
       () =>
         this.provisioned(pool, runnerId, {
-          work: { kind: 'check', id: check.checkId.value },
-          runId: check.runId,
+          work:
+            waiting.work.kind === 'check'
+              ? {
+                  kind: 'check',
+                  id: waiting.work.id.value,
+                  runId: waiting.runId,
+                }
+              : { kind: 'diff', id: waiting.work.id.value },
           tags: {},
-          placement: check.placement,
+          placement: waiting.placement,
           needsEgress: false,
           claimBy: until,
         }),
       {
         failed: (failure) =>
-          this.checks.failed(
-            check.checkId,
+          this.reviewWork.failed(
+            waiting.work,
             runnerId,
             failure,
             this.clock.now(),
           ),
-        unreserved: () => this.checks.unreserve(check.checkId, runnerId),
+        unreserved: () => this.reviewWork.unreserve(waiting.work, runnerId),
       },
       last,
     );
@@ -430,8 +440,7 @@ export class ProvisionWork {
     pool: PoolAtWork,
     runnerId: RunnerId,
     reserved: {
-      readonly work: LeasedWork;
-      readonly runId: RunId;
+      readonly work: WorkToProvision;
       readonly tags: Readonly<Record<string, string>>;
       readonly placement: RunnerPlacement;
       readonly needsEgress: boolean;
@@ -443,7 +452,6 @@ export class ProvisionWork {
         poolId: pool.poolId,
         runnerId,
         work: reserved.work,
-        runId: reserved.runId,
         tags: reserved.tags,
         labels: reserved.placement.requiredLabels,
         image: reserved.placement.image?.value ?? null,

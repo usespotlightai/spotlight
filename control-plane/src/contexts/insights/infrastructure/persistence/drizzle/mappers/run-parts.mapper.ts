@@ -21,6 +21,7 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export type RunPartsRow = Omit<
   typeof runRecord.$inferSelect,
@@ -101,7 +102,11 @@ export const firstHumanActionOf = (row: RunPartsRow): HumanAction | null => {
     return null;
   }
 
-  return HumanAction.of(row.firstHumanAction, row.firstHumanActionAt);
+  return HumanAction.of(
+    row.firstHumanAction,
+    row.firstHumanActionAt,
+    row.firstHumanActionBy ? UserId.of(row.firstHumanActionBy) : null,
+  );
 };
 
 const firstHumanActionColumnOf = (
@@ -234,6 +239,7 @@ export const partColumnsOf = (record: RunParts): RunPartsRow => {
     checkedAt: record.checkedAt,
     firstHumanAction: firstHumanActionColumnOf(record.firstHumanAction),
     firstHumanActionAt: record.firstHumanAction?.at ?? null,
+    firstHumanActionBy: record.firstHumanAction?.by?.value ?? null,
     approvalAnsweredAt: record.approvalAnsweredAt,
     passedTo: record.passed?.to.value ?? null,
     passedAt: record.passed?.at ?? null,

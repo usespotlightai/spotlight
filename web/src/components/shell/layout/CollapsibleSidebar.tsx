@@ -17,7 +17,7 @@ import { useDragToClose } from '@/hooks/useDragToClose';
 import { useNarrowViewport } from '@/hooks/useNarrowViewport';
 import { usePaneWidth, WORKSPACE_SIDEBAR } from '@/hooks/usePaneWidth';
 import { useSettling } from '@/hooks/useSettling';
-import { useSidebarShortcut } from '@/hooks/useSidebarShortcut';
+import { useSidebarKey } from '@/hooks/useSidebarKey';
 import { framesWindow } from '@/lib/desktop';
 import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -153,7 +153,7 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
     narrow,
   });
 
-  useSidebarShortcut(() => setCollapsed(!collapsed), Boolean(children));
+  useSidebarKey(() => setCollapsed(!collapsed), Boolean(children));
 
   const closes = (wanted: number, velocity: number) =>
     wanted < CLOSES_AT_PX ||

@@ -12,6 +12,7 @@ import {
   UNSAFE_RouteContext,
 } from 'react-router';
 
+import { CommandScope } from '@/components/shell/command/CommandScope';
 import { PageErrorBoundary } from '@/components/shell/layout/PageErrorBoundary';
 import { type AppTab, type Place, placeAt } from '@/lib/app-tabs';
 import { type ReportTitle, TabTitleContext } from '@/lib/tab-title';
@@ -67,13 +68,15 @@ export function TabPane({
             navigator={focused ? windowNavigator : inPane}
           >
             <TabTitleContext value={onTitle}>
-              <PageErrorBoundary>
-                <Suspense fallback={null}>
-                  <Routes>
-                    <Route path="/w/:slug">{pages}</Route>
-                  </Routes>
-                </Suspense>
-              </PageErrorBoundary>
+              <CommandScope active={focused}>
+                <PageErrorBoundary>
+                  <Suspense fallback={null}>
+                    <Routes>
+                      <Route path="/w/:slug">{pages}</Route>
+                    </Routes>
+                  </Suspense>
+                </PageErrorBoundary>
+              </CommandScope>
             </TabTitleContext>
           </Router>
         </UNSAFE_RouteContext>

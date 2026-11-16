@@ -1,8 +1,15 @@
-import { render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ApprovalCard } from '@/components/features/inbox/conversation/approval/ApprovalCard';
+import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import type { Approval } from '@/lib/approval';
 
 const COMMENT: Approval = {
@@ -300,5 +307,107 @@ describe('ApprovalCard', () => {
     expect(
       screen.getByRole('heading', { name: 'Request dismissed' }),
     ).toBeInTheDocument();
+  });
+
+  describe('keyboard', () => {
+    const showingWithKeys = (approval: Approval, onDecide = vi.fn()) => {
+      render(
+        <CommandsProvider>
+          <ApprovalCard
+            approval={approval}
+            pending={false}
+            onDecide={onDecide}
+          />
+          <button type="button">Elsewhere</button>
+        </CommandsProvider>,
+      );
+
+      return onDecide;
+    };
+
+    const approveKey = () =>
+      fireEvent.keyDown(document.activeElement ?? document.body, {
+        key: 'Enter',
+        metaKey: true,
+      });
+
+    it('approves with Command Enter while the card has focus', () => {
+      const onDecide = showingWithKeys(COMMENT);
+
+      act(() =>
+        screen.getByRole('button', { name: 'Dismiss linear.comment' }).focus(),
+      );
+      approveKey();
+
+      expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
+    });
+
+    it('approves nothing with Command Enter while focus is elsewhere', () => {
+      const onDecide = showingWithKeys(COMMENT);
+
+      act(() => screen.getByRole('button', { name: 'Elsewhere' }).focus());
+      approveKey();
+
+      expect(onDecide).not.toHaveBeenCalled();
+    });
+
+    it('shows Command Enter on Approve only while the key approves', async () => {
+      showingWithKeys(COMMENT);
+      const approve = screen.getByRole('button', {
+        name: 'Approve linear.comment',
+      });
+
+      await userEvent.hover(approve);
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      expect(
+        document.querySelector('[data-slot="shortcut-hint"]'),
+      ).not.toBeInTheDocument();
+
+      await userEvent.unhover(approve);
+      act(() =>
+        screen.getByRole('button', { name: 'Dismiss linear.comment' }).focus(),
+      );
+      await userEvent.hover(approve);
+
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-slot="shortcut-hint"]'),
+        ).toBeInTheDocument(),
+      );
+    });
+
+    it('approves nothing with a single key', () => {
+      const onDecide = showingWithKeys(COMMENT);
+
+      act(() =>
+        screen.getByRole('button', { name: 'Dismiss linear.comment' }).focus(),
+      );
+      for (const key of ['Enter', 'y', 'a', 'e']) {
+        fireEvent.keyDown(document.activeElement ?? document.body, { key });
+      }
+
+      expect(onDecide).not.toHaveBeenCalled();
+    });
+
+    it('approves what the person changed with Command Enter in a field', async () => {
+      const onDecide = showingWithKeys(COMMENT);
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Edit linear.comment' }),
+      );
+      const body = screen.getByRole('textbox', { name: 'body' });
+      await userEvent.clear(body);
+      await userEvent.type(body, 'Fixed in #41.');
+      approveKey();
+
+      expect(onDecide).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approve: true,
+          inputs: expect.arrayContaining([
+            { name: 'body', value: 'Fixed in #41.' },
+          ]) as unknown,
+        }),
+      );
+    });
   });
 });

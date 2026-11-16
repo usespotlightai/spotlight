@@ -63,9 +63,11 @@ const DELIVERY_STATIONS: StationResponseDto[] = [
       '## Role\n\nImplement the spec on the task.\n\n- Read the tests that cover the change first, and write the failing one before the fix\n- Keep the change small\n- Ask when the spec is unclear',
     skills: ['grafana-dashboards'],
     judge: {
-      rubric:
-        '## A good run\n\n- Changes only what the spec requires\n- Leaves the tests passing\n- Says what it could not do',
-      claims: [],
+      claims: [
+        'The change does only what the spec requires',
+        'The tests pass after the change',
+        'The note says what the run could not do',
+      ],
       passThreshold: 1,
       sample: 0.2,
       minAgreement: 0.6,

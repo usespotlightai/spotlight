@@ -37,6 +37,10 @@ vi.mock('@/hooks/api/useRunScores', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useMembers', () => ({
+  useMembers: () => ({ data: [] }),
+}));
+
 const AT = Date.UTC(2026, 7, 29, 12, 0, 0);
 const iso = (ms: number) => new Date(AT + ms).toISOString();
 
@@ -65,6 +69,7 @@ const node = (
   cost: null,
   currency: null,
   step: null,
+  place: null,
   span: null,
   connection: null,
   egressEnforcement: null,
@@ -176,8 +181,10 @@ const trace = (): Trace => ({
   ],
 });
 
-const view = () => {
-  scores.mockImplementation((runId: string) => runScoresOf(runId, 'task_1'));
+const view = (over: Parameters<typeof runScoresOf>[2] = {}) => {
+  scores.mockImplementation((runId: string) =>
+    runScoresOf(runId, 'task_1', over),
+  );
   return render(<TraceView trace={trace()} teamId="team_1" />);
 };
 
@@ -209,7 +216,7 @@ describe('TraceView', () => {
     view();
 
     expect(screen.getByRole('button', { name: 'npm test' })).toHaveClass(
-      'text-outcome-failed',
+      'text-destructive',
     );
   });
 
@@ -311,7 +318,23 @@ describe('TraceView', () => {
     view();
 
     expect(rows()[0]).toHaveTextContent('Judged');
-    expect(rows()[0]).toHaveTextContent('No');
+    expect(rows()[0]).toHaveTextContent('Failed by the judge');
+    expect(
+      rows()[0].querySelector('[data-slot="trace-run-disagrees"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('marks what people said of the run in place of the judge’s verdict', () => {
+    view({ outcome: { source: 'accepted', passes: true }, agrees: false });
+
+    expect(rows()[0]).toHaveTextContent('Outcome');
+    expect(rows()[0]).toHaveTextContent('Accepted');
+    expect(rows()[0]).not.toHaveTextContent('Failed by the judge');
+    expect(
+      within(rows()[0]).getByRole('img', {
+        name: 'The judge disagrees with people',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('says why the judge decided so when the run is picked', async () => {
@@ -322,10 +345,116 @@ describe('TraceView', () => {
     );
 
     expect(
-      within(screen.getByRole('list', { name: 'Why' })).getByText(
-        'The change retries a 410 Gone like any other failure.',
-      ),
+      within(
+        screen.getByRole('list', {
+          name: 'The judge’s reasons on claim 1',
+        }),
+      ).getByText('The change retries a 410 Gone like any other failure.'),
     ).toBeVisible();
+  });
+
+  describe('citations in the run’s verdicts', () => {
+    const RETRY = '/workspace/worker/services/retry.ts';
+
+    const edit = (id: string, name: string, place: number, at: number) =>
+      node({
+        id,
+        name,
+        place,
+        startedAt: iso(at),
+        step: step({
+          tool: 'edit',
+          text: name,
+          startedAt: iso(at),
+          change: { path: RETRY, before: 'a\n', after: `${name}\n` },
+        }),
+      });
+
+    const cited = (steps: TraceNodeResponseDto[]): Trace => ({
+      startedAt: iso(0),
+      ms: 60_000,
+      rows: 2 + steps.length,
+      errors: 0,
+      roots: [
+        node({
+          id: 'run:run_1',
+          name: 'Implementation',
+          kind: 'run',
+          ms: 60_000,
+          children: [
+            node({
+              id: 'run_1:turn',
+              name: 'Turn · claude-code',
+              kind: 'phase',
+              startedAt: iso(12_000),
+              ms: 38_000,
+              children: steps,
+            }),
+          ],
+        }),
+      ],
+    });
+
+    const STEPS = [
+      edit('run_1:step:0', 'Edited retry.ts', 2, 20_000),
+      edit('span:s4', 'Edited retry.ts again', 4, 30_000),
+      edit('run_1:step:1', 'Edited retry.ts first', 0, 10_000),
+    ];
+
+    const pickRun = async () => {
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Implementation' }),
+      );
+    };
+
+    it('picks the cited step’s row, opening the row it is folded under, and shows its details', async () => {
+      render(<TraceView trace={cited(STEPS)} teamId="team_1" />);
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Collapse Turn · claude-code' }),
+      );
+      expect(
+        screen.queryByRole('button', { name: 'Edited retry.ts' }),
+      ).not.toBeInTheDocument();
+      await pickRun();
+
+      await userEvent.click(screen.getByRole('button', { name: 'step 2' }));
+
+      expect(
+        screen.getByRole('button', { name: 'Collapse Turn · claude-code' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'Edited retry.ts' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: 'Implementation' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('picks the last step of the run that changed the cited file', async () => {
+      render(<TraceView trace={cited(STEPS)} teamId="team_1" />);
+      await pickRun();
+
+      await userEvent.click(screen.getByRole('button', { name: 'retry.ts:1' }));
+
+      expect(
+        screen.getByRole('heading', { name: 'Edited retry.ts again' }),
+      ).toBeInTheDocument();
+    });
+
+    it('greys out a step no row has the place of, and a file no step changed', async () => {
+      render(<TraceView trace={cited([])} teamId="team_1" />);
+      await pickRun();
+
+      expect(screen.getByRole('button', { name: 'step 2' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      );
+      expect(
+        screen.getByRole('button', { name: 'retry.ts:1' }),
+      ).toHaveAccessibleDescription(
+        'The file is no longer in the run’s changes.',
+      );
+    });
   });
 
   describe('network', () => {
@@ -401,7 +530,7 @@ describe('TraceView', () => {
       expect(paste).toHaveTextContent('paste.example.net×3');
       expect(
         screen.getByRole('button', { name: 'paste.example.net' }),
-      ).toHaveClass('text-outcome-failed');
+      ).toHaveClass('text-destructive');
       expect(linear).toHaveTextContent('mcp.linear.app');
       expect(linear).not.toHaveTextContent('×');
     });

@@ -35,6 +35,19 @@ export const formatUsedFor = (integration: Integration): string => {
   return tools ? `${acting} · ${tools}` : acting;
 };
 
+const CONNECTION_PROBLEMS: Record<
+  NonNullable<Integration['connectionProblem']>,
+  string
+> = {
+  'other-client': 'Made through another OAuth app',
+  'refresh-failed': 'Token refresh failed',
+};
+
+export const formatConnectionProblem = ({
+  connectionProblem,
+}: Integration): string | null =>
+  connectionProblem ? CONNECTION_PROBLEMS[connectionProblem] : null;
+
 export const teamAccountPurpose = (integration: Integration): string =>
   actsAsEachPerson(integration)
     ? 'Watches and posts for the team.'

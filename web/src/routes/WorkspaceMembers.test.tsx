@@ -331,16 +331,17 @@ describe('WorkspaceMembers', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says when a role could not be changed', () => {
+  it('keeps the member actions after a failed role change, with no inline error', () => {
     changing.mockReturnValue('failed');
     members.mockReturnValue([
       member({ id: 'user_3', name: 'Maya Chen', assignableRoles: ['admin'] }),
     ]);
     showing();
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Sorry, the role couldn’t be changed.',
-    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Actions for Maya Chen' }),
+    ).toBeEnabled();
   });
 
   it('sends an invite again', async () => {
@@ -360,13 +361,13 @@ describe('WorkspaceMembers', () => {
     );
   });
 
-  it('says when an invite could not be resent', () => {
+  it('resends an invite again after a failed resend, with no inline error', async () => {
     resending.mockReturnValue('failed');
     showing();
 
-    expect(within(invitesList()).getByRole('alert')).toHaveTextContent(
-      'Sorry, the invite couldn’t be resent.',
-    );
+    expect(within(invitesList()).queryByRole('alert')).not.toBeInTheDocument();
+    await actOnInvite('Resend invite');
+    expect(resend).toHaveBeenCalledWith('invite_1');
   });
 
   it('revokes an invite', async () => {
@@ -377,13 +378,13 @@ describe('WorkspaceMembers', () => {
     expect(revoke).toHaveBeenCalledWith('invite_1');
   });
 
-  it('says when an invite could not be revoked', () => {
+  it('revokes an invite again after a failed revoke, with no inline error', async () => {
     revoking.mockReturnValue('failed');
     showing();
 
-    expect(within(invitesList()).getByRole('alert')).toHaveTextContent(
-      'Sorry, the invite couldn’t be revoked.',
-    );
+    expect(within(invitesList()).queryByRole('alert')).not.toBeInTheDocument();
+    await actOnInvite('Revoke invite');
+    expect(revoke).toHaveBeenCalledWith('invite_1');
   });
 
   it('opens the invite dialog', async () => {

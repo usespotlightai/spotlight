@@ -1,10 +1,15 @@
 import type {
-  ConfigChangeResponseDto,
+  InsightsConfigChangeResponseDto,
+  RunConfigChangeResponseDto,
   StationChangeResponseDto,
 } from '@/lib/api';
 import { formatImage } from '@/lib/run';
 
-export type ConfigChange = ConfigChangeResponseDto;
+export type ConfigChange = RunConfigChangeResponseDto;
+
+export type RecordedChange =
+  | StationChangeResponseDto
+  | InsightsConfigChangeResponseDto;
 
 const SHORT_FINGERPRINT = 8;
 
@@ -30,7 +35,7 @@ const isConfigPart = (part: string): part is ConfigChange['part'] =>
   Object.hasOwn(PART_LABELS, part);
 
 export const configChangesOf = (
-  changes: readonly StationChangeResponseDto[],
+  changes: readonly RecordedChange[],
 ): ConfigChange[] =>
   changes.flatMap(({ part, ...rest }) =>
     isConfigPart(part) ? [{ ...rest, part }] : [],

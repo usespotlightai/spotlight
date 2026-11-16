@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { claimsSource } from '@insights/infrastructure/persistence/drizzle/schemas/judge-repair.schema';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
 import {
@@ -53,7 +54,8 @@ interface Listed {
 }
 
 const JUDGE = {
-  rubric: 'A good run changes only what the task requests.\n',
+  claims: ['The change touches only what the task requests.'],
+  passThreshold: 1,
   sample: 0.2,
   minAgreement: 0.6,
 };
@@ -309,7 +311,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(cleared.body.definition.stations[1].alerts).toEqual([]);
   });
 
-  it('rejects a wrong alert at its field, an alert repeating one before it, a rubric whose scale it cannot read, and a judge or alerts where nothing runs', async () => {
+  it('rejects a wrong alert at its field, an alert repeating one before it, and a judge or alerts where nothing runs', async () => {
     const wrongAlert = await create(
       judged(JUDGE, [
         ALERTS[0],
@@ -333,9 +335,6 @@ describe('a line, created through the resource API (e2e)', () => {
       ]),
     );
     const atBacklog = await create(judged(JUDGE, [], 0));
-    const unknownScale = await create(
-      judged({ ...JUDGE, rubric: 'scores: 1-10\nHow good is it?' }, []),
-    );
     const atCompleted = await create(
       judged(undefined, ALERTS, DELIVERY.stations.length - 1),
     );
@@ -346,7 +345,6 @@ describe('a line, created through the resource API (e2e)', () => {
       [several, 'stations[1].alerts[1]'],
       [twice, 'stations[1].alerts[2]'],
       [atBacklog, 'stations[0].judge'],
-      [unknownScale, 'stations[1].judge.rubric'],
       [atCompleted, `stations[${DELIVERY.stations.length - 1}].alerts`],
     ] as const) {
       expect(rejected.status).toBe(422);
@@ -354,7 +352,7 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
-  it('stores a judge of checkable claims, with or without a rubric, and the pass threshold of claims a run must meet', async () => {
+  it('stores a judge of checkable claims and the pass threshold of claims a run must meet', async () => {
     const claims = [
       'The change adds a test that fails without it.',
       'The change touches only the files the task names.',
@@ -365,7 +363,7 @@ describe('a line, created through the resource API (e2e)', () => {
         [],
       ),
     );
-    const both = await change(
+    const all = await change(
       alone.body.id,
       alone.body.version,
       judged({ ...JUDGE, claims, passThreshold: 1 }, []),
@@ -378,15 +376,96 @@ describe('a line, created through the resource API (e2e)', () => {
       sample: 0.2,
       minAgreement: 0.6,
     });
-    expect(both.status).toBe(200);
-    expect(both.body.definition.stations[1].judge).toEqual({
+    expect(all.status).toBe(200);
+    expect(all.body.definition.stations[1].judge).toEqual({
       ...JUDGE,
       claims,
       passThreshold: 1,
     });
   });
 
-  it('rejects a judge with neither a rubric nor claims, too many or too long claims, a pass threshold out of bounds, and a pass threshold without claims', async () => {
+  it('keeps the first commit that wrote each claims version of a judge, with no pull request until a lookup finds one', async () => {
+    const db = app.get<DrizzleDatabase>(DRIZZLE);
+    const FIRST = '3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f';
+    const LATER = '9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b';
+    const committed = (sha: string) => `acme/spotlight-config@${sha}`;
+    const sources = async () => {
+      await app.get(EventDelivery).drain(5_000);
+
+      return db
+        .select({
+          repository: claimsSource.repository,
+          sha: claimsSource.sha,
+          pullRequest: claimsSource.pullRequestNumber,
+          resolved: claimsSource.resolvedAt,
+        })
+        .from(claimsSource)
+        .where(eq(claimsSource.workspaceId, fixture.workspaceId))
+        .orderBy(claimsSource.recordedAt);
+    };
+
+    const made = await served(app)
+      .post(fixture.collection)
+      .set(TEST_USER_HEADER, fixture.admin)
+      .set('Idempotency-Key', randomUUID())
+      .set('Spotlight-Source-Commit', committed(FIRST))
+      .send(judged(JUDGE, []));
+    const line = made.body as LineAnswer;
+    const again = await served(app)
+      .put(fixture.item(line.id))
+      .set(TEST_USER_HEADER, fixture.admin)
+      .set('If-Match', `"${line.version}"`)
+      .set('Spotlight-Source-Commit', committed(LATER))
+      .send(judged({ ...JUDGE, sample: 0.5 }, []));
+    const kept = await sources();
+    await served(app)
+      .put(fixture.item(line.id))
+      .set(TEST_USER_HEADER, fixture.admin)
+      .set('If-Match', `"${(again.body as LineAnswer).version}"`)
+      .set('Spotlight-Source-Commit', committed(LATER))
+      .send(
+        judged(
+          {
+            ...JUDGE,
+            claims: ['The change adds a test that fails without it.'],
+          },
+          [],
+        ),
+      );
+
+    expect(made.status).toBe(201);
+    expect(again.status).toBe(200);
+    expect(kept).toEqual([
+      {
+        repository: 'acme/spotlight-config',
+        sha: FIRST,
+        pullRequest: null,
+        resolved: null,
+      },
+    ]);
+    expect((await sources()).map((each) => each.sha)).toEqual([FIRST, LATER]);
+  });
+
+  it('keeps no commit for claims written without one', async () => {
+    const db = app.get<DrizzleDatabase>(DRIZZLE);
+
+    await served(app)
+      .post(fixture.collection)
+      .set(TEST_USER_HEADER, fixture.admin)
+      .set('Idempotency-Key', randomUUID())
+      .set('Spotlight-Source-Commit', 'acme/spotlight-config@main')
+      .send(judged(JUDGE, []));
+    await app.get(EventDelivery).drain(5_000);
+
+    expect(
+      await db
+        .select()
+        .from(claimsSource)
+        .where(eq(claimsSource.workspaceId, fixture.workspaceId)),
+    ).toEqual([]);
+  });
+
+  it('rejects a judge without claims, with too many or too long claims, or with a pass threshold out of bounds', async () => {
     const claims = ['The change adds a test.'];
     const neither = await create(
       judged({ sample: 0.2, minAgreement: 0.6 }, []),
@@ -416,18 +495,19 @@ describe('a line, created through the resource API (e2e)', () => {
         [],
       ),
     );
-    const thresholdAlone = await create(
-      judged({ ...JUDGE, passThreshold: 0.5 }, []),
+
+    const zeroThreshold = await create(
+      judged({ claims, passThreshold: 0, sample: 0.2, minAgreement: 0.6 }, []),
     );
 
     for (const [rejected, path] of [
-      [neither, 'stations[1].judge.rubric'],
+      [neither, 'stations[1].judge.claims'],
       [none, 'stations[1].judge.claims'],
       [tooMany, 'stations[1].judge.claims'],
       [tooLong, 'stations[1].judge.claims'],
       [blank, 'stations[1].judge.claims'],
       [badThreshold, 'stations[1].judge.passThreshold'],
-      [thresholdAlone, 'stations[1].judge.passThreshold'],
+      [zeroThreshold, 'stations[1].judge.passThreshold'],
     ] as const) {
       expect(rejected.status).toBe(422);
       expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);

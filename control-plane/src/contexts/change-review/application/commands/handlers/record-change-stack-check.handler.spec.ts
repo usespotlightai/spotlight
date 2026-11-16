@@ -13,6 +13,7 @@ import {
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -65,7 +66,7 @@ const cohort = (hunks: string[]): ProposedCohort => ({
 const ready = () =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of(STACK),
-    runId: RunId.of(RUN),
+    origin: StackOrigin.run(RunId.of(RUN)),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
     trial: false,
@@ -133,7 +134,7 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
 };
 
 const reported = (runner: string) =>
-  new RecordChangeStackCheckCommand(RUN, runner, STACK, false, null, [
+  new RecordChangeStackCheckCommand(runner, STACK, false, null, [
     { step: 'whole', passed: true, output: '', durationMs: 10 },
   ]);
 

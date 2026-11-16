@@ -41,4 +41,10 @@ export class ProvidedTools {
       kinds,
     );
   }
+
+  async enabledOnAnyMark(teamId: TeamId): Promise<readonly ToolName[]> {
+    return this.declarations.enabledOnAnyMark(
+      await this.defined.ofTeam(teamId),
+    );
+  }
 }

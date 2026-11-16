@@ -83,6 +83,7 @@ export const generatedTools = (input: {
         description: operation.description,
         backing: ToolBacking.operation(input.hash, operation.name),
         approval,
+        readOnly: false,
         inputs: operation.inputs.map((each) => ({
           name: each.name,
           schema: each.schema,

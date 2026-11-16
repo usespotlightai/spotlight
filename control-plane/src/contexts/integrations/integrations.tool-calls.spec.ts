@@ -638,6 +638,7 @@ graphql:
         ],
         approval: { because: 'It changes data in Petstore.' },
         inferredOutput: null,
+        readOnly: false,
       });
     });
 

@@ -1,5 +1,7 @@
 import type {
   FiredAlert,
+  LiveJudgedRun,
+  LiveJudgedSince,
   StationFactsPort,
   StationRuns,
   StationScores,
@@ -29,12 +31,15 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { inList } from '@platform/persistence/drizzle/in-list';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
+import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
+import { LIVE } from '@insights/domain/value-objects/score-origin';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, desc, eq, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 const atStation = (runs: StationRuns): SQL | undefined =>
@@ -269,6 +274,51 @@ export class DrizzleStationFacts implements StationFactsPort {
     );
 
     return rows.map(scoreFactOfRow);
+  }
+
+  async liveJudgedSince(
+    criteria: LiveJudgedSince,
+  ): Promise<readonly LiveJudgedRun[]> {
+    const { after } = criteria;
+    const rows = await this.read((db) =>
+      db
+        .select({
+          id: score.id,
+          at: score.at,
+          runId: score.runId,
+          workspaceId: score.workspaceId,
+          teamId: score.teamId,
+          lineId: score.lineId,
+          stationId: score.stationId,
+          taskId: score.taskId,
+        })
+        .from(score)
+        .where(
+          and(
+            eq(score.source, 'judge'),
+            eq(score.origin, LIVE),
+            gte(score.at, criteria.since),
+            after
+              ? sql`(${score.at}, ${score.id}) > (${after.at}, ${after.scoreId.value})`
+              : undefined,
+          ),
+        )
+        .orderBy(score.at, score.id)
+        .limit(criteria.max),
+    );
+
+    return rows.map((row) => ({
+      scoreId: ScoreId.of(row.id),
+      at: row.at,
+      runId: RunId.of(row.runId),
+      workspaceId: WorkspaceId.of(row.workspaceId),
+      location: RunLocation.of({
+        teamId: TeamId.of(row.teamId),
+        lineId: LineId.of(row.lineId),
+        stationId: StationId.of(row.stationId),
+        taskId: TaskId.of(row.taskId),
+      }),
+    }));
   }
 
   async judgedAtStations(

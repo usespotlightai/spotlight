@@ -37,7 +37,7 @@ export function ReviewCommentItem({
 
   const at = {
     teamId: reviewing.teamId,
-    runId: reviewing.runId,
+    taskId: reviewing.taskId,
     commentId: comment.id,
   };
 

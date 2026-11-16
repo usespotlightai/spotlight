@@ -1,9 +1,7 @@
 import { MemberActions } from '@/components/features/members/MemberActions';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
-import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { useChangeMemberRole } from '@/hooks/api/useChangeMemberRole';
-import { messageOf } from '@/lib/error';
 import { describeTeams, type WorkspaceMember } from '@/lib/members';
 import { nameOfRole } from '@/lib/role';
 
@@ -36,16 +34,7 @@ export function MemberRow({ slug, member }: MemberRowProps) {
           </span>
         }
       >
-        <ActionWithAlert
-          alert={
-            changeRole.isError
-              ? messageOf(
-                  changeRole.error,
-                  'Sorry, the role couldn’t be changed.',
-                )
-              : null
-          }
-        >
+        <span className="flex items-center gap-2">
           <span className="text-muted-foreground text-sm">
             {
               nameOfRole[
@@ -62,7 +51,7 @@ export function MemberRow({ slug, member }: MemberRowProps) {
               changeRole.mutate({ userId: member.id, role })
             }
           />
-        </ActionWithAlert>
+        </span>
       </SettingsRow>
     </li>
   );

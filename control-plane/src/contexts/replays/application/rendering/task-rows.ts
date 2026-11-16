@@ -30,7 +30,7 @@ const REASONS: Readonly<Record<EntryReasonCode, string>> = {
   judged: 'Judge passed it',
   'judge-failed': 'Judge failed it',
   unjudged: 'Judge could not judge it',
-  'nothing-judges': 'No check or judge scores this station',
+  'nothing-judges': 'The station has no check or judge',
 };
 
 const UNREPLAYABLE: Readonly<Record<UnreplayableReason, string>> = {
@@ -81,7 +81,7 @@ const CHECK_SKIPS: Readonly<Record<CheckSkip, string>> = {
 
 const UNJUDGED: Readonly<Record<Unjudged, string>> = {
   unavailable: 'no judge model was available',
-  'unreadable-rubric': 'the rubric could not be read',
+  'unreadable-rubric': 'the claims of the judge could not be read',
   'no-evidence': 'there was nothing to judge',
   'request-failed': 'the judge request failed',
   'insufficient-credits': 'the judge model account has no credits',

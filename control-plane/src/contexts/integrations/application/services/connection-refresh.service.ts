@@ -137,6 +137,7 @@ export class ConnectionRefresh {
         { teamId: claimed.teamId, workspaceId: claimed.workspaceId },
         claimed.integration,
         refreshToken,
+        (client) => claimed.madeThrough(client),
       );
     } catch (error) {
       await this.saveWithRetry(claimed, refreshToken, (current) =>
@@ -153,7 +154,7 @@ export class ConnectionRefresh {
       );
     }
 
-    if (result.kind === 'failed') {
+    if (result.kind === 'failed' || result.kind === 'other-client') {
       await this.saveWithRetry(claimed, refreshToken, (current) =>
         current.refreshFailed(at),
       );

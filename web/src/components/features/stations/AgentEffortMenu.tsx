@@ -32,7 +32,7 @@ export function AgentEffortMenu({
             {effort ? capitalized(effort) : 'Default'}
           </span>
         </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent sideOffset={8} className="min-w-44">
+        <DropdownMenuSubContent className="min-w-44">
           <DropdownMenuRadioGroup
             value={effort || DEFAULT_CHOICE}
             onValueChange={(next) => onEffort?.(chosen(next))}

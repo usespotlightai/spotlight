@@ -2,7 +2,7 @@ import type {
   ChangeStackDto,
   CheckedStepDto,
   QuestionAnswerDto,
-  RunChangeStacksDto,
+  ChangeStacksDto,
   StackCheckDto,
 } from '@change-review/application/dto/change-stack.dto';
 import { checkReasonText } from '@change-review/application/rendering/check-reason.text';
@@ -14,9 +14,10 @@ import {
   FileNoteResponseDto,
   LayerQuestionResponseDto,
   LayerRevisionResponseDto,
+  PushOriginResponseDto,
   QuestionAnswerResponseDto,
   RemovedLayerResponseDto,
-  RunChangeStacksResponseDto,
+  ChangeStacksResponseDto,
   StackCheckResponseDto,
   StackCohortResponseDto,
   StackHunkResponseDto,
@@ -119,12 +120,15 @@ const toStack = (stack: ChangeStackDto): ChangeStackResponseDto =>
         new RemovedLayerResponseDto(each.previous, each.cohort, each.title),
     ),
     stack.check && checkOf(stack.check),
+    stack.runId,
+    stack.push &&
+      new PushOriginResponseDto(stack.push.head, stack.push.pushedBy),
   );
 
 export const ChangeStackHttpMapper = {
   toAnswer: answerOf,
 
-  toResponse(found: RunChangeStacksDto): RunChangeStacksResponseDto {
-    return new RunChangeStacksResponseDto(found.stacks.map(toStack));
+  toResponse(found: ChangeStacksDto): ChangeStacksResponseDto {
+    return new ChangeStacksResponseDto(found.stacks.map(toStack));
   },
 };

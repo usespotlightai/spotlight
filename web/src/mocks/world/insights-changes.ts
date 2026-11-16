@@ -33,7 +33,6 @@ const IMPLEMENTATION_JUDGE: StationJudgeCalibrationResponseDto = {
   lineId: DELIVERY_ID,
   stationId: IMPLEMENTATION_ID,
   qualified: true,
-  measure: 'kappa',
   agreement: 0.72,
   reading: 'substantial',
   pairs: 24,

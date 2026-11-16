@@ -33,8 +33,7 @@ const identifier = (make: (raw: string) => unknown, refused?: string) =>
   });
 
 const judgeSchema = z.object({
-  rubric: z.string().optional(),
-  claims: z.array(z.string()).optional(),
+  claims: z.array(z.string()),
   passThreshold: z.number().optional(),
   sample: z.number(),
   minAgreement: z.number(),

@@ -1,10 +1,8 @@
 import {
-  agreementReadingOf,
-  type CorrelationReading,
   type KappaReading,
+  kappaReadingOf,
 } from '@insights/domain/services/agreement-reading';
 import {
-  type AgreementMeasure,
   failingOf,
   type HiddenReason,
   type JudgeCalibration,
@@ -13,9 +11,8 @@ import {
 
 export interface JudgeCalibrationDto {
   readonly qualified: boolean;
-  readonly measure: AgreementMeasure | null;
   readonly agreement: number | null;
-  readonly reading: KappaReading | CorrelationReading | null;
+  readonly reading: KappaReading | null;
   readonly pairs: number;
   readonly minPairs: number;
   readonly minAgreement: number | null;
@@ -32,9 +29,8 @@ export const judgeCalibrationOf = (
   calibration: JudgeCalibration,
 ): JudgeCalibrationDto => ({
   qualified: calibration.qualified,
-  measure: calibration.measure,
   agreement: calibration.agreement,
-  reading: agreementReadingOf(calibration.measure, calibration.agreement),
+  reading: kappaReadingOf(calibration.agreement),
   pairs: calibration.pairs,
   minPairs: MIN_PAIRS,
   minAgreement: calibration.minAgreement,

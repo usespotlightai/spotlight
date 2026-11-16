@@ -18,7 +18,7 @@ export class GradingTermsOf {
   async of(
     run: { readonly runId: RunId; readonly end: RunEnd },
     scores: readonly Scored[],
-  ): Promise<GradingTerms> {
+  ): Promise<GradingTerms | null> {
     const { location } = run.end;
 
     return gradingTermsOf(

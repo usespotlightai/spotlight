@@ -10,7 +10,6 @@ import {
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { taskPullRequestOf } from '@insights/insights.fake-spec';
 import {
   judgeScore,
@@ -37,9 +36,8 @@ const AT = new Date('2026-09-30T11:00:00.000Z');
 const JUDGE: StationJudge = {
   teamId: TeamId.of('team_1'),
   lineId: LineId.of('line_1'),
-  rubric: 'Did the run retry uploads?',
   rubricVersion: RUBRIC_VERSION,
-  claims: [],
+  claims: ['It retries the upload.'],
   passThreshold: 1,
   sample: 1,
   minAgreement: 0.5,
@@ -63,12 +61,10 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
         HumanAction.of(at % 2 === 0 ? 'accepted' : 'sent-back', AT),
       ),
     );
-    await scores.add(
-      judgeScore(runId, ScoreScale.yesNo(), at % 2 === 0 ? 1 : 0),
-    );
+    await scores.add(judgeScore(runId, [at % 2 === 0]));
   }
   await records.add(endedRecord('run_unjudged', { taskId: 'task_unjudged' }));
-  await scores.add(personGrade('run_unjudged', ScoreScale.yesNo(), 1));
+  await scores.add(personGrade('run_unjudged', [true]));
 
   return new StationJudgeReports(
     {
@@ -83,7 +79,7 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
 const JUDGES: ReadonlyMap<string, StationJudge> = new Map([
   ['station_1', JUDGE],
   ['station_2', { ...JUDGE, minAgreement: 0.9 }],
-  ['station_4', { ...JUDGE, rubric: 'scores: stars\nHow well?' }],
+  ['station_4', { ...JUDGE, claims: [] }],
   ['station_5', { ...JUDGE, teamId: TeamId.of('team_2') }],
   ['station_6', { ...JUDGE, lineId: LineId.of('line_2') }],
 ]);
@@ -120,24 +116,20 @@ const judgedAcross = async () => {
         HumanAction.of(at % 2 === 0 ? 'accepted' : 'sent-back', AT),
       ),
     );
-    await scores.add(
-      judgeScore(runId, ScoreScale.yesNo(), at % 2 === 0 ? 1 : 0),
-    );
+    await scores.add(judgeScore(runId, [at % 2 === 0]));
   }
   for (let at = 0; at < 10; at += 1) {
     const runId = `run_2_${at}`;
     const taskId = `task_2_${at}`;
     await records.add(endedRecord(runId, { taskId, stationId: 'station_2' }));
     await scores.add(
-      judgeScore(runId, ScoreScale.yesNo(), at < 3 ? 1 : at % 2, {
+      judgeScore(runId, [at < 3 || at % 2 === 1], {
         stationId: 'station_2',
         taskId,
       }),
     );
     if (at % 2 === 0) {
-      await scores.add(
-        personGrade(runId, ScoreScale.yesNo(), at % 2, { taskId }),
-      );
+      await scores.add(personGrade(runId, [at % 2 === 1], { taskId }));
     } else {
       await taskPullRequests.add(
         taskPullRequestOf(taskId, { openedAt: AT, closedAt: AT, merged: true }),
@@ -152,7 +144,7 @@ const judgedAcross = async () => {
   ] as const) {
     await records.add(endedRecord(runId, { taskId: `task_${runId}` }));
     await scores.add(
-      judgeScore(runId, ScoreScale.yesNo(), 1, {
+      judgeScore(runId, [true], {
         stationId,
         rubricVersion:
           stationId === 'station_2' ? NEXT_RUBRIC_VERSION : RUBRIC_VERSION,
@@ -177,7 +169,6 @@ const oneByOne = async (
   const rubric =
     judge &&
     Rubric.readable({
-      text: judge.rubric,
       claims: judge.claims,
       passThreshold: judge.passThreshold,
       version: judge.rubricVersion,
@@ -218,7 +209,7 @@ const oneByOne = async (
       }),
       judge && {
         rubricVersion: judge.rubricVersion,
-        scale: rubric?.scale ?? null,
+        rubric,
         minAgreement: judge.minAgreement,
       },
     ),
@@ -261,7 +252,7 @@ describe('StationJudgeReports', () => {
       await reporting()
     ).at(STATION);
 
-    expect(judge?.scale?.kind).toBe('yes-no');
+    expect(judge?.rubric?.claims).toEqual(['It retries the upload.']);
     expect(report.versions[0]?.agreement.kappa).toBe(1);
     expect(report.coverage).toEqual({
       runs: 13,
@@ -285,7 +276,6 @@ describe('StationJudgeReports', () => {
       stationId: 'station_1',
       rubricVersion: RUBRIC_VERSION,
       qualified: true,
-      measure: 'kappa',
       pairs: 12,
     });
   });
@@ -299,9 +289,9 @@ describe('StationJudgeReports', () => {
     expect(calibration.hiddenReason).toBe('no-judge');
   });
 
-  it('says so, rather than guessing a scale, where the station’s rubric cannot be read', async () => {
+  it('says so where the station’s claims cannot be read', async () => {
     const { calibration } = await (
-      await reporting({ ...JUDGE, rubric: 'scores: stars\nHow well?' })
+      await reporting({ ...JUDGE, claims: [] })
     ).calibrationAt(STATION);
 
     expect(calibration.hiddenReason).toBe('unreadable-rubric');

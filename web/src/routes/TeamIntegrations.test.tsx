@@ -13,7 +13,7 @@ const members = vi.fn();
 const role = vi.fn<(...args: unknown[]) => unknown>();
 const connect = vi.fn();
 const disconnect = vi.fn();
-const connectError = vi.fn<(...args: unknown[]) => unknown>();
+const connectFailed = vi.fn<(...args: unknown[]) => unknown>();
 const disconnectFailed = vi.fn<(...args: unknown[]) => unknown>();
 
 const failing = vi.fn();
@@ -62,7 +62,7 @@ vi.mock('@/hooks/api/useConnectIntegration', () => ({
   useConnectIntegration: () => ({
     mutate: connect,
     isPending: false,
-    error: connectError(),
+    isError: connectFailed(),
   }),
 }));
 
@@ -90,6 +90,7 @@ const integration = (over: Record<string, unknown> = {}) => ({
   logo: null,
   path: 'integrations/pagerduty.tf',
   connectionStatus: 'not-required',
+  connectionProblem: null,
   actsAs: 'team',
   linkedAccount: null,
   spec: null,
@@ -160,7 +161,7 @@ beforeEach(() => {
   refetch.mockClear();
   connect.mockClear();
   disconnect.mockClear();
-  connectError.mockReturnValue(null);
+  connectFailed.mockReturnValue(false);
   disconnectFailed.mockReturnValue(false);
   github.mockReturnValue(ready());
   configuration.mockReturnValue(read());
@@ -369,6 +370,28 @@ describe('TeamIntegrations', () => {
     expect(team).toHaveTextContent('Agents’ tools act as this account.');
   });
 
+  it('says the team account was made through another OAuth app, and asks to connect again', async () => {
+    configuration.mockReturnValue(
+      read([
+        integration({
+          connectionStatus: 'disconnected',
+          connectionProblem: 'other-client',
+          linkedAccount: 'Acme',
+          name: 'Slack',
+          integration: 'slack',
+        }),
+      ]),
+    );
+    showing();
+
+    const team = fact(await opening('Slack'), 'Team account');
+
+    expect(team).toHaveTextContent('Made through another OAuth app');
+    expect(
+      within(team).getByRole('button', { name: /Connect team account/ }),
+    ).toBeInTheDocument();
+  });
+
   it('opens and closes a row from anywhere on it', async () => {
     configuration.mockReturnValue(read([integration()]));
     showing();
@@ -532,10 +555,8 @@ describe('TeamIntegrations', () => {
     expect(people).toHaveTextContent('Not connected: Maya Chen');
   });
 
-  it('says why the team account could not be connected', () => {
-    connectError.mockReturnValue(
-      new Error('Integration grafana has no OAuth2 client.'),
-    );
+  it('keeps Connect team account after a failed connect, with no inline error', async () => {
+    connectFailed.mockReturnValue(true);
     configuration.mockReturnValue(
       read([
         integration({
@@ -547,24 +568,32 @@ describe('TeamIntegrations', () => {
     );
     showing();
 
-    expect(head('Grafana').getByRole('alert')).toHaveTextContent(
-      'Integration grafana has no OAuth2 client.',
-    );
+    const button = head('Grafana').getByRole('button', {
+      name: 'Connect team account for Grafana',
+    });
+
+    expect(head('Grafana').queryByRole('alert')).not.toBeInTheDocument();
+    expect(button).toBeEnabled();
+    await userEvent.click(button);
+    expect(connect).toHaveBeenCalled();
   });
 
-  it('says why a person’s own account could not be connected', () => {
-    connectError.mockReturnValue(
-      new Error("Integration linear doesn't take a personal account."),
-    );
+  it('keeps Connect your account after a failed connect, with no inline error', async () => {
+    connectFailed.mockReturnValue(true);
     configuration.mockReturnValue(read([personal()]));
     showing();
 
-    expect(head('Linear').getByRole('alert')).toHaveTextContent(
-      "Integration linear doesn't take a personal account.",
-    );
+    const button = head('Linear').getByRole('button', {
+      name: 'Connect your account for Linear',
+    });
+
+    expect(head('Linear').queryByRole('alert')).not.toBeInTheDocument();
+    expect(button).toBeEnabled();
+    await userEvent.click(button);
+    expect(connect).toHaveBeenCalled();
   });
 
-  it('says when a person’s own account could not be disconnected', async () => {
+  it('keeps the actions for your account after a failed disconnect, with no inline error', async () => {
     disconnectFailed.mockReturnValue(true);
     configuration.mockReturnValue(read([personal()]));
     connections.mockReturnValue(
@@ -583,22 +612,26 @@ describe('TeamIntegrations', () => {
 
     const yours = fact(await opening('Linear'), 'Your account');
 
-    expect(within(yours).getByRole('alert')).toHaveTextContent(
-      'Could not disconnect. Try again.',
-    );
+    expect(within(yours).queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      within(yours).getByRole('button', {
+        name: 'Actions for your Linear account',
+      }),
+    ).toBeEnabled();
   });
 
-  it('says why the team account could not be changed', async () => {
-    connectError.mockReturnValue(
-      new Error('Only a workspace owner or admin can connect a team account.'),
-    );
+  it('keeps the actions for the team account after a failed change, with no inline error', async () => {
+    connectFailed.mockReturnValue(true);
     configuration.mockReturnValue(read([personal()]));
     showing();
 
     const team = fact(await opening('Linear'), 'Team account');
 
-    expect(within(team).getByRole('alert')).toHaveTextContent(
-      'Only a workspace owner or admin can connect a team account.',
-    );
+    expect(within(team).queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      within(team).getByRole('button', {
+        name: 'Actions for the team’s Linear account',
+      }),
+    ).toBeEnabled();
   });
 });

@@ -48,7 +48,9 @@ export const changeStack = pgTable(
   'change_stack',
   {
     id: text('id').primaryKey(),
-    runId: text('run_id').notNull(),
+    runId: text('run_id'),
+    pushedHead: text('pushed_head'),
+    pushedBy: text('pushed_by'),
     taskId: text('task_id'),
     teamId: text('team_id'),
     trial: boolean('trial').notNull(),
@@ -83,6 +85,14 @@ export const changeStack = pgTable(
     check(
       'change_stack_job_attempts_not_negative',
       sql`${table.jobAttempts} >= 0`,
+    ),
+    check(
+      'change_stack_one_origin',
+      sql`(${table.runId} IS NULL) <> (${table.pushedHead} IS NULL)`,
+    ),
+    check(
+      'change_stack_push_has_task',
+      sql`${table.pushedHead} IS NULL OR ${table.taskId} IS NOT NULL`,
     ),
     index('change_stack_run_idx').on(table.runId, table.startedAt),
     index('change_stack_task_idx').on(table.taskId, table.startedAt),

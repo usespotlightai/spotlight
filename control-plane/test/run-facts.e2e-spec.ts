@@ -756,6 +756,35 @@ describe('run facts', () => {
     expect(await factFor(PULL)).toMatchObject({ madeBy: 'people' });
   });
 
+  it('marks a run followed once the station’s next run on its task completes', async () => {
+    await records.add(ended('run_1', 'task_1', { endedHoursAgo: 2 }));
+
+    expect(await factOf('run_1')).toMatchObject({ followedAt: null });
+
+    await records.add(ended('run_2', 'task_1', { endedHoursAgo: 1 }));
+
+    expect(await factOf('run_1')).toMatchObject({ followedAt: at(1) });
+    expect(await factOf('run_2')).toMatchObject({ followedAt: null });
+  });
+
+  it('keeps a run followed, and not accepted, when its task’s pull request merges after the station’s next run', async () => {
+    await records.add(ended('run_1', 'task_1', { endedHoursAgo: 2 }));
+    await records.add(ended('run_2', 'task_1', { endedHoursAgo: 1 }));
+    await pullRequests.add(opened('task_1', TEAM));
+    await pullRequests.save(mergedOnGitHub(await pullRequestOf()));
+
+    expect(await factOf('run_1')).toMatchObject({
+      followedAt: at(1),
+      pullRequestState: 'merged',
+      resolution: 'other',
+    });
+    expect(await factOf('run_2')).toMatchObject({
+      followedAt: null,
+      pullRequestState: 'merged',
+      resolution: 'accepted',
+    });
+  });
+
   it('lists a failed run its task superseded as superseded, not among the failed runs', async () => {
     const failed = (runId: string, taskId: string) =>
       RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(

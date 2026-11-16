@@ -28,4 +28,10 @@ export class TeamIntegrations implements TeamIntegrationsPort {
       )
     ).map((each) => each.value);
   }
+
+  async toolsOnAnyMark(teamId: TeamId): Promise<readonly string[]> {
+    return (await this.tools.enabledOnAnyMark(teamId)).map(
+      (each) => each.value,
+    );
+  }
 }

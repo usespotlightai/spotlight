@@ -164,6 +164,7 @@ type ResolvedRun = {
   readonly firstHumanAction: { readonly kind: string } | null;
   readonly passed: unknown;
   readonly pullRequestState: string | null;
+  readonly followed: boolean;
 };
 
 type Resolution = StationRunOutcomeResponseDto['resolution'];
@@ -187,14 +188,16 @@ export const runResolutionOf = (run: ResolvedRun): Resolution => {
     return 'moved-on';
   }
 
-  return run.pullRequestState === 'merged' ? 'accepted' : 'other';
+  return run.pullRequestState === 'merged' && !run.followed
+    ? 'accepted'
+    : 'other';
 };
 
 export const resolutionTallyOf = (
-  runs: readonly ResolvedRun[],
+  runs: readonly { readonly resolution: Resolution }[],
 ): Pick<RunTallyResponseDto, 'resolutions' | 'resolutionShares'> => {
   const countOf = (resolution: Resolution) =>
-    runs.filter((run) => runResolutionOf(run) === resolution).length;
+    runs.filter((run) => run.resolution === resolution).length;
   const resolutions = {
     accepted: countOf('accepted'),
     sentBack: countOf('sent-back'),

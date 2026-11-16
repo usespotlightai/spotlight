@@ -6,6 +6,7 @@ import { acceptInvite } from '@/lib/api';
 import { serveMockApi } from '@/mocks/testing';
 import { MockApplication } from '@/stories/MockApplication';
 import { quietBrowser } from '@/test/signed-in';
+import { findToast } from '@/test/toasts';
 
 vi.mock('@/hooks/api/useSession', async () => ({
   useSession: (await import('@/test/signed-in')).signedInSession,
@@ -19,7 +20,7 @@ describe('AcceptInvite on the mock API', () => {
   serveMockApi();
   quietBrowser();
 
-  it('says why the invitation could not be accepted, in the server’s words', async () => {
+  it('shows why the invitation could not be accepted in a toast, and keeps Accept invitation', async () => {
     render(<MockApplication at={`/invites/${TOKEN}`} />);
     const accept = await screen.findByRole(
       'button',
@@ -32,9 +33,10 @@ describe('AcceptInvite on the mock API', () => {
 
     await userEvent.click(accept);
 
-    expect(await screen.findByRole('alert', undefined, WAIT)).toHaveTextContent(
-      'This invite has already been accepted.',
-    );
+    expect(
+      await findToast('This invite has already been accepted.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Accept invitation' }),
     ).toBeEnabled();

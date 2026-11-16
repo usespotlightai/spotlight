@@ -10,7 +10,6 @@ describe('JudgeTrend', () => {
   it('names the judge’s line where the judge is shown', () => {
     render(
       <JudgeTrend
-        kind="yes-no"
         trend={[
           {
             day: '2026-09-30',
@@ -26,10 +25,9 @@ describe('JudgeTrend', () => {
     expect(judgeLegend()).toHaveTextContent(/^Judge$/);
   });
 
-  it('keeps the judge in the legend on a day without its scores', () => {
+  it('keeps the judge in the legend on a day without its verdicts', () => {
     render(
       <JudgeTrend
-        kind="yes-no"
         trend={[
           {
             day: '2026-09-30',

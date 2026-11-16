@@ -3,6 +3,7 @@ import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
 import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknown-change-stack.error';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -39,7 +40,7 @@ export class GenerateRunChangeStackHandler implements CommandHandlerPort<
 
       await this.generating.begin(
         {
-          id: run.id,
+          origin: StackOrigin.run(run.id),
           taskId: run.taskId,
           teamOfRun: run.taskId ? null : await this.work.teamOfRun(runId),
           trial: run.trial,

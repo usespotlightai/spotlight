@@ -9,6 +9,7 @@ import {
   taskComparisons,
   totalsOf,
 } from '@replays/domain/services/replay-results';
+import type { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 
 export const CHECK_RESULTS = [
@@ -31,9 +32,18 @@ export const UNDECIDED_BECAUSE = [
 
 export type UndecidedBecause = (typeof UNDECIDED_BECAUSE)[number];
 
+export const FAILED_BECAUSE = [
+  'too-many-regressions',
+  'judge-disagrees-with-people',
+] as const;
+
+export type FailedBecause = (typeof FAILED_BECAUSE)[number];
+
 export interface CheckEvaluation {
   readonly result: CheckResult;
   readonly because: UndecidedBecause | null;
+  readonly failedBecause: FailedBecause | null;
+  readonly judge: JudgeCalibration | null;
   readonly entries: number;
   readonly compared: number;
   readonly tasks: readonly EntryComparison[];
@@ -75,11 +85,26 @@ export const evaluationOf = (
   baseline: ReplayOutcome | null,
   awaitingBaseline: boolean,
 ): CheckEvaluation => {
+  const { judge } = check;
+  const judgeFails = judge?.fails() ?? false;
+  const failedByJudge = {
+    result: 'failed',
+    because: null,
+    failedBecause: 'judge-disagrees-with-people',
+  } as const;
+
   if (!replay) {
     return {
-      ...(awaitingBaseline
-        ? { result: 'running', because: null }
-        : { result: 'undecided', because: 'replay-gone' }),
+      ...(judgeFails
+        ? failedByJudge
+        : awaitingBaseline
+          ? { result: 'running', because: null, failedBecause: null }
+          : {
+              result: 'undecided',
+              because: 'replay-gone',
+              failedBecause: null,
+            }),
+      judge,
       entries: 0,
       compared: 0,
       tasks: [],
@@ -94,6 +119,7 @@ export const evaluationOf = (
   const scored = compared.filter(isScored).length;
   const entries = compared.length;
   const evaluation = {
+    judge,
     entries,
     compared: scored,
     tasks: compared,
@@ -102,20 +128,33 @@ export const evaluationOf = (
     gain: baseline && gainBetween(replay, baseline, check.threshold.minGain),
   };
 
+  if (judgeFails) {
+    return { ...evaluation, ...failedByJudge };
+  }
   if (!check.threshold.allows(regressions.length)) {
-    return { ...evaluation, result: 'failed', because: null };
+    return {
+      ...evaluation,
+      result: 'failed',
+      because: null,
+      failedBecause: 'too-many-regressions',
+    };
   }
   if (
     IN_PROGRESS.includes(replay.current) ||
     (baseline === null && awaitingBaseline && replay.current === 'finished') ||
     (baseline !== null && IN_PROGRESS.includes(baseline.current))
   ) {
-    return { ...evaluation, result: 'running', because: null };
+    return {
+      ...evaluation,
+      result: 'running',
+      because: null,
+      failedBecause: null,
+    };
   }
 
   const because = undecidedBecause(replay, baseline, entries, scored);
 
   return because
-    ? { ...evaluation, result: 'undecided', because }
-    : { ...evaluation, result: 'passed', because: null };
+    ? { ...evaluation, result: 'undecided', because, failedBecause: null }
+    : { ...evaluation, result: 'passed', because: null, failedBecause: null };
 };

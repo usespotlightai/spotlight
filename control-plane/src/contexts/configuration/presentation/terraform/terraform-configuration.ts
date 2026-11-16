@@ -9,7 +9,6 @@ import type {
 } from '@configuration/application/ports/hook-configs.port';
 import {
   IMPORTS_FILE,
-  judgeRubricFileOf,
   terraformNameOf as nameOf,
   stationFileOf,
   TERRAFORM_FILE,
@@ -46,6 +45,7 @@ import {
   inCodePointOrderOf,
 } from '@platform/ordering/code-point-order';
 import { PLATFORM_EGRESS } from '@runners/application/ports/runner-configuration.port';
+import { ALL_CLAIMS } from '@shared-kernel/domain/value-objects/claim-share';
 import type { FieldSegment } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { isToolName } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -112,12 +112,13 @@ const PLACE: Readonly<Record<ExportableResourceDto['kind'], number>> = {
   egress: 4,
   'runner-pool': 5,
   'workspace-runners': 6,
-  team: 7,
-  line: 8,
-  skill: 9,
-  integration: 10,
-  hook: 11,
-  'harness-profile': 12,
+  'inference-endpoint': 7,
+  team: 8,
+  line: 9,
+  skill: 10,
+  integration: 11,
+  hook: 12,
+  'harness-profile': 13,
 };
 
 const teamOf = (resource: ExportableResourceDto): string => {
@@ -368,29 +369,20 @@ const line = (
   const files: TerraformFile[] = [];
   const { definition } = resource;
 
-  const judge = (stationKey: string, set: LineDefinitionJudge): HclBlock => {
-    const path = judgeRubricFileOf(resource.teamKey, resource.key, stationKey);
-
-    if (set.rubric !== undefined) {
-      files.push({ path, content: set.rubric });
-    }
-
-    return block(
+  const judge = (set: LineDefinitionJudge): HclBlock =>
+    block(
       'judge',
       [],
       [
-        ...(set.rubric === undefined
-          ? []
-          : [attribute('rubric', HclExpression.moduleFile(path))]),
-        ...(set.claims === undefined
-          ? []
-          : [attribute('claims', HclLines.of(set.claims))]),
-        ...present(terraformAttributeOf('passThreshold'), set.passThreshold),
+        attribute('claims', HclLines.of(set.claims)),
+        ...present(
+          terraformAttributeOf('passThreshold'),
+          set.passThreshold === ALL_CLAIMS ? undefined : set.passThreshold,
+        ),
         attribute('sample', set.sample),
         attribute(terraformAttributeOf('minAgreement'), set.minAgreement),
       ],
     );
-  };
 
   const alert = (set: LineDefinitionAlert): HclBlock =>
     block(
@@ -481,7 +473,7 @@ const line = (
         ),
         attribute(terraformAttributeOf('passesTo'), each.passesTo),
         attribute('ends', each.ends),
-        ...(each.judge ? [judge(each.key, each.judge)] : []),
+        ...(each.judge ? [judge(each.judge)] : []),
         ...each.alerts.map(alert),
         ...(each.search ? [stationSearch(each.search)] : []),
       ],
@@ -963,6 +955,46 @@ const egress = (
   );
 };
 
+const INFERENCE_API_KEY = 'inference_api_key';
+
+const inferenceEndpoint = (
+  resource: ResourceOf<'inference-endpoint'>,
+  importedAs: string,
+  refer: Referring,
+): Rendered =>
+  withImportBlock(
+    resource,
+    nameOf(resource.address),
+    importedAs,
+    [
+      ...refer.owner(resource),
+      attribute('base_url', resource.baseUrl),
+      attribute('model', resource.model),
+      ...(resource.apiKeySet
+        ? [
+            attribute(
+              'api_key_wo',
+              HclExpression.traversal('var', INFERENCE_API_KEY),
+            ),
+          ]
+        : []),
+      ...(resource.apiKeyVersion === null
+        ? []
+        : [attribute('api_key_wo_version', resource.apiKeyVersion)]),
+    ],
+    {
+      variables: resource.apiKeySet
+        ? [
+            variable(
+              INFERENCE_API_KEY,
+              'The API key of the inference endpoint, which Spotlight stores and never returns',
+              false,
+            ),
+          ]
+        : [],
+    },
+  );
+
 const rendered = (
   resource: ExportableResourceDto,
   configuration: ExportableConfigurationDto,
@@ -1028,6 +1060,8 @@ const rendered = (
       return pool(resource, importedAs, refer);
     case 'egress':
       return egress(resource, importedAs, refer);
+    case 'inference-endpoint':
+      return inferenceEndpoint(resource, importedAs, refer);
     case 'line':
       return line(resource, importedAs, refer);
     case 'skill':

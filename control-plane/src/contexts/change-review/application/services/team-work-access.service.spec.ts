@@ -8,6 +8,7 @@ import { TeamMembershipRequiredError } from '@change-review/domain/exceptions/te
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import { UnknownReviewError } from '@change-review/domain/exceptions/unknown-review.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -53,6 +54,7 @@ const access = (
               trial: false,
               isolated: false,
               checkouts: 1,
+              placement: RunnerPlacement.anywhere(),
               ...over.run,
             },
       task: async (): Promise<ReviewedTask | null> =>
@@ -75,7 +77,7 @@ const access = (
   );
 
 const reviewing = (over: Parameters<typeof access>[0] = {}) =>
-  access(over).reviewing('team_1', 'run_1', 'user_1');
+  access(over).reviewing('team_1', 'task_1', 'user_1');
 
 const deciding = (over: Parameters<typeof access>[0] = {}) =>
   access(over).task('team_1', 'task_1', 'user_1');
@@ -181,8 +183,8 @@ describe('who may see a trial’s or a search’s change stacks', () => {
   });
 });
 
-describe('who may review a run', () => {
-  it('is a member of the team the run’s task is on', async () => {
+describe('who may review a task', () => {
+  it('is a member of the team the task is on', async () => {
     const found = await reviewing();
 
     expect(found.by.value).toBe('user_1');
@@ -195,24 +197,23 @@ describe('who may review a run', () => {
     );
   });
 
-  it('is nobody when the run’s task is on another team of the same workspace', async () => {
+  it('is nobody when the task is on another team of the same workspace', async () => {
     await expect(
       reviewing({ task: { teamId: TeamId.of('team_2') } }),
     ).rejects.toThrow(UnknownReviewError);
   });
 
-  it('is nobody when the run’s task is in another workspace', async () => {
+  it('is nobody when the task is in another workspace', async () => {
     await expect(
       reviewing({ task: { workspaceId: WorkspaceId.of('ws_2') } }),
     ).rejects.toThrow(UnknownReviewError);
   });
 
-  it('is nobody when there is no run, or it works on no task', async () => {
-    await expect(reviewing({ run: null })).rejects.toThrow(UnknownReviewError);
-    await expect(reviewing({ run: { taskId: null } })).rejects.toThrow(
-      UnknownReviewError,
-    );
+  it('is nobody when there is no task, whatever its runs', async () => {
     await expect(reviewing({ task: null })).rejects.toThrow(UnknownReviewError);
+    await expect(
+      reviewing({ task: null, run: { taskId: null } }),
+    ).rejects.toThrow(UnknownReviewError);
   });
 });
 
@@ -251,7 +252,7 @@ describe('who may act in the reviews of a team’s work', () => {
         .value,
     ).toBe('run_1');
     expect(
-      (await access().actingInReview('team_1', 'run_1', 'user_1')).author.kind,
+      (await access().actingInReview('team_1', 'task_1', 'user_1')).author.kind,
     ).toBe('person');
   });
 
@@ -266,7 +267,7 @@ describe('who may act in the reviews of a team’s work', () => {
       access(outsider).actingOnRun('team_1', 'run_1', 'user_1', unseen),
     ).rejects.toThrow(TeamMembershipRequiredError);
     await expect(
-      access(outsider).actingInReview('team_1', 'run_1', 'user_1'),
+      access(outsider).actingInReview('team_1', 'task_1', 'user_1'),
     ).rejects.toThrow(TeamMembershipRequiredError);
   });
 
@@ -288,11 +289,65 @@ describe('who may act in the reviews of a team’s work', () => {
       ),
     ).rejects.toThrow(UnknownDecisionError);
     await expect(
-      access({ run: { taskId: null } }).actingInReview(
+      access({ task: null }).actingInReview('team_1', 'task_1', 'user_1'),
+    ).rejects.toThrow(UnknownReviewError);
+  });
+});
+
+describe('who may see and act on a change stack', () => {
+  const unseen = () => new UnknownDecisionError();
+  const ofTask = { kind: 'task' as const, taskId: TaskId.of('task_1') };
+  const ofRun = { kind: 'run' as const, runId: RunId.of('run_1') };
+
+  it('sees a pushed stack, with no run, through its task', async () => {
+    expect(
+      await access({ run: null }).seesStack('team_1', ofTask, 'user_1'),
+    ).toBe(true);
+    expect(
+      await access({ task: { teamId: TeamId.of('team_2') } }).seesStack(
         'team_1',
-        'run_1',
+        ofTask,
         'user_1',
       ),
-    ).rejects.toThrow(UnknownReviewError);
+    ).toBe(false);
+    expect(
+      await access({ member: false }).seesStack('team_1', ofTask, 'user_1'),
+    ).toBe(false);
+  });
+
+  it('sees a stack of a run with no task through the run', async () => {
+    const trial = { run: { taskId: null, trial: true, isolated: true } };
+
+    expect(await access(trial).seesStack('team_1', ofRun, 'user_1')).toBe(true);
+    expect(
+      await access({ ...trial, ranFor: TeamId.of('team_2') }).seesStack(
+        'team_1',
+        ofRun,
+        'user_1',
+      ),
+    ).toBe(false);
+  });
+
+  it('lets nobody act on a stack that belongs to neither a task nor a run', async () => {
+    await expect(
+      access().actingOnStack('team_1', null, 'user_1', unseen),
+    ).rejects.toThrow(UnknownDecisionError);
+  });
+
+  it('lets a team member act on a pushed stack, and refuses an outsider or someone who does not see it', async () => {
+    await expect(
+      access({ run: null }).actingOnStack('team_1', ofTask, 'user_1', unseen),
+    ).resolves.toBeUndefined();
+    await expect(
+      access({ actsOnTeam: false }).actingOnStack(
+        'team_1',
+        ofTask,
+        'user_1',
+        unseen,
+      ),
+    ).rejects.toThrow(TeamMembershipRequiredError);
+    await expect(
+      access({ task: null }).actingOnStack('team_1', ofTask, 'user_1', unseen),
+    ).rejects.toThrow(UnknownDecisionError);
   });
 });

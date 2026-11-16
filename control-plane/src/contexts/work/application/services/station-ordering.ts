@@ -90,8 +90,12 @@ export class StationOrdering {
     return this.orderedAs(line, at, RunReadying.asATaskRun, toolsOnMarks);
   }
 
-  orderedForTrial(line: LineMap, at: OrderedAt): Promise<Ordered | null> {
-    return this.orderedAs(line, at, RunReadying.asATrial, []);
+  orderedForTrial(
+    line: LineMap,
+    at: OrderedAt,
+    toolsOnMarks: readonly Tool[],
+  ): Promise<Ordered | null> {
+    return this.orderedAs(line, at, RunReadying.asATrial, toolsOnMarks);
   }
 
   private async orderedAs(

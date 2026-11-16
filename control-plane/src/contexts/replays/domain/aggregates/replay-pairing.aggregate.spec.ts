@@ -15,7 +15,7 @@ import {
   measuresOf,
   NOW,
   pairVerdictOf,
-  RUBRIC,
+  JUDGE,
   runOf,
   slots,
 } from '@replays/domain/replays.fake-spec';
@@ -25,6 +25,7 @@ import {
   taskComparisons,
 } from '@replays/domain/services/replay-results';
 import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
+import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -34,7 +35,7 @@ const judging = (id: string, repeats = 1) =>
     count: 2,
     repeats,
     pairwiseReferenceId: 'baseline_1',
-    candidate: candidateOf('searched', 'candidate_proposed', RUBRIC),
+    candidate: candidateOf('searched', 'candidate_proposed', JUDGE),
   });
 
 const baseline = (repeats = 1) =>
@@ -43,7 +44,7 @@ const baseline = (repeats = 1) =>
     count: 2,
     repeats,
     baseline: true,
-    candidate: candidateOf('live', 'candidate_live', RUBRIC),
+    candidate: candidateOf('live', 'candidate_live', JUDGE),
   });
 
 const everyOriginal = () => true;
@@ -179,7 +180,11 @@ describe('Replay, set side by side with its baseline', () => {
         id: 'baseline_1',
         count: 2,
         baseline: true,
-        candidate: candidateOf('live', 'candidate_live', 'Another rubric.'),
+        candidate: candidateOf(
+          'live',
+          'candidate_live',
+          JudgeCriteria.of({ claims: ['It does something else.'] }),
+        ),
       }),
     );
 
@@ -211,7 +216,7 @@ describe('Replay, set side by side with its baseline', () => {
         id: 'baseline_2',
         count: 2,
         baseline: true,
-        candidate: candidateOf('live', 'candidate_live', RUBRIC),
+        candidate: candidateOf('live', 'candidate_live', JUDGE),
       }),
     );
 
@@ -242,7 +247,7 @@ describe('Replay, set side by side with its baseline', () => {
         id: 'baseline_1',
         baseline: true,
         pairwiseReferenceId: 'baseline_0',
-        candidate: candidateOf('live', 'candidate_live', RUBRIC),
+        candidate: candidateOf('live', 'candidate_live', JUDGE),
       }),
     ).toThrow(InvalidReplayError);
     expect(() => judging('baseline_1')).toThrow(InvalidReplayError);
@@ -363,7 +368,7 @@ describe('pairOutcomeOf and pairTallyOf', () => {
         id: 'baseline_2',
         count: 2,
         baseline: true,
-        candidate: candidateOf('live', 'candidate_live', RUBRIC),
+        candidate: candidateOf('live', 'candidate_live', JUDGE),
       }),
     );
 

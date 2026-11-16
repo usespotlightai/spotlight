@@ -62,7 +62,7 @@ export const OUTCOME_MEASURES: readonly {
   { id: 'passed', label: 'Passed on', lowerIsBetter: false },
   { id: 'checks_passed', label: 'Checks passed', lowerIsBetter: false },
   { id: 'merged', label: 'Merged', lowerIsBetter: false },
-  { id: 'judge', label: 'Judge score', lowerIsBetter: false },
+  { id: 'judge', label: 'Judge pass rate', lowerIsBetter: false },
 ];
 
 export const DEFAULT_OUTCOME: OutcomeMeasure = 'accepted';
@@ -232,13 +232,19 @@ export const formatOutcome = (value: number | null): string =>
 
 const judgeCount = (rate: JudgeRate | null): number => rate?.judged ?? 0;
 
+export const changesJudgeCriteria = (marker: ChangeMarker): boolean =>
+  marker.changes.some(
+    (each) =>
+      each.part === 'judge' && (each.name === null || each.name === 'claims'),
+  );
+
 export const judgeRow = (marker: ChangeMarker, to: string): ComparedRow => ({
   id: 'judge',
-  label: 'Judge score',
+  label: 'Judge pass rate',
   one: formatShare(marker.judgeBefore?.mean ?? null),
   other: formatShare(marker.judgeAfter?.mean ?? null),
   delta: shownDeltaOf(marker.judgeChange),
-  tooltip: `Over ${judgeCount(marker.judgeBefore)} judged runs before and ${judgeCount(marker.judgeAfter)} after. Opens how often the judge agrees with people.`,
+  tooltip: `The share of judged runs that the judge passed. Judged runs: ${judgeCount(marker.judgeBefore)} before, ${judgeCount(marker.judgeAfter)} after. Opens the judge’s agreement with people.`,
   to,
 });
 

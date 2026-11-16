@@ -22,7 +22,13 @@ const input = (over: Partial<ToolInput> = {}): ToolInput => ({
 const declared = (
   inputs: readonly ToolInput[],
   description = 'Comment on the issue.',
-) => DeclaredTool.of({ tool: Tool.of('linear.comment'), description, inputs });
+) =>
+  DeclaredTool.of({
+    readOnly: false,
+    tool: Tool.of('linear.comment'),
+    description,
+    inputs,
+  });
 
 describe('DeclaredTool', () => {
   it('keeps what a tool is for, and what it takes', () => {
@@ -33,6 +39,29 @@ describe('DeclaredTool', () => {
 
     expect(tool.description).toBe('Comment on the issue.');
     expect(tool.inputs.map((each) => each.name)).toEqual(['issue', 'body']);
+  });
+
+  it('is callable in an isolated run only where it is a read-only integration tool that needs no approval, and stays read-only with an approval', () => {
+    const reading = DeclaredTool.of({
+      tool: Tool.of('sentry.get-latest-event'),
+      description: 'Read the latest event.',
+      readOnly: true,
+    });
+    const gated = reading.withApproval(
+      ApprovalNeeded.of(reading.tool.value, 'It reads private data.'),
+    );
+
+    expect(declared([]).callableInIsolatedRun).toBe(false);
+    expect(reading.callableInIsolatedRun).toBe(true);
+    expect(gated.readOnly).toBe(true);
+    expect(gated.callableInIsolatedRun).toBe(false);
+    expect(
+      DeclaredTool.of({
+        tool: Tool.of('checks'),
+        description: 'List the failed checks.',
+        readOnly: true,
+      }).callableInIsolatedRun,
+    ).toBe(false);
   });
 
   it('rejects a tool that does not say what it is for', () => {
@@ -62,6 +91,7 @@ describe('DeclaredTool', () => {
   describe('what the agent says it wants to do', () => {
     const approving = (inputs: readonly ToolInput[] = [input()]) =>
       DeclaredTool.of({
+        readOnly: false,
         tool: Tool.of('linear.comment'),
         description: 'Comment on the issue.',
         inputs,

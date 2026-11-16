@@ -68,13 +68,9 @@ describe('the mock team memories', () => {
     expect(await memoryIds({ path: 'src/retries' })).toEqual(['memory_gone']);
   });
 
-  it('opens a memory with the steps or notes it cites', async () => {
+  it('opens a memory with where it came from and what replaced it', async () => {
     const { data: gone } = await readTeamMemory({
       path: { ...team, memoryId: 'memory_gone' },
-      throwOnError: true,
-    });
-    const { data: billing } = await readTeamMemory({
-      path: { ...team, memoryId: 'memory_billing' },
       throwOnError: true,
     });
     const { data: branches } = await readTeamMemory({
@@ -82,13 +78,10 @@ describe('the mock team memories', () => {
       throwOnError: true,
     });
 
-    expect(gone.harness).toBe('claude-code');
-    expect(gone.steps.length).toBeGreaterThan(0);
     expect(gone.provenance).toEqual({
       taskId: 'task_retries',
       runId: 'run_retries_2',
     });
-    expect(billing.notes[0]?.author?.name).toBe('Maya Chen');
     expect(branches.successor?.id).toBe('memory_branches_ticket');
   });
 
@@ -124,7 +117,10 @@ describe('the mock team memories', () => {
     expect(written.scope).toBe('line');
     expect(written.source).toBe('person');
     expect(edited.superseded?.id).toBe('memory_gone');
-    expect(edited.steps.length).toBeGreaterThan(0);
+    expect(edited.provenance).toEqual({
+      taskId: 'task_retries',
+      runId: 'run_retries_2',
+    });
     expect(retired.retirement?.reason).toBe(
       'The worker now reloads its limits on deploy.',
     );

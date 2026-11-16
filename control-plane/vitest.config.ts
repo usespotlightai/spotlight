@@ -48,6 +48,7 @@ const shared = {
       '@configuration': resolve(__dirname, 'src/contexts/configuration'),
       '@identity': resolve(__dirname, 'src/contexts/identity'),
       '@secrets': resolve(__dirname, 'src/contexts/secrets'),
+      '@inference': resolve(__dirname, 'src/contexts/inference'),
       '@catalog': resolve(__dirname, 'src/contexts/catalog'),
       '@notifications': resolve(__dirname, 'src/contexts/notifications'),
       '@': resolve(__dirname, 'src'),
@@ -64,11 +65,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: [
-            'src/**/*.spec.ts',
-            'test/architecture/**/*.spec.ts',
-            'bench/**/*.spec.ts',
-          ],
+          include: ['src/**/*.spec.ts', 'test/architecture/**/*.spec.ts'],
           restoreMocks: true,
         },
       },

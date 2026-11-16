@@ -74,6 +74,7 @@ export class WorkSideBySideJudgings implements PendingJobsPort {
 
   private async judged(judging: SideBySideJudging): Promise<SideBySideJudging> {
     const judgment = await this.judge.judge({
+      workspaceId: judging.workspaceId.value,
       run: judging.runId,
       other: judging.otherRunId,
       reference: judging.reference,

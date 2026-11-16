@@ -1,6 +1,5 @@
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -13,7 +12,6 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
-import { JudgeScale } from '@shared-kernel/domain/value-objects/judge-scale.vo';
 import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -34,7 +32,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
-import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo';
+import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -45,6 +43,7 @@ import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import { SourceCommit } from '@shared-kernel/domain/value-objects/source-commit.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -57,10 +56,9 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const SHARED_KERNEL_PAYLOAD_TYPES = [
-  RubricScale,
   Actor,
   ChangeActor,
-  CheckWorkId,
+  ReviewWorkId,
   SandboxId,
   Client,
   ConfigurationChange,
@@ -106,10 +104,10 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   LineRole,
   ProfileKey,
   SkillKey,
+  SourceCommit,
   StationKey,
   StationName,
   Tool,
   JudgeCriteria,
-  JudgeScale,
   JudgingFailure,
 ] as const;

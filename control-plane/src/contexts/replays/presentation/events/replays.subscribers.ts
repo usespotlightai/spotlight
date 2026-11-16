@@ -23,6 +23,8 @@ import type { RecordReplayRunEnding } from '@replays/application/services/record
 import type { RecordReplayRunUsage } from '@replays/application/services/record-replay-run-usage.service';
 import type { RecordReplayVerdict } from '@replays/application/services/record-replay-verdict.service';
 import type { RecordSearchProgress } from '@replays/application/services/record-search-progress.service';
+import type { ReportJudgeClaimsPullRequests } from '@replays/application/services/report-judge-claims-pull-requests.service';
+import type { RequestJudgeClaimsPullRequests } from '@replays/application/services/request-judge-claims-pull-requests.service';
 import type { RequestReplayJudging } from '@replays/application/services/request-replay-judging.service';
 import type { RequestReplayRecheck } from '@replays/application/services/request-replay-recheck.service';
 import type { RequestReplayRejudging } from '@replays/application/services/request-replay-rejudging.service';
@@ -42,6 +44,8 @@ import type { ConfigPullRequestFailed } from '@replays/domain/events/config-pull
 import type { ConfigPullRequestMerged } from '@replays/domain/events/config-pull-request-merged.event';
 import type { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import type { ConfigPullRequestReopened } from '@replays/domain/events/config-pull-request-reopened.event';
+import type { JudgeClaimsPullRequestFailed } from '@replays/domain/events/judge-claims-pull-request-failed.event';
+import type { JudgeClaimsPullRequestOpened } from '@replays/domain/events/judge-claims-pull-request-opened.event';
 import type { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import type { ReplayCeilingReached } from '@replays/domain/events/replay-ceiling-reached.event';
 import type { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
@@ -156,6 +160,8 @@ export interface ReplaysReactions {
   readonly deletingPullRequests: DeleteConfigPullRequests;
   readonly deletingChangeJudgings: DeleteChangeJudgings;
   readonly deletingSideBySideJudgings: DeleteSideBySideJudgings;
+  readonly deletingClaimsPullRequests: RequestJudgeClaimsPullRequests;
+  readonly reportingClaimsPullRequests: ReportJudgeClaimsPullRequests;
   readonly deletingBudgets: DeleteLineSearchBudgets;
   readonly deletingRunDecisions: DeleteReplayRunDecisions;
   readonly startingSearchReplays: StartSearchReplays;
@@ -634,6 +640,19 @@ export const replaysSubscribers = (
     [TEAM_DELETED],
     (event) =>
       reactions.deletingSideBySideJudgings.ofTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<JudgeClaimsPullRequestOpened | JudgeClaimsPullRequestFailed>(
+    'replays.report-judge-claims-pull-request-to-its-revision',
+    ['judge-claims-pull-request.opened', 'judge-claims-pull-request.failed'],
+    (event) => reactions.reportingClaimsPullRequests.ended(event),
+    { callsOut: true },
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'replays.delete-judge-claims-pull-requests-of-deleted-team',
+    [TEAM_DELETED],
+    (event) =>
+      reactions.deletingClaimsPullRequests.ofTeam(TeamId.of(event.teamId)),
     { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(

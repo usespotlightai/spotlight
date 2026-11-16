@@ -77,6 +77,8 @@ describe('ChangeStackHttpMapper', () => {
             },
           ],
           check: null,
+          runId: 'run-1',
+          push: null,
         },
       ],
     });
@@ -138,6 +140,8 @@ describe('ChangeStackHttpMapper', () => {
             whole: step,
             layers: [step],
           },
+          runId: null,
+          push: { head: 'b'.repeat(40), pushedBy: 'octocat' },
         },
       ],
     });
@@ -150,5 +154,45 @@ describe('ChangeStackHttpMapper', () => {
       whole: step,
       layers: [step],
     });
+  });
+
+  it('says which run or which push the stack shows', () => {
+    const stack = {
+      id: 'stack_1',
+      repository: null,
+      state: 'ready' as const,
+      failure: null,
+      startedAt: '2026-10-03T10:00:00.000Z',
+      completedAt: null,
+      files: [],
+      cohorts: [],
+      removed: [],
+      check: null,
+    };
+
+    const response = ChangeStackHttpMapper.toResponse({
+      stacks: [
+        { ...stack, runId: 'run-1', push: null },
+        {
+          ...stack,
+          runId: null,
+          push: { head: 'b'.repeat(40), pushedBy: null },
+        },
+      ],
+    });
+
+    expect(
+      JSON.parse(
+        JSON.stringify(
+          response.stacks.map((each) => ({
+            runId: each.runId,
+            push: each.push,
+          })),
+        ),
+      ),
+    ).toEqual([
+      { runId: 'run-1', push: null },
+      { runId: null, push: { head: 'b'.repeat(40), pushedBy: null } },
+    ]);
   });
 });

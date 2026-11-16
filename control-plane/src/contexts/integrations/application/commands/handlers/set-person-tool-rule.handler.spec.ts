@@ -42,6 +42,7 @@ const setting = (member = true, actsAs = 'requester') => {
             apiSpecs: ['openapi'],
             writtenTools: ['comment', 'issue'].map((name) =>
               ProvidedTool.of({
+                readOnly: false,
                 integration: LINEAR,
                 name,
                 description: name,

@@ -408,6 +408,7 @@ describe('TaskBriefing', () => {
   describe('the tools a station enables for a run', () => {
     const enabled = (tool: string, providedBy: string) =>
       DeclaredTool.of({
+        readOnly: false,
         tool: Tool.of(tool),
         description: 'Does it.',
         providedBy,

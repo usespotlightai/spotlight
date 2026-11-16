@@ -44,6 +44,7 @@ const resolving = (options: { movedOn?: boolean } = {}) => {
         inputs: [],
         approval: null,
         inferredOutput: null,
+        readOnly: false,
       },
       actingAs: null,
       missing: null,

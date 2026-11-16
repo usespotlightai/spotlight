@@ -8,6 +8,7 @@ import {
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import type { INestApplication } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
@@ -67,6 +68,27 @@ const LINEAR = {
   },
 };
 
+const TRACKER = {
+  integration: 'tracker',
+  name: 'Tracker',
+  connection: {
+    oauth2: {
+      authorize: 'https://tracker.example/oauth/authorize',
+      token: 'https://tracker.example/oauth/token',
+      client: { id: 'own-client', secret: 'secret.TRACKER_CLIENT_SECRET' },
+    },
+  },
+  actions: {
+    ping: {
+      request: {
+        method: 'GET',
+        url: 'https://tracker.example/api/ping',
+        auth: { oauth2: { connection: true } },
+      },
+    },
+  },
+};
+
 interface Connections {
   readonly mine: readonly { readonly tools: unknown }[];
   readonly people:
@@ -120,6 +142,7 @@ describe('each person’s own connections (e2e)', () => {
         teamId: TeamId.of(workspaceId),
         integration: IntegrationKey.of('linear'),
         owner: ConnectionOwner.person(UserId.of(personId)),
+        client: OAuth2ClientId.of('client_1'),
         tokens: OAuthTokens.of({
           accessToken: `lin-${personId}`,
           linkedAccount,
@@ -162,6 +185,9 @@ describe('each person’s own connections (e2e)', () => {
       .delete(schema.personToolPolicy)
       .where(eq(schema.personToolPolicy.teamId, workspaceId));
     await db
+      .delete(schema.secret)
+      .where(eq(schema.secret.workspaceId, workspaceId));
+    await db
       .delete(schema.configurationChange)
       .where(eq(schema.configurationChange.workspaceId, workspaceId));
     await seat.unseat();
@@ -184,6 +210,117 @@ describe('each person’s own connections (e2e)', () => {
       owner: 'person',
       by: seat.member,
       returnTo: `/w/${workspaceId}/inbox/task_1`,
+    });
+  });
+
+  it('sends the team’s own OAuth2 client, not the deployment’s, where the definition names one', async () => {
+    await as(seat.owner)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/secrets`, {
+        name: 'TRACKER_CLIENT_SECRET',
+        bindings: [{ host: 'tracker.example' }],
+        valueWo: 'own-secret',
+        valueWoVersion: 1,
+      })
+      .expect(201);
+    await as(seat.owner)
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, TRACKER)
+      .expect(201);
+
+    const started = (await as(seat.owner).post(
+      `/api/teams/${workspaceId}/integrations/tracker/connect`,
+      {},
+    )) as Answer<{ readonly url: string }>;
+
+    expect(started.status).toBe(201);
+    expect(new URL(started.body.url).searchParams.get('client_id')).toBe(
+      'own-client',
+    );
+  });
+
+  it('says which secret is missing where the team’s own client names one that is not there', async () => {
+    await as(seat.owner)
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, TRACKER)
+      .expect(201);
+
+    const started = (await as(seat.owner).post(
+      `/api/teams/${workspaceId}/integrations/tracker/connect`,
+      {},
+    )) as Answer<{ readonly message: string }>;
+
+    expect(started.status).toBe(409);
+    expect(started.body.message).toBe(
+      'Secret TRACKER_CLIENT_SECRET not found. Please create it first.',
+    );
+  });
+
+  it('never sends the team’s own client secret to a token endpoint it is not bound to', async () => {
+    await as(seat.owner)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/secrets`, {
+        name: 'TRACKER_CLIENT_SECRET',
+        bindings: [{ host: 'api.github.com' }],
+        valueWo: 'own-secret',
+        valueWoVersion: 1,
+      })
+      .expect(201);
+    await as(seat.owner)
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, TRACKER)
+      .expect(201);
+
+    const started = (await as(seat.owner).post(
+      `/api/teams/${workspaceId}/integrations/tracker/connect`,
+      {},
+    )) as Answer<{ readonly message: string }>;
+
+    expect(started.status).toBe(403);
+    expect(started.body.message).toBe(
+      'Secret TRACKER_CLIENT_SECRET is not bound to https://tracker.example.',
+    );
+  });
+
+  it('asks to connect the team again once the definition names another OAuth client', async () => {
+    await as(seat.owner)
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`, TRACKER)
+      .expect(201);
+    const madeThrough = (client: string) =>
+      app.get<IntegrationConnectionRepository>(INTEGRATION_CONNECTIONS).save(
+        IntegrationConnection.connectFrom({
+          workspaceId: WorkspaceId.of(workspaceId),
+          teamId: TeamId.of(workspaceId),
+          integration: IntegrationKey.of('tracker'),
+          owner: ConnectionOwner.team(),
+          client: OAuth2ClientId.of(client),
+          tokens: OAuthTokens.of({ accessToken: 'trk-team' }),
+          at: new Date('2026-09-01T00:00:00.000Z'),
+        }),
+      );
+    const tracker = async () =>
+      (
+        (await as(seat.owner).get(
+          `/api/teams/${workspaceId}/configuration`,
+        )) as Answer<{
+          integrations: readonly {
+            integration: string;
+            connectionStatus: string;
+            connectionProblem: string | null;
+          }[];
+        }>
+      ).body.integrations.find((each) => each.integration === 'tracker');
+
+    await madeThrough('old-client');
+
+    expect(await tracker()).toMatchObject({
+      connectionStatus: 'disconnected',
+      connectionProblem: 'other-client',
+    });
+
+    await db
+      .delete(schema.integrationConnection)
+      .where(eq(schema.integrationConnection.teamId, workspaceId));
+    await madeThrough('own-client');
+
+    expect(await tracker()).toMatchObject({
+      connectionStatus: 'connected',
+      connectionProblem: null,
     });
   });
 

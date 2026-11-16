@@ -6,6 +6,7 @@ import type {
   CallAuth,
   Credentials,
 } from '@integrations/application/ports/integration-runtime.port';
+import type { TeamConnectionsPort } from '@integrations/application/ports/team-connections.port';
 import type { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import type { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
@@ -36,7 +37,7 @@ export type ConnectionFound =
     }
   | { readonly kind: 'missing'; readonly missing: ConnectionMissing };
 
-export class CallAuthResolver {
+export class CallAuthResolver implements TeamConnectionsPort {
   constructor(
     private readonly connections: IntegrationConnectionRepository,
     private readonly teams: TeamDirectoryPort,
@@ -47,10 +48,7 @@ export class CallAuthResolver {
   ) {}
 
   async of(teamId: TeamId, integration: Integration): Promise<CallAuth> {
-    const owner = ConnectionChoice.forUnrequestedCall(integration);
-    const connection = owner
-      ? await this.connections.of(teamId, integration.key, owner)
-      : null;
+    const connection = await this.activeOf(teamId, integration);
 
     let found: Promise<WorkspaceId> | null = null;
     const workspace = () => {
@@ -63,9 +61,21 @@ export class CallAuthResolver {
 
     return {
       workspace,
-      connection: connection ? this.active(connection) : null,
+      connection,
       credentials: this.credentials.forSpotlight(workspace),
     };
+  }
+
+  async activeOf(
+    teamId: TeamId,
+    integration: Integration,
+  ): Promise<ActiveConnection | null> {
+    const owner = ConnectionChoice.forUnrequestedCall(integration);
+    const connection = owner
+      ? await this.connections.of(teamId, integration.key, owner)
+      : null;
+
+    return connection ? this.active(connection) : null;
   }
 
   async connectionFor(

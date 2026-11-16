@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   answerInboxItem,
+  answerJudgeDisagreement,
+  answerJudgeDisagreementClaim,
   approveMemories,
   deleteReviewComment,
   disputeDecision,
@@ -14,8 +16,9 @@ import {
   markInboxItemRead,
   markInboxRequestRead,
   readInboxItem,
+  readJudgeDisagreement,
   readMemoryReview,
-  readRunReview,
+  readTaskReview,
   readRunScores,
   readStationAlert,
   readTaskDecisions,
@@ -33,8 +36,18 @@ import {
   COST_ALERT_ID,
   COST_ALERT_REQUEST_ID,
   DECIDED_MEMORIES_REQUEST_ID,
-  FIVE_POINT_GRADE_REQUEST_ID,
+  EARLIER_CLAIMS_GRADE_REQUEST_ID,
+  FAILED_DISAGREEMENT_ID,
+  FAILED_DISAGREEMENT_REQUEST_ID,
   GRADE_REQUEST_ID,
+  MERGED_DISAGREEMENT_ID,
+  MERGED_DISAGREEMENT_REQUEST_ID,
+  PASSED_DISAGREEMENT_ID,
+  SENT_BACK_DISAGREEMENT_ID,
+  CLAIMS_CHANGED_DISAGREEMENT_ID,
+  LABEL_GONE_DISAGREEMENT_ID,
+  WITHDRAWN_DISAGREEMENT_ID,
+  WITHDRAWN_DISAGREEMENT_REQUEST_ID,
   MEMORIES_REQUEST_ID,
   SETUP_ITEM_ID,
   STALLED_NOTICE_ID,
@@ -61,6 +74,7 @@ const RETRIES = {
 };
 
 const POSTGRES_RUN = { teamId: PLATFORM_ID, runId: 'run_postgres_2' };
+const POSTGRES_TASK = { teamId: PLATFORM_ID, taskId: 'task_postgres' };
 
 const approvalIn = async (itemId: string) =>
   (await itemIn(itemId))?.notes.findLast((note) => note.approval)?.approval;
@@ -256,17 +270,17 @@ describe('the mock inbox', () => {
     expect((await itemIn(ALERT_REQUEST_ID))?.resolved).toBe(true);
   });
 
-  it('requests grades on every scale', async () => {
+  it('requests grades claim by claim, on current and earlier claims', async () => {
     const claims = await scoresAbout(CLAIMS_GRADE_REQUEST_ID);
-    const five = await scoresAbout(FIVE_POINT_GRADE_REQUEST_ID);
+    const earlier = await scoresAbout(EARLIER_CLAIMS_GRADE_REQUEST_ID);
 
     expect(claims).toMatchObject({
-      kind: 'claims',
+      gradable: true,
       stationId: 'station_design',
     });
     expect(claims.claims).toHaveLength(3);
-    expect(five).toMatchObject({ kind: 'number', grades: [] });
-    expect(five.judge?.kind).toBe('number');
+    expect(earlier).toMatchObject({ gradable: true, grades: [] });
+    expect(earlier.judge?.claimResults).toHaveLength(2);
   });
 
   it('grades a judged run and resolves the grade it asked for', async () => {
@@ -276,38 +290,267 @@ describe('the mock inbox', () => {
     });
     const { data: after } = await gradeRun({
       path: POSTGRES_RUN,
-      body: { value: true },
+      body: { claims: [true, true, true] },
       throwOnError: true,
     });
 
-    expect(before.judge?.label).toBe('yes');
-    expect(after.grades[0]).toMatchObject({ mine: true, label: 'yes' });
+    expect(before.judge?.passes).toBe(true);
+    expect(after.grades[0]).toMatchObject({
+      mine: true,
+      passes: true,
+      label: '3 of 3 claims met',
+    });
     expect((await itemIn(GRADE_REQUEST_ID))?.resolved).toBe(true);
+  });
+
+  it('shows what people said of a run beside the judge’s verdict, and whether they agree', async () => {
+    const { data: graded } = await readRunScores({
+      path: { teamId: PLATFORM_ID, runId: 'run_search_2' },
+      throwOnError: true,
+    });
+    expect(graded).toMatchObject({
+      outcome: { source: 'grade', passes: true },
+      agrees: false,
+    });
+    expect(graded.judge?.passes).toBe(false);
+
+    await gradeRun({
+      path: POSTGRES_RUN,
+      body: { claims: [true, true, true] },
+      throwOnError: true,
+    });
+    const { data: regraded } = await readRunScores({
+      path: POSTGRES_RUN,
+      throwOnError: true,
+    });
+    expect(regraded).toMatchObject({
+      outcome: { source: 'grade', passes: true },
+      agrees: true,
+    });
+  });
+
+  it('asks the person who graded a run the judge failed about the claims in dispute', async () => {
+    const asked = await itemIn(FAILED_DISAGREEMENT_REQUEST_ID);
+    expect(asked?.inboxRequest).toEqual({
+      form: 'judge-disagreement',
+      about: FAILED_DISAGREEMENT_ID,
+    });
+
+    const { data: disagreement } = await readJudgeDisagreement({
+      path: { teamId: PLATFORM_ID, disagreementId: FAILED_DISAGREEMENT_ID },
+      throwOnError: true,
+    });
+    expect(disagreement).toMatchObject({
+      runId: 'run_search_2',
+      direction: 'judge-failed',
+      labelFrom: 'grade',
+      disputedClaims: [2],
+      answers: [],
+      notMet: null,
+    });
+    expect(disagreement.claims[1]?.reasons[0]?.citations[0]).toMatchObject({
+      kind: 'step',
+      hunk: null,
+    });
+    expect(
+      await statusOf(
+        readJudgeDisagreement({
+          path: { teamId: GROWTH_ID, disagreementId: FAILED_DISAGREEMENT_ID },
+        }),
+      ),
+    ).toBe(404);
+  });
+
+  it('takes one answer per claim in dispute, and resolves the question with the last one', async () => {
+    const path = {
+      teamId: PLATFORM_ID,
+      disagreementId: MERGED_DISAGREEMENT_ID,
+    };
+    const { data: asked } = await readJudgeDisagreement({
+      path,
+      throwOnError: true,
+    });
+    const [first, second] = asked.disputedClaims;
+    expect(second).toBeDefined();
+    const notDisputed = asked.claims.findIndex(
+      (_, claim) => !asked.disputedClaims.includes(claim),
+    );
+
+    expect(
+      await statusOf(
+        answerJudgeDisagreementClaim({
+          path: { ...path, claim: notDisputed },
+          body: { answer: 'judge-right', note: null },
+        }),
+      ),
+    ).toBe(422);
+    expect(
+      await statusOf(
+        answerJudgeDisagreement({
+          path,
+          body: { note: 'It never ran the tests.', shouldHaveFailed: null },
+        }),
+      ),
+    ).toBe(422);
+
+    const { data: part } = await answerJudgeDisagreementClaim({
+      path: { ...path, claim: first ?? 0 },
+      body: { answer: 'judge-right', note: 'The lint step must pass.' },
+      throwOnError: true,
+    });
+    expect(part).toMatchObject({
+      state: 'open',
+      answers: [
+        {
+          claim: first,
+          answer: 'judge-right',
+          note: 'The lint step must pass.',
+        },
+      ],
+    });
+    expect((await itemIn(MERGED_DISAGREEMENT_REQUEST_ID))?.resolved).toBe(
+      false,
+    );
+    expect(
+      await statusOf(
+        answerJudgeDisagreementClaim({
+          path: { ...path, claim: first ?? 0 },
+          body: { answer: 'claim-wrong', note: null },
+        }),
+      ),
+    ).toBe(409);
+
+    const { data: whole } = await answerJudgeDisagreementClaim({
+      path: { ...path, claim: second ?? 0 },
+      body: { answer: 'claim-wrong', note: null },
+      throwOnError: true,
+    });
+    expect(whole.state).toBe('answered');
+    expect(whole.answers.map(({ claim }) => claim)).toEqual([first, second]);
+    expect((await itemIn(MERGED_DISAGREEMENT_REQUEST_ID))?.resolved).toBe(true);
+  });
+
+  it('refuses an answer to a disagreement Spotlight withdrew, whose question is resolved', async () => {
+    const path = {
+      teamId: PLATFORM_ID,
+      disagreementId: WITHDRAWN_DISAGREEMENT_ID,
+    };
+    const { data } = await readJudgeDisagreement({ path, throwOnError: true });
+
+    expect(data.withdrawnAt).not.toBeNull();
+    expect((await itemIn(WITHDRAWN_DISAGREEMENT_REQUEST_ID))?.resolved).toBe(
+      true,
+    );
+    const refused = await answerJudgeDisagreementClaim({
+      path: { ...path, claim: data.disputedClaims[0] ?? 0 },
+      body: { answer: 'judge-right', note: null },
+    });
+    expect(refused.response?.status).toBe(409);
+    expect(JSON.stringify(refused.error)).toContain('is withdrawn');
+  });
+
+  it('asks about each claim a grade failed where the judge passed the run', async () => {
+    const path = {
+      teamId: PLATFORM_ID,
+      disagreementId: PASSED_DISAGREEMENT_ID,
+    };
+    const { data: asked } = await readJudgeDisagreement({
+      path,
+      throwOnError: true,
+    });
+
+    expect(asked).toMatchObject({
+      direction: 'judge-passed',
+      labelFrom: 'grade',
+      disputedClaims: [0],
+    });
+    const { data } = await answerJudgeDisagreementClaim({
+      path: { ...path, claim: 0 },
+      body: { answer: 'judge-right', note: null },
+      throwOnError: true,
+    });
+    expect(data).toMatchObject({
+      state: 'answered',
+      answers: [{ claim: 0, answer: 'judge-right', note: null }],
+    });
+  });
+
+  it('asks which claim a sent-back run did not meet, and what was wrong where no claim covers it', async () => {
+    const path = {
+      teamId: PLATFORM_ID,
+      disagreementId: SENT_BACK_DISAGREEMENT_ID,
+    };
+
+    expect(
+      await statusOf(
+        answerJudgeDisagreement({
+          path,
+          body: { note: ' ', shouldHaveFailed: null },
+        }),
+      ),
+    ).toBe(422);
+    const { data } = await answerJudgeDisagreement({
+      path,
+      body: { note: null, shouldHaveFailed: 1 },
+      throwOnError: true,
+    });
+    expect(data).toMatchObject({
+      state: 'answered',
+      notMet: { claim: 1, note: null },
+    });
+    expect(
+      await statusOf(
+        answerJudgeDisagreement({
+          path,
+          body: { note: null, shouldHaveFailed: 0 },
+        }),
+      ),
+    ).toBe(409);
+  });
+
+  it('withdraws questions with a reason', async () => {
+    const reasons = await Promise.all(
+      [
+        WITHDRAWN_DISAGREEMENT_ID,
+        CLAIMS_CHANGED_DISAGREEMENT_ID,
+        LABEL_GONE_DISAGREEMENT_ID,
+      ].map(
+        async (disagreementId) =>
+          (
+            await readJudgeDisagreement({
+              path: { teamId: PLATFORM_ID, disagreementId },
+              throwOnError: true,
+            })
+          ).data.withdrawnBecause,
+      ),
+    );
+
+    expect(reasons).toEqual(['verdicts-agree', 'claims-changed', 'label-gone']);
   });
 
   it('drafts, edits, deletes and submits review comments', async () => {
     const { data: drafted } = await draftReviewComment({
-      path: POSTGRES_RUN,
+      path: POSTGRES_TASK,
       body: { body: 'Batch it.', replyTo: 'comment_batching' },
       throwOnError: true,
     });
     await editReviewComment({
-      path: { ...POSTGRES_RUN, commentId: drafted.id },
+      path: { ...POSTGRES_TASK, commentId: drafted.id },
       body: { body: 'Batch it, 50k a time.' },
       throwOnError: true,
     });
     await deleteReviewComment({
-      path: { ...POSTGRES_RUN, commentId: 'comment_pool_timeout' },
+      path: { ...POSTGRES_TASK, commentId: 'comment_pool_timeout' },
       throwOnError: true,
     });
     await submitReview({
-      path: POSTGRES_RUN,
+      path: POSTGRES_TASK,
       body: { verdict: 'request-changes', body: 'Run the rewrite in batches.' },
       throwOnError: true,
     });
 
-    const { data } = await readRunReview({
-      path: POSTGRES_RUN,
+    const { data } = await readTaskReview({
+      path: POSTGRES_TASK,
       throwOnError: true,
     });
     const mine = data.comments.find((each) => each.id === drafted.id);
@@ -432,7 +675,7 @@ describe('the mock inbox in an empty workspace', () => {
           }),
         ),
         statusOf(readRunScores({ path: POSTGRES_RUN })),
-        statusOf(readRunReview({ path: POSTGRES_RUN })),
+        statusOf(readTaskReview({ path: POSTGRES_TASK })),
         statusOf(
           readTaskDecisions({
             path: { teamId: PLATFORM_ID, taskId: 'task_postgres' },

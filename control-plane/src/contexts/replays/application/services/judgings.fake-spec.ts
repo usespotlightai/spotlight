@@ -39,6 +39,10 @@ export class FakeChangeJudge implements ChangeJudgePort {
     failure: 'unavailable',
   };
 
+  async availableTo(): Promise<boolean> {
+    return this.available;
+  }
+
   async judge(order: ChangeJudgeOrder): Promise<ChangeJudgment> {
     this.orders.push(order);
     return this.answer;
@@ -52,6 +56,10 @@ export class FakePairJudge implements PairJudgePort {
     judged: false,
     failure: 'unavailable',
   };
+
+  async availableTo(): Promise<boolean> {
+    return this.available;
+  }
 
   async judge(order: PairJudgeOrder): Promise<PairJudgment> {
     this.orders.push(order);
@@ -234,10 +242,7 @@ export const judgedOnce = async (
     .recordJudgment(
       {
         judged: true,
-        value: input.criteria.scale.kind === 'number' ? 5 : 1,
-        claimResults: input.criteria.scale.byClaims
-          ? input.criteria.claims.map(() => true)
-          : null,
+        claimResults: input.criteria.claims.map(() => true),
         reasons: [],
         guidance: null,
         referenced: false,

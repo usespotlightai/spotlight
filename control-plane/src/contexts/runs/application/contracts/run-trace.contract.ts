@@ -34,6 +34,7 @@ export interface TraceNode {
   readonly to: Date;
   readonly category: Category;
   readonly step: JournalStep | null;
+  readonly place: number | null;
   readonly span: RunSpan | null;
   readonly cost: SpentCost | null;
   readonly connection: TracedConnection | null;

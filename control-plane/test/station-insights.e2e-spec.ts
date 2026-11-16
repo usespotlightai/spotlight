@@ -35,6 +35,9 @@ import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.
 import { DrizzleChats } from '@insights/infrastructure/persistence/drizzle/ledgers/chats.ledger';
 import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
 import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
+import { DrizzleClaimsRevisionRepository } from '@insights/infrastructure/persistence/drizzle/repositories/claims-revision.repository';
+import { DrizzleClaimsSourceRepository } from '@insights/infrastructure/persistence/drizzle/repositories/claims-source.repository';
+import { DrizzleJudgeDisagreementRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judge-disagreement.repository';
 import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
@@ -266,6 +269,9 @@ beforeAll(async () => {
         pullRequests,
         alertStates,
         chats,
+        disagreements: new DrizzleJudgeDisagreementRepository(context, quiet),
+        revisions: new DrizzleClaimsRevisionRepository(context, quiet),
+        sources: new DrizzleClaimsSourceRepository(context, quiet),
       },
       deletions,
       context,
@@ -281,10 +287,10 @@ beforeAll(async () => {
         judgeAt: async () => null,
       },
       {
-        available: false,
+        availableTo: async () => false,
         judge: async () => ({
           model: 'some/model',
-          verdict: { value: true, reasons: [] },
+          verdict: { claims: [] },
           guidance: null,
         }),
       },
@@ -296,10 +302,11 @@ beforeAll(async () => {
     scoring: new RecordJudgeScore(scores, recorder, context, {
       generate: () => 'id',
     }),
-    grading: new GradeInboxRequests({
-      ask: async () => {},
-      resolve: async () => {},
-    }),
+    grading: new GradeInboxRequests(
+      { ask: async () => {}, resolve: async () => {} },
+      stationFacts,
+      { now: () => new Date(), sleep: async () => {} },
+    ),
     recordingUsage: new RecordRunUsageSummary(work, records, recorder, context),
     remembering: new RecordRunMemories(work, records, recorder, context),
     passing: new RecordStationPass(records, recorder, context),
@@ -562,12 +569,17 @@ describe('how a station’s runs turned out', () => {
       },
       cost: { amount: 0.4, currency: 'USD' },
     });
+    expect(outcomes.groups[0]?.tally).toMatchObject({
+      runs: 1,
+      resolutions: { accepted: 1, other: 0 },
+      merged: 1,
+    });
     expect(outcomes.groups[3]?.tally).toMatchObject({
       runs: 1,
       cancelled: 0,
       stopped: 0,
       checksPassed: 1,
-      resolutions: { accepted: 1 },
+      resolutions: { accepted: 0, other: 1 },
       merged: 1,
       cost: { amount: 0.4, currency: 'USD' },
     });

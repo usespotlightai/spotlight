@@ -21,10 +21,6 @@ export class RequestMemories {
   ) {}
 
   async runEnded(taskId: TaskId, runId: RunId): Promise<void> {
-    if (!this.drafter.available) {
-      return;
-    }
-
     const run = await this.work.run(runId);
 
     if (!run || !draftsMemoriesAfter(run)) {
@@ -33,7 +29,7 @@ export class RequestMemories {
 
     const task = await this.work.task(taskId);
 
-    if (!task) {
+    if (!task || !(await this.drafter.availableTo(task.workspaceId.value))) {
       return;
     }
 

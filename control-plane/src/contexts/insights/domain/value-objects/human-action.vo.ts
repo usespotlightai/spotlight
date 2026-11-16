@@ -1,4 +1,5 @@
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const TASK_ACTIONS = [
   'started',
@@ -36,10 +37,15 @@ export class HumanAction {
   private constructor(
     readonly kind: HumanActionKind,
     readonly at: Date,
+    readonly by: UserId | null,
   ) {}
 
-  static of(kind: HumanActionKind, at: Date): HumanAction {
-    return new HumanAction(kind, at);
+  static of(
+    kind: HumanActionKind,
+    at: Date,
+    by: UserId | null = null,
+  ): HumanAction {
+    return new HumanAction(kind, at, by);
   }
 
   get answersApproval(): boolean {

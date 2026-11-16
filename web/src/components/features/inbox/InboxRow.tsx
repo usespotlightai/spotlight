@@ -2,7 +2,7 @@ import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { FailureCount } from '@/components/features/inbox/FailureCount';
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
 import { plainPreview } from '@/components/features/inbox/plainPreview';
-import { ResolveToggle } from '@/components/features/inbox/ResolveToggle';
+import { useResolveAction } from '@/hooks/useResolveAction';
 import { type InboxItem, inboxItemPath, previewOf } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 
@@ -12,6 +12,7 @@ type InboxRowProps = {
 };
 
 export function InboxRow({ slug, item }: InboxRowProps) {
+  const resolve = useResolveAction(slug, item);
   return (
     <InboxRowFrame
       to={inboxItemPath(slug, item.id)}
@@ -26,7 +27,7 @@ export function InboxRow({ slug, item }: InboxRowProps) {
       at={item.askedAt}
       preview={plainPreview(previewOf(item))}
       badge={<FailureCount failure={item.failure} />}
-      action={<ResolveToggle slug={slug} entry={item} />}
+      resolve={resolve}
     />
   );
 }

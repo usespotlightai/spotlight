@@ -2,13 +2,16 @@ import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggre
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
 import { QuestionAnswerVersionConflictError } from '@change-review/domain/exceptions/question-answer-version-conflict.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import {
   HunkId,
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { DrizzleChangeStackReader } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.reader';
 import { DrizzleChangeStackRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.repository';
 import { DrizzleQuestionAnswerRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/question-answer.repository';
@@ -37,70 +40,87 @@ let stacks: DrizzleChangeStackRepository;
 let answers: DrizzleQuestionAnswerRepository;
 let reader: DrizzleChangeStackReader;
 
-const ready = ChangeStack.startGeneration({
-  id: ChangeStackId.of('stack_1'),
-  runId: RUN,
-  taskId: TaskId.of('task_1'),
-  teamOfRun: null,
-  trial: false,
-  checkouts: 1,
-  workspaceId: WorkspaceId.of('ws_1'),
-  repository: null,
-  base: null,
-  diff: Diff.of([
-    {
-      path: 'slack.ts',
-      previousPath: null,
-      status: 'modified',
-      binary: false,
-      hunks: [
-        {
-          id: HunkId.of('h1'),
-          oldStart: 1,
-          oldLines: 1,
-          newStart: 1,
-          newLines: 1,
-          patch: '@@ -1 +1 @@\n-bot\n+member ?? integration',
-        },
-      ],
-    },
-  ]),
-  facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
-  request: null,
-  now: NOW,
-}).propose(
-  [
-    {
-      kind: 'change',
-      title: 'Sign as the member',
-      intent: 'Sign messages as the member who wrote them',
-      layers: [
-        {
-          title: 'Sign as the member',
-          summary: 'Falls back to the integration',
-          dependsOn: [],
-          hunks: [{ hunk: HunkId.of('h1') }],
-          notes: [{ path: 'slack.ts', note: 'Picks the signer' }],
-          questions: [
-            {
-              question: 'Who signs when the member has left?',
-              answer: 'The integration signs it.',
-              hunks: [HunkId.of('h1')],
-            },
-          ],
-        },
-      ],
-    },
-  ],
-  NOW,
+const stackOf = (id: string, origin: StackOrigin, at = NOW) =>
+  ChangeStack.startGeneration({
+    id: ChangeStackId.of(id),
+    origin,
+    taskId: TaskId.of('task_1'),
+    teamOfRun: null,
+    trial: false,
+    checkouts: 1,
+    workspaceId: WorkspaceId.of('ws_1'),
+    repository: null,
+    base: null,
+    diff: Diff.of([
+      {
+        path: 'slack.ts',
+        previousPath: null,
+        status: 'modified',
+        binary: false,
+        hunks: [
+          {
+            id: HunkId.of('h1'),
+            oldStart: 1,
+            oldLines: 1,
+            newStart: 1,
+            newLines: 1,
+            patch: '@@ -1 +1 @@\n-bot\n+member ?? integration',
+          },
+        ],
+      },
+    ]),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
+    request: null,
+    now: at,
+  }).propose(
+    [
+      {
+        kind: 'change',
+        title: 'Sign as the member',
+        intent: 'Sign messages as the member who wrote them',
+        layers: [
+          {
+            title: 'Sign as the member',
+            summary: 'Falls back to the integration',
+            dependsOn: [],
+            hunks: [{ hunk: HunkId.of('h1') }],
+            notes: [{ path: 'slack.ts', note: 'Picks the signer' }],
+            questions: [
+              {
+                question: 'Who signs when the member has left?',
+                answer: 'The integration signs it.',
+                hunks: [HunkId.of('h1')],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    at,
+  );
+
+const ready = stackOf('stack_1', StackOrigin.run(RUN));
+
+const pushed = stackOf(
+  'stack_pushed',
+  StackOrigin.push(
+    CommitSha.parsed('b'.repeat(40)) as CommitSha,
+    Pusher.of('octocat'),
+  ),
+  new Date(NOW.getTime() + 60_000),
 );
 
 const question = ready.question(QuestionId.of('c1.l1.q1'));
 
-const answered = (id: string, personId: UserId, asked = question) =>
+const answered = (
+  id: string,
+  personId: UserId,
+  asked = question,
+  stack = ready,
+) =>
   QuestionAnswer.given({
     id: QuestionAnswerId.of(id),
-    stack: ready,
+    stack,
     question: asked,
     personId,
     reply: 'The bot.',
@@ -170,6 +190,53 @@ describe('answers to the questions of a change stack', () => {
     );
 
     expect((await questionsFor(BEA))?.[0]?.answered).toBeNull();
+  });
+
+  it('shows the task’s pushed stack in place of its run’s older one, with the push and no run', async () => {
+    await stacks.add(pushed);
+
+    const found = await reader.ofTask(TaskId.of('task_1'), ADA, NOW);
+    const [ofRun] = await reader.ofRun(RUN, ADA, NOW);
+
+    expect(found.map((each) => [each.id, each.runId, each.push])).toEqual([
+      ['stack_pushed', null, { head: 'b'.repeat(40), pushedBy: 'octocat' }],
+    ]);
+    expect([ofRun?.id, ofRun?.runId, ofRun?.push]).toEqual([
+      'stack_1',
+      'run_1',
+      null,
+    ]);
+  });
+
+  it('refuses the same answer again on another stack of the task as a version conflict', async () => {
+    await expect(
+      answers.add(answered('answer_ada_pushed', ADA, question, pushed)),
+    ).rejects.toThrow(QuestionAnswerVersionConflictError);
+    await expect(
+      answers.add(
+        answered(
+          'answer_ada_pushed_reworded',
+          ADA,
+          { ...question, question: 'Who signs for a member who left?' },
+          pushed,
+        ),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it('refuses an answer given anew as a version conflict when the task already holds that answer', async () => {
+    const reworded = await answers.of(pushed.id, question.id, ADA);
+
+    await expect(
+      answers.save(
+        (reworded as QuestionAnswer).answeredAgain({
+          question,
+          reply: null,
+          graded: null,
+          now: NOW,
+        }),
+      ),
+    ).rejects.toThrow(QuestionAnswerVersionConflictError);
   });
 
   it('finds the answers of a task and removes each, whether or not its change stack is still there', async () => {

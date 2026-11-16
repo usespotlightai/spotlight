@@ -1,69 +1,78 @@
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
-import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-type LabelSource = 'grade' | 'accepted' | 'sent-back' | 'merged' | 'closed';
+export const LABEL_SOURCES = [
+  'grade',
+  'accepted',
+  'sent-back',
+  'merged',
+] as const;
+
+export type LabelSource = (typeof LABEL_SOURCES)[number];
 
 export interface HumanLabel {
-  readonly value: number;
+  readonly passes: boolean;
   readonly claimResults: readonly boolean[] | null;
   readonly from: LabelSource;
+  readonly by: UserId | null;
 }
 
-const gradedBy = (grade: Scored, rubricVersion: string | null): boolean =>
-  grade.rubricVersion === null ||
-  rubricVersion === null ||
-  grade.rubricVersion === rubricVersion;
-
-const latestGrade = (
-  scale: ScoreScale,
-  rubricVersion: string | null,
+const latestGradeOf = (
+  rubricVersion: string,
   grades: readonly Scored[],
 ): Scored | null =>
   grades
-    .filter(
-      (each) =>
-        !each.fromJudge &&
-        each.scale.equals(scale) &&
-        gradedBy(each, rubricVersion),
-    )
+    .filter((each) => !each.fromJudge && each.rubricVersion === rubricVersion)
     .sort((one, other) => other.at.getTime() - one.at.getTime())[0] ?? null;
 
-export const humanLabelOf = (input: {
-  scale: ScoreScale;
-  rubricVersion: string | null;
-  fact: RunFact | null;
-  grades: readonly Scored[];
-}): HumanLabel | null => {
-  const grade = latestGrade(input.scale, input.rubricVersion, input.grades);
-
-  if (grade) {
-    return {
-      value: grade.value,
-      claimResults: grade.claimResults,
-      from: 'grade',
-    };
-  }
-
-  if (!input.scale.categorical) {
-    return null;
-  }
-
-  const action = input.fact?.firstHumanAction;
-  const pullRequest = input.fact?.pullRequest ?? null;
+export const freeLabelOf = (fact: RunFact | null): HumanLabel | null => {
+  const action = fact?.firstHumanAction;
+  const pullRequest = fact?.pullRequest ?? null;
 
   if (action?.accepts) {
-    return { value: input.scale.yes, claimResults: null, from: 'accepted' };
+    return {
+      passes: true,
+      claimResults: null,
+      from: 'accepted',
+      by: action.by,
+    };
   }
   if (action?.sendsBack) {
-    return { value: input.scale.no, claimResults: null, from: 'sent-back' };
+    return {
+      passes: false,
+      claimResults: null,
+      from: 'sent-back',
+      by: action.by,
+    };
   }
-  if (pullRequest?.state === 'merged') {
-    return { value: input.scale.yes, claimResults: null, from: 'merged' };
-  }
-  if (pullRequest?.state === 'closed') {
-    return { value: input.scale.no, claimResults: null, from: 'closed' };
+  if (
+    pullRequest?.state === 'merged' &&
+    fact?.ending === 'completed' &&
+    fact.followedAt === null
+  ) {
+    return { passes: true, claimResults: null, from: 'merged', by: null };
   }
 
   return null;
+};
+
+export const hasFreeLabel = (fact: RunFact | null): boolean =>
+  freeLabelOf(fact) !== null;
+
+export const humanLabelOf = (input: {
+  rubricVersion: string;
+  fact: RunFact | null;
+  grades: readonly Scored[];
+}): HumanLabel | null => {
+  const grade = latestGradeOf(input.rubricVersion, input.grades);
+
+  return grade
+    ? {
+        passes: grade.passes,
+        claimResults: grade.claimResults,
+        from: 'grade',
+        by: grade.by,
+      }
+    : freeLabelOf(input.fact);
 };

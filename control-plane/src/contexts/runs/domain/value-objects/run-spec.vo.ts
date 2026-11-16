@@ -66,6 +66,7 @@ export interface RunToolManifest {
   readonly approval: RunToolApproval | null;
   readonly integration?: string;
   readonly output?: JsonObject;
+  readonly readOnly?: true;
 }
 
 export interface RunChangedTools {
@@ -253,6 +254,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
           ...(each.output !== undefined
             ? { output: structuredClone(each.output) }
             : {}),
+          ...(each.readOnly ? { readOnly: true as const } : {}),
         })),
       }
     : {}),
@@ -293,8 +295,12 @@ export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
     return 'uses Spotlight’s API';
   }
 
-  if ((parts.manifest?.length ?? 0) > 0) {
-    return 'enables tools';
+  if (
+    (parts.manifest ?? []).some(
+      (each) => !each.readOnly || each.integration === undefined,
+    )
+  ) {
+    return 'enables tools that can change data';
   }
 
   if ((parts.catalog?.length ?? 0) > 0) {

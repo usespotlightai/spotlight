@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { Task } from '@/routes/Task';
 
 const task = {
@@ -24,6 +25,11 @@ const listed = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
 const stacked = vi.fn((): unknown => ({ latest: null }));
+
+vi.mock('@/hooks/api/useStopRun', () => ({
+  useStopRun: () => ({ mutate: () => {} }),
+  useStopInFlight: () => false,
+}));
 
 vi.mock('@/hooks/api/useTasks', () => ({
   useTask: (_teamId: string, taskId: string) => ({
@@ -233,7 +239,6 @@ describe('Task', () => {
   it('links the changes of the newest stack generated for the task', () => {
     stacked.mockReturnValue({
       latest: {
-        runId: 'run_9',
         repository: 'spotlight',
         state: 'ready',
         checkStatus: 'checked',
@@ -247,7 +252,7 @@ describe('Task', () => {
 
     expect(changes).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/runs/run_9/changes?repository=spotlight',
+      '/w/acme/team/team_1/tasks/task_1/changes?repository=spotlight',
     );
     expect(changes).toHaveTextContent('+61');
     expect(changes).toHaveTextContent('−4');
@@ -437,6 +442,70 @@ describe('Task', () => {
       screen.getByRole('heading', { level: 1, name: 'Fix the queue' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  describe('keyboard', () => {
+    const renderWithKeys = () =>
+      render(
+        <CommandsProvider>
+          <MemoryRouter initialEntries={['/w/acme/team/team_1/tasks/task_1']}>
+            <Routes>
+              <Route
+                path="/w/:slug/team/:teamId/tasks/:taskId"
+                element={<Task />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </CommandsProvider>,
+      );
+
+    const press = (key: string, init: KeyboardEventInit = {}) =>
+      fireEvent.keyDown(document.activeElement ?? document.body, {
+        key,
+        ...init,
+      });
+
+    it('opens the stations to move to with S', async () => {
+      renderWithKeys();
+
+      press('s');
+
+      expect(
+        await screen.findByRole('menuitemradio', { name: 'Backlog' }),
+      ).toBeInTheDocument();
+    });
+
+    it('opens the assignees with A', async () => {
+      renderWithKeys();
+
+      press('a');
+
+      expect(
+        await screen.findByRole('menuitem', { name: /No assignee/ }),
+      ).toBeInTheDocument();
+    });
+
+    it('asks before it deletes the task with Command Backspace', async () => {
+      renderWithKeys();
+
+      press('Backspace', { metaKey: true });
+
+      expect(
+        await screen.findByRole('heading', { name: /Delete/ }),
+      ).toBeInTheDocument();
+      expect(deleted).not.toHaveBeenCalled();
+    });
+
+    it('shows the key in the task options', async () => {
+      const user = userEvent.setup();
+      renderWithKeys();
+
+      await user.click(screen.getByRole('button', { name: 'Task options' }));
+
+      expect(
+        await screen.findByRole('menuitem', { name: /Delete task/ }),
+      ).toHaveTextContent(/⌘⌫|Ctrl\s*Backspace/);
+    });
   });
 });
 

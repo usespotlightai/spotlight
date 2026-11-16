@@ -947,6 +947,7 @@ describe('DispatchTask, the skills a station enables for a run', () => {
   it('lays the skill of finding and calling tools, and briefs where they come from, where an integration’s tool is described', async () => {
     providedTools = [
       DeclaredTool.of({
+        readOnly: false,
         tool: Tool.of('linear.comment'),
         description: 'Comment on the issue.',
         providedBy: 'Linear',
@@ -1033,6 +1034,7 @@ describe('DispatchTask, the team’s own skills', () => {
     ];
     providedTools = [
       DeclaredTool.of({
+        readOnly: false,
         tool: Tool.of('grafana.search'),
         description: 'Search the dashboards.',
       }),
@@ -1086,6 +1088,7 @@ describe('DispatchTask, the tools a run is told about', () => {
   it('describes a tool a team’s integration offers, where the station names it', async () => {
     providedTools = [
       DeclaredTool.of({
+        readOnly: false,
         tool: Tool.of('linear.comment'),
         description: 'Comment on the issue.',
         inputs: [
@@ -1100,6 +1103,7 @@ describe('DispatchTask, the tools a run is told about', () => {
         ],
       }),
       DeclaredTool.of({
+        readOnly: false,
         tool: Tool.of('linear.close'),
         description: 'Close the issue.',
       }),
@@ -1136,6 +1140,7 @@ describe('DispatchTask, the tools a run is told about', () => {
 
   describe('a tool its integration enables on a mark', () => {
     const issue = DeclaredTool.of({
+      readOnly: false,
       tool: Tool.of('sentry.get-issue'),
       description: 'Read a Sentry issue.',
       providedBy: 'Sentry',

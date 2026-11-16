@@ -6,6 +6,7 @@ import {
   requestJson,
 } from '@platform/llm/chat-completions';
 import { type ModelPrices, NO_PRICES } from '@platform/llm/model-prices';
+import { ReasoningEffortSupport } from '@platform/llm/reasoning-effort-support';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -15,7 +16,6 @@ const ENDPOINT: ModelEndpoint = {
   baseUrl: 'http://localhost:11434/v1',
   apiKey: 'test-key',
   model: 'local/model',
-  supportsReasoningEffort: false,
 };
 
 const completed = (choice: object, status = 200) =>
@@ -83,7 +83,7 @@ describe('requesting JSON from a chat completions endpoint', () => {
   it('sends only standard Chat Completions fields', async () => {
     const { requests, fetch } = answering();
 
-    await asking(fetch, {}, 'medium');
+    await asking(fetch);
 
     const body = bodyOf(requests);
     expect(Object.keys(body).sort()).toEqual([
@@ -100,10 +100,10 @@ describe('requesting JSON from a chat completions endpoint', () => {
     });
   });
 
-  it('sends the reasoning effort to an endpoint that supports it', async () => {
+  it('sends the reasoning effort the request asks for', async () => {
     const { requests, fetch } = answering();
 
-    await asking(fetch, { supportsReasoningEffort: true }, 'medium');
+    await asking(fetch, {}, 'medium');
 
     expect(bodyOf(requests).reasoning_effort).toBe('medium');
   });
@@ -111,7 +111,7 @@ describe('requesting JSON from a chat completions endpoint', () => {
   it('sends no reasoning effort when the request asks for none', async () => {
     const { requests, fetch } = answering();
 
-    await asking(fetch, { supportsReasoningEffort: true });
+    await asking(fetch);
 
     expect(bodyOf(requests)).not.toHaveProperty('reasoning_effort');
   });
@@ -232,5 +232,139 @@ describe('the cost of a chat completion', () => {
     const { usage } = await asking(fetch, { prices: NO_PRICES });
 
     expect(usage?.cost).toBeNull();
+  });
+});
+
+describe('finding out whether a model accepts a reasoning effort', () => {
+  const replying = (...responses: Response[]) => {
+    const efforts: (string | undefined)[] = [];
+    const fetch = (async (_url: string, init: RequestInit) => {
+      efforts.push(
+        (JSON.parse(init.body as string) as SentRequest).reasoning_effort,
+      );
+
+      return responses.shift() ?? stopped();
+    }) as unknown as typeof globalThis.fetch;
+
+    return { efforts, fetch };
+  };
+
+  const refused = (status = 400) =>
+    new Response(
+      JSON.stringify({
+        error: { message: 'Unsupported parameter: reasoning_effort' },
+      }),
+      { status },
+    );
+
+  const SUBJECT = { owner: 'ws_1/inference_1', revision: '3' };
+
+  const asked = (
+    fetch: typeof globalThis.fetch,
+    support: ReasoningEffortSupport,
+  ) =>
+    requestJson({
+      endpoint: ENDPOINT,
+      fetch,
+      responseSchema: ANSWER,
+      system: 'system',
+      prompt: 'prompt',
+      maxTokens: 100,
+      reasoning: 'medium',
+      reasoningEffort: { support, subject: SUBJECT },
+    });
+
+  it.each([400, 422])(
+    'retries once without it when the endpoint refuses it (%i)',
+    async (status) => {
+      const support = new ReasoningEffortSupport();
+      const { efforts, fetch } = replying(refused(status));
+
+      expect((await asked(fetch, support)).answer).toEqual({ ok: true });
+      expect(efforts).toEqual(['medium', undefined]);
+      expect(support.of(SUBJECT)).toBe(false);
+    },
+  );
+
+  it('sends none to a model it knows refuses it', async () => {
+    const support = new ReasoningEffortSupport();
+    support.remember(SUBJECT, false);
+    const { efforts, fetch } = replying();
+
+    await asked(fetch, support);
+
+    expect(efforts).toEqual([undefined]);
+  });
+
+  it('remembers a model that answered with it', async () => {
+    const support = new ReasoningEffortSupport();
+    const { fetch } = replying(
+      completed({ finish_reason: 'length', message: {} }),
+    );
+
+    await expect(asked(fetch, support)).rejects.toBeInstanceOf(
+      ModelEmptyCompletionError,
+    );
+
+    expect(support.of(SUBJECT)).toBe(true);
+  });
+
+  it('does not retry a refusal from a model it knows accepts it', async () => {
+    const support = new ReasoningEffortSupport();
+    support.remember(SUBJECT, true);
+    const { efforts, fetch } = replying(refused());
+
+    await expect(asked(fetch, support)).rejects.toMatchObject({
+      status: 400,
+    });
+
+    expect(efforts).toEqual(['medium']);
+  });
+
+  it('remembers nothing when the retry fails too', async () => {
+    const support = new ReasoningEffortSupport();
+    const { efforts, fetch } = replying(refused(), refused());
+
+    await expect(asked(fetch, support)).rejects.toMatchObject({
+      status: 400,
+    });
+
+    expect(efforts).toEqual(['medium', undefined]);
+    expect(support.of(SUBJECT)).toBeNull();
+  });
+
+  it('does not retry a failure that is not about a parameter', async () => {
+    const support = new ReasoningEffortSupport();
+    const { efforts, fetch } = replying(
+      new Response(JSON.stringify({ error: { message: 'no' } }), {
+        status: 401,
+      }),
+    );
+
+    await expect(asked(fetch, support)).rejects.toMatchObject({
+      status: 401,
+    });
+
+    expect(efforts).toEqual(['medium']);
+    expect(support.of(SUBJECT)).toBeNull();
+  });
+
+  it('remembers nothing without a memory', async () => {
+    const { efforts, fetch } = replying(refused(), stopped(), refused());
+    const once = () =>
+      requestJson({
+        endpoint: ENDPOINT,
+        fetch,
+        responseSchema: ANSWER,
+        system: 'system',
+        prompt: 'prompt',
+        maxTokens: 100,
+        reasoning: 'medium',
+      });
+
+    await once();
+    await once();
+
+    expect(efforts).toEqual(['medium', undefined, 'medium', undefined]);
   });
 });

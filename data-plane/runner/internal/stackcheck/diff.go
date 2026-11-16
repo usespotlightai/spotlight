@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"usespotlight.ai/data-plane/runner/internal/shell"
 )
 
 const (
@@ -71,17 +73,19 @@ func (o Options) Committed(ctx context.Context, checkout string) (string, error)
 		return "", fmt.Errorf("the checkout has no record of where the run began")
 	}
 
-	unstaged := map[string]string{"GIT_TERMINAL_PROMPT": "0"}
+	return o.between(ctx, checkout, BaseRef, "HEAD")
+}
 
-	diff, err := o.gitWith(ctx, checkout, unstaged, "diff", "-M", wholeContext, BaseRef, "HEAD")
+func (o Options) between(ctx context.Context, dir, from, to string) (string, error) {
+	diff, err := o.git(ctx, dir, "", "diff", "-M", wholeContext, from, to)
 	if err != nil {
-		return "", fmt.Errorf("diff the checkout: %w", err)
+		return "", fmt.Errorf("git diff: %w: %s", err, shell.Tail(diff))
 	}
 
 	if len(diff) > maxDiff {
-		diff, err = o.gitWith(ctx, checkout, unstaged, "diff", "-M", BaseRef, "HEAD")
+		diff, err = o.git(ctx, dir, "", "diff", "-M", from, to)
 		if err != nil {
-			return "", fmt.Errorf("diff the checkout: %w", err)
+			return "", fmt.Errorf("git diff: %w: %s", err, shell.Tail(diff))
 		}
 	}
 

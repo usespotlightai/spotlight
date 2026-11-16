@@ -402,4 +402,69 @@ describe('GitHubPullRequests', () => {
       ).rejects.toThrow(/Not Found/);
     });
   });
+
+  describe('finding the pull requests of a commit', () => {
+    const SHA = '3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f';
+
+    const associating = (status: number, body: unknown) =>
+      vi.stubGlobal('fetch', async (url: string) => {
+        sent.push({ url, method: 'GET', body: {} });
+
+        return answering(status, body);
+      });
+
+    it('lists each with its title and whether it merged', async () => {
+      associating(200, [
+        {
+          number: 12,
+          html_url: 'https://github.com/acme/api/pull/12',
+          title: 'Tighten the claims',
+          merged_at: '2026-11-14T09:00:00Z',
+        },
+        {
+          number: 13,
+          html_url: 'https://github.com/acme/api/pull/13',
+          title: 'Try other claims',
+          merged_at: null,
+        },
+        { title: 'No number' },
+      ]);
+
+      await expect(
+        new GitHubPullRequests(access).ofCommit(
+          WorkspaceId.of('ws_1'),
+          Repository.of('acme/api'),
+          SHA,
+        ),
+      ).resolves.toEqual([
+        {
+          number: 12,
+          url: 'https://github.com/acme/api/pull/12',
+          title: 'Tighten the claims',
+          merged: true,
+        },
+        {
+          number: 13,
+          url: 'https://github.com/acme/api/pull/13',
+          title: 'Try other claims',
+          merged: false,
+        },
+      ]);
+      expect(sent[0]?.url).toBe(
+        `https://api.github.com/repos/acme/api/commits/${SHA}/pulls?per_page=100`,
+      );
+    });
+
+    it('carries GitHub’s error', async () => {
+      associating(422, { message: 'No commit found for SHA' });
+
+      await expect(
+        new GitHubPullRequests(access).ofCommit(
+          WorkspaceId.of('ws_1'),
+          Repository.of('acme/api'),
+          SHA,
+        ),
+      ).rejects.toThrow(/No commit found/);
+    });
+  });
 });

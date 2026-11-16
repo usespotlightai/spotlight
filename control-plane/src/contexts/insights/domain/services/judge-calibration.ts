@@ -1,9 +1,7 @@
-import {
-  type Agreement,
-  headlineOf,
-  type TrendPoint,
+import type {
+  Agreement,
+  TrendPoint,
 } from '@insights/domain/services/judge-agreement';
-import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 
 export const MIN_PAIRS = 10;
 
@@ -27,13 +25,8 @@ export const HIDDEN_REASONS = [
 
 export type HiddenReason = (typeof HIDDEN_REASONS)[number];
 
-export const AGREEMENT_MEASURES = ['kappa', 'spearman'] as const;
-
-export type AgreementMeasure = (typeof AGREEMENT_MEASURES)[number];
-
 export interface JudgeCalibration {
   readonly qualified: boolean;
-  readonly measure: AgreementMeasure | null;
   readonly agreement: number | null;
   readonly pairs: number;
   readonly minAgreement: number | null;
@@ -49,7 +42,6 @@ export const unreadableRubricCalibration = (
   minAgreement: number,
 ): JudgeCalibration =>
   hidden('unreadable-rubric', {
-    measure: null,
     agreement: null,
     pairs: 0,
     minAgreement,
@@ -58,24 +50,19 @@ export const unreadableRubricCalibration = (
 export const calibrationOf = (
   judge: {
     readonly minAgreement: number;
-    readonly scale: ScoreScale;
     readonly agreement: Agreement;
   } | null,
 ): JudgeCalibration => {
   if (!judge) {
     return hidden('no-judge', {
-      measure: null,
       agreement: null,
       pairs: 0,
       minAgreement: null,
     });
   }
 
-  const measure: AgreementMeasure =
-    judge.scale.categorical || judge.scale.byClaims ? 'kappa' : 'spearman';
-  const agreement = headlineOf(judge.scale, judge.agreement);
+  const agreement = judge.agreement.kappa;
   const known = {
-    measure,
     agreement,
     pairs: judge.agreement.pairs,
     minAgreement: judge.minAgreement,
@@ -94,9 +81,57 @@ export const calibrationOf = (
   return { qualified: true, hiddenReason: null, ...known };
 };
 
+const CALIBRATION_STATES = ['qualified', 'unmeasured', 'failing'] as const;
+
+export type CalibrationState = (typeof CALIBRATION_STATES)[number];
+
+const STATE_WHEN_HIDDEN: Readonly<Record<HiddenReason, CalibrationState>> = {
+  'no-judge': 'unmeasured',
+  'unreadable-rubric': 'failing',
+  'too-few-pairs': 'unmeasured',
+  'no-agreement': 'unmeasured',
+  'below-min-agreement': 'failing',
+};
+
+export const calibrationStateOf = (
+  calibration: JudgeCalibration,
+): CalibrationState =>
+  calibration.hiddenReason === null
+    ? 'qualified'
+    : STATE_WHEN_HIDDEN[calibration.hiddenReason];
+
 export const failingOf = (calibration: JudgeCalibration): boolean =>
-  calibration.hiddenReason !== null &&
-  calibration.hiddenReason !== 'too-few-pairs';
+  calibrationStateOf(calibration) === 'failing';
+
+export const revisesClaimsOf = (calibration: JudgeCalibration): boolean =>
+  calibration.hiddenReason === 'below-min-agreement' &&
+  calibration.pairs >= MIN_PAIRS;
+
+export interface CalibrationReading {
+  readonly state: CalibrationState;
+  readonly agreement: number | null;
+  readonly pairs: number;
+  readonly minAgreement: number | null;
+}
+
+export const calibrationReadingOf = (input: {
+  calibration: JudgeCalibration;
+  calibratedVersion: string | null;
+  requestedVersion: string;
+}): CalibrationReading =>
+  input.calibratedVersion === input.requestedVersion
+    ? {
+        state: calibrationStateOf(input.calibration),
+        agreement: input.calibration.agreement,
+        pairs: input.calibration.pairs,
+        minAgreement: input.calibration.minAgreement,
+      }
+    : {
+        state: 'unmeasured',
+        agreement: null,
+        pairs: 0,
+        minAgreement: input.calibration.minAgreement,
+      };
 
 export const showsJudgeOf = (
   calibration: JudgeCalibration,

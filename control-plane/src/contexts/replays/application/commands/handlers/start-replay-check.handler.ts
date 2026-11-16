@@ -4,6 +4,7 @@ import type { HashPort } from '@replays/application/ports/hash.port';
 import type { StationView } from '@replays/application/ports/lines.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
+import type { JudgeCalibrations } from '@replays/application/services/judge-calibrations.service';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { SearchReplaysToReuse } from '@replays/application/services/search-replays-to-reuse.service';
@@ -30,6 +31,7 @@ import {
 } from '@replays/domain/services/live-scoring';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
+import type { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
@@ -66,6 +68,11 @@ interface Gated {
   readonly live: LiveConfig;
   readonly threshold: ReplayThreshold;
   readonly set: ReplaySet;
+}
+
+interface ReuseFacts {
+  readonly reused: ReusedReplays | null;
+  readonly judge: JudgeCalibration | null;
 }
 
 interface Prepared {
@@ -108,6 +115,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
     private readonly logger: LoggerPort,
+    private readonly calibrations: Pick<JudgeCalibrations, 'liveAt'>,
   ) {}
 
   async execute(
@@ -189,7 +197,11 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
       live: prepared.validated.liveHashes,
       repeats: planned.repeats,
     });
-    const reusable = await this.reusable(gated, prepared, planned, reused);
+    const judge = await this.calibrations.liveAt(gated.set);
+    const reusable = await this.reusable(gated, prepared, planned, {
+      reused,
+      judge,
+    });
     const candidate = reusable
       ? null
       : this.candidateOf(gated, prepared, planned);
@@ -209,6 +221,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
           const id = await this.started(gated, prepared, planned, {
             candidate,
             by,
+            judge,
           });
 
           started = true;
@@ -307,7 +320,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     gated: Gated,
     { validated }: Prepared,
     planned: Planned,
-    reused: ReusedReplays | null,
+    { reused, judge }: ReuseFacts,
   ): Promise<ReplayCheckId | null> {
     const { set, threshold } = gated;
     const setEntries = set.digestOfEntries((text) => this.hash.sha256(text));
@@ -327,6 +340,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
           evaluation.result,
           planned.reference,
           reused,
+          judge,
         )
       ) {
         return each.id;
@@ -363,6 +377,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     made: {
       readonly candidate: Candidate;
       readonly by: ChangeActor;
+      readonly judge: JudgeCalibration | null;
     },
   ): Promise<string> {
     const set = await this.sets.locked(gated.set.id);
@@ -399,6 +414,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
       threshold: gated.threshold,
       repeats: planned.repeats,
       scoringPinnedToLive: scored.scoringPinnedToLive,
+      judge: made.judge,
       createdAt: this.clock.now(),
       by: made.by,
     });

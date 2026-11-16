@@ -1,11 +1,10 @@
 import type { JudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
+import type { ClaimsSource } from '@insights/domain/aggregates/claims-source.aggregate';
 import type { KappaReading } from '@insights/domain/services/agreement-reading';
 import {
-  type AgreementReadings,
   agreedOf,
   type Coverage,
   comparedOf,
-  headlineOf,
   type TrendPoint,
 } from '@insights/domain/services/judge-agreement';
 import {
@@ -17,7 +16,6 @@ import {
   trendReadyOf,
 } from '@insights/domain/services/judge-calibration';
 import type { RubricReport } from '@insights/domain/services/judge-report';
-import type { ScoreKind } from '@insights/domain/value-objects/score-scale.vo';
 
 export interface ClaimAgreementDto {
   readonly index: number;
@@ -37,12 +35,8 @@ export interface AgreementDto {
   readonly belowMinimum: boolean;
   readonly observed: number | null;
   readonly kappa: number | null;
-  readonly spearman: number | null;
-  readonly pearson: number | null;
-  readonly mae: number | null;
-  readonly rmse: number | null;
+  readonly reading: KappaReading | null;
   readonly f1: number | null;
-  readonly readings: AgreementReadings;
   readonly claims: readonly ClaimAgreementDto[];
 }
 
@@ -57,9 +51,22 @@ export interface ConfusionDto {
   readonly cells: readonly (readonly number[])[];
 }
 
+export interface ClaimsSourcePullRequestDto {
+  readonly number: number;
+  readonly url: string;
+  readonly title: string;
+}
+
+export interface ClaimsSourceDto {
+  readonly repository: string;
+  readonly sha: string;
+  readonly shortSha: string;
+  readonly url: string;
+  readonly pullRequest: ClaimsSourcePullRequestDto | null;
+}
+
 export interface RubricVersionDto {
   readonly rubricVersion: string;
-  readonly kind: ScoreKind;
   readonly current: boolean;
   readonly judged: number;
   readonly agreement: AgreementDto;
@@ -70,11 +77,12 @@ export interface RubricVersionDto {
   readonly trendMinPairs: number;
   readonly firstAt: string;
   readonly lastAt: string;
+  readonly source: ClaimsSourceDto | null;
 }
 
 export interface StationJudgeSettingsDto {
   readonly rubricVersion: string;
-  readonly kind: ScoreKind | null;
+  readonly readable: boolean;
   readonly claims: readonly string[];
   readonly passThreshold: number;
   readonly sample: number;
@@ -89,25 +97,34 @@ export interface StationJudgeDto {
   readonly coverage: Coverage;
 }
 
-const CLAIM_LABELS: Readonly<Record<number, string>> = {
-  0: 'not met',
-  1: 'met',
+const VERDICT_LABELS: Readonly<Record<number, string>> = {
+  0: 'fails',
+  1: 'passes',
 };
 
-const labelOf =
-  (report: RubricReport) =>
-  (value: number): string =>
-    report.scale.byClaims
-      ? (CLAIM_LABELS[value] ?? String(value))
-      : report.scale.labelOf(value);
+const labelOf = (value: number): string =>
+  VERDICT_LABELS[value] ?? String(value);
+
+const sourceOf = (source: ClaimsSource | null): ClaimsSourceDto | null =>
+  source && {
+    repository: source.commit.repository.value,
+    sha: source.commit.sha,
+    shortSha: source.commit.shortSha,
+    url: source.commit.url,
+    pullRequest: source.pullRequest && {
+      number: source.pullRequest.number,
+      url: source.pullRequest.url,
+      title: source.pullRequest.title,
+    },
+  };
 
 export const rubricVersionOf = (
   report: RubricReport,
   current: string | null,
   calibration: JudgeCalibration,
+  source: ClaimsSource | null,
 ): RubricVersionDto => ({
   rubricVersion: report.rubricVersion,
-  kind: report.scale.kind,
   current: report.rubricVersion === current,
   judged: report.judged,
   agreement: {
@@ -117,28 +134,24 @@ export const rubricVersionOf = (
     agreed: agreedOf(report.agreement.confusion),
     compared: comparedOf(report.agreement.confusion),
     belowMinimum: belowMinimumOf(
-      headlineOf(report.scale, report.agreement),
+      report.agreement.kappa,
       calibration.minAgreement,
     ),
     observed: report.agreement.observed,
     kappa: report.agreement.kappa,
-    spearman: report.agreement.spearman,
-    pearson: report.agreement.pearson,
-    mae: report.agreement.mae,
-    rmse: report.agreement.rmse,
+    reading: report.agreement.reading,
     f1: report.agreement.f1,
-    readings: report.agreement.readings,
     claims: report.agreement.claims.map((each) => ({
       ...each,
       belowMinimum: belowMinimumOf(each.kappa, calibration.minAgreement),
     })),
   },
   confusion: {
-    labels: report.agreement.confusion.values.map(labelOf(report)),
+    labels: report.agreement.confusion.values.map(labelOf),
     cells: report.agreement.confusion.cells,
   },
   distribution: report.agreement.distribution.map((each) => ({
-    label: labelOf(report)(each.value),
+    label: labelOf(each.value),
     judge: each.judge,
     people: each.people,
   })),
@@ -147,4 +160,5 @@ export const rubricVersionOf = (
   trendMinPairs: TREND_MIN_PAIRS,
   firstAt: report.firstAt.toISOString(),
   lastAt: report.lastAt.toISOString(),
+  source: sourceOf(source),
 });

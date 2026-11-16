@@ -1,8 +1,16 @@
 import { ConfigurationModule } from '@configuration/configuration.module';
+import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
+import { InferenceModule } from '@inference/inference.module';
 import { CHANGE_JUDGMENTS } from '@insights/application/ports/change-judgments.port';
+import { CLAIMS_REVISION_PULL_REQUESTS } from '@insights/application/ports/claims-revision-pull-requests.port';
 import { PAIR_JUDGMENTS } from '@insights/application/ports/pair-judgments.port';
 import { RUN_ACCEPTANCE } from '@insights/application/ports/run-acceptance.port';
+import { STATION_JUDGE_CALIBRATIONS } from '@insights/application/ports/station-judge-calibrations.port';
+import {
+  JUDGE_REPAIR_CONTROLLERS,
+  JUDGE_REPAIR_PROVIDERS,
+} from '@insights/insights.judge-repair.wiring';
 import {
   INSIGHTS_CONTROLLERS,
   INSIGHTS_PROVIDERS,
@@ -19,17 +27,25 @@ const BINDINGS = contextBindings([RUN_RESULTS]);
 @Module({
   imports: [
     IdentityModule,
+    GitHubModule,
     LinesModule,
     WorkModule,
     MemoryModule,
+    InferenceModule,
     ConfigurationModule,
   ],
-  controllers: [...INSIGHTS_CONTROLLERS],
-  providers: [...INSIGHTS_PROVIDERS, ...BINDINGS.exposed],
+  controllers: [...INSIGHTS_CONTROLLERS, ...JUDGE_REPAIR_CONTROLLERS],
+  providers: [
+    ...INSIGHTS_PROVIDERS,
+    ...JUDGE_REPAIR_PROVIDERS,
+    ...BINDINGS.exposed,
+  ],
   exports: [
     CHANGE_JUDGMENTS,
     PAIR_JUDGMENTS,
     RUN_ACCEPTANCE,
+    STATION_JUDGE_CALIBRATIONS,
+    CLAIMS_REVISION_PULL_REQUESTS,
     ...BINDINGS.exposedTokens,
   ],
 })

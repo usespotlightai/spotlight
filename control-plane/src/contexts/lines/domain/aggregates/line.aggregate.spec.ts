@@ -17,6 +17,7 @@ import {
 } from '@lines/domain/value-objects/search-policy.vo';
 import { StationCheck } from '@lines/domain/value-objects/station-check.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
+import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
 import { StationRoutes } from '@lines/domain/value-objects/station-routes.vo';
 import { TaskCounts } from '@lines/domain/value-objects/stranded-station';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
@@ -469,6 +470,8 @@ describe('Line, what it records of its changes', () => {
             kind: each.kind,
             color: each.color,
             position: each.position,
+            judge: each.judge,
+            claimsChanged: each.judge !== null,
           })),
         ),
       ]);
@@ -507,9 +510,70 @@ describe('Line, what it records of its changes', () => {
             kind: each.kind,
             color: each.color,
             position: each.position,
+            judge: each.judge,
+            claimsChanged: false,
           })),
         ),
       );
+    });
+
+    it('tells which stations got new claims or a new pass threshold', () => {
+      const judge = (claims: string[], passThreshold = 1, sample = 1) =>
+        StationJudge.of({ claims, passThreshold, sample, minAgreement: 0.6 });
+      const judged = (position: number, givenJudge: StationJudge | null) =>
+        Station.of({
+          id: StationId.of(`station_${position}`),
+          key: StationKey.of(`station-${position}`),
+          name: StationName.of(`Station ${position}`),
+          position,
+          color: StationColor.of('#a3a8b0'),
+          routes: StationRoutes.of({ stations: [] }),
+          judge: givenJudge,
+        });
+      const line = lineOf([
+        judged(1, judge(['Tests pass'])),
+        judged(2, judge(['Tests pass'])),
+        judged(3, judge(['Tests pass'])),
+        judged(4, null),
+      ]);
+      const updated = line.update(
+        {
+          key: line.key,
+          name: line.name,
+          stations: [
+            backlog(),
+            judged(1, judge(['Tests pass'], 1, 0.5)),
+            judged(2, judge(['Tests pass', 'Lint passes'])),
+            judged(3, judge(['Tests pass'], 0.5)),
+            judged(4, judge(['Tests pass'])),
+            judged(5, judge(['Tests pass'])),
+            judged(6, null),
+            completed(7),
+          ],
+          reactions: [],
+        },
+        NO_TASKS,
+        changeActorIn(),
+      );
+      const [lineUpdated] = updated
+        .pullEvents()
+        .filter((each) => each instanceof LineUpdated);
+
+      expect(
+        lineUpdated?.stations.map((each) => [
+          each.id.value,
+          each.claimsChanged,
+        ]),
+      ).toEqual([
+        ['backlog_1', false],
+        ['station_1', false],
+        ['station_2', true],
+        ['station_3', true],
+        ['station_4', true],
+        ['station_5', true],
+        ['station_6', false],
+        ['completed_1', false],
+      ]);
     });
 
     it('names the stations it had and has when updated, so a removed station is told too', () => {

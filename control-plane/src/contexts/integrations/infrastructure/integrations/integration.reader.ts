@@ -36,6 +36,7 @@ interface ReadIntegration {
   readonly name: string;
   readonly logo: string | null;
   readonly requiresConnection: boolean;
+  readonly ownClient: string | null;
   readonly actsAs: ActsAsKind;
   readonly credentials: readonly SecretName[];
   readonly spec: ReadSpec | null;
@@ -77,7 +78,9 @@ export class IntegrationReader implements ToolDeclarationsPort {
 
     return {
       integrations: readable.integrations.map(
-        ({ path, integration, apiSpec }) => {
+        ({ path, integration, apiSpec, connection }) => {
+          const oauth2 = connection?.oauth2;
+
           const defined = definitions.find(
             (each) => each.integration === integration.key.value,
           );
@@ -88,6 +91,10 @@ export class IntegrationReader implements ToolDeclarationsPort {
             name: integration.name,
             logo: integration.logo?.value ?? null,
             requiresConnection: integration.requiresConnection,
+            ownClient:
+              oauth2 && oauth2.discoverAt === null
+                ? (oauth2.client?.id ?? null)
+                : null,
             actsAs: integration.actsAs.kind,
             credentials: integration.credentials,
             spec:
@@ -144,6 +151,12 @@ export class IntegrationReader implements ToolDeclarationsPort {
     return this.offered(definitions).flatMap((each) =>
       each.enabledOnMarks(kinds),
     );
+  }
+
+  enabledOnAnyMark(
+    definitions: readonly DefinedIntegration[],
+  ): readonly ToolName[] {
+    return this.offered(definitions).flatMap((each) => each.enabledOnAnyMark);
   }
 
   async providedTool(

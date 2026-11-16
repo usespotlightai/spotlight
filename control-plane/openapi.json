@@ -155,6 +155,16 @@
             }
           },
           {
+            "name": "Spotlight-Source-Commit",
+            "in": "header",
+            "description": "The commit the definition comes from, as owner/name@sha on GitHub. Each new claims version of a station keeps the first commit that wrote it, and the pull request that merged it",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "acme/spotlight-config@3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f"
+            }
+          },
+          {
             "name": "Idempotency-Key",
             "in": "header",
             "description": "Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more",
@@ -452,6 +462,16 @@
             "schema": {
               "example": "3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03",
               "type": "string"
+            }
+          },
+          {
+            "name": "Spotlight-Source-Commit",
+            "in": "header",
+            "description": "The commit the definition comes from, as owner/name@sha on GitHub. Each new claims version of a station keeps the first commit that wrote it, and the pull request that merged it",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "acme/spotlight-config@3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f"
             }
           },
           {
@@ -5731,7 +5751,7 @@
     },
     "/runners/claim": {
       "post": {
-        "description": "Work is either a run to carry out or a change stack check to run against a fresh checkout. A run always comes first.",
+        "description": "Work is a run to carry out, a change stack check to run against a fresh checkout, or the diff of a push to make from one. A run always comes first.",
         "operationId": "claimRun",
         "parameters": [],
         "responses": {
@@ -5799,19 +5819,11 @@
         ]
       }
     },
-    "/runs/{runId}/change-stack-checks/{stackId}/lease": {
+    "/change-stacks/{stackId}/checks/lease": {
       "post": {
         "description": "The runner with the lease on a check renews that lease while the check runs, so a second runner does not claim a long check. The answer carries back whether the runner should stop checking.",
         "operationId": "renewCheckLease",
         "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "stackId",
             "required": true,
@@ -5832,11 +5844,11 @@
         ],
         "responses": {
           "200": {
-            "description": "",
+            "description": "The lease is renewed, or the runner no longer holds it and answers stop: true",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RenewCheckLeaseResponseDto"
+                  "$ref": "#/components/schemas/RenewReviewWorkLeaseResponseDto"
                 }
               }
             }
@@ -5845,13 +5857,54 @@
             "description": "Missing, no longer valid or wrong runner token"
           },
           "404": {
-            "description": "No such runner, or the check this runner leases is of another run"
+            "description": "No such runner"
           },
           "409": {
             "description": "The check kept moving on while it was renewed"
           }
         },
         "summary": "Say the check of a change stack is still in progress",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/push-diffs/{diffId}/lease": {
+      "post": {
+        "description": "The runner with the lease on a push diff renews that lease while it makes the diff, so a second runner does not claim it. The answer carries back whether the runner should stop.",
+        "operationId": "renewPushDiffLease",
+        "parameters": [
+          {
+            "name": "diffId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The lease is renewed, or the runner no longer holds it and answers stop: true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewReviewWorkLeaseResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such runner"
+          },
+          "409": {
+            "description": "The push diff kept moving on while it was renewed"
+          }
+        },
+        "summary": "Say the diff of a push is still being made",
         "tags": [
           "runners"
         ]
@@ -6757,7 +6810,7 @@
             "bearer": []
           }
         ],
-        "summary": "Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run",
+        "summary": "Long-poll for one run, check or push diff, assigned with a one-run runner’s credential, or for a sandbox to start with no run",
         "tags": [
           "runners"
         ]
@@ -14545,6 +14598,956 @@
         ]
       }
     },
+    "/v1/resources/workspaces/{workspaceId}/inference-endpoints": {
+      "post": {
+        "operationId": "createInferenceEndpoint",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version that it uses",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "baseUrl",
+                  "model"
+                ],
+                "properties": {
+                  "baseUrl": {
+                    "type": "string",
+                    "example": "https://openrouter.ai/api/v1"
+                  },
+                  "model": {
+                    "type": "string",
+                    "example": "openai/gpt-5-mini"
+                  },
+                  "apiKeyWo": {
+                    "type": "string",
+                    "writeOnly": true,
+                    "description": "The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned"
+                  },
+                  "apiKeyWoVersion": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 1,
+                    "description": "Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The inference-endpoint, as a read returns it",
+            "headers": {
+              "ETag": {
+                "description": "The returned version, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              },
+              "Idempotent-Replayed": {
+                "description": "true when this returns the result of an earlier attempt",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InferenceEndpointResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or requests an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to do this to the inference-endpoint; the detail says why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such inference-endpoint that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A inference-endpoint already exists at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field; or the Idempotency-Key was used for a different request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create the inference endpoint: the OpenAI-compatible API and model a workspace uses for Spotlight features. Spotlight then sends it one test request; a failed test is a warning and does not undo the write",
+        "tags": [
+          "inference"
+        ],
+        "x-spotlight-resource": {
+          "kind": "inference-endpoint",
+          "operation": "create"
+        }
+      },
+      "get": {
+        "operationId": "listInferenceEndpoints",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version that it uses",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every inference-endpoint there, each as a read returns it, in address order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InferenceEndpointResourceListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or requests an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such workspace that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the inference endpoint of a workspace: one, or none",
+        "tags": [
+          "inference"
+        ],
+        "x-spotlight-resource": {
+          "kind": "inference-endpoint",
+          "operation": "list"
+        }
+      }
+    },
+    "/v1/resources/inference-endpoints/{id}": {
+      "get": {
+        "operationId": "readInferenceEndpoint",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version that it uses",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "6e2b8f1d-4c93-4a7e-8d5b-1f0c9a3e7b62",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The inference-endpoint, every field of it",
+            "headers": {
+              "ETag": {
+                "description": "The returned version, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InferenceEndpointResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or requests an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such inference-endpoint that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read the inference endpoint of a workspace. The API key is never returned",
+        "tags": [
+          "inference"
+        ],
+        "x-spotlight-resource": {
+          "kind": "inference-endpoint",
+          "operation": "read"
+        }
+      },
+      "put": {
+        "operationId": "updateInferenceEndpoint",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version that it uses",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "6e2b8f1d-4c93-4a7e-8d5b-1f0c9a3e7b62",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version fails with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "baseUrl",
+                  "model"
+                ],
+                "properties": {
+                  "baseUrl": {
+                    "type": "string",
+                    "example": "https://openrouter.ai/api/v1"
+                  },
+                  "model": {
+                    "type": "string",
+                    "example": "openai/gpt-5-mini"
+                  },
+                  "apiKeyWo": {
+                    "type": "string",
+                    "writeOnly": true,
+                    "description": "The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned"
+                  },
+                  "apiKeyWoVersion": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 1,
+                    "description": "Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The inference-endpoint, as a read returns it",
+            "headers": {
+              "ETag": {
+                "description": "The returned version, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InferenceEndpointResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or requests an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to do this to the inference-endpoint; the detail says why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such inference-endpoint that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update the inference endpoint. Spotlight then sends it one test request; a failed test is a warning and does not undo the write",
+        "tags": [
+          "inference"
+        ],
+        "x-spotlight-resource": {
+          "kind": "inference-endpoint",
+          "operation": "update"
+        }
+      },
+      "delete": {
+        "operationId": "deleteInferenceEndpoint",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version that it uses",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "6e2b8f1d-4c93-4a7e-8d5b-1f0c9a3e7b62",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version fails with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Malformed, or requests an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to do this to the inference-endpoint; the detail says why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such inference-endpoint that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete the inference endpoint and its API key. Spotlight features that need a model then turn off",
+        "tags": [
+          "inference"
+        ],
+        "x-spotlight-resource": {
+          "kind": "inference-endpoint",
+          "operation": "delete"
+        }
+      }
+    },
+    "/v1/resources/workspaces/{workspaceId}/inference-endpoints/import": {
+      "get": {
+        "operationId": "importInferenceEndpoint",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version that it uses",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "address",
+            "required": true,
+            "in": "query",
+            "description": "The inference-endpoint's address within the workspace",
+            "schema": {
+              "example": "acme"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The inference-endpoint, as a read returns it",
+            "headers": {
+              "ETag": {
+                "description": "The returned version, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InferenceEndpointResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or requests an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such inference-endpoint that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Find the inference endpoint of a workspace, by its slug, to import it",
+        "tags": [
+          "inference"
+        ],
+        "x-spotlight-resource": {
+          "kind": "inference-endpoint",
+          "operation": "import"
+        }
+      }
+    },
+    "/v1/resources/workspaces/{workspaceId}/inference-endpoint/test": {
+      "post": {
+        "operationId": "testInferenceEndpoint",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version that it uses",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "baseUrl",
+                  "model"
+                ],
+                "properties": {
+                  "baseUrl": {
+                    "type": "string",
+                    "example": "https://openrouter.ai/api/v1"
+                  },
+                  "model": {
+                    "type": "string",
+                    "example": "openai/gpt-5-mini"
+                  },
+                  "apiKeyWo": {
+                    "type": "string",
+                    "writeOnly": true,
+                    "description": "The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned"
+                  },
+                  "apiKeyWoVersion": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 1,
+                    "description": "Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionTestResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or requests an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to test the inference endpoint; the detail says why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such workspace that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Send one minimal request to an inference endpoint and report what happened. Saves nothing. Without apiKeyWo it uses the stored key",
+        "tags": [
+          "inference"
+        ]
+      }
+    },
     "/me/notifications/push-key": {
       "get": {
         "operationId": "getPushKey",
@@ -16533,7 +17536,8 @@
                 "runner-trusts",
                 "runner-pools",
                 "egresses",
-                "workspace-runners"
+                "workspace-runners",
+                "inference-endpoints"
               ],
               "type": "string"
             }
@@ -16628,7 +17632,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunChangeStacksResponseDto"
+                  "$ref": "#/components/schemas/ChangeStacksResponseDto"
                 }
               }
             }
@@ -16646,9 +17650,9 @@
         ]
       }
     },
-    "/teams/{teamId}/runs/{runId}/change-stacks/{stackId}/questions/{questionId}/answers": {
-      "post": {
-        "operationId": "answerStackQuestion",
+    "/teams/{teamId}/tasks/{taskId}/change-stacks": {
+      "get": {
+        "operationId": "listTaskChangeStacks",
         "parameters": [
           {
             "name": "teamId",
@@ -16659,7 +17663,44 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeStacksResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "The newest change stack of each repository that did not fail",
+        "tags": [
+          "change-stacks"
+        ]
+      }
+    },
+    "/teams/{teamId}/change-stacks/{stackId}/questions/{questionId}/answers": {
+      "post": {
+        "operationId": "answerStackQuestion",
+        "parameters": [
+          {
+            "name": "teamId",
             "required": true,
             "in": "path",
             "schema": {
@@ -16709,6 +17750,9 @@
           },
           "401": {
             "description": "No valid session"
+          },
+          "402": {
+            "description": "The inference endpoint has no credits left"
           },
           "403": {
             "description": "The caller is not a member of the team, nor a workspace admin"
@@ -17005,18 +18049,10 @@
         ]
       }
     },
-    "/runs/{runId}/change-stack-checks/{stackId}": {
+    "/change-stacks/{stackId}/checks": {
       "post": {
         "operationId": "recordChangeStackCheck",
         "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "stackId",
             "required": true,
@@ -17053,7 +18089,7 @@
             "description": "Missing, no longer valid or wrong runner token"
           },
           "404": {
-            "description": "Not a run this runner claimed, or no such stack of it"
+            "description": "No change stack with a check to record"
           },
           "409": {
             "description": "This runner does not have the lease on the check of that stack"
@@ -17068,9 +18104,101 @@
         ]
       }
     },
-    "/teams/{teamId}/runs/{runId}/review": {
+    "/push-diffs/{diffId}/diff": {
+      "post": {
+        "operationId": "recordPushDiff",
+        "parameters": [
+          {
+            "name": "diffId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPushDiffRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The diff is recorded. Spotlight records a diff it refuses to stack as failed. A diff it cannot stack for now goes back to wait, or fails once every runner attempt is used. A report on a diff already settled answers the same."
+          },
+          "400": {
+            "description": "The body has no diff or no base as text"
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such push diff"
+          },
+          "409": {
+            "description": "The diff still waits and this runner does not hold its lease, or the push diff kept changing while it was recorded"
+          }
+        },
+        "summary": "Hand over the diff of a push to a pull request, so that Spotlight redrafts its change stack",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/push-diffs/{diffId}/failure": {
+      "post": {
+        "operationId": "failPushDiff",
+        "parameters": [
+          {
+            "name": "diffId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FailPushDiffRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The report is taken: the diff goes back to wait, or fails once every runner attempt is used. A report on a diff already settled answers the same."
+          },
+          "400": {
+            "description": "The body has no reason as text"
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such push diff"
+          },
+          "409": {
+            "description": "The diff still waits and this runner does not hold its lease, or the push diff kept changing while it was recorded"
+          }
+        },
+        "summary": "Report that the runner could not make the diff of a push",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/review": {
       "get": {
-        "operationId": "readRunReview",
+        "operationId": "readTaskReview",
         "parameters": [
           {
             "name": "teamId",
@@ -17081,7 +18209,7 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -17101,10 +18229,10 @@
             }
           },
           "404": {
-            "description": "No such run for this caller"
+            "description": "No such task for this caller"
           }
         },
-        "summary": "The review of what a run changed: comments on its lines, and reviews submitted",
+        "summary": "The review of what a task changed: comments on its lines, and reviews submitted",
         "tags": [
           "reviews"
         ]
@@ -17121,7 +18249,7 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -17163,7 +18291,7 @@
         ]
       }
     },
-    "/teams/{teamId}/runs/{runId}/review/comments": {
+    "/teams/{teamId}/tasks/{taskId}/review/comments": {
       "post": {
         "operationId": "draftReviewComment",
         "parameters": [
@@ -17176,7 +18304,7 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -17209,7 +18337,7 @@
             "description": "The caller is not a member of the team, nor a workspace admin"
           },
           "404": {
-            "description": "No such run or comment for this caller"
+            "description": "No such task or comment for this caller"
           },
           "422": {
             "description": "The comment has no text, or names no file"
@@ -17221,7 +18349,7 @@
         ]
       }
     },
-    "/teams/{teamId}/runs/{runId}/review/comments/{commentId}": {
+    "/teams/{teamId}/tasks/{taskId}/review/comments/{commentId}": {
       "patch": {
         "operationId": "editReviewComment",
         "parameters": [
@@ -17234,7 +18362,7 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -17285,7 +18413,7 @@
             }
           },
           {
-            "name": "runId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -19789,7 +20917,7 @@
             "description": "No such memory for this caller"
           }
         },
-        "summary": "One memory with what it cites, and what it replaced or was replaced by",
+        "summary": "One memory, and what it replaced or was replaced by",
         "tags": [
           "memories"
         ]
@@ -20046,7 +21174,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                  "$ref": "#/components/schemas/RecalledMemoryResponseDto"
                 }
               }
             }
@@ -20273,7 +21401,7 @@
             "description": "No such team for this caller"
           }
         },
-        "summary": "How often the station’s judge agrees with people, under each of its rubrics",
+        "summary": "How often the station’s judge agrees with people, under each of its claims versions",
         "tags": [
           "insights"
         ]
@@ -20318,7 +21446,7 @@
             "description": "No such run for this caller"
           }
         },
-        "summary": "The judge’s score for a run, with the reasons it cites, and the grades people gave it",
+        "summary": "The judge’s verdict on a run, with the reasons it cites, and the grades people gave it",
         "tags": [
           "insights"
         ]
@@ -20376,7 +21504,7 @@
             "description": "The grade changed meanwhile"
           },
           "422": {
-            "description": "No grade, or one off the run’s scale"
+            "description": "No grade, or one that does not mark each claim"
           }
         },
         "summary": "Grade a run; a later grade by the same person replaces theirs, and nothing waits on it",
@@ -20792,7 +21920,7 @@
             "bearer": []
           }
         ],
-        "summary": "Every station config change in the period, with how the station’s runs went before and after it, and the judge’s scores where its judge is qualified",
+        "summary": "Every station config change in the period, with how the station’s runs went before and after it, and the judge’s verdicts where its judge is qualified",
         "tags": [
           "insights"
         ]
@@ -21584,6 +22712,191 @@
         ]
       }
     },
+    "/teams/{teamId}/judge-disagreements/{disagreementId}": {
+      "get": {
+        "operationId": "readJudgeDisagreement",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "disagreementId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgeDisagreementResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such disagreement for this caller"
+          }
+        },
+        "summary": "A run where the judge and a person disagree: the judge’s claims, results and reasons, and the answer",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/teams/{teamId}/judge-disagreements/{disagreementId}/answer": {
+      "post": {
+        "operationId": "answerJudgeDisagreement",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "disagreementId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerJudgeDisagreementRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgeDisagreementResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The question was asked of another person"
+          },
+          "404": {
+            "description": "No such disagreement for this caller"
+          },
+          "409": {
+            "description": "The disagreement already has an answer, is withdrawn, or changed meanwhile"
+          },
+          "422": {
+            "description": "Claims are in dispute, so each takes its own answer; or the answer names no claim and says nothing"
+          }
+        },
+        "summary": "Where no claim is in dispute, say which claim should have failed, or what was wrong; the answer helps revise the claims and never changes the agreement",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/teams/{teamId}/judge-disagreements/{disagreementId}/claims/{claim}/answer": {
+      "post": {
+        "operationId": "answerJudgeDisagreementClaim",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "disagreementId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "claim",
+            "required": true,
+            "in": "path",
+            "description": "The place of the claim, from 0",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerDisagreementClaimRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgeDisagreementResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The claim is not a whole number"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The question was asked of another person"
+          },
+          "404": {
+            "description": "No such disagreement for this caller"
+          },
+          "409": {
+            "description": "The claim already has an answer, the disagreement is withdrawn, or it changed meanwhile"
+          },
+          "422": {
+            "description": "The claim is not in dispute, or the answer is not judge-right or claim-wrong"
+          }
+        },
+        "summary": "Answer one claim in dispute, with its own note; the disagreement is answered once every claim in dispute has an answer, and answers never change the agreement",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
     "/teams/{teamId}/replay-checks": {
       "post": {
         "operationId": "startReplayCheck",
@@ -22259,17 +23572,11 @@
       "StationJudgeResponseDto": {
         "type": "object",
         "properties": {
-          "rubric": {
-            "type": "string",
-            "nullable": true,
-            "example": "A good run changes only what the task requests.",
-            "description": "What a good run looks like, in Markdown. Null when the judge goes by its claims alone"
-          },
           "claims": {
             "example": [
               "The change adds a test that fails without it."
             ],
-            "description": "Checkable claims the judge marks met or unmet, in order. Empty when the judge goes by its rubric",
+            "description": "Checkable claims the judge marks met or not met, in order",
             "type": "array",
             "items": {
               "type": "string"
@@ -22278,7 +23585,7 @@
           "passThreshold": {
             "type": "number",
             "example": 1,
-            "description": "The share of claims a run must meet to pass, from 0 to 1. 1 means every claim"
+            "description": "The share of claims a run must meet to pass, above 0, up to 1. 1 means every claim"
           },
           "sample": {
             "type": "number",
@@ -22288,11 +23595,10 @@
           "minAgreement": {
             "type": "number",
             "example": 0.6,
-            "description": "How often the judge must agree with people, from 0 to 1, before its scores show"
+            "description": "How often the judge must agree with people, from 0 to 1, before its verdicts show on runs."
           }
         },
         "required": [
-          "rubric",
           "claims",
           "passThreshold",
           "sample",
@@ -22531,7 +23837,7 @@
           },
           "judge": {
             "nullable": true,
-            "description": "Scores the station’s runs against a rubric. Null when none is set.",
+            "description": "Judges the station’s runs against checkable claims. Null when none is set.",
             "type": "object",
             "allOf": [
               {
@@ -24645,10 +25951,6 @@
             "type": "boolean",
             "description": "It is a repeat check; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found"
           },
-          "runId": {
-            "type": "string",
-            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
-          },
           "repository": {
             "type": "object",
             "nullable": true,
@@ -24678,12 +25980,42 @@
         "required": [
           "stackId",
           "recheck",
-          "runId",
           "repository",
           "base",
           "setup",
           "command",
           "steps"
+        ]
+      },
+      "ClaimedPushDiffResponseDto": {
+        "type": "object",
+        "properties": {
+          "diffId": {
+            "type": "string",
+            "example": "3f9a1c2e-7b4d-4e8a-9c1f-5d2b6e0a8f47",
+            "description": "The push diff; the runner names it when it renews the lease and reports the diff"
+          },
+          "repository": {
+            "type": "string",
+            "example": "spotlight",
+            "description": "The repository the push went to"
+          },
+          "baseTip": {
+            "type": "string",
+            "example": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+            "description": "The tip of the base branch: the diff is from the merge base of this and the head"
+          },
+          "head": {
+            "type": "string",
+            "example": "9a7c3e1f2b4d6e8a0c1f3b5d7e9a2c4f6b8d0e1a",
+            "description": "The pushed commit"
+          }
+        },
+        "required": [
+          "diffId",
+          "repository",
+          "baseTip",
+          "head"
         ]
       },
       "WarmCheckoutResponseDto": {
@@ -24732,9 +26064,10 @@
             "enum": [
               "run",
               "check",
-              "sandbox"
+              "sandbox",
+              "diff"
             ],
-            "description": "`sandbox` is only for a host claim: start a sandbox with no run in it"
+            "description": "`sandbox` is only for a host claim: start a sandbox with no run in it. `diff` is the diff of a push to make from a fresh checkout"
           },
           "run": {
             "nullable": true,
@@ -24754,6 +26087,15 @@
               }
             ]
           },
+          "diff": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClaimedPushDiffResponseDto"
+              }
+            ]
+          },
           "warm": {
             "description": "Only for a `sandbox` that is warm: clone and set up these repositories before a task’s first run is claimed into it",
             "allOf": [
@@ -24766,7 +26108,8 @@
         "required": [
           "kind",
           "run",
-          "check"
+          "check",
+          "diff"
         ]
       },
       "RenewLeaseResponseDto": {
@@ -24782,7 +26125,7 @@
           "stop"
         ]
       },
-      "RenewCheckLeaseResponseDto": {
+      "RenewReviewWorkLeaseResponseDto": {
         "type": "object",
         "properties": {
           "stop": {
@@ -27475,6 +28818,12 @@
               }
             ]
           },
+          "place": {
+            "type": "number",
+            "nullable": true,
+            "example": 11,
+            "description": "On a row of a journal step: where the step sits in the run’s journal, from 0. A citation of a step names this place"
+          },
           "span": {
             "nullable": true,
             "type": "object",
@@ -27521,6 +28870,7 @@
           "cost",
           "currency",
           "step",
+          "place",
           "span",
           "connection",
           "egressEnforcement",
@@ -27638,7 +28988,7 @@
         "properties": {
           "rubricHash": {
             "type": "string",
-            "description": "The SHA-256 of the judge's rubric"
+            "description": "The SHA-256 of the judge's claims and pass threshold"
           },
           "sample": {
             "type": "number",
@@ -27657,7 +29007,7 @@
           "minAgreement"
         ]
       },
-      "StationConfigResponseDto": {
+      "RunStationConfigResponseDto": {
         "type": "object",
         "properties": {
           "prompt": {
@@ -27752,7 +29102,7 @@
             "description": "The SHA-256 naming this station config"
           },
           "config": {
-            "$ref": "#/components/schemas/StationConfigResponseDto"
+            "$ref": "#/components/schemas/RunStationConfigResponseDto"
           }
         },
         "required": [
@@ -27760,7 +29110,7 @@
           "config"
         ]
       },
-      "RunUsageResponseDto": {
+      "HistoryRunUsageResponseDto": {
         "type": "object",
         "properties": {
           "ms": {
@@ -27847,7 +29197,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/RunUsageResponseDto"
+                "$ref": "#/components/schemas/HistoryRunUsageResponseDto"
               }
             ]
           },
@@ -28364,7 +29714,8 @@
             "enum": [
               "memories",
               "grade",
-              "alert"
+              "alert",
+              "judge-disagreement"
             ],
             "example": "memories",
             "description": "The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run"
@@ -28948,7 +30299,7 @@
           },
           "points": {
             "example": [
-              "Fix the judge: the rubric requires tests the task never needed."
+              "Fix the judge: a claim requires tests the task never needed."
             ],
             "description": "What happened, then what it suggests, one point each",
             "type": "array",
@@ -29999,7 +31350,7 @@
           "next"
         ]
       },
-      "ConfigChangeResponseDto": {
+      "RunConfigChangeResponseDto": {
         "type": "object",
         "properties": {
           "part": {
@@ -30069,7 +31420,7 @@
           "changes": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConfigChangeResponseDto"
+              "$ref": "#/components/schemas/RunConfigChangeResponseDto"
             }
           }
         },
@@ -30093,7 +31444,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/StationConfigResponseDto"
+                "$ref": "#/components/schemas/RunStationConfigResponseDto"
               }
             ]
           },
@@ -31319,6 +32670,104 @@
           "installationId"
         ]
       },
+      "InferenceEndpointResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40",
+            "description": "Issued by Spotlight when the resource is created, and never changed"
+          },
+          "version": {
+            "type": "number",
+            "example": 3,
+            "description": "Rises with every change; the ETag carries it, and a write sends it back as If-Match"
+          },
+          "address": {
+            "type": "string",
+            "example": "core/linear",
+            "description": "Names the resource within its workspace; terraform import takes it"
+          },
+          "warnings": {
+            "description": "What would work better, though nothing stops it working; not settable",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldErrorResponseDto"
+            }
+          },
+          "workspaceId": {
+            "type": "string",
+            "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+            "description": "The workspace it belongs to"
+          },
+          "baseUrl": {
+            "type": "string",
+            "example": "https://openrouter.ai/api/v1",
+            "description": "The base URL of an OpenAI-compatible API. Spotlight calls its /chat/completions"
+          },
+          "model": {
+            "type": "string",
+            "example": "openai/gpt-5-mini",
+            "description": "The one model every Spotlight feature of the workspace uses"
+          },
+          "apiKeySet": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether Spotlight holds an API key. The key is write-only and never returned"
+          },
+          "apiKeyVersion": {
+            "type": "integer",
+            "nullable": true,
+            "example": 1,
+            "description": "Changed, with a new key, to rotate the API key, which is write-only and never returned"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "address",
+          "warnings",
+          "workspaceId",
+          "baseUrl",
+          "model",
+          "apiKeySet",
+          "apiKeyVersion"
+        ]
+      },
+      "InferenceEndpointResourceListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Every one there is, each as a read returns it, in address order",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InferenceEndpointResourceResponseDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ConnectionTestResponseDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether the endpoint answered a minimal request"
+          },
+          "message": {
+            "type": "string",
+            "example": "The endpoint answered.",
+            "description": "What happened, to show to a person"
+          }
+        },
+        "required": [
+          "ok",
+          "message"
+        ]
+      },
       "PushKeyResponseDto": {
         "type": "object",
         "properties": {
@@ -31723,7 +33172,7 @@
         "type": "object",
         "properties": {
           "files": {
-            "description": "terraform.tf with the required provider; imports.tf with an import block for each resource; one file per concern (workspace.tf, secrets.tf, runners.tf, and per team team-<team>.tf, line-<team>-<line>.tf, integration-<team>-<integration>.tf, skills-<team>.tf, hooks-<team>.tf, profiles-<team>.tf) with references between them; variables.tf, declaring a sensitive variable for each value Spotlight never returns (secret values, runner tokens); .gitignore; and every prompt, rubric and skill file the module reads with file(), byte for byte; ordered by path",
+            "description": "terraform.tf with the required provider; imports.tf with an import block for each resource; one file per concern (workspace.tf, secrets.tf, runners.tf, and per team team-<team>.tf, line-<team>-<line>.tf, integration-<team>-<integration>.tf, skills-<team>.tf, hooks-<team>.tf, profiles-<team>.tf) with references between them; variables.tf, declaring a sensitive variable for each value Spotlight never returns (secret values, runner tokens); .gitignore; and every prompt and skill file the module reads with file(), byte for byte; ordered by path",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TerraformFileResponseDto"
@@ -32154,6 +33603,24 @@
           "layers"
         ]
       },
+      "PushOriginResponseDto": {
+        "type": "object",
+        "properties": {
+          "head": {
+            "type": "string",
+            "description": "The commit that the person pushed"
+          },
+          "pushedBy": {
+            "type": "string",
+            "nullable": true,
+            "description": "The GitHub login of the person who pushed"
+          }
+        },
+        "required": [
+          "head",
+          "pushedBy"
+        ]
+      },
       "ChangeStackResponseDto": {
         "type": "object",
         "properties": {
@@ -32204,6 +33671,21 @@
                 "$ref": "#/components/schemas/StackCheckResponseDto"
               }
             ]
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run whose changes the stack shows, or null for a push"
+          },
+          "push": {
+            "nullable": true,
+            "description": "The push to the pull request that the stack shows, or null for a run",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PushOriginResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -32214,10 +33696,12 @@
           "files",
           "cohorts",
           "removed",
-          "check"
+          "check",
+          "runId",
+          "push"
         ]
       },
-      "RunChangeStacksResponseDto": {
+      "ChangeStacksResponseDto": {
         "type": "object",
         "properties": {
           "stacks": {
@@ -32249,10 +33733,6 @@
       "LatestChangeStackResponseDto": {
         "type": "object",
         "properties": {
-          "runId": {
-            "type": "string",
-            "description": "The run whose page shows the stack"
-          },
           "repository": {
             "type": "string",
             "nullable": true
@@ -32287,7 +33767,6 @@
           }
         },
         "required": [
-          "runId",
           "repository",
           "state",
           "checkStatus",
@@ -32651,6 +34130,35 @@
             }
           }
         }
+      },
+      "RecordPushDiffRequestDto": {
+        "type": "object",
+        "properties": {
+          "diff": {
+            "type": "string",
+            "description": "The changes of the pull request, as the output of git diff"
+          },
+          "base": {
+            "type": "string",
+            "description": "The merge base of the pushed head and the base branch"
+          }
+        },
+        "required": [
+          "diff",
+          "base"
+        ]
+      },
+      "FailPushDiffRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Why the runner could not make the diff"
+          }
+        },
+        "required": [
+          "reason"
+        ]
       },
       "PullRequestLandingResponseDto": {
         "type": "object",
@@ -33608,6 +35116,17 @@
             ],
             "example": "connected"
           },
+          "connectionProblem": {
+            "type": "string",
+            "description": "Why the team connection no longer works: it was made through another OAuth client than the definition names now, or its token stopped working and did not refresh. Null while it works or where there is none",
+            "enum": [
+              "other-client",
+              "refresh-failed",
+              null
+            ],
+            "example": "other-client",
+            "nullable": true
+          },
           "actsAs": {
             "type": "string",
             "description": "Whose connection its tools act with: the team’s, or that of the person who started the task",
@@ -33640,6 +35159,7 @@
           "logo",
           "path",
           "connectionStatus",
+          "connectionProblem",
           "actsAs",
           "linkedAccount",
           "spec"
@@ -34799,24 +36319,6 @@
             "example": 3,
             "description": "How many runs were briefed with it or recalled it"
           },
-          "harness": {
-            "type": "string",
-            "nullable": true,
-            "example": "claude-code",
-            "description": "The harness of the run whose steps it cites"
-          },
-          "steps": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MemoryProvenanceStepResponseDto"
-            }
-          },
-          "notes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MemoryProvenanceNoteResponseDto"
-            }
-          },
           "superseded": {
             "nullable": true,
             "type": "object",
@@ -34854,9 +36356,6 @@
           "retirement",
           "provenance",
           "runs",
-          "harness",
-          "steps",
-          "notes",
           "superseded",
           "successor"
         ]
@@ -35075,6 +36574,175 @@
           "words"
         ]
       },
+      "RecalledMemoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-12",
+            "description": "How runs and people name it, as in spotlight recall M-12"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "preference"
+          },
+          "body": {
+            "type": "string",
+            "example": "Name branches after the ticket."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "person",
+              "run",
+              "outside"
+            ],
+            "example": "person"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "retired"
+            ],
+            "example": "active"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "team",
+              "line",
+              "station"
+            ],
+            "example": "team"
+          },
+          "lineId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "approvedBy": {
+            "description": "Who approved or wrote it",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryPersonResponseDto"
+              }
+            ]
+          },
+          "approvedAt": {
+            "type": "string",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "supersedes": {
+            "type": "string",
+            "nullable": true,
+            "description": "The memory it replaced"
+          },
+          "retirement": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryRetirementResponseDto"
+              }
+            ]
+          },
+          "provenance": {
+            "nullable": true,
+            "description": "The task and run it cites; none where a person wrote it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryProvenanceResponseDto"
+              }
+            ]
+          },
+          "runs": {
+            "type": "number",
+            "example": 3,
+            "description": "How many runs were briefed with it or recalled it"
+          },
+          "superseded": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryLinkResponseDto"
+              }
+            ]
+          },
+          "successor": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryLinkResponseDto"
+              }
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryProvenanceStepResponseDto"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryProvenanceNoteResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "handle",
+          "kind",
+          "body",
+          "source",
+          "status",
+          "scope",
+          "lineId",
+          "stationId",
+          "repository",
+          "paths",
+          "approvedBy",
+          "approvedAt",
+          "supersedes",
+          "retirement",
+          "provenance",
+          "runs",
+          "superseded",
+          "successor",
+          "steps",
+          "notes"
+        ]
+      },
       "RememberRequestDto": {
         "type": "object",
         "properties": {
@@ -35144,6 +36812,214 @@
           "body"
         ]
       },
+      "ConfigProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "careful-claude"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "The settings that the profile applies to the harness"
+          }
+        },
+        "required": [
+          "key",
+          "settings"
+        ]
+      },
+      "ConfigRepositoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "acme/api"
+          },
+          "setup": {
+            "type": "string",
+            "nullable": true,
+            "example": "npm ci"
+          }
+        },
+        "required": [
+          "name",
+          "setup"
+        ]
+      },
+      "ConfigSkillResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "write-tests"
+          },
+          "hash": {
+            "type": "string",
+            "example": "9f2c1e…",
+            "description": "The hash of the skill’s content that the station enabled for the run"
+          }
+        },
+        "required": [
+          "key",
+          "hash"
+        ]
+      },
+      "ConfigJudgeResponseDto": {
+        "type": "object",
+        "properties": {
+          "rubricVersion": {
+            "type": "string",
+            "description": "The version of the claims the runs were judged by"
+          },
+          "sample": {
+            "type": "number",
+            "example": 0.2,
+            "description": "The share of runs judged"
+          },
+          "minAgreement": {
+            "type": "number",
+            "example": 0.6,
+            "description": "How often the judge must agree with people"
+          }
+        },
+        "required": [
+          "rubricVersion",
+          "sample",
+          "minAgreement"
+        ]
+      },
+      "InsightsStationConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "nullable": true
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "opus"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
+          },
+          "profile": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigProfileResponseDto"
+              }
+            ]
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "node:22"
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigRepositoryResponseDto"
+            }
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigSkillResponseDto"
+            }
+          },
+          "tools": {
+            "example": [
+              "github.comment"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "decisions": {
+            "type": "boolean",
+            "description": "Whether its runs record their decisions"
+          },
+          "memories": {
+            "type": "boolean",
+            "description": "Whether Spotlight drafts memories after its runs"
+          },
+          "judge": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigJudgeResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "prompt",
+          "harness",
+          "model",
+          "effort",
+          "profile",
+          "image",
+          "repositories",
+          "skills",
+          "tools",
+          "decisions",
+          "memories",
+          "judge"
+        ]
+      },
+      "InsightsConfigChangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": "string",
+            "example": "model"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "example": "write-tests",
+            "description": "Which one of the part changed, where the part is a list"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "changed"
+            ]
+          },
+          "was": {
+            "type": "string",
+            "nullable": true,
+            "example": "sonnet"
+          },
+          "now": {
+            "type": "string",
+            "nullable": true,
+            "example": "opus"
+          }
+        },
+        "required": [
+          "part",
+          "name",
+          "kind",
+          "was",
+          "now"
+        ]
+      },
       "StationConfigPullRequestResponseDto": {
         "type": "object",
         "properties": {
@@ -35155,6 +37031,48 @@
         },
         "required": [
           "url"
+        ]
+      },
+      "StationRunUsageResponseDto": {
+        "type": "object",
+        "properties": {
+          "ms": {
+            "type": "number",
+            "nullable": true,
+            "example": 184000
+          },
+          "steps": {
+            "type": "number",
+            "example": 42
+          },
+          "errors": {
+            "type": "number",
+            "example": 1
+          },
+          "contextTokens": {
+            "type": "number",
+            "nullable": true,
+            "example": 120000,
+            "description": "Tokens of context used"
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.42
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true,
+            "example": "USD"
+          }
+        },
+        "required": [
+          "ms",
+          "steps",
+          "errors",
+          "contextTokens",
+          "cost",
+          "currency"
         ]
       },
       "HumanActionResponseDto": {
@@ -35251,7 +37169,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/RunUsageResponseDto"
+                "$ref": "#/components/schemas/StationRunUsageResponseDto"
               }
             ]
           },
@@ -35568,7 +37486,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/StationConfigResponseDto"
+                "$ref": "#/components/schemas/InsightsStationConfigResponseDto"
               }
             ]
           },
@@ -35576,7 +37494,7 @@
             "description": "How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConfigChangeResponseDto"
+              "$ref": "#/components/schemas/InsightsConfigChangeResponseDto"
             }
           },
           "pullRequest": {
@@ -35761,24 +37679,17 @@
         "properties": {
           "rubricVersion": {
             "type": "string",
-            "description": "The SHA-256 of the station’s current rubric"
+            "description": "The SHA-256 of the station’s current claims"
           },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "yes-no",
-              "number",
-              "claims",
-              null
-            ],
-            "nullable": true,
-            "description": "The scale its rubric scores on; none where it cannot be read"
+          "readable": {
+            "type": "boolean",
+            "description": "Whether the judge’s claims can be read"
           },
           "claims": {
             "example": [
               "The change adds a test that fails without it."
             ],
-            "description": "The claims the judge marks met or unmet, in order; empty where it goes by its rubric",
+            "description": "The claims the judge marks met or not met, in order",
             "type": "array",
             "items": {
               "type": "string"
@@ -35800,7 +37711,7 @@
         },
         "required": [
           "rubricVersion",
-          "kind",
+          "readable",
           "claims",
           "passThreshold",
           "sample",
@@ -35812,22 +37723,13 @@
         "properties": {
           "qualified": {
             "type": "boolean",
-            "description": "Whether the judge agrees with people often enough for its scores to count"
-          },
-          "measure": {
-            "type": "string",
-            "enum": [
-              "kappa",
-              "spearman",
-              null
-            ],
-            "nullable": true,
-            "description": "How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers"
+            "description": "Whether the judge agrees with people often enough for its verdicts to count"
           },
           "agreement": {
             "type": "number",
             "nullable": true,
-            "example": 0.71
+            "example": 0.71,
+            "description": "Cohen’s kappa of the judge’s pass or fail against people’s, on the current claims"
           },
           "reading": {
             "type": "string",
@@ -35838,24 +37740,20 @@
               "fair",
               "slight",
               "chance",
-              "very-strong",
-              "strong",
-              "weak",
-              "inverse",
               null
             ],
             "nullable": true,
-            "description": "How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s"
+            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
           },
           "pairs": {
             "type": "number",
             "example": 24,
-            "description": "Runs of the current rubric with both a judge score and people’s"
+            "description": "Runs of the current claims with both a judge verdict and people’s"
           },
           "minPairs": {
             "type": "number",
             "example": 10,
-            "description": "Runs with both a judge score and people’s that agreement needs before it counts"
+            "description": "Runs with both a judge verdict and people’s that agreement needs before it counts"
           },
           "minAgreement": {
             "type": "number",
@@ -35873,16 +37771,15 @@
               null
             ],
             "nullable": true,
-            "description": "Why the judge’s scores are hidden, where they are"
+            "description": "Why the judge’s verdicts are hidden, where they are"
           },
           "failing": {
             "type": "boolean",
-            "description": "Whether the judge’s scores are hidden for a reason other than too few runs with both scores"
+            "description": "Whether the judge’s verdicts are hidden for a reason other than too few runs with both verdicts"
           }
         },
         "required": [
           "qualified",
-          "measure",
           "agreement",
           "reading",
           "pairs",
@@ -35890,56 +37787,6 @@
           "minAgreement",
           "hiddenReason",
           "failing"
-        ]
-      },
-      "AgreementReadingsResponseDto": {
-        "type": "object",
-        "properties": {
-          "kappa": {
-            "type": "string",
-            "enum": [
-              "almost-perfect",
-              "substantial",
-              "moderate",
-              "fair",
-              "slight",
-              "chance",
-              null
-            ],
-            "nullable": true,
-            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
-          },
-          "pearson": {
-            "type": "string",
-            "enum": [
-              "very-strong",
-              "strong",
-              "moderate",
-              "weak",
-              "inverse",
-              null
-            ],
-            "nullable": true,
-            "description": "How strong Pearson’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one"
-          },
-          "spearman": {
-            "type": "string",
-            "enum": [
-              "very-strong",
-              "strong",
-              "moderate",
-              "weak",
-              "inverse",
-              null
-            ],
-            "nullable": true,
-            "description": "How strong Spearman’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one"
-          }
-        },
-        "required": [
-          "kappa",
-          "pearson",
-          "spearman"
         ]
       },
       "ClaimAgreementResponseDto": {
@@ -36002,7 +37849,7 @@
           },
           "measured": {
             "type": "boolean",
-            "description": "Whether enough runs have both scores for the figures below to count"
+            "description": "Whether enough runs have both verdicts for the figures below to count"
           },
           "pairsProgress": {
             "type": "number",
@@ -36012,62 +37859,50 @@
           "agreed": {
             "type": "number",
             "example": 21,
-            "description": "Scores where the judge and people agree: runs, or claim marks for a judge of claims"
+            "description": "Runs where the judge and people gave the same verdict, pass or fail"
           },
           "compared": {
             "type": "number",
             "example": 24,
-            "description": "Scores compared: runs, or claim marks for a judge of claims"
+            "description": "Runs compared"
           },
           "belowMinimum": {
             "type": "boolean",
-            "description": "Whether the headline measure, kappa or Spearman’s, is below the minimum agreement"
+            "description": "Whether the kappa is below the minimum agreement"
           },
           "observed": {
             "type": "number",
             "nullable": true,
             "example": 0.83,
-            "description": "The share of pairs where the judge and people gave the same score"
+            "description": "The share of pairs where the judge and people gave the same verdict"
           },
           "kappa": {
             "type": "number",
             "nullable": true,
             "example": 0.62
           },
-          "spearman": {
-            "type": "number",
+          "reading": {
+            "type": "string",
+            "enum": [
+              "almost-perfect",
+              "substantial",
+              "moderate",
+              "fair",
+              "slight",
+              "chance",
+              null
+            ],
             "nullable": true,
-            "example": 0.58
-          },
-          "pearson": {
-            "type": "number",
-            "nullable": true,
-            "example": 0.61,
-            "description": "Pearson’s correlation between the two scores, for a judge of numbers; none otherwise or where either side never changes"
-          },
-          "mae": {
-            "type": "number",
-            "nullable": true,
-            "example": 0.7,
-            "description": "The mean absolute difference between the two scores"
-          },
-          "rmse": {
-            "type": "number",
-            "nullable": true,
-            "example": 0.9,
-            "description": "The root mean square difference between the two scores, for a judge of numbers"
+            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
           },
           "f1": {
             "type": "number",
             "nullable": true,
             "example": 0.8,
-            "description": "The F1 score of the judge’s yes, or met, against people’s, for a judge of yes or no or of claims; none where neither said yes"
-          },
-          "readings": {
-            "$ref": "#/components/schemas/AgreementReadingsResponseDto"
+            "description": "The F1 score of the judge’s pass against people’s; none where neither passed the run"
           },
           "claims": {
-            "description": "For a judge of claims, how often it agrees with people on each claim; the figures above pool every claim. Empty otherwise",
+            "description": "How often the judge agrees with people on each claim, from grades only; it does not decide whether the judge is qualified",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ClaimAgreementResponseDto"
@@ -36083,12 +37918,8 @@
           "belowMinimum",
           "observed",
           "kappa",
-          "spearman",
-          "pearson",
-          "mae",
-          "rmse",
+          "reading",
           "f1",
-          "readings",
           "claims"
         ]
       },
@@ -36097,8 +37928,8 @@
         "properties": {
           "labels": {
             "example": [
-              "no",
-              "yes"
+              "fails",
+              "passes"
             ],
             "type": "array",
             "items": {
@@ -36123,7 +37954,7 @@
                 16
               ]
             ],
-            "description": "Counts of runs, a row for each judge score and a column for each score people gave"
+            "description": "Counts of runs, a row for each judge verdict and a column for each verdict people gave"
           }
         },
         "required": [
@@ -36136,17 +37967,17 @@
         "properties": {
           "label": {
             "type": "string",
-            "example": "yes"
+            "example": "passes"
           },
           "judge": {
             "type": "number",
             "example": 18,
-            "description": "Runs the judge gave this score, among runs with both scores"
+            "description": "Runs the judge gave this verdict, among runs with both verdicts"
           },
           "people": {
             "type": "number",
             "example": 15,
-            "description": "Runs people gave this score, among runs with both scores"
+            "description": "Runs people gave this verdict, among runs with both verdicts"
           }
         },
         "required": [
@@ -36170,7 +38001,7 @@
             "type": "number",
             "nullable": true,
             "example": 0.75,
-            "description": "The judge’s mean score, or null while this rubric version is not the current qualified one"
+            "description": "The share of the day’s runs the judge passed, or null while this claims version is not the current qualified one"
           },
           "labelled": {
             "type": "number",
@@ -36180,7 +38011,7 @@
             "type": "number",
             "nullable": true,
             "example": 0.67,
-            "description": "The mean of people’s scores for the same runs"
+            "description": "The share of the same runs that people passed"
           }
         },
         "required": [
@@ -36191,23 +38022,76 @@
           "people"
         ]
       },
+      "ClaimsSourcePullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number",
+            "example": 42
+          },
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/spotlight-config/pull/42"
+          },
+          "title": {
+            "type": "string",
+            "example": "Tighten the review claims"
+          }
+        },
+        "required": [
+          "number",
+          "url",
+          "title"
+        ]
+      },
+      "ClaimsSourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "example": "acme/spotlight-config"
+          },
+          "sha": {
+            "type": "string",
+            "example": "3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f"
+          },
+          "shortSha": {
+            "type": "string",
+            "example": "3f1c9a7"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/spotlight-config/commit/3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f",
+            "description": "The commit on GitHub"
+          },
+          "pullRequest": {
+            "nullable": true,
+            "description": "The pull request that merged the commit, or the first one that has it; null while none is known",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClaimsSourcePullRequestResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "repository",
+          "sha",
+          "shortSha",
+          "url",
+          "pullRequest"
+        ]
+      },
       "RubricVersionResponseDto": {
         "type": "object",
         "properties": {
           "rubricVersion": {
             "type": "string"
           },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "yes-no",
-              "number",
-              "claims"
-            ]
-          },
           "current": {
             "type": "boolean",
-            "description": "Whether this is the station’s rubric now"
+            "description": "Whether these are the station’s claims now"
           },
           "judged": {
             "type": "number",
@@ -36220,14 +38104,14 @@
             "$ref": "#/components/schemas/ConfusionResponseDto"
           },
           "distribution": {
-            "description": "How often each score was given, in the confusion’s order",
+            "description": "How often each verdict was given, in the confusion’s order",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ScoreCountResponseDto"
             }
           },
           "trend": {
-            "description": "Daily means of the judge’s and people’s scores, the judge’s included while its scores are hidden on runs",
+            "description": "Daily pass rates of the judge and of people, the judge’s included while its verdicts are hidden on runs",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TrendPointResponseDto"
@@ -36235,12 +38119,12 @@
           },
           "trendShown": {
             "type": "boolean",
-            "description": "Whether enough runs have both scores, over more than one day, to draw the trend"
+            "description": "Whether enough runs have both verdicts, over more than one day, to draw the trend"
           },
           "trendMinPairs": {
             "type": "number",
             "example": 30,
-            "description": "Runs with both scores that the trend needs"
+            "description": "Runs with both verdicts that the trend needs"
           },
           "firstAt": {
             "type": "string",
@@ -36249,11 +38133,20 @@
           "lastAt": {
             "type": "string",
             "example": "2026-09-30T10:00:00.000Z"
+          },
+          "source": {
+            "nullable": true,
+            "description": "The first commit that wrote these claims, as its line write named it in Spotlight-Source-Commit; null when no write named one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClaimsSourceResponseDto"
+              }
+            ]
           }
         },
         "required": [
           "rubricVersion",
-          "kind",
           "current",
           "judged",
           "agreement",
@@ -36263,7 +38156,8 @@
           "trendShown",
           "trendMinPairs",
           "firstAt",
-          "lastAt"
+          "lastAt",
+          "source"
         ]
       },
       "JudgeCoverageRatesResponseDto": {
@@ -36359,7 +38253,7 @@
             "$ref": "#/components/schemas/JudgeCalibrationResponseDto"
           },
           "versions": {
-            "description": "How the judge agreed with people under each rubric, the latest first",
+            "description": "How the judge agreed with people under each claims version, the latest first",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RubricVersionResponseDto"
@@ -36494,7 +38388,7 @@
             "type": "number",
             "nullable": true,
             "example": 0,
-            "description": "The place of the claim this reason is about, from 0; none on a rubric’s scale"
+            "description": "The place of the claim this reason is about, from 0; none only on a reason that names no claim"
           }
         },
         "required": [
@@ -36506,34 +38400,29 @@
       "JudgeScoreResponseDto": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "yes-no",
-              "number",
-              "claims"
-            ]
-          },
           "value": {
             "type": "number",
-            "example": 1,
-            "description": "1 for yes and 0 for no, a whole number from 1 to 5, or the share of claims met"
+            "example": 0.5,
+            "description": "The share of claims met"
           },
           "claimResults": {
-            "nullable": true,
             "example": [
               true,
               false
             ],
-            "description": "Whether each claim was met, in order; none on a rubric’s scale",
+            "description": "Whether each claim was met, in order",
             "type": "array",
             "items": {
               "type": "boolean"
             }
           },
+          "passes": {
+            "type": "boolean",
+            "description": "Whether the run passes: the share of claims met reaches the pass threshold"
+          },
           "label": {
             "type": "string",
-            "example": "yes"
+            "example": "1 of 2 claims met"
           },
           "rubricVersion": {
             "type": "string"
@@ -36554,14 +38443,37 @@
           }
         },
         "required": [
-          "kind",
           "value",
           "claimResults",
+          "passes",
           "label",
           "rubricVersion",
           "model",
           "at",
           "reasons"
+        ]
+      },
+      "RunHumanOutcomeResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "grade",
+              "accepted",
+              "sent-back",
+              "merged"
+            ],
+            "description": "What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task"
+          },
+          "passes": {
+            "type": "boolean",
+            "description": "Whether people found the run good"
+          }
+        },
+        "required": [
+          "source",
+          "passes"
         ]
       },
       "GradeResponseDto": {
@@ -36575,33 +38487,29 @@
             "type": "boolean",
             "description": "Whether the caller gave this grade"
           },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "yes-no",
-              "number",
-              "claims"
-            ]
-          },
           "value": {
             "type": "number",
-            "example": 1
+            "example": 0.5,
+            "description": "The share of claims met"
           },
           "claimResults": {
-            "nullable": true,
             "example": [
               true,
               false
             ],
-            "description": "Whether the person found each claim met, in order; none on a rubric’s scale",
+            "description": "Whether the person found each claim met, in order",
             "type": "array",
             "items": {
               "type": "boolean"
             }
           },
+          "passes": {
+            "type": "boolean",
+            "description": "Whether the run passes on this grade: the share of claims met reaches the pass threshold"
+          },
           "label": {
             "type": "string",
-            "example": "yes"
+            "example": "1 of 2 claims met"
           },
           "at": {
             "type": "string",
@@ -36611,9 +38519,9 @@
         "required": [
           "by",
           "mine",
-          "kind",
           "value",
           "claimResults",
+          "passes",
           "label",
           "at"
         ]
@@ -36633,19 +38541,9 @@
             "type": "string",
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
           },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "yes-no",
-              "number",
-              "claims"
-            ],
-            "description": "The scale the run is graded on: its judge’s, else its station’s rubric’s, else yes or no"
-          },
-          "rubricBody": {
-            "type": "string",
-            "nullable": true,
-            "description": "The body of the rubric the run is graded by: the rubric without the line or front matter naming its scale, so a person grades it by what the judge did; the judge’s own where it scored the run, else the station’s; null where there is none"
+          "gradable": {
+            "type": "boolean",
+            "description": "Whether the run can be graded: its judge checked it, or its station has a judge with claims"
           },
           "claims": {
             "type": "array",
@@ -36653,15 +38551,19 @@
               "type": "string",
               "nullable": true
             },
-            "description": "The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer stored"
+            "description": "The claims the run is graded on, in order: the ones the judge marked where it checked the run, else the station judge’s; a claim reads null only where the claims the judge was given are no longer stored; empty where the run cannot be graded"
+          },
+          "earlierClaims": {
+            "type": "boolean",
+            "description": "Whether the run is graded on claims the station’s judge no longer uses: the judge checked it on earlier claims"
           },
           "judged": {
             "type": "boolean",
-            "description": "Whether the judge scored the run"
+            "description": "Whether the judge checked the run"
           },
           "judge": {
             "nullable": true,
-            "description": "The judge’s score and its reasons; none where it did not score the run, or where its scores are hidden",
+            "description": "The judge’s verdict and its reasons; none where it did not check the run, or where its verdicts are hidden",
             "type": "object",
             "allOf": [
               {
@@ -36671,6 +38573,21 @@
           },
           "calibration": {
             "$ref": "#/components/schemas/JudgeCalibrationResponseDto"
+          },
+          "outcome": {
+            "nullable": true,
+            "description": "What people said of the run: a grade of the judge’s claims version, else their first action on the run, else the task’s pull request; none where people said nothing yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunHumanOutcomeResponseDto"
+              }
+            ]
+          },
+          "agrees": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Whether the judge’s verdict is the human outcome; none where the judge’s verdict is hidden or people said nothing yet"
           },
           "grades": {
             "description": "What people graded the run, the latest first",
@@ -36684,44 +38601,35 @@
           "runId",
           "taskId",
           "stationId",
-          "kind",
-          "rubricBody",
+          "gradable",
           "claims",
+          "earlierClaims",
           "judged",
           "judge",
           "calibration",
+          "outcome",
+          "agrees",
           "grades"
         ]
       },
       "GradeRunRequestDto": {
         "type": "object",
         "properties": {
-          "value": {
-            "oneOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 5
-              }
-            ],
-            "example": true,
-            "description": "Yes or no, or a whole number from 1 to 5, on the run’s scale; left out on a claims scale"
-          },
           "claims": {
             "example": [
               true,
               false
             ],
-            "description": "Whether each claim was met, in order, on a claims scale; left out otherwise",
+            "description": "Whether each claim was met, in order",
             "type": "array",
             "items": {
               "type": "boolean"
             }
           }
-        }
+        },
+        "required": [
+          "claims"
+        ]
       },
       "InsightsPeriodResponseDto": {
         "type": "object",
@@ -38942,12 +40850,12 @@
             "type": "number",
             "nullable": true,
             "example": 0.8,
-            "description": "The judge’s mean score as a share of its scale, from 0 for the lowest to 1 for the highest; none where it judged none of the runs"
+            "description": "The share of judged runs the judge passed, from 0 to 1; none where it judged none of the runs"
           },
           "judged": {
             "type": "number",
             "example": 6,
-            "description": "Runs the judge scored"
+            "description": "Runs the judge checked"
           }
         },
         "required": [
@@ -39011,7 +40919,7 @@
           },
           "judgeBefore": {
             "nullable": true,
-            "description": "The judge’s scores of the runs before, only where the station’s judge is qualified",
+            "description": "The judge’s verdicts on the runs before, only where the station’s judge is qualified",
             "type": "object",
             "allOf": [
               {
@@ -39021,7 +40929,7 @@
           },
           "judgeAfter": {
             "nullable": true,
-            "description": "The judge’s scores of the runs after, only where the station’s judge is qualified",
+            "description": "The judge’s verdicts on the runs after, only where the station’s judge is qualified",
             "type": "object",
             "allOf": [
               {
@@ -39031,7 +40939,7 @@
           },
           "judgeChange": {
             "nullable": true,
-            "description": "The judge’s mean score after against before, in points; none where either side went unjudged",
+            "description": "The judge’s pass rate after against before, in points; none where either side went unjudged",
             "type": "object",
             "allOf": [
               {
@@ -39043,7 +40951,7 @@
             "description": "How the new config differs from the one before it",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConfigChangeResponseDto"
+              "$ref": "#/components/schemas/InsightsConfigChangeResponseDto"
             }
           }
         },
@@ -39068,22 +40976,13 @@
         "properties": {
           "qualified": {
             "type": "boolean",
-            "description": "Whether the judge agrees with people often enough for its scores to count"
-          },
-          "measure": {
-            "type": "string",
-            "enum": [
-              "kappa",
-              "spearman",
-              null
-            ],
-            "nullable": true,
-            "description": "How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers"
+            "description": "Whether the judge agrees with people often enough for its verdicts to count"
           },
           "agreement": {
             "type": "number",
             "nullable": true,
-            "example": 0.71
+            "example": 0.71,
+            "description": "Cohen’s kappa of the judge’s pass or fail against people’s, on the current claims"
           },
           "reading": {
             "type": "string",
@@ -39094,24 +40993,20 @@
               "fair",
               "slight",
               "chance",
-              "very-strong",
-              "strong",
-              "weak",
-              "inverse",
               null
             ],
             "nullable": true,
-            "description": "How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s"
+            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
           },
           "pairs": {
             "type": "number",
             "example": 24,
-            "description": "Runs of the current rubric with both a judge score and people’s"
+            "description": "Runs of the current claims with both a judge verdict and people’s"
           },
           "minPairs": {
             "type": "number",
             "example": 10,
-            "description": "Runs with both a judge score and people’s that agreement needs before it counts"
+            "description": "Runs with both a judge verdict and people’s that agreement needs before it counts"
           },
           "minAgreement": {
             "type": "number",
@@ -39129,11 +41024,11 @@
               null
             ],
             "nullable": true,
-            "description": "Why the judge’s scores are hidden, where they are"
+            "description": "Why the judge’s verdicts are hidden, where they are"
           },
           "failing": {
             "type": "boolean",
-            "description": "Whether the judge’s scores are hidden for a reason other than too few runs with both scores"
+            "description": "Whether the judge’s verdicts are hidden for a reason other than too few runs with both verdicts"
           },
           "lineId": {
             "type": "string",
@@ -39146,7 +41041,6 @@
         },
         "required": [
           "qualified",
-          "measure",
           "agreement",
           "reading",
           "pairs",
@@ -39252,7 +41146,7 @@
             "type": "number",
             "nullable": true,
             "example": 0.75,
-            "description": "The judge’s mean score as a share of its scale, over runs at stations whose judge is qualified"
+            "description": "The share of runs the judge passed, from 0 to 1, over runs at stations whose judge is qualified"
           }
         },
         "required": [
@@ -39309,7 +41203,7 @@
           },
           "judge": {
             "nullable": true,
-            "description": "The judge’s scores of this agent config’s runs; none unless the comparison is narrowed to one station",
+            "description": "The judge’s verdicts on this agent config’s runs; none unless the comparison is narrowed to one station",
             "type": "object",
             "allOf": [
               {
@@ -39401,7 +41295,7 @@
               null
             ],
             "nullable": true,
-            "description": "Why no judge scores are compared: no_station where the comparison spans stations, whose judges each score against their own rubric"
+            "description": "Why no judge verdicts are compared: no_station where the comparison spans stations, whose judges each check runs against their own claims"
           },
           "judges": {
             "description": "The calibration of the station’s judge, where one station is picked and it has a judge",
@@ -41508,6 +43402,314 @@
           "people"
         ]
       },
+      "DisagreementCitationResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "step",
+              "hunk"
+            ]
+          },
+          "step": {
+            "type": "number",
+            "nullable": true,
+            "example": 12,
+            "description": "The journal place of the cited step"
+          },
+          "hunk": {
+            "type": "string",
+            "nullable": true,
+            "example": "api/src/uploads.ts#2",
+            "description": "The id of the cited hunk"
+          }
+        },
+        "required": [
+          "kind",
+          "step",
+          "hunk"
+        ]
+      },
+      "DisagreementReasonResponseDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "example": "The upload has no retry."
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DisagreementCitationResponseDto"
+            }
+          }
+        },
+        "required": [
+          "text",
+          "citations"
+        ]
+      },
+      "DisagreementClaimResponseDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "example": 0,
+            "description": "The place of the claim, from 0"
+          },
+          "text": {
+            "type": "string",
+            "example": "The upload retries on a network error."
+          },
+          "judgeMet": {
+            "type": "boolean",
+            "description": "Whether the judge found the claim met"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DisagreementReasonResponseDto"
+            }
+          }
+        },
+        "required": [
+          "index",
+          "text",
+          "judgeMet",
+          "reasons"
+        ]
+      },
+      "ClaimAnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "claim": {
+            "type": "number",
+            "example": 0,
+            "description": "The place of the claim, from 0"
+          },
+          "answer": {
+            "type": "string",
+            "enum": [
+              "judge-right",
+              "claim-wrong"
+            ],
+            "description": "judge-right: the judge read the claim correctly. claim-wrong: the claim does not fit this run"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why the person answered this claim so"
+          },
+          "answeredBy": {
+            "type": "string"
+          },
+          "answeredAt": {
+            "type": "string",
+            "example": "2026-11-15T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "claim",
+          "answer",
+          "note",
+          "answeredBy",
+          "answeredAt"
+        ]
+      },
+      "NotMetAnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "claim": {
+            "type": "number",
+            "nullable": true,
+            "example": 1,
+            "description": "The claim that should have failed, or null where no claim covers what was wrong"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "What was wrong; always given where no claim covers it"
+          },
+          "answeredBy": {
+            "type": "string"
+          },
+          "answeredAt": {
+            "type": "string",
+            "example": "2026-11-15T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "claim",
+          "note",
+          "answeredBy",
+          "answeredAt"
+        ]
+      },
+      "JudgeDisagreementResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "lineId": {
+            "type": "string"
+          },
+          "stationId": {
+            "type": "string"
+          },
+          "rubricVersion": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "judge-failed",
+              "judge-passed"
+            ],
+            "description": "judge-failed: the judge failed a run that a person passed. judge-passed: the judge passed a run that a person failed"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "answered",
+              "withdrawn"
+            ],
+            "description": "open: the question waits for an answer to at least one claim in dispute. answered: every claim in dispute has an answer, or, with none in dispute, what was not met. withdrawn: Spotlight withdrew the question, also after an answer"
+          },
+          "labelFrom": {
+            "type": "string",
+            "enum": [
+              "grade",
+              "accepted",
+              "sent-back",
+              "merged"
+            ],
+            "description": "What gave the human outcome that disagrees with the judge"
+          },
+          "openedAt": {
+            "type": "string",
+            "example": "2026-11-14T10:00:00.000Z"
+          },
+          "claims": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DisagreementClaimResponseDto"
+            }
+          },
+          "disputedClaims": {
+            "description": "The places of the claims in dispute, each answered on its own, fixed when the question opened: where a grade gave the outcome, the claims it marked otherwise than the judge; else, where the judge failed the run, the claims it failed; else none, and the one answer says what was not met",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "answers": {
+            "description": "One answer for each claim in dispute answered so far, in claim order",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimAnswerResponseDto"
+            }
+          },
+          "notMet": {
+            "nullable": true,
+            "description": "Where no claim is in dispute: the answer, naming the claim that should have failed or saying what was wrong",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotMetAnswerResponseDto"
+              }
+            ]
+          },
+          "askedOf": {
+            "type": "string",
+            "nullable": true,
+            "description": "The one person who can answer. Null when Spotlight asked the team: then anyone in the team can answer"
+          },
+          "withdrawnAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When Spotlight withdrew the question"
+          },
+          "withdrawnBecause": {
+            "type": "string",
+            "enum": [
+              "verdicts-agree",
+              "claims-changed",
+              "label-gone",
+              null
+            ],
+            "nullable": true,
+            "description": "Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome or grade that a person gave the run no longer exists. Null while not withdrawn"
+          }
+        },
+        "required": [
+          "id",
+          "runId",
+          "taskId",
+          "lineId",
+          "stationId",
+          "rubricVersion",
+          "direction",
+          "state",
+          "labelFrom",
+          "openedAt",
+          "claims",
+          "disputedClaims",
+          "answers",
+          "notMet",
+          "askedOf",
+          "withdrawnAt",
+          "withdrawnBecause"
+        ]
+      },
+      "AnswerJudgeDisagreementRequestDto": {
+        "type": "object",
+        "properties": {
+          "shouldHaveFailed": {
+            "type": "number",
+            "nullable": true,
+            "description": "The claim that should have failed, or null where no claim covers what was wrong"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "What was wrong: required where no claim is named, optional otherwise; at most 2,000 characters"
+          }
+        },
+        "required": [
+          "shouldHaveFailed",
+          "note"
+        ]
+      },
+      "AnswerDisagreementClaimRequestDto": {
+        "type": "object",
+        "properties": {
+          "answer": {
+            "type": "string",
+            "enum": [
+              "judge-right",
+              "claim-wrong"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why, optional; at most 2,000 characters"
+          }
+        },
+        "required": [
+          "answer",
+          "note"
+        ]
+      },
       "PlannedReferenceRequestDto": {
         "type": "object",
         "properties": {
@@ -41681,6 +43883,49 @@
           "significance",
           "minGain",
           "tasks"
+        ]
+      },
+      "ReplayCheckJudgeResponseDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "qualified",
+              "unmeasured",
+              "failing"
+            ],
+            "description": "qualified when the verdicts of the live judge agree with the verdicts of people well enough; unmeasured while too few runs have both verdicts, or while every verdict of the judge and of people is the same; failing when they do not agree well enough, or the claims of the judge cannot be read"
+          },
+          "agreement": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.72,
+            "description": "Cohen’s kappa of the verdicts of the judge against the verdicts of people"
+          },
+          "pairs": {
+            "type": "number",
+            "example": 12,
+            "description": "How many runs have both a verdict of the judge and a verdict of a person"
+          },
+          "minPairs": {
+            "type": "number",
+            "example": 10,
+            "description": "How many such runs Spotlight needs before it measures the agreement"
+          },
+          "minAgreement": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.6,
+            "description": "The minimum agreement the station sets in `min_agreement`"
+          }
+        },
+        "required": [
+          "state",
+          "agreement",
+          "pairs",
+          "minPairs",
+          "minAgreement"
         ]
       },
       "RateIntervalResponseDto": {
@@ -41950,7 +44195,7 @@
               "failed",
               "undecided"
             ],
-            "description": "failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise"
+            "description": "failed as soon as more tasks regressed than the threshold allows, or when the check uses the live judge and its verdicts do not agree with the verdicts of people well enough; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise"
           },
           "undecidedBecause": {
             "type": "string",
@@ -41964,6 +44209,26 @@
               null
             ],
             "nullable": true
+          },
+          "failedBecause": {
+            "type": "string",
+            "enum": [
+              "too-many-regressions",
+              "judge-disagrees-with-people",
+              null
+            ],
+            "nullable": true,
+            "description": "Why the check failed; none unless it failed"
+          },
+          "judge": {
+            "nullable": true,
+            "description": "How the verdicts of the live judge agree with the verdicts of people; none where the check is not scored by a judge",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReplayCheckJudgeResponseDto"
+              }
+            ]
           },
           "taskCount": {
             "type": "number",
@@ -42016,6 +44281,8 @@
           "gain",
           "result",
           "undecidedBecause",
+          "failedBecause",
+          "judge",
           "taskCount",
           "compared",
           "candidate",
@@ -42086,7 +44353,7 @@
               "check",
               "infra"
             ],
-            "description": "config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work"
+            "description": "config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge judged it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work"
           },
           "evidence": {
             "type": "string",
@@ -42879,7 +45146,7 @@
             "type": "string",
             "nullable": true,
             "example": null,
-            "description": "Which one of the part changed: the repository, skill or tool, or the judge’s rubric, sample or minimum agreement"
+            "description": "Which one of the part changed: the repository, skill or tool, or the judge’s claims, sample or minimum agreement"
           },
           "kind": {
             "type": "string",
@@ -42892,7 +45159,7 @@
           "was": {
             "type": "string",
             "nullable": true,
-            "description": "What it was, where it can be shown; the prompt is shown in full, skills and rubrics are compared but not shown"
+            "description": "What it was, where it can be shown; the prompt is shown in full, skills and claims are compared but not shown"
           },
           "now": {
             "type": "string",

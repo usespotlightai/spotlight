@@ -9,8 +9,8 @@ import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
 import { RUN_PROGRESSES } from '@insights/domain/value-objects/run-progress';
 import { TRACE_RANGES } from '@insights/domain/value-objects/trace-range.vo';
 import { PersonNameResponseDto } from '@insights/presentation/http/dto/insights-common.response.dto';
-import { MoneyResponseDto } from '@insights/presentation/http/dto/station-insights.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
+import { MoneyResponseDto } from '@platform/http/dto/money.response.dto';
 
 export class TraceStationResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })

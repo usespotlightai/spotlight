@@ -22,12 +22,6 @@ export const stationFileOf = (
 ): string =>
   `prompts/${teamKey}/${lineKey}/${stationKey}${field === 'prompt' ? '' : `.${field}`}.md`;
 
-export const judgeRubricFileOf = (
-  teamKey: string,
-  lineKey: string,
-  stationKey: string,
-): string => `judges/${teamKey}/${lineKey}/${stationKey}.md`;
-
 export const TERRAFORM_FILE = 'terraform.tf';
 
 export const IMPORTS_FILE = 'imports.tf';
@@ -41,6 +35,8 @@ export const terraformFileOf = (resource: ExportableResourceDto): string => {
       return 'workspace.tf';
     case 'secret':
       return 'secrets.tf';
+    case 'inference-endpoint':
+      return 'inference.tf';
     case 'runner-trust':
     case 'egress':
     case 'runner-pool':

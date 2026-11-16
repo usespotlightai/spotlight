@@ -2,9 +2,11 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner.repository';
 import { DrizzleWorkingCopyImages } from '@runs/infrastructure/persistence/drizzle/readers/working-copy-images.reader';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -196,6 +198,22 @@ describe('the runners alive in a workspace', () => {
     expect(alive.map((each) => each.id.value).sort()).toEqual(
       [working.id, claiming.id, pushed.id].sort(),
     );
+  });
+});
+
+describe('the work a runner leases', () => {
+  it('reads back a runner that leases the diff of a push', async () => {
+    const diffing = runner({
+      workKind: 'diff',
+      workId: 'diff_1',
+      lastHeartbeatAt: NOW,
+    });
+
+    await db.insert(schema.runner).values(diffing);
+
+    const found = await runners.find(RunnerId.of(diffing.id));
+
+    expect(found?.work?.equals(RunnerWork.of('diff', 'diff_1'))).toBe(true);
   });
 });
 

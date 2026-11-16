@@ -38,6 +38,7 @@ export function AppTabItem({
       }}
       {...listeners}
       data-slot="app-tab"
+      data-link={tab.path}
       data-active={active || undefined}
       data-dragging={isDragging || undefined}
       onAuxClick={(event) => {

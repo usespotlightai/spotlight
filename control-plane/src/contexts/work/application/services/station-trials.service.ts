@@ -8,6 +8,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
+import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import { TrialabilityMapper } from '@work/application/mappers/trialability.mapper';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { MemoriesBriefedBeforePort } from '@work/application/ports/memories-briefed-before.port';
@@ -24,12 +25,17 @@ import { Answered } from '@work/application/rendering/answered';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import type { CandidateLines } from '@work/application/services/candidate-lines.service';
 import type { StationOrdering } from '@work/application/services/station-ordering';
+import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { DispatchVersionConflictError } from '@work/domain/exceptions/dispatch-version-conflict.error';
 import { UntrialableRunError } from '@work/domain/exceptions/untrialable-run.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import {
+  describedTools,
+  toolsForATrial,
+} from '@work/domain/services/enabled-for-run';
 import { feedbackAfter } from '@work/domain/services/feedback-after';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import {
@@ -92,6 +98,7 @@ export class StationTrials implements StationTrialsPort {
     private readonly tasks: TaskRepository,
     private readonly candidates: CandidateLines,
     private readonly ordering: StationOrdering,
+    private readonly integrations: TeamIntegrations,
     private readonly memories: MemoriesBriefedBeforePort,
     private readonly files: AttachmentStorePort,
     private readonly tracing: TraceParentPort,
@@ -235,15 +242,27 @@ export class StationTrials implements StationTrialsPort {
       );
     }
 
-    const laidOut = await this.ordering.orderedForTrial(candidate, plan.at);
+    const found = await this.ordering.orderedForTrial(
+      candidate,
+      plan.at,
+      original.dispatch.toolsOnMarks,
+    );
 
-    if (!laidOut) {
+    if (!found) {
       return untrialable(
         'cannot-start',
         'The candidate station has no harness a runner can start.',
       );
     }
 
+    const enabled = found.order.enabled.tools;
+    const described = toolsForATrial(
+      describedTools(
+        enabled,
+        await this.integrations.provided(candidate, enabled),
+      ),
+    );
+    const laidOut = this.ordering.equipped(found, described);
     const { order, folders, home } = laidOut;
     const memories = await this.memories.again(
       {
@@ -265,7 +284,7 @@ export class StationTrials implements StationTrialsPort {
       listedIn: home.readByHarness ? null : home.directory,
       memories: memories.briefed,
       memoryFolder: memories.folder,
-      tools: [],
+      tools: described,
     });
     const briefing = followedUp ? `${briefed}\n\n${followedUp}` : briefed;
     const configuredAs = this.ordering.configuredAs(laidOut, candidate);
@@ -281,11 +300,16 @@ export class StationTrials implements StationTrialsPort {
           labelGroups: order.placement.labelGroups,
           image: order.placement.image?.value ?? null,
         },
-        spec: this.ordering.laid(laidOut, {
-          briefing,
-          naming: this.tracing.for(original.trial.taskId, runId),
-          attachments: original.briefed.allAttachments,
-        }),
+        spec: {
+          ...this.ordering.laid(laidOut, {
+            briefing,
+            naming: this.tracing.for(original.trial.taskId, runId),
+            attachments: original.briefed.allAttachments,
+          }),
+          ...(described.length > 0
+            ? { manifest: described.map(toolManifestOf) }
+            : {}),
+        },
         restore: original.trial.archive
           ? { archive: original.trial.archive }
           : null,

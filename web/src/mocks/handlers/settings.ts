@@ -9,6 +9,7 @@ import type {
   IntegrationViewResponseDto,
   OnboardingResponseDto,
   SetToolRuleRequestDto,
+  TestInferenceEndpointData,
 } from '@/lib/api';
 import { daysAgo } from '@/mocks/clock';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
@@ -175,6 +176,32 @@ const resourceHandlers = [
     },
   ),
 
+  api.get(
+    '/v1/resources/workspaces/:workspaceId/inference-endpoints',
+    ({ params }) =>
+      ofWorkspaceId(params.workspaceId)
+        ? json({ items: settingsWorld().inferenceEndpoints })
+        : notFound(),
+  ),
+
+  api.post(
+    '/v1/resources/workspaces/:workspaceId/inference-endpoint/test',
+    async ({ params, request }) => {
+      if (!ofWorkspaceId(params.workspaceId)) {
+        return notFound();
+      }
+
+      const body = (await request.json()) as TestInferenceEndpointData['body'];
+      return body.baseUrl.includes('no-credits')
+        ? json({
+            ok: false,
+            message:
+              'The endpoint has no credits left (402). Please add credits at your provider.',
+          })
+        : json({ ok: true, message: 'The endpoint answered.' });
+    },
+  ),
+
   api.get('/v1/resources/workspaces/:workspaceId/tokens', ({ params }) =>
     ofWorkspaceId(params.workspaceId)
       ? json({ items: settingsWorld().tokens })
@@ -285,6 +312,7 @@ const teamHandlers = [
         ];
       } else {
         integration.connectionStatus = 'connected';
+        integration.connectionProblem = null;
         integration.linkedAccount = 'Acme';
       }
 

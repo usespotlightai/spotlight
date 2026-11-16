@@ -80,13 +80,8 @@ export const renderLine = (line: Line): LineDefinition => {
       'judge',
       station.judge
         ? {
-            ...present('rubric', station.judge.rubric),
-            ...(station.judge.claims.length > 0
-              ? {
-                  claims: [...station.judge.claims],
-                  passThreshold: station.judge.passThreshold,
-                }
-              : {}),
+            claims: [...station.judge.claims],
+            passThreshold: station.judge.passThreshold,
             sample: station.judge.sample,
             minAgreement: station.judge.minAgreement,
           }

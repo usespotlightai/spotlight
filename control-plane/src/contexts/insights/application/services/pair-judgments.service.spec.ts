@@ -41,7 +41,7 @@ const judging = async (
       of: async (runId) => evidence[runId.value] ?? null,
     },
     {
-      available: true,
+      availableTo: async () => true,
       judgePair: async (request) => {
         requests.push(request);
         return {
@@ -52,11 +52,11 @@ const judging = async (
     },
   );
   const judgment = await judgments.judge({
+    workspaceId: 'workspace_1',
     runId: RunId.of('replay_1'),
     otherRunId: RunId.of('replay_2'),
     reference: RunId.of('original_1'),
     criteria: JudgeCriteria.of({
-      rubric: null,
       claims: ['It drains.', 'It keeps the order.', 'It logs.'],
     }),
     orders: ORDERS,

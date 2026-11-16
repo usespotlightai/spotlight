@@ -3,8 +3,7 @@ import { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
 import { describe, expect, it } from 'vitest';
 
 const settings = {
-  rubric: 'scores: yes-no',
-  claims: [],
+  claims: ['It retries the upload.'],
   passThreshold: 1,
   rubricVersion: 'v1',
   sample: 0.2,
@@ -12,18 +11,21 @@ const settings = {
 };
 
 describe('JudgeSettings', () => {
-  it('holds a rubric or claims with rates from 0 to 1', () => {
+  it('holds claims with rates from 0 to 1', () => {
     expect(JudgeSettings.of(settings).sample).toBe(0.2);
   });
 
   it('refuses a judge with nothing to judge by', () => {
-    expect(() => JudgeSettings.of({ ...settings, rubric: null })).toThrow(
+    expect(() => JudgeSettings.of({ ...settings, claims: [] })).toThrow(
       InconsistentStateError,
     );
   });
 
-  it('refuses a pass threshold, sample or agreement outside 0 to 1', () => {
+  it('refuses a pass threshold not above 0 and up to 1, and a sample or agreement outside 0 to 1', () => {
     expect(() => JudgeSettings.of({ ...settings, passThreshold: 2 })).toThrow(
+      InconsistentStateError,
+    );
+    expect(() => JudgeSettings.of({ ...settings, passThreshold: 0 })).toThrow(
       InconsistentStateError,
     );
     expect(() => JudgeSettings.of({ ...settings, sample: -0.1 })).toThrow(

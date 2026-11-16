@@ -24,12 +24,13 @@ import {
   TaskFailureSummaryResponseDto,
 } from '@insights/presentation/http/dto/failure-summaries.response.dto';
 import {
-  ConfigChangeResponseDto,
-  StationConfigResponseDto,
+  InsightsConfigChangeResponseDto,
+  InsightsStationConfigResponseDto,
 } from '@insights/presentation/http/dto/station-config.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
+import { MoneyResponseDto } from '@platform/http/dto/money.response.dto';
 
-export class RunUsageResponseDto {
+export class StationRunUsageResponseDto {
   @ApiProperty({ nullable: true, type: Number, example: 184_000 })
   readonly ms: number | null;
 
@@ -127,8 +128,8 @@ export class StationRunOutcomeResponseDto {
   })
   readonly visit: number;
 
-  @ApiProperty({ type: RunUsageResponseDto, nullable: true })
-  readonly usage: RunUsageResponseDto | null;
+  @ApiProperty({ type: StationRunUsageResponseDto, nullable: true })
+  readonly usage: StationRunUsageResponseDto | null;
 
   @ApiProperty({
     enum: [...CHECK_VERDICTS, null],
@@ -166,7 +167,9 @@ export class StationRunOutcomeResponseDto {
     this.resolution = outcome.resolution;
     this.failure = outcome.failure;
     this.visit = outcome.visit;
-    this.usage = outcome.usage ? new RunUsageResponseDto(outcome.usage) : null;
+    this.usage = outcome.usage
+      ? new StationRunUsageResponseDto(outcome.usage)
+      : null;
     this.checks = outcome.checks;
     this.firstHumanAction = outcome.firstHumanAction
       ? new HumanActionResponseDto(outcome.firstHumanAction)
@@ -175,19 +178,6 @@ export class StationRunOutcomeResponseDto {
       ? new StationPassResponseDto(outcome.passed)
       : null;
     this.pullRequestState = outcome.pullRequestState;
-  }
-}
-
-export class MoneyResponseDto {
-  @ApiProperty({ example: 3.2 })
-  readonly amount: number;
-
-  @ApiProperty({ example: 'USD' })
-  readonly currency: string;
-
-  constructor(spend: { amount: number; currency: string }) {
-    this.amount = spend.amount;
-    this.currency = spend.currency;
   }
 }
 
@@ -454,16 +444,16 @@ export class FingerprintGroupResponseDto {
   })
   readonly ran: boolean;
 
-  @ApiProperty({ type: StationConfigResponseDto, nullable: true })
-  readonly config: StationConfigResponseDto | null;
+  @ApiProperty({ type: InsightsStationConfigResponseDto, nullable: true })
+  readonly config: InsightsStationConfigResponseDto | null;
 
   @ApiProperty({
-    type: ConfigChangeResponseDto,
+    type: InsightsConfigChangeResponseDto,
     isArray: true,
     description:
       'How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force',
   })
-  readonly changes: readonly ConfigChangeResponseDto[];
+  readonly changes: readonly InsightsConfigChangeResponseDto[];
 
   @ApiProperty({
     type: StationConfigPullRequestResponseDto,
@@ -508,10 +498,10 @@ export class FingerprintGroupResponseDto {
     this.fingerprint = group.fingerprint;
     this.ran = group.ran;
     this.config = group.config
-      ? new StationConfigResponseDto(group.config)
+      ? new InsightsStationConfigResponseDto(group.config)
       : null;
     this.changes = group.changes.map(
-      (each) => new ConfigChangeResponseDto(each),
+      (each) => new InsightsConfigChangeResponseDto(each),
     );
     this.pullRequest = group.pullRequest
       ? new StationConfigPullRequestResponseDto(group.pullRequest)

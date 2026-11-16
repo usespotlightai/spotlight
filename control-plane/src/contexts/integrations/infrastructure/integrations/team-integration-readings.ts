@@ -21,6 +21,7 @@ export class TeamIntegrationReadings implements TeamIntegrationReadingsPort {
         name: each.name,
         logo: each.logo,
         requiresConnection: each.requiresConnection,
+        ownClient: each.ownClient,
         actsAs: each.actsAs,
         spec: each.spec
           ? {

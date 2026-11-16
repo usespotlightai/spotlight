@@ -34,12 +34,10 @@ const STATIONS: StationResponseDto[] = [
     model: 'opus',
     effort: 'medium',
     judge: {
-      rubric:
-        '## A good experiment design\n\nJudge the design as written, not the result the experiment would get. A claim the design leaves to later is not met.',
       claims: [
-        'Names the one change it tests',
-        'Names the metric and what it reads today',
-        'Sets a stop rule',
+        'The design names the one change it tests',
+        'The design names the metric and what it reads today',
+        'The design sets a stop rule now, not later',
       ],
       passThreshold: 1,
       sample: 1,

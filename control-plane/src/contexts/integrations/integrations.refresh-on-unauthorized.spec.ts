@@ -392,6 +392,7 @@ const settingUp = ({
     clock,
     CALLBACK,
     quiet,
+    { sentTo: async () => 'unused' },
   );
   const exchange = new OAuth2Exchange(policy, clock, linear.fetch);
   const runtime = new CompiledIntegrationRuntime(
@@ -465,12 +466,7 @@ const settingUp = ({
         input.integration,
       );
       const client = registration
-        ? await clients.clientFor(
-            input.teamId,
-            input.integration,
-            registration.endpoint,
-            registration.server,
-          )
+        ? await clients.clientFor(input.teamId, input.integration, registration)
         : null;
 
       return client ? linked.begin(input, client) : null;
@@ -484,6 +480,7 @@ const settingUp = ({
         teamId: TEAM,
         integration: LINEAR,
         owner: ConnectionOwner.person(ALICE),
+        client: OAuth2ClientId.of('dcr-client'),
         accessToken: OAuthTokens.of({ accessToken }).accessToken,
         refreshToken: OAuthTokens.of({ accessToken, refreshToken })
           .refreshToken,

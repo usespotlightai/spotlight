@@ -10,9 +10,15 @@ import {
   type StationNames,
   targetStationOf,
 } from '@/lib/insights';
-import { type ChangeAt, judgeRow, markerOf } from '@/lib/insights-changes';
+import {
+  type ChangeAt,
+  changesJudgeCriteria,
+  judgeRow,
+  markerOf,
+} from '@/lib/insights-changes';
 import { failed, loading } from '@/lib/query';
 import { judgeAgreementPath, stationPath } from '@/lib/station';
+import { configChangesOf } from '@/lib/station-config';
 
 type BeforeAfterProps = {
   slug: string;
@@ -75,7 +81,7 @@ export function BeforeAfter({
       <section className="flex flex-col gap-1">
         <h3 className="font-medium text-foreground text-sm">What changed</h3>
         {marker.changes.length > 0 ? (
-          <ConfigPlan changes={marker.changes} />
+          <ConfigPlan changes={configChangesOf(marker.changes)} />
         ) : (
           <p className="text-muted-foreground text-sm">Config not on record.</p>
         )}
@@ -92,7 +98,7 @@ export function BeforeAfter({
           runs={{ one: marker.before.runs, other: marker.after.runs }}
           verdicts={marker.verdicts}
           extra={
-            qualified
+            qualified && !changesJudgeCriteria(marker)
               ? [judgeRow(marker, judgeAgreementPath(slug, teamId, marker))]
               : []
           }

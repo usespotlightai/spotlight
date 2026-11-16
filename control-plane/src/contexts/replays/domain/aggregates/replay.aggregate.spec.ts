@@ -28,7 +28,7 @@ import {
   later,
   measuresOf,
   NOW,
-  RUBRIC,
+  JUDGE,
   ranToEnd,
   runIds,
   STATION,
@@ -807,7 +807,7 @@ describe('Replay', () => {
       reserved(
         aReplay({
           count: 1,
-          candidate: candidateOf('searched', 'candidate_judged', RUBRIC),
+          candidate: candidateOf('searched', 'candidate_judged', JUDGE),
         }),
         1,
       );
@@ -885,10 +885,8 @@ describe('Replay', () => {
       const judged = reviewed.recordVerdict(
         run(0),
         JudgeVerdict.of({
-          scale: 'number',
-          value: 5,
-          claimResults: null,
-          claims: [],
+          claimResults: [true],
+          claims: ['It drains.'],
           passThreshold: 1,
           model: 'judge/model',
           referenced: true,
@@ -975,10 +973,8 @@ describe('Replay', () => {
         .recordVerdict(
           run(0),
           JudgeVerdict.of({
-            scale: 'number',
-            value: 5,
-            claimResults: null,
-            claims: [],
+            claimResults: [true],
+            claims: ['It drains.'],
             passThreshold: 1,
             model: 'judge/model',
             referenced: false,
@@ -997,7 +993,7 @@ describe('Replay', () => {
         aReplay({
           count: 2,
           ceiling: 1.5,
-          candidate: candidateOf('searched', 'candidate_judged', RUBRIC),
+          candidate: candidateOf('searched', 'candidate_judged', JUDGE),
         }),
         1,
       )
@@ -1174,7 +1170,7 @@ describe('Replay', () => {
     const live = candidateOf(
       'live',
       'candidate_calibration',
-      RUBRIC,
+      JUDGE,
       'npm test',
     );
     const checksOf = (state: 'passed' | 'failed') =>
@@ -1187,12 +1183,10 @@ describe('Replay', () => {
           spent: ModelSpent.of([], 0),
         },
       ]);
-    const verdictOf = (value: number) =>
+    const verdictOf = (passes: boolean) =>
       JudgeVerdict.of({
-        scale: 'number',
-        value,
-        claimResults: null,
-        claims: [],
+        claimResults: [passes],
+        claims: ['It drains.'],
         passThreshold: 1,
         model: 'judge/model',
         referenced: false,
@@ -1203,14 +1197,14 @@ describe('Replay', () => {
       replay: Replay,
       at: number,
       checks: ChangeChecks,
-      value: number,
+      passes: boolean,
     ) =>
       replay
         .confirm(run(at), FINGERPRINT, NOW)
         .recordRunEnd(run(at), endOf('completed'))
         .measure(run(at), measuresOf(1), later(61_000))
         .recordReview(run(at), checks, null, later(62_000))
-        .recordVerdict(run(at), verdictOf(value), later(63_000));
+        .recordVerdict(run(at), verdictOf(passes), later(63_000));
     const calibrated = () => {
       const reservedCalibration = reserved(
         aReplay({
@@ -1223,10 +1217,10 @@ describe('Replay', () => {
       );
 
       return judgedRun(
-        judgedRun(reservedCalibration, 0, checksOf('passed'), 5),
+        judgedRun(reservedCalibration, 0, checksOf('passed'), true),
         1,
         checksOf('failed'),
-        2,
+        false,
       );
     };
 
@@ -1298,8 +1292,8 @@ describe('Replay', () => {
       const replay = calibrated();
       const spentBefore = replay.spent.amount;
       const answered = replay
-        .recordRejudgment(run(0), verdictOf(4))
-        .recordRejudgment(run(1), verdictOf(5))
+        .recordRejudgment(run(0), verdictOf(true))
+        .recordRejudgment(run(1), verdictOf(true))
         .recheck(run(0), checksOf('passed'))
         .recheck(run(1), checksOf('passed'));
 
@@ -1319,7 +1313,8 @@ describe('Replay', () => {
       expect(answered.spent.amount).toBeCloseTo(spentBefore);
       expect(answered.charged.amount).toBeCloseTo(spentBefore);
       expect(
-        answered.recordRejudgment(run(0), verdictOf(1)).entries[0]?.judgeAgreed,
+        answered.recordRejudgment(run(0), verdictOf(false)).entries[0]
+          ?.judgeAgreed,
       ).toBe(true);
     });
 
@@ -1338,7 +1333,7 @@ describe('Replay', () => {
         reserved(aReplay({ count: 1, candidate: live }), 1),
         0,
         checksOf('passed'),
-        5,
+        true,
       );
 
       expect(plain.current).toBe('finished');

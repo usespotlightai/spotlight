@@ -1,5 +1,5 @@
 import { Binoculars } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
@@ -14,6 +14,7 @@ import { Notice } from '@/components/shared/Notice';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInsightsTraces } from '@/hooks/api/useInsightsTraces';
+import { useListKeys } from '@/hooks/useListKeys';
 import { narrowedBy, type RunFilter, TRUNCATED_TRACES } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 import { rangeOf } from '@/lib/range';
@@ -52,6 +53,8 @@ export function TraceList({
   const narrowed = narrowedBy(filter).length > 0;
 
   const [selected, setSelected] = useState<readonly string[]>([]);
+  const rows = useRef<HTMLUListElement>(null);
+  useListKeys(rows, selected.length > 0 ? () => setSelected([]) : undefined);
 
   if (loading(traces)) {
     return (
@@ -147,9 +150,9 @@ export function TraceList({
             </Button>
           </div>
         ) : (
-          <ul className="flex flex-col">
+          <ul ref={rows} className="flex flex-col">
             {worked.map((trace) => (
-              <li key={trace.taskId} data-slot="trace">
+              <li key={trace.taskId} data-slot="trace" data-list-item>
                 <TraceRow
                   trace={trace}
                   to={taskTracePath(slug, teamId, trace.taskId)}

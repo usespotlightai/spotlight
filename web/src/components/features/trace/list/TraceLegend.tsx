@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 
 const LEGEND = [
   { name: 'Traces', swatch: 'bg-chart-bar-mini' },
-  { name: 'Errors', swatch: 'bg-outcome-failed' },
+  { name: 'Errors', swatch: 'bg-destructive' },
 ] as const;
 
 export function TraceLegend() {

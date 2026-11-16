@@ -24,9 +24,7 @@ const calling = (
   at: AT,
   pool: 'sandboxes',
   workspaceId: 'ws_1',
-  kind: 'run',
-  checkId: null,
-  runId: 'run_1',
+  work: { kind: 'run', runId: 'run_1' },
   tags: { taskId: 'task_1' },
   labels: ['sandbox'],
   image: 'ghcr.io/acme/widgets:1',
@@ -103,6 +101,7 @@ describe('SignedProvisionCalls', () => {
         kind: 'run',
         runId: 'run_1',
         stackId: null,
+        diffId: null,
         taskId: 'task_1',
         workspaceId: 'ws_1',
         pool: 'sandboxes',
@@ -122,8 +121,7 @@ describe('SignedProvisionCalls', () => {
 
     await provision.call({
       ...calling(),
-      kind: 'check',
-      checkId: 'stack_1',
+      work: { kind: 'check', stackId: 'stack_1', runId: 'run_1' },
       tags: {},
     });
 
@@ -135,9 +133,34 @@ describe('SignedProvisionCalls', () => {
     expect(sentData(sent)).toMatchObject({
       kind: 'check',
       stackId: 'stack_1',
+      diffId: null,
       runId: 'run_1',
     });
     expect(sentData(sent)).not.toHaveProperty('taskId');
+  });
+
+  it('names no run when the runner is wanted for work of no run', async () => {
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
+    );
+
+    await provision.call({
+      ...calling(),
+      work: { kind: 'diff', diffId: 'diff_1' },
+      tags: {},
+    });
+
+    const [, sent] = fetch.mock.calls[0] as unknown as [
+      string,
+      RequestInit & { body: string },
+    ];
+
+    expect(sentData(sent)).toMatchObject({
+      kind: 'diff',
+      stackId: null,
+      diffId: 'diff_1',
+      runId: null,
+    });
   });
 
   it('names no image when the work requests the default one', async () => {

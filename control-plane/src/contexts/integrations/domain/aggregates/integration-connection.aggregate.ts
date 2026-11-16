@@ -6,6 +6,7 @@ import type { ConnectionOwner } from '@integrations/domain/value-objects/connect
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import type { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
 import type { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -22,6 +23,7 @@ interface State {
   readonly teamId: TeamId;
   readonly integration: IntegrationKey;
   readonly owner: ConnectionOwner;
+  readonly client: OAuth2ClientId;
   readonly accessToken: AccessToken;
   readonly refreshToken: RefreshToken | null;
   readonly expiresAt: Date | null;
@@ -43,6 +45,7 @@ export class IntegrationConnection extends EventRecorder {
     teamId: TeamId;
     integration: IntegrationKey;
     owner: ConnectionOwner;
+    client: OAuth2ClientId;
     tokens: OAuthTokens;
     at: Date;
   }): IntegrationConnection {
@@ -51,6 +54,7 @@ export class IntegrationConnection extends EventRecorder {
       teamId: input.teamId,
       integration: input.integration,
       owner: input.owner,
+      client: input.client,
       accessToken: input.tokens.accessToken,
       refreshToken: input.tokens.refreshToken,
       expiresAt: input.tokens.expiresAt,
@@ -114,6 +118,10 @@ export class IntegrationConnection extends EventRecorder {
 
   get owner(): ConnectionOwner {
     return this.state.owner;
+  }
+
+  get client(): OAuth2ClientId {
+    return this.state.client;
   }
 
   get accessToken(): AccessToken {
@@ -192,8 +200,17 @@ export class IntegrationConnection extends EventRecorder {
     return this.state.refreshToken?.equals(token) ?? false;
   }
 
-  reconnectedWith(tokens: OAuthTokens, at: Date): IntegrationConnection {
+  madeThrough(client: OAuth2ClientId): boolean {
+    return this.state.client.equals(client);
+  }
+
+  reconnectedWith(
+    tokens: OAuthTokens,
+    client: OAuth2ClientId,
+    at: Date,
+  ): IntegrationConnection {
     const reconnected = this.with({
+      client,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: tokens.expiresAt,

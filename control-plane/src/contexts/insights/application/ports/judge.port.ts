@@ -4,14 +4,12 @@ import type {
   JudgedStep,
   ReferenceChange,
 } from '@insights/domain/services/judge-evidence';
-import type { ScoreKind } from '@insights/domain/value-objects/score-scale.vo';
 
 export const JUDGE = Symbol('INSIGHTS_JUDGE');
 
 export interface JudgeRequest {
-  readonly rubric: string | null;
+  readonly workspaceId: string;
   readonly claims: readonly string[];
-  readonly scale: ScoreKind;
   readonly title: string;
   readonly description: string | null;
   readonly steps: readonly JudgedStep[];
@@ -30,7 +28,7 @@ export interface JudgeAnswer {
 }
 
 export interface JudgePort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   judge(request: JudgeRequest): Promise<JudgeAnswer>;
 }

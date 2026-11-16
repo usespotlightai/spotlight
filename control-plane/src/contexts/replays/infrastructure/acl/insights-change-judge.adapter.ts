@@ -12,7 +12,6 @@ const judgmentOf = (judgment: InsightsChangeJudgment): ChangeJudgment =>
   judgment.judged
     ? {
         judged: true,
-        value: judgment.value,
         claimResults: judgment.claimResults,
         reasons: judgment.reasons.map((each) => ({
           text: each.text,
@@ -32,13 +31,14 @@ const judgmentOf = (judgment: InsightsChangeJudgment): ChangeJudgment =>
 export class InsightsChangeJudge implements ChangeJudgePort {
   constructor(private readonly judgments: ChangeJudgmentsPort) {}
 
-  get available(): boolean {
-    return this.judgments.available;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.judgments.availableTo(workspaceId);
   }
 
   async judge(order: ChangeJudgeOrder): Promise<ChangeJudgment> {
     return judgmentOf(
       await this.judgments.judge({
+        workspaceId: order.workspaceId,
         runId: order.run,
         criteria: order.criteria,
         reference: order.reference,

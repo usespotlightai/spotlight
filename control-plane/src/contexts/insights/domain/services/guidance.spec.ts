@@ -4,9 +4,10 @@ import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteri
 import { MAX_GUIDANCE_LENGTH } from '@shared-kernel/domain/value-objects/judge-guidance';
 import { describe, expect, it } from 'vitest';
 
-const RUBRIC = JudgeCriteria.of({
-  rubric:
-    'scores: yes-no\nThe upload must be retried with exponential backoff, never more than three times.',
+const RETRIES = JudgeCriteria.of({
+  claims: [
+    'The upload must be retried with exponential backoff, never more than three times.',
+  ],
 });
 
 describe('guardedGuidanceOf', () => {
@@ -14,25 +15,25 @@ describe('guardedGuidanceOf', () => {
     expect(
       guardedGuidanceOf(
         '  Give up on an upload that keeps failing instead of looping.  ',
-        RUBRIC,
+        RETRIES,
       ),
     ).toBe('Give up on an upload that keeps failing instead of looping.');
   });
 
   it('has nothing to say when the judge said nothing', () => {
-    expect(guardedGuidanceOf(null, RUBRIC)).toBeNull();
-    expect(guardedGuidanceOf('   ', RUBRIC)).toBeNull();
+    expect(guardedGuidanceOf(null, RETRIES)).toBeNull();
+    expect(guardedGuidanceOf('   ', RETRIES)).toBeNull();
   });
 
-  it('drops an guidance that shares five words in a row with the rubric, whatever their case or punctuation', () => {
+  it('drops an guidance that shares five words in a row with a claim, whatever their case or punctuation', () => {
     expect(
       guardedGuidanceOf(
         'Make sure the UPLOAD must be, retried with backoff.',
-        RUBRIC,
+        RETRIES,
       ),
     ).toBeNull();
     expect(
-      guardedGuidanceOf('Stop after a few tries; the upload must be.', RUBRIC),
+      guardedGuidanceOf('Stop after a few tries; the upload must be.', RETRIES),
     ).toBe('Stop after a few tries; the upload must be.');
   });
 
@@ -47,7 +48,6 @@ describe('guardedGuidanceOf', () => {
 
   it('drops an guidance that contains the whole of a short claim', () => {
     const short = JudgeCriteria.of({
-      rubric: null,
       claims: ['It retries failed uploads.', 'Logs each retry.'],
     });
 
@@ -57,23 +57,6 @@ describe('guardedGuidanceOf', () => {
     expect(
       guardedGuidanceOf('Retry a failed upload before reporting it.', short),
     ).toBe('Retry a failed upload before reporting it.');
-  });
-
-  it('drops an guidance that quotes one short item of a rubric list', () => {
-    const listed = JudgeCriteria.of({
-      rubric:
-        'scores: 1-5\n- Keeps the job order\n- Never drops a job\n- Logs restarts',
-    });
-
-    expect(
-      guardedGuidanceOf(
-        'It should never drop a job; it never drops a job now.',
-        listed,
-      ),
-    ).toBeNull();
-    expect(
-      guardedGuidanceOf('Take the jobs in the order they arrived.', listed),
-    ).toBe('Take the jobs in the order they arrived.');
   });
 
   it('drops an guidance that names a claim by its number', () => {
@@ -90,10 +73,10 @@ describe('guardedGuidanceOf', () => {
 
   it('drops an guidance over the length limit, or one that spans several lines', () => {
     expect(
-      guardedGuidanceOf('Retry. '.repeat(MAX_GUIDANCE_LENGTH), RUBRIC),
+      guardedGuidanceOf('Retry. '.repeat(MAX_GUIDANCE_LENGTH), RETRIES),
     ).toBeNull();
     expect(
-      guardedGuidanceOf('Retry the upload.\nThen give up.', RUBRIC),
+      guardedGuidanceOf('Retry the upload.\nThen give up.', RETRIES),
     ).toBeNull();
   });
 });

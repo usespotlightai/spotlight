@@ -73,6 +73,7 @@ import { DeleteTeamMemories } from '@memory/application/services/delete-team-mem
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
+import { RecalledMemoryViews } from '@memory/application/services/recalled-memory-views.service';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import { RequestMemories } from '@memory/application/services/request-memories.service';
@@ -108,15 +109,11 @@ import { RunnerMemoryFilesController } from '@memory/presentation/http/controlle
 import { RunnerMemoryController } from '@memory/presentation/http/controllers/runner-memory.controller';
 import { TeamMemoryController } from '@memory/presentation/http/controllers/team-memory.controller';
 import type { Provider, Type } from '@nestjs/common';
-import { ENV } from '@platform/config/config.constants';
-import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
-import { MODEL_PRICES, type ModelPrices } from '@platform/llm/model-prices';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
@@ -130,6 +127,10 @@ import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
+import {
+  INFERENCE_CALLS,
+  type InferenceCallsPort,
+} from '@shared-kernel/application/ports/inference-calls.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -257,13 +258,18 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   { provide: TEAM_MEMORY_USE, useClass: DrizzleTeamMemoryUse },
   {
     provide: TeamMemoryViews,
-    inject: [MEMORIES, WORK, PEOPLE, MEMORY_USES],
+    inject: [MEMORIES, PEOPLE, MEMORY_USES],
     useFactory: (
       memories: MemoryRepository,
-      work: WorkPort,
       people: PeoplePort,
       uses: MemoryUsesPort,
-    ) => new TeamMemoryViews(memories, work, people, uses),
+    ) => new TeamMemoryViews(memories, people, uses),
+  },
+  {
+    provide: RecalledMemoryViews,
+    inject: [TeamMemoryViews, WORK, PEOPLE],
+    useFactory: (views: TeamMemoryViews, work: WorkPort, people: PeoplePort) =>
+      new RecalledMemoryViews(views, work, people),
   },
   {
     provide: RecordMemoryUses,
@@ -350,7 +356,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(RecallMemoryQuery, RecallMemoryHandler, [
     RunnerMemoryLoader,
     MEMORIES,
-    TeamMemoryViews,
+    RecalledMemoryViews,
   ]),
   ...bindCommandHandler(RecordRecallCommand, RecordRecallHandler, [
     RunnerMemoryLoader,
@@ -374,11 +380,9 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   { provide: REJECTED_MEMORIES, useClass: DrizzleRejectedMemories },
   {
     provide: MEMORY_DRAFTER,
-    inject: [ENV, MODEL_PRICES],
-    useFactory: (env: Env, prices: ModelPrices) =>
-      new ChatCompletionsMemoryDrafter(
-        modelEndpointOf(env, env.MEMORIES_MODEL, prices),
-      ),
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) =>
+      new ChatCompletionsMemoryDrafter(calls),
   },
   {
     provide: RequestMemories,

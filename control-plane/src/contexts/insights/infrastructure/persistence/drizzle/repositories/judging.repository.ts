@@ -50,11 +50,11 @@ const toJudging = (row: JudgingRow): Judging =>
     }),
     fingerprint: row.fingerprint,
     rubric: Rubric.of({
-      text: row.rubric,
       claims: row.claims,
       passThreshold: row.passThreshold,
       version: row.rubricVersion,
     }),
+    origin: row.origin,
     queuedAt: row.queuedAt,
     job: row.pending
       ? PendingJob.rehydrate({
@@ -68,6 +68,11 @@ const toJudging = (row: JudgingRow): Judging =>
   });
 
 const columnsOf = (stored: Judging) => ({
+  claims: [...stored.rubric.criteria.claims],
+  passThreshold: stored.rubric.criteria.passThreshold,
+  rubricVersion: stored.rubric.version,
+  origin: stored.origin,
+  queuedAt: stored.queuedAt,
   pending: stored.job !== null,
   jobAttempts: stored.job?.attempts ?? 0,
   jobDueAt: stored.job?.nextAttemptAt ?? null,
@@ -96,11 +101,6 @@ export class DrizzleJudgingRepository implements JudgingRepository {
           stationId: added.location.stationId.value,
           taskId: added.location.taskId.value,
           fingerprint: added.fingerprint,
-          rubric: added.rubric.text,
-          claims: [...added.rubric.criteria.claims],
-          passThreshold: added.rubric.criteria.passThreshold,
-          rubricVersion: added.rubric.version,
-          queuedAt: added.queuedAt,
           version: added.version,
           ...columnsOf(added),
         })

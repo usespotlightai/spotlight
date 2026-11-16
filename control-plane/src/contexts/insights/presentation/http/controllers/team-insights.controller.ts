@@ -284,7 +284,7 @@ export class TeamInsightsController {
   @ApiOperation({
     operationId: 'readInsightsChanges',
     summary:
-      'Every station config change in the period, with how the station’s runs went before and after it, and the judge’s scores where its judge is qualified',
+      'Every station config change in the period, with how the station’s runs went before and after it, and the judge’s verdicts where its judge is qualified',
   })
   @PeriodQuery()
   @ApiOkResponse({ type: InsightsChangesResponseDto })

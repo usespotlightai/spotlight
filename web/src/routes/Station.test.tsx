@@ -74,8 +74,7 @@ const line = {
       skills: ['our-migrations', 'grafana-dashboards'],
       search: SEARCH,
       judge: {
-        rubric: '## A good run\n\n- Changes only what it must',
-        claims: [],
+        claims: ['The change does only what the spec requires'],
         passThreshold: 1,
         sample: 0.2,
         minAgreement: 0.6,
@@ -131,6 +130,10 @@ const line = {
 const lines = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const refetch = vi.fn();
+
+vi.mock('@/hooks/useInferenceUnset', () => ({
+  useInferenceUnset: () => false,
+}));
 
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
@@ -294,7 +297,6 @@ const OUTCOMES = {
 
 const CALIBRATION = {
   qualified: true,
-  measure: 'kappa',
   agreement: 0.71,
   reading: 'substantial',
   pairs: 24,
@@ -877,14 +879,14 @@ describe('Station', () => {
       );
     });
 
-    it('says how far the judge agrees with people, linking to its agreement over time on the Judge tab', () => {
+    it('says how far the judge agrees with people, linking to its agreement details on the Judge tab', () => {
       renderAt('station_2', 'config');
 
       expect(
         document.querySelector('[data-slot="judge-calibration"]'),
       ).toHaveTextContent('0.71Substantial');
       expect(
-        screen.getByRole('link', { name: 'Agreement over time' }),
+        screen.getByRole('link', { name: 'Agreement details' }),
       ).toHaveAttribute(
         'href',
         '/w/acme/team/team_1/lines/line_1/stations/station_2/judge',
@@ -894,6 +896,47 @@ describe('Station', () => {
           name: 'How far the judge agrees with people',
         }),
       ).not.toBeInTheDocument();
+    });
+
+    it('marks agreement below the minimum in red, with a warning', () => {
+      judged.mockReturnValue({
+        calibration: {
+          ...CALIBRATION,
+          qualified: false,
+          agreement: 0.42,
+          reading: 'moderate',
+          hiddenReason: 'below-min-agreement',
+        },
+        versions: [],
+      });
+      renderAt('station_2', 'config');
+
+      expect(
+        document.querySelector('[data-slot="judge-calibration"]'),
+      ).toHaveTextContent('0.42Moderate');
+      expect(
+        screen.getByRole('img', { name: 'Below the minimum' }),
+      ).toBeInTheDocument();
+    });
+
+    it('says agreement is not measured while too few runs have both verdicts', () => {
+      judged.mockReturnValue({
+        calibration: {
+          ...CALIBRATION,
+          qualified: false,
+          agreement: null,
+          reading: null,
+          pairs: 3,
+          minPairs: 10,
+          hiddenReason: 'too-few-pairs',
+        },
+        versions: [],
+      });
+      renderAt('station_2', 'config');
+
+      expect(
+        document.querySelector('[data-slot="judge-calibration"]'),
+      ).toHaveTextContent(/^Not measured$/);
     });
 
     it('leaves out how far the judge agrees with people where its agreement could not load', () => {
@@ -982,26 +1025,26 @@ describe('Station', () => {
 
       const judge = sectionTitled('Judge');
 
-      expect(judge).toHaveTextContent('Scores20% of runs');
+      expect(judge).toHaveTextContent('Judged20% of runs');
       expect(judge).toHaveTextContent('Minimum agreement0.60');
     });
 
-    it('shows the rubric read-only in the judge section', async () => {
+    it('lists the judge’s claims and when a run passes in the judge section', () => {
       renderAt('station_2', 'config');
 
-      expect(
-        await screen.findByLabelText('The judge’s rubric'),
-      ).toHaveAttribute('contenteditable', 'false');
-      expect(
-        screen.getByRole('heading', { name: 'A good run' }),
-      ).toBeInTheDocument();
+      const judge = sectionTitled('Judge');
+
+      expect(judge).toHaveTextContent(
+        'The change does only what the spec requires',
+      );
+      expect(judge).toHaveTextContent('Passes whenEvery claim met');
     });
 
-    it('says only people score runs where no judge is set', () => {
+    it('says the station has no judge where no judge is set', () => {
       renderAt('station_1', 'config');
 
       expect(sectionTitled('Judge')).toHaveTextContent(
-        'No judge. Only people score runs here.',
+        'This station has no judge.',
       );
     });
 

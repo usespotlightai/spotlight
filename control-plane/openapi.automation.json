@@ -408,7 +408,7 @@
             "bearer": []
           }
         ],
-        "summary": "Every station config change in the period, with how the station’s runs went before and after it, and the judge’s scores where its judge is qualified",
+        "summary": "Every station config change in the period, with how the station’s runs went before and after it, and the judge’s verdicts where its judge is qualified",
         "tags": [
           "insights"
         ]
@@ -1674,31 +1674,18 @@
           "detail"
         ]
       },
-      "ConfigChangeResponseDto": {
+      "InsightsConfigChangeResponseDto": {
         "type": "object",
         "properties": {
           "part": {
             "type": "string",
-            "enum": [
-              "prompt",
-              "harness",
-              "model",
-              "effort",
-              "profile",
-              "image",
-              "repository",
-              "skill",
-              "tool",
-              "decisions",
-              "memories",
-              "judge"
-            ],
-            "example": "effort"
+            "example": "model"
           },
           "name": {
             "type": "string",
             "nullable": true,
-            "description": "The repository, skill or tool changed, where the part has several, or the judge setting changed"
+            "example": "write-tests",
+            "description": "Which one of the part changed, where the part is a list"
           },
           "kind": {
             "type": "string",
@@ -1706,18 +1693,17 @@
               "added",
               "removed",
               "changed"
-            ],
-            "example": "changed"
+            ]
           },
           "was": {
             "type": "string",
             "nullable": true,
-            "example": "high"
+            "example": "sonnet"
           },
           "now": {
             "type": "string",
             "nullable": true,
-            "example": "xhigh"
+            "example": "opus"
           }
         },
         "required": [
@@ -4222,12 +4208,12 @@
             "type": "number",
             "nullable": true,
             "example": 0.8,
-            "description": "The judge’s mean score as a share of its scale, from 0 for the lowest to 1 for the highest; none where it judged none of the runs"
+            "description": "The share of judged runs the judge passed, from 0 to 1; none where it judged none of the runs"
           },
           "judged": {
             "type": "number",
             "example": 6,
-            "description": "Runs the judge scored"
+            "description": "Runs the judge checked"
           }
         },
         "required": [
@@ -4291,7 +4277,7 @@
           },
           "judgeBefore": {
             "nullable": true,
-            "description": "The judge’s scores of the runs before, only where the station’s judge is qualified",
+            "description": "The judge’s verdicts on the runs before, only where the station’s judge is qualified",
             "type": "object",
             "allOf": [
               {
@@ -4301,7 +4287,7 @@
           },
           "judgeAfter": {
             "nullable": true,
-            "description": "The judge’s scores of the runs after, only where the station’s judge is qualified",
+            "description": "The judge’s verdicts on the runs after, only where the station’s judge is qualified",
             "type": "object",
             "allOf": [
               {
@@ -4311,7 +4297,7 @@
           },
           "judgeChange": {
             "nullable": true,
-            "description": "The judge’s mean score after against before, in points; none where either side went unjudged",
+            "description": "The judge’s pass rate after against before, in points; none where either side went unjudged",
             "type": "object",
             "allOf": [
               {
@@ -4323,7 +4309,7 @@
             "description": "How the new config differs from the one before it",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConfigChangeResponseDto"
+              "$ref": "#/components/schemas/InsightsConfigChangeResponseDto"
             }
           }
         },
@@ -4348,22 +4334,13 @@
         "properties": {
           "qualified": {
             "type": "boolean",
-            "description": "Whether the judge agrees with people often enough for its scores to count"
-          },
-          "measure": {
-            "type": "string",
-            "enum": [
-              "kappa",
-              "spearman",
-              null
-            ],
-            "nullable": true,
-            "description": "How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers"
+            "description": "Whether the judge agrees with people often enough for its verdicts to count"
           },
           "agreement": {
             "type": "number",
             "nullable": true,
-            "example": 0.71
+            "example": 0.71,
+            "description": "Cohen’s kappa of the judge’s pass or fail against people’s, on the current claims"
           },
           "reading": {
             "type": "string",
@@ -4374,24 +4351,20 @@
               "fair",
               "slight",
               "chance",
-              "very-strong",
-              "strong",
-              "weak",
-              "inverse",
               null
             ],
             "nullable": true,
-            "description": "How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s"
+            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
           },
           "pairs": {
             "type": "number",
             "example": 24,
-            "description": "Runs of the current rubric with both a judge score and people’s"
+            "description": "Runs of the current claims with both a judge verdict and people’s"
           },
           "minPairs": {
             "type": "number",
             "example": 10,
-            "description": "Runs with both a judge score and people’s that agreement needs before it counts"
+            "description": "Runs with both a judge verdict and people’s that agreement needs before it counts"
           },
           "minAgreement": {
             "type": "number",
@@ -4409,11 +4382,11 @@
               null
             ],
             "nullable": true,
-            "description": "Why the judge’s scores are hidden, where they are"
+            "description": "Why the judge’s verdicts are hidden, where they are"
           },
           "failing": {
             "type": "boolean",
-            "description": "Whether the judge’s scores are hidden for a reason other than too few runs with both scores"
+            "description": "Whether the judge’s verdicts are hidden for a reason other than too few runs with both verdicts"
           },
           "lineId": {
             "type": "string",
@@ -4426,7 +4399,6 @@
         },
         "required": [
           "qualified",
-          "measure",
           "agreement",
           "reading",
           "pairs",
@@ -4532,7 +4504,7 @@
             "type": "number",
             "nullable": true,
             "example": 0.75,
-            "description": "The judge’s mean score as a share of its scale, over runs at stations whose judge is qualified"
+            "description": "The share of runs the judge passed, from 0 to 1, over runs at stations whose judge is qualified"
           }
         },
         "required": [
@@ -4589,7 +4561,7 @@
           },
           "judge": {
             "nullable": true,
-            "description": "The judge’s scores of this agent config’s runs; none unless the comparison is narrowed to one station",
+            "description": "The judge’s verdicts on this agent config’s runs; none unless the comparison is narrowed to one station",
             "type": "object",
             "allOf": [
               {
@@ -4681,7 +4653,7 @@
               null
             ],
             "nullable": true,
-            "description": "Why no judge scores are compared: no_station where the comparison spans stations, whose judges each score against their own rubric"
+            "description": "Why no judge verdicts are compared: no_station where the comparison spans stations, whose judges each check runs against their own claims"
           },
           "judges": {
             "description": "The calibration of the station’s judge, where one station is picked and it has a judge",
@@ -6963,6 +6935,49 @@
           "tasks"
         ]
       },
+      "ReplayCheckJudgeResponseDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "qualified",
+              "unmeasured",
+              "failing"
+            ],
+            "description": "qualified when the verdicts of the live judge agree with the verdicts of people well enough; unmeasured while too few runs have both verdicts, or while every verdict of the judge and of people is the same; failing when they do not agree well enough, or the claims of the judge cannot be read"
+          },
+          "agreement": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.72,
+            "description": "Cohen’s kappa of the verdicts of the judge against the verdicts of people"
+          },
+          "pairs": {
+            "type": "number",
+            "example": 12,
+            "description": "How many runs have both a verdict of the judge and a verdict of a person"
+          },
+          "minPairs": {
+            "type": "number",
+            "example": 10,
+            "description": "How many such runs Spotlight needs before it measures the agreement"
+          },
+          "minAgreement": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.6,
+            "description": "The minimum agreement the station sets in `min_agreement`"
+          }
+        },
+        "required": [
+          "state",
+          "agreement",
+          "pairs",
+          "minPairs",
+          "minAgreement"
+        ]
+      },
       "RateIntervalResponseDto": {
         "type": "object",
         "properties": {
@@ -7230,7 +7245,7 @@
               "failed",
               "undecided"
             ],
-            "description": "failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise"
+            "description": "failed as soon as more tasks regressed than the threshold allows, or when the check uses the live judge and its verdicts do not agree with the verdicts of people well enough; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise"
           },
           "undecidedBecause": {
             "type": "string",
@@ -7244,6 +7259,26 @@
               null
             ],
             "nullable": true
+          },
+          "failedBecause": {
+            "type": "string",
+            "enum": [
+              "too-many-regressions",
+              "judge-disagrees-with-people",
+              null
+            ],
+            "nullable": true,
+            "description": "Why the check failed; none unless it failed"
+          },
+          "judge": {
+            "nullable": true,
+            "description": "How the verdicts of the live judge agree with the verdicts of people; none where the check is not scored by a judge",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReplayCheckJudgeResponseDto"
+              }
+            ]
           },
           "taskCount": {
             "type": "number",
@@ -7296,6 +7331,8 @@
           "gain",
           "result",
           "undecidedBecause",
+          "failedBecause",
+          "judge",
           "taskCount",
           "compared",
           "candidate",
@@ -7805,7 +7842,7 @@
             "type": "string",
             "nullable": true,
             "example": null,
-            "description": "Which one of the part changed: the repository, skill or tool, or the judge’s rubric, sample or minimum agreement"
+            "description": "Which one of the part changed: the repository, skill or tool, or the judge’s claims, sample or minimum agreement"
           },
           "kind": {
             "type": "string",
@@ -7818,7 +7855,7 @@
           "was": {
             "type": "string",
             "nullable": true,
-            "description": "What it was, where it can be shown; the prompt is shown in full, skills and rubrics are compared but not shown"
+            "description": "What it was, where it can be shown; the prompt is shown in full, skills and claims are compared but not shown"
           },
           "now": {
             "type": "string",

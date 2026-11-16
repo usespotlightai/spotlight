@@ -1,4 +1,5 @@
 import { Play } from 'lucide-react';
+import { useRef } from 'react';
 
 import { RunRow } from '@/components/features/runs/RunRow';
 import { TeamRunsSkeleton } from '@/components/features/runs/TeamRunsSkeleton';
@@ -13,6 +14,7 @@ import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useCollapsed } from '@/hooks/useCollapsed';
+import { useListKeys } from '@/hooks/useListKeys';
 import { useStoredState } from '@/hooks/useStoredState';
 import { inboxItemPath } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
@@ -34,6 +36,8 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
   const ages = useCollapsed(STORAGE_KEY);
   const [stored, store] = useStoredState(FILTER_KEY, FALLBACK_RUN_FILTER);
   const filter = asRunFilter(stored);
+  const rows = useRef<HTMLDivElement>(null);
+  useListKeys(rows);
 
   if (failed(runs)) {
     return (
@@ -78,44 +82,51 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
           <ShowMore list={runs} what="Older runs" className="mt-2" />
         </Notice>
       ) : (
-        <ScrollArea
-          className="min-h-0 flex-1"
-          contentClassName="min-h-full flex flex-col gap-0.5 pb-1.5"
-        >
-          {byAge(shown).map(([age, ofAge], at) => (
-            <section
-              key={age}
-              className={cn('flex flex-col', at === 0 && 'pt-1.5')}
-            >
-              <DisclosureRow
-                label={age}
-                count={ofAge.length}
-                open={ages.isExpanded(age)}
-                onToggle={() => ages.toggle(age)}
-                chevron="start"
-                className="sticky top-0 z-20 mx-1.5 h-9 w-auto bg-accent px-3 font-medium text-foreground text-xs"
-              />
+        <div ref={rows} className="contents">
+          <ScrollArea
+            className="min-h-0 flex-1"
+            contentClassName="min-h-full flex flex-col gap-0.5 pb-1.5"
+          >
+            {byAge(shown).map(([age, ofAge], at) => (
+              <section
+                key={age}
+                className={cn('flex flex-col', at === 0 && 'pt-1.5')}
+              >
+                <DisclosureRow
+                  label={age}
+                  count={ofAge.length}
+                  open={ages.isExpanded(age)}
+                  onToggle={() => ages.toggle(age)}
+                  chevron="start"
+                  className="sticky top-0 z-20 mx-1.5 h-9 w-auto bg-accent px-3 font-medium text-foreground text-xs"
+                />
 
-              <Disclosure open={ages.isExpanded(age)} className="px-1.5">
-                {ofAge.map((run) => (
-                  <RunRow
-                    key={run.id}
-                    run={run}
-                    gutter
-                    to={runPath(slug, teamId, run.id)}
-                    taskTitle={run.taskTitle}
-                    reviewTo={
-                      run.review
-                        ? inboxItemPath(slug, run.review.conversationId, run.id)
-                        : undefined
-                    }
-                  />
-                ))}
-              </Disclosure>
-            </section>
-          ))}
-          <ShowMore list={runs} what="Older runs" className="mt-2" />
-        </ScrollArea>
+                <Disclosure open={ages.isExpanded(age)} className="px-1.5">
+                  {ofAge.map((run) => (
+                    <RunRow
+                      key={run.id}
+                      run={run}
+                      teamId={teamId}
+                      gutter
+                      to={runPath(slug, teamId, run.id)}
+                      taskTitle={run.taskTitle}
+                      reviewTo={
+                        run.review
+                          ? inboxItemPath(
+                              slug,
+                              run.review.conversationId,
+                              run.id,
+                            )
+                          : undefined
+                      }
+                    />
+                  ))}
+                </Disclosure>
+              </section>
+            ))}
+            <ShowMore list={runs} what="Older runs" className="mt-2" />
+          </ScrollArea>
+        </div>
       )}
     </>
   );

@@ -11,6 +11,7 @@ import { landsOnEmptyStation, rowLanding } from '@/lib/drop-landing';
 import { inboxItemPath } from '@/lib/inbox';
 import { stationPath, stationShare } from '@/lib/station';
 import { type Task, taskPath, tasksAt } from '@/lib/task';
+import { entryStationOf } from '@/lib/task-create';
 
 type BoardStationProps = {
   slug: string;
@@ -57,6 +58,7 @@ export function BoardStation({
       open={open}
       onToggle={onToggle}
       onAddTask={onAddTask}
+      entry={entryStationOf(line) === station.id}
       landing={landsOnEmptyStation(landing, station.id, here.length)}
       to={
         station.kind === 'work'

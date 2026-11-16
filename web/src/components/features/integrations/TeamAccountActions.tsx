@@ -1,6 +1,5 @@
 import { ArrowLeftRight } from 'lucide-react';
 
-import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { RowActions } from '@/components/shared/RowActions';
 import { useConnectIntegration } from '@/hooks/api/useConnectIntegration';
 import type { Integration } from '@/lib/integration';
@@ -17,19 +16,17 @@ export function TeamAccountActions({
   const connect = useConnectIntegration(teamId);
 
   return (
-    <ActionWithAlert alert={connect.error?.message ?? null}>
-      <RowActions
-        label={`Actions for the team’s ${integration.name} account`}
-        disabled={connect.isPending}
-        actions={[
-          {
-            label: 'Change account',
-            icon: ArrowLeftRight,
-            onSelect: () =>
-              connect.mutate({ integration: integration.integration }),
-          },
-        ]}
-      />
-    </ActionWithAlert>
+    <RowActions
+      label={`Actions for the team’s ${integration.name} account`}
+      disabled={connect.isPending}
+      actions={[
+        {
+          label: 'Change account',
+          icon: ArrowLeftRight,
+          onSelect: () =>
+            connect.mutate({ integration: integration.integration }),
+        },
+      ]}
+    />
   );
 }

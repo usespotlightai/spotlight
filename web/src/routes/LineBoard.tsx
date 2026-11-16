@@ -16,6 +16,7 @@ import { useLines } from '@/hooks/api/useLines';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useBoardTasks } from '@/hooks/useBoardTasks';
 import { useBoardView } from '@/hooks/useBoardView';
+import { useCreateTaskKey } from '@/hooks/useCreateTaskKey';
 import { BOARD_VIEWS } from '@/lib/board';
 import { failed, loading } from '@/lib/query';
 import { teamPath } from '@/lib/team';
@@ -33,6 +34,7 @@ export function LineBoard() {
 
   const line = lines.data?.find((candidate) => candidate.id === lineId);
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
+  useCreateTaskKey(line, setAdding);
 
   const { trail, forward } = useTrail([
     ...(team && slug ? [teamCrumb(slug, team)] : []),

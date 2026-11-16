@@ -20,6 +20,7 @@ const run = (
   approvalAnsweredAt: change.approvalAnsweredAt ?? null,
   passed: change.passed ?? false,
   merged: change.merged ?? false,
+  followed: change.followed ?? false,
 });
 
 describe('resolutionOf', () => {
@@ -44,6 +45,11 @@ describe('resolutionOf', () => {
       'moved-on',
     ],
     ['merged', run({ merged: true }), 'accepted'],
+    [
+      'merged after a later visit of its station',
+      run({ merged: true, followed: true }),
+      'other',
+    ],
     ['parked', run({ action: 'parked' }), 'other'],
     ['answered', run({ action: 'answered' }), 'other'],
     ['without an answer', run(), 'other'],

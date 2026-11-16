@@ -312,6 +312,8 @@ func (r runner) serve(ctx context.Context, assigned protocol.Assignment) {
 		r.execute(ctx, client, *work.Run)
 	case work.Kind == protocol.ClaimedCheck && work.Check != nil:
 		r.check(ctx, client, *work.Check)
+	case work.Kind == protocol.ClaimedDiff && work.Diff != nil:
+		r.diff(ctx, client, *work.Diff)
 	default:
 		r.log.Warn("was assigned something it does not know how to do", "kind", work.Kind)
 	}
@@ -389,18 +391,18 @@ func (r runner) timedOut(ctx context.Context, client session.Journal, runID stri
 }
 
 func (r runner) check(ctx context.Context, client *control.Client, claimed protocol.StackCheck) {
-	log := r.log.With("stack", claimed.StackID, "run", claimed.RunID)
+	log := r.log.With("stack", claimed.StackID)
 	log.Info("checking a change stack")
 
 	if r.unready != nil {
 		log.Error("could not check, because the local proxy did not open", "error", r.unready)
-		if err := client.RecordChangeStackCheck(ctx, claimed.RunID, claimed.StackID, claimed.Recheck, unready(r.unready)); err != nil {
+		if err := client.RecordChangeStackCheck(ctx, claimed.StackID, claimed.Recheck, unready(r.unready)); err != nil {
 			log.Warn("could not report a change stack check", "error", err)
 		}
 		return
 	}
 
-	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.RunID, true, r.transport)
+	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.StackID, true, r.transport)
 	if err != nil {
 		log.Warn("could not serve git for a check", "error", err)
 		return
@@ -416,6 +418,30 @@ func (r runner) check(ctx context.Context, client *control.Client, claimed proto
 		Remote:  serving.Remote,
 		Mirrors: os.Getenv("SPOTLIGHT_MIRRORS"),
 		RunAs:   r.agentUser,
+		Env:     r.proxyEnv,
+		Log:     log,
+	})
+}
+
+func (r runner) diff(ctx context.Context, client *control.Client, claimed protocol.PushDiff) {
+	log := r.log.With("diff", claimed.DiffID)
+	log.Info("diffing a push")
+
+	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.DiffID, true, r.transport)
+	if err != nil {
+		log.Warn("could not serve git for a push diff", "error", err)
+		return
+	}
+	defer func() {
+		if err := serving.Close(); err != nil {
+			log.Warn("could not stop serving git", "error", err)
+		}
+	}()
+
+	stackcheck.PerformDiff(ctx, client, claimed, stackcheck.Options{
+		Dir:     r.cfg.Workspace,
+		Remote:  serving.Remote,
+		Mirrors: os.Getenv("SPOTLIGHT_MIRRORS"),
 		Env:     r.proxyEnv,
 		Log:     log,
 	})

@@ -3,8 +3,7 @@ import { ALL_CLAIMS } from '@lines/domain/value-objects/station-judge.vo';
 type LineDefinitionStationKind = 'backlog' | 'work' | 'completed';
 
 export type LineDefinitionJudge = {
-  readonly rubric?: string;
-  readonly claims?: readonly string[];
+  readonly claims: readonly string[];
   readonly passThreshold?: number;
   readonly sample: number;
   readonly minAgreement: number;

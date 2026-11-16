@@ -40,7 +40,7 @@ export const guardedGuidanceOf = (
     return null;
   }
 
-  const texts = [criteria.rubric ?? '', ...criteria.claims];
+  const texts = criteria.claims;
   const criteriaNgrams = new Set(texts.flatMap(ngramsOf));
   const spaced = ` ${wordsOf(text).join(' ')} `;
   const leaksCriteria =

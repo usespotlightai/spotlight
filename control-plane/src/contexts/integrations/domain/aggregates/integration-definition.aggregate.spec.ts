@@ -64,7 +64,13 @@ const compiled = (
 ) => {
   const key = IntegrationKey.of(integration);
   const tool = (name: string, backing: ToolBacking) =>
-    ProvidedTool.of({ integration: key, name, description: name, backing });
+    ProvidedTool.of({
+      readOnly: false,
+      integration: key,
+      name,
+      description: name,
+      backing,
+    });
 
   const compiledIntegration = Integration.of({
     key,

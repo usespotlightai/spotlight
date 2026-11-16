@@ -4,10 +4,10 @@ import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo'
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import type {
   StoredCitation,
+  StoredReason,
   score,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -40,6 +40,19 @@ export const storedCitation = (citation: Citation): StoredCitation => ({
   hunk: citation.hunk,
 });
 
+export const judgeReasonOf = (stored: StoredReason): JudgeReason =>
+  JudgeReason.of({
+    text: stored.text,
+    citations: stored.citations.map(citationOf),
+    claim: stored.claim,
+  });
+
+export const storedReasonOf = (reason: JudgeReason): StoredReason => ({
+  text: reason.text,
+  citations: reason.citations.map(storedCitation),
+  claim: reason.claim,
+});
+
 export const scoreFieldsOfRow = (row: ScoreRow) => ({
   id: ScoreId.of(row.id),
   runId: RunId.of(row.runId),
@@ -52,18 +65,12 @@ export const scoreFieldsOfRow = (row: ScoreRow) => ({
   }),
   fingerprint: row.fingerprint,
   source: row.source,
-  scale: ScoreScale.of(row.kind),
-  value: row.value,
+  origin: row.origin,
   claimResults: row.claimResults,
+  passThreshold: row.passThreshold,
   rubricVersion: row.rubricVersion,
   model: row.model,
-  reasons: row.reasons.map((each) =>
-    JudgeReason.of({
-      text: each.text,
-      citations: each.citations.map(citationOf),
-      claim: each.claim,
-    }),
-  ),
+  reasons: row.reasons.map(judgeReasonOf),
   seen: SeenEvidence.of(row.seen),
   by: row.scoredById ? UserId.of(row.scoredById) : null,
   at: row.at,
@@ -78,10 +85,10 @@ export const scoreFactOfRow = (row: ScoreRow): ScoreFact => {
     runId: fields.runId,
     location: fields.location,
     source: fields.source,
-    scale: fields.scale,
-    value: fields.value,
+    origin: fields.origin,
     claimResults: fields.claimResults,
-    rubricVersion: RubricVersion.optional(fields.rubricVersion),
+    passThreshold: fields.passThreshold,
+    rubricVersion: RubricVersion.of(fields.rubricVersion),
     model: fields.model,
     reasons: fields.reasons,
     seen: fields.seen,

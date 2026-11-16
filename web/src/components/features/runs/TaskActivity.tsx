@@ -36,6 +36,7 @@ export function TaskActivity({ slug, teamId, taskId }: TaskActivityProps) {
           <RunRow
             key={run.id}
             run={run}
+            teamId={teamId}
             to={slug && teamId ? runPath(slug, teamId, run.id) : ''}
             inTrail
           />,

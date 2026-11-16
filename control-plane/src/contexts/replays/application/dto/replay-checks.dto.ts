@@ -6,8 +6,10 @@ import type {
 import type { TaskRow } from '@replays/application/dto/task-rows.dto';
 import type {
   CheckResult,
+  FailedBecause,
   UndecidedBecause,
 } from '@replays/domain/services/replay-check-result';
+import type { JudgeCalibrationState } from '@replays/domain/value-objects/judge-calibration';
 import type { ReplayStopCause } from '@replays/domain/value-objects/replay-stop-cause';
 
 export interface CheckSideDto {
@@ -20,6 +22,14 @@ export interface CheckSideDto {
   readonly tasksScored: number;
   readonly spent: MoneyDto | null;
   readonly stoppedBecause: ReplayStopCause | null;
+}
+
+export interface CheckJudgeDto {
+  readonly state: JudgeCalibrationState;
+  readonly agreement: number | null;
+  readonly pairs: number;
+  readonly minPairs: number;
+  readonly minAgreement: number | null;
 }
 
 export interface ReplayCheckDto {
@@ -51,6 +61,8 @@ export interface ReplayCheckDto {
   readonly gain: GainEstimateDto | null;
   readonly result: CheckResult;
   readonly undecidedBecause: UndecidedBecause | null;
+  readonly failedBecause: FailedBecause | null;
+  readonly judge: CheckJudgeDto | null;
   readonly taskCount: number;
   readonly compared: number;
   readonly candidate: CheckSideDto;

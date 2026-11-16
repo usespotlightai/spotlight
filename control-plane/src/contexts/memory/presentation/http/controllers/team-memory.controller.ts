@@ -141,8 +141,7 @@ export class TeamMemoryController {
   @Get(':memoryId')
   @ApiOperation({
     operationId: 'readTeamMemory',
-    summary:
-      'One memory with what it cites, and what it replaced or was replaced by',
+    summary: 'One memory, and what it replaced or was replaced by',
   })
   @ApiParam({ name: 'memoryId', type: String })
   @ApiOkResponse({ type: TeamMemoryDetailResponseDto })

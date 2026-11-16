@@ -38,4 +38,5 @@ export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
   approval: declared.approval ? { because: declared.approval.because } : null,
   ...(declared.providedBy ? { integration: declared.providedBy } : {}),
   ...(declared.inferredOutput ? { output: declared.inferredOutput } : {}),
+  ...(declared.callableInIsolatedRun ? { readOnly: true as const } : {}),
 });

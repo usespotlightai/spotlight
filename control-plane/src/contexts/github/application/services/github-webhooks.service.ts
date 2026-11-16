@@ -230,6 +230,17 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
       });
     }
 
+    if (event.kind === 'pull-request-pushed') {
+      await this.sync.pushed(from, event.snapshot, event.pullRequest, {
+        repository: Repository.of(event.repository),
+        head: event.head,
+        baseTip: event.baseTip,
+        pushedBy: event.pushedBy,
+        byBot: event.byBot,
+        pushedAt: event.pushedAt,
+      });
+    }
+
     if (event.kind === 'pull-request-reopened') {
       await this.sync.reopened(from, event.pullRequest, {
         repository: Repository.of(event.repository),

@@ -48,6 +48,7 @@ export class Work implements WorkPort {
                 placement: run.placement,
               }
             : null,
+        placement: run.placement,
         ended: run.ended,
         completed: run.completed,
         decisions: run.decisions,

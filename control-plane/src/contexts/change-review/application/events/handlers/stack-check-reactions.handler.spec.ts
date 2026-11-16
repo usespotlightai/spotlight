@@ -13,6 +13,7 @@ import {
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -70,7 +71,7 @@ const cohort = (hunks: string[][]): ProposedCohort => ({
 const stackWith = (request: CheckRequest | null) =>
   ChangeStack.startGeneration({
     id: STACK,
-    runId: RunId.of('run-1'),
+    origin: StackOrigin.run(RunId.of('run-1')),
     taskId: TASK,
     teamOfRun: TeamId.of('team_1'),
     trial: false,
@@ -136,7 +137,7 @@ describe('StackCheckReactions', () => {
     const { reactions, added } = reacting(stack, null);
 
     await reactions.onCompleted(
-      new ChangeStackCompleted(STACK, stack.runId, false),
+      new ChangeStackCompleted(STACK, stack.runId, stack.taskId, false),
     );
 
     expect(added).toHaveLength(1);
@@ -150,7 +151,7 @@ describe('StackCheckReactions', () => {
     const { reactions, added } = reacting(stack, null);
 
     await reactions.onCompleted(
-      new ChangeStackCompleted(STACK, stack.runId, false),
+      new ChangeStackCompleted(STACK, stack.runId, stack.taskId, false),
     );
 
     expect(added).toEqual([]);

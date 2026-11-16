@@ -1,10 +1,12 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   InboxRequestFormName,
   InboxRequestOf,
   InboxRequestsPort,
+  NewInboxRequest,
 } from '@work/application/ports/inbox-requests.port';
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import type { InboxRequestRepository } from '@work/domain/repositories/inbox-request.repository';
@@ -17,6 +19,7 @@ const FORMS: Readonly<Record<InboxRequestFormName, InboxRequestForm>> = {
   memories: 'memories',
   grade: 'grade',
   alert: 'alert',
+  'judge-disagreement': 'judge-disagreement',
 };
 
 export class InboxRequests implements InboxRequestsPort {
@@ -28,7 +31,7 @@ export class InboxRequests implements InboxRequestsPort {
     private readonly clock: ClockPort,
   ) {}
 
-  create(input: InboxRequestOf): Promise<void> {
+  create(input: NewInboxRequest): Promise<void> {
     const inboxRequest = {
       ...input,
       about: InboxRequestSubject.of(input.about),
@@ -55,6 +58,7 @@ export class InboxRequests implements InboxRequestsPort {
           taskId: task.id,
           form: FORMS[inboxRequest.form],
           about: inboxRequest.about,
+          askedOf: input.askedOf ? UserId.of(input.askedOf) : null,
           now: this.clock.now(),
         }),
       );
@@ -89,6 +93,7 @@ export class InboxRequests implements InboxRequestsPort {
             taskId: task.id,
             form: FORMS[inboxRequest.form],
             about: inboxRequest.about,
+            askedOf: null,
             now: this.clock.now(),
           }),
         );
@@ -136,6 +141,7 @@ export class InboxRequests implements InboxRequestsPort {
             taskId: task.id,
             form: FORMS[inboxRequest.form],
             about: inboxRequest.about,
+            askedOf: null,
             now,
           }).resolve(now),
         );

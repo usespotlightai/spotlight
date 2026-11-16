@@ -73,7 +73,8 @@ export class PostChangeStackComment implements StickyCommentPosterPort {
           this.links.changeStackOf({
             slug,
             teamId: task.teamId,
-            runId: latest.runId,
+            taskId: task.id,
+            repository: latest.repository,
           }),
         ),
       });

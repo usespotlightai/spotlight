@@ -21,7 +21,7 @@ func TestConfigChangesSayWhatMovedOnTheJudge(t *testing.T) {
 	}{
 		{"added", plain, judged, []string{"judge added"}},
 		{"removed", judged, plain, []string{"judge removed"}},
-		{"retuned", judged, retuned, []string{"judge rubric changed", "judge sample 0.2 → 0.5", "judge min agreement 0.6 → 0.8"}},
+		{"retuned", judged, retuned, []string{"judge claims changed", "judge sample 0.2 → 0.5", "judge min agreement 0.6 → 0.8"}},
 		{"unchanged", judged, judged, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

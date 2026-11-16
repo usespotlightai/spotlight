@@ -33,6 +33,8 @@ const VALUE = 'lin_api_exported_never_7c1f';
 
 const POOL_TOKEN = `pool${randomUUID().replaceAll('-', '')}`;
 
+const INFERENCE_KEY = `sk-${randomUUID().replaceAll('-', '')}`;
+
 const EGRESS_TOKEN = `egress${randomUUID().replaceAll('-', '')}`;
 
 const PROVISION_SECRET = `whsec_${Buffer.from('s'.repeat(32)).toString('base64')}`;
@@ -45,7 +47,7 @@ const PROMPTED = BUILT_IN.stations.find(
   (station) => station.prompt !== undefined,
 );
 
-const RUBRIC = 'A good run changes only what the task requests.\n\n';
+const CLAIMS = ['The change touches only what the task requests.'];
 
 const DELIVERY = {
   ...BUILT_IN,
@@ -61,7 +63,7 @@ const DELIVERY = {
           profile: 'careful',
           skills: ['grafana'],
           tools: ['linear.comment'],
-          judge: { rubric: RUBRIC, sample: 0.2, minAgreement: 0.6 },
+          judge: { claims: CLAIMS, sample: 0.2, minAgreement: 0.6 },
           alerts: [
             { measure: 'sent_back_rate', risesBy: 0.2, over: 20 },
             { measure: 'cost_per_run', above: 5, over: 10 },
@@ -240,6 +242,16 @@ describe('a workspace exported as Terraform (e2e)', () => {
         `workspaces/${workspaceId}/workspace-runners`,
         { trusts: ['production'], pools: ['ephemeral'] },
       ],
+      [
+        'inference-endpoint',
+        `workspaces/${workspaceId}/inference-endpoints`,
+        {
+          baseUrl: 'http://127.0.0.1:4000/v1',
+          model: 'openai/gpt-5-mini',
+          apiKeyWo: INFERENCE_KEY,
+          apiKeyWoVersion: 1,
+        },
+      ],
       ['skill', `teams/${workspaceId}/skills`, GRAFANA],
       ['integration', `teams/${workspaceId}/integrations`, LINEAR],
       ['hook', `teams/${workspaceId}/hooks`, AUDIT],
@@ -272,6 +284,9 @@ describe('a workspace exported as Terraform (e2e)', () => {
     await db
       .delete(schema.secretDataKey)
       .where(eq(schema.secretDataKey.workspaceId, workspaceId));
+    await db
+      .delete(schema.inferenceEndpoint)
+      .where(eq(schema.inferenceEndpoint.workspaceId, workspaceId));
     await db
       .delete(schema.workspaceToken)
       .where(eq(schema.workspaceToken.workspaceId, workspaceId));
@@ -306,6 +321,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
         'workspace.tf',
         'secrets.tf',
         'runners.tf',
+        'inference.tf',
         'team-team.tf',
         'line-team-delivery.tf',
         'skills-team.tf',
@@ -318,7 +334,6 @@ describe('a workspace exported as Terraform (e2e)', () => {
         ...DELIVERY.stations
           .filter((station) => station.prompt !== undefined)
           .map((station) => `prompts/team/delivery/${station.key}.md`),
-        `judges/team/delivery/${PROMPTED?.key}.md`,
       ]),
     );
 
@@ -329,6 +344,11 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ['spotlight_runner_pool', 'ephemeral', `${workspaceId}/ephemeral`],
       [
         'spotlight_workspace_runners',
+        workspaceId,
+        `${workspaceId}/${workspaceId}`,
+      ],
+      [
+        'spotlight_inference_endpoint',
         workspaceId,
         `${workspaceId}/${workspaceId}`,
       ],
@@ -421,7 +441,14 @@ describe('a workspace exported as Terraform (e2e)', () => {
     for (const file of files) {
       expect(file.content).not.toContain(VALUE);
       expect(file.content).not.toContain(POOL_TOKEN);
+      expect(file.content).not.toContain(INFERENCE_KEY);
     }
+    expect(
+      blockOf(main, `resource "spotlight_inference_endpoint" "${workspaceId}"`),
+    ).toContain(
+      '  api_key_wo         = var.inference_api_key\n  api_key_wo_version = 1\n',
+    );
+    expect(variables).toContain('variable "inference_api_key" {');
     expect(main).toContain(
       '  value_wo         = var.secret_linear_api_key\n  value_wo_version = 1\n',
     );
@@ -468,20 +495,18 @@ describe('a workspace exported as Terraform (e2e)', () => {
     }
   });
 
-  it('writes a station’s judge reading its rubric with file(), and its alerts in order', async () => {
+  it('writes a station’s judge with its claims inline, and its alerts in order', async () => {
     const main = moduleOf(await exported());
 
     expect(main).toContain(
-      `    judge {\n      rubric        = file("\${path.module}/judges/team/delivery/${PROMPTED?.key}.md")\n      sample        = 0.2\n      min_agreement = 0.6\n    }\n\n    alert {\n      measure  = "sent_back_rate"\n      rises_by = 0.2\n      over     = 20\n    }\n\n    alert {\n      measure = "cost_per_run"\n      above   = 5\n      over    = 10\n    }\n\n    alert {\n      measure  = "accepted_rate"\n      falls_by = 0.1\n      over     = 20\n    }\n\n    alert {\n      measure = "merged_rate"\n      below   = 0.4\n      over    = 20\n    }\n  }\n`,
+      `    judge {\n      claims = [\n        "The change touches only what the task requests.",\n      ]\n      sample        = 0.2\n      min_agreement = 0.6\n    }\n\n    alert {\n      measure  = "sent_back_rate"\n      rises_by = 0.2\n      over     = 20\n    }\n\n    alert {\n      measure = "cost_per_run"\n      above   = 5\n      over    = 10\n    }\n\n    alert {\n      measure  = "accepted_rate"\n      falls_by = 0.1\n      over     = 20\n    }\n\n    alert {\n      measure = "merged_rate"\n      below   = 0.4\n      over    = 20\n    }\n  }\n`,
     );
   });
 
-  it('keeps each prompt, judge rubric and skill file byte for byte', async () => {
+  it('keeps each prompt and skill file byte for byte, and writes no judge file', async () => {
     const files = await exported();
 
-    expect(fileOf(files, `judges/team/delivery/${PROMPTED?.key}.md`)).toBe(
-      RUBRIC,
-    );
+    expect(files.some((each) => each.path.startsWith('judges/'))).toBe(false);
     expect(fileOf(files, `prompts/team/delivery/${PROMPTED?.key}.md`)).toBe(
       PROMPTED?.prompt,
     );
@@ -558,6 +583,11 @@ describe('a workspace exported as Terraform (e2e)', () => {
         'workspace-runners',
         made['workspace-runners'],
         'spotlight_workspace_runners',
+      ],
+      [
+        'inference-endpoints',
+        made['inference-endpoint'],
+        'spotlight_inference_endpoint',
       ],
     ]) {
       const answered = await as(seat.member).get(
@@ -703,6 +733,15 @@ const bodyOf = (
       };
     case 'workspace-runners':
       return { trusts: resource.trusts, pools: resource.pools };
+    case 'inference-endpoint':
+      return {
+        baseUrl: resource.baseUrl,
+        model: resource.model,
+        ...(resource.apiKeySet ? { apiKeyWo: INFERENCE_KEY } : {}),
+        ...(resource.apiKeyVersion === null
+          ? {}
+          : { apiKeyWoVersion: resource.apiKeyVersion }),
+      };
     case 'line':
     case 'integration':
       return resource.definition;
@@ -747,6 +786,7 @@ const COLLECTIONS: Readonly<
   egress: 'egresses',
   'runner-pool': 'runner-pools',
   'workspace-runners': 'workspace-runners',
+  'inference-endpoint': 'inference-endpoints',
   team: 'teams',
   skill: 'skills',
   integration: 'integrations',
@@ -802,6 +842,9 @@ describe('the configuration the export spec renders (e2e)', () => {
     await db
       .delete(schema.secretDataKey)
       .where(eq(schema.secretDataKey.workspaceId, workspaceId));
+    await db
+      .delete(schema.inferenceEndpoint)
+      .where(eq(schema.inferenceEndpoint.workspaceId, workspaceId));
     await db
       .delete(schema.configurationChange)
       .where(eq(schema.configurationChange.workspaceId, workspaceId));
@@ -876,7 +919,10 @@ describe('the configuration the export spec renders (e2e)', () => {
               };
             }
 
-            if (each.kind === 'workspace-runners') {
+            if (
+              each.kind === 'workspace-runners' ||
+              each.kind === 'inference-endpoint'
+            ) {
               return { ...each, address: workspaceId };
             }
 

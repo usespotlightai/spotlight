@@ -1,4 +1,3 @@
-import { GradeRubric } from '@/components/features/inbox/grades/GradeRubric';
 import { AgreementValue } from '@/components/features/stations/config/AgreementValue';
 import { AuthoredText } from '@/components/features/stations/config/AuthoredText';
 import {
@@ -7,14 +6,16 @@ import {
 } from '@/components/features/stations/config/PropertyList';
 import { JudgeClaims } from '@/components/features/stations/judge/JudgeClaims';
 import { TabSection } from '@/components/features/stations/TabSection';
+import { InferenceEndpointRequired } from '@/components/shared/InferenceEndpointRequired';
 import { SectionLink } from '@/components/shared/SectionLink';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
+import { useInferenceUnset } from '@/hooks/useInferenceUnset';
 import {
   CLAIMS_LABEL,
   formatPassThreshold,
   formatStat,
-  RUBRIC_LABEL,
+  NO_JUDGE,
 } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 import { JUDGE_ANCHOR, judgeAgreementPath } from '@/lib/station';
@@ -36,13 +37,12 @@ export function JudgeSection({
   judge,
 }: JudgeSectionProps) {
   const agreement = useStationJudge(teamId, lineId, stationId);
+  const unset = useInferenceUnset(slug);
 
   if (!judge) {
     return (
       <TabSection title="Judge" id={JUDGE_ANCHOR}>
-        <p className="text-muted-foreground text-sm">
-          No judge. Only people score runs here.
-        </p>
+        <p className="text-muted-foreground text-sm">{NO_JUDGE}</p>
       </TabSection>
     );
   }
@@ -55,19 +55,23 @@ export function JudgeSection({
         <SectionLink
           to={judgeAgreementPath(slug, teamId, { lineId, stationId })}
         >
-          Agreement over time
+          Agreement details
         </SectionLink>
       }
     >
+      {unset && (
+        <InferenceEndpointRequired slug={slug}>
+          The judge is off.
+        </InferenceEndpointRequired>
+      )}
+
       <PropertyList>
-        <Property label="Scores" slot="judge-sample">
+        <Property label="Judged" slot="judge-sample">
           {sharePercent(judge.sample)} of runs
         </Property>
-        {judge.claims.length > 0 && (
-          <Property label="Passes" slot="pass-share">
-            {formatPassThreshold(judge.passThreshold)}
-          </Property>
-        )}
+        <Property label="Passes when" slot="pass-share">
+          {formatPassThreshold(judge.passThreshold)}
+        </Property>
         <Property label="Agreement">
           {failed(agreement) ? (
             <span className="text-muted-foreground">
@@ -84,17 +88,9 @@ export function JudgeSection({
         </Property>
       </PropertyList>
 
-      {judge.claims.length > 0 && (
-        <AuthoredText label={CLAIMS_LABEL}>
-          <JudgeClaims claims={judge.claims} />
-        </AuthoredText>
-      )}
-
-      {judge.rubric !== null && (
-        <AuthoredText label={RUBRIC_LABEL}>
-          <GradeRubric rubric={judge.rubric} />
-        </AuthoredText>
-      )}
+      <AuthoredText label={CLAIMS_LABEL}>
+        <JudgeClaims claims={judge.claims} />
+      </AuthoredText>
     </TabSection>
   );
 }

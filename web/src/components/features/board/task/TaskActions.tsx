@@ -1,6 +1,7 @@
 import { MoreHorizontal, Trash } from 'lucide-react';
 import { useState } from 'react';
 
+import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useCommands } from '@/hooks/useCommands';
 
 type TaskActionsProps = {
   title: string;
@@ -23,6 +25,7 @@ type TaskActionsProps = {
 
 export function TaskActions({ title, onDelete }: TaskActionsProps) {
   const [confirming, setConfirming] = useState(false);
+  useCommands([{ id: 'task.delete', run: () => setConfirming(true) }]);
 
   return (
     <>
@@ -38,6 +41,7 @@ export function TaskActions({ title, onDelete }: TaskActionsProps) {
           <DropdownMenuItem closeOnClick onClick={() => setConfirming(true)}>
             <Trash className="size-3.5" aria-hidden />
             Delete task
+            <ShortcutKeys id="task.delete" plain className="ml-auto pl-4" />
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

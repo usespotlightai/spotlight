@@ -1,6 +1,11 @@
 import { InvalidInboxRequestError } from '@work/domain/exceptions/invalid-inbox-request.error';
 
-export const INBOX_REQUEST_FORMS = ['memories', 'grade', 'alert'] as const;
+export const INBOX_REQUEST_FORMS = [
+  'memories',
+  'grade',
+  'alert',
+  'judge-disagreement',
+] as const;
 
 export type InboxRequestForm = (typeof INBOX_REQUEST_FORMS)[number];
 

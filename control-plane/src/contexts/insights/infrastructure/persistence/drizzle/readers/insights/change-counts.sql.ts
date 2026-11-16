@@ -9,7 +9,7 @@ import {
   configMarkers,
   precedes,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/config-markers.sql';
-import { rateOfScore } from '@insights/infrastructure/persistence/drizzle/readers/insights/judge-rate.sql';
+import { passOfScore } from '@insights/infrastructure/persistence/drizzle/readers/insights/judge-rate.sql';
 import {
   type GroupColumns,
   groupCountsOfRow,
@@ -47,7 +47,7 @@ interface RubricRow extends Record<string, unknown> {
   readonly marker: string;
   readonly side: Side;
   readonly rubric_version: string;
-  readonly sum: number;
+  readonly passed: number;
   readonly judged: number;
 }
 
@@ -164,7 +164,7 @@ const rubricsIn = async (
       ${runFact}.marker,
       ${runFact}.side,
       ${score.rubricVersion} as rubric_version,
-      sum(${rateOfScore} order by ${inEndOrder})::float8 as sum,
+      sum(${passOfScore} order by ${inEndOrder})::int as passed,
       count(*)::int as judged
     from sides as ${runFact}
     join ${score}
@@ -201,7 +201,7 @@ export const changeCountsIn = async (
 
     entries.push({
       rubricVersion: each.rubric_version,
-      sum: each.sum,
+      passed: each.passed,
       judged: each.judged,
     });
     judgedBy.set(key, entries);

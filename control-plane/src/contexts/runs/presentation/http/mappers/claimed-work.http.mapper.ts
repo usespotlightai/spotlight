@@ -2,6 +2,7 @@ import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
 import {
   ClaimedCheckResponseDto,
   ClaimedCheckStepResponseDto,
+  ClaimedPushDiffResponseDto,
   ClaimedRunResponseDto,
   ClaimedWorkResponseDto,
 } from '@runs/presentation/http/dto/runner.response.dto';
@@ -30,6 +31,23 @@ export const ClaimedWorkHttpMapper = {
       );
     }
 
+    if (claimed.kind === 'diff') {
+      const { diff } = claimed;
+
+      return new ClaimedWorkResponseDto(
+        'diff',
+        null,
+        null,
+        null,
+        new ClaimedPushDiffResponseDto(
+          diff.diffId.value,
+          diff.repository,
+          diff.baseTip,
+          diff.head,
+        ),
+      );
+    }
+
     const { check } = claimed;
 
     return new ClaimedWorkResponseDto(
@@ -37,8 +55,7 @@ export const ClaimedWorkHttpMapper = {
       null,
       new ClaimedCheckResponseDto(
         check.checkId.value,
-        check.repeat,
-        check.runId.value,
+        check.recheck,
         check.repository,
         check.base,
         check.setup,

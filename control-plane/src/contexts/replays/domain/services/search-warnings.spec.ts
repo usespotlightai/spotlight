@@ -1,8 +1,12 @@
 import { FINGERPRINT, NOW } from '@replays/domain/replays.fake-spec';
-import { searchWarningsOf } from '@replays/domain/services/search-warnings';
+import {
+  calibrationWarningsOf,
+  searchWarningsOf,
+} from '@replays/domain/services/search-warnings';
 import type { SetHealth } from '@replays/domain/services/set-health';
 import type { SetNoiseReading } from '@replays/domain/services/set-noise';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -32,14 +36,14 @@ const healthOf = (part: Partial<SetHealth> = {}): SetHealth => ({
 
 describe('searchWarningsOf', () => {
   it('warns that nobody measured the noise yet', () => {
-    expect(searchWarningsOf(healthOf({ noise: null }), 0.05, 1)).toEqual([
+    expect(searchWarningsOf(healthOf({ noise: null }), 0.05, 1, null)).toEqual([
       { kind: 'noise-unmeasured' },
     ]);
   });
 
   it('warns that a noisy set needs more repeats than requested, and says how many', () => {
     expect(
-      searchWarningsOf(healthOf({ noise: noiseOf(0.1) }), 0.05, 1),
+      searchWarningsOf(healthOf({ noise: noiseOf(0.1) }), 0.05, 1, null),
     ).toEqual([
       {
         kind: 'noisy',
@@ -50,16 +54,16 @@ describe('searchWarningsOf', () => {
       },
     ]);
     expect(
-      searchWarningsOf(healthOf({ noise: noiseOf(0.1) }), 0.05, 4),
+      searchWarningsOf(healthOf({ noise: noiseOf(0.1) }), 0.05, 4, null),
     ).toEqual([]);
     expect(
-      searchWarningsOf(healthOf({ noise: noiseOf(0.02) }), 0.05, 1),
+      searchWarningsOf(healthOf({ noise: noiseOf(0.02) }), 0.05, 1, null),
     ).toEqual([]);
   });
 
   it('still warns at five repeats when the set needs more than five, saying how many it needs', () => {
     expect(
-      searchWarningsOf(healthOf({ noise: noiseOf(0.5) }), 0.05, 5),
+      searchWarningsOf(healthOf({ noise: noiseOf(0.5) }), 0.05, 5, null),
     ).toEqual([
       {
         kind: 'noisy',
@@ -127,6 +131,7 @@ describe('searchWarningsOf', () => {
         }),
         0.05,
         1,
+        null,
       ),
     ).toEqual([
       { kind: 'saturated', rate: 0.97 },
@@ -170,7 +175,68 @@ describe('searchWarningsOf', () => {
         }),
         0.05,
         1,
+        null,
       ),
     ).toEqual([]);
+  });
+});
+
+describe('calibrationWarningsOf', () => {
+  const calibration = {
+    agreement: 0.3,
+    pairs: 12,
+    minPairs: 10,
+    minAgreement: 0.6,
+  };
+
+  it('warns that the judge disagrees with people where its calibration fails', () => {
+    expect(
+      calibrationWarningsOf(
+        JudgeCalibration.of({ ...calibration, state: 'failing' }),
+      ),
+    ).toEqual([
+      {
+        kind: 'judge-disagrees-with-people',
+        agreement: 0.3,
+        minAgreement: 0.6,
+        pairs: 12,
+      },
+    ]);
+  });
+
+  it('warns that nobody checked the judge against people yet where it has too few pairs', () => {
+    expect(
+      calibrationWarningsOf(
+        JudgeCalibration.of({
+          ...calibration,
+          state: 'unmeasured',
+          agreement: null,
+          pairs: 4,
+        }),
+      ),
+    ).toEqual([{ kind: 'judge-unmeasured', pairs: 4, minPairs: 10 }]);
+  });
+
+  it('gives no warning for a qualified judge or for scoring with no judge', () => {
+    expect(
+      calibrationWarningsOf(
+        JudgeCalibration.of({ ...calibration, state: 'qualified' }),
+      ),
+    ).toEqual([]);
+    expect(calibrationWarningsOf(null)).toEqual([]);
+  });
+
+  it('adds the calibration warnings after the warnings of the set', () => {
+    expect(
+      searchWarningsOf(
+        healthOf({ noise: null }),
+        0.05,
+        1,
+        JudgeCalibration.of({ ...calibration, state: 'unmeasured', pairs: 0 }),
+      ),
+    ).toEqual([
+      { kind: 'noise-unmeasured' },
+      { kind: 'judge-unmeasured', pairs: 0, minPairs: 10 },
+    ]);
   });
 });

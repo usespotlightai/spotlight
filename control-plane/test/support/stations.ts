@@ -112,7 +112,10 @@ export const lineChangedOf = async (
       kind: each.kind,
       color: each.color,
       position: each.position,
+      rubricVersion: null,
+      claimsChanged: false,
     })),
     stationIds: [...stationIds],
+    sourceCommit: null,
   };
 };

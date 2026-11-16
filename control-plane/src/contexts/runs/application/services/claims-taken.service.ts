@@ -2,10 +2,11 @@ import type {
   LeasedWork,
   RunnersPort,
 } from '@runners/application/ports/runners.port';
-import type {
-  CheckWorkPort,
-  ClaimedCheck,
-} from '@runs/application/ports/check-work.port';
+import {
+  type ReviewWorkPort,
+  type ClaimedReviewWork,
+  claimedWork,
+} from '@runs/application/ports/review-work.port';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
@@ -18,7 +19,7 @@ const ATTEMPTS = 3;
 export class ClaimsTaken {
   constructor(
     private readonly runs: RunRepository,
-    private readonly checks: CheckWorkPort,
+    private readonly reviewing: ReviewWorkPort,
     private readonly runners: RunnersPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
@@ -44,18 +45,18 @@ export class ClaimsTaken {
     await this.runUnclaimed(claimed, runner);
   }
 
-  async check(claimed: ClaimedCheck, runner: RunnerId): Promise<void> {
-    await this.taken(runner, { kind: 'check', id: claimed.checkId.value }, () =>
-      this.checks.unclaim(
-        claimed.checkId,
-        claimed.repeat,
-        runner,
-        this.clock.now(),
-      ),
+  async reviewWork(
+    claimed: ClaimedReviewWork,
+    runner: RunnerId,
+  ): Promise<void> {
+    const work = claimedWork(claimed);
+
+    await this.taken(runner, { kind: work.kind, id: work.id.value }, () =>
+      this.reviewing.unclaim(work, runner, this.clock.now()),
     );
     this.logger.info(
-      { checkId: claimed.checkId.value, runnerId: runner.value },
-      'Claimed a check',
+      { workKind: work.kind, workId: work.id.value, runnerId: runner.value },
+      'Claimed review work',
     );
   }
 

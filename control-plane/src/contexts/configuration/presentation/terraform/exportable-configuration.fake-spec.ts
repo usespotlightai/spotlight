@@ -46,7 +46,7 @@ const DELIVERY: LineDefinition = {
       decisions: true,
       memories: false,
       judge: {
-        rubric: 'A good run changes only what the task requests.\n',
+        claims: ['It changes only what the task requests.'],
         sample: 0.2,
         minAgreement: 0.6,
       },
@@ -371,6 +371,16 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       address: 'acme',
       trusts: ['production-cluster'],
       pools: ['burst', 'k8s-jobs', 'deleted'],
+    },
+    {
+      kind: 'inference-endpoint',
+      ownedBy: 'workspace',
+      id: 'inference_acme',
+      address: 'acme',
+      baseUrl: 'http://127.0.0.1:4000/v1',
+      model: 'openai/gpt-5-mini',
+      apiKeySet: true,
+      apiKeyVersion: 2,
     },
     {
       kind: 'team',

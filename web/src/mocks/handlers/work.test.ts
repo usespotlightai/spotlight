@@ -6,6 +6,7 @@ import {
   deleteTask,
   grantAttachmentUpload,
   listRunChangeStacks,
+  listTaskChangeStacks,
   listTasks,
   listTeamRuns,
   moveTask,
@@ -112,8 +113,23 @@ describe('the mock work area', () => {
       throwOnError: true,
     });
 
-    expect(data.latest).toMatchObject({ runId: 'run_postgres_2' });
+    expect(data.latest).toMatchObject({ state: 'ready', repository: null });
     expect(data.latest?.added).toBeGreaterThan(0);
+  });
+
+  it('lists the newest stack of each repository of a task, a push one too', async () => {
+    const { data } = await listTaskChangeStacks({
+      path: { teamId, taskId: 'task_postgres' },
+      throwOnError: true,
+    });
+
+    expect(data.stacks.map((stack) => [stack.repository, stack.runId])).toEqual(
+      [
+        ['acme/api', 'run_postgres_2'],
+        ['acme/worker', null],
+      ],
+    );
+    expect(data.stacks[1]?.push).toMatchObject({ pushedBy: 'maya-chen' });
   });
 
   it('reads a task trace with one root per run', async () => {

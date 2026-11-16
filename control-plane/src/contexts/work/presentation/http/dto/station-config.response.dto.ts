@@ -52,7 +52,9 @@ export class SkillViewResponseDto {
 }
 
 export class JudgeViewResponseDto {
-  @ApiProperty({ description: "The SHA-256 of the judge's rubric" })
+  @ApiProperty({
+    description: "The SHA-256 of the judge's claims and pass threshold",
+  })
   readonly rubricHash: string;
 
   @ApiProperty({ example: 0.2, description: 'The share of runs judged' })
@@ -75,7 +77,7 @@ export class JudgeViewResponseDto {
   }
 }
 
-export class StationConfigResponseDto {
+export class RunStationConfigResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly prompt: string | null;
 
@@ -147,7 +149,7 @@ const PARTS = [
   'judge',
 ];
 
-export class ConfigChangeResponseDto {
+export class RunConfigChangeResponseDto {
   @ApiProperty({ enum: PARTS, example: 'effort' })
   readonly part: string;
 

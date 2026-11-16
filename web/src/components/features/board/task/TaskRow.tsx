@@ -1,12 +1,15 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useState } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
 import { DropIndicator } from '@/components/features/board/task/DropIndicator';
 import { TaskState } from '@/components/features/board/task/TaskState';
+import { CommandScope } from '@/components/shell/command/CommandScope';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useFocusWithin } from '@/hooks/useFocusWithin';
 import { createdOn, type Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
@@ -49,6 +52,8 @@ export function TaskRow({
     data: { kind: 'task', stationId: task.stationId },
     animateLayoutChanges: () => false,
   });
+  const { focused, handlers } = useFocusWithin();
+  const [hovered, setHovered] = useState(false);
 
   return (
     <li
@@ -56,7 +61,11 @@ export function TaskRow({
       style={{ transform: CSS.Translate.toString(transform), transition }}
       {...attributes}
       {...listeners}
+      {...handlers}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
       data-slot="task-row"
+      data-list-item
       className={cn(
         'group/task relative mx-1.5 select-none rounded-md [-webkit-touch-callout:none] first:mt-0.5 last:mb-0.5',
         isDragging && 'opacity-40',
@@ -87,6 +96,7 @@ export function TaskRow({
           'grid min-h-10 min-w-0 grid-cols-[1rem_auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-[inherit] px-3 py-2 transition-colors',
           '@xl/pane:flex @xl/pane:h-10 @xl/pane:py-0',
           selected ? 'bg-selected' : 'group-hover/task:bg-accent',
+          'group-has-[a:focus-visible]/task:ring-1 group-has-[a:focus-visible]/task:ring-primary group-has-[a:focus-visible]/task:ring-inset',
         )}
       >
         <span className="w-4 shrink-0" aria-hidden />
@@ -112,7 +122,9 @@ export function TaskRow({
           <TaskState task={task} reviewTo={reviewTo} />
         </span>
 
-        <AssigneePicker teamId={teamId} task={task} className="-ml-1" />
+        <CommandScope active={focused || hovered} rank={hovered ? 3 : 2}>
+          <AssigneePicker teamId={teamId} task={task} className="-ml-1" />
+        </CommandScope>
 
         <time
           dateTime={task.createdAt}

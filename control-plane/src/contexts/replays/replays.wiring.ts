@@ -31,6 +31,11 @@ import {
   type ChangeJudgmentsPort,
 } from '@insights/application/ports/change-judgments.port';
 import {
+  CLAIMS_REVISION_PULL_REQUESTS,
+  type ClaimsRevisionPullRequestsPort,
+} from '@insights/application/ports/claims-revision-pull-requests.port';
+import { JUDGE_CLAIMS_PULL_REQUESTS } from '@insights/application/ports/judge-claims-pull-requests.port';
+import {
   PAIR_JUDGMENTS,
   type PairJudgmentsPort,
 } from '@insights/application/ports/pair-judgments.port';
@@ -39,6 +44,10 @@ import {
   type RunAcceptancePort,
 } from '@insights/application/ports/run-acceptance.port';
 import { STATION_CONFIG_PULL_REQUESTS } from '@insights/application/ports/station-config-pull-requests.port';
+import {
+  STATION_JUDGE_CALIBRATIONS,
+  type StationJudgeCalibrationsPort,
+} from '@insights/application/ports/station-judge-calibrations.port';
 import {
   LINE_RESOURCES,
   type LineResourcesPort,
@@ -140,6 +149,8 @@ import { EnsureCheckBaselines } from '@replays/application/services/ensure-check
 import { FollowConfigPullRequests } from '@replays/application/services/follow-config-pull-requests.service';
 import { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
+import { JudgeCalibrations } from '@replays/application/services/judge-calibrations.service';
+import { OpenJudgeClaimsPullRequests } from '@replays/application/services/judge-claims-pull-requests.service';
 import { KeepReplaySets } from '@replays/application/services/keep-replay-sets.service';
 import { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import { NoticeSearchResults } from '@replays/application/services/notice-search-results.service';
@@ -159,7 +170,9 @@ import { RecordSearchProgress } from '@replays/application/services/record-searc
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { ReplayRunDispatch } from '@replays/application/services/replay-run-dispatch.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import { ReportJudgeClaimsPullRequests } from '@replays/application/services/report-judge-claims-pull-requests.service';
 import { RequestChangeJudging } from '@replays/application/services/request-change-judging.service';
+import { RequestJudgeClaimsPullRequests } from '@replays/application/services/request-judge-claims-pull-requests.service';
 import { RequestReplayJudging } from '@replays/application/services/request-replay-judging.service';
 import { RequestReplayRecheck } from '@replays/application/services/request-replay-recheck.service';
 import { RequestReplayRejudging } from '@replays/application/services/request-replay-rejudging.service';
@@ -191,6 +204,8 @@ import { ConfigRepository } from '@replays/infrastructure/acl/config-repository.
 import { ConfigurationStationSourceEditor } from '@replays/infrastructure/acl/configuration-station-source.editor';
 import { HarnessCommands } from '@replays/infrastructure/acl/harness-commands';
 import { InsightsChangeJudge } from '@replays/infrastructure/acl/insights-change-judge.adapter';
+import { InsightsClaimsRevisions } from '@replays/infrastructure/acl/insights-claims-revisions.adapter';
+import { InsightsJudgeClaimsPullRequests } from '@replays/infrastructure/acl/insights-judge-claims-pull-requests.adapter';
 import { InsightsPairJudge } from '@replays/infrastructure/acl/insights-pair-judge.adapter';
 import { Insights } from '@replays/infrastructure/acl/insights.adapter';
 import { Lines } from '@replays/infrastructure/acl/lines.adapter';
@@ -211,6 +226,7 @@ import { DrizzleStationConfigPullRequests } from '@replays/infrastructure/persis
 import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/drizzle/repositories/candidate.repository';
 import { DrizzleChangeJudgingRepository } from '@replays/infrastructure/persistence/drizzle/repositories/change-judging.repository';
 import { DrizzleConfigPullRequestRepository } from '@replays/infrastructure/persistence/drizzle/repositories/config-pull-request.repository';
+import { DrizzleJudgeClaimsPullRequestRepository } from '@replays/infrastructure/persistence/drizzle/repositories/judge-claims-pull-request.repository';
 import { DrizzleLineSearchBudgetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/line-search-budget.repository';
 import { DrizzleReplayCheckRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-check.repository';
 import { DrizzleReplayRunDecisionRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-run-decision.repository';
@@ -452,8 +468,17 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: INSIGHTS,
-    inject: [RUN_ACCEPTANCE],
-    useFactory: (acceptance: RunAcceptancePort) => new Insights(acceptance),
+    inject: [RUN_ACCEPTANCE, STATION_JUDGE_CALIBRATIONS],
+    useFactory: (
+      acceptance: RunAcceptancePort,
+      calibrations: StationJudgeCalibrationsPort,
+    ) => new Insights(acceptance, calibrations),
+  },
+  {
+    provide: JudgeCalibrations,
+    inject: [StationConfigs, INSIGHTS],
+    useFactory: (configs: StationConfigs, insights: InsightsPort) =>
+      new JudgeCalibrations(configs, insights),
   },
   {
     provide: CHANGE_JUDGE,
@@ -478,6 +503,63 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   {
     provide: STATION_CONFIG_PULL_REQUESTS,
     useExisting: DrizzleStationConfigPullRequests,
+  },
+  DrizzleJudgeClaimsPullRequestRepository,
+  {
+    provide: OpenJudgeClaimsPullRequests,
+    inject: [
+      DrizzleJudgeClaimsPullRequestRepository,
+      REPLAYS_LINES,
+      PEOPLE,
+      CONFIG_REPOSITORY,
+      STATION_SOURCE_EDITOR,
+      CLOCK,
+      TRANSACTION,
+      LOGGER,
+      ERROR_REPORTS,
+      TELEMETRY,
+    ],
+    useFactory: (
+      pullRequests: DrizzleJudgeClaimsPullRequestRepository,
+      lines: ReplaysLinesPort,
+      people: PeoplePort,
+      configs: ConfigRepositoryPort,
+      editor: StationSourceEditorPort,
+      clock: ClockPort,
+      transaction: TransactionPort,
+      logger: LoggerPort,
+      reports: ErrorReportsPort,
+      telemetry: TelemetryPort,
+    ) =>
+      new OpenJudgeClaimsPullRequests(
+        { pullRequests, lines, people, configs, editor },
+        clock,
+        transaction,
+        logger,
+        reports,
+        telemetry,
+      ),
+  },
+  {
+    provide: RequestJudgeClaimsPullRequests,
+    inject: [DrizzleJudgeClaimsPullRequestRepository, TRANSACTION, CLOCK],
+    useFactory: (
+      pullRequests: DrizzleJudgeClaimsPullRequestRepository,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new RequestJudgeClaimsPullRequests(pullRequests, transaction, clock),
+  },
+  {
+    provide: ReportJudgeClaimsPullRequests,
+    inject: [CLAIMS_REVISION_PULL_REQUESTS],
+    useFactory: (revisions: ClaimsRevisionPullRequestsPort) =>
+      new ReportJudgeClaimsPullRequests(new InsightsClaimsRevisions(revisions)),
+  },
+  {
+    provide: JUDGE_CLAIMS_PULL_REQUESTS,
+    inject: [RequestJudgeClaimsPullRequests],
+    useFactory: (requesting: RequestJudgeClaimsPullRequests) =>
+      new InsightsJudgeClaimsPullRequests(requesting),
   },
   {
     provide: RequestChangeJudging,
@@ -763,6 +845,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     CLOCK,
     TRANSACTION,
     LOGGER,
+    JudgeCalibrations,
   ]),
   ...bindQueryHandler(ReadReplayCheckQuery, ReadReplayCheckHandler, [
     ReplaysAccess,
@@ -818,6 +901,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       SetHealths,
       DrizzleReplaySetRepository,
       SearchFindings,
+      JudgeCalibrations,
     ],
     useFactory: (
       pullRequests: DrizzleConfigPullRequestRepository,
@@ -835,6 +919,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       healths: SetHealths,
       sets: DrizzleReplaySetRepository,
       findings: SearchFindings,
+      calibrations: JudgeCalibrations,
     ) =>
       new OpenConfigPullRequests(
         pullRequests,
@@ -852,6 +937,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         healths,
         sets,
         findings,
+        calibrations,
       ),
   },
   {
@@ -1405,6 +1491,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     inject: [
       DrizzleReplaySetRepository,
       SetHealths,
+      JudgeCalibrations,
       SearchRunDispatch,
       HASH,
       ID_GENERATOR,
@@ -1413,11 +1500,21 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     useFactory: (
       sets: DrizzleReplaySetRepository,
       healths: SetHealths,
+      calibrations: JudgeCalibrations,
       searchRuns: SearchRunDispatch,
       hash: HashPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
-    ) => new CheckSearchReadiness(sets, healths, searchRuns, hash, ids, clock),
+    ) =>
+      new CheckSearchReadiness(
+        sets,
+        healths,
+        calibrations,
+        searchRuns,
+        hash,
+        ids,
+        clock,
+      ),
   },
   {
     provide: SearchSchedules,
@@ -1537,6 +1634,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       WorkChangeJudgings,
       WorkSideBySideJudgings,
       PurgeOrphanedReplayRunDecisions,
+      OpenJudgeClaimsPullRequests,
       LOGGER,
     ],
     useFactory: (
@@ -1552,6 +1650,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       changes: WorkChangeJudgings,
       pairs: WorkSideBySideJudgings,
       orphans: PurgeOrphanedReplayRunDecisions,
+      claims: OpenJudgeClaimsPullRequests,
       logger: LoggerPort,
     ) =>
       new PendingJobWorker(
@@ -1568,6 +1667,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           changes,
           pairs,
           orphans,
+          claims,
         ],
         logger,
       ),
@@ -1895,6 +1995,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       SearchSchedules,
       TurnOffSearches,
       FollowConfigPullRequests,
+      RequestJudgeClaimsPullRequests,
+      ReportJudgeClaimsPullRequests,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1936,6 +2038,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       schedules: SearchSchedules,
       turningOff: TurnOffSearches,
       following: FollowConfigPullRequests,
+      deletingClaimsPullRequests: RequestJudgeClaimsPullRequests,
+      reportingClaimsPullRequests: ReportJudgeClaimsPullRequests,
     ) => {
       types.register('replays', REPLAYS_PAYLOAD_TYPES);
       subscribers.register(
@@ -1977,6 +2081,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           schedules,
           turningOff,
           following,
+          deletingClaimsPullRequests,
+          reportingClaimsPullRequests,
         }),
       );
       return true;

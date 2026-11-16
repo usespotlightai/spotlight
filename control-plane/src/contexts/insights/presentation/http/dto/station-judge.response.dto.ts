@@ -1,7 +1,5 @@
 import type { JudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
 import type {
-  AgreementReadingsDto,
-  CorrelationReadingDto,
   CoverageDto,
   KappaReadingDto,
   TrendPointDto,
@@ -9,60 +7,53 @@ import type {
 import type {
   AgreementDto,
   ClaimAgreementDto,
+  ClaimsSourceDto,
+  ClaimsSourcePullRequestDto,
   ConfusionDto,
   RubricVersionDto,
   ScoreCountDto,
   StationJudgeDto,
   StationJudgeSettingsDto,
 } from '@insights/application/dto/station-judge.dto';
-import {
-  CORRELATION_READINGS,
-  KAPPA_READINGS,
-} from '@insights/domain/services/agreement-reading';
-import {
-  AGREEMENT_MEASURES,
-  HIDDEN_REASONS,
-} from '@insights/domain/services/judge-calibration';
-import { SCORE_KINDS } from '@insights/domain/value-objects/score-scale.vo';
+import { KAPPA_READINGS } from '@insights/domain/services/agreement-reading';
+import { HIDDEN_REASONS } from '@insights/domain/services/judge-calibration';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class JudgeCalibrationResponseDto {
   @ApiProperty({
     description:
-      'Whether the judge agrees with people often enough for its scores to count',
+      'Whether the judge agrees with people often enough for its verdicts to count',
   })
   readonly qualified: boolean;
 
   @ApiProperty({
-    enum: [...AGREEMENT_MEASURES, null],
     nullable: true,
+    type: Number,
+    example: 0.71,
     description:
-      'How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers',
+      'Cohen’s kappa of the judge’s pass or fail against people’s, on the current claims',
   })
-  readonly measure: string | null;
-
-  @ApiProperty({ nullable: true, type: Number, example: 0.71 })
   readonly agreement: number | null;
 
   @ApiProperty({
-    enum: [...new Set([...KAPPA_READINGS, ...CORRELATION_READINGS]), null],
+    enum: [...KAPPA_READINGS, null],
     nullable: true,
     description:
-      'How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s',
+      'How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa',
   })
-  readonly reading: KappaReadingDto | CorrelationReadingDto | null;
+  readonly reading: KappaReadingDto | null;
 
   @ApiProperty({
     example: 24,
     description:
-      'Runs of the current rubric with both a judge score and people’s',
+      'Runs of the current claims with both a judge verdict and people’s',
   })
   readonly pairs: number;
 
   @ApiProperty({
     example: 10,
     description:
-      'Runs with both a judge score and people’s that agreement needs before it counts',
+      'Runs with both a judge verdict and people’s that agreement needs before it counts',
   })
   readonly minPairs: number;
 
@@ -72,19 +63,18 @@ export class JudgeCalibrationResponseDto {
   @ApiProperty({
     enum: [...HIDDEN_REASONS, null],
     nullable: true,
-    description: 'Why the judge’s scores are hidden, where they are',
+    description: 'Why the judge’s verdicts are hidden, where they are',
   })
   readonly hiddenReason: string | null;
 
   @ApiProperty({
     description:
-      'Whether the judge’s scores are hidden for a reason other than too few runs with both scores',
+      'Whether the judge’s verdicts are hidden for a reason other than too few runs with both verdicts',
   })
   readonly failing: boolean;
 
   constructor(calibration: JudgeCalibrationDto) {
     this.qualified = calibration.qualified;
-    this.measure = calibration.measure;
     this.agreement = calibration.agreement;
     this.reading = calibration.reading;
     this.pairs = calibration.pairs;
@@ -96,22 +86,19 @@ export class JudgeCalibrationResponseDto {
 }
 
 export class StationJudgeSettingsResponseDto {
-  @ApiProperty({ description: 'The SHA-256 of the station’s current rubric' })
+  @ApiProperty({ description: 'The SHA-256 of the station’s current claims' })
   readonly rubricVersion: string;
 
   @ApiProperty({
-    enum: [...SCORE_KINDS, null],
-    nullable: true,
-    description: 'The scale its rubric scores on; none where it cannot be read',
+    description: 'Whether the judge’s claims can be read',
   })
-  readonly kind: string | null;
+  readonly readable: boolean;
 
   @ApiProperty({
     type: String,
     isArray: true,
     example: ['The change adds a test that fails without it.'],
-    description:
-      'The claims the judge marks met or unmet, in order; empty where it goes by its rubric',
+    description: 'The claims the judge marks met or not met, in order',
   })
   readonly claims: readonly string[];
 
@@ -129,7 +116,7 @@ export class StationJudgeSettingsResponseDto {
 
   constructor(judge: StationJudgeSettingsDto) {
     this.rubricVersion = judge.rubricVersion;
-    this.kind = judge.kind;
+    this.readable = judge.readable;
     this.claims = [...judge.claims];
     this.passThreshold = judge.passThreshold;
     this.sample = judge.sample;
@@ -176,45 +163,13 @@ export class ClaimAgreementResponseDto {
   }
 }
 
-export class AgreementReadingsResponseDto {
-  @ApiProperty({
-    enum: [...KAPPA_READINGS, null],
-    nullable: true,
-    description:
-      'How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa',
-  })
-  readonly kappa: string | null;
-
-  @ApiProperty({
-    enum: [...CORRELATION_READINGS, null],
-    nullable: true,
-    description:
-      'How strong Pearson’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one',
-  })
-  readonly pearson: string | null;
-
-  @ApiProperty({
-    enum: [...CORRELATION_READINGS, null],
-    nullable: true,
-    description:
-      'How strong Spearman’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one',
-  })
-  readonly spearman: string | null;
-
-  constructor(readings: AgreementReadingsDto) {
-    this.kappa = readings.kappa;
-    this.pearson = readings.pearson;
-    this.spearman = readings.spearman;
-  }
-}
-
 export class AgreementResponseDto {
   @ApiProperty({ example: 24 })
   readonly pairs: number;
 
   @ApiProperty({
     description:
-      'Whether enough runs have both scores for the figures below to count',
+      'Whether enough runs have both verdicts for the figures below to count',
   })
   readonly measured: boolean;
 
@@ -228,19 +183,18 @@ export class AgreementResponseDto {
   @ApiProperty({
     example: 21,
     description:
-      'Scores where the judge and people agree: runs, or claim marks for a judge of claims',
+      'Runs where the judge and people gave the same verdict, pass or fail',
   })
   readonly agreed: number;
 
   @ApiProperty({
     example: 24,
-    description: 'Scores compared: runs, or claim marks for a judge of claims',
+    description: 'Runs compared',
   })
   readonly compared: number;
 
   @ApiProperty({
-    description:
-      'Whether the headline measure, kappa or Spearman’s, is below the minimum agreement',
+    description: 'Whether the kappa is below the minimum agreement',
   })
   readonly belowMinimum: boolean;
 
@@ -249,59 +203,35 @@ export class AgreementResponseDto {
     type: Number,
     example: 0.83,
     description:
-      'The share of pairs where the judge and people gave the same score',
+      'The share of pairs where the judge and people gave the same verdict',
   })
   readonly observed: number | null;
 
   @ApiProperty({ nullable: true, type: Number, example: 0.62 })
   readonly kappa: number | null;
 
-  @ApiProperty({ nullable: true, type: Number, example: 0.58 })
-  readonly spearman: number | null;
-
   @ApiProperty({
+    enum: [...KAPPA_READINGS, null],
     nullable: true,
-    type: Number,
-    example: 0.61,
     description:
-      'Pearson’s correlation between the two scores, for a judge of numbers; none otherwise or where either side never changes',
+      'How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa',
   })
-  readonly pearson: number | null;
-
-  @ApiProperty({
-    nullable: true,
-    type: Number,
-    example: 0.7,
-    description: 'The mean absolute difference between the two scores',
-  })
-  readonly mae: number | null;
-
-  @ApiProperty({
-    nullable: true,
-    type: Number,
-    example: 0.9,
-    description:
-      'The root mean square difference between the two scores, for a judge of numbers',
-  })
-  readonly rmse: number | null;
+  readonly reading: string | null;
 
   @ApiProperty({
     nullable: true,
     type: Number,
     example: 0.8,
     description:
-      'The F1 score of the judge’s yes, or met, against people’s, for a judge of yes or no or of claims; none where neither said yes',
+      'The F1 score of the judge’s pass against people’s; none where neither passed the run',
   })
   readonly f1: number | null;
-
-  @ApiProperty({ type: AgreementReadingsResponseDto })
-  readonly readings: AgreementReadingsResponseDto;
 
   @ApiProperty({
     type: ClaimAgreementResponseDto,
     isArray: true,
     description:
-      'For a judge of claims, how often it agrees with people on each claim; the figures above pool every claim. Empty otherwise',
+      'How often the judge agrees with people on each claim, from grades only; it does not decide whether the judge is qualified',
   })
   readonly claims: readonly ClaimAgreementResponseDto[];
 
@@ -314,12 +244,8 @@ export class AgreementResponseDto {
     this.belowMinimum = agreement.belowMinimum;
     this.observed = agreement.observed;
     this.kappa = agreement.kappa;
-    this.spearman = agreement.spearman;
-    this.pearson = agreement.pearson;
-    this.mae = agreement.mae;
-    this.rmse = agreement.rmse;
+    this.reading = agreement.reading;
     this.f1 = agreement.f1;
-    this.readings = new AgreementReadingsResponseDto(agreement.readings);
     this.claims = agreement.claims.map(
       (each) => new ClaimAgreementResponseDto(each),
     );
@@ -327,7 +253,7 @@ export class AgreementResponseDto {
 }
 
 export class ConfusionResponseDto {
-  @ApiProperty({ type: String, isArray: true, example: ['no', 'yes'] })
+  @ApiProperty({ type: String, isArray: true, example: ['fails', 'passes'] })
   readonly labels: readonly string[];
 
   @ApiProperty({
@@ -338,7 +264,7 @@ export class ConfusionResponseDto {
       [1, 16],
     ],
     description:
-      'Counts of runs, a row for each judge score and a column for each score people gave',
+      'Counts of runs, a row for each judge verdict and a column for each verdict people gave',
   })
   readonly cells: readonly (readonly number[])[];
 
@@ -349,18 +275,19 @@ export class ConfusionResponseDto {
 }
 
 export class ScoreCountResponseDto {
-  @ApiProperty({ example: 'yes' })
+  @ApiProperty({ example: 'passes' })
   readonly label: string;
 
   @ApiProperty({
     example: 18,
-    description: 'Runs the judge gave this score, among runs with both scores',
+    description:
+      'Runs the judge gave this verdict, among runs with both verdicts',
   })
   readonly judge: number;
 
   @ApiProperty({
     example: 15,
-    description: 'Runs people gave this score, among runs with both scores',
+    description: 'Runs people gave this verdict, among runs with both verdicts',
   })
   readonly people: number;
 
@@ -383,7 +310,7 @@ export class TrendPointResponseDto {
     type: Number,
     example: 0.75,
     description:
-      'The judge’s mean score, or null while this rubric version is not the current qualified one',
+      'The share of the day’s runs the judge passed, or null while this claims version is not the current qualified one',
   })
   readonly judge: number | null;
 
@@ -394,7 +321,7 @@ export class TrendPointResponseDto {
     nullable: true,
     type: Number,
     example: 0.67,
-    description: 'The mean of people’s scores for the same runs',
+    description: 'The share of the same runs that people passed',
   })
   readonly people: number | null;
 
@@ -407,14 +334,64 @@ export class TrendPointResponseDto {
   }
 }
 
+export class ClaimsSourcePullRequestResponseDto {
+  @ApiProperty({ example: 42 })
+  readonly number: number;
+
+  @ApiProperty({ example: 'https://github.com/acme/spotlight-config/pull/42' })
+  readonly url: string;
+
+  @ApiProperty({ example: 'Tighten the review claims' })
+  readonly title: string;
+
+  constructor(pullRequest: ClaimsSourcePullRequestDto) {
+    this.number = pullRequest.number;
+    this.url = pullRequest.url;
+    this.title = pullRequest.title;
+  }
+}
+
+export class ClaimsSourceResponseDto {
+  @ApiProperty({ example: 'acme/spotlight-config' })
+  readonly repository: string;
+
+  @ApiProperty({ example: '3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f' })
+  readonly sha: string;
+
+  @ApiProperty({ example: '3f1c9a7' })
+  readonly shortSha: string;
+
+  @ApiProperty({
+    example:
+      'https://github.com/acme/spotlight-config/commit/3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f',
+    description: 'The commit on GitHub',
+  })
+  readonly url: string;
+
+  @ApiProperty({
+    type: ClaimsSourcePullRequestResponseDto,
+    nullable: true,
+    description:
+      'The pull request that merged the commit, or the first one that has it; null while none is known',
+  })
+  readonly pullRequest: ClaimsSourcePullRequestResponseDto | null;
+
+  constructor(source: ClaimsSourceDto) {
+    this.repository = source.repository;
+    this.sha = source.sha;
+    this.shortSha = source.shortSha;
+    this.url = source.url;
+    this.pullRequest = source.pullRequest
+      ? new ClaimsSourcePullRequestResponseDto(source.pullRequest)
+      : null;
+  }
+}
+
 export class RubricVersionResponseDto {
   @ApiProperty()
   readonly rubricVersion: string;
 
-  @ApiProperty({ enum: SCORE_KINDS })
-  readonly kind: string;
-
-  @ApiProperty({ description: 'Whether this is the station’s rubric now' })
+  @ApiProperty({ description: 'Whether these are the station’s claims now' })
   readonly current: boolean;
 
   @ApiProperty({ example: 30 })
@@ -429,7 +406,7 @@ export class RubricVersionResponseDto {
   @ApiProperty({
     type: ScoreCountResponseDto,
     isArray: true,
-    description: 'How often each score was given, in the confusion’s order',
+    description: 'How often each verdict was given, in the confusion’s order',
   })
   readonly distribution: readonly ScoreCountResponseDto[];
 
@@ -437,19 +414,19 @@ export class RubricVersionResponseDto {
     type: TrendPointResponseDto,
     isArray: true,
     description:
-      'Daily means of the judge’s and people’s scores, the judge’s included while its scores are hidden on runs',
+      'Daily pass rates of the judge and of people, the judge’s included while its verdicts are hidden on runs',
   })
   readonly trend: readonly TrendPointResponseDto[];
 
   @ApiProperty({
     description:
-      'Whether enough runs have both scores, over more than one day, to draw the trend',
+      'Whether enough runs have both verdicts, over more than one day, to draw the trend',
   })
   readonly trendShown: boolean;
 
   @ApiProperty({
     example: 30,
-    description: 'Runs with both scores that the trend needs',
+    description: 'Runs with both verdicts that the trend needs',
   })
   readonly trendMinPairs: number;
 
@@ -459,9 +436,16 @@ export class RubricVersionResponseDto {
   @ApiProperty({ example: '2026-09-30T10:00:00.000Z' })
   readonly lastAt: string;
 
+  @ApiProperty({
+    type: ClaimsSourceResponseDto,
+    nullable: true,
+    description:
+      'The first commit that wrote these claims, as its line write named it in Spotlight-Source-Commit; null when no write named one',
+  })
+  readonly source: ClaimsSourceResponseDto | null;
+
   constructor(version: RubricVersionDto) {
     this.rubricVersion = version.rubricVersion;
-    this.kind = version.kind;
     this.current = version.current;
     this.judged = version.judged;
     this.agreement = new AgreementResponseDto(version.agreement);
@@ -474,6 +458,9 @@ export class RubricVersionResponseDto {
     this.trendMinPairs = version.trendMinPairs;
     this.firstAt = version.firstAt;
     this.lastAt = version.lastAt;
+    this.source = version.source
+      ? new ClaimsSourceResponseDto(version.source)
+      : null;
   }
 }
 
@@ -547,7 +534,7 @@ export class StationJudgeAgreementResponseDto {
     type: RubricVersionResponseDto,
     isArray: true,
     description:
-      'How the judge agreed with people under each rubric, the latest first',
+      'How the judge agreed with people under each claims version, the latest first',
   })
   readonly versions: readonly RubricVersionResponseDto[];
 

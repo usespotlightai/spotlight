@@ -15,7 +15,6 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 const judgeOf = (line: LineView, judge: StationJudgeView): StationJudge => ({
   teamId: TeamId.of(line.teamId),
   lineId: LineId.of(line.id),
-  rubric: judge.rubric,
   claims: judge.claims,
   passThreshold: judge.passThreshold,
   rubricVersion: RubricVersion.of(judge.rubricVersion),

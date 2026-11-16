@@ -33,7 +33,6 @@ export interface JudgeCalibrationShape {
   readonly stationId: string;
   readonly rubricVersion: RubricVersion | null;
   readonly qualified: boolean;
-  readonly measure: 'kappa' | 'spearman' | null;
   readonly agreement: number | null;
   readonly pairs: number;
   readonly minAgreement: number | null;
@@ -138,7 +137,7 @@ export class StationJudgeReports {
       workspaceId: WorkspaceId.of(team.workspaceId),
       teamId,
       stations: current.flatMap(({ station, judge }) =>
-        judge?.scale
+        judge?.rubric
           ? [
               {
                 lineId: LineId.of(station.lineId),
@@ -171,7 +170,7 @@ export class StationJudgeReports {
     station: StationLocation,
     judge: CurrentStationJudge | null,
   ): Promise<JudgeCalibration> {
-    const judged = judge?.scale
+    const judged = judge?.rubric
       ? await this.facts.judgedAtStation({
           ...station,
           rubricVersion: judge.rubricVersion,

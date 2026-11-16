@@ -23,7 +23,6 @@ import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
 import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
@@ -51,7 +50,6 @@ const VERSION = RubricVersion.of('c'.repeat(64));
 const CONFIG = ConfigFingerprint.of('a'.repeat(64));
 const NOW = new Date('2026-09-30T10:00:00.000Z');
 const LATER = new Date('2026-09-30T12:00:00.000Z');
-const YES_NO = ScoreScale.yesNo();
 const CLAIMS_STATION = 'station_claims';
 const CLAIMS_VERSION = RubricVersion.of('e'.repeat(64));
 const CLAIMS = ['It retries the upload.', 'It adds a test for it.'] as const;
@@ -68,6 +66,7 @@ const reason = () =>
   JudgeReason.of({
     text: 'It retried in the request.',
     citations: [Citation.ofStep(4), Citation.ofHunk('api/src/uploads.ts#1')],
+    claim: 0,
   });
 
 const seen = () =>
@@ -90,9 +89,8 @@ const judged = (runId: string, value: number, at = NOW) =>
     workspaceId: WORKSPACE,
     location: locationOf(`task_${runId}`),
     fingerprint: CONFIG,
-    scale: YES_NO,
-    value,
-    claimResults: null,
+    claimResults: [value === 1],
+    passThreshold: 1,
     rubricVersion: VERSION,
     model: 'some/model',
     reasons: [reason()],
@@ -107,9 +105,8 @@ const graded = (runId: string, value: number, by = 'user_ada') =>
     workspaceId: WORKSPACE,
     location: locationOf(`task_${runId}`),
     fingerprint: CONFIG,
-    scale: YES_NO,
-    value,
-    claimResults: null,
+    claimResults: [value === 1],
+    passThreshold: 1,
     rubricVersion: VERSION,
     by: UserId.of(by),
     at: LATER,
@@ -173,7 +170,6 @@ beforeAll(async () => {
           ? {
               teamId: TeamId.of('team_1'),
               lineId: LineId.of('line_1'),
-              rubric: null,
               claims: [...CLAIMS],
               passThreshold: 0.5,
               rubricVersion: CLAIMS_VERSION,
@@ -183,8 +179,7 @@ beforeAll(async () => {
           : {
               teamId: TeamId.of('team_1'),
               lineId: LineId.of('line_1'),
-              rubric: 'Did the run retry uploads?',
-              claims: [],
+              claims: ['It retries the upload.'],
               passThreshold: 1,
               rubricVersion: VERSION,
               sample: 1,
@@ -219,7 +214,7 @@ describe('judgings, stored', () => {
         workspaceId: WORKSPACE,
         location: locationOf('task_judged'),
         fingerprint: CONFIG,
-        rubric: Rubric.of({ text: 'Did it retry?', version: VERSION }),
+        rubric: Rubric.of({ claims: ['It retries.'], version: VERSION }),
         now: NOW,
       }),
     );
@@ -238,8 +233,13 @@ describe('judgings, stored', () => {
     await judgings.save(
       judging?.recordVerdict({
         verdict: {
-          value: true,
-          reasons: [{ text: 'It retried.', steps: [4], hunks: [] }],
+          claims: [
+            {
+              index: 0,
+              met: true,
+              reasons: [{ text: 'It retried.', steps: [4], hunks: [] }],
+            },
+          ],
         },
         evidence: JudgeEvidence.of({
           runId: RunId.of('run_judged'),
@@ -305,9 +305,8 @@ describe('scores, stored', () => {
           workspaceId: WORKSPACE,
           location: locationOf('task_run_a'),
           fingerprint: CONFIG,
-          scale: YES_NO,
-          value: 0,
-          claimResults: null,
+          claimResults: [false],
+          passThreshold: 1,
           rubricVersion: VERSION,
           model: 'some/model',
           reasons: [reason()],
@@ -329,9 +328,8 @@ describe('scores, stored', () => {
           workspaceId: WORKSPACE,
           location: locationOf('task_run_a'),
           fingerprint: CONFIG,
-          scale: YES_NO,
-          value: 0,
-          claimResults: null,
+          claimResults: [false],
+          passThreshold: 1,
           rubricVersion: VERSION,
           by: UserId.of('user_ada'),
           at: LATER,
@@ -342,9 +340,8 @@ describe('scores, stored', () => {
     const mine = await scores.gradeBy(RunId.of('run_a'), UserId.of('user_ada'));
     await scores.save(
       mine?.regrade({
-        scale: YES_NO,
-        value: 0,
-        claimResults: null,
+        claimResults: [false],
+        passThreshold: 1,
         rubricVersion: VERSION,
         at: LATER,
       }) as Score,
@@ -382,9 +379,8 @@ describe('judge scores at many stations, read at once', () => {
         taskId: TaskId.of(`task_${runId}`),
       }),
       fingerprint: CONFIG,
-      scale: YES_NO,
-      value: 1,
-      claimResults: null,
+      claimResults: [true],
+      passThreshold: 1,
       rubricVersion: where.rubricVersion ?? VERSION,
       model: 'some/model',
       reasons: [reason()],
@@ -436,9 +432,8 @@ describe('judge scores at many stations, read at once', () => {
           taskId: TaskId.of('task_many_c_1'),
         }),
         fingerprint: CONFIG,
-        scale: YES_NO,
-        value: 1,
-        claimResults: null,
+        claimResults: [true],
+        passThreshold: 1,
         rubricVersion: VERSION,
         by: UserId.of('user_ada'),
         at: LATER,
@@ -500,6 +495,63 @@ describe('judge scores at many stations, read at once', () => {
 });
 
 describe('how often the judge agrees with people', () => {
+  it('lists live judge verdicts since a time in time order, a page at a time', async () => {
+    const since = new Date('2027-01-01T00:00:00.000Z');
+    const placeOf = (taskId: string) =>
+      RunLocation.of({
+        teamId: TEAM,
+        lineId: LineId.of('line_1'),
+        stationId: StationId.of('station_since'),
+        taskId: TaskId.of(taskId),
+      });
+    const hoursAfter = (hours: number) =>
+      new Date(since.getTime() + hours * 60 * 60_000);
+    const live = (runId: string, at: Date, origin?: 'backfill') =>
+      Score.judge({
+        id: ScoreId.of(`judge_${runId}`),
+        runId: RunId.of(runId),
+        workspaceId: WORKSPACE,
+        location: placeOf(`task_${runId}`),
+        fingerprint: CONFIG,
+        claimResults: [true],
+        passThreshold: 1,
+        rubricVersion: VERSION,
+        model: 'some/model',
+        reasons: [reason()],
+        seen: seen(),
+        at,
+        origin,
+      });
+    for (const each of [
+      live('since_b', hoursAfter(1)),
+      live('since_a', hoursAfter(2)),
+      live('since_c', since),
+      live('since_before', hoursAfter(-1)),
+      live('since_backfilled', hoursAfter(1), 'backfill'),
+    ]) {
+      await scores.add(each);
+    }
+
+    const first = await facts.liveJudgedSince({ since, after: null, max: 2 });
+    const second = await facts.liveJudgedSince({
+      since,
+      after: first[1] ?? null,
+      max: 2,
+    });
+
+    expect(first.map((each) => each.runId.value)).toEqual([
+      'since_c',
+      'since_b',
+    ]);
+    expect(second.map((each) => each.runId.value)).toEqual(['since_a']);
+    expect(first[1]).toMatchObject({
+      scoreId: ScoreId.of('judge_since_b'),
+      at: hoursAfter(1),
+      workspaceId: WORKSPACE,
+      location: placeOf('task_since_b'),
+    });
+  });
+
   it('pairs the station’s judge scores with what people did, and qualifies it once it agrees enough', async () => {
     for (let at = 0; at < 12; at += 1) {
       const runId = `run_${at}`;
@@ -530,7 +582,7 @@ describe('how often the judge agrees with people', () => {
       [1, 6],
     ]);
     expect(report.coverage.runs).toBe(12);
-    expect(calibration).toMatchObject({ qualified: true, measure: 'kappa' });
+    expect(calibration).toMatchObject({ qualified: true });
     expect(
       await reports.calibrationAt({
         workspaceId: WORKSPACE,
@@ -577,9 +629,8 @@ describe('how often the judge agrees with people', () => {
         locationOf('task_racing'),
         CONFIG,
         VERSION,
-        YES_NO,
+        [true],
         1,
-        null,
         'some/model',
         [reason()],
         seen(),
@@ -609,10 +660,8 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
       stationId: StationId.of(CLAIMS_STATION),
       taskId: TaskId.of(taskId),
     });
-  const rateOf = (claimResults: readonly boolean[]) =>
-    claimResults.filter(Boolean).length / claimResults.length;
 
-  it('stores each claim the judge and people marked, and weighs their agreement on each claim and over all of them', async () => {
+  it('stores each claim the judge and people marked, and weighs their agreement on each claim and on the verdict', async () => {
     for (let at = 0; at < 12; at += 1) {
       const runId = `claims_${at}`;
       const retried = at % 2 === 0;
@@ -627,9 +676,8 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
           workspaceId: WORKSPACE,
           location: claimsLocation(`task_${runId}`),
           fingerprint: CONFIG,
-          scale: ScoreScale.claims(),
-          value: rateOf(judgeMarks),
           claimResults: judgeMarks,
+          passThreshold: 0.5,
           rubricVersion: CLAIMS_VERSION,
           model: 'some/model',
           reasons: [0, 1].map((claim) =>
@@ -650,9 +698,8 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
           workspaceId: WORKSPACE,
           location: claimsLocation(`task_${runId}`),
           fingerprint: CONFIG,
-          scale: ScoreScale.claims(),
-          value: rateOf(personMarks),
           claimResults: personMarks,
+          passThreshold: 0.5,
           rubricVersion: CLAIMS_VERSION,
           by: UserId.of('user_ada'),
           at: LATER,
@@ -674,7 +721,6 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
     });
 
     const [version] = report.versions;
-    expect(version?.scale.kind).toBe('claims');
     expect(version?.agreement.pairs).toBe(12);
     expect(version?.agreement.claims.map((each) => each.index)).toEqual([0, 1]);
     expect(version?.agreement.claims[0]).toMatchObject({
@@ -683,9 +729,8 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
       kappa: 1,
     });
     expect(version?.agreement.claims[1]?.observed).toBeCloseTo(7 / 12);
-    expect(version?.agreement.observed).toBeCloseTo(19 / 24);
+    expect(version?.agreement.observed).toBeCloseTo(10 / 12);
     expect(calibration).toMatchObject({
-      measure: 'kappa',
       pairs: 12,
       agreement: version?.agreement.kappa,
     });

@@ -277,7 +277,8 @@ describe('renderLine', () => {
     const definition = rendered(
       withBuild({
         judge: {
-          rubric: 'A good run is small.\n',
+          claims: ['It keeps the change small.'],
+          passThreshold: 1,
           sample: 0.2,
           minAgreement: 0.6,
         },
@@ -291,7 +292,8 @@ describe('renderLine', () => {
     );
 
     expect(definition.stations[1]?.judge).toEqual({
-      rubric: 'A good run is small.\n',
+      claims: ['It keeps the change small.'],
+      passThreshold: 1,
       sample: 0.2,
       minAgreement: 0.6,
     });
@@ -305,7 +307,7 @@ describe('renderLine', () => {
     expect(definition.stations[0]?.alerts).toEqual([]);
   });
 
-  it('renders a judge’s claims and pass threshold only where it lists claims, and no rubric where it has none', () => {
+  it('renders a judge’s claims and its pass threshold', () => {
     expect(
       rendered(
         withBuild({

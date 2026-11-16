@@ -1,12 +1,9 @@
-import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.error';
 import type {
   CitedReason,
   JudgeEvidence,
 } from '@insights/domain/services/judge-evidence';
 import type { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
-import { claimShareOf } from '@shared-kernel/domain/value-objects/judge-scale.vo';
 
 export const MAX_REASONS = 5;
 
@@ -18,18 +15,14 @@ export interface ClaimVerdict {
   readonly reasons: readonly CitedReason[];
 }
 
-export type Verdict =
-  | {
-      readonly value: boolean | number;
-      readonly reasons: readonly CitedReason[];
-    }
-  | { readonly claims: readonly ClaimVerdict[] };
+export interface Verdict {
+  readonly claims: readonly ClaimVerdict[];
+}
 
 export type GroundedVerdict =
   | {
       readonly grounded: true;
-      readonly value: number;
-      readonly claimResults: readonly boolean[] | null;
+      readonly claimResults: readonly boolean[];
       readonly reasons: readonly JudgeReason[];
     }
   | { readonly grounded: false; readonly failure: 'unreadable' | 'ungrounded' };
@@ -72,12 +65,9 @@ const groundedOnClaims = (
     reasons.push(...grounded.map((each) => each.aboutClaim(claim.index)));
   }
 
-  const claimResults = ordered.map((each) => each.met);
-
   return {
     grounded: true,
-    value: claimShareOf(claimResults),
-    claimResults,
+    claimResults: ordered.map((each) => each.met),
     reasons,
   };
 };
@@ -86,36 +76,5 @@ export const groundedVerdict = (
   criteria: JudgeCriteria,
   verdict: Verdict,
   evidence: JudgeEvidence,
-): GroundedVerdict => {
-  if (criteria.scale.byClaims) {
-    return 'claims' in verdict
-      ? groundedOnClaims(criteria.claims.length, verdict.claims, evidence)
-      : UNREADABLE;
-  }
-  if ('claims' in verdict) {
-    return UNREADABLE;
-  }
-
-  let value: number;
-
-  try {
-    value = ScoreScale.of(criteria.scale.kind).valueOf(verdict.value);
-  } catch (error) {
-    if (error instanceof InvalidScoreError) {
-      return UNREADABLE;
-    }
-    throw error;
-  }
-
-  if (verdict.reasons.length > MAX_REASONS) {
-    return UNREADABLE;
-  }
-
-  const reasons = evidence.groundedReasons(verdict.reasons);
-
-  if (!mostlyGrounded(reasons.length, verdict.reasons.length)) {
-    return UNGROUNDED;
-  }
-
-  return { grounded: true, value, claimResults: null, reasons };
-};
+): GroundedVerdict =>
+  groundedOnClaims(criteria.claims.length, verdict.claims, evidence);

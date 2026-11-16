@@ -7,13 +7,12 @@ import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.ent
 import { MEMORY_KINDS } from '@memory/domain/value-objects/memory-kind';
 import { MEMORY_SCOPE_LEVELS } from '@memory/domain/value-objects/memory-scope-level';
 import {
-  type Fetch,
   JsonSchema,
   ModelEmptyCompletionError,
-  type ModelEndpoint,
   ModelRequestError,
-  requestJson,
 } from '@platform/llm/chat-completions';
+import { NoInferenceEndpointError } from '@shared-kernel/application/errors/no-inference-endpoint.error';
+import type { InferenceCallsPort } from '@shared-kernel/application/ports/inference-calls.port';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 8_000;
@@ -115,29 +114,17 @@ const buildPrompt = (request: MemoryDraftRequest): string => {
 };
 
 export class ChatCompletionsMemoryDrafter implements MemoryDrafterPort {
-  constructor(
-    private readonly endpoint: ModelEndpoint | null,
-    private readonly fetch: Fetch = globalThis.fetch,
-  ) {}
+  constructor(private readonly calls: InferenceCallsPort) {}
 
-  get available(): boolean {
-    return this.endpoint !== null;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.calls.availableTo(workspaceId);
   }
 
   async draft(request: MemoryDraftRequest): Promise<readonly ProposedMemory[]> {
-    if (!this.endpoint) {
-      throw new MemoryDraftingError(
-        'request-failed',
-        'no model endpoint is set',
-      );
-    }
-
     try {
       const {
         answer: { memories },
-      } = await requestJson({
-        endpoint: this.endpoint,
-        fetch: this.fetch,
+      } = await this.calls.json(request.workspaceId, {
         responseSchema: MEMORIES,
         system: SYSTEM,
         prompt: buildPrompt(request),
@@ -146,6 +133,12 @@ export class ChatCompletionsMemoryDrafter implements MemoryDrafterPort {
 
       return memories;
     } catch (error) {
+      if (error instanceof NoInferenceEndpointError) {
+        throw new MemoryDraftingError(
+          'request-failed',
+          'no model endpoint is set',
+        );
+      }
       if (error instanceof ModelRequestError) {
         throw new MemoryDraftingError('request-failed', error.message);
       }

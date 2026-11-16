@@ -1,39 +1,44 @@
 import type { RepositoryGitPort } from '@github/application/ports/repository-git.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
+import type { RunnerLeasesPort } from '@runners/application/ports/runner-leases.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type {
   GitAnswerDto,
   GitCallDto,
   GitService,
 } from '@work/application/dto/git-call.dto';
-import type { CheckAccessPort } from '@work/application/ports/check-access.port';
+import type {
+  ReviewWorkAccessPort,
+  LeasedReviewWork,
+} from '@work/application/ports/review-work-access.port';
 import type {
   CheckedRepository,
   RunWorks,
 } from '@work/application/services/run-works.service';
-import { CheckGitAccess } from '@work/domain/services/check-git-access';
+import { WorkNotLeasedError } from '@work/domain/exceptions/work-not-leased.error';
+import { ReviewGitAccess } from '@work/domain/services/review-git-access';
 
 export class CarryGitCall {
   constructor(
     private readonly works: RunWorks,
     private readonly workspaces: WorkspaceConnectionsPort,
     private readonly git: RepositoryGitPort,
-    private readonly checking: CheckAccessPort,
+    private readonly reviewing: ReviewWorkAccessPort,
+    private readonly leases: RunnerLeasesPort,
     private readonly clock: ClockPort,
   ) {}
 
   async carry(
-    runId: string,
+    workId: string,
     runnerId: string,
     repo: string,
     service: GitService,
     call: GitCallDto,
   ): Promise<GitAnswerDto | null> {
     const allowed = await this.allowedRepository(
-      runId,
+      workId,
       runnerId,
       repo,
       service,
@@ -69,38 +74,80 @@ export class CarryGitCall {
   }
 
   private async allowedRepository(
-    runId: string,
+    workId: string,
     runnerId: string,
     repo: string,
     service: GitService,
   ): Promise<CheckedRepository | null> {
-    const leased = await this.works.leasedRunWork(runId, runnerId);
+    const runner = RunnerId.of(runnerId);
+    const held = await this.leases.leaseOf(runner);
 
-    if (leased) {
-      const { work } = leased;
+    return held && held.kind !== 'run' && ReviewGitAccess.mayCall(service)
+      ? this.reviewWorkRepository(
+          { kind: held.kind, id: held.id },
+          workId,
+          runner,
+          repo,
+        )
+      : this.runRepository(workId, runnerId, repo, service);
+  }
 
-      const repository = work
-        ? await work.repositoryNamed(repo, service)
-        : null;
+  private async runRepository(
+    workId: string,
+    runnerId: string,
+    repo: string,
+    service: GitService,
+  ): Promise<CheckedRepository | null> {
+    const leased = await this.works.leasedRunWork(workId, runnerId);
 
-      return work && repository
-        ? { workspaceId: work.workspaceId, repository }
-        : null;
+    if (!leased) {
+      await this.works.leasedBy(workId, runnerId);
+
+      return null;
     }
 
-    if (
-      CheckGitAccess.mayCall(service) &&
-      (await this.checking.isCheckOfRunLeasedBy(
-        RunId.of(runId),
-        RunnerId.of(runnerId),
-        this.clock.now(),
-      ))
-    ) {
-      return this.works.repositoryForCheck(RunId.of(runId), repo);
+    const { work } = leased;
+    const repository = work ? await work.repositoryNamed(repo, service) : null;
+
+    return work && repository
+      ? { workspaceId: work.workspaceId, repository }
+      : null;
+  }
+
+  private async reviewWorkRepository(
+    held: { readonly kind: 'check' | 'diff'; readonly id: string },
+    workId: string,
+    runner: RunnerId,
+    repo: string,
+  ): Promise<CheckedRepository | null> {
+    const leased =
+      held.id === workId
+        ? await this.reviewing.leasedWork(held, runner, this.clock.now())
+        : null;
+
+    if (!leased) {
+      throw new WorkNotLeasedError(workId);
     }
 
-    await this.works.leasedBy(runId, runnerId);
+    return this.reviewedRepository(leased, repo);
+  }
 
-    return null;
+  private async reviewedRepository(
+    leased: LeasedReviewWork,
+    repo: string,
+  ): Promise<CheckedRepository | null> {
+    const found = leased.runId
+      ? await this.works.repositoryForCheck(leased.runId, repo)
+      : leased.taskId
+        ? await this.works.repositoryForTask(leased.taskId, repo)
+        : null;
+
+    if (!found) {
+      return null;
+    }
+
+    return ReviewGitAccess.mayRead(leased.repository, found.repository)
+      ? found
+      : null;
   }
 }

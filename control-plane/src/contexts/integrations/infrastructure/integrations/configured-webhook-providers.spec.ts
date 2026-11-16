@@ -75,6 +75,7 @@ const configured = (
       unlimited,
       unscoped,
       { now: () => new Date(), sleep: async () => {} },
+      { activeOf: async () => null },
     ),
   };
 };

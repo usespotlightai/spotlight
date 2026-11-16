@@ -11,7 +11,7 @@ import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo
 import { describe, expect, it } from 'vitest';
 
 const JUDGE = StationJudge.of({
-  rubric: 'A good run.',
+  claims: ['It changes only what the task asks for.'],
   sample: 0.2,
   minAgreement: 0.6,
 });

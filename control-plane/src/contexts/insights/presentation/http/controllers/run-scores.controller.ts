@@ -29,20 +29,11 @@ import {
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 
-const gradeIn = (
-  body: GradeRunRequestDto | undefined,
-): boolean | number | null =>
-  typeof body?.value === 'boolean' || typeof body?.value === 'number'
-    ? body.value
-    : null;
-
-const claimsIn = (
-  body: GradeRunRequestDto | undefined,
-): readonly boolean[] | null =>
+const claimsIn = (body: GradeRunRequestDto | undefined): readonly boolean[] =>
   Array.isArray(body?.claims) &&
   body.claims.every((each) => typeof each === 'boolean')
     ? body.claims
-    : null;
+    : [];
 
 @ApiTags('insights')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -59,7 +50,7 @@ export class RunScoresController {
   @ApiOperation({
     operationId: 'readRunScores',
     summary:
-      'The judge’s score for a run, with the reasons it cites, and the grades people gave it',
+      'The judge’s verdict on a run, with the reasons it cites, and the grades people gave it',
   })
   @ApiOkResponse({ type: RunScoresResponseDto })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
@@ -85,7 +76,7 @@ export class RunScoresController {
   @ApiBody({ type: GradeRunRequestDto })
   @ApiOkResponse({ type: RunScoresResponseDto })
   @ApiUnprocessableEntityResponse({
-    description: 'No grade, or one off the run’s scale',
+    description: 'No grade, or one that does not mark each claim',
   })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
   @ApiConflictResponse({ description: 'The grade changed meanwhile' })
@@ -96,13 +87,7 @@ export class RunScoresController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RunScoresResponseDto> {
     await this.commandBus.execute<GradeRunCommand, void>(
-      new GradeRunCommand(
-        teamId,
-        runId,
-        gradeIn(body),
-        claimsIn(body),
-        user.id,
-      ),
+      new GradeRunCommand(teamId, runId, claimsIn(body), user.id),
     );
 
     return this.scores(teamId, runId, user);

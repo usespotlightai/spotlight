@@ -16,17 +16,17 @@
     "knip": "knip"
   },
   "dependencies": {
-    "@sentry/electron": "8.3.0",
+    "@sentry/electron": "8.4.0",
     "electron-updater": "6.8.11"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
-    "electron": "45.2.3",
+    "electron": "45.3.1",
     "electron-builder": "26.18.0",
-    "knip": "^6.44.2",
+    "knip": "^6.45.1",
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
-    "oxlint-tsgolint": "7.0.2006",
+    "oxlint-tsgolint": "7.0.2007",
     "typescript": "~7.0.2",
     "vitest": "^5.1.0"
   },

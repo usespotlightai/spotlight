@@ -725,7 +725,6 @@ export class Replay extends EventRecorder {
         },
         verdict: each.verdict && {
           value: each.verdict.value,
-          scale: each.verdict.scale,
           referenced: each.verdict.referenced,
         },
         pair: each.pairing?.verdict?.outcome ?? null,

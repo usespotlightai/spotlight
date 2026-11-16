@@ -629,6 +629,8 @@ type runClient struct {
 	images     map[string]string
 	completed  map[string]protocol.Completion
 	checked    map[string]protocol.StackCheckResult
+	diffsGone  bool
+	diffFailed map[string]string
 }
 
 func (c *runClient) RenewLease(_ context.Context, runID string) (bool, error) {
@@ -638,11 +640,32 @@ func (c *runClient) RenewLease(_ context.Context, runID string) (bool, error) {
 	return false, nil
 }
 
-func (c *runClient) RenewCheckLease(_ context.Context, _, stackID string, _ bool) (bool, error) {
+func (c *runClient) RenewCheckLease(_ context.Context, stackID string, _ bool) (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.renewed = append(c.renewed, stackID)
 	return c.checksGone, c.checkLost
+}
+
+func (c *runClient) RenewPushDiffLease(_ context.Context, diffID string) (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.renewed = append(c.renewed, diffID)
+	return c.diffsGone, nil
+}
+
+func (c *runClient) FailPushDiff(_ context.Context, diffID, reason string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.diffFailed[diffID] = reason
+	return nil
+}
+
+func (c *runClient) failure(diffID string) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	reason, ok := c.diffFailed[diffID]
+	return reason, ok
 }
 
 func (c *runClient) RecordImage(_ context.Context, runID, image string) error {
@@ -663,7 +686,7 @@ func (c *runClient) Complete(_ context.Context, runID string, done protocol.Comp
 	return nil
 }
 
-func (c *runClient) RecordChangeStackCheck(_ context.Context, _, stackID string, _ bool, checked protocol.StackCheckResult) error {
+func (c *runClient) RecordChangeStackCheck(_ context.Context, stackID string, _ bool, checked protocol.StackCheckResult) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.checked[stackID] = checked
@@ -727,9 +750,10 @@ func newPool() *pool {
 		revokeCalls: make(chan struct{}),
 		responses:   map[string]protocol.HostCallResponse{},
 		runClient: &runClient{
-			images:    map[string]string{},
-			completed: map[string]protocol.Completion{},
-			checked:   map[string]protocol.StackCheckResult{},
+			images:     map[string]string{},
+			completed:  map[string]protocol.Completion{},
+			checked:    map[string]protocol.StackCheckResult{},
+			diffFailed: map[string]string{},
 		},
 	}
 }
@@ -1892,7 +1916,7 @@ func TestSkipsACheckWhenThereIsNoImageAtAll(t *testing.T) {
 		RunnerID: "runner_1",
 		Token:    "one-run",
 		Work: protocol.ClaimResponse{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
-			StackID: "stack_1", RunID: "run_1",
+			StackID: "stack_1",
 		}},
 	}
 
@@ -1908,6 +1932,37 @@ func TestSkipsACheckWhenThereIsNoImageAtAll(t *testing.T) {
 		each, _ := pool.reported("runner:1")
 		return strings.Contains(each.UnavailableReason, "can't be pulled")
 	})
+}
+
+func TestFailsAPushDiffWhenThereIsNoImageAtAll(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	serving(t, options(t), engine, pool)
+
+	eventually(t, "the image served", func() bool {
+		each, ok := pool.reported("runner:1")
+		return ok && each.UnavailableReason == ""
+	})
+
+	engine.set(func(e *fakeEngine) {
+		e.failPull = true
+		delete(e.images, "runner:1")
+	})
+
+	pool.work <- protocol.Assignment{
+		RunnerID: "runner_1",
+		Token:    "one-run",
+		Work: protocol.ClaimResponse{Kind: protocol.ClaimedDiff, Diff: &protocol.PushDiff{
+			DiffID: "diff_1", Repository: "widgets", BaseTip: "abc", Head: "def",
+		}},
+	}
+
+	eventually(t, "the push diff failed", func() bool {
+		_, ok := pool.runClient.failure("diff_1")
+		return ok
+	})
+	if reason, _ := pool.runClient.failure("diff_1"); !strings.Contains(reason, "can't be pulled") {
+		t.Errorf("reason %q", reason)
+	}
 }
 
 func TestDoesNotPullADigestItAlreadyHas(t *testing.T) {
@@ -2061,7 +2116,7 @@ func TestKeepsTheCheckLeasedWhileItPullsAndStarts(t *testing.T) {
 		Token:       "one-run",
 		EgressToken: "egress-runner_1",
 		Work: protocol.ClaimResponse{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
-			StackID: "stack_1", RunID: "run_1",
+			StackID: "stack_1",
 		}},
 	}
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
@@ -2071,6 +2126,44 @@ func TestKeepsTheCheckLeasedWhileItPullsAndStarts(t *testing.T) {
 	pool.runClient.mu.Unlock()
 	if len(renewed) < 3 || !slices.Contains(renewed, "stack_1") {
 		t.Errorf("renewed %v while pulling for 200ms", renewed)
+	}
+}
+
+func TestStartsNoSandboxForAPushDiffItNoLongerLeasesWhileItPulls(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.LeaseEvery = 20 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	eventually(t, "the image served", func() bool {
+		_, ok := pool.reported("runner:1")
+		return ok
+	})
+	engine.set(func(e *fakeEngine) { e.pullTakes = 200 * time.Millisecond })
+	pool.runClient.mu.Lock()
+	pool.runClient.diffsGone = true
+	pool.runClient.mu.Unlock()
+
+	pool.work <- protocol.Assignment{
+		RunnerID:    "runner_1",
+		Token:       "one-run",
+		EgressToken: "egress-runner_1",
+		Work: protocol.ClaimResponse{Kind: protocol.ClaimedDiff, Diff: &protocol.PushDiff{
+			DiffID: "diff_1", Repository: "widgets", BaseTip: "abc", Head: "def",
+		}},
+	}
+	eventually(t, "the push diff renewed", func() bool {
+		pool.runClient.mu.Lock()
+		defer pool.runClient.mu.Unlock()
+		return slices.Contains(pool.runClient.renewed, "diff_1")
+	})
+
+	time.Sleep(400 * time.Millisecond)
+	if started := engine.workSandboxes(); len(started) != 0 {
+		t.Errorf("started %v for a push diff it no longer leases", started)
+	}
+	if reason, failed := pool.runClient.failure("diff_1"); failed {
+		t.Errorf("failed a push diff it no longer leases: %q", reason)
 	}
 }
 
@@ -2101,7 +2194,7 @@ func TestStartsNoSandboxForACheckItNoLongerLeasesWhileItPulls(t *testing.T) {
 				Token:       "one-run",
 				EgressToken: "egress-runner_1",
 				Work: protocol.ClaimResponse{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
-					StackID: "stack_1", RunID: "run_1",
+					StackID: "stack_1",
 				}},
 			}
 			eventually(t, "the check renewed", func() bool {

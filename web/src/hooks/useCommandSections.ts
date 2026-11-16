@@ -9,7 +9,7 @@ import {
   settingsTargets,
   stationTargets,
   taskTargets,
-} from '@/lib/command';
+} from '@/lib/commands/targets';
 import type { Role } from '@/lib/role';
 import type { Team } from '@/lib/team';
 

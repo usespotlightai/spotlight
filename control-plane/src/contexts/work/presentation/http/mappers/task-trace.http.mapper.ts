@@ -23,6 +23,7 @@ const nodeToResponse = (node: TraceNodeDto): TraceNodeResponseDto =>
     node.cost,
     node.currency,
     node.step && stepToResponse(node.step),
+    node.place,
     node.span && spanToResponse(node.span),
     node.connection && new TraceConnectionResponseDto(node.connection),
     node.egressEnforcement,

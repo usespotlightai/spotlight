@@ -6,6 +6,14 @@ import type {
   NoteResponseDto,
 } from '@/lib/api';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
+import {
+  acceptedRun,
+  askedOfOtherRun,
+  claimsChangedRun,
+  labelGoneRun,
+  mergedRun,
+  sentBackRun,
+} from '@/mocks/world/disagreement-runs';
 import { GROWTH_ID } from '@/mocks/world/growth';
 import {
   type AlertFiring,
@@ -20,7 +28,7 @@ import {
   runsOfTask,
   seededTask,
 } from '@/mocks/world/inbox-places';
-import { history } from '@/mocks/world/insights-history';
+import { type HistoryRun, history } from '@/mocks/world/insights-history';
 import { isCoreTask, pastTaskOf } from '@/mocks/world/past-work';
 import { PLATFORM_ID } from '@/mocks/world/platform';
 import { notesOfRun, type StoryNote } from '@/mocks/world/run-stories';
@@ -97,8 +105,30 @@ export const ALERT_ID = 'alert_sent_back';
 export const COST_ALERT_REQUEST_ID = 'request_cost_alert';
 export const COST_ALERT_ID = 'alert_cost_per_run';
 export const DECIDED_MEMORIES_REQUEST_ID = 'request_disk_memories';
-export const FIVE_POINT_GRADE_REQUEST_ID = 'request_earlier_rubric_grade';
+export const EARLIER_CLAIMS_GRADE_REQUEST_ID = 'request_earlier_claims_grade';
 export const CLAIMS_GRADE_REQUEST_ID = 'request_pricing_grade';
+export const FAILED_DISAGREEMENT_ID = 'disagreement_search_2';
+export const PASSED_DISAGREEMENT_ID = 'disagreement_postgres_2';
+export const FAILED_DISAGREEMENT_REQUEST_ID = 'request_search_disagreement';
+export const PASSED_DISAGREEMENT_REQUEST_ID = 'request_postgres_disagreement';
+export const WITHDRAWN_DISAGREEMENT_ID = 'disagreement_billing_1';
+export const WITHDRAWN_DISAGREEMENT_REQUEST_ID = 'request_billing_disagreement';
+export const SENT_BACK_DISAGREEMENT_ID = 'disagreement_sent_back';
+export const SENT_BACK_DISAGREEMENT_REQUEST_ID =
+  'request_sent_back_disagreement';
+export const ACCEPTED_DISAGREEMENT_ID = 'disagreement_accepted';
+export const ACCEPTED_DISAGREEMENT_REQUEST_ID = 'request_accepted_disagreement';
+export const MERGED_DISAGREEMENT_ID = 'disagreement_merged';
+export const MERGED_DISAGREEMENT_REQUEST_ID = 'request_merged_disagreement';
+export const ASKED_OF_OTHER_DISAGREEMENT_ID = 'disagreement_asked_of_other';
+export const ASKED_OF_OTHER_DISAGREEMENT_REQUEST_ID =
+  'request_asked_of_other_disagreement';
+export const CLAIMS_CHANGED_DISAGREEMENT_ID = 'disagreement_claims_changed';
+export const CLAIMS_CHANGED_DISAGREEMENT_REQUEST_ID =
+  'request_claims_changed_disagreement';
+export const LABEL_GONE_DISAGREEMENT_ID = 'disagreement_label_gone';
+export const LABEL_GONE_DISAGREEMENT_REQUEST_ID =
+  'request_label_gone_disagreement';
 export const SETUP_ITEM_ID = 'task_setup_platform:0';
 
 const numbered = (notes: readonly StoryNote[]): NoteResponseDto[] =>
@@ -230,7 +260,7 @@ const NOTICES: StoredNotice[] = [
       'The search of the Implementation station stalled on causes outside the config',
     points: [
       '“Reconcile open invoices after the retry drain”: the cause is the check. The reconcile script needs the billing database, which the runner cannot reach. Please fix the check of the station.',
-      '“Drain the stuck retry queues”: the cause is the judge. It wants a test for every change, but this change has nothing to test. Please fix the rubric of the judge.',
+      '“Drain the stuck retry queues”: the cause is the judge. It wants a test for every change, but this change has nothing to test. Please fix the claims of the judge.',
       '“Upgrade the Postgres driver”: the cause is the task itself. Its migration rewrites 1.3M invoice rows, which no candidate finishes in time. Spotlight takes the task out of the replay set.',
     ],
     link: STATION_LINK,
@@ -393,7 +423,7 @@ const earlierRubricGrade = (): InboxConversation[] => {
   return run
     ? [
         inboxRequestOf({
-          id: FIVE_POINT_GRADE_REQUEST_ID,
+          id: EARLIER_CLAIMS_GRADE_REQUEST_ID,
           taskId: run.taskId,
           teamId: PLATFORM_ID,
           askedAt: minutesAfter(
@@ -405,6 +435,63 @@ const earlierRubricGrade = (): InboxConversation[] => {
       ]
     : [];
 };
+
+const pastDisagreementRequest = (
+  id: string,
+  about: string,
+  run: HistoryRun | null,
+  resolved = false,
+): InboxConversation[] =>
+  run
+    ? [
+        inboxRequestOf({
+          id,
+          taskId: run.taskId,
+          teamId: PLATFORM_ID,
+          askedAt: minutesAfter(
+            run.endedAt ?? new Date(run.at).toISOString(),
+            95,
+          ),
+          resolved,
+          inboxRequest: { form: 'judge-disagreement', about },
+        }),
+      ]
+    : [];
+
+const pastDisagreementRequests = (): InboxConversation[] => [
+  ...pastDisagreementRequest(
+    SENT_BACK_DISAGREEMENT_REQUEST_ID,
+    SENT_BACK_DISAGREEMENT_ID,
+    sentBackRun(),
+  ),
+  ...pastDisagreementRequest(
+    ACCEPTED_DISAGREEMENT_REQUEST_ID,
+    ACCEPTED_DISAGREEMENT_ID,
+    acceptedRun(),
+  ),
+  ...pastDisagreementRequest(
+    MERGED_DISAGREEMENT_REQUEST_ID,
+    MERGED_DISAGREEMENT_ID,
+    mergedRun(),
+  ),
+  ...pastDisagreementRequest(
+    ASKED_OF_OTHER_DISAGREEMENT_REQUEST_ID,
+    ASKED_OF_OTHER_DISAGREEMENT_ID,
+    askedOfOtherRun(),
+  ),
+  ...pastDisagreementRequest(
+    CLAIMS_CHANGED_DISAGREEMENT_REQUEST_ID,
+    CLAIMS_CHANGED_DISAGREEMENT_ID,
+    claimsChangedRun(),
+    true,
+  ),
+  ...pastDisagreementRequest(
+    LABEL_GONE_DISAGREEMENT_REQUEST_ID,
+    LABEL_GONE_DISAGREEMENT_ID,
+    labelGoneRun(),
+    true,
+  ),
+];
 
 const INBOX_REQUESTS = (): InboxConversation[] => [
   inboxRequestOf({
@@ -448,6 +535,33 @@ const INBOX_REQUESTS = (): InboxConversation[] => [
     inboxRequest: { form: 'grade', about: 'run_pricing_1' },
   }),
   ...earlierRubricGrade(),
+  inboxRequestOf({
+    id: FAILED_DISAGREEMENT_REQUEST_ID,
+    taskId: 'task_search',
+    teamId: PLATFORM_ID,
+    askedAt: minutesAfter(runEnded('run_search_2'), 95),
+    unread: true,
+    inboxRequest: { form: 'judge-disagreement', about: FAILED_DISAGREEMENT_ID },
+  }),
+  inboxRequestOf({
+    id: PASSED_DISAGREEMENT_REQUEST_ID,
+    taskId: 'task_postgres',
+    teamId: PLATFORM_ID,
+    askedAt: minutesAfter(runEnded('run_postgres_2'), 95),
+    inboxRequest: { form: 'judge-disagreement', about: PASSED_DISAGREEMENT_ID },
+  }),
+  inboxRequestOf({
+    id: WITHDRAWN_DISAGREEMENT_REQUEST_ID,
+    taskId: 'task_billing',
+    teamId: PLATFORM_ID,
+    askedAt: minutesAfter(runEnded('run_billing_1'), 95),
+    resolved: true,
+    inboxRequest: {
+      form: 'judge-disagreement',
+      about: WITHDRAWN_DISAGREEMENT_ID,
+    },
+  }),
+  ...pastDisagreementRequests(),
 ];
 
 const SETUP_ABOUT = {
