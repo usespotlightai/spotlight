@@ -50,7 +50,7 @@ export function ExpandableText({ what, children }: ExpandableTextProps) {
           }
           className={cn(
             'rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            open ? 'self-end' : 'absolute inset-0',
+            open ? 'self-end' : 'absolute inset-x-0 bottom-0 h-[45%]',
           )}
         >
           <ChevronDown
