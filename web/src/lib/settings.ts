@@ -8,8 +8,10 @@ export const apiAccessPath = (slug: string): string =>
 export const workspaceGeneralPath = (slug: string): string =>
   `${settingsPath(slug)}/general`;
 
+export const INFERENCE_SECTION = 'inference';
+
 export const inferenceSettingsPath = (slug: string): string =>
-  `${settingsPath(slug)}/inference`;
+  `${workspaceGeneralPath(slug)}#${INFERENCE_SECTION}`;
 
 export const TEAM_SETTINGS_PAGES = [
   { id: 'general', label: 'General', icon: Settings2 },
