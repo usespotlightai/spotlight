@@ -69,9 +69,7 @@ export function LineProperties({ line, skills, tools }: LinePropertiesProps) {
               {tools.map((tool) => (
                 <li key={tool.value} className="flex min-w-0 items-start gap-2">
                   <Wrench aria-hidden className={ICON} />
-                  <span className="min-w-0 break-words">
-                    {tool.called}
-                  </span>
+                  <span className="min-w-0 break-words">{tool.called}</span>
                 </li>
               ))}
             </ul>
