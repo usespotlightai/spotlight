@@ -85,7 +85,7 @@ const checkoutsAt = (
 const NOT_DEFERRED = {
   awaitingReview: false,
   deferredMoveTo: null,
-  takenOver: false,
+  onHold: false,
 } as const;
 
 const movesOnAfter = (candidate: LineMap, stationId: StationId): string[] =>

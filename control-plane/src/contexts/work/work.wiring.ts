@@ -165,7 +165,6 @@ import { ConnectEditorCommand } from '@work/application/commands/connect-editor.
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
 import { GrantRunAttachmentUploadCommand } from '@work/application/commands/grant-run-attachment-upload.command';
-import { HandBackTaskCommand } from '@work/application/commands/hand-back-task.command';
 import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
 import { AckMessagesHandler } from '@work/application/commands/handlers/ack-messages.handler';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
@@ -178,7 +177,6 @@ import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-ta
 import { DismissProposalHandler } from '@work/application/commands/handlers/dismiss-proposal.handler';
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantRunAttachmentUploadHandler } from '@work/application/commands/handlers/grant-run-attachment-upload.handler';
-import { HandBackTaskHandler } from '@work/application/commands/handlers/hand-back-task.handler';
 import { KeepTaskDraftHandler } from '@work/application/commands/handlers/keep-task-draft.handler';
 import { MarkChatReadHandler } from '@work/application/commands/handlers/mark-chat-read.handler';
 import { MarkConversationReadHandler } from '@work/application/commands/handlers/mark-conversation-read.handler';
@@ -193,12 +191,12 @@ import { ResolveChatHandler } from '@work/application/commands/handlers/resolve-
 import { ResolveConversationHandler } from '@work/application/commands/handlers/resolve-conversation.handler';
 import { ResolveInboxRequestHandler } from '@work/application/commands/handlers/resolve-inbox-request.handler';
 import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
+import { ResumeLineHandler } from '@work/application/commands/handlers/resume-line.handler';
 import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
 import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
-import { TakeOverTaskHandler } from '@work/application/commands/handlers/take-over-task.handler';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
 import { KeepTaskDraftCommand } from '@work/application/commands/keep-task-draft.command';
 import { MarkConversationReadCommand } from '@work/application/commands/mark-conversation-read.command';
@@ -211,9 +209,9 @@ import { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to
 import { ResolveConversationCommand } from '@work/application/commands/resolve-conversation.command';
 import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-inbox-request.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
+import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
-import { TakeOverTaskCommand } from '@work/application/commands/take-over-task.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
@@ -526,6 +524,7 @@ import { InboxRequests } from '@work/application/services/inbox-requests.service
 import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
+import { LineResuming } from '@work/application/services/line-resuming.service';
 import { MemberInboxes } from '@work/application/services/member-inboxes.service';
 import { NoteFiles } from '@work/application/services/note-files.service';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
@@ -739,6 +738,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: LineResuming,
+    inject: [TASK_PLACEMENTS, RUN_FACTS, DispatchTask, CLOCK],
+    useFactory: (
+      placements: TaskPlacementsPort,
+      facts: RunFactsPort,
+      dispatch: DispatchTask,
+      clock: ClockPort,
+    ) => new LineResuming(placements, facts, dispatch, clock),
+  },
+
+  {
     provide: RunRouting,
     inject: [TASK_PLACEMENTS, DispatchTask, CLOCK],
     useFactory: (
@@ -763,6 +773,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RunRouting,
       RUN_JOURNAL_READINGS,
       ResumeTaskRun,
+      LineResuming,
     ],
     useFactory: (
       turns: RunTurnsPort,
@@ -777,6 +788,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       routing: RunRouting,
       readings: RunJournalReadingsPort,
       resuming: ResumeTaskRun,
+      lineResuming: LineResuming,
     ) =>
       new TakeTurn(
         turns,
@@ -791,6 +803,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         routing,
         readings,
         resuming,
+        lineResuming,
       ),
   },
 
@@ -2380,6 +2393,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     FilesLoader,
     WorkAccess,
     DraftSending,
+    RUN_FACTS,
+    ID_GENERATOR,
   ]),
 
   ...bindCommandHandler(StopRunCommand, StopRunHandler, [
@@ -2402,28 +2417,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
     DispatchTask,
     CLOCK,
+    LineResuming,
   ]),
 
-  ...bindCommandHandler(TakeOverTaskCommand, TakeOverTaskHandler, [
+  ...bindCommandHandler(ResumeLineCommand, ResumeLineHandler, [
     TASK_REPOSITORY,
     LineLoader,
-    WorkAccess,
-    RUN_FACTS,
+    LineResuming,
     TRANSACTION,
-    DispatchTask,
-    ID_GENERATOR,
-    CLOCK,
-    PERSON_READER,
-  ]),
-
-  ...bindCommandHandler(HandBackTaskCommand, HandBackTaskHandler, [
-    TASK_REPOSITORY,
-    LineLoader,
-    TASK_PLACEMENTS,
-    RUN_FACTS,
-    TRANSACTION,
-    DispatchTask,
-    CLOCK,
     PERSON_READER,
   ]),
 

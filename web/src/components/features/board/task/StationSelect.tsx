@@ -17,9 +17,9 @@ import {
 } from '@/components/ui/tooltip';
 import { useCommands } from '@/hooks/useCommands';
 import { useMe } from '@/hooks/useMe';
-import type { StationResponseDto, TaskTakeoverResponseDto } from '@/lib/api';
+import type { StationResponseDto, TaskHoldResponseDto } from '@/lib/api';
+import { heldByOther, heldUntilResumed } from '@/lib/hold';
 import { stationShare } from '@/lib/station';
-import { heldUntilHandedBack } from '@/lib/takeover';
 import { movableByHand } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
@@ -33,7 +33,7 @@ type Station = {
 type StationSelectProps = {
   stations: readonly Station[];
   value: string;
-  held: TaskTakeoverResponseDto | null;
+  held: TaskHoldResponseDto | null;
   onChange: (stationId: string) => void;
 };
 
@@ -55,13 +55,14 @@ export function StationSelect({
     : [];
   const [open, setOpen] = useState(false);
   const me = useMe();
+  const locked = heldByOther(held, me?.id);
   useCommands(
     offered.length > 1
       ? [
           {
             id: 'task.station',
             run: () => setOpen(true),
-            enabled: () => !held,
+            enabled: () => !locked,
           },
         ]
       : [],
@@ -73,11 +74,11 @@ export function StationSelect({
         <TooltipTrigger
           render={
             <DropdownMenuTrigger
-              disabled={Boolean(held)}
+              disabled={Boolean(locked)}
               aria-label="Station"
               className={cn(
                 'group/station flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors data-[popup-open]:bg-accent',
-                !held && 'hover:bg-accent',
+                !locked && 'hover:bg-accent',
               )}
             />
           }
@@ -87,13 +88,13 @@ export function StationSelect({
             color={currentStation?.color}
             className={cn(
               'transition-[filter]',
-              !held && 'group-hover/station:brightness-90',
+              !locked && 'group-hover/station:brightness-90',
             )}
           />
           <span className="truncate text-foreground">
             {currentStation?.name}
           </span>
-          {!held && (
+          {!locked && (
             <ChevronsUpDown
               className="ml-auto size-3 shrink-0 text-muted-foreground"
               aria-hidden
@@ -101,10 +102,14 @@ export function StationSelect({
           )}
         </TooltipTrigger>
         <TooltipContent>
-          {held ? (
-            heldUntilHandedBack(held, me?.id)
+          {locked ? (
+            heldUntilResumed(locked, me?.id)
           ) : (
-            <ShortcutHint id="task.station">Move to a station</ShortcutHint>
+            <ShortcutHint id="task.station">
+              {held
+                ? 'Move to a station and resume the line'
+                : 'Move to a station'}
+            </ShortcutHint>
           )}
         </TooltipContent>
       </Tooltip>

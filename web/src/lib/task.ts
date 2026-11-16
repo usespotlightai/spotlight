@@ -38,19 +38,32 @@ export const createdOn = (createdAt: string): string => {
   });
 };
 
+type AtStation = { readonly id: string; readonly harness: string | null };
+
+const workedAt = (
+  currentStation: AtStation | undefined,
+  ranAt: string | undefined,
+): boolean => Boolean(currentStation?.harness && currentStation.id === ranAt);
+
 export const startsAgainOnMessage = (
   task: Task | undefined,
-  currentStation:
-    | { readonly id: string; readonly harness: string | null }
-    | undefined,
+  currentStation: AtStation | undefined,
   ranAt: string | undefined,
 ): boolean =>
   Boolean(
-    task &&
-    currentStation?.harness &&
-    currentStation.id === ranAt &&
+    task?.finished &&
+    workedAt(currentStation, ranAt) &&
     !task.progress &&
     !task.awaitingReview,
+  );
+
+export const holdsOnMessage = (
+  task: Task | undefined,
+  currentStation: AtStation | undefined,
+  ranAt: string | undefined,
+): boolean =>
+  Boolean(
+    task && !task.finished && !task.hold && workedAt(currentStation, ranAt),
   );
 
 type Placed = {
@@ -69,6 +82,7 @@ export const mayLand = (
   stations: readonly Placed[],
   task: Task,
   stationId: string,
+  viewerId: string | undefined,
 ): boolean => {
   const from = stations.find((each) => each.id === task.stationId);
   const to = stations.find((each) => each.id === stationId);
@@ -76,7 +90,9 @@ export const mayLand = (
   return Boolean(
     from &&
     to &&
-    (from.id === to.id || (!task.takeover && movableByHand(from, to))),
+    (from.id === to.id ||
+      ((!task.hold || task.hold.by.id === viewerId) &&
+        movableByHand(from, to))),
   );
 };
 
@@ -88,6 +104,7 @@ export const moveTargetFor = (
   stations: readonly Station[],
   tasks: readonly Task[],
   selected: readonly string[],
+  viewerId: string | undefined,
 ): MoveTarget | null => {
   const backlog = stations.find((each) => each.kind === 'backlog');
   const start = stations.find((each) => each.kind === 'work');
@@ -101,7 +118,7 @@ export const moveTargetFor = (
   const waiting = picked.every((each) => each.stationId === backlog.id);
   const station = waiting ? start : backlog;
 
-  if (!picked.every((each) => mayLand(stations, each, station.id))) {
+  if (!picked.every((each) => mayLand(stations, each, station.id, viewerId))) {
     return null;
   }
 

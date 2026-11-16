@@ -10,12 +10,13 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Takeover } from '@work/domain/entities/takeover.entity';
+import { Hold } from '@work/domain/entities/hold.entity';
 import {
   TaskNote,
   type TaskNoteForm,
   type TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
+import { LineResumed } from '@work/domain/events/line-resumed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
@@ -30,7 +31,7 @@ import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskDraftSent } from '@work/domain/events/task-draft-sent.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
-import { TaskHandedBack } from '@work/domain/events/task-handed-back.event';
+import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskMarkReleased } from '@work/domain/events/task-mark-released.event';
 import { TaskMarked } from '@work/domain/events/task-marked.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
@@ -45,7 +46,6 @@ import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { TaskRunEnded } from '@work/domain/events/task-run-ended.event';
 import { TaskSessionKept } from '@work/domain/events/task-session-kept.event';
-import { TaskTakenOver } from '@work/domain/events/task-taken-over.event';
 import { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.event';
 import { AssignedToAnotherPersonError } from '@work/domain/exceptions/assigned-to-another-person.error';
 import { DraftAlreadySentError } from '@work/domain/exceptions/draft-already-sent.error';
@@ -59,7 +59,7 @@ import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
-import { TaskTakenOverError } from '@work/domain/exceptions/task-taken-over.error';
+import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
 import {
@@ -97,10 +97,11 @@ import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { RunDriver } from '@work/domain/value-objects/dispatch-subject';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
-import type { HandBack } from '@work/domain/value-objects/hand-back';
-import { HandedBack } from '@work/domain/value-objects/handed-back.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
+import type { HoldEnd } from '@work/domain/value-objects/hold-end';
+import type { HoldId } from '@work/domain/value-objects/hold-id.vo';
+import type { HoldVerdict } from '@work/domain/value-objects/hold-verdict';
 import type { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
@@ -110,14 +111,13 @@ import type { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.
 import type { PullRequestStep } from '@work/domain/value-objects/pull-request-step';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
+import { Resumption } from '@work/domain/value-objects/resumption.vo';
 import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import {
   type ReviewedHead,
   ReviewedPullRequest,
 } from '@work/domain/value-objects/reviewed-pull-request.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
-import type { TakeoverId } from '@work/domain/value-objects/takeover-id.vo';
-import type { TakeoverVerdict } from '@work/domain/value-objects/takeover-verdict';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -159,7 +159,7 @@ export interface NewNote {
   readonly approval?: Approval | null;
   readonly failure?: TaskFailure | null;
   readonly connectionAsk?: ConnectionAsk | null;
-  readonly handedBack?: HandedBack | null;
+  readonly resumption?: Resumption | null;
 }
 
 export interface CurrentApproval {
@@ -212,7 +212,7 @@ export class Task extends EventRecorder {
     readonly answeredTurnAt: Date | null = null,
     readonly ownedPullRequests: readonly OwnedPullRequest[] = [],
     readonly moveHeldTo: StationId | null = null,
-    readonly takeovers: readonly Takeover[] = [],
+    readonly holds: readonly Hold[] = [],
   ) {
     super();
   }
@@ -322,7 +322,7 @@ export class Task extends EventRecorder {
     answeredTurnAt?: Date | null;
     ownedPullRequests?: readonly OwnedPullRequest[];
     moveHeldTo?: StationId | null;
-    takeovers?: readonly Takeover[];
+    holds?: readonly Hold[];
   }): Task {
     if (input.version < 0) {
       throw new InconsistentStateError('task', 'has a negative version');
@@ -376,20 +376,19 @@ export class Task extends EventRecorder {
       );
     }
 
-    const takeovers = input.takeovers ?? [];
-    const open = takeovers.filter((each) => each.open);
+    const holds = input.holds ?? [];
+    const open = holds.filter((each) => each.open);
 
     if (open.length > 1) {
-      throw new InconsistentStateError('task', 'has two open takeovers');
+      throw new InconsistentStateError('task', 'has two open holds');
     }
 
     if (
-      input.notes.filter((note) => note.form === 'took-over').length !==
-      takeovers.length
+      input.notes.filter((note) => note.form === 'held').length !== holds.length
     ) {
       throw new InconsistentStateError(
         'task',
-        'does not note each of its takeovers once',
+        'does not note each of its holds once',
       );
     }
 
@@ -399,7 +398,7 @@ export class Task extends EventRecorder {
     ) {
       throw new InconsistentStateError(
         'task',
-        'is taken over at a station it has left, or after it finished',
+        'is on hold at a station it has left, or after it finished',
       );
     }
 
@@ -408,14 +407,14 @@ export class Task extends EventRecorder {
     if (open[0] && running && !open[0].drives(running)) {
       throw new InconsistentStateError(
         'task',
-        'is taken over yet runs a line run',
+        'is on hold yet runs a line run',
       );
     }
 
     if (open[0] && !(input.assignee?.equals(open[0].by) ?? false)) {
       throw new InconsistentStateError(
         'task',
-        'is taken over by one person and assigned to another',
+        'is on hold for one person and assigned to another',
       );
     }
 
@@ -448,7 +447,7 @@ export class Task extends EventRecorder {
       input.answeredTurnAt ?? null,
       owned,
       input.moveHeldTo ?? null,
-      takeovers,
+      holds,
     );
 
     if (
@@ -486,14 +485,45 @@ export class Task extends EventRecorder {
     rank: TaskRank,
     newNote: NewNote,
     handMove: { mover: UserId },
+    turnHeads: readonly TurnHeads[] = [],
   ): Task {
-    this.assertNotTakenOver('move it');
+    const hold = this.openHold;
+
+    if (hold && !hold.by.equals(handMove.mover)) {
+      throw new TaskOnHoldError(this.id, hold.by);
+    }
+
+    if (hold && this.stationId.equals(to)) {
+      this.assertNotOnHold('move it within its station');
+    }
+
     this.assertHandMoveAllowed(line, to);
 
     const into = Task.stationOn(line, to);
-    const moved = this.relocated(line, to, rank, newNote, handMove).detachRun(
-      this.currentRunId,
-    );
+    const next: HoldEnd = into.isCompleted ? 'finish' : 'move-on';
+    const ending = hold
+      ? this.endedHold({
+          hold,
+          line,
+          next,
+          into,
+          summary: null,
+          verdict: null,
+          turnHeads,
+          voice: Voice.person(handMove.mover),
+          at: newNote.at,
+        })
+      : null;
+    const moved = ending
+      ? this.recordedResume(
+          ending.closed.relocated(line, to, rank, ending.newNote, handMove),
+          ending.ended,
+          next,
+          line,
+        )
+      : this.relocated(line, to, rank, newNote, handMove).detachRun(
+          this.currentRunId,
+        );
 
     moved.record(
       new TaskActedOn(
@@ -524,7 +554,7 @@ export class Task extends EventRecorder {
 
   movableByHappeningTo(line: LineMap, to: StationId): boolean {
     return (
-      !this.takenOver &&
+      !this.onHold &&
       (!this.running || line.completed.id.equals(to) || this.waitsOnAQuestion)
     );
   }
@@ -536,21 +566,21 @@ export class Task extends EventRecorder {
   }
 
   deferMove(line: LineMap, to: StationId, newNote: NewNote): Task {
-    const takeover = this.openTakeover;
+    const hold = this.openHold;
 
-    if (takeover && this.stationId.equals(to)) {
+    if (hold && this.stationId.equals(to)) {
       return this.heldAside(newNote);
     }
 
-    if (takeover) {
+    if (hold) {
       return this.heldAside({
         ...newNote,
-        body: TaskNoteBody.heldForTakeover(
+        body: TaskNoteBody.movesOnResume(
           Task.stationOn(line, to).name,
           newNote.body,
         ),
       }).with({
-        takeovers: this.replacedTakeover(takeover.holdingMoveTo(to)),
+        holds: this.replacedHold(hold.holdingMoveTo(to)),
       });
     }
 
@@ -653,7 +683,7 @@ export class Task extends EventRecorder {
     const into = Task.stationOn(line, to);
 
     this.assertNotAtStation(into.id);
-    this.assertNotTakenOver('move it');
+    this.assertNotOnHold('move it');
 
     const takesOwnership =
       handMove !== null &&
@@ -713,10 +743,14 @@ export class Task extends EventRecorder {
     rank: TaskRank,
     newNote: NewNote,
     handMove: { mover: UserId },
+    turnHeads: readonly TurnHeads[] = [],
   ): { readonly task: Task; readonly moved: boolean } {
     return this.stationId.equals(to)
       ? { task: this.reorderTo(rank), moved: false }
-      : { task: this.moveTo(line, to, rank, newNote, handMove), moved: true };
+      : {
+          task: this.moveTo(line, to, rank, newNote, handMove, turnHeads),
+          moved: true,
+        };
   }
 
   assignedOnOpening(candidates: OpeningCandidates, members: TeamMembers): Task {
@@ -791,11 +825,11 @@ export class Task extends EventRecorder {
   }
 
   private assignedTo(assignee: UserId | null): Task {
-    const takeover = this.openTakeover;
+    const hold = this.openHold;
 
-    if (takeover && !(assignee?.equals(takeover.by) ?? false)) {
+    if (hold && !(assignee?.equals(hold.by) ?? false)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is taken over by a person. It stays assigned to them until they hand it back to the line.`,
+        `Task ${this.id.value} is on hold. It stays assigned to the person who holds it until the line resumes.`,
       );
     }
 
@@ -1203,19 +1237,45 @@ export class Task extends EventRecorder {
       : this.noted(newNote, 'message');
   }
 
+  holdsOnMessage(
+    by: RunId,
+    voice: Voice,
+    at: StationId | null,
+    line: LineMap,
+  ): boolean {
+    return (
+      voice.isPerson &&
+      voice.author !== null &&
+      !this.onHold &&
+      !this.finished &&
+      at !== null &&
+      this.stationId.equals(at) &&
+      Boolean(line.stationAt(this.stationId)?.harness) &&
+      this.pendingAnswerTo(by, at) === null
+    );
+  }
+
+  private pendingAnswerTo(
+    by: RunId,
+    at: StationId | null,
+  ): Conversation | null {
+    const answering =
+      this.hasCurrentRun(by) ||
+      (!this.running && at !== null && this.stationId.equals(at));
+
+    return answering && !this.decisionPending ? this.pendingConversation : null;
+  }
+
   receiveMessage(
     by: RunId,
     newNote: NewNote,
     at: StationId | null,
     members: TeamMembers,
   ): Task {
-    const answering =
-      this.hasCurrentRun(by) ||
-      (!this.running && at !== null && this.stationId.equals(at));
-    const pending = answering ? this.pendingConversation : null;
+    const pending = this.pendingAnswerTo(by, at);
     const sender = newNote.voice.isPerson ? newNote.voice.author : null;
 
-    if (pending && !this.decisionPending && !this.holdsAside(newNote.voice)) {
+    if (pending && !this.holdsAside(newNote.voice)) {
       return sender
         ? this.answerAs(sender, members, pending.from, newNote)
         : this.answer(pending.from, newNote);
@@ -1223,7 +1283,7 @@ export class Task extends EventRecorder {
 
     const withMessage = this.addMessage(newNote, at);
 
-    if (sender && !this.running && !this.takenOver) {
+    if (sender && !this.running && !this.onHold) {
       withMessage.record(
         new TaskActedOn(
           this.id,
@@ -1449,7 +1509,7 @@ export class Task extends EventRecorder {
   }
 
   finishHere(by: RunId, line: LineMap, newNote: NewNote): Task {
-    this.assertNotTakenOver('finish it here');
+    this.assertNotOnHold('finish it here');
     this.assertNoOtherRun(by, 'finish it');
 
     if (!line.endsAt(this.stationId)) {
@@ -1490,12 +1550,10 @@ export class Task extends EventRecorder {
       );
     }
 
-    const takeover = this.openTakeover;
+    const hold = this.openHold;
     const assigned = this.with({
       currentRunId: runId,
-      ...(takeover
-        ? { takeovers: this.replacedTakeover(takeover.withTurn(runId)) }
-        : {}),
+      ...(hold ? { holds: this.replacedHold(hold.withTurn(runId)) } : {}),
     });
 
     assigned.record(new TaskRunAssigned(this.id, this.workspaceId, runId));
@@ -1504,49 +1562,49 @@ export class Task extends EventRecorder {
   }
 
   wantsRun(line: LineMap): boolean {
-    const takeover = this.openTakeover;
+    const hold = this.openHold;
 
     return (
       this.idle &&
       Boolean(line.stationAt(this.stationId)?.harness) &&
-      (takeover === null || this.hasMessageFrom(takeover.by))
+      (hold === null || this.hasMessageFrom(hold.by))
     );
   }
 
-  get openTakeover(): Takeover | null {
-    return this.takeovers.find((each) => each.open) ?? null;
+  get openHold(): Hold | null {
+    return this.holds.find((each) => each.open) ?? null;
   }
 
-  get takenOver(): boolean {
-    return this.openTakeover !== null;
+  get onHold(): boolean {
+    return this.openHold !== null;
   }
 
   drivenByAPerson(runId: RunId): boolean {
-    return this.takeovers.some((each) => each.drives(runId));
+    return this.holds.some((each) => each.drives(runId));
   }
 
   driverOf(runId: RunId): RunDriver {
     return this.drivenByAPerson(runId) ? 'person' : 'line';
   }
 
-  takeOver(input: {
-    id: TakeoverId;
+  hold(input: {
+    id: HoldId;
     by: UserId;
     members: TeamMembers;
     line: LineMap;
-    verdict: TakeoverVerdict | null;
+    verdict: HoldVerdict | null;
     currentRunStarted: boolean;
     at: Date;
   }): Task {
-    const open = this.openTakeover;
+    const open = this.openHold;
 
     if (open) {
-      throw new TaskTakenOverError(this.id, open.by);
+      throw new TaskOnHoldError(this.id, open.by);
     }
 
     if (this.finished) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has finished. It cannot be taken over.`,
+        `Task ${this.id.value} has finished. It cannot be put on hold.`,
       );
     }
 
@@ -1554,11 +1612,11 @@ export class Task extends EventRecorder {
 
     if (!station.harness) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is at ${station.name.value}, where no agent works. It cannot be taken over there.`,
+        `Task ${this.id.value} is at ${station.name.value}, where no agent works. It cannot be put on hold there.`,
       );
     }
 
-    const started = Takeover.start({
+    const started = Hold.start({
       id: input.id,
       by: input.by,
       stationId: this.stationId,
@@ -1567,27 +1625,27 @@ export class Task extends EventRecorder {
       at: input.at,
     });
     const held = this.deferredMoveTo;
-    const takenOver = this.assign(input.by, input.members)
+    const onHold = this.assign(input.by, input.members)
       .stopped(input.at)
       .noted(
         {
           line: input.line,
-          body: TaskNoteBody.tookOver(station.name),
+          body: TaskNoteBody.putOnHold(
+            station.name,
+            input.line.resumeOptionsAt(this.stationId),
+          ),
           at: input.at,
           voice: Voice.person(input.by),
-          form: 'took-over',
+          form: 'held',
         },
         'passed',
       )
       .with({
-        takeovers: [
-          ...this.takeovers,
-          held ? started.holdingMoveTo(held) : started,
-        ],
+        holds: [...this.holds, held ? started.holdingMoveTo(held) : started],
       });
 
-    takenOver.record(
-      new TaskTakenOver(
+    onHold.record(
+      new TaskHeld(
         this.id,
         this.workspaceId,
         input.line.teamId,
@@ -1600,54 +1658,96 @@ export class Task extends EventRecorder {
       ),
     );
 
-    return takenOver;
+    return onHold;
   }
 
-  handBack(input: {
+  resumeLine(input: {
     by: UserId;
     line: LineMap;
-    next: HandBack;
+    next: HoldEnd;
     to: StationId | null;
     rank: TaskRank | null;
-    verdict: TakeoverVerdict | null;
+    verdict: HoldVerdict | null;
     summary: string | null;
     turnHeads: readonly TurnHeads[];
     at: Date;
+    run?: RunId | null;
   }): Task {
-    const takeover = this.openTakeover;
+    const hold = this.openHold;
 
-    if (!takeover) {
+    if (!hold) {
       throw new InvalidTaskTransitionError(
-        'Nobody took over this task. There is nothing to hand back.',
+        `Task ${this.id.value} is not on hold. There is nothing to resume.`,
       );
     }
 
-    if (!takeover.by.equals(input.by)) {
-      throw new TaskTakenOverError(this.id, takeover.by);
+    if (!hold.by.equals(input.by)) {
+      throw new TaskOnHoldError(this.id, hold.by);
     }
 
     if (this.working) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has a turn in progress. Wait for it to end, or stop it, before you hand the task back.`,
+        `Task ${this.id.value} has a turn in progress. Wait for it to end, or stop it, before you resume the line.`,
       );
     }
 
+    const into = this.resumeDestination(input.line, input.next, input.to);
+    const ending = this.endedHold({
+      hold,
+      line: input.line,
+      next: input.next,
+      into,
+      summary: input.summary,
+      verdict: input.verdict,
+      turnHeads: input.turnHeads,
+      voice: input.run ? Voice.station(input.run) : Voice.person(input.by),
+      at: input.at,
+    });
+    const resumed = into
+      ? ending.closed.relocated(
+          input.line,
+          into.id,
+          this.rankFor(input.rank),
+          ending.newNote,
+          null,
+        )
+      : ending.closed
+          .withHeldNotesFor(hold)
+          .continuedAfter(input.line, ending.newNote, ending.held);
+
+    return this.recordedResume(resumed, ending.ended, input.next, input.line);
+  }
+
+  private endedHold(input: {
+    hold: Hold;
+    line: LineMap;
+    next: HoldEnd;
+    into: Station | null;
+    summary: string | null;
+    verdict: HoldVerdict | null;
+    turnHeads: readonly TurnHeads[];
+    voice: Voice;
+    at: Date;
+  }): { closed: Task; ended: Hold; newNote: NewNote; held: Station | null } {
     const here = Task.stationOn(input.line, this.stationId);
-    const into = this.handBackDestination(input.line, input.next, input.to);
-    const held = takeover.heldMove
-      ? (input.line.stationAt(takeover.heldMove) ?? null)
+    const held = input.hold.heldMove
+      ? (input.line.stationAt(input.hold.heldMove) ?? null)
       : null;
-    const ended = takeover.ended({
-      handBack: input.next,
-      verdict: input.verdict ?? takeover.verdict,
+    const ended = input.hold.ended({
+      end: input.next,
+      verdict: input.verdict ?? input.hold.verdict,
       turnHeads: input.turnHeads,
       at: input.at,
     });
+    const summary = input.summary?.trim() || null;
     const newNote: NewNote = {
       line: input.line,
-      body: TaskNoteBody.handedBack({
+      body: TaskNoteBody.resumed({
         at: here.name,
-        into: into && { name: into.name, completed: into.isCompleted },
+        into: input.into && {
+          name: input.into.name,
+          completed: input.into.isCompleted,
+        },
         held: held?.name ?? null,
         changes: ended.toHeads.flatMap((to) => {
           const from = ended.fromHeads.find((each) => each.path === to.path);
@@ -1656,35 +1756,35 @@ export class Task extends EventRecorder {
             ? [{ path: to.path, from: from.commit, to: to.commit }]
             : [];
         }),
-        summary: input.summary?.trim() || null,
+        summary,
       }),
       at: input.at,
-      voice: Voice.person(input.by),
-      form: 'handed-back',
-      handedBack: HandedBack.to({ here, into, summary: input.summary }),
+      voice: input.voice,
+      form: 'resumed',
+      resumption: Resumption.to({ here, into: input.into, summary }),
     };
-    const closed = this.withTookOverNoteAcknowledged(input.at)
+    const closed = this.withHeldNoteAcknowledged(input.at)
       .stopped(input.at)
-      .with({ takeovers: this.replacedTakeover(ended) });
-    const handedBack = into
-      ? closed.relocated(
-          input.line,
-          into.id,
-          this.rankFor(input.rank),
-          newNote,
-          null,
-        )
-      : closed
-          .withHeldNotesFor(takeover)
-          .continuedAfter(input.line, newNote, held);
+      .with({ holds: this.replacedHold(ended) });
+
+    return { closed, ended, newNote, held };
+  }
+
+  private recordedResume(
+    resumed: Task,
+    ended: Hold,
+    next: HoldEnd,
+    line: LineMap,
+  ): Task {
+    const at = ended.endedAt ?? ended.startedAt;
 
     if (ended.verdict === 'not-right' && ended.from) {
-      handedBack.record(
+      resumed.record(
         new TaskActedOn(
           this.id,
           this.workspaceId,
           this.stationId,
-          'taken-over',
+          'held',
           ended.by,
           ended.from,
           ended.startedAt,
@@ -1692,35 +1792,35 @@ export class Task extends EventRecorder {
       );
     }
 
-    handedBack.record(
-      new TaskHandedBack(
+    resumed.record(
+      new LineResumed(
         this.id,
         this.workspaceId,
-        input.line.teamId,
+        line.teamId,
         ended.id,
         this.stationId,
-        input.by,
+        ended.by,
         ended.from,
         ended.verdict,
-        input.next,
+        next,
         ended.turns,
         ended.fromHeads,
         ended.toHeads,
         ended.startedAt,
-        input.at,
+        at,
       ),
     );
 
-    return handedBack;
+    return resumed;
   }
 
-  handBackDestination(
+  resumeDestination(
     line: LineMap,
-    next: HandBack,
+    next: HoldEnd,
     to: StationId | null,
   ): Station | null {
     if (next === 'continue') {
-      const held = this.openTakeover?.heldMove;
+      const held = this.openHold?.heldMove;
 
       return held && line.completed.id.equals(held) ? line.completed : null;
     }
@@ -1767,7 +1867,7 @@ export class Task extends EventRecorder {
       ? continued.noted(
           {
             line,
-            body: TaskNoteBody.movesAfterTakeover(to.name),
+            body: TaskNoteBody.movesAfterHold(to.name),
             at: newNote.at,
             voice: Voice.world(),
           },
@@ -1777,53 +1877,50 @@ export class Task extends EventRecorder {
       : continued;
   }
 
-  private get tookOverAt(): NotePosition | null {
+  private get heldAt(): NotePosition | null {
     return (
-      [...this.notes].reverse().find((note) => note.form === 'took-over')
+      [...this.notes].reverse().find((note) => note.form === 'held')
         ?.position ?? null
     );
   }
 
-  private withTookOverNoteAcknowledged(at: Date): Task {
-    const tookOver = this.tookOverAt;
+  private withHeldNoteAcknowledged(at: Date): Task {
+    const putOnHold = this.heldAt;
 
     return this.with({
       notes: this.notes.map((note) =>
-        tookOver && note.position.equals(tookOver)
+        putOnHold && note.position.equals(putOnHold)
           ? note.acknowledge(at)
           : note,
       ),
     });
   }
 
-  private heldAsideBy(takeover: Takeover, note: TaskNote): boolean {
-    const tookOver = this.tookOverAt;
+  private heldAsideBy(hold: Hold, note: TaskNote): boolean {
+    const putOnHold = this.heldAt;
 
     return (
-      tookOver !== null &&
-      note.position.value > tookOver.value &&
+      putOnHold !== null &&
+      note.position.value > putOnHold.value &&
       !note.voice.isStation &&
-      !(
-        note.voice.isPerson &&
-        (note.voice.author?.equals(takeover.by) ?? false)
-      )
+      !(note.voice.isPerson && (note.voice.author?.equals(hold.by) ?? false))
     );
   }
 
-  private withHeldNotesFor(takeover: Takeover): Task {
+  private withHeldNotesFor(hold: Hold): Task {
     return this.with({
       notes: this.notes.map((note) =>
-        this.heldAsideBy(takeover, note) ? note.heldForTheAgent() : note,
+        this.heldAsideBy(hold, note) ? note.heldForTheAgent() : note,
       ),
     });
   }
 
   private holdsAside(voice: Voice): boolean {
-    const takeover = this.openTakeover;
+    const hold = this.openHold;
 
     return (
-      takeover !== null &&
-      !(voice.isPerson && (voice.author?.equals(takeover.by) ?? false))
+      hold !== null &&
+      !(voice.isPerson && (voice.author?.equals(hold.by) ?? false))
     );
   }
 
@@ -1837,15 +1934,15 @@ export class Task extends EventRecorder {
   }
 
   private lastLineRun(currentRunStarted: boolean): RunId | null {
-    const tookOver = this.notes.filter((note) => note.form === 'took-over');
+    const putOnHold = this.notes.filter((note) => note.form === 'held');
     const newest = [...this.notes].reverse();
     const elsewhere = newest.findIndex(
       (note) => !note.stationId.equals(this.stationId),
     );
     const visit = elsewhere === -1 ? newest : newest.slice(0, elsewhere);
     const ranHere = visit.map((note) =>
-      note.form === 'took-over'
-        ? (this.takeovers[tookOver.indexOf(note)]?.from ?? null)
+      note.form === 'held'
+        ? (this.holds[putOnHold.indexOf(note)]?.from ?? null)
         : note.voice.run,
     );
     const current = currentRunStarted ? this.currentRunId : null;
@@ -1853,11 +1950,11 @@ export class Task extends EventRecorder {
       (each): each is RunId => each !== null && !this.drivenByAPerson(each),
     );
 
-    return last && !this.labelledByATakeover(last) ? last : null;
+    return last && !this.labelledByAHold(last) ? last : null;
   }
 
-  private labelledByATakeover(runId: RunId): boolean {
-    return this.takeovers.some(
+  private labelledByAHold(runId: RunId): boolean {
+    return this.holds.some(
       (each) =>
         !each.open &&
         each.verdict === 'not-right' &&
@@ -1865,10 +1962,8 @@ export class Task extends EventRecorder {
     );
   }
 
-  private replacedTakeover(changed: Takeover): readonly Takeover[] {
-    return this.takeovers.map((each) =>
-      each.equals(changed) ? changed : each,
-    );
+  private replacedHold(changed: Hold): readonly Hold[] {
+    return this.holds.map((each) => (each.equals(changed) ? changed : each));
   }
 
   private heldAside(newNote: NewNote): Task {
@@ -1887,15 +1982,15 @@ export class Task extends EventRecorder {
   private assertDrivenBy(voice: Voice, doing: string): void {
     if (this.holdsAside(voice)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is taken over by a person. Only they can ${doing} until they hand it back to the line.`,
+        `Task ${this.id.value} is on hold. Only the person who holds it can ${doing} until the line resumes.`,
       );
     }
   }
 
-  private assertNotTakenOver(doing: string): void {
-    if (this.takenOver) {
+  private assertNotOnHold(doing: string): void {
+    if (this.onHold) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is taken over by a person. Hand it back to the line before you ${doing}.`,
+        `Task ${this.id.value} is on hold. Resume the line before you ${doing}.`,
       );
     }
   }
@@ -2057,7 +2152,7 @@ export class Task extends EventRecorder {
   }
 
   briefedOn(line: LineMap): BriefedTask {
-    const takeover = this.openTakeover;
+    const hold = this.openHold;
 
     return BriefedTask.of({
       stationId: this.stationId,
@@ -2066,7 +2161,7 @@ export class Task extends EventRecorder {
       reviewing: this.reviewedHead?.repository ?? null,
       attachments: this.attachments,
       notes: this.notes
-        .filter((note) => !takeover || !this.heldAsideBy(takeover, note))
+        .filter((note) => !hold || !this.heldAsideBy(hold, note))
         .map((note) => ({
           station: note.station?.value ?? null,
           body: note.toldOn(line).value,
@@ -2298,7 +2393,7 @@ export class Task extends EventRecorder {
       this.assertNoOtherRun(by, 'report a failure of it');
     }
 
-    if (!by && this.takenOver) {
+    if (!by && this.onHold) {
       const following = failure.following(this.openFailure?.failure ?? null);
 
       return this.heldAside({
@@ -2566,7 +2661,7 @@ export class Task extends EventRecorder {
       'answered',
     );
     const acknowledged =
-      noted.running || noted.takenOver
+      noted.running || noted.onHold
         ? noted
         : noted.acknowledgeNotesAt(newNote.at);
     const answered =
@@ -2585,7 +2680,7 @@ export class Task extends EventRecorder {
       );
     }
 
-    if (by && newNote.voice.isPerson && !this.takenOver) {
+    if (by && newNote.voice.isPerson && !this.onHold) {
       answered.record(
         new TaskActedOn(
           this.id,
@@ -2743,7 +2838,7 @@ export class Task extends EventRecorder {
     answeredTurnAt?: Date | null;
     ownedPullRequests?: readonly OwnedPullRequest[];
     moveHeldTo?: StationId | null;
-    takeovers?: readonly Takeover[];
+    holds?: readonly Hold[];
   }): Task {
     const next = new Task(
       this.id,
@@ -2778,7 +2873,7 @@ export class Task extends EventRecorder {
         : this.answeredTurnAt,
       part.ownedPullRequests ?? this.ownedPullRequests,
       part.moveHeldTo !== undefined ? part.moveHeldTo : this.moveHeldTo,
-      part.takeovers ?? this.takeovers,
+      part.holds ?? this.holds,
     );
 
     next.inheritEvents(this);

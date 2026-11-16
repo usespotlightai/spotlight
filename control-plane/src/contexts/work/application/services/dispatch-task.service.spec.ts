@@ -59,6 +59,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   lineMapOf,
   type RepositorySpec,
@@ -70,7 +71,6 @@ import {
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
-import { TakeoverId } from '@work/domain/value-objects/takeover-id.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -798,8 +798,8 @@ describe('DispatchTask', () => {
     const station = stations[1];
     const line = lineWith(station);
     const taken = task(station.id.value)
-      .takeOver({
-        id: TakeoverId.of('takeover_1'),
+      .hold({
+        id: HoldId.of('hold_1'),
         by: leon,
         members: TeamMembers.of([leon]),
         line,

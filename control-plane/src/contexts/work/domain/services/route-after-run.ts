@@ -28,9 +28,9 @@ const failureOf = (handover: ResolvedHandover): TaskFailure | null =>
 export const routeAfterRun = (
   handover: ResolvedHandover,
   line: LineMap | null,
-  task: Pick<Task, 'awaitingReview' | 'deferredMoveTo' | 'takenOver'>,
+  task: Pick<Task, 'awaitingReview' | 'deferredMoveTo' | 'onHold'>,
 ): RunRouting => {
-  if (task.takenOver) {
+  if (task.onHold) {
     return task.awaitingReview
       ? { kind: 'detach', failure: failureOf(handover) }
       : { kind: 'ask', failure: failureOf(handover) };

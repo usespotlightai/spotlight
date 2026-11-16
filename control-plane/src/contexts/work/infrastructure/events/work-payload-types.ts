@@ -15,6 +15,7 @@ import { InboxRequestMarkedRead } from '@work/domain/events/inbox-request-marked
 import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
 import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
+import { LineResumed } from '@work/domain/events/line-resumed.event';
 import { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import { NoticeResolved } from '@work/domain/events/notice-resolved.event';
@@ -37,7 +38,7 @@ import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskDraftSent } from '@work/domain/events/task-draft-sent.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
-import { TaskHandedBack } from '@work/domain/events/task-handed-back.event';
+import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskMarkReleased } from '@work/domain/events/task-mark-released.event';
 import { TaskMarked } from '@work/domain/events/task-marked.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
@@ -53,7 +54,6 @@ import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { TaskRunEnded } from '@work/domain/events/task-run-ended.event';
 import { TaskSessionKept } from '@work/domain/events/task-session-kept.event';
-import { TaskTakenOver } from '@work/domain/events/task-taken-over.event';
 import { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.event';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
@@ -87,7 +87,6 @@ import { DiffSide } from '@work/domain/value-objects/diff-side.vo';
 import { DispatchEnding } from '@work/domain/value-objects/dispatch-ending.vo';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
-import { HandedBack } from '@work/domain/value-objects/handed-back.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
@@ -95,6 +94,7 @@ import { HarnessPermission } from '@work/domain/value-objects/harness-permission
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
 import { HistoryAccess } from '@work/domain/value-objects/history-access.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
@@ -118,6 +118,7 @@ import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
+import { Resumption } from '@work/domain/value-objects/resumption.vo';
 import { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
@@ -127,7 +128,6 @@ import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { Station } from '@work/domain/value-objects/station.vo';
-import { TakeoverId } from '@work/domain/value-objects/takeover-id.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
@@ -177,7 +177,7 @@ export const WORK_PAYLOAD_TYPES = [
   HarnessPermission,
   ProfileMissing,
   HandoverOption,
-  HandedBack,
+  Resumption,
   HarnessSession,
   TargetStation,
   DeferredMove,
@@ -276,10 +276,10 @@ export const WORK_PAYLOAD_TYPES = [
   TaskTurnAwaited,
   TaskPassed,
   TaskActedOn,
-  TaskTakenOver,
-  TaskHandedBack,
+  TaskHeld,
+  LineResumed,
   CheckoutHead,
-  TakeoverId,
+  HoldId,
   TurnHeads,
   TaskAnswered,
   TaskAsked,

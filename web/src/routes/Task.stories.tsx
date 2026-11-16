@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { EDITOR_NAMES, type EditorApp } from '@/lib/editor';
+import { onHoldBy } from '@/mocks/world/holds';
 import { MAYA, SAM } from '@/mocks/world/people';
-import { takenOverBy } from '@/mocks/world/takeovers';
 import { choice, type PageArgs, pageStory } from '@/stories/application';
 
 type TaskArgs = {
@@ -13,7 +13,7 @@ type TaskArgs = {
     | 'task_latency';
   readonly preferred: EditorApp;
   readonly editor: 'closed' | 'menu' | 'setup';
-  readonly takeover: 'none' | 'taken' | 'yours';
+  readonly hold: 'none' | 'taken' | 'yours';
 };
 
 const TEAM = 'team_platform';
@@ -27,7 +27,7 @@ const meta = {
       task: 'task_retries',
       preferred: 'vscode',
       editor: 'closed',
-      takeover: 'none',
+      hold: 'none',
     },
     argTypes: {
       task: choice('Task', {
@@ -42,21 +42,21 @@ const meta = {
         menu: 'Editor menu open',
         setup: 'The editor did not open',
       }),
-      takeover: choice('Takeover', {
-        none: 'Not taken over',
-        taken: 'Taken over by someone else',
-        yours: 'Taken over by you',
+      hold: choice('Hold', {
+        none: 'Not on hold',
+        taken: 'On hold by someone else',
+        yours: 'On hold by you',
       }),
     },
-    world: ({ preferred, task, takeover }) => {
+    world: ({ preferred, task, hold }) => {
       try {
         localStorage.setItem('spotlight.editor-app', preferred);
       } catch {}
-      if (takeover === 'taken') {
-        takenOverBy(TEAM, task, MAYA);
+      if (hold === 'taken') {
+        onHoldBy(TEAM, task, MAYA);
       }
-      if (takeover === 'yours') {
-        takenOverBy(TEAM, task, SAM);
+      if (hold === 'yours') {
+        onHoldBy(TEAM, task, SAM);
       }
     },
     script: ({ editor, preferred }) => {
@@ -106,10 +106,10 @@ export const FromAnIntegration: StoryObj<typeof meta> = {
   args: { task: 'task_latency' },
 };
 
-export const TakenOver: StoryObj<typeof meta> = {
-  args: { takeover: 'taken' },
+export const Held: StoryObj<typeof meta> = {
+  args: { hold: 'taken' },
 };
 
-export const TakenOverByYou: StoryObj<typeof meta> = {
-  args: { takeover: 'yours' },
+export const HeldByYou: StoryObj<typeof meta> = {
+  args: { hold: 'yours' },
 };

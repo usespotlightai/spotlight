@@ -284,7 +284,7 @@ export class TaskRunResponseDto {
     enum: RUN_DRIVER_NAMES,
     example: 'line',
     description:
-      'Who drove it: the line, or a person who took the task over, one turn per run',
+      'Who drove it: the line, or a person who put the task on hold, one turn per run',
   })
   readonly driver: string;
 

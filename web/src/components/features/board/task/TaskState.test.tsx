@@ -27,12 +27,12 @@ const renderIn = (ui: ReactElement) =>
   render(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe('TaskState', () => {
-  it('says a person has taken the task over, before anything else', () => {
+  it('says a person put the task on hold, before anything else', () => {
     renderIn(
       <TaskState
         task={task({
           progress: 'in-progress',
-          takeover: {
+          hold: {
             by: { id: 'user_2', name: 'Maya', image: null },
             verdict: 'not-right',
             startedAt: '2026-08-28T10:00:00.000Z',
@@ -43,7 +43,7 @@ describe('TaskState', () => {
       />,
     );
 
-    expect(screen.getByText('Taken over')).toBeInTheDocument();
+    expect(screen.getByText('On hold')).toBeInTheDocument();
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
   });
 

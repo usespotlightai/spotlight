@@ -16,6 +16,7 @@ import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
+import { LineResumed } from '@work/domain/events/line-resumed.event';
 import { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
@@ -23,11 +24,10 @@ import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
-import { TaskHandedBack } from '@work/domain/events/task-handed-back.event';
+import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
-import { TaskTakenOver } from '@work/domain/events/task-taken-over.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -36,9 +36,9 @@ import {
   DispatchEnding,
   type DispatchOutcome,
 } from '@work/domain/value-objects/dispatch-ending.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
-import { TakeoverId } from '@work/domain/value-objects/takeover-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -364,11 +364,11 @@ describe('WORK_EVENT_MAPPERS', () => {
   it('publishes who took a task over, where and from which run', () => {
     expect(
       published(
-        new TaskTakenOver(
+        new TaskHeld(
           TASK,
           WORKSPACE,
           TeamId.of('team_1'),
-          TakeoverId.of('takeover_1'),
+          HoldId.of('hold_1'),
           StationId.of('station_1'),
           UserId.of('user_1'),
           RUN,
@@ -378,11 +378,11 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'work.task-taken-over.v1',
+        kind: 'work.task-held.v1',
         taskId: 'task_1',
         workspaceId: 'ws_1',
         teamId: 'team_1',
-        takeoverId: 'takeover_1',
+        holdId: 'hold_1',
         stationId: 'station_1',
         by: 'user_1',
         fromRunId: 'run_1',
@@ -398,11 +398,11 @@ describe('WORK_EVENT_MAPPERS', () => {
 
     expect(
       published(
-        new TaskHandedBack(
+        new LineResumed(
           TASK,
           WORKSPACE,
           TeamId.of('team_1'),
-          TakeoverId.of('takeover_1'),
+          HoldId.of('hold_1'),
           StationId.of('station_1'),
           UserId.of('user_1'),
           null,
@@ -417,9 +417,9 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       expect.objectContaining({
-        kind: 'work.task-handed-back.v1',
+        kind: 'work.line-resumed.v1',
         fromRunId: null,
-        handBack: 'move-on',
+        end: 'move-on',
         turnRunIds: ['run_turn'],
         fromHeads: [{ path: '/workspace/app', commit: 'a'.repeat(40) }],
         toHeads: [{ path: '/workspace/app', commit: 'b'.repeat(40) }],

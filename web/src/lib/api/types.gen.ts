@@ -2771,13 +2771,13 @@ export type InboxConnectionResponseDto = {
   met: boolean;
 };
 
-export type NoteHandBackResponseDto = {
+export type NoteResumptionResponseDto = {
   /**
    * Where the task went: it runs again at its station, it moved on to another station, or it is completed
    */
   next: 'continue' | 'move-on' | 'finish';
   /**
-   * The station the task is at after the hand-back: the same station, the next one, or the completed one
+   * The station the task is at after the resume: the same station, the next one, or the completed one
    */
   station: string;
   /**
@@ -2792,7 +2792,7 @@ export type NoteResponseDto = {
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup' | 'resolved' | 'approval' | 'decision' | 'failure' | 'connection' | 'took-over' | 'handed-back';
+  form: 'words' | 'setup' | 'resolved' | 'approval' | 'decision' | 'failure' | 'connection' | 'held' | 'resumed';
   /**
    * Who wrote it: the station, a person, or the world outside it
    */
@@ -2844,7 +2844,7 @@ export type NoteResponseDto = {
   /**
    * How a person handed the task back to the line, where the note says so
    */
-  handBack: NoteHandBackResponseDto | null;
+  resumption: NoteResumptionResponseDto | null;
 };
 
 export type InboxItemResponseDto = {
@@ -3241,23 +3241,23 @@ export type TaskNoteResponseDto = {
 };
 
 /**
- * not-right where the person took over because the line got it wrong; exploring where they only try something out
+ * not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out
  */
-export type TakeoverVerdict = 'not-right' | 'exploring';
+export type HoldVerdict = 'not-right' | 'exploring';
 
-export type TaskTakeoverResponseDto = {
+export type TaskHoldResponseDto = {
   by: TaskPersonResponseDto;
   /**
-   * not-right where the person took over because the line got it wrong; exploring where they only try something out
+   * not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out
    */
-  verdict: TakeoverVerdict;
+  verdict: HoldVerdict;
   startedAt: string;
   /**
    * The run of the last turn, where the person talks to the agent
    */
   runId: string | null;
   /**
-   * The station an event asked to move the task to while the person had it. The task moves there when they hand it back to its station.
+   * The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station.
    */
   heldMoveTo: string | null;
 };
@@ -3288,6 +3288,10 @@ export type TaskResponseDto = {
    */
   awaitingReview: TaskReviewResponseDto | null;
   /**
+   * Whether the line finished the task. A message to a finished task sends it back to its station.
+   */
+  finished: boolean;
+  /**
    * The pull requests this task ended in, one for each repository, the first opened first
    */
   pullRequests: Array<string>;
@@ -3310,7 +3314,7 @@ export type TaskResponseDto = {
   /**
    * The person who drives the task at its station in place of the line, or null where the line drives it
    */
-  takeover: TaskTakeoverResponseDto | null;
+  hold: TaskHoldResponseDto | null;
 };
 
 export type TaskPageResponseDto = {
@@ -3365,7 +3369,7 @@ export type TeamRunResponseDto = {
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
   /**
-   * Who drove it: the line, or a person who took the task over, one turn per run
+   * Who drove it: the line, or a person who put the task on hold, one turn per run
    */
   driver: 'line' | 'person';
   taskId: string | null;
@@ -3522,7 +3526,7 @@ export type TaskRunResponseDto = {
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
   /**
-   * Who drove it: the line, or a person who took the task over, one turn per run
+   * Who drove it: the line, or a person who put the task on hold, one turn per run
    */
   driver: 'line' | 'person';
 };
@@ -3561,35 +3565,24 @@ export type AssignTaskRequestDto = {
   assigneeId: string | null;
 };
 
-export type TakeOverTaskRequestDto = {
-  /**
-   * not-right where the line got it wrong, which counts against its last run; exploring where you only try something out
-   */
-  verdict?: TakeoverVerdict;
-  /**
-   * The first message to the agent. It starts the first turn.
-   */
-  body?: string;
-};
-
 /**
  * continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line.
  */
-export type HandBack = 'continue' | 'move-on' | 'finish';
+export type HoldEnd = 'continue' | 'move-on' | 'finish';
 
-export type HandBackTaskRequestDto = {
+export type ResumeLineRequestDto = {
   /**
    * continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line.
    */
-  next: HandBack;
+  next: HoldEnd;
   /**
    * With move-on: a station the task’s station passes work to
    */
   stationId?: string;
   /**
-   * Changes the verdict given when the takeover started
+   * Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
    */
-  verdict?: TakeoverVerdict;
+  verdict?: HoldVerdict;
   /**
    * What the station agent and the record should know
    */
@@ -5672,7 +5665,7 @@ export type StationRunUsageResponseDto = {
 };
 
 export type HumanActionResponseDto = {
-  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'taken-over';
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'held';
   at: string;
 };
 
@@ -6231,7 +6224,7 @@ export type RunHumanOutcomeResponseDto = {
   /**
    * What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task
    */
-  source: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'taken-over';
+  source: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'held';
   /**
    * Whether people found the run good
    */
@@ -8369,7 +8362,7 @@ export type JudgeDisagreementResponseDto = {
   /**
    * What gave the human outcome that disagrees with the judge
    */
-  labelFrom: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'taken-over';
+  labelFrom: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'held';
   openedAt: string;
   claims: Array<DisagreementClaimResponseDto>;
   /**
@@ -16443,17 +16436,17 @@ export type AssignTaskResponses = {
 
 export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
 
-export type TakeOverTaskData = {
-  body: TakeOverTaskRequestDto;
+export type ResumeLineData = {
+  body: ResumeLineRequestDto;
   path: {
     teamId: string;
     taskId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/tasks/{taskId}/takeover';
+  url: '/teams/{teamId}/tasks/{taskId}/resume';
 };
 
-export type TakeOverTaskErrors = {
+export type ResumeLineErrors = {
   /**
    * No valid session
    */
@@ -16467,51 +16460,16 @@ export type TakeOverTaskErrors = {
    */
   404: unknown;
   /**
-   * The task is already taken over, has finished, or is at a station where no agent works
+   * The task is not on hold, someone else put it on hold, or it cannot move on to that station
    */
   409: unknown;
 };
 
-export type TakeOverTaskResponses = {
+export type ResumeLineResponses = {
   200: TaskResponseDto;
 };
 
-export type TakeOverTaskResponse = TakeOverTaskResponses[keyof TakeOverTaskResponses];
-
-export type HandBackTaskData = {
-  body: HandBackTaskRequestDto;
-  path: {
-    teamId: string;
-    taskId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/tasks/{taskId}/takeover/end';
-};
-
-export type HandBackTaskErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * The caller is not a member of the team, nor a workspace admin
-   */
-  403: unknown;
-  /**
-   * No such task for this caller
-   */
-  404: unknown;
-  /**
-   * The task is not taken over, or cannot move on to that station
-   */
-  409: unknown;
-};
-
-export type HandBackTaskResponses = {
-  200: TaskResponseDto;
-};
-
-export type HandBackTaskResponse = HandBackTaskResponses[keyof HandBackTaskResponses];
+export type ResumeLineResponse = ResumeLineResponses[keyof ResumeLineResponses];
 
 export type ListChatsData = {
   body?: never;
@@ -20878,7 +20836,7 @@ export type ListInsightsTracesData = {
     /**
      * Only runs that a person acted on first in this way
      */
-    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'taken-over';
+    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'held';
     /**
      * Only runs of tasks whose pull request has this status
      */

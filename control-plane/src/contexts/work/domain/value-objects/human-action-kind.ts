@@ -6,7 +6,7 @@ const HUMAN_ACTION_KINDS = [
   'approved',
   'dismissed',
   'sent-back',
-  'taken-over',
+  'held',
 ] as const;
 
 export type HumanActionKind = (typeof HUMAN_ACTION_KINDS)[number];

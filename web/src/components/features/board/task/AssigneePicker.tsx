@@ -19,7 +19,7 @@ import { useAssignTask } from '@/hooks/api/useAssignTask';
 import { useMembers } from '@/hooks/api/useMembers';
 import { useCommands } from '@/hooks/useCommands';
 import { useMe } from '@/hooks/useMe';
-import { heldUntilHandedBack } from '@/lib/takeover';
+import { heldUntilResumed } from '@/lib/hold';
 import type { Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
@@ -75,14 +75,14 @@ export function AssigneePicker({
   const { data: members } = useMembers(teamId);
   const { mutate } = useAssignTask();
   const [open, setOpen] = useState(false);
-  const held = task.takeover;
+  const held = task.hold;
   const me = useMe();
   useCommands([
     { id: 'task.assign', run: () => setOpen(true), enabled: () => !held },
   ]);
 
   const assignee = task.assignee;
-  const heldFor = held ? heldUntilHandedBack(held, me?.id) : null;
+  const heldFor = held ? heldUntilResumed(held, me?.id) : null;
   const label = assignee ? `Assigned to ${assignee.name}` : 'Assign this task';
 
   const assign = (person: Person | null) =>

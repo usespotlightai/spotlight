@@ -192,7 +192,7 @@ const NOTE_COLUMNS = {
   approval: taskNote.approval,
   failure: taskNote.failure,
   connectionAsk: taskNote.connectionAsk,
-  handedBack: taskNote.handedBack,
+  resumption: taskNote.resumption,
 };
 
 type NoteRow = Pick<
@@ -214,7 +214,7 @@ type NoteRow = Pick<
   | 'approval'
   | 'failure'
   | 'connectionAsk'
-  | 'handedBack'
+  | 'resumption'
 > & {
   readonly stationColor: string | null;
   readonly stationPosition: number | null;
@@ -316,7 +316,7 @@ const inboxNotesOf = async (
       approval: approvalOf(row.approval, authors),
       failure: failed(row.failure),
       connection: connecting(row.connectionAsk, authors),
-      handBack: row.handedBack,
+      resumption: row.resumption,
     };
   });
 };

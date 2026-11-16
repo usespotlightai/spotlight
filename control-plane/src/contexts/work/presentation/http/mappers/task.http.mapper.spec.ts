@@ -14,6 +14,7 @@ const dto: TaskDto = {
   createdAt: '2026-08-28T09:15:00.000Z',
   progress: 'in-progress',
   awaitingReview: null,
+  finished: false,
   pullRequests: [],
   createdBy: { id: 'user_1', name: 'Ada', image: null },
   assignee: null,
@@ -23,7 +24,7 @@ const dto: TaskDto = {
     body: 'The run did not finish after 3 attempts.',
   },
   source: 'linear',
-  takeover: null,
+  hold: null,
 };
 
 describe('TaskHttpMapper', () => {

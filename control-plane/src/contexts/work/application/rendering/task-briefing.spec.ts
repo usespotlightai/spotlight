@@ -192,8 +192,10 @@ describe('TaskBriefing', () => {
     );
   });
 
-  it('puts the person who took the task over in place of the station’s instructions and its handover', () => {
-    const station = at('station_1', 'Triage', 0, '## Role\n\nSort it.');
+  it('puts the person who holds the task in place of the station’s instructions, with the handovers that resume the line', () => {
+    const station = at('station_1', 'Triage', 0, '## Role\n\nSort it.', [
+      'station_2',
+    ]);
     const line = lineOf(station, at('station_2', 'Spec', 1));
     const briefing = TaskBriefing.brief({
       task: task('station_1').briefedOn(line).withDecisions([]),
@@ -208,7 +210,10 @@ describe('TaskBriefing', () => {
 
     expect(briefing).toContain('## A person drives this session');
     expect(briefing).not.toContain('Sort it.');
-    expect(briefing).not.toContain('spotlight handover --next');
+    expect(briefing).not.toContain('## When you are done');
+    expect(briefing).toContain('`"triage"`: Triage continues the work.');
+    expect(briefing).toContain('`"spec"`: the task moves on to Spec.');
+    expect(briefing).toContain('`"done"`: the task is finished.');
   });
 
   it('tells where Spotlight’s configuration and docs are, and asks to follow the docs to set Spotlight up', () => {

@@ -1,0 +1,63 @@
+import { useState } from 'react';
+
+import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
+import { ResumeButton } from '@/components/features/hold/ResumeButton';
+import { ResumeDialog } from '@/components/features/hold/ResumeDialog';
+import { useTaskStation } from '@/hooks/api/useTaskStation';
+import { useCommands } from '@/hooks/useCommands';
+import { useMe } from '@/hooks/useMe';
+import { heldMoveOf, moveOnTargets } from '@/lib/hold';
+import { runPath } from '@/lib/run';
+
+type RunHoldProps = {
+  slug: string;
+  teamId: string;
+  taskId: string;
+  runId: string;
+};
+
+export function RunHold({ slug, teamId, taskId, runId }: RunHoldProps) {
+  const { line, station, task } = useTaskStation(teamId, taskId);
+  const me = useMe();
+  const [resuming, setResuming] = useState(false);
+  const hold = task?.hold;
+  const mine = Boolean(hold && hold.by.id === me?.id);
+  useCommands(
+    mine ? [{ id: 'task.resume' as const, run: () => setResuming(true) }] : [],
+  );
+
+  if (!task || !station || !hold) {
+    return null;
+  }
+
+  if (!mine) {
+    return (
+      <OnHoldPill
+        hold={hold}
+        to={
+          hold.runId && hold.runId !== runId
+            ? runPath(slug, teamId, hold.runId)
+            : undefined
+        }
+      />
+    );
+  }
+
+  return (
+    <>
+      <ResumeButton onClick={() => setResuming(true)} />
+      <ResumeDialog
+        open={resuming}
+        onOpenChange={setResuming}
+        teamId={teamId}
+        taskId={task.id}
+        station={station}
+        moveOn={moveOnTargets(line?.stations ?? [], station)}
+        held={heldMoveOf(line, task)}
+        verdict={hold.verdict}
+        working={task.progress !== null}
+        turn={hold.runId}
+      />
+    </>
+  );
+}

@@ -96,15 +96,10 @@ const SHORTCUTS = {
     keys: ['s'],
   },
   'task.assign': { title: 'Assign', group: 'Tasks', keys: ['a'] },
-  'task.take-over': {
-    title: 'Take over the task',
+  'task.resume': {
+    title: 'Resume the line',
     group: 'Tasks',
-    keys: ['shift+t'],
-  },
-  'task.hand-back': {
-    title: 'Hand the task back to the line',
-    group: 'Tasks',
-    keys: ['shift+h'],
+    keys: ['shift+r'],
   },
   'task.delete': {
     title: 'Delete the task',

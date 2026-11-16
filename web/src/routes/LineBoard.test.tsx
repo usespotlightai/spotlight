@@ -304,11 +304,11 @@ describe('LineBoard', () => {
     expect(spec?.textContent).not.toContain('Fix the queue');
   });
 
-  it('marks a task a person has taken over', () => {
+  it('marks a task a person put on hold', () => {
     listed.mockReturnValue([
       {
         ...tasks[0],
-        takeover: {
+        hold: {
           by: { id: 'user_2', name: 'Maya', image: null },
           verdict: 'not-right',
           startedAt: '2026-08-04T10:00:00.000Z',
@@ -319,7 +319,7 @@ describe('LineBoard', () => {
     ]);
     renderAt('line_1');
 
-    expect(sections()[0]?.textContent).toContain('Taken over');
+    expect(sections()[0]?.textContent).toContain('On hold');
   });
 
   it('counts the tasks a station has', () => {

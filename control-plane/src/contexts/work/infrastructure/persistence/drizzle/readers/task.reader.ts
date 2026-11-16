@@ -19,7 +19,7 @@ import type {
   TaskNoteSummary,
   TaskReaderPort,
   TaskSummary,
-  TaskTakeoverSummary,
+  TaskHoldSummary,
 } from '@work/application/ports/task-reader.port';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
@@ -33,7 +33,7 @@ import {
   task,
   taskNote,
   taskPullRequest,
-  taskTakeover,
+  taskHold,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import {
@@ -47,24 +47,23 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
-interface OpenTakeoverRow {
-  readonly taskId: string;
-  readonly takenBy: string;
-  readonly verdict: TaskTakeoverSummary['verdict'];
+interface OpenHoldRow {
+  readonly heldBy: string;
+  readonly verdict: TaskHoldSummary['verdict'];
   readonly startedAt: Date;
   readonly turnRunIds: readonly string[];
   readonly heldMoveTo: string | null;
 }
 
-type TakeoverPerson = TaskTakeoverSummary['by'];
+type HoldPerson = TaskHoldSummary['by'];
 
-const takeoverOf = (
-  row: OpenTakeoverRow | undefined,
-  person: (id: string) => TakeoverPerson,
-): TaskTakeoverSummary | null =>
+const holdOf = (
+  row: OpenHoldRow | null,
+  person: (id: string) => HoldPerson,
+): TaskHoldSummary | null =>
   row
     ? {
-        by: person(row.takenBy),
+        by: person(row.heldBy),
         verdict: row.verdict,
         startedAt: row.startedAt,
         runId: row.turnRunIds[row.turnRunIds.length - 1] ?? null,
@@ -139,18 +138,29 @@ export class DrizzleTaskReader implements TaskReaderPort {
         description: task.description,
         createdAt: task.createdAt,
         currentRunId: task.currentRunId,
+        finishedAt: task.finishedAt,
         reviewedPullRequest: task.reviewedPullRequest,
         createdById: task.createdById,
         assigneeId: task.assigneeId,
         openedFrom: task.openedFrom,
+        hold: {
+          heldBy: taskHold.heldBy,
+          verdict: taskHold.verdict,
+          startedAt: taskHold.startedAt,
+          turnRunIds: taskHold.turnRunIds,
+          heldMoveTo: taskHold.heldMoveTo,
+        },
       })
       .from(task)
       .innerJoin(workStation, eq(workStation.stationId, task.stationId))
+      .leftJoin(
+        taskHold,
+        and(eq(taskHold.taskId, task.id), isNull(taskHold.endedAt)),
+      )
       .where(and(eq(workStation.teamId, teamId.value), narrowedTo))
       .orderBy(asc(task.rank), asc(task.id))
       .$dynamic();
     const rows = await (limit === null ? listed : listed.limit(limit));
-    const takeovers = await this.openTakeovers(rows.map((row) => row.id));
 
     const [notes, pulled, awaited, attached, people, progressOf] =
       await Promise.all([
@@ -167,7 +177,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         this.people.findMany(
           [
             ...rows.flatMap((row) => [row.createdById, row.assigneeId]),
-            ...[...takeovers.values()].map((each) => each.takenBy),
+            ...rows.map((row) => row.hold?.heldBy),
           ].flatMap((id) => (id ? [UserId.of(id)] : [])),
         ),
         progressOfCurrentRuns(
@@ -185,10 +195,12 @@ export class DrizzleTaskReader implements TaskReaderPort {
     return rows.map(
       ({
         currentRunId,
+        finishedAt,
         createdById,
         assigneeId,
         reviewedPullRequest,
         openedFrom,
+        hold,
         ...rest
       }) => ({
         ...rest,
@@ -200,40 +212,14 @@ export class DrizzleTaskReader implements TaskReaderPort {
         awaitingReview: awaited.has(rest.id)
           ? { conversationId: awaited.get(rest.id) as string }
           : null,
+        finished: finishedAt !== null,
         createdBy: createdById ? person(createdById) : null,
         assignee: assigneeId ? person(assigneeId) : null,
         note: notes.get(rest.id) ?? null,
         source: TaskOrigin.decode(openedFrom).integration?.value ?? null,
-        takeover: takeoverOf(takeovers.get(rest.id), person),
+        hold: holdOf(hold, person),
       }),
     );
-  }
-
-  private async openTakeovers(
-    taskIds: string[],
-  ): Promise<Map<string, OpenTakeoverRow>> {
-    if (taskIds.length === 0) {
-      return new Map();
-    }
-
-    const rows = await this.db
-      .select({
-        taskId: taskTakeover.taskId,
-        takenBy: taskTakeover.takenBy,
-        verdict: taskTakeover.verdict,
-        startedAt: taskTakeover.startedAt,
-        turnRunIds: taskTakeover.turnRunIds,
-        heldMoveTo: taskTakeover.heldMoveTo,
-      })
-      .from(taskTakeover)
-      .where(
-        and(
-          inArray(taskTakeover.taskId, taskIds),
-          isNull(taskTakeover.endedAt),
-        ),
-      );
-
-    return new Map(rows.map((row) => [row.taskId, row] as const));
   }
 
   private async ownedPullRequests(

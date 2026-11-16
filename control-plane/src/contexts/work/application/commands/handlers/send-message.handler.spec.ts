@@ -26,6 +26,7 @@ import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   lineMapOf,
   routesOf,
@@ -35,6 +36,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -115,7 +117,10 @@ const sendMessage = (
 ) => {
   const access = workAccessSeeing(
     (_teamId, viewer) => viewer.value !== OUTSIDER,
-    { onTeam: (_teamId, viewer) => viewer.value !== BYSTANDER },
+    {
+      onTeam: (_teamId, viewer) => viewer.value !== BYSTANDER,
+      members: [OWNER, UserId.of('teammate')],
+    },
   );
   const live: LiveTaskDraftsPort = {
     writers: async () => typed.map(UserId.of),
@@ -161,6 +166,8 @@ const sendMessage = (
     new DraftSending(access, live, {
       warn: () => undefined,
     } as unknown as LoggerPort),
+    { of: async () => [] },
+    { generate: () => 'hold_1' },
   ).execute(
     new SendMessageCommand(
       RUN.value,
@@ -201,14 +208,56 @@ describe('SendMessageHandler', () => {
     expect(saved?.unacknowledged).toHaveLength(1);
   });
 
-  it('hands the words to the run still working the task, starting no other', async () => {
+  it('puts the task on hold when a person steers the run working it, stopping that run and starting their turn', async () => {
     await sendMessage(handed());
 
-    expect(dispatched).toEqual([]);
-    expect(saved?.hasCurrentRun(RUN)).toBe(true);
-    expect(saved?.unacknowledged.map((note) => note.body.value)).toEqual([
-      'Rename the flag too.',
+    expect(saved?.openHold?.by).toEqual(OWNER);
+    expect(saved?.assignee).toEqual(OWNER);
+    expect(saved?.hasCurrentRun(RUN)).toBe(false);
+    expect(dispatched).toHaveLength(1);
+    expect(saved?.currentRunId?.value).toBe('run_2');
+    expect(saved?.drivenByAPerson(RunId.of('run_2'))).toBe(true);
+    expect(saved?.unacknowledged.map((note) => note.form)).toEqual([
+      'held',
+      'words',
     ]);
+    expect(saved?.unacknowledged[1]?.body.value).toBe('Rename the flag too.');
+  });
+
+  it('makes a message from the person who holds the task their next turn', async () => {
+    const held = handed().hold({
+      id: HoldId.of('hold_0'),
+      by: OWNER,
+      members: TeamMembers.of([OWNER, UserId.of('teammate')]),
+      line,
+      verdict: null,
+      currentRunStarted: true,
+      at: NOW,
+    });
+
+    await sendMessage(held, 'Now the docs.');
+
+    expect(saved?.holds).toHaveLength(1);
+    expect(dispatched).toHaveLength(1);
+    expect(saved?.currentRunId?.value).toBe('run_2');
+  });
+
+  it('keeps a teammate’s message for the agent while someone else holds the task, starting nothing', async () => {
+    const held = handed().hold({
+      id: HoldId.of('hold_0'),
+      by: OWNER,
+      members: TeamMembers.of([OWNER, UserId.of('teammate')]),
+      line,
+      verdict: null,
+      currentRunStarted: true,
+      at: NOW,
+    });
+
+    await sendMessage(held, 'Also the docs.', 'teammate');
+
+    expect(saved?.openHold?.by).toEqual(OWNER);
+    expect(dispatched).toEqual([]);
+    expect(saved?.running).toBe(false);
   });
 
   it('takes the words as the answer a paused run waits on, resuming that run', async () => {

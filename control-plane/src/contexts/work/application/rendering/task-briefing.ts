@@ -26,7 +26,7 @@ import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { MAX_HANDOVER_ATTACHMENTS } from '@work/domain/value-objects/handover.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-handle.vo';
-import { DRIVEN_BY_A_PERSON } from '@work/domain/value-objects/task-note-body.vo';
+import { drivenByAPerson } from '@work/domain/value-objects/task-note-body.vo';
 
 const closing = (line: LineMap, stationId: StationId): string => {
   const offered = line.optionsFrom(stationId);
@@ -202,7 +202,12 @@ export const TaskBriefing = {
     );
 
     return [
-      driven ? DRIVEN_BY_A_PERSON : station?.agentPrompt?.trim(),
+      driven && station
+        ? drivenByAPerson(
+            station.name,
+            input.line.resumeOptionsAt(input.task.stationId),
+          )
+        : station?.agentPrompt?.trim(),
       `## ${input.task.title}`,
       input.task.description,
       Attached.listed(input.task.attachments),

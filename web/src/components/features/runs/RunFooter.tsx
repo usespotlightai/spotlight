@@ -2,9 +2,9 @@ import { RunComposer } from '@/components/features/runs/RunComposer';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
+import { heldByOther } from '@/lib/hold';
 import { runPath, type TeamRun, waitsOnPerson, stoppable } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
-import { heldByOther } from '@/lib/takeover';
 
 type RunFooterProps = {
   slug: string;
@@ -30,13 +30,13 @@ export function RunFooter({
     conversation?.taskId,
   );
   const me = useMe();
-  const takenByOther = heldByOther(task?.takeover, me?.id);
+  const heldByTeammate = heldByOther(task?.hold, me?.id);
 
-  if (takenByOther) {
+  if (heldByTeammate) {
     return (
       <p className="pb-5 text-center text-muted-foreground text-xs">
-        {takenByOther.by.name} has this task. The agent reads new messages after
-        they hand it back.
+        {heldByTeammate.by.name} put the task on hold. The agent reads new
+        messages after they resume the line.
       </p>
     );
   }

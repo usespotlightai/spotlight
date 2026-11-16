@@ -6,9 +6,9 @@ import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
 import { useSharedDraft } from '@/hooks/useSharedDraft';
+import { heldByMe } from '@/lib/hold';
 import { LINE_SETS_REPOSITORIES } from '@/lib/run';
-import { heldByMe } from '@/lib/takeover';
-import { startsAgainOnMessage } from '@/lib/task';
+import { holdsOnMessage, startsAgainOnMessage } from '@/lib/task';
 
 type RunComposerProps = {
   slug: string;
@@ -41,11 +41,12 @@ export function RunComposer({
     task,
   } = useTaskStation(teamId, taskId);
   const me = useMe();
-  const driving = heldByMe(task?.takeover, me?.id);
+  const driving = heldByMe(task?.hold, me?.id);
   const restarts =
     !answering &&
     !driving &&
     startsAgainOnMessage(task, currentStation, stationId);
+  const holds = !answering && holdsOnMessage(task, currentStation, stationId);
   const shared = useSharedDraft(taskId);
 
   return (
@@ -63,9 +64,13 @@ export function RunComposer({
           ? 'Answer the question to continue the run…'
           : driving
             ? 'Tell the agent what to do next…'
-            : restarts
-              ? 'Say what to change…'
-              : 'Write a message…'
+            : holds
+              ? running
+                ? 'Your message stops the run and puts the task on hold…'
+                : 'Your message puts the task on hold…'
+              : restarts
+                ? 'Say what to change…'
+                : 'Write a message…'
       }
       pending={send.isPending}
       running={running}
@@ -93,7 +98,7 @@ export function RunComposer({
             coAuthors,
             draftGeneration,
             answers: answering,
-            startsWork: answering || restarts || driving,
+            startsWork: answering || restarts || driving || holds,
           },
           { onError: restore },
         );

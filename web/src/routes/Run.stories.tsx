@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { onHoldBy } from '@/mocks/world/holds';
 import { MAYA, SAM } from '@/mocks/world/people';
-import { takenOverBy } from '@/mocks/world/takeovers';
 import {
   choice,
   type PageArgs,
@@ -18,7 +18,7 @@ type RunArgs = {
     | 'run_billing_1'
     | 'run_postgres_3';
   readonly memories: boolean;
-  readonly takeover: 'none' | 'taking' | 'yours' | 'handing-back' | 'taken';
+  readonly hold: 'none' | 'yours' | 'resuming' | 'taken';
 };
 
 const meta = {
@@ -26,7 +26,7 @@ const meta = {
   ...pageStory<RunArgs>({
     states: ['data', 'loading', 'error'],
     at: ({ run }) => `/w/acme/team/team_platform/runs/${run}`,
-    args: { run: 'run_retries_2', memories: false, takeover: 'none' },
+    args: { run: 'run_retries_2', memories: false, hold: 'none' },
     argTypes: {
       run: choice('Run', {
         run_retries_1: 'At a station the task has left',
@@ -36,28 +36,24 @@ const meta = {
         run_postgres_3: 'Waiting for you',
       }),
       memories: toggle('Showing the run’s memories'),
-      takeover: choice('Takeover of the working task', {
-        none: 'Not taken over',
-        taking: 'Take over dialog',
-        yours: 'Taken over by you',
-        'handing-back': 'Hand it back dialog',
-        taken: 'Taken over by someone else',
+      hold: choice('Hold of the working task', {
+        none: 'Not on hold',
+        yours: 'On hold by you',
+        resuming: 'Resume dialog',
+        taken: 'On hold by someone else',
       }),
     },
-    world: ({ takeover }) => {
-      if (takeover === 'yours' || takeover === 'handing-back') {
-        takenOverBy('team_platform', 'task_retries', SAM);
+    world: ({ hold }) => {
+      if (hold === 'yours' || hold === 'resuming') {
+        onHoldBy('team_platform', 'task_retries', SAM);
       }
-      if (takeover === 'taken') {
-        takenOverBy('team_platform', 'task_retries', MAYA);
+      if (hold === 'taken') {
+        onHoldBy('team_platform', 'task_retries', MAYA);
       }
     },
-    script: ({ memories, takeover }) => {
-      if (takeover === 'taking') {
-        return openDialog('Take over');
-      }
-      if (takeover === 'handing-back') {
-        return openDialog('Hand it back');
+    script: ({ memories, hold }) => {
+      if (hold === 'resuming') {
+        return openDialog('Resume');
       }
       return memories
         ? async (screen, user) => {
@@ -79,18 +75,14 @@ export const ShowingMemories: StoryObj<typeof meta> = {
   args: { run: 'run_postgres_3', memories: true },
 };
 
-export const TakeOver: StoryObj<typeof meta> = {
-  args: { run: 'run_retries_3', takeover: 'taking' },
+export const HeldByYou: StoryObj<typeof meta> = {
+  args: { run: 'run_retries_3', hold: 'yours' },
 };
 
-export const TakenOverByYou: StoryObj<typeof meta> = {
-  args: { run: 'run_retries_3', takeover: 'yours' },
+export const Resuming: StoryObj<typeof meta> = {
+  args: { run: 'run_retries_3', hold: 'resuming' },
 };
 
-export const HandItBack: StoryObj<typeof meta> = {
-  args: { run: 'run_retries_3', takeover: 'handing-back' },
-};
-
-export const TakenOver: StoryObj<typeof meta> = {
-  args: { run: 'run_retries_3', takeover: 'taken' },
+export const Held: StoryObj<typeof meta> = {
+  args: { run: 'run_retries_3', hold: 'taken' },
 };

@@ -621,7 +621,7 @@ const setupItem = (createdAt: string, resolved: boolean): InboxConversation => {
         approval: null,
         failure: null,
         connection: null,
-        handBack: null,
+        resumption: null,
       },
     ],
   };

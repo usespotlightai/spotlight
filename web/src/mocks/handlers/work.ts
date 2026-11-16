@@ -6,12 +6,12 @@ import type {
   AssignTaskRequestDto,
   AttachmentResponseDto,
   GrantAttachmentUploadRequestDto,
-  HandBackTaskRequestDto,
+  ResumeLineRequestDto,
   MoveTaskRequestDto,
   SendMessageRequestDto,
-  TakeOverTaskRequestDto,
   TaskResponseDto,
 } from '@/lib/api';
+import { waitsOnPerson } from '@/lib/run';
 import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
@@ -90,6 +90,37 @@ const queueRunAt = (
   ];
 };
 
+const holdOnMessage = ({
+  teamId,
+  task,
+  run,
+}: NonNullable<ReturnType<typeof locateRun>>) => {
+  const here = placeStation(teamId, task.stationId)?.station;
+
+  if (
+    !here?.harness ||
+    run.station?.id !== task.stationId ||
+    task.hold ||
+    task.finished ||
+    waitsOnPerson(run)
+  ) {
+    return;
+  }
+
+  queueRunAt(teamId, task.id, task.stationId, 'person');
+  replaceTask(teamId, {
+    ...task,
+    assignee: SAM,
+    hold: {
+      by: SAM,
+      verdict: 'not-right',
+      startedAt: new Date().toISOString(),
+      runId: world().runs[task.id]?.[0]?.id ?? null,
+      heldMoveTo: null,
+    },
+  });
+};
+
 export const workHandlers: RequestHandler[] = [
   api.post(
     '/teams/:teamId/lines/:lineId/stations/:stationId/tasks',
@@ -112,12 +143,13 @@ export const workHandlers: RequestHandler[] = [
         createdAt: new Date().toISOString(),
         progress: null,
         awaitingReview: null,
+        finished: false,
         pullRequests: [],
         createdBy: SAM,
         assignee: null,
         note: null,
         source: null,
-        takeover: null,
+        hold: null,
       };
 
       world().tasks[teamId] = [...(world().tasks[teamId] ?? []), task];
@@ -179,46 +211,14 @@ export const workHandlers: RequestHandler[] = [
   }),
 
   api.post(
-    '/teams/:teamId/tasks/:taskId/takeover',
-    async ({ params, request }) => {
-      const teamId = String(params.teamId);
-      const task = findTask(teamId, String(params.taskId));
-      const { verdict, body } =
-        (await request.json()) as TakeOverTaskRequestDto;
-
-      if (!task) {
-        return notFound();
-      }
-
-      if (body?.trim()) {
-        queueRunAt(teamId, task.id, task.stationId, 'person');
-      }
-      const taken: TaskResponseDto = {
-        ...task,
-        assignee: SAM,
-        takeover: {
-          by: SAM,
-          verdict: verdict ?? 'not-right',
-          startedAt: new Date().toISOString(),
-          runId: body?.trim() ? (world().runs[task.id]?.[0]?.id ?? null) : null,
-          heldMoveTo: null,
-        },
-      };
-      replaceTask(teamId, taken);
-
-      return json(taken);
-    },
-  ),
-
-  api.post(
-    '/teams/:teamId/tasks/:taskId/takeover/end',
+    '/teams/:teamId/tasks/:taskId/resume',
     async ({ params, request }) => {
       const teamId = String(params.teamId);
       const task = findTask(teamId, String(params.taskId));
       const { next, stationId } =
-        (await request.json()) as HandBackTaskRequestDto;
+        (await request.json()) as ResumeLineRequestDto;
 
-      if (!task?.takeover) {
+      if (!task?.hold) {
         return notFound();
       }
 
@@ -233,17 +233,18 @@ export const workHandlers: RequestHandler[] = [
           : next === 'finish'
             ? (completed?.id ?? task.stationId)
             : task.stationId;
-      const handed: TaskResponseDto = {
+      const resumed: TaskResponseDto = {
         ...task,
         stationId: to,
-        takeover: null,
+        finished: next === 'finish',
+        hold: null,
       };
-      replaceTask(teamId, handed);
+      replaceTask(teamId, resumed);
       if (next !== 'finish') {
         queueRunAt(teamId, task.id, to);
       }
 
-      return json(handed);
+      return json(resumed);
     },
   ),
 
@@ -336,6 +337,7 @@ export const workHandlers: RequestHandler[] = [
 
       const body = (await request.json()) as SendMessageRequestDto;
       addMessage(located, body.body, attachmentsOf(body.attachments));
+      holdOnMessage(located);
 
       return noContent();
     },

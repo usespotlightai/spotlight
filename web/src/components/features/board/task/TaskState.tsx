@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 
-import { TakenOverPill } from '@/components/features/takeover/TakenOverPill';
+import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { WaitingForYouPill } from '@/components/shared/WaitingForYouPill';
 import type { Task } from '@/lib/task';
@@ -11,8 +11,8 @@ type TaskStateProps = {
 };
 
 export function TaskState({ task, stateTo }: TaskStateProps) {
-  if (task.takeover) {
-    return <TakenOverPill takeover={task.takeover} to={stateTo} />;
+  if (task.hold) {
+    return <OnHoldPill hold={task.hold} to={stateTo} />;
   }
 
   if (task.awaitingReview) {

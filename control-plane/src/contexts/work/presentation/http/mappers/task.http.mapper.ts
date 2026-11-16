@@ -4,7 +4,7 @@ import {
   TaskPersonResponseDto,
   TaskResponseDto,
   TaskReviewResponseDto,
-  TaskTakeoverResponseDto,
+  TaskHoldResponseDto,
 } from '@work/presentation/http/dto/task.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 import { stationLabelOf } from '@work/presentation/http/mappers/station-label';
@@ -23,6 +23,7 @@ export const TaskHttpMapper = {
       dto.awaitingReview
         ? new TaskReviewResponseDto(dto.awaitingReview.conversationId)
         : null,
+      dto.finished,
       dto.pullRequests,
       dto.createdBy
         ? new TaskPersonResponseDto(
@@ -46,17 +47,17 @@ export const TaskHttpMapper = {
           )
         : null,
       dto.source,
-      dto.takeover
-        ? new TaskTakeoverResponseDto(
+      dto.hold
+        ? new TaskHoldResponseDto(
             new TaskPersonResponseDto(
-              dto.takeover.by.id,
-              dto.takeover.by.name,
-              dto.takeover.by.image,
+              dto.hold.by.id,
+              dto.hold.by.name,
+              dto.hold.by.image,
             ),
-            dto.takeover.verdict,
-            dto.takeover.startedAt,
-            dto.takeover.runId,
-            dto.takeover.heldMoveTo,
+            dto.hold.verdict,
+            dto.hold.startedAt,
+            dto.hold.runId,
+            dto.hold.heldMoveTo,
           )
         : null,
     );

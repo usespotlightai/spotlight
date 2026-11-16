@@ -978,7 +978,7 @@ const HUMAN_ACTIONS: Record<RunHumanAction, string> = {
   accepted: 'Accepted',
   answered: 'Answered',
   'sent-back': 'Sent back',
-  'taken-over': 'Taken over',
+  held: 'Put on hold',
 };
 
 const RESOLUTIONS: Record<RunResolution, string> = {

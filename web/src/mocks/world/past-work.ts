@@ -126,6 +126,7 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   createdAt: new Date(task.openedAt).toISOString(),
   progress: null,
   awaitingReview: null,
+  finished: false,
   pullRequests: task.pullRequest
     ? [pullRequestUrlOf(task.teamId, task.id)].filter((url) => url !== null)
     : [],
@@ -133,7 +134,7 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   assignee: null,
   note: null,
   source: null,
-  takeover: null,
+  hold: null,
 });
 
 export const pastTaskOf = (taskId: string): TaskResponseDto | undefined => {

@@ -591,12 +591,13 @@ const chatHandlers = [
           createdAt: now(),
           progress: null,
           awaitingReview: null,
+          finished: false,
           pullRequests: [],
           createdBy: SAM,
           assignee: null,
           note: null,
           source: null,
-          takeover: null,
+          hold: null,
         },
       ];
       proposal.state = 'created';

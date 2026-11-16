@@ -1,20 +1,18 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
-import { HAND_BACKS } from '@work/domain/value-objects/hand-back';
-import { PROGRESSES, type Progress } from '@work/domain/value-objects/progress';
+import { HOLD_ENDS } from '@work/domain/value-objects/hold-end';
 import {
-  TAKEOVER_VERDICTS,
-  type TakeoverVerdict,
-  UNSAID_TAKEOVER_VERDICT,
-} from '@work/domain/value-objects/takeover-verdict';
+  HOLD_VERDICTS,
+  type HoldVerdict,
+} from '@work/domain/value-objects/hold-verdict';
+import { PROGRESSES, type Progress } from '@work/domain/value-objects/progress';
 
 export const PROGRESS_NAMES = PROGRESSES;
 
-export const TAKEOVER_VERDICT_NAMES = TAKEOVER_VERDICTS;
-export const UNSAID_TAKEOVER_VERDICT_NAME = UNSAID_TAKEOVER_VERDICT;
+export const HOLD_VERDICT_NAMES = HOLD_VERDICTS;
 
-export const HAND_BACK_NAMES = HAND_BACKS;
+export const HOLD_END_NAMES = HOLD_ENDS;
 
-export type TakeoverVerdictName = TakeoverVerdict;
+export type HoldVerdictName = HoldVerdict;
 
 interface TaskNoteDto {
   readonly position: number;
@@ -28,9 +26,9 @@ interface TaskPersonDto {
   readonly image: string | null;
 }
 
-interface TaskTakeoverDto {
+interface TaskHoldDto {
   readonly by: TaskPersonDto;
-  readonly verdict: TakeoverVerdict;
+  readonly verdict: HoldVerdict;
   readonly startedAt: string;
   readonly runId: string | null;
   readonly heldMoveTo: string | null;
@@ -50,10 +48,11 @@ export interface TaskDto {
   readonly createdAt: string;
   readonly progress: Progress | null;
   readonly awaitingReview: TaskReviewDto | null;
+  readonly finished: boolean;
   readonly pullRequests: readonly string[];
   readonly note: TaskNoteDto | null;
   readonly createdBy: TaskPersonDto | null;
   readonly assignee: TaskPersonDto | null;
   readonly source: string | null;
-  readonly takeover: TaskTakeoverDto | null;
+  readonly hold: TaskHoldDto | null;
 }

@@ -18,10 +18,10 @@ import {
   type InboxRequestDto,
   type InboxRunDto,
   NOTE_FORMS,
-  NOTE_HAND_BACKS,
+  NOTE_HOLD_ENDS,
   NOTE_KINDS,
   NOTE_VOICES,
-  type NoteHandBackDto,
+  type NoteResumptionDto,
   type NoticeExternalLinkDto,
 } from '@work/application/dto/inbox.dto';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
@@ -230,9 +230,9 @@ export class InboxConnectionResponseDto {
   }
 }
 
-export class NoteHandBackResponseDto {
+export class NoteResumptionResponseDto {
   @ApiProperty({
-    enum: NOTE_HAND_BACKS,
+    enum: NOTE_HOLD_ENDS,
     example: 'move-on',
     description:
       'Where the task went: it runs again at its station, it moved on to another station, or it is completed',
@@ -242,7 +242,7 @@ export class NoteHandBackResponseDto {
   @ApiProperty({
     example: 'Review',
     description:
-      'The station the task is at after the hand-back: the same station, the next one, or the completed one',
+      'The station the task is at after the resume: the same station, the next one, or the completed one',
   })
   readonly station: string;
 
@@ -254,10 +254,10 @@ export class NoteHandBackResponseDto {
   })
   readonly summary: string | null;
 
-  constructor(handBack: NoteHandBackDto) {
-    this.next = handBack.next;
-    this.station = handBack.station;
-    this.summary = handBack.summary;
+  constructor(resumption: NoteResumptionDto) {
+    this.next = resumption.next;
+    this.station = resumption.station;
+    this.summary = resumption.summary;
   }
 }
 
@@ -370,12 +370,12 @@ export class NoteResponseDto {
   readonly connection: InboxConnectionResponseDto | null;
 
   @ApiProperty({
-    type: NoteHandBackResponseDto,
+    type: NoteResumptionResponseDto,
     nullable: true,
     description:
       'How a person handed the task back to the line, where the note says so',
   })
-  readonly handBack: NoteHandBackResponseDto | null;
+  readonly resumption: NoteResumptionResponseDto | null;
 
   constructor(
     position: number,
@@ -396,7 +396,7 @@ export class NoteResponseDto {
     approval: InboxApprovalResponseDto | null,
     failure: InboxFailureResponseDto | null,
     connection: InboxConnectionResponseDto | null,
-    handBack: NoteHandBackResponseDto | null,
+    resumption: NoteResumptionResponseDto | null,
   ) {
     this.position = position;
     this.kind = kind;
@@ -416,7 +416,7 @@ export class NoteResponseDto {
     this.approval = approval;
     this.failure = failure;
     this.connection = connection;
-    this.handBack = handBack;
+    this.resumption = resumption;
   }
 }
 

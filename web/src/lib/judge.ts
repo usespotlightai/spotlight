@@ -51,7 +51,7 @@ const OUTCOMES: Record<Exclude<RunOutcome['source'], 'grade'>, string> = {
   accepted: 'Accepted',
   'sent-back': 'Sent back',
   merged: 'Pull request merged',
-  'taken-over': 'Taken over',
+  held: 'Put on hold',
 };
 
 export const formatOutcome = (outcome: RunOutcome): string => {

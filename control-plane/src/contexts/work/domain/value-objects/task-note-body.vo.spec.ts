@@ -1,5 +1,7 @@
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
+import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -60,9 +62,9 @@ describe('TaskNoteBody.deferredMove', () => {
   });
 });
 
-describe('TaskNoteBody.handedBack', () => {
-  const handedBack = (into: { name: StationName; completed: boolean } | null) =>
-    TaskNoteBody.handedBack({
+describe('TaskNoteBody.resumed', () => {
+  const resumed = (into: { name: StationName; completed: boolean } | null) =>
+    TaskNoteBody.resumed({
       at: StationName.of('Build'),
       into,
       held: null,
@@ -71,11 +73,31 @@ describe('TaskNoteBody.handedBack', () => {
     }).value;
 
   it('ends the rules for the person’s turns wherever the task goes on', () => {
-    expect(handedBack(null)).toContain(
-      'The rules for their turns no longer apply.',
+    expect(resumed(null)).toContain(
+      "The rules for the person's turns no longer apply.",
     );
     expect(
-      handedBack({ name: StationName.of('Review'), completed: false }),
-    ).toContain('The rules for their turns no longer apply.');
+      resumed({ name: StationName.of('Review'), completed: false }),
+    ).toContain("The rules for the person's turns no longer apply.");
+  });
+});
+
+describe('TaskNoteBody.putOnHold', () => {
+  it('tells the agent which handover words resume the line, and what each one does', () => {
+    const body = TaskNoteBody.putOnHold(StationName.of('Build'), [
+      HandoverOption.station(StationKey.of('build'), StationName.of('Build')),
+      HandoverOption.station(StationKey.of('deploy'), StationName.of('Deploy')),
+      HandoverOption.done(),
+    ]).value;
+
+    expect(body).toContain('A person put the task on hold at Build.');
+    expect(body).toContain('`"build"`: Build continues the work.');
+    expect(body).toContain('`"deploy"`: the task moves on to Deploy.');
+    expect(body).toContain(
+      '`"done"`: the task is finished. Use it only when they say the task is finished.',
+    );
+    expect(body).toContain(
+      'In all other cases, do not run `spotlight handover`.',
+    );
   });
 });

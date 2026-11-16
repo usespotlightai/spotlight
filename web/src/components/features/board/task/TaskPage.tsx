@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router';
 import { TaskActions } from '@/components/features/board/task/TaskActions';
 import { TASK_LAYOUT } from '@/components/features/board/task/TaskLayout';
 import { TaskProperties } from '@/components/features/board/task/TaskProperties';
+import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
-import { TakenOverPill } from '@/components/features/takeover/TakenOverPill';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { PageTitle } from '@/components/shared/PageTitle';
@@ -31,7 +31,7 @@ type TaskPageProps = {
 export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
   const deleteTask = useDeleteTask();
   const navigate = useNavigate();
-  const takeover = task.takeover;
+  const hold = task.hold;
 
   const remove = () => {
     if (!teamId) {
@@ -58,12 +58,12 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
         heading={false}
         trailing={<TaskActions title={task.title} onDelete={remove} />}
         actions={
-          takeover && (
-            <TakenOverPill
-              takeover={takeover}
+          hold && (
+            <OnHoldPill
+              hold={hold}
               to={
-                slug && teamId && takeover.runId
-                  ? runPath(slug, teamId, takeover.runId)
+                slug && teamId && hold.runId
+                  ? runPath(slug, teamId, hold.runId)
                   : undefined
               }
             />
@@ -98,7 +98,7 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
               slug={slug}
               teamId={teamId}
               taskId={task.id}
-              takeover={task.takeover}
+              hold={task.hold}
             />
           </div>
         </div>

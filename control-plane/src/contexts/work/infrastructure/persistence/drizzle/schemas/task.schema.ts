@@ -4,8 +4,8 @@ import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
-import { HAND_BACKS, type HandBack } from '@work/domain/value-objects/hand-back';
-import { TAKEOVER_VERDICTS } from '@work/domain/value-objects/takeover-verdict';
+import { HOLD_ENDS, type HoldEnd } from '@work/domain/value-objects/hold-end';
+import { HOLD_VERDICTS } from '@work/domain/value-objects/hold-verdict';
 import type { CheckoutHeadParts } from '@work/domain/value-objects/checkout-head.vo';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
@@ -86,8 +86,8 @@ export interface FailureRow {
   readonly occurrences: number;
 }
 
-export interface HandedBackRow {
-  readonly next: HandBack;
+export interface ResumptionRow {
+  readonly next: HoldEnd;
   readonly station: string;
   readonly summary: string | null;
 }
@@ -186,7 +186,7 @@ export const taskNote = pgTable(
     failure: jsonb('failure').$type<FailureRow>(),
     deferredMove: jsonb('deferred_move').$type<DeferredMoveRow>(),
     connectionAsk: jsonb('connection_ask').$type<ConnectionAskRow>(),
-    handedBack: jsonb('handed_back').$type<HandedBackRow>(),
+    resumption: jsonb('resumption').$type<ResumptionRow>(),
     answeredAt: timestamptz('answered_at'),
     readAt: timestamptz('read_at'),
     acknowledgedAt: timestamptz('acknowledged_at'),
@@ -271,19 +271,19 @@ export const taskPullRequest = pgTable(
   ],
 );
 
-export const takeoverVerdict = pgEnum('takeover_verdict', TAKEOVER_VERDICTS);
-export const handBack = pgEnum('hand_back', HAND_BACKS);
+export const holdVerdict = pgEnum('hold_verdict', HOLD_VERDICTS);
+export const end = pgEnum('hold_end', HOLD_ENDS);
 
-export const taskTakeover = pgTable(
-  'task_takeover',
+export const taskHold = pgTable(
+  'task_hold',
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     taskId: text('task_id').notNull(),
     stationId: text('station_id').notNull(),
-    takenBy: text('taken_by').notNull(),
+    heldBy: text('held_by').notNull(),
     fromRunId: text('from_run_id'),
-    verdict: takeoverVerdict('verdict').notNull(),
+    verdict: holdVerdict('verdict').notNull(),
     turnRunIds: jsonb('turn_run_ids')
       .$type<readonly string[]>()
       .notNull()
@@ -297,24 +297,24 @@ export const taskTakeover = pgTable(
       .$type<readonly CheckoutHeadParts[]>()
       .notNull()
       .default([]),
-    handBack: handBack('hand_back'),
+    end: end('hold_end'),
     startedAt: timestamptz('started_at').notNull(),
     endedAt: timestamptz('ended_at'),
   },
   (table) => [
     foreignKey({
-      name: 'task_takeover_task_fk',
+      name: 'task_hold_task_fk',
       columns: [table.workspaceId, table.taskId],
       foreignColumns: [task.workspaceId, task.id],
     }).onDelete('cascade'),
     check(
-      'task_takeover_ends_with_hand_back',
-      sql`(${table.endedAt} is null) = (${table.handBack} is null)`,
+      'task_hold_ends_with_an_end',
+      sql`(${table.endedAt} is null) = (${table.end} is null)`,
     ),
-    uniqueIndex('task_takeover_open_uidx')
+    uniqueIndex('task_hold_open_uidx')
       .on(table.taskId)
       .where(sql`${table.endedAt} is null`),
-    index('task_takeover_task_idx').on(table.taskId, table.startedAt),
-    index('task_takeover_station_idx').on(table.stationId, table.startedAt),
+    index('task_hold_task_idx').on(table.taskId, table.startedAt),
+    index('task_hold_station_idx').on(table.stationId, table.startedAt),
   ],
 );

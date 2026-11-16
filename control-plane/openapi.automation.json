@@ -949,7 +949,7 @@
                 "accepted",
                 "answered",
                 "sent-back",
-                "taken-over"
+                "held"
               ],
               "type": "string"
             }

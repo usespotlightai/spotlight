@@ -13872,10 +13872,10 @@
         ]
       }
     },
-    "/teams/{teamId}/tasks/{taskId}/takeover": {
+    "/teams/{teamId}/tasks/{taskId}/resume": {
       "post": {
-        "description": "The line stops dispatching the task. Your messages start turns of the agent in the task’s workspace, and moves and hook reactions wait until you hand the task back.",
-        "operationId": "takeOverTask",
+        "description": "Sending a message to a station run that is not an answer puts the task on hold. The line waits until you resume it here, until you move the task, or until the agent resumes it because you asked it to.",
+        "operationId": "resumeLine",
         "parameters": [
           {
             "name": "teamId",
@@ -13901,7 +13901,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TakeOverTaskRequestDto"
+                "$ref": "#/components/schemas/ResumeLineRequestDto"
               }
             }
           }
@@ -13927,73 +13927,10 @@
             "description": "No such task for this caller"
           },
           "409": {
-            "description": "The task is already taken over, has finished, or is at a station where no agent works"
+            "description": "The task is not on hold, someone else put it on hold, or it cannot move on to that station"
           }
         },
-        "summary": "Take a task over from the line at its station",
-        "tags": [
-          "tasks"
-        ]
-      }
-    },
-    "/teams/{teamId}/tasks/{taskId}/takeover/end": {
-      "post": {
-        "operationId": "handBackTask",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
-              "type": "string"
-            }
-          },
-          {
-            "name": "taskId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HandBackTaskRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "403": {
-            "description": "The caller is not a member of the team, nor a workspace admin"
-          },
-          "404": {
-            "description": "No such task for this caller"
-          },
-          "409": {
-            "description": "The task is not taken over, or cannot move on to that station"
-          }
-        },
-        "summary": "Hand a taken-over task back to the line",
+        "summary": "Resume the line on a task that you put on hold",
         "tags": [
           "tasks"
         ]
@@ -22588,7 +22525,7 @@
                 "accepted",
                 "answered",
                 "sent-back",
-                "taken-over"
+                "held"
               ],
               "type": "string"
             }
@@ -30034,7 +29971,7 @@
           "met"
         ]
       },
-      "NoteHandBackResponseDto": {
+      "NoteResumptionResponseDto": {
         "type": "object",
         "properties": {
           "next": {
@@ -30050,7 +29987,7 @@
           "station": {
             "type": "string",
             "example": "Review",
-            "description": "The station the task is at after the hand-back: the same station, the next one, or the completed one"
+            "description": "The station the task is at after the resume: the same station, the next one, or the completed one"
           },
           "summary": {
             "type": "string",
@@ -30094,8 +30031,8 @@
               "decision",
               "failure",
               "connection",
-              "took-over",
-              "handed-back"
+              "held",
+              "resumed"
             ],
             "description": "What it shows, which is not what it did"
           },
@@ -30201,13 +30138,13 @@
               }
             ]
           },
-          "handBack": {
+          "resumption": {
             "nullable": true,
             "description": "How a person handed the task back to the line, where the note says so",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/NoteHandBackResponseDto"
+                "$ref": "#/components/schemas/NoteResumptionResponseDto"
               }
             ]
           }
@@ -30231,7 +30168,7 @@
           "approval",
           "failure",
           "connection",
-          "handBack"
+          "resumption"
         ]
       },
       "InboxItemResponseDto": {
@@ -31206,25 +31143,25 @@
           "body"
         ]
       },
-      "TakeoverVerdict": {
+      "HoldVerdict": {
         "type": "string",
         "enum": [
           "not-right",
           "exploring"
         ],
-        "description": "not-right where the person took over because the line got it wrong; exploring where they only try something out"
+        "description": "not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out"
       },
-      "TaskTakeoverResponseDto": {
+      "TaskHoldResponseDto": {
         "type": "object",
         "properties": {
           "by": {
             "$ref": "#/components/schemas/TaskPersonResponseDto"
           },
           "verdict": {
-            "description": "not-right where the person took over because the line got it wrong; exploring where they only try something out",
+            "description": "not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out",
             "allOf": [
               {
-                "$ref": "#/components/schemas/TakeoverVerdict"
+                "$ref": "#/components/schemas/HoldVerdict"
               }
             ]
           },
@@ -31240,7 +31177,7 @@
           "heldMoveTo": {
             "type": "string",
             "nullable": true,
-            "description": "The station an event asked to move the task to while the person had it. The task moves there when they hand it back to its station."
+            "description": "The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station."
           }
         },
         "required": [
@@ -31310,6 +31247,10 @@
               }
             ]
           },
+          "finished": {
+            "type": "boolean",
+            "description": "Whether the line finished the task. A message to a finished task sends it back to its station."
+          },
           "pullRequests": {
             "example": [
               "https://github.com/acme/widgets/pull/7"
@@ -31356,13 +31297,13 @@
             "example": "linear",
             "description": "The integration that opened it, or null where a person created it"
           },
-          "takeover": {
+          "hold": {
             "nullable": true,
             "description": "The person who drives the task at its station in place of the line, or null where the line drives it",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/TaskTakeoverResponseDto"
+                "$ref": "#/components/schemas/TaskHoldResponseDto"
               }
             ]
           }
@@ -31377,12 +31318,13 @@
           "createdAt",
           "progress",
           "awaitingReview",
+          "finished",
           "pullRequests",
           "createdBy",
           "assignee",
           "note",
           "source",
-          "takeover"
+          "hold"
         ]
       },
       "TaskPageResponseDto": {
@@ -31545,7 +31487,7 @@
               "person"
             ],
             "example": "line",
-            "description": "Who drove it: the line, or a person who took the task over, one turn per run"
+            "description": "Who drove it: the line, or a person who put the task on hold, one turn per run"
           },
           "taskId": {
             "type": "string",
@@ -32025,7 +31967,7 @@
               "person"
             ],
             "example": "line",
-            "description": "Who drove it: the line, or a person who took the task over, one turn per run"
+            "description": "Who drove it: the line, or a person who put the task on hold, one turn per run"
           }
         },
         "required": [
@@ -32109,26 +32051,7 @@
           "assigneeId"
         ]
       },
-      "TakeOverTaskRequestDto": {
-        "type": "object",
-        "properties": {
-          "verdict": {
-            "default": "not-right",
-            "description": "not-right where the line got it wrong, which counts against its last run; exploring where you only try something out",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TakeoverVerdict"
-              }
-            ]
-          },
-          "body": {
-            "type": "string",
-            "example": "Make the cards flat, without the nested border.",
-            "description": "The first message to the agent. It starts the first turn."
-          }
-        }
-      },
-      "HandBack": {
+      "HoldEnd": {
         "type": "string",
         "enum": [
           "continue",
@@ -32137,14 +32060,14 @@
         ],
         "description": "continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line."
       },
-      "HandBackTaskRequestDto": {
+      "ResumeLineRequestDto": {
         "type": "object",
         "properties": {
           "next": {
             "description": "continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line.",
             "allOf": [
               {
-                "$ref": "#/components/schemas/HandBack"
+                "$ref": "#/components/schemas/HoldEnd"
               }
             ]
           },
@@ -32154,10 +32077,10 @@
             "description": "With move-on: a station the task’s station passes work to"
           },
           "verdict": {
-            "description": "Changes the verdict given when the takeover started",
+            "description": "Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.",
             "allOf": [
               {
-                "$ref": "#/components/schemas/TakeoverVerdict"
+                "$ref": "#/components/schemas/HoldVerdict"
               }
             ]
           },
@@ -37408,7 +37331,7 @@
               "accepted",
               "answered",
               "sent-back",
-              "taken-over"
+              "held"
             ]
           },
           "at": {
@@ -38786,7 +38709,7 @@
               "accepted",
               "sent-back",
               "merged",
-              "taken-over"
+              "held"
             ],
             "description": "What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task"
           },
@@ -43915,7 +43838,7 @@
               "accepted",
               "sent-back",
               "merged",
-              "taken-over"
+              "held"
             ],
             "description": "What gave the human outcome that disagrees with the judge"
           },

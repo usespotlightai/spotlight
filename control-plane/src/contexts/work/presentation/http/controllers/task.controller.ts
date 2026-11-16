@@ -32,14 +32,10 @@ import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
-import { HandBackTaskCommand } from '@work/application/commands/hand-back-task.command';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
+import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
-import {
-  type TakenOver,
-  TakeOverTaskCommand,
-} from '@work/application/commands/take-over-task.command';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
@@ -66,11 +62,8 @@ import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.qu
 import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.dto';
 import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.request.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
+import { ResumeLineRequestDto } from '@work/presentation/http/dto/resume-line.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
-import {
-  HandBackTaskRequestDto,
-  TakeOverTaskRequestDto,
-} from '@work/presentation/http/dto/takeover.request.dto';
 import { SendMessageRequestDto } from '@work/presentation/http/dto/task-run.request.dto';
 import {
   LatestRunResponseDto,
@@ -563,12 +556,12 @@ export class TaskController {
     return this.readBack(teamId, taskId, user);
   }
 
-  @Post('tasks/:taskId/takeover')
+  @Post('tasks/:taskId/resume')
   @ApiOperation({
-    operationId: 'takeOverTask',
-    summary: 'Take a task over from the line at its station',
+    operationId: 'resumeLine',
+    summary: 'Resume the line on a task that you put on hold',
     description:
-      'The line stops dispatching the task. Your messages start turns of the agent in the task’s workspace, and moves and hook reactions wait until you hand the task back.',
+      'Sending a message to a station run that is not an answer puts the task on hold. The line waits until you resume it here, until you move the task, or until the agent resumes it because you asked it to.',
   })
   @ApiParam({
     name: 'taskId',
@@ -578,60 +571,21 @@ export class TaskController {
   @ApiNotFoundResponse({ description: 'No such task for this caller' })
   @ApiConflictResponse({
     description:
-      'The task is already taken over, has finished, or is at a station where no agent works',
+      'The task is not on hold, someone else put it on hold, or it cannot move on to that station',
   })
   @HttpCode(HttpStatus.OK)
   @ApiForbiddenResponse({
     description:
       'The caller is not a member of the team, nor a workspace admin',
   })
-  async takeOver(
+  async resumeLine(
     @Param('teamId') teamId: string,
     @Param('taskId') taskId: string,
-    @Body() body: TakeOverTaskRequestDto,
+    @Body() body: ResumeLineRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TaskResponseDto> {
-    await this.commandBus.execute<TakeOverTaskCommand, TakenOver>(
-      new TakeOverTaskCommand(
-        teamId,
-        taskId,
-        user.id,
-        body.verdict ?? null,
-        body.body ?? null,
-      ),
-    );
-
-    return this.readBack(teamId, taskId, user);
-  }
-
-  @Post('tasks/:taskId/takeover/end')
-  @ApiOperation({
-    operationId: 'handBackTask',
-    summary: 'Hand a taken-over task back to the line',
-  })
-  @ApiParam({
-    name: 'taskId',
-    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
-  })
-  @ApiOkResponse({ type: TaskResponseDto })
-  @ApiNotFoundResponse({ description: 'No such task for this caller' })
-  @ApiConflictResponse({
-    description:
-      'The task is not taken over, or cannot move on to that station',
-  })
-  @HttpCode(HttpStatus.OK)
-  @ApiForbiddenResponse({
-    description:
-      'The caller is not a member of the team, nor a workspace admin',
-  })
-  async handBack(
-    @Param('teamId') teamId: string,
-    @Param('taskId') taskId: string,
-    @Body() body: HandBackTaskRequestDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TaskResponseDto> {
-    await this.commandBus.execute<HandBackTaskCommand, void>(
-      new HandBackTaskCommand(
+    await this.commandBus.execute<ResumeLineCommand, void>(
+      new ResumeLineCommand(
         teamId,
         taskId,
         user.id,

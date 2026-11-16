@@ -19,6 +19,10 @@ import {
   type InboxRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/inbox-request-opened.integration-event';
 import {
+  LINE_RESUMED,
+  type LineResumedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/line-resumed.integration-event';
+import {
   NOTICE_RAISED,
   type NoticeRaisedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/notice-raised.integration-event';
@@ -55,9 +59,9 @@ import {
   type TaskFailedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-failed.integration-event';
 import {
-  TASK_HANDED_BACK,
-  type TaskHandedBackIntegrationEvent,
-} from '@shared-kernel/application/integration-events/task-handed-back.integration-event';
+  TASK_HELD,
+  type TaskHeldIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-held.integration-event';
 import {
   TASK_MOVED,
   type TaskMovedIntegrationEvent,
@@ -74,10 +78,6 @@ import {
   TASK_RUN_ASSIGNED,
   type TaskRunAssignedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
-import {
-  TASK_TAKEN_OVER,
-  type TaskTakenOverIntegrationEvent,
-} from '@shared-kernel/application/integration-events/task-taken-over.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
@@ -85,6 +85,7 @@ import type { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import type { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import type { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import type { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
+import type { LineResumed } from '@work/domain/events/line-resumed.event';
 import type { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import type { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
@@ -95,12 +96,11 @@ import type { TaskAssigned } from '@work/domain/events/task-assigned.event';
 import type { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import type { TaskFailed } from '@work/domain/events/task-failed.event';
-import type { TaskHandedBack } from '@work/domain/events/task-handed-back.event';
+import type { TaskHeld } from '@work/domain/events/task-held.event';
 import type { TaskMoved } from '@work/domain/events/task-moved.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { TaskPassed } from '@work/domain/events/task-passed.event';
 import type { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
-import type { TaskTakenOver } from '@work/domain/events/task-taken-over.event';
 
 const inboxRequestOpened = (
   event: InboxRequestOpened | InboxRequestReopened,
@@ -231,34 +231,31 @@ export const WORK_EVENT_MAPPERS = [
       server: event.tool?.server ?? null,
     }),
   ),
-  mapping<TaskTakenOver>(
-    'task.taken-over',
-    (event): TaskTakenOverIntegrationEvent => ({
-      kind: TASK_TAKEN_OVER,
+  mapping<TaskHeld>('task.held', (event): TaskHeldIntegrationEvent => ({
+    kind: TASK_HELD,
+    taskId: event.taskId.value,
+    workspaceId: event.workspaceId.value,
+    teamId: event.teamId.value,
+    holdId: event.holdId.value,
+    stationId: event.stationId.value,
+    by: event.by.value,
+    fromRunId: event.from?.value ?? null,
+    verdict: event.verdict,
+    at: event.at.toISOString(),
+  })),
+  mapping<LineResumed>(
+    'task.resumed',
+    (event): LineResumedIntegrationEvent => ({
+      kind: LINE_RESUMED,
       taskId: event.taskId.value,
       workspaceId: event.workspaceId.value,
       teamId: event.teamId.value,
-      takeoverId: event.takeoverId.value,
+      holdId: event.holdId.value,
       stationId: event.stationId.value,
       by: event.by.value,
       fromRunId: event.from?.value ?? null,
       verdict: event.verdict,
-      at: event.at.toISOString(),
-    }),
-  ),
-  mapping<TaskHandedBack>(
-    'task.handed-back',
-    (event): TaskHandedBackIntegrationEvent => ({
-      kind: TASK_HANDED_BACK,
-      taskId: event.taskId.value,
-      workspaceId: event.workspaceId.value,
-      teamId: event.teamId.value,
-      takeoverId: event.takeoverId.value,
-      stationId: event.stationId.value,
-      by: event.by.value,
-      fromRunId: event.from?.value ?? null,
-      verdict: event.verdict,
-      handBack: event.handBack,
+      end: event.end,
       turnRunIds: event.turns.map((each) => each.value),
       fromHeads: event.fromHeads.map((each) => each.parts),
       toHeads: event.toHeads.map((each) => each.parts),

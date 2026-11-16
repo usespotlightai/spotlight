@@ -78,8 +78,8 @@ export function BoardStation({
             teamId={teamId}
             to={taskPath(slug, teamId, task.id)}
             stateTo={
-              task.takeover?.runId
-                ? runPath(slug, teamId, task.takeover.runId)
+              task.hold?.runId
+                ? runPath(slug, teamId, task.hold.runId)
                 : task.awaitingReview
                   ? inboxItemPath(slug, task.awaitingReview.conversationId)
                   : undefined

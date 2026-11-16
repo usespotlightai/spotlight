@@ -1,5 +1,5 @@
 import { OpenInEditor } from '@/components/features/editor/OpenInEditor';
-import { RunTakeover } from '@/components/features/takeover/RunTakeover';
+import { RunHold } from '@/components/features/hold/RunHold';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
@@ -21,12 +21,11 @@ export function RunHeader({ slug, teamId, run, trail }: RunHeaderProps) {
       actions={
         run.taskId && (
           <>
-            <RunTakeover
+            <RunHold
               slug={slug}
               teamId={teamId}
               taskId={run.taskId}
               runId={run.id}
-              stationId={run.station?.id ?? null}
             />
             <OpenInEditor
               slug={slug}

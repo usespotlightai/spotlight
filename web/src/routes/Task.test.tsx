@@ -170,11 +170,11 @@ const run = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('Task', () => {
-  describe('taken over', () => {
+  describe('on hold', () => {
     const taken = {
       ...task,
       progress: null,
-      takeover: {
+      hold: {
         by: { id: 'user_1', name: 'Leon', image: null },
         verdict: 'not-right',
         startedAt: new Date().toISOString(),
@@ -183,17 +183,11 @@ describe('Task', () => {
       },
     };
 
-    it('offers no take over on the task page', () => {
-      renderAt('task_1');
-
-      expect(screen.queryByRole('button', { name: 'Take over' })).toBeNull();
-    });
-
-    it('offers no hand back on the task page', () => {
+    it('offers no resume on the task page', () => {
       listed.mockReturnValue([taken]);
       renderAt('task_1');
 
-      expect(screen.queryByRole('button', { name: 'Hand it back' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
     });
 
     it('shows who has the task, and leads to their session', () => {
@@ -203,7 +197,7 @@ describe('Task', () => {
       expect(
         screen
           .getAllByRole('link')
-          .find((each) => each.textContent?.includes('Taken over')),
+          .find((each) => each.textContent?.includes('On hold')),
       ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_turn');
     });
 
@@ -214,7 +208,7 @@ describe('Task', () => {
 
       expect(
         screen.getByRole('link', { name: 'Implementation' }).closest('li'),
-      ).toHaveTextContent('Taken over');
+      ).toHaveTextContent('On hold');
     });
 
     it('keeps the task assigned to the person who has it', () => {
@@ -228,11 +222,26 @@ describe('Task', () => {
       }
     });
 
-    it('keeps the task at its station while the person has it', () => {
-      listed.mockReturnValue([taken]);
+    it('keeps the task at its station for everyone but the person who holds it', () => {
+      listed.mockReturnValue([
+        {
+          ...taken,
+          hold: {
+            ...taken.hold,
+            by: { id: 'user_2', name: 'Maya Chen', image: null },
+          },
+        },
+      ]);
       renderAt('task_1');
 
       expect(screen.getByRole('button', { name: 'Station' })).toBeDisabled();
+    });
+
+    it('lets the person who holds the task move it, which resumes the line', () => {
+      listed.mockReturnValue([taken]);
+      renderAt('task_1');
+
+      expect(screen.getByRole('button', { name: 'Station' })).toBeEnabled();
     });
   });
 

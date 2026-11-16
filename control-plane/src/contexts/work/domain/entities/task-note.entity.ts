@@ -13,9 +13,9 @@ import type {
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
-import type { HandedBack } from '@work/domain/value-objects/handed-back.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import type { Resumption } from '@work/domain/value-objects/resumption.vo';
 import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -39,11 +39,11 @@ export const TASK_NOTE_FORMS = [
   'decision',
   'failure',
   'connection',
-  'took-over',
-  'handed-back',
+  'held',
+  'resumed',
 ] as const;
 
-const FOR_THE_AGENT: readonly TaskNoteForm[] = ['took-over', 'handed-back'];
+const FOR_THE_AGENT: readonly TaskNoteForm[] = ['held', 'resumed'];
 
 export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
 
@@ -66,7 +66,7 @@ export class TaskNote {
     readonly failure: TaskFailure | null,
     readonly deferredMove: DeferredMove | null,
     readonly connectionAsk: ConnectionAsk | null,
-    readonly handedBack: HandedBack | null,
+    readonly resumption: Resumption | null,
   ) {}
 
   static of(input: {
@@ -87,14 +87,14 @@ export class TaskNote {
     failure?: TaskFailure | null;
     deferredMove?: DeferredMove | null;
     connectionAsk?: ConnectionAsk | null;
-    handedBack?: HandedBack | null;
+    resumption?: Resumption | null;
   }): TaskNote {
     const form = input.form ?? 'words';
     const carried = {
       approval: input.approval ?? null,
       failure: input.failure ?? null,
       connection: input.connectionAsk ?? null,
-      'handed-back': input.handedBack ?? null,
+      resumed: input.resumption ?? null,
     } as const;
 
     for (const [payload, value] of Object.entries(carried)) {
@@ -120,10 +120,10 @@ export class TaskNote {
       );
     }
 
-    if (form === 'handed-back' && carried['handed-back'] === null) {
+    if (form === 'resumed' && carried['resumed'] === null) {
       throw new InconsistentStateError(
         'task note',
-        'has form handed-back but carries no hand-back',
+        'has form resumed but carries no resume',
       );
     }
 
@@ -166,7 +166,7 @@ export class TaskNote {
       input.failure ?? null,
       input.deferredMove ?? null,
       input.connectionAsk ?? null,
-      input.handedBack ?? null,
+      input.resumption ?? null,
     );
   }
 
@@ -252,7 +252,7 @@ export class TaskNote {
           as,
           this.deferredMove,
           this.connectionAsk,
-          this.handedBack,
+          this.resumption,
         )
       : this;
   }
@@ -304,7 +304,7 @@ export class TaskNote {
       this.failure,
       this.deferredMove,
       part.connectionAsk ?? this.connectionAsk,
-      this.handedBack,
+      this.resumption,
     );
   }
 }

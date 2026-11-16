@@ -1,14 +1,14 @@
 import { CircleArrowRight, CircleSlash, type LucideIcon } from 'lucide-react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
 import { RunPendingMarker } from '@/components/features/runs/RunPendingMarker';
-import { TakenOverPill } from '@/components/features/takeover/TakenOverPill';
 import { Pill } from '@/components/shared/Pill';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useMenuActions } from '@/hooks/useMenuActions';
 import { useStopRunAction } from '@/hooks/useStopRunAction';
-import type { TaskTakeoverResponseDto } from '@/lib/api';
+import type { TaskHoldResponseDto } from '@/lib/api';
 import { type Run, runStatus, stoppable } from '@/lib/run';
 import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
@@ -22,7 +22,7 @@ type RunRowProps = {
   reviewTo?: string;
   inTrail?: boolean;
   gutter?: boolean;
-  takenOver?: TaskTakeoverResponseDto | null;
+  onHold?: TaskHoldResponseDto | null;
 };
 
 export function RunRow({
@@ -33,7 +33,7 @@ export function RunRow({
   reviewTo,
   inTrail,
   gutter,
-  takenOver,
+  onHold,
 }: RunRowProps) {
   const stop = useStopRunAction(teamId, run.id, stoppable(run));
   const menu = useMenuActions(stop ? [stop] : []);
@@ -88,7 +88,7 @@ export function RunRow({
           )}
 
           <span className="ml-auto flex shrink-0 items-center gap-2">
-            {takenOver && <TakenOverPill takeover={takenOver} />}
+            {onHold && <OnHoldPill hold={onHold} />}
 
             <RunPendingMarker run={run} reviewTo={reviewTo} inTrail={inTrail} />
 

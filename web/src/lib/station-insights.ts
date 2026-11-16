@@ -77,7 +77,7 @@ const HUMAN_ACTIONS: Record<HumanActionKind, string> = {
   accepted: 'Accepted',
   answered: 'Answered',
   'sent-back': 'Sent back',
-  'taken-over': 'Taken over',
+  held: 'Put on hold',
 };
 
 export const formatHumanAction = (

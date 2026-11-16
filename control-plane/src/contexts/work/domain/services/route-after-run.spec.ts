@@ -62,13 +62,13 @@ const GONE = StationId.of('station_gone');
 const working = (deferredMoveTo: StationId | null) => ({
   awaitingReview: false,
   deferredMoveTo,
-  takenOver: false,
+  onHold: false,
 });
 
 const waiting = (deferredMoveTo: StationId | null) => ({
   awaitingReview: true,
   deferredMoveTo,
-  takenOver: false,
+  onHold: false,
 });
 
 const endings: readonly [string, ResolvedHandover][] = [
@@ -196,19 +196,19 @@ describe('routeAfterRun', () => {
     });
   });
 
-  it('keeps a task a person has taken over where it is, whatever the run handed over', () => {
-    const takenOver = { ...working(BUILD), takenOver: true };
+  it('keeps a task on hold where it is, whatever the run handed over', () => {
+    const onHold = { ...working(BUILD), onHold: true };
 
     for (const handover of [
       ResolvedHandover.pass(StationId.of('station_2'), NOTE),
       ResolvedHandover.done(NOTE),
       ResolvedHandover.review(NOTE),
     ]) {
-      expect(routeAfterRun(handover, LINE, takenOver).kind).toBe('ask');
+      expect(routeAfterRun(handover, LINE, onHold).kind).toBe('ask');
     }
     expect(
       routeAfterRun(ResolvedHandover.done(NOTE), LINE, {
-        ...takenOver,
+        ...onHold,
         awaitingReview: true,
       }).kind,
     ).toBe('detach');

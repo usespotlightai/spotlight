@@ -1,9 +1,9 @@
 import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
 
+import { HoldMarker } from '@/components/features/inbox/conversation/HoldMarker';
 import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
-import { TakeoverMarker } from '@/components/features/inbox/conversation/TakeoverMarker';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { WorldMessage } from '@/components/features/inbox/conversation/WorldMessage';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
@@ -14,6 +14,7 @@ import { useMessageSources } from '@/hooks/api/useMessageSources';
 import { useArrivals } from '@/hooks/useArrivals';
 import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
+import { marksHold } from '@/lib/hold';
 import {
   ARRIVING,
   authorsOf,
@@ -27,7 +28,6 @@ import {
 } from '@/lib/inbox';
 import { lastNoteOf } from '@/lib/run-notes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
-import { marksTakeover } from '@/lib/takeover';
 import { cn } from '@/lib/utils';
 
 interface NoteTurn {
@@ -308,8 +308,8 @@ export function Conversation({
                 source={sourceOf(turn.prompt.source)}
                 deferredTo={turn.prompt.deferredTo}
               />
-            ) : turn.prompt && marksTakeover(turn.prompt) ? (
-              <TakeoverMarker note={turn.prompt} />
+            ) : turn.prompt && marksHold(turn.prompt) ? (
+              <HoldMarker note={turn.prompt} />
             ) : turn.prompt && said(turn.prompt) ? (
               <PersonMessage
                 body={turn.prompt.body}
