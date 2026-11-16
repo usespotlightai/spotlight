@@ -5,9 +5,18 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 export const RUNNERS = Symbol('RUNNERS');
 
 export interface LeasedWork {
-  readonly kind: 'run' | 'check';
+  readonly kind: 'run' | 'check' | 'diff';
   readonly id: string;
 }
+
+export type WorkToProvision =
+  | { readonly kind: 'run'; readonly id: string }
+  | {
+      readonly kind: 'check';
+      readonly id: string;
+      readonly runId: RunId | null;
+    }
+  | { readonly kind: 'diff'; readonly id: string };
 
 export type StartedRunner =
   | {
@@ -29,8 +38,7 @@ export type StartedRunner =
 export interface ProvisionRequest {
   readonly poolId: string;
   readonly runnerId: RunnerId;
-  readonly work: LeasedWork;
-  readonly runId: RunId;
+  readonly work: WorkToProvision;
   readonly tags: Readonly<Record<string, string>>;
   readonly labels: readonly string[];
   readonly image: string | null;

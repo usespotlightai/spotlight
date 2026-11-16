@@ -21,18 +21,15 @@ export class ReadQuestionAnswerHandler implements QueryHandlerPort<
     query: ReadQuestionAnswerQuery,
   ): Promise<QuestionAnswerDto | null> {
     try {
-      const run = await this.access.run(
-        query.teamId,
-        query.runId,
-        query.viewerId,
-      );
-
+      const stackId = ChangeStackId.of(query.stackId);
       const questionId = QuestionId.parsed(query.questionId);
+      const visibility = await this.stacks.visibilityOf(stackId);
 
-      return run && questionId
+      return questionId &&
+        visibility &&
+        (await this.access.seesStack(query.teamId, visibility, query.viewerId))
         ? await this.stacks.answerOf(
-            run.id,
-            ChangeStackId.of(query.stackId),
+            stackId,
             questionId,
             UserId.of(query.viewerId),
           )

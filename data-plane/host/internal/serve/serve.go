@@ -84,10 +84,12 @@ type Pool interface {
 
 type RunClient interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
-	RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error)
+	RenewCheckLease(ctx context.Context, stackID string, recheck bool) (bool, error)
+	RenewPushDiffLease(ctx context.Context, diffID string) (bool, error)
 	RecordImage(ctx context.Context, runID, image string) error
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
-	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackCheckResult) error
+	RecordChangeStackCheck(ctx context.Context, stackID string, recheck bool, checked protocol.StackCheckResult) error
+	FailPushDiff(ctx context.Context, diffID, reason string) error
 }
 
 type Updates interface {
@@ -658,6 +660,9 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	if assignment.Work.Check != nil {
 		log = log.With("stack", assignment.Work.Check.StackID)
 	}
+	if assignment.Work.Diff != nil {
+		log = log.With("diff", assignment.Work.Diff.DiffID)
+	}
 	if assignment.SandboxID != "" {
 		log = log.With("sandboxId", assignment.SandboxID)
 	}
@@ -1151,7 +1156,15 @@ func renewal(work protocol.ClaimResponse, client RunClient) func(context.Context
 		}
 	case work.Check != nil:
 		return func(ctx context.Context) (bool, error) {
-			stop, err := client.RenewCheckLease(ctx, work.Check.RunID, work.Check.StackID, work.Check.Recheck)
+			stop, err := client.RenewCheckLease(ctx, work.Check.StackID, work.Check.Recheck)
+			if control.CheckLeaseLost(err) {
+				return true, nil
+			}
+			return stop, err
+		}
+	case work.Diff != nil:
+		return func(ctx context.Context) (bool, error) {
+			stop, err := client.RenewPushDiffLease(ctx, work.Diff.DiffID)
 			if control.CheckLeaseLost(err) {
 				return true, nil
 			}
@@ -1168,7 +1181,10 @@ func (h *Host) reported(err error, assignment protocol.Assignment) {
 		tags["run"] = run.ID
 	}
 	if check := assignment.Work.Check; check != nil {
-		tags["run"], tags["stack"] = check.RunID, check.StackID
+		tags["stack"] = check.StackID
+	}
+	if diff := assignment.Work.Diff; diff != nil {
+		tags["diff"] = diff.DiffID
 	}
 	telemetry.Report(err, tags)
 }
@@ -1182,9 +1198,11 @@ func (h *Host) failWork(ctx context.Context, assignment protocol.Assignment, cli
 	case work.Run != nil:
 		err = client.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, SetupFailed: true, Message: reason})
 	case work.Check != nil:
-		err = client.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, work.Check.Recheck, protocol.StackCheckResult{
+		err = client.RecordChangeStackCheck(telling, work.Check.StackID, work.Check.Recheck, protocol.StackCheckResult{
 			Skipped: &protocol.SkippedCheck{Code: protocol.SkipNoImage, Detail: reason},
 		})
+	case work.Diff != nil:
+		err = client.FailPushDiff(telling, work.Diff.DiffID, reason)
 	}
 	if err != nil {
 		log.Error("could not say why the work did not start", "error", err)
@@ -1218,7 +1236,7 @@ func (h *Host) mountMirrors(ctx context.Context, assignment protocol.Assignment,
 		return h.warmMirrors(*warm)
 	}
 
-	runID, repositories := proxiedRepositories(assignment.Work)
+	subject, repositories := proxiedRepositories(assignment.Work)
 
 	budget, cancel := context.WithTimeout(ctx, mirrorWait)
 	defer cancel()
@@ -1227,7 +1245,7 @@ func (h *Host) mountMirrors(ctx context.Context, assignment protocol.Assignment,
 	found := make(chan mirrorDir, len(repositories))
 	for _, repository := range repositories {
 		go func() {
-			dir, _ := h.mirrored(ctx, budget, runID, repository, assignment.Token, log)
+			dir, _ := h.mirrored(ctx, budget, subject, repository, assignment.Token, log)
 			found <- mirrorDir{repository, dir}
 		}()
 	}
@@ -1245,8 +1263,8 @@ func (h *Host) mountMirrors(ctx context.Context, assignment protocol.Assignment,
 	return mounts
 }
 
-func (h *Host) mirrored(ctx, budget context.Context, runID, repository, token string, log *slog.Logger) (string, bool) {
-	remote, err := url.JoinPath(h.opts.ControlURL, "api", "git", runID, repository)
+func (h *Host) mirrored(ctx, budget context.Context, subject, repository, token string, log *slog.Logger) (string, bool) {
+	remote, err := url.JoinPath(h.opts.ControlURL, "api", "git", subject, repository)
 	if err != nil {
 		return "", false
 	}
@@ -1308,7 +1326,9 @@ func proxiedRepositories(work protocol.ClaimResponse) (string, []string) {
 		}
 		return work.Run.ID, repositories
 	case work.Check != nil:
-		return work.Check.RunID, []string{work.Check.Repository}
+		return work.Check.StackID, []string{work.Check.Repository}
+	case work.Diff != nil:
+		return work.Diff.DiffID, []string{work.Diff.Repository}
 	default:
 		return "", nil
 	}

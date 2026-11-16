@@ -9,6 +9,7 @@ import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggre
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -40,6 +41,7 @@ const requesting = (
       trial: false,
       isolated: false,
       checkouts: 1,
+      placement: RunnerPlacement.anywhere(),
       ...over.run,
     }),
     task: async (): Promise<ReviewedTask> => ({

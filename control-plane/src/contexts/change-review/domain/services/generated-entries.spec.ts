@@ -9,6 +9,7 @@ import {
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -99,7 +100,7 @@ const facts = factsWith(IMPORTS);
 const ready = () =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
-    runId: RunId.of('run-1'),
+    origin: StackOrigin.run(RunId.of('run-1')),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
     trial: false,

@@ -9,7 +9,6 @@ import { skipOf } from '@change-review/domain/value-objects/stack-check.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 export class RecordChangeStackCheckHandler implements CommandHandlerPort<
@@ -24,15 +23,14 @@ export class RecordChangeStackCheckHandler implements CommandHandlerPort<
 
   async execute(command: RecordChangeStackCheckCommand): Promise<void> {
     try {
-      const runId = RunId.of(command.runId);
       const stackId = ChangeStackId.of(command.stackId);
       const check = await this.checks.find(
         StackCheckId.of(stackId, command.recheck),
       );
 
-      if (!check?.runId.equals(runId)) {
+      if (!check) {
         throw new UnknownChangeStackError(
-          `Run ${command.runId} has no change stack ${command.stackId}.`,
+          `Change stack ${command.stackId} has no check to record.`,
         );
       }
 

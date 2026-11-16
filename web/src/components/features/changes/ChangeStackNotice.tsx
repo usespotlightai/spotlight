@@ -10,27 +10,32 @@ import type { ChangeStack } from '@/lib/change-stack';
 import { NO_INFERENCE_ENDPOINT } from '@/lib/inference';
 import { cn } from '@/lib/utils';
 
+export interface StackNoticeBack {
+  readonly to: string;
+  readonly label: string;
+}
+
 type ChangeStackNoticeProps = {
   slug: string;
   stack: ChangeStack | null;
-  runTo: string;
+  back: StackNoticeBack;
 };
 
 export function ChangeStackNotice({
   slug,
   stack,
-  runTo,
+  back: { to, label },
 }: ChangeStackNoticeProps) {
   const unset = useInferenceUnset(slug);
   const back = (
     <TrailLink
-      to={runTo}
+      to={to}
       className={cn(
         buttonVariants({ variant: 'outline', size: 'sm' }),
         'rounded-full bg-card shadow-none',
       )}
     >
-      Back to the run
+      {label}
     </TrailLink>
   );
 

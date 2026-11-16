@@ -11,7 +11,7 @@ export class CarryGitCallHandler implements CommandHandlerPort<
 
   execute(command: CarryGitCallCommand): Promise<GitAnswerDto | null> {
     return this.carrying.carry(
-      command.runId,
+      command.workId,
       command.runnerId,
       command.repo,
       command.service,

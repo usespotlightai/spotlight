@@ -8,6 +8,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChatRunWork } from '@work/application/services/chat-run-work';
@@ -173,6 +174,24 @@ export class RunWorks {
     return repository
       ? { workspaceId: dispatch.workspaceId, repository }
       : null;
+  }
+
+  async repositoryForTask(
+    taskId: TaskId,
+    name: string,
+  ): Promise<CheckedRepository | null> {
+    const task = await this.tasks.find(taskId);
+
+    if (!task) {
+      return null;
+    }
+
+    const line = await this.lines.findByStation(task.stationId);
+    const named = RepositoryName.parsed(name);
+    const repository =
+      line && named ? repositoryForTaskNamed(named, task, line) : null;
+
+    return repository ? { workspaceId: task.workspaceId, repository } : null;
   }
 
   private async workOf(run: LeasedRunFacts): Promise<RunWork | null> {

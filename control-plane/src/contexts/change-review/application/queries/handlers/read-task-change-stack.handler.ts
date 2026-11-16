@@ -37,7 +37,6 @@ export class ReadTaskChangeStackHandler implements QueryHandlerPort<
 
       return latest
         ? {
-            runId: latest.runId.value,
             repository: latest.repository,
             state: latest.state,
             checkStatus: latest.check?.status ?? null,

@@ -16,7 +16,7 @@ import {
   type LayerQuestion,
 } from '@/lib/change-stack';
 import { YOU } from '@/lib/person';
-import { useReviewing } from '@/lib/review-context';
+import { useStackTeam } from '@/lib/review-context';
 
 type LayerQuestionThreadProps = {
   stack: ChangeStack;
@@ -31,17 +31,16 @@ export function LayerQuestionThread({
   question,
   onReveal,
 }: LayerQuestionThreadProps) {
-  const reviewing = useReviewing();
+  const teamId = useStackTeam();
   const me = useMe();
   const answering = useAnswerStackQuestion();
   const { answered } = question;
   const current = answered && !answered.outdated ? answered : null;
 
   const answer = (reply: string | null) => {
-    if (reviewing) {
+    if (teamId) {
       answering.mutate({
-        teamId: reviewing.teamId,
-        runId: reviewing.runId,
+        teamId,
         stackId: stack.id,
         questionId: question.id,
         reply,

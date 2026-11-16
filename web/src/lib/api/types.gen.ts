@@ -1069,7 +1069,6 @@ export type ClaimedCheckResponseDto = {
    * It is a repeat check; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found
    */
   recheck: boolean;
-  runId: string;
   /**
    * Which checkout to check
    */
@@ -1090,6 +1089,25 @@ export type ClaimedCheckResponseDto = {
   } | null;
   command: string;
   steps: Array<ClaimedCheckStepResponseDto>;
+};
+
+export type ClaimedPushDiffResponseDto = {
+  /**
+   * The push diff; the runner names it when it renews the lease and reports the diff
+   */
+  diffId: string;
+  /**
+   * The repository the push went to
+   */
+  repository: string;
+  /**
+   * The tip of the base branch: the diff is from the merge base of this and the head
+   */
+  baseTip: string;
+  /**
+   * The pushed commit
+   */
+  head: string;
 };
 
 export type WarmCheckoutResponseDto = {
@@ -1113,11 +1131,12 @@ export type WarmSandboxResponseDto = {
 
 export type ClaimedWorkResponseDto = {
   /**
-   * `sandbox` is only for a host claim: start a sandbox with no run in it
+   * `sandbox` is only for a host claim: start a sandbox with no run in it. `diff` is the diff of a push to make from a fresh checkout
    */
-  kind: 'run' | 'check' | 'sandbox';
+  kind: 'run' | 'check' | 'sandbox' | 'diff';
   run: ClaimedRunResponseDto | null;
   check: ClaimedCheckResponseDto | null;
+  diff: ClaimedPushDiffResponseDto | null;
   /**
    * Only for a `sandbox` that is warm: clone and set up these repositories before a task’s first run is claimed into it
    */
@@ -1131,7 +1150,7 @@ export type RenewLeaseResponseDto = {
   stop: boolean;
 };
 
-export type RenewCheckLeaseResponseDto = {
+export type RenewReviewWorkLeaseResponseDto = {
   /**
    * Whether the runner should stop checking: the check was deleted, ended, or waited too long to be recorded
    */
@@ -4212,6 +4231,17 @@ export type StackCheckResponseDto = {
   layers: Array<CheckedStepResponseDto>;
 };
 
+export type PushOriginResponseDto = {
+  /**
+   * The commit that the person pushed
+   */
+  head: string;
+  /**
+   * The GitHub login of the person who pushed
+   */
+  pushedBy: string | null;
+};
+
 export type ChangeStackResponseDto = {
   id: string;
   repository: string | null;
@@ -4227,9 +4257,17 @@ export type ChangeStackResponseDto = {
    * What the check ran and what each step printed
    */
   check: StackCheckResponseDto | null;
+  /**
+   * The run whose changes the stack shows, or null for a push
+   */
+  runId: string | null;
+  /**
+   * The push to the pull request that the stack shows, or null for a run
+   */
+  push: PushOriginResponseDto | null;
 };
 
-export type RunChangeStacksResponseDto = {
+export type ChangeStacksResponseDto = {
   /**
    * Newest first
    */
@@ -4244,10 +4282,6 @@ export type AnswerQuestionRequestDto = {
 };
 
 export type LatestChangeStackResponseDto = {
-  /**
-   * The run whose page shows the stack
-   */
-  runId: string;
   repository: string | null;
   state: 'generating' | 'ready' | 'failed';
   checkStatus: 'waiting' | 'checked' | 'skipped' | null;
@@ -4423,6 +4457,24 @@ export type RecordChangeStackCheckRequestDto = {
    */
   skipped?: SkippedCheckRequestDto | null;
   steps?: Array<CheckedStepRequestDto>;
+};
+
+export type RecordPushDiffRequestDto = {
+  /**
+   * The changes of the pull request, as the output of git diff
+   */
+  diff: string;
+  /**
+   * The merge base of the pushed head and the base branch
+   */
+  base: string;
+};
+
+export type FailPushDiffRequestDto = {
+  /**
+   * Why the runner could not make the diff
+   */
+  reason: string;
 };
 
 export type PullRequestLandingResponseDto = {
@@ -12111,7 +12163,6 @@ export type RenewLeaseResponse = RenewLeaseResponses[keyof RenewLeaseResponses];
 export type RenewCheckLeaseData = {
   body?: never;
   path: {
-    runId: string;
     stackId: string;
   };
   query?: {
@@ -12120,7 +12171,7 @@ export type RenewCheckLeaseData = {
      */
     recheck?: boolean;
   };
-  url: '/runs/{runId}/change-stack-checks/{stackId}/lease';
+  url: '/change-stacks/{stackId}/checks/lease';
 };
 
 export type RenewCheckLeaseErrors = {
@@ -12129,7 +12180,7 @@ export type RenewCheckLeaseErrors = {
    */
   401: unknown;
   /**
-   * No such runner, or the check this runner leases is of another run
+   * No such runner
    */
   404: unknown;
   /**
@@ -12139,10 +12190,46 @@ export type RenewCheckLeaseErrors = {
 };
 
 export type RenewCheckLeaseResponses = {
-  200: RenewCheckLeaseResponseDto;
+  /**
+   * The lease is renewed, or the runner no longer holds it and answers stop: true
+   */
+  200: RenewReviewWorkLeaseResponseDto;
 };
 
 export type RenewCheckLeaseResponse = RenewCheckLeaseResponses[keyof RenewCheckLeaseResponses];
+
+export type RenewPushDiffLeaseData = {
+  body?: never;
+  path: {
+    diffId: string;
+  };
+  query?: never;
+  url: '/push-diffs/{diffId}/lease';
+};
+
+export type RenewPushDiffLeaseErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such runner
+   */
+  404: unknown;
+  /**
+   * The push diff kept moving on while it was renewed
+   */
+  409: unknown;
+};
+
+export type RenewPushDiffLeaseResponses = {
+  /**
+   * The lease is renewed, or the runner no longer holds it and answers stop: true
+   */
+  200: RenewReviewWorkLeaseResponseDto;
+};
+
+export type RenewPushDiffLeaseResponse = RenewPushDiffLeaseResponses[keyof RenewPushDiffLeaseResponses];
 
 export type RecordRunImageData = {
   body: RecordRunImageRequestDto;
@@ -18084,21 +18171,47 @@ export type ListRunChangeStacksErrors = {
 };
 
 export type ListRunChangeStacksResponses = {
-  200: RunChangeStacksResponseDto;
+  200: ChangeStacksResponseDto;
 };
 
 export type ListRunChangeStacksResponse = ListRunChangeStacksResponses[keyof ListRunChangeStacksResponses];
+
+export type ListTaskChangeStacksData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/change-stacks';
+};
+
+export type ListTaskChangeStacksErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ListTaskChangeStacksResponses = {
+  200: ChangeStacksResponseDto;
+};
+
+export type ListTaskChangeStacksResponse = ListTaskChangeStacksResponses[keyof ListTaskChangeStacksResponses];
 
 export type AnswerStackQuestionData = {
   body: AnswerQuestionRequestDto;
   path: {
     teamId: string;
-    runId: string;
     stackId: string;
     questionId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/change-stacks/{stackId}/questions/{questionId}/answers';
+  url: '/teams/{teamId}/change-stacks/{stackId}/questions/{questionId}/answers';
 };
 
 export type AnswerStackQuestionErrors = {
@@ -18297,7 +18410,6 @@ export type GenerateChangeStackResponse = GenerateChangeStackResponses[keyof Gen
 export type RecordChangeStackCheckData = {
   body: RecordChangeStackCheckRequestDto;
   path: {
-    runId: string;
     stackId: string;
   };
   query?: {
@@ -18306,7 +18418,7 @@ export type RecordChangeStackCheckData = {
      */
     recheck?: boolean;
   };
-  url: '/runs/{runId}/change-stack-checks/{stackId}';
+  url: '/change-stacks/{stackId}/checks';
 };
 
 export type RecordChangeStackCheckErrors = {
@@ -18315,7 +18427,7 @@ export type RecordChangeStackCheckErrors = {
    */
   401: unknown;
   /**
-   * Not a run this runner claimed, or no such stack of it
+   * No change stack with a check to record
    */
   404: unknown;
   /**
@@ -18334,37 +18446,111 @@ export type RecordChangeStackCheckResponses = {
 
 export type RecordChangeStackCheckResponse = RecordChangeStackCheckResponses[keyof RecordChangeStackCheckResponses];
 
-export type ReadRunReviewData = {
+export type RecordPushDiffData = {
+  body: RecordPushDiffRequestDto;
+  path: {
+    diffId: string;
+  };
+  query?: never;
+  url: '/push-diffs/{diffId}/diff';
+};
+
+export type RecordPushDiffErrors = {
+  /**
+   * The body has no diff or no base as text
+   */
+  400: unknown;
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such push diff
+   */
+  404: unknown;
+  /**
+   * The diff still waits and this runner does not hold its lease, or the push diff kept changing while it was recorded
+   */
+  409: unknown;
+};
+
+export type RecordPushDiffResponses = {
+  /**
+   * The diff is recorded. Spotlight records a diff it refuses to stack as failed. A diff it cannot stack for now goes back to wait, or fails once every runner attempt is used. A report on a diff already settled answers the same.
+   */
+  204: void;
+};
+
+export type RecordPushDiffResponse = RecordPushDiffResponses[keyof RecordPushDiffResponses];
+
+export type FailPushDiffData = {
+  body: FailPushDiffRequestDto;
+  path: {
+    diffId: string;
+  };
+  query?: never;
+  url: '/push-diffs/{diffId}/failure';
+};
+
+export type FailPushDiffErrors = {
+  /**
+   * The body has no reason as text
+   */
+  400: unknown;
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such push diff
+   */
+  404: unknown;
+  /**
+   * The diff still waits and this runner does not hold its lease, or the push diff kept changing while it was recorded
+   */
+  409: unknown;
+};
+
+export type FailPushDiffResponses = {
+  /**
+   * The report is taken: the diff goes back to wait, or fails once every runner attempt is used. A report on a diff already settled answers the same.
+   */
+  204: void;
+};
+
+export type FailPushDiffResponse = FailPushDiffResponses[keyof FailPushDiffResponses];
+
+export type ReadTaskReviewData = {
   body?: never;
   path: {
     teamId: string;
-    runId: string;
+    taskId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/review';
+  url: '/teams/{teamId}/tasks/{taskId}/review';
 };
 
-export type ReadRunReviewErrors = {
+export type ReadTaskReviewErrors = {
   /**
-   * No such run for this caller
+   * No such task for this caller
    */
   404: unknown;
 };
 
-export type ReadRunReviewResponses = {
+export type ReadTaskReviewResponses = {
   200: CodeReviewResponseDto;
 };
 
-export type ReadRunReviewResponse = ReadRunReviewResponses[keyof ReadRunReviewResponses];
+export type ReadTaskReviewResponse = ReadTaskReviewResponses[keyof ReadTaskReviewResponses];
 
 export type SubmitReviewData = {
   body: SubmitReviewRequestDto;
   path: {
     teamId: string;
-    runId: string;
+    taskId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/review';
+  url: '/teams/{teamId}/tasks/{taskId}/review';
 };
 
 export type SubmitReviewErrors = {
@@ -18388,10 +18574,10 @@ export type DraftReviewCommentData = {
   body: DraftReviewCommentRequestDto;
   path: {
     teamId: string;
-    runId: string;
+    taskId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/review/comments';
+  url: '/teams/{teamId}/tasks/{taskId}/review/comments';
 };
 
 export type DraftReviewCommentErrors = {
@@ -18400,7 +18586,7 @@ export type DraftReviewCommentErrors = {
    */
   403: unknown;
   /**
-   * No such run or comment for this caller
+   * No such task or comment for this caller
    */
   404: unknown;
   /**
@@ -18419,11 +18605,11 @@ export type DeleteReviewCommentData = {
   body?: never;
   path: {
     teamId: string;
-    runId: string;
+    taskId: string;
     commentId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/review/comments/{commentId}';
+  url: '/teams/{teamId}/tasks/{taskId}/review/comments/{commentId}';
 };
 
 export type DeleteReviewCommentErrors = {
@@ -18443,11 +18629,11 @@ export type EditReviewCommentData = {
   body: EditReviewCommentRequestDto;
   path: {
     teamId: string;
-    runId: string;
+    taskId: string;
     commentId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/review/comments/{commentId}';
+  url: '/teams/{teamId}/tasks/{taskId}/review/comments/{commentId}';
 };
 
 export type EditReviewCommentErrors = {

@@ -54,6 +54,17 @@ export type WebhookEvent =
       readonly reopenedAt: Date | null;
     }
   | {
+      readonly kind: 'pull-request-pushed';
+      readonly pullRequest: string;
+      readonly repository: string;
+      readonly head: string;
+      readonly baseTip: string;
+      readonly pushedBy: string | null;
+      readonly byBot: boolean;
+      readonly pushedAt: Date;
+      readonly snapshot: PullRequestSnapshot | null;
+    }
+  | {
       readonly kind: 'pull-request-reviewed';
       readonly pullRequest: string;
       readonly id: number | null;

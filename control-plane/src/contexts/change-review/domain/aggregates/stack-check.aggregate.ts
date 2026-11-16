@@ -7,8 +7,9 @@ import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid
 import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack-check-not-leased.error';
 import { assertOneOwner } from '@change-review/domain/services/stack-owner';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
 import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { RunnerAssignment } from '@change-review/domain/value-objects/runner-assignment.vo';
+import type { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type {
   CheckEntry,
@@ -30,11 +31,11 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
-import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
+import type { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
-import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
+import type { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -57,10 +58,17 @@ export interface PlannedCheck {
   readonly layers: readonly LayerId[];
 }
 
+const RUNLESS_OUTSIDE_TASK = 'comes from no run, yet belongs to no task';
+
+const runlessOutsideTask = (owner: {
+  readonly runId: RunId | null;
+  readonly taskId: TaskId | null;
+}): boolean => owner.runId === null && owner.taskId === null;
+
 export class StackCheck extends EventRecorder {
   private constructor(
     readonly id: StackCheckId,
-    readonly runId: RunId,
+    readonly runId: RunId | null,
     readonly taskId: TaskId | null,
     readonly teamId: TeamId | null,
     readonly trial: boolean,
@@ -70,10 +78,8 @@ export class StackCheck extends EventRecorder {
     readonly entries: readonly CheckEntry[],
     readonly redraftCount: number,
     readonly outcome: CheckOutcome | null,
-    readonly claim: CheckClaim,
+    readonly assignment: RunnerAssignment,
     readonly waitingSince: Date,
-    readonly reservation: RunnerReservation | null,
-    readonly provisioning: Provisioning,
     readonly version: number,
   ) {
     super();
@@ -81,7 +87,7 @@ export class StackCheck extends EventRecorder {
 
   static begin(input: {
     stackId: ChangeStackId;
-    runId: RunId;
+    runId: RunId | null;
     taskId: TaskId | null;
     teamId: TeamId | null;
     trial: boolean;
@@ -91,6 +97,10 @@ export class StackCheck extends EventRecorder {
     now: Date;
   }): StackCheck {
     assertOneOwner('change stack check', input);
+
+    if (runlessOutsideTask(input)) {
+      throw new InvalidStackCheckError(RUNLESS_OUTSIDE_TASK);
+    }
 
     return new StackCheck(
       StackCheckId.first(input.stackId),
@@ -104,10 +114,8 @@ export class StackCheck extends EventRecorder {
       input.entries,
       0,
       null,
-      CheckClaim.none(),
+      RunnerAssignment.none(),
       input.now,
-      null,
-      Provisioning.none(),
       0,
     );
   }
@@ -132,7 +140,7 @@ export class StackCheck extends EventRecorder {
 
   static rehydrate(input: {
     id: StackCheckId;
-    runId: RunId;
+    runId: RunId | null;
     taskId: TaskId | null;
     teamId: TeamId | null;
     trial: boolean;
@@ -142,13 +150,20 @@ export class StackCheck extends EventRecorder {
     entries: readonly CheckEntry[];
     redraftCount: number;
     outcome: CheckOutcome | null;
-    claim: CheckClaim;
+    claim: RunnerClaim;
     waitingSince: Date;
     reservation: RunnerReservation | null;
     provisioning: Provisioning;
     version: number;
   }): StackCheck {
     assertOneOwner('change stack check', input);
+
+    if (runlessOutsideTask(input)) {
+      throw new InconsistentStateError(
+        'change stack check',
+        RUNLESS_OUTSIDE_TASK,
+      );
+    }
 
     const stored = input.outcome?.status ?? null;
 
@@ -183,10 +198,8 @@ export class StackCheck extends EventRecorder {
       input.entries,
       input.redraftCount,
       input.outcome,
-      input.claim,
+      RunnerAssignment.of(input),
       input.waitingSince,
-      input.reservation,
-      input.provisioning,
       input.version,
     );
   }
@@ -197,6 +210,18 @@ export class StackCheck extends EventRecorder {
         !latest || each.id.laterRoundThan(latest.id) ? each : latest,
       null,
     );
+  }
+
+  get claim(): RunnerClaim {
+    return this.assignment.claim;
+  }
+
+  get reservation(): RunnerReservation | null {
+    return this.assignment.reservation;
+  }
+
+  get provisioning(): Provisioning {
+    return this.assignment.provisioning;
   }
 
   get stackId(): ChangeStackId {
@@ -230,10 +255,8 @@ export class StackCheck extends EventRecorder {
       this.entries,
       0,
       null,
-      CheckClaim.none(),
+      RunnerAssignment.none(),
       now,
-      null,
-      Provisioning.none(),
       0,
     );
   }
@@ -281,10 +304,7 @@ export class StackCheck extends EventRecorder {
     return (
       this.status === 'waiting' &&
       this.statusAt(now) === 'waiting' &&
-      !this.claim.isLeasedAt(now) &&
-      !this.claim.exhausted &&
-      (!this.isReservedAt(now) ||
-        (by !== null && (this.reservation?.isFor(by) ?? false)))
+      this.assignment.claimableAt(now, by)
     );
   }
 
@@ -306,28 +326,30 @@ export class StackCheck extends EventRecorder {
       );
     }
 
-    const unreserved = this.reservation?.isFor(runner)
-      ? this.with({ reservation: null })
+    const unreserved = this.assignment.isReservedFor(runner)
+      ? this
       : this.droppingReservation();
 
-    return unreserved.with({ claim: this.claim.claimed(runner, now) });
+    return unreserved.with({
+      assignment: unreserved.assignment.claimedBy(runner, now),
+    });
   }
 
   unclaimedBy(runner: RunnerId, now: Date): StackCheck {
     this.assertCheckedBy(runner, now);
 
-    return this.with({ claim: this.claim.unclaimed() });
+    return this.with({ assignment: this.assignment.unclaimed() });
   }
 
   renewedFor(runner: RunnerId, now: Date): StackCheck {
     this.assertCheckable(now, 'keep being checked');
     this.assertCheckedBy(runner, now);
 
-    return this.with({ claim: this.claim.renewed(now) });
+    return this.with({ assignment: this.assignment.renewed(now) });
   }
 
   beingCheckedBy(runner: RunnerId, now: Date): boolean {
-    return this.claim.isLeasedBy(runner, now);
+    return this.assignment.isLeasedBy(runner, now);
   }
 
   checkableAt(now: Date): boolean {
@@ -335,23 +357,17 @@ export class StackCheck extends EventRecorder {
   }
 
   isReservedAt(now: Date): boolean {
-    return this.reservation?.isActiveAt(now) ?? false;
+    return this.assignment.isReservedAt(now);
   }
 
   reservationExpiredAt(now: Date): boolean {
     return (
-      this.status === 'waiting' &&
-      this.reservation !== null &&
-      !this.reservation.isActiveAt(now)
+      this.status === 'waiting' && this.assignment.reservationExpiredAt(now)
     );
   }
 
   provisionableAt(now: Date): boolean {
-    return (
-      this.claimableAt(now) &&
-      this.reservation === null &&
-      this.provisioning.isDue(now)
-    );
+    return this.checkableAt(now) && this.assignment.provisionableAt(now);
   }
 
   reservedFor(runner: RunnerId, pool: PoolId, now: Date): StackCheck {
@@ -362,12 +378,14 @@ export class StackCheck extends EventRecorder {
     }
 
     return this.with({
-      reservation: RunnerReservation.from(runner, pool, now),
+      assignment: this.assignment.reservedFor(runner, pool, now),
     });
   }
 
   unreservedFor(runner: RunnerId): StackCheck {
-    return this.reservation?.isFor(runner) ? this.droppingReservation() : this;
+    return this.assignment.isReservedFor(runner)
+      ? this.droppingReservation()
+      : this;
   }
 
   provisionFailed(
@@ -375,16 +393,19 @@ export class StackCheck extends EventRecorder {
     failure: ProvisionFailure,
     now: Date,
   ): StackCheck {
-    if (!this.reservation?.isFor(runner) || this.claim.isLeasedAt(now)) {
+    if (!this.assignment.takesProvisionFailureFrom(runner, now)) {
       return this;
     }
 
-    if (this.status !== 'waiting' || this.statusAt(now) !== 'waiting') {
+    if (!this.checkableAt(now)) {
       return this.unreservedFor(runner);
     }
 
-    const provisioning = this.provisioning.recordFailure(failure, now);
-    const failed = this.droppingReservation().with({ provisioning });
+    const dropped = this.droppingReservation();
+    const failed = dropped.with({
+      assignment: dropped.assignment.provisionFailedAt(failure, now),
+    });
+    const { provisioning } = failed.assignment;
 
     if (!provisioning.exhausted) {
       return failed;
@@ -428,11 +449,13 @@ export class StackCheck extends EventRecorder {
   delete(now: Date): StackCheck {
     const deleted = this.droppingReservation();
 
-    if (!this.claim.isLeasedAt(now)) {
+    if (!this.assignment.isLeasedAt(now)) {
       return deleted;
     }
 
-    const released = deleted.with({ claim: this.claim.released() });
+    const released = deleted.with({
+      assignment: deleted.assignment.released(),
+    });
     released.record(new LeasedStackCheckDeleted(this.id));
 
     return released;
@@ -523,8 +546,7 @@ export class StackCheck extends EventRecorder {
       redraftCount: this.redraftCount + 1,
       outcome: null,
       waitingSince: now,
-      claim: this.claim.released(),
-      provisioning: Provisioning.none(),
+      assignment: this.assignment.restarted(),
     });
   }
 
@@ -548,13 +570,17 @@ export class StackCheck extends EventRecorder {
   }
 
   private droppingReservation(): StackCheck {
-    if (!this.reservation) {
+    const { reservation } = this.assignment;
+
+    if (!reservation) {
       return this;
     }
 
-    const dropped = this.with({ reservation: null });
+    const dropped = this.with({
+      assignment: this.assignment.withoutReservation(),
+    });
     dropped.record(
-      new StackCheckReservationDropped(this.id, this.reservation.runner),
+      new StackCheckReservationDropped(this.id, reservation.runner),
     );
 
     return dropped;
@@ -571,7 +597,7 @@ export class StackCheck extends EventRecorder {
     const completed = this.with({
       status: redraft ? 'redrafting' : outcome.status,
       outcome,
-      claim: this.claim.released(),
+      assignment: this.assignment.released(),
       waitingSince: now,
     });
 
@@ -621,10 +647,8 @@ export class StackCheck extends EventRecorder {
     entries?: readonly CheckEntry[];
     redraftCount?: number;
     outcome?: CheckOutcome | null;
-    claim?: CheckClaim;
+    assignment?: RunnerAssignment;
     waitingSince?: Date;
-    reservation?: RunnerReservation | null;
-    provisioning?: Provisioning;
   }): StackCheck {
     const next = new StackCheck(
       this.id,
@@ -638,10 +662,8 @@ export class StackCheck extends EventRecorder {
       change.entries ?? this.entries,
       change.redraftCount ?? this.redraftCount,
       change.outcome !== undefined ? change.outcome : this.outcome,
-      change.claim ?? this.claim,
+      change.assignment ?? this.assignment,
       change.waitingSince ?? this.waitingSince,
-      change.reservation !== undefined ? change.reservation : this.reservation,
-      change.provisioning ?? this.provisioning,
       this.version,
     );
 

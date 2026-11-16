@@ -764,6 +764,32 @@ describe('PullRequest', () => {
       ).toEqual(['pull-request.reopened']);
     });
 
+    it('says who pushed to it, and whether a bot made the push', () => {
+      const pushing = {
+        repository: Repository.of('acme/api'),
+        head: 'a'.repeat(40),
+        baseTip: 'b'.repeat(40),
+        pushedBy: 'ada',
+        pushedAt: at(3),
+      };
+      const known = stored(opened());
+
+      expect(
+        known.recordPush({ ...pushing, byBot: false }).pullEvents(),
+      ).toEqual([
+        expect.objectContaining({
+          kind: 'pull-request.pushed',
+          pushedBy: 'ada',
+          byBot: false,
+        }),
+      ]);
+      expect(
+        known.recordPush({ ...pushing, byBot: true }).pullEvents(),
+      ).toEqual([
+        expect.objectContaining({ kind: 'pull-request.pushed', byBot: true }),
+      ]);
+    });
+
     it('takes a review once, however often GitHub sends it', () => {
       const reviewed = opened().recordReview(review(1, 'approved', 1));
 

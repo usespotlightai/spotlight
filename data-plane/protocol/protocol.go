@@ -403,12 +403,14 @@ const (
 	ClaimedRun     = "run"
 	ClaimedCheck   = "check"
 	ClaimedSandbox = "sandbox"
+	ClaimedDiff    = "diff"
 )
 
 type ClaimResponse struct {
 	Kind  string       `json:"kind"`
 	Run   *Run         `json:"run"`
 	Check *StackCheck  `json:"check"`
+	Diff  *PushDiff    `json:"diff,omitempty"`
 	Warm  *WarmSandbox `json:"warm,omitempty"`
 }
 
@@ -440,7 +442,6 @@ func (a Assignment) StartsSandboxOnly() bool {
 type StackCheck struct {
 	StackID    string      `json:"stackId"`
 	Recheck    bool        `json:"recheck"`
-	RunID      string      `json:"runId"`
 	Repository string      `json:"repository"`
 	Base       string      `json:"base"`
 	Setup      string      `json:"setup"`
@@ -480,4 +481,20 @@ type CheckStepResult struct {
 	Passed     bool   `json:"passed"`
 	Output     string `json:"output"`
 	DurationMs int64  `json:"durationMs"`
+}
+
+type PushDiff struct {
+	DiffID     string `json:"diffId"`
+	Repository string `json:"repository"`
+	BaseTip    string `json:"baseTip"`
+	Head       string `json:"head"`
+}
+
+type PushDiffResult struct {
+	Diff string `json:"diff"`
+	Base string `json:"base"`
+}
+
+type PushDiffFailure struct {
+	Reason string `json:"reason"`
 }

@@ -14,7 +14,7 @@ import type {
 import type { WarmSlotsPort } from '@runners/application/ports/warm-slots.port';
 import { ClaimHostWorkHandler } from '@runs/application/commands/handlers/claim-host-work.handler';
 import { ClaimHostWorkCommand } from '@runs/application/commands/runner.commands';
-import type { ClaimedCheck } from '@runs/application/ports/check-work.port';
+import type { ClaimedCheck } from '@runs/application/ports/review-work.port';
 import type {
   ClaimGate,
   RunStart,
@@ -29,9 +29,9 @@ import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/wor
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
-import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -64,9 +64,9 @@ const queued = (harness = 'claude-code') =>
 const taken = () => queued().claim(claimer(POOLED), NOW);
 
 const aCheck: ClaimedCheck = {
-  checkId: CheckWorkId.of('stack_1'),
-  repeat: false,
-  runId: RunId.of('run_1'),
+  kind: 'check',
+  checkId: ReviewWorkId.of('stack_1'),
+  recheck: false,
   repository: 'widgets',
   base: null,
   setup: null,
@@ -1107,8 +1107,7 @@ describe('ClaimHostWorkHandler', () => {
 
     await expect(handler.execute(pull())).rejects.toThrow('pooled_1 is spent');
     expect(unclaim).toHaveBeenCalledWith(
-      CheckWorkId.of('stack_1'),
-      false,
+      { kind: 'check', id: ReviewWorkId.of('stack_1'), recheck: false },
       POOLED,
       NOW,
     );

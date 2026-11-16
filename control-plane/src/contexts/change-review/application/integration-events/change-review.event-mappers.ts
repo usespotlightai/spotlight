@@ -31,11 +31,18 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
     ):
       | ChangeCheckedIntegrationEvent
       | TrialChangeCheckedIntegrationEvent
-      | TrialChangeRecheckedIntegrationEvent => {
+      | TrialChangeRecheckedIntegrationEvent
+      | null => {
+      if (!event.runId) {
+        return null;
+      }
+
+      const runId = event.runId.value;
+
       if (event.checkId.recheck) {
         return {
           kind: TRIAL_CHANGE_RECHECKED,
-          runId: event.runId.value,
+          runId,
           workspaceId: event.workspaceId.value,
           passed: event.passed,
         };
@@ -44,13 +51,13 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
       return event.trial
         ? {
             kind: TRIAL_CHANGE_CHECKED,
-            runId: event.runId.value,
+            runId,
             workspaceId: event.workspaceId.value,
             passed: event.passed,
           }
         : {
             kind: CHANGE_CHECKED,
-            runId: event.runId.value,
+            runId,
             taskId: event.taskId?.value ?? null,
             workspaceId: event.workspaceId.value,
             passed: event.passed,

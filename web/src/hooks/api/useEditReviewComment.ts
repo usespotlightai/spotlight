@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { reviewKeys } from '@/hooks/api/useRunReview';
+import { reviewKeys } from '@/hooks/api/useTaskReview';
 import { editReviewComment } from '@/lib/api';
 
 type EditReviewCommentInput = {
   teamId: string;
-  runId: string;
+  taskId: string;
   commentId: string;
   body: string;
 };
@@ -16,18 +16,18 @@ export function useEditReviewComment() {
   return useMutation({
     mutationFn: async ({
       teamId,
-      runId,
+      taskId,
       commentId,
       body,
     }: EditReviewCommentInput) => {
       await editReviewComment({
-        path: { teamId, runId, commentId },
+        path: { teamId, taskId, commentId },
         body: { body },
         throwOnError: true,
       });
     },
 
-    onSuccess: (_, { runId }) =>
-      queryClient.invalidateQueries({ queryKey: reviewKeys.forRun(runId) }),
+    onSuccess: (_, { taskId }) =>
+      queryClient.invalidateQueries({ queryKey: reviewKeys.forTask(taskId) }),
   });
 }

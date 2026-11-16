@@ -1,5 +1,6 @@
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
+import { PullRequestPushed } from '@github/domain/events/pull-request-pushed.event';
 import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
 import { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
 import {
@@ -83,6 +84,15 @@ export interface PullRequestReopening {
   readonly repository: Repository;
   readonly gitHubId: number | null;
   readonly reopenedAt: Date | null;
+}
+
+export interface PullRequestPushing {
+  readonly repository: Repository;
+  readonly head: string;
+  readonly baseTip: string;
+  readonly pushedBy: string | null;
+  readonly byBot: boolean;
+  readonly pushedAt: Date;
 }
 
 interface Props {
@@ -462,6 +472,21 @@ export class PullRequest extends EventRecorder {
         reopening.repository,
         reopening.gitHubId,
         reopening.reopenedAt,
+      ),
+    );
+  }
+
+  recordPush(pushing: PullRequestPushing): PullRequest {
+    return this.noticed(
+      new PullRequestPushed(
+        this.workspaceId,
+        this.url,
+        pushing.repository,
+        pushing.head,
+        pushing.baseTip,
+        pushing.pushedBy,
+        pushing.byBot,
+        pushing.pushedAt,
       ),
     );
   }

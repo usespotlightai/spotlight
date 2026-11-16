@@ -11,6 +11,15 @@ describe('RepositoryName', () => {
     expect(name.names(Repository.of('acme/api'))).toBe(false);
   });
 
+  it('names a repository in any case, as GitHub does', () => {
+    const name = RepositoryName.of('Web');
+
+    expect(name.names(Repository.of('acme/web'))).toBe(true);
+    expect(name.names(Repository.of('acme/WEB'))).toBe(true);
+    expect(name.equals(RepositoryName.of('WEB'))).toBe(true);
+    expect(name.names(Repository.of('acme/api'))).toBe(false);
+  });
+
   it('reads a name with a .git ending as the name', () => {
     expect(RepositoryName.of('web.git').equals(RepositoryName.of('web'))).toBe(
       true,

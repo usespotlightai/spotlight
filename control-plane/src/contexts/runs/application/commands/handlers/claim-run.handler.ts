@@ -2,9 +2,12 @@ import type { RunnerClaimantsPort } from '@runners/application/ports/runner-clai
 import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import type { ClaimRunCommand } from '@runs/application/commands/runner.commands';
 import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
-import type { CheckWorkPort } from '@runs/application/ports/check-work.port';
+import type { ReviewWorkPort } from '@runs/application/ports/review-work.port';
 import type { ClaimGate } from '@runs/application/services/claim-gate.service';
-import { claimedRun } from '@runs/application/services/claimed-work';
+import {
+  claimedReviewWork,
+  claimedRun,
+} from '@runs/application/services/claimed-work';
 import type { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import type { LongPoll } from '@runs/application/services/long-poll';
 import type { ProvisionFailures } from '@runs/application/services/provision-failures.service';
@@ -27,7 +30,7 @@ export class ClaimRunHandler implements CommandHandlerPort<
     private readonly claims: RunClaims,
     private readonly claimants: RunnerClaimantsPort,
     private readonly clock: ClockPort,
-    private readonly checks: CheckWorkPort,
+    private readonly reviewWork: ReviewWorkPort,
     private readonly taken: ClaimsTaken,
     private readonly failures: ProvisionFailures,
     private readonly starting: ClaimGate,
@@ -114,19 +117,19 @@ export class ClaimRunHandler implements CommandHandlerPort<
           return claimedRun(claimed);
         }
 
-        const check = await this.checks.claimReserved(
+        const work = await this.reviewWork.claimReserved(
           claimant.runner,
           claimant.offer,
           this.clock.now(),
         );
 
-        if (!check) {
+        if (!work) {
           return null;
         }
 
-        await this.taken.check(check, claimant.runner);
+        await this.taken.reviewWork(work, claimant.runner);
 
-        return { kind: 'check', check };
+        return claimedReviewWork(work);
       },
       until,
     );

@@ -144,6 +144,8 @@ const POSTGRES = 'run_postgres_2';
 
 const POSTGRES_API: ChangeStackResponseDto = {
   id: 'stack_postgres_api',
+  runId: POSTGRES,
+  push: null,
   repository: 'acme/api',
   state: 'ready',
   failure: null,
@@ -262,6 +264,8 @@ const POSTGRES_API: ChangeStackResponseDto = {
 
 const POSTGRES_WORKER: ChangeStackResponseDto = {
   id: 'stack_postgres_worker',
+  runId: POSTGRES,
+  push: null,
   repository: 'acme/worker',
   state: 'ready',
   failure: null,
@@ -304,6 +308,8 @@ const SEARCH_RUN = 'run_search_2';
 
 const SEARCH: ChangeStackResponseDto = {
   id: 'stack_search',
+  runId: SEARCH_RUN,
+  push: null,
   repository: 'acme/api',
   state: 'ready',
   failure: null,
@@ -356,6 +362,8 @@ const REFERRAL_RUN = 'run_referral_1';
 
 const REFERRAL: ChangeStackResponseDto = {
   id: 'stack_referral',
+  runId: REFERRAL_RUN,
+  push: null,
   repository: 'acme/web',
   state: 'ready',
   failure: null,
@@ -406,6 +414,20 @@ export const RUN_CHANGE_STACKS: Record<string, ChangeStackResponseDto[]> = {
   run_postgres_2: [POSTGRES_API, POSTGRES_WORKER],
   run_search_2: [SEARCH],
   run_referral_1: [REFERRAL],
+};
+
+export const PUSH_CHANGE_STACKS: Record<string, ChangeStackResponseDto[]> = {
+  task_postgres: [
+    {
+      ...POSTGRES_WORKER,
+      id: 'stack_postgres_worker_push',
+      runId: null,
+      push: {
+        head: '9f2c4e1a7b3d5f60812c4d9e7a1b3c5d7e9f1a2b',
+        pushedBy: 'maya-chen',
+      },
+    },
+  ],
 };
 
 const linesStartingWith = (stack: ChangeStackResponseDto, mark: string) =>

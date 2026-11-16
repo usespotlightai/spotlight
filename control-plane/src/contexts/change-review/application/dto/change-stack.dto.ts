@@ -142,14 +142,20 @@ export interface ChangeStackDto {
   readonly cohorts: readonly StackCohortDto[];
   readonly removed: readonly RemovedLayerDto[];
   readonly check: StackCheckDto | null;
+  readonly runId: string | null;
+  readonly push: PushOriginDto | null;
 }
 
-export interface RunChangeStacksDto {
+export interface PushOriginDto {
+  readonly head: string;
+  readonly pushedBy: string | null;
+}
+
+export interface ChangeStacksDto {
   readonly stacks: readonly ChangeStackDto[];
 }
 
 export interface LatestChangeStackDto {
-  readonly runId: string;
   readonly repository: string | null;
   readonly state: (typeof CHANGE_STACK_STATE_NAMES)[number];
   readonly checkStatus: (typeof STACK_CHECK_STATUS_NAMES)[number] | null;

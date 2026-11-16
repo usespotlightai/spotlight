@@ -85,9 +85,6 @@ export class ClaimedCheckResponseDto {
   })
   readonly recheck: boolean;
 
-  @ApiProperty({ example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
-  readonly runId: string;
-
   @ApiProperty({ nullable: true, description: 'Which checkout to check' })
   readonly repository: string | null;
 
@@ -109,7 +106,6 @@ export class ClaimedCheckResponseDto {
   constructor(
     stackId: string,
     recheck: boolean,
-    runId: string,
     repository: string | null,
     base: string | null,
     setup: string | null,
@@ -118,7 +114,6 @@ export class ClaimedCheckResponseDto {
   ) {
     this.stackId = stackId;
     this.recheck = recheck;
-    this.runId = runId;
     this.repository = repository;
     this.base = base;
     this.setup = setup;
@@ -127,19 +122,65 @@ export class ClaimedCheckResponseDto {
   }
 }
 
+export class ClaimedPushDiffResponseDto {
+  @ApiProperty({
+    example: '3f9a1c2e-7b4d-4e8a-9c1f-5d2b6e0a8f47',
+    description:
+      'The push diff; the runner names it when it renews the lease and reports the diff',
+  })
+  readonly diffId: string;
+
+  @ApiProperty({
+    example: 'spotlight',
+    description: 'The repository the push went to',
+  })
+  readonly repository: string;
+
+  @ApiProperty({
+    example: '4b825dc642cb6eb9a060e54bf8d69288fbee4904',
+    description:
+      'The tip of the base branch: the diff is from the merge base of this and the head',
+  })
+  readonly baseTip: string;
+
+  @ApiProperty({
+    example: '9a7c3e1f2b4d6e8a0c1f3b5d7e9a2c4f6b8d0e1a',
+    description: 'The pushed commit',
+  })
+  readonly head: string;
+
+  constructor(
+    diffId: string,
+    repository: string,
+    baseTip: string,
+    head: string,
+  ) {
+    this.diffId = diffId;
+    this.repository = repository;
+    this.baseTip = baseTip;
+    this.head = head;
+  }
+}
+
+type ClaimedWorkKind = 'run' | 'check' | 'sandbox' | 'diff';
+
 export class ClaimedWorkResponseDto {
   @ApiProperty({
-    enum: ['run', 'check', 'sandbox'],
+    enum: ['run', 'check', 'sandbox', 'diff'],
     description:
-      '`sandbox` is only for a host claim: start a sandbox with no run in it',
+      '`sandbox` is only for a host claim: start a sandbox with no run in it. ' +
+      '`diff` is the diff of a push to make from a fresh checkout',
   })
-  readonly kind: 'run' | 'check' | 'sandbox';
+  readonly kind: ClaimedWorkKind;
 
   @ApiProperty({ type: () => ClaimedRunResponseDto, nullable: true })
   readonly run: ClaimedRunResponseDto | null;
 
   @ApiProperty({ type: ClaimedCheckResponseDto, nullable: true })
   readonly check: ClaimedCheckResponseDto | null;
+
+  @ApiProperty({ type: ClaimedPushDiffResponseDto, nullable: true })
+  readonly diff: ClaimedPushDiffResponseDto | null;
 
   @ApiPropertyOptional({
     type: () => WarmSandboxResponseDto,
@@ -149,14 +190,16 @@ export class ClaimedWorkResponseDto {
   readonly warm?: WarmSandboxResponseDto;
 
   constructor(
-    kind: 'run' | 'check' | 'sandbox',
+    kind: ClaimedWorkKind,
     run: ClaimedRunResponseDto | null,
     check: ClaimedCheckResponseDto | null,
     warm: WarmSandboxResponseDto | null = null,
+    diff: ClaimedPushDiffResponseDto | null = null,
   ) {
     this.kind = kind;
     this.run = run;
     this.check = check;
+    this.diff = diff;
 
     if (warm) {
       this.warm = warm;
@@ -224,7 +267,7 @@ export class RenewLeaseResponseDto {
   }
 }
 
-export class RenewCheckLeaseResponseDto {
+export class RenewReviewWorkLeaseResponseDto {
   @ApiProperty({
     example: false,
     description:

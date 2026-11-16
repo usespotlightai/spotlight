@@ -18,7 +18,7 @@ export class SubmitReviewHandler implements CommandHandlerPort<
     try {
       const { task, author } = await this.access.actingInReview(
         command.teamId,
-        command.runId,
+        command.taskId,
         command.viewerId,
       );
 

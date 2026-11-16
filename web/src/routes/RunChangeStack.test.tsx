@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RunChangeStacks } from '@/lib/change-stack';
+import type { ChangeStacks } from '@/lib/change-stack';
 import { RunChangeStack } from '@/routes/RunChangeStack';
 import { INVITATIONS, LARGE_FILE } from '@/test/fixtures/change-stack';
 
@@ -30,9 +30,9 @@ vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useRunReview', () => ({
-  reviewKeys: { forRun: () => ['review'] },
-  useRunReview: () => ({ data: review() }),
+vi.mock('@/hooks/api/useTaskReview', () => ({
+  reviewKeys: { forTask: () => ['review'] },
+  useTaskReview: () => ({ data: review() }),
 }));
 
 vi.mock('@/hooks/api/useTeamRuns', () => ({
@@ -91,7 +91,7 @@ const renderAt = (search = '') =>
     </QueryClientProvider>,
   );
 
-const serving = (value: RunChangeStacks | undefined) =>
+const serving = (value: ChangeStacks | undefined) =>
   stacks.mockReturnValue(value);
 
 beforeEach(() => {

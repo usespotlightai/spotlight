@@ -1,5 +1,6 @@
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
+import { PullRequestPushed } from '@github/domain/events/pull-request-pushed.event';
 import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
 import { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
 import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
@@ -25,6 +26,7 @@ export const GITHUB_PAYLOAD_TYPES = [
   ReviewCommentReceived,
   PullRequestClosed,
   PullRequestReopened,
+  PullRequestPushed,
   PullRequestUpdated,
   PullRequestRevertMerged,
   PullRequestPurged,

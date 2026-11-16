@@ -11,7 +11,7 @@ import {
   readInsightsStations,
   readRunMemories,
   readRunNotes,
-  readRunReview,
+  readTaskReview,
   readRunScores,
   readStationAlert,
   readStationInsights,
@@ -153,7 +153,7 @@ describe('one run history across the mock', () => {
           readRunMemories({ path }),
           listRunChangeStacks({ path }),
           readRunScores({ path }),
-          readRunReview({ path }),
+          readTaskReview({ path: { teamId, taskId } }),
           readTaskTrace({ path: { teamId, taskId } }),
           readTaskJournal({ path: { slug: SLUG, taskId, runId: run.id } }),
           listTaskRuns({ path: { teamId, taskId } }),
@@ -224,7 +224,10 @@ describe('the Postgres upgrade reads the same everywhere', () => {
 
   it('anchors every review comment to a line in the run’s change stack', async () => {
     const path = { teamId, runId: 'run_postgres_2' };
-    const { data: review } = await readRunReview({ path, throwOnError: true });
+    const { data: review } = await readTaskReview({
+      path: { teamId, taskId: 'task_postgres' },
+      throwOnError: true,
+    });
     const { data: changes } = await listRunChangeStacks({
       path,
       throwOnError: true,

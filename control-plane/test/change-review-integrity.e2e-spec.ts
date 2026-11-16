@@ -2,15 +2,20 @@ import { TaskDeletionReactions } from '@change-review/application/events/handler
 import { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
+import { PushDiff } from '@change-review/domain/aggregates/push-diff.aggregate';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
+import { PushAlreadyWaitingError } from '@change-review/domain/exceptions/push-already-waiting.error';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
+import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
@@ -23,9 +28,11 @@ import {
   HunkId,
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { DrizzleChangeStackReader } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.reader';
 import { DrizzleChangeStackRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.repository';
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
+import { DrizzlePushDiffRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/push-diff.repository';
 import { DrizzleQuestionAnswerRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/question-answer.repository';
 import { DrizzleReviewCommentRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review-comment.repository';
 import { DrizzleReviewDeliveries } from '@change-review/infrastructure/persistence/drizzle/repositories/review-deliveries.repository';
@@ -34,9 +41,11 @@ import { DrizzleRunChangeChecksReader } from '@change-review/infrastructure/pers
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -69,6 +78,7 @@ let sets: DrizzleDecisionSetRepository;
 let deliveries: DrizzleReviewDeliveries;
 let reader: DrizzleChangeStackReader;
 let runChecks: DrizzleRunChangeChecksReader;
+let diffs: DrizzlePushDiffRepository;
 
 const readyStack = (input: {
   id: string;
@@ -78,7 +88,7 @@ const readyStack = (input: {
 }) =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of(input.id),
-    runId: input.runId,
+    origin: StackOrigin.run(input.runId),
     taskId: input.taskId,
     teamOfRun: TEAM,
     trial: input.trial,
@@ -178,6 +188,7 @@ beforeAll(async () => {
   deliveries = new DrizzleReviewDeliveries(context);
   reader = new DrizzleChangeStackReader(context);
   runChecks = new DrizzleRunChangeChecksReader(context, CLOCK);
+  diffs = new DrizzlePushDiffRepository(context, EVENTS);
 }, 60_000);
 
 afterAll(async () => {
@@ -276,6 +287,24 @@ describe('deleting the change review of a task', () => {
       },
       NOW,
     );
+    await diffs.add(
+      PushDiff.record({
+        id: PushDiffId.of('diff_deleted'),
+        workspaceId: WORKSPACE,
+        taskId: TASK,
+        pullRequest: PullRequestUrl.of(
+          'https://github.com/acme/widgets/pull/7',
+        ),
+        push: {
+          head: CommitSha.parsed('b'.repeat(40)) as CommitSha,
+          baseTip: CommitSha.parsed('a'.repeat(40)) as CommitSha,
+          pushedBy: Pusher.of('octocat'),
+          pushedAt: NOW,
+        },
+        placement: RunnerPlacement.anywhere(),
+        now: NOW,
+      }),
+    );
     await sets.add(
       DecisionSet.open({
         id: DecisionSetId.of('set_deleted'),
@@ -294,6 +323,7 @@ describe('deleting the change review of a task', () => {
       answers,
       stacks,
       sets,
+      diffs,
       CLOCK,
     );
 
@@ -304,6 +334,7 @@ describe('deleting the change review of a task', () => {
     await deleting.removeReviews(TASK);
     await deleting.removeChecks(TASK);
     await deleting.dropDeliveries(TASK);
+    await deleting.removePushDiffs(TASK);
 
     expect(await countOf('change_stack', `task_id = '${TASK.value}'`)).toBe(0);
     expect(await countOf('stack_check', `task_id = '${TASK.value}'`)).toBe(0);
@@ -321,6 +352,35 @@ describe('deleting the change review of a task', () => {
       0,
     );
     expect(await countOf('decision_set', `task_id = '${TASK.value}'`)).toBe(0);
+    expect(await countOf('push_diff', `task_id = '${TASK.value}'`)).toBe(0);
+  });
+});
+
+describe('recording a push to diff', () => {
+  const waitingFor = (id: string, repository: string) =>
+    PushDiff.record({
+      id: PushDiffId.of(id),
+      workspaceId: WORKSPACE,
+      taskId: TaskId.of('task_pushed_twice'),
+      pullRequest: PullRequestUrl.of(
+        `https://github.com/acme/${repository}/pull/7`,
+      ),
+      push: {
+        head: CommitSha.parsed('c'.repeat(40)) as CommitSha,
+        baseTip: CommitSha.parsed('a'.repeat(40)) as CommitSha,
+        pushedBy: Pusher.of('octocat'),
+        pushedAt: NOW,
+      },
+      placement: RunnerPlacement.anywhere(),
+      now: NOW,
+    });
+
+  it('refuses a second waiting diff of the same commit, in any case of the repository', async () => {
+    await diffs.add(waitingFor('diff_pushed_first', 'widgets'));
+
+    await expect(
+      diffs.add(waitingFor('diff_pushed_again', 'Widgets')),
+    ).rejects.toThrow(PushAlreadyWaitingError);
   });
 });
 

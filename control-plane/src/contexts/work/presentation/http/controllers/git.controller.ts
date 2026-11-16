@@ -35,14 +35,14 @@ interface Outgoing {
 }
 
 @ApiExcludeController()
-@Controller('git/:runId/:repo')
+@Controller('git/:workId/:repo')
 @MachineOnly()
 export class GitController {
   constructor(private readonly commandBus: CommandBus) {}
 
   @Get('info/refs')
   async advertise(
-    @Param('runId') runId: string,
+    @Param('workId') workId: string,
     @Param('repo') repo: string,
     @Query('service') service: string,
     @CurrentMachine() runnerId: string,
@@ -54,7 +54,7 @@ export class GitController {
     }
 
     await this.answer(
-      await this.carried(runId, runnerId, repo, service, {
+      await this.carried(workId, runnerId, repo, service, {
         method: 'GET',
         path: '/info/refs',
         search: `?service=${service}`,
@@ -67,7 +67,7 @@ export class GitController {
 
   @Post(':service')
   async pack(
-    @Param('runId') runId: string,
+    @Param('workId') workId: string,
     @Param('repo') repo: string,
     @Param('service') service: string,
     @CurrentMachine() runnerId: string,
@@ -79,7 +79,7 @@ export class GitController {
     }
 
     await this.answer(
-      await this.carried(runId, runnerId, repo, service, {
+      await this.carried(workId, runnerId, repo, service, {
         method: 'POST',
         path: `/${service}`,
         search: '',
@@ -91,14 +91,14 @@ export class GitController {
   }
 
   private carried(
-    runId: string,
+    workId: string,
     runnerId: string,
     repo: string,
     service: GitService,
     call: CarryGitCallCommand['call'],
   ): Promise<GitAnswerDto | null> {
     return this.commandBus.execute(
-      new CarryGitCallCommand(runId, runnerId, repo, service, call),
+      new CarryGitCallCommand(workId, runnerId, repo, service, call),
     );
   }
 

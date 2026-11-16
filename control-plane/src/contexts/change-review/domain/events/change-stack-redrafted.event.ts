@@ -7,6 +7,6 @@ export class ChangeStackRedrafted implements DomainEvent {
 
   constructor(
     readonly stackId: ChangeStackId,
-    readonly runId: RunId,
+    readonly runId: RunId | null,
   ) {}
 }

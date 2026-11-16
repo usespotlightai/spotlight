@@ -7,6 +7,6 @@ export class StackCheckLayersFailed implements DomainEvent {
 
   constructor(
     readonly checkId: StackCheckId,
-    readonly runId: RunId,
+    readonly runId: RunId | null,
   ) {}
 }

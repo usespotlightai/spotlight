@@ -1,7 +1,7 @@
 import type { RunnerPoolsPort } from '@runners/application/ports/runner-pools.port';
 import type { PoolQueueDto } from '@runs/application/dto/pool.dto';
-import type { CheckWorkPort } from '@runs/application/ports/check-work.port';
 import type { QueuedPlacementsPort } from '@runs/application/ports/queued-placements.port';
+import type { ReviewWorkPort } from '@runs/application/ports/review-work.port';
 import type { PoolQueueQuery } from '@runs/application/queries/pool.queries';
 import { poolCouldTake } from '@runs/domain/services/pool-fit';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -15,7 +15,7 @@ export class PoolQueueHandler implements QueryHandlerPort<
   constructor(
     private readonly pools: RunnerPoolsPort,
     private readonly queued: QueuedPlacementsPort,
-    private readonly checks: CheckWorkPort,
+    private readonly reviewWork: ReviewWorkPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -30,7 +30,7 @@ export class PoolQueueHandler implements QueryHandlerPort<
       const now = this.clock.now();
       const [runs, checks, running, room] = await Promise.all([
         this.queued.unclaimedIn(pool.workspaceId, now),
-        this.checks.waitingPlacements(pool.workspaceId, now),
+        this.reviewWork.waitingPlacements(pool.workspaceId, now),
         this.pools.running(pool.poolId, now),
         this.pools.roomIn(pool.poolId, now),
       ]);

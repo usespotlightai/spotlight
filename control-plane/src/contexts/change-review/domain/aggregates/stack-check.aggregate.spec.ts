@@ -6,16 +6,17 @@ import { InvalidChangeStackError } from '@change-review/domain/exceptions/invali
 import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid-stack-check.error';
 import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack-check-not-leased.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import {
-  CheckClaim,
-  MAX_CHECK_ATTEMPTS,
-  MAX_LEASE_MS,
-} from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/runner-assignment.vo';
+import {
+  RunnerClaim,
+  MAX_ATTEMPTS,
+  MAX_LEASE_MS,
+} from '@change-review/domain/value-objects/runner-claim.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type {
   CheckedStep,
@@ -25,12 +26,12 @@ import {
   parseStoredSkip,
   provisionFailed,
   skipOf,
-  WAITING_LIMIT_MS,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -40,6 +41,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -110,7 +112,7 @@ const cohort = (
 const stack = () =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
-    runId: RunId.of('run-1'),
+    origin: StackOrigin.run(RunId.of('run-1')),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
     trial: false,
@@ -187,7 +189,7 @@ const rehydrated = ({
     entries: [],
     redraftCount: 0,
     outcome: null,
-    claim: CheckClaim.none(),
+    claim: RunnerClaim.none(),
     waitingSince: LATER,
     reservation: null,
     provisioning: Provisioning.none(),
@@ -215,7 +217,7 @@ describe('StackCheck', () => {
       StackCheck.beginFor(
         ChangeStack.startGeneration({
           id: ChangeStackId.of('stack-2'),
-          runId: RunId.of('run-1'),
+          origin: StackOrigin.run(RunId.of('run-1')),
           taskId: null,
           teamOfRun: TeamId.of('team_1'),
           trial: false,
@@ -241,7 +243,7 @@ describe('StackCheck', () => {
       check.plannedFrom(
         ChangeStack.startGeneration({
           id: ChangeStackId.of('stack-2'),
-          runId: RunId.of('run-1'),
+          origin: StackOrigin.run(RunId.of('run-1')),
           taskId: null,
           teamOfRun: TeamId.of('team_1'),
           trial: false,
@@ -439,6 +441,47 @@ describe('StackCheck', () => {
     expect(rehydrated({}).statusAt(LATER)).toBe('waiting');
   });
 
+  describe('coming from no run', () => {
+    it('begins for a task', () => {
+      const ready = stack();
+      const check = StackCheck.begin({
+        stackId: ready.id,
+        runId: null,
+        taskId: TaskId.of('task-1'),
+        teamId: null,
+        trial: false,
+        workspaceId: ready.workspaceId,
+        request: CheckRequest.of('npx tsc --noEmit', null),
+        entries: ready.entries(),
+        now: LATER,
+      });
+
+      expect(check.runId).toBeNull();
+    });
+
+    it('is refused when it belongs to no task', () => {
+      const ready = stack();
+
+      expect(() =>
+        StackCheck.begin({
+          stackId: ready.id,
+          runId: null,
+          taskId: null,
+          teamId: TeamId.of('team_1'),
+          trial: false,
+          workspaceId: ready.workspaceId,
+          request: CheckRequest.of('npx tsc --noEmit', null),
+          entries: ready.entries(),
+          now: LATER,
+        }),
+      ).toThrow(InvalidStackCheckError);
+    });
+
+    it('is stored state nobody can load when it belongs to no task', () => {
+      expect(() => rehydrated({ runId: null })).toThrow(InconsistentStateError);
+    });
+  });
+
   describe('claiming it for a runner', () => {
     it('waits to be claimed once the stack completes', () => {
       expect(waiting().claimableAt(LATER)).toBe(true);
@@ -469,12 +512,12 @@ describe('StackCheck', () => {
       let check = waiting();
       let at = LATER;
 
-      for (let round = 0; round < MAX_CHECK_ATTEMPTS; round += 1) {
+      for (let round = 0; round < MAX_ATTEMPTS; round += 1) {
         check = check.claimedFor(RUNNER, ANY, at);
         at = new Date((check.claim.leaseExpiresAt?.getTime() ?? 0) + 1000);
       }
 
-      expect(check.claim.attempts).toBe(MAX_CHECK_ATTEMPTS);
+      expect(check.claim.attempts).toBe(MAX_ATTEMPTS);
       expect(check.claimableAt(at)).toBe(false);
     });
 
@@ -733,12 +776,12 @@ describe('StackCheck', () => {
       const claim = checking().claim;
 
       expect(() => claim.renewed(justBefore)).not.toThrow();
-      expect(() => claim.renewed(ceiling)).toThrow(InvalidStackCheckError);
+      expect(() => claim.renewed(ceiling)).toThrow(InconsistentStateError);
     });
 
     it('rejects a claim stored with no time it was claimed', () => {
       expect(() =>
-        CheckClaim.rehydrate({
+        RunnerClaim.rehydrate({
           claimedBy: RUNNER,
           attempts: 1,
           leaseExpiresAt: ceiling,
@@ -991,7 +1034,7 @@ describe('StackCheck', () => {
 
     it('counts no failure while a runner has its lease', () => {
       const leased = rehydrated({
-        claim: CheckClaim.rehydrate({
+        claim: RunnerClaim.rehydrate({
           claimedBy: OTHER,
           attempts: 1,
           leaseExpiresAt: new Date(LATER.getTime() + 10 * 60_000),

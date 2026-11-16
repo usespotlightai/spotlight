@@ -43,11 +43,16 @@ import type {
   LayerId,
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import {
   type ChangeStackState,
   type StackFailure,
   StackProgress,
 } from '@change-review/domain/value-objects/stack-progress.vo';
+import {
+  type StackVisibility,
+  visibilityOf,
+} from '@change-review/domain/value-objects/stack-visibility.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
@@ -101,6 +106,13 @@ const assertRevisedOnlyWithPrevious = (stack: {
     );
   }
 };
+
+const PUSHED_OUTSIDE_TASK = 'comes from a push, yet belongs to no task';
+
+const pushedOutsideTask = (
+  origin: StackOrigin,
+  owner: { readonly taskId: TaskId | null },
+): boolean => origin.kind === 'push' && !owner.taskId;
 
 const assertComplete = (
   progress: StackProgress,
@@ -160,7 +172,7 @@ export class ChangeStack
 {
   private constructor(
     readonly id: ChangeStackId,
-    readonly runId: RunId,
+    readonly origin: StackOrigin,
     readonly taskId: TaskId | null,
     readonly teamId: TeamId | null,
     readonly trial: boolean,
@@ -184,7 +196,7 @@ export class ChangeStack
 
   static startGeneration(input: {
     id: ChangeStackId;
-    runId: RunId;
+    origin: StackOrigin;
     taskId: TaskId | null;
     teamOfRun: TeamId | null;
     trial: boolean;
@@ -211,6 +223,9 @@ export class ChangeStack
       throw new NoStackOwnerError();
     }
     assertOneOwner('change stack', owner);
+    if (pushedOutsideTask(input.origin, owner)) {
+      throw InvalidChangeStackError.because(PUSHED_OUTSIDE_TASK);
+    }
 
     const repository = input.repository?.trim()
       ? RepositoryName.of(input.repository)
@@ -223,7 +238,7 @@ export class ChangeStack
 
     return new ChangeStack(
       input.id,
-      input.runId,
+      input.origin,
       owner.taskId,
       owner.teamId,
       input.trial,
@@ -246,7 +261,7 @@ export class ChangeStack
 
   static rehydrate(input: {
     id: ChangeStackId;
-    runId: RunId;
+    origin: StackOrigin;
     taskId: TaskId | null;
     teamId: TeamId | null;
     trial: boolean;
@@ -267,11 +282,14 @@ export class ChangeStack
   }): ChangeStack {
     assertComplete(input.progress, input.diff, input.cohorts);
     assertOneOwner('change stack', input);
+    if (pushedOutsideTask(input.origin, input)) {
+      throw new InconsistentStateError('change stack', PUSHED_OUTSIDE_TASK);
+    }
     assertRevisedOnlyWithPrevious(input);
 
     return new ChangeStack(
       input.id,
-      input.runId,
+      input.origin,
       input.taskId,
       input.teamId,
       input.trial,
@@ -290,6 +308,14 @@ export class ChangeStack
       input.removed,
       input.version,
     );
+  }
+
+  get visibility(): StackVisibility | null {
+    return visibilityOf(this);
+  }
+
+  get runId(): RunId | null {
+    return StackOrigin.runOf(this.origin);
   }
 
   get state(): ChangeStackState {
@@ -511,7 +537,9 @@ export class ChangeStack
       job: PendingJob.fresh(),
     });
 
-    completed.record(new ChangeStackCompleted(this.id, this.runId, this.trial));
+    completed.record(
+      new ChangeStackCompleted(this.id, this.runId, this.taskId, this.trial),
+    );
     completed.recordReady(now);
     completed.recordTrialSettled();
     return completed;
@@ -565,13 +593,13 @@ export class ChangeStack
   }
 
   private recordTrialSettled(): void {
-    if (this.trial) {
+    if (this.trial && this.runId) {
       this.record(new TrialStackSettled(this.id, this.runId, this.workspaceId));
     }
   }
 
   private recordReady(at: Date): void {
-    if (!actsOutsideSpotlight(this)) {
+    if (!this.runId || !actsOutsideSpotlight(this)) {
       return;
     }
 
@@ -620,7 +648,7 @@ export class ChangeStack
   }): ChangeStack {
     const next = new ChangeStack(
       this.id,
-      this.runId,
+      this.origin,
       this.taskId,
       this.teamId,
       this.trial,

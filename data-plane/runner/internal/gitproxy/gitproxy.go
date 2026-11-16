@@ -19,7 +19,7 @@ type Serving struct {
 	server   *http.Server
 }
 
-func Serve(controlPlane, token, runID string, fetchOnly bool, transport http.RoundTripper) (*Serving, error) {
+func Serve(controlPlane, token, subject string, fetchOnly bool, transport http.RoundTripper) (*Serving, error) {
 	base, err := url.Parse(controlPlane)
 	if err != nil || !base.IsAbs() {
 		return nil, fmt.Errorf("control plane url %q is not absolute", controlPlane)
@@ -30,10 +30,10 @@ func Serve(controlPlane, token, runID string, fetchOnly bool, transport http.Rou
 		return nil, fmt.Errorf("listen for git on loopback: %w", err)
 	}
 
-	prefix := "/" + runID + "/"
+	prefix := "/" + subject + "/"
 
 	served := &Serving{
-		Remote:   fmt.Sprintf("http://%s/%s", listener.Addr().String(), runID),
+		Remote:   fmt.Sprintf("http://%s/%s", listener.Addr().String(), subject),
 		listener: listener,
 		server: &http.Server{
 			Handler:           forwarding(base, token, prefix, fetchOnly, transport),
