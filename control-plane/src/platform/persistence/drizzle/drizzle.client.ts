@@ -24,7 +24,7 @@ export const attachPoolErrorHandler = (
   telemetry: TelemetryPort,
 ): Pool =>
   pool.on('error', (error: NodeJS.ErrnoException) => {
-    telemetry.count('db_pool_errors_total', { pool: name });
+    telemetry.count('spotlight.db.pool_errors', { 'spotlight.db.pool': name });
     logger.warn(
       { err: error, code: error.code, pool: name },
       'The database pool lost an idle connection',

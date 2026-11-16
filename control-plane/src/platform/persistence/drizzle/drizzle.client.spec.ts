@@ -43,8 +43,8 @@ describe('database pools', () => {
     });
 
     expect(() => pool.emit('error', error)).not.toThrow();
-    expect(telemetry.count).toHaveBeenCalledWith('db_pool_errors_total', {
-      pool: 'read',
+    expect(telemetry.count).toHaveBeenCalledWith('spotlight.db.pool_errors', {
+      'spotlight.db.pool': 'read',
     });
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'ECONNRESET', pool: 'read' }),
