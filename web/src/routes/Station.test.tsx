@@ -1018,17 +1018,14 @@ describe('Station', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('shows the tools of the station and of its skills, naming the skill that brings one', () => {
+    it('shows the tools of the station and of its skills', () => {
       renderAt('station_2', 'config');
 
       expect(
         within(screen.getByRole('list', { name: 'Tools' }))
           .getAllByRole('listitem')
           .map((each) => each.textContent),
-      ).toEqual([
-        'pull-request',
-        'grafana.search via skill grafana-dashboards',
-      ]);
+      ).toEqual(['pull-request', 'grafana.search']);
     });
 
     it('lists no tools where a station has none', () => {

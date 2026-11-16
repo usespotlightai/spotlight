@@ -71,11 +71,6 @@ export function LineProperties({ line, skills, tools }: LinePropertiesProps) {
                   <Wrench aria-hidden className={ICON} />
                   <span className="min-w-0 break-words">
                     {tool.called}
-                    {tool.skills.length > 0 && (
-                      <span className="text-muted-foreground">
-                        {` via skill ${tool.skills.join(', ')}`}
-                      </span>
-                    )}
                   </span>
                 </li>
               ))}
