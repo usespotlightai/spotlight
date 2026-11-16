@@ -7,6 +7,7 @@ import { PullRequestRecordClosed } from '@insights/domain/events/pull-request-re
 import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
+import { JudgeDisagreementVersionConflictError } from '@insights/domain/exceptions/judge-disagreement-version-conflict.error';
 import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
 import {
   type Acted,
@@ -382,9 +383,10 @@ describe('RaiseJudgeDisagreements', () => {
         taskId: 'task_1',
       });
       await scores.add(score);
-      const visit = (runId: string, hour: number) =>
+      const visit = (runId: string, hour: number, stationId?: string) =>
         endedRecord(runId, {
           taskId: 'task_1',
+          stationId,
           endedAt: day('2026-09-30', hour),
         });
       const added = async (record: RunRecord) => {
@@ -453,6 +455,41 @@ describe('RaiseJudgeDisagreements', () => {
       const [disagreement] = [...disagreements.stored.values()];
       expect(disagreement?.state).toBe('withdrawn');
       expect(disagreement?.withdrawnBecause).toBe('label-gone');
+    });
+
+    it('withdraws again when another writer changed the disagreement meanwhile, and leaves a second conflict to the event retry', async () => {
+      const { disagreements, raising, score, visit, added } = await visits();
+      await added(visit('run_1', 10));
+      await raising.scoreRecorded(recordedOf(score));
+      const [ended] = await added(visit('run_2', 12));
+      const saved = disagreements.save.bind(disagreements);
+      let conflicts = 0;
+      disagreements.save = async (disagreement) => {
+        conflicts += 1;
+        throw new JudgeDisagreementVersionConflictError(disagreement.id.value);
+      };
+
+      await expect(raising.runEnded(ended as RunRecordEnded)).rejects.toThrow(
+        JudgeDisagreementVersionConflictError,
+      );
+      expect(conflicts).toBe(2);
+
+      disagreements.save = saved;
+      await raising.runEnded(ended as RunRecordEnded);
+      expect([...disagreements.stored.values()][0]?.state).toBe('withdrawn');
+    });
+
+    it('leaves the merge with a station’s run when a run at another station of the task ends', async () => {
+      const { disagreements, raising, score, visit, added } = await visits();
+      await added(visit('run_1', 10));
+      await raising.scoreRecorded(recordedOf(score));
+      const [ended] = await added(visit('run_2', 12, 'station_2'));
+
+      await raising.runEnded(ended as RunRecordEnded);
+
+      expect([...disagreements.stored.values()][0]?.state).not.toBe(
+        'withdrawn',
+      );
     });
 
     it('ends quietly when another subscriber withdrew the disagreement first', async () => {

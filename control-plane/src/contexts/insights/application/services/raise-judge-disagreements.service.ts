@@ -69,15 +69,21 @@ export class RaiseJudgeDisagreements {
   }
 
   runEnded(event: RunRecordEnded): Promise<void> {
-    return this.considerTask(event.location.taskId, event.workspaceId);
+    return this.considerTask(event.location.taskId, event.workspaceId, {
+      stationId: event.location.stationId,
+    });
   }
 
   outcomeChanged(event: RunOutcomeChanged): Promise<void> {
-    return this.considerTask(event.location.taskId, event.workspaceId);
+    return this.considerTask(event.location.taskId, event.workspaceId, {
+      stationId: event.location.stationId,
+    });
   }
 
   pullRequestClosed(event: PullRequestRecordClosed): Promise<void> {
-    return this.considerTask(event.taskId, event.workspaceId);
+    return this.considerTask(event.taskId, event.workspaceId, {
+      stationId: null,
+    });
   }
 
   async lineChanged(event: JudgedLineChanged): Promise<void> {
@@ -92,6 +98,7 @@ export class RaiseJudgeDisagreements {
   private async considerTask(
     taskId: TaskId,
     workspaceId: WorkspaceId,
+    at: { stationId: StationId | null },
   ): Promise<void> {
     const rubrics = new Map<string, Promise<Rubric | null>>();
     const rubricOf = (stationId: StationId) => {
@@ -101,7 +108,11 @@ export class RaiseJudgeDisagreements {
     };
 
     for (const fact of await this.facts.ofTasks([taskId])) {
-      if (fact.workspaceId.equals(workspaceId)) {
+      if (
+        fact.workspaceId.equals(workspaceId) &&
+        (at.stationId === null ||
+          fact.end.location.stationId.equals(at.stationId))
+      ) {
         await this.consider(
           fact.runId,
           workspaceId,
@@ -231,6 +242,7 @@ export class RaiseJudgeDisagreements {
   private async withdrawing(
     open: JudgeDisagreement,
     reason: WithdrawalReason,
+    retried = false,
   ): Promise<void> {
     try {
       await this.transaction.inTransaction(() =>
@@ -242,8 +254,8 @@ export class RaiseJudgeDisagreements {
         }),
       );
     } catch (error) {
-      if (error instanceof JudgeDisagreementVersionConflictError) {
-        return;
+      if (error instanceof JudgeDisagreementVersionConflictError && !retried) {
+        return this.withdrawing(open, reason, true);
       }
       throw error;
     }
