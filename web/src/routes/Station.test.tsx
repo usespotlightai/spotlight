@@ -81,7 +81,6 @@ const line = {
           origin: 'built-in',
           direct: true,
           skills: [],
-          tools: [],
         },
         {
           value: 'grafana.search',
