@@ -50,6 +50,8 @@ const MOST_UNFINISHED = 200;
 
 const ended = isNotNull(dispatch.endedAt);
 
+const byTheLine = eq(dispatch.driver, 'line');
+
 @Injectable()
 export class DrizzleStationRunReader implements StationRunReaderPort {
   constructor(
@@ -75,7 +77,12 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       .from(dispatch)
       .innerJoin(workStation, eq(workStation.stationId, dispatch.stationId))
       .where(
-        and(eq(dispatch.id, runId), eq(dispatch.kind, 'task'), ended),
+        and(
+          eq(dispatch.id, runId),
+          eq(dispatch.kind, 'task'),
+          byTheLine,
+          ended,
+        ),
       )
       .limit(1);
 
@@ -89,6 +96,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       .where(
         and(
           eq(dispatch.kind, 'task'),
+          byTheLine,
           isNull(dispatch.refused),
           eq(dispatch.taskId, row.taskId),
           eq(dispatch.stationId, row.stationId),
@@ -140,6 +148,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         and(
           eq(dispatch.teamId, teamId.value),
           eq(dispatch.kind, 'task'),
+          byTheLine,
           isNull(dispatch.refused),
           isNull(dispatch.endedAt),
         ),
@@ -216,6 +225,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     return this.endedWhere(
       and(
         eq(dispatch.kind, 'task'),
+        byTheLine,
         eq(dispatch.stationId, stationId),
         wanted.fingerprint === null
           ? undefined

@@ -19,6 +19,7 @@ import type {
   TaskNoteSummary,
   TaskReaderPort,
   TaskSummary,
+  TaskTakeoverSummary,
 } from '@work/application/ports/task-reader.port';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
@@ -32,9 +33,44 @@ import {
   task,
   taskNote,
   taskPullRequest,
+  taskTakeover,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
-import { and, asc, desc, eq, inArray, ne, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  type SQL,
+} from 'drizzle-orm';
+
+interface OpenTakeoverRow {
+  readonly taskId: string;
+  readonly takenBy: string;
+  readonly verdict: TaskTakeoverSummary['verdict'];
+  readonly startedAt: Date;
+  readonly turnRunIds: readonly string[];
+  readonly heldMoveTo: string | null;
+}
+
+type TakeoverPerson = TaskTakeoverSummary['by'];
+
+const takeoverOf = (
+  row: OpenTakeoverRow | undefined,
+  person: (id: string) => TakeoverPerson,
+): TaskTakeoverSummary | null =>
+  row
+    ? {
+        by: person(row.takenBy),
+        verdict: row.verdict,
+        startedAt: row.startedAt,
+        runId: row.turnRunIds[row.turnRunIds.length - 1] ?? null,
+        heldMoveTo: row.heldMoveTo,
+      }
+    : null;
 
 @Injectable()
 export class DrizzleTaskReader implements TaskReaderPort {
@@ -114,6 +150,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .orderBy(asc(task.rank), asc(task.id))
       .$dynamic();
     const rows = await (limit === null ? listed : listed.limit(limit));
+    const takeovers = await this.openTakeovers(rows.map((row) => row.id));
 
     const [notes, pulled, awaited, attached, people, progressOf] =
       await Promise.all([
@@ -128,11 +165,10 @@ export class DrizzleTaskReader implements TaskReaderPort {
           rows.map((row) => row.id),
         ),
         this.people.findMany(
-          rows.flatMap((row) =>
-            [row.createdById, row.assigneeId].flatMap((id) =>
-              id ? [UserId.of(id)] : [],
-            ),
-          ),
+          [
+            ...rows.flatMap((row) => [row.createdById, row.assigneeId]),
+            ...[...takeovers.values()].map((each) => each.takenBy),
+          ].flatMap((id) => (id ? [UserId.of(id)] : [])),
         ),
         progressOfCurrentRuns(
           this.progress,
@@ -168,8 +204,36 @@ export class DrizzleTaskReader implements TaskReaderPort {
         assignee: assigneeId ? person(assigneeId) : null,
         note: notes.get(rest.id) ?? null,
         source: TaskOrigin.decode(openedFrom).integration?.value ?? null,
+        takeover: takeoverOf(takeovers.get(rest.id), person),
       }),
     );
+  }
+
+  private async openTakeovers(
+    taskIds: string[],
+  ): Promise<Map<string, OpenTakeoverRow>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.db
+      .select({
+        taskId: taskTakeover.taskId,
+        takenBy: taskTakeover.takenBy,
+        verdict: taskTakeover.verdict,
+        startedAt: taskTakeover.startedAt,
+        turnRunIds: taskTakeover.turnRunIds,
+        heldMoveTo: taskTakeover.heldMoveTo,
+      })
+      .from(taskTakeover)
+      .where(
+        and(
+          inArray(taskTakeover.taskId, taskIds),
+          isNull(taskTakeover.endedAt),
+        ),
+      );
+
+    return new Map(rows.map((row) => [row.taskId, row] as const));
   }
 
   private async ownedPullRequests(

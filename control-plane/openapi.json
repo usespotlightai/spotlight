@@ -13839,6 +13839,133 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/takeover": {
+      "post": {
+        "description": "The line stops dispatching the task. Your messages start turns of the agent in the task’s workspace, and moves and hook reactions wait until you hand the task back.",
+        "operationId": "takeOverTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TakeOverTaskRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          },
+          "409": {
+            "description": "The task is already taken over, has finished, or is at a station where no agent works"
+          }
+        },
+        "summary": "Take a task over from the line at its station",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/takeover/end": {
+      "post": {
+        "operationId": "handBackTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandBackTaskRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          },
+          "409": {
+            "description": "The task is not taken over, or cannot move on to that station"
+          }
+        },
+        "summary": "Hand a taken-over task back to the line",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/chats": {
       "get": {
         "operationId": "listChats",
@@ -21352,7 +21479,8 @@
                 "parked",
                 "accepted",
                 "answered",
-                "sent-back"
+                "sent-back",
+                "taken-over"
               ],
               "type": "string"
             }
@@ -22772,6 +22900,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "passesTo": {
+            "example": [
+              "station_review"
+            ],
+            "description": "The stations this one may pass a task on to",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -22789,7 +22927,8 @@
           "alerts",
           "search",
           "kind",
-          "skills"
+          "skills",
+          "passesTo"
         ]
       },
       "ReactionResponseDto": {
@@ -24999,7 +25138,7 @@
           "image"
         ]
       },
-      "StartedCheckoutRequestDto": {
+      "CheckoutHeadRequestDto": {
         "type": "object",
         "properties": {
           "path": {
@@ -25010,7 +25149,7 @@
           "commit": {
             "type": "string",
             "example": "4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a",
-            "description": "The commit HEAD was at once the working copy was restored and the checkout prepared, as its full SHA"
+            "description": "The commit HEAD was at when the runner read it, as its full SHA-1 or SHA-256. For a starting point, after the working copy was restored and the checkout prepared. For a completion, at the end of the turn."
           }
         },
         "required": [
@@ -25036,7 +25175,7 @@
             "maxItems": 100,
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StartedCheckoutRequestDto"
+              "$ref": "#/components/schemas/CheckoutHeadRequestDto"
             }
           }
         },
@@ -25155,6 +25294,14 @@
             "type": "boolean",
             "example": false,
             "description": "A person stopped the run rather than the agent finishing it."
+          },
+          "heads": {
+            "maxItems": 100,
+            "description": "The commit HEAD was at in each checkout when the turn ended, as the run received the checkouts. Sent only by runs that report their starting point.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckoutHeadRequestDto"
+            }
           }
         },
         "required": [
@@ -28770,7 +28917,9 @@
               "approval",
               "decision",
               "failure",
-              "connection"
+              "connection",
+              "took-over",
+              "handed-back"
             ],
             "description": "What it shows, which is not what it did"
           },
@@ -29870,6 +30019,51 @@
           "body"
         ]
       },
+      "TakeoverVerdict": {
+        "type": "string",
+        "enum": [
+          "not-right",
+          "exploring"
+        ],
+        "description": "not-right where the person took over because the line got it wrong; exploring where they only try something out"
+      },
+      "TaskTakeoverResponseDto": {
+        "type": "object",
+        "properties": {
+          "by": {
+            "$ref": "#/components/schemas/TaskPersonResponseDto"
+          },
+          "verdict": {
+            "description": "not-right where the person took over because the line got it wrong; exploring where they only try something out",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TakeoverVerdict"
+              }
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-11-16T09:15:00.000Z"
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run of the last turn, where the person talks to the agent"
+          },
+          "heldMoveTo": {
+            "type": "string",
+            "nullable": true,
+            "description": "The station an event asked to move the task to while the person had it. The task moves there when they give it back to its station."
+          }
+        },
+        "required": [
+          "by",
+          "verdict",
+          "startedAt",
+          "runId",
+          "heldMoveTo"
+        ]
+      },
       "TaskResponseDto": {
         "type": "object",
         "properties": {
@@ -29974,6 +30168,16 @@
             "nullable": true,
             "example": "linear",
             "description": "The integration that opened it, or null where a person created it"
+          },
+          "takeover": {
+            "nullable": true,
+            "description": "The person who drives the task at its station in place of the line, or null where the line drives it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskTakeoverResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -29990,7 +30194,8 @@
           "createdBy",
           "assignee",
           "note",
-          "source"
+          "source",
+          "takeover"
         ]
       },
       "TaskPageResponseDto": {
@@ -30695,6 +30900,68 @@
         },
         "required": [
           "assigneeId"
+        ]
+      },
+      "TakeOverTaskRequestDto": {
+        "type": "object",
+        "properties": {
+          "verdict": {
+            "default": "not-right",
+            "description": "not-right where the line got it wrong, which counts against its last run; exploring where you only try something out",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TakeoverVerdict"
+              }
+            ]
+          },
+          "body": {
+            "type": "string",
+            "example": "Make the cards flat, without the nested border.",
+            "description": "The first message to the agent. It starts the first turn."
+          }
+        }
+      },
+      "HandBack": {
+        "type": "string",
+        "enum": [
+          "continue",
+          "move-on",
+          "finish"
+        ],
+        "description": "continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line."
+      },
+      "HandBackTaskRequestDto": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "description": "continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HandBack"
+              }
+            ]
+          },
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
+            "description": "With move-on: a station the task’s station passes work to"
+          },
+          "verdict": {
+            "description": "Changes the verdict given when the takeover started",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TakeoverVerdict"
+              }
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "example": "Cards are flat now. Keep the spacing.",
+            "description": "What the station agent and the record should know"
+          }
+        },
+        "required": [
+          "next"
         ]
       },
       "ChatTargetStationResponseDto": {
@@ -35776,7 +36043,8 @@
               "parked",
               "accepted",
               "answered",
-              "sent-back"
+              "sent-back",
+              "taken-over"
             ]
           },
           "at": {
@@ -37153,7 +37421,8 @@
               "grade",
               "accepted",
               "sent-back",
-              "merged"
+              "merged",
+              "taken-over"
             ],
             "description": "What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task"
           },
@@ -42281,7 +42550,8 @@
               "grade",
               "accepted",
               "sent-back",
-              "merged"
+              "merged",
+              "taken-over"
             ],
             "description": "What gave the human outcome that disagrees with the judge"
           },

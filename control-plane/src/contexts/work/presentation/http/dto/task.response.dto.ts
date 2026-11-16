@@ -1,5 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
+import {
+  PROGRESS_NAMES,
+  TAKEOVER_VERDICT_NAMES,
+  type TakeoverVerdictName,
+} from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { pageResponseOf } from '@work/presentation/http/paging';
 
@@ -38,6 +42,52 @@ export class TaskPersonResponseDto {
     this.id = id;
     this.name = name;
     this.image = image;
+  }
+}
+
+export class TaskTakeoverResponseDto {
+  @ApiProperty({ type: TaskPersonResponseDto })
+  readonly by: TaskPersonResponseDto;
+
+  @ApiProperty({
+    enum: TAKEOVER_VERDICT_NAMES,
+    enumName: 'TakeoverVerdict',
+    description:
+      'not-right where the person took over because the line got it wrong; exploring where they only try something out',
+  })
+  readonly verdict: TakeoverVerdictName;
+
+  @ApiProperty({ example: '2026-11-16T09:15:00.000Z' })
+  readonly startedAt: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The run of the last turn, where the person talks to the agent',
+  })
+  readonly runId: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The station an event asked to move the task to while the person had it. The task moves there when they give it back to its station.',
+  })
+  readonly heldMoveTo: string | null;
+
+  constructor(
+    by: TaskPersonResponseDto,
+    verdict: TakeoverVerdictName,
+    startedAt: string,
+    runId: string | null,
+    heldMoveTo: string | null,
+  ) {
+    this.by = by;
+    this.verdict = verdict;
+    this.startedAt = startedAt;
+    this.runId = runId;
+    this.heldMoveTo = heldMoveTo;
   }
 }
 
@@ -145,6 +195,14 @@ export class TaskResponseDto {
   })
   readonly source: string | null;
 
+  @ApiProperty({
+    type: TaskTakeoverResponseDto,
+    nullable: true,
+    description:
+      'The person who drives the task at its station in place of the line, or null where the line drives it',
+  })
+  readonly takeover: TaskTakeoverResponseDto | null;
+
   constructor(
     id: string,
     stationId: string,
@@ -160,6 +218,7 @@ export class TaskResponseDto {
     assignee: TaskPersonResponseDto | null,
     note: TaskNoteResponseDto | null,
     source: string | null,
+    takeover: TaskTakeoverResponseDto | null,
   ) {
     this.id = id;
     this.stationId = stationId;
@@ -175,6 +234,7 @@ export class TaskResponseDto {
     this.assignee = assignee;
     this.note = note;
     this.source = source;
+    this.takeover = takeover;
   }
 }
 

@@ -12,15 +12,27 @@ export class RecordRunMemoryUses {
     private readonly memories: MemoryRepository,
   ) {}
 
-  runBriefed(run: UsingRun, memories: readonly string[]): Promise<void> {
-    return this.recording.recorded(
+  async runBriefed(
+    run: UsingRun,
+    memories: readonly string[],
+    drivenByAPerson: boolean,
+  ): Promise<void> {
+    if (drivenByAPerson) {
+      return;
+    }
+
+    await this.recording.recorded(
       run,
       'briefed',
       memories.map((each) => MemoryId.of(each)),
     );
   }
 
-  async runEnded(run: UsingRun): Promise<void> {
+  async runEnded(run: UsingRun, drivenByAPerson: boolean): Promise<void> {
+    if (drivenByAPerson) {
+      return;
+    }
+
     const runContext = await this.work.contextOfRun(run.id);
     const referenced = await this.work.memoryFilesRead(run.id);
     const handles = handlesRead(referenced ?? []);

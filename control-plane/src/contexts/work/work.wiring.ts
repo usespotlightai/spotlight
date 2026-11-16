@@ -160,6 +160,7 @@ import { ConnectEditorCommand } from '@work/application/commands/connect-editor.
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
 import { GrantRunAttachmentUploadCommand } from '@work/application/commands/grant-run-attachment-upload.command';
+import { HandBackTaskCommand } from '@work/application/commands/hand-back-task.command';
 import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
 import { AckMessagesHandler } from '@work/application/commands/handlers/ack-messages.handler';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
@@ -172,6 +173,7 @@ import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-ta
 import { DismissProposalHandler } from '@work/application/commands/handlers/dismiss-proposal.handler';
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantRunAttachmentUploadHandler } from '@work/application/commands/handlers/grant-run-attachment-upload.handler';
+import { HandBackTaskHandler } from '@work/application/commands/handlers/hand-back-task.handler';
 import { KeepTaskDraftHandler } from '@work/application/commands/handlers/keep-task-draft.handler';
 import { MarkChatReadHandler } from '@work/application/commands/handlers/mark-chat-read.handler';
 import { MarkConversationReadHandler } from '@work/application/commands/handlers/mark-conversation-read.handler';
@@ -191,6 +193,7 @@ import { SendMessageHandler } from '@work/application/commands/handlers/send-mes
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
+import { TakeOverTaskHandler } from '@work/application/commands/handlers/take-over-task.handler';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
 import { KeepTaskDraftCommand } from '@work/application/commands/keep-task-draft.command';
 import { MarkConversationReadCommand } from '@work/application/commands/mark-conversation-read.command';
@@ -205,6 +208,7 @@ import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-i
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
+import { TakeOverTaskCommand } from '@work/application/commands/take-over-task.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
@@ -2388,6 +2392,27 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TASK_REPOSITORY,
     TASK_PLACEMENTS,
     LineLoader,
+    TRANSACTION,
+    DispatchTask,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(TakeOverTaskCommand, TakeOverTaskHandler, [
+    TASK_REPOSITORY,
+    LineLoader,
+    WorkAccess,
+    RUN_FACTS,
+    TRANSACTION,
+    DispatchTask,
+    ID_GENERATOR,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(HandBackTaskCommand, HandBackTaskHandler, [
+    TASK_REPOSITORY,
+    LineLoader,
+    TASK_PLACEMENTS,
+    RUN_FACTS,
     TRANSACTION,
     DispatchTask,
     CLOCK,

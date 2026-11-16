@@ -37,4 +37,5 @@ export const runEndedOf = (event: DispatchEndedIntegrationEvent): RunEnded => ({
   ending: endingOf(event),
   failure: event.failure,
   asked: event.asked,
+  drivenByAPerson: event.driver === 'person',
 });

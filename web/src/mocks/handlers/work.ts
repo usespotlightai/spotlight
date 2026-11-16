@@ -6,8 +6,10 @@ import type {
   AssignTaskRequestDto,
   AttachmentResponseDto,
   GrantAttachmentUploadRequestDto,
+  HandBackTaskRequestDto,
   MoveTaskRequestDto,
   SendMessageRequestDto,
+  TakeOverTaskRequestDto,
   TaskResponseDto,
 } from '@/lib/api';
 import { placed } from '@/lib/task';
@@ -108,6 +110,7 @@ export const workHandlers: RequestHandler[] = [
         assignee: null,
         note: null,
         source: null,
+        takeover: null,
       };
 
       world().tasks[teamId] = [...(world().tasks[teamId] ?? []), task];
@@ -167,6 +170,75 @@ export const workHandlers: RequestHandler[] = [
 
     return noContent();
   }),
+
+  api.post(
+    '/teams/:teamId/tasks/:taskId/takeover',
+    async ({ params, request }) => {
+      const teamId = String(params.teamId);
+      const task = findTask(teamId, String(params.taskId));
+      const { verdict, body } =
+        (await request.json()) as TakeOverTaskRequestDto;
+
+      if (!task) {
+        return notFound();
+      }
+
+      if (body?.trim()) {
+        queueRunAt(teamId, task.id, task.stationId);
+      }
+      const taken: TaskResponseDto = {
+        ...task,
+        assignee: SAM,
+        takeover: {
+          by: SAM,
+          verdict: verdict ?? 'not-right',
+          startedAt: new Date().toISOString(),
+          runId: body?.trim() ? (world().runs[task.id]?.[0]?.id ?? null) : null,
+          heldMoveTo: null,
+        },
+      };
+      replaceTask(teamId, taken);
+
+      return json(taken);
+    },
+  ),
+
+  api.post(
+    '/teams/:teamId/tasks/:taskId/takeover/end',
+    async ({ params, request }) => {
+      const teamId = String(params.teamId);
+      const task = findTask(teamId, String(params.taskId));
+      const { next, stationId } =
+        (await request.json()) as HandBackTaskRequestDto;
+
+      if (!task?.takeover) {
+        return notFound();
+      }
+
+      const completed = (world().lines[teamId] ?? [])
+        .find((line) =>
+          line.stations.some((each) => each.id === task.stationId),
+        )
+        ?.stations.find((each) => each.kind === 'completed');
+      const to =
+        next === 'move-on' && stationId
+          ? stationId
+          : next === 'finish'
+            ? (completed?.id ?? task.stationId)
+            : task.stationId;
+      const handed: TaskResponseDto = {
+        ...task,
+        stationId: to,
+        takeover: null,
+      };
+      replaceTask(teamId, handed);
+      if (next !== 'finish') {
+        queueRunAt(teamId, task.id, to);
+      }
+
+      return json(handed);
+    },
+  ),
 
   api.put(
     '/teams/:teamId/tasks/:taskId/assignee',

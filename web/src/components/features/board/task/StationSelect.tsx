@@ -16,9 +16,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useCommands } from '@/hooks/useCommands';
-import type { StationResponseDto } from '@/lib/api';
+import { useMe } from '@/hooks/useMe';
+import type { StationResponseDto, TaskTakeoverResponseDto } from '@/lib/api';
 import { stationShare } from '@/lib/station';
+import { heldUntilGivenBack } from '@/lib/takeover';
 import { movableByHand } from '@/lib/task';
+import { cn } from '@/lib/utils';
 
 type Station = {
   readonly id: string;
@@ -30,12 +33,14 @@ type Station = {
 type StationSelectProps = {
   stations: readonly Station[];
   value: string;
+  held: TaskTakeoverResponseDto | null;
   onChange: (stationId: string) => void;
 };
 
 export function StationSelect({
   stations,
   value,
+  held,
   onChange,
 }: StationSelectProps) {
   const shareOf = (stationId: string) =>
@@ -49,9 +54,16 @@ export function StationSelect({
     ? stations.filter((each) => movableByHand(currentStation, each))
     : [];
   const [open, setOpen] = useState(false);
+  const me = useMe();
   useCommands(
     offered.length > 1
-      ? [{ id: 'task.station', run: () => setOpen(true) }]
+      ? [
+          {
+            id: 'task.station',
+            run: () => setOpen(true),
+            enabled: () => !held,
+          },
+        ]
       : [],
   );
 
@@ -61,26 +73,39 @@ export function StationSelect({
         <TooltipTrigger
           render={
             <DropdownMenuTrigger
+              disabled={Boolean(held)}
               aria-label="Station"
-              className="group/station flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
+              className={cn(
+                'group/station flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors data-[popup-open]:bg-accent',
+                !held && 'hover:bg-accent',
+              )}
             />
           }
         >
           <StationIcon
             share={shareOf(value)}
             color={currentStation?.color}
-            className="transition-[filter] group-hover/station:brightness-90"
+            className={cn(
+              'transition-[filter]',
+              !held && 'group-hover/station:brightness-90',
+            )}
           />
           <span className="truncate text-foreground">
             {currentStation?.name}
           </span>
-          <ChevronsUpDown
-            className="ml-auto size-3 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
+          {!held && (
+            <ChevronsUpDown
+              className="ml-auto size-3 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+          )}
         </TooltipTrigger>
         <TooltipContent>
-          <ShortcutHint id="task.station">Move to a station</ShortcutHint>
+          {held ? (
+            heldUntilGivenBack(held, me?.id)
+          ) : (
+            <ShortcutHint id="task.station">Move to a station</ShortcutHint>
+          )}
         </TooltipContent>
       </Tooltip>
 

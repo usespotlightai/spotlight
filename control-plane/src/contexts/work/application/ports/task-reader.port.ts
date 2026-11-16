@@ -3,6 +3,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { Progress } from '@work/domain/value-objects/progress';
+import type { TakeoverVerdict } from '@work/domain/value-objects/takeover-verdict';
 
 export interface TaskNoteSummary {
   readonly position: number;
@@ -20,6 +21,14 @@ interface TaskPersonSummary {
   readonly image: string | null;
 }
 
+export interface TaskTakeoverSummary {
+  readonly by: TaskPersonSummary;
+  readonly verdict: TakeoverVerdict;
+  readonly startedAt: Date;
+  readonly runId: string | null;
+  readonly heldMoveTo: string | null;
+}
+
 export interface TaskSummary {
   readonly id: string;
   readonly stationId: string;
@@ -35,6 +44,7 @@ export interface TaskSummary {
   readonly createdBy: TaskPersonSummary | null;
   readonly assignee: TaskPersonSummary | null;
   readonly source: string | null;
+  readonly takeover: TaskTakeoverSummary | null;
 }
 
 export type TaskListing =

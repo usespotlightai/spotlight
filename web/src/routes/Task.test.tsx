@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,9 +21,13 @@ const worked = vi.fn((): unknown[] => []);
 const journalled = vi.fn((): unknown[] => []);
 const moved = vi.fn();
 const deleted = vi.fn();
+const tookOver = vi.fn();
+const gaveBack = vi.fn();
 const listed = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
+const LEON = { id: 'user_1', name: 'Leon', image: null };
+const members = vi.fn((): unknown[] => [LEON]);
 const stacked = vi.fn((): unknown => ({ latest: null }));
 
 vi.mock('@/hooks/api/useStopRun', () => ({
@@ -51,8 +55,15 @@ vi.mock('@/hooks/api/useMoveTask', () => ({
 vi.mock('@/hooks/api/useDeleteTask', () => ({
   useDeleteTask: () => ({ mutate: deleted }),
 }));
+vi.mock('@/hooks/api/useTakeover', () => ({
+  useTakeOverTask: () => ({ mutate: tookOver, isPending: false }),
+  useHandBackTask: () => ({ mutate: gaveBack, isPending: false }),
+}));
+vi.mock('@/hooks/useMe', () => ({
+  useMe: () => ({ id: 'user_1', name: 'Leon', image: null }),
+}));
 vi.mock('@/hooks/api/useMembers', () => ({
-  useMembers: () => ({ data: [] }),
+  useMembers: () => ({ data: members() }),
 }));
 vi.mock('@/hooks/api/useAssignTask', () => ({
   useAssignTask: () => ({ mutate: vi.fn() }),
@@ -68,8 +79,22 @@ vi.mock('@/hooks/api/useLines', () => ({
         name: 'Default',
         stations: [
           { id: 'station_0', name: 'Backlog', position: 0, kind: 'backlog' },
-          { id: 'station_1', name: 'Triage', position: 1, kind: 'work' },
-          { id: 'station_2', name: 'Spec', position: 2, kind: 'work' },
+          {
+            id: 'station_1',
+            name: 'Triage',
+            position: 1,
+            kind: 'work',
+            harness: 'claude-code',
+            passesTo: ['station_2'],
+          },
+          {
+            id: 'station_2',
+            name: 'Spec',
+            position: 2,
+            kind: 'work',
+            harness: 'claude-code',
+            passesTo: [],
+          },
           {
             id: 'station_3',
             name: 'Completed',
@@ -124,11 +149,14 @@ beforeEach(() => {
   localStorage.clear();
   moved.mockClear();
   deleted.mockClear();
+  tookOver.mockClear();
+  gaveBack.mockClear();
   worked.mockReturnValue([]);
   listed.mockReturnValue([task]);
   failing.mockReturnValue(false);
   refetch.mockClear();
   stacked.mockReturnValue({ latest: null });
+  members.mockReturnValue([LEON]);
 });
 
 const run = (over: Record<string, unknown> = {}) => ({
@@ -149,7 +177,228 @@ const run = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+const giveBackFromTheMenu = async (
+  user: ReturnType<typeof userEvent.setup>,
+) => {
+  await user.click(screen.getByRole('button', { name: 'Task options' }));
+  await screen.findByRole('menu');
+  await user.click(screen.getByRole('menuitem', { name: /Give it back/ }));
+};
+
 describe('Task', () => {
+  describe('taking it over', () => {
+    it('offers to take over a task at a station where an agent works', async () => {
+      const user = userEvent.setup();
+      renderAt('task_1');
+
+      await user.click(screen.getByRole('button', { name: 'Task options' }));
+      await screen.findByRole('menu');
+      await user.click(screen.getByRole('menuitem', { name: /Take over/ }));
+
+      expect(
+        await screen.findByRole('dialog', { name: 'Take over at Triage' }),
+      ).toBeInTheDocument();
+    });
+
+    it('offers nobody off the team to take it over', async () => {
+      const user = userEvent.setup();
+      members.mockReturnValue([]);
+      renderAt('task_1');
+
+      await user.click(screen.getByRole('button', { name: 'Task options' }));
+      await screen.findByRole('menu');
+
+      expect(
+        screen.queryByRole('menuitem', { name: /Take over/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('sends the reason and the first message to the agent', async () => {
+      const user = userEvent.setup();
+      renderAt('task_1');
+
+      await user.click(screen.getByRole('button', { name: 'Task options' }));
+      await screen.findByRole('menu');
+      await user.click(screen.getByRole('menuitem', { name: /Take over/ }));
+      await user.click(
+        await screen.findByRole('radio', { name: /try something/ }),
+      );
+      await user.type(
+        screen.getByRole('textbox', { name: 'First message to the agent' }),
+        'Use a bounded queue.',
+      );
+      await user.click(screen.getByRole('button', { name: 'Take over' }));
+
+      expect(tookOver).toHaveBeenCalledWith(
+        {
+          teamId: 'team_1',
+          taskId: 'task_1',
+          verdict: 'exploring',
+          body: 'Use a bounded queue.',
+        },
+        expect.anything(),
+      );
+    });
+
+    it('marks the session in Activity, and gives the task back to its station', async () => {
+      const user = userEvent.setup();
+      listed.mockReturnValue([
+        {
+          ...task,
+          progress: null,
+          takeover: {
+            by: { id: 'user_1', name: 'Leon', image: null },
+            verdict: 'not-right',
+            startedAt: new Date().toISOString(),
+            runId: 'run_turn',
+            heldMoveTo: null,
+          },
+        },
+      ]);
+      worked.mockReturnValue([run({ id: 'run_turn', state: 'running' })]);
+      renderAt('task_1');
+
+      expect(
+        screen.getByRole('link', { name: 'Implementation' }).closest('li'),
+      ).toHaveTextContent('Taken over');
+
+      await giveBackFromTheMenu(user);
+      const dialog = await screen.findByRole('dialog');
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Give it back' }),
+      );
+
+      expect(gaveBack).toHaveBeenCalledWith(
+        { teamId: 'team_1', taskId: 'task_1', next: 'continue' },
+        expect.anything(),
+      );
+    });
+
+    it('says an event asked to finish the task while the person had it', async () => {
+      const user = userEvent.setup();
+      listed.mockReturnValue([
+        {
+          ...task,
+          progress: null,
+          takeover: {
+            by: { id: 'user_1', name: 'Leon', image: null },
+            verdict: 'not-right',
+            startedAt: new Date().toISOString(),
+            runId: 'run_turn',
+            heldMoveTo: 'station_3',
+          },
+        },
+      ]);
+      renderAt('task_1');
+
+      await giveBackFromTheMenu(user);
+      const dialog = await screen.findByRole('dialog');
+
+      expect(
+        within(dialog).getByText(
+          'An event asked to finish the task while you had it. The task moves to Completed.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(dialog).getByText('Give it back to the line'),
+      ).toBeInTheDocument();
+    });
+
+    it('keeps the task assigned to the person who has it', () => {
+      listed.mockReturnValue([
+        {
+          ...task,
+          takeover: {
+            by: { id: 'user_1', name: 'Leon', image: null },
+            verdict: 'not-right',
+            startedAt: new Date().toISOString(),
+            runId: 'run_turn',
+            heldMoveTo: null,
+          },
+        },
+      ]);
+      renderAt('task_1');
+
+      for (const picker of screen.getAllByRole('button', {
+        name: /Assign/,
+      })) {
+        expect(picker).toBeDisabled();
+      }
+    });
+
+    it('keeps the task at its station while the person has it', () => {
+      listed.mockReturnValue([
+        {
+          ...task,
+          takeover: {
+            by: { id: 'user_1', name: 'Leon', image: null },
+            verdict: 'not-right',
+            startedAt: new Date().toISOString(),
+            runId: 'run_turn',
+            heldMoveTo: null,
+          },
+        },
+      ]);
+      renderAt('task_1');
+
+      expect(screen.getByRole('button', { name: 'Station' })).toBeDisabled();
+    });
+
+    it('lets only the person who took the task over give it back', async () => {
+      const user = userEvent.setup();
+      listed.mockReturnValue([
+        {
+          ...task,
+          takeover: {
+            by: { id: 'user_2', name: 'Maya', image: null },
+            verdict: 'not-right',
+            startedAt: new Date().toISOString(),
+            runId: 'run_turn',
+            heldMoveTo: null,
+          },
+        },
+      ]);
+      renderAt('task_1');
+
+      await user.click(screen.getByRole('button', { name: 'Task options' }));
+      await screen.findByRole('menu');
+
+      expect(
+        screen.queryByRole('menuitem', { name: /Give it back/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('waits for a turn in progress before it gives the task back', async () => {
+      const user = userEvent.setup();
+      listed.mockReturnValue([
+        {
+          ...task,
+          progress: 'in-progress',
+          takeover: {
+            by: { id: 'user_1', name: 'Leon', image: null },
+            verdict: 'not-right',
+            startedAt: new Date().toISOString(),
+            runId: 'run_turn',
+            heldMoveTo: null,
+          },
+        },
+      ]);
+      renderAt('task_1');
+
+      await giveBackFromTheMenu(user);
+      const dialog = await screen.findByRole('dialog');
+
+      expect(
+        within(dialog).getByText(
+          'A turn is in progress. You can give the task back when it ends.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(dialog).getByRole('button', { name: 'Give it back' }),
+      ).toBeDisabled();
+    });
+  });
+
   describe('the runs it has been through', () => {
     it('says nothing while none have been worked', () => {
       worked.mockReturnValue([]);

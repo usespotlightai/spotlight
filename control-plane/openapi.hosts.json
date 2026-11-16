@@ -2862,7 +2862,7 @@
           "image"
         ]
       },
-      "StartedCheckoutRequestDto": {
+      "CheckoutHeadRequestDto": {
         "type": "object",
         "properties": {
           "path": {
@@ -2873,7 +2873,7 @@
           "commit": {
             "type": "string",
             "example": "4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a",
-            "description": "The commit HEAD was at once the working copy was restored and the checkout prepared, as its full SHA"
+            "description": "The commit HEAD was at when the runner read it, as its full SHA-1 or SHA-256. For a starting point, after the working copy was restored and the checkout prepared. For a completion, at the end of the turn."
           }
         },
         "required": [
@@ -2899,7 +2899,7 @@
             "maxItems": 100,
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StartedCheckoutRequestDto"
+              "$ref": "#/components/schemas/CheckoutHeadRequestDto"
             }
           }
         },
@@ -3018,6 +3018,14 @@
             "type": "boolean",
             "example": false,
             "description": "A person stopped the run rather than the agent finishing it."
+          },
+          "heads": {
+            "maxItems": 100,
+            "description": "The commit HEAD was at in each checkout when the turn ended, as the run received the checkouts. Sent only by runs that report their starting point.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckoutHeadRequestDto"
+            }
           }
         },
         "required": [

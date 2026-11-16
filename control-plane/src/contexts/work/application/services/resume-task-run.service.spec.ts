@@ -63,6 +63,7 @@ const dispatchedWith = (toolsOnMarks: readonly Tool[]) =>
       taskId: TaskId.of('task_1'),
       revision: TaskRevision.of(0),
       stationId: StationId.of('station_1'),
+      driver: 'line' as const,
     },
     configuredAs: CONFIG,
     toolsOnMarks,

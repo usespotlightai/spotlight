@@ -37,6 +37,7 @@ import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskDraftSent } from '@work/domain/events/task-draft-sent.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
+import { TaskHandedBack } from '@work/domain/events/task-handed-back.event';
 import { TaskMarkReleased } from '@work/domain/events/task-mark-released.event';
 import { TaskMarked } from '@work/domain/events/task-marked.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
@@ -52,6 +53,7 @@ import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { TaskRunEnded } from '@work/domain/events/task-run-ended.event';
 import { TaskSessionKept } from '@work/domain/events/task-session-kept.event';
+import { TaskTakenOver } from '@work/domain/events/task-taken-over.event';
 import { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.event';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
@@ -71,6 +73,7 @@ import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatReply } from '@work/domain/value-objects/chat-reply.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
+import { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { CoAuthors } from '@work/domain/value-objects/co-authors.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
@@ -123,6 +126,7 @@ import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { Station } from '@work/domain/value-objects/station.vo';
+import { TakeoverId } from '@work/domain/value-objects/takeover-id.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
@@ -140,6 +144,7 @@ import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
 import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
+import { TurnHeads } from '@work/domain/value-objects/turn-heads.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WorkingCopyRelease } from '@work/domain/value-objects/working-copy-release.vo';
 
@@ -269,6 +274,11 @@ export const WORK_PAYLOAD_TYPES = [
   TaskTurnAwaited,
   TaskPassed,
   TaskActedOn,
+  TaskTakenOver,
+  TaskHandedBack,
+  CheckoutHead,
+  TakeoverId,
+  TurnHeads,
   TaskAnswered,
   TaskAsked,
   TaskAssigned,

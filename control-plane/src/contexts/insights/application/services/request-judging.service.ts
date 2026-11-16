@@ -22,6 +22,7 @@ export interface RunEndedToJudge {
   readonly taskId: string | null;
   readonly stationId: string | null;
   readonly ending: RunEnding | null;
+  readonly drivenByAPerson: boolean;
 }
 
 export class RequestJudging {
@@ -41,6 +42,7 @@ export class RequestJudging {
     const runId = RunId.of(event.runId);
 
     if (
+      event.drivenByAPerson ||
       !event.taskId ||
       !event.stationId ||
       !this.judge.available ||

@@ -192,6 +192,7 @@ const runEnded = async (
     workspaceId: WORKSPACE,
     taskId,
     stationId: 'station_1',
+    driver: 'line',
     outcome: 'completed',
     failure: null,
     stopped: false,
@@ -875,6 +876,7 @@ describe('the config runs a station’s runs make', () => {
         ending: outcome,
         failure: outcome === 'failed' ? 'exited' : null,
         asked: false,
+        drivenByAPerson: false,
       });
     }
   };

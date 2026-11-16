@@ -31,6 +31,10 @@ export class LifecycleHookTriggers {
   }
 
   async runEnded(event: DispatchEndedIntegrationEvent): Promise<void> {
+    if (event.driver === 'person') {
+      return;
+    }
+
     const run = RunId.of(event.runId);
     const task = event.taskId
       ? await this.tasks.of(TaskId.of(event.taskId), run)

@@ -344,6 +344,7 @@ const runEnded = (change: Record<string, unknown> = {}) => ({
   workspaceId: 'ws_1',
   taskId: 'task_1',
   stationId: 'station_1',
+  driver: 'line',
   outcome: 'completed',
   failure: null,
   stopped: false,
@@ -412,6 +413,17 @@ describe('insightsSubscribers', () => {
     expect(
       (await subscriber.record())?.factWith(null, null, null)?.ending,
     ).toBe('stopped');
+  });
+
+  it('records nothing for a turn a person drove', async () => {
+    const subscriber = subscribed();
+
+    await subscriber.deliver(
+      'insights.record-ended-run',
+      runEnded({ driver: 'person' }),
+    );
+
+    expect(await subscriber.record()).toBeNull();
   });
 
   it('records nothing for a run at no station', async () => {

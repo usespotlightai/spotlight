@@ -24,6 +24,7 @@ const task = (id: string, stationId: string): Task => ({
   pullRequests: [],
   note: null,
   source: null,
+  takeover: null,
 });
 
 const board = [task('a', 'triage'), task('b', 'triage'), task('c', 'spec')];
@@ -116,6 +117,22 @@ describe('mayLand', () => {
   it('lets a task land only where a person may move it', () => {
     expect(mayLand(stations, task('a', 'spec'), 'backlog')).toBe(true);
     expect(mayLand(stations, task('a', 'spec'), 'build')).toBe(false);
+  });
+
+  it('keeps a taken-over task at its station, in any order', () => {
+    const held: Task = {
+      ...task('a', 'spec'),
+      takeover: {
+        by: { id: 'user_1', name: 'Leon', image: null },
+        verdict: 'not-right',
+        startedAt: '2026-08-04T09:15:00.000Z',
+        runId: null,
+        heldMoveTo: null,
+      },
+    };
+
+    expect(mayLand(stations, held, 'backlog')).toBe(false);
+    expect(mayLand(stations, held, 'spec')).toBe(true);
   });
 
   it('lands nothing at a station off the line', () => {

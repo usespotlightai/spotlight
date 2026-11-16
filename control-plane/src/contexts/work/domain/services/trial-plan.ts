@@ -82,7 +82,11 @@ const checkoutsAt = (
   });
 };
 
-const NOT_DEFERRED = { awaitingReview: false, deferredMoveTo: null } as const;
+const NOT_DEFERRED = {
+  awaitingReview: false,
+  deferredMoveTo: null,
+  takenOver: false,
+} as const;
 
 const movesOnAfter = (candidate: LineMap, stationId: StationId): string[] =>
   [

@@ -45,6 +45,10 @@ vi.mock('@/hooks/api/useMembers', () => ({
   useMembers: () => ({ data: [] }),
 }));
 
+vi.mock('@/hooks/useMe', () => ({
+  useMe: () => ({ id: 'user_1', name: 'Leon', image: null }),
+}));
+
 vi.mock('@/hooks/api/useAssignTask', () => ({
   useAssignTask: () => ({ mutate: vi.fn() }),
 }));
@@ -298,6 +302,24 @@ describe('LineBoard', () => {
 
     expect(triage?.textContent).toContain('Fix the queue');
     expect(spec?.textContent).not.toContain('Fix the queue');
+  });
+
+  it('marks a task a person has taken over', () => {
+    listed.mockReturnValue([
+      {
+        ...tasks[0],
+        takeover: {
+          by: { id: 'user_2', name: 'Maya', image: null },
+          verdict: 'not-right',
+          startedAt: '2026-08-04T10:00:00.000Z',
+          runId: 'run_1',
+          heldMoveTo: null,
+        },
+      },
+    ]);
+    renderAt('line_1');
+
+    expect(sections()[0]?.textContent).toContain('Taken over');
   });
 
   it('counts the tasks a station has', () => {

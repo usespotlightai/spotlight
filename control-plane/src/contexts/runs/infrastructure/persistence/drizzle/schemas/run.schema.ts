@@ -11,7 +11,7 @@ import {
   TERMINAL_RUN_STATES,
 } from '@runs/domain/value-objects/run-state';
 import { RUN_TURN_STATES } from '@runs/domain/value-objects/run-turn.vo';
-import type { StartedCheckoutParts } from '@runs/domain/value-objects/started-checkout.vo';
+import type { CheckoutHeadParts } from '@runs/domain/value-objects/checkout-head.vo';
 import { WORKING_COPY_RESTORES } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { JsonValue } from '@shared-kernel/domain/json-value';
 import { sql } from 'drizzle-orm';
@@ -52,6 +52,7 @@ export interface RunTurnReportParts {
     }[];
   } | null;
   readonly session: string | null;
+  readonly heads: readonly { readonly path: string; readonly commit: string }[];
   readonly reportedBy: string;
 }
 
@@ -116,10 +117,14 @@ export const run = pgTable(
     endedAt: timestamptz('ended_at'),
     startedFromArchiveId: text('started_from_archive_id'),
     startedFromCheckouts: jsonb('started_from_checkouts').$type<
-      readonly StartedCheckoutParts[]
+      readonly CheckoutHeadParts[]
     >(),
     startedFromAttempt: integer('started_from_attempt'),
     startedFromAt: timestamptz('started_from_at'),
+    endHeads: jsonb('end_heads')
+      .$type<readonly CheckoutHeadParts[]>()
+      .notNull()
+      .default([]),
     askedAPerson: boolean('asked_a_person').notNull().default(false),
     turn: runTurn('turn'),
     turnReport: jsonb('turn_report').$type<RunTurnReportParts>(),

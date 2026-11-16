@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { CheckoutHead } from '@runs/domain/value-objects/checkout-head.vo';
 import { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
-import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
@@ -164,7 +164,7 @@ describe('a task run’s starting point', () => {
 
     const archive = WorkingCopyArchiveId.of(randomUUID());
     const checkouts = [
-      StartedCheckout.of({ path: 'api', commit: 'e'.repeat(40) }),
+      CheckoutHead.of({ path: 'api', commit: 'e'.repeat(40) }),
     ];
     await runs.save(
       ((await runs.findById(run.id)) as Run).startsFrom(

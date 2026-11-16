@@ -73,7 +73,11 @@ export const mayLand = (
   const from = stations.find((each) => each.id === task.stationId);
   const to = stations.find((each) => each.id === stationId);
 
-  return Boolean(from && to && movableByHand(from, to));
+  return Boolean(
+    from &&
+    to &&
+    (from.id === to.id || (!task.takeover && movableByHand(from, to))),
+  );
 };
 
 type Station = Placed & { readonly name: string };

@@ -59,3 +59,23 @@ describe('TaskNoteBody.deferredMove', () => {
     );
   });
 });
+
+describe('TaskNoteBody.handedBack', () => {
+  const handedBack = (into: { name: StationName; completed: boolean } | null) =>
+    TaskNoteBody.handedBack({
+      at: StationName.of('Build'),
+      into,
+      held: null,
+      changes: [],
+      summary: null,
+    }).value;
+
+  it('ends the rules for the person’s turns wherever the task goes on', () => {
+    expect(handedBack(null)).toContain(
+      'The rules for their turns no longer apply.',
+    );
+    expect(
+      handedBack({ name: StationName.of('Review'), completed: false }),
+    ).toContain('The rules for their turns no longer apply.');
+  });
+});

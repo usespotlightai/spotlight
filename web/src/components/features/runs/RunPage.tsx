@@ -113,7 +113,7 @@ export function RunPage({
   return (
     <TrailContext value={forward}>
       <FileDropZone className="flex min-h-0 flex-1 flex-col rounded-lg">
-        <RunHeader slug={slug} run={run} trail={trail} />
+        <RunHeader slug={slug} teamId={teamId} run={run} trail={trail} />
 
         <RunSidePanel>
           <StepAnchorsProvider runId={run.id} journals={worked}>

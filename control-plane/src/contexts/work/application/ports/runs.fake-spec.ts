@@ -236,6 +236,7 @@ export const leasedRun = (
   exitCode: null,
   image: null,
   startedFrom: null,
+  endHeads: [],
   manifest: [],
   pins: [],
   ...part,

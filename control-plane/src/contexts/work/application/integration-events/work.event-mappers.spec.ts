@@ -23,18 +23,22 @@ import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
+import { TaskHandedBack } from '@work/domain/events/task-handed-back.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
+import { TaskTakenOver } from '@work/domain/events/task-taken-over.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 import {
   DispatchEnding,
   type DispatchOutcome,
 } from '@work/domain/value-objects/dispatch-ending.vo';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
+import { TakeoverId } from '@work/domain/value-objects/takeover-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -66,6 +70,7 @@ const dispatchEnded = (
       stopped,
       askedAPerson: false,
     }),
+    'line',
   );
 
 const TASK = TaskId.of('task_1');
@@ -344,11 +349,78 @@ describe('WORK_EVENT_MAPPERS', () => {
         failure: null,
         stopped: true,
         asked: false,
+        driver: 'line',
       },
     ]);
     expect(published(dispatchEnded('exhausted', 'runner-lost'))[0]).toEqual(
       expect.objectContaining({ failure: 'runner-lost', stopped: false }),
     );
+  });
+
+  it('publishes who took a task over, where and from which run', () => {
+    expect(
+      published(
+        new TaskTakenOver(
+          TASK,
+          WORKSPACE,
+          TeamId.of('team_1'),
+          TakeoverId.of('takeover_1'),
+          StationId.of('station_1'),
+          UserId.of('user_1'),
+          RUN,
+          'not-right',
+          RECORDED_AT,
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.task-taken-over.v1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        takeoverId: 'takeover_1',
+        stationId: 'station_1',
+        by: 'user_1',
+        fromRunId: 'run_1',
+        verdict: 'not-right',
+        at: RECORDED_AT.toISOString(),
+      },
+    ]);
+  });
+
+  it('publishes how a person gave a task back, with their turns and commits', () => {
+    const head = (commit: string) =>
+      CheckoutHead.of({ path: '/workspace/app', commit: commit.repeat(40) });
+
+    expect(
+      published(
+        new TaskHandedBack(
+          TASK,
+          WORKSPACE,
+          TeamId.of('team_1'),
+          TakeoverId.of('takeover_1'),
+          StationId.of('station_1'),
+          UserId.of('user_1'),
+          null,
+          'exploring',
+          'move-on',
+          [RunId.of('run_turn')],
+          [head('a')],
+          [head('b')],
+          RECORDED_AT,
+          RECORDED_AT,
+        ),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'work.task-handed-back.v1',
+        fromRunId: null,
+        handBack: 'move-on',
+        turnRunIds: ['run_turn'],
+        fromHeads: [{ path: '/workspace/app', commit: 'a'.repeat(40) }],
+        toHeads: [{ path: '/workspace/app', commit: 'b'.repeat(40) }],
+      }),
+    ]);
   });
 
   it('publishes a run its task superseded', () => {
@@ -428,6 +500,7 @@ describe('WORK_EVENT_MAPPERS', () => {
             briefed: [{ id: 'memory_1', handle: 'M-1' }],
             omitted: [{ id: 'memory_2', handle: 'M-2' }],
           }),
+          'line',
         ),
       ),
     ).toEqual([
@@ -437,6 +510,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         workspaceId: 'ws_1',
         taskId: 'task_1',
         memories: ['memory_1'],
+        driver: 'line',
       },
     ]);
   });

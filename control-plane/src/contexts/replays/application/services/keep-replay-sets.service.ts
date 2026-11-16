@@ -24,8 +24,9 @@ export class KeepReplaySets {
   async onRunEnded(
     ranAt: string | null,
     workspaceId: WorkspaceId,
+    drivenByAPerson: boolean,
   ): Promise<void> {
-    if (!ranAt) {
+    if (!ranAt || drivenByAPerson) {
       return;
     }
 

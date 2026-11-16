@@ -12,6 +12,7 @@ export type DispatchEndedIntegrationEvent = {
   readonly workspaceId: string;
   readonly taskId: string | null;
   readonly stationId: string | null;
+  readonly driver: 'line' | 'person';
   readonly outcome: DispatchOutcomePublished;
   readonly failure: string | null;
   readonly stopped: boolean;

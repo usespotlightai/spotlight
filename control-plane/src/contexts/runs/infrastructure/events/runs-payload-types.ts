@@ -21,6 +21,7 @@ import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { CallSecretsClaim } from '@runs/domain/value-objects/call-secrets-claim.vo';
 import { CallingHost } from '@runs/domain/value-objects/calling-host.vo';
+import { CheckoutHead } from '@runs/domain/value-objects/checkout-head.vo';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandedOverFile as RunHandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
@@ -49,7 +50,6 @@ import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
 import { RunUsage } from '@runs/domain/value-objects/run-usage.vo';
-import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import { ToolUse } from '@runs/domain/value-objects/tool-use.vo';
@@ -94,7 +94,7 @@ export const RUNS_PAYLOAD_TYPES = [
   RunSpec,
   WorkingCopyArchiveId,
   RestoredArchive,
-  StartedCheckout,
+  CheckoutHead,
   StartingPoint,
   RunExhausted,
   RunCancelled,

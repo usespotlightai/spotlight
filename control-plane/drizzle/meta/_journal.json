@@ -15,6 +15,20 @@
       "when": 1794820524271,
       "tag": "20261116091524_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794838393462,
+      "tag": "20261116141313_task_takeovers",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794843408081,
+      "tag": "20261116153648_backfill_turn_report_heads",
+      "breakpoints": true
     }
   ]
 }

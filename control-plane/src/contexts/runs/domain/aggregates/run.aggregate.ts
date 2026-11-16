@@ -21,6 +21,7 @@ import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-start
 import { RunActsOnlyOnItselfError } from '@runs/domain/exceptions/run-acts-only-on-itself.error';
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
 import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
+import type { CheckoutHead } from '@runs/domain/value-objects/checkout-head.vo';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RequeueCount } from '@runs/domain/value-objects/requeue-count.vo';
@@ -47,7 +48,6 @@ import {
 } from '@runs/domain/value-objects/run-state';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
-import type { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo';
 import {
   type ReportedStart,
   StartingPoint,
@@ -79,7 +79,7 @@ const LEASE_DURATION_MS = 60_000;
 
 export interface RunStart {
   readonly restored: RestoredArchive | null;
-  readonly checkouts: readonly StartedCheckout[];
+  readonly checkouts: readonly CheckoutHead[];
 }
 
 const LOST = RunFailure.of('runner-lost').retry;
@@ -185,6 +185,7 @@ export class Run extends EventRecorder {
     readonly endedAt: Date | null = null,
     readonly queuedAt: Date,
     readonly createdAt: Date,
+    readonly endHeads: readonly CheckoutHead[] = [],
   ) {
     super();
   }
@@ -338,6 +339,7 @@ export class Run extends EventRecorder {
     endedAt?: Date | null;
     queuedAt: Date;
     createdAt: Date;
+    endHeads?: readonly CheckoutHead[];
   }): Run {
     const ordered = Run.orderedFrom(input);
 
@@ -373,6 +375,7 @@ export class Run extends EventRecorder {
       input.endedAt ?? null,
       input.queuedAt,
       input.createdAt,
+      input.endHeads ?? [],
     );
   }
 
@@ -389,6 +392,7 @@ export class Run extends EventRecorder {
     startedFrom?: StartingPoint | null;
     askedAPerson?: boolean;
     turn?: RunTurn | null;
+    endHeads?: readonly CheckoutHead[];
     endedAt?: Date | null;
     version: number;
   }): void {
@@ -427,6 +431,17 @@ export class Run extends EventRecorder {
       throw new InconsistentStateError(
         'run',
         'is suspended without a hand-over its requester takes',
+      );
+    }
+    if (
+      (input.endHeads?.length ?? 0) > 0 &&
+      !ended &&
+      input.state !== 'suspended' &&
+      input.attempt === 1
+    ) {
+      throw new InconsistentStateError(
+        'run',
+        `is ${input.state} on its first attempt yet has the heads its workspace ended at`,
       );
     }
     if (input.reservation && input.state !== 'queued') {
@@ -988,6 +1003,7 @@ export class Run extends EventRecorder {
       outcome,
       leaseExpiresAt: null,
       endedAt: now,
+      ...this.headsIn(report),
     });
 
     ended.record(
@@ -1057,6 +1073,7 @@ export class Run extends EventRecorder {
       outcome,
       suspendedAttempts: [...this.suspendedAttempts, this.attempt],
       turn: RunTurn.pending(report, by, now),
+      ...this.headsIn(report),
     });
 
     suspended.record(
@@ -1071,6 +1088,12 @@ export class Run extends EventRecorder {
     );
 
     return suspended;
+  }
+
+  private headsIn(report: HandoverReport): {
+    endHeads?: readonly CheckoutHead[];
+  } {
+    return report.heads.length > 0 ? { endHeads: report.heads } : {};
   }
 
   turnAt(attempt: RunAttempt): RunTurn | null {
@@ -1131,7 +1154,10 @@ export class Run extends EventRecorder {
       .withToolChange(
         this.ordered.policy.actsBeyondItself ? tools : NO_TOOL_CHANGE,
       );
-    const resumed = this.with({ spec, turn: null }).backOnTheQueue(now);
+    const resumed = this.with({
+      spec,
+      turn: null,
+    }).backOnTheQueue(now);
 
     resumed.record(new RunResumed(this.id, this.workspaceId));
 
@@ -1596,6 +1622,7 @@ export class Run extends EventRecorder {
     turn?: RunTurn | null;
     endedAt?: Date | null;
     queuedAt?: Date;
+    endHeads?: readonly CheckoutHead[];
   }): Run {
     const next = new Run(
       this.id,
@@ -1629,6 +1656,7 @@ export class Run extends EventRecorder {
       part.endedAt !== undefined ? part.endedAt : this.endedAt,
       part.queuedAt ?? this.queuedAt,
       this.createdAt,
+      part.endHeads ?? this.endHeads,
     );
 
     next.inheritEvents(this);

@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { TakeoverId } from '@work/domain/value-objects/takeover-id.vo';
 import {
   FOREIGN_KEY_VIOLATION,
   UNIQUE_VIOLATION,
@@ -20,6 +21,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StationNotKnownYetError } from '@work/application/errors/station-not-known-yet.error';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { Takeover } from '@work/domain/entities/takeover.entity';
+import { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-already-opened.error';
 import { TaskBranchTakenError } from '@work/domain/exceptions/task-branch-taken.error';
@@ -68,6 +71,7 @@ import {
   taskMark,
   taskNote,
   taskPullRequest,
+  taskTakeover,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import {
@@ -184,12 +188,31 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
       : null,
   });
 
+type TakeoverRow = typeof taskTakeover.$inferSelect;
+
+const toTakeover = (row: TakeoverRow): Takeover =>
+  Takeover.rehydrate({
+    id: TakeoverId.of(row.id),
+    by: UserId.of(row.takenBy),
+    stationId: StationId.of(row.stationId),
+    from: row.fromRunId ? RunId.of(row.fromRunId) : null,
+    verdict: row.verdict,
+    turns: row.turnRunIds.map((each) => RunId.of(each)),
+    heldMove: row.heldMoveTo ? StationId.of(row.heldMoveTo) : null,
+    startedAt: row.startedAt,
+    endedAt: row.endedAt,
+    handBack: row.handBack,
+    fromHeads: row.fromHeads.map((each) => CheckoutHead.rehydrate(each)),
+    toHeads: row.toHeads.map((each) => CheckoutHead.rehydrate(each)),
+  });
+
 const toTask = (
   row: Row,
   notes: NoteRow[],
   attachments: AttachmentRow[],
   marks: MarkRow[],
   ownedPullRequests: OwnedPullRequestRow[],
+  takeovers: TakeoverRow[],
 ): Task =>
   Task.rehydrate({
     attachments: toAttachments(attachments, null),
@@ -233,6 +256,7 @@ const toTask = (
         })
       : null,
     moveHeldTo: row.moveHeldTo ? StationId.of(row.moveHeldTo) : null,
+    takeovers: takeovers.map(toTakeover),
     heldMarks: marks.map((each) =>
       HeldMark.of(Mark.of(each.kind, each.value), each.heldSince),
     ),
@@ -266,11 +290,12 @@ interface Parts {
   readonly attachments: Map<string, AttachmentRow[]>;
   readonly marks: Map<string, MarkRow[]>;
   readonly owned: Map<string, OwnedPullRequestRow[]>;
+  readonly takeovers: Map<string, TakeoverRow[]>;
 }
 
 const assembled = (
   rows: readonly Row[],
-  { notes, attachments, marks, owned }: Parts,
+  { notes, attachments, marks, owned, takeovers }: Parts,
 ): Task[] =>
   rows.map((each) =>
     toTask(
@@ -279,6 +304,7 @@ const assembled = (
       attachments.get(each.id) ?? [],
       marks.get(each.id) ?? [],
       owned.get(each.id) ?? [],
+      takeovers.get(each.id) ?? [],
     ),
   );
 
@@ -334,6 +360,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeAttachments(added);
     await this.writeMarks(added);
     await this.writeOwnedPullRequests(added);
+    await this.writeTakeovers(added);
   }
 
   async save(saved: Task): Promise<void> {
@@ -413,6 +440,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeAttachments(saved);
     await this.writeMarks(saved);
     await this.writeOwnedPullRequests(saved);
+    await this.writeTakeovers(saved);
   }
 
   private async writeMarks(written: Task): Promise<void> {
@@ -502,6 +530,64 @@ export class DrizzleTaskRepository implements TaskRepository {
     }, new Map<string, OwnedPullRequestRow[]>());
   }
 
+  private async takeoversFor(
+    taskIds: string[],
+  ): Promise<Map<string, TakeoverRow[]>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(taskTakeover)
+      .where(inArray(taskTakeover.taskId, taskIds))
+      .orderBy(asc(taskTakeover.startedAt), asc(taskTakeover.id));
+
+    return rows.reduce((taken, row) => {
+      taken.set(row.taskId, [...(taken.get(row.taskId) ?? []), row]);
+      return taken;
+    }, new Map<string, TakeoverRow[]>());
+  }
+
+  private async writeTakeovers(written: Task): Promise<void> {
+    if (written.takeovers.length === 0) {
+      return;
+    }
+
+    await this.context.db
+      .insert(taskTakeover)
+      .values(
+        written.takeovers.map((each) => ({
+          id: each.id.value,
+          workspaceId: written.workspaceId.value,
+          taskId: written.id.value,
+          stationId: each.stationId.value,
+          takenBy: each.by.value,
+          fromRunId: each.from?.value ?? null,
+          verdict: each.verdict,
+          turnRunIds: each.turns.map((turn) => turn.value),
+          heldMoveTo: each.heldMove?.value ?? null,
+          fromHeads: each.fromHeads.map((head) => head.parts),
+          toHeads: each.toHeads.map((head) => head.parts),
+          handBack: each.handBack,
+          startedAt: each.startedAt,
+          endedAt: each.endedAt,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: taskTakeover.id,
+        set: {
+          verdict: sql`excluded.verdict`,
+          turnRunIds: sql`excluded.turn_run_ids`,
+          heldMoveTo: sql`excluded.held_move_to`,
+          fromHeads: sql`excluded.from_heads`,
+          toHeads: sql`excluded.to_heads`,
+          handBack: sql`excluded.hand_back`,
+          endedAt: sql`excluded.ended_at`,
+        },
+      });
+  }
+
   private async marksFor(taskIds: string[]): Promise<Map<string, MarkRow[]>> {
     if (taskIds.length === 0) {
       return new Map();
@@ -529,14 +615,16 @@ export class DrizzleTaskRepository implements TaskRepository {
 
   // The row comes first: a part written after it changes the version, so a save from a mixed read conflicts.
   private async partsFor(ids: string[]): Promise<Parts> {
-    const [notes, attachments, marks, owned] = await this.context.concurrently(
-      () => this.notesFor(ids),
-      () => this.attachmentsFor(ids),
-      () => this.marksFor(ids),
-      () => this.ownedPullRequestsFor(ids),
-    );
+    const [notes, attachments, marks, owned, takeovers] =
+      await this.context.concurrently(
+        () => this.notesFor(ids),
+        () => this.attachmentsFor(ids),
+        () => this.marksFor(ids),
+        () => this.ownedPullRequestsFor(ids),
+        () => this.takeoversFor(ids),
+      );
 
-    return { notes, attachments, marks, owned };
+    return { notes, attachments, marks, owned, takeovers };
   }
 
   async find(id: TaskId): Promise<Task | null> {

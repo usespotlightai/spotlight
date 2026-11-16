@@ -52,6 +52,7 @@ const TASK: DispatchSubject = {
   taskId: TaskId.of('task_1'),
   revision: TaskRevision.of(2),
   stationId: STATION,
+  driver: 'line' as const,
 };
 
 const CHAT: DispatchSubject = { kind: 'chat', chatId: ChatId.of('chat_1') };

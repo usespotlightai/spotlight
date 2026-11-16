@@ -23,6 +23,7 @@ const dto: TaskDto = {
     body: 'The run did not finish after 3 attempts.',
   },
   source: 'linear',
+  takeover: null,
 };
 
 describe('TaskHttpMapper', () => {

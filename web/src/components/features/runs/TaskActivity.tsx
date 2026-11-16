@@ -1,15 +1,22 @@
 import { ReviewMarker } from '@/components/features/runs/ReviewMarker';
 import { RunRow } from '@/components/features/runs/RunRow';
 import { useTaskRuns } from '@/hooks/api/useTaskRuns';
+import type { TaskTakeoverResponseDto } from '@/lib/api';
 import { runPath } from '@/lib/run';
 
 type TaskActivityProps = {
   slug: string | undefined;
   teamId: string | undefined;
   taskId: string;
+  takeover: TaskTakeoverResponseDto | null;
 };
 
-export function TaskActivity({ slug, teamId, taskId }: TaskActivityProps) {
+export function TaskActivity({
+  slug,
+  teamId,
+  taskId,
+  takeover,
+}: TaskActivityProps) {
   const { data: runs } = useTaskRuns(teamId, taskId);
 
   const worked = runs ?? [];
@@ -39,6 +46,7 @@ export function TaskActivity({ slug, teamId, taskId }: TaskActivityProps) {
             teamId={teamId}
             to={slug && teamId ? runPath(slug, teamId, run.id) : ''}
             inTrail
+            takenOver={takeover?.runId === run.id ? takeover : null}
           />,
         ])}
       </ul>

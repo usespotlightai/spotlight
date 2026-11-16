@@ -160,7 +160,7 @@ describe('change review receiving a run begin and end', () => {
     expect(began).toHaveBeenCalledWith(TaskId.of('task_1'), RunId.of('run_1'));
   });
 
-  it('signals a review ended when its run ends, and nothing for a run with no task', async () => {
+  it('signals a review ended when its run ends, a person’s turn too, and nothing for a run with no task', async () => {
     const { receiving, ended } = signalled();
     const subscriber = receiving('work.dispatch-ended.v1');
 
@@ -170,6 +170,7 @@ describe('change review receiving a run begin and end', () => {
       workspaceId: 'ws_1',
       taskId: 'task_1',
       stationId: 'station_1',
+      driver: 'line',
       outcome: 'completed',
       failure: null,
       stopped: false,
@@ -183,14 +184,21 @@ describe('change review receiving a run begin and end', () => {
 
     await subscriber.handle(ofTask);
     await subscriber.handle(ofChat);
+    const ofTurn: DispatchEndedIntegrationEvent = {
+      ...ofTask,
+      runId: 'run_3',
+      driver: 'person',
+    };
 
-    expect(ended).toHaveBeenCalledTimes(1);
+    await subscriber.handle(ofTurn);
+
+    expect(ended).toHaveBeenCalledTimes(2);
     expect(ended).toHaveBeenCalledWith(TaskId.of('task_1'), RunId.of('run_1'));
   });
 });
 
 describe('change review receiving a run end', () => {
-  it('requests the decisions a task’s run made, and none for a run with no task', async () => {
+  it('requests the decisions a task’s run made, saying whether a person drove it, and none for a run with no task', async () => {
     const runEnded = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
@@ -213,6 +221,7 @@ describe('change review receiving a run end', () => {
       workspaceId: 'ws_1',
       taskId: 'task_1',
       stationId: 'station_1',
+      driver: 'line',
       outcome: 'completed',
       failure: null,
       stopped: false,
@@ -227,12 +236,25 @@ describe('change review receiving a run end', () => {
     };
 
     await subscriber?.handle(ofChat);
+    const ofTurn: DispatchEndedIntegrationEvent = {
+      ...ofTask,
+      runId: 'run_3',
+      driver: 'person',
+    };
+
+    await subscriber?.handle(ofTurn);
 
     expect(subscriber?.kinds).toEqual(['work.dispatch-ended.v1']);
-    expect(runEnded).toHaveBeenCalledTimes(1);
+    expect(runEnded).toHaveBeenCalledTimes(2);
     expect(runEnded).toHaveBeenCalledWith(
       TaskId.of('task_1'),
       RunId.of('run_1'),
+      false,
+    );
+    expect(runEnded).toHaveBeenCalledWith(
+      TaskId.of('task_1'),
+      RunId.of('run_3'),
+      true,
     );
   });
 });

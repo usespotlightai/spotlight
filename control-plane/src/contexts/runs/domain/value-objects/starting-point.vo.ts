@@ -1,32 +1,33 @@
+import { InvalidCheckoutHeadError } from '@runs/domain/exceptions/invalid-checkout-head.error';
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
 import {
-  StartedCheckout,
-  type StartedCheckoutParts,
-} from '@runs/domain/value-objects/started-checkout.vo';
+  CheckoutHead,
+  type CheckoutHeadParts,
+} from '@runs/domain/value-objects/checkout-head.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export interface ReportedStart {
   readonly archive: WorkingCopyArchiveId | null;
-  readonly checkouts: readonly StartedCheckout[];
+  readonly checkouts: readonly CheckoutHead[];
 }
 
 interface StartingPointParts {
   readonly archive: string | null;
-  readonly checkouts: readonly StartedCheckoutParts[];
+  readonly checkouts: readonly CheckoutHeadParts[];
   readonly attempt: number;
   readonly at: Date;
 }
 
 export const MAX_STARTED_CHECKOUTS = 100;
 
-const byPath = (a: StartedCheckout, b: StartedCheckout): number =>
+const byPath = (a: CheckoutHead, b: CheckoutHead): number =>
   a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
 
 export class StartingPoint {
   private constructor(
     readonly archive: WorkingCopyArchiveId | null,
-    readonly checkouts: readonly StartedCheckout[],
+    readonly checkouts: readonly CheckoutHead[],
     readonly attempt: number,
     readonly at: Date,
   ) {}
@@ -65,12 +66,15 @@ export class StartingPoint {
     try {
       return StartingPoint.of({
         archive: parts.archive ? WorkingCopyArchiveId.of(parts.archive) : null,
-        checkouts: parts.checkouts.map(StartedCheckout.of),
+        checkouts: parts.checkouts.map(CheckoutHead.of),
         attempt: parts.attempt,
         at: parts.at,
       });
     } catch (error) {
-      if (error instanceof InvalidStartingPointError) {
+      if (
+        error instanceof InvalidStartingPointError ||
+        error instanceof InvalidCheckoutHeadError
+      ) {
         throw new InconsistentStateError(
           'run',
           `records where it started in a way that no longer reads: ${error.message}`,

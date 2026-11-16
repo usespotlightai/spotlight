@@ -20,8 +20,12 @@ export class RequestMemories {
     private readonly clock: ClockPort,
   ) {}
 
-  async runEnded(taskId: TaskId, runId: RunId): Promise<void> {
-    if (!this.drafter.available) {
+  async runEnded(
+    taskId: TaskId,
+    runId: RunId,
+    drivenByAPerson: boolean,
+  ): Promise<void> {
+    if (drivenByAPerson || !this.drafter.available) {
       return;
     }
 

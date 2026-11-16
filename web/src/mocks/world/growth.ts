@@ -93,6 +93,7 @@ const task = (
   progress: null,
   awaitingReview: null,
   pullRequests: [],
+  takeover: null,
   createdBy: PRIYA,
   assignee: PRIYA,
   note: null,

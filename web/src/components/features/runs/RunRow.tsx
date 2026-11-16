@@ -2,11 +2,13 @@ import { CircleArrowRight, CircleSlash, type LucideIcon } from 'lucide-react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { RunPendingMarker } from '@/components/features/runs/RunPendingMarker';
+import { TakenOverPill } from '@/components/features/takeover/TakenOverPill';
 import { Pill } from '@/components/shared/Pill';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useMenuActions } from '@/hooks/useMenuActions';
 import { useStopRunAction } from '@/hooks/useStopRunAction';
+import type { TaskTakeoverResponseDto } from '@/lib/api';
 import { type Run, runStatus, stoppable } from '@/lib/run';
 import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
@@ -20,6 +22,7 @@ type RunRowProps = {
   reviewTo?: string;
   inTrail?: boolean;
   gutter?: boolean;
+  takenOver?: TaskTakeoverResponseDto | null;
 };
 
 export function RunRow({
@@ -30,6 +33,7 @@ export function RunRow({
   reviewTo,
   inTrail,
   gutter,
+  takenOver,
 }: RunRowProps) {
   const stop = useStopRunAction(teamId, run.id, stoppable(run));
   const menu = useMenuActions(stop ? [stop] : []);
@@ -80,11 +84,21 @@ export function RunRow({
           )}
 
           <span className="ml-auto flex shrink-0 items-center gap-2">
-            <RunPendingMarker run={run} reviewTo={reviewTo} inTrail={inTrail} />
+            {takenOver ? (
+              <TakenOverPill takeover={takenOver} />
+            ) : (
+              <>
+                <RunPendingMarker
+                  run={run}
+                  reviewTo={reviewTo}
+                  inTrail={inTrail}
+                />
 
-            {run.progress && <ProgressState progress={run.progress} />}
+                {run.progress && <ProgressState progress={run.progress} />}
 
-            <EndedPill run={run} />
+                <EndedPill run={run} />
+              </>
+            )}
 
             <span className="shrink-0 text-right text-muted-foreground text-xs tabular-nums @xl/pane:w-20">
               {since(run.startedAt)}

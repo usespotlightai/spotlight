@@ -132,6 +132,7 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   assignee: null,
   note: null,
   source: null,
+  takeover: null,
 });
 
 export const pastTaskOf = (taskId: string): TaskResponseDto | undefined => {

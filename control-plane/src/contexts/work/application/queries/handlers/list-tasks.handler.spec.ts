@@ -26,6 +26,7 @@ const summaries: TaskSummary[] = [
     assignee: null,
     note: null,
     source: null,
+    takeover: null,
   },
   {
     id: 'task_2',
@@ -42,6 +43,7 @@ const summaries: TaskSummary[] = [
     assignee: null,
     note: null,
     source: null,
+    takeover: null,
   },
 ];
 

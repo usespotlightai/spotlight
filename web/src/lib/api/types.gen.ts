@@ -184,6 +184,10 @@ export type StationResponseDto = {
    * The team’s own skills enabled for a run here
    */
   skills: Array<string>;
+  /**
+   * The stations this one may pass a task on to
+   */
+  passesTo: Array<string>;
 };
 
 export type ReactionResponseDto = {
@@ -1145,13 +1149,13 @@ export type RecordRunImageRequestDto = {
   image: string;
 };
 
-export type StartedCheckoutRequestDto = {
+export type CheckoutHeadRequestDto = {
   /**
    * The checkout, by its path in the working copy, as the run received it
    */
   path: string;
   /**
-   * The commit HEAD was at once the working copy was restored and the checkout prepared, as its full SHA
+   * The commit HEAD was at when the runner read it, as its full SHA-1 or SHA-256. For a starting point, after the working copy was restored and the checkout prepared. For a completion, at the end of the turn.
    */
   commit: string;
 };
@@ -1165,7 +1169,7 @@ export type RecordStartingPointRequestDto = {
    * The working copy archive the run restored, or null where it started afresh
    */
   archiveId: string | null;
-  checkouts: Array<StartedCheckoutRequestDto>;
+  checkouts: Array<CheckoutHeadRequestDto>;
 };
 
 export type RunEventRequestDto = {
@@ -1222,6 +1226,10 @@ export type CompleteRunRequestDto = {
    * A person stopped the run rather than the agent finishing it.
    */
   stopped?: boolean;
+  /**
+   * The commit HEAD was at in each checkout when the turn ended, as the run received the checkouts. Sent only by runs that report their starting point.
+   */
+  heads?: Array<CheckoutHeadRequestDto>;
 };
 
 export type RunConnectionResponseDto = {
@@ -2750,7 +2758,7 @@ export type NoteResponseDto = {
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup' | 'resolved' | 'approval' | 'decision' | 'failure' | 'connection';
+  form: 'words' | 'setup' | 'resolved' | 'approval' | 'decision' | 'failure' | 'connection' | 'took-over' | 'handed-back';
   /**
    * Who wrote it: the station, a person, or the world outside it
    */
@@ -3194,6 +3202,28 @@ export type TaskNoteResponseDto = {
   body: string;
 };
 
+/**
+ * not-right where the person took over because the line got it wrong; exploring where they only try something out
+ */
+export type TakeoverVerdict = 'not-right' | 'exploring';
+
+export type TaskTakeoverResponseDto = {
+  by: TaskPersonResponseDto;
+  /**
+   * not-right where the person took over because the line got it wrong; exploring where they only try something out
+   */
+  verdict: TakeoverVerdict;
+  startedAt: string;
+  /**
+   * The run of the last turn, where the person talks to the agent
+   */
+  runId: string | null;
+  /**
+   * The station an event asked to move the task to while the person had it. The task moves there when they give it back to its station.
+   */
+  heldMoveTo: string | null;
+};
+
 export type TaskResponseDto = {
   id: string;
   stationId: string;
@@ -3239,6 +3269,10 @@ export type TaskResponseDto = {
    * The integration that opened it, or null where a person created it
    */
   source: string | null;
+  /**
+   * The person who drives the task at its station in place of the line, or null where the line drives it
+   */
+  takeover: TaskTakeoverResponseDto | null;
 };
 
 export type TaskPageResponseDto = {
@@ -3479,6 +3513,41 @@ export type AssignTaskRequestDto = {
    * The team member to assign it to, or null to leave it unclaimed
    */
   assigneeId: string | null;
+};
+
+export type TakeOverTaskRequestDto = {
+  /**
+   * not-right where the line got it wrong, which counts against its last run; exploring where you only try something out
+   */
+  verdict?: TakeoverVerdict;
+  /**
+   * The first message to the agent. It starts the first turn.
+   */
+  body?: string;
+};
+
+/**
+ * continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line.
+ */
+export type HandBack = 'continue' | 'move-on' | 'finish';
+
+export type HandBackTaskRequestDto = {
+  /**
+   * continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line.
+   */
+  next: HandBack;
+  /**
+   * With move-on: a station the task’s station passes work to
+   */
+  stationId?: string;
+  /**
+   * Changes the verdict given when the takeover started
+   */
+  verdict?: TakeoverVerdict;
+  /**
+   * What the station agent and the record should know
+   */
+  summary?: string;
 };
 
 export type ChatTargetStationResponseDto = {
@@ -5467,7 +5536,7 @@ export type StationRunUsageResponseDto = {
 };
 
 export type HumanActionResponseDto = {
-  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back';
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'taken-over';
   at: string;
 };
 
@@ -6026,7 +6095,7 @@ export type RunHumanOutcomeResponseDto = {
   /**
    * What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task
    */
-  source: 'grade' | 'accepted' | 'sent-back' | 'merged';
+  source: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'taken-over';
   /**
    * Whether people found the run good
    */
@@ -8164,7 +8233,7 @@ export type JudgeDisagreementResponseDto = {
   /**
    * What gave the human outcome that disagrees with the judge
    */
-  labelFrom: 'grade' | 'accepted' | 'sent-back' | 'merged';
+  labelFrom: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'taken-over';
   openedAt: string;
   claims: Array<DisagreementClaimResponseDto>;
   /**
@@ -16203,6 +16272,76 @@ export type AssignTaskResponses = {
 
 export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
 
+export type TakeOverTaskData = {
+  body: TakeOverTaskRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/takeover';
+};
+
+export type TakeOverTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+  /**
+   * The task is already taken over, has finished, or is at a station where no agent works
+   */
+  409: unknown;
+};
+
+export type TakeOverTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type TakeOverTaskResponse = TakeOverTaskResponses[keyof TakeOverTaskResponses];
+
+export type HandBackTaskData = {
+  body: HandBackTaskRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/takeover/end';
+};
+
+export type HandBackTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+  /**
+   * The task is not taken over, or cannot move on to that station
+   */
+  409: unknown;
+};
+
+export type HandBackTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type HandBackTaskResponse = HandBackTaskResponses[keyof HandBackTaskResponses];
+
 export type ListChatsData = {
   body?: never;
   path: {
@@ -20055,7 +20194,7 @@ export type ListInsightsTracesData = {
     /**
      * Only runs that a person acted on first in this way
      */
-    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back';
+    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'taken-over';
     /**
      * Only runs of tasks whose pull request has this status
      */

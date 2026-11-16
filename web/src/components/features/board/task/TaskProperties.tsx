@@ -38,6 +38,7 @@ export function TaskProperties({
           <StationSelect
             stations={line.stations}
             value={station.id}
+            held={task.takeover}
             onChange={(stationId) =>
               teamId &&
               moveTask.mutate({

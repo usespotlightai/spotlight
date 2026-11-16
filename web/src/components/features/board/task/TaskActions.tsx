@@ -1,4 +1,4 @@
-import { MoreHorizontal, Trash } from 'lucide-react';
+import { Hand, MoreHorizontal, Trash, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
@@ -21,11 +21,22 @@ import { useCommands } from '@/hooks/useCommands';
 type TaskActionsProps = {
   title: string;
   onDelete: () => void;
+  onTakeOver: (() => void) | null;
+  onHandBack: (() => void) | null;
 };
 
-export function TaskActions({ title, onDelete }: TaskActionsProps) {
+export function TaskActions({
+  title,
+  onDelete,
+  onTakeOver,
+  onHandBack,
+}: TaskActionsProps) {
   const [confirming, setConfirming] = useState(false);
-  useCommands([{ id: 'task.delete', run: () => setConfirming(true) }]);
+  useCommands([
+    { id: 'task.delete', run: () => setConfirming(true) },
+    ...(onTakeOver ? [{ id: 'task.take-over' as const, run: onTakeOver }] : []),
+    ...(onHandBack ? [{ id: 'task.hand-back' as const, run: onHandBack }] : []),
+  ]);
 
   return (
     <>
@@ -38,6 +49,28 @@ export function TaskActions({ title, onDelete }: TaskActionsProps) {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="start" sideOffset={6} className="min-w-44">
+          {onTakeOver && (
+            <DropdownMenuItem closeOnClick onClick={onTakeOver}>
+              <Hand className="size-3.5" aria-hidden />
+              Take over
+              <ShortcutKeys
+                id="task.take-over"
+                plain
+                className="ml-auto pl-4"
+              />
+            </DropdownMenuItem>
+          )}
+          {onHandBack && (
+            <DropdownMenuItem closeOnClick onClick={onHandBack}>
+              <Undo2 className="size-3.5" aria-hidden />
+              Give it back
+              <ShortcutKeys
+                id="task.hand-back"
+                plain
+                className="ml-auto pl-4"
+              />
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem closeOnClick onClick={() => setConfirming(true)}>
             <Trash className="size-3.5" aria-hidden />
             Delete task

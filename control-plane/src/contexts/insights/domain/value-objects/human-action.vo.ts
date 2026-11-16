@@ -7,6 +7,7 @@ export const TASK_ACTIONS = [
   'accepted',
   'answered',
   'sent-back',
+  'taken-over',
 ] as const;
 
 const APPROVAL_ANSWERS = ['approved', 'dismissed'] as const;
@@ -18,6 +19,7 @@ export type HumanActionKind = (typeof HUMAN_ACTION_KINDS)[number];
 export type TaskAction = (typeof TASK_ACTIONS)[number];
 
 const FIRST_AT_THE_SAME_MOMENT: readonly HumanActionKind[] = [
+  'taken-over',
   'sent-back',
   'accepted',
   'answered',
@@ -56,8 +58,12 @@ export class HumanAction {
     return this.kind === 'accepted';
   }
 
-  get sendsBack(): boolean {
-    return this.kind === 'sent-back';
+  get rejectsRun(): boolean {
+    return this.kind === 'sent-back' || this.takesOver;
+  }
+
+  get takesOver(): boolean {
+    return this.kind === 'taken-over';
   }
 
   dismissalOf(acted: ActedOnTool): Dismissal | null {

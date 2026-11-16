@@ -340,6 +340,14 @@ export class StationResponseDto {
   })
   readonly skills: string[];
 
+  @ApiProperty({
+    example: ['station_review'],
+    isArray: true,
+    type: String,
+    description: 'The stations this one may pass a task on to',
+  })
+  readonly passesTo: string[];
+
   constructor(
     id: string,
     key: string,
@@ -356,6 +364,7 @@ export class StationResponseDto {
     search: SearchPolicySummary | null,
     kind: string,
     skills: readonly string[],
+    passesTo: readonly string[],
   ) {
     this.id = id;
     this.key = key;
@@ -372,6 +381,7 @@ export class StationResponseDto {
     this.search = search ? new StationSearchResponseDto(search) : null;
     this.kind = kind;
     this.skills = [...skills];
+    this.passesTo = [...passesTo];
   }
 }
 

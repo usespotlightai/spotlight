@@ -74,6 +74,7 @@ export class CompleteRunCommand {
     readonly stopped: boolean = false,
     readonly setupFailed: boolean = false,
     readonly timedOut: boolean = false,
+    readonly heads: readonly { path: string; commit: string }[] = [],
   ) {}
 }
 

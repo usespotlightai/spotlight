@@ -4,6 +4,9 @@ import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
+import { HAND_BACKS } from '@work/domain/value-objects/hand-back';
+import { TAKEOVER_VERDICTS } from '@work/domain/value-objects/takeover-verdict';
+import type { CheckoutHeadParts } from '@work/domain/value-objects/checkout-head.vo';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
@@ -258,5 +261,53 @@ export const taskPullRequest = pgTable(
     }).onDelete('cascade'),
     primaryKey({ columns: [table.taskId, table.url] }),
     index('task_pull_request_url_idx').on(table.workspaceId, table.url),
+  ],
+);
+
+export const takeoverVerdict = pgEnum('takeover_verdict', TAKEOVER_VERDICTS);
+export const handBack = pgEnum('hand_back', HAND_BACKS);
+
+export const taskTakeover = pgTable(
+  'task_takeover',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    taskId: text('task_id').notNull(),
+    stationId: text('station_id').notNull(),
+    takenBy: text('taken_by').notNull(),
+    fromRunId: text('from_run_id'),
+    verdict: takeoverVerdict('verdict').notNull(),
+    turnRunIds: jsonb('turn_run_ids')
+      .$type<readonly string[]>()
+      .notNull()
+      .default([]),
+    heldMoveTo: text('held_move_to'),
+    fromHeads: jsonb('from_heads')
+      .$type<readonly CheckoutHeadParts[]>()
+      .notNull()
+      .default([]),
+    toHeads: jsonb('to_heads')
+      .$type<readonly CheckoutHeadParts[]>()
+      .notNull()
+      .default([]),
+    handBack: handBack('hand_back'),
+    startedAt: timestamptz('started_at').notNull(),
+    endedAt: timestamptz('ended_at'),
+  },
+  (table) => [
+    foreignKey({
+      name: 'task_takeover_task_fk',
+      columns: [table.workspaceId, table.taskId],
+      foreignColumns: [task.workspaceId, task.id],
+    }).onDelete('cascade'),
+    check(
+      'task_takeover_ends_with_hand_back',
+      sql`(${table.endedAt} is null) = (${table.handBack} is null)`,
+    ),
+    uniqueIndex('task_takeover_open_uidx')
+      .on(table.taskId)
+      .where(sql`${table.endedAt} is null`),
+    index('task_takeover_task_idx').on(table.taskId, table.startedAt),
+    index('task_takeover_station_idx').on(table.stationId, table.startedAt),
   ],
 );

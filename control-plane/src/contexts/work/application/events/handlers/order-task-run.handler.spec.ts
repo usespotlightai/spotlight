@@ -154,6 +154,7 @@ describe('OrderTaskRun', () => {
       taskId: task.id,
       revision: task.revision,
       stationId: task.stationId,
+      driver: 'line',
     });
     expect(dispatch?.briefing).toBe('Drain the queue.');
     expect(dispatch?.teamId?.value).toBe('team_1');

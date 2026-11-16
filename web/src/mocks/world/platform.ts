@@ -218,6 +218,7 @@ const task = (
   progress: null,
   awaitingReview: null,
   pullRequests: [],
+  takeover: null,
   createdBy: SAM,
   assignee: null,
   note: null,

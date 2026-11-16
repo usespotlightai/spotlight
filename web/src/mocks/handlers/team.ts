@@ -596,6 +596,7 @@ const chatHandlers = [
           assignee: null,
           note: null,
           source: null,
+          takeover: null,
         },
       ];
       proposal.state = 'created';

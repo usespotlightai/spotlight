@@ -192,6 +192,25 @@ describe('TaskBriefing', () => {
     );
   });
 
+  it('puts the person who took the task over in place of the station’s instructions and its handover', () => {
+    const station = at('station_1', 'Triage', 0, '## Role\n\nSort it.');
+    const line = lineOf(station, at('station_2', 'Spec', 1));
+    const briefing = TaskBriefing.brief({
+      task: task('station_1').briefedOn(line).withDecisions([]),
+      line,
+      skills: builtIn,
+      listedIn: null,
+      memories: [],
+      memoryFolder: null,
+      tools: [],
+      drivenByAPerson: true,
+    });
+
+    expect(briefing).toContain('## A person drives this session');
+    expect(briefing).not.toContain('Sort it.');
+    expect(briefing).not.toContain('spotlight handover --next');
+  });
+
   it('tells where Spotlight’s configuration and docs are, and asks to follow the docs to set Spotlight up', () => {
     const briefing = brief(triage());
 

@@ -338,6 +338,7 @@ export const replaysSubscribers = (
       reactions.keeping.onRunEnded(
         event.stationId,
         WorkspaceId.of(event.workspaceId),
+        event.driver === 'person',
       ),
   ),
   subscribing<ReplaySetCreated>(

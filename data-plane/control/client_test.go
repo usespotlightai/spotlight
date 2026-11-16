@@ -546,12 +546,12 @@ func TestSaysWhereTheRunStartedNamingAnArchiveOrNone(t *testing.T) {
 	})
 
 	archive := "archive_1"
-	checkouts := []protocol.StartedCheckout{{Path: "api", Commit: strings.Repeat("a", 40)}}
+	checkouts := []protocol.CheckoutHead{{Path: "api", Commit: strings.Repeat("a", 40)}}
 
 	if err := client.RecordStartingPoint(context.Background(), "run_1", protocol.StartingPoint{Attempt: 1, ArchiveID: &archive, Checkouts: checkouts}); err != nil {
 		t.Fatalf("record: %v", err)
 	}
-	if err := client.RecordStartingPoint(context.Background(), "run_1", protocol.StartingPoint{Attempt: 2, Checkouts: []protocol.StartedCheckout{}}); err != nil {
+	if err := client.RecordStartingPoint(context.Background(), "run_1", protocol.StartingPoint{Attempt: 2, Checkouts: []protocol.CheckoutHead{}}); err != nil {
 		t.Fatalf("record afresh: %v", err)
 	}
 

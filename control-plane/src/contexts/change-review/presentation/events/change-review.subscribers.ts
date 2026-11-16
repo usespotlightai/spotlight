@@ -134,7 +134,11 @@ export const changeReviewSubscribers = (
     [DISPATCH_ENDED],
     (event) =>
       event.taskId
-        ? deciding.runEnded(TaskId.of(event.taskId), RunId.of(event.runId))
+        ? deciding.runEnded(
+            TaskId.of(event.taskId),
+            RunId.of(event.runId),
+            event.driver === 'person',
+          )
         : Promise.resolve(),
   ),
   subscribing<PullRequestClosedIntegrationEvent>(

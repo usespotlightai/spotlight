@@ -38,7 +38,11 @@ export const TASK_NOTE_FORMS = [
   'decision',
   'failure',
   'connection',
+  'took-over',
+  'handed-back',
 ] as const;
+
+const FOR_THE_AGENT: readonly TaskNoteForm[] = ['took-over', 'handed-back'];
 
 export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
 
@@ -164,7 +168,9 @@ export class TaskNote {
 
   get unacknowledged(): boolean {
     return (
-      (this.kind === 'message' || this.kind === 'answered') &&
+      (this.kind === 'message' ||
+        this.kind === 'answered' ||
+        FOR_THE_AGENT.includes(this.form)) &&
       !this.voice.isStation &&
       this.acknowledgedAt === null
     );
@@ -248,13 +254,19 @@ export class TaskNote {
     return this.unacknowledged ? this.with({ acknowledgedAt: at }) : this;
   }
 
+  heldForTheAgent(): TaskNote {
+    return this.acknowledgedAt === null
+      ? this
+      : this.with({ acknowledgedAt: null });
+  }
+
   read(at: Date): TaskNote {
     return this.unread ? this.with({ readAt: at }) : this;
   }
 
   private with(part: {
     readAt?: Date;
-    acknowledgedAt?: Date;
+    acknowledgedAt?: Date | null;
     answeredAt?: Date;
     approval?: Approval;
     connectionAsk?: ConnectionAsk;
@@ -270,7 +282,9 @@ export class TaskNote {
       part.answeredAt ?? this.answeredAt,
       this.kind,
       part.readAt ?? this.readAt,
-      part.acknowledgedAt ?? this.acknowledgedAt,
+      part.acknowledgedAt === undefined
+        ? this.acknowledgedAt
+        : part.acknowledgedAt,
       this.form,
       this.attachments,
       part.approval ?? this.approval,

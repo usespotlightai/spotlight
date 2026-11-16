@@ -268,6 +268,23 @@ func TestUnreadableBodyIsRejected(t *testing.T) {
 	}
 }
 
+func TestARunWithNowhereToHandOverTakesNoHandover(t *testing.T) {
+	server, err := agentapi.Serve(nil, 0, nil)
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+
+	status, body := post(t, server, server.Token(), `{"next":"review","note":"Done."}`)
+
+	if status != http.StatusUnprocessableEntity || !strings.Contains(body, "takes no handover") {
+		t.Fatalf("status %d: %s", status, body)
+	}
+	if handover := server.TakeHandover(); handover != nil {
+		t.Fatalf("expected no handover, got %+v", handover)
+	}
+}
+
 func serveLimited(t *testing.T, limit int) *agentapi.Server {
 	t.Helper()
 

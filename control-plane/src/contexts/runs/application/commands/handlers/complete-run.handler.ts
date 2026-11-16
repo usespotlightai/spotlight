@@ -5,6 +5,7 @@ import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { CheckoutHead } from '@runs/domain/value-objects/checkout-head.vo';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
@@ -65,6 +66,7 @@ export class CompleteRunHandler implements CommandHandlerPort<
         session: command.sessionId
           ? HarnessSession.of(command.sessionId)
           : null,
+        heads: command.heads.map((each) => CheckoutHead.of(each)),
       });
 
       const reported = await this.changed(runId, (current) =>

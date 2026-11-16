@@ -17,6 +17,12 @@ export const TaskMapper = {
       createdBy: summary.createdBy,
       assignee: summary.assignee,
       source: summary.source,
+      takeover: summary.takeover
+        ? {
+            ...summary.takeover,
+            startedAt: summary.takeover.startedAt.toISOString(),
+          }
+        : null,
       note: summary.note
         ? {
             position: summary.note.position,
