@@ -17,6 +17,9 @@ vi.mock('@/hooks/api/useAnswerStackQuestion', () => ({
     mutate,
   }),
 }));
+vi.mock('@/hooks/useInferenceUnset', () => ({
+  useInferenceUnset: () => false,
+}));
 vi.mock('@/hooks/useMe', () => ({
   useMe: () => ({ id: 'user_1', name: 'Maya Chen', image: null }),
 }));

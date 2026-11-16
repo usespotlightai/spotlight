@@ -415,9 +415,16 @@ export class ChangeStack
   }
 
   settleFailedCall(
-    failure: { readonly truncated: boolean },
+    failure: {
+      readonly truncated: boolean;
+      readonly insufficientCredits: boolean;
+    },
     now: Date,
   ): ChangeStack {
+    if (failure.insufficientCredits) {
+      return this.stopWith('insufficient-credits', now);
+    }
+
     return failure.truncated
       ? this.stopWith('too-large', now)
       : this.scheduleRetry(now);

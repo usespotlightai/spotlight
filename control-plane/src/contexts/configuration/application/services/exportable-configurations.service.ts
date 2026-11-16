@@ -14,6 +14,7 @@ import type {
   TeamProfile,
 } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
+import type { InferenceEndpointConfigurationPort } from '@inference/application/ports/inference-endpoint-configuration.port';
 import type { LineResourcesPort } from '@lines/application/ports/line-resources.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
@@ -31,16 +32,19 @@ export class ExportableConfigurations {
     private readonly secrets: SecretConfigurationPort,
     private readonly runners: RunnerConfigurationPort,
     private readonly oidcTrusts: OidcTrustConfigurationPort,
+    private readonly inferenceEndpoints: InferenceEndpointConfigurationPort,
   ) {}
 
   async of(workspace: WorkspaceProfile): Promise<ExportableConfigurationDto> {
     const workspaceId = WorkspaceId.of(workspace.id);
-    const [teams, secrets, runners, oidcTrusts] = await Promise.all([
-      this.teams.inWorkspace(workspaceId),
-      this.secrets.in(workspaceId),
-      this.runners.in(workspaceId),
-      this.oidcTrusts.in(workspaceId),
-    ]);
+    const [teams, secrets, runners, oidcTrusts, inferenceEndpoint] =
+      await Promise.all([
+        this.teams.inWorkspace(workspaceId),
+        this.secrets.in(workspaceId),
+        this.runners.in(workspaceId),
+        this.oidcTrusts.in(workspaceId),
+        this.inferenceEndpoints.in(workspaceId),
+      ]);
     const teamOwned = await Promise.all(
       teams.map((team) => this.ownedByTeam(team)),
     );
@@ -59,6 +63,14 @@ export class ExportableConfigurations {
         ...runners.pools.map((each) => ExportableResourceMapper.pool(each)),
         ...(runners.declared
           ? [ExportableResourceMapper.declared(runners.declared)]
+          : []),
+        ...(inferenceEndpoint
+          ? [
+              ExportableResourceMapper.inferenceEndpoint(
+                inferenceEndpoint,
+                workspace.slug,
+              ),
+            ]
           : []),
         ...teamOwned.flat(),
       ],

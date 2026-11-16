@@ -22,12 +22,12 @@ export class ChangeJudgments implements ChangeJudgmentsPort {
     private readonly llmJudge: JudgePort,
   ) {}
 
-  get available(): boolean {
-    return this.llmJudge.available;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.llmJudge.availableTo(workspaceId);
   }
 
   async judge(order: ChangeJudgmentOrder): Promise<ChangeJudgment> {
-    if (!this.llmJudge.available) {
+    if (!(await this.llmJudge.availableTo(order.workspaceId))) {
       return unjudged('unavailable');
     }
 
@@ -55,6 +55,7 @@ export class ChangeJudgments implements ChangeJudgmentsPort {
 
     try {
       const answer = await this.llmJudge.judge({
+        workspaceId: order.workspaceId,
         claims: order.criteria.claims,
         title: evidence.title,
         description: evidence.description,

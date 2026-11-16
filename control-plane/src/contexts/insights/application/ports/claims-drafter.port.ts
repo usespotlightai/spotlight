@@ -20,6 +20,7 @@ export interface DisagreementCase {
 }
 
 export interface ClaimsDraftRequest {
+  readonly workspaceId: string;
   readonly claims: readonly string[];
   readonly passThreshold: number;
   readonly cases: readonly DisagreementCase[];
@@ -27,7 +28,7 @@ export interface ClaimsDraftRequest {
 }
 
 export interface ClaimsDrafterPort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   drafted(request: ClaimsDraftRequest): Promise<readonly (readonly string[])[]>;
 }

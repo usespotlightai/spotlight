@@ -4,7 +4,7 @@ import {
   Catch,
   ConflictException,
   ForbiddenException,
-  type HttpException,
+  HttpException,
   HttpStatus,
   NotFoundException,
   UnprocessableEntityException,
@@ -27,6 +27,8 @@ const AS_HTTP: Record<
   invalid: (message) => new UnprocessableEntityException(message),
   'not-allowed': (message) => new ForbiddenException(message),
   'not-found': (message) => new NotFoundException(message),
+  'payment-required': (message) =>
+    new HttpException(message, HttpStatus.PAYMENT_REQUIRED),
   'upstream-error': (message) => new BadGatewayException(message),
 };
 

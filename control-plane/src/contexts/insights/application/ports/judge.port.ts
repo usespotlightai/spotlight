@@ -8,6 +8,7 @@ import type {
 export const JUDGE = Symbol('INSIGHTS_JUDGE');
 
 export interface JudgeRequest {
+  readonly workspaceId: string;
   readonly claims: readonly string[];
   readonly title: string;
   readonly description: string | null;
@@ -27,7 +28,7 @@ export interface JudgeAnswer {
 }
 
 export interface JudgePort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   judge(request: JudgeRequest): Promise<JudgeAnswer>;
 }

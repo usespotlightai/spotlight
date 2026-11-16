@@ -3815,6 +3815,63 @@ export type ConnectGitHubRequestDto = {
   installationId: string;
 };
 
+export type InferenceEndpointResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace it belongs to
+   */
+  workspaceId: string;
+  /**
+   * The base URL of an OpenAI-compatible API. Spotlight calls its /chat/completions
+   */
+  baseUrl: string;
+  /**
+   * The one model every Spotlight feature of the workspace uses
+   */
+  model: string;
+  /**
+   * Whether Spotlight holds an API key. The key is write-only and never returned
+   */
+  apiKeySet: boolean;
+  /**
+   * Changed, with a new key, to rotate the API key, which is write-only and never returned
+   */
+  apiKeyVersion: number | null;
+};
+
+export type InferenceEndpointResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read returns it, in address order
+   */
+  items: Array<InferenceEndpointResourceResponseDto>;
+};
+
+export type ConnectionTestResponseDto = {
+  /**
+   * Whether the endpoint answered a minimal request
+   */
+  ok: boolean;
+  /**
+   * What happened, to show to a person
+   */
+  message: string;
+};
+
 export type PushKeyResponseDto = {
   /**
    * The VAPID public key to subscribe with, base64url. Null when this Spotlight sends no Web Push.
@@ -16700,6 +16757,416 @@ export type ConnectGitHubResponses = {
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
+export type ListInferenceEndpointsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoints';
+};
+
+export type ListInferenceEndpointsErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListInferenceEndpointsError = ListInferenceEndpointsErrors[keyof ListInferenceEndpointsErrors];
+
+export type ListInferenceEndpointsResponses = {
+  /**
+   * Every inference-endpoint there, each as a read returns it, in address order
+   */
+  200: InferenceEndpointResourceListResponseDto;
+};
+
+export type ListInferenceEndpointsResponse = ListInferenceEndpointsResponses[keyof ListInferenceEndpointsResponses];
+
+export type CreateInferenceEndpointData = {
+  body: {
+    baseUrl: string;
+    model: string;
+    /**
+     * The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned
+     */
+    apiKeyWo?: string;
+    /**
+     * Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key
+     */
+    apiKeyWoVersion?: number;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoints';
+};
+
+export type CreateInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the inference-endpoint; the detail says why
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such inference-endpoint that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * A inference-endpoint already exists at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateInferenceEndpointError = CreateInferenceEndpointErrors[keyof CreateInferenceEndpointErrors];
+
+export type CreateInferenceEndpointResponses = {
+  /**
+   * The inference-endpoint, as a read returns it
+   */
+  201: InferenceEndpointResourceResponseDto;
+};
+
+export type CreateInferenceEndpointResponse = CreateInferenceEndpointResponses[keyof CreateInferenceEndpointResponses];
+
+export type DeleteInferenceEndpointData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version fails with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/v1/resources/inference-endpoints/{id}';
+};
+
+export type DeleteInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the inference-endpoint; the detail says why
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such inference-endpoint that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteInferenceEndpointError = DeleteInferenceEndpointErrors[keyof DeleteInferenceEndpointErrors];
+
+export type DeleteInferenceEndpointResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteInferenceEndpointResponse = DeleteInferenceEndpointResponses[keyof DeleteInferenceEndpointResponses];
+
+export type ReadInferenceEndpointData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/v1/resources/inference-endpoints/{id}';
+};
+
+export type ReadInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such inference-endpoint that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadInferenceEndpointError = ReadInferenceEndpointErrors[keyof ReadInferenceEndpointErrors];
+
+export type ReadInferenceEndpointResponses = {
+  /**
+   * The inference-endpoint, every field of it
+   */
+  200: InferenceEndpointResourceResponseDto;
+};
+
+export type ReadInferenceEndpointResponse = ReadInferenceEndpointResponses[keyof ReadInferenceEndpointResponses];
+
+export type UpdateInferenceEndpointData = {
+  body: {
+    baseUrl: string;
+    model: string;
+    /**
+     * The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned
+     */
+    apiKeyWo?: string;
+    /**
+     * Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key
+     */
+    apiKeyWoVersion?: number;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version fails with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/v1/resources/inference-endpoints/{id}';
+};
+
+export type UpdateInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the inference-endpoint; the detail says why
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such inference-endpoint that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateInferenceEndpointError = UpdateInferenceEndpointErrors[keyof UpdateInferenceEndpointErrors];
+
+export type UpdateInferenceEndpointResponses = {
+  /**
+   * The inference-endpoint, as a read returns it
+   */
+  200: InferenceEndpointResourceResponseDto;
+};
+
+export type UpdateInferenceEndpointResponse = UpdateInferenceEndpointResponses[keyof UpdateInferenceEndpointResponses];
+
+export type ImportInferenceEndpointData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The inference-endpoint's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoints/import';
+};
+
+export type ImportInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such inference-endpoint that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportInferenceEndpointError = ImportInferenceEndpointErrors[keyof ImportInferenceEndpointErrors];
+
+export type ImportInferenceEndpointResponses = {
+  /**
+   * The inference-endpoint, as a read returns it
+   */
+  200: InferenceEndpointResourceResponseDto;
+};
+
+export type ImportInferenceEndpointResponse = ImportInferenceEndpointResponses[keyof ImportInferenceEndpointResponses];
+
+export type TestInferenceEndpointData = {
+  body: {
+    baseUrl: string;
+    model: string;
+    /**
+     * The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned
+     */
+    apiKeyWo?: string;
+    /**
+     * Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key
+     */
+    apiKeyWoVersion?: number;
+  };
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoint/test';
+};
+
+export type TestInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to test the inference endpoint; the detail says why
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+};
+
+export type TestInferenceEndpointError = TestInferenceEndpointErrors[keyof TestInferenceEndpointErrors];
+
+export type TestInferenceEndpointResponses = {
+  200: ConnectionTestResponseDto;
+};
+
+export type TestInferenceEndpointResponse = TestInferenceEndpointResponses[keyof TestInferenceEndpointResponses];
+
 export type GetPushKeyData = {
   body?: never;
   path?: never;
@@ -17565,7 +18032,7 @@ export type ReadResourceHclData = {
     'Spotlight-Client'?: string;
   };
   path: {
-    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'oidc-trusts' | 'runner-trusts' | 'runner-pools' | 'egresses' | 'workspace-runners';
+    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'oidc-trusts' | 'runner-trusts' | 'runner-pools' | 'egresses' | 'workspace-runners' | 'inference-endpoints';
     id: string;
   };
   query?: never;
@@ -17643,6 +18110,10 @@ export type AnswerStackQuestionErrors = {
    * No valid session
    */
   401: unknown;
+  /**
+   * The inference endpoint has no credits left
+   */
+  402: unknown;
   /**
    * The caller is not a member of the team, nor a workspace admin
    */

@@ -83,7 +83,10 @@ const asking = (question = 'Who signs when the member has left?') =>
     NOW,
   );
 
-const RUN = { id: RunId.of('run-1') } as RunForReview;
+const RUN = {
+  id: RunId.of('run-1'),
+  workspaceId: WorkspaceId.of('workspace-1'),
+} as RunForReview;
 
 const answering = (
   over: {
@@ -135,7 +138,7 @@ const answering = (
       remove: async () => {},
     } satisfies QuestionAnswerRepository,
     {
-      available: over.graderAvailable !== false,
+      availableTo: async () => over.graderAvailable !== false,
       grade,
     } satisfies AnswerGraderPort,
     { generate: () => 'answer-1' },
@@ -162,6 +165,7 @@ describe('AnswerQuestionHandler', () => {
     await handler.execute(answer('The bot signs it.'));
 
     expect(grade).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
       question: 'Who signs when the member has left?',
       expected: 'The integration signs it.',
       reply: 'The bot signs it.',

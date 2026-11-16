@@ -121,7 +121,7 @@ const working = (
       stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
   } as unknown as ChangeStackRepository;
   const generator: ChangeStackGeneratorPort = {
-    available,
+    availableTo: async () => available,
     generate: async () => ({ cohorts: await generate(), usage: null }),
     outline: async () => {
       throw new Error('A diff this small is not split');

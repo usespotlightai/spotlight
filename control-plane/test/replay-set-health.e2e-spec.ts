@@ -97,7 +97,7 @@ const archiveStore: WorkingCopyArchiveStorePort = {
 };
 
 const generator: ChangeStackGeneratorPort = {
-  available: true,
+  availableTo: async () => true,
   outline: async () => {
     throw new Error('A diff this small is not split');
   },
@@ -149,7 +149,7 @@ const judgedRuns = new Map<string, number>();
 let judgeFlipsLeft = 4;
 
 const judge: JudgePort = {
-  available: true,
+  availableTo: async () => true,
   judge: async (request: JudgeRequest) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const run = MARKED.exec(scoredStep?.text ?? '')?.[1] ?? '';

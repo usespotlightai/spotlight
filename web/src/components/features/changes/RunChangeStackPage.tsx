@@ -74,6 +74,7 @@ export function RunChangeStackPage({
             <ChangeStackView stack={ready} layerId={layerId} onPick={pick} />
           ) : (
             <ChangeStackNotice
+              slug={slug}
               stack={stack}
               runTo={runPath(slug, teamId, runId)}
             />

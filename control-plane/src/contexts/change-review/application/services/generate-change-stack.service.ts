@@ -95,7 +95,11 @@ export class GenerateChangeStack {
       now: this.clock.now(),
     });
 
-    if (!this.generator.available) {
+    if (!(await this.generator.availableTo(run.workspaceId.value))) {
+      this.logger.debug(
+        { workspaceId: run.workspaceId.value },
+        'No model endpoint is set for the workspace; change stacks are unavailable',
+      );
       throw new ChangeStacksUnavailableError();
     }
 
@@ -151,6 +155,7 @@ export class GenerateChangeStack {
     for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
       const attempt = await attempted(() =>
         this.generator.generate({
+          workspaceId: stack.workspaceId.value,
           diff,
           repository: stack.repository,
           facts,
@@ -197,6 +202,7 @@ export class GenerateChangeStack {
     for (let attempt = 1; !outline && attempt <= ATTEMPTS; attempt += 1) {
       const attempt = await attempted(() =>
         this.generator.outline({
+          workspaceId: stack.workspaceId.value,
           diff,
           repository: stack.repository,
           facts,
@@ -239,6 +245,7 @@ export class GenerateChangeStack {
         outline.map(
           (cohort) => () =>
             layerCohort(this.generator, {
+              workspaceId: stack.workspaceId.value,
               diff,
               facts,
               repository: stack.repository,

@@ -4179,6 +4179,9 @@
           "401": {
             "description": "No valid session"
           },
+          "402": {
+            "description": "The inference endpoint has no credits left"
+          },
           "403": {
             "description": "The caller is not a member of the team, nor a workspace admin"
           },

@@ -1,3 +1,4 @@
+import { AnswerFailed } from '@/components/features/changes/AnswerFailed';
 import { CitedPlaces } from '@/components/features/changes/CitedPlaces';
 import { QuestionVerdict } from '@/components/features/changes/QuestionVerdict';
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
@@ -142,6 +143,10 @@ export function LayerQuestionThread({
             </Button>
           }
         />
+      )}
+
+      {answering.isError && !current && (
+        <AnswerFailed error={answering.error} />
       )}
     </section>
   );

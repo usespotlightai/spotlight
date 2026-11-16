@@ -68,7 +68,9 @@ const requesting = (
   const service = new RequestDecisions(
     work,
     sets,
-    { available: over.available ?? true } as DecisionGeneratorPort,
+    {
+      availableTo: async () => over.available ?? true,
+    } as unknown as DecisionGeneratorPort,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => 'set_1' },
     { now: () => NOW, sleep: async () => undefined },
