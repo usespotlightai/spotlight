@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   handBackAction,
+  handBackNotePrompt,
   handBackChoices,
   handedBackTo,
   heldUntilHandedBack,
@@ -110,5 +111,22 @@ describe('handBackAction', () => {
     expect(handBackAction('continue')).toBe('Hand it back');
     expect(handBackAction('move-on')).toBe('Move it on');
     expect(handBackAction('finish')).toBe('Finish the task');
+  });
+});
+
+describe('handBackNotePrompt', () => {
+  it('asks for the note the next reader needs', () => {
+    expect(handBackNotePrompt('continue', build, undefined, null)).toBe(
+      'What should Build do next? (optional)',
+    );
+    expect(handBackNotePrompt('move-on', build, review, null)).toBe(
+      'What should Review know? (optional)',
+    );
+    expect(handBackNotePrompt('finish', build, undefined, null)).toBe(
+      'Note for your team (optional)',
+    );
+    expect(handBackNotePrompt('continue', build, undefined, completed)).toBe(
+      'Note for your team (optional)',
+    );
   });
 });

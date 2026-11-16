@@ -87,6 +87,24 @@ export const handedBackTo = (
   return `${station.name} runs again with your changes.`;
 };
 
+export const handBackNotePrompt = (
+  next: HandBack,
+  station: StationResponseDto,
+  to: StationResponseDto | undefined,
+  held: StationResponseDto | null,
+): string => {
+  if (
+    next === 'finish' ||
+    (next === 'continue' && held?.kind === 'completed')
+  ) {
+    return 'Note for your team (optional)';
+  }
+  if (next === 'move-on' && to) {
+    return `What should ${to.name} know? (optional)`;
+  }
+  return `What should ${station.name} do next? (optional)`;
+};
+
 export const handBackAction = (next: HandBack): string => {
   if (next === 'move-on') {
     return 'Move it on';

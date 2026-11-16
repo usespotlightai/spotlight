@@ -18,6 +18,7 @@ import { messageOf } from '@/lib/error';
 import {
   handBackAction,
   handBackChoices,
+  handBackNotePrompt,
   handedBackTo,
   TAKEOVER_VERDICTS,
   tookOverBecause,
@@ -61,6 +62,7 @@ export function HandBackDialog({
   const to = moveOn.some((each) => each.id === picked)
     ? picked
     : (moveOn[0]?.id ?? '');
+  const target = moveOn.find((each) => each.id === to);
   const [verdict, setVerdict] = useState<TakeoverVerdict>(startedWith);
   const [changingWhy, setChangingWhy] = useState(false);
   const [summary, setSummary] = useState('');
@@ -89,12 +91,7 @@ export function HandBackDialog({
           toast.add({
             type: 'success',
             title: 'Task handed back',
-            description: handedBackTo(
-              next,
-              station,
-              moveOn.find((each) => each.id === to),
-              held,
-            ),
+            description: handedBackTo(next, station, target, held),
           });
         },
       },
@@ -214,8 +211,8 @@ export function HandBackDialog({
                 submit();
               }
             }}
-            placeholder="What should the agent know about your changes? (optional)"
-            aria-label="What the agent should know"
+            placeholder={handBackNotePrompt(next, station, target, held)}
+            aria-label="Note"
             className="max-h-60 min-h-16 rounded-md border border-border px-3 py-2 text-foreground text-sm leading-5"
           />
 
