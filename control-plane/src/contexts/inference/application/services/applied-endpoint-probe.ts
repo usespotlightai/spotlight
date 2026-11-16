@@ -6,7 +6,7 @@ import type {
 import { InferenceProblems } from '@inference/application/rendering/inference-problems';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
-export const APPLIED_PROBE_WITHIN_MS = 10_000;
+const APPLIED_PROBE_WITHIN_MS = 10_000;
 
 const unprobed = (error: unknown): ProbeResult => ({
   ok: false,
