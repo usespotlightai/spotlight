@@ -5,7 +5,10 @@ import {
   SHARED_TOKEN,
   sharedEgress,
 } from '@runs/application/commands/handlers/egress-handlers.fake-spec';
-import type { CheckWorkPort } from '@runs/application/ports/check-work.port';
+import type {
+  ReviewWorkLease,
+  ReviewWorkPort,
+} from '@runs/application/ports/review-work.port';
 import { ActiveRunsQuery } from '@runs/application/queries/egress.queries';
 import {
   ActiveRunsHandler,
@@ -13,7 +16,6 @@ import {
 } from '@runs/application/queries/handlers/active-runs.handler';
 import type { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const checker = (
@@ -25,9 +27,9 @@ const checker = (
     sharedEgress(authorized),
     leasing(leased) as unknown as EgressSecretFetches,
     {
-      isLeasedBy: async (checkId: CheckWorkId) =>
-        checksLeased.includes(checkId.value),
-    } as unknown as CheckWorkPort,
+      isLeasedBy: async (lease: ReviewWorkLease) =>
+        checksLeased.includes(`${lease.kind}:${lease.id.value}`),
+    } as unknown as ReviewWorkPort,
     { now: () => NOW } as ClockPort,
   );
 
@@ -42,7 +44,7 @@ describe('ActiveRunsHandler', () => {
         runOf('checked', 'run_5', { kind: 'check', id: 'stack_2' }),
       ]),
       ['run_1'],
-      ['stack_1'],
+      ['check:stack_1'],
     );
 
     await expect(
@@ -61,6 +63,24 @@ describe('ActiveRunsHandler', () => {
       outcome: 'checked',
       active: ['leased', 'waiting', 'checking'],
     });
+  });
+
+  it('asks about a push diff as a diff, never as a check of the same id', async () => {
+    const handler = checker(
+      Object.fromEntries([
+        runOf('diffing', 'run_1', { kind: 'diff', id: 'diff_1' }),
+        runOf('diffed', 'run_2', { kind: 'diff', id: 'diff_2' }),
+        runOf('checking', 'run_3', { kind: 'check', id: 'diff_1' }),
+      ]),
+      [],
+      ['diff:diff_1', 'check:diff_2'],
+    );
+
+    await expect(
+      handler.execute(
+        new ActiveRunsQuery(SHARED_TOKEN, ['diffing', 'diffed', 'checking']),
+      ),
+    ).resolves.toEqual({ outcome: 'checked', active: ['diffing'] });
   });
 
   it('rejects an unknown egress token', async () => {

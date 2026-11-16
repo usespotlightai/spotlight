@@ -27,7 +27,7 @@ export class DraftReviewCommentHandler implements CommandHandlerPort<
     try {
       const { task, author } = await this.access.actingInReview(
         command.teamId,
-        command.runId,
+        command.taskId,
         command.viewerId,
       );
       const id = ReviewCommentId.of(this.ids.generate());

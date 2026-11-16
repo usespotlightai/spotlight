@@ -19,7 +19,7 @@ export class DeleteReviewCommentHandler implements CommandHandlerPort<
     try {
       const { task, by } = await this.access.actingInReview(
         command.teamId,
-        command.runId,
+        command.taskId,
         command.viewerId,
       );
       const comment = await this.comments.find(

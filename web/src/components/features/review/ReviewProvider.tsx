@@ -6,11 +6,11 @@ import {
   reviewOfStack,
   threadsOf,
 } from '@/lib/review';
-import { ReviewContext } from '@/lib/review-context';
+import { ReviewContext, StackTeamContext } from '@/lib/review-context';
 
 type ReviewProviderProps = {
   teamId: string;
-  runId: string;
+  taskId: string | null | undefined;
   repository: string | null;
   alone: boolean;
   review: CodeReview | undefined;
@@ -26,7 +26,7 @@ const CLOSED: Composer = { spot: null, appears: true };
 
 export function ReviewProvider({
   teamId,
-  runId,
+  taskId,
   repository,
   alone,
   review: ofRun,
@@ -46,18 +46,25 @@ export function ReviewProvider({
   );
 
   const reviewing = useMemo(
-    () => ({
-      teamId,
-      runId,
-      repository,
-      review,
-      threads,
-      composing: composer.spot,
-      composerAppears: composer.appears,
-      compose,
-    }),
-    [teamId, runId, repository, review, threads, composer, compose],
+    () =>
+      taskId
+        ? {
+            teamId,
+            taskId,
+            repository,
+            review,
+            threads,
+            composing: composer.spot,
+            composerAppears: composer.appears,
+            compose,
+          }
+        : null,
+    [teamId, taskId, repository, review, threads, composer, compose],
   );
 
-  return <ReviewContext value={reviewing}>{children}</ReviewContext>;
+  return (
+    <StackTeamContext value={teamId}>
+      <ReviewContext value={reviewing}>{children}</ReviewContext>
+    </StackTeamContext>
+  );
 }

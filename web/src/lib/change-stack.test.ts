@@ -4,6 +4,7 @@ import {
   answeredIn,
   type ChangeStack,
   changeStackPath,
+  taskChangesPath,
   citedBy,
   currentStacks,
   filesOf,
@@ -29,6 +30,8 @@ const checked = (status: 'waiting' | 'checked'): ChangeStack['check'] => ({
 
 const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
   id: 'stack_1',
+  runId: 'run_1',
+  push: null,
   repository: null,
   state: 'ready',
   failure: null,
@@ -114,6 +117,20 @@ describe('changeStackPath', () => {
   it('sits under the run', () => {
     expect(changeStackPath('acme', 'team_1', 'run 1')).toBe(
       '/w/acme/team/team_1/runs/run%201/changes',
+    );
+  });
+});
+
+describe('taskChangesPath', () => {
+  it('sits under the task', () => {
+    expect(taskChangesPath('acme', 'team_1', 'task_1')).toBe(
+      '/w/acme/team/team_1/tasks/task_1/changes',
+    );
+  });
+
+  it('opens a repository', () => {
+    expect(taskChangesPath('acme', 'team_1', 'task_1', 'acme/web')).toBe(
+      '/w/acme/team/team_1/tasks/task_1/changes?repository=acme%2Fweb',
     );
   });
 });

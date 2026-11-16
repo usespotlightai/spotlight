@@ -67,7 +67,7 @@ export const seedCodeReviews = (): Record<string, CodeReviewResponseDto> => {
   const reviewed = runEnded('run_postgres_3');
 
   return {
-    run_postgres_2: {
+    task_postgres: {
       landings: landingsOf([PULL_431]),
       comments: [
         comment({
@@ -118,7 +118,7 @@ export const seedCodeReviews = (): Record<string, CodeReviewResponseDto> => {
         },
       ],
     },
-    run_search_2: {
+    task_search: {
       landings: landingsOf([PULL_412]),
       comments: [],
       reviews: [

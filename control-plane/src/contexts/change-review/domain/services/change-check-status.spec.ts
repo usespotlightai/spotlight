@@ -2,17 +2,16 @@ import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggre
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { changeCheckStatusOf } from '@change-review/domain/services/change-check-status';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/runner-assignment.vo';
+import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { CheckOutcome } from '@change-review/domain/value-objects/stack-check.vo';
-import {
-  WAITING_LIMIT_MS,
-  WHOLE_STEP,
-} from '@change-review/domain/value-objects/stack-check.vo';
+import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -49,7 +48,7 @@ const stackOf = (
 ) => {
   const generating = ChangeStack.startGeneration({
     id: ChangeStackId.of(id),
-    runId: RUN,
+    origin: StackOrigin.run(RUN),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
     trial: true,
@@ -109,7 +108,7 @@ const checkOf = (
     entries: [],
     redraftCount: 0,
     outcome,
-    claim: CheckClaim.none(),
+    claim: RunnerClaim.none(),
     waitingSince: since,
     reservation: null,
     provisioning: Provisioning.none(),

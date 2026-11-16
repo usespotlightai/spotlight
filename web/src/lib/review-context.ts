@@ -4,7 +4,7 @@ import type { CodeReview, ReviewSpot, ReviewThread } from '@/lib/review';
 
 export interface Reviewing {
   readonly teamId: string;
-  readonly runId: string;
+  readonly taskId: string;
   readonly repository: string | null;
   readonly review: CodeReview | undefined;
   readonly threads: readonly ReviewThread[];
@@ -16,3 +16,7 @@ export interface Reviewing {
 export const ReviewContext = createContext<Reviewing | null>(null);
 
 export const useReviewing = (): Reviewing | null => useContext(ReviewContext);
+
+export const StackTeamContext = createContext<string | null>(null);
+
+export const useStackTeam = (): string | null => useContext(StackTeamContext);

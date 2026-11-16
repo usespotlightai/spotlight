@@ -11,6 +11,7 @@ import { UnknownReviewError } from '@change-review/domain/exceptions/unknown-rev
 import { TeamAccess } from '@change-review/domain/services/team-access';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
+import type { StackVisibility } from '@change-review/domain/value-objects/stack-visibility.vo';
 import { TeamStanding } from '@change-review/domain/value-objects/team-standing.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -70,15 +71,39 @@ export class TeamWorkAccess {
       : null;
   }
 
+  async seesStack(
+    teamId: string,
+    visibility: StackVisibility,
+    viewerId: string,
+  ): Promise<boolean> {
+    return visibility.kind === 'task'
+      ? (await this.task(teamId, visibility.taskId.value, viewerId)) !== null
+      : (await this.run(teamId, visibility.runId.value, viewerId)) !== null;
+  }
+
+  async actingOnStack(
+    teamId: string,
+    visibility: StackVisibility | null,
+    viewerId: string,
+    unseen: () => Error,
+  ): Promise<void> {
+    const [seen, standing] = await Promise.all([
+      visibility ? this.seesStack(teamId, visibility, viewerId) : false,
+      this.standingOn(teamId, viewerId),
+    ]);
+
+    standing.actingOn(seen ? visibility : null, unseen);
+  }
+
   async reviewing(
     teamId: string,
-    runId: string,
+    taskId: string,
     viewerId: string,
   ): Promise<Reviewing> {
-    const access = await this.reviewedTask(teamId, runId, viewerId);
+    const access = await this.task(teamId, taskId, viewerId);
 
     if (!access) {
-      throw new UnknownReviewError(`run ${runId}`);
+      throw new UnknownReviewError(`task ${taskId}`);
     }
 
     return this.authored(access);
@@ -114,27 +139,17 @@ export class TeamWorkAccess {
 
   async actingInReview(
     teamId: string,
-    runId: string,
+    taskId: string,
     viewerId: string,
   ): Promise<Reviewing> {
     const [seen, standing] = await Promise.all([
-      this.reviewedTask(teamId, runId, viewerId),
+      this.task(teamId, taskId, viewerId),
       this.standingOn(teamId, viewerId),
     ]);
 
     return this.authored(
-      standing.actingOn(seen, () => new UnknownReviewError(`run ${runId}`)),
+      standing.actingOn(seen, () => new UnknownReviewError(`task ${taskId}`)),
     );
-  }
-
-  private async reviewedTask(
-    teamId: string,
-    runId: string,
-    viewerId: string,
-  ): Promise<TaskAccess | null> {
-    const run = await this.work.run(RunId.of(runId));
-
-    return run?.taskId ? this.task(teamId, run.taskId.value, viewerId) : null;
   }
 
   private async authored(access: TaskAccess): Promise<Reviewing> {

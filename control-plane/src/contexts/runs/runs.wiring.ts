@@ -73,8 +73,8 @@ import { RecordRunImageHandler } from '@runs/application/commands/handlers/recor
 import { RecordStartingPointHandler } from '@runs/application/commands/handlers/record-starting-point.handler';
 import { RedeemCallSecretsHandler } from '@runs/application/commands/handlers/redeem-call-secrets.handler';
 import { ReleaseSandboxArchiveHandler } from '@runs/application/commands/handlers/release-sandbox-archive.handler';
-import { RenewCheckLeaseHandler } from '@runs/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@runs/application/commands/handlers/renew-lease.handler';
+import { RenewReviewWorkLeaseHandler } from '@runs/application/commands/handlers/renew-review-work-lease.handler';
 import {
   ClaimHostCallCommand,
   RecordHostCallResponseCommand,
@@ -88,7 +88,7 @@ import {
   EnqueueRunCommand,
   RecordRunImageCommand,
   RecordStartingPointCommand,
-  RenewCheckLeaseCommand,
+  RenewReviewWorkLeaseCommand,
   RenewLeaseCommand,
 } from '@runs/application/commands/runner.commands';
 import {
@@ -110,14 +110,6 @@ import {
 import type { ArchiveReferencesPort } from '@runs/application/ports/archive-references.port';
 import { ARCHIVE_REFERENCES } from '@runs/application/ports/archive-references.port';
 import {
-  CHECK_PROVISIONING,
-  type CheckProvisioningPort,
-} from '@runs/application/ports/check-provisioning.port';
-import {
-  CHECK_WORK,
-  type CheckWorkPort,
-} from '@runs/application/ports/check-work.port';
-import {
   CONTENT_HASH,
   type ContentHashPort,
 } from '@runs/application/ports/content-hash.port';
@@ -138,6 +130,14 @@ import { HARNESS_TOOL_NAMES } from '@runs/application/ports/harness-tool-names.p
 import { HOOK_TRACES } from '@runs/application/ports/hook-traces.port';
 import { NETWORK_CALLS } from '@runs/application/ports/network-calls.port';
 import { QUEUED_PLACEMENTS } from '@runs/application/ports/queued-placements.port';
+import {
+  REVIEW_WORK_PROVISIONING,
+  type ReviewWorkProvisioningPort,
+} from '@runs/application/ports/review-work-provisioning.port';
+import {
+  REVIEW_WORK,
+  type ReviewWorkPort,
+} from '@runs/application/ports/review-work.port';
 import {
   RUN_CONNECTION_LEDGER,
   type RunConnectionLedgerPort,
@@ -546,14 +546,14 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: ClaimsTaken,
-    inject: [RUN_REPOSITORY, CHECK_WORK, RUNNERS, CLOCK, LOGGER],
+    inject: [RUN_REPOSITORY, REVIEW_WORK, RUNNERS, CLOCK, LOGGER],
     useFactory: (
       runs: RunRepository,
-      checks: CheckWorkPort,
+      reviewWork: ReviewWorkPort,
       runners: RunnersPort,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new ClaimsTaken(runs, checks, runners, clock, logger),
+    ) => new ClaimsTaken(runs, reviewWork, runners, clock, logger),
   },
 
   { provide: ARCHIVE_REFERENCES, useClass: DrizzleArchiveReferences },
@@ -914,7 +914,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(PoolQueueQuery, PoolQueueHandler, [
     RUNNER_POOLS,
     QUEUED_PLACEMENTS,
-    CHECK_WORK,
+    REVIEW_WORK,
     CLOCK,
   ]),
 
@@ -947,7 +947,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     provide: ProvisionWork,
     inject: [
       RUN_REPOSITORY,
-      CHECK_PROVISIONING,
+      REVIEW_WORK_PROVISIONING,
       RUNNER_POOLS,
       RUNNERS,
       SANDBOXES,
@@ -958,7 +958,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       runs: RunRepository,
-      checks: CheckProvisioningPort,
+      checks: ReviewWorkProvisioningPort,
       pools: RunnerPoolsPort,
       runners: RunnersPort,
       sandboxes: SandboxesPort,
@@ -1010,7 +1010,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     RunClaims,
     RUNNER_CLAIMANTS,
     CLOCK,
-    CHECK_WORK,
+    REVIEW_WORK,
     ClaimsTaken,
     ProvisionFailures,
     ClaimGate,
@@ -1024,7 +1024,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     RUNNER_CLAIMANTS,
     RUN_REPOSITORY,
     RunClaims,
-    CHECK_WORK,
+    REVIEW_WORK,
     CLOCK,
     ClaimGate,
     ClaimsTaken,
@@ -1138,7 +1138,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ActiveRunsQuery, ActiveRunsHandler, [
     RUNNER_EGRESS,
     EgressSecretFetches,
-    CHECK_WORK,
+    REVIEW_WORK,
     CLOCK,
   ]),
 
@@ -1154,11 +1154,11 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     CLOCK,
   ]),
 
-  ...bindCommandHandler(RenewCheckLeaseCommand, RenewCheckLeaseHandler, [
-    CHECK_WORK,
-    RUNNER_CLAIMANTS,
-    CLOCK,
-  ]),
+  ...bindCommandHandler(
+    RenewReviewWorkLeaseCommand,
+    RenewReviewWorkLeaseHandler,
+    [REVIEW_WORK, RUNNER_CLAIMANTS, CLOCK],
+  ),
 
   ...bindCommandHandler(RecordRunImageCommand, RecordRunImageHandler, [
     RUN_REPOSITORY,

@@ -368,6 +368,15 @@ interface Claimed {
   readonly stackId: string | null;
 }
 
+const runOfStack = async (stackId: string): Promise<string> => {
+  const [stack] = await db
+    .select({ runId: schema.changeStack.runId })
+    .from(schema.changeStack)
+    .where(eq(schema.changeStack.id, stackId));
+
+  return stack?.runId ?? '';
+};
+
 const claimed = async (): Promise<Claimed> => {
   const assignment = (
     await http()
@@ -380,14 +389,18 @@ const claimed = async (): Promise<Claimed> => {
     work: {
       kind: 'run' | 'check';
       run: { id: string } | null;
-      check: { runId: string; stackId: string } | null;
+      check: { stackId: string } | null;
     };
   };
 
   return {
     token: assignment.token,
     kind: assignment.work.kind,
-    runId: assignment.work.run?.id ?? assignment.work.check?.runId ?? '',
+    runId:
+      assignment.work.run?.id ??
+      (assignment.work.check
+        ? await runOfStack(assignment.work.check.stackId)
+        : ''),
     stackId: assignment.work.check?.stackId ?? null,
   };
 };
@@ -587,14 +600,11 @@ describe('a replay at a station whose judge goes by claims', () => {
 
     const check = async (assignment: Claimed) => {
       await bearing(assignment.token)
-        .post(
-          `/api/runs/${assignment.runId}/change-stack-checks/${assignment.stackId}`,
-          {
-            steps: [
-              { step: 'whole', passed: true, output: 'ok', durationMs: 900 },
-            ],
-          },
-        )
+        .post(`/api/change-stacks/${assignment.stackId}/checks`, {
+          steps: [
+            { step: 'whole', passed: true, output: 'ok', durationMs: 900 },
+          ],
+        })
         .expect(204);
       reported.add(assignment.stackId ?? '');
     };

@@ -6,6 +6,7 @@ import {
   type CheckingPlan,
   CheckRequest,
 } from '@change-review/domain/value-objects/check-request.vo';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -39,6 +40,7 @@ const generating = (
       trial: over.trial === true,
       isolated: over.trial === true,
       checkouts: 1,
+      placement: RunnerPlacement.anywhere(),
     }),
     teamOfRun: async () => TeamId.of('team_1'),
     reasoning: async () => null,
@@ -88,7 +90,7 @@ describe('GenerateRunChangeStackHandler', () => {
 
     expect(begin).toHaveBeenCalledWith(
       {
-        id: RunId.of(RUN),
+        origin: StackOrigin.run(RunId.of(RUN)),
         taskId: TaskId.of('task_1'),
         teamOfRun: null,
         trial: false,
@@ -168,7 +170,7 @@ describe('GenerateRunChangeStackHandler', () => {
 
     expect(begin).toHaveBeenCalledWith(
       {
-        id: RunId.of(RUN),
+        origin: StackOrigin.run(RunId.of(RUN)),
         taskId: null,
         teamOfRun: TeamId.of('team_1'),
         trial: true,

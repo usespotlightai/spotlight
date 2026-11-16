@@ -1,8 +1,6 @@
 import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid-stack-check.error';
-import {
-  type CheckLease,
-  isLeaseActiveAt,
-} from '@change-review/domain/value-objects/check-claim.vo';
+import { waitExpiredSince } from '@change-review/domain/value-objects/runner-assignment.vo';
+import type { RunnerLease } from '@change-review/domain/value-objects/runner-claim.vo';
 import type {
   HunkId,
   LayerId,
@@ -21,17 +19,14 @@ export const STACK_CHECK_STATUSES = [
 
 export type StackCheckStatus = (typeof STACK_CHECK_STATUSES)[number];
 
-export const WAITING_LIMIT_MS = 60 * 60 * 1000;
-
 export interface CheckStatusInput {
   readonly status: StackCheckStatus;
   readonly waitingSince: Date;
-  readonly lease: CheckLease;
+  readonly lease: RunnerLease;
 }
 
 const waitExpiredAt = (check: CheckStatusInput, now: Date): boolean =>
-  now.getTime() - check.waitingSince.getTime() > WAITING_LIMIT_MS &&
-  !isLeaseActiveAt(check.lease, now);
+  waitExpiredSince(check.waitingSince, check.lease, now);
 
 export const checkStatusAt = (
   check: CheckStatusInput,

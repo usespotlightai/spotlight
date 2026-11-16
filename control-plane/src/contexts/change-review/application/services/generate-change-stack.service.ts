@@ -1,8 +1,10 @@
 import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
 import type { ChangeStackGeneratorPort } from '@change-review/application/ports/change-stack-generator.port';
+import type { ChangeStackLocksPort } from '@change-review/application/ports/change-stack-locks.port';
 import type {
   DiffReaderPort,
   DiffSources,
+  ReadDiff,
 } from '@change-review/application/ports/diff-reader.port';
 import type { SymbolIndexerPort } from '@change-review/application/ports/symbol-indexer.port';
 import {
@@ -31,6 +33,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import type { OutlinedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import type { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import {
   NO_INDEX,
   type SymbolIndex,
@@ -38,18 +41,32 @@ import {
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface GenerationRun {
-  readonly id: RunId;
+export interface StackSource {
+  readonly origin: StackOrigin;
   readonly taskId: TaskId | null;
   readonly teamOfRun: TeamId | null;
   readonly trial: boolean;
   readonly checkouts: number;
   readonly workspaceId: WorkspaceId;
+}
+
+export interface PreparedStack {
+  readonly id: ChangeStackId;
+  readonly source: StackSource;
+  readonly input: StackInput;
+  readonly diff: ReadDiff['diff'];
+  readonly index: SymbolIndex;
+}
+
+export interface StackInput {
+  readonly diff: string;
+  readonly repository: string | null;
+  readonly base: string | null;
+  readonly request: CheckRequest | null;
 }
 
 export class GenerateChangeStack {
@@ -59,45 +76,63 @@ export class GenerateChangeStack {
     private readonly reader: DiffReaderPort,
     private readonly reading: CodeReading,
     private readonly indexer: SymbolIndexerPort,
+    private readonly locks: ChangeStackLocksPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
 
-  async begin(
-    run: GenerationRun,
-    input: {
-      diff: string;
-      repository: string | null;
-      base: string | null;
-      request: CheckRequest | null;
-    },
-  ): Promise<ChangeStack> {
+  async begin(source: StackSource, input: StackInput): Promise<ChangeStack> {
+    const prepared = await this.prepare(source, input);
+    const { taskId } = source;
+
+    if (!taskId) {
+      return this.start(prepared, []);
+    }
+
+    return this.locks.stackingFor(taskId, async () =>
+      this.start(prepared, await this.stacks.ofTask(taskId)),
+    );
+  }
+
+  async prepare(
+    source: StackSource,
+    input: StackInput,
+  ): Promise<PreparedStack> {
     const id = ChangeStackId.of(this.ids.generate());
     const { diff, sources } = this.reader.read(input.diff);
     const index = await this.indexOf(id, sources);
-    const taskStacks = run.taskId ? await this.stacks.ofTask(run.taskId) : [];
 
+    return { id, source, input, diff, index };
+  }
+
+  async start(
+    prepared: PreparedStack,
+    taskStacks: readonly ChangeStack[],
+  ): Promise<ChangeStack> {
+    const { source, input } = prepared;
     const stack = ChangeStack.startGeneration({
-      id,
-      runId: run.id,
-      taskId: run.taskId,
-      teamOfRun: run.teamOfRun,
-      trial: run.trial,
-      checkouts: run.checkouts,
-      workspaceId: run.workspaceId,
+      id: prepared.id,
+      origin: source.origin,
+      taskId: source.taskId,
+      teamOfRun: source.teamOfRun,
+      trial: source.trial,
+      checkouts: source.checkouts,
+      workspaceId: source.workspaceId,
       repository: input.repository,
       base: input.base,
-      diff,
-      facts: StackFacts.of(factsOf(diff, this.reading, index)),
+      diff: prepared.diff,
+      facts: StackFacts.of(
+        factsOf(prepared.diff, this.reading, prepared.index),
+      ),
       request: input.request,
       taskStacks,
       now: this.clock.now(),
     });
 
-    if (!(await this.generator.availableTo(run.workspaceId.value))) {
+    if (!(await this.generator.availableTo(stack.workspaceId.value))) {
       this.logger.debug(
-        { workspaceId: run.workspaceId.value },
+        { workspaceId: stack.workspaceId.value },
         'No model endpoint is set for the workspace; change stacks are unavailable',
       );
       throw new ChangeStacksUnavailableError();

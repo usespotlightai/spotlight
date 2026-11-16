@@ -66,7 +66,7 @@ export function FileThread({
               draft.mutate(
                 {
                   teamId: reviewing.teamId,
-                  runId: reviewing.runId,
+                  taskId: reviewing.taskId,
                   repository: reviewing.repository,
                   body,
                   on: { path },

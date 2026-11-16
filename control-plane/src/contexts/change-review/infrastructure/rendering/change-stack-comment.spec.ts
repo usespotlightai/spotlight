@@ -9,6 +9,7 @@ import {
 import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { ChangeStackComment } from '@change-review/infrastructure/rendering/change-stack-comment';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -41,7 +42,7 @@ const CHECKER = RunnerId.of('checker_1');
 const checked = () =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
-    runId: RunId.of('run-1'),
+    origin: StackOrigin.run(RunId.of('run-1')),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
     trial: false,

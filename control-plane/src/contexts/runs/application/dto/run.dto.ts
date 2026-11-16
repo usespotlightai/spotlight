@@ -1,5 +1,8 @@
 import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
-import type { ClaimedCheck } from '@runs/application/ports/check-work.port';
+import type {
+  ClaimedCheck,
+  ClaimedPushDiff,
+} from '@runs/application/ports/review-work.port';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
 
 interface ClaimedRunDto {
@@ -13,7 +16,8 @@ interface ClaimedRunDto {
 
 export type ClaimedWorkDto =
   | { readonly kind: 'run'; readonly run: ClaimedRunDto }
-  | { readonly kind: 'check'; readonly check: ClaimedCheck };
+  | { readonly kind: 'check'; readonly check: ClaimedCheck }
+  | { readonly kind: 'diff'; readonly diff: ClaimedPushDiff };
 
 export interface EnqueuedRunDto {
   readonly id: string;

@@ -6,15 +6,19 @@ import type {
 } from '@change-review/application/dto/change-stack.dto';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { QuestionId } from '@change-review/domain/value-objects/stack-ids';
+import type { StackVisibility } from '@change-review/domain/value-objects/stack-visibility.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const CHANGE_STACK_READER = Symbol('CHANGE_STACK_READER');
 
+export interface StackRepository {
+  readonly repository: string | null;
+}
+
 export interface ChangeStackSummary {
   readonly id: string;
-  readonly runId: RunId;
   readonly repository: string | null;
   readonly state: ChangeStackDto['state'];
   readonly cohorts: readonly OutlinedCohortDto[];
@@ -30,8 +34,17 @@ export interface ChangeStackReaderPort {
 
   ofRun(runId: RunId, viewerId: UserId, now: Date): Promise<ChangeStackDto[]>;
 
+  ofTask(
+    taskId: TaskId,
+    viewerId: UserId,
+    now: Date,
+  ): Promise<ChangeStackDto[]>;
+
+  visibilityOf(stackId: ChangeStackId): Promise<StackVisibility | null>;
+
+  repositoryOf(stackId: ChangeStackId): Promise<StackRepository | null>;
+
   answerOf(
-    runId: RunId,
     stackId: ChangeStackId,
     questionId: QuestionId,
     viewerId: UserId,

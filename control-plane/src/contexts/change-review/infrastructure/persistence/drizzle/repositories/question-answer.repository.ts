@@ -24,7 +24,8 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { and, eq } from 'drizzle-orm';
 
 const isAnswerTaken = (error: unknown): boolean =>
-  violates(error, UNIQUE_VIOLATION, 'question_answer_person_idx');
+  violates(error, UNIQUE_VIOLATION, 'question_answer_person_idx') ||
+  violates(error, UNIQUE_VIOLATION, 'question_answer_task_question_idx');
 
 type Row = typeof questionAnswer.$inferSelect;
 
@@ -106,7 +107,12 @@ export class DrizzleQuestionAnswerRepository
         .where(
           and(eq(questionAnswer.id, id), eq(questionAnswer.version, version)),
         )
-        .returning({ id: questionAnswer.id });
+        .returning({ id: questionAnswer.id })
+        .catch((error: unknown) => {
+          throw isAnswerTaken(error)
+            ? new QuestionAnswerVersionConflictError(id)
+            : error;
+        });
 
       if (written.length === 0) {
         throw new QuestionAnswerVersionConflictError(id);

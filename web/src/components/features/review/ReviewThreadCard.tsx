@@ -77,7 +77,7 @@ export function ReviewThreadCard({
               draft.mutate(
                 {
                   teamId: reviewing.teamId,
-                  runId: reviewing.runId,
+                  taskId: reviewing.taskId,
                   repository: reviewing.repository,
                   body,
                   on: { replyTo: thread.root.id },

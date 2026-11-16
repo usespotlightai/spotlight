@@ -2,7 +2,7 @@ import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggrega
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
+import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { parseStoredSkip } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
@@ -34,7 +34,7 @@ type Row = typeof stackCheck.$inferSelect;
 export const toStackCheck = (row: Row): StackCheck =>
   StackCheck.rehydrate({
     id: StackCheckId.of(ChangeStackId.of(row.stackId), row.recheck),
-    runId: RunId.of(row.runId),
+    runId: row.runId ? RunId.of(row.runId) : null,
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     teamId: row.teamId ? TeamId.of(row.teamId) : null,
     trial: row.trial,
@@ -63,7 +63,7 @@ export const toStackCheck = (row: Row): StackCheck =>
       layers: row.outcome.layers.map(checkedStepOf),
       checkedAt: new Date(row.outcome.checkedAt),
     },
-    claim: CheckClaim.rehydrate({
+    claim: RunnerClaim.rehydrate({
       claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
       attempts: row.attempts,
       leaseExpiresAt: row.leaseExpiresAt,
@@ -124,7 +124,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       await this.context.db.insert(stackCheck).values({
         stackId: added.stackId.value,
         recheck: added.recheck,
-        runId: added.runId.value,
+        runId: added.runId?.value ?? null,
         taskId: added.taskId?.value ?? null,
         teamId: added.teamId?.value ?? null,
         trial: added.trial,

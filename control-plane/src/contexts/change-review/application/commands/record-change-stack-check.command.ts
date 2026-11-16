@@ -2,7 +2,6 @@ import type { CheckedStepDto } from '@change-review/application/dto/change-stack
 
 export class RecordChangeStackCheckCommand {
   constructor(
-    readonly runId: string,
     readonly runnerId: string,
     readonly stackId: string,
     readonly recheck: boolean,

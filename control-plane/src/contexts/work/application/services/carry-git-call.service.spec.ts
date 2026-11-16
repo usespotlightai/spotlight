@@ -1,4 +1,5 @@
 import type { GitCall } from '@github/application/ports/repository-git.port';
+import type { LeasedWork } from '@runners/application/ports/runners.port';
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -15,6 +16,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { LeasedReviewWork } from '@work/application/ports/review-work-access.port';
 import { runLeasesOver } from '@work/application/ports/runs.fake-spec';
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
 import {
@@ -170,6 +172,18 @@ const TRIAL = Dispatch.trialOrdered({
   now: NOW,
 });
 
+const CHECK_OF_RUN: LeasedReviewWork = {
+  runId: RUN,
+  taskId: null,
+  repository: null,
+};
+
+const DIFF_OF_TASK: LeasedReviewWork = {
+  runId: null,
+  taskId: TaskId.of('task_1'),
+  repository: 'Widgets',
+};
+
 const dispatchOf = (requested: RunRequested) => {
   switch (requested) {
     case 'task':
@@ -188,11 +202,17 @@ const carrying = (
   claimed: Claimed | null,
   existing: Task | null,
   repositories: readonly string[] = ['acme/widgets'],
-  checking = false,
+  checking: LeasedReviewWork | null = null,
+  held: LeasedWork | null = checking &&
+    (checking.runId
+      ? { kind: 'check', id: 'stack_1' }
+      : { kind: 'diff', id: 'diff_1' }),
 ) => {
   const git = {
     call: vi.fn(async () => ({ status: 200, headers: {}, body: null })),
   };
+  const checks = { leasedWork: vi.fn(async () => checking) };
+  const leases = { leaseOf: vi.fn(async () => held) };
 
   const service = new CarryGitCall(
     runWorksOver(
@@ -213,11 +233,12 @@ const carrying = (
       isConnected: vi.fn(async () => true),
     },
     git,
-    { isCheckOfRunLeasedBy: vi.fn(async () => checking) },
+    checks,
+    leases,
     { now: () => NOW, sleep: async () => {} },
   );
 
-  return { service, git };
+  return { service, git, checks, leases };
 };
 
 describe('CarryGitCall', () => {
@@ -353,21 +374,26 @@ describe('CarryGitCall', () => {
 
   describe('a runner that leases a check of the run', () => {
     it('reads the repository though it never leased the run', async () => {
-      const { service, git } = carrying(
+      const { service, git, checks } = carrying(
         claimedBy('runner_1'),
         task(),
         undefined,
-        true,
+        CHECK_OF_RUN,
       );
 
       await service.carry(
-        'run_1',
+        'stack_1',
         'runner_2',
         'widgets',
         'git-upload-pack',
         call,
       );
 
+      expect(checks.leasedWork).toHaveBeenCalledWith(
+        { kind: 'check', id: 'stack_1' },
+        RunnerId.of('runner_2'),
+        NOW,
+      );
       expect(git.call).toHaveBeenCalledWith(
         WorkspaceId.of('ws_1'),
         Repository.of('acme/widgets'),
@@ -380,11 +406,11 @@ describe('CarryGitCall', () => {
         claimedBy('runner_1'),
         added(),
         undefined,
-        true,
+        CHECK_OF_RUN,
       );
 
       await service.carry(
-        'run_1',
+        'stack_1',
         'runner_2',
         'widgets',
         'git-upload-pack',
@@ -399,7 +425,7 @@ describe('CarryGitCall', () => {
         claimedBy('runner_1'),
         task(),
         undefined,
-        true,
+        CHECK_OF_RUN,
       );
 
       await expect(
@@ -413,11 +439,11 @@ describe('CarryGitCall', () => {
         claimedBy('runner_1'),
         task(),
         undefined,
-        true,
+        CHECK_OF_RUN,
       );
 
       await expect(
-        service.carry('run_1', 'runner_2', 'other', 'git-upload-pack', call),
+        service.carry('stack_1', 'runner_2', 'other', 'git-upload-pack', call),
       ).resolves.toBeNull();
       expect(git.call).not.toHaveBeenCalled();
     });
@@ -429,11 +455,11 @@ describe('CarryGitCall', () => {
         claimedBy('runner_1', 'trial'),
         null,
         [],
-        true,
+        CHECK_OF_RUN,
       );
 
       await service.carry(
-        'run_1',
+        'stack_1',
         'runner_2',
         'widgets',
         'git-upload-pack',
@@ -452,7 +478,7 @@ describe('CarryGitCall', () => {
         claimedBy('runner_1', 'trial'),
         null,
         undefined,
-        true,
+        CHECK_OF_RUN,
       );
 
       await expect(
@@ -466,12 +492,227 @@ describe('CarryGitCall', () => {
         claimedBy('runner_1', 'trial'),
         null,
         ['acme/widgets', 'acme/gadgets'],
-        true,
+        CHECK_OF_RUN,
       );
 
       await expect(
-        service.carry('run_1', 'runner_2', 'gadgets', 'git-upload-pack', call),
+        service.carry(
+          'stack_1',
+          'runner_2',
+          'gadgets',
+          'git-upload-pack',
+          call,
+        ),
       ).resolves.toBeNull();
+      expect(git.call).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('a runner that leases a push diff of a task', () => {
+    it('reads the repository of the task’s line, with no run behind it', async () => {
+      const { service, git, checks } = carrying(
+        null,
+        task(),
+        undefined,
+        DIFF_OF_TASK,
+      );
+
+      await service.carry(
+        'diff_1',
+        'runner_2',
+        'widgets',
+        'git-upload-pack',
+        call,
+      );
+
+      expect(checks.leasedWork).toHaveBeenCalledWith(
+        { kind: 'diff', id: 'diff_1' },
+        RunnerId.of('runner_2'),
+        NOW,
+      );
+      expect(git.call).toHaveBeenCalledWith(
+        WorkspaceId.of('ws_1'),
+        Repository.of('acme/widgets'),
+        call,
+      );
+    });
+
+    it('allows no repository the task’s line does not work', async () => {
+      const { service, git } = carrying(null, task(), undefined, DIFF_OF_TASK);
+
+      await expect(
+        service.carry('diff_1', 'runner_2', 'other', 'git-upload-pack', call),
+      ).resolves.toBeNull();
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('allows a push diff no other repository of the task’s line', async () => {
+      const { service, git } = carrying(
+        null,
+        task(),
+        ['acme/widgets', 'acme/docs'],
+        DIFF_OF_TASK,
+      );
+
+      await expect(
+        service.carry('diff_1', 'runner_2', 'docs', 'git-upload-pack', call),
+      ).resolves.toBeNull();
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('lets the check of a stack a push made read its repository and no other of the task’s line', async () => {
+      const { service, git } = carrying(
+        null,
+        task(),
+        ['acme/widgets', 'acme/docs'],
+        DIFF_OF_TASK,
+        { kind: 'check', id: 'stack_1' },
+      );
+
+      await expect(
+        service.carry('stack_1', 'runner_2', 'docs', 'git-upload-pack', call),
+      ).resolves.toBeNull();
+      await service.carry(
+        'stack_1',
+        'runner_2',
+        'widgets',
+        'git-upload-pack',
+        call,
+      );
+
+      expect(git.call).toHaveBeenCalledTimes(1);
+      expect(git.call).toHaveBeenCalledWith(
+        WorkspaceId.of('ws_1'),
+        Repository.of('acme/widgets'),
+        call,
+      );
+    });
+
+    it('allows no repository when the lease names one that is no repository name', async () => {
+      const { service, git } = carrying(null, task(), undefined, {
+        ...DIFF_OF_TASK,
+        repository: 'not a/name',
+      });
+
+      await expect(
+        service.carry('diff_1', 'runner_2', 'widgets', 'git-upload-pack', call),
+      ).resolves.toBeNull();
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('says nothing to carry once the task is gone', async () => {
+      const { service, git } = carrying(null, null, undefined, DIFF_OF_TASK);
+
+      await expect(
+        service.carry('diff_1', 'runner_2', 'widgets', 'git-upload-pack', call),
+      ).resolves.toBeNull();
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('says nothing to carry for leased work of no run and no task', async () => {
+      const { service, git } = carrying(null, task(), undefined, {
+        runId: null,
+        taskId: null,
+        repository: null,
+      });
+
+      await expect(
+        service.carry('diff_1', 'runner_2', 'widgets', 'git-upload-pack', call),
+      ).resolves.toBeNull();
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('is never let near a push', async () => {
+      const { service, git, checks } = carrying(
+        null,
+        task(),
+        undefined,
+        DIFF_OF_TASK,
+      );
+
+      await expect(
+        service.carry(
+          'diff_1',
+          'runner_2',
+          'widgets',
+          'git-receive-pack',
+          call,
+        ),
+      ).rejects.toMatchObject({ kind: 'not-found' });
+      expect(checks.leasedWork).not.toHaveBeenCalled();
+      expect(git.call).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('a runner whose lease is on other work', () => {
+    it('asks for no check access when it leases a run', async () => {
+      const { service, git, checks } = carrying(
+        null,
+        task(),
+        undefined,
+        DIFF_OF_TASK,
+        { kind: 'run', id: 'diff_1' },
+      );
+
+      await expect(
+        service.carry('diff_1', 'runner_2', 'widgets', 'git-upload-pack', call),
+      ).rejects.toMatchObject({ kind: 'not-found' });
+      expect(checks.leasedWork).not.toHaveBeenCalled();
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('asks for no check access when it leases a check of another stack, and says it does not lease this work', async () => {
+      const { service, git, checks } = carrying(
+        null,
+        task(),
+        undefined,
+        DIFF_OF_TASK,
+        { kind: 'check', id: 'stack_9' },
+      );
+
+      await expect(
+        service.carry('diff_1', 'runner_2', 'widgets', 'git-upload-pack', call),
+      ).rejects.toMatchObject({
+        kind: 'conflict',
+        message: 'This runner does not hold the lease on diff_1.',
+      });
+      expect(checks.leasedWork).not.toHaveBeenCalled();
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('says it does not lease the push diff once the lease the runner holds is no longer confirmed', async () => {
+      const { service, git, checks } = carrying(null, task(), undefined, null, {
+        kind: 'diff',
+        id: 'diff_1',
+      });
+
+      await expect(
+        service.carry('diff_1', 'runner_2', 'widgets', 'git-upload-pack', call),
+      ).rejects.toMatchObject({
+        kind: 'conflict',
+        message: 'This runner does not hold the lease on diff_1.',
+      });
+      expect(checks.leasedWork).toHaveBeenCalledWith(
+        { kind: 'diff', id: 'diff_1' },
+        RunnerId.of('runner_2'),
+        NOW,
+      );
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('asks for no check access when it leases nothing', async () => {
+      const { service, git, checks } = carrying(
+        null,
+        task(),
+        undefined,
+        DIFF_OF_TASK,
+        null,
+      );
+
+      await expect(
+        service.carry('diff_1', 'runner_2', 'widgets', 'git-upload-pack', call),
+      ).rejects.toMatchObject({ kind: 'not-found' });
+      expect(checks.leasedWork).not.toHaveBeenCalled();
       expect(git.call).not.toHaveBeenCalled();
     });
   });

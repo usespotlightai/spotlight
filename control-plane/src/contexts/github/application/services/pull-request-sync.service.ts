@@ -3,6 +3,7 @@ import {
   PullRequest,
   type PullRequestClosing,
   type PullRequestComment,
+  type PullRequestPushing,
   type PullRequestReopening,
   type PullRequestSnapshot,
 } from '@github/domain/aggregates/pull-request.aggregate';
@@ -126,6 +127,21 @@ export class PullRequestSync {
     if (url) {
       await this.changing(from, url, null, (known) =>
         known.reopenedBy(reopening),
+      );
+    }
+  }
+
+  async pushed(
+    from: DeliveryOrigin,
+    snapshot: PullRequestSnapshot | null,
+    pullRequest: string,
+    pushing: PullRequestPushing,
+  ): Promise<void> {
+    const url = urlOf(pullRequest);
+
+    if (url) {
+      await this.changing(from, url, snapshot, (known) =>
+        known.recordPush(pushing),
       );
     }
   }

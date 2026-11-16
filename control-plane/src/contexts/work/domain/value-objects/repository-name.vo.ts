@@ -33,10 +33,10 @@ export class RepositoryName {
   }
 
   names(repository: Repository): boolean {
-    return repository.name === this.value;
+    return repository.name.toLowerCase() === this.value.toLowerCase();
   }
 
   equals(other: RepositoryName): boolean {
-    return this.value === other.value;
+    return this.value.toLowerCase() === other.value.toLowerCase();
   }
 }

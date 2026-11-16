@@ -7,6 +7,9 @@ import { DecisionsRecorded } from '@change-review/domain/events/decisions-record
 import { IncludedCommentPosted } from '@change-review/domain/events/included-comment-posted.event';
 import { IncludedCommentReturned } from '@change-review/domain/events/included-comment-returned.event';
 import { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
+import { PushDiffLeaseReleased } from '@change-review/domain/events/push-diff-lease-released.event';
+import { PushDiffRecorded } from '@change-review/domain/events/push-diff-recorded.event';
+import { PushDiffReservationDropped } from '@change-review/domain/events/push-diff-reservation-dropped.event';
 import { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
 import { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
 import { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
@@ -18,7 +21,6 @@ import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { TrialStackSettled } from '@change-review/domain/events/trial-stack-settled.event';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
@@ -32,6 +34,8 @@ import { DeliveryAttempts } from '@change-review/domain/value-objects/delivery-a
 import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
+import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
+import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
@@ -39,6 +43,8 @@ import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-delivery-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
+import { RunnerAssignment } from '@change-review/domain/value-objects/runner-assignment.vo';
+import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
@@ -48,7 +54,8 @@ import { WorkingCopyPath } from '@change-review/domain/value-objects/working-cop
 export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   AuthorName,
   ChangeStackId,
-  CheckClaim,
+  RunnerClaim,
+  RunnerAssignment,
   Diff,
   RepositoryName,
   ReviewAnchor,
@@ -68,6 +75,10 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   ChangeStackCompleted,
   ChangeStackBecameReady,
   StackCheckReservationDropped,
+  PushDiffId,
+  PushDiffLeaseReleased,
+  PushDiffRecorded,
+  PushDiffReservationDropped,
   LeasedStackCheckDeleted,
   StackCheckLayersFailed,
   IncludedCommentReturned,
@@ -82,6 +93,7 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   DecisionEvidence,
   DecisionMerge,
   CommitSha,
+  Pusher,
   FilePath,
   WorkingCopyPath,
   DecisionSetId,

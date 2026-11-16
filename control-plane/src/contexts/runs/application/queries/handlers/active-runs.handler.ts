@@ -3,13 +3,13 @@ import type {
   SharedEgressAuthentication,
 } from '@runners/application/ports/runner-egress.port';
 import type { EgressActiveRunsDto } from '@runs/application/dto/egress-authorization.dto';
-import type { CheckWorkPort } from '@runs/application/ports/check-work.port';
+import type { ReviewWorkPort } from '@runs/application/ports/review-work.port';
 import type { ActiveRunsQuery } from '@runs/application/queries/egress.queries';
 import type { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
+import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
@@ -22,7 +22,7 @@ export class ActiveRunsHandler implements QueryHandlerPort<
   constructor(
     private readonly egress: RunnerEgressPort,
     private readonly fetches: EgressSecretFetches,
-    private readonly checks: CheckWorkPort,
+    private readonly reviewWork: ReviewWorkPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -65,9 +65,12 @@ export class ActiveRunsHandler implements QueryHandlerPort<
       return true;
     }
 
-    if (authorized.work.kind === 'check') {
-      return this.checks.isLeasedBy(
-        CheckWorkId.of(authorized.work.id),
+    if (authorized.work.kind !== 'run') {
+      return this.reviewWork.isLeasedBy(
+        {
+          kind: authorized.work.kind,
+          id: ReviewWorkId.of(authorized.work.id),
+        },
         RunnerId.of(authorized.runnerId),
         this.clock.now(),
       );

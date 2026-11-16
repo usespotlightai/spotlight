@@ -4,12 +4,13 @@ import type { ReviewReactions } from '@change-review/application/events/handlers
 import type { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
 import type { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
 import type { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
-import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
+import type { ReviewWorkRunnersPort } from '@change-review/application/ports/review-work-runners.port';
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import type { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
+import type { StackPushes } from '@change-review/application/services/stack-pushes.service';
 import type { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import type { ChangeStackRedrafted } from '@change-review/domain/events/change-stack-redrafted.event';
 import type { ChangeStackRedraftingEnded } from '@change-review/domain/events/change-stack-redrafting-ended.event';
@@ -18,6 +19,9 @@ import type { DecisionsRecorded } from '@change-review/domain/events/decisions-r
 import type { IncludedCommentPosted } from '@change-review/domain/events/included-comment-posted.event';
 import type { IncludedCommentReturned } from '@change-review/domain/events/included-comment-returned.event';
 import type { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
+import type { PushDiffLeaseReleased } from '@change-review/domain/events/push-diff-lease-released.event';
+import type { PushDiffRecorded } from '@change-review/domain/events/push-diff-recorded.event';
+import type { PushDiffReservationDropped } from '@change-review/domain/events/push-diff-reservation-dropped.event';
 import type { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
 import type { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
 import type { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
@@ -38,6 +42,10 @@ import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
+import {
+  PULL_REQUEST_PUSHED,
+  type PullRequestPushedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-pushed.integration-event';
 import {
   REVIEW_COMMENT_RECEIVED,
   type ReviewCommentReceivedIntegrationEvent,
@@ -77,22 +85,59 @@ export const changeReviewSubscribers = (
   deciding: RequestDecisions,
   pullRequestClose: ApplyPullRequestClose,
   decisions: DecisionReactions,
-  runners: CheckRunnersPort,
+  runners: ReviewWorkRunnersPort,
+  pushes: StackPushes,
 ): readonly DomainEventSubscriber[] => [
   subscribing<StackChecked | StackCheckLayersFailed>(
     'change-review.release-runner-of-checked-stack',
     ['stack-check.checked', 'stack-check.layers-failed'],
-    (event) => runners.released(event.checkId.stackId),
+    (event) => runners.checkReleased(event.checkId.stackId),
+    { callsOut: true },
   ),
   subscribing<LeasedStackCheckDeleted>(
     'change-review.release-runner-of-deleted-check',
     ['stack-check.leased-check-deleted'],
-    (event) => runners.released(event.checkId.stackId),
+    (event) => runners.checkReleased(event.checkId.stackId),
+    { callsOut: true },
+  ),
+  subscribing<PushDiffLeaseReleased>(
+    'change-review.release-runner-of-push-diff',
+    ['push-diff.lease-released'],
+    (event) => runners.diffReleased(event.diffId),
+    { callsOut: true },
+  ),
+  subscribing<PushDiffRecorded>(
+    'change-review.supersede-earlier-pushes',
+    ['push-diff.recorded'],
+    (event) => pushes.supersedeEarlier(event.diffId),
+    { callsOut: true },
+  ),
+  subscribing<PushDiffReservationDropped>(
+    'change-review.release-reserved-runner-of-push-diff',
+    ['push-diff.reservation-dropped'],
+    (event) => runners.reservationDropped(event.runner),
+    { callsOut: true },
+  ),
+  subscribing<PullRequestPushedIntegrationEvent>(
+    'change-review.diff-pushed-pull-request',
+    [PULL_REQUEST_PUSHED],
+    (event) =>
+      pushes.pushed({
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        pullRequest: event.pullRequest,
+        head: event.head,
+        baseTip: event.baseTip,
+        pushedBy: event.pushedBy,
+        byBot: event.byBot,
+        pushedAt: new Date(event.pushedAt),
+      }),
+    { callsOut: true },
   ),
   subscribing<StackCheckReservationDropped>(
     'change-review.release-reserved-runner',
     ['stack-check.reservation-dropped'],
     (event) => runners.reservationDropped(event.runner),
+    { callsOut: true },
   ),
   subscribing<ChangeStackCompleted>(
     'change-review.begin-check',
@@ -224,6 +269,12 @@ export const changeReviewSubscribers = (
     'change-review.remove-decision-sets-of-deleted-task',
     [TASK_DELETED],
     (event) => deleting.removeDecisions(TaskId.of(event.taskId)),
+  ),
+  subscribing<TaskDeletedIntegrationEvent>(
+    'change-review.remove-push-diffs-of-deleted-task',
+    [TASK_DELETED],
+    (event) => deleting.removePushDiffs(TaskId.of(event.taskId)),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'change-review.remove-stack-checks-of-deleted-team',

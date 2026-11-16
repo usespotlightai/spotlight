@@ -3,16 +3,20 @@ import { DeleteReviewCommentCommand } from '@change-review/application/commands/
 import { DisputeDecisionCommand } from '@change-review/application/commands/dispute-decision.command';
 import { DraftReviewCommentCommand } from '@change-review/application/commands/draft-review-comment.command';
 import { EditReviewCommentCommand } from '@change-review/application/commands/edit-review-comment.command';
+import { FailPushDiffCommand } from '@change-review/application/commands/fail-push-diff.command';
 import { GenerateRunChangeStackCommand } from '@change-review/application/commands/generate-run-change-stack.command';
 import { AnswerQuestionHandler } from '@change-review/application/commands/handlers/answer-question.handler';
 import { DeleteReviewCommentHandler } from '@change-review/application/commands/handlers/delete-review-comment.handler';
 import { DisputeDecisionHandler } from '@change-review/application/commands/handlers/dispute-decision.handler';
 import { DraftReviewCommentHandler } from '@change-review/application/commands/handlers/draft-review-comment.handler';
 import { EditReviewCommentHandler } from '@change-review/application/commands/handlers/edit-review-comment.handler';
+import { FailPushDiffHandler } from '@change-review/application/commands/handlers/fail-push-diff.handler';
 import { GenerateRunChangeStackHandler } from '@change-review/application/commands/handlers/generate-run-change-stack.handler';
 import { RecordChangeStackCheckHandler } from '@change-review/application/commands/handlers/record-change-stack-check.handler';
+import { RecordPushDiffHandler } from '@change-review/application/commands/handlers/record-push-diff.handler';
 import { SubmitReviewHandler } from '@change-review/application/commands/handlers/submit-review.handler';
 import { RecordChangeStackCheckCommand } from '@change-review/application/commands/record-change-stack-check.command';
+import { RecordPushDiffCommand } from '@change-review/application/commands/record-push-diff.command';
 import { SubmitReviewCommand } from '@change-review/application/commands/submit-review.command';
 import { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
 import { DecisionReactions } from '@change-review/application/events/handlers/decision-reactions.handler';
@@ -28,13 +32,13 @@ import {
   type ChangeStackGeneratorPort,
 } from '@change-review/application/ports/change-stack-generator.port';
 import {
+  CHANGE_STACK_LOCKS,
+  type ChangeStackLocksPort,
+} from '@change-review/application/ports/change-stack-locks.port';
+import {
   CHANGE_STACK_READER,
   type ChangeStackReaderPort,
 } from '@change-review/application/ports/change-stack-reader.port';
-import {
-  CHECK_RUNNERS,
-  type CheckRunnersPort,
-} from '@change-review/application/ports/check-runners.port';
 import { CODE_READING } from '@change-review/application/ports/code-reading.port';
 import {
   COMMENT_BODIES,
@@ -69,6 +73,10 @@ import {
   type ReviewLinksPort,
 } from '@change-review/application/ports/review-links.port';
 import { REVIEW_READER } from '@change-review/application/ports/review-reader.port';
+import {
+  REVIEW_WORK_RUNNERS,
+  type ReviewWorkRunnersPort,
+} from '@change-review/application/ports/review-work-runners.port';
 import { RUN_CHANGE_CHECKS } from '@change-review/application/ports/run-change-checks.port';
 import {
   STICKY_COMMENT_POSTER,
@@ -89,40 +97,43 @@ import {
 } from '@change-review/application/ports/workspaces.port';
 import { ListMergedDecisionsHandler } from '@change-review/application/queries/handlers/list-merged-decisions.handler';
 import { ListRunChangeStacksHandler } from '@change-review/application/queries/handlers/list-run-change-stacks.handler';
+import { ListTaskChangeStacksHandler } from '@change-review/application/queries/handlers/list-task-change-stacks.handler';
 import { ReadQuestionAnswerHandler } from '@change-review/application/queries/handlers/read-question-answer.handler';
-import { ReadRunReviewHandler } from '@change-review/application/queries/handlers/read-run-review.handler';
 import { ReadTaskChangeStackHandler } from '@change-review/application/queries/handlers/read-task-change-stack.handler';
 import { ReadTaskDecisionsHandler } from '@change-review/application/queries/handlers/read-task-decisions.handler';
+import { ReadTaskReviewHandler } from '@change-review/application/queries/handlers/read-task-review.handler';
 import { ListMergedDecisionsQuery } from '@change-review/application/queries/list-merged-decisions.query';
 import { ListRunChangeStacksQuery } from '@change-review/application/queries/list-run-change-stacks.query';
+import { ListTaskChangeStacksQuery } from '@change-review/application/queries/list-task-change-stacks.query';
 import { ReadQuestionAnswerQuery } from '@change-review/application/queries/read-question-answer.query';
-import { ReadRunReviewQuery } from '@change-review/application/queries/read-run-review.query';
 import { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
 import { ReadTaskDecisionsQuery } from '@change-review/application/queries/read-task-decisions.query';
+import { ReadTaskReviewQuery } from '@change-review/application/queries/read-task-review.query';
 import { AgentReviews } from '@change-review/application/services/agent-reviews.service';
 import { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
-import { CheckAccess } from '@change-review/application/services/check-access.service';
-import { ClaimChangeStackCheck } from '@change-review/application/services/claim-change-stack-check.service';
+import { ClaimReviewWork } from '@change-review/application/services/claim-review-work.service';
 import { DecisionsForBriefing } from '@change-review/application/services/decisions-for-briefing.service';
 import { DeliverReviews } from '@change-review/application/services/deliver-reviews.service';
-import { ExpireWaitingChecks } from '@change-review/application/services/expire-waiting-checks.service';
+import { ExpireWaitingReviewWork } from '@change-review/application/services/expire-waiting-review-work.service';
 import { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
 import { PostChangeStackComment } from '@change-review/application/services/post-change-stack-comment.service';
 import { PostDecisionsComment } from '@change-review/application/services/post-decisions-comment.service';
-import { ProvisionChangeStackChecks } from '@change-review/application/services/provision-change-stack-checks.service';
+import { ProvisionReviewWork } from '@change-review/application/services/provision-review-work.service';
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import { RecheckTrialChanges } from '@change-review/application/services/recheck-trial-changes.service';
 import { RedraftChangeStack } from '@change-review/application/services/redraft-change-stack.service';
 import { RequestDecisions } from '@change-review/application/services/request-decisions.service';
+import { ReviewWorkAccess } from '@change-review/application/services/review-work-access.service';
 import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
+import { StackPushes } from '@change-review/application/services/stack-pushes.service';
 import { SubmitReview } from '@change-review/application/services/submit-review.service';
 import { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import { WorkDecisionSets } from '@change-review/application/services/work-decision-sets.service';
 import type { CodeReading } from '@change-review/domain/services/code-reading';
-import { CheckRunners } from '@change-review/infrastructure/acl/check-runners.adapter';
 import { People } from '@change-review/infrastructure/acl/people.adapter';
 import { GitHubReviewPosting } from '@change-review/infrastructure/acl/review-posting.adapter';
+import { ReviewWorkRunners } from '@change-review/infrastructure/acl/review-work-runners.adapter';
 import { Work } from '@change-review/infrastructure/acl/work.adapter';
 import { Workspaces } from '@change-review/infrastructure/acl/workspaces.adapter';
 import { ChatCompletionsAnswerGrader } from '@change-review/infrastructure/answers/chat-completions-answer.grader';
@@ -135,10 +146,12 @@ import { ChatCompletionsDecisionGenerator } from '@change-review/infrastructure/
 import { CHANGE_REVIEW_PAYLOAD_TYPES } from '@change-review/infrastructure/events/change-review-payload-types';
 import { GitHubAvatars } from '@change-review/infrastructure/links/github-avatars';
 import { WebReviewLinks } from '@change-review/infrastructure/links/web-review.links';
+import { DrizzleChangeStackLocks } from '@change-review/infrastructure/persistence/drizzle/change-stack-locks';
 import { DrizzleChangeStackReader } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.reader';
 import { DrizzleChangeStackRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.repository';
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
 import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
+import { DrizzlePushDiffRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/push-diff.repository';
 import { DrizzleQuestionAnswerRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/question-answer.repository';
 import { DrizzleReviewCommentRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review-comment.repository';
 import { DrizzleReviewDeliveries } from '@change-review/infrastructure/persistence/drizzle/repositories/review-deliveries.repository';
@@ -196,8 +209,8 @@ import {
   RUNNERS,
   type RunnersPort,
 } from '@runners/application/ports/runners.port';
-import { CHECK_PROVISIONING } from '@runs/application/ports/check-provisioning.port';
-import { CHECK_WORK } from '@runs/application/ports/check-work.port';
+import { REVIEW_WORK_PROVISIONING } from '@runs/application/ports/review-work-provisioning.port';
+import { REVIEW_WORK } from '@runs/application/ports/review-work.port';
 import { RUN_LEASES } from '@runs/application/ports/run-leases.port';
 import {
   CLOCK,
@@ -227,8 +240,8 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
-import { CHECK_ACCESS } from '@work/application/ports/check-access.port';
 import { PULL_REQUEST_REVIEWING } from '@work/application/ports/pull-request-reviewing.port';
+import { REVIEW_WORK_ACCESS } from '@work/application/ports/review-work-access.port';
 import { TASK_DECISIONS } from '@work/application/ports/task-decisions.port';
 import {
   WORK_RUN_LOOKUP,
@@ -269,10 +282,10 @@ const upstream: Provider[] = [
       new Work(runs, tasks),
   },
   {
-    provide: CHECK_RUNNERS,
+    provide: REVIEW_WORK_RUNNERS,
     inject: [RUNNERS, CLOCK],
     useFactory: (runners: RunnersPort, clock: ClockPort) =>
-      new CheckRunners(runners, clock),
+      new ReviewWorkRunners(runners, clock),
   },
 ];
 
@@ -282,33 +295,46 @@ const adapters: Provider[] = [
   DrizzleDecisionSetRepository,
   { provide: DECISION_READER, useClass: DrizzleDecisionReader },
   DrizzleStackCheckRepository,
+  DrizzlePushDiffRepository,
   { provide: CHANGE_STACK_READER, useClass: DrizzleChangeStackReader },
+  { provide: CHANGE_STACK_LOCKS, useClass: DrizzleChangeStackLocks },
   {
-    provide: CHECK_ACCESS,
-    inject: [DrizzleStackCheckRepository],
-    useFactory: (checks: DrizzleStackCheckRepository) =>
-      new CheckAccess(checks),
+    provide: REVIEW_WORK_ACCESS,
+    inject: [
+      DrizzleStackCheckRepository,
+      CHANGE_STACK_READER,
+      DrizzlePushDiffRepository,
+    ],
+    useFactory: (
+      checks: DrizzleStackCheckRepository,
+      stacks: ChangeStackReaderPort,
+      diffs: DrizzlePushDiffRepository,
+    ) => new ReviewWorkAccess(checks, stacks, diffs),
   },
   {
-    provide: CHECK_PROVISIONING,
-    inject: [DrizzleStackCheckRepository],
-    useFactory: (checks: DrizzleStackCheckRepository) =>
-      new ProvisionChangeStackChecks(checks),
+    provide: REVIEW_WORK_PROVISIONING,
+    inject: [DrizzleStackCheckRepository, DrizzlePushDiffRepository],
+    useFactory: (
+      checks: DrizzleStackCheckRepository,
+      diffs: DrizzlePushDiffRepository,
+    ) => new ProvisionReviewWork(checks, diffs),
   },
   {
-    provide: CHECK_WORK,
+    provide: REVIEW_WORK,
     inject: [
       DrizzleStackCheckRepository,
       DrizzleChangeStackRepository,
       PATCH_WRITER,
       TRANSACTION,
+      DrizzlePushDiffRepository,
     ],
     useFactory: (
       checks: DrizzleStackCheckRepository,
       stacks: DrizzleChangeStackRepository,
       patches: PatchWriterPort,
       transaction: TransactionPort,
-    ) => new ClaimChangeStackCheck(checks, stacks, patches, transaction),
+      diffs: DrizzlePushDiffRepository,
+    ) => new ClaimReviewWork(checks, stacks, patches, transaction, diffs),
   },
   { provide: RUN_CHANGE_CHECKS, useClass: DrizzleRunChangeChecksReader },
   {
@@ -366,6 +392,27 @@ const adapters: Provider[] = [
 
 const services: Provider[] = [
   {
+    provide: StackPushes,
+    inject: [
+      DrizzlePushDiffRepository,
+      DrizzleChangeStackRepository,
+      WORK,
+      GenerateChangeStack,
+      CHANGE_STACK_LOCKS,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+    useFactory: (
+      diffs: DrizzlePushDiffRepository,
+      stacks: DrizzleChangeStackRepository,
+      work: WorkPort,
+      generating: GenerateChangeStack,
+      locks: ChangeStackLocksPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) => new StackPushes(diffs, stacks, work, generating, locks, ids, clock),
+  },
+  {
     provide: GenerateChangeStack,
     inject: [
       DrizzleChangeStackRepository,
@@ -373,6 +420,7 @@ const services: Provider[] = [
       DIFF_READER,
       CODE_READING,
       SYMBOL_INDEXER,
+      CHANGE_STACK_LOCKS,
       ID_GENERATOR,
       CLOCK,
       LOGGER,
@@ -383,6 +431,7 @@ const services: Provider[] = [
       reader: DiffReaderPort,
       reading: CodeReading,
       indexer: SymbolIndexerPort,
+      locks: ChangeStackLocksPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
       logger: LoggerPort,
@@ -393,6 +442,7 @@ const services: Provider[] = [
         reader,
         reading,
         indexer,
+        locks,
         ids,
         clock,
         logger,
@@ -564,6 +614,7 @@ const services: Provider[] = [
       WorkChangeStacks,
       WorkDecisionSets,
       DrizzleStackCheckRepository,
+      DrizzlePushDiffRepository,
       CLOCK,
       LOGGER,
     ],
@@ -571,11 +622,16 @@ const services: Provider[] = [
       stacks: WorkChangeStacks,
       decisions: WorkDecisionSets,
       checks: DrizzleStackCheckRepository,
+      diffs: DrizzlePushDiffRepository,
       clock: ClockPort,
       logger: LoggerPort,
     ) =>
       new PendingJobWorker(
-        [stacks, decisions, new ExpireWaitingChecks(checks, clock, logger)],
+        [
+          stacks,
+          decisions,
+          new ExpireWaitingReviewWork(checks, diffs, clock, logger),
+        ],
         logger,
       ),
   },
@@ -629,6 +685,7 @@ const services: Provider[] = [
       DrizzleQuestionAnswerRepository,
       DrizzleChangeStackRepository,
       DrizzleDecisionSetRepository,
+      DrizzlePushDiffRepository,
       CLOCK,
     ],
     useFactory: (
@@ -639,6 +696,7 @@ const services: Provider[] = [
       answers: DrizzleQuestionAnswerRepository,
       stacks: DrizzleChangeStackRepository,
       sets: DrizzleDecisionSetRepository,
+      diffs: DrizzlePushDiffRepository,
       clock: ClockPort,
     ) =>
       new TaskDeletionReactions(
@@ -649,6 +707,7 @@ const services: Provider[] = [
         answers,
         stacks,
         sets,
+        diffs,
         clock,
       ),
   },
@@ -812,7 +871,13 @@ const handlers: Provider[] = [
     RecordChangeStackCheckHandler,
     [DrizzleStackCheckRepository, DrizzleChangeStackRepository, CLOCK],
   ),
-  ...bindQueryHandler(ReadRunReviewQuery, ReadRunReviewHandler, [
+  ...bindCommandHandler(RecordPushDiffCommand, RecordPushDiffHandler, [
+    StackPushes,
+  ]),
+  ...bindCommandHandler(FailPushDiffCommand, FailPushDiffHandler, [
+    StackPushes,
+  ]),
+  ...bindQueryHandler(ReadTaskReviewQuery, ReadTaskReviewHandler, [
     TeamWorkAccess,
     REVIEW_READER,
     PEOPLE,
@@ -857,6 +922,11 @@ const handlers: Provider[] = [
     CHANGE_STACK_READER,
     CLOCK,
   ]),
+  ...bindQueryHandler(ListTaskChangeStacksQuery, ListTaskChangeStacksHandler, [
+    TeamWorkAccess,
+    CHANGE_STACK_READER,
+    CLOCK,
+  ]),
 ];
 
 const published: Provider[] = [
@@ -880,7 +950,8 @@ const published: Provider[] = [
       RequestDecisions,
       ApplyPullRequestClose,
       DecisionReactions,
-      CHECK_RUNNERS,
+      REVIEW_WORK_RUNNERS,
+      StackPushes,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -900,7 +971,8 @@ const published: Provider[] = [
       deciding: RequestDecisions,
       pullRequestClose: ApplyPullRequestClose,
       decisions: DecisionReactions,
-      runners: CheckRunnersPort,
+      runners: ReviewWorkRunnersPort,
+      pushes: StackPushes,
     ) => {
       types.register('change-review', CHANGE_REVIEW_PAYLOAD_TYPES);
       mappers.register(CHANGE_REVIEW_EVENT_MAPPERS);
@@ -918,6 +990,7 @@ const published: Provider[] = [
           pullRequestClose,
           decisions,
           runners,
+          pushes,
         ),
       );
       return true;

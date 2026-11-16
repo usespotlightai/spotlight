@@ -7,7 +7,11 @@ import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import { ClaimRunHandler } from '@runs/application/commands/handlers/claim-run.handler';
 import { ClaimRunCommand } from '@runs/application/commands/runner.commands';
 import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
-import type { ClaimedCheck } from '@runs/application/ports/check-work.port';
+import type {
+  ClaimedCheck,
+  ClaimedReviewWork,
+  ClaimedPushDiff,
+} from '@runs/application/ports/review-work.port';
 import type {
   ClaimGate,
   RunStart,
@@ -21,10 +25,10 @@ import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
-import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -59,9 +63,9 @@ const reservedForPooled = (harness = 'claude-code') =>
   );
 
 const aCheck: ClaimedCheck = {
-  checkId: CheckWorkId.of('stack_1'),
-  repeat: false,
-  runId: RunId.of('run_1'),
+  kind: 'check',
+  checkId: ReviewWorkId.of('stack_1'),
+  recheck: false,
   repository: 'widgets',
   base: '0123456789abcdef0123456789abcdef01234567',
   setup: 'npm ci',
@@ -87,7 +91,7 @@ const claiming = (
   over: {
     seen?: RunnerClaimant | null;
     reservedFor?: Run | null;
-    reservedCheck?: ClaimedCheck | null;
+    reservedCheck?: ClaimedReviewWork | null;
     starts?: RunStart;
     tookFails?: boolean;
     liveKeys?: readonly string[];
@@ -97,7 +101,7 @@ const claiming = (
     async (): Promise<RunStart> => over.starts ?? 'starts',
   );
   const claimReserved = vi.fn(
-    async (): Promise<ClaimedCheck | null> => over.reservedCheck ?? null,
+    async (): Promise<ClaimedReviewWork | null> => over.reservedCheck ?? null,
   );
   const pooled = {
     claim: vi.fn(async () => {
@@ -308,8 +312,7 @@ describe('ClaimRunHandler', () => {
         handler.execute(new ClaimRunCommand('runner_1')),
       ).rejects.toThrow('runner_1 is spent');
       expect(handler.unclaim).toHaveBeenCalledWith(
-        CheckWorkId.of('stack_1'),
-        false,
+        { kind: 'check', id: ReviewWorkId.of('stack_1'), recheck: false },
         RunnerId.of('runner_1'),
         NOW,
       );
@@ -350,6 +353,33 @@ describe('ClaimRunHandler', () => {
       expect(handler.pooled.claim).toHaveBeenCalledWith(
         RunnerId.of('runner_1'),
         { kind: 'check', id: 'stack_1' },
+        NOW,
+      );
+    });
+
+    it('claims the push diff reserved for it as check work', async () => {
+      const diff: ClaimedPushDiff = {
+        kind: 'diff',
+        diffId: ReviewWorkId.of('diff_1'),
+        repository: 'widgets',
+        baseTip: 'a'.repeat(40),
+        head: 'b'.repeat(40),
+      };
+      const handler = claiming(
+        vi.fn(async () => null),
+        undefined,
+        {
+          seen: seenAs('reserved'),
+          reservedCheck: diff,
+        },
+      );
+
+      const claimed = await handler.execute(new ClaimRunCommand('runner_1'));
+
+      expect(claimed).toEqual({ kind: 'diff', diff });
+      expect(handler.pooled.claim).toHaveBeenCalledWith(
+        RunnerId.of('runner_1'),
+        { kind: 'diff', id: 'diff_1' },
         NOW,
       );
     });

@@ -402,6 +402,23 @@ export class StackCohortResponseDto {
   }
 }
 
+export class PushOriginResponseDto {
+  @ApiProperty({ description: 'The commit that the person pushed' })
+  readonly head: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'The GitHub login of the person who pushed',
+  })
+  readonly pushedBy: string | null;
+
+  constructor(head: string, pushedBy: string | null) {
+    this.head = head;
+    this.pushedBy = pushedBy;
+  }
+}
+
 export class ChangeStackResponseDto {
   @ApiProperty()
   readonly id: string;
@@ -435,6 +452,21 @@ export class ChangeStackResponseDto {
   })
   readonly check: StackCheckResponseDto | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'The run whose changes the stack shows, or null for a push',
+  })
+  readonly runId: string | null;
+
+  @ApiProperty({
+    type: PushOriginResponseDto,
+    nullable: true,
+    description:
+      'The push to the pull request that the stack shows, or null for a run',
+  })
+  readonly push: PushOriginResponseDto | null;
+
   constructor(
     id: string,
     repository: string | null,
@@ -444,6 +476,8 @@ export class ChangeStackResponseDto {
     cohorts: readonly StackCohortResponseDto[],
     removed: readonly RemovedLayerResponseDto[],
     check: StackCheckResponseDto | null,
+    runId: string | null,
+    push: PushOriginResponseDto | null,
   ) {
     this.id = id;
     this.repository = repository;
@@ -453,10 +487,12 @@ export class ChangeStackResponseDto {
     this.cohorts = cohorts;
     this.removed = removed;
     this.check = check;
+    this.runId = runId;
+    this.push = push;
   }
 }
 
-export class RunChangeStacksResponseDto {
+export class ChangeStacksResponseDto {
   @ApiProperty({
     type: ChangeStackResponseDto,
     isArray: true,
@@ -470,9 +506,6 @@ export class RunChangeStacksResponseDto {
 }
 
 export class LatestChangeStackResponseDto {
-  @ApiProperty({ description: 'The run whose page shows the stack' })
-  readonly runId: string;
-
   @ApiProperty({ nullable: true, type: String })
   readonly repository: string | null;
 
@@ -489,14 +522,12 @@ export class LatestChangeStackResponseDto {
   readonly removed: number;
 
   constructor(
-    runId: string,
     repository: string | null,
     state: 'generating' | 'ready' | 'failed',
     checkStatus: (typeof STACK_CHECK_STATUS_NAMES)[number] | null,
     added: number,
     removed: number,
   ) {
-    this.runId = runId;
     this.repository = repository;
     this.state = state;
     this.checkStatus = checkStatus;

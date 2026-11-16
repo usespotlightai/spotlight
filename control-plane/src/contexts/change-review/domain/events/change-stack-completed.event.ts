@@ -1,13 +1,15 @@
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export class ChangeStackCompleted implements DomainEvent {
   readonly kind = 'change-stack.completed';
 
   constructor(
     readonly stackId: ChangeStackId,
-    readonly runId: RunId,
+    readonly runId: RunId | null,
+    readonly taskId: TaskId | null,
     readonly trial: boolean,
   ) {}
 }

@@ -239,7 +239,6 @@ describe('Task', () => {
   it('links the changes of the newest stack generated for the task', () => {
     stacked.mockReturnValue({
       latest: {
-        runId: 'run_9',
         repository: 'spotlight',
         state: 'ready',
         checkStatus: 'checked',
@@ -253,7 +252,7 @@ describe('Task', () => {
 
     expect(changes).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/runs/run_9/changes?repository=spotlight',
+      '/w/acme/team/team_1/tasks/task_1/changes?repository=spotlight',
     );
     expect(changes).toHaveTextContent('+61');
     expect(changes).toHaveTextContent('−4');

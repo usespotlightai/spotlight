@@ -1,11 +1,22 @@
+import { FailPushDiffCommand } from '@change-review/application/commands/fail-push-diff.command';
 import { GenerateRunChangeStackCommand } from '@change-review/application/commands/generate-run-change-stack.command';
 import { RecordChangeStackCheckCommand } from '@change-review/application/commands/record-change-stack-check.command';
+import { RecordPushDiffCommand } from '@change-review/application/commands/record-push-diff.command';
 import {
-  RUN_CHANGE_STACK_CHECK,
+  CHANGE_STACK_CHECK,
+  PUSH_DIFF,
   RUN_CHANGE_STACKS,
 } from '@change-review/presentation/http/change-stack-routes';
 import { RecordChangeStackCheckRequestDto } from '@change-review/presentation/http/dto/change-stack-check.dto';
 import { GenerateChangeStackRequestDto } from '@change-review/presentation/http/dto/generate-change-stack.dto';
+import {
+  FailPushDiffRequestDto,
+  RecordPushDiffRequestDto,
+} from '@change-review/presentation/http/dto/push-diff.dto';
+import {
+  pushDiffFailureInput,
+  pushDiffInput,
+} from '@change-review/presentation/http/mappers/push-diff-report-input';
 import {
   Body,
   Controller,
@@ -17,6 +28,7 @@ import {
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
@@ -72,7 +84,7 @@ export class RunnerChangeStackController {
   }
 
   @AcceptsLargeBody()
-  @Post(RUN_CHANGE_STACK_CHECK)
+  @Post(CHANGE_STACK_CHECK)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'recordChangeStackCheck',
@@ -87,7 +99,7 @@ export class RunnerChangeStackController {
   })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({
-    description: 'Not a run this runner claimed, or no such stack of it',
+    description: 'No change stack with a check to record',
   })
   @ApiConflictResponse({
     description:
@@ -97,7 +109,6 @@ export class RunnerChangeStackController {
     description: 'The stack was already checked, or names steps it has not',
   })
   async recordChangeStackCheck(
-    @Param('runId') runId: string,
     @Param('stackId') stackId: string,
     @Query('recheck') recheck: string | undefined,
     @CurrentMachine() runnerId: string,
@@ -105,7 +116,6 @@ export class RunnerChangeStackController {
   ): Promise<void> {
     await this.commandBus.execute(
       new RecordChangeStackCheckCommand(
-        runId,
         runnerId,
         stackId,
         recheck === 'true',
@@ -129,6 +139,64 @@ export class RunnerChangeStackController {
           durationMs: Number(step.durationMs) || 0,
         })),
       ),
+    );
+  }
+
+  @AcceptsLargeBody()
+  @Post(`${PUSH_DIFF}/diff`)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'recordPushDiff',
+    summary:
+      'Hand over the diff of a push to a pull request, so that Spotlight redrafts its change stack',
+  })
+  @ApiNoContentResponse({
+    description:
+      'The diff is recorded. Spotlight records a diff it refuses to stack as failed. A diff it cannot stack for now goes back to wait, or fails once every runner attempt is used. A report on a diff already settled answers the same.',
+  })
+  @ApiBadRequestResponse({
+    description: 'The body has no diff or no base as text',
+  })
+  @ApiNotFoundResponse({ description: 'No such push diff' })
+  @ApiConflictResponse({
+    description:
+      'The diff still waits and this runner does not hold its lease, or the push diff kept changing while it was recorded',
+  })
+  async recordPushDiff(
+    @Param('diffId') diffId: string,
+    @CurrentMachine() runnerId: string,
+    @Body() body: RecordPushDiffRequestDto,
+  ): Promise<void> {
+    const { diff, base } = pushDiffInput(body);
+
+    await this.commandBus.execute(
+      new RecordPushDiffCommand(diffId, runnerId, diff, base),
+    );
+  }
+
+  @Post(`${PUSH_DIFF}/failure`)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'failPushDiff',
+    summary: 'Report that the runner could not make the diff of a push',
+  })
+  @ApiNoContentResponse({
+    description:
+      'The report is taken: the diff goes back to wait, or fails once every runner attempt is used. A report on a diff already settled answers the same.',
+  })
+  @ApiBadRequestResponse({ description: 'The body has no reason as text' })
+  @ApiNotFoundResponse({ description: 'No such push diff' })
+  @ApiConflictResponse({
+    description:
+      'The diff still waits and this runner does not hold its lease, or the push diff kept changing while it was recorded',
+  })
+  async failPushDiff(
+    @Param('diffId') diffId: string,
+    @CurrentMachine() runnerId: string,
+    @Body() body: FailPushDiffRequestDto,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new FailPushDiffCommand(diffId, runnerId, pushDiffFailureInput(body)),
     );
   }
 }

@@ -1,6 +1,6 @@
 import { ChangesRow } from '@/components/features/changes/ChangesRow';
 import { useTaskChangeStack } from '@/hooks/api/useTaskChangeStack';
-import { changeStackPath } from '@/lib/change-stack';
+import { taskChangesPath } from '@/lib/change-stack';
 
 type TaskChangesLinkProps = {
   slug: string;
@@ -20,15 +20,9 @@ export function TaskChangesLink({
     return null;
   }
 
-  const at = changeStackPath(slug, teamId, latest.runId);
-
   return (
     <ChangesRow
-      to={
-        latest.repository
-          ? `${at}?repository=${encodeURIComponent(latest.repository)}`
-          : at
-      }
+      to={taskChangesPath(slug, teamId, taskId, latest.repository)}
       generating={latest.state === 'generating'}
       added={latest.added}
       removed={latest.removed}

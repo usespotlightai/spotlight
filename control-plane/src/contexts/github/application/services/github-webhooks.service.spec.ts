@@ -115,6 +115,7 @@ const hooks = (
     threadResolved: vi.fn(async () => {}),
     closed: vi.fn(over.closed ?? (async () => {})),
     reopened: vi.fn(async () => {}),
+    pushed: vi.fn(async () => {}),
     uninstalled: vi.fn(async () => 0),
   };
 
@@ -409,6 +410,42 @@ describe('GitHubWebhooks', () => {
         { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
         'https://github.com/acme/api/pull/7',
         { repository: Repository.of('acme/api'), gitHubId: 707, reopenedAt },
+      );
+    });
+
+    it('records a push to a pull request, with its head and base tip', async () => {
+      const pushedAt = new Date('2026-11-16T10:00:00Z');
+      const { service, sync } = hooks({
+        installation: '42',
+        events: [
+          {
+            kind: 'pull-request-pushed',
+            pullRequest: 'https://github.com/acme/api/pull/7',
+            repository: 'acme/api',
+            head: 'a'.repeat(40),
+            baseTip: 'b'.repeat(40),
+            pushedBy: 'ada',
+            byBot: false,
+            pushedAt,
+            snapshot: null,
+          },
+        ],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(sync.pushed).toHaveBeenCalledWith(
+        { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
+        null,
+        'https://github.com/acme/api/pull/7',
+        {
+          repository: Repository.of('acme/api'),
+          head: 'a'.repeat(40),
+          baseTip: 'b'.repeat(40),
+          pushedBy: 'ada',
+          byBot: false,
+          pushedAt,
+        },
       );
     });
 
