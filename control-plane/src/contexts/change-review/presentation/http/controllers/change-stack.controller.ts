@@ -36,6 +36,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -112,6 +113,10 @@ export class ChangeStackController {
     description: 'No such change stack or question for this caller',
   })
   @ApiConflictResponse({ description: 'The caller already answered it' })
+  @ApiResponse({
+    status: 402,
+    description: 'The inference endpoint has no credits left',
+  })
   async answer(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,

@@ -128,6 +128,11 @@ const WorkspaceGeneral = lazyPage(
   (module) => module.WorkspaceGeneral,
 );
 
+const WorkspaceInference = lazyPage(
+  () => import('./routes/WorkspaceInference.tsx'),
+  (module) => module.WorkspaceInference,
+);
+
 const WorkspaceIndex = lazyPage(
   () => import('./routes/WorkspaceIndex.tsx'),
   (module) => module.WorkspaceIndex,
@@ -169,6 +174,7 @@ export const workspacePages = (
       <Route path="members" element={<WorkspaceMembers />} />
       <Route path="runners" element={<Runners />} />
       <Route path="runners/new" element={<AddHost />} />
+      <Route path="inference" element={<WorkspaceInference />} />
       <Route path="api-access" element={<ApiAccess />} />
       <Route path="team/:teamId">
         <Route index element={<Navigate to="general" replace />} />

@@ -108,7 +108,7 @@ const archiveStore: WorkingCopyArchiveStorePort = {
 };
 
 const generator: ChangeStackGeneratorPort = {
-  available: true,
+  availableTo: async () => true,
   outline: async () => {
     throw new Error('A diff this small is not split');
   },
@@ -154,7 +154,7 @@ const generator: ChangeStackGeneratorPort = {
 const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
-  available: true,
+  availableTo: async () => true,
   judge: async (request) => {
     requests.push(request);
     const fast = request.hunks.some((each) =>
@@ -179,7 +179,7 @@ const judge: JudgePort = {
 const pairRequests: SideBySideJudgeRequest[] = [];
 
 const pairJudge: SideBySideJudgePort = {
-  available: true,
+  availableTo: async () => true,
   judgePair: async (request) => {
     pairRequests.push(request);
     const fastIsA = request.a.hunks.some((each) =>

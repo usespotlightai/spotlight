@@ -13,6 +13,11 @@ const stacksFailing = vi.fn();
 const refetchStacks = vi.fn();
 const review = vi.fn<(...args: unknown[]) => unknown>();
 const decided = vi.fn<(...args: unknown[]) => unknown>();
+const unset = vi.fn<() => boolean>();
+
+vi.mock('@/hooks/useInferenceUnset', () => ({
+  useInferenceUnset: () => unset(),
+}));
 
 vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   changeStackKeys: { forRun: () => ['change-stacks'] },
@@ -93,6 +98,7 @@ beforeEach(() => {
   stacks.mockReset();
   stacksFailing.mockReturnValue(false);
   decided.mockReturnValue(undefined);
+  unset.mockReturnValue(false);
 });
 
 describe('RunChangeStack', () => {
@@ -131,6 +137,19 @@ describe('RunChangeStack', () => {
       expect(
         screen.getByRole('link', { name: 'Back to the run' }),
       ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
+    });
+  });
+
+  describe('without an inference endpoint', () => {
+    it('links to the Inference settings', () => {
+      serving({ stacks: [] });
+      unset.mockReturnValue(true);
+      renderAt();
+
+      expect(screen.getByText('Change stacks are off')).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'Set up inference' }),
+      ).toHaveAttribute('href', '/w/acme/settings/inference');
     });
   });
 

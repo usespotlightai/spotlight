@@ -364,12 +364,27 @@ describe('ChangeStack', () => {
   it('fails a stack whose answer was cut off, and retries one whose call failed', () => {
     const leased = generating().leaseJob(NOW);
 
-    expect(leased.settleFailedCall({ truncated: true }, LATER).failure).toBe(
-      'too-large',
-    );
-    expect(leased.settleFailedCall({ truncated: false }, LATER).state).toBe(
-      'generating',
-    );
+    expect(
+      leased.settleFailedCall(
+        { truncated: true, insufficientCredits: false },
+        LATER,
+      ).failure,
+    ).toBe('too-large');
+    expect(
+      leased.settleFailedCall(
+        { truncated: false, insufficientCredits: false },
+        LATER,
+      ).state,
+    ).toBe('generating');
+  });
+
+  it('fails a stack at once when the endpoint has no credits', () => {
+    const failed = generating()
+      .leaseJob(NOW)
+      .settleFailedCall({ truncated: false, insufficientCredits: true }, LATER);
+
+    expect(failed.state).toBe('failed');
+    expect(failed.failure).toBe('insufficient-credits');
   });
 
   it('is leased to one worker at a time while it is generated', () => {

@@ -29,7 +29,7 @@ const LINE_CHANGED = {
 };
 
 const available: JudgePort = {
-  available: true,
+  availableTo: async () => true,
   judge: async () => {
     throw new Error('not called');
   },
@@ -124,7 +124,10 @@ describe('BackfillJudgings', () => {
   it('re-judges nothing on a deleted line or without a judge model', async () => {
     const runs = [{ runId: 'run_1', acted: 'accepted' as const }];
     const deleted = await setUp(runs);
-    const offline = await setUp(runs, { ...available, available: false });
+    const offline = await setUp(runs, {
+      ...available,
+      availableTo: async () => false,
+    });
 
     await deleted.backfilling.lineChanged({ ...LINE_CHANGED, deleted: true });
     await offline.backfilling.lineChanged(LINE_CHANGED);

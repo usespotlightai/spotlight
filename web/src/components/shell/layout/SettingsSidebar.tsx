@@ -1,5 +1,6 @@
 import {
   Bell,
+  BrainCircuit,
   ChevronLeft,
   KeyRound,
   Mail,
@@ -20,6 +21,7 @@ import { isAdmin, type Role } from '@/lib/role';
 import { onlineCount, runnersPath } from '@/lib/runner';
 import {
   apiAccessPath,
+  inferenceSettingsPath,
   TEAM_SETTINGS_PAGES,
   teamSettingsPath,
   workspaceGeneralPath,
@@ -88,6 +90,11 @@ export function SettingsSidebar({
                 </SidebarLink>
               </li>
             )}
+            <li>
+              <SidebarLink to={inferenceSettingsPath(slug)} icon={BrainCircuit}>
+                Inference
+              </SidebarLink>
+            </li>
             <li>
               <SidebarLink
                 to={runnersPath(slug)}

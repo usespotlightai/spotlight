@@ -1,13 +1,13 @@
 import { JudgingError } from '@insights/application/errors/judging.error';
 import type { SideBySideJudgeRequest } from '@insights/application/ports/side-by-side-judge.port';
 import { ChatCompletionsSideBySideJudge } from '@insights/infrastructure/judging/chat-completions-side-by-side-judge';
+import { FixedInferenceCalls } from '@platform/llm/fixed-inference-calls';
 import { describe, expect, it } from 'vitest';
 
 const ENDPOINT = {
   baseUrl: 'https://models.example.com/v1',
   apiKey: 'test-key',
   model: 'some/model',
-  supportsReasoningEffort: false,
 };
 
 const hunk = (id: string, line: string) => ({
@@ -18,6 +18,7 @@ const hunk = (id: string, line: string) => ({
 });
 
 const REQUEST: SideBySideJudgeRequest = {
+  workspaceId: 'workspace_1',
   claims: ['It drains the queue in order.'],
   title: 'Drain the queue',
   description: 'It stalls on restart.',
@@ -68,8 +69,7 @@ describe('judging two changes side by side through a chat completions endpoint',
     );
 
     const answer = await new ChatCompletionsSideBySideJudge(
-      ENDPOINT,
-      fetch,
+      new FixedInferenceCalls(ENDPOINT, fetch),
     ).judgePair(REQUEST);
 
     const body = JSON.parse(requests[0]?.body as string) as SentRequest;
@@ -100,13 +100,17 @@ describe('judging two changes side by side through a chat completions endpoint',
     );
 
     await expect(
-      new ChatCompletionsSideBySideJudge(ENDPOINT, fetch).judgePair(REQUEST),
+      new ChatCompletionsSideBySideJudge(
+        new FixedInferenceCalls(ENDPOINT, fetch),
+      ).judgePair(REQUEST),
     ).rejects.toMatchObject({ kind: 'unreadable' });
   });
 
   it('does not judge without a model endpoint', async () => {
     await expect(
-      new ChatCompletionsSideBySideJudge(null).judgePair(REQUEST),
+      new ChatCompletionsSideBySideJudge(
+        new FixedInferenceCalls(null),
+      ).judgePair(REQUEST),
     ).rejects.toBeInstanceOf(JudgingError);
   });
 });

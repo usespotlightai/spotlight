@@ -1,4 +1,4 @@
-CREATE TYPE "public"."change_stack_failure" AS ENUM('not-generated', 'too-large', 'broke-rules');--> statement-breakpoint
+CREATE TYPE "public"."change_stack_failure" AS ENUM('not-generated', 'too-large', 'broke-rules', 'insufficient-credits');--> statement-breakpoint
 CREATE TYPE "public"."change_stack_state" AS ENUM('generating', 'ready', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."decision_kind" AS ENUM('trade-off', 'assumption', 'limitation', 'rejected-approach', 'deviation');--> statement-breakpoint
 CREATE TYPE "public"."decision_status" AS ENUM('proposed', 'merged');--> statement-breakpoint
@@ -601,6 +601,15 @@ CREATE TABLE "workspace_token" (
 	CONSTRAINT "workspace_token_trust_version" CHECK (("workspace_token"."issued_by_trust_id" is null) = ("workspace_token"."trust_version" is null)),
 	CONSTRAINT "workspace_token_run_attempt" CHECK (("workspace_token"."run_id" is null) = ("workspace_token"."run_attempt" is null)),
 	CONSTRAINT "workspace_token_issued_once" CHECK ("workspace_token"."issued_by_trust_id" is null or "workspace_token"."run_id" is null)
+);
+--> statement-breakpoint
+CREATE TABLE "inference_endpoint" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"base_url" text NOT NULL,
+	"model" text NOT NULL,
+	"api_key_version" integer,
+	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "chat_record" (
@@ -2549,6 +2558,7 @@ CREATE UNIQUE INDEX "workspace_token_workspace_name_idx" ON "workspace_token" US
 CREATE INDEX "workspace_token_run_id_idx" ON "workspace_token" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "workspace_token_issued_by_trust_id_idx" ON "workspace_token" USING btree ("issued_by_trust_id");--> statement-breakpoint
 CREATE INDEX "workspace_token_issued_expiry_idx" ON "workspace_token" USING btree ("expires_at") WHERE "workspace_token"."issued_by_trust_id" is not null or "workspace_token"."run_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "inference_endpoint_workspace_idx" ON "inference_endpoint" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "chat_record_team_idx" ON "chat_record" USING btree ("team_id","started_at");--> statement-breakpoint
 CREATE INDEX "chat_record_workspace_idx" ON "chat_record" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "deleted_task_workspace_idx" ON "deleted_task" USING btree ("workspace_id");--> statement-breakpoint

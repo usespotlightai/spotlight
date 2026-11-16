@@ -1,3 +1,4 @@
+import { AnswerCreditsError } from '@change-review/application/errors/answer-credits.error';
 import { AnswerGradingError } from '@change-review/application/errors/answer-grading.error';
 import type {
   AnswerGraderPort,
@@ -6,13 +7,11 @@ import type {
 } from '@change-review/application/ports/answer-grader.port';
 import { ANSWER_VERDICTS } from '@change-review/domain/value-objects/answer-verdict.vo';
 import {
-  type Fetch,
   JsonSchema,
   ModelEmptyCompletionError,
-  type ModelEndpoint,
   ModelRequestError,
-  requestJson,
 } from '@platform/llm/chat-completions';
+import type { InferenceCallsPort } from '@shared-kernel/application/ports/inference-calls.port';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 1_000;
@@ -70,33 +69,30 @@ const described = (request: GradingRequest): string =>
   ].join('\n\n');
 
 export class ChatCompletionsAnswerGrader implements AnswerGraderPort {
-  constructor(
-    private readonly endpoint: ModelEndpoint | null,
-    private readonly fetch: Fetch = globalThis.fetch,
-  ) {}
+  constructor(private readonly calls: InferenceCallsPort) {}
 
-  get available(): boolean {
-    return this.endpoint !== null;
+  availableTo(workspaceId: string): Promise<boolean> {
+    return this.calls.availableTo(workspaceId);
   }
 
   async grade(request: GradingRequest): Promise<GradedAnswer> {
-    if (!this.endpoint) {
-      throw new Error('No model endpoint is set for grading answers');
-    }
+    const { answer, usage } = await this.calls
+      .json(request.workspaceId, {
+        responseSchema: GRADE,
+        system: SYSTEM,
+        prompt: described(request),
+        maxTokens: MAX_OUTPUT,
+      })
+      .catch((error: unknown) => {
+        if (error instanceof ModelRequestError && error.insufficientCredits) {
+          throw new AnswerCreditsError();
+        }
 
-    const { answer, usage } = await requestJson({
-      endpoint: this.endpoint,
-      fetch: this.fetch,
-      responseSchema: GRADE,
-      system: SYSTEM,
-      prompt: described(request),
-      maxTokens: MAX_OUTPUT,
-    }).catch((error: unknown) => {
-      throw error instanceof ModelRequestError ||
-        error instanceof ModelEmptyCompletionError
-        ? new AnswerGradingError()
-        : error;
-    });
+        throw error instanceof ModelRequestError ||
+          error instanceof ModelEmptyCompletionError
+          ? new AnswerGradingError()
+          : error;
+      });
 
     return { grade: answer, usage };
   }

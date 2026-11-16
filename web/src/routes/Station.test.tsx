@@ -131,6 +131,10 @@ const lines = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const refetch = vi.fn();
 
+vi.mock('@/hooks/useInferenceUnset', () => ({
+  useInferenceUnset: () => false,
+}));
+
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
     data: lines(),

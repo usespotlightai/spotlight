@@ -19,6 +19,7 @@ import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.
 export const CHANGE_STACK_GENERATOR = Symbol('CHANGE_STACK_GENERATOR');
 
 export interface ChangeStackGenerationRequest {
+  readonly workspaceId: string;
   readonly diff: Diff;
   readonly repository: RepositoryName | null;
   readonly facts: DiffFacts;
@@ -33,6 +34,7 @@ export interface GeneratedChangeStack {
 }
 
 export interface CohortLayersRequest {
+  readonly workspaceId: string;
   readonly part: StackPart;
   readonly repository: RepositoryName | null;
   readonly cohort: OutlinedCohort;
@@ -57,6 +59,7 @@ export interface GeneratedLayerPlan {
 }
 
 export interface LayerDetailsRequest {
+  readonly workspaceId: string;
   readonly part: StackPart;
   readonly repository: RepositoryName | null;
   readonly cohort: OutlinedCohort;
@@ -71,7 +74,7 @@ export interface GeneratedLayerDetails {
 }
 
 export interface ChangeStackGeneratorPort {
-  readonly available: boolean;
+  availableTo(workspaceId: string): Promise<boolean>;
 
   generate(
     request: ChangeStackGenerationRequest,

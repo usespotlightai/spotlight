@@ -8,6 +8,9 @@ export const apiAccessPath = (slug: string): string =>
 export const workspaceGeneralPath = (slug: string): string =>
   `${settingsPath(slug)}/general`;
 
+export const inferenceSettingsPath = (slug: string): string =>
+  `${settingsPath(slug)}/inference`;
+
 export const TEAM_SETTINGS_PAGES = [
   { id: 'general', label: 'General', icon: Settings2 },
   { id: 'integrations', label: 'Integrations', icon: Webhook },

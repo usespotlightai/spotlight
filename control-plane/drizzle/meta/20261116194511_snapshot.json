@@ -1,5 +1,5 @@
 {
-  "id": "d7738c5f-fc02-4066-86a2-2b5bcf3783fa",
+  "id": "7c64e6d3-d4a0-4663-b475-f90528671455",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -4779,6 +4779,72 @@
           "value": "\"workspace_token\".\"issued_by_trust_id\" is null or \"workspace_token\".\"run_id\" is null"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.inference_endpoint": {
+      "name": "inference_endpoint",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_url": {
+          "name": "base_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "api_key_version": {
+          "name": "api_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "inference_endpoint_workspace_idx": {
+          "name": "inference_endpoint_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.chat_record": {
@@ -19872,7 +19938,8 @@
       "values": [
         "not-generated",
         "too-large",
-        "broke-rules"
+        "broke-rules",
+        "insufficient-credits"
       ]
     },
     "public.change_stack_state": {

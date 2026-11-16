@@ -11,6 +11,7 @@ export const STACK_FAILURES = [
   'not-generated',
   'too-large',
   'broke-rules',
+  'insufficient-credits',
 ] as const;
 
 export type StackFailure = (typeof STACK_FAILURES)[number];

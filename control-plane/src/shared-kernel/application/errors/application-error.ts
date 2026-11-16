@@ -3,6 +3,7 @@ export type ApplicationErrorKind =
   | 'invalid'
   | 'not-allowed'
   | 'not-found'
+  | 'payment-required'
   | 'upstream-error';
 
 export abstract class ApplicationError extends Error {
