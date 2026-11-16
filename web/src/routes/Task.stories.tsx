@@ -13,7 +13,7 @@ type TaskArgs = {
     | 'task_latency';
   readonly preferred: EditorApp;
   readonly editor: 'closed' | 'menu' | 'setup';
-  readonly takeover: 'none' | 'taking' | 'taken' | 'yours' | 'giving-back';
+  readonly takeover: 'none' | 'taken' | 'yours';
 };
 
 const TEAM = 'team_platform';
@@ -44,10 +44,8 @@ const meta = {
       }),
       takeover: choice('Takeover', {
         none: 'Not taken over',
-        taking: 'Take over dialog',
         taken: 'Taken over by someone else',
         yours: 'Taken over by you',
-        'giving-back': 'Give it back dialog',
       }),
     },
     world: ({ preferred, task, takeover }) => {
@@ -57,20 +55,11 @@ const meta = {
       if (takeover === 'taken') {
         takenOverBy(TEAM, task, MAYA);
       }
-      if (takeover === 'yours' || takeover === 'giving-back') {
+      if (takeover === 'yours') {
         takenOverBy(TEAM, task, SAM);
       }
     },
-    script: ({ editor, preferred, takeover }) => {
-      if (takeover === 'taking' || takeover === 'giving-back') {
-        return async (screen, user) => {
-          await screen.findByRole('button', { name: 'Task options' });
-          await user.keyboard(
-            takeover === 'taking' ? '{Shift>}T{/Shift}' : '{Shift>}H{/Shift}',
-          );
-          await screen.findByRole('dialog');
-        };
-      }
+    script: ({ editor, preferred }) => {
       if (editor === 'menu') {
         return async (screen, user) => {
           await user.click(
@@ -117,18 +106,10 @@ export const FromAnIntegration: StoryObj<typeof meta> = {
   args: { task: 'task_latency' },
 };
 
-export const TakeOver: StoryObj<typeof meta> = {
-  args: { takeover: 'taking' },
-};
-
 export const TakenOver: StoryObj<typeof meta> = {
   args: { takeover: 'taken' },
 };
 
 export const TakenOverByYou: StoryObj<typeof meta> = {
   args: { takeover: 'yours' },
-};
-
-export const GiveItBack: StoryObj<typeof meta> = {
-  args: { takeover: 'giving-back' },
 };

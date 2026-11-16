@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { useTakeOverTask } from '@/hooks/api/useTakeover';
 import type { TakeoverVerdict } from '@/lib/api';
+import { messageOf } from '@/lib/error';
 import { runPath } from '@/lib/run';
 import { TAKEOVER_VERDICTS } from '@/lib/takeover';
 
@@ -24,6 +25,7 @@ type TakeOverDialogProps = {
   teamId: string;
   taskId: string;
   station: string;
+  working: boolean;
 };
 
 export function TakeOverDialog({
@@ -33,6 +35,7 @@ export function TakeOverDialog({
   teamId,
   taskId,
   station,
+  working,
 }: TakeOverDialogProps) {
   const id = useId();
   const navigate = useNavigate();
@@ -71,8 +74,8 @@ export function TakeOverDialog({
         <DialogHeader>
           <DialogTitle>Take over at {station}</DialogTitle>
           <DialogDescription>
-            The line stops on this task until you give it back. You tell the
-            agent what to do, one turn at a time, in the same workspace.
+            The line stops on this task until you hand it back. You become the
+            assignee. You tell the agent what to do, one turn at a time.
           </DialogDescription>
         </DialogHeader>
 
@@ -103,6 +106,9 @@ export function TakeOverDialog({
             ))}
           </div>
 
+          <p id={`${id}-first`} className="-mb-3 text-muted-foreground text-xs">
+            First message to the agent
+          </p>
           <AutoGrowTextarea
             value={body}
             onChange={(event) => setBody(event.target.value)}
@@ -112,13 +118,22 @@ export function TakeOverDialog({
               }
             }}
             placeholder="Tell the agent what to do first…"
-            aria-label="First message to the agent"
+            aria-labelledby={`${id}-first`}
             className="max-h-60 min-h-20 rounded-md border border-border px-3 py-2 text-foreground text-sm leading-5"
           />
 
+          {working && (
+            <p role="status" className="text-muted-foreground text-sm">
+              {station} is working on this task now. Taking over stops that run.
+            </p>
+          )}
+
           {takeOver.isError && (
             <p role="alert" className="text-destructive text-sm">
-              Spotlight could not take over the task. Try again.
+              {messageOf(
+                takeOver.error,
+                'Sorry, Spotlight could not take over the task. Please try again.',
+              )}
             </p>
           )}
 

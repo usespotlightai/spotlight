@@ -35,6 +35,7 @@ import {
   MEMBER_DIRECTORY,
   type MemberDirectoryPort,
 } from '@identity/application/ports/member-directory.port';
+import { PERSON_READER } from '@identity/application/ports/person-reader.port';
 import {
   TEAM_DIRECTORY,
   type TeamDirectoryPort,
@@ -2406,6 +2407,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DispatchTask,
     ID_GENERATOR,
     CLOCK,
+    PERSON_READER,
   ]),
 
   ...bindCommandHandler(HandBackTaskCommand, HandBackTaskHandler, [
@@ -2416,6 +2418,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
     DispatchTask,
     CLOCK,
+    PERSON_READER,
   ]),
 
   ...bindCommandHandler(AssignTaskCommand, AssignTaskHandler, [

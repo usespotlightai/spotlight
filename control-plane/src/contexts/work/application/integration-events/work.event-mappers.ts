@@ -286,6 +286,7 @@ export const WORK_EVENT_MAPPERS = [
     code: event.failure.code,
     occurrences: event.failure.occurrences,
     at: event.at.toISOString(),
+    driver: event.driver,
   })),
   mapping<TaskAsked>('task.asked', (event): TaskAskedIntegrationEvent => ({
     kind: TASK_ASKED,
@@ -293,6 +294,7 @@ export const WORK_EVENT_MAPPERS = [
     workspaceId: event.workspaceId.value,
     stationId: event.stationId.value,
     at: event.at.toISOString(),
+    driver: event.driver,
   })),
   mapping<ChatStarted>(
     'chat.started',

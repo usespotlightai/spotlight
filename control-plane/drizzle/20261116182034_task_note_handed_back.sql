@@ -1,0 +1,1 @@
+ALTER TABLE "task_note" ADD COLUMN "handed_back" jsonb;

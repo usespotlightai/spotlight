@@ -57,7 +57,12 @@ const replaceTask = (teamId: string, next: TaskResponseDto) => {
   );
 };
 
-const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
+const queueRunAt = (
+  teamId: string,
+  taskId: string,
+  stationId: string,
+  driver: 'line' | 'person' = 'line',
+) => {
   const placedAt = placeStation(teamId, stationId);
 
   if (placedAt?.station.kind !== 'work') {
@@ -68,6 +73,7 @@ const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
   world().runs[taskId] = [
     {
       id: nextId('run'),
+      driver,
       state: 'queued',
       progress: 'queued',
       attempt: 1,
@@ -184,7 +190,7 @@ export const workHandlers: RequestHandler[] = [
       }
 
       if (body?.trim()) {
-        queueRunAt(teamId, task.id, task.stationId);
+        queueRunAt(teamId, task.id, task.stationId, 'person');
       }
       const taken: TaskResponseDto = {
         ...task,

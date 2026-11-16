@@ -19,7 +19,7 @@ import { useAssignTask } from '@/hooks/api/useAssignTask';
 import { useMembers } from '@/hooks/api/useMembers';
 import { useCommands } from '@/hooks/useCommands';
 import { useMe } from '@/hooks/useMe';
-import { heldUntilGivenBack } from '@/lib/takeover';
+import { heldUntilHandedBack } from '@/lib/takeover';
 import type { Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
@@ -82,7 +82,7 @@ export function AssigneePicker({
   ]);
 
   const assignee = task.assignee;
-  const heldFor = held ? heldUntilGivenBack(held, me?.id) : null;
+  const heldFor = held ? heldUntilHandedBack(held, me?.id) : null;
   const label = assignee ? `Assigned to ${assignee.name}` : 'Assign this task';
 
   const assign = (person: Person | null) =>

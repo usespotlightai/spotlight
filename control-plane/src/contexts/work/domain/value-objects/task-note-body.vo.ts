@@ -6,7 +6,7 @@ import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 export const DRIVER_RULES = [
   '- Do what they ask in each message, and nothing more.',
   '- Commit your changes at the end of each turn, with a short message that says what changed.',
-  '- Do not run `spotlight handover`. The person gives the task back to the line when they are done.',
+  '- Do not run `spotlight handover`. The person hands the task back to the line when they are done.',
   '- Do not push or open a pull request unless they ask for it.',
   '- When a turn is done, say in a few sentences what you changed, then stop and wait for the next message.',
 ].join('\n');

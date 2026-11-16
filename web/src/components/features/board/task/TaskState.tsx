@@ -7,19 +7,19 @@ import type { Task } from '@/lib/task';
 
 type TaskStateProps = {
   task: Task;
-  reviewTo?: string;
+  stateTo?: string;
 };
 
-export function TaskState({ task, reviewTo }: TaskStateProps) {
+export function TaskState({ task, stateTo }: TaskStateProps) {
   if (task.takeover) {
-    return <TakenOverPill takeover={task.takeover} />;
+    return <TakenOverPill takeover={task.takeover} to={stateTo} />;
   }
 
   if (task.awaitingReview) {
     const asked = <WaitingForYouPill />;
 
-    return reviewTo ? (
-      <Link to={reviewTo} className="outline-none">
+    return stateTo ? (
+      <Link to={stateTo} className="outline-none">
         {asked}
       </Link>
     ) : (

@@ -11,11 +11,15 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
+import { TaskAsked } from '@work/domain/events/task-asked.event';
+import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskHandedBack } from '@work/domain/events/task-handed-back.event';
 import { TaskTakenOver } from '@work/domain/events/task-taken-over.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
+import { TaskTakenOverError } from '@work/domain/exceptions/task-taken-over.error';
 import { CheckoutHead } from '@work/domain/value-objects/checkout-head.vo';
 import {
   lineMapOf,
@@ -199,9 +203,10 @@ describe('a task a person takes over', () => {
     ]);
   });
 
-  it('cannot be taken over twice at once', () => {
+  it('cannot be taken over twice at once, and says who has it', () => {
+    expect(() => takenOver(takenOver(), MAYA)).toThrow(TaskTakenOverError);
     expect(() => takenOver(takenOver(), MAYA)).toThrow(
-      InvalidTaskTransitionError,
+      expect.objectContaining({ by: LEON }),
     );
   });
 
@@ -217,7 +222,7 @@ describe('a task a person takes over', () => {
     ).toThrow(InvalidTaskTransitionError);
   });
 
-  it('holds a reaction aside and moves after the next run when the person gives it back', () => {
+  it('holds a reaction aside and moves after the next run when the person hands it back', () => {
     const held = takenOver().deferMove(
       line,
       SHIP,
@@ -338,8 +343,7 @@ describe('a task a person drives', () => {
     expect(answered.wantsRun(line)).toBe(true);
   });
 
-  it('tells the line nothing of what its turns ask, fail or are answered', () => {
-    const kinds = (task: Task) => task.pullEvents().map((each) => each.kind);
+  it('puts what its turns answer or fail to the person, as turns they drove', () => {
     const asked = turnDone();
     const failed = driving().failed(
       TaskFailure.fromHook('ci', 'checks-failed'),
@@ -347,18 +351,31 @@ describe('a task a person drives', () => {
       TURN,
       line,
     );
+    const askedOf = asked
+      .pullEvents()
+      .find((each): each is TaskAsked => each instanceof TaskAsked);
+    const failedOf = failed
+      .pullEvents()
+      .find((each): each is TaskFailed => each instanceof TaskFailed);
 
-    expect(kinds(asked)).not.toContain('task.asked');
-    expect(kinds(failed)).not.toContain('task.failed');
+    expect(askedOf?.assignee).toEqual(LEON);
+    expect(askedOf?.driver).toBe('person');
+    expect(failedOf?.driver).toBe('person');
+    expect(asked.hasUnreadAsk).toBe(true);
+    expect(failed.hasUnreadAsk).toBe(true);
+  });
+
+  it('tells the line nothing of what the person answers', () => {
     expect(
-      kinds(
-        asked.receiveMessage(
+      turnDone()
+        .receiveMessage(
           TURN,
           said('Now add a test.', Voice.person(LEON)),
           BUILD,
           members,
-        ),
-      ),
+        )
+        .pullEvents()
+        .map((each) => each.kind),
     ).not.toContain('task.acted-on');
   });
 
@@ -472,7 +489,7 @@ describe('a task a person drives', () => {
   });
 });
 
-describe('a task a person gives back to the line', () => {
+describe('a task a person hands back to the line', () => {
   it('ends the takeover and lets the station agent go on from the changes', () => {
     const back = handedBack(turnDone(), 'continue');
 
@@ -528,7 +545,7 @@ describe('a task a person gives back to the line', () => {
     ).toEqual([]);
   });
 
-  it('cannot be given back while a turn is in progress', () => {
+  it('cannot be handed back while a turn is in progress', () => {
     expect(() => handedBack(driving(), 'continue')).toThrow(
       'Task task_1 has a turn in progress.',
     );
@@ -575,6 +592,75 @@ describe('a task a person gives back to the line', () => {
     expect(lastOf(back)?.body.value).toContain(
       'An event asked for this move while the person had the task.',
     );
+  });
+
+  it('says on its note where the task went and what the person wrote', () => {
+    const outcome = (task: Task) => {
+      const handed = task.notes.find((each) => each.form === 'handed-back');
+
+      return handed?.handedBack
+        ? {
+            next: handed.handedBack.next,
+            station: handed.handedBack.station.value,
+            summary: handed.handedBack.summary,
+          }
+        : null;
+    };
+
+    expect(outcome(handedBack(turnDone(), 'continue'))).toEqual({
+      next: 'continue',
+      station: 'build',
+      summary: 'Kept the queue bounded.',
+    });
+    expect(outcome(handedBack(turnDone(), 'move-on', REVIEW))).toEqual({
+      next: 'move-on',
+      station: 'check',
+      summary: 'Kept the queue bounded.',
+    });
+    expect(outcome(handedBack(turnDone(), 'finish'))).toEqual({
+      next: 'finish',
+      station: 'completed',
+      summary: 'Kept the queue bounded.',
+    });
+  });
+
+  it('says it is completed when it continued into a finish an event asked for', () => {
+    const back = turnDone()
+      .deferMove(
+        line,
+        COMPLETED,
+        said('The pull request was merged.', Voice.world()),
+      )
+      .handBack({
+        by: LEON,
+        line,
+        next: 'continue',
+        to: null,
+        rank: TaskRank.of('m'),
+        verdict: null,
+        summary: '  ',
+        turnHeads: [],
+        at: LATER,
+      });
+    const handed = back.notes.find((each) => each.form === 'handed-back');
+
+    expect(handed?.handedBack?.next).toBe('finish');
+    expect(handed?.handedBack?.summary).toBeNull();
+  });
+
+  it('is not stored with a hand-back note that says nothing of how it went', () => {
+    const back = handedBack(turnDone(), 'continue');
+
+    expect(() =>
+      Task.rehydrate({
+        ...back,
+        notes: back.notes.map((each) =>
+          each.form === 'handed-back'
+            ? TaskNote.of({ ...each, handedBack: null })
+            : each,
+        ),
+      }),
+    ).toThrow(InconsistentStateError);
   });
 
   it('does not count against a line run twice', () => {
@@ -654,7 +740,7 @@ describe('a task a person gives back to the line', () => {
     expect(takenOver(back, MAYA).openTakeover?.from).toBeNull();
   });
 
-  it('is given back only by the person who took it over', () => {
+  it('is handed back only by the person who took it over', () => {
     expect(() =>
       turnDone().handBack({
         by: MAYA,
@@ -667,7 +753,7 @@ describe('a task a person gives back to the line', () => {
         turnHeads: [],
         at: LATER,
       }),
-    ).toThrow('Only they can hand it back');
+    ).toThrow(TaskTakenOverError);
   });
 
   it('keeps what arrived while the person had it away from the next station', () => {
@@ -750,7 +836,7 @@ describe('a task a person gives back to the line', () => {
     expect(back.finished).toBe(true);
   });
 
-  it('cannot be given back when nobody has it', () => {
+  it('cannot be handed back when nobody has it', () => {
     expect(() => handedBack(running(), 'continue')).toThrow(
       InvalidTaskTransitionError,
     );

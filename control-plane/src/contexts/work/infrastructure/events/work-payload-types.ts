@@ -87,6 +87,7 @@ import { DiffSide } from '@work/domain/value-objects/diff-side.vo';
 import { DispatchEnding } from '@work/domain/value-objects/dispatch-ending.vo';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
+import { HandedBack } from '@work/domain/value-objects/handed-back.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
@@ -176,6 +177,7 @@ export const WORK_PAYLOAD_TYPES = [
   HarnessPermission,
   ProfileMissing,
   HandoverOption,
+  HandedBack,
   HarnessSession,
   TargetStation,
   DeferredMove,

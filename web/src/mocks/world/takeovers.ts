@@ -6,6 +6,19 @@ export const takenOverBy = (
   taskId: string,
   by: TaskPersonResponseDto,
 ) => {
+  const [turn, ...before] = world().runs[taskId] ?? [];
+  if (turn) {
+    world().runs[taskId] = [
+      {
+        ...turn,
+        driver: 'person',
+        state: 'completed',
+        progress: null,
+        exitCode: 0,
+      },
+      ...before,
+    ];
+  }
   world().tasks[teamId] = (world().tasks[teamId] ?? []).map((each) =>
     each.id === taskId
       ? {
@@ -16,7 +29,7 @@ export const takenOverBy = (
             by,
             verdict: 'not-right',
             startedAt: new Date(Date.now() - 12 * 60_000).toISOString(),
-            runId: world().runs[taskId]?.[0]?.id ?? null,
+            runId: turn?.id ?? null,
             heldMoveTo: null,
           },
         }

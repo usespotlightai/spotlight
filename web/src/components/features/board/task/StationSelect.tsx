@@ -19,7 +19,7 @@ import { useCommands } from '@/hooks/useCommands';
 import { useMe } from '@/hooks/useMe';
 import type { StationResponseDto, TaskTakeoverResponseDto } from '@/lib/api';
 import { stationShare } from '@/lib/station';
-import { heldUntilGivenBack } from '@/lib/takeover';
+import { heldUntilHandedBack } from '@/lib/takeover';
 import { movableByHand } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
@@ -102,7 +102,7 @@ export function StationSelect({
         </TooltipTrigger>
         <TooltipContent>
           {held ? (
-            heldUntilGivenBack(held, me?.id)
+            heldUntilHandedBack(held, me?.id)
           ) : (
             <ShortcutHint id="task.station">Move to a station</ShortcutHint>
           )}

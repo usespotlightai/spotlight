@@ -4,7 +4,7 @@ import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
-import { HAND_BACKS } from '@work/domain/value-objects/hand-back';
+import { HAND_BACKS, type HandBack } from '@work/domain/value-objects/hand-back';
 import { TAKEOVER_VERDICTS } from '@work/domain/value-objects/takeover-verdict';
 import type { CheckoutHeadParts } from '@work/domain/value-objects/checkout-head.vo';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
@@ -84,6 +84,12 @@ export interface FailureRow {
   readonly source: string;
   readonly code: string;
   readonly occurrences: number;
+}
+
+export interface HandedBackRow {
+  readonly next: HandBack;
+  readonly station: string;
+  readonly summary: string | null;
 }
 
 export const taskNoteKind = pgEnum('task_note_kind', TASK_NOTE_KINDS);
@@ -180,6 +186,7 @@ export const taskNote = pgTable(
     failure: jsonb('failure').$type<FailureRow>(),
     deferredMove: jsonb('deferred_move').$type<DeferredMoveRow>(),
     connectionAsk: jsonb('connection_ask').$type<ConnectionAskRow>(),
+    handedBack: jsonb('handed_back').$type<HandedBackRow>(),
     answeredAt: timestamptz('answered_at'),
     readAt: timestamptz('read_at'),
     acknowledgedAt: timestamptz('acknowledged_at'),

@@ -80,7 +80,7 @@ describe('TaskState', () => {
     renderIn(
       <TaskState
         task={task({ awaitingReview: { conversationId: 'task_1:5' } })}
-        reviewTo="/w/acme/inbox/task_1%3A5"
+        stateTo="/w/acme/inbox/task_1%3A5"
       />,
     );
 

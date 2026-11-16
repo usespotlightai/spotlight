@@ -28889,6 +28889,37 @@
           "met"
         ]
       },
+      "NoteHandBackResponseDto": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "string",
+            "enum": [
+              "continue",
+              "move-on",
+              "finish"
+            ],
+            "example": "move-on",
+            "description": "Where the task went: it runs again at its station, it moved on to another station, or it is completed"
+          },
+          "station": {
+            "type": "string",
+            "example": "Review",
+            "description": "The station the task is at after the hand-back: the same station, the next one, or the completed one"
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true,
+            "example": "Moved the button into the header.",
+            "description": "What the person wrote when they handed the task back"
+          }
+        },
+        "required": [
+          "next",
+          "station",
+          "summary"
+        ]
+      },
       "NoteResponseDto": {
         "type": "object",
         "properties": {
@@ -29024,6 +29055,16 @@
                 "$ref": "#/components/schemas/InboxConnectionResponseDto"
               }
             ]
+          },
+          "handBack": {
+            "nullable": true,
+            "description": "How a person handed the task back to the line, where the note says so",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NoteHandBackResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -29044,7 +29085,8 @@
           "deferredTo",
           "approval",
           "failure",
-          "connection"
+          "connection",
+          "handBack"
         ]
       },
       "InboxItemResponseDto": {
@@ -30053,7 +30095,7 @@
           "heldMoveTo": {
             "type": "string",
             "nullable": true,
-            "description": "The station an event asked to move the task to while the person had it. The task moves there when they give it back to its station."
+            "description": "The station an event asked to move the task to while the person had it. The task moves there when they hand it back to its station."
           }
         },
         "required": [
@@ -30351,6 +30393,15 @@
             "example": "in-progress",
             "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           },
+          "driver": {
+            "type": "string",
+            "enum": [
+              "line",
+              "person"
+            ],
+            "example": "line",
+            "description": "Who drove it: the line, or a person who took the task over, one turn per run"
+          },
           "taskId": {
             "type": "string",
             "nullable": true
@@ -30378,6 +30429,7 @@
           "station",
           "review",
           "progress",
+          "driver",
           "taskId",
           "taskTitle",
           "taskDescription"
@@ -30820,6 +30872,15 @@
             "nullable": true,
             "example": "in-progress",
             "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
+          },
+          "driver": {
+            "type": "string",
+            "enum": [
+              "line",
+              "person"
+            ],
+            "example": "line",
+            "description": "Who drove it: the line, or a person who took the task over, one turn per run"
           }
         },
         "required": [
@@ -30833,7 +30894,8 @@
           "image",
           "station",
           "review",
-          "progress"
+          "progress",
+          "driver"
         ]
       },
       "AddTaskRequestDto": {

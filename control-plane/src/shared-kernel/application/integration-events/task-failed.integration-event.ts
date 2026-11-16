@@ -11,4 +11,5 @@ export type TaskFailedIntegrationEvent = {
   readonly code: string;
   readonly occurrences: number;
   readonly at: string;
+  readonly driver: 'line' | 'person';
 };

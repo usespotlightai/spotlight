@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { heldUntilGivenBack, moveOnTargets } from '@/lib/takeover';
+import {
+  handBackAction,
+  handBackChoices,
+  handedBackTo,
+  heldUntilHandedBack,
+  moveOnTargets,
+} from '@/lib/takeover';
 import { station } from '@/mocks/world/stations';
 
 const review = station({
@@ -33,7 +39,7 @@ describe('moveOnTargets', () => {
   });
 });
 
-describe('heldUntilGivenBack', () => {
+describe('heldUntilHandedBack', () => {
   const takeover = {
     by: { id: 'user_2', name: 'Maya Chen', image: null },
     verdict: 'not-right' as const,
@@ -42,12 +48,67 @@ describe('heldUntilGivenBack', () => {
     heldMoveTo: null,
   };
 
-  it('names who has the task, and speaks to the taker as you', () => {
-    expect(heldUntilGivenBack(takeover, 'user_1')).toBe(
-      'Maya Chen has this task until they give it back.',
+  it('names who has the task and since when, and speaks to the taker as you', () => {
+    vi.setSystemTime(new Date('2026-11-16T09:12:00.000Z'));
+
+    expect(heldUntilHandedBack(takeover, 'user_1')).toBe(
+      'Maya Chen took over 12m ago. They have this task until they hand it back.',
     );
-    expect(heldUntilGivenBack(takeover, 'user_2')).toBe(
-      'You have this task until you give it back.',
+    expect(heldUntilHandedBack(takeover, 'user_2')).toBe(
+      'You took over 12m ago. You have this task until you hand it back.',
     );
+
+    vi.useRealTimers();
+  });
+});
+
+const completed = station({
+  id: 'completed',
+  key: 'completed',
+  name: 'Completed',
+  position: 4,
+  kind: 'completed',
+});
+
+describe('handBackChoices', () => {
+  it('names the station to move on to when there is only one', () => {
+    expect(
+      handBackChoices(build, [review], null).map((each) => each.label),
+    ).toEqual([
+      'Hand it back to Build',
+      'Move it on to Review',
+      'Finish the task',
+    ]);
+  });
+
+  it('offers finishing once when an event already asked to finish the task', () => {
+    expect(
+      handBackChoices(build, [], completed).map((each) => each.label),
+    ).toEqual(['Hand it back to the line']);
+  });
+});
+
+describe('handedBackTo', () => {
+  it('says what the line does next', () => {
+    expect(handedBackTo('continue', build, undefined, null)).toBe(
+      'Build runs again with your changes.',
+    );
+    expect(handedBackTo('move-on', build, review, null)).toBe(
+      'The task moved to Review.',
+    );
+    expect(handedBackTo('finish', build, undefined, null)).toBe(
+      'The task is completed.',
+    );
+    expect(handedBackTo('continue', build, undefined, completed)).toBe(
+      'The task is completed.',
+    );
+  });
+});
+
+describe('handBackAction', () => {
+  it('names the outcome on the button', () => {
+    expect(handBackAction('continue')).toBe('Hand it back');
+    expect(handBackAction('move-on')).toBe('Move it on');
+    expect(handBackAction('finish')).toBe('Finish the task');
   });
 });

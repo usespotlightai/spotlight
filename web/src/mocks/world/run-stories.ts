@@ -874,6 +874,7 @@ export const storyNoteOf = (
     approval: script.approval ? structuredClone(script.approval) : null,
     failure: script.failure ?? null,
     connection: null,
+    handBack: null,
   };
 };
 

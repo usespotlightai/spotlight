@@ -186,6 +186,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           TaskFailure.fromHook('notify', 'loop').again().again(),
           null,
           new Date('2026-09-26T09:00:00Z'),
+          'line',
         ),
       ),
     ).toEqual([
@@ -200,6 +201,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         code: 'loop',
         occurrences: 3,
         at: '2026-09-26T09:00:00.000Z',
+        driver: 'line',
       },
     ]);
   });
@@ -254,7 +256,7 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a task put to a person, and when', () => {
+  it('publishes a task put to a person, when, and who drove the run that asked', () => {
     expect(
       published(
         new TaskAsked(
@@ -263,6 +265,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           StationId.of('station_1'),
           null,
           new Date('2026-09-26T09:00:00Z'),
+          'person',
         ),
       ),
     ).toEqual([
@@ -272,6 +275,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         workspaceId: 'ws_1',
         stationId: 'station_1',
         at: '2026-09-26T09:00:00.000Z',
+        driver: 'person',
       },
     ]);
   });
@@ -388,7 +392,7 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes how a person gave a task back, with their turns and commits', () => {
+  it('publishes how a person handed a task back, with their turns and commits', () => {
     const head = (commit: string) =>
       CheckoutHead.of({ path: '/workspace/app', commit: commit.repeat(40) });
 

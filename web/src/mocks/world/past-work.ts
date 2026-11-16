@@ -95,6 +95,7 @@ const exitCodeOf = (run: HistoryRun): number | null =>
 
 const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
   id: run.runId,
+  driver: 'line',
   state: stateOf(run),
   progress: progressOfState(stateOf(run)),
   attempt: visitOf(run.runId),

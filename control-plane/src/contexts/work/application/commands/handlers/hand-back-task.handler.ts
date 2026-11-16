@@ -1,3 +1,4 @@
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -7,11 +8,14 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { HandBackTaskCommand } from '@work/application/commands/hand-back-task.command';
+import { TakeoverConflictError } from '@work/application/errors/takeover-conflict.error';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { handedToRun } from '@work/application/services/handed-to-run';
 import type { LineLoader } from '@work/application/services/line-loader.service';
+import { nameOf } from '@work/application/services/person-name';
 import type { Takeover } from '@work/domain/entities/takeover.entity';
+import { TaskTakenOverError } from '@work/domain/exceptions/task-taken-over.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
@@ -34,12 +38,19 @@ export class HandBackTaskHandler implements CommandHandlerPort<
     private readonly transaction: TransactionPort,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
+    private readonly people: PersonReaderPort,
   ) {}
 
   async execute(command: HandBackTaskCommand): Promise<void> {
     try {
       await this.transaction.inTransaction(() => this.handBack(command));
     } catch (error) {
+      if (error instanceof TaskTakenOverError) {
+        throw new TakeoverConflictError(
+          `${await nameOf(this.people, error.by)} took over this task. Only they can hand it back.`,
+        );
+      }
+
       rethrowAsApplicationError(error);
     }
   }

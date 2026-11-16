@@ -155,6 +155,7 @@ const run = (
     station: runStationOf(STATIONS, stationId),
     review: null,
     ...rest,
+    driver: rest.driver ?? 'line',
     progress: progressOfState(rest.state ?? 'completed'),
   };
 };

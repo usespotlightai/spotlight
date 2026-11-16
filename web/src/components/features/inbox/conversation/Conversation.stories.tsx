@@ -42,6 +42,7 @@ const note = (
   failure: null,
   connection: null,
   ...over,
+  handBack: over.handBack ?? null,
 });
 
 const notes: Note[] = Array.from({ length: TURNS }, (_, turn) => [

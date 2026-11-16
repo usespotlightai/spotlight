@@ -1,3 +1,4 @@
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -24,8 +25,10 @@ import {
   lineMapOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
+import { TakeoverId } from '@work/domain/value-objects/takeover-id.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-11-16T09:00:00.000Z');
@@ -77,14 +80,32 @@ const running = () =>
     newId: () => 'task_1',
   }).assignRun(LINE_RUN, line);
 
+const takenOverBy = (person: string) =>
+  running().takeOver({
+    id: TakeoverId.of('takeover_0'),
+    by: UserId.of(person),
+    members: TeamMembers.of([UserId.of('user_1'), UserId.of('user_2')]),
+    line,
+    verdict: null,
+    currentRunStarted: true,
+    at: NOW,
+  });
+
+const people: PersonReaderPort = {
+  find: async (id) =>
+    id.value === 'user_2' ? { id, name: 'Maya Chen', image: null } : null,
+  findMany: async () => new Map(),
+};
+
 const takeOver = async (
   body: string | null,
   viewer = 'user_1',
   started = true,
+  found: () => Task = running,
 ): Promise<{ saved: Task | undefined; result: unknown }> => {
   let saved: Task | undefined;
   const tasks = {
-    find: vi.fn(async () => running()),
+    find: vi.fn(async () => found()),
     save: vi.fn(async (task: Task) => {
       saved = task;
     }),
@@ -117,6 +138,7 @@ const takeOver = async (
     dispatch,
     ids,
     clock,
+    people,
   ).execute(
     new TakeOverTaskCommand('team_1', 'task_1', viewer, 'not-right', body),
   );
@@ -146,6 +168,28 @@ describe('TakeOverTaskHandler', () => {
     expect(saved?.takenOver).toBe(true);
     expect(saved?.currentRunId).toBeNull();
     expect(result).toEqual({ takeoverId: 'takeover_1', runId: null });
+  });
+
+  it('says who took the task over first', async () => {
+    await expect(
+      takeOver('Use a bounded queue.', 'user_1', true, () =>
+        takenOverBy('user_2'),
+      ),
+    ).rejects.toMatchObject({
+      kind: 'conflict',
+      message: 'Maya Chen took over this task first.',
+    });
+  });
+
+  it('says the person already took the task over themselves', async () => {
+    await expect(
+      takeOver('Use a bounded queue.', 'user_1', true, () =>
+        takenOverBy('user_1'),
+      ),
+    ).rejects.toMatchObject({
+      kind: 'conflict',
+      message: 'You took over this task already.',
+    });
   });
 
   it('lets nobody off the team take a task over', async () => {

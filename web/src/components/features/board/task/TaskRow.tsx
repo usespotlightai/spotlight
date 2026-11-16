@@ -17,7 +17,7 @@ type TaskRowProps = {
   task: Task;
   teamId: string;
   to: string;
-  reviewTo?: string;
+  stateTo?: string;
   stationColor: string;
   stationShare: number;
   selected: boolean;
@@ -31,7 +31,7 @@ export function TaskRow({
   task,
   teamId,
   to,
-  reviewTo,
+  stateTo,
   stationColor,
   stationShare,
   selected,
@@ -119,7 +119,7 @@ export function TaskRow({
         </span>
 
         <span className="col-start-3 row-start-2 flex pl-1.5 empty:hidden @xl/pane:contents">
-          <TaskState task={task} reviewTo={reviewTo} />
+          <TaskState task={task} stateTo={stateTo} />
         </span>
 
         <CommandScope active={focused || hovered} rank={hovered ? 3 : 2}>

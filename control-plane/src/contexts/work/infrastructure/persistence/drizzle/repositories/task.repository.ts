@@ -49,6 +49,7 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
+import { HandedBack } from '@work/domain/value-objects/handed-back.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
@@ -185,6 +186,13 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
     deferredMove: row.deferredMove ? toDeferredMove(row.deferredMove) : null,
     connectionAsk: row.connectionAsk
       ? toConnectionAsk(row.connectionAsk)
+      : null,
+    handedBack: row.handedBack
+      ? HandedBack.rehydrate({
+          next: row.handedBack.next,
+          station: StationName.of(row.handedBack.station),
+          summary: row.handedBack.summary,
+        })
       : null,
   });
 
@@ -945,6 +953,13 @@ export class DrizzleTaskRepository implements TaskRepository {
             : null,
           connectionAsk: note.connectionAsk
             ? toConnectionAskRow(note.connectionAsk)
+            : null,
+          handedBack: note.handedBack
+            ? {
+                next: note.handedBack.next,
+                station: note.handedBack.station.value,
+                summary: note.handedBack.summary,
+              }
             : null,
         })),
       )

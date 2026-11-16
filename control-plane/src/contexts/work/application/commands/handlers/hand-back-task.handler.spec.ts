@@ -1,3 +1,4 @@
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -109,14 +110,22 @@ const driven = () =>
       voice: Voice.station(TURN),
     });
 
+const people: PersonReaderPort = {
+  find: async (id) =>
+    id.value === 'user_1' ? { id, name: 'Sam Lee', image: null } : null,
+  findMany: async () => new Map(),
+};
+
 const handBack = async (
   next: string,
   ended: readonly { path: string; commit: string }[],
+  viewer = 'user_1',
+  found: () => Task = driven,
 ): Promise<{ saved: Task | undefined; dispatched: boolean }> => {
   let saved: Task | undefined;
   let dispatched = false;
   const tasks = {
-    find: vi.fn(async () => driven()),
+    find: vi.fn(async () => found()),
     save: vi.fn(async (task: Task) => {
       saved = task;
     }),
@@ -161,16 +170,9 @@ const handBack = async (
     transaction,
     dispatch,
     clock,
+    people,
   ).execute(
-    new HandBackTaskCommand(
-      'team_1',
-      'task_1',
-      'user_1',
-      next,
-      null,
-      null,
-      null,
-    ),
+    new HandBackTaskCommand('team_1', 'task_1', viewer, next, null, null, null),
   );
 
   return { saved, dispatched };
@@ -201,5 +203,21 @@ describe('HandBackTaskHandler', () => {
 
     expect(saved?.finished).toBe(true);
     expect(dispatched).toBe(false);
+  });
+
+  it('says who has the task when someone else hands it back', async () => {
+    await expect(handBack('continue', [], 'user_2')).rejects.toMatchObject({
+      kind: 'conflict',
+      message: 'Sam Lee took over this task. Only they can hand it back.',
+    });
+  });
+
+  it('says nobody has the task when nobody took it over', async () => {
+    await expect(
+      handBack('continue', [], 'user_1', running),
+    ).rejects.toMatchObject({
+      kind: 'conflict',
+      message: 'Nobody took over this task. There is nothing to hand back.',
+    });
   });
 });

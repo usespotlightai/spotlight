@@ -9,6 +9,7 @@ import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import type { Landing } from '@/lib/dragging';
 import { landsOnEmptyStation, rowLanding } from '@/lib/drop-landing';
 import { inboxItemPath } from '@/lib/inbox';
+import { runPath } from '@/lib/run';
 import { stationPath, stationShare } from '@/lib/station';
 import { type Task, taskPath, tasksAt } from '@/lib/task';
 import { entryStationOf } from '@/lib/task-create';
@@ -76,10 +77,12 @@ export function BoardStation({
             task={task}
             teamId={teamId}
             to={taskPath(slug, teamId, task.id)}
-            reviewTo={
-              task.awaitingReview
-                ? inboxItemPath(slug, task.awaitingReview.conversationId)
-                : undefined
+            stateTo={
+              task.takeover?.runId
+                ? runPath(slug, teamId, task.takeover.runId)
+                : task.awaitingReview
+                  ? inboxItemPath(slug, task.awaitingReview.conversationId)
+                  : undefined
             }
             stationColor={station.color}
             stationShare={share}

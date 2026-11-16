@@ -11,9 +11,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useStopRun } from '@/hooks/api/useStopRun';
 import { useHandBackTask } from '@/hooks/api/useTakeover';
 import type { HandBack, StationResponseDto, TakeoverVerdict } from '@/lib/api';
-import { handBackChoices, TAKEOVER_VERDICTS } from '@/lib/takeover';
+import { messageOf } from '@/lib/error';
+import {
+  handBackAction,
+  handBackChoices,
+  handedBackTo,
+  TAKEOVER_VERDICTS,
+  tookOverBecause,
+} from '@/lib/takeover';
+import { toast } from '@/lib/toast';
 
 type HandBackDialogProps = {
   open: boolean;
@@ -25,6 +34,7 @@ type HandBackDialogProps = {
   held: StationResponseDto | null;
   verdict: TakeoverVerdict;
   working: boolean;
+  turn: string | null;
 };
 
 export function HandBackDialog({
@@ -37,17 +47,22 @@ export function HandBackDialog({
   held,
   verdict: startedWith,
   working,
+  turn,
 }: HandBackDialogProps) {
   const id = useId();
   const handBack = useHandBackTask();
+  const stop = useStopRun();
+  const choices = handBackChoices(station, moveOn, held);
   const [chosen, setNext] = useState<HandBack>('continue');
-  const next =
-    chosen === 'move-on' && moveOn.length === 0 ? 'continue' : chosen;
+  const next = choices.some((each) => each.value === chosen)
+    ? chosen
+    : 'continue';
   const [picked, setTo] = useState(moveOn[0]?.id ?? '');
   const to = moveOn.some((each) => each.id === picked)
     ? picked
     : (moveOn[0]?.id ?? '');
   const [verdict, setVerdict] = useState<TakeoverVerdict>(startedWith);
+  const [changingWhy, setChangingWhy] = useState(false);
   const [summary, setSummary] = useState('');
   const ready =
     !working && !handBack.isPending && (next !== 'move-on' || to !== '');
@@ -68,7 +83,21 @@ export function HandBackDialog({
         ...(verdict === startedWith ? {} : { verdict }),
         ...(summary.trim() ? { summary: summary.trim() } : {}),
       },
-      { onSuccess: () => onOpenChange(false) },
+      {
+        onSuccess: () => {
+          onOpenChange(false);
+          toast.add({
+            type: 'success',
+            title: 'Task handed back',
+            description: handedBackTo(
+              next,
+              station,
+              moveOn.find((each) => each.id === to),
+              held,
+            ),
+          });
+        },
+      },
     );
   };
 
@@ -76,7 +105,7 @@ export function HandBackDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Give the task back to the line</DialogTitle>
+          <DialogTitle>Hand the task back to the line</DialogTitle>
           <DialogDescription>
             Your changes stay in the workspace. Spotlight records them as the
             work of {station.name}.
@@ -93,9 +122,9 @@ export function HandBackDialog({
               id={`${id}-next`}
               className="px-2 pb-1 text-muted-foreground text-xs"
             >
-              Then
+              Next
             </p>
-            {handBackChoices(station, moveOn, held).map((each) => (
+            {choices.map((each) => (
               <RadioRow
                 key={each.value}
                 name={`${id}-next`}
@@ -138,49 +167,86 @@ export function HandBackDialog({
             </div>
           )}
 
-          <div
-            role="radiogroup"
-            aria-labelledby={`${id}-why`}
-            className="-mx-2 flex flex-col"
-          >
-            <p
-              id={`${id}-why`}
-              className="px-2 pb-1 text-muted-foreground text-xs"
+          {changingWhy ? (
+            <div
+              role="radiogroup"
+              aria-labelledby={`${id}-why`}
+              className="-mx-2 flex flex-col"
             >
-              Why you took over
-            </p>
-            {TAKEOVER_VERDICTS.map((each) => (
-              <RadioRow
-                compact
-                key={each.value}
-                name={`${id}-verdict`}
-                value={each.value}
-                checked={verdict === each.value}
-                disabled={handBack.isPending}
-                onChange={() => setVerdict(each.value)}
+              <p
+                id={`${id}-why`}
+                className="px-2 pb-1 text-muted-foreground text-xs"
               >
-                {each.label}
-              </RadioRow>
-            ))}
-          </div>
+                Why you took over
+              </p>
+              {TAKEOVER_VERDICTS.map((each) => (
+                <RadioRow
+                  compact
+                  key={each.value}
+                  name={`${id}-verdict`}
+                  value={each.value}
+                  checked={verdict === each.value}
+                  disabled={handBack.isPending}
+                  onChange={() => setVerdict(each.value)}
+                >
+                  {each.label}
+                </RadioRow>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-xs">
+              {tookOverBecause(verdict)}{' '}
+              <button
+                type="button"
+                onClick={() => setChangingWhy(true)}
+                className="underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:underline"
+              >
+                Change
+              </button>
+            </p>
+          )}
 
           <AutoGrowTextarea
             value={summary}
             onChange={(event) => setSummary(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                submit();
+              }
+            }}
             placeholder="What should the agent know about your changes? (optional)"
             aria-label="What the agent should know"
             className="max-h-60 min-h-16 rounded-md border border-border px-3 py-2 text-foreground text-sm leading-5"
           />
 
           {working && (
-            <p role="status" className="text-muted-foreground text-sm">
-              A turn is in progress. You can give the task back when it ends.
-            </p>
+            <div
+              role="status"
+              className="flex items-center justify-between gap-3 text-muted-foreground text-sm"
+            >
+              <p>
+                A turn is in progress. You can hand the task back when it ends.
+              </p>
+              {turn && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={stop.isPending}
+                  onClick={() => stop.mutate({ teamId, runId: turn })}
+                >
+                  Stop the turn
+                </Button>
+              )}
+            </div>
           )}
 
           {handBack.isError && (
             <p role="alert" className="text-destructive text-sm">
-              Spotlight could not give the task back. Try again.
+              {messageOf(
+                handBack.error,
+                'Sorry, Spotlight could not hand the task back. Please try again.',
+              )}
             </p>
           )}
 
@@ -191,10 +257,10 @@ export function HandBackDialog({
               size="sm"
               onClick={() => onOpenChange(false)}
             >
-              Keep it
+              Cancel
             </Button>
             <Button type="submit" size="sm" disabled={!ready}>
-              Give it back
+              {handBackAction(next)}
             </Button>
           </DialogFooter>
         </form>

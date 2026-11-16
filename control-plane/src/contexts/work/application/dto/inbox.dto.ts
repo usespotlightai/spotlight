@@ -18,6 +18,7 @@ import {
   type ApprovalSubjectKind,
 } from '@work/domain/value-objects/approval-subject.vo';
 import { APPROVAL_STATUSES } from '@work/domain/value-objects/approval.vo';
+import { HAND_BACKS } from '@work/domain/value-objects/hand-back';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
 import type { Progress } from '@work/domain/value-objects/progress';
@@ -26,6 +27,7 @@ import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
 export const NOTE_KINDS = TASK_NOTE_KINDS;
 export const NOTE_FORMS = TASK_NOTE_FORMS;
 export const NOTE_VOICES = VOICE_KINDS;
+export const NOTE_HAND_BACKS = HAND_BACKS;
 export const INBOX_APPROVAL_STATUSES = APPROVAL_STATUSES;
 export const APPROVAL_SUBJECTS = APPROVAL_SUBJECT_KINDS;
 export const INBOX_REQUEST_DTO_FORMS = INBOX_REQUEST_FORMS;
@@ -68,6 +70,12 @@ export interface InboxFailureDto {
   readonly occurrences: number;
 }
 
+export interface NoteHandBackDto {
+  readonly next: string;
+  readonly station: string;
+  readonly summary: string | null;
+}
+
 export interface InboxRequestDto {
   readonly form: string;
   readonly about: string;
@@ -98,6 +106,7 @@ export interface NoteDto {
   readonly approval: InboxApprovalDto | null;
   readonly failure: InboxFailureDto | null;
   readonly connection: InboxConnectionDto | null;
+  readonly handBack: NoteHandBackDto | null;
 }
 
 interface InboxStationDto {

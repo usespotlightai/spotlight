@@ -6,6 +6,7 @@ import type {
   TakeoverVerdict,
 } from '@/lib/api';
 import type { Note } from '@/lib/inbox';
+import { since } from '@/lib/since';
 import type { Task } from '@/lib/task';
 
 type Choice<T> = {
@@ -44,13 +45,57 @@ export const moveOnTargets = (
     (each) => Boolean(each.harness) && station.passesTo.includes(each.id),
   );
 
-export const heldUntilGivenBack = (
+export const heldUntilHandedBack = (
   takeover: TaskTakeoverResponseDto,
   viewerId: string | undefined,
 ): string =>
   takeover.by.id === viewerId
-    ? 'You have this task until you give it back.'
-    : `${takeover.by.name} has this task until they give it back.`;
+    ? `You took over ${since(takeover.startedAt)}. You have this task until you hand it back.`
+    : `${takeover.by.name} took over ${since(takeover.startedAt)}. They have this task until they hand it back.`;
+
+export const heldByOther = (
+  takeover: TaskTakeoverResponseDto | null | undefined,
+  viewerId: string | undefined,
+): TaskTakeoverResponseDto | null =>
+  takeover && takeover.by.id !== viewerId ? takeover : null;
+
+export const heldByMe = (
+  takeover: TaskTakeoverResponseDto | null | undefined,
+  viewerId: string | undefined,
+): boolean => Boolean(takeover && takeover.by.id === viewerId);
+
+export const tookOverBecause = (verdict: TakeoverVerdict): string =>
+  verdict === 'exploring'
+    ? 'You took over to try something.'
+    : 'You took over because the line got it wrong.';
+
+export const handedBackTo = (
+  next: HandBack,
+  station: StationResponseDto,
+  to: StationResponseDto | undefined,
+  held: StationResponseDto | null,
+): string => {
+  if (
+    next === 'finish' ||
+    (next === 'continue' && held?.kind === 'completed')
+  ) {
+    return 'The task is completed.';
+  }
+  if (next === 'move-on' && to) {
+    return `The task moved to ${to.name}.`;
+  }
+  return `${station.name} runs again with your changes.`;
+};
+
+export const handBackAction = (next: HandBack): string => {
+  if (next === 'move-on') {
+    return 'Move it on';
+  }
+  if (next === 'finish') {
+    return 'Finish the task';
+  }
+  return 'Hand it back';
+};
 
 export const heldMoveOf = (
   line: LineResponseDto | undefined,
@@ -65,15 +110,15 @@ const givenBack = (
   if (held?.kind === 'completed') {
     return {
       value: 'continue',
-      label: 'Give it back to the line',
+      label: 'Hand it back to the line',
       description:
-        'An event asked to finish the task while you had it. The task moves to Completed.',
+        'An event asked to finish the task while you had it. The task moves to Completed. Spotlight does not push your commits.',
     };
   }
 
   return {
     value: 'continue',
-    label: `Give it back to ${station.name}`,
+    label: `Hand it back to ${station.name}`,
     description: held
       ? `The station agent reads your changes and continues. Then the task moves to ${held.name}, as an event asked while you had it.`
       : 'The station agent reads your changes and continues.',
@@ -90,16 +135,24 @@ export const handBackChoices = (
     ? [
         {
           value: 'move-on' as const,
-          label: 'Move it on',
+          label:
+            moveOn.length === 1
+              ? `Move it on to ${moveOn[0]?.name}`
+              : 'Move it on',
           description: 'Your changes are the work of this station.',
         },
       ]
     : []),
-  {
-    value: 'finish',
-    label: 'Finish the task',
-    description: 'The task moves to Completed.',
-  },
+  ...(held?.kind === 'completed'
+    ? []
+    : [
+        {
+          value: 'finish' as const,
+          label: 'Finish the task',
+          description:
+            'The task moves to Completed. Spotlight does not push your commits.',
+        },
+      ]),
 ];
 
 export const marksTakeover = (note: Note): boolean =>

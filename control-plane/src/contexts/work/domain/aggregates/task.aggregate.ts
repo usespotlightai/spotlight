@@ -59,6 +59,7 @@ import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
+import { TaskTakenOverError } from '@work/domain/exceptions/task-taken-over.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
 import {
@@ -97,6 +98,7 @@ import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { RunDriver } from '@work/domain/value-objects/dispatch-subject';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import type { HandBack } from '@work/domain/value-objects/hand-back';
+import { HandedBack } from '@work/domain/value-objects/handed-back.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
 import type { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
@@ -157,6 +159,7 @@ export interface NewNote {
   readonly approval?: Approval | null;
   readonly failure?: TaskFailure | null;
   readonly connectionAsk?: ConnectionAsk | null;
+  readonly handedBack?: HandedBack | null;
 }
 
 export interface CurrentApproval {
@@ -1535,7 +1538,11 @@ export class Task extends EventRecorder {
     currentRunStarted: boolean;
     at: Date;
   }): Task {
-    this.assertNotTakenOver('be taken over again');
+    const open = this.openTakeover;
+
+    if (open) {
+      throw new TaskTakenOverError(this.id, open.by);
+    }
 
     if (this.finished) {
       throw new InvalidTaskTransitionError(
@@ -1611,11 +1618,13 @@ export class Task extends EventRecorder {
 
     if (!takeover) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is not taken over. There is nothing to hand back.`,
+        'Nobody took over this task. There is nothing to hand back.',
       );
     }
 
-    this.assertDrivenBy(Voice.person(input.by), 'hand it back');
+    if (!takeover.by.equals(input.by)) {
+      throw new TaskTakenOverError(this.id, takeover.by);
+    }
 
     if (this.working) {
       throw new InvalidTaskTransitionError(
@@ -1652,6 +1661,7 @@ export class Task extends EventRecorder {
       at: input.at,
       voice: Voice.person(input.by),
       form: 'handed-back',
+      handedBack: HandedBack.to({ here, into, summary: input.summary }),
     };
     const closed = this.withTookOverNoteAcknowledged(input.at)
       .stopped(input.at)
@@ -2247,10 +2257,6 @@ export class Task extends EventRecorder {
         ? noted.acknowledgeNotesAt(newNote.at)
         : noted;
 
-    if (by && this.drivenByAPerson(by)) {
-      return asked;
-    }
-
     asked.record(
       new TaskAsked(
         asked.id,
@@ -2258,6 +2264,7 @@ export class Task extends EventRecorder {
         asked.stationId,
         asked.assignee,
         newNote.at,
+        by ? this.driverOf(by) : 'line',
       ),
     );
 
@@ -2360,10 +2367,6 @@ export class Task extends EventRecorder {
   ): Task {
     const failing = this.with({});
 
-    if (by && this.drivenByAPerson(by)) {
-      return failing;
-    }
-
     failing.record(
       new TaskFailed(
         failing.id,
@@ -2373,6 +2376,7 @@ export class Task extends EventRecorder {
         failure,
         by,
         at,
+        by ? this.driverOf(by) : 'line',
       ),
     );
 

@@ -52,6 +52,7 @@ const note = (position: number, at: string, station = 'Backlog'): Note => ({
   approval: null,
   failure: null,
   connection: null,
+  handBack: null,
 });
 
 const APPROVAL = {

@@ -72,7 +72,7 @@ export class TaskTakeoverResponseDto {
     type: String,
     nullable: true,
     description:
-      'The station an event asked to move the task to while the person had it. The task moves there when they give it back to its station.',
+      'The station an event asked to move the task to while the person had it. The task moves there when they hand it back to its station.',
   })
   readonly heldMoveTo: string | null;
 

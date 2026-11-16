@@ -4,6 +4,7 @@ import {
   InboxAuthorResponseDto,
   InboxConnectionResponseDto,
   InboxFailureResponseDto,
+  NoteHandBackResponseDto,
   NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
@@ -38,5 +39,6 @@ export const NoteHttpMapper = {
       note.approval ? new InboxApprovalResponseDto(note.approval) : null,
       note.failure ? new InboxFailureResponseDto(note.failure) : null,
       note.connection ? new InboxConnectionResponseDto(note.connection) : null,
+      note.handBack ? new NoteHandBackResponseDto(note.handBack) : null,
     ),
 };

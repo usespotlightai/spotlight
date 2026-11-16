@@ -194,6 +194,7 @@ export class DrizzleRunReader implements RunReaderPort {
         taskId: dispatch.taskId,
         taskTitle: task.title,
         taskDescription: task.description,
+        driver: dispatch.driver,
         currentRunId: task.currentRunId,
         stationId: ranAt.stationId,
         stationName: ranAt.name,

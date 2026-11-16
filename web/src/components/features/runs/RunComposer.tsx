@@ -4,8 +4,10 @@ import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useSendMessage } from '@/hooks/api/useSendMessage';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
+import { useMe } from '@/hooks/useMe';
 import { useSharedDraft } from '@/hooks/useSharedDraft';
 import { LINE_SETS_REPOSITORIES } from '@/lib/run';
+import { heldByMe } from '@/lib/takeover';
 import { startsAgainOnMessage } from '@/lib/task';
 
 type RunComposerProps = {
@@ -38,8 +40,12 @@ export function RunComposer({
     station: currentStation,
     task,
   } = useTaskStation(teamId, taskId);
+  const me = useMe();
+  const driving = heldByMe(task?.takeover, me?.id);
   const restarts =
-    !answering && startsAgainOnMessage(task, currentStation, stationId);
+    !answering &&
+    !driving &&
+    startsAgainOnMessage(task, currentStation, stationId);
   const shared = useSharedDraft(taskId);
 
   return (
@@ -55,9 +61,11 @@ export function RunComposer({
       placeholder={
         answering
           ? 'Answer the question to continue the run…'
-          : restarts
-            ? 'Say what to change…'
-            : 'Write a message…'
+          : driving
+            ? 'Tell the agent what to do next…'
+            : restarts
+              ? 'Say what to change…'
+              : 'Write a message…'
       }
       pending={send.isPending}
       running={running}
@@ -85,7 +93,7 @@ export function RunComposer({
             coAuthors,
             draftGeneration,
             answers: answering,
-            startsWork: answering || restarts,
+            startsWork: answering || restarts || driving,
           },
           { onError: restore },
         );

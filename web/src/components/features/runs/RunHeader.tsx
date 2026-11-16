@@ -26,6 +26,7 @@ export function RunHeader({ slug, teamId, run, trail }: RunHeaderProps) {
               teamId={teamId}
               taskId={run.taskId}
               runId={run.id}
+              stationId={run.station?.id ?? null}
             />
             <OpenInEditor
               slug={slug}

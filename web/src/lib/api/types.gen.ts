@@ -2752,6 +2752,21 @@ export type InboxConnectionResponseDto = {
   met: boolean;
 };
 
+export type NoteHandBackResponseDto = {
+  /**
+   * Where the task went: it runs again at its station, it moved on to another station, or it is completed
+   */
+  next: 'continue' | 'move-on' | 'finish';
+  /**
+   * The station the task is at after the hand-back: the same station, the next one, or the completed one
+   */
+  station: string;
+  /**
+   * What the person wrote when they handed the task back
+   */
+  summary: string | null;
+};
+
 export type NoteResponseDto = {
   position: number;
   kind: 'asked' | 'passed' | 'answered' | 'message' | 'reopened';
@@ -2807,6 +2822,10 @@ export type NoteResponseDto = {
    * The connection this asks a person to make, where a tool acts as them and they have not connected
    */
   connection: InboxConnectionResponseDto | null;
+  /**
+   * How a person handed the task back to the line, where the note says so
+   */
+  handBack: NoteHandBackResponseDto | null;
 };
 
 export type InboxItemResponseDto = {
@@ -3219,7 +3238,7 @@ export type TaskTakeoverResponseDto = {
    */
   runId: string | null;
   /**
-   * The station an event asked to move the task to while the person had it. The task moves there when they give it back to its station.
+   * The station an event asked to move the task to while the person had it. The task moves there when they hand it back to its station.
    */
   heldMoveTo: string | null;
 };
@@ -3326,6 +3345,10 @@ export type TeamRunResponseDto = {
    * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Who drove it: the line, or a person who took the task over, one turn per run
+   */
+  driver: 'line' | 'person';
   taskId: string | null;
   taskTitle: string | null;
   /**
@@ -3479,6 +3502,10 @@ export type TaskRunResponseDto = {
    * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Who drove it: the line, or a person who took the task over, one turn per run
+   */
+  driver: 'line' | 'person';
 };
 
 export type AddTaskRequestDto = {

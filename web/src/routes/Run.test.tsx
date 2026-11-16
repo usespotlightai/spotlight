@@ -84,6 +84,20 @@ vi.mock('@/hooks/api/useTaskStation', () => ({
   useTaskStation: () => taskStation(),
 }));
 
+const members = vi.fn((): { id: string }[] => [{ id: 'user_1' }]);
+
+vi.mock('@/hooks/api/useMembers', () => ({
+  useMembers: () => ({ data: members() }),
+}));
+
+const tookOver = vi.fn();
+const handedBack = vi.fn();
+
+vi.mock('@/hooks/api/useTakeover', () => ({
+  useTakeOverTask: () => ({ mutate: tookOver, isPending: false }),
+  useHandBackTask: () => ({ mutate: handedBack, isPending: false }),
+}));
+
 const send = vi.fn();
 const inFlight = vi.fn((): unknown[] => []);
 
@@ -196,6 +210,9 @@ const renderRun = (client = new QueryClient()) =>
 describe('Run', () => {
   beforeEach(() => {
     taskStation.mockReturnValue({});
+    members.mockReturnValue([{ id: 'user_1' }]);
+    tookOver.mockReset();
+    handedBack.mockReset();
     send.mockReset();
     stop.mockReset();
     inFlight.mockReturnValue([]);
@@ -751,6 +768,252 @@ describe('Run', () => {
           name: 'Message Implementation',
         }),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('taking it over', () => {
+    const working = {
+      station: {
+        id: 'station_3',
+        name: 'Implementation',
+        harness: 'claude-code',
+        kind: 'work',
+        passesTo: [],
+      },
+      task: { id: 'task_1', progress: null, takeover: null },
+    };
+    const mine = (over: Record<string, unknown> = {}) => ({
+      ...working,
+      line: {
+        stations: [
+          working.station,
+          { id: 'station_done', name: 'Completed', kind: 'completed' },
+        ],
+      },
+      task: {
+        ...working.task,
+        takeover: {
+          by: { id: 'user_1', name: 'Sam Rivera', image: null },
+          verdict: 'not-right',
+          startedAt: '2026-08-29T09:00:00.000Z',
+          runId: 'run_1',
+          heldMoveTo: null,
+        },
+        ...over,
+      },
+    });
+
+    it('sends the reason and the first message to the agent', async () => {
+      const user = userEvent.setup();
+      taskStation.mockReturnValue(working);
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Take over' }));
+      await user.click(
+        await screen.findByRole('radio', { name: /try something/ }),
+      );
+      await user.type(
+        screen.getByRole('textbox', { name: 'First message to the agent' }),
+        'Use a bounded queue.',
+      );
+      await user.click(
+        within(screen.getByRole('dialog')).getByRole('button', {
+          name: 'Take over',
+        }),
+      );
+
+      expect(tookOver).toHaveBeenCalledWith(
+        {
+          teamId: 'team_1',
+          taskId: 'task_1',
+          verdict: 'exploring',
+          body: 'Use a bounded queue.',
+        },
+        expect.anything(),
+      );
+    });
+
+    it('warns that taking over stops the run that works now', async () => {
+      const user = userEvent.setup();
+      taskStation.mockReturnValue({
+        ...working,
+        task: { ...working.task, progress: 'in-progress' },
+      });
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Take over' }));
+
+      expect(
+        within(await screen.findByRole('dialog')).getByText(
+          'Implementation is working on this task now. Taking over stops that run.',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('hands the task back to its station', async () => {
+      const user = userEvent.setup();
+      taskStation.mockReturnValue(mine());
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Hand it back' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Hand it back' }),
+      );
+
+      expect(handedBack).toHaveBeenCalledWith(
+        { teamId: 'team_1', taskId: 'task_1', next: 'continue' },
+        expect.anything(),
+      );
+    });
+
+    it('says an event asked to finish the task while the person had it', async () => {
+      const user = userEvent.setup();
+      const theirs = mine();
+      taskStation.mockReturnValue({
+        ...theirs,
+        task: {
+          ...theirs.task,
+          takeover: { ...theirs.task.takeover, heldMoveTo: 'station_done' },
+        },
+      });
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Hand it back' }));
+      const dialog = await screen.findByRole('dialog');
+
+      expect(
+        within(dialog).getByText(
+          'An event asked to finish the task while you had it. The task moves to Completed. Spotlight does not push your commits.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(dialog).getByText('Hand it back to the line'),
+      ).toBeInTheDocument();
+    });
+
+    it('waits for a turn in progress before it hands the task back', async () => {
+      const user = userEvent.setup();
+      taskStation.mockReturnValue(mine({ progress: 'in-progress' }));
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Hand it back' }));
+      const dialog = await screen.findByRole('dialog');
+
+      expect(
+        within(dialog).getByText(
+          'A turn is in progress. You can hand the task back when it ends.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(dialog).getByRole('button', { name: 'Hand it back' }),
+      ).toBeDisabled();
+      expect(
+        within(dialog).getByRole('button', { name: 'Stop the turn' }),
+      ).toBeInTheDocument();
+    });
+
+    it('lets only the person who took the task over hand it back', () => {
+      const theirs = mine();
+      taskStation.mockReturnValue({
+        ...theirs,
+        task: {
+          ...theirs.task,
+          takeover: {
+            ...theirs.task.takeover,
+            by: { id: 'user_2', name: 'Maya Chen', image: null },
+          },
+        },
+      });
+
+      renderRun();
+
+      expect(screen.queryByRole('button', { name: 'Hand it back' })).toBeNull();
+    });
+
+    it('offers to take over the task at the station of this run', async () => {
+      const user = userEvent.setup();
+      taskStation.mockReturnValue(working);
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Take over' }));
+
+      expect(
+        await screen.findByRole('dialog', {
+          name: 'Take over at Implementation',
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('offers no take over on a run at a station the task has left', () => {
+      taskStation.mockReturnValue({
+        ...working,
+        station: { ...working.station, id: 'station_4', name: 'Review' },
+      });
+
+      renderRun();
+
+      expect(screen.queryByRole('button', { name: 'Take over' })).toBeNull();
+    });
+
+    it('tells a teammate that the agent reads their message after the hand back', () => {
+      taskStation.mockReturnValue({
+        ...working,
+        task: {
+          ...working.task,
+          takeover: {
+            by: { id: 'user_2', name: 'Maya Chen', image: null },
+            verdict: 'not-right',
+            startedAt: '2026-08-29T09:00:00.000Z',
+            runId: 'run_1',
+            heldMoveTo: null,
+          },
+        },
+      });
+
+      renderRun();
+
+      expect(
+        screen.getByText(
+          'Maya Chen has this task. The agent reads new messages after they hand it back.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('textbox', {
+          name: /^(Message|Send it back to|Answer) /,
+        }),
+      ).toBeNull();
+    });
+
+    it('asks the person who has the task for the next turn', () => {
+      taskStation.mockReturnValue({
+        ...working,
+        task: {
+          ...working.task,
+          takeover: {
+            by: { id: 'user_1', name: 'Sam Rivera', image: null },
+            verdict: 'not-right',
+            startedAt: '2026-08-29T09:00:00.000Z',
+            runId: 'run_1',
+            heldMoveTo: null,
+          },
+        },
+      });
+
+      renderRun();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute('aria-placeholder', 'Tell the agent what to do next…');
+    });
+
+    it('offers nobody off the team to take it over', () => {
+      taskStation.mockReturnValue(working);
+      members.mockReturnValue([]);
+
+      renderRun();
+
+      expect(screen.queryByRole('button', { name: 'Take over' })).toBeNull();
     });
   });
 

@@ -1,3 +1,4 @@
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -11,10 +12,13 @@ import type {
   TakenOver,
   TakeOverTaskCommand,
 } from '@work/application/commands/take-over-task.command';
+import { TakeoverConflictError } from '@work/application/errors/takeover-conflict.error';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { handedToRun } from '@work/application/services/handed-to-run';
 import type { LineLoader } from '@work/application/services/line-loader.service';
+import { nameOf } from '@work/application/services/person-name';
 import type { WorkAccess } from '@work/application/services/work-access.service';
+import { TaskTakenOverError } from '@work/domain/exceptions/task-taken-over.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { TakeoverId } from '@work/domain/value-objects/takeover-id.vo';
@@ -35,12 +39,21 @@ export class TakeOverTaskHandler implements CommandHandlerPort<
     private readonly dispatch: TaskDispatching,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
+    private readonly people: PersonReaderPort,
   ) {}
 
   async execute(command: TakeOverTaskCommand): Promise<TakenOver> {
     try {
       return await this.transaction.inTransaction(() => this.takeOver(command));
     } catch (error) {
+      if (error instanceof TaskTakenOverError) {
+        throw new TakeoverConflictError(
+          error.by.value === command.viewerId
+            ? 'You took over this task already.'
+            : `${await nameOf(this.people, error.by)} took over this task first.`,
+        );
+      }
+
       rethrowAsApplicationError(error);
     }
   }

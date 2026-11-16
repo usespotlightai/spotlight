@@ -1,8 +1,10 @@
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
+import { useMe } from '@/hooks/useMe';
 import { runPath, type TeamRun, waitsOnPerson, stoppable } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
+import { heldByOther } from '@/lib/takeover';
 
 type RunFooterProps = {
   slug: string;
@@ -23,7 +25,21 @@ export function RunFooter({
   deciding,
   onSent,
 }: RunFooterProps) {
-  const { station: current } = useTaskStation(teamId, conversation?.taskId);
+  const { station: current, task } = useTaskStation(
+    teamId,
+    conversation?.taskId,
+  );
+  const me = useMe();
+  const takenByOther = heldByOther(task?.takeover, me?.id);
+
+  if (takenByOther) {
+    return (
+      <p className="pb-5 text-center text-muted-foreground text-xs">
+        {takenByOther.by.name} has this task. The agent reads new messages after
+        they hand it back.
+      </p>
+    );
+  }
 
   if (current && run.station && current.id !== run.station.id) {
     return (

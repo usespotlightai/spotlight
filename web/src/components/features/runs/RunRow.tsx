@@ -73,6 +73,10 @@ export function RunRow({
           {title}
         </TrailLink>
 
+        {run.driver === 'person' && (
+          <span className="shrink-0 text-muted-foreground text-xs">Turn</span>
+        )}
+
         <div className="flex min-w-0 grow flex-wrap items-center gap-x-2 gap-y-1 @xl/pane:contents">
           {taskTitle && run.station && (
             <span
@@ -84,21 +88,13 @@ export function RunRow({
           )}
 
           <span className="ml-auto flex shrink-0 items-center gap-2">
-            {takenOver ? (
-              <TakenOverPill takeover={takenOver} />
-            ) : (
-              <>
-                <RunPendingMarker
-                  run={run}
-                  reviewTo={reviewTo}
-                  inTrail={inTrail}
-                />
+            {takenOver && <TakenOverPill takeover={takenOver} />}
 
-                {run.progress && <ProgressState progress={run.progress} />}
+            <RunPendingMarker run={run} reviewTo={reviewTo} inTrail={inTrail} />
 
-                <EndedPill run={run} />
-              </>
-            )}
+            {run.progress && <ProgressState progress={run.progress} />}
+
+            <EndedPill run={run} />
 
             <span className="shrink-0 text-right text-muted-foreground text-xs tabular-nums @xl/pane:w-20">
               {since(run.startedAt)}

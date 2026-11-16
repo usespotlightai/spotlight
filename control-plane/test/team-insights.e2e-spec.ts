@@ -315,7 +315,7 @@ beforeAll(async () => {
     async () => (await record())?.passed,
   );
   await delivered(
-    [new TaskAsked(TASK, workspaceId, station, team.owner, ago(230))],
+    [new TaskAsked(TASK, workspaceId, station, team.owner, ago(230), 'line')],
     async () => (await humanActions())?.asks.length === 1,
   );
   await delivered(
@@ -359,6 +359,7 @@ beforeAll(async () => {
         TaskFailure.fromHook('notify', 'loop'),
         null,
         ago(190),
+        'line',
       ),
     ],
     async () => (await failures())?.occurrences.length === 1,
@@ -373,6 +374,7 @@ beforeAll(async () => {
         TaskFailure.fromHook('notify', 'loop').again(),
         null,
         ago(189),
+        'line',
       ),
     ],
     async () => (await failures())?.occurrences.length === 2,

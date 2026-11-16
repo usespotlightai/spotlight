@@ -102,7 +102,7 @@ const SHORTCUTS = {
     keys: ['shift+t'],
   },
   'task.hand-back': {
-    title: 'Give the task back to the line',
+    title: 'Hand the task back to the line',
     group: 'Tasks',
     keys: ['shift+h'],
   },

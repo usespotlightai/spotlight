@@ -1,3 +1,7 @@
+import {
+  RUN_DRIVERS,
+  type RunDriver,
+} from '@work/domain/value-objects/dispatch-subject';
 import type { Progress } from '@work/domain/value-objects/progress';
 import { TASK_RUN_STATES } from '@work/domain/value-objects/task-run-state';
 
@@ -9,6 +13,10 @@ interface RunReviewDto {
 }
 
 export const RUN_STATE_NAMES = TASK_RUN_STATES;
+
+export const RUN_DRIVER_NAMES = RUN_DRIVERS;
+
+export type RunDriverName = RunDriver;
 
 export interface RunStationDto {
   readonly id: string;
@@ -30,6 +38,7 @@ export interface TaskRunDto {
   readonly station: RunStationDto | null;
   readonly review: RunReviewDto | null;
   readonly progress: Progress | null;
+  readonly driver: RunDriverName;
 }
 
 export interface TeamRunDto extends TaskRunDto {

@@ -51,7 +51,7 @@ export function useTakeOverTask() {
       });
       return data;
     },
-    onSuccess: (_task, { teamId }) => refresh(queryClient, teamId),
+    onSettled: (_task, _error, { teamId }) => refresh(queryClient, teamId),
   });
 }
 
@@ -67,6 +67,6 @@ export function useHandBackTask() {
       });
       return data;
     },
-    onSuccess: (_task, { teamId }) => refresh(queryClient, teamId),
+    onSettled: (_task, _error, { teamId }) => refresh(queryClient, teamId),
   });
 }

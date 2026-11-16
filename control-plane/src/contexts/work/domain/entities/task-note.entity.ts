@@ -13,6 +13,7 @@ import type {
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
+import type { HandedBack } from '@work/domain/value-objects/handed-back.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
@@ -65,6 +66,7 @@ export class TaskNote {
     readonly failure: TaskFailure | null,
     readonly deferredMove: DeferredMove | null,
     readonly connectionAsk: ConnectionAsk | null,
+    readonly handedBack: HandedBack | null,
   ) {}
 
   static of(input: {
@@ -85,12 +87,14 @@ export class TaskNote {
     failure?: TaskFailure | null;
     deferredMove?: DeferredMove | null;
     connectionAsk?: ConnectionAsk | null;
+    handedBack?: HandedBack | null;
   }): TaskNote {
     const form = input.form ?? 'words';
     const carried = {
       approval: input.approval ?? null,
       failure: input.failure ?? null,
       connection: input.connectionAsk ?? null,
+      'handed-back': input.handedBack ?? null,
     } as const;
 
     for (const [payload, value] of Object.entries(carried)) {
@@ -113,6 +117,13 @@ export class TaskNote {
       throw new InconsistentStateError(
         'task note',
         'has form connection but carries no connection ask',
+      );
+    }
+
+    if (form === 'handed-back' && carried['handed-back'] === null) {
+      throw new InconsistentStateError(
+        'task note',
+        'has form handed-back but carries no hand-back',
       );
     }
 
@@ -155,6 +166,7 @@ export class TaskNote {
       input.failure ?? null,
       input.deferredMove ?? null,
       input.connectionAsk ?? null,
+      input.handedBack ?? null,
     );
   }
 
@@ -240,6 +252,7 @@ export class TaskNote {
           as,
           this.deferredMove,
           this.connectionAsk,
+          this.handedBack,
         )
       : this;
   }
@@ -291,6 +304,7 @@ export class TaskNote {
       this.failure,
       this.deferredMove,
       part.connectionAsk ?? this.connectionAsk,
+      this.handedBack,
     );
   }
 }

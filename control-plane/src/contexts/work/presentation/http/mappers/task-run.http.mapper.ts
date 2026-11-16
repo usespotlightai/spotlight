@@ -33,6 +33,7 @@ export const TaskRunHttpMapper = {
         ? new RunReviewResponseDto(dto.review.state, dto.review.conversationId)
         : null,
       dto.progress,
+      dto.driver,
     );
   },
 

@@ -50,6 +50,7 @@ const preview: Preview = {
               'Replay',
               'Search',
               'Task',
+              'Take over',
               'Task trace',
             ],
             'Runs',
