@@ -3,6 +3,7 @@ import type {
   LineDetail,
   LineReaderPort,
 } from '@lines/application/ports/line-reader.port';
+import type { SkillToolsPort } from '@lines/application/ports/skill-tools.port';
 import { ListLinesHandler } from '@lines/application/queries/handlers/list-lines.handler';
 import { ListLinesQuery } from '@lines/application/queries/list-lines.query';
 import { describe, expect, it, vi } from 'vitest';
@@ -34,7 +35,8 @@ const bare = {
     objective: 'cost',
   },
   kind: 'work' as const,
-  skills: [],
+  skills: [] as string[],
+  tools: [] as string[],
 };
 
 const board: LineDetail = {
@@ -85,8 +87,17 @@ const access = (sees = true) =>
     inWorkspaceOfTeam: vi.fn().mockResolvedValue(sees ? {} : null),
   }) as unknown as WorkspaceAccessPort;
 
-const handle = (lines: LineReaderPort, teamId = 'team_1', viewer = access()) =>
-  new ListLinesHandler(viewer, lines).execute(
+const skillTools = (known: Record<string, string[]> = {}): SkillToolsPort => ({
+  ofTeam: vi.fn().mockResolvedValue(new Map(Object.entries(known))),
+});
+
+const handle = (
+  lines: LineReaderPort,
+  teamId = 'team_1',
+  viewer = access(),
+  tools = skillTools(),
+) =>
+  new ListLinesHandler(viewer, lines, tools).execute(
     new ListLinesQuery(teamId, 'user_1'),
   );
 
@@ -138,6 +149,63 @@ describe('ListLinesHandler', () => {
         search: LINE_SEARCH,
       },
     ]);
+  });
+
+  it('merges the station’s own tools with the tools of its skills', async () => {
+    const tools = skillTools({
+      research: ['catalog.web-search@1.1.0', 'grep'],
+    });
+    const withTools: LineDetail = {
+      ...board,
+      stations: [
+        {
+          ...board.stations[0],
+          skills: ['research', 'broken'],
+          tools: ['grep', 'pull-request'],
+        },
+      ],
+    };
+
+    const result = await handle(reader([withTools]), 'team_1', access(), tools);
+
+    expect(tools.ofTeam).toHaveBeenCalledWith(
+      expect.objectContaining({ value: 'team_1' }),
+      ['research', 'broken'],
+    );
+    expect(result?.[0].stations[0].tools).toEqual([
+      {
+        value: 'grep',
+        called: 'grep',
+        origin: 'built-in',
+        direct: true,
+        skills: ['research'],
+      },
+      {
+        value: 'pull-request',
+        called: 'pull-request',
+        origin: 'built-in',
+        direct: true,
+        skills: [],
+      },
+      {
+        value: 'catalog.web-search@1.1.0',
+        called: 'catalog.web-search',
+        origin: 'catalog',
+        direct: false,
+        skills: ['research'],
+      },
+    ]);
+  });
+
+  it('still answers when the port leaves out a skill', async () => {
+    const withSkill: LineDetail = {
+      ...board,
+      stations: [{ ...board.stations[0], skills: ['broken'] }],
+    };
+
+    const result = await handle(reader([withSkill]));
+
+    expect(result?.[0].stations[0].tools).toEqual([]);
   });
 
   it('asks whether the caller sees the team before it reads', async () => {

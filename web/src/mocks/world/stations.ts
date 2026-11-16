@@ -42,6 +42,7 @@ export const station = (
       : null,
   kind: 'work',
   skills: [],
+  tools: [],
   ...over,
 });
 

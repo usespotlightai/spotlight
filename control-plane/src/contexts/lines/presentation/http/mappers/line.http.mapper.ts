@@ -23,6 +23,7 @@ export const LineHttpMapper = {
       dto.search,
       dto.kind,
       dto.skills,
+      dto.tools,
     );
   },
 

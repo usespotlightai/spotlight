@@ -132,6 +132,29 @@ export type StationSearchResponseDto = {
   objective: 'success' | 'cost' | null;
 };
 
+export type StationToolResponseDto = {
+  /**
+   * The tool’s full id, with the catalog version if it has one
+   */
+  value: string;
+  /**
+   * What the tool is called, without the catalog version
+   */
+  called: string;
+  /**
+   * Where the tool comes from
+   */
+  origin: 'built-in' | 'integration' | 'catalog';
+  /**
+   * True when the station sets this tool itself
+   */
+  direct: boolean;
+  /**
+   * Every skill of the station that brings this tool. Empty when only the station sets it.
+   */
+  skills: Array<string>;
+};
+
 export type StationResponseDto = {
   id: string;
   /**
@@ -184,6 +207,10 @@ export type StationResponseDto = {
    * The team’s own skills enabled for a run here
    */
   skills: Array<string>;
+  /**
+   * The tools a run here can use: the ones the station sets, then the ones its skills bring. A tool shows once.
+   */
+  tools: Array<StationToolResponseDto>;
 };
 
 export type ReactionResponseDto = {

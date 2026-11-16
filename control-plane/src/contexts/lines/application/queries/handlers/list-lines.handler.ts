@@ -2,6 +2,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { LineDto } from '@lines/application/dto/line.dto';
 import { LineMapper } from '@lines/application/mappers/line.mapper';
 import type { LineReaderPort } from '@lines/application/ports/line-reader.port';
+import type { SkillToolsPort } from '@lines/application/ports/skill-tools.port';
 import type { ListLinesQuery } from '@lines/application/queries/list-lines.query';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -15,6 +16,7 @@ export class ListLinesHandler implements QueryHandlerPort<
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly lines: LineReaderPort,
+    private readonly skillTools: SkillToolsPort,
   ) {}
 
   async execute(query: ListLinesQuery): Promise<LineDto[] | null> {
@@ -30,9 +32,17 @@ export class ListLinesHandler implements QueryHandlerPort<
         return null;
       }
 
-      return (await this.lines.ofTeam(teamId)).map((each) =>
-        LineMapper.detailToDto(each),
-      );
+      const details = await this.lines.ofTeam(teamId);
+      const skills = [
+        ...new Set(
+          details.flatMap((line) =>
+            line.stations.flatMap((station) => station.skills),
+          ),
+        ),
+      ];
+      const skillTools = await this.skillTools.ofTeam(teamId, skills);
+
+      return details.map((each) => LineMapper.detailToDto(each, skillTools));
     } catch (error) {
       rethrowAsApplicationError(error);
     }

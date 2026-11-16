@@ -6173,6 +6173,52 @@
           "objective"
         ]
       },
+      "StationToolResponseDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "example": "catalog.web-search@1.1.0",
+            "description": "The tool’s full id, with the catalog version if it has one"
+          },
+          "called": {
+            "type": "string",
+            "example": "catalog.web-search",
+            "description": "What the tool is called, without the catalog version"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "built-in",
+              "integration",
+              "catalog"
+            ],
+            "description": "Where the tool comes from"
+          },
+          "direct": {
+            "type": "boolean",
+            "example": true,
+            "description": "True when the station sets this tool itself"
+          },
+          "skills": {
+            "example": [
+              "our-migrations"
+            ],
+            "description": "Every skill of the station that brings this tool. Empty when only the station sets it.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "value",
+          "called",
+          "origin",
+          "direct",
+          "skills"
+        ]
+      },
       "StationResponseDto": {
         "type": "object",
         "properties": {
@@ -6273,6 +6319,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "tools": {
+            "description": "The tools a run here can use: the ones the station sets, then the ones its skills bring. A tool shows once.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StationToolResponseDto"
+            }
           }
         },
         "required": [
@@ -6290,7 +6343,8 @@
           "alerts",
           "search",
           "kind",
-          "skills"
+          "skills",
+          "tools"
         ]
       },
       "ReactionResponseDto": {

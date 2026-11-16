@@ -20,6 +20,7 @@ import {
   type StationSearchRow,
   station,
   stationSkill,
+  stationTool,
 } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
 import {
   lineSearchOf,
@@ -92,6 +93,11 @@ type SkillRow = {
   skill: string;
 };
 
+type ToolRow = {
+  stationId: string;
+  tool: string;
+};
+
 const hasStation = (row: Row): row is Row & StationRow =>
   row.stationId !== null;
 
@@ -145,7 +151,15 @@ export class DrizzleLineReader implements LineReaderPort {
       .where(eq(line.teamId, teamId.value))
       .orderBy(stationSkill.position);
 
-    return group(rows, reactions, repositories, skills);
+    const tools = await this.db
+      .select({ stationId: stationTool.stationId, tool: stationTool.tool })
+      .from(stationTool)
+      .innerJoin(station, eq(station.id, stationTool.stationId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .where(eq(line.teamId, teamId.value))
+      .orderBy(stationTool.position);
+
+    return group(rows, reactions, repositories, skills, tools);
   }
 }
 
@@ -153,6 +167,7 @@ const summaryOf = (
   row: StationRow,
   search: LineSearchPolicy,
   skills: readonly SkillRow[],
+  tools: readonly ToolRow[],
 ): StationSummary => ({
   id: row.stationId,
   key: row.stationKey,
@@ -176,6 +191,9 @@ const summaryOf = (
   skills: skills
     .filter((each) => each.stationId === row.stationId)
     .map((each) => each.skill),
+  tools: tools
+    .filter((each) => each.stationId === row.stationId)
+    .map((each) => each.tool),
 });
 
 const group = (
@@ -183,6 +201,7 @@ const group = (
   reacting: readonly ReactionRow[],
   working: readonly RepositoryRow[],
   skills: readonly SkillRow[],
+  tools: readonly ToolRow[],
 ): LineDetail[] => {
   const lines = new Map<
     string,
@@ -216,7 +235,7 @@ const group = (
     };
 
     if (hasStation(row)) {
-      line.stations.push(summaryOf(row, line.search, skills));
+      line.stations.push(summaryOf(row, line.search, skills, tools));
     }
 
     lines.set(row.lineId, line);
