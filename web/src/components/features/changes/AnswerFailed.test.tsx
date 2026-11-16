@@ -11,6 +11,12 @@ vi.mock('@/hooks/useInferenceUnset', () => ({
   useInferenceUnset: () => unset.value,
 }));
 
+const role = vi.hoisted(() => ({ value: 'admin' }));
+
+vi.mock('@/hooks/api/useWorkspace', () => ({
+  useWorkspace: () => ({ data: { role: role.value } }),
+}));
+
 const failedWith = (status: number) =>
   withSentRequest(
     {},
@@ -30,6 +36,7 @@ const shown = (error: unknown) =>
 describe('AnswerFailed', () => {
   it('says to add credits, and links to the endpoint, when the credits ran out', () => {
     unset.value = false;
+    role.value = 'admin';
     shown(failedWith(402));
 
     expect(screen.getByRole('alert')).toHaveTextContent(
@@ -37,7 +44,18 @@ describe('AnswerFailed', () => {
     );
     expect(
       screen.getByRole('link', { name: 'Check endpoint' }),
-    ).toHaveAttribute('href', '/w/acme/settings/inference');
+    ).toHaveAttribute('href', '/w/acme/settings/general#inference');
+  });
+
+  it('gives a member no link to an endpoint check they cannot run', () => {
+    unset.value = false;
+    role.value = 'member';
+    shown(failedWith(402));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Sorry, the inference endpoint has no credits left.',
+    );
+    expect(screen.queryByRole('link', { name: 'Check endpoint' })).toBeNull();
   });
 
   it('asks to try again after any other failure', () => {
@@ -54,6 +72,6 @@ describe('AnswerFailed', () => {
     expect(screen.getByText(/Answer grading is off\./)).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Set up inference' }),
-    ).toHaveAttribute('href', '/w/acme/settings/inference');
+    ).toHaveAttribute('href', '/w/acme/settings/general#inference');
   });
 });

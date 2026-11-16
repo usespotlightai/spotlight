@@ -10,6 +10,18 @@ const workspace = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const refetch = vi.fn();
 
+const endpoint = vi.fn<(...args: unknown[]) => unknown>();
+
+vi.mock('@/hooks/api/useInferenceEndpoint', () => ({
+  useInferenceEndpoint: () => ({
+    data: endpoint(),
+    isPending: endpoint() === undefined,
+    errorUpdateCount: 0,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({
     data: workspace(),
@@ -39,7 +51,10 @@ beforeEach(() => {
     id: 'ws_1',
     name: 'Acme Inc.',
     slug: 'acme-inc',
+    role: 'admin',
+    avatarUrl: null,
   });
+  endpoint.mockReturnValue(null);
   failing.mockReturnValue(false);
   refetch.mockClear();
 });
@@ -63,6 +78,38 @@ describe('WorkspaceGeneral', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the workspace name' }),
     ).toBeInTheDocument();
+  });
+
+  it('shows the whole page at once, after the inference endpoint loads too', () => {
+    endpoint.mockReturnValue(undefined);
+
+    showing();
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the workspace name' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading the inference endpoint' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Acme Inc.')).toBeNull();
+  });
+
+  it('gives a member no avatar hint and no Terraform link', () => {
+    workspace.mockReturnValue({
+      id: 'ws_1',
+      name: 'Acme Inc.',
+      slug: 'acme-inc',
+      role: 'member',
+      avatarUrl: null,
+    });
+
+    showing();
+
+    expect(screen.queryByText('Recommended size is 256×256 px')).toBeNull();
+    expect(screen.getByText('An admin sets it up in Terraform')).toBeVisible();
+    expect(
+      screen.queryByRole('link', { name: 'Set up in Terraform' }),
+    ).toBeNull();
   });
 
   it('says the settings could not be loaded, and tries again on request', async () => {

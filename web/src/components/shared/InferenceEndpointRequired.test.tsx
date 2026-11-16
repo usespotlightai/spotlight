@@ -21,6 +21,6 @@ describe('InferenceEndpointRequired', () => {
     );
     expect(
       screen.getByRole('link', { name: 'Set up inference' }),
-    ).toHaveAttribute('href', '/w/acme/settings/inference');
+    ).toHaveAttribute('href', '/w/acme/settings/general#inference');
   });
 });

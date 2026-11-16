@@ -9,6 +9,9 @@ export type ConnectionTest = ConnectionTestResponseDto;
 
 export const INFERENCE_ENDPOINT_DOCS = 'reference/terraform/inference-endpoint';
 
+export const INFERENCE_NOTE =
+  'The OpenAI-compatible endpoint for change stacks, agent decisions, answer grading and judges.';
+
 export const NO_INFERENCE_ENDPOINT =
   'This workspace has no inference endpoint.';
 
