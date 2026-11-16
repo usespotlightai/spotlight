@@ -4,11 +4,12 @@ import { useForwardTrail } from '@/lib/trail';
 
 export function TrailLink({ state, ...props }: LinkProps) {
   const trail = useForwardTrail();
+  const given: unknown = state;
 
   return (
     <Link
       {...props}
-      state={trail.length > 0 ? { ...(state as object | null), trail } : state}
+      state={trail.length > 0 ? { ...(given as object | null), trail } : given}
     />
   );
 }
