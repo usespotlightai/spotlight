@@ -1,5 +1,5 @@
+import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
-import { PinnedText } from '@/components/features/inbox/conversation/PinnedText';
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
@@ -39,17 +39,17 @@ export function WorldMessage({
       <AttachmentTiles attachments={attachments} />
 
       <div className="self-stretch">
-        <MessageCard className={cn(signed && 'pr-10')}>
-          <PinnedText>
+        <MessageCard>
+          <ExpandableText what="message">
             <MarkdownEditor
               readOnly
               keepLineBreaks
               initialValue={body}
               placeholder=""
               ariaLabel={from ? `What came from ${from}` : 'What came in'}
-              className="border-none bg-transparent p-0"
+              className={cn('border-none bg-transparent p-0', signed && 'pr-7')}
             />
-          </PinnedText>
+          </ExpandableText>
         </MessageCard>
       </div>
 
