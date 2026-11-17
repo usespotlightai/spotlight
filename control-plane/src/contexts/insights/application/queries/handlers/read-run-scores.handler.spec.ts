@@ -1,8 +1,8 @@
 import type { StationJudge } from '@insights/application/ports/station-judges.port';
 import { ReadRunScoresHandler } from '@insights/application/queries/handlers/read-run-scores.handler';
 import { ReadRunScoresQuery } from '@insights/application/queries/read-run-scores.query';
-import { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
+import { JudgedClaimsOf } from '@insights/application/services/judged-claims-of.service';
 import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { Score } from '@insights/domain/aggregates/score.aggregate';
@@ -137,7 +137,7 @@ const reading = async (
         evidence,
         new StationFactsInMemory(records, { scores }),
       ),
-      new GradingTermsOf(evidence, judgings),
+      new JudgedClaimsOf(evidence, judgings),
     ),
   );
 };
@@ -153,15 +153,11 @@ const scoresOf = async (
   );
 
 describe('ReadRunScoresHandler', () => {
-  it('grades by the claims the judge was given, whatever the station’s claims say now', async () => {
-    const scores = await scoresOf(true, 'team_1', NEXT_RUBRIC_VERSION);
-
-    expect(scores.claims).toEqual(['Did it retry?']);
-    expect(scores.earlierClaims).toBe(true);
-  });
-
-  it('grades on the current claims where the judge scored the run by them', async () => {
-    expect((await scoresOf(true)).earlierClaims).toBe(false);
+  it('names the claims of the judge it shows, and none for a score it keeps to itself', async () => {
+    expect((await scoresOf(true)).claims).toEqual(['Did it retry?']);
+    expect(
+      (await scoresOf(true, 'team_1', NEXT_RUBRIC_VERSION)).claims,
+    ).toEqual([]);
   });
 
   it('lays out a qualified judge’s score with each cited step and hunk as the judge read it', async () => {

@@ -1,8 +1,6 @@
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-export const GRADING_RATE = 0.2;
-
 const OFFSET = 0x811c9dc5;
 
 const PRIME = 0x01000193;
@@ -40,6 +38,3 @@ export const judgesRunThatEnded = (ending: RunEnding): boolean =>
 
 export const sampledForJudging = (runId: RunId, sample: number): boolean =>
   within(sample, samplePointOf('judge', runId));
-
-export const sampledForGrading = (runId: RunId): boolean =>
-  within(GRADING_RATE, samplePointOf('grade', runId));

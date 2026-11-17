@@ -15,8 +15,6 @@ import { seedCodeReviews, seedDecisions } from '@/mocks/world/inbox-reviews';
 import { seedAlerts, seedRunScores } from '@/mocks/world/inbox-scores';
 import { PLATFORM_RUNS } from '@/mocks/world/platform';
 
-export type GradeSave = 'saves' | 'saving' | 'fails' | 'fails-once';
-
 export type InboxStore = {
   entries: InboxEntry[];
   scores: Record<string, RunScores>;
@@ -25,7 +23,6 @@ export type InboxStore = {
   codeReviews: Record<string, CodeReviewResponseDto>;
   decisions: Record<string, TaskDecisionsResponseDto>;
   memoryReviews: Record<string, MemoryReviewResponseDto>;
-  gradeSave: GradeSave;
   scoresWait: boolean;
   made: number;
 };
@@ -42,7 +39,6 @@ const EMPTY: InboxStore = {
   codeReviews: {},
   decisions: {},
   memoryReviews: {},
-  gradeSave: 'saves',
   scoresWait: false,
   made: 0,
 };
@@ -58,7 +54,6 @@ export const inboxStore = perWorld((kind): InboxStore =>
         codeReviews: seedCodeReviews(),
         decisions: seedDecisions(),
         memoryReviews: seedMemoryReviews(),
-        gradeSave: 'saves',
         scoresWait: false,
         made: 0,
       },

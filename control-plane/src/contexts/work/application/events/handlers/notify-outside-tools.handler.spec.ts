@@ -69,13 +69,13 @@ const handed = () =>
     newId: () => 'task_1',
   });
 
-const gradeRequest = (task: Task) =>
+const alertRequest = (task: Task) =>
   InboxRequest.create({
     id: InboxRequestId.of('request_1'),
     workspaceId: WORKSPACE,
     taskId: task.id,
-    form: 'grade',
-    about: InboxRequestSubject.of('decision_set_1'),
+    form: 'alert',
+    about: InboxRequestSubject.of('alert_1'),
     askedOf: null,
     now: new Date('2026-09-17T09:30:00.000Z'),
   });
@@ -83,7 +83,7 @@ const gradeRequest = (task: Task) =>
 const notifying = (
   marks: readonly Mark[] = [],
   markedTask: Task | null = null,
-  requestOf: (task: Task) => InboxRequest | null = gradeRequest,
+  requestOf: (task: Task) => InboxRequest | null = alertRequest,
 ) => {
   const task = handed();
   const request = requestOf(task);
@@ -244,7 +244,7 @@ describe('NotifyOutsideTools', () => {
 
   it('keeps quiet about an inbox request resolved before the tools heard of it', async () => {
     const { handler, task, notifyRequest } = notifying([], null, (each) =>
-      gradeRequest(each).resolve(new Date('2026-09-17T09:40:00.000Z')),
+      alertRequest(each).resolve(new Date('2026-09-17T09:40:00.000Z')),
     );
 
     await handler.onInboxRequestOpened(opened(task));

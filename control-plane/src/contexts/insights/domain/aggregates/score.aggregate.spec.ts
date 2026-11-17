@@ -11,7 +11,6 @@ import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import {
   judgeScore,
   locationOf,
-  personGrade,
   RUBRIC_VERSION,
 } from '@insights/judging.fake-spec';
 import { WORKSPACE } from '@insights/runs.fake-spec';
@@ -48,9 +47,8 @@ describe('Score', () => {
     const score = judgeScore('run_1', [true]);
     const [event] = score.pullEvents() as ScoreRecorded[];
 
-    expect(score.fromJudge).toBe(true);
     expect(score.rubricVersion).toBe(RUBRIC_VERSION);
-    expect(event?.source).toBe('judge');
+    expect(event?.kind).toBe('score.recorded');
   });
 
   it('is the share of claims met, marked one by one', () => {
@@ -123,72 +121,7 @@ describe('Score', () => {
     expect(score.seen.size).toBeLessThanOrEqual(MAX_SEEN_CHARS);
   });
 
-  it('from a person keeps nothing the judge saw', () => {
-    expect(() =>
-      Score.rehydrate({
-        id: ScoreId.of('grade_1'),
-        runId: RunId.of('run_1'),
-        workspaceId: WORKSPACE,
-        location: locationOf(),
-        fingerprint: null,
-        source: 'person',
-        origin: 'live',
-        claimResults: [true],
-        passThreshold: 1,
-        rubricVersion: RUBRIC_VERSION,
-        model: null,
-        reasons: [],
-        seen: SeenEvidence.of({
-          steps: [{ index: 1, kind: 'message', tool: null, text: 'Seen.' }],
-          hunks: [],
-        }),
-        by: personGrade('run_1', [true]).by,
-        at: LATER,
-        version: 0,
-      }),
-    ).toThrow(InvalidScoreError);
-  });
-
-  it('from a person is regraded claim by claim', () => {
-    const grade = personGrade('run_1', [true, true]);
-    grade.pullEvents();
-
-    const regraded = grade.regrade({
-      claimResults: [true, false],
-      passThreshold: 1,
-      rubricVersion: RUBRIC_VERSION,
-      at: LATER,
-    });
-
-    expect(regraded.claimResults).toEqual([true, false]);
-    expect(regraded.value).toBe(0.5);
-    expect(regraded.passes).toBe(false);
-    expect(regraded.at).toEqual(LATER);
-    expect(regraded.id.equals(grade.id)).toBe(true);
-    expect(regraded.pullEvents()).toHaveLength(1);
-  });
-
-  it('from a person stays as it is when graded the same again', () => {
-    const grade = personGrade('run_1', [true]);
-
-    expect(
-      grade.regrade({
-        claimResults: [true],
-        passThreshold: 1,
-        rubricVersion: RUBRIC_VERSION,
-        at: LATER,
-      }),
-    ).toBe(grade);
-  });
-
-  it('from the judge is never graded again', () => {
-    expect(() =>
-      judgeScore('run_1', [true]).regrade({
-        claimResults: [false],
-        passThreshold: 1,
-        rubricVersion: RUBRIC_VERSION,
-        at: LATER,
-      }),
-    ).toThrow(InvalidScoreError);
+  it('from the judge always names its model', () => {
+    expect(() => judged({ model: ' ' })).toThrow(InvalidScoreError);
   });
 });

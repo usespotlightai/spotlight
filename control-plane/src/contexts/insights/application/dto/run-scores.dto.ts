@@ -39,16 +39,6 @@ export interface JudgeScoreDto {
   readonly reasons: readonly JudgeReasonDto[];
 }
 
-export interface GradeDto {
-  readonly by: string;
-  readonly mine: boolean;
-  readonly value: number;
-  readonly claimResults: readonly boolean[];
-  readonly passes: boolean;
-  readonly label: string;
-  readonly at: string;
-}
-
 export interface RunOutcomeDto {
   readonly source: LabelSource;
   readonly passes: boolean;
@@ -58,13 +48,10 @@ export interface RunScoresDto {
   readonly runId: string;
   readonly taskId: string;
   readonly stationId: string;
-  readonly gradable: boolean;
   readonly claims: readonly (string | null)[];
-  readonly earlierClaims: boolean;
   readonly judged: boolean;
   readonly judge: JudgeScoreDto | null;
   readonly calibration: JudgeCalibrationDto;
   readonly outcome: RunOutcomeDto | null;
   readonly agrees: boolean | null;
-  readonly grades: readonly GradeDto[];
 }

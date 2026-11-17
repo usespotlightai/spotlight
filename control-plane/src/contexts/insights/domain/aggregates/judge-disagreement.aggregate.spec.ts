@@ -339,9 +339,7 @@ describe('JudgeDisagreement', () => {
     });
     const { rubricVersion } = disagreement;
     const label = (passes: boolean) => ({
-      passes,
-      claimResults: null,
-      from: 'accepted' as const,
+      from: passes ? ('accepted' as const) : ('sent-back' as const),
     });
 
     expect(
@@ -364,24 +362,7 @@ describe('JudgeDisagreement', () => {
     ).toBe('claims-changed');
   });
 
-  it('disputes the claims where a grade and the judge differ, in both directions', () => {
-    expect(
-      openDisagreement('run_1', {
-        claimResults: [true, false, false],
-        labelClaims: [true, true, false],
-        personPasses: true,
-      }).disputedClaims,
-    ).toEqual([1]);
-    expect(
-      openDisagreement('run_2', {
-        claimResults: [true, true, true],
-        labelClaims: [true, false, false],
-        personPasses: false,
-      }).disputedClaims,
-    ).toEqual([1, 2]);
-  });
-
-  it('disputes the failed claims where no grade marks them, and none where the judge passed', () => {
+  it('disputes the claims the judge failed, and none where the judge passed', () => {
     expect(
       openDisagreement('run_1', { claimResults: [true, false, false] })
         .disputedClaims,
@@ -390,20 +371,12 @@ describe('JudgeDisagreement', () => {
       openDisagreement('run_2', { claimResults: [true, true, true] })
         .disputedClaims,
     ).toEqual([]);
-    expect(
-      openDisagreement('run_3', {
-        claimResults: [true, false, false],
-        labelClaims: [true],
-        personPasses: true,
-      }).disputedClaims,
-    ).toEqual([1, 2]);
   });
 
   it('keeps the claims in dispute it opened with, whatever answers come later', () => {
     const opened = openDisagreement('run_1', {
-      claimResults: [true, true, true],
-      labelClaims: [true, false, true],
-      personPasses: false,
+      claimResults: [true, false, true],
+      personPasses: true,
     });
     const answered = opened.answerClaim(claimAnswer(1));
 
@@ -414,25 +387,7 @@ describe('JudgeDisagreement', () => {
     ).toEqual([1]);
   });
 
-  it('takes an answer for each claim a grade failed where the judge passed the run', () => {
-    const disagreement = openDisagreement('run_1', {
-      claimResults: [true, true, true],
-      labelClaims: [true, false, true],
-      personPasses: false,
-    });
-    const answered = disagreement.answerClaim(claimAnswer(1));
-
-    expect(answered.state).toBe('answered');
-    expect(answered.claimsWrong).toEqual([1]);
-    expect(() => disagreement.answerClaim(claimAnswer(0))).toThrow(
-      ClaimNotInDisputeError,
-    );
-    expect(() => disagreement.answerNotMet(notMet(0, null))).toThrow(
-      InvalidJudgeDisagreementError,
-    );
-  });
-
-  it('keeps each claim in dispute once, within its claims, with answers only to them', () => {
+  it('keeps one answer for each claim the judge failed, and answers to no other claim', () => {
     const fields = fieldsOf(openDisagreement('run_1'));
     const answer = (claim: number) =>
       ClaimAnswer.of({
@@ -444,22 +399,15 @@ describe('JudgeDisagreement', () => {
       });
 
     expect(() =>
-      JudgeDisagreement.rehydrate({ ...fields, disputed: [1, 1] }),
-    ).toThrow(InconsistentStateError);
-    expect(() =>
-      JudgeDisagreement.rehydrate({ ...fields, disputed: [1, 3] }),
+      JudgeDisagreement.rehydrate({ ...fields, claimAnswers: [answer(0)] }),
     ).toThrow(InconsistentStateError);
     expect(() =>
       JudgeDisagreement.rehydrate({
         ...fields,
-        disputed: [2],
-        claimAnswers: [answer(1)],
+        claimAnswers: [answer(1), answer(1)],
       }),
     ).toThrow(InconsistentStateError);
-    expect(
-      JudgeDisagreement.rehydrate({ ...fields, disputed: [2, 1] })
-        .disputedClaims,
-    ).toEqual([1, 2]);
+    expect(JudgeDisagreement.rehydrate(fields).disputedClaims).toEqual([1, 2]);
   });
 
   it('keeps what was not met only where no claim is in dispute', () => {
@@ -470,7 +418,15 @@ describe('JudgeDisagreement', () => {
 
     expect(JudgeDisagreement.rehydrate(fields).state).toBe('answered');
     expect(() =>
-      JudgeDisagreement.rehydrate({ ...fields, disputed: [1] }),
+      JudgeDisagreement.rehydrate({
+        ...fields,
+        labelFrom: 'accepted',
+        verdict: {
+          ...fields.verdict,
+          claimResults: [true, false, true],
+          passes: false,
+        },
+      }),
     ).toThrow(InconsistentStateError);
   });
 });

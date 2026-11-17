@@ -12,6 +12,7 @@ import {
   type HumanLabel,
   humanLabelOf,
 } from '@insights/domain/services/human-label';
+import { latestJudgeOf } from '@insights/domain/services/judge-verdict';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { JudgeDisagreementId } from '@insights/domain/value-objects/judge-disagreement-id.vo';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
@@ -40,14 +41,11 @@ const newestLiveOf = (
   scores: readonly Scored[],
   rubric: Rubric,
 ): Scored | null =>
-  scores
-    .filter(
-      (each) =>
-        each.fromJudge &&
-        each.origin === LIVE &&
-        each.rubricVersion === rubric.version,
-    )
-    .sort((one, other) => other.at.getTime() - one.at.getTime())[0] ?? null;
+  latestJudgeOf(
+    scores.filter(
+      (each) => each.origin === LIVE && each.rubricVersion === rubric.version,
+    ),
+  );
 
 export interface Reconsidered {
   readonly runId: RunId;
@@ -198,13 +196,7 @@ export class RaiseJudgeDisagreements {
   }> {
     const [fact] = await this.facts.ofRuns([runId]);
     const scores = await this.facts.scoresOfRuns([runId]);
-    const label = rubric
-      ? humanLabelOf({
-          rubricVersion: rubric.version,
-          fact: fact ?? null,
-          grades: scores.filter((each) => !each.fromJudge),
-        })
-      : null;
+    const label = humanLabelOf(fact ?? null);
     const known = await this.disagreements.ofRun(runId);
     const standing = known.find((each) => !each.isWithdrawn) ?? null;
     const reason =

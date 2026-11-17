@@ -1,39 +1,18 @@
-import { GradeRunCommand } from '@insights/application/commands/grade-run.command';
 import type { RunScoresDto } from '@insights/application/dto/run-scores.dto';
 import { ReadRunScoresQuery } from '@insights/application/queries/read-run-scores.query';
+import { RunScoresResponseDto } from '@insights/presentation/http/dto/run-scores.response.dto';
+import { Controller, Get, Param } from '@nestjs/common';
+import { QueryBus } from '@nestjs/cqrs';
 import {
-  GradeRunRequestDto,
-  RunScoresResponseDto,
-} from '@insights/presentation/http/dto/run-scores.response.dto';
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-} from '@nestjs/common';
-import { CommandBus, QueryBus } from '@nestjs/cqrs';
-import {
-  ApiBody,
-  ApiConflictResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
-  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-
-const claimsIn = (body: GradeRunRequestDto | undefined): readonly boolean[] =>
-  Array.isArray(body?.claims) &&
-  body.claims.every((each) => typeof each === 'boolean')
-    ? body.claims
-    : [];
 
 @ApiTags('insights')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -41,16 +20,13 @@ const claimsIn = (body: GradeRunRequestDto | undefined): readonly boolean[] =>
 @ApiParam({ name: 'runId', type: String })
 @Controller('teams/:teamId/runs/:runId')
 export class RunScoresController {
-  constructor(
-    private readonly queryBus: QueryBus,
-    private readonly commandBus: CommandBus,
-  ) {}
+  constructor(private readonly queryBus: QueryBus) {}
 
   @Get('scores')
   @ApiOperation({
     operationId: 'readRunScores',
     summary:
-      'The judge’s verdict on a run, with the reasons it cites, and the grades people gave it',
+      'The judge’s verdict on a run, with the reasons it cites, and what people said of the run',
   })
   @ApiOkResponse({ type: RunScoresResponseDto })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
@@ -64,32 +40,5 @@ export class RunScoresController {
         new ReadRunScoresQuery(teamId, runId, user.id),
       ),
     );
-  }
-
-  @Post('grades')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    operationId: 'gradeRun',
-    summary:
-      'Grade a run; a later grade by the same person replaces theirs, and nothing waits on it',
-  })
-  @ApiBody({ type: GradeRunRequestDto })
-  @ApiOkResponse({ type: RunScoresResponseDto })
-  @ApiUnprocessableEntityResponse({
-    description: 'No grade, or one that does not mark each claim',
-  })
-  @ApiNotFoundResponse({ description: 'No such run for this caller' })
-  @ApiConflictResponse({ description: 'The grade changed meanwhile' })
-  async grade(
-    @Param('teamId') teamId: string,
-    @Param('runId') runId: string,
-    @Body() body: GradeRunRequestDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<RunScoresResponseDto> {
-    await this.commandBus.execute<GradeRunCommand, void>(
-      new GradeRunCommand(teamId, runId, claimsIn(body), user.id),
-    );
-
-    return this.scores(teamId, runId, user);
   }
 }

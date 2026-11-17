@@ -28,11 +28,10 @@ import {
   runsOfTask,
   seededTask,
 } from '@/mocks/world/inbox-places';
-import { type HistoryRun, history } from '@/mocks/world/insights-history';
-import { isCoreTask, pastTaskOf } from '@/mocks/world/past-work';
+import type { HistoryRun } from '@/mocks/world/insights-history';
+import { pastTaskOf } from '@/mocks/world/past-work';
 import { PLATFORM_ID } from '@/mocks/world/platform';
 import { notesOfRun, type StoryNote } from '@/mocks/world/run-stories';
-import { onEarlierRubric } from '@/mocks/world/station-judge';
 
 type Shown = 'section' | 'reopenable';
 
@@ -97,16 +96,12 @@ export const shown = <T extends InboxEntry>(
 
 export const MEMORIES_REQUEST_ID = 'request_retries_memories';
 export const ALERT_REQUEST_ID = 'request_sent_back_alert';
-export const GRADE_REQUEST_ID = 'request_postgres_grade';
-export const GRADED_REQUEST_ID = 'request_search_grade';
 export const STALLED_NOTICE_ID = 'notice_search_stalled';
 export const PULL_REQUEST_NOTICE_ID = 'notice_config_pull_request';
 export const ALERT_ID = 'alert_sent_back';
 export const COST_ALERT_REQUEST_ID = 'request_cost_alert';
 export const COST_ALERT_ID = 'alert_cost_per_run';
 export const DECIDED_MEMORIES_REQUEST_ID = 'request_disk_memories';
-export const EARLIER_CLAIMS_GRADE_REQUEST_ID = 'request_earlier_claims_grade';
-export const CLAIMS_GRADE_REQUEST_ID = 'request_pricing_grade';
 export const FAILED_DISAGREEMENT_ID = 'disagreement_search_2';
 export const PASSED_DISAGREEMENT_ID = 'disagreement_postgres_2';
 export const FAILED_DISAGREEMENT_REQUEST_ID = 'request_search_disagreement';
@@ -407,35 +402,6 @@ const alertInboxRequest = (
       ]
     : [];
 
-const earlierRubricRun = () =>
-  history().runs.find(
-    (run) =>
-      run.teamId === PLATFORM_ID &&
-      run.stationId === 'station_implementation' &&
-      run.judge !== null &&
-      !isCoreTask(run.taskId) &&
-      onEarlierRubric(run.at),
-  );
-
-const earlierRubricGrade = (): InboxConversation[] => {
-  const run = earlierRubricRun();
-
-  return run
-    ? [
-        inboxRequestOf({
-          id: EARLIER_CLAIMS_GRADE_REQUEST_ID,
-          taskId: run.taskId,
-          teamId: PLATFORM_ID,
-          askedAt: minutesAfter(
-            run.endedAt ?? new Date(run.at).toISOString(),
-            4,
-          ),
-          inboxRequest: { form: 'grade', about: run.runId },
-        }),
-      ]
-    : [];
-};
-
 const pastDisagreementRequest = (
   id: string,
   about: string,
@@ -512,29 +478,6 @@ const INBOX_REQUESTS = (): InboxConversation[] => [
   }),
   ...alertInboxRequest(ALERT_REQUEST_ID, ALERT_ID, alertFiring()),
   ...alertInboxRequest(COST_ALERT_REQUEST_ID, COST_ALERT_ID, costAlertFiring()),
-  inboxRequestOf({
-    id: GRADE_REQUEST_ID,
-    taskId: 'task_postgres',
-    teamId: PLATFORM_ID,
-    askedAt: minutesAfter(runEnded('run_postgres_2'), 4),
-    inboxRequest: { form: 'grade', about: 'run_postgres_2' },
-  }),
-  inboxRequestOf({
-    id: GRADED_REQUEST_ID,
-    taskId: 'task_search',
-    teamId: PLATFORM_ID,
-    askedAt: minutesAfter(runEnded('run_search_2'), 4),
-    resolved: true,
-    inboxRequest: { form: 'grade', about: 'run_search_2' },
-  }),
-  inboxRequestOf({
-    id: CLAIMS_GRADE_REQUEST_ID,
-    taskId: 'task_pricing_toggle',
-    teamId: GROWTH_ID,
-    askedAt: minutesAfter(runEnded('run_pricing_1'), 4),
-    inboxRequest: { form: 'grade', about: 'run_pricing_1' },
-  }),
-  ...earlierRubricGrade(),
   inboxRequestOf({
     id: FAILED_DISAGREEMENT_REQUEST_ID,
     taskId: 'task_search',

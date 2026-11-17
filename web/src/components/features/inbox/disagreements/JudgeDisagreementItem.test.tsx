@@ -101,11 +101,6 @@ const pick = (claim: number, choice: string) =>
 const why = (claim: number) =>
   within(card(claim)).getByRole('textbox', { name: 'Why' });
 
-const markIn = (claim: HTMLElement, label: string) =>
-  within(claim)
-    .getByText(label, { selector: 'dt' })
-    .nextElementSibling?.querySelector('[data-slot="claim-mark"]')?.textContent;
-
 const answered = (
   claim: number,
   answer: 'judge-right' | 'claim-wrong',
@@ -142,17 +137,13 @@ describe('JudgeDisagreementItem', () => {
     }
   });
 
-  it('says who failed the run in a grade that the judge passed', () => {
+  it('says who accepted the run that the judge failed', () => {
     showing(
-      failedDisagreementOf({
-        direction: 'judge-passed',
-        labelFrom: 'grade',
-        askedOf: 'user_priya',
-      }),
+      failedDisagreementOf({ labelFrom: 'accepted', askedOf: 'user_priya' }),
     );
 
     expect(fact()).toHaveTextContent(
-      'Priya Raman failed this run in a grade. The judge passed it.',
+      'Priya Raman accepted this run. The judge failed it.',
     );
     expectTitles(['Waiting for Priya Raman', 'Waiting for Priya Raman']);
   });
@@ -348,33 +339,7 @@ describe('JudgeDisagreementItem', () => {
     expect(screen.queryByRole('button', { name: 'Send answer' })).toBeNull();
   });
 
-  it('shows the judge’s mark and the grade’s mark on each claim a grade disputes', () => {
-    scores.mockReturnValue(
-      runScoresOf('run_1', 'task_1', {
-        grades: [
-          {
-            by: 'user_sam',
-            mine: true,
-            value: 1,
-            claimResults: [true, true, true],
-            passes: true,
-            label: '3 of 3 claims met',
-            at: '2026-11-14T10:00:00.000Z',
-          },
-        ],
-      }),
-    );
-    showing(failedDisagreementOf({ labelFrom: 'grade' }));
-
-    expect(
-      cards().map((each) => [markIn(each, 'You'), markIn(each, 'Judge')]),
-    ).toEqual([
-      ['Met', 'Not met'],
-      ['Met', 'Not met'],
-    ]);
-  });
-
-  it('shows no marks on claims disputed by a person’s action rather than a grade', () => {
+  it('shows only the judge’s mark on each claim in dispute', () => {
     showing(failedDisagreementOf());
 
     expect(screen.queryByText('You', { selector: 'dt' })).toBeNull();
@@ -388,13 +353,13 @@ describe('JudgeDisagreementItem', () => {
     expect(send(3)).toBeInTheDocument();
   });
 
-  it('shows every card while the run’s verdicts load, with lines in place of the grade and the reasons', () => {
+  it('shows every card while the run’s verdicts load, with lines in place of the reasons', () => {
     scores.mockReturnValue(undefined);
-    showing(failedDisagreementOf({ labelFrom: 'grade' }));
+    showing(failedDisagreementOf());
 
     expect(cards()).toHaveLength(2);
     for (const each of cards()) {
-      expect(each.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(4);
+      expect(each.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(2);
       expect(
         within(each)
           .getByText('Judge', { selector: 'dt' })

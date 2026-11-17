@@ -1,5 +1,5 @@
 {
-  "id": "80317cf6-8908-4092-ad0c-3031f0456586",
+  "id": "735b707b-b2f3-44f7-a24a-996f67f40d08",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -6916,13 +6916,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "source": {
-          "name": "source",
-          "type": "score_source",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
         "origin": {
           "name": "origin",
           "type": "score_origin",
@@ -6965,7 +6958,7 @@
           "name": "model",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "reasons": {
           "name": "reasons",
@@ -6980,12 +6973,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{\"steps\":[],\"hunks\":[]}'::jsonb"
-        },
-        "scored_by_id": {
-          "name": "scored_by_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "at": {
           "name": "at",
@@ -7019,29 +7006,6 @@
             }
           ],
           "isUnique": true,
-          "where": "\"score\".\"source\" = 'judge'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "score_person_idx": {
-          "name": "score_person_idx",
-          "columns": [
-            {
-              "expression": "run_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "scored_by_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"score\".\"source\" = 'person'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -7084,7 +7048,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"score\".\"source\" = 'judge' and \"score\".\"origin\" = 'live'",
+          "where": "\"score\".\"origin\" = 'live'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -8300,12 +8264,6 @@
         "opened_at": {
           "name": "opened_at",
           "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "disputed": {
-          "name": "disputed",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },
@@ -20807,14 +20765,6 @@
         "backfill"
       ]
     },
-    "public.score_source": {
-      "name": "score_source",
-      "schema": "public",
-      "values": [
-        "judge",
-        "person"
-      ]
-    },
     "public.claims_revision_end_reason": {
       "name": "claims_revision_end_reason",
       "schema": "public",
@@ -20866,7 +20816,6 @@
       "name": "judge_label_source",
       "schema": "public",
       "values": [
-        "grade",
         "accepted",
         "sent-back",
         "merged",
@@ -21356,7 +21305,6 @@
       "schema": "public",
       "values": [
         "memories",
-        "grade",
         "alert",
         "judge-disagreement"
       ]

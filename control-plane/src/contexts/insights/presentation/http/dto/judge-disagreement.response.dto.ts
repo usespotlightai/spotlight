@@ -192,7 +192,7 @@ export class JudgeDisagreementResponseDto {
     type: Number,
     isArray: true,
     description:
-      'The places of the claims in dispute, each answered on its own, fixed when the question opened: where a grade gave the outcome, the claims it marked otherwise than the judge; else, where the judge failed the run, the claims it failed; else none, and the one answer says what was not met',
+      'The places of the claims in dispute, each answered on its own, fixed when the question opened: where the judge failed the run, the claims it failed; else none, and the one answer says what was not met',
   })
   readonly disputedClaims: readonly number[];
 
@@ -231,7 +231,7 @@ export class JudgeDisagreementResponseDto {
     enum: [...WITHDRAWAL_REASONS, null],
     nullable: true,
     description:
-      'Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome or grade that a person gave the run no longer exists. Null while not withdrawn',
+      'Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome that a person gave the run no longer exists. Null while not withdrawn',
   })
   readonly withdrawnBecause: string | null;
 

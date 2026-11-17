@@ -1,9 +1,7 @@
 import type {
   CitationResponseDto,
   CitedHunkResponseDto,
-  ClaimAgreementResponseDto,
   ClaimsSourceResponseDto,
-  GradeResponseDto,
   JudgeCalibrationResponseDto,
   JudgeCoverageResponseDto,
   JudgeReasonResponseDto,
@@ -37,30 +35,18 @@ export type Citation = CitationResponseDto;
 
 export type CitedHunk = CitedHunkResponseDto;
 
-export type Grade = GradeResponseDto;
-
-export type ClaimAgreement = ClaimAgreementResponseDto;
-
-export const formatClaimsMet = (marks: readonly boolean[]): string =>
-  `${marks.filter(Boolean).length} of ${marks.length} claims met`;
-
 export const formatVerdict = (score: { readonly passes: boolean }): string =>
   score.passes ? 'Passed' : 'Failed';
 
-const OUTCOMES: Record<Exclude<RunOutcome['source'], 'grade'>, string> = {
+const OUTCOMES: Record<RunOutcome['source'], string> = {
   accepted: 'Accepted',
   'sent-back': 'Sent back',
   merged: 'Pull request merged',
   held: 'Put on hold',
 };
 
-export const formatOutcome = (outcome: RunOutcome): string => {
-  if (outcome.source === 'grade') {
-    return outcome.passes ? 'Passed by people' : 'Failed by people';
-  }
-
-  return OUTCOMES[outcome.source];
-};
+export const formatOutcome = (outcome: RunOutcome): string =>
+  OUTCOMES[outcome.source];
 
 export const formatJudgeOutcome = (passes: boolean): string =>
   passes ? 'Passed by the judge' : 'Failed by the judge';
@@ -78,32 +64,6 @@ export const JUDGE_LABEL = 'Judge';
 
 export const HIDDEN_VERDICT = 'Hidden';
 
-export const graderName = (
-  grade: Grade,
-  members: readonly { readonly id: string; readonly name: string }[] = [],
-): string =>
-  grade.mine
-    ? 'You'
-    : (members.find((each) => each.id === grade.by)?.name ?? 'Someone');
-
-export type ClaimGrade = {
-  readonly grader: string;
-  readonly marks: readonly boolean[];
-};
-
-export const graderColumnName = (
-  grade: Grade,
-  members: readonly { readonly id: string; readonly name: string }[] = [],
-): string => {
-  const name = graderName(grade, members);
-  return name.split(' ')[0] ?? name;
-};
-
-export const CLAIM_ANSWERS = [
-  { met: true, label: 'Yes' },
-  { met: false, label: 'No' },
-] as const;
-
 export const TREND_TITLE = 'Pass rate by day';
 
 export const TREND_CAPTION =
@@ -120,8 +80,6 @@ export const COVERAGE_SKELETON_TITLE = 'Verdicts on the last runs';
 export const COVERAGE_NOTE =
   'Who gave a verdict on each of the station’s last runs, on any version of its claims. Only runs with both verdicts count towards agreement.';
 
-export const CLAIMS_TITLE = 'Agreement by claim';
-
 export const formatClaim = (
   claims: readonly (string | null)[],
   index: number,
@@ -135,25 +93,6 @@ export const formatPassThreshold = (passThreshold: number): string =>
     : `At least ${formatPercent(passThreshold)} of claims met`;
 
 export const CLAIMS_LABEL = 'Claims';
-
-export const CLAIMS_QUESTION = 'Does the run meet each claim?';
-
-export const SAVING_GRADE = 'Saving…';
-
-export const WAITING_FOR_GRADE = 'Waiting for your grade';
-
-export const GRADED_BY_YOU = 'Graded by you';
-
-export const SAVE_GRADE = 'Save grade';
-
-export const ANSWER_EVERY_CLAIM_TO_SAVE = 'Answer every claim to save';
-
-export const CHANGE_AN_ANSWER_TO_SAVE = 'Change an answer to save again';
-
-export const EARLIER_CLAIMS_NOTE =
-  'This run ran on earlier claims. Grade it on the claims it ran with.';
-
-const CLAIM_COLUMN = 'Claim';
 
 const KAPPA_COLUMN = 'Cohen’s kappa';
 
@@ -446,13 +385,6 @@ export const versionLinkOf = (
         title: `Commit in ${source.repository}`,
       };
 };
-
-export const CLAIM_HEADINGS: readonly NestedHeading[] = [
-  { label: CLAIM_COLUMN, indent: 'edge', size: 'minmax(12rem,3fr)' },
-  { label: KAPPA_COLUMN, size: 'minmax(10rem,2fr)' },
-  { label: SAME_VERDICT_COLUMN, numeric: true, size: SPREAD },
-  { label: RUNS_COLUMN, numeric: true, size: SPREAD },
-];
 
 export const VERSIONS_TITLE = 'Agreement by claims version';
 

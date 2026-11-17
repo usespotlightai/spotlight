@@ -50,18 +50,17 @@ describe('judge agreement', () => {
   });
 
   it('measures the judge’s verdicts against people’s by kappa', () => {
-    const agreement = agreementOf(TEXTBOOK, []);
+    const agreement = agreementOf(TEXTBOOK);
 
     expect(agreement.pairs).toBe(50);
     expect(agreement.kappa).toBeCloseTo(0.4);
     expect(agreement.reading).toBe('fair');
     expect(agreement.f1).toBeCloseTo(40 / 55);
     expect(agreement.observed).toBeCloseTo(0.7);
-    expect(agreement.claims).toEqual([]);
   });
 
   it('counts verdicts into a confusion matrix, judge by row and people by column', () => {
-    const agreement = agreementOf(TEXTBOOK, []);
+    const agreement = agreementOf(TEXTBOOK);
 
     expect(agreement.confusion).toEqual({
       values: [0, 1],
@@ -75,61 +74,18 @@ describe('judge agreement', () => {
   });
 
   it('counts how often each side failed and passed a run', () => {
-    expect(agreementOf(TEXTBOOK, []).distribution).toEqual([
+    expect(agreementOf(TEXTBOOK).distribution).toEqual([
       { value: 0, judge: 25, people: 20 },
       { value: 1, judge: 25, people: 30 },
     ]);
   });
 
-  it('weighs agreement claim by claim from the grades', () => {
-    const agreement = agreementOf(
-      [],
-      [
-        { judge: [true, true], human: [true, false] },
-        { judge: [false, true], human: [false, true] },
-        { judge: [true, false], human: [true, true] },
-        { judge: [false, false], human: [false, false] },
-      ],
-    );
-
-    expect(agreement.pairs).toBe(0);
-    expect(agreement.claims).toEqual([
-      {
-        index: 0,
-        pairs: 4,
-        observed: 1,
-        kappa: 1,
-        reading: 'almost-perfect',
-      },
-      {
-        index: 1,
-        pairs: 4,
-        observed: 0.5,
-        kappa: 0,
-        reading: 'chance',
-      },
-    ]);
-  });
-
-  it('leaves out a grade that marks other claims than the judge did', () => {
-    expect(
-      agreementOf(
-        [],
-        [
-          { judge: [true, true], human: [true] },
-          { judge: [true], human: [true] },
-        ],
-      ).claims.map((each) => each.pairs),
-    ).toEqual([1]);
-  });
-
   it('knows nothing of agreement with no runs both scored', () => {
-    expect(agreementOf([], [])).toMatchObject({
+    expect(agreementOf([])).toMatchObject({
       pairs: 0,
       observed: null,
       kappa: null,
       reading: null,
-      claims: [],
     });
   });
 

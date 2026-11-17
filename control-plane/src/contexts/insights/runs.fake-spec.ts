@@ -334,7 +334,6 @@ export const scoreFactOf = (score: Score): ScoreFact =>
     id: score.id,
     runId: score.runId,
     location: score.location,
-    source: score.source,
     origin: score.origin,
     claimResults: score.claimResults,
     passThreshold: score.passThreshold,
@@ -342,7 +341,6 @@ export const scoreFactOf = (score: Score): ScoreFact =>
     model: score.model,
     reasons: score.reasons,
     seen: score.seen,
-    by: score.by,
     at: score.at,
   });
 
@@ -455,7 +453,6 @@ export class StationFactsInMemory implements StationFactsPort {
     return [...(this.sources.scores?.stored.values() ?? [])]
       .filter(
         (each) =>
-          each.fromJudge &&
           each.workspaceId.equals(criteria.workspaceId) &&
           each.location.teamId.equals(criteria.teamId) &&
           each.location.lineId.equals(criteria.lineId) &&
@@ -478,7 +475,6 @@ export class StationFactsInMemory implements StationFactsPort {
     return [...(this.sources.scores?.stored.values() ?? [])]
       .filter(
         (each) =>
-          each.fromJudge &&
           each.origin === LIVE &&
           each.at.getTime() >= criteria.since.getTime() &&
           (criteria.after === null ||

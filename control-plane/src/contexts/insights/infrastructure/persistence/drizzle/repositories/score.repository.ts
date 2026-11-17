@@ -20,7 +20,6 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { and, eq } from 'drizzle-orm';
 
 type ScoreRow = typeof score.$inferSelect;
@@ -65,12 +64,10 @@ export class DrizzleScoreRepository implements ScoreRepository {
           stationId: added.location.stationId.value,
           taskId: added.location.taskId.value,
           fingerprint: added.fingerprint,
-          source: added.source,
           origin: added.origin,
           model: added.model,
           reasons: storedReasons(added),
           seen: { steps: added.seen.steps, hunks: added.seen.hunks },
-          scoredById: added.by?.value ?? null,
           version: added.version,
           ...columnsOf(added),
         })
@@ -117,24 +114,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
       .where(
         and(
           eq(score.runId, runId.value),
-          eq(score.source, 'judge'),
           eq(score.rubricVersion, rubricVersion),
-        ),
-      )
-      .limit(1);
-
-    return row ? toScore(row) : null;
-  }
-
-  async gradeBy(runId: RunId, by: UserId): Promise<Score | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(score)
-      .where(
-        and(
-          eq(score.runId, runId.value),
-          eq(score.source, 'person'),
-          eq(score.scoredById, by.value),
         ),
       )
       .limit(1);

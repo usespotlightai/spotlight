@@ -72,7 +72,6 @@ const toDisagreement = (row: JudgeDisagreementRow): JudgeDisagreement =>
     labelFrom: row.labelFrom,
     askedOf: row.askedOfId ? UserId.of(row.askedOfId) : null,
     openedAt: row.openedAt,
-    disputed: row.disputed,
     claimAnswers: row.claimAnswers.map((each) =>
       ClaimAnswer.of({
         claim: each.claim,
@@ -147,7 +146,6 @@ export class DrizzleJudgeDisagreementRepository implements JudgeDisagreementRepo
           labelFrom: added.labelFrom,
           askedOfId: added.askedOf?.value ?? null,
           openedAt: added.openedAt,
-          disputed: [...added.disputedClaims],
           version: added.version,
           ...answerColumnsOf(added),
         })

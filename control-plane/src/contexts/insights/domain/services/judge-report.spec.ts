@@ -7,7 +7,6 @@ import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import {
   judgeScore,
   NEXT_RUBRIC_VERSION,
-  personGrade,
   RUBRIC_VERSION,
   rubricOf,
 } from '@insights/judging.fake-spec';
@@ -36,7 +35,6 @@ const reportOf = (count: number, agreeing: number) => {
 
   return judgeReportOf({
     judged: judgedRuns.map((each) => each.score),
-    grades: [],
     facts: factsWith(records),
     covering: factsWith(records),
   });
@@ -58,24 +56,6 @@ describe('judgeReportOf', () => {
     expect(report.coverage).toMatchObject({ runs: 12, both: 12 });
   });
 
-  it('uses a person’s grade for the run instead of what they did', () => {
-    const report = judgeReportOf({
-      judged: [judgeScore('run_1', [true])],
-      grades: [personGrade('run_1', [false])],
-      facts: factsWith([
-        endedRecord('run_1', { taskId: 'task_run_1' }).recordAction(
-          HumanAction.of('accepted', AT),
-        ),
-      ]),
-      covering: [],
-    });
-
-    expect(report.versions[0]?.agreement.confusion.cells).toEqual([
-      [0, 0],
-      [1, 0],
-    ]);
-  });
-
   it('reports each rubric version apart, the latest first', () => {
     const report = judgeReportOf({
       judged: [
@@ -87,7 +67,6 @@ describe('judgeReportOf', () => {
           at: new Date('2026-09-30T10:00:00Z'),
         }),
       ],
-      grades: [],
       facts: [],
       covering: [],
     });

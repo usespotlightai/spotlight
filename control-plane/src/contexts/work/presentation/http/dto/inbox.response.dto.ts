@@ -156,14 +156,14 @@ export class InboxRequestResponseDto {
     enum: INBOX_REQUEST_DTO_FORMS,
     example: 'memories',
     description:
-      'The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run',
+      'The kind of inbox request: memories are proposed memories to approve or reject; alert reports a station that needs attention; judge-disagreement asks a person why their verdict on a run differs from the judge’s',
   })
   readonly form: string;
 
   @ApiProperty({
     example: 'run_1',
     description:
-      'What it is about: for memories, the run that proposed them; for grade, the run to grade',
+      'What it is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement',
   })
   readonly about: string;
 

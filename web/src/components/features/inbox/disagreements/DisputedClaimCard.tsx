@@ -10,7 +10,7 @@ import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionControls } from '@/components/shared/DecisionControls';
 import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
 import { useAnswerDisagreementClaim } from '@/hooks/api/useAnswerDisagreementClaim';
-import type { ClaimGrade, RunScores } from '@/lib/judge';
+import type { RunScores } from '@/lib/judge';
 import {
   answerOfClaim,
   cardStateOf,
@@ -34,7 +34,6 @@ type DisputedClaimCardProps = {
   disagreement: JudgeDisagreement;
   claim: DisagreementClaim;
   scores: RunScores | undefined;
-  grade: ClaimGrade | null;
   loading: boolean;
   canAnswer: boolean;
   answererOf: (answeredBy: string) => string | null;
@@ -47,7 +46,6 @@ export function DisputedClaimCard({
   disagreement,
   claim,
   scores,
-  grade,
   loading,
   canAnswer,
   answererOf,
@@ -68,8 +66,6 @@ export function DisputedClaimCard({
     <DisputedClaimRows
       claim={claim}
       reasons={reasonsOf(claim, scores)}
-      grade={grade}
-      graded={disagreement.labelFrom === 'grade'}
       loading={loading}
       textId={textId}
     >

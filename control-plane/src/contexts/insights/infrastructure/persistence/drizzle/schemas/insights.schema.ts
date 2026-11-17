@@ -17,7 +17,6 @@ import { PULL_REQUEST_TYPES } from '@insights/domain/value-objects/pull-request-
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
 import { RUN_RESOLUTIONS } from '@insights/domain/value-objects/run-resolution';
 import { SCORE_ORIGINS } from '@insights/domain/value-objects/score-origin';
-import { SCORE_SOURCES } from '@insights/domain/value-objects/score-source';
 import type {
   SeenHunk,
   SeenStep,
@@ -121,7 +120,6 @@ export const pullRequestAuthor = pgEnum(
 );
 export const reviewRoundBucket = pgEnum('review_round_bucket', ROUND_BUCKETS);
 export const runSize = pgEnum('run_size', RUN_SIZES);
-export const scoreSource = pgEnum('score_source', SCORE_SOURCES);
 export const scoreOrigin = pgEnum('score_origin', SCORE_ORIGINS);
 export const alertMeasure = pgEnum('alert_measure', ALERT_MEASURES);
 export const alertCondition = pgEnum('alert_condition', ALERT_CONDITIONS);
@@ -533,34 +531,27 @@ export const score = pgTable(
     stationId: text('station_id').notNull(),
     taskId: text('task_id').notNull(),
     fingerprint: text('fingerprint'),
-    source: scoreSource('source').notNull(),
     origin: scoreOrigin('origin').notNull().default('live'),
     value: doublePrecision('value').notNull(),
     claimResults: jsonb('claim_results').$type<boolean[]>().notNull(),
     passThreshold: doublePrecision('pass_threshold').notNull(),
     passes: boolean('passes').notNull(),
     rubricVersion: text('rubric_version').notNull(),
-    model: text('model'),
+    model: text('model').notNull(),
     reasons: jsonb('reasons').$type<StoredReason[]>().notNull().default([]),
     seen: jsonb('seen')
       .$type<StoredSeen>()
       .notNull()
       .default({ steps: [], hunks: [] }),
-    scoredById: text('scored_by_id'),
     at: timestamptz('at').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    uniqueIndex('score_judge_idx')
-      .on(table.runId, table.rubricVersion)
-      .where(sql`${table.source} = 'judge'`),
-    uniqueIndex('score_person_idx')
-      .on(table.runId, table.scoredById)
-      .where(sql`${table.source} = 'person'`),
+    uniqueIndex('score_judge_idx').on(table.runId, table.rubricVersion),
     index('score_station_idx').on(table.stationId, table.at),
     index('score_live_judge_idx')
       .on(table.at, table.id)
-      .where(sql`${table.source} = 'judge' and ${table.origin} = 'live'`),
+      .where(sql`${table.origin} = 'live'`),
     index('score_task_idx').on(table.taskId),
     index('score_workspace_idx').on(table.workspaceId, table.teamId),
   ],

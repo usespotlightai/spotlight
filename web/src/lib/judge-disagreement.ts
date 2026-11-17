@@ -7,13 +7,7 @@ import type {
   JudgeDisagreementResponseDto,
 } from '@/lib/api';
 import type { ApprovalStatus } from '@/lib/approval-status';
-import {
-  type Citation,
-  type ClaimGrade,
-  graderName,
-  type JudgeReason,
-  type RunScores,
-} from '@/lib/judge';
+import type { Citation, JudgeReason, RunScores } from '@/lib/judge';
 import type { Person } from '@/lib/person';
 
 export type JudgeDisagreement = JudgeDisagreementResponseDto;
@@ -106,10 +100,6 @@ export const claimCardLabel = (claim: number): string =>
 
 const factOf = (disagreement: JudgeDisagreement, labeller: string): string => {
   switch (disagreement.labelFrom) {
-    case 'grade':
-      return disagreement.direction === 'judge-failed'
-        ? `${labeller} passed this run in a grade. The judge failed it.`
-        : `${labeller} failed this run in a grade. The judge passed it.`;
     case 'accepted':
       return `${labeller} accepted this run. The judge failed it.`;
     case 'sent-back':
@@ -255,24 +245,6 @@ const claimsAt = (
 export const disputedClaimsOf = (
   disagreement: JudgeDisagreement,
 ): DisagreementClaim[] => claimsAt(disagreement, disagreement.disputedClaims);
-
-export const labelGradeOf = (
-  disagreement: JudgeDisagreement,
-  scores: RunScores | undefined,
-  members: readonly Person[] | undefined,
-): ClaimGrade | null => {
-  if (disagreement.labelFrom !== 'grade' || !scores) {
-    return null;
-  }
-
-  const grade =
-    scores.grades.find((each) => each.by === disagreement.askedOf) ??
-    scores.grades[0];
-
-  return grade && grade.claimResults.length === disagreement.claims.length
-    ? { grader: graderName(grade, members), marks: grade.claimResults }
-    : null;
-};
 
 const sameCitation = (
   cited: DisagreementCitationResponseDto,

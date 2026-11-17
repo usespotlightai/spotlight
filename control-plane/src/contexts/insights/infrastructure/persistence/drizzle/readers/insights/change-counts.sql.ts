@@ -169,8 +169,6 @@ const rubricsIn = async (
     from sides as ${runFact}
     join ${score}
       on ${score.runId} = ${runFact.runId}
-      and ${score.source} = 'judge'
-      and ${score.rubricVersion} is not null
       and ${score.stationId} = ${runFact.stationId}
     group by ${runFact}.marker, ${runFact}.side, ${score.rubricVersion}
     order by ${score.rubricVersion} collate "C"

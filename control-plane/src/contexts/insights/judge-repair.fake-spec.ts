@@ -41,7 +41,6 @@ export const openDisagreement = (
   change: {
     claimResults?: readonly boolean[];
     personPasses?: boolean;
-    labelClaims?: readonly boolean[];
     taskId?: string;
     stationId?: string;
     askedOf?: UserId;
@@ -65,9 +64,7 @@ export const openDisagreement = (
       reasons: claimResults.map((_, at) => reasonOf(`Claim ${at}.`, at)),
     },
     label: {
-      passes: change.personPasses ?? !passes,
-      claimResults: change.labelClaims ?? null,
-      from: change.labelClaims ? 'grade' : 'accepted',
+      from: (change.personPasses ?? !passes) ? 'accepted' : 'sent-back',
     },
     askedOf: change.askedOf ?? null,
     now: change.now ?? OPENED_AT,
@@ -128,7 +125,6 @@ const disagreementWithVersion = (
     labelFrom: disagreement.labelFrom,
     askedOf: disagreement.askedOf,
     openedAt: disagreement.openedAt,
-    disputed: disagreement.disputedClaims,
     claimAnswers: disagreement.claimAnswers,
     notMet: disagreement.notMet,
     answeredAt: disagreement.answeredAt,

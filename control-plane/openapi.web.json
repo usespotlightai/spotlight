@@ -5766,68 +5766,7 @@
             "description": "No such run for this caller"
           }
         },
-        "summary": "The judge’s verdict on a run, with the reasons it cites, and the grades people gave it",
-        "tags": [
-          "insights"
-        ]
-      }
-    },
-    "/teams/{teamId}/runs/{runId}/grades": {
-      "post": {
-        "operationId": "gradeRun",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GradeRunRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RunScoresResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such run for this caller"
-          },
-          "409": {
-            "description": "The grade changed meanwhile"
-          },
-          "422": {
-            "description": "No grade, or one that does not mark each claim"
-          }
-        },
-        "summary": "Grade a run; a later grade by the same person replaces theirs, and nothing waits on it",
+        "summary": "The judge’s verdict on a run, with the reasons it cites, and what people said of the run",
         "tags": [
           "insights"
         ]
@@ -9083,17 +9022,16 @@
             "type": "string",
             "enum": [
               "memories",
-              "grade",
               "alert",
               "judge-disagreement"
             ],
             "example": "memories",
-            "description": "The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run"
+            "description": "The kind of inbox request: memories are proposed memories to approve or reject; alert reports a station that needs attention; judge-disagreement asks a person why their verdict on a run differs from the judge’s"
           },
           "about": {
             "type": "string",
             "example": "run_1",
-            "description": "What it is about: for memories, the run that proposed them; for grade, the run to grade"
+            "description": "What it is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement"
           }
         },
         "required": [
@@ -15661,57 +15599,6 @@
           "failing"
         ]
       },
-      "ClaimAgreementResponseDto": {
-        "type": "object",
-        "properties": {
-          "index": {
-            "type": "number",
-            "example": 0,
-            "description": "The claim’s place, from 0"
-          },
-          "pairs": {
-            "type": "number",
-            "example": 12,
-            "description": "Runs where both the judge and people marked this claim"
-          },
-          "observed": {
-            "type": "number",
-            "nullable": true,
-            "example": 0.9
-          },
-          "kappa": {
-            "type": "number",
-            "nullable": true,
-            "example": 0.74
-          },
-          "reading": {
-            "type": "string",
-            "enum": [
-              "almost-perfect",
-              "substantial",
-              "moderate",
-              "fair",
-              "slight",
-              "chance",
-              null
-            ],
-            "nullable": true,
-            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
-          },
-          "belowMinimum": {
-            "type": "boolean",
-            "description": "Whether the claim’s kappa is below the minimum agreement"
-          }
-        },
-        "required": [
-          "index",
-          "pairs",
-          "observed",
-          "kappa",
-          "reading",
-          "belowMinimum"
-        ]
-      },
       "AgreementResponseDto": {
         "type": "object",
         "properties": {
@@ -15772,13 +15659,6 @@
             "nullable": true,
             "example": 0.8,
             "description": "The F1 score of the judge’s pass against people’s; none where neither passed the run"
-          },
-          "claims": {
-            "description": "How often the judge agrees with people on each claim, from grades only; it does not decide whether the judge is qualified",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ClaimAgreementResponseDto"
-            }
           }
         },
         "required": [
@@ -15791,8 +15671,7 @@
           "observed",
           "kappa",
           "reading",
-          "f1",
-          "claims"
+          "f1"
         ]
       },
       "ConfusionResponseDto": {
@@ -16331,13 +16210,12 @@
           "source": {
             "type": "string",
             "enum": [
-              "grade",
               "accepted",
               "sent-back",
               "merged",
               "held"
             ],
-            "description": "What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task"
+            "description": "What gave the human outcome: the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task"
           },
           "passes": {
             "type": "boolean",
@@ -16347,56 +16225,6 @@
         "required": [
           "source",
           "passes"
-        ]
-      },
-      "GradeResponseDto": {
-        "type": "object",
-        "properties": {
-          "by": {
-            "type": "string",
-            "example": "user_ada"
-          },
-          "mine": {
-            "type": "boolean",
-            "description": "Whether the caller gave this grade"
-          },
-          "value": {
-            "type": "number",
-            "example": 0.5,
-            "description": "The share of claims met"
-          },
-          "claimResults": {
-            "example": [
-              true,
-              false
-            ],
-            "description": "Whether the person found each claim met, in order",
-            "type": "array",
-            "items": {
-              "type": "boolean"
-            }
-          },
-          "passes": {
-            "type": "boolean",
-            "description": "Whether the run passes on this grade: the share of claims met reaches the pass threshold"
-          },
-          "label": {
-            "type": "string",
-            "example": "1 of 2 claims met"
-          },
-          "at": {
-            "type": "string",
-            "example": "2026-09-30T11:00:00.000Z"
-          }
-        },
-        "required": [
-          "by",
-          "mine",
-          "value",
-          "claimResults",
-          "passes",
-          "label",
-          "at"
         ]
       },
       "RunScoresResponseDto": {
@@ -16414,21 +16242,13 @@
             "type": "string",
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
           },
-          "gradable": {
-            "type": "boolean",
-            "description": "Whether the run can be graded: its judge checked it, or its station has a judge with claims"
-          },
           "claims": {
             "type": "array",
             "items": {
               "type": "string",
               "nullable": true
             },
-            "description": "The claims the run is graded on, in order: the ones the judge marked where it checked the run, else the station judge’s; a claim reads null only where the claims the judge was given are no longer stored; empty where the run cannot be graded"
-          },
-          "earlierClaims": {
-            "type": "boolean",
-            "description": "Whether the run is graded on claims the station’s judge no longer uses: the judge checked it on earlier claims"
+            "description": "The claims the judge marked on the run, in order; a claim reads null only where the claims the judge was given are no longer stored; empty where the judge did not check the run"
           },
           "judged": {
             "type": "boolean",
@@ -16449,7 +16269,7 @@
           },
           "outcome": {
             "nullable": true,
-            "description": "What people said of the run: a grade of the judge’s claims version, else their first action on the run, else the task’s pull request; none where people said nothing yet",
+            "description": "What people said of the run: their first action on the run, else the task’s pull request; none where people said nothing yet",
             "type": "object",
             "allOf": [
               {
@@ -16461,47 +16281,18 @@
             "type": "boolean",
             "nullable": true,
             "description": "Whether the judge’s verdict is the human outcome; none where the judge’s verdict is hidden or people said nothing yet"
-          },
-          "grades": {
-            "description": "What people graded the run, the latest first",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/GradeResponseDto"
-            }
           }
         },
         "required": [
           "runId",
           "taskId",
           "stationId",
-          "gradable",
           "claims",
-          "earlierClaims",
           "judged",
           "judge",
           "calibration",
           "outcome",
-          "agrees",
-          "grades"
-        ]
-      },
-      "GradeRunRequestDto": {
-        "type": "object",
-        "properties": {
-          "claims": {
-            "example": [
-              true,
-              false
-            ],
-            "description": "Whether each claim was met, in order",
-            "type": "array",
-            "items": {
-              "type": "boolean"
-            }
-          }
-        },
-        "required": [
-          "claims"
+          "agrees"
         ]
       },
       "DisagreementCitationResponseDto": {
@@ -16689,7 +16480,6 @@
           "labelFrom": {
             "type": "string",
             "enum": [
-              "grade",
               "accepted",
               "sent-back",
               "merged",
@@ -16708,7 +16498,7 @@
             }
           },
           "disputedClaims": {
-            "description": "The places of the claims in dispute, each answered on its own, fixed when the question opened: where a grade gave the outcome, the claims it marked otherwise than the judge; else, where the judge failed the run, the claims it failed; else none, and the one answer says what was not met",
+            "description": "The places of the claims in dispute, each answered on its own, fixed when the question opened: where the judge failed the run, the claims it failed; else none, and the one answer says what was not met",
             "type": "array",
             "items": {
               "type": "number"
@@ -16750,7 +16540,7 @@
               null
             ],
             "nullable": true,
-            "description": "Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome or grade that a person gave the run no longer exists. Null while not withdrawn"
+            "description": "Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome that a person gave the run no longer exists. Null while not withdrawn"
           }
         },
         "required": [

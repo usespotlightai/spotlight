@@ -81,7 +81,6 @@ export const judgeDisagreement = pgTable(
     labelFrom: judgeLabelSource('label_from').notNull(),
     askedOfId: text('asked_of_id'),
     openedAt: timestamptz('opened_at').notNull(),
-    disputed: jsonb('disputed').$type<number[]>().notNull(),
     claimAnswers: jsonb('claim_answers')
       .$type<StoredClaimAnswer[]>()
       .notNull()

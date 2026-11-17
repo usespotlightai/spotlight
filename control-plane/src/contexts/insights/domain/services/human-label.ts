@@ -1,9 +1,7 @@
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
-import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const LABEL_SOURCES = [
-  'grade',
   'accepted',
   'sent-back',
   'merged',
@@ -12,68 +10,43 @@ export const LABEL_SOURCES = [
 
 export type LabelSource = (typeof LABEL_SOURCES)[number];
 
+export const passesOn = (from: LabelSource): boolean =>
+  from === 'accepted' || from === 'merged';
+
 export interface HumanLabel {
   readonly passes: boolean;
-  readonly claimResults: readonly boolean[] | null;
   readonly from: LabelSource;
   readonly by: UserId | null;
 }
 
-const latestGradeOf = (
-  rubricVersion: string,
-  grades: readonly Scored[],
-): Scored | null =>
-  grades
-    .filter((each) => !each.fromJudge && each.rubricVersion === rubricVersion)
-    .sort((one, other) => other.at.getTime() - one.at.getTime())[0] ?? null;
+const labelled = (from: LabelSource, by: UserId | null): HumanLabel => ({
+  passes: passesOn(from),
+  from,
+  by,
+});
 
-export const freeLabelOf = (fact: RunFact | null): HumanLabel | null => {
+export const humanLabelOf = (fact: RunFact | null): HumanLabel | null => {
   const action = fact?.firstHumanAction;
   const pullRequest = fact?.pullRequest ?? null;
 
   if (action?.accepts) {
-    return {
-      passes: true,
-      claimResults: null,
-      from: 'accepted',
-      by: action.by,
-    };
+    return labelled('accepted', action.by);
   }
   if (action?.rejectsRun) {
-    return {
-      passes: false,
-      claimResults: null,
-      from: action.takesOver ? 'held' : 'sent-back',
-      by: action.by,
-    };
+    return labelled(action.takesOver ? 'held' : 'sent-back', action.by);
   }
   if (
     pullRequest?.state === 'merged' &&
     fact?.ending === 'completed' &&
     fact.followedAt === null
   ) {
-    return { passes: true, claimResults: null, from: 'merged', by: null };
+    return labelled('merged', null);
   }
 
   return null;
 };
 
-export const hasFreeLabel = (fact: RunFact | null): boolean =>
-  freeLabelOf(fact) !== null;
-
-export const humanLabelOf = (input: {
-  rubricVersion: string;
-  fact: RunFact | null;
-  grades: readonly Scored[];
-}): HumanLabel | null => {
-  const grade = latestGradeOf(input.rubricVersion, input.grades);
-
-  return grade
-    ? {
-        passes: grade.passes,
-        claimResults: grade.claimResults,
-        from: 'grade',
-        by: grade.by,
-      }
-    : freeLabelOf(input.fact);
-};
+export const judgeAgreesOf = (
+  judge: { readonly passes: boolean } | null,
+  label: { readonly passes: boolean } | null,
+): boolean | null => (judge && label ? judge.passes === label.passes : null);

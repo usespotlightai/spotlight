@@ -118,8 +118,6 @@ const rubricsIn = async (
     from (${endedFor(team, filter)}) as ${runFact}
     join ${score}
       on ${score.runId} = ${runFact.runId}
-      and ${score.source} = 'judge'
-      and ${score.rubricVersion} is not null
       and ${score.stationId} = ${stationId}
     where ${ran}
     group by ${agentConfigColumns}, ${score.rubricVersion}

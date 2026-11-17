@@ -26,12 +26,9 @@ export const runScoresOf = (
   runId,
   taskId,
   stationId: 'station_implementation',
-  gradable: true,
   claims: CLAIMS,
-  earlierClaims: false,
   judged: true,
   calibration: TRUSTED,
-  grades: [],
   outcome: null,
   agrees: null,
   judge: {

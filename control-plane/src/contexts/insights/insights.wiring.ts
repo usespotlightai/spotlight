@@ -10,8 +10,6 @@ import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
-import { GradeRunCommand } from '@insights/application/commands/grade-run.command';
-import { GradeRunHandler } from '@insights/application/commands/handlers/grade-run.handler';
 import { INSIGHTS_EVENT_MAPPERS } from '@insights/application/integration-events/insights.event-mappers';
 import {
   ALERT_INBOX_REQUESTS,
@@ -24,10 +22,6 @@ import {
   type EvidencePort,
 } from '@insights/application/ports/evidence.port';
 import { FIRST_SEEN } from '@insights/application/ports/first-seen.port';
-import {
-  GRADES,
-  type GradesPort,
-} from '@insights/application/ports/grades.port';
 import {
   INSIGHTS_READER,
   type InsightsReaderPort,
@@ -99,9 +93,8 @@ import { CheckRunFacts } from '@insights/application/services/check-run-facts.se
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
 import { EndOverdueClaimsRevisions } from '@insights/application/services/end-overdue-claims-revisions.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
-import { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
-import { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
+import { JudgedClaimsOf } from '@insights/application/services/judged-claims-of.service';
 import { PairJudgments } from '@insights/application/services/pair-judgments.service';
 import { ProjectPullRequestFacts } from '@insights/application/services/project-pull-request-facts.service';
 import { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
@@ -136,7 +129,6 @@ import { WorkJudgings } from '@insights/application/services/work-judgings.servi
 import { AlertInboxRequests } from '@insights/infrastructure/acl/alert-inbox-requests.adapter';
 import { DefinedSkills } from '@insights/infrastructure/acl/defined-skills.adapter';
 import { Evidence } from '@insights/infrastructure/acl/evidence.adapter';
-import { Grades } from '@insights/infrastructure/acl/grades.adapter';
 import { Lines } from '@insights/infrastructure/acl/lines.adapter';
 import { MemoryUse } from '@insights/infrastructure/acl/memory-use.adapter';
 import { People } from '@insights/infrastructure/acl/people.adapter';
@@ -176,7 +168,6 @@ import {
   type TeamMemoryUsePort,
 } from '@memory/application/ports/team-memory-use.port';
 import type { Provider, Type } from '@nestjs/common';
-import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
@@ -269,11 +260,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     useFactory: (lines: LinesPort) => new StationJudges(lines),
   },
   {
-    provide: GRADES,
-    inject: [INBOX_REQUESTS],
-    useFactory: (inboxRequests: InboxRequestsPort) => new Grades(inboxRequests),
-  },
-  {
     provide: ALERT_INBOX_REQUESTS,
     inject: [INBOX_REQUESTS],
     useFactory: (inboxRequests: InboxRequestsPort) =>
@@ -325,21 +311,21 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       new StationJudgeReports(judges, facts),
   },
   {
-    provide: GradingTermsOf,
+    provide: JudgedClaimsOf,
     inject: [STATION_JUDGES, DrizzleJudgingRepository],
     useFactory: (
       judges: StationJudgesPort,
       judgings: DrizzleJudgingRepository,
-    ) => new GradingTermsOf(judges, judgings),
+    ) => new JudgedClaimsOf(judges, judgings),
   },
   {
     provide: RunScoresViews,
-    inject: [STATION_FACTS, StationJudgeReports, GradingTermsOf],
+    inject: [STATION_FACTS, StationJudgeReports, JudgedClaimsOf],
     useFactory: (
       facts: StationFactsPort,
       reports: StationJudgeReports,
-      terms: GradingTermsOf,
-    ) => new RunScoresViews(facts, reports, terms),
+      claims: JudgedClaimsOf,
+    ) => new RunScoresViews(facts, reports, claims),
   },
   {
     provide: InsightsAccess,
@@ -493,16 +479,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadRunScoresQuery, ReadRunScoresHandler, [
     InsightsAccess,
     RunScoresViews,
-  ]),
-  ...bindCommandHandler(GradeRunCommand, GradeRunHandler, [
-    InsightsAccess,
-    GradingTermsOf,
-    DrizzleRunRecordRepository,
-    DrizzleScoreRepository,
-    FactRecorder,
-    TRANSACTION,
-    ID_GENERATOR,
-    CLOCK,
   ]),
   {
     provide: RequestJudging,
@@ -696,15 +672,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     ) => new RecordJudgeScore(scores, recorder, transaction, ids),
   },
   {
-    provide: GradeInboxRequests,
-    inject: [GRADES, STATION_FACTS, CLOCK],
-    useFactory: (
-      grades: GradesPort,
-      facts: StationFactsPort,
-      clock: ClockPort,
-    ) => new GradeInboxRequests(grades, facts, clock),
-  },
-  {
     provide: RecordRunEnding,
     inject: [WORK, DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
@@ -886,7 +853,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       DeleteInsights,
       RequestJudging,
       RecordJudgeScore,
-      GradeInboxRequests,
       RecordRunUsageSummary,
       RecordRunMemories,
       RecordStationPass,
@@ -912,7 +878,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       deleting: DeleteInsights,
       judging: RequestJudging,
       scoring: RecordJudgeScore,
-      grading: GradeInboxRequests,
       recordingUsage: RecordRunUsageSummary,
       remembering: RecordRunMemories,
       passing: RecordStationPass,
@@ -936,7 +901,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
           deleting,
           judging,
           scoring,
-          grading,
           recordingUsage,
           remembering,
           passing,

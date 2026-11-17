@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  CLAIM_ANSWERS,
   comparisonStats,
   confusionCellNote,
   confusionNote,
   formatCalibration,
-  formatClaimsMet,
   formatHunk,
   formatJudgeOutcome,
   formatVerdict,
@@ -52,17 +50,9 @@ describe('judge', () => {
     expect(formatJudgeOutcome(false)).toBe('Failed by the judge');
   });
 
-  it('shows a verdict in the past tense, and the claims met apart', () => {
+  it('shows a verdict in the past tense', () => {
     expect(formatVerdict({ passes: false })).toBe('Failed');
     expect(formatVerdict({ passes: true })).toBe('Passed');
-    expect(formatClaimsMet([true, false, true])).toBe('2 of 3 claims met');
-  });
-
-  it('offers yes or no for each claim', () => {
-    expect(CLAIM_ANSWERS.map((each) => [each.label, each.met])).toEqual([
-      ['Yes', true],
-      ['No', false],
-    ]);
   });
 
   it('says why a judge’s verdicts are hidden', () => {

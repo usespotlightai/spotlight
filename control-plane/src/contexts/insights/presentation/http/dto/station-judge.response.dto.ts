@@ -6,7 +6,6 @@ import type {
 } from '@insights/application/dto/read-model.dto';
 import type {
   AgreementDto,
-  ClaimAgreementDto,
   ClaimsSourceDto,
   ClaimsSourcePullRequestDto,
   ConfusionDto,
@@ -124,45 +123,6 @@ export class StationJudgeSettingsResponseDto {
   }
 }
 
-export class ClaimAgreementResponseDto {
-  @ApiProperty({ example: 0, description: 'The claim’s place, from 0' })
-  readonly index: number;
-
-  @ApiProperty({
-    example: 12,
-    description: 'Runs where both the judge and people marked this claim',
-  })
-  readonly pairs: number;
-
-  @ApiProperty({ nullable: true, type: Number, example: 0.9 })
-  readonly observed: number | null;
-
-  @ApiProperty({ nullable: true, type: Number, example: 0.74 })
-  readonly kappa: number | null;
-
-  @ApiProperty({
-    enum: [...KAPPA_READINGS, null],
-    nullable: true,
-    description:
-      'How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa',
-  })
-  readonly reading: string | null;
-
-  @ApiProperty({
-    description: 'Whether the claim’s kappa is below the minimum agreement',
-  })
-  readonly belowMinimum: boolean;
-
-  constructor(agreement: ClaimAgreementDto) {
-    this.index = agreement.index;
-    this.pairs = agreement.pairs;
-    this.observed = agreement.observed;
-    this.kappa = agreement.kappa;
-    this.reading = agreement.reading;
-    this.belowMinimum = agreement.belowMinimum;
-  }
-}
-
 export class AgreementResponseDto {
   @ApiProperty({ example: 24 })
   readonly pairs: number;
@@ -227,14 +187,6 @@ export class AgreementResponseDto {
   })
   readonly f1: number | null;
 
-  @ApiProperty({
-    type: ClaimAgreementResponseDto,
-    isArray: true,
-    description:
-      'How often the judge agrees with people on each claim, from grades only; it does not decide whether the judge is qualified',
-  })
-  readonly claims: readonly ClaimAgreementResponseDto[];
-
   constructor(agreement: AgreementDto) {
     this.pairs = agreement.pairs;
     this.measured = agreement.measured;
@@ -246,9 +198,6 @@ export class AgreementResponseDto {
     this.kappa = agreement.kappa;
     this.reading = agreement.reading;
     this.f1 = agreement.f1;
-    this.claims = agreement.claims.map(
-      (each) => new ClaimAgreementResponseDto(each),
-    );
   }
 }
 

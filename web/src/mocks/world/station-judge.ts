@@ -82,7 +82,6 @@ const JUDGE_SHAPES = [
   'few',
   'healthy',
   'poor',
-  'claims',
   'versions',
 ] as const;
 
@@ -99,7 +98,6 @@ type ShapedAgreement = {
   readonly headline: number;
   readonly reading: NonNullable<Agreement['reading']>;
   readonly f1: number;
-  readonly claims?: Agreement['claims'];
   readonly days: number;
 };
 
@@ -143,42 +141,17 @@ const SHAPES: Record<
     f1: 28 / 44,
     days: 10,
   },
-  claims: {
-    cells: [
-      [9, 3],
-      [2, 22],
-    ],
-    headline: 0.65,
-    reading: 'substantial',
-    f1: 44 / 49,
-    claims: [
-      {
-        index: 0,
-        pairs: 18,
-        observed: 17 / 18,
-        kappa: 0.82,
-        reading: 'almost-perfect',
-        belowMinimum: false,
-      },
-      {
-        index: 1,
-        pairs: 18,
-        observed: 16 / 18,
-        kappa: 0.71,
-        reading: 'substantial',
-        belowMinimum: false,
-      },
-      {
-        index: 2,
-        pairs: 18,
-        observed: 13 / 18,
-        kappa: 0.38,
-        reading: 'fair',
-        belowMinimum: true,
-      },
-    ],
-    days: 11,
-  },
+};
+
+const CURRENT_SHAPE: ShapedAgreement = {
+  cells: [
+    [9, 3],
+    [2, 22],
+  ],
+  headline: 0.65,
+  reading: 'substantial',
+  f1: 44 / 49,
+  days: 11,
 };
 
 const sum = (values: readonly number[]): number =>
@@ -206,7 +179,6 @@ const shapedVersion = (
       kappa: shaped.headline,
       reading: shaped.reading,
       f1: shaped.f1,
-      claims: [...(shaped.claims ?? [])],
     },
     confusion: {
       labels: [...VERDICTS],
@@ -248,7 +220,7 @@ const earlierVersion = (
 });
 
 const versionsOf = (minAgreement: number): Version[] => [
-  { ...shapedVersion(SHAPES.claims, minAgreement), source: MERGED_SOURCE },
+  { ...shapedVersion(CURRENT_SHAPE, minAgreement), source: MERGED_SOURCE },
   earlierVersion(
     SHAPES.poor,
     minAgreement,
@@ -281,7 +253,6 @@ const JUDGED_VERSIONS: StationJudgeAgreementResponseDto['versions'] = [
       kappa: 0.63,
       reading: 'substantial',
       f1: 7 / 8,
-      claims: [],
     },
     confusion: {
       labels: [...VERDICTS],
@@ -322,7 +293,6 @@ const JUDGED_VERSIONS: StationJudgeAgreementResponseDto['versions'] = [
       kappa: null,
       reading: null,
       f1: null,
-      claims: [],
     },
     confusion: {
       labels: [...VERDICTS],
@@ -419,7 +389,7 @@ export const stationJudge = (
   const { shape } = judgeShape();
 
   if (shape !== 'seeded' && shape !== 'unjudged') {
-    const shaped = SHAPES[shape === 'versions' ? 'claims' : shape];
+    const shaped = shape === 'versions' ? CURRENT_SHAPE : SHAPES[shape];
     const versions =
       shape === 'versions'
         ? versionsOf(judge.minAgreement)

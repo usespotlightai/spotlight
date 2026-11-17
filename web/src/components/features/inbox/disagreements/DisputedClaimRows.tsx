@@ -5,15 +5,12 @@ import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
 import { NumberedClaim } from '@/components/features/runs/judge/NumberedClaim';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { type ClaimGrade, JUDGE_LABEL, type JudgeReason } from '@/lib/judge';
+import { JUDGE_LABEL, type JudgeReason } from '@/lib/judge';
 import { CLAIM_LABEL, type DisagreementClaim } from '@/lib/judge-disagreement';
-import { cn } from '@/lib/utils';
 
 type DisputedClaimRowsProps = {
   claim: DisagreementClaim;
   reasons: readonly JudgeReason[];
-  grade: ClaimGrade | null;
-  graded: boolean;
   loading: boolean;
   textId?: string;
   children?: ReactNode;
@@ -22,14 +19,10 @@ type DisputedClaimRowsProps = {
 export function DisputedClaimRows({
   claim,
   reasons,
-  grade,
-  graded,
   loading,
   textId,
   children,
 }: DisputedClaimRowsProps) {
-  const mark = grade?.marks[claim.index];
-
   return (
     <dl>
       <FactRow wide>
@@ -40,26 +33,6 @@ export function DisputedClaimRows({
           </NumberedClaim>
         </dd>
       </FactRow>
-
-      {loading && graded && (
-        <FactRow wide>
-          <dt aria-hidden className={FACT_LABEL}>
-            <SkeletonLine className="w-10" />
-          </dt>
-          <dd aria-hidden className={FACT_VALUE}>
-            <SkeletonLine className="w-14" />
-          </dd>
-        </FactRow>
-      )}
-
-      {grade && mark !== undefined && (
-        <FactRow wide>
-          <dt className={cn(FACT_LABEL, 'truncate')}>{grade.grader}</dt>
-          <dd className={cn(FACT_VALUE, 'flex')}>
-            <ClaimMarkText met={mark} />
-          </dd>
-        </FactRow>
-      )}
 
       <FactRow wide>
         <dt className={FACT_LABEL}>{JUDGE_LABEL}</dt>

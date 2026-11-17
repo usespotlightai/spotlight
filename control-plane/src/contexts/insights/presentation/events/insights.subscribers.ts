@@ -1,6 +1,5 @@
 import type { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import type { DeleteInsights } from '@insights/application/services/delete-insights.service';
-import type { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
 import type { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import type { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import type { RecordChat } from '@insights/application/services/record-chat.service';
@@ -20,7 +19,6 @@ import type { PullRequestRecordClosed } from '@insights/domain/events/pull-reque
 import type { RunJudged } from '@insights/domain/events/run-judged.event';
 import type { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import type { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
-import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import type { StationAlertFired } from '@insights/domain/events/station-alert-fired.event';
 import type { StationAlertReopened } from '@insights/domain/events/station-alert-reopened.event';
 import type { StationAlertResolved } from '@insights/domain/events/station-alert-resolved.event';
@@ -125,7 +123,6 @@ export interface InsightsHandlers {
   readonly deleting: DeleteInsights;
   readonly judging: RequestJudging;
   readonly scoring: RecordJudgeScore;
-  readonly grading: GradeInboxRequests;
   readonly recordingUsage: RecordRunUsageSummary;
   readonly remembering: RecordRunMemories;
   readonly passing: RecordStationPass;
@@ -265,11 +262,6 @@ export const insightsSubscribers = (
     'insights.record-judge-score',
     ['judging.judged'],
     (event) => handlers.scoring.judged(event),
-  ),
-  subscribing<ScoreRecorded>(
-    'insights.ask-or-resolve-grade',
-    ['score.recorded'],
-    (event) => handlers.grading.recorded(event),
   ),
   subscribing<RunRecordEnded>(
     'insights.watch-station-after-run',

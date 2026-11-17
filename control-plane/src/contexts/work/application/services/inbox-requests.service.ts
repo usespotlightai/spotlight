@@ -17,7 +17,6 @@ import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-su
 
 const FORMS: Readonly<Record<InboxRequestFormName, InboxRequestForm>> = {
   memories: 'memories',
-  grade: 'grade',
   alert: 'alert',
   'judge-disagreement': 'judge-disagreement',
 };

@@ -1,12 +1,7 @@
-import {
-  hasFreeLabel,
-  type HumanLabel,
-  humanLabelOf,
-} from '@insights/domain/services/human-label';
+import { humanLabelOf } from '@insights/domain/services/human-label';
 import {
   type Agreement,
   agreementOf,
-  type ClaimsPair,
   type Coverage,
   coverageOf,
   type TrendPoint,
@@ -42,45 +37,24 @@ export interface CurrentJudge {
   readonly minAgreement: number;
 }
 
-interface Labelling {
-  readonly facts: ReadonlyMap<string, RunFact>;
-  readonly grades: ReadonlyMap<string, readonly Scored[]>;
-}
-
-const humanFor = (
-  runId: string,
-  rubricVersion: string,
-  labelling: Labelling,
-): HumanLabel | null =>
-  humanLabelOf({
-    rubricVersion,
-    fact: labelling.facts.get(runId) ?? null,
-    grades: labelling.grades.get(runId) ?? [],
-  });
-
 const reportOf = (
   rubricVersion: string,
   judged: readonly Scored[],
-  labelling: Labelling,
+  facts: ReadonlyMap<string, RunFact>,
 ): RubricReport => {
   const humans = judged.map((score) => ({
     score,
-    label: humanFor(score.runId.value, rubricVersion, labelling),
+    label: humanLabelOf(facts.get(score.runId.value) ?? null),
   }));
   const verdicts: VerdictPair[] = humans.flatMap(({ score, label }) =>
     label ? [{ judge: score.passes, human: label.passes }] : [],
-  );
-  const claims: ClaimsPair[] = humans.flatMap(({ score, label }) =>
-    label?.claimResults
-      ? [{ judge: score.claimResults, human: label.claimResults }]
-      : [],
   );
   const times = judged.map((each) => each.at.getTime());
 
   return {
     rubricVersion,
     judged: judged.length,
-    agreement: agreementOf(verdicts, claims),
+    agreement: agreementOf(verdicts),
     trend: trendOf(
       humans.map(({ score, label }) => ({
         at: score.at,
@@ -109,45 +83,24 @@ const grouped = <T>(
 
 export const judgeReportOf = (input: {
   judged: readonly Scored[];
-  grades: readonly Scored[];
   facts: readonly RunFact[];
   covering: readonly RunFact[];
 }): JudgeReport => {
-  const labelling: Labelling = {
-    facts: new Map(input.facts.map((each) => [each.runId.value, each])),
-    grades: grouped(
-      input.grades.filter((each) => !each.fromJudge),
-      (each) => each.runId.value,
-    ),
-  };
-  const judgedFromJudge = input.judged.filter((each) => each.fromJudge);
-  const versions = [
-    ...grouped(judgedFromJudge, (each) => each.rubricVersion ?? ''),
-  ]
-    .map(([rubricVersion, judged]) =>
-      reportOf(rubricVersion, judged, labelling),
-    )
+  const facts = new Map(input.facts.map((each) => [each.runId.value, each]));
+  const versions = [...grouped(input.judged, (each) => each.rubricVersion)]
+    .map(([rubricVersion, judged]) => reportOf(rubricVersion, judged, facts))
     .sort((one, other) => other.lastAt.getTime() - one.lastAt.getTime());
-  const judgedRuns = grouped(judgedFromJudge, (each) => each.runId.value);
+  const judgedRuns = new Set(input.judged.map((each) => each.runId.value));
 
   return {
     versions,
     coverage: coverageOf(
       input.covering
         .filter((each) => each.ran)
-        .map((fact) => {
-          const judged = judgedRuns.get(fact.runId.value) ?? [];
-          const rubricVersion = judged[0]?.rubricVersion ?? null;
-
-          return {
-            judged: judged.length > 0,
-            labelled:
-              rubricVersion === null
-                ? hasFreeLabel(fact) ||
-                  (labelling.grades.get(fact.runId.value) ?? []).length > 0
-                : humanFor(fact.runId.value, rubricVersion, labelling) !== null,
-          };
-        }),
+        .map((fact) => ({
+          judged: judgedRuns.has(fact.runId.value),
+          labelled: humanLabelOf(fact) !== null,
+        })),
     ),
   };
 };
@@ -169,6 +122,6 @@ export const calibrationIn = (
 
   return calibrationOf({
     minAgreement: current.minAgreement,
-    agreement: version?.agreement ?? agreementOf([], []),
+    agreement: version?.agreement ?? agreementOf([]),
   });
 };

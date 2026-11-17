@@ -1,5 +1,4 @@
 import type {
-  GradeResponseDto,
   JudgeCalibrationResponseDto,
   JudgeScoreResponseDto,
   StationAlertFiringResponseDto,
@@ -28,7 +27,6 @@ import {
   type HistoryRun,
   isLastCompletedVisit,
 } from '@/mocks/world/insights-history';
-import { MAYA, SAM } from '@/mocks/world/people';
 import { PLATFORM_LINES } from '@/mocks/world/platform';
 import { storyOf } from '@/mocks/world/run-stories';
 import {
@@ -138,24 +136,9 @@ const citedMessage = (runId: string) => {
 const lastStepIndexOf = (runId: string, text: string): number =>
   (RUN_STORIES[runId]?.steps ?? []).findLastIndex((step) => step.text === text);
 
-const graded = (
-  runId: string,
-  by: typeof SAM,
-  claimResults: readonly boolean[],
-): GradeResponseDto => ({
-  by: by.id,
-  mine: by.id === SAM.id,
-  ...scoreOf(claimResults),
-  at: minutesAfter(runEnded(runId), 90),
-});
-
-const JUDGED: Record<
-  string,
-  Pick<RunScores, 'judge' | 'grades' | 'outcome'>
-> = {
+const JUDGED: Record<string, Pick<RunScores, 'judge' | 'outcome'>> = {
   run_postgres_2: {
-    grades: [graded('run_postgres_2', SAM, [false, true, true])],
-    outcome: { source: 'grade', passes: false },
+    outcome: { source: 'sent-back', passes: false },
     judge: verdict(
       'run_postgres_2',
       [true, true, true],
@@ -192,8 +175,7 @@ const JUDGED: Record<
     ),
   },
   run_search_2: {
-    grades: [graded('run_search_2', SAM, [true, true, true])],
-    outcome: { source: 'grade', passes: true },
+    outcome: { source: 'accepted', passes: true },
     judge: verdict(
       'run_search_2',
       [true, true, false],
@@ -223,8 +205,7 @@ const JUDGED: Record<
     ),
   },
   run_billing_1: {
-    grades: [graded('run_billing_1', MAYA, [false, false, true])],
-    outcome: { source: 'grade', passes: false },
+    outcome: { source: 'sent-back', passes: false },
     judge: verdict(
       'run_billing_1',
       [false, false, true],
@@ -275,9 +256,9 @@ const calibrationOf = (stationId: string): JudgeCalibrationResponseDto => {
 const scoresOf = (runId: string): RunScores => {
   const stationId = stationOfRun(runId);
   const taskId = taskOfSeededRun(runId);
-  const claims = judgeOf(stationId)?.claims ?? [];
   const found = JUDGED[runId];
   const judge = found?.judge ?? null;
+  const claims = judge ? (judgeOf(stationId)?.claims ?? []) : [];
   const outcome = found?.outcome ?? null;
   const calibration = calibrationOf(stationId);
 
@@ -285,13 +266,10 @@ const scoresOf = (runId: string): RunScores => {
     runId,
     taskId,
     stationId,
-    gradable: claims.length > 0,
     claims,
-    earlierClaims: false,
     judged: judge !== null,
     judge,
     calibration,
-    grades: found?.grades ?? [],
     outcome,
     agrees: agreesOf(judge, outcome, calibration),
   };
@@ -327,7 +305,6 @@ export const withCitationsGone = (scores: RunScores): RunScores =>
 
 export const withoutPeople = (scores: RunScores): RunScores => ({
   ...scores,
-  grades: [],
   outcome: null,
   agrees: null,
 });
@@ -477,16 +454,13 @@ export const pastScoresOf = (run: HistoryRun): RunScores => {
     runId: run.runId,
     taskId: run.taskId,
     stationId: run.stationId,
-    gradable: judge !== null,
     claims: judge
       ? (judgeOf(run.stationId)?.claims.slice(0, judge.claimResults.length) ??
         [])
       : [],
-    earlierClaims: judge !== null && earlier,
     judged: judge !== null,
     judge,
     calibration,
-    grades: [],
     outcome,
     agrees: agreesOf(judge, outcome, calibration),
   };

@@ -22,7 +22,6 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const RUBRIC_VERSION = RubricVersion.of('c'.repeat(64));
 export const NEXT_RUBRIC_VERSION = RubricVersion.of('d'.repeat(64));
@@ -101,30 +100,6 @@ export const judgeScore = (
     origin: change.origin,
   });
 
-export const personGrade = (
-  runId: string,
-  claimResults: readonly boolean[],
-  change: {
-    by?: string;
-    at?: Date;
-    taskId?: string;
-    rubricVersion?: string;
-    passThreshold?: number;
-  } = {},
-): Score =>
-  Score.grade({
-    id: ScoreId.of(`grade_${runId}_${change.by ?? 'user_ada'}`),
-    runId: RunId.of(runId),
-    workspaceId: WORKSPACE,
-    location: locationOf(change.taskId ?? `task_${runId}`),
-    fingerprint: FIRST_CONFIG,
-    claimResults,
-    passThreshold: change.passThreshold ?? 1,
-    rubricVersion: change.rubricVersion ?? RUBRIC_VERSION,
-    by: UserId.of(change.by ?? 'user_ada'),
-    at: change.at ?? new Date('2026-09-30T11:00:00.000Z'),
-  });
-
 export class JudgingsInMemory implements JudgingRepository {
   readonly stored = new Map<string, Judging>();
   readonly events: DomainEvent[] = [];
@@ -200,10 +175,7 @@ export class ScoresInMemory implements ScoreRepository {
     const twin = [...this.stored.values()].find(
       (each) =>
         each.runId.equals(score.runId) &&
-        each.source === score.source &&
-        (score.fromJudge
-          ? each.rubricVersion === score.rubricVersion
-          : each.by?.value === score.by?.value),
+        each.rubricVersion === score.rubricVersion,
     );
 
     if (this.stored.has(score.id.value) || twin) {
@@ -232,7 +204,6 @@ export class ScoresInMemory implements ScoreRepository {
         workspaceId: score.workspaceId,
         location: score.location,
         fingerprint: score.fingerprint,
-        source: score.source,
         origin: score.origin,
         claimResults: score.claimResults,
         passThreshold: score.passThreshold,
@@ -240,7 +211,6 @@ export class ScoresInMemory implements ScoreRepository {
         model: score.model,
         reasons: score.reasons,
         seen: score.seen,
-        by: score.by,
         at: score.at,
         version: score.version + 1,
       }),
@@ -254,20 +224,7 @@ export class ScoresInMemory implements ScoreRepository {
     return (
       [...this.stored.values()].find(
         (each) =>
-          each.fromJudge &&
-          each.runId.equals(runId) &&
-          each.rubricVersion === rubricVersion,
-      ) ?? null
-    );
-  }
-
-  async gradeBy(runId: RunId, by: UserId): Promise<Score | null> {
-    return (
-      [...this.stored.values()].find(
-        (each) =>
-          !each.fromJudge &&
-          each.runId.equals(runId) &&
-          each.by?.equals(by) === true,
+          each.runId.equals(runId) && each.rubricVersion === rubricVersion,
       ) ?? null
     );
   }

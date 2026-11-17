@@ -59,7 +59,6 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
         kappa: 0.71,
         reading: 'substantial',
         f1: 30 / 33,
-        claims: [],
       },
       confusion: {
         labels: ['fails', 'passes'],
@@ -100,7 +99,6 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
         kappa: null,
         reading: null,
         f1: null,
-        claims: [],
       },
       confusion: {
         labels: ['fails', 'passes'],

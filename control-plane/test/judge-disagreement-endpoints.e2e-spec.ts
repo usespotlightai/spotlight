@@ -44,7 +44,7 @@ const opened = async (claimResults: readonly boolean[]): Promise<string> => {
         passes,
         reasons: claimResults.map((_, at) => reasonOf(`Claim ${at}.`, at)),
       },
-      label: { passes: !passes, claimResults: null, from: 'accepted' },
+      label: { from: passes ? 'sent-back' : 'accepted' },
       askedOf: null,
       now: new Date(),
     }),

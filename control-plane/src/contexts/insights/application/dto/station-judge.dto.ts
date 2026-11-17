@@ -17,15 +17,6 @@ import {
 } from '@insights/domain/services/judge-calibration';
 import type { RubricReport } from '@insights/domain/services/judge-report';
 
-export interface ClaimAgreementDto {
-  readonly index: number;
-  readonly pairs: number;
-  readonly observed: number | null;
-  readonly kappa: number | null;
-  readonly reading: KappaReading | null;
-  readonly belowMinimum: boolean;
-}
-
 export interface AgreementDto {
   readonly pairs: number;
   readonly measured: boolean;
@@ -37,7 +28,6 @@ export interface AgreementDto {
   readonly kappa: number | null;
   readonly reading: KappaReading | null;
   readonly f1: number | null;
-  readonly claims: readonly ClaimAgreementDto[];
 }
 
 export interface ScoreCountDto {
@@ -141,10 +131,6 @@ export const rubricVersionOf = (
     kappa: report.agreement.kappa,
     reading: report.agreement.reading,
     f1: report.agreement.f1,
-    claims: report.agreement.claims.map((each) => ({
-      ...each,
-      belowMinimum: belowMinimumOf(each.kappa, calibration.minAgreement),
-    })),
   },
   confusion: {
     labels: report.agreement.confusion.values.map(labelOf),

@@ -21,17 +21,12 @@ import { describe, expect, it } from 'vitest';
 
 const ANSWERED_AT = new Date('2026-10-02T10:00:00.000Z');
 
-const disagreeing = async (
-  personPasses = true,
-  askedOf?: UserId,
-  grade?: readonly boolean[],
-) => {
+const disagreeing = async (personPasses = true, askedOf?: UserId) => {
   const disagreements = new JudgeDisagreementsInMemory();
   await disagreements.add(
     openDisagreement('run_1', {
       personPasses,
       claimResults: personPasses ? [true, false, false] : [true, true, true],
-      labelClaims: grade,
       askedOf,
     }),
   );
@@ -191,23 +186,6 @@ describe('answering a judge disagreement', () => {
       note: 'It broke the build.',
       answeredBy: 'user_ada',
       answeredAt: ANSWERED_AT.toISOString(),
-    });
-  });
-
-  it('disputes the claims a grade marked otherwise than the judge, and keeps an answer for each', async () => {
-    const run = await disagreeing(false, undefined, [true, false, true]);
-
-    expect((await run.read()).disputedClaims).toEqual([1]);
-
-    await run.answer(1, 'claim-wrong');
-
-    expect(await run.read()).toMatchObject({
-      state: 'answered',
-      answers: [{ claim: 1, answer: 'claim-wrong', note: null }],
-      notMet: null,
-    });
-    await expect(run.notMet('It broke.')).rejects.toMatchObject({
-      kind: 'invalid',
     });
   });
 

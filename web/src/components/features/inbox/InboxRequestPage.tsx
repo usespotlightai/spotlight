@@ -1,6 +1,5 @@
 import { StationAlertCard } from '@/components/features/inbox/alerts/StationAlertCard';
 import { JudgeDisagreementThread } from '@/components/features/inbox/disagreements/JudgeDisagreementThread';
-import { GradeThread } from '@/components/features/inbox/grades/GradeThread';
 import { InboxDetailLayout } from '@/components/features/inbox/InboxDetailLayout';
 import { MemoryThread } from '@/components/features/inbox/memories/MemoryThread';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
@@ -43,23 +42,11 @@ export function InboxRequestPage({
     );
   }
 
-  if (inboxRequest.form === 'judge-disagreement') {
-    return (
-      <JudgeDisagreementThread
-        slug={slug}
-        teamId={item.teamId}
-        disagreementId={inboxRequest.about}
-        trail={trail}
-      />
-    );
-  }
-
   return (
-    <GradeThread
+    <JudgeDisagreementThread
       slug={slug}
       teamId={item.teamId}
-      taskId={item.taskId}
-      runId={inboxRequest.about}
+      disagreementId={inboxRequest.about}
       trail={trail}
     />
   );

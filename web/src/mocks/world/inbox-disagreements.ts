@@ -45,18 +45,12 @@ const claimsOf = (scores: RunScores): JudgeDisagreementResponseDto['claims'] =>
       })),
   }));
 
-const disputedOf = (scores: RunScores, labelFrom: string): number[] => {
-  const judged = scores.judge?.claimResults ?? [];
-  const graded = scores.grades[0]?.claimResults;
-
-  if (labelFrom === 'grade' && graded?.length === judged.length) {
-    return judged.flatMap((met, at) => (met === graded[at] ? [] : [at]));
-  }
-
-  return scores.judge?.passes
+const disputedOf = (scores: RunScores): number[] =>
+  scores.judge?.passes
     ? []
-    : judged.flatMap((met, at) => (met ? [] : [at]));
-};
+    : (scores.judge?.claimResults ?? []).flatMap((met, at) =>
+        met ? [] : [at],
+      );
 
 const disagreementFrom = (
   id: string,
@@ -70,7 +64,10 @@ const disagreementFrom = (
     return null;
   }
 
-  const labelFrom = over.labelFrom ?? scores.outcome?.source ?? 'grade';
+  const labelFrom =
+    over.labelFrom ??
+    scores.outcome?.source ??
+    (judge.passes ? 'sent-back' : 'accepted');
 
   return {
     id,
@@ -83,7 +80,7 @@ const disagreementFrom = (
     labelFrom,
     openedAt,
     claims: claimsOf(scores),
-    disputedClaims: disputedOf(scores, labelFrom),
+    disputedClaims: disputedOf(scores),
     state: 'open',
     askedOf: SAM.id,
     answers: [],

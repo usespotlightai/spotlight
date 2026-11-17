@@ -9,10 +9,6 @@ import {
   LIVE,
   type ScoreOrigin,
 } from '@insights/domain/value-objects/score-origin';
-import {
-  fromJudgeSource,
-  type ScoreSource,
-} from '@insights/domain/value-objects/score-source';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import {
@@ -21,7 +17,6 @@ import {
   passesAt,
 } from '@shared-kernel/domain/value-objects/claim-share';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const MAX_SEEN_CHARS = 64_000;
@@ -32,15 +27,13 @@ interface ScoreFields {
   readonly workspaceId: WorkspaceId;
   readonly location: RunLocation;
   readonly fingerprint: string | null;
-  readonly source: ScoreSource;
   readonly origin: ScoreOrigin;
   readonly claimResults: readonly boolean[];
   readonly passThreshold: number;
   readonly rubricVersion: string;
-  readonly model: string | null;
+  readonly model: string;
   readonly reasons: readonly JudgeReason[];
   readonly seen: SeenEvidence;
-  readonly by: UserId | null;
   readonly at: Date;
   readonly version: number;
 }
@@ -76,36 +69,18 @@ const checked = (fields: ScoreFields): ScoreState => {
     throw new InvalidScoreError('pass threshold must be above 0, up to 1');
   }
 
-  if (state.source === 'judge') {
-    if (!state.model?.trim()) {
-      throw new InvalidScoreError('from the judge must name its model');
-    }
-    if (
-      state.reasons.length === 0 ||
-      state.by !== null ||
-      !reasonsMarkEachClaim(state)
-    ) {
-      throw new InvalidScoreError(
-        'from the judge must give a reason for each claim and no grader',
-      );
-    }
-    if (
-      state.seen.size > MAX_SEEN_CHARS ||
-      !state.seen.onlyCitedBy(state.reasons.flatMap((each) => each.citations))
-    ) {
-      throw new InvalidScoreError(
-        `from the judge must store at most ${MAX_SEEN_CHARS} characters of cited evidence`,
-      );
-    }
-  } else if (
-    state.by === null ||
-    state.origin !== LIVE ||
-    state.model !== null ||
-    state.reasons.length > 0 ||
-    !state.seen.isEmpty
+  if (!state.model.trim()) {
+    throw new InvalidScoreError('must name its model');
+  }
+  if (state.reasons.length === 0 || !reasonsMarkEachClaim(state)) {
+    throw new InvalidScoreError('must give a reason for each claim');
+  }
+  if (
+    state.seen.size > MAX_SEEN_CHARS ||
+    !state.seen.onlyCitedBy(state.reasons.flatMap((each) => each.citations))
   ) {
     throw new InvalidScoreError(
-      'from a person must name its grader, without model, reasons or backfill',
+      `must store at most ${MAX_SEEN_CHARS} characters of cited evidence`,
     );
   }
 
@@ -141,9 +116,7 @@ export class Score extends EventRecorder {
         seen: input.seen
           .citedBy(input.reasons.flatMap((each) => each.citations))
           .within(MAX_SEEN_CHARS),
-        source: 'judge',
         origin,
-        by: null,
         version: 0,
       }),
     );
@@ -153,47 +126,10 @@ export class Score extends EventRecorder {
         input.runId,
         input.workspaceId,
         input.location,
-        'judge',
         origin,
       ),
     );
     return judged;
-  }
-
-  static grade(input: {
-    id: ScoreId;
-    runId: RunId;
-    workspaceId: WorkspaceId;
-    location: RunLocation;
-    fingerprint: string | null;
-    claimResults: readonly boolean[];
-    passThreshold: number;
-    rubricVersion: string;
-    by: UserId;
-    at: Date;
-  }): Score {
-    const graded = new Score(
-      checked({
-        ...input,
-        source: 'person',
-        origin: LIVE,
-        model: null,
-        reasons: [],
-        seen: SeenEvidence.none(),
-        version: 0,
-      }),
-    );
-    graded.record(
-      new ScoreRecorded(
-        input.id,
-        input.runId,
-        input.workspaceId,
-        input.location,
-        'person',
-        LIVE,
-      ),
-    );
-    return graded;
   }
 
   static rehydrate(state: ScoreFields): Score {
@@ -220,10 +156,6 @@ export class Score extends EventRecorder {
     return this.state.fingerprint;
   }
 
-  get source(): ScoreSource {
-    return this.state.source;
-  }
-
   get origin(): ScoreOrigin {
     return this.state.origin;
   }
@@ -248,7 +180,7 @@ export class Score extends EventRecorder {
     return this.state.rubricVersion;
   }
 
-  get model(): string | null {
+  get model(): string {
     return this.state.model;
   }
 
@@ -260,54 +192,12 @@ export class Score extends EventRecorder {
     return this.state.seen;
   }
 
-  get by(): UserId | null {
-    return this.state.by;
-  }
-
   get at(): Date {
     return this.state.at;
   }
 
   get version(): number {
     return this.state.version;
-  }
-
-  get fromJudge(): boolean {
-    return fromJudgeSource(this.state.source);
-  }
-
-  regrade(input: {
-    claimResults: readonly boolean[];
-    passThreshold: number;
-    rubricVersion: string;
-    at: Date;
-  }): Score {
-    if (this.fromJudge) {
-      throw new InvalidScoreError('from the judge cannot be graded again');
-    }
-
-    if (
-      this.state.passThreshold === input.passThreshold &&
-      JSON.stringify(this.state.claimResults) ===
-        JSON.stringify(input.claimResults) &&
-      this.state.rubricVersion === input.rubricVersion
-    ) {
-      return this;
-    }
-
-    const regraded = new Score(checked({ ...this.state, ...input }));
-    regraded.inheritEvents(this);
-    regraded.record(
-      new ScoreRecorded(
-        this.id,
-        this.runId,
-        this.workspaceId,
-        this.location,
-        'person',
-        LIVE,
-      ),
-    );
-    return regraded;
   }
 
   get isDeleted(): boolean {

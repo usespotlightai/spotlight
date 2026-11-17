@@ -1,7 +1,6 @@
 import { GraduationCap } from 'lucide-react';
 import { useState } from 'react';
 
-import { ClaimAgreements } from '@/components/features/stations/judge/ClaimAgreements';
 import { ConfusionMatrix } from '@/components/features/stations/judge/ConfusionMatrix';
 import { JudgeAgreementSkeleton } from '@/components/features/stations/judge/JudgeAgreementSkeleton';
 import { JudgeCoverageBar } from '@/components/features/stations/judge/JudgeCoverage';
@@ -22,7 +21,6 @@ import { MenuPicker } from '@/components/shared/MenuPicker';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
 import { notFound } from '@/lib/error';
 import {
-  CLAIMS_TITLE,
   CONFUSION_TITLE,
   COVERAGE_NOTE,
   comparisonStats,
@@ -31,7 +29,6 @@ import {
   formatRubric,
   pairsStat,
   type RubricVersion,
-  type StationJudgeAgreement,
   scoreVisibility,
   TREND_CAPTION,
   TREND_TITLE,
@@ -82,7 +79,7 @@ export function JudgeAgreement({
     );
   }
 
-  const { calibration, versions, coverage, judge } = query.data;
+  const { calibration, versions, coverage } = query.data;
   const shown =
     versions.find((version) => version.rubricVersion === picked) ??
     versions.find((version) => version.current) ??
@@ -146,11 +143,7 @@ export function JudgeAgreement({
               />
             </TabSection>
           )}
-          <AgreementDetails
-            shown={shown}
-            judge={judge}
-            minAgreement={calibration.minAgreement}
-          />
+          <AgreementDetails shown={shown} />
           <TabSection
             level={3}
             title={coverageTitle(coverage)}
@@ -164,31 +157,11 @@ export function JudgeAgreement({
   );
 }
 
-type AgreementDetailsProps = {
-  shown: RubricVersion;
-  judge: StationJudgeAgreement['judge'];
-  minAgreement: number | null;
-};
-
-function AgreementDetails({
-  shown,
-  judge,
-  minAgreement,
-}: AgreementDetailsProps) {
+function AgreementDetails({ shown }: { shown: RubricVersion }) {
   const { agreement } = shown;
 
   return (
     <>
-      {agreement.claims.length > 0 && (
-        <TabSection level={3} title={CLAIMS_TITLE}>
-          <ClaimAgreements
-            agreements={agreement.claims}
-            claims={shown.current && judge ? judge.claims : []}
-            minAgreement={minAgreement}
-          />
-        </TabSection>
-      )}
-
       {agreement.pairs > 0 && (
         <div className={DETAILS_GRID}>
           <TabSection

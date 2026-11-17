@@ -1,7 +1,5 @@
 import {
-  GRADING_RATE,
   judgesRunThatEnded,
-  sampledForGrading,
   sampledForJudging,
 } from '@insights/domain/services/judge-sampling';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -34,13 +32,6 @@ describe('judge sampling', () => {
         .filter((each) => sampledForJudging(each, 0.2))
         .every((each) => sampledForJudging(each, 0.5)),
     ).toBe(true);
-  });
-
-  it('asks people to grade a fixed share of judged runs, picked apart from judging', () => {
-    expect(shareOf(sampledForGrading)).toBeCloseTo(GRADING_RATE, 1);
-    expect(runs.filter(sampledForGrading)).not.toEqual(
-      runs.filter((each) => sampledForJudging(each, GRADING_RATE)),
-    );
   });
 
   it.each([
