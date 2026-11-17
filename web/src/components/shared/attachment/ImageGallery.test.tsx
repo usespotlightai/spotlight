@@ -44,6 +44,11 @@ const openAt = async (name: string) => {
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: `View ${name}` }));
   await view(name);
+  await vi.waitFor(() =>
+    expect(screen.getByRole('dialog')).toContainElement(
+      document.activeElement as HTMLElement,
+    ),
+  );
 
   return user;
 };
