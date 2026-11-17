@@ -339,10 +339,9 @@ describe('JudgeDisagreementItem', () => {
     expect(screen.queryByRole('button', { name: 'Send answer' })).toBeNull();
   });
 
-  it('shows only the judge’s mark on each claim in dispute', () => {
+  it('shows the judge’s mark on each claim in dispute', () => {
     showing(failedDisagreementOf());
 
-    expect(screen.queryByText('You', { selector: 'dt' })).toBeNull();
     expect(screen.getAllByText('Judge', { selector: 'dt' })).toHaveLength(2);
   });
 

@@ -217,10 +217,7 @@ export class ScoresInMemory implements ScoreRepository {
     );
   }
 
-  async judgeOf(
-    runId: RunId,
-    rubricVersion: RubricVersion,
-  ): Promise<Score | null> {
+  async of(runId: RunId, rubricVersion: RubricVersion): Promise<Score | null> {
     return (
       [...this.stored.values()].find(
         (each) =>

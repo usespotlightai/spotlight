@@ -104,7 +104,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
     });
   }
 
-  async judgeOf(
+  async of(
     runId: RunId,
     rubricVersion: RubricVersion,
   ): Promise<Score | null> {

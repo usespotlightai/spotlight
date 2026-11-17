@@ -24,7 +24,7 @@ export class RecordJudgeScore {
           teamId: location.teamId,
           taskId: location.taskId,
         }),
-        load: () => this.scores.judgeOf(event.runId, event.rubricVersion),
+        load: () => this.scores.of(event.runId, event.rubricVersion),
         deleted: (existing) => existing.delete(),
         created: () =>
           Score.judge({

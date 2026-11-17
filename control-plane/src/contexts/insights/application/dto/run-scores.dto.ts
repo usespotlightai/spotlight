@@ -1,6 +1,6 @@
 import type { JudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
-import type { LabelSource } from '@insights/domain/services/human-label';
 import type { CitationKind } from '@insights/domain/value-objects/citation.vo';
+import type { LabelSource } from '@insights/domain/value-objects/label-source';
 
 export interface CitedStepDto {
   readonly index: number;

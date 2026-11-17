@@ -14,6 +14,7 @@ import {
 } from '@insights/domain/services/human-label';
 import { visibleJudgeOf } from '@insights/domain/services/judge-verdict';
 import type { Citation } from '@insights/domain/value-objects/citation.vo';
+import { passesOn } from '@insights/domain/value-objects/label-source';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
@@ -123,7 +124,7 @@ export class RunScoresViews {
       judged: scores.length > 0,
       judge: judge ? judgeOf(judge) : null,
       calibration: judgeCalibrationOf(calibration),
-      outcome: label && { source: label.from, passes: label.passes },
+      outcome: label && { source: label.from, passes: passesOn(label.from) },
       agrees: judgeAgreesOf(judge, label),
     };
   }

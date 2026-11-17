@@ -6230,7 +6230,7 @@ export type RunScoresResponseDto = {
   taskId: string;
   stationId: string;
   /**
-   * The claims the judge marked on the run, in order; a claim reads null only where the claims the judge was given are no longer stored; empty where the judge did not check the run
+   * The claims of the judge score shown on the run, in order; a claim reads null only where the claims the judge was given are no longer stored; empty where no judge score is shown
    */
   claims: Array<string | null>;
   /**

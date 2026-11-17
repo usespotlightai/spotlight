@@ -338,27 +338,35 @@ describe('JudgeDisagreement', () => {
       claimResults: [true, false, false],
     });
     const { rubricVersion } = disagreement;
-    const label = (passes: boolean) => ({
-      from: passes ? ('accepted' as const) : ('sent-back' as const),
-    });
+    const labelFrom = (passes: boolean) =>
+      passes ? ('accepted' as const) : ('sent-back' as const);
 
     expect(
-      disagreement.noLongerHoldsBecause({ rubricVersion, label: label(true) }),
+      disagreement.noLongerHoldsBecause({
+        rubricVersion,
+        labelFrom: labelFrom(true),
+      }),
     ).toBeNull();
     expect(
-      disagreement.noLongerHoldsBecause({ rubricVersion, label: label(false) }),
+      disagreement.noLongerHoldsBecause({
+        rubricVersion,
+        labelFrom: labelFrom(false),
+      }),
     ).toBe('verdicts-agree');
     expect(
-      disagreement.noLongerHoldsBecause({ rubricVersion, label: null }),
+      disagreement.noLongerHoldsBecause({ rubricVersion, labelFrom: null }),
     ).toBe('label-gone');
     expect(
       disagreement.noLongerHoldsBecause({
         rubricVersion: null,
-        label: label(true),
+        labelFrom: labelFrom(true),
       }),
     ).toBe('claims-changed');
     expect(
-      disagreement.noLongerHoldsBecause({ rubricVersion: null, label: null }),
+      disagreement.noLongerHoldsBecause({
+        rubricVersion: null,
+        labelFrom: null,
+      }),
     ).toBe('claims-changed');
   });
 

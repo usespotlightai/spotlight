@@ -15,6 +15,7 @@ import {
 import { latestJudgeOf } from '@insights/domain/services/judge-verdict';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { JudgeDisagreementId } from '@insights/domain/value-objects/judge-disagreement-id.vo';
+import { passesOn } from '@insights/domain/value-objects/label-source';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -179,7 +180,7 @@ export class RaiseJudgeDisagreements {
 
     const live = newestLiveOf(scores, rubric);
 
-    if (live && label.passes !== live.passes) {
+    if (live && passesOn(label.from) !== live.passes) {
       await this.opening({ runId, workspaceId, rubric, live, label });
       await this.withdrawingStale(runId, rubric);
     }
@@ -202,7 +203,7 @@ export class RaiseJudgeDisagreements {
     const reason =
       standing?.noLongerHoldsBecause({
         rubricVersion: rubric?.version ?? null,
-        label,
+        labelFrom: label?.from ?? null,
       }) ?? null;
 
     if (standing && reason) {
@@ -251,7 +252,7 @@ export class RaiseJudgeDisagreements {
                 passes: live.passes,
                 reasons: live.reasons,
               },
-              label,
+              labelFrom: label.from,
               askedOf: label.by,
               now: this.clock.now(),
             }),

@@ -5,6 +5,7 @@ import type {
 import { humanLabelOf } from '@insights/domain/services/human-label';
 import type { LabelledRun } from '@insights/domain/services/revision-pick';
 import { MAX_LABELLED_RUNS } from '@insights/domain/services/revision-split';
+import { passesOn } from '@insights/domain/value-objects/label-source';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 
 const MAX_JUDGED = 500;
@@ -31,7 +32,13 @@ export class LabelledRuns {
         const label = humanLabelOf(facts.get(score.runId.value) ?? null);
 
         return label
-          ? [{ runId: score.runId, human: label.passes, live: score.passes }]
+          ? [
+              {
+                runId: score.runId,
+                human: passesOn(label.from),
+                live: score.passes,
+              },
+            ]
           : [];
       })
       .slice(0, MAX_LABELLED_RUNS);

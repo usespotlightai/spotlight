@@ -275,7 +275,7 @@ describe('scores, stored', () => {
       '-upload()',
       '+retry(upload)',
     ]);
-    expect((await scores.judgeOf(RunId.of('run_a'), VERSION))?.id.value).toBe(
+    expect((await scores.of(RunId.of('run_a'), VERSION))?.id.value).toBe(
       'judge_run_a',
     );
   });
@@ -543,10 +543,10 @@ describe('how often the judge agrees with people', () => {
     });
     const recording = new RecordJudgeScore(
       Object.assign(Object.create(scores) as typeof scores, {
-        judgeOf: async (runId: RunId, rubricVersion: RubricVersion) => {
+        of: async (runId: RunId, rubricVersion: RubricVersion) => {
           loading();
           await released;
-          return scores.judgeOf(runId, rubricVersion);
+          return scores.of(runId, rubricVersion);
         },
       }),
       new FactRecorder(deletions),

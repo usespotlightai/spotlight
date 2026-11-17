@@ -3,7 +3,6 @@ import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate
 import {
   humanLabelOf,
   judgeAgreesOf,
-  passesOn,
 } from '@insights/domain/services/human-label';
 import {
   HumanAction,
@@ -41,16 +40,11 @@ const labelled = (change: {
 };
 
 describe('humanLabelOf', () => {
-  it.each([
-    ['accepted', true, 'accepted'],
-    ['sent-back', false, 'sent-back'],
-    ['held', false, 'held'],
-  ] as const)(
-    'reads a run people %s as passes %s, by the person who did it',
-    (act, passes, from) => {
+  it.each(['accepted', 'sent-back', 'held'] as const)(
+    'labels a run people %s by that act, and by the person who did it',
+    (act) => {
       expect(labelled({ record: actedOn(act) })).toEqual({
-        passes,
-        from,
+        from: act,
         by: ACTOR,
       });
     },
@@ -63,9 +57,8 @@ describe('humanLabelOf', () => {
     },
   );
 
-  it('passes a run whose task’s pull request merged, where people did nothing that says', () => {
+  it('labels a run merged where its task’s pull request merged and people did nothing that says', () => {
     expect(labelled({ taskPullRequest: pullRequestOf(true) })).toEqual({
-      passes: true,
       from: 'merged',
       by: null,
     });
@@ -108,7 +101,7 @@ describe('humanLabelOf', () => {
           (each) => each.runId.value === 'run_2',
         ) ?? null,
       ),
-    ).toMatchObject({ passes: true, from: 'merged' });
+    ).toMatchObject({ from: 'merged' });
   });
 
   it('keeps the merge on a run whose later visit did not complete, or that a run at another station followed', () => {
@@ -127,7 +120,7 @@ describe('humanLabelOf', () => {
         ],
         taskPullRequest: pullRequestOf(true),
       }),
-    ).toMatchObject({ passes: true, from: 'merged' });
+    ).toMatchObject({ from: 'merged' });
   });
 
   it('lets what a person did on a run still count after a later visit', () => {
@@ -139,7 +132,7 @@ describe('humanLabelOf', () => {
         ],
         taskPullRequest: pullRequestOf(true),
       }),
-    ).toMatchObject({ passes: false, from: 'sent-back' });
+    ).toMatchObject({ from: 'sent-back' });
   });
 
   it('knows nothing of a run people have not yet acted on', () => {
@@ -147,23 +140,18 @@ describe('humanLabelOf', () => {
   });
 });
 
-describe('passesOn', () => {
-  it('passes the run where people accepted it or merged its pull request', () => {
-    expect(passesOn('accepted')).toBe(true);
-    expect(passesOn('merged')).toBe(true);
-    expect(passesOn('sent-back')).toBe(false);
-    expect(passesOn('held')).toBe(false);
-  });
-});
-
 describe('judgeAgreesOf', () => {
   it('says whether the judge gave the verdict people gave', () => {
-    expect(judgeAgreesOf({ passes: true }, { passes: true })).toBe(true);
-    expect(judgeAgreesOf({ passes: false }, { passes: true })).toBe(false);
+    expect(
+      judgeAgreesOf({ passes: true }, { from: 'accepted', by: null }),
+    ).toBe(true);
+    expect(judgeAgreesOf({ passes: false }, { from: 'merged', by: null })).toBe(
+      false,
+    );
   });
 
   it('says nothing without a judge verdict or a human label', () => {
-    expect(judgeAgreesOf(null, { passes: false })).toBeNull();
+    expect(judgeAgreesOf(null, { from: 'held', by: null })).toBeNull();
     expect(judgeAgreesOf({ passes: true }, null)).toBeNull();
   });
 });

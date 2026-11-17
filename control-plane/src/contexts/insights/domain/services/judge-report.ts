@@ -13,6 +13,7 @@ import {
   type JudgeCalibration,
   unreadableRubricCalibration,
 } from '@insights/domain/services/judge-calibration';
+import { passesOn } from '@insights/domain/value-objects/label-source';
 import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
@@ -47,7 +48,7 @@ const reportOf = (
     label: humanLabelOf(facts.get(score.runId.value) ?? null),
   }));
   const verdicts: VerdictPair[] = humans.flatMap(({ score, label }) =>
-    label ? [{ judge: score.passes, human: label.passes }] : [],
+    label ? [{ judge: score.passes, human: passesOn(label.from) }] : [],
   );
   const times = judged.map((each) => each.at.getTime());
 
@@ -59,7 +60,7 @@ const reportOf = (
       humans.map(({ score, label }) => ({
         at: score.at,
         judge: score.passes,
-        human: label?.passes ?? null,
+        human: label ? passesOn(label.from) : null,
       })),
     ),
     firstAt: new Date(Math.min(...times)),

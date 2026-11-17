@@ -6,11 +6,11 @@ import type {
   JudgeDisagreementDto,
   NotMetAnswerDto,
 } from '@insights/application/dto/judge-disagreement.dto';
-import { LABEL_SOURCES } from '@insights/domain/services/human-label';
 import { CITATION_KINDS } from '@insights/domain/value-objects/citation.vo';
 import { CLAIM_ANSWERS } from '@insights/domain/value-objects/claim-answer.vo';
 import { DISAGREEMENT_DIRECTIONS } from '@insights/domain/value-objects/disagreement-direction';
 import { DISAGREEMENT_STATES } from '@insights/domain/value-objects/disagreement-state';
+import { LABEL_SOURCES } from '@insights/domain/value-objects/label-source';
 import { WITHDRAWAL_REASONS } from '@insights/domain/value-objects/withdrawal-reason';
 import { ApiProperty } from '@nestjs/swagger';
 

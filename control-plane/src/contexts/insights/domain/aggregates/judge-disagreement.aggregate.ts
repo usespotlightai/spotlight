@@ -9,10 +9,6 @@ import { JudgeDisagreementAnsweredError } from '@insights/domain/exceptions/judg
 import { JudgeDisagreementNotAskedOfYouError } from '@insights/domain/exceptions/judge-disagreement-not-asked-of-you.error';
 import { JudgeDisagreementWithdrawnError } from '@insights/domain/exceptions/judge-disagreement-withdrawn.error';
 import {
-  type LabelSource,
-  passesOn,
-} from '@insights/domain/services/human-label';
-import {
   ClaimAnswer,
   type ClaimAnswerKind,
 } from '@insights/domain/value-objects/claim-answer.vo';
@@ -23,6 +19,10 @@ import {
 import type { DisagreementState } from '@insights/domain/value-objects/disagreement-state';
 import type { JudgeDisagreementId } from '@insights/domain/value-objects/judge-disagreement-id.vo';
 import type { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
+import {
+  type LabelSource,
+  passesOn,
+} from '@insights/domain/value-objects/label-source';
 import { NotMetAnswer } from '@insights/domain/value-objects/not-met-answer.vo';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -41,10 +41,6 @@ export interface DisagreementVerdict {
   readonly claimResults: readonly boolean[];
   readonly passes: boolean;
   readonly reasons: readonly JudgeReason[];
-}
-
-export interface DisagreementLabel {
-  readonly from: LabelSource;
 }
 
 interface JudgeDisagreementFields {
@@ -69,30 +65,24 @@ const disputedOf = (verdict: DisagreementVerdict): readonly number[] =>
     ? []
     : verdict.claimResults.flatMap((met, at) => (met ? [] : [at]));
 
-const checkedVerdict = (
+const brokenRuleOf = (
   verdict: DisagreementVerdict,
   labelFrom: LabelSource,
-): DisagreementVerdict => {
+): string | null => {
   if (
     verdict.claims.length === 0 ||
     verdict.claims.length !== verdict.claimResults.length
   ) {
-    throw new InvalidJudgeDisagreementError(
-      'must keep one judge result for each claim',
-    );
+    return 'must keep one judge result for each claim';
   }
   if (verdict.passes === passesOn(labelFrom)) {
-    throw new InvalidJudgeDisagreementError(
-      'opens only where the judge and the person disagree',
-    );
+    return 'opens only where the judge and the person disagree';
   }
   if (!verdict.passes && disputedOf(verdict).length === 0) {
-    throw new InvalidJudgeDisagreementError(
-      'where the judge failed the run disputes at least one claim',
-    );
+    return 'where the judge failed the run disputes at least one claim';
   }
 
-  return verdict;
+  return null;
 };
 
 export class JudgeDisagreement extends EventRecorder {
@@ -108,11 +98,16 @@ export class JudgeDisagreement extends EventRecorder {
     workspaceId: WorkspaceId;
     location: RunLocation;
     verdict: DisagreementVerdict;
-    label: DisagreementLabel;
+    labelFrom: LabelSource;
     askedOf: UserId | null;
     now: Date;
   }): JudgeDisagreement {
-    const verdict = checkedVerdict(input.verdict, input.label.from);
+    const { verdict } = input;
+    const broken = brokenRuleOf(verdict, input.labelFrom);
+
+    if (broken) {
+      throw new InvalidJudgeDisagreementError(broken);
+    }
 
     const disagreement = new JudgeDisagreement({
       id: input.id,
@@ -120,7 +115,7 @@ export class JudgeDisagreement extends EventRecorder {
       workspaceId: input.workspaceId,
       location: input.location,
       verdict,
-      labelFrom: input.label.from,
+      labelFrom: input.labelFrom,
       askedOf: input.askedOf,
       openedAt: input.now,
       claimAnswers: [],
@@ -145,7 +140,13 @@ export class JudgeDisagreement extends EventRecorder {
   }
 
   static rehydrate(fields: JudgeDisagreementFields): JudgeDisagreement {
-    const verdict = checkedVerdict(fields.verdict, fields.labelFrom);
+    const { verdict } = fields;
+    const broken = brokenRuleOf(verdict, fields.labelFrom);
+
+    if (broken) {
+      throw new InconsistentStateError('judge disagreement', broken);
+    }
+
     const claims = fields.claimAnswers.map((each) => each.claim);
     const disputed = disputedOf(verdict);
 
@@ -303,16 +304,16 @@ export class JudgeDisagreement extends EventRecorder {
 
   noLongerHoldsBecause(input: {
     rubricVersion: RubricVersion | null;
-    label: DisagreementLabel | null;
+    labelFrom: LabelSource | null;
   }): WithdrawalReason | null {
     if (input.rubricVersion !== this.rubricVersion) {
       return 'claims-changed';
     }
-    if (!input.label) {
+    if (!input.labelFrom) {
       return 'label-gone';
     }
 
-    return passesOn(input.label.from) === this.fields.verdict.passes
+    return passesOn(input.labelFrom) === this.fields.verdict.passes
       ? 'verdicts-agree'
       : null;
   }

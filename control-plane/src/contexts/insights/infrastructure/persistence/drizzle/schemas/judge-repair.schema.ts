@@ -1,4 +1,4 @@
-import { LABEL_SOURCES } from '@insights/domain/services/human-label';
+import { LABEL_SOURCES } from '@insights/domain/value-objects/label-source';
 import type { RevisionAgreement } from '@insights/domain/services/revision-pick';
 import { REVISION_TRIGGERS } from '@insights/domain/services/revision-trigger';
 import type { ClaimAnswerKind } from '@insights/domain/value-objects/claim-answer.vo';

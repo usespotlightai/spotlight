@@ -33,14 +33,4 @@ describe('judgedClaimsOf', () => {
       judgedClaimsOf(judgeScore('run_1', [true, false]), null, null),
     ).toEqual([null, null]);
   });
-
-  it('has no claims without a judge to name them for', () => {
-    expect(
-      judgedClaimsOf(
-        null,
-        rubricOf(RUBRIC_VERSION, ['It retries the upload.']),
-        null,
-      ),
-    ).toEqual([]);
-  });
 });

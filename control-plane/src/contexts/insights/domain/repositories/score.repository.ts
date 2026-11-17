@@ -8,7 +8,7 @@ export interface ScoreRepository extends ScopedRemoval<Score> {
 
   save(score: Score): Promise<void>;
 
-  judgeOf(runId: RunId, rubricVersion: RubricVersion): Promise<Score | null>;
+  of(runId: RunId, rubricVersion: RubricVersion): Promise<Score | null>;
 
   ofRuns(runIds: readonly RunId[]): Promise<readonly Score[]>;
 }

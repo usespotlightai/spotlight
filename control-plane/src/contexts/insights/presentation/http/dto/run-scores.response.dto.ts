@@ -7,8 +7,8 @@ import type {
   RunOutcomeDto,
   RunScoresDto,
 } from '@insights/application/dto/run-scores.dto';
-import { LABEL_SOURCES } from '@insights/domain/services/human-label';
 import { CITATION_KINDS } from '@insights/domain/value-objects/citation.vo';
+import { LABEL_SOURCES } from '@insights/domain/value-objects/label-source';
 import { JudgeCalibrationResponseDto } from '@insights/presentation/http/dto/station-judge.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -184,7 +184,7 @@ export class RunScoresResponseDto {
     type: 'array',
     items: { type: 'string', nullable: true },
     description:
-      'The claims the judge marked on the run, in order; a claim reads null only where the claims the judge was given are no longer stored; empty where the judge did not check the run',
+      'The claims of the judge score shown on the run, in order; a claim reads null only where the claims the judge was given are no longer stored; empty where no judge score is shown',
   })
   readonly claims: readonly (string | null)[];
 

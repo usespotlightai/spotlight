@@ -43,7 +43,7 @@ const judged = (over: Partial<Parameters<typeof Score.judge>[0]> = {}) =>
   });
 
 describe('Score', () => {
-  it('from the judge names its rubric and model, and says it was recorded', () => {
+  it('names its rubric and model, and says it was recorded', () => {
     const score = judgeScore('run_1', [true]);
     const [event] = score.pullEvents() as ScoreRecorded[];
 
@@ -77,11 +77,11 @@ describe('Score', () => {
     );
   });
 
-  it('from the judge always gives its reasons', () => {
+  it('always gives its reasons', () => {
     expect(() => judged({ reasons: [] })).toThrow(InvalidScoreError);
   });
 
-  it('from the judge gives a reason for every claim, each naming its claim', () => {
+  it('gives a reason for every claim, each naming its claim', () => {
     expect(() => judged({ claimResults: [true, false] })).toThrow(
       InvalidScoreError,
     );
@@ -97,7 +97,7 @@ describe('Score', () => {
     ).toThrow(InvalidScoreError);
   });
 
-  it('from the judge keeps only what its reasons cite, within a budget for the whole score', () => {
+  it('keeps only what its reasons cite, within a budget for the whole score', () => {
     const citations = Array.from({ length: 10 }, (_, at) =>
       Citation.ofHunk(`api/src/big.ts#${at}`),
     );
@@ -121,7 +121,7 @@ describe('Score', () => {
     expect(score.seen.size).toBeLessThanOrEqual(MAX_SEEN_CHARS);
   });
 
-  it('from the judge always names its model', () => {
+  it('always names its model', () => {
     expect(() => judged({ model: ' ' })).toThrow(InvalidScoreError);
   });
 });

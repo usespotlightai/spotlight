@@ -63,9 +63,7 @@ export const openDisagreement = (
       passes,
       reasons: claimResults.map((_, at) => reasonOf(`Claim ${at}.`, at)),
     },
-    label: {
-      from: (change.personPasses ?? !passes) ? 'accepted' : 'sent-back',
-    },
+    labelFrom: (change.personPasses ?? !passes) ? 'accepted' : 'sent-back',
     askedOf: change.askedOf ?? null,
     now: change.now ?? OPENED_AT,
   });
