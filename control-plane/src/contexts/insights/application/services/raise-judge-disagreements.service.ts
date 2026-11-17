@@ -11,11 +11,11 @@ import type { JudgeDisagreementRepository } from '@insights/domain/repositories/
 import {
   type HumanLabel,
   humanLabelOf,
+  judgeAgreesOf,
 } from '@insights/domain/services/human-label';
 import { latestJudgeOf } from '@insights/domain/services/judge-verdict';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { JudgeDisagreementId } from '@insights/domain/value-objects/judge-disagreement-id.vo';
-import { passesOn } from '@insights/domain/value-objects/label-source';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -180,7 +180,7 @@ export class RaiseJudgeDisagreements {
 
     const live = newestLiveOf(scores, rubric);
 
-    if (live && passesOn(label.from) !== live.passes) {
+    if (live && judgeAgreesOf(live, label) === false) {
       await this.opening({ runId, workspaceId, rubric, live, label });
       await this.withdrawingStale(runId, rubric);
     }

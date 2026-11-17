@@ -1,10 +1,10 @@
 import type {
+  RunLabelDto,
   CitationDto,
   CitedHunkDto,
   CitedStepDto,
   JudgeReasonDto,
   JudgeScoreDto,
-  RunOutcomeDto,
   RunScoresDto,
 } from '@insights/application/dto/run-scores.dto';
 import { CITATION_KINDS } from '@insights/domain/value-objects/citation.vo';
@@ -122,9 +122,6 @@ export class JudgeScoreResponseDto {
   })
   readonly passes: boolean;
 
-  @ApiProperty({ example: '1 of 2 claims met' })
-  readonly label: string;
-
   @ApiProperty()
   readonly rubricVersion: string;
 
@@ -141,7 +138,6 @@ export class JudgeScoreResponseDto {
     this.value = score.value;
     this.claimResults = [...score.claimResults];
     this.passes = score.passes;
-    this.label = score.label;
     this.rubricVersion = score.rubricVersion;
     this.model = score.model;
     this.at = score.at;
@@ -151,22 +147,16 @@ export class JudgeScoreResponseDto {
   }
 }
 
-export class RunHumanOutcomeResponseDto {
+export class RunLabelResponseDto {
   @ApiProperty({
     enum: LABEL_SOURCES,
     description:
-      'What gave the human outcome: the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task',
+      'What gave the label: the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task',
   })
-  readonly source: string;
+  readonly from: string;
 
-  @ApiProperty({
-    description: 'Whether people found the run good',
-  })
-  readonly passes: boolean;
-
-  constructor(outcome: RunOutcomeDto) {
-    this.source = outcome.source;
-    this.passes = outcome.passes;
+  constructor(label: RunLabelDto) {
+    this.from = label.from;
   }
 }
 
@@ -181,12 +171,12 @@ export class RunScoresResponseDto {
   readonly stationId: string;
 
   @ApiProperty({
-    type: 'array',
-    items: { type: 'string', nullable: true },
+    type: String,
+    isArray: true,
     description:
-      'The claims of the judge score shown on the run, in order; a claim reads null only where the claims the judge was given are no longer stored; empty where no judge score is shown',
+      'The claims of the judge score shown on the run, in order; empty where no judge score is shown',
   })
-  readonly claims: readonly (string | null)[];
+  readonly claims: readonly string[];
 
   @ApiProperty({ description: 'Whether the judge checked the run' })
   readonly judged: boolean;
@@ -203,18 +193,18 @@ export class RunScoresResponseDto {
   readonly calibration: JudgeCalibrationResponseDto;
 
   @ApiProperty({
-    type: RunHumanOutcomeResponseDto,
+    type: RunLabelResponseDto,
     nullable: true,
     description:
-      'What people said of the run: their first action on the run, else the task’s pull request; none where people said nothing yet',
+      'What people said of the run; none where people said nothing yet',
   })
-  readonly outcome: RunHumanOutcomeResponseDto | null;
+  readonly label: RunLabelResponseDto | null;
 
   @ApiProperty({
     type: Boolean,
     nullable: true,
     description:
-      'Whether the judge’s verdict is the human outcome; none where the judge’s verdict is hidden or people said nothing yet',
+      'Whether the judge’s verdict is the human label’s; none where the judge’s verdict is hidden or people said nothing yet',
   })
   readonly agrees: boolean | null;
 
@@ -226,9 +216,7 @@ export class RunScoresResponseDto {
     this.judged = scores.judged;
     this.judge = scores.judge ? new JudgeScoreResponseDto(scores.judge) : null;
     this.calibration = new JudgeCalibrationResponseDto(scores.calibration);
-    this.outcome = scores.outcome
-      ? new RunHumanOutcomeResponseDto(scores.outcome)
-      : null;
+    this.label = scores.label ? new RunLabelResponseDto(scores.label) : null;
     this.agrees = scores.agrees;
   }
 }

@@ -6,7 +6,7 @@ import type {
   JudgeCoverageResponseDto,
   JudgeReasonResponseDto,
   RubricVersionResponseDto,
-  RunHumanOutcomeResponseDto,
+  RunLabelResponseDto,
   RunScoresResponseDto,
   StationJudgeAgreementResponseDto,
   TrendPointResponseDto,
@@ -27,7 +27,7 @@ export type TrendPoint = TrendPointResponseDto;
 
 export type RunScores = RunScoresResponseDto;
 
-export type RunOutcome = RunHumanOutcomeResponseDto;
+export type RunLabel = RunLabelResponseDto;
 
 export type JudgeReason = JudgeReasonResponseDto;
 
@@ -38,15 +38,14 @@ export type CitedHunk = CitedHunkResponseDto;
 export const formatVerdict = (score: { readonly passes: boolean }): string =>
   score.passes ? 'Passed' : 'Failed';
 
-const OUTCOMES: Record<RunOutcome['source'], string> = {
+const LABELS: Record<RunLabel['from'], string> = {
   accepted: 'Accepted',
   'sent-back': 'Sent back',
   merged: 'Pull request merged',
   held: 'Put on hold',
 };
 
-export const formatOutcome = (outcome: RunOutcome): string =>
-  OUTCOMES[outcome.source];
+export const formatLabel = (label: RunLabel): string => LABELS[label.from];
 
 export const formatJudgeOutcome = (passes: boolean): string =>
   passes ? 'Passed by the judge' : 'Failed by the judge';
@@ -80,10 +79,7 @@ export const COVERAGE_SKELETON_TITLE = 'Verdicts on the last runs';
 export const COVERAGE_NOTE =
   'Who gave a verdict on each of the station’s last runs, on any version of its claims. Only runs with both verdicts count towards agreement.';
 
-export const formatClaim = (
-  claims: readonly (string | null)[],
-  index: number,
-): string => claims[index] ?? `Claim ${index + 1}`;
+export const formatClaim = (index: number): string => `Claim ${index + 1}`;
 
 export const formatMark = (met: boolean): string => (met ? 'Met' : 'Not met');
 

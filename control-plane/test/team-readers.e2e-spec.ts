@@ -340,7 +340,7 @@ describe('who is asked about a judge’s disagreement in their inbox', () => {
     );
   });
 
-  it('asks only the person who gave the outcome, whoever the task is assigned to', async () => {
+  it('asks only the person whose action gave the label, whoever the task is assigned to', async () => {
     const owners = await inboxRequestsIn(team.owner.value);
     const admins = await inboxRequestsIn(ADMIN);
 

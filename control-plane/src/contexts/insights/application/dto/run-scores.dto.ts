@@ -32,26 +32,24 @@ export interface JudgeScoreDto {
   readonly value: number;
   readonly claimResults: readonly boolean[];
   readonly passes: boolean;
-  readonly label: string;
   readonly rubricVersion: string;
   readonly model: string;
   readonly at: string;
   readonly reasons: readonly JudgeReasonDto[];
 }
 
-export interface RunOutcomeDto {
-  readonly source: LabelSource;
-  readonly passes: boolean;
+export interface RunLabelDto {
+  readonly from: LabelSource;
 }
 
 export interface RunScoresDto {
   readonly runId: string;
   readonly taskId: string;
   readonly stationId: string;
-  readonly claims: readonly (string | null)[];
+  readonly claims: readonly string[];
   readonly judged: boolean;
   readonly judge: JudgeScoreDto | null;
   readonly calibration: JudgeCalibrationDto;
-  readonly outcome: RunOutcomeDto | null;
+  readonly label: RunLabelDto | null;
   readonly agrees: boolean | null;
 }

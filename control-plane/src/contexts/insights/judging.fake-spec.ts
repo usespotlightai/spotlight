@@ -16,6 +16,7 @@ import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import { FIRST_CONFIG, WORKSPACE } from '@insights/runs.fake-spec';
 import { inScope, removeVersioned } from '@insights/scoped.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -186,35 +187,14 @@ export class ScoresInMemory implements ScoreRepository {
   }
 
   async save(score: Score): Promise<void> {
-    if (score.isDeleted) {
-      return this.removed(score);
+    if (!score.isDeleted) {
+      throw new InconsistentStateError(
+        'score',
+        'changes only by being deleted',
+      );
     }
 
-    const existing = this.stored.get(score.id.value);
-
-    if (!existing || existing.version !== score.version) {
-      throw new ScoreVersionConflictError(score.id.value);
-    }
-    this.events.push(...score.pullEvents());
-    this.stored.set(
-      score.id.value,
-      Score.rehydrate({
-        id: score.id,
-        runId: score.runId,
-        workspaceId: score.workspaceId,
-        location: score.location,
-        fingerprint: score.fingerprint,
-        origin: score.origin,
-        claimResults: score.claimResults,
-        passThreshold: score.passThreshold,
-        rubricVersion: score.rubricVersion,
-        model: score.model,
-        reasons: score.reasons,
-        seen: score.seen,
-        at: score.at,
-        version: score.version + 1,
-      }),
-    );
+    return this.removed(score);
   }
 
   async of(runId: RunId, rubricVersion: RubricVersion): Promise<Score | null> {
@@ -223,12 +203,6 @@ export class ScoresInMemory implements ScoreRepository {
         (each) =>
           each.runId.equals(runId) && each.rubricVersion === rubricVersion,
       ) ?? null
-    );
-  }
-
-  async ofRuns(runIds: readonly RunId[]): Promise<readonly Score[]> {
-    return [...this.stored.values()].filter((each) =>
-      runIds.some((runId) => runId.equals(each.runId)),
     );
   }
 

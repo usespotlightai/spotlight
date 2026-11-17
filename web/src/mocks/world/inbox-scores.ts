@@ -3,7 +3,7 @@ import type {
   JudgeScoreResponseDto,
   StationAlertFiringResponseDto,
 } from '@/lib/api';
-import type { RunScores } from '@/lib/judge';
+import type { RunLabel, RunScores } from '@/lib/judge';
 import { GROWTH_LINES } from '@/mocks/world/growth';
 import { ALERT_ID, COST_ALERT_ID } from '@/mocks/world/inbox';
 import {
@@ -85,7 +85,6 @@ const scoreOf = (claimResults: readonly boolean[]) => ({
   claimResults: [...claimResults],
   passes:
     claimResults.length > 0 && metOf(claimResults) === claimResults.length,
-  label: `${metOf(claimResults)} of ${claimResults.length} claims met`,
 });
 
 const verdict = (
@@ -136,9 +135,9 @@ const citedMessage = (runId: string) => {
 const lastStepIndexOf = (runId: string, text: string): number =>
   (RUN_STORIES[runId]?.steps ?? []).findLastIndex((step) => step.text === text);
 
-const JUDGED: Record<string, Pick<RunScores, 'judge' | 'outcome'>> = {
+const JUDGED: Record<string, Pick<RunScores, 'judge' | 'label'>> = {
   run_postgres_2: {
-    outcome: { source: 'sent-back', passes: false },
+    label: { from: 'sent-back' },
     judge: verdict(
       'run_postgres_2',
       [true, true, true],
@@ -175,7 +174,7 @@ const JUDGED: Record<string, Pick<RunScores, 'judge' | 'outcome'>> = {
     ),
   },
   run_search_2: {
-    outcome: { source: 'accepted', passes: true },
+    label: { from: 'accepted' },
     judge: verdict(
       'run_search_2',
       [true, true, false],
@@ -205,7 +204,7 @@ const JUDGED: Record<string, Pick<RunScores, 'judge' | 'outcome'>> = {
     ),
   },
   run_billing_1: {
-    outcome: { source: 'sent-back', passes: false },
+    label: { from: 'sent-back' },
     judge: verdict(
       'run_billing_1',
       [false, false, true],
@@ -236,13 +235,15 @@ const JUDGED: Record<string, Pick<RunScores, 'judge' | 'outcome'>> = {
   },
 };
 
+const PASSING: readonly RunLabel['from'][] = ['accepted', 'merged'];
+
 const agreesOf = (
   judge: JudgeScoreResponseDto | null,
-  outcome: RunScores['outcome'],
+  label: RunScores['label'],
   calibration: JudgeCalibrationResponseDto,
 ): boolean | null =>
-  judge && outcome && calibration.qualified
-    ? judge.passes === outcome.passes
+  judge && label && calibration.qualified
+    ? judge.passes === PASSING.includes(label.from)
     : null;
 
 const calibrationOf = (stationId: string): JudgeCalibrationResponseDto => {
@@ -259,7 +260,7 @@ const scoresOf = (runId: string): RunScores => {
   const found = JUDGED[runId];
   const judge = found?.judge ?? null;
   const claims = judge ? (judgeOf(stationId)?.claims ?? []) : [];
-  const outcome = found?.outcome ?? null;
+  const label = found?.label ?? null;
   const calibration = calibrationOf(stationId);
 
   return {
@@ -270,8 +271,8 @@ const scoresOf = (runId: string): RunScores => {
     judged: judge !== null,
     judge,
     calibration,
-    outcome,
-    agrees: agreesOf(judge, outcome, calibration),
+    label,
+    agrees: agreesOf(judge, label, calibration),
   };
 };
 
@@ -305,7 +306,7 @@ export const withCitationsGone = (scores: RunScores): RunScores =>
 
 export const withoutPeople = (scores: RunScores): RunScores => ({
   ...scores,
-  outcome: null,
+  label: null,
   agrees: null,
 });
 
@@ -430,14 +431,14 @@ const pastJudgeOf = (
   };
 };
 
-const pastOutcomeOf = (run: HistoryRun): RunScores['outcome'] => {
+const pastLabelOf = (run: HistoryRun): RunScores['label'] => {
   const acted = run.firstHumanAction?.kind;
 
   if (acted === 'accepted' || acted === 'sent-back') {
-    return { source: acted, passes: acted === 'accepted' };
+    return { from: acted };
   }
   if (run.pullRequestState === 'merged' && isLastCompletedVisit(run)) {
-    return { source: 'merged', passes: true };
+    return { from: 'merged' };
   }
 
   return null;
@@ -448,7 +449,7 @@ export const pastScoresOf = (run: HistoryRun): RunScores => {
   const earlier = judged && onEarlierRubric(run.at);
   const judge = pastJudgeOf(run, earlier);
   const calibration = judged ? TRUSTED : NO_JUDGE;
-  const outcome = pastOutcomeOf(run);
+  const label = pastLabelOf(run);
 
   return {
     runId: run.runId,
@@ -461,7 +462,7 @@ export const pastScoresOf = (run: HistoryRun): RunScores => {
     judged: judge !== null,
     judge,
     calibration,
-    outcome,
-    agrees: agreesOf(judge, outcome, calibration),
+    label,
+    agrees: agreesOf(judge, label, calibration),
   };
 };

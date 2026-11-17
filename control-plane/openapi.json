@@ -38582,10 +38582,6 @@
             "type": "boolean",
             "description": "Whether the run passes: the share of claims met reaches the pass threshold"
           },
-          "label": {
-            "type": "string",
-            "example": "1 of 2 claims met"
-          },
           "rubricVersion": {
             "type": "string"
           },
@@ -38608,17 +38604,16 @@
           "value",
           "claimResults",
           "passes",
-          "label",
           "rubricVersion",
           "model",
           "at",
           "reasons"
         ]
       },
-      "RunHumanOutcomeResponseDto": {
+      "RunLabelResponseDto": {
         "type": "object",
         "properties": {
-          "source": {
+          "from": {
             "type": "string",
             "enum": [
               "accepted",
@@ -38626,16 +38621,11 @@
               "merged",
               "held"
             ],
-            "description": "What gave the human outcome: the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task"
-          },
-          "passes": {
-            "type": "boolean",
-            "description": "Whether people found the run good"
+            "description": "What gave the label: the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task"
           }
         },
         "required": [
-          "source",
-          "passes"
+          "from"
         ]
       },
       "RunScoresResponseDto": {
@@ -38654,12 +38644,11 @@
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
           },
           "claims": {
+            "description": "The claims of the judge score shown on the run, in order; empty where no judge score is shown",
             "type": "array",
             "items": {
-              "type": "string",
-              "nullable": true
-            },
-            "description": "The claims of the judge score shown on the run, in order; a claim reads null only where the claims the judge was given are no longer stored; empty where no judge score is shown"
+              "type": "string"
+            }
           },
           "judged": {
             "type": "boolean",
@@ -38678,20 +38667,20 @@
           "calibration": {
             "$ref": "#/components/schemas/JudgeCalibrationResponseDto"
           },
-          "outcome": {
+          "label": {
             "nullable": true,
-            "description": "What people said of the run: their first action on the run, else the task’s pull request; none where people said nothing yet",
+            "description": "What people said of the run; none where people said nothing yet",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/RunHumanOutcomeResponseDto"
+                "$ref": "#/components/schemas/RunLabelResponseDto"
               }
             ]
           },
           "agrees": {
             "type": "boolean",
             "nullable": true,
-            "description": "Whether the judge’s verdict is the human outcome; none where the judge’s verdict is hidden or people said nothing yet"
+            "description": "Whether the judge’s verdict is the human label’s; none where the judge’s verdict is hidden or people said nothing yet"
           }
         },
         "required": [
@@ -38702,7 +38691,7 @@
           "judged",
           "judge",
           "calibration",
-          "outcome",
+          "label",
           "agrees"
         ]
       },

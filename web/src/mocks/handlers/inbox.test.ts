@@ -258,7 +258,7 @@ describe('the mock inbox', () => {
       throwOnError: true,
     });
     expect(accepted).toMatchObject({
-      outcome: { source: 'accepted', passes: true },
+      label: { from: 'accepted' },
       agrees: false,
     });
     expect(accepted.judge?.passes).toBe(false);
@@ -268,7 +268,7 @@ describe('the mock inbox', () => {
       throwOnError: true,
     });
     expect(sentBack).toMatchObject({
-      outcome: { source: 'sent-back', passes: false },
+      label: { from: 'sent-back' },
       agrees: false,
     });
   });

@@ -2,7 +2,6 @@ import type { StationJudge } from '@insights/application/ports/station-judges.po
 import { ReadRunScoresHandler } from '@insights/application/queries/handlers/read-run-scores.handler';
 import { ReadRunScoresQuery } from '@insights/application/queries/read-run-scores.query';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
-import { JudgedClaimsOf } from '@insights/application/services/judged-claims-of.service';
 import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { Score } from '@insights/domain/aggregates/score.aggregate';
@@ -16,13 +15,10 @@ import type { RubricVersion } from '@insights/domain/value-objects/rubric-versio
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import {
-  JudgingsInMemory,
   judgeScore,
   locationOf,
   NEXT_RUBRIC_VERSION,
-  queuedJudging,
   RUBRIC_VERSION,
-  rubricOf,
   ScoresInMemory,
 } from '@insights/judging.fake-spec';
 import {
@@ -51,19 +47,15 @@ const AT = new Date('2026-09-30T11:00:00.000Z');
 
 const reading = async (
   agreeing: boolean,
-  scoredBy: RubricVersion = RUBRIC_VERSION,
+  judgedBy: RubricVersion = RUBRIC_VERSION,
   action: HumanActionKind | null = null,
 ) => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
-  const judgings = new JudgingsInMemory();
   await records.add(
     action
       ? endedRecord('run_1').recordAction(HumanAction.of(action, AT))
       : endedRecord('run_1'),
-  );
-  await judgings.add(
-    queuedJudging('run_1', rubricOf(scoredBy, ['Did it retry?'])),
   );
   await scores.add(
     Score.judge({
@@ -74,7 +66,7 @@ const reading = async (
       fingerprint: null,
       claimResults: [true],
       passThreshold: 1,
-      rubricVersion: scoredBy,
+      rubricVersion: judgedBy,
       model: 'some/model',
       reasons: [
         JudgeReason.of({
@@ -137,7 +129,6 @@ const reading = async (
         evidence,
         new StationFactsInMemory(records, { scores }),
       ),
-      new JudgedClaimsOf(evidence, judgings),
     ),
   );
 };
@@ -145,16 +136,16 @@ const reading = async (
 const scoresOf = async (
   agreeing: boolean,
   team = 'team_1',
-  scoredBy = RUBRIC_VERSION,
+  judgedBy = RUBRIC_VERSION,
   action: HumanActionKind | null = null,
 ) =>
-  (await reading(agreeing, scoredBy, action)).execute(
+  (await reading(agreeing, judgedBy, action)).execute(
     new ReadRunScoresQuery(team, 'run_1', 'user_ada'),
   );
 
 describe('ReadRunScoresHandler', () => {
   it('names the claims of the judge it shows, and none for a score it keeps to itself', async () => {
-    expect((await scoresOf(true)).claims).toEqual(['Did it retry?']);
+    expect((await scoresOf(true)).claims).toEqual(['It retries the upload.']);
     expect(
       (await scoresOf(true, 'team_1', NEXT_RUBRIC_VERSION)).claims,
     ).toEqual([]);
@@ -164,7 +155,7 @@ describe('ReadRunScoresHandler', () => {
     const scores = await scoresOf(true);
 
     expect(scores.calibration.qualified).toBe(true);
-    expect(scores.judge?.label).toBe('1 of 1 claim met');
+    expect(scores.judge?.claimResults).toEqual([true]);
     expect(scores.judge?.passes).toBe(true);
     expect(scores.judge?.reasons[0]?.citations).toEqual([
       {
@@ -207,29 +198,29 @@ describe('ReadRunScoresHandler', () => {
   it('answers what people did with the run beside a judge that agrees with them', async () => {
     const scores = await scoresOf(true, 'team_1', RUBRIC_VERSION, 'accepted');
 
-    expect(scores.outcome).toEqual({ source: 'accepted', passes: true });
+    expect(scores.label).toEqual({ from: 'accepted' });
     expect(scores.agrees).toBe(true);
   });
 
   it('marks a judge that passed a run people sent back', async () => {
     const scores = await scoresOf(true, 'team_1', RUBRIC_VERSION, 'sent-back');
 
-    expect(scores.outcome).toEqual({ source: 'sent-back', passes: false });
+    expect(scores.label).toEqual({ from: 'sent-back' });
     expect(scores.agrees).toBe(false);
   });
 
-  it('answers the human outcome but no agreement where the judge’s score is hidden', async () => {
+  it('answers the human label but no agreement where the judge’s score is hidden', async () => {
     const scores = await scoresOf(false, 'team_1', RUBRIC_VERSION, 'accepted');
 
     expect(scores.judge).toBeNull();
-    expect(scores.outcome).toEqual({ source: 'accepted', passes: true });
+    expect(scores.label).toEqual({ from: 'accepted' });
     expect(scores.agrees).toBeNull();
   });
 
-  it('answers no outcome while people did nothing with the run', async () => {
+  it('answers no label while people did nothing with the run', async () => {
     const scores = await scoresOf(true);
 
-    expect(scores.outcome).toBeNull();
+    expect(scores.label).toBeNull();
     expect(scores.agrees).toBeNull();
   });
 

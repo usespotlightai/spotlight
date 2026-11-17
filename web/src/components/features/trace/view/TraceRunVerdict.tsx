@@ -4,7 +4,8 @@ import {
   DISAGREES_LABEL,
   DISAGREES_NOTE,
   formatJudgeOutcome,
-  formatOutcome,
+  formatLabel,
+  PEOPLE_LABEL,
 } from '@/lib/judge';
 
 type TraceRunVerdictProps = {
@@ -19,7 +20,7 @@ export function TraceRunVerdict({ teamId, runId }: TraceRunVerdictProps) {
     return null;
   }
 
-  const { outcome, judge, agrees } = scores;
+  const { label, judge, agrees } = scores;
 
   return (
     <span
@@ -27,8 +28,10 @@ export function TraceRunVerdict({ teamId, runId }: TraceRunVerdictProps) {
       className="ml-1 inline-flex shrink-0 items-center gap-1 text-muted-foreground text-xs"
     >
       <span>
-        <span className="sr-only">{outcome ? 'Outcome ' : 'Judged '}</span>
-        {outcome ? formatOutcome(outcome) : formatJudgeOutcome(judge.passes)}
+        <span className="sr-only">
+          {label ? `${PEOPLE_LABEL} ` : 'Judged '}
+        </span>
+        {label ? formatLabel(label) : formatJudgeOutcome(judge.passes)}
       </span>
       {agrees === false && (
         <WarningTooltip

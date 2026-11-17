@@ -12,7 +12,7 @@ import {
   DISAGREES_LABEL,
   DISAGREES_NOTE,
   formatCalibration,
-  formatOutcome,
+  formatLabel,
   formatVerdict,
   HIDDEN_VERDICT,
   JUDGE_LABEL,
@@ -104,16 +104,16 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
     return null;
   }
 
-  const { judge, calibration, claims, outcome, agrees } = scores;
+  const { judge, calibration, claims, label, agrees } = scores;
   const unclaimed = judge?.reasons.filter((each) => each.claim === null) ?? [];
 
   return (
     <DetailSection title={VERDICTS_TITLE}>
       <div data-slot="run-judge-score" className="flex flex-col gap-2">
         <dl>
-          {outcome && (
+          {label && (
             <DetailProperty name={PEOPLE_LABEL}>
-              <span data-slot="run-outcome">{formatOutcome(outcome)}</span>
+              <span data-slot="run-label">{formatLabel(label)}</span>
             </DetailProperty>
           )}
           <DetailProperty name={JUDGE_LABEL}>

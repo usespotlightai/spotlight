@@ -29,13 +29,12 @@ export const runScoresOf = (
   claims: CLAIMS,
   judged: true,
   calibration: TRUSTED,
-  outcome: null,
+  label: null,
   agrees: null,
   judge: {
     value: 1 / 3,
     claimResults: [false, true, false],
     passes: false,
-    label: '1 of 3 claims met',
     rubricVersion:
       '9c41e2d7a6b3f0851e2c4d6a8b0f1e3d5c7a9b1d3f5e7a9c1b3d5f7e9a1c3b5d',
     model: 'google/gemini-3.8-flash',

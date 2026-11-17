@@ -6207,22 +6207,17 @@ export type JudgeScoreResponseDto = {
    * Whether the run passes: the share of claims met reaches the pass threshold
    */
   passes: boolean;
-  label: string;
   rubricVersion: string;
   model: string;
   at: string;
   reasons: Array<JudgeReasonResponseDto>;
 };
 
-export type RunHumanOutcomeResponseDto = {
+export type RunLabelResponseDto = {
   /**
-   * What gave the human outcome: the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task
+   * What gave the label: the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task
    */
-  source: 'accepted' | 'sent-back' | 'merged' | 'held';
-  /**
-   * Whether people found the run good
-   */
-  passes: boolean;
+  from: 'accepted' | 'sent-back' | 'merged' | 'held';
 };
 
 export type RunScoresResponseDto = {
@@ -6230,9 +6225,9 @@ export type RunScoresResponseDto = {
   taskId: string;
   stationId: string;
   /**
-   * The claims of the judge score shown on the run, in order; a claim reads null only where the claims the judge was given are no longer stored; empty where no judge score is shown
+   * The claims of the judge score shown on the run, in order; empty where no judge score is shown
    */
-  claims: Array<string | null>;
+  claims: Array<string>;
   /**
    * Whether the judge checked the run
    */
@@ -6243,11 +6238,11 @@ export type RunScoresResponseDto = {
   judge: JudgeScoreResponseDto | null;
   calibration: JudgeCalibrationResponseDto;
   /**
-   * What people said of the run: their first action on the run, else the task’s pull request; none where people said nothing yet
+   * What people said of the run; none where people said nothing yet
    */
-  outcome: RunHumanOutcomeResponseDto | null;
+  label: RunLabelResponseDto | null;
   /**
-   * Whether the judge’s verdict is the human outcome; none where the judge’s verdict is hidden or people said nothing yet
+   * Whether the judge’s verdict is the human label’s; none where the judge’s verdict is hidden or people said nothing yet
    */
   agrees: boolean | null;
 };

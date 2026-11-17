@@ -2,7 +2,7 @@ import { ClaimVerdictRow } from '@/components/features/runs/judge/ClaimVerdictRo
 import { CLAIMS_LABEL, type JudgeReason } from '@/lib/judge';
 
 type ClaimVerdictsProps = {
-  claims: readonly (string | null)[];
+  claims: readonly string[];
   marks: readonly boolean[];
   reasons: readonly JudgeReason[];
 };

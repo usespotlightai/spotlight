@@ -14,11 +14,11 @@ import {
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { inList } from '@platform/persistence/drizzle/in-list';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -26,15 +26,6 @@ type ScoreRow = typeof score.$inferSelect;
 
 const toScore = (row: ScoreRow): Score =>
   Score.rehydrate(scoreFieldsOfRow(row));
-
-const columnsOf = (stored: Score) => ({
-  value: stored.value,
-  claimResults: [...stored.claimResults],
-  passThreshold: stored.passThreshold,
-  passes: stored.passes,
-  rubricVersion: stored.rubricVersion,
-  at: stored.at,
-});
 
 const storedReasons = (stored: Score): StoredReason[] =>
   stored.reasons.map((each) => ({
@@ -69,7 +60,12 @@ export class DrizzleScoreRepository implements ScoreRepository {
           reasons: storedReasons(added),
           seen: { steps: added.seen.steps, hunks: added.seen.hunks },
           version: added.version,
-          ...columnsOf(added),
+          value: added.value,
+          claimResults: [...added.claimResults],
+          passThreshold: added.passThreshold,
+          passes: added.passes,
+          rubricVersion: added.rubricVersion,
+          at: added.at,
         })
         .onConflictDoNothing()
         .returning({ id: score.id });
@@ -83,25 +79,18 @@ export class DrizzleScoreRepository implements ScoreRepository {
   }
 
   async save(saved: Score): Promise<void> {
-    if (saved.isDeleted) {
-      return this.removed(saved);
+    if (!saved.isDeleted) {
+      throw new InconsistentStateError('score', 'changes only by being deleted');
     }
 
-    await this.context.inTransaction(async () => {
-      const written = await this.context.db
-        .update(score)
-        .set({ version: saved.version + 1, ...columnsOf(saved) })
-        .where(
-          and(eq(score.id, saved.id.value), eq(score.version, saved.version)),
-        )
-        .returning({ id: score.id });
+    const gone = await this.context.db
+      .delete(score)
+      .where(and(eq(score.id, saved.id.value), eq(score.version, saved.version)))
+      .returning({ id: score.id });
 
-      if (written.length === 0) {
-        throw new ScoreVersionConflictError(saved.id.value);
-      }
-
-      await this.events.dispatch(saved.pullEvents());
-    });
+    if (gone.length === 0) {
+      throw new ScoreVersionConflictError(saved.id.value);
+    }
   }
 
   async of(
@@ -120,37 +109,6 @@ export class DrizzleScoreRepository implements ScoreRepository {
       .limit(1);
 
     return row ? toScore(row) : null;
-  }
-
-  async ofRuns(runIds: readonly RunId[]): Promise<readonly Score[]> {
-    if (runIds.length === 0) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .select()
-      .from(score)
-      .where(
-        inList(
-          score.runId,
-          runIds.map((each) => each.value),
-        ),
-      );
-
-    return rows.map(toScore);
-  }
-
-  private async removed(removed: Score): Promise<void> {
-    const gone = await this.context.db
-      .delete(score)
-      .where(
-        and(eq(score.id, removed.id.value), eq(score.version, removed.version)),
-      )
-      .returning({ id: score.id });
-
-    if (gone.length === 0) {
-      throw new ScoreVersionConflictError(removed.id.value);
-    }
   }
 
   async ofScope(scope: DeletionScope, max: number): Promise<readonly Score[]> {

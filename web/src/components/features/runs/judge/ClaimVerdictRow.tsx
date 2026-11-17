@@ -9,7 +9,7 @@ import type { JudgeReason } from '@/lib/judge';
 
 type ClaimVerdictRowProps = {
   index: number;
-  text: string | null | undefined;
+  text: string | undefined;
   met: boolean;
   reasons: readonly JudgeReason[];
 };

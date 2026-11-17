@@ -155,11 +155,11 @@ describe('answers to a judge disagreement, one claim at a time', () => {
     expect(answered.answeredAt).toEqual(FIRST);
   });
 
-  it('keeps the claims in dispute it opened with, and why it was withdrawn', async () => {
+  it('derives the claims in dispute from its stored verdict, and keeps why it was withdrawn', async () => {
     await disagreements.add(
       openDisagreement('run_4', {
         claimResults: [true, false, true],
-        personPasses: true,
+        labelFrom: 'accepted',
       }),
     );
     await disagreements.save(

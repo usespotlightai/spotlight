@@ -124,16 +124,14 @@ describe('RunJudgeScore', () => {
   });
 
   it.each([
-    [{ source: 'accepted', passes: true }, 'Accepted'],
-    [{ source: 'sent-back', passes: false }, 'Sent back'],
-    [{ source: 'merged', passes: true }, 'Pull request merged'],
-    [{ source: 'held', passes: false }, 'Put on hold'],
+    [{ from: 'accepted' }, 'Accepted'],
+    [{ from: 'sent-back' }, 'Sent back'],
+    [{ from: 'merged' }, 'Pull request merged'],
+    [{ from: 'held' }, 'Put on hold'],
   ] as const)(
     'shows what people said of the run before the judge’s verdict: %o',
-    (outcome, shown) => {
-      scores.mockReturnValue(
-        runScoresOf('run_1', 'task_1', { outcome, agrees: !outcome.passes }),
-      );
+    (label, shown) => {
+      scores.mockReturnValue(runScoresOf('run_1', 'task_1', { label }));
       showing();
 
       const names = [...document.querySelectorAll('dt')].map(
@@ -141,7 +139,7 @@ describe('RunJudgeScore', () => {
       );
       expect(names).toEqual(['People', 'Judge']);
       expect(
-        document.querySelector('[data-slot="run-outcome"]'),
+        document.querySelector('[data-slot="run-label"]'),
       ).toHaveTextContent(shown);
     },
   );
@@ -149,7 +147,7 @@ describe('RunJudgeScore', () => {
   it('marks a verdict of the judge that people disagree with', () => {
     scores.mockReturnValue(
       runScoresOf('run_1', 'task_1', {
-        outcome: { source: 'accepted', passes: true },
+        label: { from: 'accepted' },
         agrees: false,
       }),
     );
@@ -160,7 +158,7 @@ describe('RunJudgeScore', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows no outcome and no mark where people said nothing yet', () => {
+  it('shows no label and no mark where people said nothing yet', () => {
     showing();
 
     expect(screen.queryByText('People')).not.toBeInTheDocument();

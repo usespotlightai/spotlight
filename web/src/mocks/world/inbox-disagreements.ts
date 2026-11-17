@@ -66,7 +66,7 @@ const disagreementFrom = (
 
   const labelFrom =
     over.labelFrom ??
-    scores.outcome?.source ??
+    scores.label?.from ??
     (judge.passes ? 'sent-back' : 'accepted');
 
   return {

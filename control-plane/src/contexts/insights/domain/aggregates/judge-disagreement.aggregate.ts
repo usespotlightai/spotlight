@@ -85,6 +85,20 @@ const brokenRuleOf = (
   return null;
 };
 
+const notMetRuleOf = (
+  verdict: DisagreementVerdict,
+  shouldHaveFailed: number | null,
+): string | null => {
+  if (!verdict.passes) {
+    return 'takes what was not met only where the judge passed the run';
+  }
+  if (shouldHaveFailed !== null && shouldHaveFailed >= verdict.claims.length) {
+    return 'must name a claim of the judge that looked at the run';
+  }
+
+  return null;
+};
+
 export class JudgeDisagreement extends EventRecorder {
   private deleted = false;
 
@@ -168,22 +182,11 @@ export class JudgeDisagreement extends EventRecorder {
         'keeps at most one answer for each of its claims',
       );
     }
-    if (fields.notMet && !fields.verdict.passes) {
-      throw new InconsistentStateError(
-        'judge disagreement',
-        'keeps what was not met only where the judge passed the run',
-      );
-    }
-    const shouldHaveFailed = fields.notMet?.shouldHaveFailed ?? null;
+    const brokenNotMet =
+      fields.notMet && notMetRuleOf(verdict, fields.notMet.shouldHaveFailed);
 
-    if (
-      shouldHaveFailed !== null &&
-      shouldHaveFailed >= verdict.claims.length
-    ) {
-      throw new InconsistentStateError(
-        'judge disagreement',
-        'keeps what was not met only on a claim of its judge',
-      );
+    if (brokenNotMet) {
+      throw new InconsistentStateError('judge disagreement', brokenNotMet);
     }
 
     const complete = fields.notMet
@@ -411,18 +414,13 @@ export class JudgeDisagreement extends EventRecorder {
     if (this.fields.notMet) {
       throw new JudgeDisagreementAnsweredError(this.fields.id.value);
     }
-    if (this.direction !== 'judge-passed') {
-      throw new InvalidJudgeDisagreementError(
-        'with claims in dispute takes an answer for each of them, one by one',
-      );
-    }
-    if (
-      input.shouldHaveFailed !== null &&
-      input.shouldHaveFailed >= this.fields.verdict.claims.length
-    ) {
-      throw new InvalidJudgeDisagreementError(
-        'must name a claim of the judge that looked at the run',
-      );
+    const brokenNotMet = notMetRuleOf(
+      this.fields.verdict,
+      input.shouldHaveFailed,
+    );
+
+    if (brokenNotMet) {
+      throw new InvalidJudgeDisagreementError(brokenNotMet);
     }
 
     const next = new JudgeDisagreement({

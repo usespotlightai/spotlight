@@ -265,7 +265,7 @@ describe('scores, stored', () => {
   it('stores a judge’s score with its cited reasons', async () => {
     await scores.add(judged('run_a', 1));
 
-    const [score] = await scores.ofRuns([RunId.of('run_a')]);
+    const [score] = await facts.scoresOfRuns([RunId.of('run_a')]);
     expect(score?.reasons[0]?.citations.map((each) => each.kind)).toEqual([
       'step',
       'hunk',
@@ -527,7 +527,7 @@ describe('how often the judge agrees with people', () => {
     await erased(scores, TaskId.of('task_run_a'));
     await erased(judgings, TaskId.of('task_judged'));
 
-    expect(await scores.ofRuns([RunId.of('run_a')])).toEqual([]);
+    expect(await facts.scoresOfRuns([RunId.of('run_a')])).toEqual([]);
     expect(await judgings.of(RunId.of('run_judged'))).toBeNull();
   });
 
@@ -578,7 +578,7 @@ describe('how often the judge agrees with people', () => {
     release();
     await Promise.all([recording, deleting]);
 
-    expect(await scores.ofRuns([RunId.of('run_racing')])).toEqual([]);
+    expect(await facts.scoresOfRuns([RunId.of('run_racing')])).toEqual([]);
   });
 });
 
@@ -615,7 +615,7 @@ describe('a claims judge’s scores, stored', () => {
       }),
     );
 
-    const [stored] = await scores.ofRuns([RunId.of('claims_0')]);
+    const [stored] = await facts.scoresOfRuns([RunId.of('claims_0')]);
     expect(stored?.claimResults).toEqual([true, true]);
     expect(stored?.reasons.map((each) => each.claim)).toEqual([0, 1]);
   });

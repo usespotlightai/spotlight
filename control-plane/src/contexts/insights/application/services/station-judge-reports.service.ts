@@ -11,6 +11,7 @@ import {
   judgeReportOf,
 } from '@insights/domain/services/judge-report';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -57,6 +58,7 @@ export interface StationLocation {
 
 export interface CurrentCalibration {
   readonly rubricVersion: RubricVersion | null;
+  readonly rubric: Rubric | null;
   readonly calibration: JudgeCalibration;
 }
 
@@ -99,6 +101,7 @@ export class StationJudgeReports {
 
     return {
       rubricVersion: judge?.rubricVersion ?? null,
+      rubric: judge?.rubric ?? null,
       calibration: await this.calibrationFor(station, judge),
     };
   }

@@ -5,7 +5,6 @@ import type {
   RunScoresDto,
 } from '@insights/application/dto/run-scores.dto';
 import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
-import type { JudgedClaimsOf } from '@insights/application/services/judged-claims-of.service';
 import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { UnknownRunError } from '@insights/domain/exceptions/unknown-run.error';
 import {
@@ -14,7 +13,6 @@ import {
 } from '@insights/domain/services/human-label';
 import { visibleJudgeOf } from '@insights/domain/services/judge-verdict';
 import type { Citation } from '@insights/domain/value-objects/citation.vo';
-import { passesOn } from '@insights/domain/value-objects/label-source';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
@@ -62,17 +60,10 @@ const citationOf = (citation: Citation, seen: SeenEvidence): CitationDto => {
   };
 };
 
-const labelOf = (score: Scored): string => {
-  const claims = score.claimResults.length;
-
-  return `${score.claimResults.filter(Boolean).length} of ${claims} ${claims === 1 ? 'claim' : 'claims'} met`;
-};
-
 const judgeOf = (score: Scored): JudgeScoreDto => ({
   value: score.value,
   claimResults: [...score.claimResults],
   passes: score.passes,
-  label: labelOf(score),
   rubricVersion: score.rubricVersion,
   model: score.model,
   at: score.at.toISOString(),
@@ -87,7 +78,6 @@ export class RunScoresViews {
   constructor(
     private readonly facts: StationFactsPort,
     private readonly reports: StationJudgeReports,
-    private readonly claims: JudgedClaimsOf,
   ) {}
 
   async onTeam(access: ViewedTeam, runId: string): Promise<RunOnTeam> {
@@ -107,12 +97,13 @@ export class RunScoresViews {
 
   async of(access: ViewedTeam, run: RunOnTeam): Promise<RunScoresDto> {
     const scores = await this.facts.scoresOfRuns([run.runId]);
-    const { rubricVersion, calibration } = await this.reports.calibrationAt({
-      workspaceId: access.workspaceId,
-      teamId: access.teamId,
-      lineId: run.end.location.lineId,
-      stationId: run.end.location.stationId,
-    });
+    const { rubricVersion, rubric, calibration } =
+      await this.reports.calibrationAt({
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
+        lineId: run.end.location.lineId,
+        stationId: run.end.location.stationId,
+      });
     const judge = visibleJudgeOf(scores, calibration, rubricVersion);
     const label = humanLabelOf(run.fact);
 
@@ -120,11 +111,11 @@ export class RunScoresViews {
       runId: run.runId.value,
       taskId: run.end.location.taskId.value,
       stationId: run.end.location.stationId.value,
-      claims: [...(await this.claims.of(run, judge))],
+      claims: judge ? [...(rubric?.claims ?? [])] : [],
       judged: scores.length > 0,
       judge: judge ? judgeOf(judge) : null,
       calibration: judgeCalibrationOf(calibration),
-      outcome: label && { source: label.from, passes: passesOn(label.from) },
+      label: label && { from: label.from },
       agrees: judgeAgreesOf(judge, label),
     };
   }

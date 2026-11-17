@@ -94,7 +94,6 @@ import { DeleteInsights } from '@insights/application/services/delete-insights.s
 import { EndOverdueClaimsRevisions } from '@insights/application/services/end-overdue-claims-revisions.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
-import { JudgedClaimsOf } from '@insights/application/services/judged-claims-of.service';
 import { PairJudgments } from '@insights/application/services/pair-judgments.service';
 import { ProjectPullRequestFacts } from '@insights/application/services/project-pull-request-facts.service';
 import { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
@@ -311,21 +310,10 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       new StationJudgeReports(judges, facts),
   },
   {
-    provide: JudgedClaimsOf,
-    inject: [STATION_JUDGES, DrizzleJudgingRepository],
-    useFactory: (
-      judges: StationJudgesPort,
-      judgings: DrizzleJudgingRepository,
-    ) => new JudgedClaimsOf(judges, judgings),
-  },
-  {
     provide: RunScoresViews,
-    inject: [STATION_FACTS, StationJudgeReports, JudgedClaimsOf],
-    useFactory: (
-      facts: StationFactsPort,
-      reports: StationJudgeReports,
-      claims: JudgedClaimsOf,
-    ) => new RunScoresViews(facts, reports, claims),
+    inject: [STATION_FACTS, StationJudgeReports],
+    useFactory: (facts: StationFactsPort, reports: StationJudgeReports) =>
+      new RunScoresViews(facts, reports),
   },
   {
     provide: InsightsAccess,
