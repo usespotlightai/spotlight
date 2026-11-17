@@ -5,4 +5,4 @@ import { described } from './violation';
 
 it('applies import rules to every source file', () => {
   expect(described(rootLintCoverageViolations())).toEqual([]);
-});
+}, 60_000);

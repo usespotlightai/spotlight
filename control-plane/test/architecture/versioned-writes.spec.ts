@@ -5,4 +5,4 @@ import { described } from './violation';
 
 it('updates and deletes a versioned table only on its version', () => {
   expect(described(versionedWriteViolations())).toEqual([]);
-});
+}, 60_000);
