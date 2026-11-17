@@ -1,5 +1,5 @@
 import { LiveWrites } from '@platform/live/live-writes';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('LiveWrites', () => {
   it('gives the last sequence of each channel a write published on', async () => {
@@ -22,6 +22,21 @@ describe('LiveWrites', () => {
     });
 
     expect(await header).toBe('workspace:ws_1@5,person:user_1@9');
+  });
+
+  it('gives nothing, and says so, when the sequences are late', async () => {
+    vi.useFakeTimers();
+    const late = vi.fn();
+    const header = LiveWrites.headerOf(
+      [new Promise<never[]>(() => undefined)],
+      late,
+    );
+
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(await header).toBeNull();
+    expect(late).toHaveBeenCalledOnce();
+    vi.useRealTimers();
   });
 
   it('gives nothing when a write published no numbered change', async () => {

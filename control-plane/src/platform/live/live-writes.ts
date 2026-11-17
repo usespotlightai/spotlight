@@ -22,13 +22,19 @@ export const LiveWrites = {
     scope.getStore()?.push(published);
   },
 
-  async headerOf(published: readonly Published[]): Promise<string | null> {
+  async headerOf(
+    published: readonly Published[],
+    late: () => void = () => undefined,
+  ): Promise<string | null> {
     const last = new Map<string, number>();
     let waiting: ReturnType<typeof setTimeout> | undefined;
     const all = await Promise.race([
       Promise.all(published),
       new Promise<readonly (readonly SequencedNotice[])[]>((resolve) => {
-        waiting = setTimeout(() => resolve([]), HEADER_WAIT_MS);
+        waiting = setTimeout(() => {
+          late();
+          resolve([]);
+        }, HEADER_WAIT_MS);
       }),
     ]);
     clearTimeout(waiting);

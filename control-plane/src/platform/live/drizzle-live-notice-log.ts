@@ -44,24 +44,23 @@ export class DrizzleLiveNoticeLog implements LiveNoticeLogPort {
       ]);
     }
 
-    const sequenced: SequencedNotice[] = [];
+    const sequenced = await Promise.all(
+      [...byChannel].map(async ([channel, each]) => {
+        const last = await this.claimed(channel, each).catch(
+          (error: unknown) => {
+            this.logger.warn({ err: error, channel }, 'Numbering live changes');
+            return null;
+          },
+        );
 
-    for (const channel of [...byChannel.keys()].sort()) {
-      const each = byChannel.get(channel) ?? [];
-      const last = await this.claimed(channel, each).catch((error: unknown) => {
-        this.logger.warn({ err: error, channel }, 'Numbering live changes');
-        return null;
-      });
-
-      sequenced.push(
-        ...each.map((notice, index) => ({
+        return each.map((notice, index) => ({
           ...notice,
           sequence: last === null ? null : last - each.length + index + 1,
-        })),
-      );
-    }
+        }));
+      }),
+    );
 
-    return sequenced;
+    return sequenced.flat();
   }
 
   async logs(
