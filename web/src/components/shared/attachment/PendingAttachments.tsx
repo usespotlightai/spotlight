@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { ImageGallery } from '@/components/shared/attachment/ImageGallery';
 import { PendingAttachmentChip } from '@/components/shared/attachment/PendingAttachmentChip';
 import type { PendingAttachment } from '@/lib/attachment';
 import { cn } from '@/lib/utils';
@@ -64,27 +65,29 @@ export function PendingAttachments({
         closing ? 'animate-attachments-out' : 'animate-attachments-in',
       )}
     >
-      <ul
-        aria-label="Attachments"
-        className={cn('flex flex-wrap gap-y-2', className)}
-      >
-        {attachments.map((each) => (
-          <li
-            key={each.key}
-            className={cn(
-              'mr-2 w-48 shrink-0 overflow-hidden motion-reduce:animate-none',
-              leaving.has(each.key)
-                ? 'animate-attachment-out'
-                : 'animate-attachment-in',
-            )}
-          >
-            <PendingAttachmentChip
-              attachment={each}
-              onRemove={() => leave(each.key)}
-            />
-          </li>
-        ))}
-      </ul>
+      <ImageGallery>
+        <ul
+          aria-label="Attachments"
+          className={cn('flex flex-wrap gap-y-2', className)}
+        >
+          {attachments.map((each) => (
+            <li
+              key={each.key}
+              className={cn(
+                'mr-2 w-48 shrink-0 overflow-hidden motion-reduce:animate-none',
+                leaving.has(each.key)
+                  ? 'animate-attachment-out'
+                  : 'animate-attachment-in',
+              )}
+            >
+              <PendingAttachmentChip
+                attachment={each}
+                onRemove={() => leave(each.key)}
+              />
+            </li>
+          ))}
+        </ul>
+      </ImageGallery>
     </div>
   );
 }
