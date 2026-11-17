@@ -92,7 +92,9 @@ const task = (
   createdAt: hoursAgo(24),
   progress: null,
   awaitingReview: null,
+  finished: false,
   pullRequests: [],
+  hold: null,
   createdBy: PRIYA,
   assignee: PRIYA,
   note: null,
@@ -154,6 +156,7 @@ const run = (
     station: runStationOf(STATIONS, stationId),
     review: null,
     ...rest,
+    driver: rest.driver ?? 'line',
     progress: progressOfState(rest.state ?? 'completed'),
   };
 };

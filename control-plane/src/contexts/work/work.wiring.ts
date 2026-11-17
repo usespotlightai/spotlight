@@ -35,6 +35,7 @@ import {
   MEMBER_DIRECTORY,
   type MemberDirectoryPort,
 } from '@identity/application/ports/member-directory.port';
+import { PERSON_READER } from '@identity/application/ports/person-reader.port';
 import {
   TEAM_DIRECTORY,
   type TeamDirectoryPort,
@@ -66,6 +67,10 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { s3ClientsOf } from '@platform/storage/s3-clients';
 import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
+import {
+  RUNNER_LEASES,
+  type RunnerLeasesPort,
+} from '@runners/application/ports/runner-leases.port';
 import {
   RUNNER_READER,
   type RunnerReaderPort,
@@ -186,6 +191,7 @@ import { ResolveChatHandler } from '@work/application/commands/handlers/resolve-
 import { ResolveConversationHandler } from '@work/application/commands/handlers/resolve-conversation.handler';
 import { ResolveInboxRequestHandler } from '@work/application/commands/handlers/resolve-inbox-request.handler';
 import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
+import { ResumeLineHandler } from '@work/application/commands/handlers/resume-line.handler';
 import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
 import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
@@ -203,6 +209,7 @@ import { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to
 import { ResolveConversationCommand } from '@work/application/commands/resolve-conversation.command';
 import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-inbox-request.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
+import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
@@ -257,10 +264,6 @@ import {
   type ChatReaderPort,
 } from '@work/application/ports/chat-reader.port';
 import { CHAT_TOOL_EXTENSIONS } from '@work/application/ports/chat-tool-extensions.port';
-import {
-  CHECK_ACCESS,
-  type CheckAccessPort,
-} from '@work/application/ports/check-access.port';
 import { CONNECTION_ASKS } from '@work/application/ports/connection-asks.port';
 import {
   CONTENT_HASH,
@@ -315,6 +318,10 @@ import {
   PULL_REQUEST_REVIEWING,
   type PullRequestReviewingPort,
 } from '@work/application/ports/pull-request-reviewing.port';
+import {
+  REVIEW_WORK_ACCESS,
+  type ReviewWorkAccessPort,
+} from '@work/application/ports/review-work-access.port';
 import {
   RUN_EVIDENCE,
   type RunEvidencePort,
@@ -517,6 +524,7 @@ import { InboxRequests } from '@work/application/services/inbox-requests.service
 import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
+import { LineResuming } from '@work/application/services/line-resuming.service';
 import { MemberInboxes } from '@work/application/services/member-inboxes.service';
 import { NoteFiles } from '@work/application/services/note-files.service';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
@@ -730,6 +738,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: LineResuming,
+    inject: [TASK_PLACEMENTS, RUN_FACTS, DispatchTask, CLOCK],
+    useFactory: (
+      placements: TaskPlacementsPort,
+      facts: RunFactsPort,
+      dispatch: DispatchTask,
+      clock: ClockPort,
+    ) => new LineResuming(placements, facts, dispatch, clock),
+  },
+
+  {
     provide: RunRouting,
     inject: [TASK_PLACEMENTS, DispatchTask, CLOCK],
     useFactory: (
@@ -754,6 +773,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RunRouting,
       RUN_JOURNAL_READINGS,
       ResumeTaskRun,
+      LineResuming,
     ],
     useFactory: (
       turns: RunTurnsPort,
@@ -768,6 +788,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       routing: RunRouting,
       readings: RunJournalReadingsPort,
       resuming: ResumeTaskRun,
+      lineResuming: LineResuming,
     ) =>
       new TakeTurn(
         turns,
@@ -782,6 +803,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         routing,
         readings,
         resuming,
+        lineResuming,
       ),
   },
 
@@ -1362,16 +1384,18 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RunWorks,
       WORKSPACE_CONNECTIONS,
       REPOSITORY_GIT,
-      CHECK_ACCESS,
+      REVIEW_WORK_ACCESS,
+      RUNNER_LEASES,
       CLOCK,
     ],
     useFactory: (
       works: RunWorks,
       workspaces: WorkspaceConnectionsPort,
       git: RepositoryGitPort,
-      checking: CheckAccessPort,
+      checking: ReviewWorkAccessPort,
+      leases: RunnerLeasesPort,
       clock: ClockPort,
-    ) => new CarryGitCall(works, workspaces, git, checking, clock),
+    ) => new CarryGitCall(works, workspaces, git, checking, leases, clock),
   },
 
   {
@@ -2369,6 +2393,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     FilesLoader,
     WorkAccess,
     DraftSending,
+    RUN_FACTS,
+    ID_GENERATOR,
   ]),
 
   ...bindCommandHandler(StopRunCommand, StopRunHandler, [
@@ -2391,6 +2417,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
     DispatchTask,
     CLOCK,
+    LineResuming,
+  ]),
+
+  ...bindCommandHandler(ResumeLineCommand, ResumeLineHandler, [
+    TASK_REPOSITORY,
+    LineLoader,
+    LineResuming,
+    TRANSACTION,
+    PERSON_READER,
   ]),
 
   ...bindCommandHandler(AssignTaskCommand, AssignTaskHandler, [

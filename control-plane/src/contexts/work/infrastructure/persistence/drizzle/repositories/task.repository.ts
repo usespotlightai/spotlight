@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   FOREIGN_KEY_VIOLATION,
   UNIQUE_VIOLATION,
@@ -20,6 +21,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StationNotKnownYetError } from '@work/application/errors/station-not-known-yet.error';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { Hold } from '@work/domain/entities/hold.entity';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-already-opened.error';
 import { TaskBranchTakenError } from '@work/domain/exceptions/task-branch-taken.error';
@@ -46,6 +49,7 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
+import { Resumption } from '@work/domain/value-objects/resumption.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
@@ -68,6 +72,7 @@ import {
   taskMark,
   taskNote,
   taskPullRequest,
+  taskHold,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import {
@@ -182,6 +187,31 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
     connectionAsk: row.connectionAsk
       ? toConnectionAsk(row.connectionAsk)
       : null,
+    resumption: row.resumption
+      ? Resumption.rehydrate({
+          next: row.resumption.next,
+          station: StationName.of(row.resumption.station),
+          summary: row.resumption.summary,
+        })
+      : null,
+  });
+
+type HoldRow = typeof taskHold.$inferSelect;
+
+const toHold = (row: HoldRow): Hold =>
+  Hold.rehydrate({
+    id: HoldId.of(row.id),
+    by: UserId.of(row.heldBy),
+    stationId: StationId.of(row.stationId),
+    from: row.fromRunId ? RunId.of(row.fromRunId) : null,
+    verdict: row.verdict,
+    turns: row.turnRunIds.map((each) => RunId.of(each)),
+    heldMove: row.heldMoveTo ? StationId.of(row.heldMoveTo) : null,
+    startedAt: row.startedAt,
+    endedAt: row.endedAt,
+    end: row.end,
+    fromHeads: row.fromHeads.map((each) => CheckoutHead.rehydrate(each)),
+    toHeads: row.toHeads.map((each) => CheckoutHead.rehydrate(each)),
   });
 
 const toTask = (
@@ -190,6 +220,7 @@ const toTask = (
   attachments: AttachmentRow[],
   marks: MarkRow[],
   ownedPullRequests: OwnedPullRequestRow[],
+  holds: HoldRow[],
 ): Task =>
   Task.rehydrate({
     attachments: toAttachments(attachments, null),
@@ -233,6 +264,7 @@ const toTask = (
         })
       : null,
     moveHeldTo: row.moveHeldTo ? StationId.of(row.moveHeldTo) : null,
+    holds: holds.map(toHold),
     heldMarks: marks.map((each) =>
       HeldMark.of(Mark.of(each.kind, each.value), each.heldSince),
     ),
@@ -266,11 +298,12 @@ interface Parts {
   readonly attachments: Map<string, AttachmentRow[]>;
   readonly marks: Map<string, MarkRow[]>;
   readonly owned: Map<string, OwnedPullRequestRow[]>;
+  readonly holds: Map<string, HoldRow[]>;
 }
 
 const assembled = (
   rows: readonly Row[],
-  { notes, attachments, marks, owned }: Parts,
+  { notes, attachments, marks, owned, holds }: Parts,
 ): Task[] =>
   rows.map((each) =>
     toTask(
@@ -279,6 +312,7 @@ const assembled = (
       attachments.get(each.id) ?? [],
       marks.get(each.id) ?? [],
       owned.get(each.id) ?? [],
+      holds.get(each.id) ?? [],
     ),
   );
 
@@ -334,6 +368,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeAttachments(added);
     await this.writeMarks(added);
     await this.writeOwnedPullRequests(added);
+    await this.writeHolds(added);
   }
 
   async save(saved: Task): Promise<void> {
@@ -413,6 +448,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeAttachments(saved);
     await this.writeMarks(saved);
     await this.writeOwnedPullRequests(saved);
+    await this.writeHolds(saved);
   }
 
   private async writeMarks(written: Task): Promise<void> {
@@ -502,6 +538,64 @@ export class DrizzleTaskRepository implements TaskRepository {
     }, new Map<string, OwnedPullRequestRow[]>());
   }
 
+  private async holdsFor(
+    taskIds: string[],
+  ): Promise<Map<string, HoldRow[]>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(taskHold)
+      .where(inArray(taskHold.taskId, taskIds))
+      .orderBy(asc(taskHold.startedAt), asc(taskHold.id));
+
+    return rows.reduce((taken, row) => {
+      taken.set(row.taskId, [...(taken.get(row.taskId) ?? []), row]);
+      return taken;
+    }, new Map<string, HoldRow[]>());
+  }
+
+  private async writeHolds(written: Task): Promise<void> {
+    if (written.holds.length === 0) {
+      return;
+    }
+
+    await this.context.db
+      .insert(taskHold)
+      .values(
+        written.holds.map((each) => ({
+          id: each.id.value,
+          workspaceId: written.workspaceId.value,
+          taskId: written.id.value,
+          stationId: each.stationId.value,
+          heldBy: each.by.value,
+          fromRunId: each.from?.value ?? null,
+          verdict: each.verdict,
+          turnRunIds: each.turns.map((turn) => turn.value),
+          heldMoveTo: each.heldMove?.value ?? null,
+          fromHeads: each.fromHeads.map((head) => head.parts),
+          toHeads: each.toHeads.map((head) => head.parts),
+          end: each.end,
+          startedAt: each.startedAt,
+          endedAt: each.endedAt,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: taskHold.id,
+        set: {
+          verdict: sql`excluded.verdict`,
+          turnRunIds: sql`excluded.turn_run_ids`,
+          heldMoveTo: sql`excluded.held_move_to`,
+          fromHeads: sql`excluded.from_heads`,
+          toHeads: sql`excluded.to_heads`,
+          end: sql`excluded.hold_end`,
+          endedAt: sql`excluded.ended_at`,
+        },
+      });
+  }
+
   private async marksFor(taskIds: string[]): Promise<Map<string, MarkRow[]>> {
     if (taskIds.length === 0) {
       return new Map();
@@ -529,14 +623,16 @@ export class DrizzleTaskRepository implements TaskRepository {
 
   // The row comes first: a part written after it changes the version, so a save from a mixed read conflicts.
   private async partsFor(ids: string[]): Promise<Parts> {
-    const [notes, attachments, marks, owned] = await this.context.concurrently(
-      () => this.notesFor(ids),
-      () => this.attachmentsFor(ids),
-      () => this.marksFor(ids),
-      () => this.ownedPullRequestsFor(ids),
-    );
+    const [notes, attachments, marks, owned, holds] =
+      await this.context.concurrently(
+        () => this.notesFor(ids),
+        () => this.attachmentsFor(ids),
+        () => this.marksFor(ids),
+        () => this.ownedPullRequestsFor(ids),
+        () => this.holdsFor(ids),
+      );
 
-    return { notes, attachments, marks, owned };
+    return { notes, attachments, marks, owned, holds };
   }
 
   async find(id: TaskId): Promise<Task | null> {
@@ -857,6 +953,13 @@ export class DrizzleTaskRepository implements TaskRepository {
             : null,
           connectionAsk: note.connectionAsk
             ? toConnectionAskRow(note.connectionAsk)
+            : null,
+          resumption: note.resumption
+            ? {
+                next: note.resumption.next,
+                station: note.resumption.station.value,
+                summary: note.resumption.summary,
+              }
             : null,
         })),
       )

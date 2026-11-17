@@ -6,10 +6,12 @@ import type {
   AssignTaskRequestDto,
   AttachmentResponseDto,
   GrantAttachmentUploadRequestDto,
+  ResumeLineRequestDto,
   MoveTaskRequestDto,
   SendMessageRequestDto,
   TaskResponseDto,
 } from '@/lib/api';
+import { waitsOnPerson } from '@/lib/run';
 import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
@@ -27,6 +29,7 @@ import {
   placeStation,
   readableTask,
   runStationIn,
+  taskChangeStacksOf,
   taskTraceOf,
   teamRunsOf,
 } from '@/mocks/world/work';
@@ -55,7 +58,12 @@ const replaceTask = (teamId: string, next: TaskResponseDto) => {
   );
 };
 
-const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
+const queueRunAt = (
+  teamId: string,
+  taskId: string,
+  stationId: string,
+  driver: 'line' | 'person' = 'line',
+) => {
   const placedAt = placeStation(teamId, stationId);
 
   if (placedAt?.station.kind !== 'work') {
@@ -66,6 +74,7 @@ const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
   world().runs[taskId] = [
     {
       id: nextId('run'),
+      driver,
       state: 'queued',
       progress: 'queued',
       attempt: 1,
@@ -79,6 +88,37 @@ const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
     },
     ...(world().runs[taskId] ?? []),
   ];
+};
+
+const holdOnMessage = ({
+  teamId,
+  task,
+  run,
+}: NonNullable<ReturnType<typeof locateRun>>) => {
+  const here = placeStation(teamId, task.stationId)?.station;
+
+  if (
+    !here?.harness ||
+    run.station?.id !== task.stationId ||
+    task.hold ||
+    task.finished ||
+    waitsOnPerson(run)
+  ) {
+    return;
+  }
+
+  queueRunAt(teamId, task.id, task.stationId, 'person');
+  replaceTask(teamId, {
+    ...task,
+    assignee: SAM,
+    hold: {
+      by: SAM,
+      verdict: 'not-right',
+      startedAt: new Date().toISOString(),
+      runId: world().runs[task.id]?.[0]?.id ?? null,
+      heldMoveTo: null,
+    },
+  });
 };
 
 export const workHandlers: RequestHandler[] = [
@@ -103,11 +143,13 @@ export const workHandlers: RequestHandler[] = [
         createdAt: new Date().toISOString(),
         progress: null,
         awaitingReview: null,
+        finished: false,
         pullRequests: [],
         createdBy: SAM,
         assignee: null,
         note: null,
         source: null,
+        hold: null,
       };
 
       world().tasks[teamId] = [...(world().tasks[teamId] ?? []), task];
@@ -168,6 +210,44 @@ export const workHandlers: RequestHandler[] = [
     return noContent();
   }),
 
+  api.post(
+    '/teams/:teamId/tasks/:taskId/resume',
+    async ({ params, request }) => {
+      const teamId = String(params.teamId);
+      const task = findTask(teamId, String(params.taskId));
+      const { next, stationId } =
+        (await request.json()) as ResumeLineRequestDto;
+
+      if (!task?.hold) {
+        return notFound();
+      }
+
+      const completed = (world().lines[teamId] ?? [])
+        .find((line) =>
+          line.stations.some((each) => each.id === task.stationId),
+        )
+        ?.stations.find((each) => each.kind === 'completed');
+      const to =
+        next === 'move-on' && stationId
+          ? stationId
+          : next === 'finish'
+            ? (completed?.id ?? task.stationId)
+            : task.stationId;
+      const resumed: TaskResponseDto = {
+        ...task,
+        stationId: to,
+        finished: next === 'finish',
+        hold: null,
+      };
+      replaceTask(teamId, resumed);
+      if (next !== 'finish') {
+        queueRunAt(teamId, task.id, to);
+      }
+
+      return json(resumed);
+    },
+  ),
+
   api.put(
     '/teams/:teamId/tasks/:taskId/assignee',
     async ({ params, request }) => {
@@ -219,15 +299,15 @@ export const workHandlers: RequestHandler[] = [
       : notFound();
   }),
 
+  api.get('/teams/:teamId/tasks/:taskId/change-stacks', ({ params }) =>
+    findTask(String(params.teamId), String(params.taskId))
+      ? json({ stacks: taskChangeStacksOf(String(params.taskId)) })
+      : notFound(),
+  ),
+
   api.post(
-    '/teams/:teamId/runs/:runId/change-stacks/:stackId/questions/:questionId/answers',
+    '/teams/:teamId/change-stacks/:stackId/questions/:questionId/answers',
     async ({ params, request }) => {
-      const located = locateRun(String(params.teamId), String(params.runId));
-
-      if (!located) {
-        return notFound();
-      }
-
       const body = (await request.json()) as AnswerQuestionRequestDto;
 
       return json(
@@ -257,6 +337,7 @@ export const workHandlers: RequestHandler[] = [
 
       const body = (await request.json()) as SendMessageRequestDto;
       addMessage(located, body.body, attachmentsOf(body.attachments));
+      holdOnMessage(located);
 
       return noContent();
     },

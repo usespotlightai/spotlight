@@ -29,9 +29,10 @@ const bodyOf = (call: ProvisionCall, spotlightUrl: string): string =>
     timestamp: call.at.toISOString(),
     data: {
       ...call.tags,
-      kind: call.kind,
-      runId: call.runId,
-      stackId: call.checkId,
+      kind: call.work.kind,
+      runId: call.work.kind === 'diff' ? null : call.work.runId,
+      stackId: call.work.kind === 'check' ? call.work.stackId : null,
+      diffId: call.work.kind === 'diff' ? call.work.diffId : null,
       workspaceId: call.workspaceId,
       pool: call.pool,
       labels: call.labels,

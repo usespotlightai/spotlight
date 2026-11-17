@@ -3,6 +3,7 @@ import type { JsonObject } from '@shared-kernel/domain/json-value';
 import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTaskParts } from '@work/domain/value-objects/briefed-task.vo';
 import { DISPATCH_REFUSALS } from '@work/domain/value-objects/dispatch-refusal';
+import { RUN_DRIVERS } from '@work/domain/value-objects/dispatch-subject';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import { TRIAL_FOLLOW_UPS } from '@work/domain/value-objects/trial-follow-up';
 import { sql } from 'drizzle-orm';
@@ -35,6 +36,8 @@ export const dispatchRefusal = pgEnum('dispatch_refusal', DISPATCH_REFUSALS);
 
 export const dispatchFollowUp = pgEnum('dispatch_follow_up', TRIAL_FOLLOW_UPS);
 
+export const dispatchDriver = pgEnum('dispatch_driver', RUN_DRIVERS);
+
 export const dispatch = pgTable(
   'dispatch',
   {
@@ -45,6 +48,7 @@ export const dispatch = pgTable(
     taskId: text('task_id'),
     taskRevision: integer('task_revision'),
     stationId: text('station_id'),
+    driver: dispatchDriver('driver').notNull().default('line'),
     chatId: text('chat_id'),
     basedOnRunId: text('based_on_run_id'),
     asOf: timestamptz('as_of'),

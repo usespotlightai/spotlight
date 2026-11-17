@@ -2,8 +2,8 @@ import { DeleteReviewCommentCommand } from '@change-review/application/commands/
 import { DraftReviewCommentCommand } from '@change-review/application/commands/draft-review-comment.command';
 import { EditReviewCommentCommand } from '@change-review/application/commands/edit-review-comment.command';
 import { SubmitReviewCommand } from '@change-review/application/commands/submit-review.command';
-import type { RunReviewDto } from '@change-review/application/dto/run-review.dto';
-import { ReadRunReviewQuery } from '@change-review/application/queries/read-run-review.query';
+import type { TaskReviewDto } from '@change-review/application/dto/task-review.dto';
+import { ReadTaskReviewQuery } from '@change-review/application/queries/read-task-review.query';
 import {
   DraftReviewCommentRequestDto,
   EditReviewCommentRequestDto,
@@ -45,8 +45,8 @@ import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 
 @ApiTags('reviews')
 @ApiParam({ name: 'teamId', type: String })
-@ApiParam({ name: 'runId', type: String })
-@Controller('teams/:teamId/runs/:runId/review')
+@ApiParam({ name: 'taskId', type: String })
+@Controller('teams/:teamId/tasks/:taskId/review')
 export class ReviewController {
   constructor(
     private readonly commandBus: CommandBus,
@@ -55,20 +55,21 @@ export class ReviewController {
 
   @Get()
   @ApiOperation({
-    operationId: 'readRunReview',
+    operationId: 'readTaskReview',
     summary:
-      'The review of what a run changed: comments on its lines, and reviews submitted',
+      'The review of what a task changed: comments on its lines, and reviews submitted',
   })
   @ApiOkResponse({ type: CodeReviewResponseDto })
-  @ApiNotFoundResponse({ description: 'No such run for this caller' })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
   async read(
     @Param('teamId') teamId: string,
-    @Param('runId') runId: string,
+    @Param('taskId') taskId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CodeReviewResponseDto> {
-    const found = await this.queryBus.execute<ReadRunReviewQuery, RunReviewDto>(
-      new ReadRunReviewQuery(teamId, runId, user.id),
-    );
+    const found = await this.queryBus.execute<
+      ReadTaskReviewQuery,
+      TaskReviewDto
+    >(new ReadTaskReviewQuery(teamId, taskId, user.id));
 
     return new CodeReviewResponseDto(
       found.landings.map((each) => new PullRequestLandingResponseDto(each)),
@@ -101,19 +102,19 @@ export class ReviewController {
       'The caller is not a member of the team, nor a workspace admin',
   })
   @ApiNotFoundResponse({
-    description: 'No such run or comment for this caller',
+    description: 'No such task or comment for this caller',
   })
   @ApiUnprocessableEntityResponse({
     description: 'The comment has no text, or names no file',
   })
   async draft(
     @Param('teamId') teamId: string,
-    @Param('runId') runId: string,
+    @Param('taskId') taskId: string,
     @Body() body: DraftReviewCommentRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CreatedIdResponseDto> {
     const id = await this.commandBus.execute<DraftReviewCommentCommand, string>(
-      new DraftReviewCommentCommand(teamId, runId, user.id, body.body ?? '', {
+      new DraftReviewCommentCommand(teamId, taskId, user.id, body.body ?? '', {
         replyTo: body.replyTo ?? null,
         repository: body.repository ?? null,
         path: body.path ?? '',
@@ -140,7 +141,7 @@ export class ReviewController {
   })
   async edit(
     @Param('teamId') teamId: string,
-    @Param('runId') runId: string,
+    @Param('taskId') taskId: string,
     @Param('commentId') commentId: string,
     @Body() body: EditReviewCommentRequestDto,
     @CurrentUser() user: AuthenticatedUser,
@@ -148,7 +149,7 @@ export class ReviewController {
     await this.commandBus.execute(
       new EditReviewCommentCommand(
         teamId,
-        runId,
+        taskId,
         user.id,
         commentId,
         body.body ?? '',
@@ -170,12 +171,12 @@ export class ReviewController {
   })
   async delete(
     @Param('teamId') teamId: string,
-    @Param('runId') runId: string,
+    @Param('taskId') taskId: string,
     @Param('commentId') commentId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(
-      new DeleteReviewCommentCommand(teamId, runId, user.id, commentId),
+      new DeleteReviewCommentCommand(teamId, taskId, user.id, commentId),
     );
   }
 
@@ -195,14 +196,14 @@ export class ReviewController {
   })
   async submit(
     @Param('teamId') teamId: string,
-    @Param('runId') runId: string,
+    @Param('taskId') taskId: string,
     @Body() body: SubmitReviewRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CreatedIdResponseDto> {
     const id = await this.commandBus.execute<SubmitReviewCommand, string>(
       new SubmitReviewCommand(
         teamId,
-        runId,
+        taskId,
         user.id,
         body.verdict ?? '',
         body.body ?? '',

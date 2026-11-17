@@ -7,6 +7,7 @@ export const LABEL_SOURCES = [
   'accepted',
   'sent-back',
   'merged',
+  'held',
 ] as const;
 
 export type LabelSource = (typeof LABEL_SOURCES)[number];
@@ -38,11 +39,11 @@ export const freeLabelOf = (fact: RunFact | null): HumanLabel | null => {
       by: action.by,
     };
   }
-  if (action?.sendsBack) {
+  if (action?.rejectsRun) {
     return {
       passes: false,
       claimResults: null,
-      from: 'sent-back',
+      from: action.takesOver ? 'held' : 'sent-back',
       by: action.by,
     };
   }

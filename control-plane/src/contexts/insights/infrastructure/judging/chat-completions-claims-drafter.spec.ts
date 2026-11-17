@@ -1,15 +1,16 @@
 import type { ClaimsDraftRequest } from '@insights/application/ports/claims-drafter.port';
 import { ChatCompletionsClaimsDrafter } from '@insights/infrastructure/judging/chat-completions-claims-drafter';
+import { FixedInferenceCalls } from '@platform/llm/fixed-inference-calls';
 import { describe, expect, it } from 'vitest';
 
 const ENDPOINT = {
   baseUrl: 'https://models.example.com/v1',
   apiKey: 'test-key',
   model: 'some/model',
-  supportsReasoningEffort: false,
 };
 
 const REQUEST: ClaimsDraftRequest = {
+  workspaceId: 'workspace_1',
   claims: ['It retries the upload.', 'It adds a test.'],
   passThreshold: 1,
   maxCandidates: 2,
@@ -64,8 +65,7 @@ describe('ChatCompletionsClaimsDrafter', () => {
     );
 
     const drafted = await new ChatCompletionsClaimsDrafter(
-      ENDPOINT,
-      fetch,
+      new FixedInferenceCalls(ENDPOINT, fetch),
     ).drafted(REQUEST);
 
     expect(drafted).toEqual([
@@ -85,9 +85,11 @@ describe('ChatCompletionsClaimsDrafter', () => {
   });
 
   it('drafts nothing without a model', async () => {
-    const drafter = new ChatCompletionsClaimsDrafter(null);
+    const drafter = new ChatCompletionsClaimsDrafter(
+      new FixedInferenceCalls(null),
+    );
 
-    expect(drafter.available).toBe(false);
+    expect(await drafter.availableTo('workspace_1')).toBe(false);
     expect(await drafter.drafted(REQUEST)).toEqual([]);
   });
 });

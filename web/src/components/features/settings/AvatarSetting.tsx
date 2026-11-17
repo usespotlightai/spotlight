@@ -73,7 +73,10 @@ export function AvatarSetting({
   const label = `Change the avatar of ${name}`;
 
   return (
-    <SettingsRow label="Avatar" description="Recommended size is 256×256 px">
+    <SettingsRow
+      label="Avatar"
+      description={editable ? 'Recommended size is 256×256 px' : undefined}
+    >
       {editable ? (
         <>
           {avatarUrl ? (

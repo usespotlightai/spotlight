@@ -29,6 +29,7 @@ const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({
     count: 5,
   },
   review: null,
+  driver: 'line',
   ...over,
 });
 
@@ -75,6 +76,18 @@ describe('ListTaskRunsHandler', () => {
 
     expect(ran?.image).toBe(pinned);
     expect(unreported?.image).toBeNull();
+  });
+
+  it('says whether the line or a person who took the task over drove each run', async () => {
+    const { runs } = reading([summary({ driver: 'person' }), summary()]);
+
+    const [turn, line] = await new ListTaskRunsHandler(
+      runs,
+      runAccessWhere(true),
+    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
+
+    expect(turn?.driver).toBe('person');
+    expect(line?.driver).toBe('line');
   });
 
   it('leaves a run dispatched to no station without one', async () => {

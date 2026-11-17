@@ -631,6 +631,8 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
     : [
         {
           id: `stack_${runId}`,
+          runId,
+          push: null,
           repository: task.pullRequest.repository,
           state: 'ready',
           failure: null,
@@ -874,6 +876,7 @@ export const storyNoteOf = (
     approval: script.approval ? structuredClone(script.approval) : null,
     failure: script.failure ?? null,
     connection: null,
+    resumption: null,
   };
 };
 

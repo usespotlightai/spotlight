@@ -15,6 +15,7 @@ import { useBoardDrag } from '@/hooks/useBoardDrag';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { useCommands } from '@/hooks/useCommands';
 import { useListKeys } from '@/hooks/useListKeys';
+import { useMe } from '@/hooks/useMe';
 import type { LineResponseDto } from '@/lib/api';
 import { type BoardView, inView } from '@/lib/board';
 import { moveTargetFor, type Task } from '@/lib/task';
@@ -48,6 +49,7 @@ export function Board({
   const stations = useCollapsed(STATIONS_STORAGE_KEY);
   const rows = useRef<HTMLDivElement>(null);
   const moveTask = useMoveTask();
+  const me = useMe();
   const drag = useBoardDrag({
     teamId,
     lineId: line.id,
@@ -59,7 +61,7 @@ export function Board({
   const shown = line.stations
     .map((station, place) => ({ station, place }))
     .filter(({ station }) => inView(view, station.kind));
-  const target = moveTargetFor(line.stations, tasks, selected);
+  const target = moveTargetFor(line.stations, tasks, selected, me?.id);
   const dragged = tasks.find((each) => each.id === drag.draggedId) ?? null;
 
   const select = (taskId: string, taken: boolean) =>

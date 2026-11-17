@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RunChangeStacks } from '@/lib/change-stack';
+import type { ChangeStacks } from '@/lib/change-stack';
 import { RunChangeStack } from '@/routes/RunChangeStack';
 import { INVITATIONS, LARGE_FILE } from '@/test/fixtures/change-stack';
 
@@ -13,6 +13,11 @@ const stacksFailing = vi.fn();
 const refetchStacks = vi.fn();
 const review = vi.fn<(...args: unknown[]) => unknown>();
 const decided = vi.fn<(...args: unknown[]) => unknown>();
+const unset = vi.fn<() => boolean>();
+
+vi.mock('@/hooks/useInferenceUnset', () => ({
+  useInferenceUnset: () => unset(),
+}));
 
 vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   changeStackKeys: { forRun: () => ['change-stacks'] },
@@ -25,9 +30,9 @@ vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useRunReview', () => ({
-  reviewKeys: { forRun: () => ['review'] },
-  useRunReview: () => ({ data: review() }),
+vi.mock('@/hooks/api/useTaskReview', () => ({
+  reviewKeys: { forTask: () => ['review'] },
+  useTaskReview: () => ({ data: review() }),
 }));
 
 vi.mock('@/hooks/api/useTeamRuns', () => ({
@@ -86,13 +91,14 @@ const renderAt = (search = '') =>
     </QueryClientProvider>,
   );
 
-const serving = (value: RunChangeStacks | undefined) =>
+const serving = (value: ChangeStacks | undefined) =>
   stacks.mockReturnValue(value);
 
 beforeEach(() => {
   stacks.mockReset();
   stacksFailing.mockReturnValue(false);
   decided.mockReturnValue(undefined);
+  unset.mockReturnValue(false);
 });
 
 describe('RunChangeStack', () => {
@@ -131,6 +137,19 @@ describe('RunChangeStack', () => {
       expect(
         screen.getByRole('link', { name: 'Back to the run' }),
       ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
+    });
+  });
+
+  describe('without an inference endpoint', () => {
+    it('links to the Inference settings', () => {
+      serving({ stacks: [] });
+      unset.mockReturnValue(true);
+      renderAt();
+
+      expect(screen.getByText('Change stacks are off')).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'Set up inference' }),
+      ).toHaveAttribute('href', '/w/acme/settings/general#inference');
     });
   });
 

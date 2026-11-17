@@ -42,7 +42,7 @@ describe('bindableTaskEventOf', () => {
         PullRequestUrl.of('https://x/1'),
         new Date(),
       ),
-      new TaskAsked(task, workspace, station, null, new Date()),
+      new TaskAsked(task, workspace, station, null, new Date(), 'line'),
       new TaskFinished(task, workspace, station, new Date()),
       new TaskFailed(
         task,
@@ -52,6 +52,7 @@ describe('bindableTaskEventOf', () => {
         TaskFailure.fromRun('timed-out'),
         null,
         new Date(),
+        'line',
       ),
     ];
 

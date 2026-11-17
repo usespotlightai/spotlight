@@ -26,6 +26,7 @@ import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { MAX_HANDOVER_ATTACHMENTS } from '@work/domain/value-objects/handover.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-handle.vo';
+import { drivenByAPerson } from '@work/domain/value-objects/task-note-body.vo';
 
 const closing = (line: LineMap, stationId: StationId): string => {
   const offered = line.optionsFrom(stationId);
@@ -187,7 +188,9 @@ export const TaskBriefing = {
     memories: readonly BriefedMemory[];
     memoryFolder: MemoryFolder | null;
     tools: readonly DeclaredTool[];
+    drivenByAPerson?: boolean;
   }): string {
+    const driven = input.drivenByAPerson ?? false;
     const station = input.line.stationAt(input.task.stationId);
     const notes = input.task.notes.map((note) =>
       [
@@ -199,7 +202,12 @@ export const TaskBriefing = {
     );
 
     return [
-      station?.agentPrompt?.trim(),
+      driven && station
+        ? drivenByAPerson(
+            station.name,
+            input.line.resumeOptionsAt(input.task.stationId),
+          )
+        : station?.agentPrompt?.trim(),
       `## ${input.task.title}`,
       input.task.description,
       Attached.listed(input.task.attachments),
@@ -218,7 +226,7 @@ export const TaskBriefing = {
       toolsOf(input.tools),
       listing(input.skills, input.listedIn),
       replying(input.task),
-      closing(input.line, input.task.stationId),
+      driven ? null : closing(input.line, input.task.stationId),
     ]
       .filter(Boolean)
       .join('\n\n');

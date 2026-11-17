@@ -72,7 +72,7 @@ const working = (
   const service = new WorkDecisionSets(
     sets,
     { reasoning: async () => reasoning } as unknown as WorkPort,
-    { available: true, generate },
+    { availableTo: async () => true, generate },
     {
       generate: () => {
         ids += 1;
@@ -104,7 +104,7 @@ describe('generating the decisions a run made', () => {
 
     await worked.tick();
 
-    expect(worked.generate).toHaveBeenCalledWith(REASONED);
+    expect(worked.generate).toHaveBeenCalledWith('ws_1', REASONED);
     expect(worked.stored().decisions.map((each) => each.title)).toEqual([
       'Retries uploads in the request',
     ]);
@@ -165,7 +165,7 @@ describe('generating the decisions a run made', () => {
         },
       } as unknown as DecisionSetRepository,
       {} as WorkPort,
-      { available: true, generate: vi.fn() },
+      { availableTo: async () => true, generate: vi.fn() },
       { generate: () => 'decision_1' },
       { inTransaction: <T>(work: () => Promise<T>) => work() },
       { now: () => NOW, sleep: async () => undefined },

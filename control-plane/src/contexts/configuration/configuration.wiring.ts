@@ -144,6 +144,10 @@ import {
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
 import {
+  INFERENCE_ENDPOINT_CONFIGURATION,
+  type InferenceEndpointConfigurationPort,
+} from '@inference/application/ports/inference-endpoint-configuration.port';
+import {
   ENABLED_AT_STATIONS,
   type EnabledAtStationsPort,
 } from '@lines/application/ports/enabled-at-stations.port';
@@ -285,6 +289,7 @@ const adapters: Provider[] = [
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,
       OIDC_TRUST_CONFIGURATION,
+      INFERENCE_ENDPOINT_CONFIGURATION,
     ],
     useFactory: (
       teams: TeamDirectoryPort,
@@ -297,6 +302,7 @@ const adapters: Provider[] = [
       secrets: SecretConfigurationPort,
       runners: RunnerConfigurationPort,
       oidcTrusts: OidcTrustConfigurationPort,
+      inferenceEndpoints: InferenceEndpointConfigurationPort,
     ) =>
       new ExportableConfigurations(
         teams,
@@ -309,6 +315,7 @@ const adapters: Provider[] = [
         secrets,
         runners,
         oidcTrusts,
+        inferenceEndpoints,
       ),
   },
   {
@@ -449,6 +456,7 @@ const handlers: Provider[] = [
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,
       OIDC_TRUST_CONFIGURATION,
+      INFERENCE_ENDPOINT_CONFIGURATION,
       ExportableConfigurations,
     ],
   ),

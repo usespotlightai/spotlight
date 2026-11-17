@@ -27,7 +27,7 @@ export const stackCheck = pgTable(
   {
     stackId: text('stack_id').notNull(),
     recheck: boolean('recheck').notNull(),
-    runId: text('run_id').notNull(),
+    runId: text('run_id'),
     taskId: text('task_id'),
     teamId: text('team_id'),
     trial: boolean('trial').notNull(),
@@ -60,6 +60,10 @@ export const stackCheck = pgTable(
       sql`${table.redraftCount} >= 0`,
     ),
     check('stack_check_attempts_not_negative', sql`${table.attempts} >= 0`),
+    check(
+      'stack_check_runless_has_task',
+      sql`${table.runId} IS NOT NULL OR ${table.taskId} IS NOT NULL`,
+    ),
     check(
       'stack_check_provision_attempts_not_negative',
       sql`${table.provisionAttempts} >= 0`,

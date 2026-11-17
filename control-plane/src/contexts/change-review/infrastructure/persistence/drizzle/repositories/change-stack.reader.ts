@@ -8,6 +8,7 @@ import type {
 import type {
   ChangeStackReaderPort,
   ChangeStackSummary,
+  StackRepository,
 } from '@change-review/application/ports/change-stack-reader.port';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import {
@@ -15,13 +16,24 @@ import {
   type GivenAnswer,
   shownAnswerFor,
 } from '@change-review/domain/services/shown-answer';
+import {
+  latestShownPerRepository,
+  type ShownStack,
+} from '@change-review/domain/services/shown-stacks';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import {
+  type StackVisibility,
+  visibilityOf,
+} from '@change-review/domain/value-objects/stack-visibility.vo';
 import type { CheckedStep } from '@change-review/domain/value-objects/stack-check.vo';
 import type { QuestionId } from '@change-review/domain/value-objects/stack-ids';
-import { isShownForTask } from '@change-review/domain/value-objects/stack-progress.vo';
+import {
+  type ChangeStackState,
+  isShownForTask,
+} from '@change-review/domain/value-objects/stack-progress.vo';
 import { diffOf } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
 import { toStackCheck } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import type { StoredCohort } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
@@ -69,6 +81,33 @@ const checkOf = (check: StackCheck | null, now: Date): StackCheckDto | null => {
     layers: check.outcome?.layers.map(stepOf) ?? [],
   };
 };
+
+const SHOWN = {
+  id: changeStack.id,
+  taskId: changeStack.taskId,
+  runId: changeStack.runId,
+  pushedHead: changeStack.pushedHead,
+  pushedBy: changeStack.pushedBy,
+  repository: changeStack.repository,
+  files: changeStack.files,
+  cohorts: changeStack.cohorts,
+  removedLayers: changeStack.removedLayers,
+  ...PROGRESS,
+};
+
+const shownOf = (row: {
+  readonly id: string;
+  readonly startedAt: Date;
+  readonly repository: string | null;
+  readonly state: ChangeStackState;
+}): ShownStack => ({
+  id: row.id,
+  startedAt: row.startedAt,
+  repository: RepositoryName.optional(row.repository),
+  state: row.state,
+});
+
+type ShownRow = Pick<typeof changeStack.$inferSelect, keyof typeof SHOWN>;
 
 const ANSWER = {
   id: questionAnswer.id,
@@ -204,28 +243,28 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     taskId: TaskId,
     now: Date,
   ): Promise<ChangeStackSummary[]> {
-    return this.shownForTask(taskId, now, (rows) => {
-      const seen = new Set<string | null>();
-
-      return rows.filter((row) => {
-        const known = seen.has(row.repository);
-
-        seen.add(row.repository);
-
-        return !known;
-      });
-    });
+    return this.shownForTask(taskId, now, (rows) =>
+      latestShownPerRepository(rows, shownOf),
+    );
   }
 
   private async shownForTask(
     taskId: TaskId,
     now: Date,
-    pick: <R extends { repository: string | null }>(newestFirst: R[]) => R[],
+    pick: <
+      R extends {
+        id: string;
+        startedAt: Date;
+        repository: string | null;
+        state: ChangeStackState;
+      },
+    >(
+      newestFirst: R[],
+    ) => R[],
   ): Promise<ChangeStackSummary[]> {
     const rows = await this.context.db
       .select({
         id: changeStack.id,
-        runId: changeStack.runId,
         repository: changeStack.repository,
         cohorts: changeStack.cohorts,
         files: changeStack.files,
@@ -233,7 +272,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       })
       .from(changeStack)
       .where(eq(changeStack.taskId, taskId.value))
-      .orderBy(desc(changeStack.startedAt));
+      .orderBy(desc(changeStack.startedAt), desc(changeStack.id));
 
     return Promise.all(
       pick(rows.filter((each) => isShownForTask(each.state))).map(
@@ -242,7 +281,6 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
 
           return {
             id: row.id,
-            runId: RunId.of(row.runId),
             repository: row.repository,
             state: row.state,
             cohorts: row.cohorts.map((cohort) =>
@@ -265,20 +303,39 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     viewerId: UserId,
     now: Date,
   ): Promise<ChangeStackDto[]> {
-    const rows = await this.context.db
-      .select({
-        id: changeStack.id,
-        taskId: changeStack.taskId,
-        repository: changeStack.repository,
-        files: changeStack.files,
-        cohorts: changeStack.cohorts,
-        removedLayers: changeStack.removedLayers,
-        ...PROGRESS,
-      })
-      .from(changeStack)
-      .where(eq(changeStack.runId, runId.value))
-      .orderBy(asc(changeStack.startedAt));
+    return this.shown(
+      await this.context.db
+        .select(SHOWN)
+        .from(changeStack)
+        .where(eq(changeStack.runId, runId.value))
+        .orderBy(asc(changeStack.startedAt)),
+      viewerId,
+      now,
+    );
+  }
 
+  async ofTask(
+    taskId: TaskId,
+    viewerId: UserId,
+    now: Date,
+  ): Promise<ChangeStackDto[]> {
+    const latest = latestShownPerRepository(
+      await this.context.db
+        .select(SHOWN)
+        .from(changeStack)
+        .where(eq(changeStack.taskId, taskId.value))
+        .orderBy(desc(changeStack.startedAt), desc(changeStack.id)),
+      shownOf,
+    );
+
+    return this.shown([...latest].reverse(), viewerId, now);
+  }
+
+  private async shown(
+    rows: readonly ShownRow[],
+    viewerId: UserId,
+    now: Date,
+  ): Promise<ChangeStackDto[]> {
     const answers =
       rows.length > 0
         ? await this.context.db
@@ -311,11 +368,39 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         ),
         now,
       ),
+      runId: row.runId,
+      push: row.pushedHead
+        ? { head: row.pushedHead, pushedBy: row.pushedBy }
+        : null,
     }));
   }
 
+  async visibilityOf(stackId: ChangeStackId): Promise<StackVisibility | null> {
+    const [stack] = await this.context.db
+      .select({ taskId: changeStack.taskId, runId: changeStack.runId })
+      .from(changeStack)
+      .where(eq(changeStack.id, stackId.value))
+      .limit(1);
+
+    return stack
+      ? visibilityOf({
+          taskId: stack.taskId ? TaskId.of(stack.taskId) : null,
+          runId: stack.runId ? RunId.of(stack.runId) : null,
+        })
+      : null;
+  }
+
+  async repositoryOf(stackId: ChangeStackId): Promise<StackRepository | null> {
+    const [stack] = await this.context.db
+      .select({ repository: changeStack.repository })
+      .from(changeStack)
+      .where(eq(changeStack.id, stackId.value))
+      .limit(1);
+
+    return stack ?? null;
+  }
+
   async answerOf(
-    runId: RunId,
     stackId: ChangeStackId,
     questionId: QuestionId,
     viewerId: UserId,
@@ -328,12 +413,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         cohorts: changeStack.cohorts,
       })
       .from(changeStack)
-      .where(
-        and(
-          eq(changeStack.id, stackId.value),
-          eq(changeStack.runId, runId.value),
-        ),
-      )
+      .where(eq(changeStack.id, stackId.value))
       .limit(1);
     const question = stack?.cohorts
       .flatMap((cohort) => cohort.layers)

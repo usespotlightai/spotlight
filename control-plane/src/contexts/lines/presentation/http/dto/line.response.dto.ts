@@ -376,6 +376,14 @@ export class StationResponseDto {
   })
   readonly tools: StationToolResponseDto[];
 
+  @ApiProperty({
+    example: ['station_review'],
+    isArray: true,
+    type: String,
+    description: 'The stations this one may pass a task on to',
+  })
+  readonly passesTo: string[];
+
   constructor(
     id: string,
     key: string,
@@ -393,6 +401,7 @@ export class StationResponseDto {
     kind: string,
     skills: readonly string[],
     tools: readonly StationToolDto[],
+    passesTo: readonly string[],
   ) {
     this.id = id;
     this.key = key;
@@ -410,6 +419,7 @@ export class StationResponseDto {
     this.kind = kind;
     this.skills = [...skills];
     this.tools = tools.map((each) => new StationToolResponseDto(each));
+    this.passesTo = [...passesTo];
   }
 }
 

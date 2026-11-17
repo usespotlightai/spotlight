@@ -66,6 +66,7 @@ export const LineMapper = {
         summary.skills,
         skillTools,
       ),
+      passesTo: summary.passesTo,
     };
   },
 

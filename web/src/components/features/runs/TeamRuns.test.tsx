@@ -40,6 +40,7 @@ const run = (
   review: TeamRun['review'],
 ): TeamRun => ({
   id,
+  driver: 'line',
   state: 'completed',
   progress: null,
   attempt: 1,

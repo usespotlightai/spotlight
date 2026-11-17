@@ -85,8 +85,8 @@ type ChangedTools struct {
 }
 
 type Replay struct {
-	Archive   *string           `json:"archive"`
-	Checkouts []StartedCheckout `json:"checkouts"`
+	Archive   *string        `json:"archive"`
+	Checkouts []CheckoutHead `json:"checkouts"`
 }
 
 type HarnessSetup struct {
@@ -336,14 +336,15 @@ type HandedFile struct {
 }
 
 type Completion struct {
-	ExitCode    int       `json:"exitCode"`
-	Failed      bool      `json:"failed"`
-	SetupFailed bool      `json:"setupFailed,omitempty"`
-	TimedOut    bool      `json:"timedOut,omitempty"`
-	Stopped     bool      `json:"stopped,omitempty"`
-	Message     string    `json:"message,omitempty"`
-	Handover    *Handover `json:"handover,omitempty"`
-	SessionID   string    `json:"sessionId,omitempty"`
+	ExitCode    int            `json:"exitCode"`
+	Failed      bool           `json:"failed"`
+	SetupFailed bool           `json:"setupFailed,omitempty"`
+	TimedOut    bool           `json:"timedOut,omitempty"`
+	Stopped     bool           `json:"stopped,omitempty"`
+	Message     string         `json:"message,omitempty"`
+	Handover    *Handover      `json:"handover,omitempty"`
+	SessionID   string         `json:"sessionId,omitempty"`
+	Heads       []CheckoutHead `json:"heads,omitempty"`
 }
 
 type StoredArchive struct {
@@ -353,15 +354,15 @@ type StoredArchive struct {
 	SHA256 string `json:"sha256"`
 }
 
-type StartedCheckout struct {
+type CheckoutHead struct {
 	Path   string `json:"path"`
 	Commit string `json:"commit"`
 }
 
 type StartingPoint struct {
-	Attempt   int               `json:"attempt"`
-	ArchiveID *string           `json:"archiveId"`
-	Checkouts []StartedCheckout `json:"checkouts"`
+	Attempt   int            `json:"attempt"`
+	ArchiveID *string        `json:"archiveId"`
+	Checkouts []CheckoutHead `json:"checkouts"`
 }
 
 type ArchiveRequest struct {
@@ -403,12 +404,14 @@ const (
 	ClaimedRun     = "run"
 	ClaimedCheck   = "check"
 	ClaimedSandbox = "sandbox"
+	ClaimedDiff    = "diff"
 )
 
 type ClaimResponse struct {
 	Kind  string       `json:"kind"`
 	Run   *Run         `json:"run"`
 	Check *StackCheck  `json:"check"`
+	Diff  *PushDiff    `json:"diff,omitempty"`
 	Warm  *WarmSandbox `json:"warm,omitempty"`
 }
 
@@ -440,7 +443,6 @@ func (a Assignment) StartsSandboxOnly() bool {
 type StackCheck struct {
 	StackID    string      `json:"stackId"`
 	Recheck    bool        `json:"recheck"`
-	RunID      string      `json:"runId"`
 	Repository string      `json:"repository"`
 	Base       string      `json:"base"`
 	Setup      string      `json:"setup"`
@@ -480,4 +482,20 @@ type CheckStepResult struct {
 	Passed     bool   `json:"passed"`
 	Output     string `json:"output"`
 	DurationMs int64  `json:"durationMs"`
+}
+
+type PushDiff struct {
+	DiffID     string `json:"diffId"`
+	Repository string `json:"repository"`
+	BaseTip    string `json:"baseTip"`
+	Head       string `json:"head"`
+}
+
+type PushDiffResult struct {
+	Diff string `json:"diff"`
+	Base string `json:"base"`
+}
+
+type PushDiffFailure struct {
+	Reason string `json:"reason"`
 }

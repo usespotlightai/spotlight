@@ -101,6 +101,7 @@ const note = (body: string, seconds: number): Note => ({
   approval: null,
   failure: null,
   connection: null,
+  resumption: null,
 });
 
 const render =

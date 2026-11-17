@@ -11,12 +11,17 @@ export interface TrialRepository {
   readonly repository: Repository;
 }
 
+export const RUN_DRIVERS = ['line', 'person'] as const;
+
+export type RunDriver = (typeof RUN_DRIVERS)[number];
+
 export type DispatchSubject =
   | {
       readonly kind: 'task';
       readonly taskId: TaskId;
       readonly revision: TaskRevision;
       readonly stationId: StationId;
+      readonly driver: RunDriver;
     }
   | { readonly kind: 'chat'; readonly chatId: ChatId }
   | {

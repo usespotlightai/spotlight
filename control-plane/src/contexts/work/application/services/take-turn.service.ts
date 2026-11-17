@@ -12,16 +12,19 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
+import type { LineResuming } from '@work/application/services/line-resuming.service';
 import type { ResumeTaskRun } from '@work/application/services/resume-task-run.service';
 import { RunsTranslation } from '@work/application/services/run-ending-reactions';
 import type { RunRouting } from '@work/application/services/run-routing.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { holdEndFor } from '@work/domain/services/hold-end-for';
 import { TurnDecision } from '@work/domain/services/turn-decision';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { RunResult } from '@work/domain/value-objects/run-result.vo';
 
 export class TakeTurn {
   constructor(
@@ -37,6 +40,7 @@ export class TakeTurn {
     private readonly routing: RunRouting,
     private readonly readings: RunJournalReadingsPort,
     private readonly resuming: ResumeTaskRun,
+    private readonly lineResuming: LineResuming,
   ) {}
 
   async take(runId: RunId, attempt: number): Promise<void> {
@@ -71,17 +75,30 @@ export class TakeTurn {
     }
 
     const line = await this.lines.findByStation(task.stationId);
-    const handover = turn.handover
-      ? await this.submitted(
-          task,
-          runId,
-          RunsTranslation.handover(turn.handover),
-        )
-      : null;
+    const outcome = RunsTranslation.result(turn.outcome);
+
+    if (task.drivenByAPerson(runId)) {
+      const resumed = await this.resumedByTheAgent(task, line, turn, outcome);
+
+      if (resumed) {
+        await this.tasks.save(resumed);
+        await this.runs.finish(runId, attempt);
+        return;
+      }
+    }
+
+    const handover =
+      turn.handover && !task.drivenByAPerson(runId)
+        ? await this.submitted(
+            task,
+            runId,
+            RunsTranslation.handover(turn.handover),
+          )
+        : null;
     const decision = TurnDecision.after({
       task,
       line,
-      outcome: RunsTranslation.result(turn.outcome),
+      outcome,
       handover,
       lastWords: handover
         ? null
@@ -121,6 +138,46 @@ export class TakeTurn {
 
     await this.tasks.save(await this.routed(task, line, turn, decision));
     await this.runs.finish(runId, attempt);
+  }
+
+  private async resumedByTheAgent(
+    task: Task,
+    line: LineMap | null,
+    turn: TurnFacts,
+    outcome: RunResult,
+  ): Promise<Task | null> {
+    const hold = task.openHold;
+    const asked =
+      turn.handover &&
+      line &&
+      hold &&
+      !turn.stopRequested &&
+      outcome.handsOver &&
+      task.unacknowledged.length === 0
+        ? holdEndFor(
+            RunsTranslation.handover(turn.handover),
+            line,
+            task.stationId,
+          )
+        : null;
+
+    if (!asked || !hold || !line || !turn.handover) {
+      return null;
+    }
+
+    const session = RunsTranslation.session(turn.session);
+    const recorded = session
+      ? task.recordSession(turn.runId, session, turn.reportedBy)
+      : task;
+
+    return this.lineResuming.resumed(recorded, line, {
+      by: hold.by,
+      next: asked.next,
+      to: asked.to,
+      verdict: null,
+      summary: RunsTranslation.handover(turn.handover).note || null,
+      endingTurn: turn.runId,
+    });
   }
 
   private routed(

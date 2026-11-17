@@ -169,7 +169,11 @@ describe('runner pools (e2e)', () => {
     return id;
   };
 
-  const checkReadFor = async (runId: string) => {
+  const checkReadFor = async (runId: string | null) => {
+    if (!runId) {
+      throw new Error('the check belongs to no run');
+    }
+
     const [stack] = await app
       .get<ChangeStackReaderPort>(CHANGE_STACK_READER)
       .ofRun(RunId.of(runId), UserId.of('nobody'), new Date());
@@ -1216,9 +1220,7 @@ describe('runner pools (e2e)', () => {
         });
 
         await http()
-          .post(
-            `/api/runs/${claimed.body.check.runId}/change-stack-checks/${stackId}`,
-          )
+          .post(`/api/change-stacks/${stackId}/checks`)
           .set('Authorization', `Bearer ${oneRun}`)
           .send({
             skipped: { code: 'no-checkout', detail: 'nothing to lay out' },

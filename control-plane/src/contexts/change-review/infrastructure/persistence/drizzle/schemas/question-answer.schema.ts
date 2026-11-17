@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   ANSWER_VERDICTS,
   type AnswerVerdict,
@@ -42,6 +43,15 @@ export const questionAnswer = pgTable(
       table.personId,
       table.questionId,
     ),
+    uniqueIndex('question_answer_task_question_idx')
+      .on(
+        table.taskId,
+        sql`lower(coalesce(${table.repository}, ''))`,
+        table.personId,
+        sql`md5(${table.asked})`,
+        sql`md5(${table.expected})`,
+      )
+      .where(sql`${table.taskId} is not null`),
     index('question_answer_task_idx').on(table.taskId),
     index('question_answer_team_idx').on(table.teamId),
   ],

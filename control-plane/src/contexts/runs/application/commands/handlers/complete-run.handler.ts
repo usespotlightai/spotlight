@@ -15,6 +15,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
@@ -65,6 +66,7 @@ export class CompleteRunHandler implements CommandHandlerPort<
         session: command.sessionId
           ? HarnessSession.of(command.sessionId)
           : null,
+        heads: command.heads.map((each) => CheckoutHead.of(each)),
       });
 
       const reported = await this.changed(runId, (current) =>

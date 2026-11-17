@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { EDITOR_NAMES, type EditorApp } from '@/lib/editor';
+import { onHoldBy } from '@/mocks/world/holds';
+import { MAYA, SAM } from '@/mocks/world/people';
 import { choice, type PageArgs, pageStory } from '@/stories/application';
 
 type TaskArgs = {
@@ -11,14 +13,22 @@ type TaskArgs = {
     | 'task_latency';
   readonly preferred: EditorApp;
   readonly editor: 'closed' | 'menu' | 'setup';
+  readonly hold: 'none' | 'taken' | 'yours';
 };
+
+const TEAM = 'team_platform';
 
 const meta = {
   title: 'Team/Lines/Task',
   ...pageStory<TaskArgs>({
     states: ['data', 'loading', 'error'],
     at: ({ task }) => `/w/acme/team/team_platform/tasks/${task}`,
-    args: { task: 'task_retries', preferred: 'vscode', editor: 'closed' },
+    args: {
+      task: 'task_retries',
+      preferred: 'vscode',
+      editor: 'closed',
+      hold: 'none',
+    },
     argTypes: {
       task: choice('Task', {
         task_retries: 'Working',
@@ -32,11 +42,22 @@ const meta = {
         menu: 'Editor menu open',
         setup: 'The editor did not open',
       }),
+      hold: choice('Hold', {
+        none: 'Not on hold',
+        taken: 'On hold by someone else',
+        yours: 'On hold by you',
+      }),
     },
-    world: ({ preferred }) => {
+    world: ({ preferred, task, hold }) => {
       try {
         localStorage.setItem('spotlight.editor-app', preferred);
       } catch {}
+      if (hold === 'taken') {
+        onHoldBy(TEAM, task, MAYA);
+      }
+      if (hold === 'yours') {
+        onHoldBy(TEAM, task, SAM);
+      }
     },
     script: ({ editor, preferred }) => {
       if (editor === 'menu') {
@@ -83,4 +104,12 @@ export const EditorSetup: StoryObj<typeof meta> = {
 
 export const FromAnIntegration: StoryObj<typeof meta> = {
   args: { task: 'task_latency' },
+};
+
+export const Held: StoryObj<typeof meta> = {
+  args: { hold: 'taken' },
+};
+
+export const HeldByYou: StoryObj<typeof meta> = {
+  args: { hold: 'yours' },
 };

@@ -101,6 +101,7 @@ import { RUNNER_DEFINITIONS } from '@runners/application/ports/runner-definition
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
 import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
 import { RUNNER_IDENTITY } from '@runners/application/ports/runner-identity.port';
+import { RUNNER_LEASES } from '@runners/application/ports/runner-leases.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
 import {
@@ -567,6 +568,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       }),
   },
   { provide: PROVISION_SECRETS, useClass: EncryptedProvisionSecrets },
+  { provide: RUNNER_LEASES, useExisting: RUNNERS },
   {
     provide: RUNNERS,
     inject: [

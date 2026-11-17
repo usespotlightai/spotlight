@@ -192,6 +192,7 @@ const runEnded = async (
     workspaceId: WORKSPACE,
     taskId,
     stationId: 'station_1',
+    driver: 'line',
     outcome: 'completed',
     failure: null,
     stopped: false,
@@ -287,7 +288,7 @@ beforeAll(async () => {
         judgeAt: async () => null,
       },
       {
-        available: false,
+        availableTo: async () => false,
         judge: async () => ({
           model: 'some/model',
           verdict: { claims: [] },
@@ -875,6 +876,7 @@ describe('the config runs a station’s runs make', () => {
         ending: outcome,
         failure: outcome === 'failed' ? 'exited' : null,
         asked: false,
+        drivenByAPerson: false,
       });
     }
   };

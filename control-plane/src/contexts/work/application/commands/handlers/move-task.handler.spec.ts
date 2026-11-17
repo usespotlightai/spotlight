@@ -19,6 +19,7 @@ import type { TaskPlacementsPort } from '@work/application/ports/task-placements
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
+import { LineResuming } from '@work/application/services/line-resuming.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
@@ -173,6 +174,7 @@ const move = (
     transaction,
     dispatch(),
     clock,
+    new LineResuming(stored, { of: async () => [] }, dispatch(), clock),
   ).execute(
     new MoveTaskCommand(
       teamId,

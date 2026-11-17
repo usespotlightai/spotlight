@@ -559,7 +559,6 @@ describe('Runners', () => {
       poolId: POOL_ID.value,
       runnerId: RunnerId.of('pooled_1'),
       work: { kind: 'run' as const, id: 'run_1' },
-      runId: RunId.of('run_1'),
       tags: { taskId: 'task_1' },
       labels: ['sandbox'],
       image: 'ghcr.io/acme/widgets:1',
@@ -589,7 +588,7 @@ describe('Runners', () => {
       expect(called[0]).toMatchObject({
         messageId: 'pooled_1',
         pool: 'sandboxes',
-        runId: 'run_1',
+        work: { kind: 'run', runId: 'run_1' },
         image: 'ghcr.io/acme/widgets:1',
         token: 'one-run-token',
         claimBy: CLAIM_BY,
@@ -698,18 +697,31 @@ describe('Runners', () => {
       await service.provision(
         {
           ...request,
-          work: { kind: 'check', id: 'stack_1' },
+          work: { kind: 'check', id: 'stack_1', runId: RunId.of('run_1') },
           tags: {},
         },
         STARTED_AT,
       );
 
       expect(called[0]).toMatchObject({
-        kind: 'check',
-        checkId: 'stack_1',
-        runId: 'run_1',
+        work: { kind: 'check', stackId: 'stack_1', runId: 'run_1' },
         tags: {},
       });
+    });
+
+    it('names the push diff and no run when the runner is provisioned for a diff', async () => {
+      const { service, called } = running(aPushPool());
+
+      await service.provision(
+        {
+          ...request,
+          work: { kind: 'diff', id: 'diff_1' },
+          tags: {},
+        },
+        STARTED_AT,
+      );
+
+      expect(called[0]?.work).toEqual({ kind: 'diff', diffId: 'diff_1' });
     });
 
     it('names no change stack when the runner is provisioned for a run', async () => {
@@ -717,7 +729,7 @@ describe('Runners', () => {
 
       await service.provision(request, STARTED_AT);
 
-      expect(called[0]).toMatchObject({ kind: 'run', checkId: null });
+      expect(called[0]?.work).toEqual({ kind: 'run', runId: 'run_1' });
     });
 
     it('releases the runner and says why when provision fails', async () => {
@@ -837,5 +849,31 @@ describe('Runners', () => {
     );
 
     expect(saved[0]?.work?.equals(RunnerWork.check('stack_1'))).toBe(true);
+  });
+
+  it('records a push diff a runner claimed as a diff', async () => {
+    const { service, saved } = running(aPullPool(), { existing: aRunner() });
+
+    await service.claim(
+      RunnerId.of('pooled_1'),
+      { kind: 'diff', id: 'diff_1' },
+      STARTED_AT,
+    );
+
+    expect(saved[0]?.work?.equals(RunnerWork.of('diff', 'diff_1'))).toBe(true);
+  });
+
+  it('says what work a runner leases, and nothing for a runner with none', async () => {
+    const leasing = running(aPullPool(), {
+      existing: aRunner().claim(RunnerWork.of('diff', 'diff_1'), STARTED_AT),
+    });
+    const idle = running(aPullPool(), { existing: aRunner() });
+
+    await expect(
+      leasing.service.leaseOf(RunnerId.of('pooled_1')),
+    ).resolves.toEqual({ kind: 'diff', id: 'diff_1' });
+    await expect(
+      idle.service.leaseOf(RunnerId.of('pooled_1')),
+    ).resolves.toBeNull();
   });
 });

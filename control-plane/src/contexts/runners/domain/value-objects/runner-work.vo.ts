@@ -1,6 +1,6 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
-export const RUNNER_WORK_KINDS = ['run', 'check'] as const;
+export const RUNNER_WORK_KINDS = ['run', 'check', 'diff'] as const;
 
 export type RunnerWorkKind = (typeof RUNNER_WORK_KINDS)[number];
 

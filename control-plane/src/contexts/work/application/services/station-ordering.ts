@@ -44,6 +44,7 @@ export interface Ordered {
 
 export interface Laid {
   readonly briefing: string;
+  readonly drivenByAPerson: boolean;
   readonly naming: string;
   readonly attachments: readonly Attachment[];
   readonly skillHomes: readonly string[];
@@ -58,7 +59,7 @@ const laidOut = (
   command: RunSpecPartsMapper.traced(prepared.command, laid.naming),
   briefing: laid.briefing,
   handover: {
-    options: order.options.map((each) => each.word),
+    options: laid.drivenByAPerson ? [] : order.options.map((each) => each.word),
     noteLimit: order.noteLimit,
   },
   resume: RunSpecPartsMapper.resume(order.resume),
@@ -215,7 +216,10 @@ export class StationOrdering {
 
   laid(
     ordered: Ordered,
-    input: Pick<Laid, 'briefing' | 'naming' | 'attachments'>,
+    input: Pick<
+      Laid,
+      'briefing' | 'drivenByAPerson' | 'naming' | 'attachments'
+    >,
   ): RunSpecShape {
     return laidOut(ordered, {
       ...input,

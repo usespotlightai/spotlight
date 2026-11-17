@@ -5,6 +5,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { DrizzleChangeStackRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -33,7 +34,7 @@ const STACK = randomUUID();
 const QUESTION = 'c1.l1.q1';
 
 const ofTeam = () => `/api/teams/${team.teamId.value}`;
-const review = () => `${ofTeam()}/runs/${RUN}/review`;
+const review = () => `${ofTeam()}/tasks/${TASK}/review`;
 
 const reading = (by: string) =>
   served(app).get(review()).set(TEST_USER_HEADER, by);
@@ -63,9 +64,7 @@ const submitting = (by: string) =>
 
 const answering = (by: string) =>
   served(app)
-    .post(
-      `${ofTeam()}/runs/${RUN}/change-stacks/${STACK}/questions/${QUESTION}/answers`,
-    )
+    .post(`${ofTeam()}/change-stacks/${STACK}/questions/${QUESTION}/answers`)
     .set(TEST_USER_HEADER, by)
     .send({ reply: null });
 
@@ -86,7 +85,7 @@ const commentsOnReview = async (): Promise<Comment[]> =>
 const stackOfRun = (): ChangeStack =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of(STACK),
-    runId: RunId.of(RUN),
+    origin: StackOrigin.run(RunId.of(RUN)),
     taskId: TaskId.of(TASK),
     teamOfRun: null,
     trial: false,
@@ -221,6 +220,13 @@ describe('a workspace member who is not on the team', () => {
       (
         await served(app)
           .get(`${ofTeam()}/runs/${RUN}/change-stacks`)
+          .set(TEST_USER_HEADER, BYSTANDER)
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await served(app)
+          .get(`${ofTeam()}/tasks/${TASK}/change-stacks`)
           .set(TEST_USER_HEADER, BYSTANDER)
       ).status,
     ).toBe(200);

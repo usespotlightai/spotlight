@@ -1,4 +1,7 @@
-import { claimedRun } from '@runs/application/services/claimed-work';
+import {
+  claimedReviewWork,
+  claimedRun,
+} from '@runs/application/services/claimed-work';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunExtensions } from '@runs/domain/value-objects/run-extensions.vo';
@@ -6,6 +9,7 @@ import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -80,6 +84,79 @@ describe('the run a runner claims', () => {
 
     expect(wire(run).run?.spec).toMatchObject({
       resume: { key: '', sessionId: 'session_1' },
+    });
+  });
+});
+
+describe('the check work a runner claims', () => {
+  const wireOf = (claimed: Parameters<typeof claimedReviewWork>[0]) =>
+    JSON.parse(
+      JSON.stringify(
+        ClaimedWorkHttpMapper.toResponse(claimedReviewWork(claimed)),
+      ),
+    ) as unknown;
+
+  it('names the push diff to make, with its repository, base tip and head', () => {
+    expect(
+      wireOf({
+        kind: 'diff',
+        diffId: ReviewWorkId.of('diff_1'),
+        repository: 'spotlight',
+        baseTip: 'a'.repeat(40),
+        head: 'b'.repeat(40),
+      }),
+    ).toEqual({
+      kind: 'diff',
+      run: null,
+      check: null,
+      diff: {
+        diffId: 'diff_1',
+        repository: 'spotlight',
+        baseTip: 'a'.repeat(40),
+        head: 'b'.repeat(40),
+      },
+    });
+  });
+
+  it('names a check by its stack, with no run', () => {
+    expect(
+      wireOf({
+        kind: 'check',
+        checkId: ReviewWorkId.of('stack_1'),
+        recheck: true,
+        repository: 'spotlight',
+        base: COMMIT,
+        setup: null,
+        command: 'npm test',
+        steps: [
+          {
+            id: 'whole',
+            patch: 'diff',
+            stopsOnFailure: true,
+            runsSetup: false,
+          },
+        ],
+      }),
+    ).toEqual({
+      kind: 'check',
+      run: null,
+      check: {
+        stackId: 'stack_1',
+        recheck: true,
+        repository: 'spotlight',
+        base: COMMIT,
+        setup: null,
+        command: 'npm test',
+        steps: [
+          {
+            id: 'whole',
+            patch: 'diff',
+            stopsOnFailure: true,
+            runsSetup: false,
+          },
+        ],
+      },
+      diff: null,
     });
   });
 });

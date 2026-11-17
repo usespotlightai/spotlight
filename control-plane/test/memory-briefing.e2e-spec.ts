@@ -230,6 +230,7 @@ describe('briefing runs with what the team remembers', () => {
           taskId: team.list.id,
           revision: TaskRevision.of(0),
           stationId: team.stationId,
+          driver: 'line',
         },
         configuredAs: null,
         briefedMemories: BriefedMemories.of({

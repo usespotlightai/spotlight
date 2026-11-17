@@ -24,6 +24,20 @@ func (a *archiver) started(ctx context.Context) {
 	}
 }
 
+func (a *archiver) heads(ctx context.Context) []protocol.CheckoutHead {
+	if !a.run.Spec.StartingPoint {
+		return nil
+	}
+
+	ended, err := heads(ctx, a.space.Dir, a.run.Spec.Checkouts)
+	if err != nil {
+		a.log.Warn("the commits the turn ended at were not read", "err", err)
+		return nil
+	}
+
+	return ended
+}
+
 func recordStart(ctx context.Context, to startingPoints, run protocol.Run, dir, restoredFrom string) error {
 	checkouts, err := heads(ctx, dir, run.Spec.Checkouts)
 	if err != nil {
@@ -38,8 +52,8 @@ func recordStart(ctx context.Context, to startingPoints, run protocol.Run, dir, 
 	return to.RecordStartingPoint(ctx, run.ID, point)
 }
 
-func heads(ctx context.Context, dir string, checkouts []protocol.Checkout) ([]protocol.StartedCheckout, error) {
-	started := make([]protocol.StartedCheckout, 0, len(checkouts))
+func heads(ctx context.Context, dir string, checkouts []protocol.Checkout) ([]protocol.CheckoutHead, error) {
+	started := make([]protocol.CheckoutHead, 0, len(checkouts))
 
 	for _, checkout := range checkouts {
 		commit, err := gitIn(ctx, filepath.Join(dir, checkout.Path))("rev-parse", "--verify", "HEAD")
@@ -47,7 +61,7 @@ func heads(ctx context.Context, dir string, checkouts []protocol.Checkout) ([]pr
 			return nil, fmt.Errorf("read the commit %s is at: %w: %s", checkout.Path, err, commit)
 		}
 
-		started = append(started, protocol.StartedCheckout{Path: checkout.Path, Commit: commit})
+		started = append(started, protocol.CheckoutHead{Path: checkout.Path, Commit: commit})
 	}
 
 	return started, nil

@@ -203,6 +203,10 @@ export type StationResponseDto = {
    * The tools a run here can use: the ones the station sets, then the ones its skills bring. A tool shows once.
    */
   tools: Array<StationToolResponseDto>;
+  /**
+   * The stations this one may pass a task on to
+   */
+  passesTo: Array<string>;
 };
 
 export type ReactionResponseDto = {
@@ -1088,7 +1092,6 @@ export type ClaimedCheckResponseDto = {
    * It is a repeat check; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found
    */
   recheck: boolean;
-  runId: string;
   /**
    * Which checkout to check
    */
@@ -1109,6 +1112,25 @@ export type ClaimedCheckResponseDto = {
   } | null;
   command: string;
   steps: Array<ClaimedCheckStepResponseDto>;
+};
+
+export type ClaimedPushDiffResponseDto = {
+  /**
+   * The push diff; the runner names it when it renews the lease and reports the diff
+   */
+  diffId: string;
+  /**
+   * The repository the push went to
+   */
+  repository: string;
+  /**
+   * The tip of the base branch: the diff is from the merge base of this and the head
+   */
+  baseTip: string;
+  /**
+   * The pushed commit
+   */
+  head: string;
 };
 
 export type WarmCheckoutResponseDto = {
@@ -1132,11 +1154,12 @@ export type WarmSandboxResponseDto = {
 
 export type ClaimedWorkResponseDto = {
   /**
-   * `sandbox` is only for a host claim: start a sandbox with no run in it
+   * `sandbox` is only for a host claim: start a sandbox with no run in it. `diff` is the diff of a push to make from a fresh checkout
    */
-  kind: 'run' | 'check' | 'sandbox';
+  kind: 'run' | 'check' | 'sandbox' | 'diff';
   run: ClaimedRunResponseDto | null;
   check: ClaimedCheckResponseDto | null;
+  diff: ClaimedPushDiffResponseDto | null;
   /**
    * Only for a `sandbox` that is warm: clone and set up these repositories before a task’s first run is claimed into it
    */
@@ -1150,7 +1173,7 @@ export type RenewLeaseResponseDto = {
   stop: boolean;
 };
 
-export type RenewCheckLeaseResponseDto = {
+export type RenewReviewWorkLeaseResponseDto = {
   /**
    * Whether the runner should stop checking: the check was deleted, ended, or waited too long to be recorded
    */
@@ -1164,13 +1187,13 @@ export type RecordRunImageRequestDto = {
   image: string;
 };
 
-export type StartedCheckoutRequestDto = {
+export type CheckoutHeadRequestDto = {
   /**
    * The checkout, by its path in the working copy, as the run received it
    */
   path: string;
   /**
-   * The commit HEAD was at once the working copy was restored and the checkout prepared, as its full SHA
+   * The commit HEAD was at when the runner read it, as its full SHA-1 or SHA-256. For a starting point, after the working copy was restored and the checkout prepared. For a completion, at the end of the turn.
    */
   commit: string;
 };
@@ -1184,7 +1207,7 @@ export type RecordStartingPointRequestDto = {
    * The working copy archive the run restored, or null where it started afresh
    */
   archiveId: string | null;
-  checkouts: Array<StartedCheckoutRequestDto>;
+  checkouts: Array<CheckoutHeadRequestDto>;
 };
 
 export type RunEventRequestDto = {
@@ -1241,6 +1264,10 @@ export type CompleteRunRequestDto = {
    * A person stopped the run rather than the agent finishing it.
    */
   stopped?: boolean;
+  /**
+   * The commit HEAD was at in each checkout when the turn ended, as the run received the checkouts. Sent only by runs that report their starting point.
+   */
+  heads?: Array<CheckoutHeadRequestDto>;
 };
 
 export type RunConnectionResponseDto = {
@@ -2763,13 +2790,28 @@ export type InboxConnectionResponseDto = {
   met: boolean;
 };
 
+export type NoteResumptionResponseDto = {
+  /**
+   * Where the task went: it runs again at its station, it moved on to another station, or it is completed
+   */
+  next: 'continue' | 'move-on' | 'finish';
+  /**
+   * The station the task is at after the resume: the same station, the next one, or the completed one
+   */
+  station: string;
+  /**
+   * What the person wrote when they handed the task back
+   */
+  summary: string | null;
+};
+
 export type NoteResponseDto = {
   position: number;
   kind: 'asked' | 'passed' | 'answered' | 'message' | 'reopened';
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup' | 'resolved' | 'approval' | 'decision' | 'failure' | 'connection';
+  form: 'words' | 'setup' | 'resolved' | 'approval' | 'decision' | 'failure' | 'connection' | 'held' | 'resumed';
   /**
    * Who wrote it: the station, a person, or the world outside it
    */
@@ -2818,6 +2860,10 @@ export type NoteResponseDto = {
    * The connection this asks a person to make, where a tool acts as them and they have not connected
    */
   connection: InboxConnectionResponseDto | null;
+  /**
+   * How a person handed the task back to the line, where the note says so
+   */
+  resumption: NoteResumptionResponseDto | null;
 };
 
 export type InboxItemResponseDto = {
@@ -3213,6 +3259,28 @@ export type TaskNoteResponseDto = {
   body: string;
 };
 
+/**
+ * not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out
+ */
+export type HoldVerdict = 'not-right' | 'exploring';
+
+export type TaskHoldResponseDto = {
+  by: TaskPersonResponseDto;
+  /**
+   * not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out
+   */
+  verdict: HoldVerdict;
+  startedAt: string;
+  /**
+   * The run of the last turn, where the person talks to the agent
+   */
+  runId: string | null;
+  /**
+   * The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station.
+   */
+  heldMoveTo: string | null;
+};
+
 export type TaskResponseDto = {
   id: string;
   stationId: string;
@@ -3239,6 +3307,10 @@ export type TaskResponseDto = {
    */
   awaitingReview: TaskReviewResponseDto | null;
   /**
+   * Whether the line finished the task. A message to a finished task sends it back to its station.
+   */
+  finished: boolean;
+  /**
    * The pull requests this task ended in, one for each repository, the first opened first
    */
   pullRequests: Array<string>;
@@ -3258,6 +3330,10 @@ export type TaskResponseDto = {
    * The integration that opened it, or null where a person created it
    */
   source: string | null;
+  /**
+   * The person who drives the task at its station in place of the line, or null where the line drives it
+   */
+  hold: TaskHoldResponseDto | null;
 };
 
 export type TaskPageResponseDto = {
@@ -3311,6 +3387,10 @@ export type TeamRunResponseDto = {
    * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Who drove it: the line, or a person who put the task on hold, one turn per run
+   */
+  driver: 'line' | 'person';
   taskId: string | null;
   taskTitle: string | null;
   /**
@@ -3464,6 +3544,10 @@ export type TaskRunResponseDto = {
    * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Who drove it: the line, or a person who put the task on hold, one turn per run
+   */
+  driver: 'line' | 'person';
 };
 
 export type AddTaskRequestDto = {
@@ -3498,6 +3582,30 @@ export type AssignTaskRequestDto = {
    * The team member to assign it to, or null to leave it unclaimed
    */
   assigneeId: string | null;
+};
+
+/**
+ * continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line.
+ */
+export type HoldEnd = 'continue' | 'move-on' | 'finish';
+
+export type ResumeLineRequestDto = {
+  /**
+   * continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line.
+   */
+  next: HoldEnd;
+  /**
+   * With move-on: a station the task’s station passes work to
+   */
+  stationId?: string;
+  /**
+   * Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
+   */
+  verdict?: HoldVerdict;
+  /**
+   * What the station agent and the record should know
+   */
+  summary?: string;
 };
 
 export type ChatTargetStationResponseDto = {
@@ -3832,6 +3940,63 @@ export type ConnectGitHubRequestDto = {
    * The installation GitHub named when it sent you back
    */
   installationId: string;
+};
+
+export type InferenceEndpointResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace it belongs to
+   */
+  workspaceId: string;
+  /**
+   * The base URL of an OpenAI-compatible API. Spotlight calls its /chat/completions
+   */
+  baseUrl: string;
+  /**
+   * The one model every Spotlight feature of the workspace uses
+   */
+  model: string;
+  /**
+   * Whether Spotlight holds an API key. The key is write-only and never returned
+   */
+  apiKeySet: boolean;
+  /**
+   * Changed, with a new key, to rotate the API key, which is write-only and never returned
+   */
+  apiKeyVersion: number | null;
+};
+
+export type InferenceEndpointResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read returns it, in address order
+   */
+  items: Array<InferenceEndpointResourceResponseDto>;
+};
+
+export type ConnectionTestResponseDto = {
+  /**
+   * Whether the endpoint answered a minimal request
+   */
+  ok: boolean;
+  /**
+   * What happened, to show to a person
+   */
+  message: string;
 };
 
 export type PushKeyResponseDto = {
@@ -4174,6 +4339,17 @@ export type StackCheckResponseDto = {
   layers: Array<CheckedStepResponseDto>;
 };
 
+export type PushOriginResponseDto = {
+  /**
+   * The commit that the person pushed
+   */
+  head: string;
+  /**
+   * The GitHub login of the person who pushed
+   */
+  pushedBy: string | null;
+};
+
 export type ChangeStackResponseDto = {
   id: string;
   repository: string | null;
@@ -4189,9 +4365,17 @@ export type ChangeStackResponseDto = {
    * What the check ran and what each step printed
    */
   check: StackCheckResponseDto | null;
+  /**
+   * The run whose changes the stack shows, or null for a push
+   */
+  runId: string | null;
+  /**
+   * The push to the pull request that the stack shows, or null for a run
+   */
+  push: PushOriginResponseDto | null;
 };
 
-export type RunChangeStacksResponseDto = {
+export type ChangeStacksResponseDto = {
   /**
    * Newest first
    */
@@ -4206,10 +4390,6 @@ export type AnswerQuestionRequestDto = {
 };
 
 export type LatestChangeStackResponseDto = {
-  /**
-   * The run whose page shows the stack
-   */
-  runId: string;
   repository: string | null;
   state: 'generating' | 'ready' | 'failed';
   checkStatus: 'waiting' | 'checked' | 'skipped' | null;
@@ -4385,6 +4565,24 @@ export type RecordChangeStackCheckRequestDto = {
    */
   skipped?: SkippedCheckRequestDto | null;
   steps?: Array<CheckedStepRequestDto>;
+};
+
+export type RecordPushDiffRequestDto = {
+  /**
+   * The changes of the pull request, as the output of git diff
+   */
+  diff: string;
+  /**
+   * The merge base of the pushed head and the base branch
+   */
+  base: string;
+};
+
+export type FailPushDiffRequestDto = {
+  /**
+   * Why the runner could not make the diff
+   */
+  reason: string;
 };
 
 export type PullRequestLandingResponseDto = {
@@ -5486,7 +5684,7 @@ export type StationRunUsageResponseDto = {
 };
 
 export type HumanActionResponseDto = {
-  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back';
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'held';
   at: string;
 };
 
@@ -6045,7 +6243,7 @@ export type RunHumanOutcomeResponseDto = {
   /**
    * What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task
    */
-  source: 'grade' | 'accepted' | 'sent-back' | 'merged';
+  source: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'held';
   /**
    * Whether people found the run good
    */
@@ -8183,7 +8381,7 @@ export type JudgeDisagreementResponseDto = {
   /**
    * What gave the human outcome that disagrees with the judge
    */
-  labelFrom: 'grade' | 'accepted' | 'sent-back' | 'merged';
+  labelFrom: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'held';
   openedAt: string;
   claims: Array<DisagreementClaimResponseDto>;
   /**
@@ -12073,7 +12271,6 @@ export type RenewLeaseResponse = RenewLeaseResponses[keyof RenewLeaseResponses];
 export type RenewCheckLeaseData = {
   body?: never;
   path: {
-    runId: string;
     stackId: string;
   };
   query?: {
@@ -12082,7 +12279,7 @@ export type RenewCheckLeaseData = {
      */
     recheck?: boolean;
   };
-  url: '/runs/{runId}/change-stack-checks/{stackId}/lease';
+  url: '/change-stacks/{stackId}/checks/lease';
 };
 
 export type RenewCheckLeaseErrors = {
@@ -12091,7 +12288,7 @@ export type RenewCheckLeaseErrors = {
    */
   401: unknown;
   /**
-   * No such runner, or the check this runner leases is of another run
+   * No such runner
    */
   404: unknown;
   /**
@@ -12101,10 +12298,46 @@ export type RenewCheckLeaseErrors = {
 };
 
 export type RenewCheckLeaseResponses = {
-  200: RenewCheckLeaseResponseDto;
+  /**
+   * The lease is renewed, or the runner no longer holds it and answers stop: true
+   */
+  200: RenewReviewWorkLeaseResponseDto;
 };
 
 export type RenewCheckLeaseResponse = RenewCheckLeaseResponses[keyof RenewCheckLeaseResponses];
+
+export type RenewPushDiffLeaseData = {
+  body?: never;
+  path: {
+    diffId: string;
+  };
+  query?: never;
+  url: '/push-diffs/{diffId}/lease';
+};
+
+export type RenewPushDiffLeaseErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such runner
+   */
+  404: unknown;
+  /**
+   * The push diff kept moving on while it was renewed
+   */
+  409: unknown;
+};
+
+export type RenewPushDiffLeaseResponses = {
+  /**
+   * The lease is renewed, or the runner no longer holds it and answers stop: true
+   */
+  200: RenewReviewWorkLeaseResponseDto;
+};
+
+export type RenewPushDiffLeaseResponse = RenewPushDiffLeaseResponses[keyof RenewPushDiffLeaseResponses];
 
 export type RecordRunImageData = {
   body: RecordRunImageRequestDto;
@@ -16222,6 +16455,41 @@ export type AssignTaskResponses = {
 
 export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
 
+export type ResumeLineData = {
+  body: ResumeLineRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/resume';
+};
+
+export type ResumeLineErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+  /**
+   * The task is not on hold, someone else put it on hold, or it cannot move on to that station
+   */
+  409: unknown;
+};
+
+export type ResumeLineResponses = {
+  200: TaskResponseDto;
+};
+
+export type ResumeLineResponse = ResumeLineResponses[keyof ResumeLineResponses];
+
 export type ListChatsData = {
   body?: never;
   path: {
@@ -16718,6 +16986,416 @@ export type ConnectGitHubResponses = {
 };
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
+
+export type ListInferenceEndpointsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoints';
+};
+
+export type ListInferenceEndpointsErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListInferenceEndpointsError = ListInferenceEndpointsErrors[keyof ListInferenceEndpointsErrors];
+
+export type ListInferenceEndpointsResponses = {
+  /**
+   * Every inference-endpoint there, each as a read returns it, in address order
+   */
+  200: InferenceEndpointResourceListResponseDto;
+};
+
+export type ListInferenceEndpointsResponse = ListInferenceEndpointsResponses[keyof ListInferenceEndpointsResponses];
+
+export type CreateInferenceEndpointData = {
+  body: {
+    baseUrl: string;
+    model: string;
+    /**
+     * The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned
+     */
+    apiKeyWo?: string;
+    /**
+     * Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key
+     */
+    apiKeyWoVersion?: number;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoints';
+};
+
+export type CreateInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the inference-endpoint; the detail says why
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such inference-endpoint that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * A inference-endpoint already exists at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateInferenceEndpointError = CreateInferenceEndpointErrors[keyof CreateInferenceEndpointErrors];
+
+export type CreateInferenceEndpointResponses = {
+  /**
+   * The inference-endpoint, as a read returns it
+   */
+  201: InferenceEndpointResourceResponseDto;
+};
+
+export type CreateInferenceEndpointResponse = CreateInferenceEndpointResponses[keyof CreateInferenceEndpointResponses];
+
+export type DeleteInferenceEndpointData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version fails with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/v1/resources/inference-endpoints/{id}';
+};
+
+export type DeleteInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the inference-endpoint; the detail says why
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such inference-endpoint that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteInferenceEndpointError = DeleteInferenceEndpointErrors[keyof DeleteInferenceEndpointErrors];
+
+export type DeleteInferenceEndpointResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteInferenceEndpointResponse = DeleteInferenceEndpointResponses[keyof DeleteInferenceEndpointResponses];
+
+export type ReadInferenceEndpointData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/v1/resources/inference-endpoints/{id}';
+};
+
+export type ReadInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such inference-endpoint that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadInferenceEndpointError = ReadInferenceEndpointErrors[keyof ReadInferenceEndpointErrors];
+
+export type ReadInferenceEndpointResponses = {
+  /**
+   * The inference-endpoint, every field of it
+   */
+  200: InferenceEndpointResourceResponseDto;
+};
+
+export type ReadInferenceEndpointResponse = ReadInferenceEndpointResponses[keyof ReadInferenceEndpointResponses];
+
+export type UpdateInferenceEndpointData = {
+  body: {
+    baseUrl: string;
+    model: string;
+    /**
+     * The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned
+     */
+    apiKeyWo?: string;
+    /**
+     * Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key
+     */
+    apiKeyWoVersion?: number;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version fails with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/v1/resources/inference-endpoints/{id}';
+};
+
+export type UpdateInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the inference-endpoint; the detail says why
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such inference-endpoint that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateInferenceEndpointError = UpdateInferenceEndpointErrors[keyof UpdateInferenceEndpointErrors];
+
+export type UpdateInferenceEndpointResponses = {
+  /**
+   * The inference-endpoint, as a read returns it
+   */
+  200: InferenceEndpointResourceResponseDto;
+};
+
+export type UpdateInferenceEndpointResponse = UpdateInferenceEndpointResponses[keyof UpdateInferenceEndpointResponses];
+
+export type ImportInferenceEndpointData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The inference-endpoint's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoints/import';
+};
+
+export type ImportInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such inference-endpoint that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportInferenceEndpointError = ImportInferenceEndpointErrors[keyof ImportInferenceEndpointErrors];
+
+export type ImportInferenceEndpointResponses = {
+  /**
+   * The inference-endpoint, as a read returns it
+   */
+  200: InferenceEndpointResourceResponseDto;
+};
+
+export type ImportInferenceEndpointResponse = ImportInferenceEndpointResponses[keyof ImportInferenceEndpointResponses];
+
+export type TestInferenceEndpointData = {
+  body: {
+    baseUrl: string;
+    model: string;
+    /**
+     * The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned
+     */
+    apiKeyWo?: string;
+    /**
+     * Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key
+     */
+    apiKeyWoVersion?: number;
+  };
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoint/test';
+};
+
+export type TestInferenceEndpointErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to test the inference endpoint; the detail says why
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+};
+
+export type TestInferenceEndpointError = TestInferenceEndpointErrors[keyof TestInferenceEndpointErrors];
+
+export type TestInferenceEndpointResponses = {
+  200: ConnectionTestResponseDto;
+};
+
+export type TestInferenceEndpointResponse = TestInferenceEndpointResponses[keyof TestInferenceEndpointResponses];
 
 export type GetPushKeyData = {
   body?: never;
@@ -17584,7 +18262,7 @@ export type ReadResourceHclData = {
     'Spotlight-Client'?: string;
   };
   path: {
-    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'oidc-trusts' | 'runner-trusts' | 'runner-pools' | 'egresses' | 'workspace-runners';
+    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'oidc-trusts' | 'runner-trusts' | 'runner-pools' | 'egresses' | 'workspace-runners' | 'inference-endpoints';
     id: string;
   };
   query?: never;
@@ -17636,21 +18314,47 @@ export type ListRunChangeStacksErrors = {
 };
 
 export type ListRunChangeStacksResponses = {
-  200: RunChangeStacksResponseDto;
+  200: ChangeStacksResponseDto;
 };
 
 export type ListRunChangeStacksResponse = ListRunChangeStacksResponses[keyof ListRunChangeStacksResponses];
+
+export type ListTaskChangeStacksData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/change-stacks';
+};
+
+export type ListTaskChangeStacksErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ListTaskChangeStacksResponses = {
+  200: ChangeStacksResponseDto;
+};
+
+export type ListTaskChangeStacksResponse = ListTaskChangeStacksResponses[keyof ListTaskChangeStacksResponses];
 
 export type AnswerStackQuestionData = {
   body: AnswerQuestionRequestDto;
   path: {
     teamId: string;
-    runId: string;
     stackId: string;
     questionId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/change-stacks/{stackId}/questions/{questionId}/answers';
+  url: '/teams/{teamId}/change-stacks/{stackId}/questions/{questionId}/answers';
 };
 
 export type AnswerStackQuestionErrors = {
@@ -17662,6 +18366,10 @@ export type AnswerStackQuestionErrors = {
    * No valid session
    */
   401: unknown;
+  /**
+   * The inference endpoint has no credits left
+   */
+  402: unknown;
   /**
    * The caller is not a member of the team, nor a workspace admin
    */
@@ -17845,7 +18553,6 @@ export type GenerateChangeStackResponse = GenerateChangeStackResponses[keyof Gen
 export type RecordChangeStackCheckData = {
   body: RecordChangeStackCheckRequestDto;
   path: {
-    runId: string;
     stackId: string;
   };
   query?: {
@@ -17854,7 +18561,7 @@ export type RecordChangeStackCheckData = {
      */
     recheck?: boolean;
   };
-  url: '/runs/{runId}/change-stack-checks/{stackId}';
+  url: '/change-stacks/{stackId}/checks';
 };
 
 export type RecordChangeStackCheckErrors = {
@@ -17863,7 +18570,7 @@ export type RecordChangeStackCheckErrors = {
    */
   401: unknown;
   /**
-   * Not a run this runner claimed, or no such stack of it
+   * No change stack with a check to record
    */
   404: unknown;
   /**
@@ -17882,37 +18589,111 @@ export type RecordChangeStackCheckResponses = {
 
 export type RecordChangeStackCheckResponse = RecordChangeStackCheckResponses[keyof RecordChangeStackCheckResponses];
 
-export type ReadRunReviewData = {
+export type RecordPushDiffData = {
+  body: RecordPushDiffRequestDto;
+  path: {
+    diffId: string;
+  };
+  query?: never;
+  url: '/push-diffs/{diffId}/diff';
+};
+
+export type RecordPushDiffErrors = {
+  /**
+   * The body has no diff or no base as text
+   */
+  400: unknown;
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such push diff
+   */
+  404: unknown;
+  /**
+   * The diff still waits and this runner does not hold its lease, or the push diff kept changing while it was recorded
+   */
+  409: unknown;
+};
+
+export type RecordPushDiffResponses = {
+  /**
+   * The diff is recorded. Spotlight records a diff it refuses to stack as failed. A diff it cannot stack for now goes back to wait, or fails once every runner attempt is used. A report on a diff already settled answers the same.
+   */
+  204: void;
+};
+
+export type RecordPushDiffResponse = RecordPushDiffResponses[keyof RecordPushDiffResponses];
+
+export type FailPushDiffData = {
+  body: FailPushDiffRequestDto;
+  path: {
+    diffId: string;
+  };
+  query?: never;
+  url: '/push-diffs/{diffId}/failure';
+};
+
+export type FailPushDiffErrors = {
+  /**
+   * The body has no reason as text
+   */
+  400: unknown;
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such push diff
+   */
+  404: unknown;
+  /**
+   * The diff still waits and this runner does not hold its lease, or the push diff kept changing while it was recorded
+   */
+  409: unknown;
+};
+
+export type FailPushDiffResponses = {
+  /**
+   * The report is taken: the diff goes back to wait, or fails once every runner attempt is used. A report on a diff already settled answers the same.
+   */
+  204: void;
+};
+
+export type FailPushDiffResponse = FailPushDiffResponses[keyof FailPushDiffResponses];
+
+export type ReadTaskReviewData = {
   body?: never;
   path: {
     teamId: string;
-    runId: string;
+    taskId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/review';
+  url: '/teams/{teamId}/tasks/{taskId}/review';
 };
 
-export type ReadRunReviewErrors = {
+export type ReadTaskReviewErrors = {
   /**
-   * No such run for this caller
+   * No such task for this caller
    */
   404: unknown;
 };
 
-export type ReadRunReviewResponses = {
+export type ReadTaskReviewResponses = {
   200: CodeReviewResponseDto;
 };
 
-export type ReadRunReviewResponse = ReadRunReviewResponses[keyof ReadRunReviewResponses];
+export type ReadTaskReviewResponse = ReadTaskReviewResponses[keyof ReadTaskReviewResponses];
 
 export type SubmitReviewData = {
   body: SubmitReviewRequestDto;
   path: {
     teamId: string;
-    runId: string;
+    taskId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/review';
+  url: '/teams/{teamId}/tasks/{taskId}/review';
 };
 
 export type SubmitReviewErrors = {
@@ -17936,10 +18717,10 @@ export type DraftReviewCommentData = {
   body: DraftReviewCommentRequestDto;
   path: {
     teamId: string;
-    runId: string;
+    taskId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/review/comments';
+  url: '/teams/{teamId}/tasks/{taskId}/review/comments';
 };
 
 export type DraftReviewCommentErrors = {
@@ -17948,7 +18729,7 @@ export type DraftReviewCommentErrors = {
    */
   403: unknown;
   /**
-   * No such run or comment for this caller
+   * No such task or comment for this caller
    */
   404: unknown;
   /**
@@ -17967,11 +18748,11 @@ export type DeleteReviewCommentData = {
   body?: never;
   path: {
     teamId: string;
-    runId: string;
+    taskId: string;
     commentId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/review/comments/{commentId}';
+  url: '/teams/{teamId}/tasks/{taskId}/review/comments/{commentId}';
 };
 
 export type DeleteReviewCommentErrors = {
@@ -17991,11 +18772,11 @@ export type EditReviewCommentData = {
   body: EditReviewCommentRequestDto;
   path: {
     teamId: string;
-    runId: string;
+    taskId: string;
     commentId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/review/comments/{commentId}';
+  url: '/teams/{teamId}/tasks/{taskId}/review/comments/{commentId}';
 };
 
 export type EditReviewCommentErrors = {
@@ -20074,7 +20855,7 @@ export type ListInsightsTracesData = {
     /**
      * Only runs that a person acted on first in this way
      */
-    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back';
+    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'held';
     /**
      * Only runs of tasks whose pull request has this status
      */

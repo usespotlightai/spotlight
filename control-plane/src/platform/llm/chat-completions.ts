@@ -3,6 +3,16 @@ import {
   type ModelPrices,
   PRICE_CURRENCY,
 } from '@platform/llm/model-prices';
+import {
+  type ReasoningEffortSubject,
+  ReasoningEffortSupport,
+} from '@platform/llm/reasoning-effort-support';
+import type {
+  CompletionUsage,
+  JsonRequest,
+  StructuredCompletion,
+  StructuredSchema,
+} from '@shared-kernel/application/ports/inference-calls.port';
 import type { ModelCost } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { z } from 'zod';
 
@@ -12,19 +22,18 @@ const UNSUPPORTED = new Set(['$schema', 'minimum', 'maximum']);
 
 export type Fetch = typeof globalThis.fetch;
 
-export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
-
 const TRUNCATED = 'length';
 
 export interface ModelEndpoint {
   readonly baseUrl: string;
   readonly apiKey: string | undefined;
   readonly model: string;
-  readonly supportsReasoningEffort: boolean;
   readonly prices?: ModelPrices;
 }
 
 const PAYMENT_REQUIRED = 402;
+
+const REFUSED_PARAMETER = new Set([400, 422]);
 
 export class ModelRequestError extends Error {
   constructor(
@@ -37,6 +46,10 @@ export class ModelRequestError extends Error {
 
   get insufficientCredits(): boolean {
     return this.status === PAYMENT_REQUIRED;
+  }
+
+  get refusedParameter(): boolean {
+    return this.status !== null && REFUSED_PARAMETER.has(this.status);
   }
 }
 
@@ -66,17 +79,6 @@ interface Completion {
     readonly cost?: number;
   };
   readonly error?: { readonly message?: string };
-}
-
-interface CompletionUsage {
-  readonly inputTokens: number | null;
-  readonly outputTokens: number | null;
-  readonly cost: ModelCost | null;
-}
-
-export interface StructuredCompletion<T> {
-  readonly answer: T;
-  readonly usage: CompletionUsage | null;
 }
 
 const counted = (raw: unknown): number | null =>
@@ -137,7 +139,7 @@ const strictSchema = (schema: unknown): unknown =>
 const completionsUrlOf = (baseUrl: string): string =>
   `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
-export class JsonSchema<T> {
+export class JsonSchema<T> implements StructuredSchema<T> {
   readonly json: unknown;
 
   constructor(
@@ -148,21 +150,22 @@ export class JsonSchema<T> {
   }
 }
 
-export const requestJson = async <T>(request: {
+type JsonCall<T> = JsonRequest<T> & {
   endpoint: ModelEndpoint;
   fetch: Fetch;
-  responseSchema: JsonSchema<T>;
-  system: string;
-  prompt: string;
-  maxTokens: number;
-  reasoning?: ReasoningEffort;
-}): Promise<StructuredCompletion<T>> => {
+  timeoutMs?: number;
+};
+
+const sendJson = async <T>(
+  request: JsonCall<T>,
+  reasoning: JsonRequest<T>['reasoning'],
+): Promise<StructuredCompletion<T>> => {
   const { endpoint } = request;
 
   const response = await request
     .fetch(completionsUrlOf(endpoint.baseUrl), {
       method: 'POST',
-      signal: AbortSignal.timeout(MAX_WAIT_MS),
+      signal: AbortSignal.timeout(request.timeoutMs ?? MAX_WAIT_MS),
       headers: {
         ...(endpoint.apiKey
           ? { Authorization: `Bearer ${endpoint.apiKey}` }
@@ -172,9 +175,7 @@ export const requestJson = async <T>(request: {
       body: JSON.stringify({
         model: endpoint.model,
         max_completion_tokens: request.maxTokens,
-        ...(request.reasoning && endpoint.supportsReasoningEffort
-          ? { reasoning_effort: request.reasoning }
-          : {}),
+        ...(reasoning ? { reasoning_effort: reasoning } : {}),
         messages: [
           { role: 'system', content: request.system },
           { role: 'user', content: request.prompt },
@@ -225,5 +226,69 @@ export const requestJson = async <T>(request: {
       `the answer doesn't match the expected shape (${error instanceof Error ? error.message : String(error)})`,
       usageOf(completion, response.headers, endpoint),
     );
+  }
+};
+
+const answered = (error: unknown): boolean =>
+  error instanceof ModelEmptyCompletionError;
+
+export interface ReasoningEffortMemory {
+  readonly support: ReasoningEffortSupport;
+  readonly subject: ReasoningEffortSubject;
+}
+
+const UNREMEMBERED: ReasoningEffortSubject = { owner: '', revision: '' };
+
+const sendJsonWithoutEffort = async <T>(
+  request: JsonCall<T>,
+  { support, subject }: ReasoningEffortMemory,
+): Promise<StructuredCompletion<T>> => {
+  try {
+    const completion = await sendJson(request, undefined);
+    support.remember(subject, false);
+
+    return completion;
+  } catch (error) {
+    if (answered(error)) {
+      support.remember(subject, false);
+    }
+
+    throw error;
+  }
+};
+
+export const requestJson = async <T>(
+  request: JsonCall<T> & { reasoningEffort?: ReasoningEffortMemory },
+): Promise<StructuredCompletion<T>> => {
+  const memory = request.reasoningEffort ?? {
+    support: new ReasoningEffortSupport(),
+    subject: UNREMEMBERED,
+  };
+  const { support, subject } = memory;
+  const supported = support.of(subject);
+
+  if (!request.reasoning || supported === false) {
+    return sendJson(request, undefined);
+  }
+
+  try {
+    const completion = await sendJson(request, request.reasoning);
+    support.remember(subject, true);
+
+    return completion;
+  } catch (error) {
+    if (answered(error)) {
+      support.remember(subject, true);
+    }
+
+    if (
+      supported === null &&
+      error instanceof ModelRequestError &&
+      error.refusedParameter
+    ) {
+      return sendJsonWithoutEffort(request, memory);
+    }
+
+    throw error;
   }
 };

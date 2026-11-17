@@ -154,6 +154,7 @@ export class DispatchTask implements TaskDispatching {
     const briefed = task
       .briefedOn(line)
       .withDecisions(await this.decisions.ofTask(task.id));
+    const drivenByAPerson = task.drivenByAPerson(runId);
     const briefing = TaskBriefing.brief({
       task: briefed,
       line,
@@ -162,6 +163,7 @@ export class DispatchTask implements TaskDispatching {
       memories: memories.briefed,
       memoryFolder: memories.folder,
       tools: described,
+      drivenByAPerson,
     });
     const injected = (order.enabled.profile?.injectedSecrets ?? []).map(
       (each) => each.value,
@@ -184,6 +186,7 @@ export class DispatchTask implements TaskDispatching {
         spec: {
           ...this.ordering.laid(ordered, {
             briefing,
+            drivenByAPerson,
             naming: this.tracing.for(task.id, id),
             attachments: briefed.allAttachments,
           }),

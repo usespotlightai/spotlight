@@ -10,6 +10,7 @@ import type {
 } from '@github/application/ports/pull-request-reactions.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -60,6 +61,7 @@ const signalling = (
         trial: false,
         isolated: false,
         checkouts: 1,
+        placement: RunnerPlacement.anywhere(),
       }),
     } as unknown as WorkPort,
     { isConnected: async () => over.connected ?? true },

@@ -22,6 +22,7 @@ export interface RunEndedToJudge {
   readonly taskId: string | null;
   readonly stationId: string | null;
   readonly ending: RunEnding | null;
+  readonly drivenByAPerson: boolean;
 }
 
 export class RequestJudging {
@@ -41,9 +42,9 @@ export class RequestJudging {
     const runId = RunId.of(event.runId);
 
     if (
+      event.drivenByAPerson ||
       !event.taskId ||
       !event.stationId ||
-      !this.judge.available ||
       !ending ||
       !judgesRunThatEnded(ending)
     ) {
@@ -55,7 +56,12 @@ export class RequestJudging {
       : null;
     const settings = run ? await this.judges.judgeAt(run.stationId) : null;
 
-    if (!run || !settings || !sampledForJudging(runId, settings.sample)) {
+    if (
+      !run ||
+      !settings ||
+      !sampledForJudging(runId, settings.sample) ||
+      !(await this.judge.availableTo(run.workspaceId.value))
+    ) {
       return;
     }
 

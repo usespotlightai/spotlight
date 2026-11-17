@@ -426,7 +426,7 @@ describe('RunRecord', () => {
       .recordAction(HumanAction.of('approved', AT))
       .recordAction(HumanAction.of('sent-back', LATER));
 
-    expect(sentBack.firstHumanAction?.sendsBack).toBe(true);
+    expect(sentBack.firstHumanAction?.rejectsRun).toBe(true);
     expect(sentBack.factWith(null, null, null)?.disposition).toBe('sent-back');
   });
 

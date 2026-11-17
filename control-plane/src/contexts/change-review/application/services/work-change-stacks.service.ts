@@ -43,7 +43,7 @@ export class WorkChangeStacks implements PendingJobsPort {
         ids: (stack) => ({
           workspaceId: stack.workspaceId.value,
           taskId: stack.taskId?.value,
-          runId: stack.runId.value,
+          runId: stack.runId?.value,
         }),
         about: (stack) => ({
           changeStackId: stack.id.value,

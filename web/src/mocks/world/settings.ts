@@ -1,6 +1,7 @@
 import type {
   ConnectionToolRuleResponseDto,
   HarnessResponseDto,
+  InferenceEndpointResourceResponseDto,
   IntegrationViewResponseDto,
   MyConnectionResponseDto,
   OidcTrustSummaryResponseDto,
@@ -356,6 +357,21 @@ const OIDC_TRUSTS: OidcTrustSummaryResponseDto[] = [
   }),
 ];
 
+export const inferenceEndpoint = (
+  over: Partial<InferenceEndpointResourceResponseDto> = {},
+): InferenceEndpointResourceResponseDto => ({
+  id: 'inference_acme',
+  version: 1,
+  address: 'default',
+  warnings: [],
+  workspaceId: WORKSPACE_ID,
+  baseUrl: 'https://openrouter.ai/api/v1',
+  model: 'anthropic/claude-sonnet-4.5',
+  apiKeySet: true,
+  apiKeyVersion: 1,
+  ...over,
+});
+
 export type SettingsWorld = {
   gitHubConnected: boolean;
   integrations: Record<string, IntegrationViewResponseDto[]>;
@@ -364,6 +380,7 @@ export type SettingsWorld = {
   tokens: WorkspaceTokenResourceResponseDto[];
   oidcTrusts: OidcTrustSummaryResponseDto[];
   pools: RunnerPoolResourceResponseDto[];
+  inferenceEndpoints: InferenceEndpointResourceResponseDto[];
   fleet: Fleet;
   settingUp: string[];
   viewerIsAdmin: boolean;
@@ -385,6 +402,7 @@ export const settingsWorld = perWorld((kind): SettingsWorld =>
         tokens: [],
         oidcTrusts: [],
         pools: [],
+        inferenceEndpoints: [],
         fleet: structuredClone(NO_FLEET),
         settingUp: [],
         viewerIsAdmin: true,
@@ -398,6 +416,7 @@ export const settingsWorld = perWorld((kind): SettingsWorld =>
         tokens: structuredClone(TOKENS),
         oidcTrusts: structuredClone(OIDC_TRUSTS),
         pools: structuredClone(RUNNER_POOLS),
+        inferenceEndpoints: [inferenceEndpoint()],
         fleet: structuredClone(FLEET),
         settingUp: [],
         viewerIsAdmin: true,

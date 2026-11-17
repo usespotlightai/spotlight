@@ -45,7 +45,7 @@ export function SubmitReviewButton() {
     submit.mutate(
       {
         teamId: reviewing.teamId,
-        runId: reviewing.runId,
+        taskId: reviewing.taskId,
         repository: reviewing.repository,
         verdict,
         body,

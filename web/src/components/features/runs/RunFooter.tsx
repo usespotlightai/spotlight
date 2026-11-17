@@ -1,6 +1,8 @@
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
+import { useMe } from '@/hooks/useMe';
+import { heldByOther } from '@/lib/hold';
 import { runPath, type TeamRun, waitsOnPerson, stoppable } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
@@ -23,7 +25,21 @@ export function RunFooter({
   deciding,
   onSent,
 }: RunFooterProps) {
-  const { station: current } = useTaskStation(teamId, conversation?.taskId);
+  const { station: current, task } = useTaskStation(
+    teamId,
+    conversation?.taskId,
+  );
+  const me = useMe();
+  const heldByTeammate = heldByOther(task?.hold, me?.id);
+
+  if (heldByTeammate) {
+    return (
+      <p className="pb-5 text-center text-muted-foreground text-xs">
+        {heldByTeammate.by.name} put the task on hold. The agent reads new
+        messages after they resume the line.
+      </p>
+    );
+  }
 
   if (current && run.station && current.id !== run.station.id) {
     return (

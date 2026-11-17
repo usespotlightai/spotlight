@@ -6,4 +6,5 @@ export type TaskAskedIntegrationEvent = {
   readonly workspaceId: string;
   readonly stationId: string;
   readonly at: string;
+  readonly driver: 'line' | 'person';
 };

@@ -9,6 +9,15 @@ export interface ProvisionEgress {
   readonly traffic: 'all' | 'bound';
 }
 
+export type ProvisionedWork =
+  | { readonly kind: 'run'; readonly runId: string }
+  | {
+      readonly kind: 'check';
+      readonly stackId: string;
+      readonly runId: string | null;
+    }
+  | { readonly kind: 'diff'; readonly diffId: string };
+
 export interface ProvisionCall {
   readonly url: ProvisionUrl;
   readonly secret: ProvisionSecret;
@@ -16,9 +25,7 @@ export interface ProvisionCall {
   readonly at: Date;
   readonly pool: string;
   readonly workspaceId: string;
-  readonly kind: 'run' | 'check';
-  readonly checkId: string | null;
-  readonly runId: string;
+  readonly work: ProvisionedWork;
   readonly tags: Readonly<Record<string, string>>;
   readonly labels: readonly string[];
   readonly image: string | null;

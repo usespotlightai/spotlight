@@ -4,6 +4,7 @@ import type { StationId } from '@shared-kernel/domain/value-objects/station-id.v
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { RunDriver } from '@work/domain/value-objects/dispatch-subject';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 
 export class TaskFailed implements DomainEvent {
@@ -17,5 +18,6 @@ export class TaskFailed implements DomainEvent {
     readonly failure: TaskFailure,
     readonly by: RunId | null,
     readonly at: Date,
+    readonly driver: RunDriver,
   ) {}
 }

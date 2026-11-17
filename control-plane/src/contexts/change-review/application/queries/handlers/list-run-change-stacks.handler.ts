@@ -1,4 +1,4 @@
-import type { RunChangeStacksDto } from '@change-review/application/dto/change-stack.dto';
+import type { ChangeStacksDto } from '@change-review/application/dto/change-stack.dto';
 import type { ChangeStackReaderPort } from '@change-review/application/ports/change-stack-reader.port';
 import type { ListRunChangeStacksQuery } from '@change-review/application/queries/list-run-change-stacks.query';
 import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
@@ -9,7 +9,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ListRunChangeStacksHandler implements QueryHandlerPort<
   ListRunChangeStacksQuery,
-  RunChangeStacksDto | null
+  ChangeStacksDto | null
 > {
   constructor(
     private readonly access: TeamWorkAccess,
@@ -19,7 +19,7 @@ export class ListRunChangeStacksHandler implements QueryHandlerPort<
 
   async execute(
     query: ListRunChangeStacksQuery,
-  ): Promise<RunChangeStacksDto | null> {
+  ): Promise<ChangeStacksDto | null> {
     try {
       const run = await this.access.run(
         query.teamId,

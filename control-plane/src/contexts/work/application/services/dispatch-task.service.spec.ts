@@ -59,6 +59,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   lineMapOf,
   type RepositorySpec,
@@ -70,8 +71,11 @@ import {
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
@@ -787,6 +791,32 @@ describe('DispatchTask', () => {
     expect(written(queued[0])).toMatchObject({
       handover: { options: ['spec', 'review'] },
     });
+  });
+
+  it('lets the agent hand over nothing on a person’s turn', async () => {
+    const leon = UserId.of('user_1');
+    const station = stations[1];
+    const line = lineWith(station);
+    const taken = task(station.id.value)
+      .hold({
+        id: HoldId.of('hold_1'),
+        by: leon,
+        members: TeamMembers.of([leon]),
+        line,
+        verdict: null,
+        currentRunStarted: true,
+        at: NOW,
+      })
+      .addMessage({
+        line,
+        body: TaskNoteBody.of('Use a bounded queue.'),
+        at: NOW,
+        voice: Voice.person(leon),
+      });
+
+    await dispatch(station, taken);
+
+    expect(written(queued[0]).handover.options).toEqual([]);
   });
 
   it('does not offer a station nothing runs at', async () => {

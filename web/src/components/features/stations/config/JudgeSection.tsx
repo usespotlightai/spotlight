@@ -6,9 +6,11 @@ import {
 } from '@/components/features/stations/config/PropertyList';
 import { JudgeClaims } from '@/components/features/stations/judge/JudgeClaims';
 import { TabSection } from '@/components/features/stations/TabSection';
+import { InferenceEndpointRequired } from '@/components/shared/InferenceEndpointRequired';
 import { SectionLink } from '@/components/shared/SectionLink';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
+import { useInferenceUnset } from '@/hooks/useInferenceUnset';
 import {
   CLAIMS_LABEL,
   formatPassThreshold,
@@ -35,6 +37,7 @@ export function JudgeSection({
   judge,
 }: JudgeSectionProps) {
   const agreement = useStationJudge(teamId, lineId, stationId);
+  const unset = useInferenceUnset(slug);
 
   if (!judge) {
     return (
@@ -56,6 +59,12 @@ export function JudgeSection({
         </SectionLink>
       }
     >
+      {unset && (
+        <InferenceEndpointRequired slug={slug}>
+          The judge is off.
+        </InferenceEndpointRequired>
+      )}
+
       <PropertyList>
         <Property label="Judged" slot="judge-sample">
           {sharePercent(judge.sample)} of runs

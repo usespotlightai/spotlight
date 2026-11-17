@@ -93,6 +93,11 @@ const Task = lazyPage(
   (module) => module.Task,
 );
 
+const TaskChangeStack = lazyPage(
+  () => import('./routes/TaskChangeStack.tsx'),
+  (module) => module.TaskChangeStack,
+);
+
 const TaskTrace = lazyPage(
   () => import('./routes/TaskTrace.tsx'),
   (module) => module.TaskTrace,
@@ -145,6 +150,7 @@ export const workspacePages = (
       />
       <Route path="tasks/:taskId" element={<Task />} />
       <Route path="tasks/:taskId/trace" element={<TaskTrace />} />
+      <Route path="tasks/:taskId/changes" element={<TaskChangeStack />} />
       <Route path="agent" element={<Agent />} />
       <Route path="agent/:chatId" element={<AgentChat />} />
       <Route path="runs" element={<Runs />} />

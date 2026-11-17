@@ -29,7 +29,7 @@ export class RequestChangeJudging {
   ) {}
 
   async request(request: ChangeJudgingRequest): Promise<ChangeJudgingAnswer> {
-    if (!this.judge.available) {
+    if (!(await this.judge.availableTo(request.workspaceId.value))) {
       return 'unavailable';
     }
 
@@ -51,8 +51,11 @@ export class RequestChangeJudging {
     return 'requested';
   }
 
-  async requeue(run: RunId): Promise<ChangeJudgingAgainAnswer> {
-    if (!this.judge.available) {
+  async requeue(
+    run: RunId,
+    workspaceId: WorkspaceId,
+  ): Promise<ChangeJudgingAgainAnswer> {
+    if (!(await this.judge.availableTo(workspaceId.value))) {
       return 'unavailable';
     }
 

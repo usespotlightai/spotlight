@@ -32,6 +32,8 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, isNull, lte, or } from 'drizzle-orm';
+import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 
 type Row = typeof changeStack.$inferSelect;
 
@@ -56,10 +58,27 @@ const baseOf = (raw: string): CommitSha => {
   return sha;
 };
 
+const originOf = (row: Row): StackOrigin => {
+  if (row.runId) {
+    return StackOrigin.run(RunId.of(row.runId));
+  }
+
+  const head = row.pushedHead ? CommitSha.parsed(row.pushedHead) : null;
+
+  if (!head) {
+    throw new InconsistentStateError(
+      'change stack',
+      'has neither a run nor a pushed head',
+    );
+  }
+
+  return StackOrigin.push(head, Pusher.of(row.pushedBy));
+};
+
 const toChangeStack = (row: Row): ChangeStack =>
   ChangeStack.rehydrate({
     id: ChangeStackId.of(row.id),
-    runId: RunId.of(row.runId),
+    origin: originOf(row),
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     teamId: row.teamId ? TeamId.of(row.teamId) : null,
     trial: row.trial,
@@ -113,7 +132,13 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
   private async inserted(added: ChangeStack): Promise<void> {
     await this.context.db.insert(changeStack).values({
       id: added.id.value,
-      runId: added.runId.value,
+      runId: added.runId?.value ?? null,
+      pushedHead:
+        added.origin.kind === 'push' ? added.origin.head.value : null,
+      pushedBy:
+        added.origin.kind === 'push'
+          ? (added.origin.pushedBy?.value ?? null)
+          : null,
       taskId: added.taskId?.value ?? null,
       teamId: added.teamId?.value ?? null,
       trial: added.trial,

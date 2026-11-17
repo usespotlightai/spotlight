@@ -49,6 +49,7 @@ export const runEnded = async (
     workspaceId: at.workspaceId,
     taskId: randomUUID(),
     stationId: at.stationId,
+    driver: 'line',
     outcome: 'completed',
     failure: null,
     stopped: false,

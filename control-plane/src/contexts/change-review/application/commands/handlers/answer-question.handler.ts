@@ -2,6 +2,7 @@ import type { AnswerQuestionCommand } from '@change-review/application/commands/
 import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
 import type { AnswerGraderPort } from '@change-review/application/ports/answer-grader.port';
 import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
+import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
 import { QuestionAnswerVersionConflictError } from '@change-review/domain/exceptions/question-answer-version-conflict.error';
 import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknown-change-stack.error';
@@ -10,6 +11,7 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
+import type { LayerQuestion } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { QuestionId } from '@change-review/domain/value-objects/stack-ids';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -48,39 +50,32 @@ export class AnswerQuestionHandler implements CommandHandlerPort<
         new UnknownChangeStackError(
           `Change stack ${command.stackId} not found.`,
         );
-      const run = await this.access.actingOnRun(
-        command.teamId,
-        command.runId,
-        command.viewerId,
-        unknownStack,
-      );
       const stack = await this.stacks.find(ChangeStackId.of(command.stackId));
 
-      if (!stack?.runId.equals(run.id)) {
+      if (!stack) {
         throw unknownStack();
       }
 
+      await this.access.actingOnStack(
+        command.teamId,
+        stack.visibility,
+        command.viewerId,
+        unknownStack,
+      );
+
       const question = stack.question(questionIdOf(command.questionId));
       const personId = UserId.of(command.viewerId);
-      const earlier = await this.answers.of(stack.id, question.id, personId);
-      QuestionAnswer.refuseIfAnsweredIn(
-        stack.taskId
-          ? await this.answers.ofTaskBy(stack.taskId, personId)
-          : earlier
-            ? [earlier]
-            : [],
-        question,
-        stack,
-      );
+      const earlier = await this.unanswered(stack, question, personId);
 
       const reply = QuestionAnswer.replyOf(command.reply);
 
-      if (reply && !this.grader.available) {
+      if (reply && !(await this.grader.availableTo(stack.workspaceId.value))) {
         throw new ChangeStacksUnavailableError();
       }
 
       const graded = reply
         ? await this.grader.grade({
+            workspaceId: stack.workspaceId.value,
             question: question.question,
             expected: question.answer,
             reply,
@@ -90,8 +85,6 @@ export class AnswerQuestionHandler implements CommandHandlerPort<
       const now = this.clock.now();
 
       for (let attempt = 1, stored = earlier; ; attempt += 1) {
-        stored?.refuseIfAnswered(question);
-
         try {
           if (stored) {
             await this.answers.save(
@@ -120,10 +113,30 @@ export class AnswerQuestionHandler implements CommandHandlerPort<
           }
         }
 
-        stored = await this.answers.of(stack.id, question.id, personId);
+        stored = await this.unanswered(stack, question, personId);
       }
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private async unanswered(
+    stack: ChangeStack,
+    question: LayerQuestion,
+    personId: UserId,
+  ): Promise<QuestionAnswer | null> {
+    const earlier = await this.answers.of(stack.id, question.id, personId);
+
+    QuestionAnswer.refuseIfAnsweredIn(
+      stack.taskId
+        ? await this.answers.ofTaskBy(stack.taskId, personId)
+        : earlier
+          ? [earlier]
+          : [],
+      question,
+      stack,
+    );
+
+    return earlier;
   }
 }

@@ -28,6 +28,7 @@ import type {
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
+import { LineResuming } from '@work/application/services/line-resuming.service';
 import {
   NO_TOOL_CHANGE,
   resumingWith,
@@ -41,6 +42,7 @@ import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   lineMapOf,
   routesOf,
@@ -51,6 +53,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -145,6 +148,34 @@ const attaching = () => {
 
 const RUN = RunId.of('run_1');
 
+const heldWithATurn = () =>
+  Task.add({
+    line: line(),
+    at: StationId.of('station_1'),
+    title: TaskTitle.of('Fix the queue'),
+    rank: TaskRank.of('i'),
+    createdBy: UserId.of('user_1'),
+    now: NOW,
+    newId: () => 'task_1',
+  })
+    .hold({
+      id: HoldId.of('hold_1'),
+      by: UserId.of('user_1'),
+      members: TeamMembers.of([UserId.of('user_1')]),
+      line: line(),
+      verdict: null,
+      currentRunStarted: false,
+      at: NOW,
+    })
+    .addMessage({
+      line: line(),
+      body: TaskNoteBody.of('Flatten the cards, then carry on.'),
+      at: NOW,
+      voice: Voice.person(UserId.of('user_1')),
+    })
+    .assignRun(RUN, line())
+    .acknowledgeUpTo(RUN, NotePosition.of(1), NOW);
+
 const dispatched = () =>
   Dispatch.ordered({
     id: RUN,
@@ -155,6 +186,7 @@ const dispatched = () =>
       taskId: TaskId.of('task_1'),
       revision: TaskRevision.of(0),
       stationId: StationId.of('station_1'),
+      driver: 'line' as const,
     },
     configuredAs: null,
     order: runOrderOf(RUN),
@@ -218,6 +250,12 @@ const turning = (over: Turning = {}) => {
     ),
     runJournalReadings({ lastWordsIn: () => over.lastWords ?? null }),
     resumingWith(held.runs, dispatches),
+    new LineResuming(
+      { placementsAt: async () => [] },
+      { of: async () => [] },
+      { runIdFor: async () => RunId.of('run_2') },
+      clock,
+    ),
   );
 
   return {
@@ -373,6 +411,42 @@ describe('TakeTurn', () => {
     expect(turn.runs.finish).toHaveBeenCalledWith(RUN, 1);
     expect(turn.tasks[0]?.stationId.value).toBe('station_2');
     expect(turn.tasks[0]?.currentRunId?.value).toBe('run_2');
+  });
+
+  describe('a turn a person drives', () => {
+    it('resumes the line at the station when the agent hands over to it', async () => {
+      const turn = turning({ task: heldWithATurn() });
+
+      await turn.take(handingOver('build', 'Cards are flat.'));
+
+      const resumed = turn.tasks[0];
+
+      expect(turn.runs.finish).toHaveBeenCalledWith(RUN, 1);
+      expect(resumed?.onHold).toBe(false);
+      expect(resumed?.holds[0]?.end).toBe('continue');
+      expect(resumed?.stationId.value).toBe('station_1');
+      expect(resumed?.currentRunId?.value).toBe('run_2');
+      expect(resumed?.drivenByAPerson(RunId.of('run_2'))).toBe(false);
+      expect(turn.hookCalls).toEqual([]);
+    });
+
+    it('moves the task on when the agent names the next station', async () => {
+      const turn = turning({ task: heldWithATurn() });
+
+      await turn.take(handingOver('deploy', 'Cards are flat.'));
+
+      expect(turn.tasks[0]?.holds[0]?.end).toBe('move-on');
+      expect(turn.tasks[0]?.stationId.value).toBe('station_2');
+    });
+
+    it('keeps the task on hold and puts it to the person when the agent hands over nothing', async () => {
+      const turn = turning({ task: heldWithATurn() });
+
+      await turn.take(turnFacts({ session: 'session_1' }));
+
+      expect(turn.tasks[0]?.onHold).toBe(true);
+      expect(turn.tasks[0]?.stationId.value).toBe('station_1');
+    });
   });
 
   it('routes a hand-over that a stop came in during, rather than asking (R4)', async () => {

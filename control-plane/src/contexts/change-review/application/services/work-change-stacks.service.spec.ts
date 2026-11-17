@@ -14,6 +14,7 @@ import {
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import {
@@ -68,7 +69,7 @@ const layered = (layers: string[][]): ProposedCohort[] => [
 const generating = () =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
-    runId: RunId.of('run-1'),
+    origin: StackOrigin.run(RunId.of('run-1')),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
     trial: false,
@@ -121,7 +122,7 @@ const working = (
       stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
   } as unknown as ChangeStackRepository;
   const generator: ChangeStackGeneratorPort = {
-    available,
+    availableTo: async () => available,
     generate: async () => ({ cohorts: await generate(), usage: null }),
     outline: async () => {
       throw new Error('A diff this small is not split');
@@ -153,6 +154,7 @@ const working = (
       {} as never,
       {} as never,
       {} as never,
+      { stackingFor: <T>(_: unknown, work: () => Promise<T>) => work() },
       { generate: () => 'stack-1' },
       clock,
       QUIET,

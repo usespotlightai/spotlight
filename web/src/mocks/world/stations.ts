@@ -43,6 +43,7 @@ export const station = (
   kind: 'work',
   skills: [],
   tools: [],
+  passesTo: [],
   ...over,
 });
 

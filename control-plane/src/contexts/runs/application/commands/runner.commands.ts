@@ -10,11 +10,15 @@ export class RenewLeaseCommand {
   ) {}
 }
 
-export class RenewCheckLeaseCommand {
+export class RenewReviewWorkLeaseCommand {
   constructor(
-    readonly runId: string,
-    readonly checkId: string,
-    readonly repeat: boolean,
+    readonly work:
+      | {
+          readonly kind: 'check';
+          readonly stackId: string;
+          readonly recheck: boolean;
+        }
+      | { readonly kind: 'diff'; readonly diffId: string },
     readonly runnerId: string,
   ) {}
 }
@@ -74,6 +78,7 @@ export class CompleteRunCommand {
     readonly stopped: boolean = false,
     readonly setupFailed: boolean = false,
     readonly timedOut: boolean = false,
+    readonly heads: readonly { path: string; commit: string }[] = [],
   ) {}
 }
 

@@ -19,6 +19,7 @@ import {
   type StationJudgeRow,
   type StationSearchRow,
   station,
+  stationRoute,
   stationSkill,
   stationTool,
 } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
@@ -98,6 +99,11 @@ type ToolRow = {
   tool: string;
 };
 
+type RouteRow = {
+  stationId: string;
+  to: string;
+};
+
 const hasStation = (row: Row): row is Row & StationRow =>
   row.stationId !== null;
 
@@ -158,8 +164,17 @@ export class DrizzleLineReader implements LineReaderPort {
       .innerJoin(line, eq(line.id, station.lineId))
       .where(eq(line.teamId, teamId.value))
       .orderBy(stationTool.position);
+    const routes = await this.db
+      .select({
+        stationId: stationRoute.stationId,
+        to: stationRoute.toStationId,
+      })
+      .from(stationRoute)
+      .innerJoin(station, eq(station.id, stationRoute.stationId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .where(eq(line.teamId, teamId.value));
 
-    return group(rows, reactions, repositories, skills, tools);
+    return group(rows, reactions, repositories, skills, tools, routes);
   }
 }
 
@@ -168,6 +183,7 @@ const summaryOf = (
   search: LineSearchPolicy,
   skills: readonly SkillRow[],
   tools: readonly ToolRow[],
+  routes: readonly RouteRow[],
 ): StationSummary => ({
   id: row.stationId,
   key: row.stationKey,
@@ -194,6 +210,9 @@ const summaryOf = (
   tools: tools
     .filter((each) => each.stationId === row.stationId)
     .map((each) => each.tool),
+  passesTo: routes
+    .filter((each) => each.stationId === row.stationId)
+    .map((each) => each.to),
 });
 
 const group = (
@@ -202,6 +221,7 @@ const group = (
   working: readonly RepositoryRow[],
   skills: readonly SkillRow[],
   tools: readonly ToolRow[],
+  routes: readonly RouteRow[],
 ): LineDetail[] => {
   const lines = new Map<
     string,
@@ -235,7 +255,9 @@ const group = (
     };
 
     if (hasStation(row)) {
-      line.stations.push(summaryOf(row, line.search, skills, tools));
+      line.stations.push(
+        summaryOf(row, line.search, skills, tools, routes),
+      );
     }
 
     lines.set(row.lineId, line);

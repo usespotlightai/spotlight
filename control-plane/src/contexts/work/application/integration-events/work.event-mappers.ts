@@ -19,6 +19,10 @@ import {
   type InboxRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/inbox-request-opened.integration-event';
 import {
+  LINE_RESUMED,
+  type LineResumedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/line-resumed.integration-event';
+import {
   NOTICE_RAISED,
   type NoticeRaisedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/notice-raised.integration-event';
@@ -55,6 +59,10 @@ import {
   type TaskFailedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-failed.integration-event';
 import {
+  TASK_HELD,
+  type TaskHeldIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-held.integration-event';
+import {
   TASK_MOVED,
   type TaskMovedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-moved.integration-event';
@@ -77,6 +85,7 @@ import type { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import type { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import type { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import type { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
+import type { LineResumed } from '@work/domain/events/line-resumed.event';
 import type { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import type { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
@@ -87,6 +96,7 @@ import type { TaskAssigned } from '@work/domain/events/task-assigned.event';
 import type { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import type { TaskFailed } from '@work/domain/events/task-failed.event';
+import type { TaskHeld } from '@work/domain/events/task-held.event';
 import type { TaskMoved } from '@work/domain/events/task-moved.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { TaskPassed } from '@work/domain/events/task-passed.event';
@@ -122,6 +132,7 @@ export const WORK_EVENT_MAPPERS = [
       workspaceId: event.workspaceId.value,
       taskId: event.taskId?.value ?? null,
       memories: event.memories.briefed.map((each) => each.id),
+      driver: event.driver,
     }),
   ),
   mapping<PullRequestOpened>(
@@ -188,6 +199,7 @@ export const WORK_EVENT_MAPPERS = [
       workspaceId: event.workspaceId.value,
       taskId: event.taskId?.value ?? null,
       stationId: event.stationId?.value ?? null,
+      driver: event.driver,
       outcome: event.ending.outcome,
       failure: event.ending.failure,
       stopped: event.ending.stopped,
@@ -219,6 +231,38 @@ export const WORK_EVENT_MAPPERS = [
       server: event.tool?.server ?? null,
     }),
   ),
+  mapping<TaskHeld>('task.held', (event): TaskHeldIntegrationEvent => ({
+    kind: TASK_HELD,
+    taskId: event.taskId.value,
+    workspaceId: event.workspaceId.value,
+    teamId: event.teamId.value,
+    holdId: event.holdId.value,
+    stationId: event.stationId.value,
+    by: event.by.value,
+    fromRunId: event.from?.value ?? null,
+    verdict: event.verdict,
+    at: event.at.toISOString(),
+  })),
+  mapping<LineResumed>(
+    'task.resumed',
+    (event): LineResumedIntegrationEvent => ({
+      kind: LINE_RESUMED,
+      taskId: event.taskId.value,
+      workspaceId: event.workspaceId.value,
+      teamId: event.teamId.value,
+      holdId: event.holdId.value,
+      stationId: event.stationId.value,
+      by: event.by.value,
+      fromRunId: event.from?.value ?? null,
+      verdict: event.verdict,
+      end: event.end,
+      turnRunIds: event.turns.map((each) => each.value),
+      fromHeads: event.fromHeads.map((each) => each.parts),
+      toHeads: event.toHeads.map((each) => each.parts),
+      startedAt: event.startedAt.toISOString(),
+      endedAt: event.endedAt.toISOString(),
+    }),
+  ),
   mapping<TaskPassed>('task.passed', (event): TaskPassedIntegrationEvent => ({
     kind: TASK_PASSED,
     taskId: event.taskId.value,
@@ -239,6 +283,7 @@ export const WORK_EVENT_MAPPERS = [
     code: event.failure.code,
     occurrences: event.failure.occurrences,
     at: event.at.toISOString(),
+    driver: event.driver,
   })),
   mapping<TaskAsked>('task.asked', (event): TaskAskedIntegrationEvent => ({
     kind: TASK_ASKED,
@@ -246,6 +291,7 @@ export const WORK_EVENT_MAPPERS = [
     workspaceId: event.workspaceId.value,
     stationId: event.stationId.value,
     at: event.at.toISOString(),
+    driver: event.driver,
   })),
   mapping<ChatStarted>(
     'chat.started',

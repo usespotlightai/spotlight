@@ -18,6 +18,8 @@ import {
 import { useAssignTask } from '@/hooks/api/useAssignTask';
 import { useMembers } from '@/hooks/api/useMembers';
 import { useCommands } from '@/hooks/useCommands';
+import { useMe } from '@/hooks/useMe';
+import { heldUntilResumed } from '@/lib/hold';
 import type { Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
@@ -64,6 +66,88 @@ function Unclaimed({ size = 'md' }: { size?: keyof typeof RING_WIDTH }) {
   );
 }
 
+type TriggerProps = {
+  assignee: Person | null;
+  label: string;
+  heldFor: string | null;
+  className?: string;
+};
+
+function AssigneeRow({ assignee, label, heldFor, className }: TriggerProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <DropdownMenuTrigger
+            disabled={heldFor !== null}
+            aria-label={label}
+            className={cn(
+              'flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors data-[popup-open]:bg-accent',
+              heldFor === null && 'hover:bg-accent',
+              className,
+            )}
+          />
+        }
+      >
+        {assignee ? (
+          <PersonAvatar
+            person={assignee}
+            className="size-4 data-[size=sm]:size-4"
+          />
+        ) : (
+          <Unclaimed size="sm" />
+        )}
+        <span
+          className={cn(
+            'truncate',
+            assignee ? 'text-foreground' : 'text-muted-foreground',
+          )}
+        >
+          {assignee ? assignee.name : 'No assignee'}
+        </span>
+        {heldFor === null && (
+          <ChevronsUpDown
+            className="ml-auto size-3 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+        )}
+      </TooltipTrigger>
+      <TooltipContent>
+        {heldFor ?? <ShortcutHint id="task.assign">Assign</ShortcutHint>}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function AssigneeAvatar({ assignee, label, heldFor, className }: TriggerProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <DropdownMenuTrigger
+            disabled={heldFor !== null}
+            onPointerDown={(event) => event.stopPropagation()}
+            aria-label={label}
+            className={cn(
+              'shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              className,
+            )}
+          />
+        }
+      >
+        {assignee ? <PersonAvatar person={assignee} /> : <Unclaimed />}
+      </TooltipTrigger>
+      <TooltipContent>
+        {heldFor ?? (
+          <ShortcutHint id="task.assign">
+            {assignee ? assignee.name : 'Assign this task'}
+          </ShortcutHint>
+        )}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function AssigneePicker({
   teamId,
   task,
@@ -73,9 +157,14 @@ export function AssigneePicker({
   const { data: members } = useMembers(teamId);
   const { mutate } = useAssignTask();
   const [open, setOpen] = useState(false);
-  useCommands([{ id: 'task.assign', run: () => setOpen(true) }]);
+  const held = task.hold;
+  const me = useMe();
+  useCommands([
+    { id: 'task.assign', run: () => setOpen(true), enabled: () => !held },
+  ]);
 
   const assignee = task.assignee;
+  const heldFor = held ? heldUntilResumed(held, me?.id) : null;
   const label = assignee ? `Assigned to ${assignee.name}` : 'Assign this task';
 
   const assign = (person: Person | null) =>
@@ -84,65 +173,19 @@ export function AssigneePicker({
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       {variant === 'row' ? (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <DropdownMenuTrigger
-                aria-label={label}
-                className={cn(
-                  'flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent',
-                  className,
-                )}
-              />
-            }
-          >
-            {assignee ? (
-              <PersonAvatar
-                person={assignee}
-                className="size-4 data-[size=sm]:size-4"
-              />
-            ) : (
-              <Unclaimed size="sm" />
-            )}
-            <span
-              className={cn(
-                'truncate',
-                assignee ? 'text-foreground' : 'text-muted-foreground',
-              )}
-            >
-              {assignee ? assignee.name : 'No assignee'}
-            </span>
-            <ChevronsUpDown
-              className="ml-auto size-3 shrink-0 text-muted-foreground"
-              aria-hidden
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            <ShortcutHint id="task.assign">Assign</ShortcutHint>
-          </TooltipContent>
-        </Tooltip>
+        <AssigneeRow
+          assignee={assignee}
+          label={label}
+          heldFor={heldFor}
+          className={className}
+        />
       ) : (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <DropdownMenuTrigger
-                onPointerDown={(event) => event.stopPropagation()}
-                aria-label={label}
-                className={cn(
-                  'shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  className,
-                )}
-              />
-            }
-          >
-            {assignee ? <PersonAvatar person={assignee} /> : <Unclaimed />}
-          </TooltipTrigger>
-          <TooltipContent>
-            <ShortcutHint id="task.assign">
-              {assignee ? assignee.name : 'Assign this task'}
-            </ShortcutHint>
-          </TooltipContent>
-        </Tooltip>
+        <AssigneeAvatar
+          assignee={assignee}
+          label={label}
+          heldFor={heldFor}
+          className={className}
+        />
       )}
 
       <DropdownMenuContent

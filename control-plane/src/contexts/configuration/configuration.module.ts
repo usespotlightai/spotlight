@@ -6,6 +6,7 @@ import {
 } from '@configuration/configuration.wiring';
 import { IdentityModule } from '@identity/identity.module';
 import { SKILL_TOOLS } from '@lines/application/ports/skill-tools.port';
+import { InferenceModule } from '@inference/inference.module';
 import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
 import { contextBindings } from '@platform/bindings/context-bindings';
@@ -28,6 +29,7 @@ const BINDINGS = contextBindings([
   imports: [
     IdentityModule,
     SecretsModule,
+    InferenceModule,
     RunnersModule,
     LinesModule,
     RunsModule,

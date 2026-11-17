@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react';
 
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
+import type { TooltipText } from '@/lib/tooltip-note';
+
 type SettingsSectionProps = {
+  id?: string;
   title?: string;
+  description?: TooltipText;
   count?: number;
   action?: ReactNode;
   listLabel?: string;
@@ -9,7 +14,9 @@ type SettingsSectionProps = {
 };
 
 export function SettingsSection({
+  id,
   title,
+  description,
   count,
   action,
   listLabel,
@@ -18,17 +25,20 @@ export function SettingsSection({
   const Body = listLabel ? 'ul' : 'div';
 
   return (
-    <section className="flex flex-col gap-3">
+    <section id={id} className="flex scroll-mt-6 flex-col gap-3">
       {(title || count !== undefined || action) && (
         <div className="flex min-h-7 items-center justify-between gap-2.5">
-          <h2 className="flex items-center gap-2.5 font-medium text-foreground text-sm">
-            {title}
-            {count !== undefined && (
-              <span className="font-normal text-muted-foreground tabular-nums">
-                {count}
-              </span>
-            )}
-          </h2>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <h2 className="flex items-center gap-2.5 font-medium text-foreground text-sm">
+              {title}
+              {count !== undefined && (
+                <span className="font-normal text-muted-foreground tabular-nums">
+                  {count}
+                </span>
+              )}
+            </h2>
+            {description && <InfoTooltip tooltip={description} />}
+          </span>
 
           {action}
         </div>

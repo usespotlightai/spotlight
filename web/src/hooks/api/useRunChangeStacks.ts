@@ -4,7 +4,11 @@ import { listRunChangeStacks } from '@/lib/api';
 import { inProgress } from '@/lib/change-stack';
 
 export const changeStackKeys = {
-  forRun: (runId?: string) => ['change-stacks', runId ?? null] as const,
+  ofRuns: ['change-stacks', 'run'] as const,
+  forRun: (runId?: string) => ['change-stacks', 'run', runId ?? null] as const,
+  ofTasks: ['change-stacks', 'task-stacks'] as const,
+  forTask: (taskId?: string) =>
+    ['change-stacks', 'task-stacks', taskId ?? null] as const,
 };
 
 const POLL_MS = 5_000;

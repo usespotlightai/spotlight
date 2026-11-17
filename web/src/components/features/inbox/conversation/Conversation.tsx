@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
 
+import { HoldMarker } from '@/components/features/inbox/conversation/HoldMarker';
 import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
@@ -13,6 +14,7 @@ import { useMessageSources } from '@/hooks/api/useMessageSources';
 import { useArrivals } from '@/hooks/useArrivals';
 import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
+import { marksHold } from '@/lib/hold';
 import {
   ARRIVING,
   authorsOf,
@@ -306,6 +308,8 @@ export function Conversation({
                 source={sourceOf(turn.prompt.source)}
                 deferredTo={turn.prompt.deferredTo}
               />
+            ) : turn.prompt && marksHold(turn.prompt) ? (
+              <HoldMarker note={turn.prompt} />
             ) : turn.prompt && said(turn.prompt) ? (
               <PersonMessage
                 body={turn.prompt.body}

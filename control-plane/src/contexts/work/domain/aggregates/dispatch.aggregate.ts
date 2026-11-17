@@ -317,6 +317,9 @@ export class Dispatch extends EventRecorder {
           this.workspaceId,
           taskOfDispatch(this.state.subject),
           this.state.briefedMemories,
+          this.state.subject.kind === 'task'
+            ? this.state.subject.driver
+            : 'line',
         ),
       );
     }
@@ -403,6 +406,7 @@ export class Dispatch extends EventRecorder {
           taskOfDispatch(subject),
           stationOfDispatch(subject),
           ending,
+          subject.kind === 'task' ? subject.driver : 'line',
         ),
       );
     }

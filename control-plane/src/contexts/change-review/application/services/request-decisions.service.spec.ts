@@ -9,6 +9,7 @@ import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggre
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -40,6 +41,7 @@ const requesting = (
       trial: false,
       isolated: false,
       checkouts: 1,
+      placement: RunnerPlacement.anywhere(),
       ...over.run,
     }),
     task: async (): Promise<ReviewedTask> => ({
@@ -68,7 +70,9 @@ const requesting = (
   const service = new RequestDecisions(
     work,
     sets,
-    { available: over.available ?? true } as DecisionGeneratorPort,
+    {
+      availableTo: async () => over.available ?? true,
+    } as unknown as DecisionGeneratorPort,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => 'set_1' },
     { now: () => NOW, sleep: async () => undefined },
@@ -81,10 +85,18 @@ describe('requesting the decisions a run made', () => {
   it('opens a set for the task and generates decisions for the run', async () => {
     const { service, stored } = requesting();
 
-    await service.runEnded(TASK, RUN);
+    await service.runEnded(TASK, RUN, false);
 
     expect(stored()?.taskId.equals(TASK)).toBe(true);
     expect(stored()?.generation?.isFor(RUN)).toBe(true);
+  });
+
+  it('generates nothing for a turn a person drove', async () => {
+    const { service, stored } = requesting();
+
+    await service.runEnded(TASK, RUN, true);
+
+    expect(stored()).toBeNull();
   });
 
   it('generates decisions for a later run into the set the task already has', async () => {
@@ -95,7 +107,7 @@ describe('requesting the decisions a run made', () => {
     });
     const { service, stored } = requesting({ existing });
 
-    await service.runEnded(TASK, RUN);
+    await service.runEnded(TASK, RUN, false);
 
     expect(stored()?.id.value).toBe('set_0');
     expect(stored()?.generation?.isFor(RUN)).toBe(true);
@@ -112,7 +124,7 @@ describe('requesting the decisions a run made', () => {
   ])('requests none where %s', async (_, over) => {
     const { service, stored } = requesting(over);
 
-    await service.runEnded(TASK, RUN);
+    await service.runEnded(TASK, RUN, false);
 
     expect(stored()).toBeNull();
   });

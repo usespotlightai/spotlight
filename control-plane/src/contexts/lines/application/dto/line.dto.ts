@@ -33,6 +33,7 @@ export interface StationDto {
   readonly kind: StationKind;
   readonly skills: readonly string[];
   readonly tools: readonly StationToolDto[];
+  readonly passesTo: readonly string[];
 }
 
 interface ReactionDto {

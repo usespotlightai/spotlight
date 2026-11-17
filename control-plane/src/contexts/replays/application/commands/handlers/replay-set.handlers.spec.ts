@@ -128,7 +128,11 @@ beforeEach(() => {
 
 describe('KeepReplaySets', () => {
   it('keeps an empty set for a station once a run of it ends', async () => {
-    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
+    await keeping().onRunEnded(
+      STATION.stationId.value,
+      STATION.workspaceId,
+      false,
+    );
 
     const [kept] = memory.sets.values();
 
@@ -143,14 +147,26 @@ describe('KeepReplaySets', () => {
   });
 
   it('keeps one set for a station, however many of its runs end', async () => {
-    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
-    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
+    await keeping().onRunEnded(
+      STATION.stationId.value,
+      STATION.workspaceId,
+      false,
+    );
+    await keeping().onRunEnded(
+      STATION.stationId.value,
+      STATION.workspaceId,
+      false,
+    );
 
     expect(memory.sets.size).toBe(1);
   });
 
   it('schedules automatic searches of a created set, due at once, once', async () => {
-    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
+    await keeping().onRunEnded(
+      STATION.stationId.value,
+      STATION.workspaceId,
+      false,
+    );
     expect(memory.schedules.size).toBe(0);
 
     const [created] = memory.sets.values();
@@ -158,8 +174,16 @@ describe('KeepReplaySets', () => {
     expect(memory.schedules.size).toBe(1);
 
     memory.schedules.clear();
-    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
-    await keeping().onRunEnded(STATION.stationId.value, STATION.workspaceId);
+    await keeping().onRunEnded(
+      STATION.stationId.value,
+      STATION.workspaceId,
+      false,
+    );
+    await keeping().onRunEnded(
+      STATION.stationId.value,
+      STATION.workspaceId,
+      false,
+    );
 
     const [set] = memory.sets.values();
     const [schedule] = memory.schedules.values();
@@ -170,12 +194,18 @@ describe('KeepReplaySets', () => {
     expect(schedule?.searchedTasks).toEqual([]);
   });
 
-  it('keeps no set for a run without a station, at a station Work does not know, or in another workspace', async () => {
-    await keeping().onRunEnded(null, STATION.workspaceId);
-    await keeping().onRunEnded('station_gone', STATION.workspaceId);
+  it('keeps no set for a run without a station, at a station Work does not know, in another workspace, or driven by a person', async () => {
+    await keeping().onRunEnded(null, STATION.workspaceId, false);
+    await keeping().onRunEnded('station_gone', STATION.workspaceId, false);
     await keeping().onRunEnded(
       STATION.stationId.value,
       WorkspaceId.of('elsewhere'),
+      false,
+    );
+    await keeping().onRunEnded(
+      STATION.stationId.value,
+      STATION.workspaceId,
+      true,
     );
 
     expect(memory.sets.size).toBe(0);
@@ -185,7 +215,7 @@ describe('KeepReplaySets', () => {
     await keeping({
       ...peopleWho(true),
       teamKey: async () => null,
-    }).onRunEnded(STATION.stationId.value, STATION.workspaceId);
+    }).onRunEnded(STATION.stationId.value, STATION.workspaceId, false);
 
     expect(memory.sets.size).toBe(0);
     expect(memory.schedules.size).toBe(0);

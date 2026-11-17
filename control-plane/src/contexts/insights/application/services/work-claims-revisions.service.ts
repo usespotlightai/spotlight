@@ -180,8 +180,11 @@ export class WorkClaimsRevisions implements PendingJobsPort {
       since: null,
     });
     const runs = [...split.searched, ...split.heldOut];
-    const drafted = this.sources.drafter.available
+    const drafted = (await this.sources.drafter.availableTo(
+      station.workspaceId.value,
+    ))
       ? await this.sources.drafter.drafted({
+          workspaceId: station.workspaceId.value,
           claims: rubric.claims,
           passThreshold: rubric.passThreshold,
           cases: disagreements.flatMap(caseOf),
@@ -214,6 +217,7 @@ export class WorkClaimsRevisions implements PendingJobsPort {
 
       await inBatches(judged, JUDGED_AT_ONCE, async (run) => {
         const verdict = await this.passesOf(
+          station.workspaceId.value,
           criteria,
           evidence.get(run.runId.value) as JudgeEvidence,
         );
@@ -283,11 +287,13 @@ export class WorkClaimsRevisions implements PendingJobsPort {
   }
 
   private async passesOf(
+    workspaceId: string,
     criteria: JudgeCriteria,
     evidence: JudgeEvidence,
   ): Promise<boolean | null> {
     try {
       const { verdict } = await this.sources.judge.judge({
+        workspaceId,
         claims: criteria.claims,
         title: evidence.title,
         description: evidence.description,

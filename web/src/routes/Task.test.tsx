@@ -24,6 +24,8 @@ const deleted = vi.fn();
 const listed = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
+const LEON = { id: 'user_1', name: 'Leon', image: null };
+const members = vi.fn((): unknown[] => [LEON]);
 const stacked = vi.fn((): unknown => ({ latest: null }));
 
 vi.mock('@/hooks/api/useStopRun', () => ({
@@ -51,8 +53,11 @@ vi.mock('@/hooks/api/useMoveTask', () => ({
 vi.mock('@/hooks/api/useDeleteTask', () => ({
   useDeleteTask: () => ({ mutate: deleted }),
 }));
+vi.mock('@/hooks/useMe', () => ({
+  useMe: () => ({ id: 'user_1', name: 'Leon', image: null }),
+}));
 vi.mock('@/hooks/api/useMembers', () => ({
-  useMembers: () => ({ data: [] }),
+  useMembers: () => ({ data: members() }),
 }));
 vi.mock('@/hooks/api/useAssignTask', () => ({
   useAssignTask: () => ({ mutate: vi.fn() }),
@@ -68,8 +73,22 @@ vi.mock('@/hooks/api/useLines', () => ({
         name: 'Default',
         stations: [
           { id: 'station_0', name: 'Backlog', position: 0, kind: 'backlog' },
-          { id: 'station_1', name: 'Triage', position: 1, kind: 'work' },
-          { id: 'station_2', name: 'Spec', position: 2, kind: 'work' },
+          {
+            id: 'station_1',
+            name: 'Triage',
+            position: 1,
+            kind: 'work',
+            harness: 'claude-code',
+            passesTo: ['station_2'],
+          },
+          {
+            id: 'station_2',
+            name: 'Spec',
+            position: 2,
+            kind: 'work',
+            harness: 'claude-code',
+            passesTo: [],
+          },
           {
             id: 'station_3',
             name: 'Completed',
@@ -129,6 +148,7 @@ beforeEach(() => {
   failing.mockReturnValue(false);
   refetch.mockClear();
   stacked.mockReturnValue({ latest: null });
+  members.mockReturnValue([LEON]);
 });
 
 const run = (over: Record<string, unknown> = {}) => ({
@@ -150,6 +170,81 @@ const run = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('Task', () => {
+  describe('on hold', () => {
+    const taken = {
+      ...task,
+      progress: null,
+      hold: {
+        by: { id: 'user_1', name: 'Leon', image: null },
+        verdict: 'not-right',
+        startedAt: new Date().toISOString(),
+        runId: 'run_turn',
+        heldMoveTo: null,
+      },
+    };
+
+    it('offers no resume on the task page', () => {
+      listed.mockReturnValue([taken]);
+      renderAt('task_1');
+
+      expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
+    });
+
+    it('shows who has the task, and leads to their session', () => {
+      listed.mockReturnValue([taken]);
+      renderAt('task_1');
+
+      expect(
+        screen
+          .getAllByRole('link')
+          .find((each) => each.textContent?.includes('On hold')),
+      ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_turn');
+    });
+
+    it('marks the session in Activity', () => {
+      listed.mockReturnValue([taken]);
+      worked.mockReturnValue([run({ id: 'run_turn', state: 'running' })]);
+      renderAt('task_1');
+
+      expect(
+        screen.getByRole('link', { name: 'Implementation' }).closest('li'),
+      ).toHaveTextContent('On hold');
+    });
+
+    it('keeps the task assigned to the person who has it', () => {
+      listed.mockReturnValue([taken]);
+      renderAt('task_1');
+
+      for (const picker of screen.getAllByRole('button', {
+        name: /Assign/,
+      })) {
+        expect(picker).toBeDisabled();
+      }
+    });
+
+    it('keeps the task at its station for everyone but the person who holds it', () => {
+      listed.mockReturnValue([
+        {
+          ...taken,
+          hold: {
+            ...taken.hold,
+            by: { id: 'user_2', name: 'Maya Chen', image: null },
+          },
+        },
+      ]);
+      renderAt('task_1');
+
+      expect(screen.getByRole('button', { name: 'Station' })).toBeDisabled();
+    });
+
+    it('lets the person who holds the task move it, which resumes the line', () => {
+      listed.mockReturnValue([taken]);
+      renderAt('task_1');
+
+      expect(screen.getByRole('button', { name: 'Station' })).toBeEnabled();
+    });
+  });
+
   describe('the runs it has been through', () => {
     it('says nothing while none have been worked', () => {
       worked.mockReturnValue([]);
@@ -239,7 +334,6 @@ describe('Task', () => {
   it('links the changes of the newest stack generated for the task', () => {
     stacked.mockReturnValue({
       latest: {
-        runId: 'run_9',
         repository: 'spotlight',
         state: 'ready',
         checkStatus: 'checked',
@@ -253,7 +347,7 @@ describe('Task', () => {
 
     expect(changes).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/runs/run_9/changes?repository=spotlight',
+      '/w/acme/team/team_1/tasks/task_1/changes?repository=spotlight',
     );
     expect(changes).toHaveTextContent('+61');
     expect(changes).toHaveTextContent('−4');

@@ -120,7 +120,7 @@ const revising = async (options: Options = {}) => {
         }),
       },
       judge: {
-        available: true,
+        availableTo: async () => true,
         judge: async (request) => {
           judged.push(request);
           if (options.failing) {
@@ -137,7 +137,7 @@ const revising = async (options: Options = {}) => {
         },
       },
       drafter: {
-        available: true,
+        availableTo: async () => true,
         drafted: async (request) => {
           drafts.push(request);
           return options.drafted ?? [WORSE, CLAIMS, BETTER];

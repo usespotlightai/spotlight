@@ -28,11 +28,11 @@ const (
 	defaultRenew = time.Minute
 )
 
-var errNoLongerLeased = errors.New("the check is no longer leased")
+var errNoLongerLeased = errors.New("the work is no longer leased")
 
 type Control interface {
-	RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error)
-	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackCheckResult) error
+	RenewCheckLease(ctx context.Context, stackID string, recheck bool) (bool, error)
+	RecordChangeStackCheck(ctx context.Context, stackID string, recheck bool, checked protocol.StackCheckResult) error
 }
 
 type Options struct {
@@ -59,27 +59,26 @@ func Perform(ctx context.Context, client Control, check protocol.StackCheck, opt
 	checking, stop := context.WithTimeout(ctx, opts.or(opts.Total, defaultTotal))
 	defer stop()
 
-	leased, release := context.WithCancelCause(checking)
-	renewing := opts.renew(leased, client, check, release)
+	leased, lost := opts.hold(checking, func(ctx context.Context) (bool, error) {
+		return client.RenewCheckLease(ctx, check.StackID, check.Recheck)
+	}, opts.Log.With("stack", check.StackID))
 
 	checked := opts.perform(leased, check)
-	lost := errors.Is(context.Cause(leased), errNoLongerLeased)
-	release(nil)
-	<-renewing
 
-	if lost {
+	if lost() {
 		opts.Log.Info("stopped checking a change stack it no longer leases", "stack", check.StackID)
 		return
 	}
 
-	if err := client.RecordChangeStackCheck(ctx, check.RunID, check.StackID, check.Recheck, checked); err != nil {
+	if err := client.RecordChangeStackCheck(ctx, check.StackID, check.Recheck, checked); err != nil {
 		opts.Log.Warn("could not report a change stack check", "stack", check.StackID, "error", err)
 	}
 }
 
-func (o Options) renew(
-	ctx context.Context, client Control, check protocol.StackCheck, release context.CancelCauseFunc,
-) <-chan struct{} {
+func (o Options) hold(
+	ctx context.Context, renew func(context.Context) (bool, error), log *slog.Logger,
+) (context.Context, func() bool) {
+	leased, release := context.WithCancelCause(ctx)
 	done := make(chan struct{})
 
 	go func() {
@@ -89,27 +88,32 @@ func (o Options) renew(
 
 		for {
 			select {
-			case <-ctx.Done():
+			case <-leased.Done():
 				return
 			case <-ticker.C:
-				stop, err := client.RenewCheckLease(ctx, check.RunID, check.StackID, check.Recheck)
+				stop, err := renew(leased)
 				switch {
 				case err == nil && stop:
-					o.Log.Info("a stop was requested, so the change stack check stops", "stack", check.StackID)
+					log.Info("a stop was requested, so the work stops")
 					release(errNoLongerLeased)
 					return
 				case err != nil && control.CheckLeaseLost(err):
-					o.Log.Warn("lost the lease of a change stack check", "stack", check.StackID, "error", err)
+					log.Warn("lost the lease of its work", "error", err)
 					release(errNoLongerLeased)
 					return
-				case err != nil && ctx.Err() == nil:
-					o.Log.Warn("could not renew the lease of a change stack check", "stack", check.StackID, "error", err)
+				case err != nil && leased.Err() == nil:
+					log.Warn("could not renew the lease of its work", "error", err)
 				}
 			}
 		}
 	}()
 
-	return done
+	return leased, func() bool {
+		lost := errors.Is(context.Cause(leased), errNoLongerLeased)
+		release(nil)
+		<-done
+		return lost
+	}
 }
 
 func skipped(code, detail string) protocol.StackCheckResult {
@@ -169,7 +173,25 @@ func (o Options) perform(ctx context.Context, check protocol.StackCheck) protoco
 }
 
 func (o Options) fetch(ctx context.Context, tree string, check protocol.StackCheck) string {
-	remote := strings.TrimSuffix(o.Remote, "/") + "/" + check.Repository
+	if failed := o.fetchCommits(ctx, tree, check.Repository, check.Base); failed != "" {
+		return failed
+	}
+
+	if output, err := o.git(ctx, tree, "", "checkout", "--quiet", "--force", "--detach", "FETCH_HEAD"); err != nil {
+		o.Log.Warn("could not prepare a checkout to check", "step", "checkout", "error", err, "output", output)
+		return fmt.Sprintf("git checkout: %s", shell.Tail(output))
+	}
+
+	if output, err := o.git(ctx, tree, "", "update-ref", BaseRef, "HEAD"); err != nil {
+		o.Log.Warn("could not mark where a check began", "error", err, "output", output)
+		return shell.Tail(output)
+	}
+
+	return ""
+}
+
+func (o Options) fetchCommits(ctx context.Context, tree, repository string, commits ...string) string {
+	remote := strings.TrimSuffix(o.Remote, "/") + "/" + repository
 
 	if err := os.MkdirAll(tree, 0o700); err != nil {
 		o.Log.Warn("could not make room for a checkout", "error", err)
@@ -177,35 +199,23 @@ func (o Options) fetch(ctx context.Context, tree string, check protocol.StackChe
 	}
 
 	if output, err := o.git(ctx, tree, "", "init", "--quiet"); err != nil {
-		o.Log.Warn("could not prepare a checkout to check",
-			"stack", check.StackID, "step", "init", "error", err, "output", output)
+		o.Log.Warn("could not prepare a checkout", "step", "init", "error", err, "output", output)
 		return fmt.Sprintf("git init: %s", shell.Tail(output))
 	}
 
-	o.useMirrorAlternates(tree, check.Repository)
+	o.useMirrorAlternates(tree, repository)
 
 	if _, err := o.git(ctx, tree, "", "remote", "set-url", "origin", remote); err != nil {
 		if output, err := o.git(ctx, tree, "", "remote", "add", "origin", remote); err != nil {
-			o.Log.Warn("could not prepare a checkout to check",
-				"stack", check.StackID, "step", "remote", "error", err, "output", output)
+			o.Log.Warn("could not prepare a checkout", "step", "remote", "error", err, "output", output)
 			return fmt.Sprintf("git remote: %s", shell.Tail(output))
 		}
 	}
 
-	for _, args := range [][]string{
-		{"fetch", "--quiet", "--no-tags", "origin", check.Base},
-		{"checkout", "--quiet", "--force", "--detach", "FETCH_HEAD"},
-	} {
-		if output, err := o.git(ctx, tree, "", args...); err != nil {
-			o.Log.Warn("could not prepare a checkout to check",
-				"stack", check.StackID, "step", args[0], "error", err, "output", output)
-			return fmt.Sprintf("git %s: %s", args[0], shell.Tail(output))
-		}
-	}
-
-	if output, err := o.git(ctx, tree, "", "update-ref", BaseRef, "HEAD"); err != nil {
-		o.Log.Warn("could not mark where a check began", "error", err, "output", output)
-		return shell.Tail(output)
+	fetch := append([]string{"fetch", "--quiet", "--no-tags", "origin"}, commits...)
+	if output, err := o.git(ctx, tree, "", fetch...); err != nil {
+		o.Log.Warn("could not prepare a checkout", "step", "fetch", "error", err, "output", output)
+		return fmt.Sprintf("git fetch: %s", shell.Tail(output))
 	}
 
 	return ""

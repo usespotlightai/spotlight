@@ -21,7 +21,7 @@ const renderWith = (review: CodeReview, repository: string | null = null) =>
     <ReviewContext
       value={{
         teamId: 'team_1',
-        runId: 'run_1',
+        taskId: 'task_1',
         repository,
         review,
         threads: threadsOf(review.comments),
@@ -69,7 +69,7 @@ describe('SubmitReviewButton', () => {
     expect(submitting).toHaveBeenCalledWith(
       {
         teamId: 'team_1',
-        runId: 'run_1',
+        taskId: 'task_1',
         repository: null,
         verdict: 'request-changes',
         body: 'One thing on roles',

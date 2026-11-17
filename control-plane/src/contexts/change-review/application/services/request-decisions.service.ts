@@ -20,15 +20,24 @@ export class RequestDecisions {
     private readonly clock: ClockPort,
   ) {}
 
-  async runEnded(taskId: TaskId, runId: RunId): Promise<void> {
-    if (!this.generator.available) {
+  async runEnded(
+    taskId: TaskId,
+    runId: RunId,
+    drivenByAPerson: boolean,
+  ): Promise<void> {
+    if (drivenByAPerson) {
       return;
     }
 
     const run = await this.work.run(runId);
     const task = run ? await this.work.task(taskId) : null;
 
-    if (!run || !task || !decidesFrom(run, task)) {
+    if (
+      !run ||
+      !task ||
+      !decidesFrom(run, task) ||
+      !(await this.generator.availableTo(task.workspaceId.value))
+    ) {
       return;
     }
 

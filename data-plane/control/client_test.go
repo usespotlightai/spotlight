@@ -267,7 +267,7 @@ func TestClaimReadsAChangeStackCheck(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_1"})
 			return
 		}
-		_, _ = w.Write([]byte(`{"kind":"check","run":null,"check":{"stackId":"s1","runId":"run_1","repository":"widgets","base":"abc","setup":"npm ci","command":"npm test","steps":[{"id":"whole","patch":"diff","stopsOnFailure":true}]}}`))
+		_, _ = w.Write([]byte(`{"kind":"check","run":null,"check":{"stackId":"s1","repository":"widgets","base":"abc","setup":"npm ci","command":"npm test","steps":[{"id":"whole","patch":"diff","stopsOnFailure":true}]}}`))
 	})
 
 	if err := client.Register(context.Background(), protocol.Registration{}); err != nil {
@@ -288,6 +288,91 @@ func TestClaimReadsAChangeStackCheck(t *testing.T) {
 	}
 	if len(check.Steps) != 1 || !check.Steps[0].StopsOnFailure {
 		t.Errorf("steps %+v", check.Steps)
+	}
+}
+
+func TestClaimReadsAPushDiff(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/runners/register" {
+			_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_1"})
+			return
+		}
+		_, _ = w.Write([]byte(`{"kind":"diff","run":null,"check":null,"diff":{"diffId":"pd_1","repository":"widgets","baseTip":"abc","head":"def"}}`))
+	})
+
+	if err := client.Register(context.Background(), protocol.Registration{}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	claimed, err := client.Claim(context.Background())
+	if err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+
+	if claimed == nil || claimed.Kind != protocol.ClaimedDiff || claimed.Diff == nil || claimed.Check != nil {
+		t.Fatalf("claimed %+v", claimed)
+	}
+	if want := (protocol.PushDiff{DiffID: "pd_1", Repository: "widgets", BaseTip: "abc", Head: "def"}); *claimed.Diff != want {
+		t.Errorf("diff %+v", *claimed.Diff)
+	}
+}
+
+func TestPushDiffCallsGoToThePushDiff(t *testing.T) {
+	var received []string
+	bodies := map[string]map[string]string{}
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		received = append(received, r.Method+" "+r.URL.EscapedPath())
+		if strings.HasSuffix(r.URL.Path, "/lease") {
+			_, _ = w.Write([]byte(`{"stop":true}`))
+			return
+		}
+		body := map[string]string{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		bodies[r.URL.Path] = body
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	stop, err := client.RenewPushDiffLease(context.Background(), "pd/1")
+	if err != nil {
+		t.Fatalf("renew: %v", err)
+	}
+	if !stop {
+		t.Error("expected the renewal to say the push diff should stop")
+	}
+	if err := client.RecordPushDiff(context.Background(), "pd_1", "diff --git a b", "0123abc"); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if err := client.FailPushDiff(context.Background(), "pd_1", "git fetch: no such commit"); err != nil {
+		t.Fatalf("fail: %v", err)
+	}
+
+	want := []string{
+		"POST /api/push-diffs/pd%2F1/lease",
+		"POST /api/push-diffs/pd_1/diff",
+		"POST /api/push-diffs/pd_1/failure",
+	}
+	if strings.Join(received, " ") != strings.Join(want, " ") {
+		t.Errorf("received %q", received)
+	}
+	if got := bodies["/api/push-diffs/pd_1/diff"]; got["diff"] != "diff --git a b" || got["base"] != "0123abc" {
+		t.Errorf("diff body %v", got)
+	}
+	if got := bodies["/api/push-diffs/pd_1/failure"]; got["reason"] != "git fetch: no such commit" {
+		t.Errorf("failure body %v", got)
+	}
+}
+
+func TestRenewPushDiffLeaseSaysWhenThePushDiffIsGone(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/problem+json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"reason":"not-found","message":"No push diff pd_1"}`))
+	})
+
+	_, err := client.RenewPushDiffLease(context.Background(), "pd_1")
+
+	if !control.CheckLeaseLost(err) {
+		t.Fatalf("err %v, want the lease lost", err)
 	}
 }
 
@@ -322,14 +407,14 @@ func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	err := client.RecordChangeStackCheck(context.Background(), "run_1", "s1", false, protocol.StackCheckResult{
+	err := client.RecordChangeStackCheck(context.Background(), "s1", false, protocol.StackCheckResult{
 		Steps: []protocol.CheckStepResult{{Step: "whole", Passed: true, Output: "ok", DurationMs: 12}},
 	})
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
 
-	if seenPath != "/api/runs/run_1/change-stack-checks/s1" {
+	if seenPath != "/api/change-stacks/s1/checks" {
 		t.Errorf("path %q", seenPath)
 	}
 	if len(seen.Steps) != 1 || !seen.Steps[0].Passed || seen.Skipped != nil {
@@ -344,14 +429,14 @@ func TestRenewCheckLeaseReadsBackWhetherToStop(t *testing.T) {
 		_, _ = w.Write([]byte(`{"stop":true}`))
 	})
 
-	stop, err := client.RenewCheckLease(context.Background(), "run_1", "stack/1", false)
+	stop, err := client.RenewCheckLease(context.Background(), "stack/1", false)
 	if err != nil {
 		t.Fatalf("renew: %v", err)
 	}
 	if !stop {
 		t.Error("expected the renewal to say the check should stop")
 	}
-	if method != http.MethodPost || received != "/api/runs/run_1/change-stack-checks/stack%2F1/lease" {
+	if method != http.MethodPost || received != "/api/change-stacks/stack%2F1/checks/lease" {
 		t.Errorf("received %s %q", method, received)
 	}
 }
@@ -367,16 +452,16 @@ func TestRecheckCallsNameTheRecheck(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if _, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1", true); err != nil {
+	if _, err := client.RenewCheckLease(context.Background(), "stack_1", true); err != nil {
 		t.Fatalf("renew: %v", err)
 	}
-	if err := client.RecordChangeStackCheck(context.Background(), "run_1", "stack_1", true, protocol.StackCheckResult{}); err != nil {
+	if err := client.RecordChangeStackCheck(context.Background(), "stack_1", true, protocol.StackCheckResult{}); err != nil {
 		t.Fatalf("record: %v", err)
 	}
 
 	want := []string{
-		"/api/runs/run_1/change-stack-checks/stack_1/lease?recheck=true",
-		"/api/runs/run_1/change-stack-checks/stack_1?recheck=true",
+		"/api/change-stacks/stack_1/checks/lease?recheck=true",
+		"/api/change-stacks/stack_1/checks?recheck=true",
 	}
 	if strings.Join(received, " ") != strings.Join(want, " ") {
 		t.Errorf("received %q", received)
@@ -388,7 +473,7 @@ func TestRenewCheckLeaseCarriesOnWhileTheRunnerHasTheLease(t *testing.T) {
 		_, _ = w.Write([]byte(`{"stop":false}`))
 	})
 
-	stop, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1", false)
+	stop, err := client.RenewCheckLease(context.Background(), "stack_1", false)
 	if err != nil {
 		t.Fatalf("renew: %v", err)
 	}
@@ -404,7 +489,7 @@ func TestRenewCheckLeaseRejectedWhenTheRunnerHasNoLease(t *testing.T) {
 		_, _ = w.Write([]byte(`{"reason":"conflict","message":"Change stack stack_1 is not being checked by that runner"}`))
 	})
 
-	_, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1", false)
+	_, err := client.RenewCheckLease(context.Background(), "stack_1", false)
 
 	var rejection *control.ResponseError
 	if !errors.As(err, &rejection) || rejection.Status != http.StatusConflict {
@@ -546,12 +631,12 @@ func TestSaysWhereTheRunStartedNamingAnArchiveOrNone(t *testing.T) {
 	})
 
 	archive := "archive_1"
-	checkouts := []protocol.StartedCheckout{{Path: "api", Commit: strings.Repeat("a", 40)}}
+	checkouts := []protocol.CheckoutHead{{Path: "api", Commit: strings.Repeat("a", 40)}}
 
 	if err := client.RecordStartingPoint(context.Background(), "run_1", protocol.StartingPoint{Attempt: 1, ArchiveID: &archive, Checkouts: checkouts}); err != nil {
 		t.Fatalf("record: %v", err)
 	}
-	if err := client.RecordStartingPoint(context.Background(), "run_1", protocol.StartingPoint{Attempt: 2, Checkouts: []protocol.StartedCheckout{}}); err != nil {
+	if err := client.RecordStartingPoint(context.Background(), "run_1", protocol.StartingPoint{Attempt: 2, Checkouts: []protocol.CheckoutHead{}}); err != nil {
 		t.Fatalf("record afresh: %v", err)
 	}
 

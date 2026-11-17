@@ -1,5 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
+import {
+  PROGRESS_NAMES,
+  HOLD_VERDICT_NAMES,
+  type HoldVerdictName,
+} from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { pageResponseOf } from '@work/presentation/http/paging';
 
@@ -38,6 +42,52 @@ export class TaskPersonResponseDto {
     this.id = id;
     this.name = name;
     this.image = image;
+  }
+}
+
+export class TaskHoldResponseDto {
+  @ApiProperty({ type: TaskPersonResponseDto })
+  readonly by: TaskPersonResponseDto;
+
+  @ApiProperty({
+    enum: HOLD_VERDICT_NAMES,
+    enumName: 'HoldVerdict',
+    description:
+      'not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out',
+  })
+  readonly verdict: HoldVerdictName;
+
+  @ApiProperty({ example: '2026-11-16T09:15:00.000Z' })
+  readonly startedAt: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The run of the last turn, where the person talks to the agent',
+  })
+  readonly runId: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station.',
+  })
+  readonly heldMoveTo: string | null;
+
+  constructor(
+    by: TaskPersonResponseDto,
+    verdict: HoldVerdictName,
+    startedAt: string,
+    runId: string | null,
+    heldMoveTo: string | null,
+  ) {
+    this.by = by;
+    this.verdict = verdict;
+    this.startedAt = startedAt;
+    this.runId = runId;
+    this.heldMoveTo = heldMoveTo;
   }
 }
 
@@ -106,6 +156,12 @@ export class TaskResponseDto {
   readonly awaitingReview: TaskReviewResponseDto | null;
 
   @ApiProperty({
+    description:
+      'Whether the line finished the task. A message to a finished task sends it back to its station.',
+  })
+  readonly finished: boolean;
+
+  @ApiProperty({
     example: ['https://github.com/acme/widgets/pull/7'],
     type: [String],
     description:
@@ -145,6 +201,14 @@ export class TaskResponseDto {
   })
   readonly source: string | null;
 
+  @ApiProperty({
+    type: TaskHoldResponseDto,
+    nullable: true,
+    description:
+      'The person who drives the task at its station in place of the line, or null where the line drives it',
+  })
+  readonly hold: TaskHoldResponseDto | null;
+
   constructor(
     id: string,
     stationId: string,
@@ -155,11 +219,13 @@ export class TaskResponseDto {
     createdAt: string,
     progress: string | null,
     awaitingReview: TaskReviewResponseDto | null,
+    finished: boolean,
     pullRequests: readonly string[],
     createdBy: TaskPersonResponseDto | null,
     assignee: TaskPersonResponseDto | null,
     note: TaskNoteResponseDto | null,
     source: string | null,
+    hold: TaskHoldResponseDto | null,
   ) {
     this.id = id;
     this.stationId = stationId;
@@ -170,11 +236,13 @@ export class TaskResponseDto {
     this.createdAt = createdAt;
     this.progress = progress;
     this.awaitingReview = awaitingReview;
+    this.finished = finished;
     this.pullRequests = pullRequests;
     this.createdBy = createdBy;
     this.assignee = assignee;
     this.note = note;
     this.source = source;
+    this.hold = hold;
   }
 }
 

@@ -52,6 +52,7 @@ describe('humanLabelOf', () => {
   it.each([
     ['accepted', true, 'accepted'],
     ['sent-back', false, 'sent-back'],
+    ['held', false, 'held'],
   ] as const)(
     'reads a run people %s as passes %s, by the person who did it',
     (act, passes, from) => {

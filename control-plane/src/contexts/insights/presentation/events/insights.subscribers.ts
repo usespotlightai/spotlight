@@ -344,7 +344,10 @@ export const insightsSubscribers = (
   subscribing<TaskFailedIntegrationEvent>(
     'insights.record-task-failure',
     [TASK_FAILED],
-    (event) => handlers.failing.failed(event),
+    (event) =>
+      event.driver === 'person'
+        ? Promise.resolve()
+        : handlers.failing.failed(event),
   ),
   subscribing<TaskOpenedIntegrationEvent>(
     'insights.record-task-opening',
@@ -354,7 +357,10 @@ export const insightsSubscribers = (
   subscribing<TaskAskedIntegrationEvent>(
     'insights.record-inbox-ask',
     [TASK_ASKED],
-    (event) => handlers.recordingHumanActions.asked(event),
+    (event) =>
+      event.driver === 'person'
+        ? Promise.resolve()
+        : handlers.recordingHumanActions.asked(event),
   ),
   subscribing<TaskActedOnIntegrationEvent>(
     'insights.record-task-human-action',

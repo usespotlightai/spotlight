@@ -3,14 +3,15 @@ import type {
   DiffFileResponseDto,
   DiffHunkResponseDto,
   LayerQuestionResponseDto,
+  ChangeStacksResponseDto,
   QuestionAnswerResponseDto,
-  RunChangeStacksResponseDto,
   StackCohortResponseDto,
   StackLayerResponseDto,
 } from '@/lib/api';
 import { runPath } from '@/lib/run';
+import { taskPath } from '@/lib/task';
 
-export type RunChangeStacks = RunChangeStacksResponseDto;
+export type ChangeStacks = ChangeStacksResponseDto;
 
 export type ChangeStack = ChangeStackResponseDto;
 
@@ -51,6 +52,21 @@ export const changeStackPath = (
   teamId: string,
   runId: string,
 ): string => `${runPath(slug, teamId, runId)}/changes`;
+
+export const taskChangesPath = (
+  slug: string,
+  teamId: string,
+  taskId: string,
+  repository: string | null = null,
+): string => {
+  const at = `${taskPath(slug, teamId, taskId)}/changes`;
+
+  return repository
+    ? `${at}?${new URLSearchParams({ repository }).toString()}`
+    : at;
+};
+
+export const shortCommit = (sha: string): string => sha.slice(0, 7);
 
 export const currentStacks = (
   stacks: readonly ChangeStack[],
@@ -219,10 +235,10 @@ export const revisionMarkOf = (layer: StackLayer) =>
     : null;
 
 export const answeredIn = (
-  stacks: RunChangeStacks,
+  stacks: ChangeStacks,
   stackId: string,
   answer: QuestionAnswer,
-): RunChangeStacks => ({
+): ChangeStacks => ({
   ...stacks,
   stacks: stacks.stacks.map((stack) =>
     stack.id === stackId

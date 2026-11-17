@@ -111,6 +111,7 @@ const ranAndEnded = async (minutesAgo: number) => {
     workspaceId: team.workspaceId.value,
     taskId: team.list.id.value,
     stationId: watched,
+    driver: 'line',
     outcome: 'completed',
     failure: null,
     stopped: false,

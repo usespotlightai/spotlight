@@ -23,6 +23,7 @@ const note = (position: number, failure: InboxNote['failure']): InboxNote => ({
   approval: null,
   failure,
   connection: null,
+  resumption: null,
 });
 
 describe('failureIn', () => {

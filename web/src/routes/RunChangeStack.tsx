@@ -1,22 +1,23 @@
 import { useParams } from 'react-router';
 
+import { ChangeStackPage } from '@/components/features/changes/ChangeStackPage';
 import { ChangeStackSkeleton } from '@/components/features/changes/ChangeStackSkeleton';
-import { RunChangeStackPage } from '@/components/features/changes/RunChangeStackPage';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { useRunChangeStacks } from '@/hooks/api/useRunChangeStacks';
-import { useRunReview } from '@/hooks/api/useRunReview';
+import { useTaskReview } from '@/hooks/api/useTaskReview';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { useChangeStackTrail } from '@/hooks/useChangeStackTrail';
 import { failed, loading } from '@/lib/query';
+import { runPath } from '@/lib/run';
 import { TrailContext, useTrail } from '@/lib/trail';
 
 export function RunChangeStack() {
   const { slug, teamId, runId } = useParams();
   const stacks = useRunChangeStacks(teamId, runId);
   const found = useTeamRun(teamId, runId);
-  const review = useRunReview(teamId, runId);
+  const review = useTaskReview(teamId, found.data?.taskId);
 
   const run = found.data;
   const { trail, forward } = useTrail(useChangeStackTrail(slug, teamId, run));
@@ -43,14 +44,14 @@ export function RunChangeStack() {
 
   return (
     <TrailContext value={forward}>
-      <RunChangeStackPage
+      <ChangeStackPage
         slug={slug}
         teamId={teamId}
-        runId={runId}
         taskId={run?.taskId}
         stacks={stacks.data?.stacks ?? []}
         review={review.data}
         trail={trail}
+        back={{ to: runPath(slug, teamId, runId), label: 'Back to the run' }}
       />
     </TrailContext>
   );

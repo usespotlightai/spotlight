@@ -58,6 +58,7 @@ export interface StationSummary {
   readonly kind: StationKind;
   readonly skills: readonly string[];
   readonly tools: readonly string[];
+  readonly passesTo: readonly string[];
 }
 
 interface ReactionSummary {

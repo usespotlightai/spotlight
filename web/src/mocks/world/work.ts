@@ -1,5 +1,6 @@
 import type {
   AttachmentResponseDto,
+  ChangeStackResponseDto,
   LatestChangeStackResponseDto,
   NoteResponseDto,
   RunNotesResponseDto,
@@ -32,7 +33,11 @@ import {
   timedSteps,
 } from '@/mocks/world/run-stories';
 import { runStationOf } from '@/mocks/world/stations';
-import { addedIn, removedIn } from '@/mocks/world/work-changes';
+import {
+  addedIn,
+  PUSH_CHANGE_STACKS,
+  removedIn,
+} from '@/mocks/world/work-changes';
 import type { NoteScript, RunStory } from '@/mocks/world/work-stories';
 
 export { answerStackQuestion, changeStacksOf };
@@ -410,6 +415,28 @@ export const tracedTaskOf = (
   };
 };
 
+export const taskChangeStacksOf = (
+  taskId: string,
+): ChangeStackResponseDto[] => {
+  const newestFirst = [
+    ...(PUSH_CHANGE_STACKS[taskId] ?? []),
+    ...oldestFirst(runsOf(taskId))
+      .reverse()
+      .flatMap((run) => changeStacksOf(run.id)),
+  ];
+  const seen = new Set<string | null>();
+
+  return newestFirst
+    .filter((stack) => {
+      if (seen.has(stack.repository)) {
+        return false;
+      }
+      seen.add(stack.repository);
+      return true;
+    })
+    .reverse();
+};
+
 export const latestChangeStackOf = (
   taskId: string,
 ): LatestChangeStackResponseDto | null => {
@@ -425,7 +452,6 @@ export const latestChangeStackOf = (
   const only = stacks.length === 1 ? stacks[0] : undefined;
 
   return {
-    runId: run.id,
     repository: only?.repository ?? null,
     state: stacks.some((each) => each.state === 'generating')
       ? 'generating'

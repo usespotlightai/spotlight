@@ -1,27 +1,41 @@
 import { CircleDashed, Layers, TriangleAlert } from 'lucide-react';
 
 import { EmptyState } from '@/components/shared/EmptyState';
+import { InferenceSetupLink } from '@/components/shared/InferenceSetupLink';
 import { Notice } from '@/components/shared/Notice';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { useInferenceUnset } from '@/hooks/useInferenceUnset';
 import type { ChangeStack } from '@/lib/change-stack';
+import { NO_INFERENCE_ENDPOINT } from '@/lib/inference';
 import { cn } from '@/lib/utils';
 
+export interface StackNoticeBack {
+  readonly to: string;
+  readonly label: string;
+}
+
 type ChangeStackNoticeProps = {
+  slug: string;
   stack: ChangeStack | null;
-  runTo: string;
+  back: StackNoticeBack;
 };
 
-export function ChangeStackNotice({ stack, runTo }: ChangeStackNoticeProps) {
+export function ChangeStackNotice({
+  slug,
+  stack,
+  back: { to, label },
+}: ChangeStackNoticeProps) {
+  const unset = useInferenceUnset(slug);
   const back = (
     <TrailLink
-      to={runTo}
+      to={to}
       className={cn(
         buttonVariants({ variant: 'outline', size: 'sm' }),
         'rounded-full bg-card shadow-none',
       )}
     >
-      Back to the run
+      {label}
     </TrailLink>
   );
 
@@ -51,6 +65,20 @@ export function ChangeStackNotice({ stack, runTo }: ChangeStackNoticeProps) {
           action={back}
         >
           {stack.failure ?? 'Generation stopped before it finished.'}
+        </EmptyState>
+      </Notice>
+    );
+  }
+
+  if (!stack && unset) {
+    return (
+      <Notice>
+        <EmptyState
+          icon={Layers}
+          title="Change stacks are off"
+          action={<InferenceSetupLink slug={slug} size="regular" />}
+        >
+          {NO_INFERENCE_ENDPOINT}
         </EmptyState>
       </Notice>
     );

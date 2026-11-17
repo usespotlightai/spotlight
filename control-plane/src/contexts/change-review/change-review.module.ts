@@ -6,28 +6,30 @@ import {
 } from '@change-review/change-review.wiring';
 import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
+import { InferenceModule } from '@inference/inference.module';
 import { Module } from '@nestjs/common';
 import { contextBindings } from '@platform/bindings/context-bindings';
 import { RunnersModule } from '@runners/runners.module';
-import { CHECK_PROVISIONING } from '@runs/application/ports/check-provisioning.port';
-import { CHECK_WORK } from '@runs/application/ports/check-work.port';
+import { REVIEW_WORK_PROVISIONING } from '@runs/application/ports/review-work-provisioning.port';
+import { REVIEW_WORK } from '@runs/application/ports/review-work.port';
 import { RunsModule } from '@runs/runs.module';
-import { CHECK_ACCESS } from '@work/application/ports/check-access.port';
 import { PULL_REQUEST_REVIEWING } from '@work/application/ports/pull-request-reviewing.port';
+import { REVIEW_WORK_ACCESS } from '@work/application/ports/review-work-access.port';
 import { TASK_DECISIONS } from '@work/application/ports/task-decisions.port';
 import { WorkModule } from '@work/work.module';
 
 const BINDINGS = contextBindings([
   PULL_REQUEST_REVIEWING,
-  CHECK_ACCESS,
-  CHECK_WORK,
-  CHECK_PROVISIONING,
+  REVIEW_WORK_ACCESS,
+  REVIEW_WORK,
+  REVIEW_WORK_PROVISIONING,
   TASK_DECISIONS,
 ]);
 
 @Module({
   imports: [
     IdentityModule,
+    InferenceModule,
     GitHubModule,
     RunnersModule,
     RunsModule,

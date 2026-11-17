@@ -108,7 +108,7 @@ describe('RecordRunMemoryUses, when a run ends', () => {
       '.spotlight/memory/repositories/acme/api/src/uploads/M-18.md',
     ]);
 
-    await service.runEnded(RUN);
+    await service.runEnded(RUN, false);
 
     expect(lookedUp).toEqual([{ teamId: TEAM, handles: ['M-3', 'M-18'] }]);
     expect(dispatched).toEqual([
@@ -129,7 +129,7 @@ describe('RecordRunMemoryUses, when a run ends', () => {
     for (const referenced of [[], null]) {
       const { record, dispatched, service } = recording(referenced);
 
-      await service.runEnded(RUN);
+      await service.runEnded(RUN, false);
 
       expect(record).not.toHaveBeenCalled();
       expect(dispatched).toEqual([]);
@@ -142,7 +142,7 @@ describe('RecordRunMemoryUses, when a run ends', () => {
       (handle) => handle !== 'M-42',
     );
 
-    await service.runEnded(RUN);
+    await service.runEnded(RUN, false);
 
     expect(record).toHaveBeenCalledWith(
       RunId.of('run_1'),
@@ -159,7 +159,7 @@ describe('RecordRunMemoryUses, when a run ends', () => {
       (handle) => handle !== 'M-8',
     );
 
-    await service.runEnded(RUN);
+    await service.runEnded(RUN, false);
 
     expect(record).toHaveBeenCalledWith(
       RunId.of('run_1'),
@@ -170,12 +170,27 @@ describe('RecordRunMemoryUses, when a run ends', () => {
   });
 });
 
+describe('RecordRunMemoryUses, on a person’s turn', () => {
+  it('counts no memory the turn was briefed with or read', async () => {
+    const { record, dispatched, lookedUp, service } = recording([
+      '.spotlight/memory/team/M-3.md',
+    ]);
+
+    await service.runBriefed(RUN, ['memory_1'], true);
+    await service.runEnded(RUN, true);
+
+    expect(lookedUp).toEqual([]);
+    expect(record).not.toHaveBeenCalled();
+    expect(dispatched).toEqual([]);
+  });
+});
+
 describe('RecordRunMemoryUses, when a run is briefed', () => {
   it('records the memories it was briefed with and says so, also for a run with no task', async () => {
     const { record, dispatched, service } = recording([]);
     const chat = { ...RUN, taskId: null };
 
-    await service.runBriefed(chat, ['memory_1', 'memory_2']);
+    await service.runBriefed(chat, ['memory_1', 'memory_2'], false);
 
     expect(record).toHaveBeenCalledWith(
       RUN.id,
@@ -194,7 +209,7 @@ describe('RecordRunMemoryUses, when a run is briefed', () => {
   it('records and says nothing when it was briefed with no memory', async () => {
     const { record, dispatched, service } = recording([]);
 
-    await service.runBriefed(RUN, []);
+    await service.runBriefed(RUN, [], false);
 
     expect(record).not.toHaveBeenCalled();
     expect(dispatched).toEqual([]);

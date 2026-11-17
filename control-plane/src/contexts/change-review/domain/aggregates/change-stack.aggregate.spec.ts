@@ -5,10 +5,12 @@ import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/n
 import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import type { HunkLink } from '@change-review/domain/services/diff-facts';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
   DraftedCohort,
@@ -21,6 +23,7 @@ import {
   LayerId,
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
@@ -67,7 +70,7 @@ const generating = (
 ) =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
-    runId: RunId.of('run-1'),
+    origin: StackOrigin.run(RunId.of('run-1')),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
     trial,
@@ -168,7 +171,7 @@ describe('ChangeStack', () => {
       expect(() =>
         ChangeStack.startGeneration({
           id: ChangeStackId.of('stack-1'),
-          runId: RunId.of('run-1'),
+          origin: StackOrigin.run(RunId.of('run-1')),
           taskId: TaskId.of('task-1'),
           teamOfRun: TeamId.of('team_1'),
           trial: true,
@@ -204,7 +207,7 @@ describe('ChangeStack', () => {
     const owned = (taskId: TaskId | null, teamOfRun: TeamId | null) =>
       ChangeStack.startGeneration({
         id: ChangeStackId.of('stack-1'),
-        runId: RunId.of('run-1'),
+        origin: StackOrigin.run(RunId.of('run-1')),
         taskId,
         teamOfRun,
         trial: false,
@@ -228,6 +231,116 @@ describe('ChangeStack', () => {
 
     it('is refused without a task or a team, since nobody could review it', () => {
       expect(() => owned(null, null)).toThrow(NoStackOwnerError);
+    });
+  });
+
+  describe('from a push to its task’s pull request', () => {
+    const HEAD = CommitSha.parsed('b'.repeat(40)) as CommitSha;
+
+    const pushed = (
+      over: {
+        taskId?: TaskId | null;
+        teamOfRun?: TeamId | null;
+        trial?: boolean;
+      } = {},
+    ) =>
+      ChangeStack.startGeneration({
+        id: ChangeStackId.of('stack-1'),
+        origin: StackOrigin.push(HEAD, Pusher.of(' octocat ')),
+        taskId: over.taskId === undefined ? TaskId.of('task-1') : over.taskId,
+        teamOfRun: over.teamOfRun ?? null,
+        trial: over.trial ?? false,
+        checkouts: 1,
+        workspaceId: WorkspaceId.of('workspace-1'),
+        repository: 'web',
+        base: null,
+        diff: DIFF,
+        facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
+        request: null,
+        now: NOW,
+      });
+
+    it('belongs to its task, comes from no run, and keeps who pushed which commit', () => {
+      const stack = pushed();
+
+      expect(stack.taskId?.value).toBe('task-1');
+      expect(stack.runId).toBeNull();
+      expect(stack.origin).toEqual({
+        kind: 'push',
+        head: HEAD,
+        pushedBy: Pusher.of('octocat'),
+      });
+    });
+
+    it('is refused as invalid without a task, or for a trial', () => {
+      expect(() =>
+        pushed({ taskId: null, teamOfRun: TeamId.of('team_1') }),
+      ).toThrow(InvalidChangeStackError);
+      expect(() =>
+        pushed({ taskId: null, teamOfRun: TeamId.of('team_1') }),
+      ).toThrow('comes from a push');
+      expect(() =>
+        pushed({ taskId: null, teamOfRun: TeamId.of('team_1'), trial: true }),
+      ).toThrow('comes from a push');
+    });
+
+    it('says it completed for its task, and neither became ready for a run nor settled a trial', () => {
+      const stack = pushed();
+      stack.pullEvents();
+
+      const events = stack
+        .propose(
+          [invitations([layer('Everything', ['h1', 'h2', 'h3'])])],
+          LATER,
+        )
+        .pullEvents();
+
+      expect(events.map((each) => each.kind)).toEqual([
+        'change-stack.completed',
+      ]);
+      expect(events[0]).toMatchObject({
+        runId: null,
+        taskId: TaskId.of('task-1'),
+        trial: false,
+      });
+    });
+
+    it('says nothing when it could not be generated', () => {
+      const stack = pushed();
+      stack.pullEvents();
+
+      expect(stack.deadLetter(LATER).pullEvents()).toEqual([]);
+    });
+
+    it('is told apart from a run’s stack, which says which run and task it completed for', () => {
+      const stack = ChangeStack.startGeneration({
+        id: ChangeStackId.of('stack-1'),
+        origin: StackOrigin.run(RunId.of('run-1')),
+        taskId: TaskId.of('task-1'),
+        teamOfRun: null,
+        trial: false,
+        checkouts: 1,
+        workspaceId: WorkspaceId.of('workspace-1'),
+        repository: 'web',
+        base: null,
+        diff: DIFF,
+        facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
+        request: null,
+        now: NOW,
+      });
+
+      const [completed] = stack
+        .propose(
+          [invitations([layer('Everything', ['h1', 'h2', 'h3'])])],
+          LATER,
+        )
+        .pullEvents();
+
+      expect(completed).toMatchObject({
+        kind: 'change-stack.completed',
+        runId: RunId.of('run-1'),
+        taskId: TaskId.of('task-1'),
+      });
     });
   });
 
@@ -364,12 +477,27 @@ describe('ChangeStack', () => {
   it('fails a stack whose answer was cut off, and retries one whose call failed', () => {
     const leased = generating().leaseJob(NOW);
 
-    expect(leased.settleFailedCall({ truncated: true }, LATER).failure).toBe(
-      'too-large',
-    );
-    expect(leased.settleFailedCall({ truncated: false }, LATER).state).toBe(
-      'generating',
-    );
+    expect(
+      leased.settleFailedCall(
+        { truncated: true, insufficientCredits: false },
+        LATER,
+      ).failure,
+    ).toBe('too-large');
+    expect(
+      leased.settleFailedCall(
+        { truncated: false, insufficientCredits: false },
+        LATER,
+      ).state,
+    ).toBe('generating');
+  });
+
+  it('fails a stack at once when the endpoint has no credits', () => {
+    const failed = generating()
+      .leaseJob(NOW)
+      .settleFailedCall({ truncated: false, insufficientCredits: true }, LATER);
+
+    expect(failed.state).toBe('failed');
+    expect(failed.failure).toBe('insufficient-credits');
   });
 
   it('is leased to one worker at a time while it is generated', () => {
@@ -648,7 +776,7 @@ describe('ChangeStack read back from what was stored', () => {
   const stored = (over: Partial<Parameters<typeof ChangeStack.rehydrate>[0]>) =>
     ChangeStack.rehydrate({
       id: ChangeStackId.of('stack-1'),
-      runId: RunId.of('run-1'),
+      origin: StackOrigin.run(RunId.of('run-1')),
       taskId: null,
       teamId: TeamId.of('team_1'),
       trial: false,
@@ -681,6 +809,18 @@ describe('ChangeStack read back from what was stored', () => {
         ],
       }),
     ).toThrow(InconsistentStateError);
+  });
+
+  it('takes back a stack from a push of its task, and refuses one with no task', () => {
+    const origin = StackOrigin.push(
+      CommitSha.parsed('c'.repeat(40)) as CommitSha,
+      null,
+    );
+
+    expect(
+      stored({ origin, taskId: TaskId.of('task-1'), teamId: null }).runId,
+    ).toBeNull();
+    expect(() => stored({ origin })).toThrow(InconsistentStateError);
   });
 
   it('is refused when stored with both a task and a team', () => {

@@ -24,6 +24,9 @@ export function useOverflows(
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
+    for (const child of element.children) {
+      observer.observe(child);
+    }
 
     return () => observer.disconnect();
   }, [ref, watching, axis, content]);

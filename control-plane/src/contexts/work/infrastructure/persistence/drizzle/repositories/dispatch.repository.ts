@@ -40,6 +40,7 @@ const subjectColumns = (subject: DispatchSubject) => {
         taskId: subject.taskId.value,
         taskRevision: subject.revision.value,
         stationId: subject.stationId.value,
+        driver: subject.driver,
       };
     case 'chat':
       return { kind: subject.kind, chatId: subject.chatId.value };
@@ -107,6 +108,7 @@ const subjectOf = (row: Row): DispatchSubject => {
         taskId: TaskId.of(required(row.taskId, row, 'task')),
         revision: TaskRevision.of(required(row.taskRevision, row, 'revision')),
         stationId: StationId.of(required(row.stationId, row, 'station')),
+        driver: row.driver,
       };
     case 'chat':
       return {

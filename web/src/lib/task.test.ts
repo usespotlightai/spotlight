@@ -5,6 +5,7 @@ import {
   movableByHand,
   moveTargetFor,
   placed,
+  holdsOnMessage,
   startsAgainOnMessage,
   type Task,
 } from '@/lib/task';
@@ -19,11 +20,13 @@ const task = (id: string, stationId: string): Task => ({
   createdAt: '2026-08-04T09:15:00.000Z',
   progress: null,
   awaitingReview: null,
+  finished: false,
   createdBy: null,
   assignee: null,
   pullRequests: [],
   note: null,
   source: null,
+  hold: null,
 });
 
 const board = [task('a', 'triage'), task('b', 'triage'), task('c', 'spec')];
@@ -114,20 +117,46 @@ describe('movableByHand', () => {
 
 describe('mayLand', () => {
   it('lets a task land only where a person may move it', () => {
-    expect(mayLand(stations, task('a', 'spec'), 'backlog')).toBe(true);
-    expect(mayLand(stations, task('a', 'spec'), 'build')).toBe(false);
+    expect(mayLand(stations, task('a', 'spec'), 'backlog', undefined)).toBe(
+      true,
+    );
+    expect(mayLand(stations, task('a', 'spec'), 'build', undefined)).toBe(
+      false,
+    );
+  });
+
+  const held: Task = {
+    ...task('a', 'spec'),
+    hold: {
+      by: { id: 'user_1', name: 'Leon', image: null },
+      verdict: 'not-right',
+      startedAt: '2026-08-04T09:15:00.000Z',
+      runId: null,
+      heldMoveTo: null,
+    },
+  };
+
+  it('keeps a task on hold at its station for everyone but the person who holds it', () => {
+    expect(mayLand(stations, held, 'backlog', 'user_2')).toBe(false);
+    expect(mayLand(stations, held, 'spec', 'user_2')).toBe(true);
+  });
+
+  it('lets the person who holds the task move it, which resumes the line', () => {
+    expect(mayLand(stations, held, 'backlog', 'user_1')).toBe(true);
   });
 
   it('lands nothing at a station off the line', () => {
-    expect(mayLand(stations, task('a', 'spec'), 'elsewhere')).toBe(false);
+    expect(mayLand(stations, task('a', 'spec'), 'elsewhere', undefined)).toBe(
+      false,
+    );
   });
 });
 
 describe('moveTargetFor', () => {
   it('starts work waiting in the backlog at the first work station', () => {
-    expect(moveTargetFor(stations, [task('a', 'backlog')], ['a'])?.name).toBe(
-      'Spec',
-    );
+    expect(
+      moveTargetFor(stations, [task('a', 'backlog')], ['a'], undefined)?.name,
+    ).toBe('Spec');
   });
 
   it('parks work further along back in the backlog', () => {
@@ -136,6 +165,7 @@ describe('moveTargetFor', () => {
         stations,
         [task('a', 'build'), task('b', 'backlog')],
         ['a', 'b'],
+        undefined,
       )?.name,
     ).toBe('Backlog');
   });
@@ -146,32 +176,38 @@ describe('moveTargetFor', () => {
         stations,
         [task('a', 'build'), task('b', 'completed')],
         ['a', 'b'],
+        undefined,
       ),
     ).toBeNull();
   });
 
   it('offers nothing until something is picked', () => {
-    expect(moveTargetFor(stations, [task('a', 'build')], [])).toBeNull();
+    expect(
+      moveTargetFor(stations, [task('a', 'build')], [], undefined),
+    ).toBeNull();
   });
 });
 
 describe('startsAgainOnMessage', () => {
   const worked = { id: 'spec', harness: 'claude-code' };
+  const finished: Task = { ...task('a', 'spec'), finished: true };
 
-  it('starts a task idle at the station its run worked again', () => {
-    expect(startsAgainOnMessage(task('a', 'spec'), worked, 'spec')).toBe(true);
+  it('starts a finished task again at the station its run worked', () => {
+    expect(startsAgainOnMessage(finished, worked, 'spec')).toBe(true);
+  });
+
+  it('leaves a task that is not finished to the hold', () => {
+    expect(startsAgainOnMessage(task('a', 'spec'), worked, 'spec')).toBe(false);
   });
 
   it('starts nothing from a run at a station the task has since left', () => {
-    expect(startsAgainOnMessage(task('a', 'spec'), worked, 'triage')).toBe(
-      false,
-    );
+    expect(startsAgainOnMessage(finished, worked, 'triage')).toBe(false);
   });
 
   it('leaves a task that still has a current run to that run', () => {
     expect(
       startsAgainOnMessage(
-        { ...task('a', 'spec'), progress: 'in-progress' },
+        { ...finished, progress: 'in-progress' },
         worked,
         'spec',
       ),
@@ -181,7 +217,7 @@ describe('startsAgainOnMessage', () => {
   it('leaves a task waiting on a person to the answer', () => {
     expect(
       startsAgainOnMessage(
-        { ...task('a', 'spec'), awaitingReview: { conversationId: 'a:0' } },
+        { ...finished, awaitingReview: { conversationId: 'a:0' } },
         worked,
         'spec',
       ),
@@ -196,5 +232,52 @@ describe('startsAgainOnMessage', () => {
         'backlog',
       ),
     ).toBe(false);
+  });
+});
+
+describe('holdsOnMessage', () => {
+  const worked = { id: 'spec', harness: 'claude-code' };
+
+  it('puts a task on hold at the station its run worked', () => {
+    expect(holdsOnMessage(task('a', 'spec'), worked, 'spec')).toBe(true);
+  });
+
+  it('puts a task on hold while the line runs it', () => {
+    expect(
+      holdsOnMessage(
+        { ...task('a', 'spec'), progress: 'in-progress' },
+        worked,
+        'spec',
+      ),
+    ).toBe(true);
+  });
+
+  it('does not hold a task that is on hold already', () => {
+    expect(
+      holdsOnMessage(
+        {
+          ...task('a', 'spec'),
+          hold: {
+            by: { id: 'user_1', name: 'Leon', image: null },
+            verdict: 'not-right',
+            startedAt: '2026-08-04T09:15:00.000Z',
+            runId: null,
+            heldMoveTo: null,
+          },
+        },
+        worked,
+        'spec',
+      ),
+    ).toBe(false);
+  });
+
+  it('does not hold a finished task', () => {
+    expect(
+      holdsOnMessage({ ...task('a', 'spec'), finished: true }, worked, 'spec'),
+    ).toBe(false);
+  });
+
+  it('does not hold a task from a run at a station it has left', () => {
+    expect(holdsOnMessage(task('a', 'spec'), worked, 'triage')).toBe(false);
   });
 });

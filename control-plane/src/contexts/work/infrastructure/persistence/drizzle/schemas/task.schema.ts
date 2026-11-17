@@ -4,6 +4,9 @@ import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
+import { HOLD_ENDS, type HoldEnd } from '@work/domain/value-objects/hold-end';
+import { HOLD_VERDICTS } from '@work/domain/value-objects/hold-verdict';
+import type { CheckoutHeadParts } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
@@ -81,6 +84,12 @@ export interface FailureRow {
   readonly source: string;
   readonly code: string;
   readonly occurrences: number;
+}
+
+export interface ResumptionRow {
+  readonly next: HoldEnd;
+  readonly station: string;
+  readonly summary: string | null;
 }
 
 export const taskNoteKind = pgEnum('task_note_kind', TASK_NOTE_KINDS);
@@ -177,6 +186,7 @@ export const taskNote = pgTable(
     failure: jsonb('failure').$type<FailureRow>(),
     deferredMove: jsonb('deferred_move').$type<DeferredMoveRow>(),
     connectionAsk: jsonb('connection_ask').$type<ConnectionAskRow>(),
+    resumption: jsonb('resumption').$type<ResumptionRow>(),
     answeredAt: timestamptz('answered_at'),
     readAt: timestamptz('read_at'),
     acknowledgedAt: timestamptz('acknowledged_at'),
@@ -258,5 +268,53 @@ export const taskPullRequest = pgTable(
     }).onDelete('cascade'),
     primaryKey({ columns: [table.taskId, table.url] }),
     index('task_pull_request_url_idx').on(table.workspaceId, table.url),
+  ],
+);
+
+export const holdVerdict = pgEnum('hold_verdict', HOLD_VERDICTS);
+export const end = pgEnum('hold_end', HOLD_ENDS);
+
+export const taskHold = pgTable(
+  'task_hold',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    taskId: text('task_id').notNull(),
+    stationId: text('station_id').notNull(),
+    heldBy: text('held_by').notNull(),
+    fromRunId: text('from_run_id'),
+    verdict: holdVerdict('verdict').notNull(),
+    turnRunIds: jsonb('turn_run_ids')
+      .$type<readonly string[]>()
+      .notNull()
+      .default([]),
+    heldMoveTo: text('held_move_to'),
+    fromHeads: jsonb('from_heads')
+      .$type<readonly CheckoutHeadParts[]>()
+      .notNull()
+      .default([]),
+    toHeads: jsonb('to_heads')
+      .$type<readonly CheckoutHeadParts[]>()
+      .notNull()
+      .default([]),
+    end: end('hold_end'),
+    startedAt: timestamptz('started_at').notNull(),
+    endedAt: timestamptz('ended_at'),
+  },
+  (table) => [
+    foreignKey({
+      name: 'task_hold_task_fk',
+      columns: [table.workspaceId, table.taskId],
+      foreignColumns: [task.workspaceId, task.id],
+    }).onDelete('cascade'),
+    check(
+      'task_hold_ends_with_an_end',
+      sql`(${table.endedAt} is null) = (${table.end} is null)`,
+    ),
+    uniqueIndex('task_hold_open_uidx')
+      .on(table.taskId)
+      .where(sql`${table.endedAt} is null`),
+    index('task_hold_task_idx').on(table.taskId, table.startedAt),
+    index('task_hold_station_idx').on(table.stationId, table.startedAt),
   ],
 );

@@ -1,6 +1,7 @@
 import type { CheckingPlan } from '@change-review/domain/value-objects/check-request.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -12,6 +13,7 @@ export interface RunForReview {
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
   readonly checking: CheckingPlan | null;
+  readonly placement: RunnerPlacement;
   readonly ended: boolean;
   readonly completed: boolean;
   readonly decisions: boolean;

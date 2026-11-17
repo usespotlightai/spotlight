@@ -16,10 +16,13 @@ import type { WarmSlotsPort } from '@runners/application/ports/warm-slots.port';
 import type { ClaimHostWorkCommand } from '@runs/application/commands/runner.commands';
 import type { HostClaimDto } from '@runs/application/dto/host.dto';
 import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
-import type { CheckWorkPort } from '@runs/application/ports/check-work.port';
+import type { ReviewWorkPort } from '@runs/application/ports/review-work.port';
 import type { SandboxHostsPort } from '@runs/application/ports/sandbox-hosts.port';
 import type { ClaimGate } from '@runs/application/services/claim-gate.service';
-import { claimedRun } from '@runs/application/services/claimed-work';
+import {
+  claimedReviewWork,
+  claimedRun,
+} from '@runs/application/services/claimed-work';
 import type { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import type { LongPoll } from '@runs/application/services/long-poll';
 import type { RunClaims } from '@runs/application/services/run-claims.service';
@@ -91,7 +94,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     private readonly claimants: RunnerClaimantsPort,
     private readonly runs: RunRepository,
     private readonly claims: RunClaims,
-    private readonly checks: CheckWorkPort,
+    private readonly reviewWork: ReviewWorkPort,
     private readonly clock: ClockPort,
     private readonly starting: ClaimGate,
     private readonly taken: ClaimsTaken,
@@ -240,22 +243,22 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
         return warm;
       }
 
-      const check = await this.checks.claimNext(
+      const claimed = await this.reviewWork.claimNext(
         registered.workspaceId,
         runner,
         registered.offer,
         this.clock.now(),
       );
 
-      if (!check) {
+      if (!claimed) {
         return null;
       }
 
-      await this.taken.check(check, runner);
+      await this.taken.reviewWork(claimed, runner);
 
       return {
         kind: 'work',
-        work: { kind: 'check', check },
+        work: claimedReviewWork(claimed),
         sandboxId: null,
         sandboxToken: null,
         reused: false,

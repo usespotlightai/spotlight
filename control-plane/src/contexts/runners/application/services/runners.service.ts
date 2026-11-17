@@ -3,6 +3,7 @@ import type {
   ProvisionAnswer,
   ProvisionCallsPort,
   ProvisionEgress,
+  ProvisionedWork,
 } from '@runners/application/ports/provision-calls.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { CredentialSourceRef } from '@runners/application/ports/runner-authenticator.port';
@@ -12,6 +13,7 @@ import type {
   ProvisionRequest,
   RunnersPort,
   StartedRunner,
+  WorkToProvision,
 } from '@runners/application/ports/runners.port';
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import { occupancyOf } from '@runners/application/services/pool-occupancy';
@@ -82,6 +84,21 @@ export interface RunnersSettings {
   readonly insecureAllowed: boolean;
   readonly platformEgress: PlatformEgressSettings | null;
 }
+
+const provisionedWork = (work: WorkToProvision): ProvisionedWork => {
+  switch (work.kind) {
+    case 'run':
+      return { kind: 'run', runId: work.id };
+    case 'check':
+      return {
+        kind: 'check',
+        stackId: work.id,
+        runId: work.runId?.value ?? null,
+      };
+    case 'diff':
+      return { kind: 'diff', diffId: work.id };
+  }
+};
 
 export class Runners implements RunnersPort {
   constructor(
@@ -293,6 +310,12 @@ export class Runners implements RunnersPort {
     }
   }
 
+  async leaseOf(runnerId: RunnerId): Promise<LeasedWork | null> {
+    const work = (await this.runners.find(runnerId))?.work ?? null;
+
+    return work && { kind: work.kind, id: work.id };
+  }
+
   private async called(
     pool: RunnerPool,
     request: ProvisionRequest,
@@ -372,9 +395,7 @@ export class Runners implements RunnersPort {
       at,
       pool: pool.key.value,
       workspaceId: pool.workspaceId.value,
-      kind: request.work.kind,
-      checkId: request.work.kind === 'check' ? request.work.id : null,
-      runId: request.runId.value,
+      work: provisionedWork(request.work),
       tags: request.tags,
       labels: request.labels,
       image: request.image,

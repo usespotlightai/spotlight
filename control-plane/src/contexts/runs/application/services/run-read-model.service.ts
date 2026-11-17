@@ -72,6 +72,7 @@ const factsOf = (
       at: startedFrom.at,
       checkouts: startedFrom.checkouts.map((each) => each.parts),
     },
+    endHeads: run.endHeads.map((each) => each.parts),
   };
 };
 

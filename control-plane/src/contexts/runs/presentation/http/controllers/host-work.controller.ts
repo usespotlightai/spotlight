@@ -170,7 +170,7 @@ export class HostWorkController {
   @ApiOperation({
     operationId: 'claimHostWork',
     summary:
-      'Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run',
+      'Long-poll for one run, check or push diff, assigned with a one-run runner’s credential, or for a sandbox to start with no run',
     description:
       'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a working copy key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its working copy key and waits for runs. A warm sandbox (`work.warm`) has no key: the host clones the line’s repositories from its mirrors and runs their setup, then claims with `sandbox` like any live sandbox, and a task’s first run on that line is claimed into it.',
   })

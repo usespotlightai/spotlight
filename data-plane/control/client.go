@@ -596,11 +596,8 @@ func (c *Client) GenerateChangeStack(ctx context.Context, runID, repository, dif
 	return nil
 }
 
-func checkPath(runID, stackID string, recheck bool, rest string) string {
-	path := fmt.Sprintf(
-		"/api/runs/%s/change-stack-checks/%s%s",
-		url.PathEscape(runID), url.PathEscape(stackID), rest,
-	)
+func checkPath(stackID string, recheck bool, rest string) string {
+	path := fmt.Sprintf("/api/change-stacks/%s/checks%s", url.PathEscape(stackID), rest)
 	if recheck {
 		return path + "?recheck=true"
 	}
@@ -609,9 +606,9 @@ func checkPath(runID, stackID string, recheck bool, rest string) string {
 }
 
 func (c *Client) RecordChangeStackCheck(
-	ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackCheckResult,
+	ctx context.Context, stackID string, recheck bool, checked protocol.StackCheckResult,
 ) error {
-	path := checkPath(runID, stackID, recheck, "")
+	path := checkPath(stackID, recheck, "")
 
 	if err := c.do(ctx, http.MethodPost, path, checked, nil); err != nil {
 		return fmt.Errorf("report a change stack check: %w", err)
@@ -620,8 +617,8 @@ func (c *Client) RecordChangeStackCheck(
 	return nil
 }
 
-func (c *Client) RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error) {
-	path := checkPath(runID, stackID, recheck, "/lease")
+func (c *Client) RenewCheckLease(ctx context.Context, stackID string, recheck bool) (bool, error) {
+	path := checkPath(stackID, recheck, "/lease")
 
 	var out struct {
 		Stop bool `json:"stop"`
@@ -631,6 +628,41 @@ func (c *Client) RenewCheckLease(ctx context.Context, runID, stackID string, rec
 	}
 
 	return out.Stop, nil
+}
+
+func pushDiffPath(diffID, rest string) string {
+	return fmt.Sprintf("/api/push-diffs/%s/%s", url.PathEscape(diffID), rest)
+}
+
+func (c *Client) RenewPushDiffLease(ctx context.Context, diffID string) (bool, error) {
+	var out struct {
+		Stop bool `json:"stop"`
+	}
+	if err := c.do(ctx, http.MethodPost, pushDiffPath(diffID, "lease"), nil, &out); err != nil {
+		return false, fmt.Errorf("renew the lease of a push diff: %w", err)
+	}
+
+	return out.Stop, nil
+}
+
+func (c *Client) RecordPushDiff(ctx context.Context, diffID, diff, base string) error {
+	body := protocol.PushDiffResult{Diff: diff, Base: base}
+
+	if err := c.do(ctx, http.MethodPost, pushDiffPath(diffID, "diff"), body, nil); err != nil {
+		return fmt.Errorf("hand over the diff of a push: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) FailPushDiff(ctx context.Context, diffID, reason string) error {
+	body := protocol.PushDiffFailure{Reason: reason}
+
+	if err := c.do(ctx, http.MethodPost, pushDiffPath(diffID, "failure"), body, nil); err != nil {
+		return fmt.Errorf("say why a push could not be diffed: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Client) FetchRunSecrets(ctx context.Context, recipient string) (protocol.EgressSecrets, error) {

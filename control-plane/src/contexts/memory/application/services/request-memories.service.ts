@@ -20,8 +20,12 @@ export class RequestMemories {
     private readonly clock: ClockPort,
   ) {}
 
-  async runEnded(taskId: TaskId, runId: RunId): Promise<void> {
-    if (!this.drafter.available) {
+  async runEnded(
+    taskId: TaskId,
+    runId: RunId,
+    drivenByAPerson: boolean,
+  ): Promise<void> {
+    if (drivenByAPerson) {
       return;
     }
 
@@ -33,7 +37,7 @@ export class RequestMemories {
 
     const task = await this.work.task(taskId);
 
-    if (!task) {
+    if (!task || !(await this.drafter.availableTo(task.workspaceId.value))) {
       return;
     }
 

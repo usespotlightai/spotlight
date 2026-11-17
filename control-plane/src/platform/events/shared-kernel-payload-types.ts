@@ -1,6 +1,6 @@
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -33,6 +33,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
+import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -56,9 +57,10 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const SHARED_KERNEL_PAYLOAD_TYPES = [
+  CheckoutHead,
   Actor,
   ChangeActor,
-  CheckWorkId,
+  ReviewWorkId,
   SandboxId,
   Client,
   ConfigurationChange,

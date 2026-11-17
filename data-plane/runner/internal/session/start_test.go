@@ -59,7 +59,7 @@ func TestRecordsTheArchiveRestoredAndTheCommitEachCheckoutIsAt(t *testing.T) {
 	if point.ArchiveID == nil || *point.ArchiveID != "archive_1" {
 		t.Errorf("recorded archive %v, want archive_1", point.ArchiveID)
 	}
-	want := []protocol.StartedCheckout{{Path: "api", Commit: api}, {Path: "web", Commit: web}}
+	want := []protocol.CheckoutHead{{Path: "api", Commit: api}, {Path: "web", Commit: web}}
 	if len(point.Checkouts) != 2 || point.Checkouts[0] != want[0] || point.Checkouts[1] != want[1] {
 		t.Errorf("recorded checkouts %+v, want %+v", point.Checkouts, want)
 	}

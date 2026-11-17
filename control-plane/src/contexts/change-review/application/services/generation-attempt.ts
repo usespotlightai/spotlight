@@ -44,13 +44,19 @@ export const settleUnanswered = (
     err: failure.error,
   };
 
-  if (failure.truncated) {
+  const insufficientCredits =
+    failure.error instanceof GenerationError &&
+    failure.error.insufficientCredits;
+
+  if (insufficientCredits) {
+    logger.warn(about, 'A change stack model call had no credits');
+  } else if (failure.truncated) {
     logger.warn(about, 'A change stack answer ran out of output tokens');
   } else {
     logger.error(about, 'A change stack model call failed');
   }
 
-  return stack.settleFailedCall(failure, now);
+  return stack.settleFailedCall({ ...failure, insufficientCredits }, now);
 };
 
 export const settleBroken = (

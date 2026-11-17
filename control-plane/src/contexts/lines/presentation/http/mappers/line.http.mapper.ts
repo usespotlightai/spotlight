@@ -24,6 +24,7 @@ export const LineHttpMapper = {
       dto.kind,
       dto.skills,
       dto.tools,
+      dto.passesTo,
     );
   },
 

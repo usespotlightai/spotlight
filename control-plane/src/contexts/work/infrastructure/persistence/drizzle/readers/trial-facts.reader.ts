@@ -35,6 +35,7 @@ export class DrizzleTrialFacts implements TrialFactsPort {
         and(
           inArray(dispatch.id, [...new Set(runIds)]),
           eq(dispatch.kind, 'task'),
+          eq(dispatch.driver, 'line'),
         ),
       );
 

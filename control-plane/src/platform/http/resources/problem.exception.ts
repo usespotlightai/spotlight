@@ -37,6 +37,10 @@ const TITLES: Readonly<Record<number, [slug: string, title: string]>> = {
     'precondition-required',
     'The request must be conditional',
   ],
+  [HttpStatus.PAYMENT_REQUIRED]: [
+    'payment-required',
+    'The upstream account has no credits',
+  ],
   [HttpStatus.BAD_GATEWAY]: ['upstream-error', 'An upstream service failed'],
   [HttpStatus.SERVICE_UNAVAILABLE]: ['unavailable', 'The service is busy'],
 };
