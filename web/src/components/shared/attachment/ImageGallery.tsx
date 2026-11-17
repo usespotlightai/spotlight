@@ -172,7 +172,7 @@ export function ImageGallery({ children }: { children: ReactNode }) {
     }
   };
 
-  const enter = useCallback((node: HTMLImageElement | null) => {
+  const enter = (node: HTMLImageElement | null) => {
     view.current = node;
     const { button, opening } = stage.current;
 
@@ -186,7 +186,7 @@ export function ImageGallery({ children }: { children: ReactNode }) {
     } else {
       void play(node, [{ opacity: 0 }, { opacity: 1 }], SWAP);
     }
-  }, []);
+  };
 
   const close = async () => {
     if (closing.current) {
@@ -222,11 +222,7 @@ export function ImageGallery({ children }: { children: ReactNode }) {
     }
   };
 
-  const value = useMemo(
-    () => ({ openId, register, unregister, open }),
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- open reads sorted
-    [openId, register, unregister, sorted],
-  );
+  const value = { openId, register, unregister, open };
 
   const several = sorted.length > 1;
 
