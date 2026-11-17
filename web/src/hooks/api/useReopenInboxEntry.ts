@@ -45,6 +45,7 @@ export function useReopenInboxEntry() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { optimistic: true },
     mutationFn: async (input: ReopenInboxEntryInput) => {
       await reopening(input);
     },

@@ -40,8 +40,12 @@ import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempote
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
 import { ChangeNotices } from '@platform/live/change-notices';
+import { DrizzleLiveNoticeLog } from '@platform/live/drizzle-live-notice-log';
 import { InMemoryLiveFeed } from '@platform/live/in-memory-live-feed';
 import { LIVE_FEED } from '@platform/live/live-feed.port';
+import { LIVE_NOTICE_LOG } from '@platform/live/live-notice-log.port';
+import { LiveNoticeRetentionWorker } from '@platform/live/live-notice-retention.worker';
+import { LiveNotices } from '@platform/live/live-notices';
 import { LIVE_RANDOM, LiveStreams } from '@platform/live/live-streams';
 import { RedisLiveFeed } from '@platform/live/redis-live-feed';
 import { ModelPriceRefresh } from '@platform/llm/model-price-refresh';
@@ -189,6 +193,9 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
           : new InMemoryLiveFeed();
       },
     },
+    { provide: LIVE_NOTICE_LOG, useClass: DrizzleLiveNoticeLog },
+    LiveNoticeRetentionWorker,
+    LiveNotices,
     { provide: LIVE_RANDOM, useValue: Math.random },
     LiveStreams,
     EventOutbox,

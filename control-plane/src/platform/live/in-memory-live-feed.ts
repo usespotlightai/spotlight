@@ -47,6 +47,10 @@ export class InMemoryLiveFeed implements LiveFeedPort {
     };
   }
 
+  watched(): Promise<void> {
+    return Promise.resolve();
+  }
+
   resyncOn(channel: LiveChannel): void {
     for (const listener of Array.from(this.#listeners.get(channel) ?? [])) {
       listener(RESYNC);

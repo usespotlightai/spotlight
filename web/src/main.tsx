@@ -16,6 +16,8 @@ import {
 } from '@/lib/error-reporting';
 import { failuresToasted } from '@/lib/failure-toasts';
 import { refuseStrayFileDrops } from '@/lib/file-drops';
+import { setFresh, STALE_MS } from '@/lib/live';
+import { LIVE_SEQUENCES_KEY } from '@/lib/live-sequences';
 import { CACHE_MAX_AGE_MS, persistOptions } from '@/lib/query-cache';
 import { retryQuery } from '@/lib/query-retry';
 import { withSentRequest } from '@/lib/request-failure';
@@ -42,7 +44,7 @@ const queryClient = new QueryClient({
   mutationCache: failuresToasted(),
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
+      staleTime: STALE_MS,
       gcTime: CACHE_MAX_AGE_MS,
       retry: retryQuery,
     },
@@ -58,6 +60,9 @@ const render = () =>
       <PersistQueryClientProvider
         client={queryClient}
         persistOptions={persistOptions(import.meta.env.VITE_API_SHAPE)}
+        onSuccess={() =>
+          setFresh(queryClient.getQueryData(LIVE_SEQUENCES_KEY) !== undefined)
+        }
       >
         <Toaster>
           <TooltipProvider>

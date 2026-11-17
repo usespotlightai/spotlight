@@ -3,6 +3,7 @@ import { traceOfRequest } from '@platform/errors/trace-of-request';
 import { largeBodiesOf } from '@platform/http/large-bodies';
 import { API_PREFIX } from '@platform/http/routes';
 import { securityHeaders } from '@platform/http/security-headers';
+import { interceptWrites } from '@platform/live/live-writes.interceptor';
 import { routeOfRequest } from '@platform/telemetry/route-of-request';
 
 export const APP_OPTIONS = {
@@ -16,6 +17,7 @@ export function configureApp(app: INestApplication): INestApplication {
   app.use(traceOfRequest);
   app.use(routeOfRequest);
   app.use(largeBodiesOf(app));
+  interceptWrites(app);
   app.setGlobalPrefix(API_PREFIX);
   app.enableShutdownHooks();
 

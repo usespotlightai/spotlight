@@ -124,6 +124,21 @@ CREATE TABLE "idempotent_create" (
 	CONSTRAINT "idempotent_create_scope_key_pk" PRIMARY KEY("scope","key")
 );
 --> statement-breakpoint
+CREATE TABLE "live_channel" (
+	"channel" text PRIMARY KEY NOT NULL,
+	"last_sequence" bigint NOT NULL,
+	CONSTRAINT "live_channel_last_sequence_positive" CHECK ("live_channel"."last_sequence" > 0)
+);
+--> statement-breakpoint
+CREATE TABLE "live_notice" (
+	"channel" text NOT NULL,
+	"sequence" bigint NOT NULL,
+	"topic" text NOT NULL,
+	"ids" jsonb NOT NULL,
+	"recorded_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "live_notice_channel_sequence_pk" PRIMARY KEY("channel","sequence")
+);
+--> statement-breakpoint
 CREATE TABLE "catalog_call" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -2563,6 +2578,7 @@ ALTER TABLE "task_pull_request" ADD CONSTRAINT "task_pull_request_task_fk" FOREI
 CREATE INDEX "event_delivery_due_idx" ON "event_delivery" USING btree ("due_at");--> statement-breakpoint
 CREATE INDEX "event_delivery_pending_idx" ON "event_delivery" USING btree ("subscriber") WHERE "event_delivery"."delivered_at" is null;--> statement-breakpoint
 CREATE INDEX "event_outbox_recorded_at_idx" ON "event_outbox" USING btree ("recorded_at");--> statement-breakpoint
+CREATE INDEX "live_notice_recorded_at_idx" ON "live_notice" USING btree ("recorded_at");--> statement-breakpoint
 CREATE INDEX "catalog_call_workspace_called_idx" ON "catalog_call" USING btree ("workspace_id","called_at");--> statement-breakpoint
 CREATE INDEX "change_stack_run_idx" ON "change_stack" USING btree ("run_id","started_at");--> statement-breakpoint
 CREATE INDEX "change_stack_task_idx" ON "change_stack" USING btree ("task_id","started_at");--> statement-breakpoint

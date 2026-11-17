@@ -209,26 +209,22 @@ const BUDGETS = [
 ];
 
 describe('a search’s ceiling', () => {
-  it('is never passed while each replay run and agent run costs at most its share, unpriced ones charged in full', () => {
-    for (const budget of BUDGETS) {
+  it.for(BUDGETS)(
+    'is never passed in $iterations iterations of $perIteration replays while each replay run and agent run costs at most its share, unpriced ones charged in full',
+    (budget) => {
+      const share = aSearch({ set: SET, budget }).ceilingSplit;
+
       for (const unpricedEvery of [0, 3, 1]) {
         const search = searched(
           budget,
-          (place) => {
-            const perRun = aSearch({ set: SET, budget }).ceilingSplit.perRun;
-
-            return unpricedEvery > 0 && place % unpricedEvery === 0
+          (place) =>
+            unpricedEvery > 0 && place % unpricedEvery === 0
               ? null
-              : perRun.amount;
-          },
-          (iteration) => {
-            const agentRun = aSearch({ set: SET, budget }).ceilingSplit
-              .agentRun;
-
-            return iteration % 2 === 0
+              : share.perRun.amount,
+          (iteration) =>
+            iteration % 2 === 0
               ? ModelSpent.of([], 1)
-              : ModelSpent.of([agentRun], 0);
-          },
+              : ModelSpent.of([share.agentRun], 0),
         );
 
         expect(search.isActive).toBe(false);
@@ -236,8 +232,8 @@ describe('a search’s ceiling', () => {
         expect(search.heldOut.length).toBeGreaterThan(0);
         expect(search.spent.isWithin(budget.ceiling)).toBe(true);
       }
-    }
-  });
+    },
+  );
 
   it('is passed by at most what one agent run spent past its share, since it learns an agent run’s spend only after it ran', () => {
     for (const budget of BUDGETS) {

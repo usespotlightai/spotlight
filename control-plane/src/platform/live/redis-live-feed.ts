@@ -48,6 +48,7 @@ const messageOf = (text: string): LiveMessage | null => {
 export class RedisLiveFeed implements LiveFeedPort, OnApplicationShutdown {
   readonly #local = new InMemoryLiveFeed();
   readonly #watchers = new Map<LiveChannel, number>();
+  readonly #confirmed = new Map<LiveChannel, Promise<void>>();
   readonly #retries = new Map<string, ReturnType<typeof setTimeout>>();
   #connected = false;
   #closed = false;
@@ -67,7 +68,7 @@ export class RedisLiveFeed implements LiveFeedPort, OnApplicationShutdown {
 
       this.#connected = true;
     });
-    this.subscribed(
+    void this.subscribed(
       EVERYONE,
       () => true,
       () => this.#local.resync(),
@@ -125,6 +126,14 @@ export class RedisLiveFeed implements LiveFeedPort, OnApplicationShutdown {
     };
   }
 
+  watched(channels: readonly LiveChannel[]): Promise<void> {
+    return Promise.all(
+      channels.map(
+        (channel) => this.#confirmed.get(channel) ?? Promise.resolve(),
+      ),
+    ).then(() => undefined);
+  }
+
   private heard(prefixed: string, text: string): void {
     if (prefixed === EVERYONE) {
       this.#local.resync();
@@ -176,10 +185,13 @@ export class RedisLiveFeed implements LiveFeedPort, OnApplicationShutdown {
     this.#watchers.set(channel, watchers);
 
     if (watchers === 1 && !this.#retries.has(PREFIX + channel)) {
-      this.subscribed(
-        PREFIX + channel,
-        () => this.#watchers.has(channel),
-        () => this.#local.resyncOn(channel),
+      this.#confirmed.set(
+        channel,
+        this.subscribed(
+          PREFIX + channel,
+          () => this.#watchers.has(channel),
+          () => this.#local.resyncOn(channel),
+        ),
       );
     }
   }
@@ -189,8 +201,8 @@ export class RedisLiveFeed implements LiveFeedPort, OnApplicationShutdown {
     wanted: () => boolean,
     recovered: () => void,
     retried = false,
-  ): void {
-    this.subscriber.subscribe(prefixed).then(
+  ): Promise<void> {
+    return this.subscriber.subscribe(prefixed).then(
       () => {
         if (retried) {
           recovered();
@@ -210,7 +222,7 @@ export class RedisLiveFeed implements LiveFeedPort, OnApplicationShutdown {
           this.#retries.delete(prefixed);
 
           if (wanted() && !this.#closed) {
-            this.subscribed(prefixed, wanted, recovered, true);
+            void this.subscribed(prefixed, wanted, recovered, true);
           }
         }, this.retryMs);
         again.unref?.();
@@ -228,6 +240,7 @@ export class RedisLiveFeed implements LiveFeedPort, OnApplicationShutdown {
     }
 
     this.#watchers.delete(channel);
+    this.#confirmed.delete(channel);
 
     const retry = this.#retries.get(PREFIX + channel);
 

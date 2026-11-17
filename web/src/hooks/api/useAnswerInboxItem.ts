@@ -5,6 +5,7 @@ import { runNotesKeys } from '@/hooks/api/useRunNotes';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
 import { answerInboxItem } from '@/lib/api';
 import type { ApprovalInput } from '@/lib/approval';
+import { refreshAfterWrite } from '@/lib/live-writes';
 
 type AnswerInboxItemInput = {
   slug: string;
@@ -31,7 +32,7 @@ export function useAnswerInboxItem() {
       coAuthors,
       draftGeneration,
     }: AnswerInboxItemInput) => {
-      await answerInboxItem({
+      const { response } = await answerInboxItem({
         path: { slug, itemId },
         body: {
           body,
@@ -43,19 +44,11 @@ export function useAnswerInboxItem() {
         },
         throwOnError: true,
       });
+      await refreshAfterWrite(queryClient, response, [
+        inboxKeys.forWorkspace(slug),
+        runNotesKeys.all,
+        teamRunKeys.all,
+      ]);
     },
-
-    onSuccess: (_answer, { slug }) =>
-      Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: inboxKeys.forWorkspace(slug),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: runNotesKeys.all,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: teamRunKeys.all,
-        }),
-      ]),
   });
 }
