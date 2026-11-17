@@ -1,0 +1,8 @@
+[
+  {
+    "advisory": "GHSA-fc5q-39xc-vjpf",
+    "package": "picomatch",
+    "reason": "No patched release exists (every version up to 4.0.7 is affected). npm audit counts picomatch as production only through vitest, an optional peer of better-auth, and in web through @tailwindcss/vite at build time. No production code passes untrusted patterns to picomatch.",
+    "until": "2026-12-17"
+  }
+]
