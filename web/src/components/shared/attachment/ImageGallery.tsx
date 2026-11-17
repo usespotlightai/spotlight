@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
-import { ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
+import { XIcon } from 'lucide-react';
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -15,7 +15,6 @@ import {
 } from '@/components/shared/attachment/imageGalleryContext';
 import { Button } from '@/components/ui/button';
 import { prefersReducedMotion } from '@/lib/motion';
-import { cn } from '@/lib/utils';
 
 const MARGIN_X = 64;
 const MARGIN_Y = 32;
@@ -224,32 +223,6 @@ export function ImageGallery({ children }: { children: ReactNode }) {
 
   const value = { openId, register, unregister, open };
 
-  const several = sorted.length > 1;
-
-  const step = (
-    entry: GalleryEntry | undefined,
-    label: string,
-    side: string,
-    Icon: typeof XIcon,
-  ) => (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      disabled={!entry}
-      onClick={(event) => {
-        event.stopPropagation();
-        go(entry);
-      }}
-      aria-label={label}
-      className={cn(
-        'absolute top-1/2 -translate-y-1/2 text-white/80 hover:bg-white/10 hover:text-white dark:hover:bg-white/10',
-        side,
-      )}
-    >
-      <Icon aria-hidden />
-    </Button>
-  );
-
   return (
     <Gallery.Provider value={value}>
       {children}
@@ -302,28 +275,6 @@ export function ImageGallery({ children }: { children: ReactNode }) {
                 >
                   <XIcon aria-hidden />
                 </Button>
-                {several && (
-                  <>
-                    {step(
-                      previous,
-                      'Previous image',
-                      'right-full mr-2',
-                      ChevronLeftIcon,
-                    )}
-                    {step(
-                      next,
-                      'Next image',
-                      'left-full ml-2',
-                      ChevronRightIcon,
-                    )}
-                    <p className="absolute top-full mt-2 flex w-full justify-between gap-4 text-sm text-white/80">
-                      <span className="truncate">{current.name}</span>
-                      <span className="shrink-0">
-                        {index + 1} / {sorted.length}
-                      </span>
-                    </p>
-                  </>
-                )}
               </div>
             )}
           </DialogPrimitive.Popup>

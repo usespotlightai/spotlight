@@ -67,22 +67,18 @@ afterEach(() => {
 });
 
 describe('ImageGallery', () => {
-  it('moves between images with the arrow keys, and shows the position', async () => {
+  it('moves between images with the arrow keys', async () => {
     tiles(three);
     const user = await openAt('a.png');
-
-    expect(screen.getByText('1 / 3')).toBeInTheDocument();
 
     await user.keyboard('{ArrowRight}');
     expect(await view('b.png')).toHaveAttribute(
       'src',
       '/api/workspaces/acme/attachments/b',
     );
-    expect(screen.getByText('2 / 3')).toBeInTheDocument();
 
     await user.keyboard('{ArrowLeft}');
     expect(await view('a.png')).toBeInTheDocument();
-    expect(screen.getByText('1 / 3')).toBeInTheDocument();
   });
 
   it('does not wrap before the first image', async () => {
@@ -92,10 +88,6 @@ describe('ImageGallery', () => {
     await user.keyboard('{ArrowLeft}');
 
     expect(view_('a.png')).toBeInTheDocument();
-    expect(screen.getByText('1 / 3')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Previous image' }),
-    ).toBeDisabled();
   });
 
   it('does not wrap after the last image', async () => {
@@ -105,19 +97,6 @@ describe('ImageGallery', () => {
     await user.keyboard('{ArrowRight}');
 
     expect(view_('c.png')).toBeInTheDocument();
-    expect(screen.getByText('3 / 3')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Next image' })).toBeDisabled();
-  });
-
-  it('moves with the on-screen buttons', async () => {
-    tiles(three);
-    const user = await openAt('a.png');
-
-    await user.click(screen.getByRole('button', { name: 'Next image' }));
-    expect(await view('b.png')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Previous image' }));
-    expect(await view('a.png')).toBeInTheDocument();
   });
 
   it('skips attachments that are not images', async () => {
@@ -127,16 +106,11 @@ describe('ImageGallery', () => {
     await user.keyboard('{ArrowRight}');
 
     expect(await view('c.png')).toBeInTheDocument();
-    expect(screen.getByText('2 / 2')).toBeInTheDocument();
   });
 
-  it('shows no arrows or position for a single image', async () => {
+  it('ignores the arrow keys for a single image', async () => {
     tiles([image('a', 'a.png')]);
     const user = await openAt('a.png');
-
-    expect(screen.queryByRole('button', { name: 'Next image' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Previous image' })).toBeNull();
-    expect(screen.queryByText('1 / 1')).toBeNull();
 
     await user.keyboard('{ArrowRight}');
     expect(view_('a.png')).toBeInTheDocument();
@@ -195,7 +169,6 @@ describe('ImageThumbs gallery', () => {
     );
     const user = await openAt('a.png');
 
-    expect(screen.getByText('1 / 2')).toBeInTheDocument();
     await user.keyboard('{ArrowRight}');
 
     expect(await view('c.png')).toBeInTheDocument();
