@@ -105,6 +105,7 @@ import {
 import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills.adapter';
 import { HarnessReviewOfRuns } from '@configuration/infrastructure/acl/harness-review.adapter';
 import { StationProfiles } from '@configuration/infrastructure/acl/station-profiles.adapter';
+import { StationSkillTools } from '@configuration/infrastructure/acl/station-skill-tools.adapter';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
 import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-secrets.adapter';
 import { CONFIGURATION_PAYLOAD_TYPES } from '@configuration/infrastructure/events/configuration-payload-types';
@@ -154,6 +155,7 @@ import {
   LINE_RESOURCES,
   type LineResourcesPort,
 } from '@lines/application/ports/line-resources.port';
+import { SKILL_TOOLS } from '@lines/application/ports/skill-tools.port';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
@@ -186,6 +188,10 @@ import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
+import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { BUILT_IN_SKILL_KEY_LIST } from '@shared-kernel/domain/built-in-skills';
@@ -524,6 +530,15 @@ const published: Provider[] = [
     inject: [TeamSkillReading, SECRET_NAMES],
     useFactory: (skills: TeamSkillReading, secrets: SecretNamesPort) =>
       new TeamSkillKeys(new ReadySkills(skills, secrets)),
+  },
+  {
+    provide: SKILL_TOOLS,
+    inject: [SKILL_RESOURCES, SkillViews, LOGGER],
+    useFactory: (
+      resources: SkillResourcesPort,
+      views: SkillViews,
+      logger: LoggerPort,
+    ) => new StationSkillTools(resources, views, logger),
   },
   { provide: STATION_SOURCE_EDITS, useClass: HclStationSourceEdits },
 ];

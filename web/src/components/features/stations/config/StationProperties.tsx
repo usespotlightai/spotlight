@@ -33,7 +33,11 @@ export function StationProperties({
         stationId={station.id}
       />
       <AgentProperties station={station} />
-      <LineProperties line={line} skills={station.skills} />
+      <LineProperties
+        line={line}
+        skills={station.skills}
+        tools={station.tools}
+      />
       {station.search && <ImprovementProperties policy={station.search} />}
     </aside>
   );

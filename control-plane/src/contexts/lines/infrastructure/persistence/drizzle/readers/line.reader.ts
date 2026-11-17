@@ -21,6 +21,7 @@ import {
   station,
   stationRoute,
   stationSkill,
+  stationTool,
 } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
 import {
   lineSearchOf,
@@ -93,6 +94,11 @@ type SkillRow = {
   skill: string;
 };
 
+type ToolRow = {
+  stationId: string;
+  tool: string;
+};
+
 type RouteRow = {
   stationId: string;
   to: string;
@@ -151,6 +157,13 @@ export class DrizzleLineReader implements LineReaderPort {
       .where(eq(line.teamId, teamId.value))
       .orderBy(stationSkill.position);
 
+    const tools = await this.db
+      .select({ stationId: stationTool.stationId, tool: stationTool.tool })
+      .from(stationTool)
+      .innerJoin(station, eq(station.id, stationTool.stationId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .where(eq(line.teamId, teamId.value))
+      .orderBy(stationTool.position);
     const routes = await this.db
       .select({
         stationId: stationRoute.stationId,
@@ -161,7 +174,7 @@ export class DrizzleLineReader implements LineReaderPort {
       .innerJoin(line, eq(line.id, station.lineId))
       .where(eq(line.teamId, teamId.value));
 
-    return group(rows, reactions, repositories, skills, routes);
+    return group(rows, reactions, repositories, skills, tools, routes);
   }
 }
 
@@ -169,6 +182,7 @@ const summaryOf = (
   row: StationRow,
   search: LineSearchPolicy,
   skills: readonly SkillRow[],
+  tools: readonly ToolRow[],
   routes: readonly RouteRow[],
 ): StationSummary => ({
   id: row.stationId,
@@ -193,6 +207,9 @@ const summaryOf = (
   skills: skills
     .filter((each) => each.stationId === row.stationId)
     .map((each) => each.skill),
+  tools: tools
+    .filter((each) => each.stationId === row.stationId)
+    .map((each) => each.tool),
   passesTo: routes
     .filter((each) => each.stationId === row.stationId)
     .map((each) => each.to),
@@ -203,6 +220,7 @@ const group = (
   reacting: readonly ReactionRow[],
   working: readonly RepositoryRow[],
   skills: readonly SkillRow[],
+  tools: readonly ToolRow[],
   routes: readonly RouteRow[],
 ): LineDetail[] => {
   const lines = new Map<
@@ -237,7 +255,9 @@ const group = (
     };
 
     if (hasStation(row)) {
-      line.stations.push(summaryOf(row, line.search, skills, routes));
+      line.stations.push(
+        summaryOf(row, line.search, skills, tools, routes),
+      );
     }
 
     lines.set(row.lineId, line);

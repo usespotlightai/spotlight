@@ -48,6 +48,7 @@ import {
   SEEDING_HARNESS,
   type SeedingHarnessPort,
 } from '@lines/application/ports/seeding-harness.port';
+import { SKILL_TOOLS } from '@lines/application/ports/skill-tools.port';
 import {
   STATION_DELETION_GUARD,
   type StationDeletionGuardPort,
@@ -228,6 +229,7 @@ export const LINES_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ListLinesQuery, ListLinesHandler, [
     WORKSPACE_ACCESS,
     LINE_READER,
+    SKILL_TOOLS,
   ]),
 
   ...bindCommandHandler(CreateLineCommand, CreateLineHandler, [

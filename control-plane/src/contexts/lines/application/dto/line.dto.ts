@@ -8,6 +8,13 @@ import type {
   StationJudgeSummary,
 } from '@lines/application/ports/line-reader.port';
 import type { StationKind } from '@lines/domain/entities/station.entity';
+import type { ToolOrigin } from '@shared-kernel/domain/value-objects/tool.vo';
+
+export interface StationToolDto {
+  readonly value: string;
+  readonly called: string;
+  readonly origin: ToolOrigin;
+}
 
 export interface StationDto {
   readonly id: string;
@@ -25,6 +32,7 @@ export interface StationDto {
   readonly search: SearchPolicySummary | null;
   readonly kind: StationKind;
   readonly skills: readonly string[];
+  readonly tools: readonly StationToolDto[];
   readonly passesTo: readonly string[];
 }
 

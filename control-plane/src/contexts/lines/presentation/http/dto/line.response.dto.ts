@@ -1,3 +1,4 @@
+import type { StationToolDto } from '@lines/application/dto/line.dto';
 import type {
   LineReplayCheckSummary,
   LineSearchSummary,
@@ -15,6 +16,7 @@ import {
   REPOSITORY_HOSTS,
   type RepositoryHost,
 } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { ToolOrigin } from '@shared-kernel/domain/value-objects/tool.vo';
 
 export class StationJudgeResponseDto {
   @ApiProperty({
@@ -240,6 +242,32 @@ export class StationSearchResponseDto extends LineSearchResponseDto {
   }
 }
 
+export class StationToolResponseDto {
+  @ApiProperty({
+    example: 'catalog.web-search@1.1.0',
+    description: 'The tool’s full id, with the catalog version if it has one',
+  })
+  readonly value: string;
+
+  @ApiProperty({
+    example: 'catalog.web-search',
+    description: 'What the tool is called, without the catalog version',
+  })
+  readonly called: string;
+
+  @ApiProperty({
+    enum: ['built-in', 'integration', 'catalog'],
+    description: 'Where the tool comes from',
+  })
+  readonly origin: ToolOrigin;
+
+  constructor(tool: StationToolDto) {
+    this.value = tool.value;
+    this.called = tool.called;
+    this.origin = tool.origin;
+  }
+}
+
 export class StationResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
   readonly id: string;
@@ -341,6 +369,14 @@ export class StationResponseDto {
   readonly skills: string[];
 
   @ApiProperty({
+    type: StationToolResponseDto,
+    isArray: true,
+    description:
+      'The tools a run here can use: the ones the station sets, then the ones its skills bring. A tool shows once.',
+  })
+  readonly tools: StationToolResponseDto[];
+
+  @ApiProperty({
     example: ['station_review'],
     isArray: true,
     type: String,
@@ -364,6 +400,7 @@ export class StationResponseDto {
     search: SearchPolicySummary | null,
     kind: string,
     skills: readonly string[],
+    tools: readonly StationToolDto[],
     passesTo: readonly string[],
   ) {
     this.id = id;
@@ -381,6 +418,7 @@ export class StationResponseDto {
     this.search = search ? new StationSearchResponseDto(search) : null;
     this.kind = kind;
     this.skills = [...skills];
+    this.tools = tools.map((each) => new StationToolResponseDto(each));
     this.passesTo = [...passesTo];
   }
 }

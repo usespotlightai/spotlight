@@ -1,4 +1,4 @@
-import { SquareMousePointer } from 'lucide-react';
+import { SquareMousePointer, Wrench } from 'lucide-react';
 
 import {
   Property,
@@ -6,16 +6,17 @@ import {
 } from '@/components/features/stations/config/PropertyList';
 import { TabSection } from '@/components/features/stations/TabSection';
 import { RepositoryHostLogo } from '@/components/shared/RepositoryHostLogo';
-import type { LineResponseDto } from '@/lib/api';
+import type { LineResponseDto, StationToolResponseDto } from '@/lib/api';
 
 const ICON = 'mt-0.75 size-3.5 shrink-0 text-muted-foreground';
 
 type LinePropertiesProps = {
   line: LineResponseDto;
   skills: readonly string[];
+  tools: readonly StationToolResponseDto[];
 };
 
-export function LineProperties({ line, skills }: LinePropertiesProps) {
+export function LineProperties({ line, skills, tools }: LinePropertiesProps) {
   return (
     <TabSection level={3} title="Line">
       <PropertyList>
@@ -55,6 +56,20 @@ export function LineProperties({ line, skills }: LinePropertiesProps) {
                 <li key={skill} className="flex min-w-0 items-start gap-2">
                   <SquareMousePointer aria-hidden className={ICON} />
                   <span className="min-w-0 break-words">{skill}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Property>
+        <Property label="Tools">
+          {tools.length === 0 ? (
+            <span className="text-muted-foreground">None</span>
+          ) : (
+            <ul aria-label="Tools" className="flex flex-col gap-1.5">
+              {tools.map((tool) => (
+                <li key={tool.value} className="flex min-w-0 items-start gap-2">
+                  <Wrench aria-hidden className={ICON} />
+                  <span className="min-w-0 break-words">{tool.called}</span>
                 </li>
               ))}
             </ul>

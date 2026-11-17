@@ -43,6 +43,7 @@ const line = {
       color: '#a3a8b0',
       kind: 'backlog',
       skills: [],
+      tools: [],
       alerts: [],
       judge: null,
       search: null,
@@ -56,6 +57,7 @@ const line = {
       description: 'Where new work lands.',
       kind: 'work',
       skills: [],
+      tools: [],
       alerts: [],
       judge: null,
       search: { ...SEARCH, enabled: false },
@@ -72,6 +74,18 @@ const line = {
       agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
       kind: 'work',
       skills: ['our-migrations', 'grafana-dashboards'],
+      tools: [
+        {
+          value: 'pull-request',
+          called: 'pull-request',
+          origin: 'built-in',
+        },
+        {
+          value: 'grafana.search',
+          called: 'grafana.search',
+          origin: 'integration',
+        },
+      ],
       search: SEARCH,
       judge: {
         claims: ['The change does only what the spec requires'],
@@ -113,6 +127,7 @@ const line = {
       color: '#a3a8b0',
       kind: 'completed',
       skills: [],
+      tools: [],
       alerts: [],
       judge: null,
       search: null,
@@ -999,6 +1014,24 @@ describe('Station', () => {
 
       expect(
         screen.queryByRole('list', { name: 'Skills' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows the tools of the station and of its skills', () => {
+      renderAt('station_2', 'config');
+
+      expect(
+        within(screen.getByRole('list', { name: 'Tools' }))
+          .getAllByRole('listitem')
+          .map((each) => each.textContent),
+      ).toEqual(['pull-request', 'grafana.search']);
+    });
+
+    it('lists no tools where a station has none', () => {
+      renderAt('station_1', 'config');
+
+      expect(
+        screen.queryByRole('list', { name: 'Tools' }),
       ).not.toBeInTheDocument();
     });
 

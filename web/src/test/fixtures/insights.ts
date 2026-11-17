@@ -43,6 +43,7 @@ const station = (
   search: null,
   kind: 'work',
   skills: [],
+  tools: [],
   passesTo: [],
   ...over,
 });

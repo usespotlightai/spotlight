@@ -1,4 +1,5 @@
 import type { LineDto, StationDto } from '@lines/application/dto/line.dto';
+import { StationToolsMapper } from '@lines/application/mappers/station-tools.mapper';
 import type {
   LineDetail,
   LineSearchSummary,
@@ -35,7 +36,10 @@ export const LineMapper = {
     );
   },
 
-  summaryToDto(summary: StationSummary): StationDto {
+  summaryToDto(
+    summary: StationSummary,
+    skillTools: ReadonlyMap<string, readonly string[]>,
+  ): StationDto {
     return {
       id: summary.id,
       key: summary.key,
@@ -57,6 +61,11 @@ export const LineMapper = {
       },
       kind: summary.kind,
       skills: summary.skills,
+      tools: StationToolsMapper.toDtos(
+        summary.tools,
+        summary.skills,
+        skillTools,
+      ),
       passesTo: summary.passesTo,
     };
   },
@@ -69,12 +78,17 @@ export const LineMapper = {
     };
   },
 
-  detailToDto(detail: LineDetail): LineDto {
+  detailToDto(
+    detail: LineDetail,
+    skillTools: ReadonlyMap<string, readonly string[]>,
+  ): LineDto {
     return {
       id: detail.id,
       key: detail.key,
       name: detail.name,
-      stations: detail.stations.map((each) => LineMapper.summaryToDto(each)),
+      stations: detail.stations.map((each) =>
+        LineMapper.summaryToDto(each, skillTools),
+      ),
       reactions: detail.reactions.map((each) => ({ ...each })),
       repositories: detail.repositories.map((each) => ({ ...each })),
       source: detail.source ? { ...detail.source } : null,

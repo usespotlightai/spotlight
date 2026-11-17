@@ -57,6 +57,7 @@ export interface StationSummary {
   readonly search: SearchPolicySummary | null;
   readonly kind: StationKind;
   readonly skills: readonly string[];
+  readonly tools: readonly string[];
   readonly passesTo: readonly string[];
 }
 

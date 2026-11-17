@@ -62,6 +62,18 @@ const DELIVERY_STATIONS: StationResponseDto[] = [
     agentPrompt:
       '## Role\n\nImplement the spec on the task.\n\n- Read the tests that cover the change first, and write the failing one before the fix\n- Keep the change small\n- Ask when the spec is unclear',
     skills: ['grafana-dashboards'],
+    tools: [
+      {
+        value: 'pull-request',
+        called: 'pull-request',
+        origin: 'built-in',
+      },
+      {
+        value: 'grafana.search',
+        called: 'grafana.search',
+        origin: 'integration',
+      },
+    ],
     judge: {
       claims: [
         'The change does only what the spec requires',

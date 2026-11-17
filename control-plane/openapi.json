@@ -23845,6 +23845,35 @@
           "objective"
         ]
       },
+      "StationToolResponseDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "example": "catalog.web-search@1.1.0",
+            "description": "The tool’s full id, with the catalog version if it has one"
+          },
+          "called": {
+            "type": "string",
+            "example": "catalog.web-search",
+            "description": "What the tool is called, without the catalog version"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "built-in",
+              "integration",
+              "catalog"
+            ],
+            "description": "Where the tool comes from"
+          }
+        },
+        "required": [
+          "value",
+          "called",
+          "origin"
+        ]
+      },
       "StationResponseDto": {
         "type": "object",
         "properties": {
@@ -23946,6 +23975,13 @@
               "type": "string"
             }
           },
+          "tools": {
+            "description": "The tools a run here can use: the ones the station sets, then the ones its skills bring. A tool shows once.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StationToolResponseDto"
+            }
+          },
           "passesTo": {
             "example": [
               "station_review"
@@ -23973,6 +24009,7 @@
           "search",
           "kind",
           "skills",
+          "tools",
           "passesTo"
         ]
       },
