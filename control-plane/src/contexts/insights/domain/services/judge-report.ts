@@ -1,4 +1,3 @@
-import { humanLabelOf } from '@insights/domain/services/human-label';
 import {
   type Agreement,
   agreementOf,
@@ -13,7 +12,6 @@ import {
   type JudgeCalibration,
   unreadableRubricCalibration,
 } from '@insights/domain/services/judge-calibration';
-import { passesOn } from '@insights/domain/value-objects/label-source';
 import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
@@ -45,10 +43,10 @@ const reportOf = (
 ): RubricReport => {
   const humans = judged.map((score) => ({
     score,
-    label: humanLabelOf(facts.get(score.runId.value) ?? null),
+    label: facts.get(score.runId.value)?.humanLabel ?? null,
   }));
   const verdicts: VerdictPair[] = humans.flatMap(({ score, label }) =>
-    label ? [{ judge: score.passes, human: passesOn(label.from) }] : [],
+    label ? [{ judge: score.passes, human: label.passes }] : [],
   );
   const times = judged.map((each) => each.at.getTime());
 
@@ -60,7 +58,7 @@ const reportOf = (
       humans.map(({ score, label }) => ({
         at: score.at,
         judge: score.passes,
-        human: label ? passesOn(label.from) : null,
+        human: label?.passes ?? null,
       })),
     ),
     firstAt: new Date(Math.min(...times)),
@@ -100,7 +98,7 @@ export const judgeReportOf = (input: {
         .filter((each) => each.ran)
         .map((fact) => ({
           judged: judgedRuns.has(fact.runId.value),
-          labelled: humanLabelOf(fact) !== null,
+          labelled: fact.humanLabel !== null,
         })),
     ),
   };

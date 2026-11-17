@@ -76,7 +76,7 @@ const brokenRuleOf = (
     return 'must keep one judge result for each claim';
   }
   if (verdict.passes === passesOn(labelFrom)) {
-    return 'opens only where the judge and the person disagree';
+    return 'opens only where the judge and the label disagree';
   }
   if (!verdict.passes && disputedOf(verdict).length === 0) {
     return 'where the judge failed the run disputes at least one claim';
@@ -206,7 +206,6 @@ export class JudgeDisagreement extends EventRecorder {
       claimAnswers: [...fields.claimAnswers].sort(
         (one, other) => one.claim - other.claim,
       ),
-      verdict,
     });
   }
 

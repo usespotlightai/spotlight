@@ -1,10 +1,10 @@
 import type {
-  RunLabelDto,
   CitationDto,
   CitedHunkDto,
   CitedStepDto,
   JudgeReasonDto,
   JudgeScoreDto,
+  RunLabelDto,
   RunScoresDto,
 } from '@insights/application/dto/run-scores.dto';
 import { CITATION_KINDS } from '@insights/domain/value-objects/citation.vo';
@@ -196,7 +196,7 @@ export class RunScoresResponseDto {
     type: RunLabelResponseDto,
     nullable: true,
     description:
-      'What people said of the run; none where people said nothing yet',
+      'People’s verdict on the run; none where people said nothing yet',
   })
   readonly label: RunLabelResponseDto | null;
 
@@ -204,7 +204,7 @@ export class RunScoresResponseDto {
     type: Boolean,
     nullable: true,
     description:
-      'Whether the judge’s verdict is the human label’s; none where the judge’s verdict is hidden or people said nothing yet',
+      'Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or people said nothing yet',
   })
   readonly agrees: boolean | null;
 

@@ -1,5 +1,5 @@
 {
-  "id": "735b707b-b2f3-44f7-a24a-996f67f40d08",
+  "id": "d0fd75d8-f932-4a0f-81c5-b57196d066eb",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -8219,13 +8219,6 @@
         "rubric_version": {
           "name": "rubric_version",
           "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "direction": {
-          "name": "direction",
-          "type": "judge_disagreement_direction",
-          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -20793,14 +20786,6 @@
         "claim-wrong",
         "calibration-failed",
         "claim-missing"
-      ]
-    },
-    "public.judge_disagreement_direction": {
-      "name": "judge_disagreement_direction",
-      "schema": "public",
-      "values": [
-        "judge-failed",
-        "judge-passed"
       ]
     },
     "public.judge_disagreement_withdrawal_reason": {

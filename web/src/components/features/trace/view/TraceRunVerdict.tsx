@@ -3,7 +3,7 @@ import { useRunScores } from '@/hooks/api/useRunScores';
 import {
   DISAGREES_LABEL,
   DISAGREES_NOTE,
-  formatJudgeOutcome,
+  formatJudgeVerdict,
   formatLabel,
   PEOPLE_LABEL,
 } from '@/lib/judge';
@@ -31,7 +31,7 @@ export function TraceRunVerdict({ teamId, runId }: TraceRunVerdictProps) {
         <span className="sr-only">
           {label ? `${PEOPLE_LABEL} ` : 'Judged '}
         </span>
-        {label ? formatLabel(label) : formatJudgeOutcome(judge.passes)}
+        {label ? formatLabel(label) : formatJudgeVerdict(judge.passes)}
       </span>
       {agrees === false && (
         <WarningTooltip

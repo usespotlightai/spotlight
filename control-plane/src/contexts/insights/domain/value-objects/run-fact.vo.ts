@@ -9,6 +9,7 @@ import { type RunSize, sizeOf } from '@insights/domain/services/run-size';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import type { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import type { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
 import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
 import type { RunDisposition } from '@insights/domain/value-objects/run-disposition';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
@@ -169,6 +170,22 @@ export class RunFact implements RunFactParts {
 
   get merged(): boolean {
     return this.pullRequest?.state === 'merged';
+  }
+
+  get humanLabel(): HumanLabel | null {
+    const acted = this.firstHumanAction
+      ? HumanLabel.ofAction(this.firstHumanAction)
+      : null;
+
+    if (acted) {
+      return acted;
+    }
+
+    return this.merged &&
+      this.ending === 'completed' &&
+      this.followedAt === null
+      ? HumanLabel.merged()
+      : null;
   }
 
   get pullRequestFinished(): boolean {

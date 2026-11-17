@@ -400,10 +400,7 @@ export const seedAlerts = (): Record<string, StationAlertFiringResponseDto> => {
 
 const PASS_MARK = 0.5;
 
-const pastJudgeOf = (
-  run: HistoryRun,
-  earlier: boolean,
-): JudgeScoreResponseDto | null => {
+const pastJudgeOf = (run: HistoryRun): JudgeScoreResponseDto | null => {
   if (run.stationId !== JUDGED_STATION || run.judge === null) {
     return null;
   }
@@ -411,6 +408,7 @@ const pastJudgeOf = (
   const steps = storyOf(run.runId).steps;
   const tested = steps.findLastIndex((step) => step.tool === 'execute');
   const yes = run.judge >= PASS_MARK;
+  const earlier = onEarlierRubric(run.at);
   const claimResults = earlier ? [yes, yes] : [yes, yes, true];
 
   return {
@@ -434,7 +432,7 @@ const pastJudgeOf = (
 const pastLabelOf = (run: HistoryRun): RunScores['label'] => {
   const acted = run.firstHumanAction?.kind;
 
-  if (acted === 'accepted' || acted === 'sent-back') {
+  if (acted === 'accepted' || acted === 'sent-back' || acted === 'held') {
     return { from: acted };
   }
   if (run.pullRequestState === 'merged' && isLastCompletedVisit(run)) {
@@ -444,11 +442,9 @@ const pastLabelOf = (run: HistoryRun): RunScores['label'] => {
   return null;
 };
 
-export const pastScoresOf = (run: HistoryRun): RunScores => {
-  const judged = run.stationId === JUDGED_STATION;
-  const earlier = judged && onEarlierRubric(run.at);
-  const judge = pastJudgeOf(run, earlier);
-  const calibration = judged ? TRUSTED : NO_JUDGE;
+export const judgedScoresOf = (run: HistoryRun): RunScores => {
+  const judge = pastJudgeOf(run);
+  const calibration = run.stationId === JUDGED_STATION ? TRUSTED : NO_JUDGE;
   const label = pastLabelOf(run);
 
   return {
@@ -465,4 +461,12 @@ export const pastScoresOf = (run: HistoryRun): RunScores => {
     label,
     agrees: agreesOf(judge, label, calibration),
   };
+};
+
+export const pastScoresOf = (run: HistoryRun): RunScores => {
+  const judged = judgedScoresOf(run);
+
+  return judged.judge?.rubricVersion === RUBRIC
+    ? judged
+    : { ...judged, claims: [], judge: null, agrees: null };
 };

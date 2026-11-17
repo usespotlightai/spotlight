@@ -88,7 +88,7 @@ describe('JudgeDisagreement', () => {
     ).toBe('judge-passed');
   });
 
-  it('opens only where the judge and the person disagree', () => {
+  it('opens only where the judge and the label disagree', () => {
     expect(() =>
       openDisagreement('run_1', {
         claimResults: [true, true, true],

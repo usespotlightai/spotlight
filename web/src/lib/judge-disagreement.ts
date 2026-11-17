@@ -119,7 +119,7 @@ const WITHDRAWN_BECAUSE: Record<
 > = {
   'verdicts-agree': 'The judge and people agree on this run now.',
   'claims-changed': 'The station’s judge changed after this run.',
-  'label-gone': 'This run no longer has that outcome.',
+  'label-gone': 'People’s verdict on this run is gone.',
 };
 
 export const sentenceOf = (

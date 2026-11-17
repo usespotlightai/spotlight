@@ -4,6 +4,7 @@ import {
 } from '@insights/application/services/delete-insights.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
+import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { Judging } from '@insights/domain/aggregates/judging.aggregate';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
@@ -24,6 +25,7 @@ import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+import { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
 import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
 import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judging.repository';
@@ -37,6 +39,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -520,7 +523,32 @@ describe('how often the judge agrees with people', () => {
         lineId: LineId.of('line_1'),
         stationId: StationId.of('station_1'),
       }),
-    ).toEqual({ rubricVersion: VERSION, calibration });
+    ).toMatchObject({
+      rubricVersion: VERSION,
+      rubric: { claims: ['It retries the upload.'] },
+      calibration,
+    });
+  });
+
+  it('shows a run’s claims, people’s verdict and whether the judge agrees, read from the stored facts', async () => {
+    const views = new RunScoresViews(facts, reports);
+    const access = ViewedTeam.onTeam(TEAM, {
+      workspaceId: WORKSPACE,
+      by: UserId.of('user_1'),
+    });
+
+    expect(await views.of(access, 'run_0')).toMatchObject({
+      claims: ['It retries the upload.'],
+      judged: true,
+      judge: { passes: true, rubricVersion: VERSION },
+      label: { from: 'accepted' },
+      agrees: true,
+    });
+    expect(await views.of(access, 'run_1')).toMatchObject({
+      judge: { passes: false },
+      label: { from: 'sent-back' },
+      agrees: true,
+    });
   });
 
   it('deletes the judgings and scores of a deleted task', async () => {

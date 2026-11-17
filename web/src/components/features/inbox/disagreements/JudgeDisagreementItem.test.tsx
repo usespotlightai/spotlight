@@ -461,7 +461,7 @@ describe('JudgeDisagreementItem', () => {
       ).toBeInTheDocument();
     });
 
-    it('says the outcome is gone when Spotlight withdrew the question for it', () => {
+    it('says people’s verdict is gone when Spotlight withdrew the question for it', () => {
       showing(
         passedDisagreementOf({
           state: 'withdrawn',
@@ -471,7 +471,7 @@ describe('JudgeDisagreementItem', () => {
       );
 
       expect(fact()).toHaveTextContent(
-        'You sent this run back. The judge passed it. This run no longer has that outcome.',
+        'You sent this run back. The judge passed it. People’s verdict on this run is gone.',
       );
       expect(screen.queryByRole('button', { name: 'Send answer' })).toBeNull();
     });

@@ -1,13 +1,10 @@
 import type { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import {
-  humanLabelOf,
-  judgeAgreesOf,
-} from '@insights/domain/services/human-label';
-import {
   HumanAction,
   type HumanActionKind,
 } from '@insights/domain/value-objects/human-action.vo';
+import { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
 import { taskPullRequestOf } from '@insights/insights.fake-spec';
 import { endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -36,10 +33,10 @@ const labelled = (change: {
     taskPullRequest ? [taskPullRequest] : [],
   );
 
-  return humanLabelOf(fact ?? null);
+  return fact?.humanLabel ?? null;
 };
 
-describe('humanLabelOf', () => {
+describe('HumanLabel', () => {
   it.each(['accepted', 'sent-back', 'held'] as const)(
     'labels a run people %s by that act, and by the person who did it',
     (act) => {
@@ -96,11 +93,9 @@ describe('humanLabelOf', () => {
       labelled({ laterRuns: [later], taskPullRequest: pullRequestOf(true) }),
     ).toBeNull();
     expect(
-      humanLabelOf(
-        factsWith([endedRecord('run_1'), later], [pullRequestOf(true)]).find(
-          (each) => each.runId.value === 'run_2',
-        ) ?? null,
-      ),
+      factsWith([endedRecord('run_1'), later], [pullRequestOf(true)]).find(
+        (each) => each.runId.value === 'run_2',
+      )?.humanLabel,
     ).toMatchObject({ from: 'merged' });
   });
 
@@ -140,18 +135,13 @@ describe('humanLabelOf', () => {
   });
 });
 
-describe('judgeAgreesOf', () => {
+describe('HumanLabel.agreesWith', () => {
   it('says whether the judge gave the verdict people gave', () => {
-    expect(
-      judgeAgreesOf({ passes: true }, { from: 'accepted', by: null }),
-    ).toBe(true);
-    expect(judgeAgreesOf({ passes: false }, { from: 'merged', by: null })).toBe(
-      false,
-    );
-  });
+    const accepted = labelled({ record: actedOn('accepted') });
+    const sentBack = labelled({ record: actedOn('sent-back') });
 
-  it('says nothing without a judge verdict or a human label', () => {
-    expect(judgeAgreesOf(null, { from: 'held', by: null })).toBeNull();
-    expect(judgeAgreesOf({ passes: true }, null)).toBeNull();
+    expect(accepted?.agreesWith({ passes: true })).toBe(true);
+    expect(sentBack?.agreesWith({ passes: true })).toBe(false);
+    expect(HumanLabel.merged().agreesWith({ passes: false })).toBe(false);
   });
 });

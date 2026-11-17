@@ -178,7 +178,8 @@ export class JudgeDisagreementResponseDto {
 
   @ApiProperty({
     enum: LABEL_SOURCES,
-    description: 'What gave the human outcome that disagrees with the judge',
+    description:
+      'What gave people’s verdict on the run, which disagrees with the judge’s',
   })
   readonly labelFrom: string;
 
@@ -231,7 +232,7 @@ export class JudgeDisagreementResponseDto {
     enum: [...WITHDRAWAL_REASONS, null],
     nullable: true,
     description:
-      'Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome that a person gave the run no longer exists. Null while not withdrawn',
+      'Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the run no longer has people’s verdict. Null while not withdrawn',
   })
   readonly withdrawnBecause: string | null;
 

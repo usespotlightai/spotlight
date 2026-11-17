@@ -18,7 +18,6 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -80,7 +79,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
 
   async save(saved: Score): Promise<void> {
     if (!saved.isDeleted) {
-      throw new InconsistentStateError('score', 'changes only by being deleted');
+      return;
     }
 
     const gone = await this.context.db

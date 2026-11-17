@@ -59,11 +59,7 @@ export class HumanAction {
   }
 
   get rejectsRun(): boolean {
-    return this.kind === 'sent-back' || this.takesOver;
-  }
-
-  get takesOver(): boolean {
-    return this.kind === 'held';
+    return this.kind === 'sent-back' || this.kind === 'held';
   }
 
   dismissalOf(acted: ActedOnTool): Dismissal | null {

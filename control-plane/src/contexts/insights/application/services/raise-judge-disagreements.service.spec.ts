@@ -126,7 +126,7 @@ describe('RaiseJudgeDisagreements', () => {
     expect(disagreements.stored.size).toBe(0);
   });
 
-  it('opens nothing before a person gave an outcome', async () => {
+  it('opens nothing before the run has a label', async () => {
     const score = FAILED();
     const { disagreements, raising } = await setUp(null, [score]);
 

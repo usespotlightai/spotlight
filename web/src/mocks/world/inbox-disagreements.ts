@@ -24,7 +24,7 @@ import {
   minutesAfter,
   runEnded,
 } from '@/mocks/world/inbox-places';
-import { pastScoresOf, seedRunScores } from '@/mocks/world/inbox-scores';
+import { judgedScoresOf, seedRunScores } from '@/mocks/world/inbox-scores';
 import type { HistoryRun } from '@/mocks/world/insights-history';
 import { MAYA, SAM, TOM } from '@/mocks/world/people';
 
@@ -114,7 +114,7 @@ const pastDisagreement = (
   run
     ? disagreementFrom(
         id,
-        pastScoresOf(run),
+        judgedScoresOf(run),
         minutesAfter(endOf(run), 95),
         over,
       )

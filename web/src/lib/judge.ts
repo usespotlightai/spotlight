@@ -47,7 +47,7 @@ const LABELS: Record<RunLabel['from'], string> = {
 
 export const formatLabel = (label: RunLabel): string => LABELS[label.from];
 
-export const formatJudgeOutcome = (passes: boolean): string =>
+export const formatJudgeVerdict = (passes: boolean): string =>
   passes ? 'Passed by the judge' : 'Failed by the judge';
 
 export const DISAGREES_LABEL = 'The judge disagrees with people';

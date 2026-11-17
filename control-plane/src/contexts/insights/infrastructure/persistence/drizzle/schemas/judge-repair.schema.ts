@@ -2,7 +2,6 @@ import { LABEL_SOURCES } from '@insights/domain/value-objects/label-source';
 import type { RevisionAgreement } from '@insights/domain/services/revision-pick';
 import { REVISION_TRIGGERS } from '@insights/domain/services/revision-trigger';
 import type { ClaimAnswerKind } from '@insights/domain/value-objects/claim-answer.vo';
-import { DISAGREEMENT_DIRECTIONS } from '@insights/domain/value-objects/disagreement-direction';
 import {
   REVISION_END_REASONS,
   REVISION_OUTCOME_KINDS,
@@ -40,10 +39,6 @@ export interface StoredNotMetAnswer {
   readonly at: string;
 }
 
-export const judgeDisagreementDirection = pgEnum(
-  'judge_disagreement_direction',
-  DISAGREEMENT_DIRECTIONS,
-);
 export const judgeLabelSource = pgEnum('judge_label_source', LABEL_SOURCES);
 export const judgeDisagreementWithdrawalReason = pgEnum(
   'judge_disagreement_withdrawal_reason',
@@ -74,7 +69,6 @@ export const judgeDisagreement = pgTable(
     taskId: text('task_id').notNull(),
     scoreId: text('score_id').notNull(),
     rubricVersion: text('rubric_version').notNull(),
-    direction: judgeDisagreementDirection('direction').notNull(),
     claims: jsonb('claims').$type<string[]>().notNull(),
     claimResults: jsonb('claim_results').$type<boolean[]>().notNull(),
     reasons: jsonb('reasons').$type<StoredReason[]>().notNull().default([]),

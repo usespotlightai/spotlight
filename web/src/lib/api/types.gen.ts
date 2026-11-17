@@ -6238,11 +6238,11 @@ export type RunScoresResponseDto = {
   judge: JudgeScoreResponseDto | null;
   calibration: JudgeCalibrationResponseDto;
   /**
-   * What people said of the run; none where people said nothing yet
+   * People’s verdict on the run; none where people said nothing yet
    */
   label: RunLabelResponseDto | null;
   /**
-   * Whether the judge’s verdict is the human label’s; none where the judge’s verdict is hidden or people said nothing yet
+   * Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or people said nothing yet
    */
   agrees: boolean | null;
 };
@@ -8308,7 +8308,7 @@ export type JudgeDisagreementResponseDto = {
    */
   state: 'open' | 'answered' | 'withdrawn';
   /**
-   * What gave the human outcome that disagrees with the judge
+   * What gave people’s verdict on the run, which disagrees with the judge’s
    */
   labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held';
   openedAt: string;
@@ -8334,7 +8334,7 @@ export type JudgeDisagreementResponseDto = {
    */
   withdrawnAt: string | null;
   /**
-   * Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome that a person gave the run no longer exists. Null while not withdrawn
+   * Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the run no longer has people’s verdict. Null while not withdrawn
    */
   withdrawnBecause: 'verdicts-agree' | 'claims-changed' | 'label-gone' | null;
 };

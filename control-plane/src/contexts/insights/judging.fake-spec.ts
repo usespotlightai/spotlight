@@ -16,7 +16,6 @@ import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import { FIRST_CONFIG, WORKSPACE } from '@insights/runs.fake-spec';
 import { inScope, removeVersioned } from '@insights/scoped.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -187,14 +186,9 @@ export class ScoresInMemory implements ScoreRepository {
   }
 
   async save(score: Score): Promise<void> {
-    if (!score.isDeleted) {
-      throw new InconsistentStateError(
-        'score',
-        'changes only by being deleted',
-      );
+    if (score.isDeleted) {
+      await this.removed(score);
     }
-
-    return this.removed(score);
   }
 
   async of(runId: RunId, rubricVersion: RubricVersion): Promise<Score | null> {

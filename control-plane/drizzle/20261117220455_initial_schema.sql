@@ -35,7 +35,6 @@ CREATE TYPE "public"."score_origin" AS ENUM('live', 'backfill');--> statement-br
 CREATE TYPE "public"."claims_revision_end_reason" AS ENUM('too-few-labelled-runs', 'no-candidates', 'judge-call-ceiling', 'no-gain', 'judge-changed', 'pull-request-failed', 'interrupted');--> statement-breakpoint
 CREATE TYPE "public"."claims_revision_outcome" AS ENUM('proposed', 'ended');--> statement-breakpoint
 CREATE TYPE "public"."claims_revision_trigger" AS ENUM('claim-wrong', 'calibration-failed', 'claim-missing');--> statement-breakpoint
-CREATE TYPE "public"."judge_disagreement_direction" AS ENUM('judge-failed', 'judge-passed');--> statement-breakpoint
 CREATE TYPE "public"."judge_disagreement_withdrawal_reason" AS ENUM('verdicts-agree', 'claims-changed', 'label-gone');--> statement-breakpoint
 CREATE TYPE "public"."judge_label_source" AS ENUM('accepted', 'sent-back', 'merged', 'held');--> statement-breakpoint
 CREATE TYPE "public"."delivery_state" AS ENUM('pending', 'working', 'done', 'failed');--> statement-breakpoint
@@ -1014,7 +1013,6 @@ CREATE TABLE "judge_disagreement" (
 	"task_id" text NOT NULL,
 	"score_id" text NOT NULL,
 	"rubric_version" text NOT NULL,
-	"direction" "judge_disagreement_direction" NOT NULL,
 	"claims" jsonb NOT NULL,
 	"claim_results" jsonb NOT NULL,
 	"reasons" jsonb DEFAULT '[]'::jsonb NOT NULL,

@@ -16258,7 +16258,7 @@
           },
           "label": {
             "nullable": true,
-            "description": "What people said of the run; none where people said nothing yet",
+            "description": "People’s verdict on the run; none where people said nothing yet",
             "type": "object",
             "allOf": [
               {
@@ -16269,7 +16269,7 @@
           "agrees": {
             "type": "boolean",
             "nullable": true,
-            "description": "Whether the judge’s verdict is the human label’s; none where the judge’s verdict is hidden or people said nothing yet"
+            "description": "Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or people said nothing yet"
           }
         },
         "required": [
@@ -16474,7 +16474,7 @@
               "merged",
               "held"
             ],
-            "description": "What gave the human outcome that disagrees with the judge"
+            "description": "What gave people’s verdict on the run, which disagrees with the judge’s"
           },
           "openedAt": {
             "type": "string",
@@ -16529,7 +16529,7 @@
               null
             ],
             "nullable": true,
-            "description": "Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome that a person gave the run no longer exists. Null while not withdrawn"
+            "description": "Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the run no longer has people’s verdict. Null while not withdrawn"
           }
         },
         "required": [

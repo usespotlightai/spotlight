@@ -8,13 +8,9 @@ import type { RunRecordEnded } from '@insights/domain/events/run-record-ended.ev
 import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { JudgeDisagreementVersionConflictError } from '@insights/domain/exceptions/judge-disagreement-version-conflict.error';
 import type { JudgeDisagreementRepository } from '@insights/domain/repositories/judge-disagreement.repository';
-import {
-  type HumanLabel,
-  humanLabelOf,
-  judgeAgreesOf,
-} from '@insights/domain/services/human-label';
 import { latestJudgeOf } from '@insights/domain/services/judge-verdict';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
+import type { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
 import { JudgeDisagreementId } from '@insights/domain/value-objects/judge-disagreement-id.vo';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
@@ -180,7 +176,7 @@ export class RaiseJudgeDisagreements {
 
     const live = newestLiveOf(scores, rubric);
 
-    if (live && judgeAgreesOf(live, label) === false) {
+    if (live && !label.agreesWith(live)) {
       await this.opening({ runId, workspaceId, rubric, live, label });
       await this.withdrawingStale(runId, rubric);
     }
@@ -197,7 +193,7 @@ export class RaiseJudgeDisagreements {
   }> {
     const [fact] = await this.facts.ofRuns([runId]);
     const scores = await this.facts.scoresOfRuns([runId]);
-    const label = humanLabelOf(fact ?? null);
+    const label = fact?.humanLabel ?? null;
     const known = await this.disagreements.ofRun(runId);
     const standing = known.find((each) => !each.isWithdrawn) ?? null;
     const reason =

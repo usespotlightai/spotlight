@@ -4,7 +4,6 @@ import type { StationJudgesPort } from '@insights/application/ports/station-judg
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { Judging } from '@insights/domain/aggregates/judging.aggregate';
 import type { JudgingRepository } from '@insights/domain/repositories/judging.repository';
-import { humanLabelOf } from '@insights/domain/services/human-label';
 import { MAX_LABELLED_RUNS } from '@insights/domain/services/revision-split';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
@@ -85,7 +84,7 @@ export class BackfillJudgings {
     const labelled = (
       await this.facts.lastEndedAt({ ...station, last: MAX_RECENT_RUNS })
     )
-      .filter((fact) => humanLabelOf(fact) !== null)
+      .filter((fact) => fact.humanLabel !== null)
       .slice(0, MAX_LABELLED_RUNS);
 
     for (const fact of labelled) {

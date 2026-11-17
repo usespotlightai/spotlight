@@ -6,7 +6,7 @@ import {
   confusionNote,
   formatCalibration,
   formatHunk,
-  formatJudgeOutcome,
+  formatJudgeVerdict,
   formatVerdict,
   lineRangeOf,
   pairsStat,
@@ -46,8 +46,8 @@ describe('judge', () => {
   });
 
   it('names the judge’s verdict on a trace row', () => {
-    expect(formatJudgeOutcome(true)).toBe('Passed by the judge');
-    expect(formatJudgeOutcome(false)).toBe('Failed by the judge');
+    expect(formatJudgeVerdict(true)).toBe('Passed by the judge');
+    expect(formatJudgeVerdict(false)).toBe('Failed by the judge');
   });
 
   it('shows a verdict in the past tense', () => {
