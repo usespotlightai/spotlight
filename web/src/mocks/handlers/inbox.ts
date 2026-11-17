@@ -9,8 +9,6 @@ import type {
   DisputeDecisionRequestDto,
   DraftReviewCommentRequestDto,
   EditReviewCommentRequestDto,
-  GradeResponseDto,
-  GradeRunRequestDto,
   JudgeDisagreementResponseDto,
   MemoryReviewResponseDto,
   ProposedMemoryResponseDto,
@@ -89,7 +87,7 @@ const taskOfAnyRun = (runId: string) =>
     : undefined);
 
 const resolveInboxRequests = (
-  form: 'grade' | 'memories' | 'judge-disagreement',
+  form: 'memories' | 'judge-disagreement',
   about: string,
 ) => {
   for (const entry of inboxStore().entries) {
@@ -452,21 +450,6 @@ const alertHandlers = [
   }),
 ];
 
-const gradeOf = (input: GradeRunRequestDto): GradeResponseDto => {
-  const met = input.claims.filter(Boolean).length;
-  const share = input.claims.length ? met / input.claims.length : 0;
-
-  return {
-    by: SAM.id,
-    mine: true,
-    at: now(),
-    value: share,
-    claimResults: input.claims,
-    passes: input.claims.length > 0 && met === input.claims.length,
-    label: `${met} of ${input.claims.length} claims met`,
-  };
-};
-
 const scoresFor = (runId: string): RunScores | undefined => {
   const store = inboxStore();
   const found = store.scores[runId];
@@ -491,38 +474,6 @@ const scoreHandlers = [
     const scores = scoresFor(param(params, 'runId'));
 
     return scores ? json(scores) : notFound();
-  }),
-
-  api.post('/teams/:teamId/runs/:runId/grades', async ({ params, request }) => {
-    const runId = param(params, 'runId');
-    const scores = scoresFor(runId);
-
-    if (!scores) {
-      return notFound();
-    }
-
-    if (inboxStore().gradeSave === 'saving') {
-      await delay('infinite');
-    }
-    if (inboxStore().gradeSave === 'fails-once') {
-      inboxStore().gradeSave = 'saves';
-      return problem(503, 'The grade could not be saved.');
-    }
-    if (inboxStore().gradeSave === 'fails') {
-      return problem(503, 'The grade could not be saved.');
-    }
-
-    const input = (await request.json()) as GradeRunRequestDto;
-    const grade = gradeOf(input);
-    scores.grades = [grade, ...scores.grades.filter((each) => !each.mine)];
-    scores.outcome = { source: 'grade', passes: grade.passes };
-    scores.agrees =
-      scores.judge && scores.calibration.qualified
-        ? scores.judge.passes === grade.passes
-        : null;
-    resolveInboxRequests('grade', runId);
-
-    return json(scores);
   }),
 ];
 

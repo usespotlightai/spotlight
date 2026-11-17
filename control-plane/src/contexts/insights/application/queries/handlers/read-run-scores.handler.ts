@@ -23,10 +23,7 @@ export class ReadRunScoresHandler implements QueryHandlerPort<
         UserId.of(query.viewerId),
       );
 
-      return await this.views.of(
-        access,
-        await this.views.onTeam(access, query.runId),
-      );
+      return await this.views.of(access, query.runId);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

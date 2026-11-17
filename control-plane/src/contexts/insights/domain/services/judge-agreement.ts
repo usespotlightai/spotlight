@@ -26,14 +26,6 @@ interface ScoreCount {
   readonly people: number;
 }
 
-interface ClaimAgreement {
-  readonly index: number;
-  readonly pairs: number;
-  readonly observed: number | null;
-  readonly kappa: number | null;
-  readonly reading: KappaReading | null;
-}
-
 export interface Agreement {
   readonly pairs: number;
   readonly observed: number | null;
@@ -42,12 +34,6 @@ export interface Agreement {
   readonly reading: KappaReading | null;
   readonly confusion: Confusion;
   readonly distribution: readonly ScoreCount[];
-  readonly claims: readonly ClaimAgreement[];
-}
-
-export interface ClaimsPair {
-  readonly judge: readonly boolean[];
-  readonly human: readonly boolean[];
 }
 
 export interface TrendEntry {
@@ -149,39 +135,7 @@ const decisionsOf = (pairs: readonly VerdictPair[]): ScorePair[] =>
     human: decisionOf(each.human),
   }));
 
-const claimAgreementsOf = (
-  pairs: readonly ClaimsPair[],
-): readonly ClaimAgreement[] => {
-  const compared = pairs.filter(
-    (each) => each.judge.length > 0 && each.judge.length === each.human.length,
-  );
-  const count = Math.max(0, ...compared.map((each) => each.judge.length));
-
-  return Array.from({ length: count }, (_, index) => {
-    const decisions = compared.flatMap((each) => {
-      const judge = each.judge[index];
-      const human = each.human[index];
-
-      return judge === undefined || human === undefined
-        ? []
-        : [{ judge: decisionOf(judge), human: decisionOf(human) }];
-    });
-    const kappa = cohensKappa(MET, decisions);
-
-    return {
-      index,
-      pairs: decisions.length,
-      observed: observedAgreement(decisions),
-      kappa,
-      reading: kappaReadingOf(kappa),
-    };
-  });
-};
-
-export const agreementOf = (
-  verdicts: readonly VerdictPair[],
-  claims: readonly ClaimsPair[],
-): Agreement => {
+export const agreementOf = (verdicts: readonly VerdictPair[]): Agreement => {
   const pairs = decisionsOf(verdicts);
   const kappa = cohensKappa(MET, pairs);
   const confusion = confusionOf(MET, pairs);
@@ -194,7 +148,6 @@ export const agreementOf = (
     reading: kappaReadingOf(kappa),
     confusion,
     distribution: distributionOf(confusion),
-    claims: claimAgreementsOf(claims),
   };
 };
 

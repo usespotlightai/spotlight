@@ -1,9 +1,9 @@
 import type { JudgeDisagreement } from '@insights/domain/aggregates/judge-disagreement.aggregate';
-import type { LabelSource } from '@insights/domain/services/human-label';
 import type { CitationKind } from '@insights/domain/value-objects/citation.vo';
 import type { ClaimAnswerKind } from '@insights/domain/value-objects/claim-answer.vo';
 import type { DisagreementDirection } from '@insights/domain/value-objects/disagreement-direction';
 import type { DisagreementState } from '@insights/domain/value-objects/disagreement-state';
+import type { LabelSource } from '@insights/domain/value-objects/label-source';
 import type { WithdrawalReason } from '@insights/domain/value-objects/withdrawal-reason';
 
 export interface DisagreementCitationDto {

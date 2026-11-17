@@ -10,7 +10,6 @@ import type { Mark } from '@work/domain/value-objects/mark.vo';
 
 const FORMS: Readonly<Record<InboxRequestForm, InboxRequestFormName>> = {
   memories: 'memories',
-  grade: 'grade',
   alert: 'alert',
   'judge-disagreement': 'judge-disagreement',
 };

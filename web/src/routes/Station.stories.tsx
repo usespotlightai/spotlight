@@ -40,7 +40,6 @@ const meta = {
         few: 'Too few runs (3)',
         healthy: 'Healthy (60 runs)',
         poor: 'Poor (40 runs)',
-        claims: 'Agreement by claim (36 runs)',
         versions: 'Three claims versions',
       }),
     },
@@ -64,10 +63,6 @@ export const JudgeHealthy: StoryObj<typeof meta> = {
 
 export const JudgePoor: StoryObj<typeof meta> = {
   args: { tab: 'judge', agreement: 'poor' },
-};
-
-export const JudgeClaims: StoryObj<typeof meta> = {
-  args: { tab: 'judge', agreement: 'claims' },
 };
 
 export const JudgeVersions: StoryObj<typeof meta> = {

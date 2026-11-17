@@ -1,10 +1,9 @@
 import type {
-  GradeResponseDto,
   JudgeCalibrationResponseDto,
   JudgeScoreResponseDto,
   StationAlertFiringResponseDto,
 } from '@/lib/api';
-import type { RunScores } from '@/lib/judge';
+import type { LabelSource, RunScores } from '@/lib/judge';
 import { GROWTH_LINES } from '@/mocks/world/growth';
 import { ALERT_ID, COST_ALERT_ID } from '@/mocks/world/inbox';
 import {
@@ -24,18 +23,12 @@ import {
   stationOfRun,
   taskOfSeededRun,
 } from '@/mocks/world/inbox-places';
-import {
-  type HistoryRun,
-  isLastCompletedVisit,
-} from '@/mocks/world/insights-history';
-import { MAYA, SAM } from '@/mocks/world/people';
+import type { HistoryRun } from '@/mocks/world/insights-history';
+import { historyRunOf } from '@/mocks/world/past-work';
 import { PLATFORM_LINES } from '@/mocks/world/platform';
+import { labelOf, labelPasses } from '@/mocks/world/run-labels';
 import { storyOf } from '@/mocks/world/run-stories';
-import {
-  EARLIER_RUBRIC,
-  onEarlierRubric,
-  RUBRIC,
-} from '@/mocks/world/station-judge';
+import { claimsUnder, RUBRIC, rubricAt } from '@/mocks/world/station-judge';
 import { RUN_CHANGE_STACKS } from '@/mocks/world/work-changes';
 import { RUN_STORIES, stepIndexOf } from '@/mocks/world/work-stories';
 
@@ -45,6 +38,10 @@ const judgeOf = (stationId: string) =>
   [...PLATFORM_LINES, ...GROWTH_LINES]
     .flatMap((line) => line.stations)
     .find((station) => station.id === stationId)?.judge ?? null;
+
+const claimsOf = (stationId: string, rubricVersion: string): string[] => [
+  ...claimsUnder(rubricVersion, judgeOf(stationId)?.claims ?? []),
+];
 
 const TRUSTED: JudgeCalibrationResponseDto = {
   qualified: true,
@@ -87,7 +84,6 @@ const scoreOf = (claimResults: readonly boolean[]) => ({
   claimResults: [...claimResults],
   passes:
     claimResults.length > 0 && metOf(claimResults) === claimResults.length,
-  label: `${metOf(claimResults)} of ${claimResults.length} claims met`,
 });
 
 const verdict = (
@@ -95,6 +91,7 @@ const verdict = (
   claimResults: readonly boolean[],
   reasons: JudgeScoreResponseDto['reasons'],
 ): JudgeScoreResponseDto => ({
+  claims: claimsOf(JUDGED_STATION, RUBRIC),
   ...scoreOf(claimResults),
   rubricVersion: RUBRIC,
   model: 'google/gemini-3.8-flash',
@@ -138,130 +135,77 @@ const citedMessage = (runId: string) => {
 const lastStepIndexOf = (runId: string, text: string): number =>
   (RUN_STORIES[runId]?.steps ?? []).findLastIndex((step) => step.text === text);
 
-const graded = (
-  runId: string,
-  by: typeof SAM,
-  claimResults: readonly boolean[],
-): GradeResponseDto => ({
-  by: by.id,
-  mine: by.id === SAM.id,
-  ...scoreOf(claimResults),
-  at: minutesAfter(runEnded(runId), 90),
-});
-
-const JUDGED: Record<
-  string,
-  Pick<RunScores, 'judge' | 'grades' | 'outcome'>
-> = {
-  run_postgres_2: {
-    grades: [graded('run_postgres_2', SAM, [false, true, true])],
-    outcome: { source: 'grade', passes: false },
-    judge: verdict(
-      'run_postgres_2',
-      [true, true, true],
-      [
-        {
-          claim: 0,
-          text: 'It upgraded the driver and fixed the two tests the new timestamp precision broke, without touching files the spec did not name.',
-          citations: [
-            citedStep(
-              lastStepIndexOf('run_postgres_2', 'npm test'),
-              'execute',
-              'npm test',
-            ),
-            citedStackHunk('run_postgres_2', 'src/db/timestamps.ts'),
-          ],
-        },
-        {
-          claim: 1,
-          text: 'The two tests the new precision broke pass again.',
-          citations: [
-            citedStep(
-              lastStepIndexOf('run_postgres_2', 'npm test'),
-              'execute',
-              'npm test',
-            ),
-          ],
-        },
-        {
-          claim: 2,
-          text: 'It said the migration rewrites 1.3M rows and left batching to review, rather than deciding it alone.',
-          citations: [citedMessage('run_postgres_2')],
-        },
-      ],
-    ),
-  },
-  run_search_2: {
-    grades: [graded('run_search_2', SAM, [true, true, true])],
-    outcome: { source: 'grade', passes: true },
-    judge: verdict(
-      'run_search_2',
-      [true, true, false],
-      [
-        {
-          claim: 0,
-          text: 'One index and one query change, as the spec asks.',
-          citations: [],
-        },
-        {
-          claim: 1,
-          text: 'The tests pass, and the speed-up is measured.',
-          citations: [
-            citedStep(
-              stepIndexOf('run_search_2', 'npm test -- search'),
-              'execute',
-              'npm test -- search',
-            ),
-          ],
-        },
-        {
-          claim: 2,
-          text: 'The note does not say what the run could not do: it skipped the load test the spec asks for.',
-          citations: [],
-        },
-      ],
-    ),
-  },
-  run_billing_1: {
-    grades: [graded('run_billing_1', MAYA, [false, false, true])],
-    outcome: { source: 'grade', passes: false },
-    judge: verdict(
-      'run_billing_1',
-      [false, false, true],
-      [
-        {
-          claim: 0,
-          text: 'It reconciled nothing: the script could not reach the billing database and the run exited.',
-          citations: [
-            citedStep(
-              stepIndexOf('run_billing_1', 'npm run reconcile -- --dry-run'),
-              'execute',
-              'npm run reconcile -- --dry-run',
-            ),
-          ],
-        },
-        {
-          claim: 1,
-          text: 'No test ran, because the script exited first.',
-          citations: [],
-        },
-        {
-          claim: 2,
-          text: 'The note says the billing database could not be reached.',
-          citations: [citedMessage('run_billing_1')],
-        },
-      ],
-    ),
-  },
+const JUDGED: Record<string, JudgeScoreResponseDto> = {
+  run_postgres_2: verdict(
+    'run_postgres_2',
+    [true, true, true],
+    [
+      {
+        claim: 0,
+        text: 'It upgraded the driver and fixed the two tests the new timestamp precision broke, without touching files the spec did not name.',
+        citations: [
+          citedStep(
+            lastStepIndexOf('run_postgres_2', 'npm test'),
+            'execute',
+            'npm test',
+          ),
+          citedStackHunk('run_postgres_2', 'src/db/timestamps.ts'),
+        ],
+      },
+      {
+        claim: 1,
+        text: 'The two tests the new precision broke pass again.',
+        citations: [
+          citedStep(
+            lastStepIndexOf('run_postgres_2', 'npm test'),
+            'execute',
+            'npm test',
+          ),
+        ],
+      },
+      {
+        claim: 2,
+        text: 'It said the migration rewrites 1.3M rows and left batching to review, rather than deciding it alone.',
+        citations: [citedMessage('run_postgres_2')],
+      },
+    ],
+  ),
+  run_search_2: verdict(
+    'run_search_2',
+    [true, true, false],
+    [
+      {
+        claim: 0,
+        text: 'One index and one query change, as the spec asks.',
+        citations: [],
+      },
+      {
+        claim: 1,
+        text: 'The tests pass, and the speed-up is measured.',
+        citations: [
+          citedStep(
+            stepIndexOf('run_search_2', 'npm test -- search'),
+            'execute',
+            'npm test -- search',
+          ),
+        ],
+      },
+      {
+        claim: 2,
+        text: 'The note does not say what the run could not do: it skipped the load test the spec asks for.',
+        citations: [],
+      },
+    ],
+  ),
 };
 
 const agreesOf = (
   judge: JudgeScoreResponseDto | null,
-  outcome: RunScores['outcome'],
+  labelFrom: LabelSource | null,
   calibration: JudgeCalibrationResponseDto,
 ): boolean | null =>
-  judge && outcome && calibration.qualified
-    ? judge.passes === outcome.passes
+  judge && labelFrom && calibration.qualified
+    ? judge.passes === labelPasses(labelFrom)
     : null;
 
 const calibrationOf = (stationId: string): JudgeCalibrationResponseDto => {
@@ -274,26 +218,20 @@ const calibrationOf = (stationId: string): JudgeCalibrationResponseDto => {
 
 const scoresOf = (runId: string): RunScores => {
   const stationId = stationOfRun(runId);
-  const taskId = taskOfSeededRun(runId);
-  const claims = judgeOf(stationId)?.claims ?? [];
-  const found = JUDGED[runId];
-  const judge = found?.judge ?? null;
-  const outcome = found?.outcome ?? null;
+  const judge = JUDGED[runId] ?? null;
+  const run = historyRunOf(runId);
+  const labelFrom = run ? labelOf(run) : null;
   const calibration = calibrationOf(stationId);
 
   return {
     runId,
-    taskId,
+    taskId: taskOfSeededRun(runId),
     stationId,
-    gradable: claims.length > 0,
-    claims,
-    earlierClaims: false,
     judged: judge !== null,
     judge,
     calibration,
-    grades: found?.grades ?? [],
-    outcome,
-    agrees: agreesOf(judge, outcome, calibration),
+    labelFrom,
+    agrees: agreesOf(judge, labelFrom, calibration),
   };
 };
 
@@ -327,8 +265,7 @@ export const withCitationsGone = (scores: RunScores): RunScores =>
 
 export const withoutPeople = (scores: RunScores): RunScores => ({
   ...scores,
-  grades: [],
-  outcome: null,
+  labelFrom: null,
   agrees: null,
 });
 
@@ -422,10 +359,7 @@ export const seedAlerts = (): Record<string, StationAlertFiringResponseDto> => {
 
 const PASS_MARK = 0.5;
 
-const pastJudgeOf = (
-  run: HistoryRun,
-  earlier: boolean,
-): JudgeScoreResponseDto | null => {
+const pastJudgeOf = (run: HistoryRun): JudgeScoreResponseDto | null => {
   if (run.stationId !== JUDGED_STATION || run.judge === null) {
     return null;
   }
@@ -433,11 +367,13 @@ const pastJudgeOf = (
   const steps = storyOf(run.runId).steps;
   const tested = steps.findLastIndex((step) => step.tool === 'execute');
   const yes = run.judge >= PASS_MARK;
-  const claimResults = earlier ? [yes, yes] : [yes, yes, true];
+  const rubricVersion = rubricAt(run.at);
+  const claimResults = rubricVersion === RUBRIC ? [yes, yes, true] : [yes, yes];
 
   return {
+    claims: claimsOf(run.stationId, rubricVersion),
     ...scoreOf(claimResults),
-    rubricVersion: earlier ? EARLIER_RUBRIC : RUBRIC,
+    rubricVersion,
     model: 'google/gemini-3.8-flash',
     at: minutesAfter(endOf(run), 3),
     reasons: claimResults.map((met, claim) => ({
@@ -453,41 +389,27 @@ const pastJudgeOf = (
   };
 };
 
-const pastOutcomeOf = (run: HistoryRun): RunScores['outcome'] => {
-  const acted = run.firstHumanAction?.kind;
-
-  if (acted === 'accepted' || acted === 'sent-back') {
-    return { source: acted, passes: acted === 'accepted' };
-  }
-  if (run.pullRequestState === 'merged' && isLastCompletedVisit(run)) {
-    return { source: 'merged', passes: true };
-  }
-
-  return null;
-};
-
-export const pastScoresOf = (run: HistoryRun): RunScores => {
-  const judged = run.stationId === JUDGED_STATION;
-  const earlier = judged && onEarlierRubric(run.at);
-  const judge = pastJudgeOf(run, earlier);
-  const calibration = judged ? TRUSTED : NO_JUDGE;
-  const outcome = pastOutcomeOf(run);
+export const judgedScoresOf = (run: HistoryRun): RunScores => {
+  const judge = pastJudgeOf(run);
+  const calibration = run.stationId === JUDGED_STATION ? TRUSTED : NO_JUDGE;
+  const labelFrom = labelOf(run);
 
   return {
     runId: run.runId,
     taskId: run.taskId,
     stationId: run.stationId,
-    gradable: judge !== null,
-    claims: judge
-      ? (judgeOf(run.stationId)?.claims.slice(0, judge.claimResults.length) ??
-        [])
-      : [],
-    earlierClaims: judge !== null && earlier,
     judged: judge !== null,
     judge,
     calibration,
-    grades: [],
-    outcome,
-    agrees: agreesOf(judge, outcome, calibration),
+    labelFrom,
+    agrees: agreesOf(judge, labelFrom, calibration),
   };
+};
+
+export const pastScoresOf = (run: HistoryRun): RunScores => {
+  const judged = judgedScoresOf(run);
+
+  return judged.judge?.rubricVersion === RUBRIC
+    ? judged
+    : { ...judged, judge: null, agrees: null };
 };

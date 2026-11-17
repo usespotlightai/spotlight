@@ -325,9 +325,9 @@ describe('TraceView', () => {
   });
 
   it('marks what people said of the run in place of the judge’s verdict', () => {
-    view({ outcome: { source: 'accepted', passes: true }, agrees: false });
+    view({ labelFrom: 'accepted', agrees: false });
 
-    expect(rows()[0]).toHaveTextContent('Outcome');
+    expect(rows()[0]).toHaveTextContent('People');
     expect(rows()[0]).toHaveTextContent('Accepted');
     expect(rows()[0]).not.toHaveTextContent('Failed by the judge');
     expect(

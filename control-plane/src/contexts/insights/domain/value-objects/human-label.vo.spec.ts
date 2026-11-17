@@ -1,16 +1,11 @@
 import type { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import { humanLabelOf } from '@insights/domain/services/human-label';
 import {
   HumanAction,
   type HumanActionKind,
 } from '@insights/domain/value-objects/human-action.vo';
+import { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
 import { taskPullRequestOf } from '@insights/insights.fake-spec';
-import {
-  NEXT_RUBRIC_VERSION,
-  personGrade,
-  RUBRIC_VERSION,
-} from '@insights/judging.fake-spec';
 import { endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -27,39 +22,68 @@ const actedOn = (act: HumanActionKind) =>
 const pullRequestOf = (merged: boolean) =>
   taskPullRequestOf('task_1', { openedAt: AT, closedAt: AT, merged });
 
-const labelled = (
-  change: Partial<Omit<Parameters<typeof humanLabelOf>[0], 'fact'>> & {
-    record?: RunRecord;
-    laterRuns?: readonly RunRecord[];
-    taskPullRequest?: PullRequestRecord | null;
-  },
-) => {
-  const { record, laterRuns = [], taskPullRequest, ...rest } = change;
+const MERGED_LAST_VISIT = {
+  firstHumanAction: null,
+  merged: true,
+  ending: 'completed',
+  followedAt: null,
+} as const;
+
+const labelled = (change: {
+  record?: RunRecord;
+  laterRuns?: readonly RunRecord[];
+  taskPullRequest?: PullRequestRecord | null;
+}) => {
+  const { record, laterRuns = [], taskPullRequest } = change;
   const [fact] = factsWith(
     [record ?? endedRecord('run_1'), ...laterRuns],
     taskPullRequest ? [taskPullRequest] : [],
   );
 
-  return humanLabelOf({
-    rubricVersion: RUBRIC_VERSION,
-    fact: fact ?? null,
-    grades: [],
-    ...rest,
-  });
+  return fact?.humanLabel ?? null;
 };
 
-describe('humanLabelOf', () => {
+describe('HumanLabel.of', () => {
   it.each([
-    ['accepted', true, 'accepted'],
-    ['sent-back', false, 'sent-back'],
-    ['held', false, 'held'],
+    ['accepted', 'accepted'],
+    ['sent-back', 'sent-back'],
+    ['held', 'held'],
+    ['started', 'merged'],
+    ['parked', 'merged'],
+    ['answered', 'merged'],
   ] as const)(
-    'reads a run people %s as passes %s, by the person who did it',
-    (act, passes, from) => {
+    'labels a merged run whose first act is %s as %s',
+    (act, from) => {
+      expect(
+        HumanLabel.of({
+          ...MERGED_LAST_VISIT,
+          firstHumanAction: HumanAction.of(act, AT, ACTOR),
+        })?.from,
+      ).toBe(from);
+    },
+  );
+
+  it('labels a merge only on a completed run no later visit followed', () => {
+    expect(HumanLabel.of(MERGED_LAST_VISIT)).toEqual({
+      from: 'merged',
+      by: null,
+    });
+    expect(
+      HumanLabel.of({ ...MERGED_LAST_VISIT, ending: 'stopped' }),
+    ).toBeNull();
+    expect(
+      HumanLabel.of({ ...MERGED_LAST_VISIT, followedAt: NEXT_VISIT_ENDED }),
+    ).toBeNull();
+    expect(HumanLabel.of({ ...MERGED_LAST_VISIT, merged: false })).toBeNull();
+  });
+});
+
+describe('a run fact’s human label', () => {
+  it.each(['accepted', 'sent-back', 'held'] as const)(
+    'labels a run people %s by that act, and by the person who did it',
+    (act) => {
       expect(labelled({ record: actedOn(act) })).toEqual({
-        passes,
-        claimResults: null,
-        from,
+        from: act,
         by: ACTOR,
       });
     },
@@ -72,10 +96,8 @@ describe('humanLabelOf', () => {
     },
   );
 
-  it('passes a run whose task’s pull request merged, where people did nothing that says', () => {
+  it('labels a run merged where its task’s pull request merged and people did nothing that says', () => {
     expect(labelled({ taskPullRequest: pullRequestOf(true) })).toEqual({
-      passes: true,
-      claimResults: null,
       from: 'merged',
       by: null,
     });
@@ -113,15 +135,10 @@ describe('humanLabelOf', () => {
       labelled({ laterRuns: [later], taskPullRequest: pullRequestOf(true) }),
     ).toBeNull();
     expect(
-      humanLabelOf({
-        rubricVersion: RUBRIC_VERSION,
-        fact:
-          factsWith([endedRecord('run_1'), later], [pullRequestOf(true)]).find(
-            (each) => each.runId.value === 'run_2',
-          ) ?? null,
-        grades: [],
-      }),
-    ).toMatchObject({ passes: true, from: 'merged' });
+      factsWith([endedRecord('run_1'), later], [pullRequestOf(true)]).find(
+        (each) => each.runId.value === 'run_2',
+      )?.humanLabel,
+    ).toMatchObject({ from: 'merged' });
   });
 
   it('keeps the merge on a run whose later visit did not complete, or that a run at another station followed', () => {
@@ -140,7 +157,7 @@ describe('humanLabelOf', () => {
         ],
         taskPullRequest: pullRequestOf(true),
       }),
-    ).toMatchObject({ passes: true, from: 'merged' });
+    ).toMatchObject({ from: 'merged' });
   });
 
   it('lets what a person did on a run still count after a later visit', () => {
@@ -152,64 +169,23 @@ describe('humanLabelOf', () => {
         ],
         taskPullRequest: pullRequestOf(true),
       }),
-    ).toMatchObject({ passes: false, from: 'sent-back' });
+    ).toMatchObject({ from: 'sent-back' });
   });
 
-  it('knows nothing of a run people have not yet acted on', () => {
+  it('knows nothing of a run whose first act gives no label', () => {
     expect(labelled({ record: actedOn('answered') })).toBeNull();
   });
+});
 
-  it('lets a person’s latest grade win over what they did', () => {
-    expect(
-      labelled({
-        record: actedOn('accepted'),
-        grades: [
-          personGrade('run_1', [true, true], {
-            by: 'user_ada',
-            at: new Date('2026-09-30T12:00:00.000Z'),
-          }),
-          personGrade('run_1', [true, false], {
-            by: 'user_grace',
-            at: new Date('2026-09-30T13:00:00.000Z'),
-          }),
-        ],
-      }),
-    ).toEqual({
-      passes: false,
-      claimResults: [true, false],
-      from: 'grade',
-      by: UserId.of('user_grace'),
-    });
-  });
+describe('HumanLabel.agreesWith', () => {
+  it('says whether the judge gave the verdict people gave', () => {
+    const accepted = labelled({ record: actedOn('accepted') });
+    const sentBack = labelled({ record: actedOn('sent-back') });
 
-  it('reads a grade’s verdict by its own pass threshold', () => {
+    expect(accepted?.agreesWith({ passes: true })).toBe(true);
+    expect(sentBack?.agreesWith({ passes: true })).toBe(false);
     expect(
-      labelled({
-        grades: [personGrade('run_1', [true, false], { passThreshold: 0.5 })],
-      }),
-    ).toMatchObject({ passes: true, from: 'grade' });
-  });
-
-  it('reads a grade only by the rubric it was given under, and falls back to what people did', () => {
-    const earlier = personGrade('run_1', [false]);
-
-    expect(
-      labelled({
-        rubricVersion: NEXT_RUBRIC_VERSION,
-        grades: [earlier],
-      }),
-    ).toBeNull();
-    expect(
-      labelled({
-        rubricVersion: NEXT_RUBRIC_VERSION,
-        record: actedOn('accepted'),
-        grades: [earlier],
-      }),
-    ).toEqual({
-      passes: true,
-      claimResults: null,
-      from: 'accepted',
-      by: ACTOR,
-    });
+      HumanLabel.of(MERGED_LAST_VISIT)?.agreesWith({ passes: false }),
+    ).toBe(false);
   });
 });

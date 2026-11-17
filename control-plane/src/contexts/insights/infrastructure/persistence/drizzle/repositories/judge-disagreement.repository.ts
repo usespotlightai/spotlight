@@ -66,13 +66,11 @@ const toDisagreement = (row: JudgeDisagreementRow): JudgeDisagreement =>
       rubricVersion: versionOf(row.rubricVersion),
       claims: row.claims,
       claimResults: row.claimResults,
-      passes: row.direction === 'judge-passed',
       reasons: row.reasons.map(judgeReasonOf),
     },
     labelFrom: row.labelFrom,
     askedOf: row.askedOfId ? UserId.of(row.askedOfId) : null,
     openedAt: row.openedAt,
-    disputed: row.disputed,
     claimAnswers: row.claimAnswers.map((each) =>
       ClaimAnswer.of({
         claim: each.claim,
@@ -140,14 +138,12 @@ export class DrizzleJudgeDisagreementRepository implements JudgeDisagreementRepo
           taskId: location.taskId.value,
           scoreId: verdict.scoreId.value,
           rubricVersion: verdict.rubricVersion,
-          direction: added.direction,
           claims: [...verdict.claims],
           claimResults: [...verdict.claimResults],
           reasons: verdict.reasons.map(storedReasonOf),
           labelFrom: added.labelFrom,
           askedOfId: added.askedOf?.value ?? null,
           openedAt: added.openedAt,
-          disputed: [...added.disputedClaims],
           version: added.version,
           ...answerColumnsOf(added),
         })

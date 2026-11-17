@@ -1,6 +1,7 @@
+import type { ReactElement } from 'react';
+
 import { StationAlertCard } from '@/components/features/inbox/alerts/StationAlertCard';
 import { JudgeDisagreementThread } from '@/components/features/inbox/disagreements/JudgeDisagreementThread';
-import { GradeThread } from '@/components/features/inbox/grades/GradeThread';
 import { InboxDetailLayout } from '@/components/features/inbox/InboxDetailLayout';
 import { MemoryThread } from '@/components/features/inbox/memories/MemoryThread';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
@@ -18,49 +19,36 @@ export function InboxRequestPage({
   item,
   inboxRequest,
   trail,
-}: InboxRequestPageProps) {
-  if (inboxRequest.form === 'memories') {
-    return (
-      <MemoryThread
-        slug={slug}
-        teamId={item.teamId}
-        taskId={item.taskId}
-        runId={inboxRequest.about}
-        trail={trail}
-      />
-    );
-  }
-
-  if (inboxRequest.form === 'alert') {
-    return (
-      <InboxDetailLayout trail={trail}>
-        <StationAlertCard
+}: InboxRequestPageProps): ReactElement {
+  switch (inboxRequest.form) {
+    case 'memories':
+      return (
+        <MemoryThread
           slug={slug}
           teamId={item.teamId}
-          alertId={inboxRequest.about}
+          taskId={item.taskId}
+          runId={inboxRequest.about}
+          trail={trail}
         />
-      </InboxDetailLayout>
-    );
+      );
+    case 'alert':
+      return (
+        <InboxDetailLayout trail={trail}>
+          <StationAlertCard
+            slug={slug}
+            teamId={item.teamId}
+            alertId={inboxRequest.about}
+          />
+        </InboxDetailLayout>
+      );
+    case 'judge-disagreement':
+      return (
+        <JudgeDisagreementThread
+          slug={slug}
+          teamId={item.teamId}
+          disagreementId={inboxRequest.about}
+          trail={trail}
+        />
+      );
   }
-
-  if (inboxRequest.form === 'judge-disagreement') {
-    return (
-      <JudgeDisagreementThread
-        slug={slug}
-        teamId={item.teamId}
-        disagreementId={inboxRequest.about}
-        trail={trail}
-      />
-    );
-  }
-
-  return (
-    <GradeThread
-      slug={slug}
-      teamId={item.teamId}
-      taskId={item.taskId}
-      runId={inboxRequest.about}
-      trail={trail}
-    />
-  );
 }

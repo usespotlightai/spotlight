@@ -2719,11 +2719,11 @@ export type InboxFailureResponseDto = {
 
 export type InboxRequestResponseDto = {
   /**
-   * The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
+   * The kind of inbox request: memories are proposed memories to approve or reject; alert reports a station that needs attention; judge-disagreement asks a person why their verdict on a run differs from the judge’s
    */
-  form: 'memories' | 'grade' | 'alert' | 'judge-disagreement';
+  form: 'memories' | 'alert' | 'judge-disagreement';
   /**
-   * What it is about: for memories, the run that proposed them; for grade, the run to grade
+   * What it is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement
    */
   about: string;
 };
@@ -6002,27 +6002,6 @@ export type JudgeCalibrationResponseDto = {
   failing: boolean;
 };
 
-export type ClaimAgreementResponseDto = {
-  /**
-   * The claim’s place, from 0
-   */
-  index: number;
-  /**
-   * Runs where both the judge and people marked this claim
-   */
-  pairs: number;
-  observed: number | null;
-  kappa: number | null;
-  /**
-   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa
-   */
-  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | null;
-  /**
-   * Whether the claim’s kappa is below the minimum agreement
-   */
-  belowMinimum: boolean;
-};
-
 export type AgreementResponseDto = {
   pairs: number;
   /**
@@ -6058,10 +6037,6 @@ export type AgreementResponseDto = {
    * The F1 score of the judge’s pass against people’s; none where neither passed the run
    */
   f1: number | null;
-  /**
-   * How often the judge agrees with people on each claim, from grades only; it does not decide whether the judge is qualified
-   */
-  claims: Array<ClaimAgreementResponseDto>;
 };
 
 export type ConfusionResponseDto = {
@@ -6221,6 +6196,10 @@ export type JudgeReasonResponseDto = {
 
 export type JudgeScoreResponseDto = {
   /**
+   * The claims the judge checked, in order
+   */
+  claims: Array<string>;
+  /**
    * The share of claims met
    */
   value: number;
@@ -6232,62 +6211,16 @@ export type JudgeScoreResponseDto = {
    * Whether the run passes: the share of claims met reaches the pass threshold
    */
   passes: boolean;
-  label: string;
   rubricVersion: string;
   model: string;
   at: string;
   reasons: Array<JudgeReasonResponseDto>;
 };
 
-export type RunHumanOutcomeResponseDto = {
-  /**
-   * What gave the human outcome: a grade, the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task
-   */
-  source: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'held';
-  /**
-   * Whether people found the run good
-   */
-  passes: boolean;
-};
-
-export type GradeResponseDto = {
-  by: string;
-  /**
-   * Whether the caller gave this grade
-   */
-  mine: boolean;
-  /**
-   * The share of claims met
-   */
-  value: number;
-  /**
-   * Whether the person found each claim met, in order
-   */
-  claimResults: Array<boolean>;
-  /**
-   * Whether the run passes on this grade: the share of claims met reaches the pass threshold
-   */
-  passes: boolean;
-  label: string;
-  at: string;
-};
-
 export type RunScoresResponseDto = {
   runId: string;
   taskId: string;
   stationId: string;
-  /**
-   * Whether the run can be graded: its judge checked it, or its station has a judge with claims
-   */
-  gradable: boolean;
-  /**
-   * The claims the run is graded on, in order: the ones the judge marked where it checked the run, else the station judge’s; a claim reads null only where the claims the judge was given are no longer stored; empty where the run cannot be graded
-   */
-  claims: Array<string | null>;
-  /**
-   * Whether the run is graded on claims the station’s judge no longer uses: the judge checked it on earlier claims
-   */
-  earlierClaims: boolean;
   /**
    * Whether the judge checked the run
    */
@@ -6298,24 +6231,13 @@ export type RunScoresResponseDto = {
   judge: JudgeScoreResponseDto | null;
   calibration: JudgeCalibrationResponseDto;
   /**
-   * What people said of the run: a grade of the judge’s claims version, else their first action on the run, else the task’s pull request; none where people said nothing yet
+   * What gave people’s verdict on the run: the first action of a person on it, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task. Null where people said nothing yet
    */
-  outcome: RunHumanOutcomeResponseDto | null;
+  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held' | null;
   /**
-   * Whether the judge’s verdict is the human outcome; none where the judge’s verdict is hidden or people said nothing yet
+   * Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or people said nothing yet
    */
   agrees: boolean | null;
-  /**
-   * What people graded the run, the latest first
-   */
-  grades: Array<GradeResponseDto>;
-};
-
-export type GradeRunRequestDto = {
-  /**
-   * Whether each claim was met, in order
-   */
-  claims: Array<boolean>;
 };
 
 export type InsightsPeriodResponseDto = {
@@ -8379,13 +8301,13 @@ export type JudgeDisagreementResponseDto = {
    */
   state: 'open' | 'answered' | 'withdrawn';
   /**
-   * What gave the human outcome that disagrees with the judge
+   * What gave people’s verdict on the run, which disagrees with the judge’s
    */
-  labelFrom: 'grade' | 'accepted' | 'sent-back' | 'merged' | 'held';
+  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held';
   openedAt: string;
   claims: Array<DisagreementClaimResponseDto>;
   /**
-   * The places of the claims in dispute, each answered on its own, fixed when the question opened: where a grade gave the outcome, the claims it marked otherwise than the judge; else, where the judge failed the run, the claims it failed; else none, and the one answer says what was not met
+   * The places of the claims in dispute, each answered on its own, fixed when the question opened: where the judge failed the run, the claims it failed; else none, and the one answer says what was not met
    */
   disputedClaims: Array<number>;
   /**
@@ -8405,7 +8327,7 @@ export type JudgeDisagreementResponseDto = {
    */
   withdrawnAt: string | null;
   /**
-   * Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome or grade that a person gave the run no longer exists. Null while not withdrawn
+   * Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the run no longer has people’s verdict. Null while not withdrawn
    */
   withdrawnBecause: 'verdicts-agree' | 'claims-changed' | 'label-gone' | null;
 };
@@ -20308,41 +20230,6 @@ export type ReadRunScoresResponses = {
 };
 
 export type ReadRunScoresResponse = ReadRunScoresResponses[keyof ReadRunScoresResponses];
-
-export type GradeRunData = {
-  body: GradeRunRequestDto;
-  path: {
-    teamId: string;
-    runId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/runs/{runId}/grades';
-};
-
-export type GradeRunErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
-  /**
-   * The grade changed meanwhile
-   */
-  409: unknown;
-  /**
-   * No grade, or one that does not mark each claim
-   */
-  422: unknown;
-};
-
-export type GradeRunResponses = {
-  200: RunScoresResponseDto;
-};
-
-export type GradeRunResponse = GradeRunResponses[keyof GradeRunResponses];
 
 export type ReadInsightsOverviewData = {
   body?: never;

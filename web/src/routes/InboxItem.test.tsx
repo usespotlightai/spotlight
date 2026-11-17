@@ -87,12 +87,6 @@ vi.mock(
   }),
 );
 
-vi.mock('@/components/features/inbox/grades/GradeThread', () => ({
-  GradeThread: ({ runId }: { runId: string }) => (
-    <p>The thread of run {runId}, asking for a grade</p>
-  ),
-}));
-
 const note = (over: Record<string, unknown> = {}) => ({
   position: 0,
   kind: 'asked',
@@ -233,27 +227,6 @@ describe('InboxItem', () => {
         requestId: 'request_1',
       });
       expect(markInboxItemRead).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('when it asks a person to grade a judged run', () => {
-    it('shows the run to grade, without waiting on the conversation', () => {
-      waiting.mockReturnValue([
-        {
-          ...item([])[0],
-          id: 'request_2',
-          unread: false,
-          inboxRequest: { form: 'grade', about: 'run_9' },
-        },
-      ]);
-      journal.mockReturnValue(undefined);
-
-      renderItem('request_2');
-
-      expect(
-        screen.getByText('The thread of run run_9, asking for a grade'),
-      ).toBeInTheDocument();
-      expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
   });
 

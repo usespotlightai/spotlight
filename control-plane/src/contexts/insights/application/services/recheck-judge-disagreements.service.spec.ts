@@ -87,7 +87,6 @@ const setUp = async () => {
         score.runId,
         WORKSPACE,
         score.location,
-        score.source,
         score.origin,
       ),
     );

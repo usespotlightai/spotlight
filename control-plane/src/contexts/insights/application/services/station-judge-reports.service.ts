@@ -11,10 +11,10 @@ import {
   judgeReportOf,
 } from '@insights/domain/services/judge-report';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -58,6 +58,7 @@ export interface StationLocation {
 
 export interface CurrentCalibration {
   readonly rubricVersion: RubricVersion | null;
+  readonly rubric: Rubric | null;
   readonly calibration: JudgeCalibration;
 }
 
@@ -67,17 +68,12 @@ export interface StationJudgement {
   readonly calibration: JudgeCalibration;
 }
 
-interface Labels {
-  readonly facts: readonly RunFact[];
-  readonly grades: readonly ScoreFact[];
-}
-
 const calibrationFrom = (
   judged: readonly ScoreFact[],
-  labels: Labels,
+  facts: readonly RunFact[],
   judge: CurrentStationJudge | null,
 ): JudgeCalibration =>
-  calibrationIn(judgeReportOf({ judged, covering: [], ...labels }), judge);
+  calibrationIn(judgeReportOf({ judged, facts, covering: [] }), judge);
 
 export class StationJudgeReports {
   constructor(
@@ -105,6 +101,7 @@ export class StationJudgeReports {
 
     return {
       rubricVersion: judge?.rubricVersion ?? null,
+      rubric: judge?.rubric ?? null,
       calibration: await this.calibrationFor(station, judge),
     };
   }
@@ -149,7 +146,7 @@ export class StationJudgeReports {
       ),
       last: MAX_JUDGED,
     });
-    const labels = await this.labelsFor(judged, []);
+    const facts = await this.factsFor(judged);
 
     return current.map(({ station, judge }) => ({
       stationId: station.stationId,
@@ -160,7 +157,7 @@ export class StationJudgeReports {
             each.location.lineId.value === station.lineId &&
             each.location.stationId.value === station.stationId,
         ),
-        labels,
+        facts,
         judge,
       ),
     }));
@@ -178,7 +175,7 @@ export class StationJudgeReports {
         })
       : [];
 
-    return calibrationFrom(judged, await this.labelsFor(judged, []), judge);
+    return calibrationFrom(judged, await this.factsFor(judged), judge);
   }
 
   private async reportOf(
@@ -187,17 +184,18 @@ export class StationJudgeReports {
   ): Promise<JudgeReport> {
     return judgeReportOf({
       judged,
+      facts: await this.factsFor(judged, recent),
       covering: recent,
-      ...(await this.labelsFor(judged, recent)),
     });
   }
 
-  private async labelsFor(
+  private async factsFor(
     judged: readonly ScoreFact[],
-    recent: readonly RunFact[],
-  ): Promise<Labels> {
+    recent: readonly RunFact[] = [],
+  ): Promise<readonly RunFact[]> {
     const known = new Set(recent.map((each) => each.runId.value));
-    const facts = [
+
+    return [
       ...recent,
       ...(await this.facts.ofRuns(
         judged
@@ -205,13 +203,5 @@ export class StationJudgeReports {
           .filter((each) => !known.has(each.value)),
       )),
     ];
-    const runIds = [
-      ...new Set([...facts, ...judged].map((each) => each.runId.value)),
-    ].map(RunId.of);
-    const grades = (await this.facts.scoresOfRuns(runIds)).filter(
-      (each) => !each.fromJudge,
-    );
-
-    return { facts, grades };
   }
 }

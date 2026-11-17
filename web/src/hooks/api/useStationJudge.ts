@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { readStationJudge } from '@/lib/api';
 import type { StationJudgeAgreement } from '@/lib/judge';
 
-export const stationJudgeKeys = {
+const stationJudgeKeys = {
   forStation: (stationId?: string) =>
     ['station-judge', stationId ?? null] as const,
 };

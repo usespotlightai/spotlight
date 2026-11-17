@@ -1,15 +1,15 @@
 import { MeterBar } from '@/components/features/stations/judge/MeterBar';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
-  type ClaimAgreement,
   formatStat,
+  type JudgeCalibration,
   kappaNote,
   readingWord,
 } from '@/lib/judge';
 
 type KappaBarProps = {
   kappa: number | null;
-  reading: ClaimAgreement['reading'];
+  reading: JudgeCalibration['reading'];
   failing: boolean;
   minAgreement: number | null;
 };

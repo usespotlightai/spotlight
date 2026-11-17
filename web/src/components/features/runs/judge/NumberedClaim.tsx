@@ -23,7 +23,7 @@ export function NumberedClaim({
       className={cn('min-w-0 break-words', className)}
     >
       {children === null || children === undefined ? (
-        formatClaim([], index)
+        formatClaim(index)
       ) : (
         <>
           <span aria-hidden className="text-muted-foreground tabular-nums">

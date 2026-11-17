@@ -142,7 +142,7 @@ const verdicts = (count: number, disagreeing = 0) =>
 
 describe('calibrationOf', () => {
   it('qualifies a judge by the kappa of its verdicts against people’s', () => {
-    const agreement = agreementOf(verdicts(10), []);
+    const agreement = agreementOf(verdicts(10));
 
     expect(calibrationOf({ minAgreement: 0.6, agreement })).toEqual({
       qualified: true,
@@ -157,7 +157,7 @@ describe('calibrationOf', () => {
     expect(
       calibrationOf({
         minAgreement: 0.6,
-        agreement: agreementOf(verdicts(9), []),
+        agreement: agreementOf(verdicts(9)),
       }).hiddenReason,
     ).toBe('too-few-pairs');
     expect(
@@ -165,26 +165,15 @@ describe('calibrationOf', () => {
         minAgreement: 0.6,
         agreement: agreementOf(
           Array.from({ length: 10 }, () => ({ judge: true, human: true })),
-          [],
         ),
       }).hiddenReason,
     ).toBe('no-agreement');
     expect(
       calibrationOf({
         minAgreement: 0.6,
-        agreement: agreementOf(verdicts(10, 4), []),
+        agreement: agreementOf(verdicts(10, 4)),
       }).hiddenReason,
     ).toBe('below-min-agreement');
     expect(calibrationOf(null).hiddenReason).toBe('no-judge');
-  });
-
-  it('does not let the agreement of one claim decide', () => {
-    const agreement = agreementOf(verdicts(10), [
-      { judge: [true, false], human: [false, true] },
-    ]);
-
-    expect(calibrationOf({ minAgreement: 0.6, agreement }).qualified).toBe(
-      true,
-    );
   });
 });

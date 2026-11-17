@@ -10,7 +10,6 @@ import {
   DISPUTED_CLAIMS_LABEL,
   disputedClaimsOf,
   type JudgeDisagreement,
-  labelGradeOf,
   labellerOf,
   sentenceOf,
   waitsForViewer,
@@ -59,7 +58,6 @@ export function JudgeDisagreementItem({
                 disagreement={disagreement}
                 claim={claim}
                 scores={scores.data}
-                grade={labelGradeOf(disagreement, scores.data, members)}
                 loading={loading(scores)}
                 canAnswer={!askedOtherThan(disagreement, me)}
                 answererOf={(answeredBy) => answererOf(answeredBy, me, members)}

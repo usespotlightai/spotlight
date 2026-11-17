@@ -94,7 +94,6 @@ const judgedWhere = (criteria: {
     eq(score.teamId, criteria.teamId.value),
     eq(score.lineId, criteria.lineId.value),
     eq(score.stationId, criteria.stationId.value),
-    eq(score.source, 'judge'),
     criteria.rubricVersion === undefined
       ? undefined
       : eq(score.rubricVersion, criteria.rubricVersion),
@@ -295,7 +294,6 @@ export class DrizzleStationFacts implements StationFactsPort {
         .from(score)
         .where(
           and(
-            eq(score.source, 'judge'),
             eq(score.origin, LIVE),
             gte(score.at, criteria.since),
             after

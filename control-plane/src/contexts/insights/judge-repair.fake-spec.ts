@@ -15,6 +15,7 @@ import type { ClaimAnswerKind } from '@insights/domain/value-objects/claim-answe
 import { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision-id.vo';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { JudgeDisagreementId } from '@insights/domain/value-objects/judge-disagreement-id.vo';
+import type { LabelSource } from '@insights/domain/value-objects/label-source';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
@@ -40,8 +41,7 @@ export const openDisagreement = (
   runId = 'run_1',
   change: {
     claimResults?: readonly boolean[];
-    personPasses?: boolean;
-    labelClaims?: readonly boolean[];
+    labelFrom?: LabelSource;
     taskId?: string;
     stationId?: string;
     askedOf?: UserId;
@@ -61,14 +61,10 @@ export const openDisagreement = (
       rubricVersion: RUBRIC_VERSION,
       claims: CLAIMS,
       claimResults,
-      passes,
       reasons: claimResults.map((_, at) => reasonOf(`Claim ${at}.`, at)),
     },
-    label: {
-      passes: change.personPasses ?? !passes,
-      claimResults: change.labelClaims ?? null,
-      from: change.labelClaims ? 'grade' : 'accepted',
-    },
+    judgePasses: passes,
+    labelFrom: change.labelFrom ?? (passes ? 'sent-back' : 'accepted'),
     askedOf: change.askedOf ?? null,
     now: change.now ?? OPENED_AT,
   });
@@ -128,7 +124,6 @@ const disagreementWithVersion = (
     labelFrom: disagreement.labelFrom,
     askedOf: disagreement.askedOf,
     openedAt: disagreement.openedAt,
-    disputed: disagreement.disputedClaims,
     claimAnswers: disagreement.claimAnswers,
     notMet: disagreement.notMet,
     answeredAt: disagreement.answeredAt,

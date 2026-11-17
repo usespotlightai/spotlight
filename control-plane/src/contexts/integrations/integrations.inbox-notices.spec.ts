@@ -201,11 +201,14 @@ describe('inbox requests and notices sent to integrations', () => {
   it('posts an inbox request to the channel of its task’s line, with its form and a link to it', async () => {
     const { tasks, run } = notifying();
 
-    await tasks.notifyRequest(finished(), { id: 'request_1', form: 'grade' });
+    await tasks.notifyRequest(finished(), {
+      id: 'request_1',
+      form: 'judge-disagreement',
+    });
 
     expect(sent(run)).toEqual([{ channel: 'C0DELIVERY' }]);
     expect(bodyOf(run).request).toEqual({
-      form: 'grade',
+      form: 'judge-disagreement',
       link: 'https://app.example/w/acme/inbox/request_1',
     });
     expect((bodyOf(run).task as { title: string }).title).toBe(
@@ -229,7 +232,7 @@ describe('inbox requests and notices sent to integrations', () => {
 
     const marks = await tasks.notifyRequest(finished(), {
       id: 'request_1',
-      form: 'grade',
+      form: 'judge-disagreement',
     });
 
     expect(marks).toEqual([{ kind: 'slack.request', value: '1700.2' }]);
@@ -238,7 +241,10 @@ describe('inbox requests and notices sent to integrations', () => {
   it('gives an inbox request post no question to ask', async () => {
     const { tasks, run } = notifying();
 
-    await tasks.notifyRequest(finished(), { id: 'request_1', form: 'grade' });
+    await tasks.notifyRequest(finished(), {
+      id: 'request_1',
+      form: 'judge-disagreement',
+    });
 
     expect(bodyOf(run)).not.toHaveProperty('ask');
   });
@@ -264,7 +270,10 @@ describe('inbox requests and notices sent to integrations', () => {
   it('posts an inbox request and a notice without a link when Spotlight cannot link to them', async () => {
     const { tasks, notices, run, warn } = notifying(SLACK, false);
 
-    await tasks.notifyRequest(finished(), { id: 'request_1', form: 'grade' });
+    await tasks.notifyRequest(finished(), {
+      id: 'request_1',
+      form: 'judge-disagreement',
+    });
     await notices.notify(raised());
 
     expect(run).toHaveBeenCalledTimes(2);
@@ -292,7 +301,10 @@ describe('inbox requests and notices sent to integrations', () => {
   it('posts nothing for an inbox request or a notice the integration does not bind', async () => {
     const { tasks, notices, run } = notifying(ONLY_TASKS);
 
-    await tasks.notifyRequest(finished(), { id: 'request_1', form: 'grade' });
+    await tasks.notifyRequest(finished(), {
+      id: 'request_1',
+      form: 'judge-disagreement',
+    });
     await notices.notify(raised());
 
     expect(run).not.toHaveBeenCalled();

@@ -4,6 +4,7 @@ import {
 } from '@insights/application/services/delete-insights.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
+import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { Judging } from '@insights/domain/aggregates/judging.aggregate';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
@@ -24,6 +25,7 @@ import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+import { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
 import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
 import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judging.repository';
@@ -96,20 +98,6 @@ const judged = (runId: string, value: number, at = NOW) =>
     reasons: [reason()],
     seen: seen(),
     at,
-  });
-
-const graded = (runId: string, value: number, by = 'user_ada') =>
-  Score.grade({
-    id: ScoreId.of(`grade_${runId}_${by}`),
-    runId: RunId.of(runId),
-    workspaceId: WORKSPACE,
-    location: locationOf(`task_${runId}`),
-    fingerprint: CONFIG,
-    claimResults: [value === 1],
-    passThreshold: 1,
-    rubricVersion: VERSION,
-    by: UserId.of(by),
-    at: LATER,
   });
 
 const endedRecord = (runId: string) =>
@@ -280,8 +268,7 @@ describe('scores, stored', () => {
   it('stores a judge’s score with its cited reasons', async () => {
     await scores.add(judged('run_a', 1));
 
-    const [score] = await scores.ofRuns([RunId.of('run_a')]);
-    expect(score?.fromJudge).toBe(true);
+    const [score] = await facts.scoresOfRuns([RunId.of('run_a')]);
     expect(score?.reasons[0]?.citations.map((each) => each.kind)).toEqual([
       'step',
       'hunk',
@@ -291,7 +278,7 @@ describe('scores, stored', () => {
       '-upload()',
       '+retry(upload)',
     ]);
-    expect((await scores.judgeOf(RunId.of('run_a'), VERSION))?.id.value).toBe(
+    expect((await scores.of(RunId.of('run_a'), VERSION))?.id.value).toBe(
       'judge_run_a',
     );
   });
@@ -315,41 +302,6 @@ describe('scores, stored', () => {
         }),
       ),
     ).rejects.toBeInstanceOf(ScoreVersionConflictError);
-  });
-
-  it('stores one grade per person for a run, replaced by their later one', async () => {
-    await scores.add(graded('run_a', 1));
-
-    await expect(
-      scores.add(
-        Score.grade({
-          id: ScoreId.of('grade_twice'),
-          runId: RunId.of('run_a'),
-          workspaceId: WORKSPACE,
-          location: locationOf('task_run_a'),
-          fingerprint: CONFIG,
-          claimResults: [false],
-          passThreshold: 1,
-          rubricVersion: VERSION,
-          by: UserId.of('user_ada'),
-          at: LATER,
-        }),
-      ),
-    ).rejects.toBeInstanceOf(ScoreVersionConflictError);
-
-    const mine = await scores.gradeBy(RunId.of('run_a'), UserId.of('user_ada'));
-    await scores.save(
-      mine?.regrade({
-        claimResults: [false],
-        passThreshold: 1,
-        rubricVersion: VERSION,
-        at: LATER,
-      }) as Score,
-    );
-
-    expect(
-      (await scores.gradeBy(RunId.of('run_a'), UserId.of('user_ada')))?.value,
-    ).toBe(0);
   });
 });
 
@@ -420,25 +372,6 @@ describe('judge scores at many stations, read at once', () => {
     for (const each of added) {
       await scores.add(each);
     }
-    await scores.add(
-      Score.grade({
-        id: ScoreId.of('grade_many_c_1'),
-        runId: RunId.of('many_c_1'),
-        workspaceId: ELSEWHERE,
-        location: RunLocation.of({
-          teamId: TEAM,
-          lineId: LineId.of('line_1'),
-          stationId: StationId.of('station_c'),
-          taskId: TaskId.of('task_many_c_1'),
-        }),
-        fingerprint: CONFIG,
-        claimResults: [true],
-        passThreshold: 1,
-        rubricVersion: VERSION,
-        by: UserId.of('user_ada'),
-        at: LATER,
-      }),
-    );
     const stations = ['station_a', 'station_b', 'station_c'].map(
       (stationId) => ({
         lineId: LineId.of('line_1'),
@@ -576,10 +509,10 @@ describe('how often the judge agrees with people', () => {
     const [version] = report.versions;
     expect(version?.rubricVersion).toBe(VERSION);
     expect(version?.judged).toBe(13);
-    expect(version?.agreement.pairs).toBe(13);
+    expect(version?.agreement.pairs).toBe(12);
     expect(version?.agreement.confusion.cells).toEqual([
       [6, 0],
-      [1, 6],
+      [0, 6],
     ]);
     expect(report.coverage.runs).toBe(12);
     expect(calibration).toMatchObject({ qualified: true });
@@ -590,14 +523,42 @@ describe('how often the judge agrees with people', () => {
         lineId: LineId.of('line_1'),
         stationId: StationId.of('station_1'),
       }),
-    ).toEqual({ rubricVersion: VERSION, calibration });
+    ).toMatchObject({
+      rubricVersion: VERSION,
+      rubric: { claims: ['It retries the upload.'] },
+      calibration,
+    });
+  });
+
+  it('shows a run’s claims, people’s verdict and whether the judge agrees, read from the stored facts', async () => {
+    const views = new RunScoresViews(facts, reports);
+    const access = ViewedTeam.onTeam(TEAM, {
+      workspaceId: WORKSPACE,
+      by: UserId.of('user_1'),
+    });
+
+    expect(await views.of(access, 'run_0')).toMatchObject({
+      judged: true,
+      judge: {
+        claims: ['It retries the upload.'],
+        passes: true,
+        rubricVersion: VERSION,
+      },
+      labelFrom: 'accepted',
+      agrees: true,
+    });
+    expect(await views.of(access, 'run_1')).toMatchObject({
+      judge: { passes: false },
+      labelFrom: 'sent-back',
+      agrees: true,
+    });
   });
 
   it('deletes the judgings and scores of a deleted task', async () => {
     await erased(scores, TaskId.of('task_run_a'));
     await erased(judgings, TaskId.of('task_judged'));
 
-    expect(await scores.ofRuns([RunId.of('run_a')])).toEqual([]);
+    expect(await facts.scoresOfRuns([RunId.of('run_a')])).toEqual([]);
     expect(await judgings.of(RunId.of('run_judged'))).toBeNull();
   });
 
@@ -613,10 +574,10 @@ describe('how often the judge agrees with people', () => {
     });
     const recording = new RecordJudgeScore(
       Object.assign(Object.create(scores) as typeof scores, {
-        judgeOf: async (runId: RunId, rubricVersion: RubricVersion) => {
+        of: async (runId: RunId, rubricVersion: RubricVersion) => {
           loading();
           await released;
-          return scores.judgeOf(runId, rubricVersion);
+          return scores.of(runId, rubricVersion);
         },
       }),
       new FactRecorder(deletions),
@@ -648,11 +609,11 @@ describe('how often the judge agrees with people', () => {
     release();
     await Promise.all([recording, deleting]);
 
-    expect(await scores.ofRuns([RunId.of('run_racing')])).toEqual([]);
+    expect(await facts.scoresOfRuns([RunId.of('run_racing')])).toEqual([]);
   });
 });
 
-describe('how often a claims judge agrees with people, claim by claim', () => {
+describe('a claims judge’s scores, stored', () => {
   const claimsLocation = (taskId: string) =>
     RunLocation.of({
       teamId: TEAM,
@@ -661,78 +622,32 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
       taskId: TaskId.of(taskId),
     });
 
-  it('stores each claim the judge and people marked, and weighs their agreement on each claim and on the verdict', async () => {
-    for (let at = 0; at < 12; at += 1) {
-      const runId = `claims_${at}`;
-      const retried = at % 2 === 0;
-      const tested = at % 3 === 0;
-      const judgeMarks = [retried, at % 4 === 0];
-      const personMarks = [retried, tested];
-
-      await scores.add(
-        Score.judge({
-          id: ScoreId.of(`judge_${runId}`),
-          runId: RunId.of(runId),
-          workspaceId: WORKSPACE,
-          location: claimsLocation(`task_${runId}`),
-          fingerprint: CONFIG,
-          claimResults: judgeMarks,
-          passThreshold: 0.5,
-          rubricVersion: CLAIMS_VERSION,
-          model: 'some/model',
-          reasons: [0, 1].map((claim) =>
-            JudgeReason.of({
-              text: `Claim ${claim}.`,
-              citations: [Citation.ofStep(4)],
-              claim,
-            }),
-          ),
-          seen: seen(),
-          at: new Date(NOW.getTime() + at * 60_000),
-        }),
-      );
-      await scores.add(
-        Score.grade({
-          id: ScoreId.of(`grade_${runId}`),
-          runId: RunId.of(runId),
-          workspaceId: WORKSPACE,
-          location: claimsLocation(`task_${runId}`),
-          fingerprint: CONFIG,
-          claimResults: personMarks,
-          passThreshold: 0.5,
-          rubricVersion: CLAIMS_VERSION,
-          by: UserId.of('user_ada'),
-          at: LATER,
-        }),
-      );
-    }
-
-    const stored = (await scores.ofRuns([RunId.of('claims_0')])).find(
-      (each) => each.fromJudge,
+  it('stores each claim the judge marked, with a reason for each', async () => {
+    await scores.add(
+      Score.judge({
+        id: ScoreId.of('judge_claims_0'),
+        runId: RunId.of('claims_0'),
+        workspaceId: WORKSPACE,
+        location: claimsLocation('task_claims_0'),
+        fingerprint: CONFIG,
+        claimResults: [true, true],
+        passThreshold: 0.5,
+        rubricVersion: CLAIMS_VERSION,
+        model: 'some/model',
+        reasons: [0, 1].map((claim) =>
+          JudgeReason.of({
+            text: `Claim ${claim}.`,
+            citations: [Citation.ofStep(4)],
+            claim,
+          }),
+        ),
+        seen: seen(),
+        at: NOW,
+      }),
     );
+
+    const [stored] = await facts.scoresOfRuns([RunId.of('claims_0')]);
     expect(stored?.claimResults).toEqual([true, true]);
     expect(stored?.reasons.map((each) => each.claim)).toEqual([0, 1]);
-
-    const { report, calibration } = await reports.at({
-      workspaceId: WORKSPACE,
-      teamId: TEAM,
-      lineId: LineId.of('line_1'),
-      stationId: StationId.of(CLAIMS_STATION),
-    });
-
-    const [version] = report.versions;
-    expect(version?.agreement.pairs).toBe(12);
-    expect(version?.agreement.claims.map((each) => each.index)).toEqual([0, 1]);
-    expect(version?.agreement.claims[0]).toMatchObject({
-      pairs: 12,
-      observed: 1,
-      kappa: 1,
-    });
-    expect(version?.agreement.claims[1]?.observed).toBeCloseTo(7 / 12);
-    expect(version?.agreement.observed).toBeCloseTo(10 / 12);
-    expect(calibration).toMatchObject({
-      pairs: 12,
-      agreement: version?.agreement.kappa,
-    });
   });
 });

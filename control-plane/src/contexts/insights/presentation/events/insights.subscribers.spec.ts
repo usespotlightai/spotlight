@@ -5,7 +5,6 @@ import type { EndedRun } from '@insights/application/ports/work.port';
 import { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
-import { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
@@ -134,7 +133,6 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   const pullRequests = new PullRequestRecordsInMemory();
   const shapes = new TaskChangeShapesInMemory();
   const deletions = deletionsInMemory();
-  const asked: string[] = [];
   let next = 0;
   const subscribers = insightsSubscribers({
     ending: new RecordRunEnding(
@@ -218,21 +216,6 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
           next += 1;
           return `score_${next}`;
         },
-      },
-    ),
-    grading: new GradeInboxRequests(
-      {
-        ask: async (taskId, runId) => {
-          asked.push(`ask ${taskId.value} ${runId.value}`);
-        },
-        resolve: async (taskId, runId) => {
-          asked.push(`resolve ${taskId.value} ${runId.value}`);
-        },
-      },
-      new StationFactsInMemory(records, { scores }),
-      {
-        now: () => new Date('2026-09-30T12:00:00.000Z'),
-        sleep: async () => {},
       },
     ),
     recordingUsage: new RecordRunUsageSummary(
@@ -327,7 +310,6 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     pullRequests,
     shapes,
     alertStates,
-    asked,
     alerted,
     alertsNow: (next: readonly AlertRule[] | null) => {
       alertsNow = next;
@@ -1323,7 +1305,6 @@ describe('insightsSubscribers', () => {
 
     const [score, ...rest] = [...subscriber.scores.stored.values()];
     expect(rest).toEqual([]);
-    expect(score?.source).toBe('judge');
     expect(score?.value).toBe(1);
   });
 
@@ -1367,20 +1348,6 @@ describe('insightsSubscribers', () => {
     );
 
     expect(subscriber.scores.stored.size).toBe(0);
-  });
-
-  it('resolves the grade inbox request of a run once a person grades it', async () => {
-    const subscriber = subscribed();
-
-    await subscriber.deliver('insights.ask-or-resolve-grade', {
-      kind: 'score.recorded',
-      scoreId: 'score_1',
-      runId: RunId.of('run_1'),
-      location: queuedJudging().location,
-      source: 'person',
-    });
-
-    expect(subscriber.asked).toEqual(['resolve task_1 run_1']);
   });
 
   it('deletes the judgings and the scores of a deleted task, each in its own reaction', async () => {

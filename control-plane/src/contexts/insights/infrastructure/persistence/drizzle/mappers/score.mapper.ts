@@ -16,7 +16,6 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export type ScoreRow = typeof score.$inferSelect;
@@ -64,7 +63,6 @@ export const scoreFieldsOfRow = (row: ScoreRow) => ({
     taskId: TaskId.of(row.taskId),
   }),
   fingerprint: row.fingerprint,
-  source: row.source,
   origin: row.origin,
   claimResults: row.claimResults,
   passThreshold: row.passThreshold,
@@ -72,7 +70,6 @@ export const scoreFieldsOfRow = (row: ScoreRow) => ({
   model: row.model,
   reasons: row.reasons.map(judgeReasonOf),
   seen: SeenEvidence.of(row.seen),
-  by: row.scoredById ? UserId.of(row.scoredById) : null,
   at: row.at,
   version: row.version,
 });
@@ -84,7 +81,6 @@ export const scoreFactOfRow = (row: ScoreRow): ScoreFact => {
     id: fields.id,
     runId: fields.runId,
     location: fields.location,
-    source: fields.source,
     origin: fields.origin,
     claimResults: fields.claimResults,
     passThreshold: fields.passThreshold,
@@ -92,7 +88,6 @@ export const scoreFactOfRow = (row: ScoreRow): ScoreFact => {
     model: fields.model,
     reasons: fields.reasons,
     seen: fields.seen,
-    by: fields.by,
     at: fields.at,
   });
 };

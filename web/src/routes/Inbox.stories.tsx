@@ -10,13 +10,9 @@ import {
   ASKED_OF_OTHER_DISAGREEMENT_REQUEST_ID,
   CLAIMS_CHANGED_DISAGREEMENT_REQUEST_ID,
   LABEL_GONE_DISAGREEMENT_REQUEST_ID,
-  CLAIMS_GRADE_REQUEST_ID,
   COST_ALERT_REQUEST_ID,
   DECIDED_MEMORIES_REQUEST_ID,
-  EARLIER_CLAIMS_GRADE_REQUEST_ID,
   FAILED_DISAGREEMENT_REQUEST_ID,
-  GRADE_REQUEST_ID,
-  GRADED_REQUEST_ID,
   MEMORIES_REQUEST_ID,
   MERGED_DISAGREEMENT_REQUEST_ID,
   PASSED_DISAGREEMENT_REQUEST_ID,
@@ -29,7 +25,7 @@ import {
   type ClaimsAnswered,
 } from '@/mocks/world/inbox-disagreements';
 import { withCitationsGone } from '@/mocks/world/inbox-scores';
-import { type GradeSave, inboxStore } from '@/mocks/world/inbox-store';
+import { inboxStore } from '@/mocks/world/inbox-store';
 import { MAYA } from '@/mocks/world/people';
 import { settingsWorld } from '@/mocks/world/settings';
 import { NO_FLEET } from '@/mocks/world/settings-runners';
@@ -65,12 +61,6 @@ const GITHUB_INSTALLED_PATH = `/github/installed?installation_id=58213907&state=
 
 const SETTING_UP = { arg: 'opened', eq: SETUP_ITEM_ID };
 
-const GRADES = [
-  GRADE_REQUEST_ID,
-  EARLIER_CLAIMS_GRADE_REQUEST_ID,
-  CLAIMS_GRADE_REQUEST_ID,
-];
-
 const DISAGREEMENTS_ANSWERED_BY_FORM = [
   FAILED_DISAGREEMENT_REQUEST_ID,
   PASSED_DISAGREEMENT_REQUEST_ID,
@@ -93,8 +83,6 @@ type InboxArgs = {
   readonly approvingMemory: boolean;
   readonly answeringYes: boolean;
   readonly answeringDisagreement: boolean;
-  readonly savingGrade: boolean;
-  readonly gradeSave: GradeSave;
   readonly standing: Standing;
   readonly askedOfOther: boolean;
   readonly withdrawing: boolean;
@@ -122,8 +110,6 @@ const meta = {
       approvingMemory: false,
       answeringYes: false,
       answeringDisagreement: false,
-      savingGrade: false,
-      gradeSave: 'saves',
       standing: 'assignee',
       askedOfOther: false,
       withdrawing: false,
@@ -147,14 +133,8 @@ const meta = {
         [DECIDED_MEMORIES_REQUEST_ID]: 'Memories decided',
         [COST_ALERT_REQUEST_ID]: 'Station alert',
         [ALERT_REQUEST_ID]: 'Alert resolved',
-        [GRADE_REQUEST_ID]: 'Grade run',
-        [EARLIER_CLAIMS_GRADE_REQUEST_ID]: 'Grade on earlier claims',
-        [CLAIMS_GRADE_REQUEST_ID]: 'Grade claim by claim',
-        [GRADED_REQUEST_ID]: 'Graded',
-        [FAILED_DISAGREEMENT_REQUEST_ID]:
-          'Disagreement on a grade, judge failed',
-        [PASSED_DISAGREEMENT_REQUEST_ID]:
-          'Disagreement on a grade, judge passed',
+        [FAILED_DISAGREEMENT_REQUEST_ID]: 'Disagreement, judge failed',
+        [PASSED_DISAGREEMENT_REQUEST_ID]: 'Disagreement, judge passed',
         [SENT_BACK_DISAGREEMENT_REQUEST_ID]: 'Disagreement on a sent-back run',
         [ACCEPTED_DISAGREEMENT_REQUEST_ID]: 'Disagreement on an accepted run',
         [MERGED_DISAGREEMENT_REQUEST_ID]:
@@ -184,21 +164,8 @@ const meta = {
       editingMemory: toggle('Edit the first memory'),
       approvingMemory: toggle('Approve the open memory'),
       answeringYes: toggle('Answer Yes'),
-      savingGrade: {
-        ...toggle('Save the grade'),
-        if: { arg: 'opened', neq: 'none' },
-      },
       answeringDisagreement: {
         ...toggle('Answer the disagreement'),
-        if: { arg: 'opened', neq: 'none' },
-      },
-      gradeSave: {
-        ...choice<GradeSave>('Grade save', {
-          saves: 'Saves',
-          saving: 'Stays saving',
-          fails: 'Fails',
-          'fails-once': 'Fails once, then saves',
-        }),
         if: { arg: 'opened', neq: 'none' },
       },
       askedOfOther: {
@@ -233,7 +200,6 @@ const meta = {
     },
     world: ({
       opened,
-      gradeSave,
       gitHubInstalled,
       hostConnected,
       configuration,
@@ -280,8 +246,6 @@ const meta = {
         }
       }
 
-      inboxStore().gradeSave = gradeSave;
-
       if (opened !== SETUP_ITEM_ID) return;
 
       const settings = settingsWorld();
@@ -304,9 +268,7 @@ const meta = {
       editingMemory,
       approvingMemory,
       answeringYes,
-      savingGrade,
       answeringDisagreement,
-      gradeSave,
     }) => {
       if (opened === MEMORIES_REQUEST_ID && editingMemory) {
         return async (screen, user) => {
@@ -368,25 +330,6 @@ const meta = {
             );
             await user.click(
               screen.getByRole('button', { name: 'Send answer' }),
-            );
-          }
-        };
-      }
-      if (
-        GRADES.includes(opened) &&
-        (answeringYes || savingGrade || gradeSave !== 'saves')
-      ) {
-        return async (screen, user) => {
-          const card = await screen.findByRole(
-            'region',
-            { name: 'Grade this run' },
-            { timeout: 10_000 },
-          );
-          const yeses = within(card).getAllByRole('radio', { name: 'Yes' });
-          for (const yes of yeses) await user.click(yes);
-          if (savingGrade || gradeSave !== 'saves') {
-            await user.click(
-              screen.getByRole('button', { name: 'Save grade' }),
             );
           }
         };

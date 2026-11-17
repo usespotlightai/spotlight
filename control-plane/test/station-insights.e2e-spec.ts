@@ -9,7 +9,6 @@ import { ReadStationInsightsQuery } from '@insights/application/queries/read-sta
 import { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
-import { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
@@ -303,11 +302,6 @@ beforeAll(async () => {
     scoring: new RecordJudgeScore(scores, recorder, context, {
       generate: () => 'id',
     }),
-    grading: new GradeInboxRequests(
-      { ask: async () => {}, resolve: async () => {} },
-      stationFacts,
-      { now: () => new Date(), sleep: async () => {} },
-    ),
     recordingUsage: new RecordRunUsageSummary(work, records, recorder, context),
     remembering: new RecordRunMemories(work, records, recorder, context),
     passing: new RecordStationPass(records, recorder, context),

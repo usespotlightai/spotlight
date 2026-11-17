@@ -6,11 +6,11 @@ import type {
   JudgeDisagreementDto,
   NotMetAnswerDto,
 } from '@insights/application/dto/judge-disagreement.dto';
-import { LABEL_SOURCES } from '@insights/domain/services/human-label';
 import { CITATION_KINDS } from '@insights/domain/value-objects/citation.vo';
 import { CLAIM_ANSWERS } from '@insights/domain/value-objects/claim-answer.vo';
 import { DISAGREEMENT_DIRECTIONS } from '@insights/domain/value-objects/disagreement-direction';
 import { DISAGREEMENT_STATES } from '@insights/domain/value-objects/disagreement-state';
+import { LABEL_SOURCES } from '@insights/domain/value-objects/label-source';
 import { WITHDRAWAL_REASONS } from '@insights/domain/value-objects/withdrawal-reason';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -178,7 +178,8 @@ export class JudgeDisagreementResponseDto {
 
   @ApiProperty({
     enum: LABEL_SOURCES,
-    description: 'What gave the human outcome that disagrees with the judge',
+    description:
+      'What gave people’s verdict on the run, which disagrees with the judge’s',
   })
   readonly labelFrom: string;
 
@@ -192,7 +193,7 @@ export class JudgeDisagreementResponseDto {
     type: Number,
     isArray: true,
     description:
-      'The places of the claims in dispute, each answered on its own, fixed when the question opened: where a grade gave the outcome, the claims it marked otherwise than the judge; else, where the judge failed the run, the claims it failed; else none, and the one answer says what was not met',
+      'The places of the claims in dispute, each answered on its own, fixed when the question opened: where the judge failed the run, the claims it failed; else none, and the one answer says what was not met',
   })
   readonly disputedClaims: readonly number[];
 
@@ -231,7 +232,7 @@ export class JudgeDisagreementResponseDto {
     enum: [...WITHDRAWAL_REASONS, null],
     nullable: true,
     description:
-      'Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the outcome or grade that a person gave the run no longer exists. Null while not withdrawn',
+      'Why Spotlight withdrew the question: verdicts-agree, the judge and people agree on the run now; claims-changed, the judge’s claims changed after the run, or the judge was removed; label-gone, the run no longer has people’s verdict. Null while not withdrawn',
   })
   readonly withdrawnBecause: string | null;
 

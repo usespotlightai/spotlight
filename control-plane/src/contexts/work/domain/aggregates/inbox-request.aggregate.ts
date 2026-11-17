@@ -161,7 +161,6 @@ export class InboxRequest extends EventRecorder {
       case 'memories':
       case 'judge-disagreement':
         return 'seesTeam';
-      case 'grade':
       case 'alert':
         return 'actsOnTeam';
     }

@@ -32,13 +32,11 @@ CREATE TYPE "public"."run_record_ending" AS ENUM('completed', 'failed', 'stopped
 CREATE TYPE "public"."run_resolution" AS ENUM('accepted', 'sent-back', 'moved-on', 'failed', 'other');--> statement-breakpoint
 CREATE TYPE "public"."run_size" AS ENUM('small', 'medium', 'large');--> statement-breakpoint
 CREATE TYPE "public"."score_origin" AS ENUM('live', 'backfill');--> statement-breakpoint
-CREATE TYPE "public"."score_source" AS ENUM('judge', 'person');--> statement-breakpoint
 CREATE TYPE "public"."claims_revision_end_reason" AS ENUM('too-few-labelled-runs', 'no-candidates', 'judge-call-ceiling', 'no-gain', 'judge-changed', 'pull-request-failed', 'interrupted');--> statement-breakpoint
 CREATE TYPE "public"."claims_revision_outcome" AS ENUM('proposed', 'ended');--> statement-breakpoint
 CREATE TYPE "public"."claims_revision_trigger" AS ENUM('claim-wrong', 'calibration-failed', 'claim-missing');--> statement-breakpoint
-CREATE TYPE "public"."judge_disagreement_direction" AS ENUM('judge-failed', 'judge-passed');--> statement-breakpoint
 CREATE TYPE "public"."judge_disagreement_withdrawal_reason" AS ENUM('verdicts-agree', 'claims-changed', 'label-gone');--> statement-breakpoint
-CREATE TYPE "public"."judge_label_source" AS ENUM('grade', 'accepted', 'sent-back', 'merged', 'held');--> statement-breakpoint
+CREATE TYPE "public"."judge_label_source" AS ENUM('accepted', 'sent-back', 'merged', 'held');--> statement-breakpoint
 CREATE TYPE "public"."delivery_state" AS ENUM('pending', 'working', 'done', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."hook_firing_state" AS ENUM('pending', 'working', 'done', 'failed', 'superseded', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."station_kind" AS ENUM('backlog', 'work', 'completed');--> statement-breakpoint
@@ -86,7 +84,7 @@ CREATE TYPE "public"."dispatch_follow_up" AS ENUM('accepted', 'sent-back');--> s
 CREATE TYPE "public"."dispatch_kind" AS ENUM('task', 'chat', 'trial');--> statement-breakpoint
 CREATE TYPE "public"."dispatch_outcome" AS ENUM('completed', 'failed', 'exhausted', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."dispatch_refusal" AS ENUM('no-order', 'order-refused', 'withdrawn');--> statement-breakpoint
-CREATE TYPE "public"."inbox_request_form" AS ENUM('memories', 'grade', 'alert', 'judge-disagreement');--> statement-breakpoint
+CREATE TYPE "public"."inbox_request_form" AS ENUM('memories', 'alert', 'judge-disagreement');--> statement-breakpoint
 CREATE TYPE "public"."notice_form" AS ENUM('ended', 'advice');--> statement-breakpoint
 CREATE TYPE "public"."hold_end" AS ENUM('continue', 'move-on', 'finish');--> statement-breakpoint
 CREATE TYPE "public"."hold_verdict" AS ENUM('not-right', 'exploring');--> statement-breakpoint
@@ -882,17 +880,15 @@ CREATE TABLE "score" (
 	"station_id" text NOT NULL,
 	"task_id" text NOT NULL,
 	"fingerprint" text,
-	"source" "score_source" NOT NULL,
 	"origin" "score_origin" DEFAULT 'live' NOT NULL,
 	"value" double precision NOT NULL,
 	"claim_results" jsonb NOT NULL,
 	"pass_threshold" double precision NOT NULL,
 	"passes" boolean NOT NULL,
 	"rubric_version" text NOT NULL,
-	"model" text,
+	"model" text NOT NULL,
 	"reasons" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"seen" jsonb DEFAULT '{"steps":[],"hunks":[]}'::jsonb NOT NULL,
-	"scored_by_id" text,
 	"at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
@@ -1032,14 +1028,12 @@ CREATE TABLE "judge_disagreement" (
 	"task_id" text NOT NULL,
 	"score_id" text NOT NULL,
 	"rubric_version" text NOT NULL,
-	"direction" "judge_disagreement_direction" NOT NULL,
 	"claims" jsonb NOT NULL,
 	"claim_results" jsonb NOT NULL,
 	"reasons" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"label_from" "judge_label_source" NOT NULL,
 	"asked_of_id" text,
 	"opened_at" timestamp (3) with time zone NOT NULL,
-	"disputed" jsonb NOT NULL,
 	"claim_answers" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"not_met" jsonb,
 	"answered_at" timestamp (3) with time zone,
@@ -2664,10 +2658,9 @@ CREATE INDEX "run_record_team_idx" ON "run_record" USING btree ("team_id","ended
 CREATE INDEX "run_record_task_idx" ON "run_record" USING btree ("task_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_workspace_idx" ON "run_record" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_record_ended_idx" ON "run_record" USING btree ("ended_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "score_judge_idx" ON "score" USING btree ("run_id","rubric_version") WHERE "score"."source" = 'judge';--> statement-breakpoint
-CREATE UNIQUE INDEX "score_person_idx" ON "score" USING btree ("run_id","scored_by_id") WHERE "score"."source" = 'person';--> statement-breakpoint
+CREATE UNIQUE INDEX "score_judge_idx" ON "score" USING btree ("run_id","rubric_version");--> statement-breakpoint
 CREATE INDEX "score_station_idx" ON "score" USING btree ("station_id","at");--> statement-breakpoint
-CREATE INDEX "score_live_judge_idx" ON "score" USING btree ("at","id") WHERE "score"."source" = 'judge' and "score"."origin" = 'live';--> statement-breakpoint
+CREATE INDEX "score_live_judge_idx" ON "score" USING btree ("at","id") WHERE "score"."origin" = 'live';--> statement-breakpoint
 CREATE INDEX "score_task_idx" ON "score" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "score_workspace_idx" ON "score" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "station_alert_station_idx" ON "station_alert" USING btree ("station_id","fired_at");--> statement-breakpoint

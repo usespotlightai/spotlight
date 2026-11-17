@@ -1,4 +1,7 @@
-import type { JudgeDisagreementResponseDto } from '@/lib/api';
+import type {
+  JudgeDisagreementResponseDto,
+  JudgeScoreResponseDto,
+} from '@/lib/api';
 import type { RunScores } from '@/lib/judge';
 import {
   acceptedRun,
@@ -6,7 +9,12 @@ import {
   claimsChangedRun,
   labelGoneRun,
   mergedRun,
+  type Opening,
+  openingOfRun,
+  passedRun,
   sentBackRun,
+  verdictsAgreeRun,
+  type Withdrawal,
 } from '@/mocks/world/disagreement-runs';
 import {
   ACCEPTED_DISAGREEMENT_ID,
@@ -19,21 +27,19 @@ import {
   SENT_BACK_DISAGREEMENT_ID,
   WITHDRAWN_DISAGREEMENT_ID,
 } from '@/mocks/world/inbox';
-import {
-  lineOfStation,
-  minutesAfter,
-  runEnded,
-} from '@/mocks/world/inbox-places';
-import { pastScoresOf, seedRunScores } from '@/mocks/world/inbox-scores';
-import type { HistoryRun } from '@/mocks/world/insights-history';
-import { MAYA, SAM, TOM } from '@/mocks/world/people';
+import { lineOfStation, minutesAfter } from '@/mocks/world/inbox-places';
+import { judgedScoresOf, seedRunScores } from '@/mocks/world/inbox-scores';
+import { SAM, TOM } from '@/mocks/world/people';
+import { labelPasses } from '@/mocks/world/run-labels';
 
-const claimsOf = (scores: RunScores): JudgeDisagreementResponseDto['claims'] =>
-  scores.claims.map((text, index) => ({
+const claimsOf = (
+  judge: JudgeScoreResponseDto,
+): JudgeDisagreementResponseDto['claims'] =>
+  judge.claims.map((text, index) => ({
     index,
-    text: text ?? '',
-    judgeMet: scores.judge?.claimResults[index] ?? false,
-    reasons: (scores.judge?.reasons ?? [])
+    text,
+    judgeMet: judge.claimResults[index] ?? false,
+    reasons: judge.reasons
       .filter((reason) => reason.claim === index)
       .map((reason) => ({
         text: reason.text,
@@ -45,32 +51,30 @@ const claimsOf = (scores: RunScores): JudgeDisagreementResponseDto['claims'] =>
       })),
   }));
 
-const disputedOf = (scores: RunScores, labelFrom: string): number[] => {
-  const judged = scores.judge?.claimResults ?? [];
-  const graded = scores.grades[0]?.claimResults;
-
-  if (labelFrom === 'grade' && graded?.length === judged.length) {
-    return judged.flatMap((met, at) => (met === graded[at] ? [] : [at]));
-  }
-
-  return scores.judge?.passes
+const disputedOf = (judge: JudgeScoreResponseDto): number[] =>
+  judge.passes
     ? []
-    : judged.flatMap((met, at) => (met ? [] : [at]));
-};
+    : judge.claimResults.flatMap((met, at) => (met ? [] : [at]));
 
 const disagreementFrom = (
   id: string,
-  scores: RunScores | undefined,
-  openedAt: string,
-  over: Partial<JudgeDisagreementResponseDto> = {},
+  scores: RunScores | null,
+  opening: Opening | null,
+  withdrawal: Pick<
+    JudgeDisagreementResponseDto,
+    'withdrawnAt' | 'withdrawnBecause'
+  > | null = null,
 ): JudgeDisagreementResponseDto | null => {
   const judge = scores?.judge;
 
-  if (!scores || !judge) {
+  if (
+    !scores ||
+    !judge ||
+    !opening ||
+    judge.passes === labelPasses(opening.labelFrom)
+  ) {
     return null;
   }
-
-  const labelFrom = over.labelFrom ?? scores.outcome?.source ?? 'grade';
 
   return {
     id,
@@ -80,51 +84,48 @@ const disagreementFrom = (
     stationId: scores.stationId,
     rubricVersion: judge.rubricVersion,
     direction: judge.passes ? 'judge-passed' : 'judge-failed',
-    labelFrom,
-    openedAt,
-    claims: claimsOf(scores),
-    disputedClaims: disputedOf(scores, labelFrom),
-    state: 'open',
-    askedOf: SAM.id,
+    labelFrom: opening.labelFrom,
+    openedAt: opening.openedAt,
+    claims: claimsOf(judge),
+    disputedClaims: disputedOf(judge),
+    state: withdrawal ? 'withdrawn' : 'open',
+    askedOf: opening.askedOf,
     answers: [],
     notMet: null,
-    withdrawnAt: null,
-    withdrawnBecause: null,
-    ...over,
+    withdrawnAt: withdrawal?.withdrawnAt ?? null,
+    withdrawnBecause: withdrawal?.withdrawnBecause ?? null,
   };
 };
 
 const seededDisagreement = (
   id: string,
   runId: string,
-  over: Partial<JudgeDisagreementResponseDto> = {},
 ): JudgeDisagreementResponseDto | null =>
   disagreementFrom(
     id,
-    seedRunScores([runId])[runId],
-    minutesAfter(runEnded(runId), 95),
-    over,
+    seedRunScores([runId])[runId] ?? null,
+    openingOfRun(runId),
   );
-
-const endOf = (run: HistoryRun): string =>
-  run.endedAt ?? new Date(run.at).toISOString();
 
 const pastDisagreement = (
   id: string,
-  run: HistoryRun | null,
-  over: Partial<JudgeDisagreementResponseDto>,
+  opening: Opening | null,
 ): JudgeDisagreementResponseDto | null =>
-  run
-    ? disagreementFrom(
-        id,
-        pastScoresOf(run),
-        minutesAfter(endOf(run), 95),
-        over,
-      )
-    : null;
+  disagreementFrom(id, opening && judgedScoresOf(opening.run), opening);
 
-const withdrawnAfter = (run: HistoryRun | null): string | null =>
-  run ? minutesAfter(endOf(run), 600) : null;
+const withdrawnDisagreement = (
+  id: string,
+  withdrawal: Withdrawal | null,
+  withdrawnBecause: NonNullable<
+    JudgeDisagreementResponseDto['withdrawnBecause']
+  >,
+): JudgeDisagreementResponseDto | null =>
+  disagreementFrom(
+    id,
+    withdrawal && judgedScoresOf(withdrawal.run),
+    withdrawal,
+    withdrawal && { withdrawnAt: withdrawal.withdrawnAt, withdrawnBecause },
+  );
 
 export const seedJudgeDisagreements = (): Record<
   string,
@@ -133,39 +134,26 @@ export const seedJudgeDisagreements = (): Record<
   Object.fromEntries(
     [
       seededDisagreement(FAILED_DISAGREEMENT_ID, 'run_search_2'),
-      seededDisagreement(PASSED_DISAGREEMENT_ID, 'run_postgres_2'),
-      seededDisagreement(WITHDRAWN_DISAGREEMENT_ID, 'run_billing_1', {
-        labelFrom: 'accepted',
-        state: 'withdrawn',
-        withdrawnAt: minutesAfter(runEnded('run_billing_1'), 180),
-        withdrawnBecause: 'verdicts-agree',
-      }),
-      pastDisagreement(SENT_BACK_DISAGREEMENT_ID, sentBackRun(), {
-        labelFrom: 'sent-back',
-      }),
-      pastDisagreement(ACCEPTED_DISAGREEMENT_ID, acceptedRun(), {
-        labelFrom: 'accepted',
-      }),
-      pastDisagreement(MERGED_DISAGREEMENT_ID, mergedRun(), {
-        labelFrom: 'merged',
-        askedOf: null,
-      }),
-      pastDisagreement(ASKED_OF_OTHER_DISAGREEMENT_ID, askedOfOtherRun(), {
-        labelFrom: 'accepted',
-        askedOf: MAYA.id,
-      }),
-      pastDisagreement(CLAIMS_CHANGED_DISAGREEMENT_ID, claimsChangedRun(), {
-        labelFrom: 'accepted',
-        state: 'withdrawn',
-        withdrawnAt: withdrawnAfter(claimsChangedRun()),
-        withdrawnBecause: 'claims-changed',
-      }),
-      pastDisagreement(LABEL_GONE_DISAGREEMENT_ID, labelGoneRun(), {
-        labelFrom: 'sent-back',
-        state: 'withdrawn',
-        withdrawnAt: withdrawnAfter(labelGoneRun()),
-        withdrawnBecause: 'label-gone',
-      }),
+      pastDisagreement(PASSED_DISAGREEMENT_ID, passedRun()),
+      pastDisagreement(SENT_BACK_DISAGREEMENT_ID, sentBackRun()),
+      pastDisagreement(ACCEPTED_DISAGREEMENT_ID, acceptedRun()),
+      pastDisagreement(MERGED_DISAGREEMENT_ID, mergedRun()),
+      pastDisagreement(ASKED_OF_OTHER_DISAGREEMENT_ID, askedOfOtherRun()),
+      withdrawnDisagreement(
+        WITHDRAWN_DISAGREEMENT_ID,
+        verdictsAgreeRun(),
+        'verdicts-agree',
+      ),
+      withdrawnDisagreement(
+        CLAIMS_CHANGED_DISAGREEMENT_ID,
+        claimsChangedRun(),
+        'claims-changed',
+      ),
+      withdrawnDisagreement(
+        LABEL_GONE_DISAGREEMENT_ID,
+        labelGoneRun(),
+        'label-gone',
+      ),
     ].flatMap((disagreement) =>
       disagreement ? [[disagreement.id, disagreement]] : [],
     ),

@@ -7,6 +7,10 @@ import { ReadJudgeDisagreementQuery } from '@insights/application/queries/read-j
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { TeamJudgeDisagreements } from '@insights/application/services/team-judge-disagreements.service';
 import {
+  type LabelSource,
+  passesOn,
+} from '@insights/domain/value-objects/label-source';
+import {
   JudgeDisagreementsInMemory,
   OPENED_AT,
   openDisagreement,
@@ -22,16 +26,16 @@ import { describe, expect, it } from 'vitest';
 const ANSWERED_AT = new Date('2026-10-02T10:00:00.000Z');
 
 const disagreeing = async (
-  personPasses = true,
+  labelFrom: LabelSource = 'accepted',
   askedOf?: UserId,
-  grade?: readonly boolean[],
 ) => {
   const disagreements = new JudgeDisagreementsInMemory();
   await disagreements.add(
     openDisagreement('run_1', {
-      personPasses,
-      claimResults: personPasses ? [true, false, false] : [true, true, true],
-      labelClaims: grade,
+      labelFrom,
+      claimResults: passesOn(labelFrom)
+        ? [true, false, false]
+        : [true, true, true],
       askedOf,
     }),
   );
@@ -182,7 +186,7 @@ describe('answering a judge disagreement', () => {
   });
 
   it('asks what was wrong when the judge passed a run the person failed', async () => {
-    const run = await disagreeing(false);
+    const run = await disagreeing('sent-back');
 
     await run.notMet('It broke the build.', 0);
 
@@ -194,25 +198,8 @@ describe('answering a judge disagreement', () => {
     });
   });
 
-  it('disputes the claims a grade marked otherwise than the judge, and keeps an answer for each', async () => {
-    const run = await disagreeing(false, undefined, [true, false, true]);
-
-    expect((await run.read()).disputedClaims).toEqual([1]);
-
-    await run.answer(1, 'claim-wrong');
-
-    expect(await run.read()).toMatchObject({
-      state: 'answered',
-      answers: [{ claim: 1, answer: 'claim-wrong', note: null }],
-      notMet: null,
-    });
-    await expect(run.notMet('It broke.')).rejects.toMatchObject({
-      kind: 'invalid',
-    });
-  });
-
   it('refuses a claim not in dispute', async () => {
-    const run = await disagreeing(false);
+    const run = await disagreeing('sent-back');
 
     expect((await run.read()).disputedClaims).toEqual([]);
     await expect(run.answer(0, 'claim-wrong')).rejects.toMatchObject({
@@ -248,7 +235,7 @@ describe('answering a judge disagreement', () => {
   });
 
   it('refuses an answer from a team member the question does not ask', async () => {
-    const run = await disagreeing(true, UserId.of('user_ada'));
+    const run = await disagreeing('accepted', UserId.of('user_ada'));
 
     await expect(
       run.answer(1, 'judge-right', null, 'user_grace'),

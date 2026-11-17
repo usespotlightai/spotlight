@@ -40,7 +40,7 @@ export interface PickedCandidate {
 }
 
 const kappaOf = (pairs: readonly VerdictPair[]): number | null =>
-  agreementOf(pairs, []).kappa;
+  agreementOf(pairs).kappa;
 
 const splitAgreementOf = (
   runs: readonly LabelledRun[],

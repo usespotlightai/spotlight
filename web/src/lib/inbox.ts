@@ -380,12 +380,6 @@ export const previewOf = (item: InboxItem): string => {
     return item.resolved ? RESOLVED_PREVIEW : OPEN_PREVIEW;
   }
 
-  if (item.inboxRequest?.form === 'grade') {
-    return item.resolved
-      ? 'Run graded.'
-      : 'A judged run needs your grade. Grades check the judge.';
-  }
-
   const asked = item.lastNote;
 
   if (!asked) {

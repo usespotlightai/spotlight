@@ -4,7 +4,6 @@ export const INBOX_REQUESTS = Symbol('INBOX_REQUESTS');
 
 const INBOX_REQUEST_FORMS = [
   'memories',
-  'grade',
   'alert',
   'judge-disagreement',
 ] as const;

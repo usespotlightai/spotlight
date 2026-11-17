@@ -6,19 +6,14 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
-import { useMembers } from '@/hooks/api/useMembers';
 import { useRunScores } from '@/hooks/api/useRunScores';
 import { notFound } from '@/lib/error';
 import {
-  type ClaimGrade,
   DISAGREES_LABEL,
   DISAGREES_NOTE,
   formatCalibration,
-  formatClaimsMet,
-  formatOutcome,
+  formatLabel,
   formatVerdict,
-  graderColumnName,
-  graderName,
   HIDDEN_VERDICT,
   JUDGE_LABEL,
   PEOPLE_LABEL,
@@ -41,28 +36,6 @@ function VerdictsSkeleton() {
         </dl>
       </div>
     </DetailSection>
-  );
-}
-
-function GradeVerdictValue({
-  grade,
-  judged,
-}: {
-  grade: RunScores['grades'][number];
-  judged: boolean;
-}) {
-  if (judged) {
-    return <span data-slot="grade-verdict">{formatVerdict(grade)}</span>;
-  }
-
-  return (
-    <span
-      data-slot="grade-verdict"
-      className="inline-flex items-center gap-1.5"
-    >
-      {formatVerdict(grade)}
-      <InfoTooltip tooltip={formatClaimsMet(grade.claimResults)} />
-    </span>
   );
 }
 
@@ -105,7 +78,6 @@ type RunJudgeScoreProps = {
 
 export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
   const query = useRunScores(teamId, runId);
-  const members = useMembers(teamId).data;
 
   if (loading(query)) {
     return <VerdictsSkeleton />;
@@ -132,32 +104,16 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
     return null;
   }
 
-  const { judge, calibration, grades, claims, outcome, agrees } = scores;
+  const { judge, calibration, labelFrom, agrees } = scores;
   const unclaimed = judge?.reasons.filter((each) => each.claim === null) ?? [];
-  const [latest] = grades;
-  const grade: ClaimGrade | null =
-    latest && judge && latest.claimResults.length === judge.claimResults.length
-      ? {
-          grader: graderColumnName(latest, members),
-          marks: latest.claimResults,
-        }
-      : null;
 
   return (
     <DetailSection title={VERDICTS_TITLE}>
       <div data-slot="run-judge-score" className="flex flex-col gap-2">
         <dl>
-          {grades.map((each) => (
-            <DetailProperty
-              key={`${each.by}-${each.at}`}
-              name={graderName(each, members)}
-            >
-              <GradeVerdictValue grade={each} judged={judge !== null} />
-            </DetailProperty>
-          ))}
-          {grades.length === 0 && outcome && (
+          {labelFrom && (
             <DetailProperty name={PEOPLE_LABEL}>
-              <span data-slot="run-outcome">{formatOutcome(outcome)}</span>
+              <span data-slot="run-label">{formatLabel(labelFrom)}</span>
             </DetailProperty>
           )}
           <DetailProperty name={JUDGE_LABEL}>
@@ -171,9 +127,8 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
 
         {judge && (
           <ClaimVerdicts
-            claims={claims}
+            claims={judge.claims}
             marks={judge.claimResults}
-            grade={grade}
             reasons={judge.reasons}
           />
         )}

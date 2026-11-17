@@ -2,7 +2,6 @@ import { InvalidInboxRequestError } from '@work/domain/exceptions/invalid-inbox-
 
 export const INBOX_REQUEST_FORMS = [
   'memories',
-  'grade',
   'alert',
   'judge-disagreement',
 ] as const;

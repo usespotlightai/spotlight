@@ -187,22 +187,6 @@ describe('InboxRequest', () => {
       expect(attending({ seesTeam: false })).toBe(false);
     });
 
-    it('asks a grade of everyone who acts on the team, whoever the task is assigned to', () => {
-      expect(attending({ form: 'grade', seesTeam: false })).toBe(true);
-      expect(attending({ form: 'grade', viewer: BEA, assignee: ADA })).toBe(
-        true,
-      );
-      expect(attending({ form: 'grade', actsOnTeam: false })).toBe(false);
-      expect(
-        attending({
-          form: 'grade',
-          viewer: ADA,
-          assignee: ADA,
-          actsOnTeam: false,
-        }),
-      ).toBe(false);
-    });
-
     it('creates an alert for everyone who acts on the team, whoever the task is assigned to', () => {
       expect(attending({ form: 'alert', seesTeam: false })).toBe(true);
       expect(attending({ form: 'alert', viewer: BEA, assignee: ADA })).toBe(
@@ -230,7 +214,6 @@ describe('InboxRequest', () => {
 
     it('needs only the access its form requires', () => {
       expect(InboxRequest.requiredAccess('memories')).toBe('seesTeam');
-      expect(InboxRequest.requiredAccess('grade')).toBe('actsOnTeam');
       expect(InboxRequest.requiredAccess('alert')).toBe('actsOnTeam');
       expect(InboxRequest.requiredAccess('judge-disagreement')).toBe(
         'seesTeam',

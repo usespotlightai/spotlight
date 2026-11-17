@@ -14,7 +14,6 @@ import { taskPullRequestOf } from '@insights/insights.fake-spec';
 import {
   judgeScore,
   NEXT_RUBRIC_VERSION,
-  personGrade,
   RUBRIC_VERSION,
   ScoresInMemory,
 } from '@insights/judging.fake-spec';
@@ -26,7 +25,6 @@ import {
   WORKSPACE,
 } from '@insights/runs.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -63,8 +61,11 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
     );
     await scores.add(judgeScore(runId, [at % 2 === 0]));
   }
-  await records.add(endedRecord('run_unjudged', { taskId: 'task_unjudged' }));
-  await scores.add(personGrade('run_unjudged', [true]));
+  await records.add(
+    endedRecord('run_unjudged', { taskId: 'task_unjudged' }).recordAction(
+      HumanAction.of('accepted', AT),
+    ),
+  );
 
   return new StationJudgeReports(
     {
@@ -121,16 +122,19 @@ const judgedAcross = async () => {
   for (let at = 0; at < 10; at += 1) {
     const runId = `run_2_${at}`;
     const taskId = `task_2_${at}`;
-    await records.add(endedRecord(runId, { taskId, stationId: 'station_2' }));
+    const record = endedRecord(runId, { taskId, stationId: 'station_2' });
+    await records.add(
+      at % 2 === 0
+        ? record.recordAction(HumanAction.of('sent-back', AT))
+        : record,
+    );
     await scores.add(
       judgeScore(runId, [at < 3 || at % 2 === 1], {
         stationId: 'station_2',
         taskId,
       }),
     );
-    if (at % 2 === 0) {
-      await scores.add(personGrade(runId, [at % 2 === 1], { taskId }));
-    } else {
+    if (at % 2 === 1) {
       await taskPullRequests.add(
         taskPullRequestOf(taskId, { openedAt: AT, closedAt: AT, merged: true }),
       );
@@ -189,13 +193,6 @@ const oneByOne = async (
         })
       : [];
   const runFacts = await facts.ofRuns(judged.map((each) => each.runId));
-  const grades = (
-    await facts.scoresOfRuns(
-      [
-        ...new Set([...runFacts, ...judged].map((each) => each.runId.value)),
-      ].map(RunId.of),
-    )
-  ).filter((each) => !each.fromJudge);
 
   return {
     stationId: station.stationId,
@@ -203,7 +200,6 @@ const oneByOne = async (
     ...calibrationIn(
       judgeReportOf({
         judged,
-        grades,
         facts: runFacts,
         covering: [],
       }),

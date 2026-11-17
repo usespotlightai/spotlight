@@ -22,6 +22,7 @@ const calibrated = (
   new StationJudgeCalibrations({
     calibrationAt: async () => ({
       rubricVersion,
+      rubric: null,
       calibration: {
         qualified: false,
         agreement: null,

@@ -30,8 +30,6 @@ const as = (userId: string, path: string) =>
 
 const scores = () => `/api/teams/${team.teamId.value}/runs/${RUN}/scores`;
 
-const grades = () => `/api/teams/${team.teamId.value}/runs/${RUN}/grades`;
-
 const inbox = () => `/api/workspaces/${team.slug}/inbox`;
 
 const inboxRequestsIn = async (userId: string): Promise<string[]> => {
@@ -179,7 +177,7 @@ describe('who may read how a station’s judge agrees with people', () => {
   });
 });
 
-describe('who may grade a team’s runs and read their scores', () => {
+describe('who may read the scores of a team’s runs', () => {
   it('answers a member of the team', async () => {
     expect((await as(team.owner.value, scores())).status).toBe(200);
   });
@@ -190,14 +188,6 @@ describe('who may grade a team’s runs and read their scores', () => {
 
   it('finds no team for a workspace member who is only on another team', async () => {
     expect((await as(ELSEWHERE_IN_WORKSPACE, scores())).status).toBe(404);
-    expect(
-      (
-        await served(app)
-          .post(grades())
-          .set(TEST_USER_HEADER, ELSEWHERE_IN_WORKSPACE)
-          .send({ value: true })
-      ).status,
-    ).toBe(404);
   });
 });
 
@@ -294,31 +284,31 @@ describe('who is told which memories a run used on a deleted team’s line', () 
   });
 });
 
-describe('who is asked to grade a team’s run in their inbox', () => {
+describe('who is alerted about a team’s station in their inbox', () => {
   let unassigned: string;
   let assignedElsewhere: string;
 
   beforeAll(async () => {
-    unassigned = await createInboxRequest('grade', null);
+    unassigned = await createInboxRequest('alert', null);
     assignedElsewhere = await createInboxRequest(
-      'grade',
+      'alert',
       ELSEWHERE_IN_WORKSPACE,
     );
   });
 
-  it('asks a member of the team, whoever the task is assigned to', async () => {
+  it('alerts a member of the team, whoever the task is assigned to', async () => {
     expect(await inboxRequestsIn(team.owner.value)).toEqual(
       expect.arrayContaining([unassigned, assignedElsewhere]),
     );
   });
 
-  it('asks an admin of the workspace who is not on the team, whoever the task is assigned to', async () => {
+  it('alerts an admin of the workspace who is not on the team, whoever the task is assigned to', async () => {
     expect(await inboxRequestsIn(ADMIN)).toEqual(
       expect.arrayContaining([unassigned, assignedElsewhere]),
     );
   });
 
-  it('asks no workspace member who is only on another team, nor lets them read it, even when the task is theirs', async () => {
+  it('alerts no workspace member who is only on another team, nor lets them read it, even when the task is theirs', async () => {
     const inboxRequests = await inboxRequestsIn(ELSEWHERE_IN_WORKSPACE);
 
     expect(inboxRequests).not.toContain(unassigned);
@@ -350,7 +340,7 @@ describe('who is asked about a judge’s disagreement in their inbox', () => {
     );
   });
 
-  it('asks only the person who gave the outcome, whoever the task is assigned to', async () => {
+  it('asks only the person whose action gave the label, whoever the task is assigned to', async () => {
     const owners = await inboxRequestsIn(team.owner.value);
     const admins = await inboxRequestsIn(ADMIN);
 
@@ -414,31 +404,6 @@ describe('who may read a team’s Insights', () => {
           .get(overview())
           .set('Authorization', `Bearer ${token}`)
       ).status,
-    ).toBe(404);
-  });
-});
-
-describe('who is alerted about a team’s station in their inbox', () => {
-  let alertRequest: string;
-
-  beforeAll(async () => {
-    alertRequest = await createInboxRequest('alert', null);
-  });
-
-  it('alerts a member of the team', async () => {
-    expect(await inboxRequestsIn(team.owner.value)).toContain(alertRequest);
-  });
-
-  it('alerts an admin of the workspace who is not on the team', async () => {
-    expect(await inboxRequestsIn(ADMIN)).toContain(alertRequest);
-  });
-
-  it('alerts no workspace member who is only on another team, nor lets them read it', async () => {
-    expect(await inboxRequestsIn(ELSEWHERE_IN_WORKSPACE)).not.toContain(
-      alertRequest,
-    );
-    expect(
-      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, alertRequest)).status,
     ).toBe(404);
   });
 });

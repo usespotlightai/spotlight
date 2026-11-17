@@ -29,7 +29,7 @@ const QUALIFIED: JudgeCalibration = {
 const reportOf = (rubricVersion: string): RubricReport => ({
   rubricVersion,
   judged: 4,
-  agreement: agreementOf([], []),
+  agreement: agreementOf([]),
   trend: [
     { day: '2026-09-30', judged: 4, judge: 0.75, labelled: 3, people: 0.67 },
   ],
@@ -79,14 +79,11 @@ describe('rubricVersionOf distribution', () => {
     const version = rubricVersionOf(
       {
         ...reportOf(CURRENT),
-        agreement: agreementOf(
-          [
-            { judge: true, human: true },
-            { judge: true, human: false },
-            { judge: false, human: false },
-          ],
-          [],
-        ),
+        agreement: agreementOf([
+          { judge: true, human: true },
+          { judge: true, human: false },
+          { judge: false, human: false },
+        ]),
       },
       CURRENT,
       QUALIFIED,
@@ -105,7 +102,7 @@ describe('rubricVersionOf agreement', () => {
     rubricVersionOf(
       {
         ...reportOf(CURRENT),
-        agreement: agreementOf(pairs, []),
+        agreement: agreementOf(pairs),
       },
       CURRENT,
       QUALIFIED,

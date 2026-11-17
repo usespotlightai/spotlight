@@ -26,6 +26,7 @@ import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
 import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
 import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
@@ -61,6 +62,7 @@ export const INSIGHTS_PAYLOAD_TYPES = [
   TaskOpening,
   ViewedTeam,
   HumanAction,
+  HumanLabel,
   RunUsage,
   RunEnd,
   RunFact,

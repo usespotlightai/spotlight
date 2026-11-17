@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { ClaimMarks } from '@/components/features/runs/judge/ClaimMarks';
+import { ClaimMark } from '@/components/features/runs/judge/ClaimMark';
 import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
 import { NumberedClaim } from '@/components/features/runs/judge/NumberedClaim';
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
@@ -9,9 +9,8 @@ import type { JudgeReason } from '@/lib/judge';
 
 type ClaimVerdictRowProps = {
   index: number;
-  text: string | null | undefined;
-  marks: readonly (boolean | null)[];
-  scorers: readonly string[];
+  text: string | undefined;
+  met: boolean;
   reasons: readonly JudgeReason[];
   defaultOpen: boolean;
 };
@@ -19,8 +18,7 @@ type ClaimVerdictRowProps = {
 export function ClaimVerdictRow({
   index,
   text,
-  marks,
-  scorers,
+  met,
   reasons,
   defaultOpen,
 }: ClaimVerdictRowProps) {
@@ -57,7 +55,9 @@ export function ClaimVerdictRow({
             <NumberedClaim index={index}>{text}</NumberedClaim>
           </span>
         )}
-        <ClaimMarks marks={marks} scorers={scorers} />
+        <span className="flex shrink-0 pr-1">
+          <ClaimMark met={met} />
+        </span>
       </div>
       {shown && (
         <JudgeReasons
