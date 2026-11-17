@@ -12,7 +12,11 @@ import {
   claimsChangedRun,
   labelGoneRun,
   mergedRun,
+  type Opening,
+  openingOfRun,
+  passedRun,
   sentBackRun,
+  verdictsAgreeRun,
 } from '@/mocks/world/disagreement-runs';
 import { GROWTH_ID } from '@/mocks/world/growth';
 import {
@@ -28,7 +32,6 @@ import {
   runsOfTask,
   seededTask,
 } from '@/mocks/world/inbox-places';
-import type { HistoryRun } from '@/mocks/world/insights-history';
 import { pastTaskOf } from '@/mocks/world/past-work';
 import { PLATFORM_ID } from '@/mocks/world/platform';
 import { notesOfRun, type StoryNote } from '@/mocks/world/run-stories';
@@ -103,11 +106,12 @@ export const COST_ALERT_REQUEST_ID = 'request_cost_alert';
 export const COST_ALERT_ID = 'alert_cost_per_run';
 export const DECIDED_MEMORIES_REQUEST_ID = 'request_disk_memories';
 export const FAILED_DISAGREEMENT_ID = 'disagreement_search_2';
-export const PASSED_DISAGREEMENT_ID = 'disagreement_postgres_2';
+export const PASSED_DISAGREEMENT_ID = 'disagreement_passed';
 export const FAILED_DISAGREEMENT_REQUEST_ID = 'request_search_disagreement';
-export const PASSED_DISAGREEMENT_REQUEST_ID = 'request_postgres_disagreement';
-export const WITHDRAWN_DISAGREEMENT_ID = 'disagreement_billing_1';
-export const WITHDRAWN_DISAGREEMENT_REQUEST_ID = 'request_billing_disagreement';
+export const PASSED_DISAGREEMENT_REQUEST_ID = 'request_passed_disagreement';
+export const WITHDRAWN_DISAGREEMENT_ID = 'disagreement_verdicts_agree';
+export const WITHDRAWN_DISAGREEMENT_REQUEST_ID =
+  'request_verdicts_agree_disagreement';
 export const SENT_BACK_DISAGREEMENT_ID = 'disagreement_sent_back';
 export const SENT_BACK_DISAGREEMENT_REQUEST_ID =
   'request_sent_back_disagreement';
@@ -402,62 +406,87 @@ const alertInboxRequest = (
       ]
     : [];
 
-const pastDisagreementRequest = (
-  id: string,
-  about: string,
-  run: HistoryRun | null,
+type DisagreementRequest = {
+  readonly id: string;
+  readonly about: string;
+  readonly opening: Opening | null;
+  readonly unread?: boolean;
+  readonly resolved?: boolean;
+};
+
+const disagreementRequest = ({
+  id,
+  about,
+  opening,
+  unread = false,
   resolved = false,
-): InboxConversation[] =>
-  run
+}: DisagreementRequest): InboxConversation[] =>
+  opening
     ? [
         inboxRequestOf({
           id,
-          taskId: run.taskId,
+          taskId: opening.run.taskId,
           teamId: PLATFORM_ID,
-          askedAt: minutesAfter(
-            run.endedAt ?? new Date(run.at).toISOString(),
-            95,
-          ),
+          askedAt: opening.openedAt,
+          unread,
           resolved,
           inboxRequest: { form: 'judge-disagreement', about },
         }),
       ]
     : [];
 
-const pastDisagreementRequests = (): InboxConversation[] => [
-  ...pastDisagreementRequest(
-    SENT_BACK_DISAGREEMENT_REQUEST_ID,
-    SENT_BACK_DISAGREEMENT_ID,
-    sentBackRun(),
-  ),
-  ...pastDisagreementRequest(
-    ACCEPTED_DISAGREEMENT_REQUEST_ID,
-    ACCEPTED_DISAGREEMENT_ID,
-    acceptedRun(),
-  ),
-  ...pastDisagreementRequest(
-    MERGED_DISAGREEMENT_REQUEST_ID,
-    MERGED_DISAGREEMENT_ID,
-    mergedRun(),
-  ),
-  ...pastDisagreementRequest(
-    ASKED_OF_OTHER_DISAGREEMENT_REQUEST_ID,
-    ASKED_OF_OTHER_DISAGREEMENT_ID,
-    askedOfOtherRun(),
-  ),
-  ...pastDisagreementRequest(
-    CLAIMS_CHANGED_DISAGREEMENT_REQUEST_ID,
-    CLAIMS_CHANGED_DISAGREEMENT_ID,
-    claimsChangedRun(),
-    true,
-  ),
-  ...pastDisagreementRequest(
-    LABEL_GONE_DISAGREEMENT_REQUEST_ID,
-    LABEL_GONE_DISAGREEMENT_ID,
-    labelGoneRun(),
-    true,
-  ),
-];
+const disagreementRequests = (): InboxConversation[] =>
+  [
+    {
+      id: FAILED_DISAGREEMENT_REQUEST_ID,
+      about: FAILED_DISAGREEMENT_ID,
+      opening: openingOfRun('run_search_2'),
+      unread: true,
+    },
+    {
+      id: PASSED_DISAGREEMENT_REQUEST_ID,
+      about: PASSED_DISAGREEMENT_ID,
+      opening: passedRun(),
+    },
+    {
+      id: SENT_BACK_DISAGREEMENT_REQUEST_ID,
+      about: SENT_BACK_DISAGREEMENT_ID,
+      opening: sentBackRun(),
+    },
+    {
+      id: ACCEPTED_DISAGREEMENT_REQUEST_ID,
+      about: ACCEPTED_DISAGREEMENT_ID,
+      opening: acceptedRun(),
+    },
+    {
+      id: MERGED_DISAGREEMENT_REQUEST_ID,
+      about: MERGED_DISAGREEMENT_ID,
+      opening: mergedRun(),
+    },
+    {
+      id: ASKED_OF_OTHER_DISAGREEMENT_REQUEST_ID,
+      about: ASKED_OF_OTHER_DISAGREEMENT_ID,
+      opening: askedOfOtherRun(),
+    },
+    {
+      id: WITHDRAWN_DISAGREEMENT_REQUEST_ID,
+      about: WITHDRAWN_DISAGREEMENT_ID,
+      opening: verdictsAgreeRun(),
+      resolved: true,
+    },
+    {
+      id: CLAIMS_CHANGED_DISAGREEMENT_REQUEST_ID,
+      about: CLAIMS_CHANGED_DISAGREEMENT_ID,
+      opening: claimsChangedRun(),
+      resolved: true,
+    },
+    {
+      id: LABEL_GONE_DISAGREEMENT_REQUEST_ID,
+      about: LABEL_GONE_DISAGREEMENT_ID,
+      opening: labelGoneRun(),
+      resolved: true,
+    },
+  ].flatMap(disagreementRequest);
 
 const INBOX_REQUESTS = (): InboxConversation[] => [
   inboxRequestOf({
@@ -478,33 +507,7 @@ const INBOX_REQUESTS = (): InboxConversation[] => [
   }),
   ...alertInboxRequest(ALERT_REQUEST_ID, ALERT_ID, alertFiring()),
   ...alertInboxRequest(COST_ALERT_REQUEST_ID, COST_ALERT_ID, costAlertFiring()),
-  inboxRequestOf({
-    id: FAILED_DISAGREEMENT_REQUEST_ID,
-    taskId: 'task_search',
-    teamId: PLATFORM_ID,
-    askedAt: minutesAfter(runEnded('run_search_2'), 95),
-    unread: true,
-    inboxRequest: { form: 'judge-disagreement', about: FAILED_DISAGREEMENT_ID },
-  }),
-  inboxRequestOf({
-    id: PASSED_DISAGREEMENT_REQUEST_ID,
-    taskId: 'task_postgres',
-    teamId: PLATFORM_ID,
-    askedAt: minutesAfter(runEnded('run_postgres_2'), 95),
-    inboxRequest: { form: 'judge-disagreement', about: PASSED_DISAGREEMENT_ID },
-  }),
-  inboxRequestOf({
-    id: WITHDRAWN_DISAGREEMENT_REQUEST_ID,
-    taskId: 'task_billing',
-    teamId: PLATFORM_ID,
-    askedAt: minutesAfter(runEnded('run_billing_1'), 95),
-    resolved: true,
-    inboxRequest: {
-      form: 'judge-disagreement',
-      about: WITHDRAWN_DISAGREEMENT_ID,
-    },
-  }),
-  ...pastDisagreementRequests(),
+  ...disagreementRequests(),
 ];
 
 const SETUP_ABOUT = {

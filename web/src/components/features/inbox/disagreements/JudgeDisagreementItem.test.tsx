@@ -342,7 +342,13 @@ describe('JudgeDisagreementItem', () => {
   it('shows the judge’s mark on each claim in dispute', () => {
     showing(failedDisagreementOf());
 
-    expect(screen.getAllByText('Judge', { selector: 'dt' })).toHaveLength(2);
+    for (const each of cards()) {
+      expect(
+        within(each)
+          .getByText('Judge', { selector: 'dt' })
+          .nextElementSibling?.querySelector('[data-slot="claim-mark"]'),
+      ).toHaveTextContent('Not met');
+    }
   });
 
   it('lets anyone in the team answer each card of a question asked of the team', () => {

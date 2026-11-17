@@ -108,7 +108,7 @@ export const JudgeClaimsPullRequestBody = {
       `## Judge claims of the ${facts.lineKey} / ${facts.stationKey} station`,
       '',
       BECAUSE[facts.trigger],
-      'Spotlight judged the stored evidence of labelled runs again with new claims. It picked the claims on the searched runs and checked them on held-out runs.',
+      'Spotlight judged the stored evidence of runs with people’s verdict again with new claims. It picked the claims on the searched runs and checked them on held-out runs.',
       '',
       '| Agreement with people (kappa) | Searched runs | Held-out runs |',
       '| --- | --- | --- |',
@@ -119,7 +119,7 @@ export const JudgeClaimsPullRequestBody = {
       ...changesOf(facts),
       ...disagreementsOf(facts),
       '',
-      'This pull request changes only the claims of the judge. When you merge it, Spotlight judges the newest labelled runs again with the new claims.',
+      'This pull request changes only the claims of the judge. When you merge it, Spotlight judges the newest runs with people’s verdict again with the new claims.',
     ].join('\n');
   },
 };

@@ -104,16 +104,16 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
     return null;
   }
 
-  const { judge, calibration, claims, label, agrees } = scores;
+  const { judge, calibration, labelFrom, agrees } = scores;
   const unclaimed = judge?.reasons.filter((each) => each.claim === null) ?? [];
 
   return (
     <DetailSection title={VERDICTS_TITLE}>
       <div data-slot="run-judge-score" className="flex flex-col gap-2">
         <dl>
-          {label && (
+          {labelFrom && (
             <DetailProperty name={PEOPLE_LABEL}>
-              <span data-slot="run-label">{formatLabel(label)}</span>
+              <span data-slot="run-label">{formatLabel(labelFrom)}</span>
             </DetailProperty>
           )}
           <DetailProperty name={JUDGE_LABEL}>
@@ -127,7 +127,7 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
 
         {judge && (
           <ClaimVerdicts
-            claims={claims}
+            claims={judge.claims}
             marks={judge.claimResults}
             reasons={judge.reasons}
           />

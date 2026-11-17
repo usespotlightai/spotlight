@@ -538,15 +538,18 @@ describe('how often the judge agrees with people', () => {
     });
 
     expect(await views.of(access, 'run_0')).toMatchObject({
-      claims: ['It retries the upload.'],
       judged: true,
-      judge: { passes: true, rubricVersion: VERSION },
-      label: { from: 'accepted' },
+      judge: {
+        claims: ['It retries the upload.'],
+        passes: true,
+        rubricVersion: VERSION,
+      },
+      labelFrom: 'accepted',
       agrees: true,
     });
     expect(await views.of(access, 'run_1')).toMatchObject({
       judge: { passes: false },
-      label: { from: 'sent-back' },
+      labelFrom: 'sent-back',
       agrees: true,
     });
   });

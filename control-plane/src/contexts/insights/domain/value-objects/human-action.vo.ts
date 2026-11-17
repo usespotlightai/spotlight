@@ -1,4 +1,8 @@
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
+import {
+  type LabelSource,
+  passesOn,
+} from '@insights/domain/value-objects/label-source';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const TASK_ACTIONS = [
@@ -27,6 +31,17 @@ const FIRST_AT_THE_SAME_MOMENT: readonly HumanActionKind[] = [
   'started',
 ];
 
+const LABEL_OF: Record<HumanActionKind, LabelSource | null> = {
+  started: null,
+  parked: null,
+  accepted: 'accepted',
+  answered: null,
+  'sent-back': 'sent-back',
+  held: 'held',
+  approved: null,
+  dismissed: null,
+};
+
 export const humanActionKindOf = (raw: string): HumanActionKind | null =>
   HUMAN_ACTION_KINDS.find((each) => each === raw) ?? null;
 
@@ -54,12 +69,16 @@ export class HumanAction {
     return APPROVAL_ANSWERS.some((each) => each === this.kind);
   }
 
+  get labelFrom(): LabelSource | null {
+    return LABEL_OF[this.kind];
+  }
+
   get accepts(): boolean {
-    return this.kind === 'accepted';
+    return this.labelFrom !== null && passesOn(this.labelFrom);
   }
 
   get rejectsRun(): boolean {
-    return this.kind === 'sent-back' || this.kind === 'held';
+    return this.labelFrom !== null && !passesOn(this.labelFrom);
   }
 
   dismissalOf(acted: ActedOnTool): Dismissal | null {

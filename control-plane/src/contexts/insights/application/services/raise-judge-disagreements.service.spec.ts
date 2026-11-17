@@ -8,6 +8,7 @@ import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.e
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { JudgeDisagreementVersionConflictError } from '@insights/domain/exceptions/judge-disagreement-version-conflict.error';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
 import {
   type Acted,
@@ -348,6 +349,29 @@ describe('RaiseJudgeDisagreements', () => {
         added,
       };
     };
+
+    it('withdraws the disagreement a merge opened once a person sends the run back, since people now agree with the judge', async () => {
+      const { records, disagreements, raising, score, visit, added } =
+        await visits();
+      const run = visit('run_1', 10);
+      await added(run);
+      await raising.scoreRecorded(recordedOf(score));
+
+      expect([...disagreements.stored.values()][0]?.labelFrom).toBe('merged');
+
+      await records.save(
+        run.recordAction(
+          HumanAction.of('sent-back', day('2026-09-30', 14), ACTOR),
+        ),
+      );
+      await raising.outcomeChanged(
+        new RunOutcomeChanged(RunId.of('run_1'), WORKSPACE, score.location),
+      );
+
+      const [disagreement] = [...disagreements.stored.values()];
+      expect(disagreement?.state).toBe('withdrawn');
+      expect(disagreement?.withdrawnBecause).toBe('verdicts-agree');
+    });
 
     it('withdraws the first visit’s disagreement once a later visit of the station completes and takes the merge', async () => {
       const { disagreements, raising, score, visit, added } = await visits();

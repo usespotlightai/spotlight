@@ -22,6 +22,7 @@ export function ClaimVerdicts({ claims, marks, reasons }: ClaimVerdictsProps) {
           text={claims[at]}
           met={met}
           reasons={reasons.filter((each) => each.claim === at)}
+          defaultOpen={!met}
         />
       ))}
     </ol>

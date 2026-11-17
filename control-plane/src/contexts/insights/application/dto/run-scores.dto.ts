@@ -29,6 +29,7 @@ export interface JudgeReasonDto {
 }
 
 export interface JudgeScoreDto {
+  readonly claims: readonly string[];
   readonly value: number;
   readonly claimResults: readonly boolean[];
   readonly passes: boolean;
@@ -38,18 +39,13 @@ export interface JudgeScoreDto {
   readonly reasons: readonly JudgeReasonDto[];
 }
 
-export interface RunLabelDto {
-  readonly from: LabelSource;
-}
-
 export interface RunScoresDto {
   readonly runId: string;
   readonly taskId: string;
   readonly stationId: string;
-  readonly claims: readonly string[];
   readonly judged: boolean;
   readonly judge: JudgeScoreDto | null;
   readonly calibration: JudgeCalibrationDto;
-  readonly label: RunLabelDto | null;
+  readonly labelFrom: LabelSource | null;
   readonly agrees: boolean | null;
 }

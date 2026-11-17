@@ -42,6 +42,8 @@ const added = (
 type PastShape =
   | 'accepted'
   | 'passed'
+  | 'merged'
+  | 'sent-back-after-merge'
   | 'sent-back'
   | 'failed'
   | 'stopped'
@@ -54,7 +56,22 @@ export type PastRun = {
   readonly endedHoursAgo: number;
   readonly shape: PastShape;
   readonly visit?: number;
+  readonly judge?: number;
 };
+
+const JUDGE_FAILED = 0.33;
+
+const JUDGE_PASSED = 0.9;
+
+const failedByJudge = (run: PastRun): PastRun => ({
+  ...run,
+  judge: JUDGE_FAILED,
+});
+
+const passedByJudge = (run: PastRun): PastRun => ({
+  ...run,
+  judge: JUDGE_PASSED,
+});
 
 const past = (
   runId: string,
@@ -81,12 +98,14 @@ export const IMPLEMENTATION_HISTORY: readonly PastRun[] = [
     'accepted',
     2,
   ),
-  past(
-    'run_ledger_1',
-    'task_ledger',
-    'Backfill the ledger after the currency fix',
-    52,
-    'passed',
+  failedByJudge(
+    past(
+      'run_ledger_1',
+      'task_ledger',
+      'Backfill the ledger after the currency fix',
+      52,
+      'merged',
+    ),
   ),
   past(
     'run_flaky_billing_3',
@@ -152,6 +171,66 @@ export const IMPLEMENTATION_HISTORY: readonly PastRun[] = [
     'Fix the flaky billing test',
     290,
     'stopped',
+  ),
+  past(
+    'run_statement_email_2',
+    'task_statement_email',
+    'Attach the monthly statement to the billing email',
+    300,
+    'accepted',
+    2,
+  ),
+  failedByJudge(
+    past(
+      'run_usage_alerts_1',
+      'task_usage_alerts',
+      'Alert customers at 80% of their usage quota',
+      310,
+      'accepted',
+    ),
+  ),
+  failedByJudge(
+    past(
+      'run_statement_email_1',
+      'task_statement_email',
+      'Attach the monthly statement to the billing email',
+      330,
+      'merged',
+    ),
+  ),
+  past(
+    'run_invoice_numbers_2',
+    'task_invoice_numbers',
+    'Number invoices per customer',
+    350,
+    'accepted',
+    2,
+  ),
+  past(
+    'run_card_retries_2',
+    'task_card_retries',
+    'Retry declined cards after three days',
+    360,
+    'accepted',
+    2,
+  ),
+  failedByJudge(
+    past(
+      'run_invoice_numbers_1',
+      'task_invoice_numbers',
+      'Number invoices per customer',
+      390,
+      'sent-back-after-merge',
+    ),
+  ),
+  passedByJudge(
+    past(
+      'run_card_retries_1',
+      'task_card_retries',
+      'Retry declined cards after three days',
+      400,
+      'sent-back',
+    ),
   ),
   past(
     'run_dunning_1',

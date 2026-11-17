@@ -6,7 +6,6 @@ import type {
   JudgeCoverageResponseDto,
   JudgeReasonResponseDto,
   RubricVersionResponseDto,
-  RunLabelResponseDto,
   RunScoresResponseDto,
   StationJudgeAgreementResponseDto,
   TrendPointResponseDto,
@@ -27,7 +26,7 @@ export type TrendPoint = TrendPointResponseDto;
 
 export type RunScores = RunScoresResponseDto;
 
-export type RunLabel = RunLabelResponseDto;
+export type LabelSource = NonNullable<RunScores['labelFrom']>;
 
 export type JudgeReason = JudgeReasonResponseDto;
 
@@ -38,14 +37,14 @@ export type CitedHunk = CitedHunkResponseDto;
 export const formatVerdict = (score: { readonly passes: boolean }): string =>
   score.passes ? 'Passed' : 'Failed';
 
-const LABELS: Record<RunLabel['from'], string> = {
+const LABELS: Record<LabelSource, string> = {
   accepted: 'Accepted',
   'sent-back': 'Sent back',
   merged: 'Pull request merged',
   held: 'Put on hold',
 };
 
-export const formatLabel = (label: RunLabel): string => LABELS[label.from];
+export const formatLabel = (from: LabelSource): string => LABELS[from];
 
 export const formatJudgeVerdict = (passes: boolean): string =>
   passes ? 'Passed by the judge' : 'Failed by the judge';

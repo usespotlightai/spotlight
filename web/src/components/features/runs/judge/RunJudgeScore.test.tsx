@@ -124,14 +124,14 @@ describe('RunJudgeScore', () => {
   });
 
   it.each([
-    [{ from: 'accepted' }, 'Accepted'],
-    [{ from: 'sent-back' }, 'Sent back'],
-    [{ from: 'merged' }, 'Pull request merged'],
-    [{ from: 'held' }, 'Put on hold'],
+    ['accepted', 'Accepted'],
+    ['sent-back', 'Sent back'],
+    ['merged', 'Pull request merged'],
+    ['held', 'Put on hold'],
   ] as const)(
-    'shows what people said of the run before the judge’s verdict: %o',
-    (label, shown) => {
-      scores.mockReturnValue(runScoresOf('run_1', 'task_1', { label }));
+    'shows people’s verdict on the run before the judge’s verdict: %s',
+    (labelFrom, shown) => {
+      scores.mockReturnValue(runScoresOf('run_1', 'task_1', { labelFrom }));
       showing();
 
       const names = [...document.querySelectorAll('dt')].map(
@@ -147,7 +147,7 @@ describe('RunJudgeScore', () => {
   it('marks a verdict of the judge that people disagree with', () => {
     scores.mockReturnValue(
       runScoresOf('run_1', 'task_1', {
-        label: { from: 'accepted' },
+        labelFrom: 'accepted',
         agrees: false,
       }),
     );

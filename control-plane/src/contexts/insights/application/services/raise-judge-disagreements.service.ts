@@ -8,7 +8,6 @@ import type { RunRecordEnded } from '@insights/domain/events/run-record-ended.ev
 import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { JudgeDisagreementVersionConflictError } from '@insights/domain/exceptions/judge-disagreement-version-conflict.error';
 import type { JudgeDisagreementRepository } from '@insights/domain/repositories/judge-disagreement.repository';
-import { latestJudgeOf } from '@insights/domain/services/judge-verdict';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import type { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
 import { JudgeDisagreementId } from '@insights/domain/value-objects/judge-disagreement-id.vo';
@@ -34,15 +33,13 @@ export interface JudgedLineChanged {
 
 const WITHDRAWN_AT_ONCE = 100;
 
-const newestLiveOf = (
+const liveJudgeOf = (
   scores: readonly Scored[],
   rubric: Rubric,
 ): Scored | null =>
-  latestJudgeOf(
-    scores.filter(
-      (each) => each.origin === LIVE && each.rubricVersion === rubric.version,
-    ),
-  );
+  scores.find(
+    (each) => each.origin === LIVE && each.rubricVersion === rubric.version,
+  ) ?? null;
 
 export interface Reconsidered {
   readonly runId: RunId;
@@ -174,7 +171,7 @@ export class RaiseJudgeDisagreements {
       return;
     }
 
-    const live = newestLiveOf(scores, rubric);
+    const live = liveJudgeOf(scores, rubric);
 
     if (live && !label.agreesWith(live)) {
       await this.opening({ runId, workspaceId, rubric, live, label });
@@ -245,9 +242,9 @@ export class RaiseJudgeDisagreements {
                 rubricVersion: live.rubricVersion,
                 claims: rubric.claims,
                 claimResults: live.claimResults,
-                passes: live.passes,
                 reasons: live.reasons,
               },
+              judgePasses: live.passes,
               labelFrom: label.from,
               askedOf: label.by,
               now: this.clock.now(),

@@ -876,6 +876,54 @@ const worldRuns = (
 
 const NAMED_PEOPLE = [SAM.id, MAYA.id, TOM.id, PRIYA.id];
 
+type PastShape = PastRun['shape'];
+
+const PASSED_ON_SHAPES: readonly PastShape[] = [
+  'accepted',
+  'passed',
+  'merged',
+  'sent-back-after-merge',
+];
+
+const MERGING_SHAPES: readonly PastShape[] = [
+  'accepted',
+  'merged',
+  'sent-back-after-merge',
+];
+
+const MERGED_AFTER_PASS_HOURS = 2;
+
+const SENT_BACK_AFTER_MERGE_HOURS = 20;
+
+const passedAfterHoursOf = (shape: PastShape): number =>
+  shape === 'accepted' ? 0.6 : 0.4;
+
+const NAMED_FIRST_ACTS: Partial<
+  Record<
+    PastShape,
+    {
+      readonly kind: HumanActionResponseDto['kind'];
+      readonly afterHours: number;
+    }
+  >
+> = {
+  accepted: { kind: 'accepted', afterHours: passedAfterHoursOf('accepted') },
+  'sent-back': { kind: 'sent-back', afterHours: 1.5 },
+  'sent-back-after-merge': {
+    kind: 'sent-back',
+    afterHours: SENT_BACK_AFTER_MERGE_HOURS,
+  },
+};
+
+const namedFirstActOf = (
+  shape: PastShape,
+  later: (hours: number) => string,
+): HumanActionResponseDto | null => {
+  const act = NAMED_FIRST_ACTS[shape];
+
+  return act ? { kind: act.kind, at: later(act.afterHours) } : null;
+};
+
 const namedRunOf = (
   draw: Draw,
   profile: Profile,
@@ -919,28 +967,31 @@ const namedRunOf = (
           : 'completed',
     failure: past.shape === 'failed' ? 'The agent ran out of turns' : null,
     checks: ended ? (past.shape === 'sent-back' ? 'failed' : 'passed') : null,
-    firstHumanAction:
-      past.shape === 'accepted'
-        ? { kind: 'accepted', at: later(0.6) }
-        : past.shape === 'sent-back'
-          ? { kind: 'sent-back', at: later(1.5) }
-          : null,
-    passed:
-      past.shape === 'accepted' || past.shape === 'passed'
-        ? {
-            to: 'station_review',
-            at: reviewAt(past.shape === 'accepted' ? 0.6 : 0.4),
-          }
-        : null,
+    firstHumanAction: namedFirstActOf(past.shape, later),
+    passed: PASSED_ON_SHAPES.includes(past.shape)
+      ? {
+          to: 'station_review',
+          at: reviewAt(passedAfterHoursOf(past.shape)),
+        }
+      : null,
     pullRequestState: null,
     teamId: PLATFORM_ID,
     at: endedAt,
     size: 'medium',
-    judge: null,
+    judge: past.judge ?? null,
     skillsEnabled: version.skills,
     skillsUsed: skillsUsedOf(draw, profile, version.skills),
     calls: [],
   };
+};
+
+const mergedAtOf = (past: PastRun): number | null => {
+  const endedAt = Date.now() - past.endedHoursAgo * HOUR_MS;
+  const passedAt = endedAt + passedAfterHoursOf(past.shape) * HOUR_MS;
+
+  return MERGING_SHAPES.includes(past.shape)
+    ? passedAt + MERGED_AFTER_PASS_HOURS * HOUR_MS
+    : null;
 };
 
 const namedHistory = (): Made => {
@@ -968,9 +1019,8 @@ const namedHistory = (): Made => {
       const first = Math.min(
         ...runs.map((run) => Date.parse(run.startedAt ?? '')),
       );
-      const shipped = runs.find(
-        (run) => run.firstHumanAction?.kind === 'accepted',
-      );
+      const mergeTimes = pasts.flatMap((each) => mergedAtOf(each) ?? []);
+      const mergedAt = mergeTimes.length > 0 ? Math.min(...mergeTimes) : null;
       const delivered = runs.some((run) => run.passed || run.firstHumanAction);
       const pullRequest: PullRequestRecord | null = delivered
         ? {
@@ -980,10 +1030,8 @@ const namedHistory = (): Made => {
             type: 'feature',
             openedAt: Math.min(...runs.map((run) => run.at)) + MINUTE_MS,
             firstReviewAt: null,
-            closedAt: shipped?.firstHumanAction
-              ? Date.parse(shipped.firstHumanAction.at) + 2 * HOUR_MS
-              : null,
-            state: shipped ? 'merged' : 'open',
+            closedAt: mergedAt,
+            state: mergedAt === null ? 'open' : 'merged',
             reviewRounds: runs.length,
             reviewComments: runs.length * 2,
             additions: Math.round(spread(taskId, 40, 220)),

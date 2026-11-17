@@ -144,11 +144,13 @@ const scoresOf = async (
   );
 
 describe('ReadRunScoresHandler', () => {
-  it('names the claims of the judge it shows, and none for a score it keeps to itself', async () => {
-    expect((await scoresOf(true)).claims).toEqual(['It retries the upload.']);
+  it('names the claims of the judge it shows, and shows no judge whose claims changed since', async () => {
+    expect((await scoresOf(true)).judge?.claims).toEqual([
+      'It retries the upload.',
+    ]);
     expect(
-      (await scoresOf(true, 'team_1', NEXT_RUBRIC_VERSION)).claims,
-    ).toEqual([]);
+      (await scoresOf(true, 'team_1', NEXT_RUBRIC_VERSION)).judge,
+    ).toBeNull();
   });
 
   it('lays out a qualified judge’s score with each cited step and hunk as the judge read it', async () => {
@@ -198,14 +200,14 @@ describe('ReadRunScoresHandler', () => {
   it('answers what people did with the run beside a judge that agrees with them', async () => {
     const scores = await scoresOf(true, 'team_1', RUBRIC_VERSION, 'accepted');
 
-    expect(scores.label).toEqual({ from: 'accepted' });
+    expect(scores.labelFrom).toBe('accepted');
     expect(scores.agrees).toBe(true);
   });
 
   it('marks a judge that passed a run people sent back', async () => {
     const scores = await scoresOf(true, 'team_1', RUBRIC_VERSION, 'sent-back');
 
-    expect(scores.label).toEqual({ from: 'sent-back' });
+    expect(scores.labelFrom).toBe('sent-back');
     expect(scores.agrees).toBe(false);
   });
 
@@ -213,14 +215,14 @@ describe('ReadRunScoresHandler', () => {
     const scores = await scoresOf(false, 'team_1', RUBRIC_VERSION, 'accepted');
 
     expect(scores.judge).toBeNull();
-    expect(scores.label).toEqual({ from: 'accepted' });
+    expect(scores.labelFrom).toBe('accepted');
     expect(scores.agrees).toBeNull();
   });
 
   it('answers no label while people did nothing with the run', async () => {
     const scores = await scoresOf(true);
 
-    expect(scores.label).toBeNull();
+    expect(scores.labelFrom).toBeNull();
     expect(scores.agrees).toBeNull();
   });
 

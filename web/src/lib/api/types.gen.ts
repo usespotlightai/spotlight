@@ -6196,6 +6196,10 @@ export type JudgeReasonResponseDto = {
 
 export type JudgeScoreResponseDto = {
   /**
+   * The claims the judge checked, in order
+   */
+  claims: Array<string>;
+  /**
    * The share of claims met
    */
   value: number;
@@ -6213,21 +6217,10 @@ export type JudgeScoreResponseDto = {
   reasons: Array<JudgeReasonResponseDto>;
 };
 
-export type RunLabelResponseDto = {
-  /**
-   * What gave the label: the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task
-   */
-  from: 'accepted' | 'sent-back' | 'merged' | 'held';
-};
-
 export type RunScoresResponseDto = {
   runId: string;
   taskId: string;
   stationId: string;
-  /**
-   * The claims of the judge score shown on the run, in order; empty where no judge score is shown
-   */
-  claims: Array<string>;
   /**
    * Whether the judge checked the run
    */
@@ -6238,9 +6231,9 @@ export type RunScoresResponseDto = {
   judge: JudgeScoreResponseDto | null;
   calibration: JudgeCalibrationResponseDto;
   /**
-   * People’s verdict on the run; none where people said nothing yet
+   * What gave people’s verdict on the run: the first action of a person on it, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task. Null where people said nothing yet
    */
-  label: RunLabelResponseDto | null;
+  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held' | null;
   /**
    * Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or people said nothing yet
    */

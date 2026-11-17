@@ -46,7 +46,8 @@ const citationOf = (citation: Citation, seen: SeenEvidence): CitationDto => {
   };
 };
 
-const judgeOf = (score: Scored): JudgeScoreDto => ({
+const judgeOf = (score: Scored, claims: readonly string[]): JudgeScoreDto => ({
+  claims: [...claims],
   value: score.value,
   claimResults: [...score.claimResults],
   passes: score.passes,
@@ -88,11 +89,10 @@ export class RunScoresViews {
       runId: run.runId.value,
       taskId: run.end.location.taskId.value,
       stationId: run.end.location.stationId.value,
-      claims: judge ? [...(rubric?.claims ?? [])] : [],
       judged: scores.length > 0,
-      judge: judge ? judgeOf(judge) : null,
+      judge: judge && rubric ? judgeOf(judge, rubric.claims) : null,
       calibration: judgeCalibrationOf(calibration),
-      label: label && { from: label.from },
+      labelFrom: label?.from ?? null,
       agrees: judge && label ? label.agreesWith(judge) : null,
     };
   }

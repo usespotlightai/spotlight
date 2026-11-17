@@ -199,6 +199,11 @@ const answerOf = (context: Context, yes: string, no: string): NoteScript[] =>
       ]
     : [];
 
+const actedAfterPassing = (run: HistoryRun): boolean =>
+  run.passed !== null &&
+  run.firstHumanAction !== null &&
+  Date.parse(run.firstHumanAction.at) > Date.parse(run.passed.at);
+
 const closingNotes = (
   context: Context,
   ask: string,
@@ -217,10 +222,10 @@ const closingNotes = (
   if (run.ending === 'stopped') {
     return [];
   }
-  if (run.firstHumanAction) {
+  if (run.firstHumanAction && !actedAfterPassing(run)) {
     return [asked(ask), ...answerOf(context, yes, no)];
   }
-  return [passed(pass)];
+  return [passed(pass), ...answerOf(context, yes, no)];
 };
 
 const failingStep = (context: Context): StepScript[] =>

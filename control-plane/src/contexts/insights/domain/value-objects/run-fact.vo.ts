@@ -173,19 +173,7 @@ export class RunFact implements RunFactParts {
   }
 
   get humanLabel(): HumanLabel | null {
-    const acted = this.firstHumanAction
-      ? HumanLabel.ofAction(this.firstHumanAction)
-      : null;
-
-    if (acted) {
-      return acted;
-    }
-
-    return this.merged &&
-      this.ending === 'completed' &&
-      this.followedAt === null
-      ? HumanLabel.merged()
-      : null;
+    return HumanLabel.of(this);
   }
 
   get pullRequestFinished(): boolean {

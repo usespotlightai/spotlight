@@ -12,7 +12,7 @@ const VERDICTS = {
 } as const;
 
 type TaskTraceArgs = {
-  readonly task: 'task_retries' | 'task_billing' | 'task_postgres';
+  readonly task: 'task_retries' | 'task_billing' | 'task_search';
   readonly verdicts: Verdicts;
 };
 
@@ -26,7 +26,7 @@ const meta = {
       task: choice('Task', {
         task_retries: 'Working',
         task_billing: 'Run failed',
-        task_postgres: 'Judge disagrees with people',
+        task_search: 'Judge disagrees with people',
       }),
       verdicts: choice<Verdicts>('Verdicts', {
         seeded: 'As seeded',

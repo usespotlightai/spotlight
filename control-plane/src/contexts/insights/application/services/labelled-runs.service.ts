@@ -30,13 +30,7 @@ export class LabelledRuns {
         const label = facts.get(score.runId.value)?.humanLabel ?? null;
 
         return label
-          ? [
-              {
-                runId: score.runId,
-                human: label.passes,
-                live: score.passes,
-              },
-            ]
+          ? [{ runId: score.runId, human: label.passes, live: score.passes }]
           : [];
       })
       .slice(0, MAX_LABELLED_RUNS);

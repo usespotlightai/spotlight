@@ -46,9 +46,38 @@ const STATIONS_WITH_JUDGE_HISTORY = new Set([
 
 const EARLIER_RUBRIC_DAYS = { from: 37, until: 26 } as const;
 
-export const onEarlierRubric = (at: number): boolean =>
-  at >= Date.parse(daysAgo(EARLIER_RUBRIC_DAYS.from)) &&
-  at <= Date.parse(daysAgo(EARLIER_RUBRIC_DAYS.until));
+const EARLIER_CLAIMS: readonly string[] = [
+  'The change does what the spec asks',
+  'The tests pass',
+];
+
+const FIRST_CLAIMS: readonly string[] = [
+  'The tests pass',
+  'The pull request says what changed',
+];
+
+const CLAIMS_OF_EARLIER_RUBRICS: Readonly<Record<string, readonly string[]>> = {
+  [EARLIER_RUBRIC]: EARLIER_CLAIMS,
+  [FIRST_RUBRIC]: FIRST_CLAIMS,
+};
+
+export const claimsChangedAt = (): string => daysAgo(EARLIER_RUBRIC_DAYS.until);
+
+export const rubricAt = (at: number): string => {
+  if (at > Date.parse(claimsChangedAt())) {
+    return RUBRIC;
+  }
+
+  return at >= Date.parse(daysAgo(EARLIER_RUBRIC_DAYS.from))
+    ? EARLIER_RUBRIC
+    : FIRST_RUBRIC;
+};
+
+export const claimsUnder = (
+  rubricVersion: string,
+  currentClaims: readonly string[],
+): readonly string[] =>
+  CLAIMS_OF_EARLIER_RUBRICS[rubricVersion] ?? currentClaims;
 
 const day = (days: number): string => daysAgo(days).slice(0, 10);
 

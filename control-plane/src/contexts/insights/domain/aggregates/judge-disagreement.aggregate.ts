@@ -39,7 +39,6 @@ export interface DisagreementVerdict {
   readonly rubricVersion: RubricVersion;
   readonly claims: readonly string[];
   readonly claimResults: readonly boolean[];
-  readonly passes: boolean;
   readonly reasons: readonly JudgeReason[];
 }
 
@@ -60,8 +59,14 @@ interface JudgeDisagreementFields {
   readonly version: number;
 }
 
-const disputedOf = (verdict: DisagreementVerdict): readonly number[] =>
-  verdict.passes
+const judgePassesAgainst = (labelFrom: LabelSource): boolean =>
+  !passesOn(labelFrom);
+
+const disputedOf = (
+  verdict: DisagreementVerdict,
+  labelFrom: LabelSource,
+): readonly number[] =>
+  judgePassesAgainst(labelFrom)
     ? []
     : verdict.claimResults.flatMap((met, at) => (met ? [] : [at]));
 
@@ -75,10 +80,10 @@ const brokenRuleOf = (
   ) {
     return 'must keep one judge result for each claim';
   }
-  if (verdict.passes === passesOn(labelFrom)) {
-    return 'opens only where the judge and the label disagree';
-  }
-  if (!verdict.passes && disputedOf(verdict).length === 0) {
+  if (
+    !judgePassesAgainst(labelFrom) &&
+    disputedOf(verdict, labelFrom).length === 0
+  ) {
     return 'where the judge failed the run disputes at least one claim';
   }
 
@@ -87,9 +92,10 @@ const brokenRuleOf = (
 
 const notMetRuleOf = (
   verdict: DisagreementVerdict,
+  labelFrom: LabelSource,
   shouldHaveFailed: number | null,
 ): string | null => {
-  if (!verdict.passes) {
+  if (!judgePassesAgainst(labelFrom)) {
     return 'takes what was not met only where the judge passed the run';
   }
   if (shouldHaveFailed !== null && shouldHaveFailed >= verdict.claims.length) {
@@ -112,12 +118,16 @@ export class JudgeDisagreement extends EventRecorder {
     workspaceId: WorkspaceId;
     location: RunLocation;
     verdict: DisagreementVerdict;
+    judgePasses: boolean;
     labelFrom: LabelSource;
     askedOf: UserId | null;
     now: Date;
   }): JudgeDisagreement {
     const { verdict } = input;
-    const broken = brokenRuleOf(verdict, input.labelFrom);
+    const broken =
+      input.judgePasses === passesOn(input.labelFrom)
+        ? 'opens only where the judge and the label disagree'
+        : brokenRuleOf(verdict, input.labelFrom);
 
     if (broken) {
       throw new InvalidJudgeDisagreementError(broken);
@@ -162,7 +172,7 @@ export class JudgeDisagreement extends EventRecorder {
     }
 
     const claims = fields.claimAnswers.map((each) => each.claim);
-    const disputed = disputedOf(verdict);
+    const disputed = disputedOf(verdict, fields.labelFrom);
 
     if (claims.some((claim) => !disputed.includes(claim))) {
       throw new InconsistentStateError(
@@ -183,7 +193,8 @@ export class JudgeDisagreement extends EventRecorder {
       );
     }
     const brokenNotMet =
-      fields.notMet && notMetRuleOf(verdict, fields.notMet.shouldHaveFailed);
+      fields.notMet &&
+      notMetRuleOf(verdict, fields.labelFrom, fields.notMet.shouldHaveFailed);
 
     if (brokenNotMet) {
       throw new InconsistentStateError('judge disagreement', brokenNotMet);
@@ -233,8 +244,12 @@ export class JudgeDisagreement extends EventRecorder {
     return this.fields.verdict.rubricVersion;
   }
 
+  get judgePasses(): boolean {
+    return judgePassesAgainst(this.fields.labelFrom);
+  }
+
   get direction(): DisagreementDirection {
-    return directionOf(this.fields.verdict.passes);
+    return directionOf(this.judgePasses);
   }
 
   get labelFrom(): LabelSource {
@@ -250,7 +265,7 @@ export class JudgeDisagreement extends EventRecorder {
   }
 
   get disputedClaims(): readonly number[] {
-    return disputedOf(this.fields.verdict);
+    return disputedOf(this.fields.verdict, this.fields.labelFrom);
   }
 
   get claimAnswers(): readonly ClaimAnswer[] {
@@ -315,7 +330,7 @@ export class JudgeDisagreement extends EventRecorder {
       return 'label-gone';
     }
 
-    return passesOn(input.labelFrom) === this.fields.verdict.passes
+    return passesOn(input.labelFrom) === this.judgePasses
       ? 'verdicts-agree'
       : null;
   }
@@ -415,6 +430,7 @@ export class JudgeDisagreement extends EventRecorder {
     }
     const brokenNotMet = notMetRuleOf(
       this.fields.verdict,
+      this.fields.labelFrom,
       input.shouldHaveFailed,
     );
 

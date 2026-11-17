@@ -22,6 +22,13 @@ const actedOn = (act: HumanActionKind) =>
 const pullRequestOf = (merged: boolean) =>
   taskPullRequestOf('task_1', { openedAt: AT, closedAt: AT, merged });
 
+const MERGED_LAST_VISIT = {
+  firstHumanAction: null,
+  merged: true,
+  ending: 'completed',
+  followedAt: null,
+} as const;
+
 const labelled = (change: {
   record?: RunRecord;
   laterRuns?: readonly RunRecord[];
@@ -36,7 +43,42 @@ const labelled = (change: {
   return fact?.humanLabel ?? null;
 };
 
-describe('HumanLabel', () => {
+describe('HumanLabel.of', () => {
+  it.each([
+    ['accepted', 'accepted'],
+    ['sent-back', 'sent-back'],
+    ['held', 'held'],
+    ['started', 'merged'],
+    ['parked', 'merged'],
+    ['answered', 'merged'],
+  ] as const)(
+    'labels a merged run whose first act is %s as %s',
+    (act, from) => {
+      expect(
+        HumanLabel.of({
+          ...MERGED_LAST_VISIT,
+          firstHumanAction: HumanAction.of(act, AT, ACTOR),
+        })?.from,
+      ).toBe(from);
+    },
+  );
+
+  it('labels a merge only on a completed run no later visit followed', () => {
+    expect(HumanLabel.of(MERGED_LAST_VISIT)).toEqual({
+      from: 'merged',
+      by: null,
+    });
+    expect(
+      HumanLabel.of({ ...MERGED_LAST_VISIT, ending: 'stopped' }),
+    ).toBeNull();
+    expect(
+      HumanLabel.of({ ...MERGED_LAST_VISIT, followedAt: NEXT_VISIT_ENDED }),
+    ).toBeNull();
+    expect(HumanLabel.of({ ...MERGED_LAST_VISIT, merged: false })).toBeNull();
+  });
+});
+
+describe('a run fact’s human label', () => {
   it.each(['accepted', 'sent-back', 'held'] as const)(
     'labels a run people %s by that act, and by the person who did it',
     (act) => {
@@ -130,7 +172,7 @@ describe('HumanLabel', () => {
     ).toMatchObject({ from: 'sent-back' });
   });
 
-  it('knows nothing of a run people have not yet acted on', () => {
+  it('knows nothing of a run whose first act gives no label', () => {
     expect(labelled({ record: actedOn('answered') })).toBeNull();
   });
 });
@@ -142,6 +184,8 @@ describe('HumanLabel.agreesWith', () => {
 
     expect(accepted?.agreesWith({ passes: true })).toBe(true);
     expect(sentBack?.agreesWith({ passes: true })).toBe(false);
-    expect(HumanLabel.merged().agreesWith({ passes: false })).toBe(false);
+    expect(
+      HumanLabel.of(MERGED_LAST_VISIT)?.agreesWith({ passes: false }),
+    ).toBe(false);
   });
 });

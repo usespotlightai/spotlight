@@ -7,7 +7,6 @@ import type {
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { ClaimAnswer } from '@insights/domain/value-objects/claim-answer.vo';
 import { JudgeDisagreementId } from '@insights/domain/value-objects/judge-disagreement-id.vo';
-import { passesOn } from '@insights/domain/value-objects/label-source';
 import { NotMetAnswer } from '@insights/domain/value-objects/not-met-answer.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -67,7 +66,6 @@ const toDisagreement = (row: JudgeDisagreementRow): JudgeDisagreement =>
       rubricVersion: versionOf(row.rubricVersion),
       claims: row.claims,
       claimResults: row.claimResults,
-      passes: !passesOn(row.labelFrom),
       reasons: row.reasons.map(judgeReasonOf),
     },
     labelFrom: row.labelFrom,

@@ -429,19 +429,8 @@ describe('JudgeDisagreement', () => {
       JudgeDisagreement.rehydrate({
         ...fields,
         labelFrom: 'accepted',
-        verdict: {
-          ...fields.verdict,
-          claimResults: [true, false, true],
-          passes: false,
-        },
+        verdict: { ...fields.verdict, claimResults: [true, false, true] },
       }),
-    ).toThrow(InconsistentStateError);
-  });
-  it('loads only where the judge and the label still disagree', () => {
-    const fields = fieldsOf(openDisagreement('run_1'));
-
-    expect(() =>
-      JudgeDisagreement.rehydrate({ ...fields, labelFrom: 'sent-back' }),
     ).toThrow(InconsistentStateError);
   });
 

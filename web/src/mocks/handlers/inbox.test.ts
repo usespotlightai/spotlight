@@ -253,27 +253,25 @@ describe('the mock inbox', () => {
   });
 
   it('shows what people said of a run beside the judge’s verdict, and whether they agree', async () => {
-    const { data: accepted } = await readRunScores({
+    const { data: merged } = await readRunScores({
       path: { teamId: PLATFORM_ID, runId: 'run_search_2' },
       throwOnError: true,
     });
-    expect(accepted).toMatchObject({
-      label: { from: 'accepted' },
-      agrees: false,
-    });
-    expect(accepted.judge?.passes).toBe(false);
+    expect(merged).toMatchObject({ labelFrom: 'merged', agrees: false });
+    expect(merged.judge?.passes).toBe(false);
+    expect(merged.judge?.claims).toHaveLength(
+      merged.judge?.claimResults.length ?? 0,
+    );
 
-    const { data: sentBack } = await readRunScores({
+    const { data: unlabelled } = await readRunScores({
       path: POSTGRES_RUN,
       throwOnError: true,
     });
-    expect(sentBack).toMatchObject({
-      label: { from: 'sent-back' },
-      agrees: false,
-    });
+    expect(unlabelled).toMatchObject({ labelFrom: null, agrees: null });
+    expect(unlabelled.judge?.passes).toBe(true);
   });
 
-  it('asks the person who accepted a run the judge failed about the claims in dispute', async () => {
+  it('asks the team about a merged run the judge failed, about the claims in dispute', async () => {
     const asked = await itemIn(FAILED_DISAGREEMENT_REQUEST_ID);
     expect(asked?.inboxRequest).toEqual({
       form: 'judge-disagreement',
@@ -287,7 +285,8 @@ describe('the mock inbox', () => {
     expect(disagreement).toMatchObject({
       runId: 'run_search_2',
       direction: 'judge-failed',
-      labelFrom: 'accepted',
+      labelFrom: 'merged',
+      askedOf: null,
       disputedClaims: [2],
       answers: [],
       notMet: null,
@@ -444,6 +443,57 @@ describe('the mock inbox', () => {
     );
 
     expect(reasons).toEqual(['verdicts-agree', 'claims-changed', 'label-gone']);
+  });
+
+  it('withdraws a question only once the run’s label or the claims moved on', async () => {
+    const disagreementOf = async (disagreementId: string) =>
+      (
+        await readJudgeDisagreement({
+          path: { teamId: PLATFORM_ID, disagreementId },
+          throwOnError: true,
+        })
+      ).data;
+    const scoresOf = async (runId: string) =>
+      (
+        await readRunScores({
+          path: { teamId: PLATFORM_ID, runId },
+          throwOnError: true,
+        })
+      ).data;
+
+    const agreed = await disagreementOf(WITHDRAWN_DISAGREEMENT_ID);
+    expect(agreed).toMatchObject({
+      labelFrom: 'merged',
+      direction: 'judge-failed',
+      askedOf: null,
+    });
+    expect(await scoresOf(agreed.runId)).toMatchObject({
+      labelFrom: 'sent-back',
+      agrees: true,
+    });
+
+    const gone = await disagreementOf(LABEL_GONE_DISAGREEMENT_ID);
+    expect(gone).toMatchObject({ labelFrom: 'merged', askedOf: null });
+    expect(await scoresOf(gone.runId)).toMatchObject({
+      labelFrom: null,
+      agrees: null,
+    });
+
+    const changed = await disagreementOf(CLAIMS_CHANGED_DISAGREEMENT_ID);
+    const changedScores = await scoresOf(changed.runId);
+    expect(changedScores).toMatchObject({ judged: true, judge: null });
+    expect(changed.rubricVersion).not.toBe(
+      (await scoresOf(agreed.runId)).judge?.rubricVersion,
+    );
+    expect(changed.claims.map(({ text }) => text)).not.toEqual(
+      agreed.claims.map(({ text }) => text),
+    );
+
+    for (const withdrawn of [agreed, gone, changed]) {
+      expect(
+        withdrawn.withdrawnAt && withdrawn.withdrawnAt > withdrawn.openedAt,
+      ).toBe(true);
+    }
   });
 
   it('drafts, edits, deletes and submits review comments', async () => {

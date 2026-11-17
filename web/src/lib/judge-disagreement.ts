@@ -105,7 +105,7 @@ const factOf = (disagreement: JudgeDisagreement, labeller: string): string => {
     case 'sent-back':
       return `${labeller} sent this run back. The judge passed it.`;
     case 'held':
-      return `${labeller} took the task over from this run because it was wrong. The judge passed it.`;
+      return `${labeller} put this run on hold. The judge passed it.`;
     case 'merged':
       return 'The pull request was merged. The judge failed the run.';
   }

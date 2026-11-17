@@ -20,7 +20,7 @@ export function TraceRunVerdict({ teamId, runId }: TraceRunVerdictProps) {
     return null;
   }
 
-  const { label, judge, agrees } = scores;
+  const { labelFrom, judge, agrees } = scores;
 
   return (
     <span
@@ -29,9 +29,9 @@ export function TraceRunVerdict({ teamId, runId }: TraceRunVerdictProps) {
     >
       <span>
         <span className="sr-only">
-          {label ? `${PEOPLE_LABEL} ` : 'Judged '}
+          {labelFrom ? `${PEOPLE_LABEL} ` : 'Judged '}
         </span>
-        {label ? formatLabel(label) : formatJudgeVerdict(judge.passes)}
+        {labelFrom ? formatLabel(labelFrom) : formatJudgeVerdict(judge.passes)}
       </span>
       {agrees === false && (
         <WarningTooltip

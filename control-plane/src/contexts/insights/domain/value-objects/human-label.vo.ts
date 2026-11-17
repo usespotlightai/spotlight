@@ -1,10 +1,17 @@
 import type { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import {
-  LABEL_SOURCES,
   type LabelSource,
   passesOn,
 } from '@insights/domain/value-objects/label-source';
+import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+
+export interface LabelledRun {
+  readonly firstHumanAction: HumanAction | null;
+  readonly merged: boolean;
+  readonly ending: RunEnding;
+  readonly followedAt: Date | null;
+}
 
 export class HumanLabel {
   private constructor(
@@ -12,14 +19,16 @@ export class HumanLabel {
     readonly by: UserId | null,
   ) {}
 
-  static ofAction(action: HumanAction): HumanLabel | null {
-    const from = LABEL_SOURCES.find((each) => each === action.kind);
+  static of(run: LabelledRun): HumanLabel | null {
+    const action = run.firstHumanAction;
 
-    return from ? new HumanLabel(from, action.by) : null;
-  }
+    if (action?.labelFrom) {
+      return new HumanLabel(action.labelFrom, action.by);
+    }
 
-  static merged(): HumanLabel {
-    return new HumanLabel('merged', null);
+    return run.merged && run.ending === 'completed' && run.followedAt === null
+      ? new HumanLabel('merged', null)
+      : null;
   }
 
   get passes(): boolean {

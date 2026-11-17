@@ -1,8 +1,5 @@
 import type { JudgeCalibration } from '@insights/domain/services/judge-calibration';
-import {
-  latestJudgeOf,
-  visibleJudgeOf,
-} from '@insights/domain/services/judge-verdict';
+import { visibleJudgeOf } from '@insights/domain/services/judge-verdict';
 import {
   judgeScore,
   NEXT_RUBRIC_VERSION,
@@ -52,22 +49,11 @@ describe('visibleJudgeOf', () => {
         RUBRIC_VERSION,
       ),
     ).toBeNull();
-    expect(visibleJudgeOf(scores, QUALIFIED, null)).toBeNull();
   });
-});
 
-describe('latestJudgeOf', () => {
-  it('orders two scores given at the same moment by their ids', () => {
-    const scores = [
-      judgeScore('run_1', [true]),
-      judgeScore('run_1', [false], {
-        rubricVersion: NEXT_RUBRIC_VERSION,
-      }),
-    ];
-
-    expect(latestJudgeOf(scores)?.rubricVersion).toBe(NEXT_RUBRIC_VERSION);
-    expect(latestJudgeOf([...scores].reverse())?.rubricVersion).toBe(
-      NEXT_RUBRIC_VERSION,
-    );
+  it('shows nothing while the station has no judge', () => {
+    expect(
+      visibleJudgeOf([judgeScore('run_1', [true])], QUALIFIED, null),
+    ).toBeNull();
   });
 });

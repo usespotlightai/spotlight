@@ -12,6 +12,7 @@ type ClaimVerdictRowProps = {
   text: string | undefined;
   met: boolean;
   reasons: readonly JudgeReason[];
+  defaultOpen: boolean;
 };
 
 export function ClaimVerdictRow({
@@ -19,8 +20,9 @@ export function ClaimVerdictRow({
   text,
   met,
   reasons,
+  defaultOpen,
 }: ClaimVerdictRowProps) {
-  const [open, setOpen] = useState(!met);
+  const [open, setOpen] = useState(defaultOpen);
   const expandable = reasons.length > 0;
   const shown = expandable && open;
 

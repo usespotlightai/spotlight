@@ -38575,6 +38575,13 @@
       "JudgeScoreResponseDto": {
         "type": "object",
         "properties": {
+          "claims": {
+            "description": "The claims the judge checked, in order",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "value": {
             "type": "number",
             "example": 0.5,
@@ -38614,6 +38621,7 @@
           }
         },
         "required": [
+          "claims",
           "value",
           "claimResults",
           "passes",
@@ -38621,24 +38629,6 @@
           "model",
           "at",
           "reasons"
-        ]
-      },
-      "RunLabelResponseDto": {
-        "type": "object",
-        "properties": {
-          "from": {
-            "type": "string",
-            "enum": [
-              "accepted",
-              "sent-back",
-              "merged",
-              "held"
-            ],
-            "description": "What gave the label: the first action of a person on the run, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task"
-          }
-        },
-        "required": [
-          "from"
         ]
       },
       "RunScoresResponseDto": {
@@ -38655,13 +38645,6 @@
           "stationId": {
             "type": "string",
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
-          },
-          "claims": {
-            "description": "The claims of the judge score shown on the run, in order; empty where no judge score is shown",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
           },
           "judged": {
             "type": "boolean",
@@ -38680,15 +38663,17 @@
           "calibration": {
             "$ref": "#/components/schemas/JudgeCalibrationResponseDto"
           },
-          "label": {
+          "labelFrom": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "sent-back",
+              "merged",
+              "held",
+              null
+            ],
             "nullable": true,
-            "description": "People’s verdict on the run; none where people said nothing yet",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/RunLabelResponseDto"
-              }
-            ]
+            "description": "What gave people’s verdict on the run: the first action of a person on it, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task. Null where people said nothing yet"
           },
           "agrees": {
             "type": "boolean",
@@ -38700,11 +38685,10 @@
           "runId",
           "taskId",
           "stationId",
-          "claims",
           "judged",
           "judge",
           "calibration",
-          "label",
+          "labelFrom",
           "agrees"
         ]
       },
