@@ -22,6 +22,7 @@ export * from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema'
 export * from '@notifications/infrastructure/persistence/drizzle/schemas/arrival-ledger.schema';
 export * from '@notifications/infrastructure/persistence/drizzle/schemas/push-subscription.schema';
 export * from '@platform/persistence/drizzle/schemas/event.schema';
+export * from '@platform/persistence/drizzle/schemas/live.schema';
 export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
 export * from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 export * from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';

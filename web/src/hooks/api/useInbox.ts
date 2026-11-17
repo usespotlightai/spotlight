@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { usePagedList } from '@/hooks/api/usePagedList';
 import { listInbox, readInboxItem, readInboxNotice } from '@/lib/api';
 import { entryKey } from '@/lib/inbox';
-import { useLivePoll } from '@/lib/live';
+import { liveStaleTime, useLivePoll } from '@/lib/live';
 
 export const inboxKeys = {
   all: ['inbox'] as const,
@@ -25,6 +25,7 @@ export function useInbox(slug: string | undefined) {
     queryKey: inboxKeys.open(slug),
     enabled: Boolean(slug),
     refetchInterval: livePollMs,
+    staleTime: liveStaleTime,
     queryFn: async () => {
       const { data } = await listInbox({
         path: { slug: slug as string },
@@ -61,6 +62,7 @@ export function useInboxItem(
     queryKey: inboxKeys.item(slug, itemId),
     enabled: Boolean(slug && itemId),
     refetchInterval: livePollMs,
+    staleTime: liveStaleTime,
     queryFn: async () => {
       const { data } = await readInboxItem({
         path: { slug: slug as string, itemId: itemId as string },

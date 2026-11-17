@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { taskKeys } from '@/hooks/api/useTasks';
 import { deleteTask } from '@/lib/api';
+import { refreshAfterWrite } from '@/lib/live-writes';
 
 type DeleteTaskInput = {
   teamId: string;
@@ -13,9 +14,13 @@ export function useDeleteTask() {
 
   return useMutation({
     mutationFn: async ({ teamId, taskId }: DeleteTaskInput) => {
-      await deleteTask({ path: { teamId, taskId }, throwOnError: true });
+      const { response } = await deleteTask({
+        path: { teamId, taskId },
+        throwOnError: true,
+      });
+      await refreshAfterWrite(queryClient, response, [
+        taskKeys.forTeam(teamId),
+      ]);
     },
-    onSuccess: (_gone, { teamId }) =>
-      queryClient.invalidateQueries({ queryKey: taskKeys.forTeam(teamId) }),
   });
 }

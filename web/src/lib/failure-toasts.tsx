@@ -7,7 +7,7 @@ import { toast } from '@/lib/toast';
 
 declare module '@tanstack/react-query' {
   interface Register {
-    mutationMeta: { quiet?: boolean };
+    mutationMeta: { quiet?: boolean; optimistic?: boolean };
   }
 }
 

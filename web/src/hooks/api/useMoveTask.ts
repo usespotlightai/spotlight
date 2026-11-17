@@ -17,6 +17,7 @@ export function useMoveTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { optimistic: true },
     mutationFn: async ({
       teamId,
       lineId,

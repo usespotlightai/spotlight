@@ -71,12 +71,29 @@ describe('ChangeNotices', () => {
     ).toThrow('Two change notices are both called test.chat');
   });
 
-  it('sends a notice as a changed message with its topic and ids', () => {
+  it('sends a notice as a changed message with its topic, ids, channel and sequence', () => {
     expect(
-      messageOfNotice(changedFor('user_1', 'chat', { chatId: 'chat_1' })),
+      messageOfNotice({
+        ...changedFor('user_1', 'chat', { chatId: 'chat_1' }),
+        sequence: 7,
+      }),
     ).toEqual({
       type: 'changed',
-      data: { topic: 'chat', ids: { chatId: 'chat_1' } },
+      data: {
+        topic: 'chat',
+        ids: { chatId: 'chat_1' },
+        channel: 'person:user_1',
+        sequence: 7,
+      },
+    });
+  });
+
+  it('sends a notice that has no sequence without one', () => {
+    expect(
+      messageOfNotice({ ...changedIn('ws_1', 'task', {}), sequence: null }),
+    ).toEqual({
+      type: 'changed',
+      data: { topic: 'task', ids: {}, channel: 'workspace:ws_1' },
     });
   });
 });

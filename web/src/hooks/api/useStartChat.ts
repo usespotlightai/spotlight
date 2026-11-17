@@ -4,6 +4,7 @@ import { chatKeys } from '@/hooks/api/useChats';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { startChat } from '@/lib/api';
 import type { ChatSetup } from '@/lib/chat';
+import { refreshAfterWrite } from '@/lib/live-writes';
 
 type StartChatInput = {
   teamId: string;
@@ -23,19 +24,17 @@ export function useStartChat() {
 
   return useMutation({
     mutationFn: async ({ teamId, ...body }: StartChatInput) => {
-      const { data } = await startChat({
+      const { data, response } = await startChat({
         path: { teamId },
         body,
         throwOnError: true,
       });
+      queryClient.setQueryData(chatKeys.one(data.id), data);
+      void refreshAfterWrite(queryClient, response, [
+        inboxKeys.all,
+        chatKeys.forTeam(teamId),
+      ]);
       return data;
-    },
-    onSuccess: (chat, { teamId }) => {
-      queryClient.setQueryData(chatKeys.one(chat.id), chat);
-      void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
-      void queryClient.invalidateQueries({
-        queryKey: chatKeys.forTeam(teamId),
-      });
     },
   });
 }

@@ -1,6 +1,6 @@
 import { usePagedList } from '@/hooks/api/usePagedList';
 import { listChats } from '@/lib/api';
-import { useLivePoll } from '@/lib/live';
+import { liveStaleTime, useLivePoll } from '@/lib/live';
 
 export const chatKeys = {
   all: ['chats'] as const,
@@ -18,6 +18,7 @@ export function useChats(teamId: string | undefined) {
     queryKey: chatKeys.forTeam(teamId),
     enabled: Boolean(teamId),
     pollMs: livePollMs,
+    staleTime: liveStaleTime,
     keyOf: (chat) => chat.id,
     fetchPage: async (before?: string) => {
       const { data } = await listChats({

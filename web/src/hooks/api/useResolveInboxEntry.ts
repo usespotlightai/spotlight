@@ -45,6 +45,7 @@ export function useResolveInboxEntry() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { optimistic: true },
     mutationFn: async (input: ResolveInboxEntryInput) => {
       await resolving(input);
     },
