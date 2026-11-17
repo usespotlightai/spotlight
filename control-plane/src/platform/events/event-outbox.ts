@@ -6,8 +6,8 @@ import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { ChangeNotices, messageOfNotice } from '@platform/live/change-notices';
-import { LIVE_FEED, type LiveFeedPort } from '@platform/live/live-feed.port';
+import { ChangeNotices } from '@platform/live/change-notices';
+import { LiveNotices } from '@platform/live/live-notices';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -47,7 +47,7 @@ export class EventOutbox implements DomainEventDispatcher {
     private readonly mappers: IntegrationEventMappers,
     private readonly projections: EventProjections,
     private readonly notices: ChangeNotices,
-    @Inject(LIVE_FEED) private readonly live: LiveFeedPort,
+    private readonly live: LiveNotices,
     @Inject(ID_GENERATOR) private readonly ids: IdGeneratorPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
     private readonly causes: CauseCarrier,
@@ -168,20 +168,11 @@ export class EventOutbox implements DomainEventDispatcher {
   }
 
   private published(events: readonly DomainEvent[]): void {
-    const notices = this.notices.of(events, (name, error) =>
-      this.logger.error({ err: error, notice: name }, 'Noticing a change'),
+    this.live.publish(
+      this.notices.of(events, (name, error) =>
+        this.logger.error({ err: error, notice: name }, 'Noticing a change'),
+      ),
     );
-
-    for (const notice of notices) {
-      try {
-        this.live.publish(notice.channel, messageOfNotice(notice));
-      } catch (error) {
-        this.logger.warn(
-          { err: error, channel: notice.channel },
-          'Publishing a live change',
-        );
-      }
-    }
   }
 
   decode(payload: unknown): DomainEvent {

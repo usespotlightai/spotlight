@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { usePagedList } from '@/hooks/api/usePagedList';
 import { listTeamRuns, readTeamRun } from '@/lib/api';
-import { useLivePoll } from '@/lib/live';
+import { liveStaleTime, useLivePoll } from '@/lib/live';
 
 export const teamRunKeys = {
   all: ['runs'] as const,
@@ -20,6 +20,7 @@ export function useTeamRuns(teamId: string | undefined) {
     queryKey: teamRunKeys.forTeam(teamId),
     enabled: Boolean(teamId),
     pollMs: livePollMs,
+    staleTime: liveStaleTime,
     keyOf: (run) => run.id,
     fetchPage: async (before?: string) => {
       const { data } = await listTeamRuns({
@@ -42,6 +43,7 @@ export function useTeamRun(
     queryKey: teamRunKeys.one(teamId, runId),
     enabled: Boolean(teamId && runId),
     refetchInterval: livePollMs,
+    staleTime: liveStaleTime,
     queryFn: async () => {
       const { data } = await readTeamRun({
         path: { teamId: teamId as string, runId: runId as string },

@@ -11955,7 +11955,12 @@ export type VerifyMyEmailResponse = VerifyMyEmailResponses[keyof VerifyMyEmailRe
 export type WatchLiveData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    /**
+     * The last sequence you applied on one channel, as `<channel>@<sequence>`, for example `workspace:<id>@42`
+     */
+    since?: Array<string>;
+  };
   url: '/me/live';
 };
 

@@ -1,4 +1,8 @@
-import { type QueryKey, useQueryClient } from '@tanstack/react-query';
+import {
+  type QueryKey,
+  useIsRestoring,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useEffect, useEffectEvent } from 'react';
 
 import { chatKeys } from '@/hooks/api/useChats';
@@ -14,12 +18,22 @@ import {
   LIVE_URL,
   type LiveChange,
   parsed,
+  readyOf,
+  setFresh,
   setLive,
 } from '@/lib/live';
+import {
+  LIVE_SEQUENCES_KEY,
+  liveSequences,
+  type Sequences,
+  sinceQuery,
+} from '@/lib/live-sequences';
 import type { InboxNotification } from '@/lib/notifications';
 
 export const REOPEN_MS = 1_000;
 const REOPEN_LIMIT_MS = 30_000;
+export const READY_WAIT_MS = 5_000;
+export const GAP_WAIT_MS = 2_000;
 
 const LIVE_POLLED: readonly QueryKey[] = [
   chatKeys.each,
@@ -74,11 +88,15 @@ type Listeners = Readonly<
 
 interface LiveConnection {
   readonly stream: EventSource;
+  readonly resumed: boolean;
   close(): void;
 }
 
-const connected = (listeners: Listeners): LiveConnection => {
-  const stream = new EventSource(LIVE_URL, { withCredentials: true });
+const connected = (since: Sequences, listeners: Listeners): LiveConnection => {
+  const query = sinceQuery(since);
+  const stream = new EventSource(query ? `${LIVE_URL}?${query}` : LIVE_URL, {
+    withCredentials: true,
+  });
 
   for (const [type, listener] of Object.entries(listeners)) {
     stream.addEventListener(type, listener);
@@ -86,6 +104,7 @@ const connected = (listeners: Listeners): LiveConnection => {
 
   return {
     stream,
+    resumed: query.length > 0,
     close: () => {
       for (const [type, listener] of Object.entries(listeners)) {
         stream.removeEventListener(type, listener);
@@ -99,53 +118,99 @@ export function useLiveStream(
   onNotification: (notification: InboxNotification) => void,
 ) {
   const queryClient = useQueryClient();
+  const restoring = useIsRestoring();
   const notified = useEffectEvent(onNotification);
 
   useEffect(() => {
-    if (typeof EventSource === 'undefined') {
+    if (restoring || typeof EventSource === 'undefined') {
       return;
     }
 
+    const stored =
+      queryClient.getQueryData<Sequences>(LIVE_SEQUENCES_KEY) ?? {};
     const pending = new Map<string, QueryKey>();
     let current: LiveConnection | null = null;
     let replacing: LiveConnection | null = null;
-    let rejoining = false;
     let flushing: ReturnType<typeof setTimeout> | undefined;
     let reopening: ReturnType<typeof setTimeout> | undefined;
+    let gapping: ReturnType<typeof setTimeout> | undefined;
+    let waitingReady: ReturnType<typeof setTimeout> | undefined;
     let reopenMs = REOPEN_MS;
-    let readyBefore = false;
+    let settling: Promise<unknown> = Promise.resolve();
+    let stopped = false;
 
-    const invalidated = (keys: readonly QueryKey[]) => {
-      for (const queryKey of keys) {
-        void queryClient.invalidateQueries({ queryKey });
-      }
+    const refreshed = (keys: readonly QueryKey[] | null, upTo: Sequences) => {
+      const cache = queryClient.getQueryCache();
+      const covered = new Set(
+        (keys ?? [])
+          .flatMap((queryKey) => cache.findAll({ queryKey }))
+          .map((query) => query.queryHash),
+      );
+      const kept = new Set(
+        keys === null
+          ? []
+          : cache
+              .getAll()
+              .map((query) => query.queryHash)
+              .filter((hash) => !covered.has(hash)),
+      );
+      const work =
+        keys === null
+          ? queryClient.invalidateQueries()
+          : Promise.all(
+              keys.map((queryKey) =>
+                queryClient.invalidateQueries({ queryKey }),
+              ),
+            );
+
+      settling = Promise.all([settling, work.catch(() => undefined)]).then(
+        () => {
+          if (stopped) {
+            return;
+          }
+
+          liveSequences.settle(upTo, kept);
+          queryClient.setQueryData(LIVE_SEQUENCES_KEY, liveSequences.settled());
+        },
+      );
     };
+
+    const optimisticPending = () =>
+      queryClient.isMutating({
+        predicate: (mutation) => mutation.meta?.optimistic === true,
+      }) > 0;
 
     const flush = () => {
       flushing = undefined;
+
+      if (optimisticPending()) {
+        flushing = setTimeout(flush, LIVE_BATCH_MS);
+        return;
+      }
+
       const keys = [...pending.values()];
       pending.clear();
-      invalidated(keys);
+      refreshed(keys, liveSequences.applied());
     };
 
     const refetchEverything = () => {
       pending.clear();
       clearTimeout(flushing);
       flushing = undefined;
-      void queryClient.invalidateQueries();
+      refreshed(null, liveSequences.applied());
     };
 
-    const replace = (rejoin: boolean) => {
-      if (rejoin) {
-        rejoining = true;
-      }
-
+    const replace = () => {
       if (!replacing) {
         replacing = open();
       }
     };
 
-    const ready = (connection: LiveConnection) => {
+    const ready = (connection: LiveConnection, data: string) => {
+      const { complete, heads } = readyOf(data);
+
+      clearTimeout(waitingReady);
+      waitingReady = undefined;
       setLive(true);
       reopenMs = REOPEN_MS;
 
@@ -153,18 +218,33 @@ export function useLiveStream(
         current?.close();
         current = connection;
         replacing = null;
-
-        if (rejoining) {
-          rejoining = false;
-          refetchEverything();
-        }
-      } else if (readyBefore) {
-        refetchEverything();
-      } else {
-        invalidated(LIVE_POLLED);
       }
 
-      readyBefore = true;
+      if (complete) {
+        liveSequences.caughtUp(heads);
+      } else if (connection.resumed) {
+        liveSequences.restarted(heads);
+        refetchEverything();
+      } else {
+        liveSequences.restarted(heads);
+        refreshed(LIVE_POLLED, liveSequences.applied());
+      }
+
+      setFresh(true);
+    };
+
+    const watchGap = () => {
+      if (gapping !== undefined || !liveSequences.hasGap()) {
+        return;
+      }
+
+      gapping = setTimeout(() => {
+        gapping = undefined;
+
+        if (liveSequences.hasGap()) {
+          replace();
+        }
+      }, GAP_WAIT_MS);
     };
 
     const changed = (event: MessageEvent<string>) => {
@@ -174,8 +254,14 @@ export function useLiveStream(
         return;
       }
 
+      if (change.position && !liveSequences.received(change.position)) {
+        return;
+      }
+
+      watchGap();
+
       if (change.topic === 'workspaces') {
-        replace(true);
+        replace();
         return;
       }
 
@@ -197,21 +283,19 @@ export function useLiveStream(
     };
 
     const lost = (connection: LiveConnection) => {
+      connection.close();
+
       if (connection === replacing) {
-        if (connection.stream.readyState === EventSource.CLOSED) {
-          connection.close();
-          replacing = null;
-        }
+        replacing = null;
+        return;
+      }
+
+      if (connection !== current) {
         return;
       }
 
       setLive(false);
-
-      if (connection.stream.readyState !== EventSource.CLOSED) {
-        return;
-      }
-
-      connection.close();
+      setFresh(false);
       current = replacing;
       replacing = null;
 
@@ -224,11 +308,21 @@ export function useLiveStream(
     };
 
     function open(): LiveConnection {
-      const connection: LiveConnection = connected({
-        ready: () => ready(connection),
+      const answering = setTimeout(() => {
+        if (connection === replacing) {
+          connection.close();
+          replacing = null;
+          watchGap();
+        }
+      }, READY_WAIT_MS);
+      const connection: LiveConnection = connected(liveSequences.applied(), {
+        ready: (event) => {
+          clearTimeout(answering);
+          ready(connection, event.data);
+        },
         changed,
-        resync: refetchEverything,
-        reopen: () => replace(false),
+        resync: replace,
+        reopen: replace,
         notification,
         error: () => lost(connection),
       });
@@ -236,14 +330,29 @@ export function useLiveStream(
       return connection;
     }
 
+    liveSequences.reset(stored);
+
+    if (Object.keys(stored).length > 0) {
+      setFresh(true);
+      waitingReady = setTimeout(() => {
+        waitingReady = undefined;
+        setFresh(false);
+        refetchEverything();
+      }, READY_WAIT_MS);
+    }
+
     current = open();
 
     return () => {
+      stopped = true;
       clearTimeout(flushing);
       clearTimeout(reopening);
+      clearTimeout(gapping);
+      clearTimeout(waitingReady);
       current?.close();
       replacing?.close();
       setLive(false);
+      setFresh(false);
     };
-  }, [queryClient]);
+  }, [queryClient, restoring]);
 }

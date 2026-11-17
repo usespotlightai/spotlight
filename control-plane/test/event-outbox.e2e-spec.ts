@@ -23,6 +23,7 @@ import { PayloadTypes } from '@platform/events/payload-types';
 import { SHARED_KERNEL_PAYLOAD_TYPES } from '@platform/events/shared-kernel-payload-types';
 import { ChangeNotices } from '@platform/live/change-notices';
 import { InMemoryLiveFeed } from '@platform/live/in-memory-live-feed';
+import { LiveNotices } from '@platform/live/live-notices';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -157,7 +158,16 @@ const outboxWith = () => {
     mappers,
     projections,
     new ChangeNotices(),
-    new InMemoryLiveFeed(),
+    new LiveNotices(
+      new InMemoryLiveFeed(),
+      {
+        append: async (notices) =>
+          notices.map((notice) => ({ ...notice, sequence: null })),
+        logs: async () => new Map(),
+        prune: async () => 0,
+      },
+      logger,
+    ),
     { generate: () => randomUUID() },
     clock,
     causation,

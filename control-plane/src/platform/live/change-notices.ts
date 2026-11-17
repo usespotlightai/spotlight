@@ -42,10 +42,31 @@ export const changedFor = (
   ids: Readonly<Record<string, string>>,
 ): ChangeNotice => ({ channel: personChannel(personId), topic, ids });
 
-export const messageOfNotice = (notice: ChangeNotice): LiveMessage => ({
+export interface SequencedNotice extends ChangeNotice {
+  readonly sequence: number | null;
+}
+
+export const messageOfNotice = (notice: SequencedNotice): LiveMessage => ({
   type: 'changed',
-  data: { topic: notice.topic, ids: notice.ids },
+  data: {
+    topic: notice.topic,
+    ids: notice.ids,
+    channel: notice.channel,
+    ...(notice.sequence === null ? {} : { sequence: notice.sequence }),
+  },
 });
+
+export const positionOf = (
+  message: LiveMessage,
+): { readonly channel: string; readonly sequence: number } | null => {
+  const { channel, sequence } = message.data;
+
+  return message.type === 'changed' &&
+    typeof channel === 'string' &&
+    typeof sequence === 'number'
+    ? { channel, sequence }
+    : null;
+};
 
 const keyOf = (notice: ChangeNotice): string =>
   JSON.stringify([

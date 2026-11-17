@@ -37,7 +37,7 @@ jobs:
           npm ci --ignore-scripts
 
       - name: Known vulnerabilities in production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: node ../.github/scripts/audit-production.mjs
 
       - name: Format check
         run: npx oxfmt --check

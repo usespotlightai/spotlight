@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { resolveInboxNotice } from '@/lib/api';
+import { refreshAfterWrite } from '@/lib/live-writes';
 
 type ResolveInboxNoticeInput = {
   slug: string;
@@ -14,15 +15,13 @@ export function useResolveInboxNotice() {
   return useMutation({
     meta: { quiet: true },
     mutationFn: async ({ slug, noticeId }: ResolveInboxNoticeInput) => {
-      await resolveInboxNotice({
+      const { response } = await resolveInboxNotice({
         path: { slug, noticeId },
         throwOnError: true,
       });
+      await refreshAfterWrite(queryClient, response, [
+        inboxKeys.forWorkspace(slug),
+      ]);
     },
-
-    onSuccess: (_resolved, { slug }) =>
-      queryClient.invalidateQueries({
-        queryKey: inboxKeys.forWorkspace(slug),
-      }),
   });
 }

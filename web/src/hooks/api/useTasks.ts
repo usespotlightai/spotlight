@@ -2,7 +2,7 @@ import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import { usePagedList } from '@/hooks/api/usePagedList';
 import { listTasks, readTask } from '@/lib/api';
-import { useLivePoll } from '@/lib/live';
+import { liveStaleTime, useLivePoll } from '@/lib/live';
 
 export const taskKeys = {
   all: ['tasks'] as const,
@@ -31,7 +31,11 @@ export const tasksQuery = (teamId: string | undefined) =>
 export function useTasks(teamId: string | undefined) {
   const livePollMs = useLivePoll(POLL_MS);
 
-  return useQuery({ ...tasksQuery(teamId), refetchInterval: livePollMs });
+  return useQuery({
+    ...tasksQuery(teamId),
+    refetchInterval: livePollMs,
+    staleTime: liveStaleTime,
+  });
 }
 
 export function useCompletedTasks(
@@ -64,6 +68,7 @@ export function useTask(
     queryKey: taskKeys.one(teamId, taskId),
     enabled: Boolean(teamId && taskId),
     refetchInterval: livePollMs,
+    staleTime: liveStaleTime,
     queryFn: async () => {
       const { data } = await readTask({
         path: { teamId: teamId as string, taskId: taskId as string },

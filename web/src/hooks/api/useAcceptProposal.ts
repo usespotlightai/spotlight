@@ -4,6 +4,7 @@ import { chatKeys } from '@/hooks/api/useChats';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { acceptProposal } from '@/lib/api';
+import { refreshAfterWrite } from '@/lib/live-writes';
 
 type AcceptProposalInput = {
   teamId: string;
@@ -16,17 +17,15 @@ export function useAcceptProposal() {
 
   return useMutation({
     mutationFn: async ({ teamId, chatId, position }: AcceptProposalInput) => {
-      await acceptProposal({
+      const { response } = await acceptProposal({
         path: { teamId, chatId, position },
         throwOnError: true,
       });
-    },
-    onSuccess: (_accepted, { teamId, chatId }) => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.one(chatId) });
-      void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
-      void queryClient.invalidateQueries({
-        queryKey: taskKeys.forTeam(teamId),
-      });
+      void refreshAfterWrite(queryClient, response, [
+        chatKeys.one(chatId),
+        inboxKeys.all,
+        taskKeys.forTeam(teamId),
+      ]);
     },
   });
 }

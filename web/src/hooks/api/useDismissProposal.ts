@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatKeys } from '@/hooks/api/useChats';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { dismissProposal } from '@/lib/api';
+import { refreshAfterWrite } from '@/lib/live-writes';
 
 type DismissProposalInput = {
   teamId: string;
@@ -15,15 +16,14 @@ export function useDismissProposal() {
 
   return useMutation({
     mutationFn: async ({ teamId, chatId, position }: DismissProposalInput) => {
-      await dismissProposal({
+      const { response } = await dismissProposal({
         path: { teamId, chatId, position },
         throwOnError: true,
       });
-    },
-    onSuccess: (_dismissed, { chatId }) => {
-      void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
-
-      return queryClient.invalidateQueries({ queryKey: chatKeys.one(chatId) });
+      await refreshAfterWrite(queryClient, response, [
+        inboxKeys.all,
+        chatKeys.one(chatId),
+      ]);
     },
   });
 }

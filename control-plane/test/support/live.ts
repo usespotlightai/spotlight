@@ -35,7 +35,11 @@ const eventOf = (block: string): HeardEvent | null => {
   }
 };
 
-export const watchedLive = (app: INestApplication, personId: string) => {
+export const watchedLive = (
+  app: INestApplication,
+  personId: string,
+  since: readonly string[] = [],
+) => {
   const heard: HeardEvent[] = [];
   const { port } = (app.getHttpServer() as Server).address() as AddressInfo;
   let buffered = '';
@@ -45,7 +49,7 @@ export const watchedLive = (app: INestApplication, personId: string) => {
     {
       host: '127.0.0.1',
       port,
-      path: '/api/me/live',
+      path: `/api/me/live${since.length > 0 ? `?${new URLSearchParams(since.map((each) => ['since', each])).toString()}` : ''}`,
       headers: { [TEST_USER_HEADER]: personId, accept: 'text/event-stream' },
     },
     (response) => {

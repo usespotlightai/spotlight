@@ -78,6 +78,14 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
     why: 'platform ledger of idempotency keys for create requests',
     writers: ['platform/idempotency/drizzle-idempotent-creates.ts'],
   },
+  live_channel: {
+    why: 'platform counter of the last live change sequence on each channel',
+    writers: ['platform/live/drizzle-live-notice-log.ts'],
+  },
+  live_notice: {
+    why: 'platform log of numbered live changes, replayed on reconnect and trimmed after a day',
+    writers: ['platform/live/drizzle-live-notice-log.ts'],
+  },
   memory_use: {
     why: 'append-only ledger of memory uses, persisted with RecordedMemoryUses (DECISIONS configuration-memory)',
     childOf: 'memory',

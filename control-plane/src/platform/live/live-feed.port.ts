@@ -24,4 +24,6 @@ export interface LiveFeedPort {
     channels: readonly LiveChannel[],
     listener: LiveListener,
   ): () => void;
+
+  watched(channels: readonly LiveChannel[]): Promise<void>;
 }

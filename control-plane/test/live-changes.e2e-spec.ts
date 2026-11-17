@@ -1,12 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
 import type { INestApplication } from '@nestjs/common';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { liveChannel } from '@platform/persistence/drizzle/schemas/live.schema';
 import {
   NOTICES,
   type NoticesPort,
 } from '@work/application/ports/notices.port';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
@@ -22,6 +25,26 @@ const teamIn = (app: INestApplication) =>
     app.get(DrizzleTaskRepository),
     `live-${randomUUID().slice(0, 8)}`,
   );
+
+const sequencesOn = (
+  watching: ReturnType<typeof watchedLive>,
+  channel: string,
+): number[] =>
+  watching
+    .of('changed')
+    .map((each) => each.data as { channel?: string; sequence?: number })
+    .filter((data) => data.channel === channel)
+    .map((data) => data.sequence ?? 0);
+
+const headOf = async (app: INestApplication, channel: string) => {
+  const [row] = await app
+    .get<DrizzleDatabase>(DRIZZLE)
+    .select({ lastSequence: liveChannel.lastSequence })
+    .from(liveChannel)
+    .where(eq(liveChannel.channel, channel));
+
+  return row?.lastSequence ?? 0;
+};
 
 const noticeIn = (app: INestApplication, team: Team, subject: string) =>
   app.get<NoticesPort>(NOTICES).create({
@@ -66,7 +89,12 @@ describe('live changes on one instance', () => {
 
       expect(member.of('changed')).toContainEqual({
         type: 'changed',
-        data: { topic: 'inbox', ids: {} },
+        data: {
+          topic: 'inbox',
+          ids: {},
+          channel: `workspace:${team.workspaceId.value}`,
+          sequence: expect.any(Number) as unknown,
+        },
       });
       expect(member.of('notification')[0]?.data).toMatchObject({
         kind: 'notice',
@@ -77,6 +105,63 @@ describe('live changes on one instance', () => {
       member.close();
       stranger.close();
     }
+  });
+
+  it('sends again the changes a member missed since the sequence they give', async () => {
+    const channel = `workspace:${team.workspaceId.value}`;
+    const first = watchedLive(app, team.owner.value);
+    let applied: number;
+
+    try {
+      await eventually(async () => first.of('ready').length === 1);
+      await noticeIn(app, team, `drift-${randomUUID()}`);
+      await eventually(async () => sequencesOn(first, channel).length > 0);
+      applied = Math.max(...sequencesOn(first, channel));
+    } finally {
+      first.close();
+    }
+
+    await noticeIn(app, team, `drift-${randomUUID()}`);
+    await eventually(async () => (await headOf(app, channel)) > applied);
+
+    const second = watchedLive(app, team.owner.value, [
+      `${channel}@${applied}`,
+    ]);
+
+    try {
+      await eventually(async () => second.of('ready').length === 1);
+
+      const ready = second.heard.findIndex((each) => each.type === 'ready');
+      const before = second.heard.slice(0, ready);
+      const replayed = before
+        .map((each) => each.data as { channel?: string; sequence?: number })
+        .filter((data) => data.channel === channel)
+        .map((data) => data.sequence ?? 0);
+
+      expect(before.every((each) => each.type === 'changed')).toBe(true);
+      expect(replayed[0]).toBe(applied + 1);
+      expect(replayed).toEqual(replayed.map((_, index) => applied + 1 + index));
+      expect(second.of('ready')[0]?.data).toMatchObject({
+        complete: false,
+        heads: { [channel]: Math.max(...replayed) },
+      });
+    } finally {
+      second.close();
+    }
+  });
+
+  it('says on a write the sequences of the changes it made', async () => {
+    const assigned = await served(app)
+      .put(
+        `/api/teams/${team.teamId.value}/tasks/${team.list.id.value}/assignee`,
+      )
+      .set(TEST_USER_HEADER, team.owner.value)
+      .send({ assigneeId: null });
+
+    expect(assigned.status).toBeLessThan(300);
+    expect(assigned.headers['spotlight-live-sequences']).toMatch(
+      new RegExp(`(^|,)workspace:${team.workspaceId.value}@\\d+(,|$)`),
+    );
   });
 });
 
@@ -116,14 +201,15 @@ describe.skipIf(!E2E_REDIS_URL)('live changes across two instances', () => {
       expect(assigned.status).toBeLessThan(300);
 
       await eventually(async () =>
-        watching.of('changed').some(
-          (each) =>
-            JSON.stringify(each.data) ===
-            JSON.stringify({
-              topic: 'task',
-              ids: { taskId: team.list.id.value },
-            }),
-        ),
+        watching.of('changed').some((each) => {
+          const data = each.data as { topic?: string; ids?: unknown };
+
+          return (
+            data.topic === 'task' &&
+            JSON.stringify(data.ids) ===
+              JSON.stringify({ taskId: team.list.id.value })
+          );
+        }),
       );
     } finally {
       watching.close();
@@ -143,7 +229,7 @@ describe.skipIf(!E2E_REDIS_URL)('live changes across two instances', () => {
 
       expect(watching.of('changed')).toContainEqual({
         type: 'changed',
-        data: { topic: 'inbox', ids: {} },
+        data: expect.objectContaining({ topic: 'inbox', ids: {} }) as unknown,
       });
     } finally {
       watching.close();

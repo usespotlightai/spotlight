@@ -7,6 +7,7 @@ import {
 import { runNotesKeys } from '@/hooks/api/useRunNotes';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
 import { sendMessage } from '@/lib/api';
+import { refreshAfterWrite } from '@/lib/live-writes';
 import type { MessageInFlight, OutgoingMessage } from '@/lib/run-notes';
 
 const sendMessageKey = ['send-message'] as const;
@@ -24,17 +25,16 @@ export function useSendMessage() {
       coAuthors,
       draftGeneration,
     }: OutgoingMessage) => {
-      await sendMessage({
+      const { response } = await sendMessage({
         path: { teamId, runId },
         body: { body, attachments, coAuthors, draftGeneration },
         throwOnError: true,
       });
-    },
-
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['inbox'] });
-      void queryClient.invalidateQueries({ queryKey: teamRunKeys.all });
-      void queryClient.invalidateQueries({ queryKey: runNotesKeys.all });
+      void refreshAfterWrite(queryClient, response, [
+        ['inbox'],
+        teamRunKeys.all,
+        runNotesKeys.all,
+      ]);
     },
   });
 }

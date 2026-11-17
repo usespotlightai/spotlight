@@ -16,6 +16,7 @@ export function useAssignTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { optimistic: true },
     mutationFn: async ({ teamId, taskId, assignee }: AssignTaskInput) => {
       const { data } = await assignTask({
         path: { teamId, taskId },

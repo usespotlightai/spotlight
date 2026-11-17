@@ -45,6 +45,29 @@ describe('RedisLiveFeed', () => {
     expect(heard).toEqual([CHANGED]);
   });
 
+  it('says a channel is watched only once Redis confirms the subscription', async () => {
+    const { feed, subscriber } = instance();
+    let confirm = () => {};
+    vi.spyOn(subscriber, 'subscribe').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          confirm = () => resolve(1);
+        }),
+    );
+    let watched = false;
+
+    feed.subscribe(['workspace:ws_1'], () => {});
+    void feed.watched(['workspace:ws_1']).then(() => {
+      watched = true;
+    });
+    await settled();
+    expect(watched).toBe(false);
+
+    confirm();
+    await settled();
+    expect(watched).toBe(true);
+  });
+
   it('subscribes to a channel once and lets go after the last listener', async () => {
     const { feed, subscriber } = instance();
     const subscribe = vi.spyOn(subscriber, 'subscribe');

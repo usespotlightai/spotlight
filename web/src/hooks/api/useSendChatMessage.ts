@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatKeys } from '@/hooks/api/useChats';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { sendChatMessage } from '@/lib/api';
+import { refreshAfterWrite } from '@/lib/live-writes';
 
 type SendChatMessageInput = {
   teamId: string;
@@ -25,7 +26,7 @@ export function useSendChatMessage() {
       model,
       effort,
     }: SendChatMessageInput) => {
-      await sendChatMessage({
+      const { response } = await sendChatMessage({
         path: { teamId, chatId },
         body: {
           body,
@@ -35,13 +36,11 @@ export function useSendChatMessage() {
         },
         throwOnError: true,
       });
-    },
-    onSuccess: (_sent, { teamId, chatId }) => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.one(chatId) });
-      void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
-      void queryClient.invalidateQueries({
-        queryKey: chatKeys.forTeam(teamId),
-      });
+      void refreshAfterWrite(queryClient, response, [
+        chatKeys.one(chatId),
+        inboxKeys.all,
+        chatKeys.forTeam(teamId),
+      ]);
     },
   });
 }

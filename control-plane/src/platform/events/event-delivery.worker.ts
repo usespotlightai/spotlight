@@ -7,6 +7,7 @@ import {
 import { Interval } from '@nestjs/schedule';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
+import { LiveWrites } from '@platform/live/live-writes';
 import { detached } from '@platform/telemetry/detached';
 import {
   LOGGER,
@@ -30,7 +31,9 @@ export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     this.#unsubscribe = this.outbox.onRecorded(() => {
-      setImmediate(() => detached(() => void this.tick()));
+      setImmediate(() =>
+        detached(() => LiveWrites.outside(() => void this.tick())),
+      );
     });
   }
 

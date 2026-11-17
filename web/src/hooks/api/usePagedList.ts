@@ -17,6 +17,7 @@ type PagedListOptions<T> = {
   readonly fetchPage: (before: string | undefined) => Promise<Page<T>>;
   readonly keyOf: (item: NoInfer<T>) => string;
   readonly pollMs?: number;
+  readonly staleTime?: () => number;
 };
 
 const distinct = <T>(items: readonly T[], keyOf: (item: T) => string): T[] => {
@@ -40,6 +41,7 @@ export function usePagedList<T>({
   fetchPage,
   keyOf,
   pollMs,
+  staleTime,
 }: PagedListOptions<T>) {
   const queryClient = useQueryClient();
   const list = useInfiniteQuery({
@@ -48,13 +50,14 @@ export function usePagedList<T>({
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => fetchPage(pageParam),
     getNextPageParam: (last) => last.next ?? undefined,
+    ...(staleTime ? { staleTime } : {}),
   });
   const head = useQuery({
     queryKey: [...queryKey, 'head'],
     enabled: enabled && pollMs !== undefined && list.isSuccess,
     queryFn: () => fetchPage(undefined),
     refetchInterval: pollMs,
-    staleTime: pollMs,
+    staleTime: staleTime ?? pollMs,
     initialData: () =>
       queryClient.getQueryData<InfiniteData<Page<T>>>(queryKey)?.pages[0],
     initialDataUpdatedAt: () =>

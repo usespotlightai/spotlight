@@ -5394,9 +5394,22 @@
     },
     "/me/live": {
       "get": {
-        "description": "Sends \"ready\" first, then \"changed\" with a topic and ids for each change in a workspace you may view, and each message other parts of Spotlight send to you, with its own event name. \"changed\" with the topic \"workspaces\" means you joined a workspace: open a new stream to watch it. \"resync\" means some changes were missed: fetch everything again. After about 10 minutes the server sends \"reopen\", then closes the stream 15 seconds later: open a new stream before it closes and no change is missed. Missed events are not sent again.",
+        "description": "Sends \"changed\" with a topic, ids, a channel and a sequence for each change in a workspace you may view, and each message other parts of Spotlight send to you, with its own event name. Sequences on one channel go up by one with no gaps. Give \"since\" as `<channel>@<sequence>` for each channel you applied, and the stream first sends again the changes you missed, then \"ready\". \"ready\" has \"heads\", the last sequence of each channel, and \"complete\", which is false if some missed changes could not be sent again: then fetch everything again. A gap in the sequences of one channel means a change was lost: open a new stream with \"since\". \"changed\" with the topic \"workspaces\" means you joined a workspace: open a new stream to watch it. \"resync\" means some changes were not sent: open a new stream with \"since\". After about 10 minutes the server sends \"reopen\", then closes the stream 15 seconds later: open a new stream before it closes.",
         "operationId": "watchLive",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "since",
+            "required": false,
+            "in": "query",
+            "description": "The last sequence you applied on one channel, as `<channel>@<sequence>`, for example `workspace:<id>@42`",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Server-sent events"
