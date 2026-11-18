@@ -1924,6 +1924,7 @@ CREATE TABLE "sandbox" (
 	"started_at" timestamp (3) with time zone NOT NULL,
 	"gone_at" timestamp (3) with time zone,
 	"warm" jsonb,
+	"retiring" boolean DEFAULT false NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "sandbox_host_has_token" CHECK (("sandbox"."host_id" is null) = ("sandbox"."token_hash" is null)),
 	CONSTRAINT "sandbox_host_has_one_credential_source" CHECK (("sandbox"."host_id" is null) = ("sandbox"."pool_id" is null and "sandbox"."trust_id" is null) and ("sandbox"."pool_id" is null or "sandbox"."trust_id" is null)),
@@ -2068,6 +2069,7 @@ CREATE TABLE "run_journal_entry" (
 	"seq" integer NOT NULL,
 	"type" text NOT NULL,
 	"at" timestamp (3) with time zone NOT NULL,
+	"received_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"message" text,
 	"data" text,
 	CONSTRAINT "run_journal_entry_run_id_attempt_seq_pk" PRIMARY KEY("run_id","attempt","seq")
@@ -2779,6 +2781,7 @@ CREATE UNIQUE INDEX "sandbox_open_key_idx" ON "sandbox" USING btree ("workspace_
 CREATE INDEX "sandbox_host_live_idx" ON "sandbox" USING btree ("host_id") WHERE "sandbox"."state" <> 'gone';--> statement-breakpoint
 CREATE INDEX "sandbox_idle_idx" ON "sandbox" USING btree ("idle_since") WHERE "sandbox"."state" = 'open';--> statement-breakpoint
 CREATE INDEX "sandbox_pool_idle_idx" ON "sandbox" USING btree ("pool_id") WHERE "sandbox"."state" <> 'gone' and "sandbox"."idle_since" is not null;--> statement-breakpoint
+CREATE INDEX "sandbox_retiring_idx" ON "sandbox" USING btree ("id") WHERE "sandbox"."retiring" and "sandbox"."state" = 'open';--> statement-breakpoint
 CREATE INDEX "sandbox_gone_idx" ON "sandbox" USING btree ("gone_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "sandbox_token_hash_idx" ON "sandbox" USING btree ("token_hash");--> statement-breakpoint
 CREATE INDEX "sandbox_requested_idx" ON "sandbox" USING btree ("workspace_id","started_at") WHERE "sandbox"."host_id" is null and "sandbox"."state" = 'open';--> statement-breakpoint

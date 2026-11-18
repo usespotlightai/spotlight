@@ -1,1 +1,0 @@
-ALTER TABLE "run_journal_entry" ADD COLUMN "received_at" timestamp (3) with time zone DEFAULT now() NOT NULL;
