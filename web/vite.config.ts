@@ -20,6 +20,9 @@ const apiShape = createHash('sha256')
 export default defineConfig(({ command }) => ({
   define: {
     'import.meta.env.VITE_API_SHAPE': JSON.stringify(apiShape),
+    'import.meta.env.VITE_RELEASE': JSON.stringify(
+      process.env.SENTRY_RELEASE ?? '',
+    ),
   },
   plugins: [
     react(),

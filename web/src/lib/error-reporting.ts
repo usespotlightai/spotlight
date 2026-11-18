@@ -7,6 +7,7 @@ import {
   setUser,
 } from '@sentry/react';
 
+import { readStored, writeStored } from '@/hooks/useStoredState';
 import { type ErrorReportingResponseDto, getErrorReporting } from '@/lib/api';
 import { isGatewayStatus } from '@/lib/request-failure';
 
@@ -14,12 +15,83 @@ export class GatewayError extends Error {
   override readonly name = 'GatewayError';
 }
 
+const STORED_REPORTING_KEY = 'spotlight:error-reporting';
+
 export async function startErrorReporting(): Promise<void> {
+  const stored = storedReporting();
+
+  if (stored) {
+    start(stored);
+    void fetchReporting().catch(() => undefined);
+    return;
+  }
+
+  const fetched = await fetchReporting();
+  if (fetched) {
+    start(fetched);
+  }
+}
+
+function start(reporting: ErrorReportingResponseDto): void {
+  if (reporting.dsn) {
+    init(errorReportingOptions(reporting));
+  }
+}
+
+async function fetchReporting(): Promise<
+  ErrorReportingResponseDto | undefined
+> {
   const { data } = await getErrorReporting();
 
-  if (data?.dsn) {
-    init(errorReportingOptions(data));
+  if (data) {
+    storeReporting(data);
   }
+
+  return data;
+}
+
+function storedReporting(): ErrorReportingResponseDto | undefined {
+  let stored: unknown;
+  try {
+    stored = JSON.parse(readStored(STORED_REPORTING_KEY) ?? 'null');
+  } catch {
+    return undefined;
+  }
+
+  return isReporting(stored) && stored.build === import.meta.env.VITE_RELEASE
+    ? stored
+    : undefined;
+}
+
+function storeReporting(reporting: ErrorReportingResponseDto): void {
+  writeStored(
+    STORED_REPORTING_KEY,
+    JSON.stringify({
+      build: import.meta.env.VITE_RELEASE,
+      dsn: reporting.dsn,
+      environment: reporting.environment,
+      release: reporting.release,
+    }),
+  );
+}
+
+const isTextOrNull = (value: unknown): value is string | null =>
+  value === null || typeof value === 'string';
+
+function isReporting(
+  value: unknown,
+): value is ErrorReportingResponseDto & { build: string } {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const { build, dsn, environment, release } = value as Record<string, unknown>;
+  return (
+    typeof build === 'string' &&
+    isTextOrNull(dsn) &&
+    isTextOrNull(environment) &&
+    isTextOrNull(release)
+  );
 }
 
 export function errorReportingOptions(
