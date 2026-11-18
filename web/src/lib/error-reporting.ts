@@ -7,6 +7,7 @@ import {
   setUser,
 } from '@sentry/react';
 
+import { readStored, writeStored } from '@/hooks/useStoredState';
 import { type ErrorReportingResponseDto, getErrorReporting } from '@/lib/api';
 import { isGatewayStatus } from '@/lib/request-failure';
 
@@ -50,42 +51,46 @@ async function fetchReporting(): Promise<
 }
 
 function storedReporting(): ErrorReportingResponseDto | undefined {
+  let stored: unknown;
   try {
-    const stored: unknown = JSON.parse(
-      localStorage.getItem(STORED_REPORTING_KEY) ?? 'null',
-    );
-    return isReporting(stored) ? stored : undefined;
+    stored = JSON.parse(readStored(STORED_REPORTING_KEY) ?? 'null');
   } catch {
     return undefined;
   }
+
+  return isReporting(stored) && stored.build === import.meta.env.VITE_RELEASE
+    ? stored
+    : undefined;
 }
 
 function storeReporting(reporting: ErrorReportingResponseDto): void {
-  try {
-    localStorage.setItem(
-      STORED_REPORTING_KEY,
-      JSON.stringify({
-        dsn: reporting.dsn,
-        environment: reporting.environment,
-        release: reporting.release,
-      }),
-    );
-  } catch {
-    return;
-  }
+  writeStored(
+    STORED_REPORTING_KEY,
+    JSON.stringify({
+      build: import.meta.env.VITE_RELEASE,
+      dsn: reporting.dsn,
+      environment: reporting.environment,
+      release: reporting.release,
+    }),
+  );
 }
 
 const isTextOrNull = (value: unknown): value is string | null =>
   value === null || typeof value === 'string';
 
-function isReporting(value: unknown): value is ErrorReportingResponseDto {
+function isReporting(
+  value: unknown,
+): value is ErrorReportingResponseDto & { build: string } {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
 
-  const { dsn, environment, release } = value as Record<string, unknown>;
+  const { build, dsn, environment, release } = value as Record<string, unknown>;
   return (
-    isTextOrNull(dsn) && isTextOrNull(environment) && isTextOrNull(release)
+    typeof build === 'string' &&
+    isTextOrNull(dsn) &&
+    isTextOrNull(environment) &&
+    isTextOrNull(release)
   );
 }
 

@@ -32,6 +32,13 @@ const REPORTING = {
 };
 
 const STORED_REPORTING_KEY = 'spotlight:error-reporting';
+const BUILD = import.meta.env.VITE_RELEASE;
+
+const storedAnswer = (): unknown =>
+  JSON.parse(localStorage.getItem(STORED_REPORTING_KEY) ?? 'null');
+
+const store = (answer: object) =>
+  localStorage.setItem(STORED_REPORTING_KEY, JSON.stringify(answer));
 
 beforeEach(() => {
   localStorage.clear();
@@ -75,13 +82,11 @@ describe('startErrorReporting', () => {
 
     expect(api.getErrorReporting).toHaveBeenCalledOnce();
     expect(sentry.init).toHaveBeenCalledOnce();
-    expect(
-      JSON.parse(localStorage.getItem(STORED_REPORTING_KEY) ?? 'null'),
-    ).toEqual(REPORTING);
+    expect(storedAnswer()).toEqual({ build: BUILD, ...REPORTING });
   });
 
   it('starts from the stored answer without waiting for the control plane, and stores the new one for the next load', async () => {
-    localStorage.setItem(STORED_REPORTING_KEY, JSON.stringify(REPORTING));
+    store({ build: BUILD, ...REPORTING });
     const next = { ...REPORTING, release: 'v1.5.0' };
     let answer: (value: { data: typeof next }) => void = () => undefined;
     api.getErrorReporting.mockReturnValue(
@@ -98,18 +103,13 @@ describe('startErrorReporting', () => {
 
     answer({ data: next });
     await vi.waitFor(() =>
-      expect(
-        JSON.parse(localStorage.getItem(STORED_REPORTING_KEY) ?? 'null'),
-      ).toEqual(next),
+      expect(storedAnswer()).toEqual({ build: BUILD, ...next }),
     );
     expect(sentry.init).toHaveBeenCalledOnce();
   });
 
   it('starts nothing from a stored answer without a DSN, and survives a failed refresh', async () => {
-    localStorage.setItem(
-      STORED_REPORTING_KEY,
-      JSON.stringify({ dsn: null, environment: null, release: null }),
-    );
+    store({ build: BUILD, dsn: null, environment: null, release: null });
     api.getErrorReporting.mockRejectedValue(new TypeError('Failed to fetch'));
 
     await startErrorReporting();
@@ -119,13 +119,24 @@ describe('startErrorReporting', () => {
   });
 
   it('waits for the control plane when the stored answer has the wrong shape', async () => {
-    localStorage.setItem(STORED_REPORTING_KEY, JSON.stringify({ dsn: 4 }));
+    store({ build: BUILD, dsn: 4 });
     api.getErrorReporting.mockResolvedValue({ data: REPORTING });
 
     await startErrorReporting();
 
     expect(sentry.init).toHaveBeenCalledOnce();
     expect(sentry.init.mock.calls[0]?.[0]).toMatchObject(REPORTING);
+  });
+
+  it('waits for the control plane when the stored answer is from another build, so a deploy reports its own release', async () => {
+    store({ build: `${BUILD}-previous`, ...REPORTING, release: 'v1.3.0' });
+    api.getErrorReporting.mockResolvedValue({ data: REPORTING });
+
+    await startErrorReporting();
+
+    expect(sentry.init).toHaveBeenCalledOnce();
+    expect(sentry.init.mock.calls[0]?.[0]).toMatchObject(REPORTING);
+    expect(storedAnswer()).toEqual({ build: BUILD, ...REPORTING });
   });
 
   it('waits for the control plane when storage is unavailable', async () => {
