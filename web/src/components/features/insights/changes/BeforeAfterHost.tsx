@@ -3,7 +3,10 @@ import { type ReactNode, useMemo, useState } from 'react';
 import { BeforeAfterPanel } from '@/components/features/insights/changes/BeforeAfterPanel';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { useDelayedValue } from '@/hooks/useDelayedValue';
-import { BeforeAfterPanelContext } from '@/lib/before-after-panel';
+import {
+  BeforeAfterActionsContext,
+  BeforeAfterShownContext,
+} from '@/lib/before-after-panel';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
 import type { ChangeAt } from '@/lib/insights-changes';
 
@@ -27,34 +30,35 @@ export function BeforeAfterHost({
   const [shown, setShown] = useState<ChangeAt | null>(null);
   const displayed = useDelayedValue(shown, LEAVING);
 
-  const value = useMemo(
+  const actions = useMemo(
     () => ({
-      shown,
       show: (change: ChangeAt) => setShown(change),
       close: () => setShown(null),
     }),
-    [shown],
+    [],
   );
 
   return (
-    <BeforeAfterPanelContext value={value}>
-      <PaneScroller
-        sidePanel={
-          displayed && (
-            <BeforeAfterPanel
-              slug={slug}
-              teamId={teamId}
-              period={period}
-              change={displayed}
-              names={names}
-              open={shown !== null}
-              onClose={() => setShown(null)}
-            />
-          )
-        }
-      >
-        {children}
-      </PaneScroller>
-    </BeforeAfterPanelContext>
+    <BeforeAfterActionsContext value={actions}>
+      <BeforeAfterShownContext value={shown}>
+        <PaneScroller
+          sidePanel={
+            displayed && (
+              <BeforeAfterPanel
+                slug={slug}
+                teamId={teamId}
+                period={period}
+                change={displayed}
+                names={names}
+                open={shown !== null}
+                onClose={actions.close}
+              />
+            )
+          }
+        >
+          {children}
+        </PaneScroller>
+      </BeforeAfterShownContext>
+    </BeforeAfterActionsContext>
   );
 }

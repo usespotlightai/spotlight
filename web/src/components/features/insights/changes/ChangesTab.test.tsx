@@ -1,10 +1,18 @@
-import { render, screen, within } from '@testing-library/react';
+import {
+  act,
+  render,
+  renderHook,
+  screen,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAfterHost';
 import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
+import { useBeforeAfterActions } from '@/lib/before-after-panel';
+import { configPlan } from '@/lib/config-plan';
 import { stationNamesOf } from '@/lib/insights';
 import type {
   InsightsAgentConfigs,
@@ -40,6 +48,27 @@ const answer: {
   requested: [],
 };
 
+const planned: { entries: unknown[] } = { entries: [] };
+
+vi.mock('@/lib/config-plan', async (original) => {
+  const actual = await original<typeof import('@/lib/config-plan')>();
+  return { ...actual, configPlan: vi.fn(actual.configPlan) };
+});
+vi.mock(
+  '@/components/features/insights/changes/ConfigPlan',
+  async (original) => {
+    const actual =
+      await original<
+        typeof import('@/components/features/insights/changes/ConfigPlan')
+      >();
+    return {
+      ConfigPlan: (props: Parameters<typeof actual.ConfigPlan>[0]) => {
+        planned.entries.push(props.entries);
+        return actual.ConfigPlan(props);
+      },
+    };
+  },
+);
 vi.mock('@/hooks/api/useInsightsChanges', () => ({
   useInsightsChanges: () => answer.changes,
 }));
@@ -269,6 +298,8 @@ beforeEach(() => {
   answer.agentConfigs = queried(AGENT_CONFIGS);
   answer.candidates = queried(REPLAYED);
   answer.requested = [];
+  planned.entries = [];
+  vi.mocked(configPlan).mockClear();
 });
 
 describe('the Changes tab', () => {
@@ -664,5 +695,89 @@ describe('the Changes tab', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
 
     expect(answer.requested.at(-1)).toEqual({ stationId: null, size: null });
+  });
+});
+
+const MANY = {
+  ...CHANGES,
+  markers: ['a', 'b', 'c'].map((each, index) => ({
+    ...CHANGES.markers[0],
+    runId: `run_${each}`,
+    firstRunAt: `2026-09-2${index}T10:00:00.000Z`,
+    changes: [
+      {
+        part: 'model',
+        name: null,
+        kind: 'changed',
+        was: 'sonnet',
+        now: `opus-${each}`,
+      },
+    ],
+  })),
+} as unknown as InsightsChanges;
+
+const rendersOf = (rows: readonly unknown[]) =>
+  rows.map((entries) => planned.entries.filter((e) => e === entries).length);
+
+const entriesOfRows = () => [...new Set(planned.entries)];
+
+describe('the Changes tab render cost', () => {
+  beforeEach(() => {
+    answer.changes = queried(MANY);
+  });
+
+  it('plans each marker once, even after the impact panel opens and closes', async () => {
+    showing();
+    expect(vi.mocked(configPlan).mock.calls).toHaveLength(3);
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Impact' })[0]);
+    const planCalls = vi.mocked(configPlan).mock.calls.length;
+    await userEvent.click(screen.getAllByRole('button', { name: 'Impact' })[0]);
+
+    expect(vi.mocked(configPlan).mock.calls).toHaveLength(planCalls);
+  });
+
+  it('re-renders only the rows whose pressed state changes when the panel opens and closes', async () => {
+    showing();
+    const rows = entriesOfRows();
+    const before = rendersOf(rows);
+    expect(rows).toHaveLength(3);
+
+    const buttons = screen.getAllByRole('button', { name: 'Impact' });
+    await userEvent.click(buttons[0]);
+    const opened = rendersOf(rows);
+    expect(opened.filter((count, i) => count > before[i])).toHaveLength(1);
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Impact' })[1]);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Impact' })[1]);
+    const closed = rendersOf(rows);
+    expect(closed.filter((count, i) => count > opened[i])).toHaveLength(2);
+  });
+
+  it('does not request the changes again when the panel opens', async () => {
+    showing();
+    const requests = answer.requested.length;
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Impact' })[0]);
+
+    expect(answer.requested).toHaveLength(requests);
+  });
+});
+
+describe('the panel actions', () => {
+  it('keep their identity while the shown change changes', async () => {
+    const { result, rerender } = renderHook(() => useBeforeAfterActions(), {
+      wrapper: ({ children }) => (
+        <BeforeAfterHost slug="acme" teamId="team_1" period="30d" names={NAMES}>
+          {children}
+        </BeforeAfterHost>
+      ),
+    });
+    const first = result.current;
+
+    act(() => first.show({ stationId: 's', runId: 'r' }));
+    rerender();
+
+    expect(result.current).toBe(first);
   });
 });

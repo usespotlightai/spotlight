@@ -5,6 +5,7 @@ import { ImproveStationLink } from '@/components/features/stations/ImproveStatio
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PillLink } from '@/components/shared/PillLink';
 import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
+import { configPlan } from '@/lib/config-plan';
 import {
   type InsightsPeriod,
   type StationNames,
@@ -81,7 +82,7 @@ export function BeforeAfter({
       <section className="flex flex-col gap-1">
         <h3 className="font-medium text-foreground text-sm">What changed</h3>
         {marker.changes.length > 0 ? (
-          <ConfigPlan changes={configChangesOf(marker.changes)} />
+          <ConfigPlan entries={configPlan(configChangesOf(marker.changes))} />
         ) : (
           <p className="text-muted-foreground text-sm">Config not on record.</p>
         )}

@@ -1,11 +1,13 @@
 import { PlanHeredoc } from '@/components/features/insights/changes/PlanHeredoc';
 import { PlanLeafRow } from '@/components/features/insights/changes/PlanLeafRow';
 import { PlanRow } from '@/components/features/insights/changes/PlanRow';
-import { configPlan, leafNameWidth, planNameWidth } from '@/lib/config-plan';
-import type { ConfigChange } from '@/lib/station-config';
+import {
+  leafNameWidth,
+  type PlanEntry,
+  planNameWidth,
+} from '@/lib/config-plan';
 
-export function ConfigPlan({ changes }: { changes: readonly ConfigChange[] }) {
-  const entries = configPlan(changes);
+export function ConfigPlan({ entries }: { entries: readonly PlanEntry[] }) {
   const width = planNameWidth(entries);
 
   return (

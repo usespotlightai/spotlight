@@ -1,3 +1,5 @@
+import { memo, useMemo } from 'react';
+
 import { ConfigPlan } from '@/components/features/insights/changes/ConfigPlan';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { ClampedCell } from '@/components/shared/nested-table/ClampedCell';
@@ -10,10 +12,10 @@ import {
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { RowDetail } from '@/components/shared/nested-table/RowDetail';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { useBeforeAfterPanel } from '@/lib/before-after-panel';
-import { hasTextDiff } from '@/lib/config-plan';
+import { useBeforeAfterActions } from '@/lib/before-after-panel';
+import { configPlan, hasTextDiff } from '@/lib/config-plan';
 import { formatCount, formatStation, type StationNames } from '@/lib/insights';
-import { type ChangeMarker, changeKey } from '@/lib/insights-changes';
+import type { ChangeMarker } from '@/lib/insights-changes';
 import { formatDay } from '@/lib/judge';
 import { pillClass } from '@/lib/pill';
 import { configChangesOf } from '@/lib/station-config';
@@ -30,19 +32,22 @@ type ChangeMarkerRowProps = {
   teamId: string;
   marker: ChangeMarker;
   names: StationNames;
+  shown: boolean;
 };
 
-export function ChangeMarkerRow({
+export const ChangeMarkerRow = memo(function ChangeMarkerRow({
   slug,
   teamId,
   marker,
   names,
+  shown,
 }: ChangeMarkerRowProps) {
-  const panel = useBeforeAfterPanel();
-  const shown =
-    panel.shown !== null && changeKey(panel.shown) === changeKey(marker);
-  const changes = configChangesOf(marker.changes);
-  const wide = hasTextDiff(changes);
+  const { show, close } = useBeforeAfterActions();
+  const entries = useMemo(
+    () => configPlan(configChangesOf(marker.changes)),
+    [marker.changes],
+  );
+  const wide = hasTextDiff(entries);
 
   return (
     <ExpandingRow slot="change-marker" className={ROW_DIVIDER}>
@@ -82,7 +87,7 @@ export function ChangeMarkerRow({
 
           <ClampedCell expansion={expansion} pinned={wide}>
             {marker.changes.length > 0 ? (
-              <ConfigPlan changes={changes} />
+              <ConfigPlan entries={entries} />
             ) : (
               <p className="text-muted-foreground">Config not on record</p>
             )}
@@ -98,7 +103,7 @@ export function ChangeMarkerRow({
           <button
             type="button"
             aria-pressed={shown}
-            onClick={() => (shown ? panel.close() : panel.show(marker))}
+            onClick={() => (shown ? close() : show(marker))}
             className={pillClass(
               shown ? 'default' : 'outline',
               cn(
@@ -112,11 +117,11 @@ export function ChangeMarkerRow({
 
           {wide && (
             <RowDetail className="col-[4/-1]">
-              <ConfigPlan changes={changes} />
+              <ConfigPlan entries={entries} />
             </RowDetail>
           )}
         </>
       )}
     </ExpandingRow>
   );
-}
+});
