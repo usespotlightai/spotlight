@@ -149,6 +149,10 @@ export class ChatMessage {
     return this.kind === 'message' && this.acknowledgedAt === null;
   }
 
+  proposedIn(runId: RunId): boolean {
+    return this.proposal !== null && (this.runId?.equals(runId) ?? false);
+  }
+
   wasAcknowledgedBy(runId: RunId): boolean {
     return this.acknowledgedBy?.equals(runId) ?? false;
   }

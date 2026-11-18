@@ -806,7 +806,7 @@ describe('Chat', () => {
   it('opens a proposal again where its task could not be created', () => {
     const reopened = proposing()
       .accept(SECOND, LEON, LATER)
-      .recordAcceptanceFailure(SECOND);
+      .recordAcceptanceFailure(SECOND, LATER);
 
     expect(reopened.proposalAt(SECOND).isOpen).toBe(true);
   });
@@ -957,12 +957,9 @@ describe('Chat', () => {
       expect(ended(working().resolve(LEON, NOW)).resolvedAt).toBeNull();
     });
 
-    it('stays resolved when its run ends after every task it proposed was created', () => {
-      expect(ended(accepted(proposing())).resolvedAt).toEqual(LATER);
-    });
-
-    it('opens again when its run ends while a proposal of the run waits', () => {
-      const twice = proposing().propose({
+    const THIRD = MessagePosition.of(2);
+    const proposingTwice = () =>
+      proposing().propose({
         runId: RunId.of('run_1'),
         placement: ProposalPlacement.of({
           lineId: LineId.of('line_1'),
@@ -973,7 +970,84 @@ describe('Chat', () => {
         at: LATER,
       });
 
-      expect(ended(accepted(twice).resolve(LEON, LATER)).resolvedAt).toBeNull();
+    it('stays resolved when its run ends with nothing waiting after its proposed task was created', () => {
+      const chat = ended(accepted(proposing()));
+
+      expect(chat.resolvedAt).toEqual(LATER);
+      expect(chat.pullEvents()).toContainEqual(
+        new ChatRunEnded(
+          chat.id,
+          chat.workspaceId,
+          LEON,
+          RunId.of('run_1'),
+          true,
+        ),
+      );
+    });
+
+    it('stays resolved when its run ends after one proposal was dismissed and the other became a task', () => {
+      const chat = accepted(proposingTwice().dismiss(THIRD, LEON, LATER));
+
+      expect(chat.resolvedAt).toEqual(LATER);
+      expect(ended(chat).resolvedAt).toEqual(LATER);
+    });
+
+    it('resolves when the last open proposal is dismissed after another became a task, and stays resolved when the run ends', () => {
+      const created = accepted(proposingTwice());
+
+      expect(created.resolvedAt).toBeNull();
+      const dismissed = created.dismiss(THIRD, LEON, LATER);
+
+      expect(dismissed.resolvedAt).toEqual(LATER);
+      expect(ended(dismissed).resolvedAt).toEqual(LATER);
+    });
+
+    it('does not resolve while a message waits for the agent, even when the proposed task was created', () => {
+      const asked = accepted(
+        proposing().addMessage({
+          by: LEON,
+          body: ChatMessageBody.of('Why that delay?'),
+          at: LATER,
+        }),
+      );
+
+      expect(asked.resolvedAt).toBeNull();
+      expect(ended(asked).resolvedAt).toBeNull();
+    });
+
+    it('resolves when a proposal accepted before its run ended became a task after', () => {
+      const endedFirst = ended(proposing().accept(SECOND, LEON, LATER));
+
+      expect(endedFirst.resolvedAt).toBeNull();
+      expect(
+        endedFirst.proposalBecame(SECOND, TaskId.of('task_1'), LATER)
+          .resolvedAt,
+      ).toEqual(LATER);
+    });
+
+    it('opens again when the person writes after it was resolved, and stays open when the run ends', () => {
+      const written = accepted(proposing()).addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('Why that delay?'),
+        at: LATER,
+      });
+
+      expect(written.resolvedAt).toBeNull();
+      expect(ended(written).resolvedAt).toBeNull();
+    });
+
+    it('opens again when a task could not be made for a proposal after it was resolved', () => {
+      const resolved = proposingTwice()
+        .accept(THIRD, LEON, LATER)
+        .accept(SECOND, LEON, LATER)
+        .proposalBecame(SECOND, TaskId.of('task_1'), LATER);
+
+      expect(resolved.resolvedAt).toEqual(LATER);
+      const failedAt = new Date('2026-09-15T12:00:00.000Z');
+      const failed = resolved.recordAcceptanceFailure(THIRD, failedAt);
+
+      expect(failed.resolvedAt).toBeNull();
+      expect(failed.reopenedAt).toEqual(failedAt);
     });
 
     it('keeps its resolution when a run ends without a session', () => {
@@ -1159,7 +1233,9 @@ describe('Chat', () => {
           TaskId.of('task_1'),
         ),
       ]);
-      expect(accepted.recordAcceptanceFailure(SECOND).pullEvents()).toEqual([
+      expect(
+        accepted.recordAcceptanceFailure(SECOND, LATER).pullEvents(),
+      ).toEqual([
         new ProposalAcceptanceFailed(accepted.id, WORKSPACE, LEON, SECOND),
       ]);
     });
