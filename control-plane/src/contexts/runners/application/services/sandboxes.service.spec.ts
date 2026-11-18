@@ -15,6 +15,7 @@ import {
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import {
   ARCHIVE_LEASE_MS,
@@ -193,6 +194,31 @@ describe('Sandboxes', () => {
     expect(stored.get('sandbox_2')?.current).toBe('open');
   });
 
+  it('retires the open sandbox of a finished key: drains it when idle, and when a run holds it, once the run lets go', async () => {
+    const { stored, service } = serving({
+      known: [
+        placed('sandbox_1').releaseRun(RunId.of('run_1'), STARTED_AT),
+        placed('sandbox_2', { key: 'task-task_2', runId: 'run_2' }),
+        placed('sandbox_3', { key: 'chat-chat_1', runId: 'run_3' }),
+      ],
+      now: later(5_000),
+    });
+
+    await service.retire(WORKSPACE.value, 'task-task_1');
+    await service.retire(WORKSPACE.value, 'task-task_2');
+    await service.retire(WORKSPACE.value, 'task-task_9');
+    await service.retire('ws_2', 'chat-chat_1');
+
+    expect(stored.get('sandbox_1')?.current).toBe('draining');
+    expect(stored.get('sandbox_2')?.current).toBe('open');
+    expect(stored.get('sandbox_2')?.isRetiring).toBe(true);
+    expect(stored.get('sandbox_3')?.isRetiring).toBe(false);
+
+    await service.releaseRun('run_2', later(6_000));
+
+    expect(stored.get('sandbox_2')?.current).toBe('draining');
+  });
+
   it('answers to drain each reported sandbox its host does not keep: unknown, on another host or draining', async () => {
     const { service, stored } = serving({
       known: [
@@ -302,6 +328,22 @@ describe('Sandboxes', () => {
     expect(stored.get('sandbox_1')?.current).toBe('draining');
     expect(stored.get('sandbox_2')?.current).toBe('open');
     expect(stored.get('sandbox_3')?.current).toBe('gone');
+  });
+
+  it('drains a retiring sandbox once the lease of its last editor expires, before the grace ends', async () => {
+    const edited = placed('sandbox_1')
+      .releaseRun(RunId.of('run_1'), STARTED_AT)
+      .holdEditor(LeaseHolder.editor('conn_1'), later(1_000))
+      .retire(later(2_000));
+    const { stored, service } = serving({ known: [edited] });
+
+    await service.drainIdle(later(1_000 + EDITOR_LEASE_MS - 1));
+
+    expect(stored.get('sandbox_1')?.current).toBe('open');
+
+    await service.drainIdle(later(1_000 + EDITOR_LEASE_MS));
+
+    expect(stored.get('sandbox_1')?.current).toBe('draining');
   });
 
   it('removes sandboxes a day after they are gone', async () => {

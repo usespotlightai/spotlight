@@ -60,6 +60,7 @@ interface State {
   readonly startedAt: Date;
   readonly goneAt: Date | null;
   readonly warm: WarmPart | null;
+  readonly retiring: boolean;
   readonly version: number;
 }
 
@@ -92,6 +93,7 @@ export class Sandbox extends EventRecorder {
       startedAt: input.at,
       goneAt: null,
       warm: null,
+      retiring: false,
       version: 0,
     });
   }
@@ -115,6 +117,7 @@ export class Sandbox extends EventRecorder {
       startedAt: input.at,
       goneAt: null,
       warm: null,
+      retiring: false,
       version: 0,
     });
   }
@@ -138,6 +141,7 @@ export class Sandbox extends EventRecorder {
       startedAt: input.at,
       goneAt: null,
       warm: input.warm,
+      retiring: false,
       version: 0,
     });
   }
@@ -209,6 +213,13 @@ export class Sandbox extends EventRecorder {
       throw new InconsistentStateError(
         'sandbox',
         'is warm while it has a key, a lease or drains',
+      );
+    }
+
+    if (state.retiring && (state.state !== 'open' || state.key === null)) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'retires while it drains, is gone or has no key',
       );
     }
 
@@ -289,6 +300,10 @@ export class Sandbox extends EventRecorder {
 
   get warm(): WarmPart | null {
     return this.state.warm;
+  }
+
+  get isRetiring(): boolean {
+    return this.state.retiring;
   }
 
   get isWarm(): boolean {
@@ -516,6 +531,7 @@ export class Sandbox extends EventRecorder {
         SandboxLease.of(LeaseHolder.run(runId), at),
       ],
       idleSince: null,
+      retiring: false,
     });
   }
 
@@ -621,6 +637,16 @@ export class Sandbox extends EventRecorder {
     );
   }
 
+  retire(at: Date): Sandbox {
+    if (!this.isOpen || this.state.key === null) {
+      return this;
+    }
+
+    const retiring = this.state.retiring ? this : this.with({ retiring: true });
+
+    return retiring.withoutExpiredLeases(at).retiredWhenFree(at);
+  }
+
   withoutExpiredLeases(now: Date): Sandbox {
     const leases = this.state.leases.filter((each) => !each.expiredAt(now));
 
@@ -657,7 +683,9 @@ export class Sandbox extends EventRecorder {
   }
 
   lost(at: Date): Sandbox {
-    return this.isLive ? this.with({ state: 'gone', goneAt: at }) : this;
+    return this.isLive
+      ? this.with({ state: 'gone', goneAt: at, retiring: false })
+      : this;
   }
 
   drain(): Sandbox {
@@ -668,7 +696,9 @@ export class Sandbox extends EventRecorder {
       );
     }
 
-    return this.isOpen ? this.with({ state: 'draining', warm: null }) : this;
+    return this.isOpen
+      ? this.with({ state: 'draining', warm: null, retiring: false })
+      : this;
   }
 
   retireWarm(): Sandbox | 'removed' {
@@ -734,13 +764,25 @@ export class Sandbox extends EventRecorder {
 
   private withLeases(leases: readonly SandboxLease[], at: Date): Sandbox {
     if (leases.some((each) => each.occupies)) {
-      return this.with({ leases, idleSince: null });
+      return this.with({ leases, idleSince: null }).retiredWhenFree(at);
     }
 
     return this.with({
       leases,
       idleSince: leases.length === 0 ? at : (this.state.idleSince ?? at),
-    });
+    }).retiredWhenFree(at);
+  }
+
+  private retiredWhenFree(at: Date): Sandbox {
+    const free = !this.state.leases.some(
+      (each) => (each.isForRun || each.isForEditor) && !each.expiredAt(at),
+    );
+
+    if (!this.state.retiring || !free) {
+      return this;
+    }
+
+    return this.isPlaced ? this.drain() : this.lost(at);
   }
 
   private with(changes: Partial<State>): Sandbox {

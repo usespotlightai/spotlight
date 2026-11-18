@@ -64,6 +64,7 @@ const savedAs = (sandbox: Sandbox, version: number): Sandbox =>
     startedAt: sandbox.startedAt,
     goneAt: sandbox.goneAt,
     warm: sandbox.warm,
+    retiring: sandbox.isRetiring,
     version,
   });
 
@@ -197,6 +198,9 @@ export const storedSandboxes = (
         (each) =>
           each.isOpen && each.idleSince !== null && each.idleSince <= cutoff,
       ),
+    ),
+    retiring: vi.fn(async () =>
+      all().filter((each) => each.isOpen && each.isRetiring),
     ),
     withArchiveLeaseRenewedBefore: vi.fn(async (cutoff: Date) =>
       all().filter(

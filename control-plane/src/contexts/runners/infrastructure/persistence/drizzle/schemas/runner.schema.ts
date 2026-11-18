@@ -258,6 +258,7 @@ export const sandbox = pgTable(
     startedAt: timestamptz('started_at').notNull(),
     goneAt: timestamptz('gone_at'),
     warm: jsonb('warm').$type<SandboxWarmRecord>(),
+    retiring: boolean('retiring').notNull().default(false),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -273,6 +274,9 @@ export const sandbox = pgTable(
     index('sandbox_pool_idle_idx')
       .on(table.poolId)
       .where(sql`${table.state} <> 'gone' and ${table.idleSince} is not null`),
+    index('sandbox_retiring_idx')
+      .on(table.id)
+      .where(sql`${table.retiring} and ${table.state} = 'open'`),
     index('sandbox_gone_idx').on(table.goneAt),
     uniqueIndex('sandbox_token_hash_idx').on(table.tokenHash),
     index('sandbox_requested_idx')

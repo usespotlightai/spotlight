@@ -3,6 +3,7 @@ import type {
   EditorSandboxesPort,
 } from '@runners/application/ports/editor-sandboxes.port';
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
+import type { SandboxRetirementPort } from '@runners/application/ports/sandbox-retirement.port';
 import type { SandboxUpkeepPort } from '@runners/application/ports/sandbox-upkeep.port';
 import type {
   AuthenticatedSandbox,
@@ -54,7 +55,11 @@ const editorSandboxOf = (
 });
 
 export class Sandboxes
-  implements SandboxesPort, EditorSandboxesPort, SandboxUpkeepPort
+  implements
+    SandboxesPort,
+    EditorSandboxesPort,
+    SandboxUpkeepPort,
+    SandboxRetirementPort
 {
   constructor(
     private readonly sandboxes: SandboxRepository,
@@ -248,6 +253,32 @@ export class Sandboxes
     for (const holding of await this.sandboxes.holdingRun(run)) {
       await reviseSandbox(this.sandboxes, holding, (sandbox) =>
         sandbox.retireRun(run, at),
+      );
+    }
+  }
+
+  async retire(workspaceId: string, key: string): Promise<void> {
+    const open = await this.sandboxes.openFor(
+      WorkspaceId.of(workspaceId),
+      SandboxKey.of(key),
+    );
+
+    if (!open) {
+      return;
+    }
+
+    const retired = await reviseSandbox(this.sandboxes, open, (sandbox) =>
+      sandbox.retire(this.clock.now()),
+    );
+
+    if (retired && !retired.isOpen) {
+      this.logger.info(
+        {
+          sandboxId: open.id.value,
+          hostId: open.hostId?.value ?? null,
+          state: retired.current,
+        },
+        'Retired the sandbox of finished work',
       );
     }
   }
@@ -652,6 +683,12 @@ export class Sandboxes
           'Draining an idle sandbox',
         );
       }
+    }
+
+    for (const retiring of await this.sandboxes.retiring()) {
+      await reviseSandbox(this.sandboxes, retiring, (sandbox) =>
+        sandbox.withoutExpiredLeases(now),
+      );
     }
 
     for (const archiving of await this.sandboxes.withArchiveLeaseRenewedBefore(

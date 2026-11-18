@@ -11,6 +11,7 @@ import { RUNNER_LEASES } from '@runners/application/ports/runner-leases.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
+import { SANDBOX_RETIREMENT } from '@runners/application/ports/sandbox-retirement.port';
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import { WARM_SANDBOXES } from '@runners/application/ports/warm-sandboxes.port';
 import { WARM_SLOTS } from '@runners/application/ports/warm-slots.port';
@@ -34,6 +35,7 @@ import { SecretsModule } from '@secrets/secrets.module';
     RUNNERS,
     RUNNER_LEASES,
     SANDBOXES,
+    SANDBOX_RETIREMENT,
     WARM_SANDBOXES,
     WARM_SLOTS,
     EDITOR_LEASES,
