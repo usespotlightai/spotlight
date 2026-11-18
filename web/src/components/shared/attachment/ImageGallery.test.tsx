@@ -40,6 +40,9 @@ const view = (name: string) => screen.findByRole('img', { name });
 
 const view_ = (name: string) => screen.getByRole('img', { name });
 
+const peek = (side: string) =>
+  document.querySelector<HTMLImageElement>(`[data-peek="${side}"]`);
+
 const openAt = async (name: string) => {
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: `View ${name}` }));
@@ -64,6 +67,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('ImageGallery', () => {
@@ -116,6 +120,137 @@ describe('ImageGallery', () => {
     expect(view_('a.png')).toBeInTheDocument();
   });
 
+  it('shows the position among several images', async () => {
+    tiles(three);
+    const user = await openAt('a.png');
+    expect(screen.getByText('1 of 3')).toBeInTheDocument();
+
+    await user.keyboard('{ArrowRight}');
+    expect(await screen.findByText('2 of 3')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next image' }));
+    expect(await screen.findByText('3 of 3')).toBeInTheDocument();
+  });
+
+  it('fades the pager in when the view opens', async () => {
+    const animate = vi.fn(() => ({ finished: Promise.resolve() }));
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      value: animate,
+    });
+    tiles(three);
+    await openAt('a.png');
+
+    const pager = screen.getByText('1 of 3').parentElement;
+    expect(animate.mock.contexts).toContain(pager);
+    Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+  });
+
+  it('disables the pager buttons at both ends', async () => {
+    tiles(three);
+    const user = await openAt('a.png');
+    expect(
+      screen.getByRole('button', { name: 'Previous image' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next image' })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: 'Next image' }));
+    await user.click(await screen.findByRole('button', { name: 'Next image' }));
+    await screen.findByText('3 of 3');
+    expect(screen.getByRole('button', { name: 'Next image' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Previous image' }),
+    ).toBeEnabled();
+  });
+
+  it('stays open when a pager button is clicked', async () => {
+    tiles(three);
+    const user = await openAt('a.png');
+
+    await user.click(screen.getByRole('button', { name: 'Next image' }));
+    await screen.findByText('2 of 3');
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('shows no pager for a single image', async () => {
+    tiles([image('a', 'a.png')]);
+    await openAt('a.png');
+
+    expect(screen.queryByRole('button', { name: 'Next image' })).toBeNull();
+    expect(screen.queryByText('1 of 1')).toBeNull();
+  });
+
+  it('peeks at both neighbours of a middle image', async () => {
+    tiles(three);
+    const user = await openAt('a.png');
+    expect(peek('previous')).toBeNull();
+    expect(peek('next')).toHaveAttribute(
+      'src',
+      '/api/workspaces/acme/attachments/b',
+    );
+
+    await user.keyboard('{ArrowRight}');
+    await view('b.png');
+    expect(peek('previous')).toHaveAttribute(
+      'src',
+      '/api/workspaces/acme/attachments/a',
+    );
+    expect(peek('next')).toHaveAttribute(
+      'src',
+      '/api/workspaces/acme/attachments/c',
+    );
+
+    await user.keyboard('{ArrowRight}');
+    await view('c.png');
+    expect(peek('previous')).not.toBeNull();
+    expect(peek('next')).toBeNull();
+  });
+
+  it('hides the peeks from assistive technology', async () => {
+    tiles(three);
+    await openAt('b.png');
+
+    expect(peek('next')).toHaveAttribute('aria-hidden', 'true');
+    expect(peek('next')).toHaveAttribute('alt', '');
+  });
+
+  it('moves to a neighbour when its peek is clicked', async () => {
+    tiles(three);
+    const user = await openAt('b.png');
+
+    await user.click(peek('next') as HTMLElement);
+
+    expect(await view('c.png')).toBeInTheDocument();
+    expect(screen.getByText('3 of 3')).toBeInTheDocument();
+  });
+
+  it('shows no peeks for a single image', async () => {
+    tiles([image('a', 'a.png')]);
+    await openAt('a.png');
+
+    expect(peek('previous')).toBeNull();
+    expect(peek('next')).toBeNull();
+  });
+
+  it('keeps room for peeks beside a wide image', async () => {
+    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(
+      640,
+    );
+    vi.spyOn(
+      HTMLImageElement.prototype,
+      'naturalHeight',
+      'get',
+    ).mockReturnValue(400);
+    vi.stubGlobal('innerWidth', 1280);
+    vi.stubGlobal('innerHeight', 1600);
+    tiles(three);
+    await openAt('b.png');
+
+    expect(peek('previous')).not.toBeNull();
+    expect(peek('next')).not.toBeNull();
+  });
+
   it('gives focus back to the last viewed tile on close', async () => {
     tiles(three);
     const user = await openAt('a.png');
@@ -158,6 +293,13 @@ describe('ImageThumbs gallery', () => {
     await user.keyboard('{ArrowRight}');
 
     expect(await view('b.png')).toHaveAttribute('src', '/b.png');
+  });
+
+  it('shows the pager for several composer images', async () => {
+    render(<Composer initial={[thumb('a'), thumb('b')]} />);
+    await openAt('a.png');
+
+    expect(screen.getByText('1 of 2')).toBeInTheDocument();
   });
 
   it('skips an image that does not load', async () => {
