@@ -16,6 +16,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -40,8 +41,27 @@ const noteIn = (body: { note?: unknown } | undefined) =>
 const answerIn = (body: AnswerDisagreementClaimRequestDto | undefined) =>
   typeof body?.answer === 'string' ? body.answer : '';
 
-const claimIn = (body: AnswerJudgeDisagreementRequestDto | undefined) =>
-  typeof body?.shouldHaveFailed === 'number' ? body.shouldHaveFailed : null;
+const CLAIM_PLACE =
+  'It takes the place of the claim that should have failed, from 0, or null.';
+
+const claimIn = (
+  body: AnswerJudgeDisagreementRequestDto | undefined,
+): number | null => {
+  const claim: unknown = body?.shouldHaveFailed;
+
+  if (claim === undefined) {
+    throw new UnprocessableEntityException(
+      `The answer has no shouldHaveFailed. ${CLAIM_PLACE}`,
+    );
+  }
+  if (claim !== null && typeof claim !== 'number') {
+    throw new UnprocessableEntityException(
+      `shouldHaveFailed is not a number. ${CLAIM_PLACE}`,
+    );
+  }
+
+  return claim;
+};
 
 @ApiTags('insights')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -58,7 +78,7 @@ export class JudgeDisagreementsController {
   @ApiOperation({
     operationId: 'readJudgeDisagreement',
     summary:
-      'A run where the judge and a person disagree: the judge’s claims, results and reasons, and the answer',
+      'A run where the judge and people disagree: the judge’s claims, results and reasons, and the answer',
   })
   @ApiOkResponse({ type: JudgeDisagreementResponseDto })
   @ApiNotFoundResponse({ description: 'No such disagreement for this caller' })
@@ -86,7 +106,7 @@ export class JudgeDisagreementsController {
   @ApiOkResponse({ type: JudgeDisagreementResponseDto })
   @ApiUnprocessableEntityResponse({
     description:
-      'Claims are in dispute, so each takes its own answer; or the answer names no claim and says nothing',
+      'The judge failed the run, so each claim in dispute takes its own answer; the claim named is missing, not a number, not one of the judge’s, below 0 or not a whole number; the answer names no claim and says nothing; or the note is over 2,000 characters',
   })
   @ApiForbiddenResponse({
     description: 'The question was asked of another person',
@@ -132,7 +152,7 @@ export class JudgeDisagreementsController {
   @ApiBadRequestResponse({ description: 'The claim is not a whole number' })
   @ApiUnprocessableEntityResponse({
     description:
-      'The claim is not in dispute, or the answer is not judge-right or claim-wrong',
+      'The claim is not in dispute, the answer is not judge-right or claim-wrong, or the note is over 2,000 characters',
   })
   @ApiForbiddenResponse({
     description: 'The question was asked of another person',

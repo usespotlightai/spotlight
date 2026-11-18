@@ -131,7 +131,7 @@ describe('ConfigPullRequestBody', () => {
     });
 
     expect(body).toContain(
-      'Spotlight has not yet checked the judge of the station against people: 4 of the 10 runs it needs have both a verdict of the judge and a verdict of a person.',
+      'Spotlight has not yet checked the judge of the station against people: 4 of the 10 runs it needs have both a verdict from the judge and from people.',
     );
   });
 

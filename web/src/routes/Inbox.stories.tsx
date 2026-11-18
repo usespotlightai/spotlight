@@ -7,26 +7,24 @@ import { PLATFORM_ID, SLUG } from '@/mocks/world';
 import {
   ACCEPTED_DISAGREEMENT_REQUEST_ID,
   ALERT_REQUEST_ID,
-  ASKED_OF_OTHER_DISAGREEMENT_REQUEST_ID,
   CLAIMS_CHANGED_DISAGREEMENT_REQUEST_ID,
-  LABEL_GONE_DISAGREEMENT_REQUEST_ID,
   COST_ALERT_REQUEST_ID,
   DECIDED_MEMORIES_REQUEST_ID,
-  FAILED_DISAGREEMENT_REQUEST_ID,
+  LABEL_GONE_DISAGREEMENT_REQUEST_ID,
   MEMORIES_REQUEST_ID,
   MERGED_DISAGREEMENT_REQUEST_ID,
-  PASSED_DISAGREEMENT_REQUEST_ID,
+  SEARCH_DISAGREEMENT_REQUEST_ID,
   SENT_BACK_DISAGREEMENT_REQUEST_ID,
   SETUP_ITEM_ID,
-  WITHDRAWN_DISAGREEMENT_REQUEST_ID,
+  VERDICTS_AGREE_DISAGREEMENT_REQUEST_ID,
 } from '@/mocks/world/inbox';
 import {
   answerDisputedClaims,
   type ClaimsAnswered,
 } from '@/mocks/world/inbox-disagreements';
+import { minutesAfter } from '@/mocks/world/inbox-places';
 import { withCitationsGone } from '@/mocks/world/inbox-scores';
 import { inboxStore } from '@/mocks/world/inbox-store';
-import { MAYA } from '@/mocks/world/people';
 import { settingsWorld } from '@/mocks/world/settings';
 import { NO_FLEET } from '@/mocks/world/settings-runners';
 import { teamChats } from '@/mocks/world/team-chats';
@@ -62,8 +60,7 @@ const GITHUB_INSTALLED_PATH = `/github/installed?installation_id=58213907&state=
 const SETTING_UP = { arg: 'opened', eq: SETUP_ITEM_ID };
 
 const DISAGREEMENTS_ANSWERED_BY_FORM = [
-  FAILED_DISAGREEMENT_REQUEST_ID,
-  PASSED_DISAGREEMENT_REQUEST_ID,
+  SEARCH_DISAGREEMENT_REQUEST_ID,
   SENT_BACK_DISAGREEMENT_REQUEST_ID,
   ACCEPTED_DISAGREEMENT_REQUEST_ID,
   MERGED_DISAGREEMENT_REQUEST_ID,
@@ -71,7 +68,7 @@ const DISAGREEMENTS_ANSWERED_BY_FORM = [
 
 type Configuration = 'not-started' | 'working' | 'done';
 
-type Standing = 'assignee' | 'team' | 'following';
+type Standing = 'seeded' | 'assignee' | 'team' | 'following';
 
 type InboxArgs = {
   readonly opened: string;
@@ -84,7 +81,6 @@ type InboxArgs = {
   readonly answeringYes: boolean;
   readonly answeringDisagreement: boolean;
   readonly standing: Standing;
-  readonly askedOfOther: boolean;
   readonly withdrawing: boolean;
   readonly claimsAnswered: ClaimsAnswered;
   readonly scoresLoading: boolean;
@@ -110,8 +106,7 @@ const meta = {
       approvingMemory: false,
       answeringYes: false,
       answeringDisagreement: false,
-      standing: 'assignee',
-      askedOfOther: false,
+      standing: 'seeded',
       withdrawing: false,
       claimsAnswered: 'none',
       scoresLoading: false,
@@ -133,20 +128,18 @@ const meta = {
         [DECIDED_MEMORIES_REQUEST_ID]: 'Memories decided',
         [COST_ALERT_REQUEST_ID]: 'Station alert',
         [ALERT_REQUEST_ID]: 'Alert resolved',
-        [FAILED_DISAGREEMENT_REQUEST_ID]: 'Disagreement, judge failed',
-        [PASSED_DISAGREEMENT_REQUEST_ID]: 'Disagreement, judge passed',
+        [SEARCH_DISAGREEMENT_REQUEST_ID]:
+          'Disagreement on a merged pull request, one claim in dispute',
         [SENT_BACK_DISAGREEMENT_REQUEST_ID]: 'Disagreement on a sent-back run',
         [ACCEPTED_DISAGREEMENT_REQUEST_ID]: 'Disagreement on an accepted run',
         [MERGED_DISAGREEMENT_REQUEST_ID]:
-          'Disagreement on a merged pull request',
-        [ASKED_OF_OTHER_DISAGREEMENT_REQUEST_ID]:
-          'Disagreement asked of someone else',
-        [WITHDRAWN_DISAGREEMENT_REQUEST_ID]:
+          'Disagreement on a merged pull request, several claims in dispute',
+        [VERDICTS_AGREE_DISAGREEMENT_REQUEST_ID]:
           'Disagreement withdrawn, verdicts agree',
         [CLAIMS_CHANGED_DISAGREEMENT_REQUEST_ID]:
           'Disagreement withdrawn, claims changed',
         [LABEL_GONE_DISAGREEMENT_REQUEST_ID]:
-          'Disagreement withdrawn, outcome gone',
+          'Disagreement withdrawn, people’s verdict gone',
         [SETUP_ITEM_ID]: 'Set up your team',
         [GITHUB_INSTALLED]: 'Setup with GitHub installed',
       }),
@@ -168,16 +161,12 @@ const meta = {
         ...toggle('Answer the disagreement'),
         if: { arg: 'opened', neq: 'none' },
       },
-      askedOfOther: {
-        ...toggle('Ask the disagreement of Maya Chen'),
-        if: { arg: 'opened', neq: 'none' },
-      },
       withdrawing: {
-        ...toggle('Withdraw the disagreement'),
+        ...toggle('Withdraw an open disagreement'),
         if: { arg: 'opened', neq: 'none' },
       },
       claimsAnswered: {
-        ...choice<ClaimsAnswered>('Claims in dispute answered', {
+        ...choice<ClaimsAnswered>('Claims answered, on an open disagreement', {
           none: 'None',
           first: 'The first',
           all: 'All, by two people on a team item',
@@ -192,11 +181,15 @@ const meta = {
         ...toggle('Cited steps and files gone from the run'),
         if: { arg: 'opened', neq: 'none' },
       },
-      standing: choice<Standing>('Viewer stands as', {
-        assignee: 'Assignee',
-        team: 'Team, nobody assigned',
-        following: 'Follower',
-      }),
+      standing: choice<Standing>(
+        'Viewer stands as, on an item other than a disagreement',
+        {
+          seeded: 'As seeded',
+          assignee: 'Assignee',
+          team: 'Team, nobody assigned',
+          following: 'Follower',
+        },
+      ),
     },
     world: ({
       opened,
@@ -205,30 +198,32 @@ const meta = {
       configuration,
       admin,
       standing,
-      askedOfOther,
       withdrawing,
       claimsAnswered,
       scoresLoading,
       citationsGone,
     }) => {
       const disagreement = disagreementOpened(opened);
-      if (disagreement && askedOfOther) {
-        disagreement.askedOf = MAYA.id;
-      }
       if (disagreement) {
         answerDisputedClaims(disagreement, claimsAnswered);
       }
-      if (disagreement?.state === 'answered') {
+      if (disagreement && withdrawing && disagreement.state !== 'withdrawn') {
+        disagreement.state = 'withdrawn';
+        disagreement.withdrawnAt = minutesAfter(
+          disagreement.answers.at(-1)?.answeredAt ?? disagreement.openedAt,
+          30,
+        );
+        disagreement.withdrawnBecause =
+          disagreement.labelFrom === 'merged'
+            ? 'verdicts-agree'
+            : 'claims-changed';
+      }
+      if (disagreement && disagreement.state !== 'open') {
         for (const entry of inboxStore().entries) {
           if (entry.kind === 'task' && entry.id === opened) {
             entry.resolved = true;
           }
         }
-      }
-      if (disagreement && withdrawing) {
-        disagreement.state = 'withdrawn';
-        disagreement.withdrawnAt = disagreement.openedAt;
-        disagreement.withdrawnBecause = 'verdicts-agree';
       }
       inboxStore().scoresWait = scoresLoading;
       if (citationsGone) {
@@ -238,7 +233,7 @@ const meta = {
         }
       }
 
-      if (standing !== 'assignee') {
+      if (standing !== 'seeded' && !disagreement) {
         for (const entry of inboxStore().entries) {
           if (entry.kind === 'task' && entry.id === opened) {
             entry.standing = standing;
@@ -306,6 +301,9 @@ const meta = {
               within(card).queryByRole('button', { name: 'Send answer' }) !==
               null,
           );
+          const notMet = screen.queryByRole('radio', {
+            name: 'No claim covers it',
+          });
 
           if (open) {
             await user.click(
@@ -320,10 +318,8 @@ const meta = {
             await user.click(
               within(open).getByRole('button', { name: 'Send answer' }),
             );
-          } else {
-            await user.click(
-              await screen.findByRole('radio', { name: 'No claim covers it' }),
-            );
+          } else if (notMet) {
+            await user.click(notMet);
             await user.type(
               screen.getByRole('textbox', { name: 'What was wrong' }),
               'It touched a file the spec did not name.',

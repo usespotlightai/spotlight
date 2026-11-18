@@ -230,7 +230,6 @@ describe('SendMessageHandler', () => {
       by: OWNER,
       members: TeamMembers.of([OWNER, UserId.of('teammate')]),
       line,
-      verdict: null,
       currentRunStarted: true,
       at: NOW,
     });
@@ -248,7 +247,6 @@ describe('SendMessageHandler', () => {
       by: OWNER,
       members: TeamMembers.of([OWNER, UserId.of('teammate')]),
       line,
-      verdict: null,
       currentRunStarted: true,
       at: NOW,
     });

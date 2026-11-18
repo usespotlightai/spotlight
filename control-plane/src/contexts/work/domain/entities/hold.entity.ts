@@ -51,6 +51,10 @@ const problemOf = (state: HoldState): string | null => {
     return 'has checkout heads while open';
   }
 
+  if (!state.endedAt && state.verdict !== UNSAID_HOLD_VERDICT) {
+    return 'is exploring while open';
+  }
+
   const from = state.from;
 
   if (from && state.turns.some((each) => each.equals(from))) {
@@ -82,7 +86,6 @@ export class Hold {
     by: UserId;
     stationId: StationId;
     from: RunId | null;
-    verdict: HoldVerdict | null;
     at: Date;
   }): Hold {
     return new Hold({
@@ -90,7 +93,7 @@ export class Hold {
       by: input.by,
       stationId: input.stationId,
       from: input.from,
-      verdict: input.verdict ?? UNSAID_HOLD_VERDICT,
+      verdict: UNSAID_HOLD_VERDICT,
       turns: [],
       heldMove: null,
       startedAt: input.at,

@@ -45,7 +45,7 @@ const opened = async (claimResults: readonly boolean[]): Promise<string> => {
       },
       judgePasses: passes,
       labelFrom: passes ? 'sent-back' : 'accepted',
-      askedOf: null,
+      askedOf: team.owner,
       now: new Date(),
     }),
   );
@@ -161,5 +161,30 @@ describe('answering a judge disagreement over HTTP, one claim at a time', () => 
     expect(
       (await answerNotMet(id, { shouldHaveFailed: 0, note: null })).status,
     ).toBe(409);
+  });
+
+  it('answers 422 to a claim that should have failed that is missing or not a number', async () => {
+    const id = await opened([true, true, true]);
+    const mistyped = await answerNotMet(id, {
+      shouldHaveFailed: '1',
+      note: 'It broke the login page.',
+    });
+    const missing = await answerNotMet(id, {
+      note: 'It broke the login page.',
+    });
+
+    expect(mistyped.status).toBe(422);
+    expect(mistyped.body).toMatchObject({
+      message:
+        'shouldHaveFailed is not a number. It takes the place of the claim that should have failed, from 0, or null.',
+    });
+    expect(missing.status).toBe(422);
+    expect(missing.body).toMatchObject({
+      message:
+        'The answer has no shouldHaveFailed. It takes the place of the claim that should have failed, from 0, or null.',
+    });
+    expect(
+      (await answerNotMet(id, { shouldHaveFailed: 1, note: null })).status,
+    ).toBe(200);
   });
 });

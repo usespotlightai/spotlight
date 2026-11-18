@@ -1,6 +1,6 @@
-import type { HoldVerdictPublished } from '@shared-kernel/application/integration-events/task-held.integration-event';
-
 export const LINE_RESUMED = 'work.line-resumed.v1';
+
+type HoldVerdictPublished = 'not-right' | 'exploring';
 
 type HoldEndPublished = 'continue' | 'move-on' | 'finish';
 

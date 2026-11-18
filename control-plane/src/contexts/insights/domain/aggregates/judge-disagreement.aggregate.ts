@@ -73,7 +73,11 @@ const disputedOf = (
 const brokenRuleOf = (
   verdict: DisagreementVerdict,
   labelFrom: LabelSource,
+  askedOf: UserId | null,
 ): string | null => {
+  if ((labelFrom === 'merged') !== (askedOf === null)) {
+    return 'asks the person whose action gave people’s verdict, and the team only for a merged pull request';
+  }
   if (
     verdict.claims.length === 0 ||
     verdict.claims.length !== verdict.claimResults.length
@@ -127,7 +131,7 @@ export class JudgeDisagreement extends EventRecorder {
     const broken =
       input.judgePasses === passesOn(input.labelFrom)
         ? 'opens only where the judge and the label disagree'
-        : brokenRuleOf(verdict, input.labelFrom);
+        : brokenRuleOf(verdict, input.labelFrom, input.askedOf);
 
     if (broken) {
       throw new InvalidJudgeDisagreementError(broken);
@@ -156,7 +160,6 @@ export class JudgeDisagreement extends EventRecorder {
         input.workspaceId,
         input.location,
         verdict.rubricVersion,
-        input.askedOf,
       ),
     );
 
@@ -165,7 +168,7 @@ export class JudgeDisagreement extends EventRecorder {
 
   static rehydrate(fields: JudgeDisagreementFields): JudgeDisagreement {
     const { verdict } = fields;
-    const broken = brokenRuleOf(verdict, fields.labelFrom);
+    const broken = brokenRuleOf(verdict, fields.labelFrom, fields.askedOf);
 
     if (broken) {
       throw new InconsistentStateError('judge disagreement', broken);

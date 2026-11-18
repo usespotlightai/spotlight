@@ -176,7 +176,6 @@ describe('Task', () => {
       progress: null,
       hold: {
         by: { id: 'user_1', name: 'Leon', image: null },
-        verdict: 'not-right',
         startedAt: new Date().toISOString(),
         runId: 'run_turn',
         heldMoveTo: null,

@@ -567,7 +567,7 @@ func (r *checkRead) judged() string {
 	case r.Judge != nil && r.Judge.State == "unmeasured" && r.Judge.Pairs >= r.Judge.MinPairs:
 		return fmt.Sprintf("note: Spotlight cannot yet measure how well the judge of the station agrees with people: on all %d runs that have both verdicts, every verdict of the judge and of people was the same: all pass or all fail. The scores come from the verdicts of that judge.", r.Judge.Pairs)
 	case r.Judge != nil && r.Judge.State == "unmeasured":
-		return fmt.Sprintf("note: Spotlight has not yet checked the judge of the station against people: %d of the %d runs it needs have both a verdict of the judge and a verdict of a person. The scores come from the verdicts of that judge.", r.Judge.Pairs, r.Judge.MinPairs)
+		return fmt.Sprintf("note: Spotlight has not yet checked the judge of the station against people: %d of the %d runs it needs have both a verdict from the judge and from people. The scores come from the verdicts of that judge.", r.Judge.Pairs, r.Judge.MinPairs)
 	default:
 		return ""
 	}

@@ -31,6 +31,7 @@ import {
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const JUDGE: StationJudge = {
@@ -54,7 +55,9 @@ const reading = async (
   const scores = new ScoresInMemory();
   await records.add(
     action
-      ? endedRecord('run_1').recordAction(HumanAction.of(action, AT))
+      ? endedRecord('run_1').recordAction(
+          HumanAction.of(action, AT, UserId.of('user_actor')),
+        )
       : endedRecord('run_1'),
   );
   await scores.add(
@@ -100,7 +103,11 @@ const reading = async (
     const yes = at % 2 === 0;
     await records.add(
       endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
-        HumanAction.of(yes === agreeing ? 'accepted' : 'sent-back', AT),
+        HumanAction.of(
+          yes === agreeing ? 'accepted' : 'sent-back',
+          AT,
+          UserId.of('user_actor'),
+        ),
       ),
     );
     await scores.add(judgeScore(runId, [yes]));

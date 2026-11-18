@@ -3,7 +3,6 @@ import type { RubricVersion } from '@insights/domain/value-objects/rubric-versio
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class JudgeDisagreementOpened implements DomainEvent {
@@ -15,6 +14,5 @@ export class JudgeDisagreementOpened implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly location: RunLocation,
     readonly rubricVersion: RubricVersion,
-    readonly askedOf: UserId | null,
   ) {}
 }

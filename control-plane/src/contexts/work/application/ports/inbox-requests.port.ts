@@ -16,16 +16,16 @@ export interface InboxRequestOf {
   readonly about: string;
 }
 
-export interface NewInboxRequest extends InboxRequestOf {
+export interface AskedInboxRequest extends InboxRequestOf {
   readonly askedOf?: string | null;
 }
 
 export interface InboxRequestsPort {
-  create(inboxRequest: NewInboxRequest): Promise<void>;
+  create(inboxRequest: AskedInboxRequest): Promise<void>;
 
   reopen(inboxRequest: InboxRequestOf): Promise<void>;
 
-  resolve(inboxRequest: InboxRequestOf): Promise<void>;
+  resolve(inboxRequest: AskedInboxRequest): Promise<void>;
 
   idOf(inboxRequest: InboxRequestOf): Promise<string | null>;
 }

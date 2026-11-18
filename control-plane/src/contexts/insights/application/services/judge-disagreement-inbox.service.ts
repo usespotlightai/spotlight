@@ -18,15 +18,17 @@ export class JudgeDisagreementInbox {
   ): Promise<void> {
     const disagreement = await this.disagreements.find(event.disagreementId);
 
-    if (disagreement?.state === 'open') {
-      await this.questions.ask(
-        disagreement.location.taskId,
-        disagreement.id,
-        disagreement.askedOf,
-      );
+    if (!disagreement) {
       return;
     }
 
-    await this.questions.resolve(event.location.taskId, event.disagreementId);
+    const { location, id, askedOf } = disagreement;
+
+    if (disagreement.state === 'open') {
+      await this.questions.ask(location.taskId, id, askedOf);
+      return;
+    }
+
+    await this.questions.resolve(location.taskId, id, askedOf);
   }
 }

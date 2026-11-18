@@ -165,21 +165,21 @@ export class JudgeDisagreementResponseDto {
   @ApiProperty({
     enum: DISAGREEMENT_DIRECTIONS,
     description:
-      'judge-failed: the judge failed a run that a person passed. judge-passed: the judge passed a run that a person failed',
+      'judge-failed: the judge failed a run that people passed. judge-passed: the judge passed a run that people failed',
   })
   readonly direction: string;
 
   @ApiProperty({
     enum: DISAGREEMENT_STATES,
     description:
-      'open: the question waits for an answer to at least one claim in dispute. answered: every claim in dispute has an answer, or, with none in dispute, what was not met. withdrawn: Spotlight withdrew the question, also after an answer',
+      'open: the question waits for an answer to a claim in dispute, or, with none in dispute, for what was not met. answered: every claim in dispute has an answer, or, with none in dispute, what was not met. withdrawn: Spotlight withdrew the question, also after an answer',
   })
   readonly state: string;
 
   @ApiProperty({
     enum: LABEL_SOURCES,
     description:
-      'What gave people’s verdict on the run, which disagrees with the judge’s',
+      'What gave people’s verdict on the run when the disagreement opened, which disagrees with the judge’s',
   })
   readonly labelFrom: string;
 
@@ -217,7 +217,7 @@ export class JudgeDisagreementResponseDto {
     type: String,
     nullable: true,
     description:
-      'The one person who can answer. Null when Spotlight asked the team: then anyone in the team can answer',
+      'The one person who can answer: the person whose action gave people’s verdict when the disagreement opened. Null when a merged pull request opened it: then anyone who can read it can answer',
   })
   readonly askedOf: string | null;
 
@@ -280,7 +280,7 @@ export class AnswerJudgeDisagreementRequestDto {
     type: Number,
     nullable: true,
     description:
-      'The claim that should have failed, or null where no claim covers what was wrong',
+      'The place of the claim that should have failed, from 0, or null where no claim covers what was wrong; always given',
   })
   readonly shouldHaveFailed!: number | null;
 

@@ -5,14 +5,10 @@ import { useRunScores } from '@/hooks/api/useRunScores';
 import { useMe } from '@/hooks/useMe';
 import {
   answererOf,
-  askedNameOf,
-  askedOtherThan,
   DISPUTED_CLAIMS_LABEL,
   disputedClaimsOf,
   type JudgeDisagreement,
-  labellerOf,
   sentenceOf,
-  waitsForViewer,
 } from '@/lib/judge-disagreement';
 import { loading } from '@/lib/query';
 
@@ -32,8 +28,6 @@ export function JudgeDisagreementItem({
   const members = useMembers(teamId).data;
 
   const disputed = disputedClaimsOf(disagreement);
-  const waiting = waitsForViewer(disagreement, me);
-  const asked = askedNameOf(disagreement, members);
 
   return (
     <div data-slot="judge-disagreement-item" className="flex flex-col gap-2">
@@ -41,11 +35,7 @@ export function JudgeDisagreementItem({
         data-slot="disagreement-fact"
         className="break-words text-foreground text-sm leading-6"
       >
-        {sentenceOf(
-          disagreement,
-          labellerOf(disagreement, me, members),
-          waiting,
-        )}
+        {sentenceOf(disagreement)}
       </p>
 
       {disputed.length > 0 ? (
@@ -59,9 +49,7 @@ export function JudgeDisagreementItem({
                 claim={claim}
                 scores={scores.data}
                 loading={loading(scores)}
-                canAnswer={!askedOtherThan(disagreement, me)}
                 answererOf={(answeredBy) => answererOf(answeredBy, me, members)}
-                asked={asked}
               />
             </li>
           ))}
@@ -76,8 +64,6 @@ export function JudgeDisagreementItem({
             me,
             members,
           )}
-          asked={asked}
-          waitsForViewer={waiting}
         />
       )}
     </div>

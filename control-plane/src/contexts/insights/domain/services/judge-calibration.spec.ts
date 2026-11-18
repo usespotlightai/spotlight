@@ -7,7 +7,6 @@ import {
   type JudgeCalibration,
   MIN_PAIRS,
   revisesClaimsOf,
-  showsJudgeOf,
   TREND_MIN_PAIRS,
   trendReadyOf,
 } from '@insights/domain/services/judge-calibration';
@@ -28,21 +27,6 @@ const QUALIFIED: JudgeCalibration = {
 const TREND = [
   { day: '2026-09-30', judged: 4, judge: 0.75, labelled: 3, people: 0.67 },
 ];
-
-describe('showsJudgeOf', () => {
-  it('shows the judge’s values only for the current rubric, and only while it is qualified', () => {
-    expect(showsJudgeOf(QUALIFIED, CURRENT, CURRENT)).toBe(true);
-    expect(showsJudgeOf(QUALIFIED, CURRENT, EARLIER)).toBe(false);
-    expect(showsJudgeOf(QUALIFIED, null, null)).toBe(false);
-    expect(
-      showsJudgeOf(
-        { ...QUALIFIED, qualified: false, hiddenReason: 'too-few-pairs' },
-        CURRENT,
-        CURRENT,
-      ),
-    ).toBe(false);
-  });
-});
 
 const hiddenBy = (
   hiddenReason: NonNullable<JudgeCalibration['hiddenReason']>,

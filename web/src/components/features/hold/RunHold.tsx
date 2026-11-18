@@ -54,7 +54,6 @@ export function RunHold({ slug, teamId, taskId, runId }: RunHoldProps) {
         station={station}
         moveOn={moveOnTargets(line?.stations ?? [], station)}
         held={heldMoveOf(line, task)}
-        verdict={hold.verdict}
         working={task.progress !== null}
         turn={hold.runId}
       />

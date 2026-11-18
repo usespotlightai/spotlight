@@ -42,6 +42,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
@@ -316,7 +317,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
             asked: false,
           }),
         )
-        .recordAction(HumanAction.of('accepted', at)),
+        .recordAction(HumanAction.of('accepted', at, UserId.of('user_actor'))),
     );
   }
 

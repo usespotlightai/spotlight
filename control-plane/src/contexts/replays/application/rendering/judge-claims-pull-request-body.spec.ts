@@ -35,10 +35,10 @@ describe('JudgeClaimsPullRequestBody', () => {
     const body = JudgeClaimsPullRequestBody.of(FACTS);
 
     expect(body).toContain(
-      '- Run run_1 of task task_1. The judge failed the run and a person passed it. Wrong claims: "It adds a test file.". Note on "It retries the upload.": "The judge read the retry right." Note on "It adds a test file.": "The test sits in another file."',
+      '- Run run_1 of task task_1. The judge failed the run and people passed it. Wrong claims: "It adds a test file.". Note on "It retries the upload.": "The judge read the retry right." Note on "It adds a test file.": "The test sits in another file."',
     );
     expect(body).toContain(
-      '- Run run_2 of task task_2. The judge passed the run and a person failed it. Note: "It broke the login page."',
+      '- Run run_2 of task task_2. The judge passed the run and people failed it. Note: "It broke the login page."',
     );
   });
 });

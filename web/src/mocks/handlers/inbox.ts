@@ -15,6 +15,7 @@ import type {
   SubmitReviewRequestDto,
 } from '@/lib/api';
 import type { RunScores } from '@/lib/judge';
+import { MAX_NOTE } from '@/lib/judge-disagreement';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
 import { taskOfRun, teamOfTask, world } from '@/mocks/world';
@@ -489,15 +490,47 @@ const disagreementOf = (
     : undefined;
 };
 
-const notMetFits = (
+const disagreementNotFound = (params: Params) =>
+  problem(
+    404,
+    `Judge disagreement ${param(params, 'disagreementId')} not found.`,
+  );
+
+const WHOLE_NUMBER = /^-?\d+$/;
+
+const NOTE_TOO_LONG = `A judge disagreement note must be at most ${MAX_NOTE} characters.`;
+
+const noteTooLong = (note: string | null): boolean =>
+  (note?.trim().length ?? 0) > MAX_NOTE;
+
+const notMetRefusalOf = (
   disagreement: JudgeDisagreementResponseDto,
-  answer: AnswerJudgeDisagreementRequestDto,
-): boolean =>
-  answer.shouldHaveFailed === null
-    ? Boolean(answer.note?.trim())
-    : disagreement.claims.some(
-        (each) => each.index === answer.shouldHaveFailed,
-      );
+  { shouldHaveFailed, note }: AnswerJudgeDisagreementRequestDto,
+): string | null => {
+  if (disagreement.direction !== 'judge-passed') {
+    return 'A judge disagreement takes what was not met only where the judge passed the run.';
+  }
+  if (
+    shouldHaveFailed !== null &&
+    shouldHaveFailed >= disagreement.claims.length
+  ) {
+    return 'A judge disagreement must name a claim of the judge that looked at the run.';
+  }
+  if (noteTooLong(note)) {
+    return NOTE_TOO_LONG;
+  }
+  if (
+    shouldHaveFailed !== null &&
+    !(Number.isInteger(shouldHaveFailed) && shouldHaveFailed >= 0)
+  ) {
+    return 'A judge disagreement must name the claim that should have failed by its place, from 0.';
+  }
+  if (shouldHaveFailed === null && !note?.trim()) {
+    return 'A judge disagreement where the judge passed the run and no claim covers it, must say what was wrong.';
+  }
+
+  return null;
+};
 
 const refusedAnswer = (
   disagreement: JudgeDisagreementResponseDto,
@@ -505,7 +538,7 @@ const refusedAnswer = (
   if (disagreement.withdrawnAt) {
     return problem(
       409,
-      `Judge disagreement ${disagreement.id} is withdrawn. The judge and people agree now, the claims changed, or the outcome a person gave is gone.`,
+      `Judge disagreement ${disagreement.id} is withdrawn. The judge and people agree now, the claims changed, or the run no longer has people’s verdict.`,
     );
   }
   if (disagreement.askedOf && disagreement.askedOf !== SAM.id) {
@@ -529,7 +562,7 @@ const disagreementHandlers = [
     ({ params }) => {
       const disagreement = disagreementOf(params);
 
-      return disagreement ? json(disagreement) : notFound();
+      return disagreement ? json(disagreement) : disagreementNotFound(params);
     },
   ),
 
@@ -539,7 +572,7 @@ const disagreementHandlers = [
       const disagreement = disagreementOf(params);
 
       if (!disagreement) {
-        return notFound();
+        return disagreementNotFound(params);
       }
 
       const refused = refusedAnswer(disagreement);
@@ -548,22 +581,19 @@ const disagreementHandlers = [
         return refused;
       }
       if (disagreement.notMet) {
-        return problem(409, 'Someone already answered this question.');
+        return problem(
+          409,
+          `Judge disagreement ${disagreement.id} already has an answer.`,
+        );
       }
 
       const answer =
         (await request.json()) as AnswerJudgeDisagreementRequestDto;
 
-      if (
-        disagreement.disputedClaims.length > 0 ||
-        !notMetFits(disagreement, answer)
-      ) {
-        return problem(
-          422,
-          disagreement.disputedClaims.length > 0
-            ? 'Please answer each claim in dispute on its own.'
-            : 'Please name the claim the run did not meet, or say what was wrong.',
-        );
+      const notMetRefusal = notMetRefusalOf(disagreement, answer);
+
+      if (notMetRefusal) {
+        return problem(422, notMetRefusal);
       }
 
       disagreement.notMet = {
@@ -581,11 +611,28 @@ const disagreementHandlers = [
   api.post(
     '/teams/:teamId/judge-disagreements/:disagreementId/claims/:claim/answer',
     async ({ params, request }) => {
+      const raw = param(params, 'claim');
+
+      if (!WHOLE_NUMBER.test(raw)) {
+        return problem(400, 'Validation failed (numeric string is expected)');
+      }
+
+      const claim = Number(raw);
+
       const disagreement = disagreementOf(params);
-      const claim = Number(param(params, 'claim'));
 
       if (!disagreement) {
-        return notFound();
+        return disagreementNotFound(params);
+      }
+
+      const answer =
+        (await request.json()) as AnswerDisagreementClaimRequestDto;
+
+      if (answer.answer !== 'judge-right' && answer.answer !== 'claim-wrong') {
+        return problem(
+          422,
+          'A judge disagreement must answer a claim with judge-right or claim-wrong.',
+        );
       }
 
       const refused = refusedAnswer(disagreement);
@@ -605,15 +652,8 @@ const disagreementHandlers = [
           `Claim ${claim + 1} of judge disagreement ${disagreement.id} already has an answer.`,
         );
       }
-
-      const answer =
-        (await request.json()) as AnswerDisagreementClaimRequestDto;
-
-      if (answer.answer !== 'judge-right' && answer.answer !== 'claim-wrong') {
-        return problem(
-          422,
-          'A judge disagreement must answer a claim with judge-right or claim-wrong.',
-        );
+      if (noteTooLong(answer.note)) {
+        return problem(422, NOTE_TOO_LONG);
       }
 
       disagreement.answers = [

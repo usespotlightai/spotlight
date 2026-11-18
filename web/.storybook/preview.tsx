@@ -36,7 +36,7 @@ const preview: Preview = {
             'GitHub installed',
           ],
           'Inbox',
-          ['Items', 'Notices', 'Grade card', 'Disagreement card'],
+          ['Items', 'Notices'],
           'Team',
           [
             'Landing',

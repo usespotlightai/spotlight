@@ -12,6 +12,7 @@ import {
   WORKSPACE,
 } from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
@@ -25,7 +26,7 @@ describe('WorkRunOutcomes', () => {
     await records.add(
       endedRecord('run_1', { visit: 2 })
         .recordCheck('passed', RECEIVED_AT)
-        .recordAction(HumanAction.of('accepted', AT)),
+        .recordAction(HumanAction.of('accepted', AT, UserId.of('user_actor'))),
     );
     await records.add(RunRecord.empty(RunId.of('run_2'), WORKSPACE));
     await taskPullRequests.add(taskPullRequestOf('task_1', { openedAt: AT }));
@@ -66,7 +67,9 @@ describe('WorkRunOutcomes', () => {
     await records.add(
       endedRecord('run_1', { visit: 2 })
         .recordCheck('passed', later(2))
-        .recordAction(HumanAction.of('accepted', later(3)))
+        .recordAction(
+          HumanAction.of('accepted', later(3), UserId.of('user_actor')),
+        )
         .supersededByItsTask(later(4)),
     );
     await taskPullRequests.add(

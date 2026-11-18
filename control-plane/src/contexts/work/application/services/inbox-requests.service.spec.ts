@@ -108,6 +108,23 @@ describe('InboxRequests', () => {
     expect(stored[0]?.open).toBe(false);
   });
 
+  it('keeps who a question asks when its resolution arrives before its creation', async () => {
+    const { inboxRequests, stored } = asiding();
+    const question = {
+      taskId: TASK,
+      form: 'judge-disagreement' as const,
+      about: 'disagreement_1',
+      askedOf: 'user_ada',
+    };
+
+    await inboxRequests.resolve(question);
+    await inboxRequests.create(question);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.askedOf?.value).toBe('user_ada');
+    expect(stored[0]?.open).toBe(false);
+  });
+
   it('reopens a resolved inbox request, or creates it when none exists yet', async () => {
     const { inboxRequests, stored } = asiding();
     await inboxRequests.resolve(MEMORIES);

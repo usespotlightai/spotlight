@@ -9,6 +9,7 @@ import type { AlertMeasure } from '@insights/domain/value-objects/alert-rule.vo'
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { taskPullRequestOf } from '@insights/insights.fake-spec';
 import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const at = (hour: number) =>
@@ -18,7 +19,7 @@ const actedOn = (runId: string, hour: number, act: 'accepted' | 'sent-back') =>
   endedRecord(runId, {
     taskId: `task_${runId}`,
     endedAt: at(hour),
-  }).recordAction(HumanAction.of(act, at(hour)));
+  }).recordAction(HumanAction.of(act, at(hour), UserId.of('user_actor')));
 
 const runs = (prefix: string, acts: readonly ('accepted' | 'sent-back')[]) =>
   acts.map((act, index) => actedOn(`${prefix}${index}`, index + 1, act));
@@ -198,7 +199,9 @@ describe('verdictsFrom', () => {
       taskId: 'task_cancelled',
       ending: 'cancelled',
       endedAt: at(10),
-    }).recordAction(HumanAction.of('accepted', at(10)));
+    }).recordAction(
+      HumanAction.of('accepted', at(10), UserId.of('user_actor')),
+    );
     const verdicts = changeVerdictOf(
       runs('b', FIVE_CLOSED),
       [...runs('a', FIVE_CLOSED), cancelled],

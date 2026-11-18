@@ -37,14 +37,14 @@ const toRecord = (row: RecordRow): RunRecord =>
     runId: RunId.of(row.runId),
     workspaceId: WorkspaceId.of(row.workspaceId),
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
-    end: endOf(row),
+    end: endOf(row, 'run record'),
     supersededAt: row.supersededAt,
     checks: row.checks,
     checkedAt: row.checkedAt,
-    firstHumanAction: firstHumanActionOf(row),
+    firstHumanAction: firstHumanActionOf(row, 'run record'),
     approvalAnsweredAt: row.approvalAnsweredAt,
-    usage: usageOf(row),
-    passed: passOf(row),
+    usage: usageOf(row, 'run record'),
+    passed: passOf(row, 'run record'),
     tools: toolsOf(row),
     dismissals: dismissalsOf(row),
     memories: memoriesOf(row),
@@ -67,7 +67,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
           runId: added.runId.value,
           workspaceId: added.workspaceId.value,
           version: added.version,
-          ...partColumnsOf(added),
+          ...partColumnsOf(added, 'run record'),
         })
         .onConflictDoNothing({ target: runRecord.runId })
         .returning({ runId: runRecord.runId });
@@ -88,7 +88,10 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
     await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(runRecord)
-        .set({ version: saved.version + 1, ...partColumnsOf(saved) })
+        .set({
+          version: saved.version + 1,
+          ...partColumnsOf(saved, 'run record'),
+        })
         .where(
           and(
             eq(runRecord.runId, saved.runId.value),

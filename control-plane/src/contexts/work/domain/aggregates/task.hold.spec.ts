@@ -22,6 +22,7 @@ import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
 import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
+import type { HoldVerdict } from '@work/domain/value-objects/hold-verdict';
 import {
   lineMapOf,
   routesOf,
@@ -102,7 +103,6 @@ const onHold = (task: Task = running(), by: UserId = LEON) =>
     by,
     members: TEAM,
     line,
-    verdict: 'not-right',
     currentRunStarted: true,
     at: NOW,
   });
@@ -137,6 +137,7 @@ const resumption = (
   task: Task,
   next: 'continue' | 'move-on' | 'finish',
   to: StationId | null = null,
+  verdict: HoldVerdict | null = null,
 ) =>
   task.resumeLine({
     by: LEON,
@@ -144,7 +145,7 @@ const resumption = (
     next,
     to,
     rank: next === 'continue' ? null : TaskRank.of('m'),
-    verdict: null,
+    verdict,
     summary: 'Kept the queue bounded.',
     turnHeads: [
       TurnHeads.of({ runId: TURN, started: [head('a')], ended: [head('b')] }),
@@ -161,12 +162,6 @@ describe('a task a person puts on hold', () => {
     expect(task.currentRunId).toBeNull();
     expect(task.openHold?.from?.equals(LINE_RUN)).toBe(true);
     expect(task.openHold?.by.equals(LEON)).toBe(true);
-    expect(task.pullEvents()).toContainEqual(
-      expect.objectContaining({
-        kind: 'task.held',
-        verdict: 'not-right',
-      }),
-    );
   });
 
   it('leaves the agent its instructions in a note it reads on the next turn', () => {
@@ -414,7 +409,6 @@ describe('a task a person drives', () => {
         by: UserId.of('user_guest'),
         members: TEAM,
         line,
-        verdict: null,
         currentRunStarted: true,
         at: NOW,
       }),
@@ -678,25 +672,24 @@ describe('a task whose line resumes', () => {
       LINE_RUN,
       said('Done.', Voice.station(LINE_RUN)),
     );
-    const exploring = answered
+    const held = answered
       .hold({
         id: HoldId.of('hold_0'),
         by: LEON,
         members: TEAM,
         line,
-        verdict: 'exploring',
         currentRunStarted: true,
         at: NOW,
       })
       .addMessage(said('Try a ring buffer.', Voice.person(LEON)))
       .assignRun(TURN, line);
-    const moved = resumption(turnDone(exploring), 'move-on', REVIEW);
+    const moved = resumption(turnDone(held), 'move-on', REVIEW, 'exploring');
 
     expect(moved.stationId.equals(REVIEW)).toBe(true);
     expect(onHold(moved, MAYA).openHold?.from).toBeNull();
     expect(
       onHold(
-        resumption(turnDone(exploring), 'continue'),
+        resumption(turnDone(held), 'continue', null, 'exploring'),
         MAYA,
       ).openHold?.from?.equals(LINE_RUN),
     ).toBe(true);

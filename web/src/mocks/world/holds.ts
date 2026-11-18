@@ -27,7 +27,6 @@ export const onHoldBy = (
           assignee: by,
           hold: {
             by,
-            verdict: 'not-right',
             startedAt: new Date(Date.now() - 12 * 60_000).toISOString(),
             runId: turn?.id ?? null,
             heldMoveTo: null,

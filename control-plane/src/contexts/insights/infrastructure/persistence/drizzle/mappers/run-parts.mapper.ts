@@ -43,7 +43,12 @@ export interface RunParts {
   readonly memories: RunMemories;
 }
 
-export const endOf = (row: RunPartsRow): RunEnd | null => {
+export type StoredRunParts = 'run record' | 'run fact';
+
+export const endOf = (
+  row: RunPartsRow,
+  stored: StoredRunParts,
+): RunEnd | null => {
   if (!row.endedAt) {
     return null;
   }
@@ -59,7 +64,7 @@ export const endOf = (row: RunPartsRow): RunEnd | null => {
     row.visit === null
   ) {
     throw new InconsistentStateError(
-      'run record',
+      stored,
       'ended without saying where, how, or in which visit',
     );
   }
@@ -90,27 +95,46 @@ export const endOf = (row: RunPartsRow): RunEnd | null => {
   });
 };
 
-export const firstHumanActionOf = (row: RunPartsRow): HumanAction | null => {
-  if ((row.firstHumanAction === null) !== (row.firstHumanActionAt === null)) {
-    throw new InconsistentStateError(
-      'run record',
-      'has a first human action without a time, or a time without the action',
-    );
-  }
-
-  if (!row.firstHumanAction || !row.firstHumanActionAt) {
+export const firstHumanActionOf = (
+  {
+    firstHumanAction,
+    firstHumanActionAt,
+    firstHumanActionBy,
+  }: Pick<
+    RunPartsRow,
+    'firstHumanAction' | 'firstHumanActionAt' | 'firstHumanActionBy'
+  >,
+  stored: StoredRunParts,
+): HumanAction | null => {
+  if (
+    firstHumanAction === null &&
+    firstHumanActionAt === null &&
+    firstHumanActionBy === null
+  ) {
     return null;
   }
 
+  if (
+    firstHumanAction === null ||
+    firstHumanActionAt === null ||
+    firstHumanActionBy === null
+  ) {
+    throw new InconsistentStateError(
+      stored,
+      'has only part of its first human action: the action, its time and who acted go together',
+    );
+  }
+
   return HumanAction.of(
-    row.firstHumanAction,
-    row.firstHumanActionAt,
-    row.firstHumanActionBy ? UserId.of(row.firstHumanActionBy) : null,
+    firstHumanAction,
+    firstHumanActionAt,
+    UserId.of(firstHumanActionBy),
   );
 };
 
 const firstHumanActionColumnOf = (
   action: HumanAction | null,
+  stored: StoredRunParts,
 ): TaskAction | null => {
   if (!action) {
     return null;
@@ -120,7 +144,7 @@ const firstHumanActionColumnOf = (
 
   if (!kind) {
     throw new InconsistentStateError(
-      'run record',
+      stored,
       'was decided by answering an approval',
     );
   }
@@ -128,13 +152,16 @@ const firstHumanActionColumnOf = (
   return kind;
 };
 
-export const usageOf = (row: RunPartsRow): RunUsage | null => {
+export const usageOf = (
+  row: RunPartsRow,
+  stored: StoredRunParts,
+): RunUsage | null => {
   if (!row.usageRecorded) {
     return null;
   }
   if (row.steps === null || row.errors === null || row.changedLines === null) {
     throw new InconsistentStateError(
-      'run record',
+      stored,
       'recorded its usage without counting its steps, errors or changed lines',
     );
   }
@@ -199,10 +226,13 @@ export const memoriesOf = (row: RunPartsRow): RunMemories =>
     recalled: row.memories.recalled,
   });
 
-export const passOf = (row: RunPartsRow): StationPass | null => {
+export const passOf = (
+  row: RunPartsRow,
+  stored: StoredRunParts,
+): StationPass | null => {
   if ((row.passedTo === null) !== (row.passedAt === null)) {
     throw new InconsistentStateError(
-      'run record',
+      stored,
       'was passed on without saying where or when',
     );
   }
@@ -212,7 +242,10 @@ export const passOf = (row: RunPartsRow): StationPass | null => {
     : null;
 };
 
-export const partColumnsOf = (record: RunParts): RunPartsRow => {
+export const partColumnsOf = (
+  record: RunParts,
+  stored: StoredRunParts,
+): RunPartsRow => {
   const end = record.end;
 
   return {
@@ -237,9 +270,9 @@ export const partColumnsOf = (record: RunParts): RunPartsRow => {
     supersededAt: record.supersededAt,
     checks: record.checks,
     checkedAt: record.checkedAt,
-    firstHumanAction: firstHumanActionColumnOf(record.firstHumanAction),
+    firstHumanAction: firstHumanActionColumnOf(record.firstHumanAction, stored),
     firstHumanActionAt: record.firstHumanAction?.at ?? null,
-    firstHumanActionBy: record.firstHumanAction?.by?.value ?? null,
+    firstHumanActionBy: record.firstHumanAction?.by.value ?? null,
     approvalAnsweredAt: record.approvalAnsweredAt,
     passedTo: record.passed?.to.value ?? null,
     passedAt: record.passed?.at ?? null,

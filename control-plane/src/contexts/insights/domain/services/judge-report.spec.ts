@@ -11,6 +11,7 @@ import {
   rubricOf,
 } from '@insights/judging.fake-spec';
 import { endedRecord, factsWith } from '@insights/runs.fake-spec';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const AT = new Date('2026-09-30T11:00:00.000Z');
@@ -24,7 +25,11 @@ const runs = (count: number, agreeing: number) =>
     return {
       score: judgeScore(runId, [passes]),
       record: endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
-        HumanAction.of(passes === agrees ? 'accepted' : 'sent-back', AT),
+        HumanAction.of(
+          passes === agrees ? 'accepted' : 'sent-back',
+          AT,
+          UserId.of('user_actor'),
+        ),
       ),
     };
   });

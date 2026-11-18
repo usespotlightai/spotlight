@@ -6,7 +6,7 @@ import {
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export interface LabelledRun {
+interface LabelEvidence {
   readonly firstHumanAction: HumanAction | null;
   readonly merged: boolean;
   readonly ending: RunEnding;
@@ -19,7 +19,7 @@ export class HumanLabel {
     readonly by: UserId | null,
   ) {}
 
-  static of(run: LabelledRun): HumanLabel | null {
+  static of(run: LabelEvidence): HumanLabel | null {
     const action = run.firstHumanAction;
 
     if (action?.labelFrom) {

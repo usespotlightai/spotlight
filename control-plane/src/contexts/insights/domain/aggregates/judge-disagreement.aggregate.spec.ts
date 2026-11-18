@@ -62,7 +62,7 @@ const fieldsOf = (disagreement: JudgeDisagreement) => ({
 });
 
 describe('JudgeDisagreement', () => {
-  it('opens where the judge failed a run that a person passed', () => {
+  it('opens where the judge failed a run that people passed', () => {
     const disagreement = openDisagreement('run_1', {
       claimResults: [true, false, false],
     });
@@ -75,14 +75,39 @@ describe('JudgeDisagreement', () => {
   });
 
   it('asks the person whose action gave the label', () => {
-    const disagreement = openDisagreement('run_1', { askedOf: ADA });
-    const [opened] = disagreement.pullEvents();
+    const disagreement = openDisagreement('run_1', { askedOf: GRACE });
 
-    expect(disagreement.askedOf).toEqual(ADA);
-    expect(opened).toMatchObject({ askedOf: ADA });
+    expect(disagreement.askedOf).toEqual(GRACE);
   });
 
-  it('opens where the judge passed a run that a person failed', () => {
+  it('asks the team only for a merged pull request', () => {
+    const fields = fieldsOf(openDisagreement('run_1', { askedOf: ADA }));
+    const merged = fieldsOf(openDisagreement('run_2', { labelFrom: 'merged' }));
+    const opening = (
+      labelFrom: 'accepted' | 'merged',
+      askedOf: UserId | null,
+    ) =>
+      JudgeDisagreement.open({
+        ...fields,
+        judgePasses: false,
+        labelFrom,
+        askedOf,
+        now: NOW,
+      });
+
+    expect(() => opening('accepted', null)).toThrow(
+      InvalidJudgeDisagreementError,
+    );
+    expect(() => opening('merged', ADA)).toThrow(InvalidJudgeDisagreementError);
+    expect(() =>
+      JudgeDisagreement.rehydrate({ ...fields, askedOf: null }),
+    ).toThrow(InconsistentStateError);
+    expect(() =>
+      JudgeDisagreement.rehydrate({ ...merged, askedOf: ADA }),
+    ).toThrow(InconsistentStateError);
+  });
+
+  it('opens where the judge passed a run that people failed', () => {
     expect(
       openDisagreement('run_1', { claimResults: [true, true, true] }).direction,
     ).toBe('judge-passed');
@@ -131,7 +156,9 @@ describe('JudgeDisagreement', () => {
   });
 
   it('stays open after the first of two answers and is answered after the second', () => {
-    const first = openDisagreement('run_1').answerClaim(claimAnswer(1));
+    const first = openDisagreement('run_1', {
+      labelFrom: 'merged',
+    }).answerClaim(claimAnswer(1));
     first.pullEvents();
     const second = first.answerClaim(claimAnswer(2, GRACE, LATER));
 
@@ -162,7 +189,7 @@ describe('JudgeDisagreement', () => {
   it('takes one answer for each claim', () => {
     const answered = openDisagreement('run_1').answerClaim(claimAnswer(1));
 
-    expect(() => answered.answerClaim(claimAnswer(1, GRACE))).toThrow(
+    expect(() => answered.answerClaim(claimAnswer(1))).toThrow(
       DisagreementClaimAnsweredError,
     );
   });
@@ -297,7 +324,7 @@ describe('JudgeDisagreement', () => {
   });
 
   it('takes answers from anyone on the team when it asks the team', () => {
-    const teamQuestion = openDisagreement('run_1');
+    const teamQuestion = openDisagreement('run_1', { labelFrom: 'merged' });
 
     expect(teamQuestion.askedOf).toBeNull();
     expect(
@@ -306,18 +333,6 @@ describe('JudgeDisagreement', () => {
         .answerClaim(claimAnswer(2, ADA))
         .claimAnswers.map((each) => each.by),
     ).toEqual([GRACE, ADA]);
-  });
-
-  it('takes what was not met from anyone on the team when it asks the team', () => {
-    const teamQuestion = openDisagreement('run_1', {
-      claimResults: [true, true, true],
-    });
-
-    expect(teamQuestion.askedOf).toBeNull();
-    expect(
-      teamQuestion.answerNotMet(notMet(null, 'It broke the build.', GRACE))
-        .notMet?.by,
-    ).toEqual(GRACE);
   });
 
   it('takes no answer once withdrawn', () => {
@@ -368,6 +383,17 @@ describe('JudgeDisagreement', () => {
         labelFrom: null,
       }),
     ).toBe('claims-changed');
+  });
+
+  it('keeps the label that opened it while people stay on the same side', () => {
+    const merged = openDisagreement('run_1', { labelFrom: 'merged' });
+
+    expect(
+      merged.noLongerHoldsBecause({
+        rubricVersion: merged.rubricVersion,
+        labelFrom: 'accepted',
+      }),
+    ).toBeNull();
   });
 
   it('disputes the claims the judge failed, and none where the judge passed', () => {

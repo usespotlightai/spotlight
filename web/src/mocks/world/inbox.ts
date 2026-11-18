@@ -8,13 +8,11 @@ import type {
 import { daysAgo, hoursAgo } from '@/mocks/clock';
 import {
   acceptedRun,
-  askedOfOtherRun,
   claimsChangedRun,
   labelGoneRun,
   mergedRun,
   type Opening,
   openingOfRun,
-  passedRun,
   sentBackRun,
   verdictsAgreeRun,
 } from '@/mocks/world/disagreement-runs';
@@ -33,6 +31,7 @@ import {
   seededTask,
 } from '@/mocks/world/inbox-places';
 import { pastTaskOf } from '@/mocks/world/past-work';
+import { SAM } from '@/mocks/world/people';
 import { PLATFORM_ID } from '@/mocks/world/platform';
 import { notesOfRun, type StoryNote } from '@/mocks/world/run-stories';
 
@@ -105,12 +104,10 @@ export const ALERT_ID = 'alert_sent_back';
 export const COST_ALERT_REQUEST_ID = 'request_cost_alert';
 export const COST_ALERT_ID = 'alert_cost_per_run';
 export const DECIDED_MEMORIES_REQUEST_ID = 'request_disk_memories';
-export const FAILED_DISAGREEMENT_ID = 'disagreement_search_2';
-export const PASSED_DISAGREEMENT_ID = 'disagreement_passed';
-export const FAILED_DISAGREEMENT_REQUEST_ID = 'request_search_disagreement';
-export const PASSED_DISAGREEMENT_REQUEST_ID = 'request_passed_disagreement';
-export const WITHDRAWN_DISAGREEMENT_ID = 'disagreement_verdicts_agree';
-export const WITHDRAWN_DISAGREEMENT_REQUEST_ID =
+export const SEARCH_DISAGREEMENT_ID = 'disagreement_search_2';
+export const SEARCH_DISAGREEMENT_REQUEST_ID = 'request_search_disagreement';
+export const VERDICTS_AGREE_DISAGREEMENT_ID = 'disagreement_verdicts_agree';
+export const VERDICTS_AGREE_DISAGREEMENT_REQUEST_ID =
   'request_verdicts_agree_disagreement';
 export const SENT_BACK_DISAGREEMENT_ID = 'disagreement_sent_back';
 export const SENT_BACK_DISAGREEMENT_REQUEST_ID =
@@ -119,9 +116,6 @@ export const ACCEPTED_DISAGREEMENT_ID = 'disagreement_accepted';
 export const ACCEPTED_DISAGREEMENT_REQUEST_ID = 'request_accepted_disagreement';
 export const MERGED_DISAGREEMENT_ID = 'disagreement_merged';
 export const MERGED_DISAGREEMENT_REQUEST_ID = 'request_merged_disagreement';
-export const ASKED_OF_OTHER_DISAGREEMENT_ID = 'disagreement_asked_of_other';
-export const ASKED_OF_OTHER_DISAGREEMENT_REQUEST_ID =
-  'request_asked_of_other_disagreement';
 export const CLAIMS_CHANGED_DISAGREEMENT_ID = 'disagreement_claims_changed';
 export const CLAIMS_CHANGED_DISAGREEMENT_REQUEST_ID =
   'request_claims_changed_disagreement';
@@ -431,6 +425,7 @@ const disagreementRequest = ({
           unread,
           resolved,
           inboxRequest: { form: 'judge-disagreement', about },
+          standing: opening.askedOf === SAM.id ? 'assignee' : 'team',
         }),
       ]
     : [];
@@ -438,15 +433,10 @@ const disagreementRequest = ({
 const disagreementRequests = (): InboxConversation[] =>
   [
     {
-      id: FAILED_DISAGREEMENT_REQUEST_ID,
-      about: FAILED_DISAGREEMENT_ID,
+      id: SEARCH_DISAGREEMENT_REQUEST_ID,
+      about: SEARCH_DISAGREEMENT_ID,
       opening: openingOfRun('run_search_2'),
       unread: true,
-    },
-    {
-      id: PASSED_DISAGREEMENT_REQUEST_ID,
-      about: PASSED_DISAGREEMENT_ID,
-      opening: passedRun(),
     },
     {
       id: SENT_BACK_DISAGREEMENT_REQUEST_ID,
@@ -464,13 +454,8 @@ const disagreementRequests = (): InboxConversation[] =>
       opening: mergedRun(),
     },
     {
-      id: ASKED_OF_OTHER_DISAGREEMENT_REQUEST_ID,
-      about: ASKED_OF_OTHER_DISAGREEMENT_ID,
-      opening: askedOfOtherRun(),
-    },
-    {
-      id: WITHDRAWN_DISAGREEMENT_REQUEST_ID,
-      about: WITHDRAWN_DISAGREEMENT_ID,
+      id: VERDICTS_AGREE_DISAGREEMENT_REQUEST_ID,
+      about: VERDICTS_AGREE_DISAGREEMENT_ID,
       opening: verdictsAgreeRun(),
       resolved: true,
     },

@@ -1596,7 +1596,6 @@ export class Task extends EventRecorder {
     by: UserId;
     members: TeamMembers;
     line: LineMap;
-    verdict: HoldVerdict | null;
     currentRunStarted: boolean;
     at: Date;
   }): Task {
@@ -1625,7 +1624,6 @@ export class Task extends EventRecorder {
       by: input.by,
       stationId: this.stationId,
       from: this.lastLineRun(input.currentRunStarted),
-      verdict: input.verdict,
       at: input.at,
     });
     const held = this.deferredMoveTo;
@@ -1657,7 +1655,6 @@ export class Task extends EventRecorder {
         this.stationId,
         input.by,
         started.from,
-        started.verdict,
         input.at,
       ),
     );

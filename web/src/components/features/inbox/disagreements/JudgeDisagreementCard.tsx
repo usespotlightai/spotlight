@@ -5,7 +5,6 @@ import { DisagreementForm } from '@/components/features/inbox/disagreements/Disa
 import { DecisionCard } from '@/components/shared/DecisionCard';
 import { useAnswerJudgeDisagreement } from '@/hooks/api/useAnswerJudgeDisagreement';
 import {
-  asksForClaim,
   disagreementTitleOf,
   type JudgeDisagreement,
 } from '@/lib/judge-disagreement';
@@ -16,8 +15,6 @@ type JudgeDisagreementCardProps = {
   teamId: string;
   disagreement: JudgeDisagreement;
   answerer: string | null;
-  asked: string | null;
-  waitsForViewer: boolean;
 };
 
 export function JudgeDisagreementCard({
@@ -25,13 +22,11 @@ export function JudgeDisagreementCard({
   teamId,
   disagreement,
   answerer,
-  asked,
-  waitsForViewer,
 }: JudgeDisagreementCardProps) {
   const send = useAnswerJudgeDisagreement();
 
   const { notMet, state, withdrawnAt } = disagreement;
-  const answering = waitsForViewer && asksForClaim(disagreement);
+  const answering = state === 'open';
 
   return (
     <DecisionCard
@@ -41,7 +36,7 @@ export function JudgeDisagreementCard({
     >
       <DisagreementCardHeader
         state={state}
-        title={disagreementTitleOf(disagreement, answerer, answering, asked)}
+        title={disagreementTitleOf(disagreement, answerer)}
         sending={send.isPending}
         at={state === 'withdrawn' ? withdrawnAt : (notMet?.answeredAt ?? null)}
         trace={taskTracePath(slug, teamId, disagreement.taskId)}

@@ -113,7 +113,6 @@ const holdOnMessage = ({
     assignee: SAM,
     hold: {
       by: SAM,
-      verdict: 'not-right',
       startedAt: new Date().toISOString(),
       runId: world().runs[task.id]?.[0]?.id ?? null,
       heldMoveTo: null,

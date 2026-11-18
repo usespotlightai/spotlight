@@ -372,7 +372,6 @@ describe('WORK_EVENT_MAPPERS', () => {
           StationId.of('station_1'),
           UserId.of('user_1'),
           RUN,
-          'not-right',
           RECORDED_AT,
         ),
       ),
@@ -386,7 +385,6 @@ describe('WORK_EVENT_MAPPERS', () => {
         stationId: 'station_1',
         by: 'user_1',
         fromRunId: 'run_1',
-        verdict: 'not-right',
         at: RECORDED_AT.toISOString(),
       },
     ]);

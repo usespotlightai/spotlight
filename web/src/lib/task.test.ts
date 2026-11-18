@@ -129,7 +129,6 @@ describe('mayLand', () => {
     ...task('a', 'spec'),
     hold: {
       by: { id: 'user_1', name: 'Leon', image: null },
-      verdict: 'not-right',
       startedAt: '2026-08-04T09:15:00.000Z',
       runId: null,
       heldMoveTo: null,
@@ -259,7 +258,6 @@ describe('holdsOnMessage', () => {
           ...task('a', 'spec'),
           hold: {
             by: { id: 'user_1', name: 'Leon', image: null },
-            verdict: 'not-right',
             startedAt: '2026-08-04T09:15:00.000Z',
             runId: null,
             heldMoveTo: null,

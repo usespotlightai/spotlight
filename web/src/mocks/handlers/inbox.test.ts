@@ -31,22 +31,24 @@ import { GROWTH_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
 import {
   ALERT_ID,
   ALERT_REQUEST_ID,
+  CLAIMS_CHANGED_DISAGREEMENT_ID,
   COST_ALERT_ID,
   COST_ALERT_REQUEST_ID,
   DECIDED_MEMORIES_REQUEST_ID,
-  FAILED_DISAGREEMENT_ID,
-  FAILED_DISAGREEMENT_REQUEST_ID,
+  LABEL_GONE_DISAGREEMENT_ID,
+  MEMORIES_REQUEST_ID,
   MERGED_DISAGREEMENT_ID,
   MERGED_DISAGREEMENT_REQUEST_ID,
+  SEARCH_DISAGREEMENT_ID,
+  SEARCH_DISAGREEMENT_REQUEST_ID,
   SENT_BACK_DISAGREEMENT_ID,
-  CLAIMS_CHANGED_DISAGREEMENT_ID,
-  LABEL_GONE_DISAGREEMENT_ID,
-  WITHDRAWN_DISAGREEMENT_ID,
-  WITHDRAWN_DISAGREEMENT_REQUEST_ID,
-  MEMORIES_REQUEST_ID,
   SETUP_ITEM_ID,
   STALLED_NOTICE_ID,
+  VERDICTS_AGREE_DISAGREEMENT_ID,
+  VERDICTS_AGREE_DISAGREEMENT_REQUEST_ID,
 } from '@/mocks/world/inbox';
+import { inboxStore } from '@/mocks/world/inbox-store';
+import { TOM } from '@/mocks/world/people';
 
 const inbox = async () => [
   ...(await listInbox({ path: { slug: SLUG }, throwOnError: true })).data.items,
@@ -272,14 +274,14 @@ describe('the mock inbox', () => {
   });
 
   it('asks the team about a merged run the judge failed, about the claims in dispute', async () => {
-    const asked = await itemIn(FAILED_DISAGREEMENT_REQUEST_ID);
+    const asked = await itemIn(SEARCH_DISAGREEMENT_REQUEST_ID);
     expect(asked?.inboxRequest).toEqual({
       form: 'judge-disagreement',
-      about: FAILED_DISAGREEMENT_ID,
+      about: SEARCH_DISAGREEMENT_ID,
     });
 
     const { data: disagreement } = await readJudgeDisagreement({
-      path: { teamId: PLATFORM_ID, disagreementId: FAILED_DISAGREEMENT_ID },
+      path: { teamId: PLATFORM_ID, disagreementId: SEARCH_DISAGREEMENT_ID },
       throwOnError: true,
     });
     expect(disagreement).toMatchObject({
@@ -295,13 +297,13 @@ describe('the mock inbox', () => {
       kind: 'step',
       hunk: null,
     });
-    expect(
-      await statusOf(
-        readJudgeDisagreement({
-          path: { teamId: GROWTH_ID, disagreementId: FAILED_DISAGREEMENT_ID },
-        }),
-      ),
-    ).toBe(404);
+    const elsewhere = await readJudgeDisagreement({
+      path: { teamId: GROWTH_ID, disagreementId: SEARCH_DISAGREEMENT_ID },
+    });
+    expect(elsewhere.response?.status).toBe(404);
+    expect(JSON.stringify(elsewhere.error)).toContain(
+      `Judge disagreement ${SEARCH_DISAGREEMENT_ID} not found.`,
+    );
   });
 
   it('takes one answer per claim in dispute, and resolves the question with the last one', async () => {
@@ -376,14 +378,14 @@ describe('the mock inbox', () => {
   it('refuses an answer to a disagreement Spotlight withdrew, whose question is resolved', async () => {
     const path = {
       teamId: PLATFORM_ID,
-      disagreementId: WITHDRAWN_DISAGREEMENT_ID,
+      disagreementId: VERDICTS_AGREE_DISAGREEMENT_ID,
     };
     const { data } = await readJudgeDisagreement({ path, throwOnError: true });
 
     expect(data.withdrawnAt).not.toBeNull();
-    expect((await itemIn(WITHDRAWN_DISAGREEMENT_REQUEST_ID))?.resolved).toBe(
-      true,
-    );
+    expect(
+      (await itemIn(VERDICTS_AGREE_DISAGREEMENT_REQUEST_ID))?.resolved,
+    ).toBe(true);
     const refused = await answerJudgeDisagreementClaim({
       path: { ...path, claim: data.disputedClaims[0] ?? 0 },
       body: { answer: 'judge-right', note: null },
@@ -425,10 +427,140 @@ describe('the mock inbox', () => {
     ).toBe(409);
   });
 
+  it('refuses what the server refuses, in the server’s words', async () => {
+    const refusal = async (
+      call: Promise<{ response?: Response; error?: unknown }>,
+    ) => {
+      const { response, error } = await call;
+      return {
+        status: response?.status,
+        detail: (error as { detail?: string } | undefined)?.detail,
+      };
+    };
+    const longNote = 'x'.repeat(2_001);
+    const noteTooLong = {
+      status: 422,
+      detail: 'A judge disagreement note must be at most 2000 characters.',
+    };
+    const sentBack = {
+      teamId: PLATFORM_ID,
+      disagreementId: SENT_BACK_DISAGREEMENT_ID,
+    };
+    const search = {
+      teamId: PLATFORM_ID,
+      disagreementId: SEARCH_DISAGREEMENT_ID,
+    };
+    const { data: asked } = await readJudgeDisagreement({
+      path: sentBack,
+      throwOnError: true,
+    });
+
+    expect(
+      await refusal(
+        answerJudgeDisagreement({
+          path: sentBack,
+          body: { note: longNote, shouldHaveFailed: 0 },
+        }),
+      ),
+    ).toEqual(noteTooLong);
+    expect(
+      await refusal(
+        answerJudgeDisagreement({
+          path: sentBack,
+          body: { note: null, shouldHaveFailed: asked.claims.length },
+        }),
+      ),
+    ).toEqual({
+      status: 422,
+      detail:
+        'A judge disagreement must name a claim of the judge that looked at the run.',
+    });
+    expect(
+      await refusal(
+        answerJudgeDisagreement({
+          path: search,
+          body: { note: 'It never ran the tests.', shouldHaveFailed: null },
+        }),
+      ),
+    ).toEqual({
+      status: 422,
+      detail:
+        'A judge disagreement takes what was not met only where the judge passed the run.',
+    });
+    expect(
+      await refusal(
+        answerJudgeDisagreementClaim({
+          path: { ...search, claim: 2 },
+          body: { answer: 'judge-right', note: longNote },
+        }),
+      ),
+    ).toEqual(noteTooLong);
+    expect(
+      await refusal(
+        answerJudgeDisagreement({
+          path: sentBack,
+          body: { note: null, shouldHaveFailed: -1 },
+        }),
+      ),
+    ).toEqual({
+      status: 422,
+      detail:
+        'A judge disagreement must name the claim that should have failed by its place, from 0.',
+    });
+    expect(
+      await refusal(
+        answerJudgeDisagreementClaim({
+          path: { ...search, claim: 1.5 },
+          body: { answer: 'judge-right', note: null },
+        }),
+      ),
+    ).toEqual({
+      status: 400,
+      detail: 'Validation failed (numeric string is expected)',
+    });
+    expect(
+      await refusal(
+        answerJudgeDisagreementClaim({
+          path: {
+            teamId: PLATFORM_ID,
+            disagreementId: VERDICTS_AGREE_DISAGREEMENT_ID,
+            claim: 0,
+          },
+          body: {
+            answer: 'nope' as 'judge-right',
+            note: null,
+          },
+        }),
+      ),
+    ).toEqual({
+      status: 422,
+      detail:
+        'A judge disagreement must answer a claim with judge-right or claim-wrong.',
+    });
+  });
+
+  it('refuses an answer from anyone but the person a question asks', async () => {
+    const disagreement = inboxStore().disagreements[SENT_BACK_DISAGREEMENT_ID];
+    expect(disagreement).toBeDefined();
+    if (disagreement) {
+      disagreement.askedOf = TOM.id;
+    }
+
+    const refused = await answerJudgeDisagreement({
+      path: { teamId: PLATFORM_ID, disagreementId: SENT_BACK_DISAGREEMENT_ID },
+      body: { note: null, shouldHaveFailed: 0 },
+    });
+
+    expect(refused.response?.status).toBe(403);
+    expect((refused.error as { detail?: string }).detail).toBe(
+      `Judge disagreement ${SENT_BACK_DISAGREEMENT_ID} asks another person. Only that person can answer it.`,
+    );
+  });
+
   it('withdraws questions with a reason', async () => {
     const reasons = await Promise.all(
       [
-        WITHDRAWN_DISAGREEMENT_ID,
+        VERDICTS_AGREE_DISAGREEMENT_ID,
         CLAIMS_CHANGED_DISAGREEMENT_ID,
         LABEL_GONE_DISAGREEMENT_ID,
       ].map(
@@ -461,7 +593,7 @@ describe('the mock inbox', () => {
         })
       ).data;
 
-    const agreed = await disagreementOf(WITHDRAWN_DISAGREEMENT_ID);
+    const agreed = await disagreementOf(VERDICTS_AGREE_DISAGREEMENT_ID);
     expect(agreed).toMatchObject({
       labelFrom: 'merged',
       direction: 'judge-failed',

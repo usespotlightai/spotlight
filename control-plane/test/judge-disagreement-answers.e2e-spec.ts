@@ -64,7 +64,7 @@ afterAll(async () => {
 
 describe('answers to a judge disagreement, one claim at a time', () => {
   it('keeps each claim’s answer, note, person and day, and is answered after the last one', async () => {
-    await disagreements.add(openDisagreement('run_1'));
+    await disagreements.add(openDisagreement('run_1', { labelFrom: 'merged' }));
     await disagreements.save(
       (await stored('run_1')).answerClaim(
         answerOf(1, ADA, FIRST, 'The lint step must pass.'),
@@ -122,7 +122,7 @@ describe('answers to a judge disagreement, one claim at a time', () => {
   });
 
   it('refuses the second of two people answering the same claim at once', async () => {
-    await disagreements.add(openDisagreement('run_2'));
+    await disagreements.add(openDisagreement('run_2', { labelFrom: 'merged' }));
     const seen = await stored('run_2');
 
     await disagreements.save(seen.answerClaim(answerOf(1, ADA, FIRST, null)));

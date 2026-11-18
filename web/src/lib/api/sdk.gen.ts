@@ -2585,7 +2585,7 @@ export const listInsightsTraces = <ThrowOnError extends boolean = false>(options
 });
 
 /**
- * A run where the judge and a person disagree: the judge’s claims, results and reasons, and the answer
+ * A run where the judge and people disagree: the judge’s claims, results and reasons, and the answer
  */
 export const readJudgeDisagreement = <ThrowOnError extends boolean = false>(options: Options<ReadJudgeDisagreementData, ThrowOnError>): RequestResult<ReadJudgeDisagreementResponses, ReadJudgeDisagreementErrors, ThrowOnError> => (options.client ?? client).get<ReadJudgeDisagreementResponses, ReadJudgeDisagreementErrors, ThrowOnError>({ url: '/teams/{teamId}/judge-disagreements/{disagreementId}', ...options });
 

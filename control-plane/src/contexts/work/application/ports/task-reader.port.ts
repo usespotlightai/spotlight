@@ -2,7 +2,6 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
-import type { HoldVerdict } from '@work/domain/value-objects/hold-verdict';
 import type { Progress } from '@work/domain/value-objects/progress';
 
 export interface TaskNoteSummary {
@@ -23,7 +22,6 @@ interface TaskPersonSummary {
 
 export interface TaskHoldSummary {
   readonly by: TaskPersonSummary;
-  readonly verdict: HoldVerdict;
   readonly startedAt: Date;
   readonly runId: string | null;
   readonly heldMoveTo: string | null;

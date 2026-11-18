@@ -35,10 +35,6 @@ export const DISAGREEMENT_STATUSES: Record<
 
 const WAITING_FOR_YOUR_ANSWER = 'Waiting for your answer';
 
-const WAITING_FOR_AN_ANSWER = 'Waiting for an answer';
-
-const formatWaitingFor = (who: string): string => `Waiting for ${who}`;
-
 const WITHDRAWN = 'Withdrawn';
 
 const formatAnsweredBy = (who: string): string => `Answered by ${who}`;
@@ -46,15 +42,10 @@ const formatAnsweredBy = (who: string): string => `Answered by ${who}`;
 const titleOf = (
   state: DisagreementCardState,
   answerer: string | null,
-  canAnswer: boolean,
-  asked: string | null,
 ): string => {
   switch (state) {
     case 'open':
-      if (canAnswer) {
-        return WAITING_FOR_YOUR_ANSWER;
-      }
-      return asked ? formatWaitingFor(asked) : WAITING_FOR_AN_ANSWER;
+      return WAITING_FOR_YOUR_ANSWER;
     case 'answered':
       return answerer ? formatAnsweredBy(answerer) : 'Answered';
     case 'withdrawn':
@@ -65,9 +56,7 @@ const titleOf = (
 export const disagreementTitleOf = (
   disagreement: JudgeDisagreement,
   answerer: string | null,
-  canAnswer: boolean,
-  asked: string | null,
-): string => titleOf(disagreement.state, answerer, canAnswer, asked);
+): string => titleOf(disagreement.state, answerer);
 
 export const answerOfClaim = (
   disagreement: JudgeDisagreement,
@@ -90,22 +79,19 @@ export const claimCardTitleOf = (
   disagreement: JudgeDisagreement,
   claim: number,
   answerer: string | null,
-  canAnswer: boolean,
-  asked: string | null,
-): string =>
-  titleOf(cardStateOf(disagreement, claim), answerer, canAnswer, asked);
+): string => titleOf(cardStateOf(disagreement, claim), answerer);
 
 export const claimCardLabel = (claim: number): string =>
   `Disagreement on claim ${claim + 1}`;
 
-const factOf = (disagreement: JudgeDisagreement, labeller: string): string => {
+const factOf = (disagreement: JudgeDisagreement): string => {
   switch (disagreement.labelFrom) {
     case 'accepted':
-      return `${labeller} accepted this run. The judge failed it.`;
+      return 'You accepted this run. The judge failed it.';
     case 'sent-back':
-      return `${labeller} sent this run back. The judge passed it.`;
+      return 'You sent this run back. The judge passed it.';
     case 'held':
-      return `${labeller} put this run on hold. The judge passed it.`;
+      return 'You put this run on hold. The judge passed it.';
     case 'merged':
       return 'The pull request was merged. The judge failed the run.';
   }
@@ -122,14 +108,10 @@ const WITHDRAWN_BECAUSE: Record<
   'label-gone': 'People’s verdict on this run is gone.',
 };
 
-export const sentenceOf = (
-  disagreement: JudgeDisagreement,
-  labeller: string,
-  answering: boolean,
-): string => {
-  const fact = factOf(disagreement, labeller);
+export const sentenceOf = (disagreement: JudgeDisagreement): string => {
+  const fact = factOf(disagreement);
 
-  if (answering) {
+  if (disagreement.state === 'open') {
     return `${fact} ${DISAGREEMENT_PURPOSE}`;
   }
 
@@ -189,50 +171,19 @@ export const RESOLVED_PREVIEW = 'Disagreement resolved.';
 export const OPEN_PREVIEW =
   'The judge and people disagree on a run. Spotlight asks why.';
 
-const nameOf = (
-  id: string | null,
-  me: Person | null,
-  members: readonly Person[] | undefined,
-  you: string,
-): string | null => {
-  if (!id) {
-    return null;
-  }
-
-  return id === me?.id
-    ? you
-    : (members?.find((each) => each.id === id)?.name ?? null);
-};
-
 export const answererOf = (
   answeredBy: string | null,
   me: Person | null,
   members: readonly Person[] | undefined,
-): string | null => nameOf(answeredBy, me, members, 'you');
+): string | null => {
+  if (!answeredBy) {
+    return null;
+  }
 
-export const labellerOf = (
-  disagreement: JudgeDisagreement,
-  me: Person | null,
-  members: readonly Person[] | undefined,
-): string =>
-  nameOf(disagreement.askedOf, me, members, 'You') ?? 'Someone on the team';
-
-export const askedOtherThan = (
-  disagreement: JudgeDisagreement,
-  me: Person | null,
-): boolean => disagreement.askedOf !== null && disagreement.askedOf !== me?.id;
-
-export const waitsForViewer = (
-  disagreement: JudgeDisagreement,
-  me: Person | null,
-): boolean =>
-  disagreement.state === 'open' && !askedOtherThan(disagreement, me);
-
-export const askedNameOf = (
-  disagreement: JudgeDisagreement,
-  members: readonly Person[] | undefined,
-): string | null =>
-  members?.find((each) => each.id === disagreement.askedOf)?.name ?? null;
+  return answeredBy === me?.id
+    ? 'you'
+    : (members?.find((each) => each.id === answeredBy)?.name ?? null);
+};
 
 const claimsAt = (
   disagreement: JudgeDisagreement,
@@ -293,10 +244,6 @@ export const EMPTY_CLAIM_DRAFT: ClaimDraft = {
   answer: null,
   note: '',
 };
-
-export const asksForClaim = (disagreement: JudgeDisagreement): boolean =>
-  disagreement.disputedClaims.length === 0 &&
-  disagreement.direction === 'judge-passed';
 
 export const noteRequired = (draft: NotMetDraft): boolean =>
   draft.notMet === NO_CLAIM;
