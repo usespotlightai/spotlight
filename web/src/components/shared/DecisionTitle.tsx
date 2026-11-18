@@ -10,8 +10,8 @@ import type { ApprovalStatus } from '@/lib/approval-status';
 const STOPPED: Record<ApprovalStatus, Stopped | null> = {
   pending: 'waiting',
   working: null,
-  approved: 'filled',
-  dismissed: 'faded',
+  approved: 'succeeded',
+  dismissed: 'dismissed',
 };
 
 type DecisionTitleProps = {

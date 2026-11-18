@@ -25,7 +25,10 @@ export function Collapsible({
   return (
     <div
       className={cn(
-        'grid transition-[grid-template-rows,opacity] duration-200 ease-out-quad motion-reduce:transition-none',
+        'grid duration-200 ease-out-quad motion-reduce:transition-none',
+        open && !appear
+          ? 'transition-[grid-template-rows]'
+          : 'transition-[grid-template-rows,opacity]',
         open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
         open && appear && 'starting:grid-rows-[0fr] starting:opacity-0',
       )}
