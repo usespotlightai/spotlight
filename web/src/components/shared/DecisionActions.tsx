@@ -1,4 +1,4 @@
-import { Pencil } from 'lucide-react';
+import { Pencil, Undo2 } from 'lucide-react';
 
 import { CopyIconAction } from '@/components/shared/CopyIconAction';
 import { IconAction } from '@/components/shared/IconAction';
@@ -8,6 +8,8 @@ type DecisionActionsProps = {
   editLabel: string;
   pending: boolean;
   onEdit?: () => void;
+  restoreLabel?: string;
+  onRestore?: () => void;
 };
 
 export function DecisionActions({
@@ -15,10 +17,22 @@ export function DecisionActions({
   editLabel,
   pending,
   onEdit,
+  restoreLabel,
+  onRestore,
 }: DecisionActionsProps) {
   return (
     <div className="flex items-center gap-0.5">
-      <CopyIconAction text={copy.text} label={copy.label} />
+      {onRestore && (
+        <IconAction
+          label={restoreLabel ?? 'Restore'}
+          tip="Restore"
+          disabled={pending}
+          focusNext
+          onClick={onRestore}
+        >
+          <Undo2 />
+        </IconAction>
+      )}
 
       {onEdit && (
         <IconAction
@@ -30,6 +44,8 @@ export function DecisionActions({
           <Pencil />
         </IconAction>
       )}
+
+      <CopyIconAction text={copy.text} label={copy.label} />
     </div>
   );
 }

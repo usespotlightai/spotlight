@@ -16,8 +16,10 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { AttachmentCopies } from '@work/application/services/attachment-copies';
 import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool-use';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { ChatVersionConflictError } from '@work/domain/exceptions/chat-version-conflict.error';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
+import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 import { NowhereToProposeError } from '@work/domain/exceptions/nowhere-to-propose.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -27,6 +29,8 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
+import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -65,8 +69,8 @@ const LINE = lineMapOf({
   ],
 });
 
-const using = () => {
-  const chat = Chat.start({
+const using = ({ proposed = false } = {}) => {
+  const started = Chat.start({
     lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -77,6 +81,18 @@ const using = () => {
     now: NOW,
     newId: () => 'chat_1',
   }).assignRun(RunId.of('run_1'), NOW);
+  const chat = proposed
+    ? started.propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Back off exponentially'),
+        description: null,
+        at: NOW,
+      })
+    : started;
   chat.pullEvents();
 
   const dispatch = vi.fn(async (_events: readonly unknown[]) => undefined);
@@ -125,10 +141,70 @@ describe('ProposeTaskToolUse', () => {
     expect(proposal?.description?.value).toBe('Double the wait each time.');
     expect(answer).toEqual({
       proposed: 'Back off exponentially',
+      number: 1,
       line: 'delivery',
       station: 'backlog',
       next: expect.stringContaining('The person decides') as unknown,
     });
+  });
+
+  it('proposes again on the chat as it now is when a message changed it meanwhile', async () => {
+    const { tool, context, save, copy } = using();
+    save.mockRejectedValueOnce(new ChatVersionConflictError('chat_1'));
+
+    const answer = await tool.call(
+      context,
+      ToolInputs.of({
+        line: 'delivery',
+        station: 'backlog',
+        title: 'Back off exponentially',
+        attach: ['att_mockup'],
+      }),
+    );
+
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(copy).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[1]?.[0].messages[1]?.attachments).toHaveLength(1);
+    expect(answer).toMatchObject({
+      proposed: 'Back off exponentially',
+      number: 1,
+    });
+  });
+
+  it('replaces the earlier proposals it names by number, and says so', async () => {
+    const { tool, context, save } = using({ proposed: true });
+
+    const answer = await tool.call(
+      context,
+      ToolInputs.of({
+        line: 'delivery',
+        station: 'backlog',
+        title: 'Back off with jitter',
+        replaces: ['1'],
+      }),
+    );
+
+    const saved = save.mock.calls[0]?.[0];
+    expect(saved?.proposalAt(MessagePosition.of(1)).state).toBe('replaced');
+    expect(saved?.proposalAt(MessagePosition.of(2)).isOpen).toBe(true);
+    expect(answer).toMatchObject({ number: 2, replaced: [1] });
+  });
+
+  it('proposes nothing where a replaced proposal is not named by its number', async () => {
+    const { tool, context, save } = using({ proposed: true });
+
+    await expect(
+      tool.call(
+        context,
+        ToolInputs.of({
+          line: 'delivery',
+          station: 'backlog',
+          title: 'Back off with jitter',
+          replaces: ['the first one'],
+        }),
+      ),
+    ).rejects.toThrow(InvalidToolInputError);
+    expect(save).not.toHaveBeenCalled();
   });
 
   it('puts a copy of each file named on the proposal, from the path the run sees', async () => {

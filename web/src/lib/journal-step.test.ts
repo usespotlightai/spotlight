@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { JournalStep } from '@/lib/inbox';
-import { shownStep, stretchesOf } from '@/lib/journal-step';
+import { doingOf, shownStep, stretchesOf } from '@/lib/journal-step';
 
 const step = (over: Partial<JournalStep>): JournalStep => ({
   kind: 'message',
@@ -19,6 +19,22 @@ const step = (over: Partial<JournalStep>): JournalStep => ({
 });
 
 describe('shownStep', () => {
+  it('says the verb once when the tool title starts with the tool name', () => {
+    expect(
+      shownStep(step({ kind: 'tool', tool: 'read', text: 'Read src/queue.ts' }))
+        .label,
+    ).toBe('Read src/queue.ts');
+    expect(
+      doingOf(step({ kind: 'tool', tool: 'edit', text: 'Edit src/queue.ts' })),
+    ).toBe('Editing src/queue.ts');
+    expect(doingOf(step({ kind: 'tool', tool: 'read', text: 'Read' }))).toBe(
+      'Reading',
+    );
+    expect(
+      doingOf(step({ kind: 'tool', tool: 'read', text: 'Readme.md' })),
+    ).toBe('Reading Readme.md');
+  });
+
   it('shows a subagent with what it was asked, what it did and its answer', () => {
     const shown = shownStep(
       step({
@@ -107,5 +123,33 @@ describe('stretchesOf', () => {
       { kind: 'said', at: 2, step: message },
       { kind: 'worked', at: 3, steps: [three] },
     ]);
+  });
+});
+
+describe('doingOf', () => {
+  it('names the hook that runs before the agent in plain words', () => {
+    expect(doingOf(step({ kind: 'hook', tool: null, text: 'restore' }))).toBe(
+      'Restoring the workspace',
+    );
+    expect(doingOf(step({ kind: 'hook', tool: null, text: 'setup' }))).toBe(
+      'Running setup',
+    );
+  });
+
+  it('says what a running step does, on one line', () => {
+    expect(
+      doingOf(step({ kind: 'tool', tool: 'execute', text: 'Terminal' })),
+    ).toBe('Running a command');
+    expect(
+      doingOf(
+        step({ kind: 'tool', tool: 'execute', text: 'npm test\nnpm run lint' }),
+      ),
+    ).toBe('Running npm test');
+    expect(
+      doingOf(step({ kind: 'tool', tool: 'read', text: 'src/queue.ts' })),
+    ).toBe('Reading src/queue.ts');
+    expect(
+      doingOf(step({ kind: 'thought', text: 'Retries first.\nThen limits.' })),
+    ).toBe('Thinking');
   });
 });

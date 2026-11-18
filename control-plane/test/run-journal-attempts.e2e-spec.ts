@@ -79,7 +79,7 @@ afterAll(async () => {
 const hooks = (...messages: string[]) =>
   messages.map((message, index) => ({
     seq: index + 1,
-    type: 'output',
+    type: 'step.ended',
     at: new Date(Date.UTC(2026, 8, 17, 9, 0, index)),
     message,
   }));

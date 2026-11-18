@@ -4,11 +4,21 @@ import { useNavigate } from 'react-router';
 import { ProposedTaskCard } from '@/components/features/agent/ProposedTaskCard';
 import { useAcceptProposal } from '@/hooks/api/useAcceptProposal';
 import { useDismissProposal } from '@/hooks/api/useDismissProposal';
+import { useRestoreProposal } from '@/hooks/api/useRestoreProposal';
+import { useFocusAfterDecision } from '@/hooks/useFocusAfterDecision';
 import type { Attachment } from '@/lib/attachment';
 import type { Proposal } from '@/lib/chat';
 import { taskPath } from '@/lib/task';
 import { toast } from '@/lib/toast';
 import { useForwardTrail } from '@/lib/trail';
+
+const inView = (element: HTMLElement | null): boolean => {
+  const box = element?.getBoundingClientRect();
+
+  return Boolean(
+    box && box.height > 0 && box.bottom > 0 && box.top < window.innerHeight,
+  );
+};
 
 type ChatProposalProps = {
   slug: string;
@@ -29,9 +39,13 @@ export function ChatProposal({
 }: ChatProposalProps) {
   const accept = useAcceptProposal();
   const dismiss = useDismissProposal();
+  const restore = useRestoreProposal();
+  const pending = accept.isPending || dismiss.isPending || restore.isPending;
   const navigate = useNavigate();
   const trail = useForwardTrail();
   const awaiting = useRef(false);
+  const card = useRef<HTMLElement>(null);
+  const decided = useFocusAfterDecision(card, `${proposal.state}:${pending}`);
   const seen = useRef(proposal.state);
 
   useEffect(() => {
@@ -44,6 +58,9 @@ export function ChatProposal({
 
     if (proposal.state === 'created' && proposal.taskId) {
       awaiting.current = false;
+      if (inView(card.current)) {
+        return;
+      }
       const to = taskPath(slug, teamId, proposal.taskId);
 
       toast.add({
@@ -70,12 +87,14 @@ export function ChatProposal({
 
   return (
     <ProposedTaskCard
+      ref={card}
       slug={slug}
       teamId={teamId}
       proposal={proposal}
       attachments={attachments}
-      pending={accept.isPending || dismiss.isPending}
+      pending={pending}
       onCreate={() => {
+        decided();
         awaiting.current = true;
         accept.mutate(
           { teamId, chatId, position },
@@ -86,7 +105,14 @@ export function ChatProposal({
           },
         );
       }}
-      onDismiss={() => dismiss.mutate({ teamId, chatId, position })}
+      onDismiss={() => {
+        decided();
+        dismiss.mutate({ teamId, chatId, position });
+      }}
+      onRestore={() => {
+        decided();
+        restore.mutate({ teamId, chatId, position });
+      }}
     />
   );
 }

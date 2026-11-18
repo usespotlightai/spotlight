@@ -1,6 +1,7 @@
 import { ProposedMemoryCard } from '@/components/features/inbox/memories/ProposedMemoryCard';
 import { useApproveMemories } from '@/hooks/api/useApproveMemories';
 import { useRejectMemory } from '@/hooks/api/useRejectMemory';
+import { useRestoreMemory } from '@/hooks/api/useRestoreMemory';
 import type { ProposedMemory } from '@/lib/memory';
 
 type MemoryReviewProps = {
@@ -20,8 +21,19 @@ export function MemoryReview({
 }: MemoryReviewProps) {
   const approve = useApproveMemories();
   const reject = useRejectMemory();
+  const restore = useRestoreMemory();
   const about = { slug, teamId, taskId, runId };
-  const pending = approve.isPending || reject.isPending;
+  const deciding = new Set([
+    ...(approve.isPending
+      ? (approve.variables?.memories ?? []).map((each) => each.id)
+      : []),
+    ...(reject.isPending && reject.variables
+      ? [reject.variables.memoryId]
+      : []),
+    ...(restore.isPending && restore.variables
+      ? [restore.variables.memoryId]
+      : []),
+  ]);
 
   return (
     <ul className="flex flex-col gap-3">
@@ -30,7 +42,7 @@ export function MemoryReview({
           key={memory.id}
           memory={memory}
           position={at + 1}
-          pending={pending}
+          pending={deciding.has(memory.id)}
           onApprove={(body) =>
             approve.mutate({
               ...about,
@@ -38,6 +50,7 @@ export function MemoryReview({
             })
           }
           onReject={() => reject.mutate({ ...about, memoryId: memory.id })}
+          onRestore={() => restore.mutate({ ...about, memoryId: memory.id })}
         />
       ))}
     </ul>

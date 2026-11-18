@@ -6,6 +6,8 @@ import type {
 import {
   HARNESS_CONNECTED,
   HOOK_CALLED,
+  STEP_ENDED,
+  STEP_STARTED,
   TOOL_REFUSED,
 } from '@runs/domain/value-objects/journal-entry-type';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
@@ -23,6 +25,8 @@ const SPAN = 'span';
 const CARRIES_JSON = new Set([
   TOOL_REFUSED,
   HOOK_CALLED,
+  STEP_STARTED,
+  STEP_ENDED,
   SPAN,
   HARNESS_CONNECTED,
   HARNESS_FRAME,

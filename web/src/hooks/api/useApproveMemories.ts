@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { memoryReviewKeys } from '@/hooks/api/useMemoryReview';
 import { approveMemories } from '@/lib/api';
+import { decidedMemories, type ProposedMemory } from '@/lib/memory';
 
 type ApproveMemoriesInput = {
   slug: string;
@@ -28,6 +29,21 @@ export function useApproveMemories() {
         throwOnError: true,
       });
       return data;
+    },
+
+    onMutate: async ({ runId, memories }) => {
+      const key = memoryReviewKeys.forRun(runId);
+      await queryClient.cancelQueries({ queryKey: key });
+      queryClient.setQueryData<{ memories: ProposedMemory[] }>(
+        key,
+        (review) => review && decidedMemories(review, memories, 'approved'),
+      );
+    },
+
+    onError: (_error, { runId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: memoryReviewKeys.forRun(runId),
+      });
     },
 
     onSuccess: (review, { slug, runId }) => {

@@ -2,6 +2,7 @@ import type { ReviewsPort } from '@memory/application/ports/reviews.port';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import type { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
@@ -22,6 +23,10 @@ export class MemoryReactions {
 
   async onReviewResolved(event: MemoryReviewResolved): Promise<void> {
     await this.reviews.resolve(event.taskId, event.runId);
+  }
+
+  async onReviewReopened(event: MemoryReviewReopened): Promise<void> {
+    await this.reviews.reopen(event.taskId, event.runId);
   }
 
   async onApproved(event: MemoryApproved): Promise<void> {

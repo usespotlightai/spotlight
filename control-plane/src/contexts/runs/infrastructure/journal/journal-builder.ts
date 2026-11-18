@@ -22,6 +22,8 @@ import {
   HOOK_CALLED,
   PROVISION_FAILED,
   RUN_PAUSED,
+  STEP_ENDED,
+  STEP_STARTED,
   TOOL_REFUSED,
 } from '@runs/domain/value-objects/journal-entry-type';
 import { Money } from '@runs/domain/value-objects/money.vo';
@@ -143,6 +145,21 @@ interface HookCalled {
   readonly ms?: number;
 }
 
+interface RunnerStep {
+  readonly id?: unknown;
+  readonly failed?: unknown;
+  readonly output?: unknown;
+}
+
+const runnerStepOf = (event: Journalled): RunnerStep => {
+  try {
+    const read: unknown = JSON.parse(decoded(event.data ?? ''));
+    return read && typeof read === 'object' ? read : {};
+  } catch {
+    return {};
+  }
+};
+
 const startedAt = (called: HookCalled, fallback: Date): Date => {
   const at = called.startedAt ? new Date(called.startedAt) : fallback;
 
@@ -204,6 +221,8 @@ const bare = (kind: StepKind, text: string, at: Date): Building => ({
 });
 
 const WORKING = 'in_progress';
+
+const RUNNING = 'running';
 
 const ENDED_STATUSES = new Set(['completed', 'failed']);
 
@@ -267,6 +286,7 @@ const transcriptOf = (steps: readonly JournalStep[]): string | null =>
 export class JournalBuilder {
   #steps: Building[] = [];
   #hooks: JournalStep[] = [];
+  #running = new Map<string, Building>();
   #tools = new Map<string, number>();
   #printed = new Map<string, string>();
   #refused = new Set<string>();
@@ -284,7 +304,6 @@ export class JournalBuilder {
   #ready: Date | null = null;
   #agentStopped: Date | null = null;
   #closed: Date | null = null;
-  #seen: Date | null = null;
   #reading = false;
   #root = '';
   #subagents = new Map<string, { at: number; journal: JournalBuilder }>();
@@ -294,7 +313,6 @@ export class JournalBuilder {
 
   constructor(began: Date | null = null) {
     this.#opened = began;
-    this.#seen = began;
   }
 
   take(event: Journalled): void {
@@ -310,8 +328,11 @@ export class JournalBuilder {
       case 'working-copy.ready':
         this.#ready = event.at;
         break;
-      case 'output':
-        this.output(event);
+      case STEP_STARTED:
+        this.stepStarted(event);
+        break;
+      case STEP_ENDED:
+        this.stepEnded(event);
         break;
       case 'turn.started':
       case 'turn.ended':
@@ -358,14 +379,6 @@ export class JournalBuilder {
         break;
       default:
         break;
-    }
-
-    this.#seen = event.at;
-  }
-
-  private output(event: Journalled): void {
-    if (event.message) {
-      this.ranHook(event);
     }
   }
 
@@ -482,20 +495,38 @@ export class JournalBuilder {
       enforcementOf(event.data) ?? this.#egressEnforcement;
   }
 
-  private ranHook(event: Journalled): void {
+  private stepStarted(event: Journalled): void {
+    const step = this.runnerStep(event);
+    step.status = RUNNING;
+
+    const { id } = runnerStepOf(event);
+    if (typeof id === 'string' && id) {
+      this.#running.set(id, step);
+    }
+  }
+
+  private stepEnded(event: Journalled): void {
+    const { id, failed, output } = runnerStepOf(event);
+    const started = typeof id === 'string' ? this.#running.get(id) : undefined;
+    const step = started ?? this.runnerStep(event);
+    if (typeof id === 'string') {
+      this.#running.delete(id);
+    }
+
+    step.status = failed === true ? 'failed' : 'completed';
+    step.endedAt = event.at;
+    step.detail =
+      typeof output === 'string' && output
+        ? output.slice(0, DETAIL_LIMIT)
+        : null;
+  }
+
+  private runnerStep(event: Journalled): Building {
     this.flushText();
 
-    const step = bare(
-      'hook',
-      event.message ?? 'a hook',
-      this.#seen ?? event.at,
-    );
-    step.endedAt = event.at;
-    step.detail = event.data
-      ? decoded(event.data).slice(0, DETAIL_LIMIT)
-      : null;
-
+    const step = bare('hook', event.message ?? 'a hook', event.at);
     this.#steps.push(step);
+    return step;
   }
 
   private hookCalled(event: Journalled): void {

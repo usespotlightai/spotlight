@@ -1,8 +1,13 @@
 import { useEffect, useRef } from 'react';
 
-import { togglesDisclosure } from '@/lib/disclosure';
+import { changesInPlace } from '@/lib/disclosure';
+import { prefersReducedMotion } from '@/lib/motion';
 
 const NEAR = 80;
+
+const BIG_BLOCK = 0.4;
+
+const READ_ON = 0.6;
 
 export function useStickToBottom<T extends HTMLElement>(jump?: unknown) {
   const ref = useRef<T>(null);
@@ -32,16 +37,35 @@ export function useStickToBottom<T extends HTMLElement>(jump?: unknown) {
     };
 
     const onClick = (event: MouseEvent) => {
-      if (togglesDisclosure(event.target)) {
+      if (changesInPlace(event.target)) {
         unfollow();
       }
     };
 
+    let height: number | null = null;
+
     const grew = new ResizeObserver(() => {
-      if (following.current) {
-        el.scrollTop = el.scrollHeight;
-        pinnedAt.current = el.scrollTop;
+      const added = height === null ? 0 : el.scrollHeight - height;
+      height = el.scrollHeight;
+      if (!following.current) {
+        return;
       }
+
+      if (el.clientHeight > 0 && added > el.clientHeight * BIG_BLOCK) {
+        const top = Math.min(
+          el.scrollTop + el.clientHeight * READ_ON,
+          el.scrollHeight - el.clientHeight,
+        );
+        unfollow();
+        el.scrollTo({
+          top,
+          behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+        });
+        return;
+      }
+
+      el.scrollTop = el.scrollHeight;
+      pinnedAt.current = el.scrollTop;
     });
     grew.observe(el);
     grew.observe(content);

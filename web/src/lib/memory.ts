@@ -343,3 +343,30 @@ export const repositoriesOf = (
     ),
   ),
 ];
+
+export const restoredMemory = <Review extends { memories: ProposedMemory[] }>(
+  review: Review,
+  id: string,
+): Review => ({
+  ...review,
+  memories: review.memories.map((memory) =>
+    memory.id === id
+      ? { ...memory, state: 'proposed', decision: null }
+      : memory,
+  ),
+});
+
+export const decidedMemories = <Review extends { memories: ProposedMemory[] }>(
+  review: Review,
+  decided: readonly { id: string; body?: string }[],
+  state: 'approved' | 'rejected',
+): Review => ({
+  ...review,
+  memories: review.memories.map((memory) => {
+    const decision = decided.find((each) => each.id === memory.id);
+
+    return decision
+      ? { ...memory, state, body: decision.body ?? memory.body }
+      : memory;
+  }),
+});

@@ -7,10 +7,18 @@ const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '
 
 const FRAME_MS = 80;
 
-const STOPPED = '⠿';
+const TEXT = '\uFE0E';
+
+export type Stopped = 'waiting' | 'succeeded' | 'dismissed';
+
+const SYMBOLS: Record<Stopped, { glyph: string; tone: string }> = {
+  waiting: { glyph: '?', tone: 'text-primary' },
+  succeeded: { glyph: `✓${TEXT}`, tone: 'text-muted-foreground' },
+  dismissed: { glyph: `✕${TEXT}`, tone: 'text-faint' },
+};
 
 type TerminalSpinnerProps = {
-  stopped?: 'filled' | 'faded' | null;
+  stopped?: Stopped | null;
   className?: string;
   'aria-hidden'?: boolean;
 };
@@ -22,7 +30,9 @@ export function TerminalSpinner({
 }: TerminalSpinnerProps) {
   const strip = useRef<HTMLSpanElement>(null);
   const moving = !stopped && !prefersReducedMotion();
-  const glyphs = moving ? FRAMES : [stopped ? STOPPED : FRAMES[0]];
+  const glyphs = moving
+    ? FRAMES
+    : [stopped ? SYMBOLS[stopped].glyph : FRAMES[0]];
 
   useEffect(() => {
     if (!moving || !canAnimate(strip.current)) {
@@ -44,10 +54,9 @@ export function TerminalSpinner({
     <span
       aria-hidden={hidden}
       className={cn(
-        'inline-flex h-4 shrink-0 select-none items-start overflow-hidden text-base leading-4',
+        'inline-flex h-4 w-4 shrink-0 select-none items-start justify-center overflow-hidden text-base leading-4',
         className,
-        'w-auto',
-        stopped === 'faded' && 'text-faint',
+        stopped && SYMBOLS[stopped].tone,
       )}
     >
       <span ref={strip} className="flex flex-col">

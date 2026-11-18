@@ -828,14 +828,16 @@ func (o Options) prepare(ctx context.Context, dir string, run protocol.Run, jour
 		return nil
 	}
 
+	preparing := journal.begin(ctx, prepareStep)
 	output, err := prepare.Checkouts(ctx, run.Spec.Checkouts, prepare.Options{
 		Dir:     dir,
 		Mirrors: o.Mirrors,
 		Author:  o.Author,
 	})
-	if output != "" {
-		journal.append(protocol.Event{Type: protocol.EventOutput, Message: prepareStep, Data: []byte(output)})
+	if err != nil {
+		output = strings.TrimSpace(fmt.Sprintf("%s\n\nPrepare failed. Error: %v", output, err))
 	}
+	preparing.end(ctx, err != nil, output)
 	if err != nil {
 		return fmt.Errorf("prepare: %w", err)
 	}
@@ -866,9 +868,9 @@ func (o Options) setUp(
 			continue
 		}
 		if done.unchanged(ctx, filepath.Join(dir, checkout.Path), checkout, log) {
-			journal.append(protocol.Event{Type: protocol.EventOutput, Message: setupStep, Data: []byte(fmt.Sprintf(
+			journal.note(setupStep, false, fmt.Sprintf(
 				"Skipped setup for %s: the setup command and the dependency files did not change after the last setup in this sandbox.", checkout.Path,
-			))})
+			))
 			continue
 		}
 		missed = append(missed, checkout)
@@ -881,15 +883,14 @@ func (o Options) setUp(
 		installing.Go(func() {
 			slots <- struct{}{}
 			defer func() { <-slots }()
+			settingUp := journal.begin(ctx, setupStep)
 			output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout, o.ProxyEnv)
 			if err != nil {
 				log.Warn("could not set up a checkout", "path", checkout.Path, "error", err)
 				failed[i] = &setupFailure{path: checkout.Path, command: checkout.Setup, err: err, output: output}
 				output = strings.TrimSpace(fmt.Sprintf("%s\n\nSetup failed for %s. Error: %v", output, checkout.Path, err))
 			}
-			if output != "" {
-				journal.append(protocol.Event{Type: protocol.EventOutput, Message: setupStep, Data: []byte(output)})
-			}
+			settingUp.end(ctx, err != nil, output)
 		})
 	}
 	installing.Wait()
@@ -960,6 +961,10 @@ func (j *journalWriter) drain(ctx context.Context) {
 func (j *journalWriter) flush(ctx context.Context) bool {
 	j.sending.Lock()
 	defer j.sending.Unlock()
+
+	if j.journal == nil {
+		return true
+	}
 
 	j.mu.Lock()
 	batch := j.pending

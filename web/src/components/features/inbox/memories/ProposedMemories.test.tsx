@@ -15,6 +15,7 @@ const reviewState = {
 };
 const approve = { mutate: vi.fn(), isPending: false };
 const reject = { mutate: vi.fn(), isPending: false };
+const restore = { mutate: vi.fn(), isPending: false };
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({ data: [{ id: 'claude-code', name: 'Claude Code' }] }),
@@ -27,6 +28,9 @@ vi.mock('@/hooks/api/useApproveMemories', () => ({
 }));
 vi.mock('@/hooks/api/useRejectMemory', () => ({
   useRejectMemory: () => reject,
+}));
+vi.mock('@/hooks/api/useRestoreMemory', () => ({
+  useRestoreMemory: () => restore,
 }));
 
 const memory = (over: Partial<ProposedMemory>): ProposedMemory => ({
@@ -62,6 +66,7 @@ const showing = (memories: ProposedMemory[]) => {
 beforeEach(() => {
   approve.mutate.mockReset();
   reject.mutate.mockReset();
+  restore.mutate.mockReset();
   reviewState.isPending = false;
   reviewState.errorUpdateCount = 0;
 });
@@ -254,6 +259,58 @@ describe('ProposedMemories', () => {
     );
 
     expect(reject.mutate).toHaveBeenCalledWith({ ...ABOUT, memoryId: 'one' });
+  });
+
+  it('restores a rejected memory', async () => {
+    showing([
+      memory({
+        id: 'one',
+        state: 'rejected',
+        decision: { by: 'user_2', name: 'Maya Chen', at: '2026-09-27' },
+      }),
+    ]);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Restore memory 1' }),
+    );
+
+    expect(restore.mutate).toHaveBeenCalledWith({ ...ABOUT, memoryId: 'one' });
+  });
+
+  it('folds a rejected memory into one line that can be shown again', async () => {
+    showing([
+      memory({
+        id: 'one',
+        body: 'Size disks at 200 GB.',
+        state: 'rejected',
+        decision: { by: 'user_2', name: 'Maya Chen', at: '2026-09-27' },
+      }),
+    ]);
+
+    const show = screen.getByRole('button', { name: 'Show memory 1' });
+    expect(show).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Kind').closest('[inert]')).not.toBeNull();
+
+    await userEvent.click(show);
+
+    expect(
+      screen.getByRole('button', { name: 'Hide memory 1' }),
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('offers to restore only a rejected memory', () => {
+    showing([
+      memory({ id: 'one' }),
+      memory({
+        id: 'two',
+        state: 'approved',
+        decision: { by: 'user_2', name: 'Maya Chen', at: '2026-09-27' },
+      }),
+    ]);
+
+    expect(
+      screen.queryByRole('button', { name: /^Restore memory/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('says who decided a memory, and keeps its buttons there but disabled', () => {

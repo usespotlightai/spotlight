@@ -37,6 +37,18 @@ vi.mock('@/hooks/api/useRepositories', () => ({
 vi.mock('@/hooks/api/useStopChat', () => ({
   useStopChat: () => ({ mutate: vi.fn() }),
 }));
+vi.mock('@/hooks/api/useSession', () => ({
+  useSession: () => ({
+    data: {
+      user: {
+        id: 'user_1',
+        name: 'Sam Rivera',
+        email: 'sam@acme.test',
+        image: null,
+      },
+    },
+  }),
+}));
 vi.mock('@/hooks/api/useSendChatMessage', () => ({
   useSendChatMessage: () => ({ mutate: sent, isPending: false }),
 }));
@@ -117,6 +129,23 @@ describe('ChatComposer', () => {
 
     expect(sent).toHaveBeenCalledWith(
       expect.objectContaining({ model: 'opus' }),
+      expect.anything(),
+    );
+  });
+
+  it('shows the reply in the chat as its writer sent it', async () => {
+    showing(chat('chat_1'));
+    await write(box(), 'Retry twice');
+    await pressEnter(box());
+
+    expect(sent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shown: {
+          body: 'Retry twice',
+          attachments: [],
+          author: { id: 'user_1', name: 'Sam Rivera', image: null },
+        },
+      }),
       expect.anything(),
     );
   });

@@ -3758,6 +3758,54 @@
         "tags": [
           "chats"
         ]
+      },
+      "delete": {
+        "operationId": "restoreProposal",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "position",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The proposal is open again"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          },
+          "409": {
+            "description": "The proposal is not dismissed or replaced"
+          }
+        },
+        "summary": "Open again a task proposal that was dismissed or replaced",
+        "tags": [
+          "chats"
+        ]
       }
     },
     "/editor-connections": {
@@ -5264,6 +5312,68 @@
           }
         },
         "summary": "Turn a proposed memory down; it stays stored, never briefed, and not proposed again",
+        "tags": [
+          "memories"
+        ]
+      },
+      "delete": {
+        "operationId": "restoreMemory",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryReviewResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such memory for this caller"
+          },
+          "409": {
+            "description": "The memory is not rejected"
+          }
+        },
+        "summary": "Take back the rejection of a proposed memory, so it waits for a decision again",
         "tags": [
           "memories"
         ]
@@ -11658,7 +11768,8 @@
               "open",
               "accepted",
               "created",
-              "dismissed"
+              "dismissed",
+              "replaced"
             ],
             "example": "open"
           },

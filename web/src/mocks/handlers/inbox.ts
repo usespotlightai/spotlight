@@ -90,6 +90,7 @@ const taskOfAnyRun = (runId: string) =>
 const resolveInboxRequests = (
   form: 'memories' | 'judge-disagreement',
   about: string,
+  resolved = true,
 ) => {
   for (const entry of inboxStore().entries) {
     if (
@@ -97,7 +98,7 @@ const resolveInboxRequests = (
       entry.inboxRequest?.form === form &&
       entry.inboxRequest.about === about
     ) {
-      entry.resolved = true;
+      entry.resolved = resolved;
       entry.unread = false;
     }
   }
@@ -987,6 +988,28 @@ const memoryHandlers = [
       );
     }
     decide(review, memory, 'rejected');
+
+    return json(review);
+  }),
+
+  api.delete(`${MEMORIES}/:memoryId/reject`, ({ params }) => {
+    const review = memoryReviewOf(
+      param(params, 'taskId'),
+      param(params, 'runId'),
+    );
+    const memory = review?.memories.find(
+      (each) => each.id === param(params, 'memoryId'),
+    );
+
+    if (!review || !memory) {
+      return notFound();
+    }
+    if (memory.state !== 'rejected') {
+      return problem(409, 'Sorry, only a rejected memory can be restored.');
+    }
+    memory.state = 'proposed';
+    memory.decision = null;
+    resolveInboxRequests('memories', review.runId, false);
 
     return json(review);
   }),

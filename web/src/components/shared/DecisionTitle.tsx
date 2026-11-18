@@ -1,13 +1,17 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { TerminalSpinner } from '@/components/shared/TerminalSpinner';
+import {
+  type Stopped,
+  TerminalSpinner,
+} from '@/components/shared/TerminalSpinner';
 import type { ApprovalStatus } from '@/lib/approval-status';
 
-const STOPPED: Record<ApprovalStatus, 'filled' | 'faded' | null> = {
-  pending: null,
-  approved: 'filled',
-  dismissed: 'faded',
+const STOPPED: Record<ApprovalStatus, Stopped | null> = {
+  pending: 'waiting',
+  working: null,
+  approved: 'succeeded',
+  dismissed: 'dismissed',
 };
 
 type DecisionTitleProps = {

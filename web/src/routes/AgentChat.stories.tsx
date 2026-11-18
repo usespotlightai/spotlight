@@ -22,6 +22,8 @@ const meta = {
         chat_long_proposal: 'Long proposal',
         chat_long: 'Long conversation',
         chat_steps_unloaded: 'Older steps still loading',
+        chat_proposal_states: 'Every proposal state',
+        chat_setting_up: 'Setting up the workspace',
       }),
     },
   }),
@@ -49,6 +51,36 @@ export const LongProposal: StoryObj<typeof meta> = {
 
 export const LongConversation: StoryObj<typeof meta> = {
   args: { chat: 'chat_long' },
+};
+
+export const ProposalStates: StoryObj<typeof meta> = {
+  args: { chat: 'chat_proposal_states' },
+};
+
+export const ReplacedProposalOpened: StoryObj<typeof meta> = {
+  args: { chat: 'chat_proposal_states' },
+  play: async ({ canvas, userEvent }) => {
+    const [replaced] = await canvas.findAllByRole('button', {
+      name: 'Show the proposal',
+    });
+    await userEvent.click(replaced);
+  },
+};
+
+export const ProposalRestored: StoryObj<typeof meta> = {
+  args: { chat: 'chat_proposal_states' },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(
+      await canvas.findByRole('button', {
+        name: 'Restore Log every rejected webhook',
+      }),
+    );
+    await canvas.findAllByRole('button', { name: 'Dismiss' });
+  },
+};
+
+export const SettingUp: StoryObj<typeof meta> = {
+  args: { chat: 'chat_setting_up' },
 };
 
 export const StepsLoading: StoryObj<typeof meta> = {

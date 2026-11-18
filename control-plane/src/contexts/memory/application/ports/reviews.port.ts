@@ -8,5 +8,7 @@ export interface ReviewsPort {
 
   resolve(taskId: TaskId, runId: RunId): Promise<void>;
 
+  reopen(taskId: TaskId, runId: RunId): Promise<void>;
+
   reviewItemOf(taskId: TaskId, runId: RunId): Promise<string | null>;
 }

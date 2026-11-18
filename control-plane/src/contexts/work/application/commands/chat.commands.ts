@@ -53,6 +53,15 @@ export class DismissProposalCommand {
   ) {}
 }
 
+export class RestoreProposalCommand {
+  constructor(
+    readonly teamId: string,
+    readonly chatId: string,
+    readonly position: number,
+    readonly restoredBy: string,
+  ) {}
+}
+
 export class ResolveChatCommand {
   constructor(
     readonly chatId: string,

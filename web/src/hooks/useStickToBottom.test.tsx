@@ -27,6 +27,9 @@ function Log({ sent = 0 }: { sent?: number }) {
           Thought
         </button>
         <button type="button">Copy</button>
+        <section data-decision>
+          <button type="button">Dismiss</button>
+        </section>
       </div>
     </div>
   );
@@ -57,6 +60,25 @@ describe('useStickToBottom', () => {
     grown(box, 900);
 
     expect(box.scrollTop).toBe(900);
+  });
+
+  it('shows the top of a big new block instead of jumping past it', () => {
+    render(<Log />);
+    const box = screen.getByTestId('scroller');
+    Object.defineProperty(box, 'clientHeight', {
+      configurable: true,
+      value: 500,
+    });
+    const scrolled = vi.fn();
+    box.scrollTo = scrolled as typeof box.scrollTo;
+    grown(box, 900);
+    box.scrollTop = 400;
+
+    grown(box, 1300);
+
+    expect(scrolled).toHaveBeenCalledWith(
+      expect.objectContaining({ top: 700 }),
+    );
   });
 
   it('keeps following when its own scroll lands after the log grew again', () => {
@@ -100,6 +122,17 @@ describe('useStickToBottom', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Thought' }));
     grown(box, 1400);
+
+    expect(box.scrollTop).toBe(900);
+  });
+
+  it('keeps the decided card in place when the person decides', () => {
+    render(<Log />);
+    const box = screen.getByTestId('scroller');
+    grown(box, 900);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    grown(box, 800);
 
     expect(box.scrollTop).toBe(900);
   });

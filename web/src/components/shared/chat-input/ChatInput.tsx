@@ -155,7 +155,7 @@ export function ChatInput({
   useFileDropTarget(message.attach, { disabled });
   useReplyKey(message.editor, focusOnReply && !disabled);
   const lifted = message.images.length > 0;
-  const { inner, writing, height, expanded } = useOneLineFit(
+  const { inner, writing, height, expanded, snaps } = useOneLineFit(
     message.written,
     lifted,
   );
@@ -178,7 +178,10 @@ export function ChatInput({
         onSubmit={send}
         {...(!disabled && message.handlers)}
         style={height === null ? undefined : { height }}
-        className="box-content overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-[height] duration-200 ease-out-quad motion-reduce:transition-none"
+        className={cn(
+          'box-content overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-[height] duration-200 ease-out-quad motion-reduce:transition-none',
+          snaps && 'transition-none',
+        )}
       >
         <div
           ref={inner}
@@ -244,15 +247,29 @@ export function ChatInput({
         </div>
       </form>
 
-      {(below || shared) && (
-        <ChatInputArea
-          disabled={disabled}
-          className="flex min-w-0 flex-wrap items-center gap-1 px-1"
-        >
-          {below}
-          {shared && <DraftOffline shared={shared} />}
-        </ChatInputArea>
-      )}
+      <BelowInput below={below} shared={shared} disabled={disabled} />
     </div>
+  );
+}
+
+type BelowInputProps = {
+  below: ReactNode;
+  shared: SharedDraft | null;
+  disabled: boolean;
+};
+
+function BelowInput({ below, shared, disabled }: BelowInputProps) {
+  if (!below && !shared) {
+    return null;
+  }
+
+  return (
+    <ChatInputArea
+      disabled={disabled}
+      className="flex min-w-0 flex-wrap items-center gap-1 px-1"
+    >
+      {below}
+      {shared && <DraftOffline shared={shared} />}
+    </ChatInputArea>
   );
 }

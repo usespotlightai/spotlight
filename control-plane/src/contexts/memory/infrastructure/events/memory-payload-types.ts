@@ -1,6 +1,7 @@
 import { MemoriesUsed } from '@memory/domain/events/memories-used.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { BriefingAbout } from '@memory/domain/value-objects/briefing-about.vo';
@@ -30,6 +31,7 @@ export const MEMORY_PAYLOAD_TYPES = [
   MemoryReviewRequested,
   MemoriesUsed,
   MemoryApproved,
+  MemoryReviewReopened,
   MemoryReviewResolved,
   MemoryCreated,
   MemoryDecision,

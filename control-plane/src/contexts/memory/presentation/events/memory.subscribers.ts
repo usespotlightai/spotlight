@@ -5,6 +5,7 @@ import type { RecordRunMemoryUses } from '@memory/application/services/record-ru
 import type { RequestMemories } from '@memory/application/services/request-memories.service';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import type { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import {
@@ -62,6 +63,11 @@ export const memorySubscribers = (
     'memory.resolve-review',
     ['memory-draft.review-resolved'],
     (event) => reactions.onReviewResolved(event),
+  ),
+  subscribing<MemoryReviewReopened>(
+    'memory.reopen-review',
+    ['memory-draft.review-reopened'],
+    (event) => reactions.onReviewReopened(event),
   ),
   subscribing<MemoryApproved>(
     'memory.create-approved-memory',

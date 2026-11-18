@@ -257,6 +257,58 @@ describe('reviewing the memories a run proposed', () => {
     expect(stored).toEqual([]);
   });
 
+  it('restores a rejected memory, opening its inbox item again', async () => {
+    const runId = await proposing(['Bring me back.']);
+    const [only] = (
+      (
+        await served(app)
+          .get(reviewPath(runId))
+          .set(TEST_USER_HEADER, team.owner.value)
+      ).body as ReviewBody
+    ).memories;
+    await served(app)
+      .post(`${reviewPath(runId)}/${only?.id}/reject`)
+      .set(TEST_USER_HEADER, team.owner.value);
+    await eventually(async () => {
+      const item = inboxRequestFor(await inbox(team.owner.value), runId);
+      return item?.resolved;
+    });
+
+    const restored = await served(app)
+      .delete(`${reviewPath(runId)}/${only?.id}/reject`)
+      .set(TEST_USER_HEADER, team.owner.value);
+
+    expect(restored.status).toBe(200);
+    expect(
+      (restored.body as ReviewBody).memories.map((each) => [
+        each.state,
+        each.decision,
+      ]),
+    ).toEqual([['proposed', null]]);
+    const reopened = await eventually(async () => {
+      const item = inboxRequestFor(await inbox(team.owner.value), runId);
+      return item && !item.resolved && item;
+    });
+    expect(reopened.resolved).toBe(false);
+  });
+
+  it('restores only a rejected memory', async () => {
+    const runId = await proposing(['Keep me.']);
+    const [only] = (
+      (
+        await served(app)
+          .get(reviewPath(runId))
+          .set(TEST_USER_HEADER, team.owner.value)
+      ).body as ReviewBody
+    ).memories;
+
+    const restored = await served(app)
+      .delete(`${reviewPath(runId)}/${only?.id}/reject`)
+      .set(TEST_USER_HEADER, team.owner.value);
+
+    expect(restored.status).toBe(409);
+  });
+
   it('approves a memory from outside the team only on its own', async () => {
     const runId = await proposing(['Outside one.', 'Outside two.'], true);
     const [first, second] = (

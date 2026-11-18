@@ -5,6 +5,7 @@ import { FixedRepositories } from '@/components/features/stations/FixedRepositor
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useSendChatMessage } from '@/hooks/api/useSendChatMessage';
+import { useSession } from '@/hooks/api/useSession';
 import { useStopChat } from '@/hooks/api/useStopChat';
 import { useChatDraft } from '@/hooks/useChatDraft';
 import { CHAT_KEEPS_REPOSITORIES, type Chat } from '@/lib/chat';
@@ -18,6 +19,7 @@ type ChatComposerProps = {
 
 export function ChatComposer({ slug, teamId, chat }: ChatComposerProps) {
   const send = useSendChatMessage();
+  const { data: session } = useSession();
   const stop = useStopChat();
   const { data: harnesses } = useHarnesses();
   const draft = useChatDraft(slug, `chat:${chat.id}`, '');
@@ -62,9 +64,27 @@ export function ChatComposer({ slug, teamId, chat }: ChatComposerProps) {
           because={CHAT_KEEPS_REPOSITORIES}
         />
       }
-      onSend={({ body, attachments }, restore) =>
+      onSend={({ body, attachments, files }, restore) =>
         send.mutate(
-          { teamId, chatId: chat.id, body, attachments, model, effort },
+          {
+            teamId,
+            chatId: chat.id,
+            body,
+            attachments,
+            model,
+            effort,
+            shown: {
+              body,
+              attachments: files,
+              author: session
+                ? {
+                    id: session.user.id,
+                    name: session.user.name,
+                    image: session.user.image,
+                  }
+                : null,
+            },
+          },
           { onError: restore },
         )
       }

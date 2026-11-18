@@ -4,6 +4,10 @@ export const EGRESS_CHECKED = 'egress.checked';
 
 export const AGENT_STOPPED = 'agent.stopped';
 
+export const STEP_STARTED = 'step.started';
+
+export const STEP_ENDED = 'step.ended';
+
 export const PROVISION_FAILED = 'provision.failed';
 
 export const HOOK_CALLED = 'hook.called';

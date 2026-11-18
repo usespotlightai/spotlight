@@ -62,15 +62,14 @@ const proposing = [
   'Whoever works it does not see the files attached here either. Give the task each file it needs with `--attach <path>`, once for each file. A path written only in the description does not reach them.',
   'The person sees each proposal here and decides whether to create it. Nothing is created until they do, so do not propose anything they have not agreed to.',
   'Each proposal is shown to them in full the moment you make it, so do not list or summarise what you proposed afterwards. A short line saying it is their move is enough.',
+  'When a new proposal takes the place of earlier ones, name each earlier one with `--replaces <number>`. Its number is in the list of proposals so far. The person then sees the earlier one as replaced, and does not have to dismiss it.',
 ].join('\n\n');
 
 const proposedSoFar = (
   chat: Chat,
   lines: readonly LineMap[],
 ): string | null => {
-  const proposals = chat.messages.flatMap((message) =>
-    message.proposal ? [message.proposal] : [],
-  );
+  const { proposals } = chat;
 
   if (proposals.length === 0) {
     return null;
@@ -79,13 +78,13 @@ const proposedSoFar = (
   return [
     '## Proposed so far',
     proposals
-      .map((each) => {
+      .map(({ number, proposal }) => {
         const line = lines.find((candidate) =>
-          candidate.id.equals(each.placement.lineId),
+          candidate.id.equals(proposal.placement.lineId),
         );
-        const station = line?.stationAt(each.placement.stationId);
+        const station = line?.stationAt(proposal.placement.stationId);
 
-        return `- ${each.title.value} (${station?.name.value ?? 'a station that is gone'}, ${each.state})`;
+        return `${number}. ${proposal.title.value} (${station?.name.value ?? 'a station that is gone'}, ${proposal.state})`;
       })
       .join('\n'),
   ].join('\n\n');

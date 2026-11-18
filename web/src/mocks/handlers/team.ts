@@ -628,6 +628,29 @@ const chatHandlers = [
     },
   ),
 
+  api.delete(
+    '/teams/:teamId/chats/:chatId/proposals/:position/dismissal',
+    ({ params }) => {
+      const record = chatIn(String(params.teamId), params.chatId);
+      const proposal = record?.chat.messages.find(
+        (each) => each.position === Number(params.position),
+      )?.proposal;
+      if (!proposal) {
+        return notFound();
+      }
+      if (proposal.state !== 'dismissed' && proposal.state !== 'replaced') {
+        return problem(
+          409,
+          'Sorry, only a dismissed proposal can be restored.',
+        );
+      }
+
+      proposal.state = 'open';
+
+      return noContent();
+    },
+  ),
+
   api.post('/teams/:teamId/chats/:chatId/stop', ({ params }) => {
     const record = chatIn(String(params.teamId), params.chatId);
     if (!record) {

@@ -61,7 +61,7 @@ func TestAWarmSandboxSetsUpOnceSoTheFirstRunSkipsSetup(t *testing.T) {
 	if got := strings.Count(string(body), "installed"); got != 1 {
 		t.Errorf("setup ran %d times, want 1: the first run must find the warm setup", got)
 	}
-	if len(journal.pending) != 1 || !strings.HasPrefix(string(journal.pending[0].Data), "Skipped setup for web:") {
+	if len(journal.pending) != 1 || !strings.HasPrefix(endedOf(t, journal.pending[0]).Output, "Skipped setup for web:") {
 		t.Errorf("the first run journaled %+v", journal.pending)
 	}
 }

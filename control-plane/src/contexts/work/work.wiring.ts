@@ -158,6 +158,7 @@ import { CarryGitCallCommand } from '@work/application/commands/carry-git-call.c
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
+  RestoreProposalCommand,
   MarkChatReadCommand,
   ReopenChatCommand,
   ResolveChatCommand,
@@ -195,6 +196,7 @@ import { ResolveChatHandler } from '@work/application/commands/handlers/resolve-
 import { ResolveConversationHandler } from '@work/application/commands/handlers/resolve-conversation.handler';
 import { ResolveInboxRequestHandler } from '@work/application/commands/handlers/resolve-inbox-request.handler';
 import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
+import { RestoreProposalHandler } from '@work/application/commands/handlers/restore-proposal.handler';
 import { ResumeLineHandler } from '@work/application/commands/handlers/resume-line.handler';
 import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
 import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
@@ -2361,6 +2363,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindCommandHandler(DismissProposalCommand, DismissProposalHandler, [
+    ChatLoader,
+    CHAT_REPOSITORY,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(RestoreProposalCommand, RestoreProposalHandler, [
     ChatLoader,
     CHAT_REPOSITORY,
     CLOCK,

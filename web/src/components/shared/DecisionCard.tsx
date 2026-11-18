@@ -16,8 +16,10 @@ export function DecisionCard({
   return (
     <Card
       ref={ref as Ref<HTMLLIElement & HTMLElement>}
+      data-decision
+      tabIndex={-1}
       className={cn(
-        'flex flex-col gap-3 rounded-xl border-[0.5px] border-border bg-card px-3 pt-2 pb-3 shadow-pane',
+        'flex flex-col gap-3 outline-none rounded-xl border-[0.5px] border-border bg-card px-3 pt-2 pb-3 shadow-pane',
         className,
       )}
       {...props}

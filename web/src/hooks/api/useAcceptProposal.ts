@@ -4,6 +4,7 @@ import { chatKeys } from '@/hooks/api/useChats';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { acceptProposal } from '@/lib/api';
+import { type Chat, decidedIn } from '@/lib/chat';
 import { refreshAfterWrite } from '@/lib/live-writes';
 
 type AcceptProposalInput = {
@@ -26,6 +27,17 @@ export function useAcceptProposal() {
         inboxKeys.all,
         taskKeys.forTeam(teamId),
       ]);
+    },
+    onMutate: async ({ chatId, position }) => {
+      const key = chatKeys.one(chatId);
+      await queryClient.cancelQueries({ queryKey: key });
+      queryClient.setQueryData<Chat>(
+        key,
+        (chat) => chat && decidedIn(chat, position, 'accepted'),
+      );
+    },
+    onError: (_error, { chatId }) => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.one(chatId) });
     },
   });
 }

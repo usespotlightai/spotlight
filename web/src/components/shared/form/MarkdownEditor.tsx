@@ -14,6 +14,7 @@ import {
   $convertToMarkdownString,
   TRANSFORMERS,
 } from '@lexical/markdown';
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalExtensionComposer } from '@lexical/react/LexicalExtensionComposer';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
@@ -24,7 +25,7 @@ import {
   defineExtension,
   type EditorThemeClasses,
 } from 'lexical';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -90,6 +91,36 @@ const XS: EditorThemeClasses = {
 };
 
 const THEMES = { sm: SM, xs: XS };
+
+type ShownTextProps = {
+  value: string;
+  shortLines: boolean;
+};
+
+function ShownText({ value, shortLines }: ShownTextProps) {
+  const [editor] = useLexicalComposerContext();
+  const shown = useRef(value);
+
+  useEffect(() => {
+    if (shown.current === value) {
+      return;
+    }
+    shown.current = value;
+    editor.update(
+      () =>
+        $convertFromMarkdownString(
+          value,
+          TRANSFORMERS,
+          undefined,
+          false,
+          shortLines,
+        ),
+      { tag: 'history-merge' },
+    );
+  }, [editor, value, shortLines]);
+
+  return null;
+}
 
 type MarkdownEditorProps = {
   initialValue: string;
@@ -169,6 +200,10 @@ export function MarkdownEditor({
         />
 
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+
+        {readOnly && (
+          <ShownText value={initialValue} shortLines={!keepLineBreaks} />
+        )}
 
         {onChange && (
           <OnChangePlugin

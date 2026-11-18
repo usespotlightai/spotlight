@@ -412,6 +412,189 @@ const rateLimitsChat = (): ChatRecord => {
   };
 };
 
+const runningNow = (
+  journal: RunJournalResponseDto,
+  running: JournalStepResponseDto,
+): RunJournalResponseDto => ({
+  ...journal,
+  activity: 'working',
+  ms: null,
+  spent: null,
+  marks: {
+    ...journal.marks,
+    lastAgentUpdateAt: running.startedAt,
+    endedAt: null,
+  },
+  steps: [...journal.steps, running],
+});
+
+const secondsAgo = (seconds: number): string =>
+  new Date(Date.now() - seconds * 1_000).toISOString();
+
+const proposalStatesChat = (): ChatRecord => {
+  const sentAt = hoursAgo(3);
+  const first = chatTurn('run_chat_proposal_states_1', sentAt, [
+    { kind: 'tool', tool: 'read', text: 'src/webhooks/deliver.ts' },
+    {
+      kind: 'message',
+      text: 'Signatures are checked after the body is parsed, so a large unsigned body is still read into memory. I would check the signature first.',
+    },
+  ]);
+  const proposedAt = turnEndsAt(first);
+  const askedAt = hoursAgo(2);
+  const second = chatTurn('run_chat_proposal_states_2', askedAt, [
+    {
+      kind: 'message',
+      text: 'Yes, that is two changes. Here they are on their own, so the size limit can ship first.',
+    },
+  ]);
+  const splitAt = turnEndsAt(second);
+  const nowAt = secondsAgo(110);
+  const third = runningNow(
+    chatTurn('run_chat_proposal_states_3', nowAt, [
+      { kind: 'tool', tool: 'read', text: 'src/webhooks/limits.ts' },
+    ]),
+    {
+      kind: 'tool',
+      text: 'npm test -- webhooks',
+      status: 'pending',
+      tool: 'execute',
+      detail: null,
+      ms: 0,
+      startedAt: secondsAgo(72),
+      locations: [],
+      input: null,
+      output: null,
+      change: null,
+    },
+  );
+  const proposal = (
+    title: string,
+    state: ChatProposalResponseDto['state'],
+    description: string | null = null,
+  ) =>
+    proposalAt(PLATFORM_ID, 'station_backlog', { title, description, state });
+
+  return {
+    chat: chatOf({
+      id: 'chat_proposal_states',
+      progress: 'in-progress',
+      runId: 'run_chat_proposal_states_3',
+      waitingForYou: true,
+      title: 'Harden webhook signature checks',
+      repositories: ['acme/api'],
+      createdAt: sentAt,
+      updatedAt: nowAt,
+      messages: [
+        messageBy(
+          SAM,
+          0,
+          'Is anything wrong with how we check webhook signatures?',
+          sentAt,
+        ),
+        proposed(
+          1,
+          'run_chat_proposal_states_1',
+          proposedAt,
+          proposal(
+            'Check webhook signatures before parsing the body',
+            'replaced',
+            'Verify the signature on the raw body, and refuse bodies over 1 MB before reading them.',
+          ),
+        ),
+        proposed(
+          2,
+          'run_chat_proposal_states_1',
+          secondsAfter(proposedAt, 2),
+          proposal('Log every rejected webhook', 'dismissed'),
+        ),
+        messageBy(
+          SAM,
+          3,
+          'Can you split the first one? The size limit is urgent.',
+          askedAt,
+        ),
+        proposed(
+          4,
+          'run_chat_proposal_states_2',
+          splitAt,
+          proposal(
+            'Refuse webhook bodies over 1 MB',
+            'accepted',
+            'Reject the request before reading a body over 1 MB.',
+          ),
+        ),
+        proposed(
+          5,
+          'run_chat_proposal_states_2',
+          secondsAfter(splitAt, 2),
+          proposal(
+            'Check webhook signatures on the raw body',
+            'open',
+            'Verify the signature before the body is parsed.',
+          ),
+        ),
+        messageBy(SAM, 6, 'Run the webhook tests with the limit.', nowAt),
+      ],
+    }),
+    journals: [first, second, third],
+  };
+};
+
+const settingUpChat = (): ChatRecord => {
+  const sentAt = secondsAgo(55);
+  const startedAt = secondsAgo(50);
+  const hook = (
+    text: string,
+    status: string,
+    at: string,
+    ms: number,
+  ): JournalStepResponseDto => ({
+    kind: 'hook',
+    text,
+    status,
+    tool: null,
+    detail: null,
+    ms,
+    startedAt: at,
+    locations: [],
+    input: null,
+    output: null,
+    change: null,
+  });
+  const journal = runningNow(
+    {
+      ...chatTurn('run_chat_setting_up_1', sentAt, []),
+      marks: {
+        startedAt,
+        readyAt: null,
+        firstAgentUpdateAt: null,
+        lastAgentUpdateAt: null,
+        agentStoppedAt: null,
+        endedAt: null,
+      },
+      steps: [hook('restore', 'completed', startedAt, 6_000)],
+    },
+    hook('setup', 'running', secondsAgo(43), 0),
+  );
+
+  return {
+    chat: chatOf({
+      id: 'chat_setting_up',
+      progress: 'in-progress',
+      runId: 'run_chat_setting_up_1',
+      title: 'Which endpoints still use the v1 client?',
+      repositories: ['acme/api'],
+      createdAt: sentAt,
+      updatedAt: sentAt,
+      messages: [
+        messageBy(SAM, 0, 'Which endpoints still use the v1 client?', sentAt),
+      ],
+    }),
+    journals: [journal],
+  };
+};
+
 const quarterChat = (): ChatRecord => {
   const sentAt = hoursAgo(98);
   const answer = chatTurn('run_chat_quarter_1', sentAt, [
@@ -683,6 +866,8 @@ const seededChats = (): Record<string, ChatRecord[]> => ({
     retriesChat(),
     implementationChat(),
     rateLimitsChat(),
+    proposalStatesChat(),
+    settingUpChat(),
     quarterChat(),
     pastedLogChat(),
     longProposalChat(),

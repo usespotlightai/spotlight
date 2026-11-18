@@ -221,6 +221,15 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           defaulted: false,
           stdin: false,
         },
+        {
+          name: 'replaces',
+          schema: InputSchema.of({ type: 'array', items: { type: 'string' } }),
+          description:
+            'The number of an earlier proposal that this one replaces. Repeat for each proposal.',
+          required: false,
+          defaulted: false,
+          stdin: false,
+        },
       ],
     }),
   },

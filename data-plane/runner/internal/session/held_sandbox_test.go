@@ -2,6 +2,7 @@ package session_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"usespotlight.ai/data-plane/protocol"
@@ -65,8 +66,12 @@ func (s *heldSandbox) sentStep(name string) string {
 	s.journal.mu.Lock()
 	defer s.journal.mu.Unlock()
 	for _, event := range s.sent {
-		if event.Type == protocol.EventOutput && event.Message == name {
-			return string(event.Data)
+		if event.Type == protocol.EventStepEnded && event.Message == name {
+			var ended protocol.StepEnd
+			if err := json.Unmarshal(event.Data, &ended); err != nil {
+				return ""
+			}
+			return ended.Output
 		}
 	}
 	return ""

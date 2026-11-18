@@ -3,6 +3,7 @@ import type {
   ProposedMemory,
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
+import { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
@@ -370,6 +371,18 @@ export class MemoryDraft
     ];
 
     return this.decided(decided).resolveDecidedReviews(decided);
+  }
+
+  restore(input: { runId: RunId; id: MemoryId }): MemoryDraft {
+    const restored = this.decided([
+      this.proposalNamed(input.id, input.runId).restore(),
+    ]);
+
+    restored.record(
+      new MemoryReviewReopened(this.id, this.taskId, input.runId),
+    );
+
+    return restored;
   }
 
   private proposalNamed(id: MemoryId, runId: RunId): MemoryProposal {

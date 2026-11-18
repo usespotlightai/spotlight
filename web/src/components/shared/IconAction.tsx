@@ -13,6 +13,7 @@ type IconActionProps = {
   tip?: ReactNode;
   pressed?: boolean;
   disabled?: boolean;
+  focusNext?: boolean;
   onClick: () => void;
   children: ReactNode;
 };
@@ -22,6 +23,7 @@ export function IconAction({
   tip,
   pressed,
   disabled,
+  focusNext,
   onClick,
   children,
 }: IconActionProps) {
@@ -34,6 +36,7 @@ export function IconAction({
             aria-label={label}
             aria-pressed={pressed}
             disabled={disabled}
+            data-focus-next={focusNext || undefined}
             onClick={onClick}
             className={cn(
               ICON_ACTION,

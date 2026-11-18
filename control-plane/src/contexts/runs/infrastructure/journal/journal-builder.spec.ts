@@ -2,6 +2,8 @@ import {
   AGENT_STOPPED,
   BACKGROUND_WAITING,
   HARNESS_CONNECTED,
+  STEP_ENDED,
+  STEP_STARTED,
 } from '@runs/domain/value-objects/journal-entry-type';
 import { Money } from '@runs/domain/value-objects/money.vo';
 import { JournalBuilder } from '@runs/infrastructure/journal/journal-builder';
@@ -542,22 +544,132 @@ describe('JournalBuilder', () => {
   });
 
   describe('what happened around the agent', () => {
-    it('keeps a hook as its own step', () => {
+    const began = (step: string, id: string, at: number): Journalled => ({
+      type: STEP_STARTED,
+      at: clock(at),
+      message: step,
+      data: encoded({ id }),
+    });
+
+    const ended = (
+      step: string,
+      at: number,
+      ending: { id?: string; failed?: boolean; output?: string },
+    ): Journalled => ({
+      type: STEP_ENDED,
+      at: clock(at),
+      message: step,
+      data: encoded(ending),
+    });
+
+    const hooks = (builder: JournalBuilder) =>
+      builder.steps().map(({ kind, text, status, detail, ms, startedAt }) => ({
+        kind,
+        text,
+        status,
+        detail,
+        ms,
+        startedAt,
+      }));
+
+    it('shows a hook as running from when it starts', () => {
       const builder = listening(clock(0));
+      builder.take(began('setup', 's1', 4));
+
+      expect(hooks(builder)).toEqual([
+        {
+          kind: 'hook',
+          text: 'setup',
+          status: 'running',
+          detail: null,
+          ms: 0,
+          startedAt: clock(4),
+        },
+      ]);
+    });
+
+    it('ends the step a hook started, with how long it ran and what it printed', () => {
+      const builder = listening(clock(0));
+      builder.take(began('setup', 's1', 4));
+      builder.take(
+        ended('setup', 55, { id: 's1', output: 'added 312 packages' }),
+      );
+      builder.take({ ...said('agent', 'Working.'), at: clock(56) });
+
+      const [hook, message] = hooks(builder);
+      expect(hook).toEqual({
+        kind: 'hook',
+        text: 'setup',
+        status: 'completed',
+        detail: 'added 312 packages',
+        ms: 51_000,
+        startedAt: clock(4),
+      });
+      expect(message?.kind).toBe('message');
+    });
+
+    it('keeps apart hooks that run at the same time', () => {
+      const builder = listening(clock(0));
+      builder.take(began('setup', 'web', 1));
+      builder.take(began('setup', 'api', 2));
+      builder.take(ended('setup', 5, { id: 'api', failed: true }));
+      builder.take(ended('setup', 9, { id: 'web', output: 'installed' }));
+
+      expect(
+        hooks(builder).map(({ status, detail, ms }) => [status, detail, ms]),
+      ).toEqual([
+        ['completed', 'installed', 8_000],
+        ['failed', null, 3_000],
+      ]);
+    });
+
+    it('keeps a hook that only reported its end as a step of no length', () => {
+      const builder = listening(clock(0));
+      builder.take(
+        ended('restore', 3, {
+          output: 'Kept the workspace this sandbox restored',
+        }),
+      );
+
+      expect(hooks(builder)).toEqual([
+        {
+          kind: 'hook',
+          text: 'restore',
+          status: 'completed',
+          detail: 'Kept the workspace this sandbox restored',
+          ms: 0,
+          startedAt: clock(3),
+        },
+      ]);
+    });
+
+    it('leaves a hook that never ended as it started, as it leaves a tool call', () => {
+      const builder = listening(clock(0));
+      builder.take(began('archive', 'a1', 2));
+      builder.take({ ...tool({ id: 't1', status: 'pending' }), at: clock(3) });
+
+      expect(
+        hooks(builder).map(({ kind, status, ms }) => [kind, status, ms]),
+      ).toEqual([
+        ['hook', 'running', 0],
+        ['tool', 'pending', 0],
+      ]);
+    });
+
+    it('reads a hook whose report it cannot read as a step that only ended', () => {
+      const builder = listening(clock(0));
+      builder.take(began('prepare', 'p1', 1));
       builder.take({
-        type: 'output',
+        type: STEP_ENDED,
         at: clock(4),
         message: 'prepare',
-        data: Buffer.from('Cloning into workspace…').toString('base64'),
+        data: Buffer.from('not json').toString('base64'),
       });
-      builder.take({ ...said('agent', 'Working.'), at: clock(5) });
 
-      const [hook, message] = builder.steps();
-      expect(hook?.kind).toBe('hook');
-      expect(hook?.text).toBe('prepare');
-      expect(hook?.detail).toBe('Cloning into workspace…');
-      expect(hook?.ms).toBe(4_000);
-      expect(message?.kind).toBe('message');
+      expect(hooks(builder).map(({ status, ms }) => [status, ms])).toEqual([
+        ['running', 0],
+        ['completed', 0],
+      ]);
     });
 
     it('shows a pool failing to provision a runner as a failed hook step', () => {

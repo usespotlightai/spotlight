@@ -3,6 +3,7 @@ package session_test
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -145,9 +146,13 @@ func (a *archives) count() int {
 func step(t *testing.T, written *journal, name string) string {
 	t.Helper()
 
-	for _, event := range written.typed(protocol.EventOutput) {
+	for _, event := range written.typed(protocol.EventStepEnded) {
 		if event.Message == name {
-			return string(event.Data)
+			var ended protocol.StepEnd
+			if err := json.Unmarshal(event.Data, &ended); err != nil {
+				t.Fatal(err)
+			}
+			return ended.Output
 		}
 	}
 	return ""

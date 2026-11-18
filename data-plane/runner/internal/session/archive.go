@@ -78,7 +78,7 @@ func (a *archiver) carry(from kept) {
 	a.baseline, a.leftOut = from.baseline, from.leftOut
 	a.inherits = true
 	if from.archive != "" {
-		a.report(restoreStep, "Kept the workspace this sandbox restored or the last run left in it")
+		a.noted(restoreStep, false, "Kept the workspace this sandbox restored or the last run left in it")
 	}
 }
 
@@ -105,19 +105,20 @@ func (a *archiver) restore(ctx context.Context) error {
 func (a *archiver) restored(ctx context.Context) {
 	stored, err := a.control.WorkingCopyArchive(ctx, a.run.ID)
 	if err != nil {
-		a.report(restoreStep, "Started afresh: %v", err)
+		a.noted(restoreStep, true, "Started afresh: %v", err)
 		return
 	}
 	if stored == nil {
 		return
 	}
 
+	restoring := a.journal.begin(ctx, restoreStep)
 	if err := a.unpacked(ctx, *stored); err != nil {
-		a.report(restoreStep, "Started afresh: %v", err)
+		a.ended(ctx, restoring, true, "Started afresh: %v", err)
 		return
 	}
 
-	a.report(restoreStep, "Restored the workspace the last run left (%s)", sized(stored.Size))
+	a.ended(ctx, restoring, false, "Restored the workspace the last run left (%s)", sized(stored.Size))
 }
 
 func (a *archiver) restoreReplayed(ctx context.Context) error {
@@ -138,11 +139,14 @@ func (a *archiver) restoredExactly(ctx context.Context, wanted string) error {
 		return fmt.Errorf("the archive the replay starts from, %s, is no longer stored", wanted)
 	}
 
+	restoring := a.journal.begin(ctx, restoreStep)
 	if err := a.unpacked(ctx, *stored); err != nil {
-		return fmt.Errorf("restore the archive the replay starts from: %w", err)
+		err = fmt.Errorf("restore the archive the replay starts from: %w", err)
+		a.ended(ctx, restoring, true, "%v", err)
+		return err
 	}
 
-	a.report(restoreStep, "Restored the workspace the replayed run started from (%s)", sized(stored.Size))
+	a.ended(ctx, restoring, false, "Restored the workspace the replayed run started from (%s)", sized(stored.Size))
 	return nil
 }
 
@@ -208,6 +212,7 @@ func (a *archiver) archive(ctx context.Context) bool {
 
 	var completed bool
 	a.leased(ctx, func(ctx context.Context) {
+		archiving := a.journal.begin(ctx, archiveStep)
 		var summary string
 		summary, completed = a.archived(ctx, storeCalls{
 			grant: func(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error) {
@@ -217,7 +222,7 @@ func (a *archiver) archive(ctx context.Context) bool {
 				return a.control.CompleteArchive(ctx, a.run.ID, archiveID)
 			},
 		})
-		a.report(archiveStep, "%s", summary)
+		a.ended(ctx, archiving, !completed, "%s", summary)
 	})
 	if !completed {
 		a.current = ""
@@ -287,8 +292,9 @@ func (a *archiver) releaseArchiveLease(ctx context.Context, sandbox ArchivingSan
 }
 
 func (a *archiver) archiveAfterReport(ctx context.Context, sandbox ArchivingSandbox) {
+	archiving := a.journal.begin(ctx, archiveStep)
 	summary, completed := a.archived(ctx, storeCalls{grant: sandbox.GrantArchive, complete: sandbox.CompleteArchive})
-	a.report(archiveStep, "%s", summary)
+	a.ended(ctx, archiving, !completed, "%s", summary)
 	if !completed {
 		a.current = ""
 	}
@@ -434,15 +440,18 @@ func (a *archiver) rebuilt(ctx context.Context) []string {
 	return ignored
 }
 
-func (a *archiver) report(step, format string, args ...any) {
+func (a *archiver) noted(name string, failed bool, format string, args ...any) {
 	summary := fmt.Sprintf(format, args...)
 
-	a.log.Info("workspace "+step, "outcome", summary)
-	a.journal.append(protocol.Event{
-		Type:    protocol.EventOutput,
-		Message: step,
-		Data:    []byte(summary),
-	})
+	a.log.Info("workspace "+name, "outcome", summary)
+	a.journal.note(name, failed, summary)
+}
+
+func (a *archiver) ended(ctx context.Context, running step, failed bool, format string, args ...any) {
+	summary := fmt.Sprintf(format, args...)
+
+	a.log.Info("workspace "+running.name, "outcome", summary)
+	running.end(ctx, failed, summary)
 }
 
 func sized(bytes int64) string {

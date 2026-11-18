@@ -17,11 +17,13 @@ import { EditMemoryHandler } from '@memory/application/commands/handlers/edit-me
 import { RecordRecallHandler } from '@memory/application/commands/handlers/record-recall.handler';
 import { RejectMemoryHandler } from '@memory/application/commands/handlers/reject-memory.handler';
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
+import { RestoreMemoryHandler } from '@memory/application/commands/handlers/restore-memory.handler';
 import { RetireMemoryHandler } from '@memory/application/commands/handlers/retire-memory.handler';
 import { WriteMemoryHandler } from '@memory/application/commands/handlers/write-memory.handler';
 import { RecordRecallCommand } from '@memory/application/commands/record-recall.command';
 import { RejectMemoryCommand } from '@memory/application/commands/reject-memory.command';
 import { RememberCommand } from '@memory/application/commands/remember.command';
+import { RestoreMemoryCommand } from '@memory/application/commands/restore-memory.command';
 import { RetireMemoryCommand } from '@memory/application/commands/retire-memory.command';
 import { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
@@ -247,6 +249,11 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     MEMORY_DRAFTS,
     TRANSACTION,
     CLOCK,
+  ]),
+  ...bindCommandHandler(RestoreMemoryCommand, RestoreMemoryHandler, [
+    MemoryAccess,
+    MEMORY_DRAFTS,
+    TRANSACTION,
   ]),
   {
     provide: TeamMemoryLoader,

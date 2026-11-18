@@ -11,12 +11,16 @@ import { toast } from '@/lib/toast';
 const created =
   vi.fn<(input: unknown, options?: { onError?: () => void }) => void>();
 const dismissed = vi.fn();
+const restored = vi.fn();
 
 vi.mock('@/hooks/api/useAcceptProposal', () => ({
   useAcceptProposal: () => ({ mutate: created, isPending: false }),
 }));
 vi.mock('@/hooks/api/useDismissProposal', () => ({
   useDismissProposal: () => ({ mutate: dismissed, isPending: false }),
+}));
+vi.mock('@/hooks/api/useRestoreProposal', () => ({
+  useRestoreProposal: () => ({ mutate: restored, isPending: false }),
 }));
 
 const OPEN: Proposal = {
@@ -77,6 +81,7 @@ const accepting = async () => {
 beforeEach(() => {
   created.mockReset();
   dismissed.mockReset();
+  restored.mockReset();
   vi.restoreAllMocks();
 });
 
@@ -163,6 +168,70 @@ describe('ChatProposal', () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Dismiss' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('restores a dismissed proposal on request', async () => {
+    showing({ ...OPEN, state: 'dismissed' });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Restore Back off exponentially' }),
+    );
+
+    expect(restored).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      chatId: 'chat_1',
+      position: 3,
+    });
+  });
+
+  it('says a newer proposal replaced this one, folded like a dismissed one', () => {
+    showing({ ...OPEN, state: 'replaced' });
+
+    expect(
+      screen.getByText('Replaced by a newer proposal'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Show the proposal' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.getByRole('button', { name: 'Restore Back off exponentially' }),
+    ).toBeEnabled();
+  });
+
+  it('moves focus to the restore button once the proposal is dismissed', async () => {
+    const shown = showing();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    shown.rerender(proposing({ ...OPEN, state: 'dismissed' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Restore Back off exponentially' }),
+    ).toHaveFocus();
+  });
+
+  it('moves focus to Create task once the proposal is restored', async () => {
+    const shown = showing({ ...OPEN, state: 'dismissed' });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Restore Back off exponentially' }),
+    );
+    shown.rerender(proposing(OPEN));
+
+    expect(screen.getByRole('button', { name: 'Create task' })).toHaveFocus();
+  });
+
+  it('says only once that the task is being created', () => {
+    showing({ ...OPEN, state: 'accepted' });
+
+    expect(screen.getAllByText(/Creating the task/)).toHaveLength(1);
+  });
+
+  it('offers no restore while the proposal is open', () => {
+    showing();
+
+    expect(
+      screen.queryByRole('button', { name: 'Restore Back off exponentially' }),
     ).not.toBeInTheDocument();
   });
 

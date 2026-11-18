@@ -49,19 +49,29 @@ describe('TerminalSpinner', () => {
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('fills all six dots once stopped, and greys them when faded', () => {
+  it('stops on a light symbol, as ora does: a check once done, a faint cross once dismissed', () => {
     preferringStill(false);
     const animate = animating();
     const { container, rerender } = render(
-      <TerminalSpinner stopped="filled" />,
+      <TerminalSpinner stopped="succeeded" />,
     );
 
-    expect(container.textContent).toBe('⠿');
-    expect(container.firstElementChild).not.toHaveClass('text-faint');
+    expect(container.textContent).toBe('✓\uFE0E');
+    expect(container.firstElementChild).toHaveClass('text-muted-foreground');
     expect(animate).not.toHaveBeenCalled();
 
-    rerender(<TerminalSpinner stopped="faded" />);
-    expect(container.textContent).toBe('⠿');
+    rerender(<TerminalSpinner stopped="dismissed" />);
+    expect(container.textContent).toBe('✕\uFE0E');
     expect(container.firstElementChild).toHaveClass('text-faint');
+  });
+
+  it('asks with a still question mark in the primary colour while it waits for someone', () => {
+    preferringStill(false);
+    const animate = animating();
+    const { container } = render(<TerminalSpinner stopped="waiting" />);
+
+    expect(container.textContent).toBe('?');
+    expect(container.firstElementChild).toHaveClass('text-primary');
+    expect(animate).not.toHaveBeenCalled();
   });
 });

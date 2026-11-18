@@ -236,10 +236,12 @@ const journalled = (token: string, runId: string, message: string) =>
       events: [
         {
           seq: 1,
-          type: 'output',
+          type: 'step.ended',
           at: new Date().toISOString(),
           message: 'archive',
-          data: Buffer.from(message).toString('base64'),
+          data: Buffer.from(JSON.stringify({ output: message })).toString(
+            'base64',
+          ),
         },
       ],
     })
