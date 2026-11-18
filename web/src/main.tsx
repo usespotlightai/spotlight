@@ -81,14 +81,18 @@ const render = () =>
     </StrictMode>,
   );
 
-const FIRST_RENDER_WAIT_MS = 1000;
+const REPORTING_WAIT_MS = 1000;
+const PAGE_WAIT_MS = 300;
 
-void Promise.race([
-  Promise.all([
+const atMost = (work: Promise<unknown>, ms: number) =>
+  Promise.race([work, new Promise((resolve) => setTimeout(resolve, ms))]);
+
+void Promise.all([
+  atMost(
     startErrorReporting().catch(() => undefined),
-    preloadVisiblePages(window.location.pathname),
-  ]),
-  new Promise((resolve) => setTimeout(resolve, FIRST_RENDER_WAIT_MS)),
+    REPORTING_WAIT_MS,
+  ),
+  atMost(preloadVisiblePages(window.location.pathname), PAGE_WAIT_MS),
 ]).finally(() => {
   render();
   void storedJournals.prune();
