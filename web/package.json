@@ -88,5 +88,10 @@
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
   },
+  "overrides": {
+    "@hey-api/json-schema-ref-parser": {
+      "js-yaml": "^5.5.0"
+    }
+  },
   "packageManager": "npm@11.19.1"
 }
