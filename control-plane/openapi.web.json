@@ -5885,7 +5885,7 @@
             "description": "The disagreement already has an answer, is withdrawn, or changed meanwhile"
           },
           "422": {
-            "description": "The judge failed the run, so each claim in dispute takes its own answer; the claim named is missing, not one of the judge’s, below 0 or not a whole number; the answer names no claim and says nothing; or the note is over 2,000 characters"
+            "description": "The judge failed the run, so each claim in dispute takes its own answer; the claim named is missing, not a number, not one of the judge’s, below 0 or not a whole number; the answer names no claim and says nothing; or the note is over 2,000 characters"
           }
         },
         "summary": "Where no claim is in dispute, say which claim should have failed, or what was wrong; the answer helps revise the claims and never changes the agreement",
@@ -10387,27 +10387,11 @@
           "body"
         ]
       },
-      "HoldVerdict": {
-        "type": "string",
-        "enum": [
-          "not-right",
-          "exploring"
-        ],
-        "description": "not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out"
-      },
       "TaskHoldResponseDto": {
         "type": "object",
         "properties": {
           "by": {
             "$ref": "#/components/schemas/TaskPersonResponseDto"
-          },
-          "verdict": {
-            "description": "not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/HoldVerdict"
-              }
-            ]
           },
           "startedAt": {
             "type": "string",
@@ -10426,7 +10410,6 @@
         },
         "required": [
           "by",
-          "verdict",
           "startedAt",
           "runId",
           "heldMoveTo"
@@ -11303,6 +11286,14 @@
           "finish"
         ],
         "description": "continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line."
+      },
+      "HoldVerdict": {
+        "type": "string",
+        "enum": [
+          "not-right",
+          "exploring"
+        ],
+        "description": "Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right."
       },
       "ResumeLineRequestDto": {
         "type": "object",

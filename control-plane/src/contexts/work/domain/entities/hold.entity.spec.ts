@@ -25,7 +25,6 @@ const started = () =>
     by: UserId.of('user_leon'),
     stationId: StationId.of('station_build'),
     from: FROM,
-    verdict: 'not-right',
     at: NOW,
   });
 
@@ -214,7 +213,7 @@ describe('Hold', () => {
         by: UserId.of('user_leon'),
         stationId: StationId.of('station_build'),
         from: null,
-        verdict: 'exploring',
+        verdict: 'not-right',
         turns: [],
         heldMove: null,
         startedAt: NOW,
@@ -226,17 +225,27 @@ describe('Hold', () => {
     ).toThrow(InconsistentStateError);
   });
 
-  it('is not right when the person does not say', () => {
-    expect(
-      Hold.start({
+  it('is not stored open as exploring', () => {
+    expect(() =>
+      Hold.rehydrate({
         id: HoldId.of('hold_1'),
         by: UserId.of('user_leon'),
         stationId: StationId.of('station_build'),
         from: null,
-        verdict: null,
-        at: NOW,
-      }).verdict,
-    ).toBe('not-right');
+        verdict: 'exploring',
+        turns: [],
+        heldMove: null,
+        startedAt: NOW,
+        endedAt: null,
+        end: null,
+        fromHeads: [],
+        toHeads: [],
+      }),
+    ).toThrow(InconsistentStateError);
+  });
+
+  it('starts as not right', () => {
+    expect(started().verdict).toBe('not-right');
   });
 
   it('reads verdicts and resumes by name only', () => {

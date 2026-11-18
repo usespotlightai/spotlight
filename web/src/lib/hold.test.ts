@@ -43,7 +43,6 @@ describe('moveOnTargets', () => {
 describe('heldUntilResumed', () => {
   const hold = {
     by: { id: 'user_2', name: 'Maya Chen', image: null },
-    verdict: 'not-right' as const,
     startedAt: '2026-11-16T09:00:00.000Z',
     runId: null,
     heldMoveTo: null,

@@ -16,6 +16,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -40,14 +41,26 @@ const noteIn = (body: { note?: unknown } | undefined) =>
 const answerIn = (body: AnswerDisagreementClaimRequestDto | undefined) =>
   typeof body?.answer === 'string' ? body.answer : '';
 
-const claimIn = (body: AnswerJudgeDisagreementRequestDto | undefined) => {
+const CLAIM_PLACE =
+  'It takes the place of the claim that should have failed, from 0, or null.';
+
+const claimIn = (
+  body: AnswerJudgeDisagreementRequestDto | undefined,
+): number | null => {
   const claim: unknown = body?.shouldHaveFailed;
 
-  if (claim === null || typeof claim === 'number') {
-    return claim;
+  if (claim === undefined) {
+    throw new UnprocessableEntityException(
+      `The answer has no shouldHaveFailed. ${CLAIM_PLACE}`,
+    );
+  }
+  if (claim !== null && typeof claim !== 'number') {
+    throw new UnprocessableEntityException(
+      `shouldHaveFailed is not a number. ${CLAIM_PLACE}`,
+    );
   }
 
-  return Number.NaN;
+  return claim;
 };
 
 @ApiTags('insights')
@@ -93,7 +106,7 @@ export class JudgeDisagreementsController {
   @ApiOkResponse({ type: JudgeDisagreementResponseDto })
   @ApiUnprocessableEntityResponse({
     description:
-      'The judge failed the run, so each claim in dispute takes its own answer; the claim named is missing, not one of the judge’s, below 0 or not a whole number; the answer names no claim and says nothing; or the note is over 2,000 characters',
+      'The judge failed the run, so each claim in dispute takes its own answer; the claim named is missing, not a number, not one of the judge’s, below 0 or not a whole number; the answer names no claim and says nothing; or the note is over 2,000 characters',
   })
   @ApiForbiddenResponse({
     description: 'The question was asked of another person',

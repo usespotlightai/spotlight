@@ -34,7 +34,6 @@ describe('TaskState', () => {
           progress: 'in-progress',
           hold: {
             by: { id: 'user_2', name: 'Maya', image: null },
-            verdict: 'not-right',
             startedAt: '2026-08-28T10:00:00.000Z',
             runId: 'run_1',
             heldMoveTo: null,

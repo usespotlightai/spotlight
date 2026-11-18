@@ -93,7 +93,6 @@ const driven = () =>
       by: UserId.of('user_1'),
       members: TeamMembers.of([UserId.of('user_1')]),
       line,
-      verdict: 'not-right',
       currentRunStarted: true,
       at: NOW,
     })

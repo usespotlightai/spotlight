@@ -33,7 +33,6 @@ type ResumeDialogProps = {
   station: StationResponseDto;
   moveOn: readonly StationResponseDto[];
   held: StationResponseDto | null;
-  verdict: HoldVerdict;
   working: boolean;
   turn: string | null;
 };
@@ -46,7 +45,6 @@ export function ResumeDialog({
   station,
   moveOn,
   held,
-  verdict: startedWith,
   working,
   turn,
 }: ResumeDialogProps) {
@@ -63,7 +61,7 @@ export function ResumeDialog({
     ? picked
     : (moveOn[0]?.id ?? '');
   const target = moveOn.find((each) => each.id === to);
-  const [verdict, setVerdict] = useState<HoldVerdict>(startedWith);
+  const [verdict, setVerdict] = useState<HoldVerdict>('not-right');
   const [changingWhy, setChangingWhy] = useState(false);
   const [summary, setSummary] = useState('');
   const ready =
@@ -82,7 +80,7 @@ export function ResumeDialog({
         taskId,
         next,
         ...(next === 'move-on' ? { stationId: to } : {}),
-        ...(verdict === startedWith ? {} : { verdict }),
+        verdict,
         ...(summary.trim() ? { summary: summary.trim() } : {}),
       },
       {

@@ -36,20 +36,10 @@ import {
   taskHold,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  isNull,
-  ne,
-  type SQL,
-} from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, type SQL } from 'drizzle-orm';
 
 interface OpenHoldRow {
   readonly heldBy: string;
-  readonly verdict: TaskHoldSummary['verdict'];
   readonly startedAt: Date;
   readonly turnRunIds: readonly string[];
   readonly heldMoveTo: string | null;
@@ -64,7 +54,6 @@ const holdOf = (
   row
     ? {
         by: person(row.heldBy),
-        verdict: row.verdict,
         startedAt: row.startedAt,
         runId: row.turnRunIds[row.turnRunIds.length - 1] ?? null,
         heldMoveTo: row.heldMoveTo,
@@ -145,7 +134,6 @@ export class DrizzleTaskReader implements TaskReaderPort {
         openedFrom: task.openedFrom,
         hold: {
           heldBy: taskHold.heldBy,
-          verdict: taskHold.verdict,
           startedAt: taskHold.startedAt,
           turnRunIds: taskHold.turnRunIds,
           heldMoveTo: taskHold.heldMoveTo,

@@ -163,7 +163,6 @@ const heldWithATurn = () =>
       by: UserId.of('user_1'),
       members: TeamMembers.of([UserId.of('user_1')]),
       line: line(),
-      verdict: null,
       currentRunStarted: false,
       at: NOW,
     })

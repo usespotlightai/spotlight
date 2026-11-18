@@ -6,7 +6,6 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { HoldId } from '@work/domain/value-objects/hold-id.vo';
-import type { HoldVerdict } from '@work/domain/value-objects/hold-verdict';
 
 export class TaskHeld implements DomainEvent {
   readonly kind = 'task.held';
@@ -19,7 +18,6 @@ export class TaskHeld implements DomainEvent {
     readonly stationId: StationId,
     readonly by: UserId,
     readonly from: RunId | null,
-    readonly verdict: HoldVerdict,
     readonly at: Date,
   ) {}
 }

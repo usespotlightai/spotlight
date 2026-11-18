@@ -240,7 +240,6 @@ export const WORK_EVENT_MAPPERS = [
     stationId: event.stationId.value,
     by: event.by.value,
     fromRunId: event.from?.value ?? null,
-    verdict: event.verdict,
     at: event.at.toISOString(),
   })),
   mapping<LineResumed>(

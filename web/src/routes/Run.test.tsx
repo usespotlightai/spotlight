@@ -789,7 +789,6 @@ describe('Run', () => {
         ...working.task,
         hold: {
           by: { id: 'user_1', name: 'Sam Rivera', image: null },
-          verdict: 'not-right',
           startedAt: '2026-08-29T09:00:00.000Z',
           runId: 'run_1',
           heldMoveTo: null,
@@ -823,7 +822,38 @@ describe('Run', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Resume' }));
 
       expect(resumption).toHaveBeenCalledWith(
-        { teamId: 'team_1', taskId: 'task_1', next: 'continue' },
+        {
+          teamId: 'team_1',
+          taskId: 'task_1',
+          next: 'continue',
+          verdict: 'not-right',
+        },
+        expect.anything(),
+      );
+    });
+
+    it('resumes the line with the reason the person picks', async () => {
+      const user = userEvent.setup();
+      taskStation.mockReturnValue(mine());
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Resume' }));
+      const dialog = await screen.findByRole('dialog', {
+        name: 'Resume the line',
+      });
+      await user.click(within(dialog).getByRole('button', { name: 'Change' }));
+      await user.click(
+        within(dialog).getByRole('radio', { name: /I want to try something/ }),
+      );
+      await user.click(within(dialog).getByRole('button', { name: 'Resume' }));
+
+      expect(resumption).toHaveBeenCalledWith(
+        {
+          teamId: 'team_1',
+          taskId: 'task_1',
+          next: 'continue',
+          verdict: 'exploring',
+        },
         expect.anything(),
       );
     });
@@ -899,7 +929,6 @@ describe('Run', () => {
           ...working.task,
           hold: {
             by: { id: 'user_2', name: 'Maya Chen', image: null },
-            verdict: 'not-right',
             startedAt: '2026-08-29T09:00:00.000Z',
             runId: 'run_1',
             heldMoveTo: null,

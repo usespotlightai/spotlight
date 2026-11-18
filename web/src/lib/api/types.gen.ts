@@ -3259,17 +3259,8 @@ export type TaskNoteResponseDto = {
   body: string;
 };
 
-/**
- * not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out
- */
-export type HoldVerdict = 'not-right' | 'exploring';
-
 export type TaskHoldResponseDto = {
   by: TaskPersonResponseDto;
-  /**
-   * not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out
-   */
-  verdict: HoldVerdict;
   startedAt: string;
   /**
    * The run of the last turn, where the person talks to the agent
@@ -3588,6 +3579,11 @@ export type AssignTaskRequestDto = {
  * continue: the station agent goes on from your changes. move-on: the task moves to stationId. finish: the task ends its line.
  */
 export type HoldEnd = 'continue' | 'move-on' | 'finish';
+
+/**
+ * Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
+ */
+export type HoldVerdict = 'not-right' | 'exploring';
 
 export type ResumeLineRequestDto = {
   /**
@@ -20912,7 +20908,7 @@ export type AnswerJudgeDisagreementErrors = {
    */
   409: unknown;
   /**
-   * The judge failed the run, so each claim in dispute takes its own answer; the claim named is missing, not one of the judge’s, below 0 or not a whole number; the answer names no claim and says nothing; or the note is over 2,000 characters
+   * The judge failed the run, so each claim in dispute takes its own answer; the claim named is missing, not a number, not one of the judge’s, below 0 or not a whole number; the answer names no claim and says nothing; or the note is over 2,000 characters
    */
   422: unknown;
 };

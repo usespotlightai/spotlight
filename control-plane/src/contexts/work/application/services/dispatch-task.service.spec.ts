@@ -803,7 +803,6 @@ describe('DispatchTask', () => {
         by: leon,
         members: TeamMembers.of([leon]),
         line,
-        verdict: null,
         currentRunStarted: true,
         at: NOW,
       })

@@ -149,7 +149,6 @@ export class SendMessageHandler implements CommandHandlerPort<
       by,
       members,
       line,
-      verdict: null,
       currentRunStarted: facts?.started ?? false,
       at,
     });

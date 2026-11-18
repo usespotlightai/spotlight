@@ -165,21 +165,24 @@ describe('answering a judge disagreement over HTTP, one claim at a time', () => 
 
   it('answers 422 to a claim that should have failed that is missing or not a number', async () => {
     const id = await opened([true, true, true]);
-    const refusals = [
-      await answerNotMet(id, {
-        shouldHaveFailed: '1',
-        note: 'It broke the login page.',
-      }),
-      await answerNotMet(id, { note: 'It broke the login page.' }),
-    ];
+    const mistyped = await answerNotMet(id, {
+      shouldHaveFailed: '1',
+      note: 'It broke the login page.',
+    });
+    const missing = await answerNotMet(id, {
+      note: 'It broke the login page.',
+    });
 
-    for (const refused of refusals) {
-      expect(refused.status).toBe(422);
-      expect(refused.body).toMatchObject({
-        message:
-          'A judge disagreement must name the claim that should have failed by its place, from 0.',
-      });
-    }
+    expect(mistyped.status).toBe(422);
+    expect(mistyped.body).toMatchObject({
+      message:
+        'shouldHaveFailed is not a number. It takes the place of the claim that should have failed, from 0, or null.',
+    });
+    expect(missing.status).toBe(422);
+    expect(missing.body).toMatchObject({
+      message:
+        'The answer has no shouldHaveFailed. It takes the place of the claim that should have failed, from 0, or null.',
+    });
     expect(
       (await answerNotMet(id, { shouldHaveFailed: 1, note: null })).status,
     ).toBe(200);

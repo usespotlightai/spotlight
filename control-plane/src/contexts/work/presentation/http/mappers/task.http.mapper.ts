@@ -54,7 +54,6 @@ export const TaskHttpMapper = {
               dto.hold.by.name,
               dto.hold.by.image,
             ),
-            dto.hold.verdict,
             dto.hold.startedAt,
             dto.hold.runId,
             dto.hold.heldMoveTo,

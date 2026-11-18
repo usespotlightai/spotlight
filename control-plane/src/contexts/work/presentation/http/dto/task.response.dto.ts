@@ -1,9 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  PROGRESS_NAMES,
-  HOLD_VERDICT_NAMES,
-  type HoldVerdictName,
-} from '@work/application/dto/task.dto';
+import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { pageResponseOf } from '@work/presentation/http/paging';
 
@@ -49,14 +45,6 @@ export class TaskHoldResponseDto {
   @ApiProperty({ type: TaskPersonResponseDto })
   readonly by: TaskPersonResponseDto;
 
-  @ApiProperty({
-    enum: HOLD_VERDICT_NAMES,
-    enumName: 'HoldVerdict',
-    description:
-      'not-right where the person put the task on hold because the line got it wrong; exploring where they only try something out',
-  })
-  readonly verdict: HoldVerdictName;
-
   @ApiProperty({ example: '2026-11-16T09:15:00.000Z' })
   readonly startedAt: string;
 
@@ -78,13 +66,11 @@ export class TaskHoldResponseDto {
 
   constructor(
     by: TaskPersonResponseDto,
-    verdict: HoldVerdictName,
     startedAt: string,
     runId: string | null,
     heldMoveTo: string | null,
   ) {
     this.by = by;
-    this.verdict = verdict;
     this.startedAt = startedAt;
     this.runId = runId;
     this.heldMoveTo = heldMoveTo;

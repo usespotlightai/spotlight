@@ -1,9 +1,6 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
 import { HOLD_ENDS } from '@work/domain/value-objects/hold-end';
-import {
-  HOLD_VERDICTS,
-  type HoldVerdict,
-} from '@work/domain/value-objects/hold-verdict';
+import { HOLD_VERDICTS } from '@work/domain/value-objects/hold-verdict';
 import { PROGRESSES, type Progress } from '@work/domain/value-objects/progress';
 
 export const PROGRESS_NAMES = PROGRESSES;
@@ -11,8 +8,6 @@ export const PROGRESS_NAMES = PROGRESSES;
 export const HOLD_VERDICT_NAMES = HOLD_VERDICTS;
 
 export const HOLD_END_NAMES = HOLD_ENDS;
-
-export type HoldVerdictName = HoldVerdict;
 
 interface TaskNoteDto {
   readonly position: number;
@@ -28,7 +23,6 @@ interface TaskPersonDto {
 
 interface TaskHoldDto {
   readonly by: TaskPersonDto;
-  readonly verdict: HoldVerdict;
   readonly startedAt: string;
   readonly runId: string | null;
   readonly heldMoveTo: string | null;
