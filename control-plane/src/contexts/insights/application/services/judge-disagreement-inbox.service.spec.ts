@@ -26,8 +26,10 @@ const setUp = async () => {
         `ask ${taskId.value} ${disagreementId.value} ${askedOf?.value}`,
       );
     },
-    resolve: async (taskId, disagreementId) => {
-      moved.push(`resolve ${taskId.value} ${disagreementId.value}`);
+    resolve: async (taskId, disagreementId, askedOf) => {
+      moved.push(
+        `resolve ${taskId.value} ${disagreementId.value} ${askedOf?.value}`,
+      );
     },
   });
   const args = [
@@ -45,7 +47,7 @@ describe('JudgeDisagreementInbox', () => {
   it('asks the person while the disagreement is open, and resolves the question once it is answered', async () => {
     const { disagreements, inbox, moved, args, opened } = await setUp();
 
-    await inbox.moved(new JudgeDisagreementOpened(...args, ADA));
+    await inbox.moved(new JudgeDisagreementOpened(...args));
     await disagreements.save(
       [1, 2].reduce(
         (disagreement, claim) =>
@@ -63,31 +65,31 @@ describe('JudgeDisagreementInbox', () => {
 
     expect(moved).toEqual([
       'ask task_run_1 disagreement_run_1 user_ada',
-      'resolve task_run_1 disagreement_run_1',
+      'resolve task_run_1 disagreement_run_1 user_ada',
     ]);
   });
 
-  it('resolves the question when the opened event comes after the disagreement was withdrawn', async () => {
+  it('resolves the question, still asked of the person, when the opened event comes after the disagreement was withdrawn', async () => {
     const { disagreements, inbox, moved, args, opened } = await setUp();
     await disagreements.save(opened.withdraw(NOW, 'verdicts-agree'));
 
     await inbox.moved(
       new JudgeDisagreementWithdrawn(...args, 'verdicts-agree'),
     );
-    await inbox.moved(new JudgeDisagreementOpened(...args, ADA));
+    await inbox.moved(new JudgeDisagreementOpened(...args));
 
     expect(moved).toEqual([
-      'resolve task_run_1 disagreement_run_1',
-      'resolve task_run_1 disagreement_run_1',
+      'resolve task_run_1 disagreement_run_1 user_ada',
+      'resolve task_run_1 disagreement_run_1 user_ada',
     ]);
   });
 
-  it('resolves the question of a disagreement that no longer exists', async () => {
+  it('leaves the inbox alone once the disagreement is gone with its task', async () => {
     const { disagreements, inbox, moved, args, opened } = await setUp();
     disagreements.stored.delete(opened.id.value);
 
-    await inbox.moved(new JudgeDisagreementOpened(...args, ADA));
+    await inbox.moved(new JudgeDisagreementOpened(...args));
 
-    expect(moved).toEqual(['resolve task_run_1 disagreement_run_1']);
+    expect(moved).toEqual([]);
   });
 });

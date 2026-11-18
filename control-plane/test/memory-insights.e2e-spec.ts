@@ -17,6 +17,7 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -88,7 +89,9 @@ const ran = async (runId: string) => {
     .get(DrizzleRunRecordRepository)
     .add(
       runId.endsWith('x')
-        ? ended.recordAction(HumanAction.of('accepted', ago(1)))
+        ? ended.recordAction(
+            HumanAction.of('accepted', ago(1), UserId.of('user_actor')),
+          )
         : ended,
     );
 };

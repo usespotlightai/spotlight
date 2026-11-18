@@ -2719,7 +2719,7 @@ export type InboxFailureResponseDto = {
 
 export type InboxRequestResponseDto = {
   /**
-   * The kind of inbox request: memories are proposed memories to approve or reject; alert reports a station that needs attention; judge-disagreement asks a person why their verdict on a run differs from the judge’s
+   * The kind of inbox request: memories are proposed memories to approve or reject; alert reports a station that needs attention; judge-disagreement asks why people’s verdict on a run differs from the judge’s
    */
   form: 'memories' | 'alert' | 'judge-disagreement';
   /**
@@ -8293,15 +8293,15 @@ export type JudgeDisagreementResponseDto = {
   stationId: string;
   rubricVersion: string;
   /**
-   * judge-failed: the judge failed a run that a person passed. judge-passed: the judge passed a run that a person failed
+   * judge-failed: the judge failed a run that people passed. judge-passed: the judge passed a run that people failed
    */
   direction: 'judge-failed' | 'judge-passed';
   /**
-   * open: the question waits for an answer to at least one claim in dispute. answered: every claim in dispute has an answer, or, with none in dispute, what was not met. withdrawn: Spotlight withdrew the question, also after an answer
+   * open: the question waits for an answer to a claim in dispute, or, with none in dispute, for what was not met. answered: every claim in dispute has an answer, or, with none in dispute, what was not met. withdrawn: Spotlight withdrew the question, also after an answer
    */
   state: 'open' | 'answered' | 'withdrawn';
   /**
-   * What gave people’s verdict on the run, which disagrees with the judge’s
+   * What gave people’s verdict on the run when the disagreement opened, which disagrees with the judge’s
    */
   labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held';
   openedAt: string;
@@ -8319,7 +8319,7 @@ export type JudgeDisagreementResponseDto = {
    */
   notMet: NotMetAnswerResponseDto | null;
   /**
-   * The one person who can answer. Null when Spotlight asked the team: then anyone in the team can answer
+   * The one person who can answer: the person whose action gave people’s verdict when the disagreement opened. Null when a merged pull request opened it: then anyone who can read it can answer
    */
   askedOf: string | null;
   /**
@@ -8334,7 +8334,7 @@ export type JudgeDisagreementResponseDto = {
 
 export type AnswerJudgeDisagreementRequestDto = {
   /**
-   * The claim that should have failed, or null where no claim covers what was wrong
+   * The place of the claim that should have failed, from 0, or null where no claim covers what was wrong; always given
    */
   shouldHaveFailed: number | null;
   /**
@@ -8445,7 +8445,7 @@ export type ReplayCheckJudgeResponseDto = {
    */
   agreement: number | null;
   /**
-   * How many runs have both a verdict of the judge and a verdict of a person
+   * How many runs have both a verdict from the judge and from people
    */
   pairs: number;
   /**
@@ -20912,7 +20912,7 @@ export type AnswerJudgeDisagreementErrors = {
    */
   409: unknown;
   /**
-   * Claims are in dispute, so each takes its own answer; or the answer names no claim and says nothing
+   * The judge failed the run, so each claim in dispute takes its own answer; the claim named is missing, not one of the judge’s, below 0 or not a whole number; the answer names no claim and says nothing; or the note is over 2,000 characters
    */
   422: unknown;
 };
@@ -20959,7 +20959,7 @@ export type AnswerJudgeDisagreementClaimErrors = {
    */
   409: unknown;
   /**
-   * The claim is not in dispute, or the answer is not judge-right or claim-wrong
+   * The claim is not in dispute, the answer is not judge-right or claim-wrong, or the note is over 2,000 characters
    */
   422: unknown;
 };

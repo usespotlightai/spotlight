@@ -133,13 +133,6 @@ export const calibrationReadingOf = (input: {
         minAgreement: input.calibration.minAgreement,
       };
 
-export const showsJudgeOf = (
-  calibration: JudgeCalibration,
-  current: string | null,
-  rubricVersion: string | null,
-): boolean =>
-  calibration.qualified && current !== null && rubricVersion === current;
-
 export const TREND_MIN_PAIRS = 30;
 
 export const trendReadyOf = (

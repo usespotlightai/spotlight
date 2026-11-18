@@ -3,10 +3,10 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
+  AskedInboxRequest,
   InboxRequestFormName,
   InboxRequestOf,
   InboxRequestsPort,
-  NewInboxRequest,
 } from '@work/application/ports/inbox-requests.port';
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import type { InboxRequestRepository } from '@work/domain/repositories/inbox-request.repository';
@@ -30,7 +30,7 @@ export class InboxRequests implements InboxRequestsPort {
     private readonly clock: ClockPort,
   ) {}
 
-  create(input: NewInboxRequest): Promise<void> {
+  create(input: AskedInboxRequest): Promise<void> {
     const inboxRequest = {
       ...input,
       about: InboxRequestSubject.of(input.about),
@@ -110,7 +110,7 @@ export class InboxRequests implements InboxRequestsPort {
     return existing?.id.value ?? null;
   }
 
-  resolve(input: InboxRequestOf): Promise<void> {
+  resolve(input: AskedInboxRequest): Promise<void> {
     const inboxRequest = {
       ...input,
       about: InboxRequestSubject.of(input.about),
@@ -140,7 +140,7 @@ export class InboxRequests implements InboxRequestsPort {
             taskId: task.id,
             form: FORMS[inboxRequest.form],
             about: inboxRequest.about,
-            askedOf: null,
+            askedOf: input.askedOf ? UserId.of(input.askedOf) : null,
             now,
           }).resolve(now),
         );

@@ -43,7 +43,7 @@ const judged = (over: Partial<Parameters<typeof Score.judge>[0]> = {}) =>
   });
 
 describe('Score', () => {
-  it('names its rubric and model, and says it was recorded', () => {
+  it('names its rubric, and says it was recorded', () => {
     const score = judgeScore('run_1', [true]);
     const [event] = score.pullEvents() as ScoreRecorded[];
 

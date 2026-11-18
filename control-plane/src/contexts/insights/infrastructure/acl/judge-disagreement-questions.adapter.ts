@@ -22,11 +22,16 @@ export class JudgeDisagreementQuestions implements JudgeDisagreementQuestionsPor
     });
   }
 
-  resolve(taskId: TaskId, disagreementId: JudgeDisagreementId): Promise<void> {
+  resolve(
+    taskId: TaskId,
+    disagreementId: JudgeDisagreementId,
+    askedOf: UserId | null,
+  ): Promise<void> {
     return this.inboxRequests.resolve({
       taskId,
       form: FORM,
       about: disagreementId.value,
+      askedOf: askedOf?.value ?? null,
     });
   }
 }

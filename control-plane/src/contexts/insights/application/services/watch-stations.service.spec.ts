@@ -25,6 +25,7 @@ import {
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const SENT_BACK_RISES = AlertRule.of({
@@ -67,7 +68,9 @@ const watching = (initially: readonly AlertRule[] | null) => {
     const record = endedRecord(`run_${hour}`, {
       taskId: `task_${hour}`,
       endedAt: day('2026-09-30', hour),
-    }).recordAction(HumanAction.of(act, day('2026-09-30', hour)));
+    }).recordAction(
+      HumanAction.of(act, day('2026-09-30', hour), UserId.of('user_actor')),
+    );
     const [ended] = record.pullEvents();
     await records.add(record);
     await service.runEnded(ended as RunRecordEnded);
@@ -86,7 +89,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
   const actedOn = async (hour: number, act: 'accepted' | 'sent-back') => {
     const record = await records.of(RunId.of(`run_${hour}`));
     const acted = record?.recordAction(
-      HumanAction.of(act, day('2026-09-30', hour + 1)),
+      HumanAction.of(act, day('2026-09-30', hour + 1), UserId.of('user_actor')),
     );
     const [event] = acted?.pullEvents() ?? [];
     expect(event).toBeInstanceOf(RunOutcomeChanged);

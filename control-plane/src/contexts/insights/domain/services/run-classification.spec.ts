@@ -5,6 +5,7 @@ import {
 } from '@insights/domain/services/run-classification';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import type { HumanActionKind } from '@insights/domain/value-objects/human-action.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const AT = new Date('2026-09-30T12:00:00.000Z');
@@ -16,7 +17,9 @@ const run = (
 ): ClassifiedRun => ({
   ending: change.ending ?? 'completed',
   asked: change.asked ?? false,
-  firstHumanAction: change.action ? HumanAction.of(change.action, AT) : null,
+  firstHumanAction: change.action
+    ? HumanAction.of(change.action, AT, UserId.of('user_actor'))
+    : null,
   approvalAnsweredAt: change.approvalAnsweredAt ?? null,
   passed: change.passed ?? false,
   merged: change.merged ?? false,

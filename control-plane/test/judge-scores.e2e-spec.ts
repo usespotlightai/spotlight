@@ -491,7 +491,11 @@ describe('how often the judge agrees with people', () => {
       const yes = at % 2 === 0;
       await records.add(
         endedRecord(runId).recordAction(
-          HumanAction.of(yes ? 'accepted' : 'sent-back', LATER),
+          HumanAction.of(
+            yes ? 'accepted' : 'sent-back',
+            LATER,
+            UserId.of('user_actor'),
+          ),
         ),
       );
       await scores.add(

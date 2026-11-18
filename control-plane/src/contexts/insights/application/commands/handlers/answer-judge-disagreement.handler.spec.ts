@@ -135,7 +135,7 @@ describe('answering a judge disagreement', () => {
   });
 
   it('keeps each claim’s answer with its own note, and who gave it', async () => {
-    const run = await disagreeing();
+    const run = await disagreeing('merged');
 
     await run.answer(1, 'judge-right', 'The lint step must pass.');
     await run.answer(

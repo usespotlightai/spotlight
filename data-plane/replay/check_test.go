@@ -992,7 +992,7 @@ func TestCheckNotesAJudgeNobodyCheckedAgainstPeopleYet(t *testing.T) {
 	out, summary := printedAndSummarised(t, judgedReport(t, `{"result":"passed","failedBecause":null,"taskCount":3,
   "judge":{"state":"unmeasured","agreement":null,"pairs":4,"minPairs":10,"minAgreement":0.6}}`))
 
-	want := "note: Spotlight has not yet checked the judge of the station against people: 4 of the 10 runs it needs have both a verdict of the judge and a verdict of a person. The scores come from the verdicts of that judge."
+	want := "note: Spotlight has not yet checked the judge of the station against people: 4 of the 10 runs it needs have both a verdict from the judge and from people. The scores come from the verdicts of that judge."
 	if !strings.Contains(out, "  "+want+"\n") || !strings.Contains(summary, "4 of the 10 runs it needs") {
 		t.Fatalf("output lacks %q:\n%s\nsummary:\n%s", want, out, summary)
 	}

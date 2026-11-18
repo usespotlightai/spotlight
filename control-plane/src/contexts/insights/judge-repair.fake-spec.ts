@@ -35,6 +35,8 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
+const LABELLER = UserId.of('user_ada');
+
 export const OPENED_AT = new Date('2026-10-01T10:00:00.000Z');
 
 export const openDisagreement = (
@@ -50,6 +52,7 @@ export const openDisagreement = (
 ): JudgeDisagreement => {
   const claimResults = change.claimResults ?? [true, false, false];
   const passes = claimResults.every(Boolean);
+  const labelFrom = change.labelFrom ?? (passes ? 'sent-back' : 'accepted');
 
   return JudgeDisagreement.open({
     id: JudgeDisagreementId.of(`disagreement_${runId}`),
@@ -64,8 +67,8 @@ export const openDisagreement = (
       reasons: claimResults.map((_, at) => reasonOf(`Claim ${at}.`, at)),
     },
     judgePasses: passes,
-    labelFrom: change.labelFrom ?? (passes ? 'sent-back' : 'accepted'),
-    askedOf: change.askedOf ?? null,
+    labelFrom,
+    askedOf: labelFrom === 'merged' ? null : (change.askedOf ?? LABELLER),
     now: change.now ?? OPENED_AT,
   });
 };
@@ -81,7 +84,7 @@ export const answeredDisagreement = (
         claim,
         answer,
         note: note ?? null,
-        by: UserId.of('user_ada'),
+        by: LABELLER,
         now: at,
       }),
     openDisagreement(runId),

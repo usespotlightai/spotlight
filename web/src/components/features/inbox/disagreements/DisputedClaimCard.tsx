@@ -35,9 +35,7 @@ type DisputedClaimCardProps = {
   claim: DisagreementClaim;
   scores: RunScores | undefined;
   loading: boolean;
-  canAnswer: boolean;
   answererOf: (answeredBy: string) => string | null;
-  asked: string | null;
 };
 
 export function DisputedClaimCard({
@@ -47,9 +45,7 @@ export function DisputedClaimCard({
   claim,
   scores,
   loading,
-  canAnswer,
   answererOf,
-  asked,
 }: DisputedClaimCardProps) {
   const send = useAnswerDisagreementClaim();
   const [draft, setDraft] = useState<ClaimDraft>(EMPTY_CLAIM_DRAFT);
@@ -58,7 +54,7 @@ export function DisputedClaimCard({
 
   const state = cardStateOf(disagreement, claim.index);
   const given = answerOfClaim(disagreement, claim.index);
-  const answering = state === 'open' && canAnswer;
+  const answering = state === 'open';
   const body = claimAnswerOf(draft);
   const blocked = send.isPending ? null : claimBlockedReason(draft);
 
@@ -106,8 +102,6 @@ export function DisputedClaimCard({
           disagreement,
           claim.index,
           given ? answererOf(given.answeredBy) : null,
-          canAnswer,
-          asked,
         )}
         sending={send.isPending}
         at={

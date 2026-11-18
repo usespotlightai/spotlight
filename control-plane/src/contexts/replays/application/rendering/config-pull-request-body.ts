@@ -204,7 +204,7 @@ const describeJudge = (facts: ConfigPullRequestFacts): string | null => {
     case 'unmeasured':
       return judge.pairs >= judge.minPairs
         ? `Spotlight cannot yet measure how well the judge of the station agrees with people: on all ${judge.pairs} runs that have both verdicts, every verdict of the judge and of people was the same: all pass or all fail. The scores below come from the verdicts of that judge, so weigh that before merging.`
-        : `Spotlight has not yet checked the judge of the station against people: ${judge.pairs} of the ${judge.minPairs} runs it needs have both a verdict of the judge and a verdict of a person. The scores below come from the verdicts of that judge, so weigh that before merging.`;
+        : `Spotlight has not yet checked the judge of the station against people: ${judge.pairs} of the ${judge.minPairs} runs it needs have both a verdict from the judge and from people. The scores below come from the verdicts of that judge, so weigh that before merging.`;
     case 'qualified':
     case undefined:
       return null;

@@ -5824,7 +5824,7 @@
             "description": "No such disagreement for this caller"
           }
         },
-        "summary": "A run where the judge and a person disagree: the judge’s claims, results and reasons, and the answer",
+        "summary": "A run where the judge and people disagree: the judge’s claims, results and reasons, and the answer",
         "tags": [
           "insights"
         ]
@@ -5885,7 +5885,7 @@
             "description": "The disagreement already has an answer, is withdrawn, or changed meanwhile"
           },
           "422": {
-            "description": "Claims are in dispute, so each takes its own answer; or the answer names no claim and says nothing"
+            "description": "The judge failed the run, so each claim in dispute takes its own answer; the claim named is missing, not one of the judge’s, below 0 or not a whole number; the answer names no claim and says nothing; or the note is over 2,000 characters"
           }
         },
         "summary": "Where no claim is in dispute, say which claim should have failed, or what was wrong; the answer helps revise the claims and never changes the agreement",
@@ -5961,7 +5961,7 @@
             "description": "The claim already has an answer, the disagreement is withdrawn, or it changed meanwhile"
           },
           "422": {
-            "description": "The claim is not in dispute, or the answer is not judge-right or claim-wrong"
+            "description": "The claim is not in dispute, the answer is not judge-right or claim-wrong, or the note is over 2,000 characters"
           }
         },
         "summary": "Answer one claim in dispute, with its own note; the disagreement is answered once every claim in dispute has an answer, and answers never change the agreement",
@@ -9039,7 +9039,7 @@
               "judge-disagreement"
             ],
             "example": "memories",
-            "description": "The kind of inbox request: memories are proposed memories to approve or reject; alert reports a station that needs attention; judge-disagreement asks a person why their verdict on a run differs from the judge’s"
+            "description": "The kind of inbox request: memories are proposed memories to approve or reject; alert reports a station that needs attention; judge-disagreement asks why people’s verdict on a run differs from the judge’s"
           },
           "about": {
             "type": "string",
@@ -16452,7 +16452,7 @@
               "judge-failed",
               "judge-passed"
             ],
-            "description": "judge-failed: the judge failed a run that a person passed. judge-passed: the judge passed a run that a person failed"
+            "description": "judge-failed: the judge failed a run that people passed. judge-passed: the judge passed a run that people failed"
           },
           "state": {
             "type": "string",
@@ -16461,7 +16461,7 @@
               "answered",
               "withdrawn"
             ],
-            "description": "open: the question waits for an answer to at least one claim in dispute. answered: every claim in dispute has an answer, or, with none in dispute, what was not met. withdrawn: Spotlight withdrew the question, also after an answer"
+            "description": "open: the question waits for an answer to a claim in dispute, or, with none in dispute, for what was not met. answered: every claim in dispute has an answer, or, with none in dispute, what was not met. withdrawn: Spotlight withdrew the question, also after an answer"
           },
           "labelFrom": {
             "type": "string",
@@ -16471,7 +16471,7 @@
               "merged",
               "held"
             ],
-            "description": "What gave people’s verdict on the run, which disagrees with the judge’s"
+            "description": "What gave people’s verdict on the run when the disagreement opened, which disagrees with the judge’s"
           },
           "openedAt": {
             "type": "string",
@@ -16510,7 +16510,7 @@
           "askedOf": {
             "type": "string",
             "nullable": true,
-            "description": "The one person who can answer. Null when Spotlight asked the team: then anyone in the team can answer"
+            "description": "The one person who can answer: the person whose action gave people’s verdict when the disagreement opened. Null when a merged pull request opened it: then anyone who can read it can answer"
           },
           "withdrawnAt": {
             "type": "string",
@@ -16555,7 +16555,7 @@
           "shouldHaveFailed": {
             "type": "number",
             "nullable": true,
-            "description": "The claim that should have failed, or null where no claim covers what was wrong"
+            "description": "The place of the claim that should have failed, from 0, or null where no claim covers what was wrong; always given"
           },
           "note": {
             "type": "string",

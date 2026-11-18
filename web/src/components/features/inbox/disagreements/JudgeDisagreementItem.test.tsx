@@ -137,15 +137,12 @@ describe('JudgeDisagreementItem', () => {
     }
   });
 
-  it('says who accepted the run that the judge failed', () => {
-    showing(
-      failedDisagreementOf({ labelFrom: 'accepted', askedOf: 'user_priya' }),
-    );
+  it('says you put the run on hold that the judge passed', () => {
+    showing(passedDisagreementOf({ labelFrom: 'held' }));
 
     expect(fact()).toHaveTextContent(
-      'Priya Raman accepted this run. The judge failed it.',
+      'You put this run on hold. The judge passed it.',
     );
-    expectTitles(['Waiting for Priya Raman', 'Waiting for Priya Raman']);
   });
 
   it('puts the claims in dispute in claim order, each with its reasons and what they cite', () => {
@@ -232,7 +229,11 @@ describe('JudgeDisagreementItem', () => {
   it('keeps the draft and Send answer after a failed send, with no inline error', async () => {
     sending.mockReturnValue({
       isPending: false,
-      error: { status: 409, detail: 'Someone already answered this claim.' },
+      error: {
+        status: 409,
+        detail:
+          'Claim 1 of judge disagreement disagreement_1 already has an answer.',
+      },
     });
     showing(failedDisagreementOf());
     await pick(1, 'The judge is right');
@@ -295,26 +296,6 @@ describe('JudgeDisagreementItem', () => {
     expect(screen.queryByRole('button', { name: 'Send answer' })).toBeNull();
   });
 
-  it('shows a question asked of someone else read-only, card by card, with no purpose', () => {
-    showing(
-      failedDisagreementOf({
-        askedOf: 'user_priya',
-        answers: [answered(0, 'judge-right', 'user_priya')],
-      }),
-    );
-
-    expectTitles(['Answered by Priya Raman', 'Waiting for Priya Raman']);
-    expect(fact()).toHaveTextContent(
-      /^Priya Raman accepted this run\. The judge failed it\.$/,
-    );
-    expect(
-      within(card(3)).queryByText('Answer', { selector: 'dt' }),
-    ).toBeNull();
-    expect(screen.queryByRole('radio')).toBeNull();
-    expect(screen.queryByRole('textbox')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Send answer' })).toBeNull();
-  });
-
   it('withdraws every card, keeping the rows of a claim answered before', () => {
     showing(
       failedDisagreementOf({
@@ -339,6 +320,29 @@ describe('JudgeDisagreementItem', () => {
     expect(screen.queryByRole('button', { name: 'Send answer' })).toBeNull();
   });
 
+  it.each([
+    ['label-gone', 'People’s verdict on this run is gone.'],
+    ['verdicts-agree', 'The judge and people agree on this run now.'],
+  ] as const)(
+    'says why Spotlight withdrew a merged run’s question: %s',
+    (withdrawnBecause, why) => {
+      showing(
+        failedDisagreementOf({
+          labelFrom: 'merged',
+          askedOf: null,
+          state: 'withdrawn',
+          withdrawnAt: '2026-11-14T12:00:00.000Z',
+          withdrawnBecause,
+        }),
+      );
+
+      expect(fact()).toHaveTextContent(
+        `The pull request was merged. The judge failed the run. ${why}`,
+      );
+      expect(screen.queryByRole('button', { name: 'Send answer' })).toBeNull();
+    },
+  );
+
   it('shows the judge’s mark on each claim in dispute', () => {
     showing(failedDisagreementOf());
 
@@ -351,9 +355,12 @@ describe('JudgeDisagreementItem', () => {
     }
   });
 
-  it('lets anyone in the team answer each card of a question asked of the team', () => {
-    showing(failedDisagreementOf({ askedOf: null }));
+  it('says the pull request was merged, and offers to send each card’s answer', () => {
+    showing(failedDisagreementOf({ askedOf: null, labelFrom: 'merged' }));
 
+    expect(fact()).toHaveTextContent(
+      /^The pull request was merged\. The judge failed the run\. Your answer helps Spotlight rewrite the claims\.$/,
+    );
     expect(send(1)).toBeInTheDocument();
     expect(send(3)).toBeInTheDocument();
   });
@@ -450,14 +457,14 @@ describe('JudgeDisagreementItem', () => {
           notMet: {
             claim: null,
             note: 'It retried jobs that can never succeed.',
-            answeredBy: 'user_priya',
+            answeredBy: 'user_sam',
             answeredAt: ANSWERED_AT,
           },
         }),
       );
 
       expect(
-        screen.getByRole('heading', { name: 'Answered by Priya Raman' }),
+        screen.getByRole('heading', { name: 'Answered by you' }),
       ).toBeInTheDocument();
       expect(
         document.querySelector('[data-slot="not-met-answer"]'),
@@ -467,27 +474,12 @@ describe('JudgeDisagreementItem', () => {
       ).toBeInTheDocument();
     });
 
-    it('says people’s verdict is gone when Spotlight withdrew the question for it', () => {
-      showing(
-        passedDisagreementOf({
-          state: 'withdrawn',
-          withdrawnAt: '2026-11-14T12:00:00.000Z',
-          withdrawnBecause: 'label-gone',
-        }),
-      );
-
-      expect(fact()).toHaveTextContent(
-        'You sent this run back. The judge passed it. People’s verdict on this run is gone.',
-      );
-      expect(screen.queryByRole('button', { name: 'Send answer' })).toBeNull();
-    });
-
     it('lists the claims of a withdrawn question, read-only', () => {
       showing(
         passedDisagreementOf({
           state: 'withdrawn',
           withdrawnAt: '2026-11-14T12:00:00.000Z',
-          withdrawnBecause: 'verdicts-agree',
+          withdrawnBecause: 'claims-changed',
         }),
       );
 
@@ -510,7 +502,7 @@ describe('JudgeDisagreementItem', () => {
             answeredAt: ANSWERED_AT,
           },
           withdrawnAt: '2026-11-14T12:00:00.000Z',
-          withdrawnBecause: 'verdicts-agree',
+          withdrawnBecause: 'claims-changed',
         }),
       );
 
@@ -518,19 +510,9 @@ describe('JudgeDisagreementItem', () => {
         document.querySelector('[data-slot="not-met-answer"]'),
       ).toHaveTextContent('2. Every other failure is retried later');
       expect(fact()).toHaveTextContent(
-        'The judge and people agree on this run now.',
+        'The station’s judge changed after this run.',
       );
       expect(screen.queryByRole('button', { name: 'Send answer' })).toBeNull();
-    });
-
-    it('lists the claims of a question asked of someone else', () => {
-      showing(passedDisagreementOf({ askedOf: 'user_priya' }));
-
-      expect(
-        screen.getByText('Claims', { selector: 'dt' }).nextElementSibling,
-      ).toHaveTextContent('1. Retries stop on a 410 Gone');
-      expect(screen.queryByRole('radio')).toBeNull();
-      expect(screen.queryByRole('textbox')).toBeNull();
     });
   });
 });

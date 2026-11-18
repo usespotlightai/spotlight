@@ -373,6 +373,29 @@ describe('RaiseJudgeDisagreements', () => {
       expect(disagreement?.withdrawnBecause).toBe('verdicts-agree');
     });
 
+    it('keeps the disagreement a merge opened, still asked of the team, once a person accepts the run', async () => {
+      const { records, disagreements, raising, score, visit, added } =
+        await visits();
+      const run = visit('run_1', 10);
+      await added(run);
+      await raising.scoreRecorded(recordedOf(score));
+
+      await records.save(
+        run.recordAction(
+          HumanAction.of('accepted', day('2026-09-30', 14), ACTOR),
+        ),
+      );
+      await raising.outcomeChanged(
+        new RunOutcomeChanged(RunId.of('run_1'), WORKSPACE, score.location),
+      );
+
+      const stored = [...disagreements.stored.values()];
+      expect(stored).toHaveLength(1);
+      expect(stored[0]?.state).toBe('open');
+      expect(stored[0]?.labelFrom).toBe('merged');
+      expect(stored[0]?.askedOf).toBeNull();
+    });
+
     it('withdraws the first visit’s disagreement once a later visit of the station completes and takes the merge', async () => {
       const { disagreements, raising, score, visit, added } = await visits();
       await added(visit('run_1', 10));

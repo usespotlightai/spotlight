@@ -67,8 +67,8 @@ const runLineOf = (
 ): string => {
   const verdict =
     run.direction === 'judge-failed'
-      ? 'The judge failed the run and a person passed it.'
-      : 'The judge passed the run and a person failed it.';
+      ? 'The judge failed the run and people passed it.'
+      : 'The judge passed the run and people failed it.';
   const wrong = run.claimsWrong
     .map((claim) => claimsBefore[claim])
     .filter((each): each is string => each !== undefined)

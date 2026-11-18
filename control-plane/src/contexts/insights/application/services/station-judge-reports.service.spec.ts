@@ -27,7 +27,10 @@ import {
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const ACTOR = UserId.of('user_actor');
 
 const AT = new Date('2026-09-30T11:00:00.000Z');
 
@@ -56,14 +59,14 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
     const runId = `run_${at}`;
     await records.add(
       endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
-        HumanAction.of(at % 2 === 0 ? 'accepted' : 'sent-back', AT),
+        HumanAction.of(at % 2 === 0 ? 'accepted' : 'sent-back', AT, ACTOR),
       ),
     );
     await scores.add(judgeScore(runId, [at % 2 === 0]));
   }
   await records.add(
     endedRecord('run_unjudged', { taskId: 'task_unjudged' }).recordAction(
-      HumanAction.of('accepted', AT),
+      HumanAction.of('accepted', AT, ACTOR),
     ),
   );
 
@@ -114,7 +117,7 @@ const judgedAcross = async () => {
     const runId = `run_${at}`;
     await records.add(
       endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
-        HumanAction.of(at % 2 === 0 ? 'accepted' : 'sent-back', AT),
+        HumanAction.of(at % 2 === 0 ? 'accepted' : 'sent-back', AT, ACTOR),
       ),
     );
     await scores.add(judgeScore(runId, [at % 2 === 0]));
@@ -125,7 +128,7 @@ const judgedAcross = async () => {
     const record = endedRecord(runId, { taskId, stationId: 'station_2' });
     await records.add(
       at % 2 === 0
-        ? record.recordAction(HumanAction.of('sent-back', AT))
+        ? record.recordAction(HumanAction.of('sent-back', AT, ACTOR))
         : record,
     );
     await scores.add(

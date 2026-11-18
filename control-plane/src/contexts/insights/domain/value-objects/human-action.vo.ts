@@ -54,14 +54,10 @@ export class HumanAction {
   private constructor(
     readonly kind: HumanActionKind,
     readonly at: Date,
-    readonly by: UserId | null,
+    readonly by: UserId,
   ) {}
 
-  static of(
-    kind: HumanActionKind,
-    at: Date,
-    by: UserId | null = null,
-  ): HumanAction {
+  static of(kind: HumanActionKind, at: Date, by: UserId): HumanAction {
     return new HumanAction(kind, at, by);
   }
 

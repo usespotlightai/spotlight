@@ -283,7 +283,7 @@ export class ReplayCheckJudgeResponseDto {
   @ApiProperty({
     example: 12,
     description:
-      'How many runs have both a verdict of the judge and a verdict of a person',
+      'How many runs have both a verdict from the judge and from people',
   })
   readonly pairs: number;
 

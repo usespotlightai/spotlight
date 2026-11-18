@@ -68,7 +68,9 @@ const seeded = async (
         startedAt: day('2026-09-29', hour),
         endedAt: day('2026-09-29', hour),
         changedLines: model === 'opus' ? 500 : 10,
-      }).recordAction(HumanAction.of(act, day('2026-09-29', hour))),
+      }).recordAction(
+        HumanAction.of(act, day('2026-09-29', hour), UserId.of('user_actor')),
+      ),
     );
   }
 

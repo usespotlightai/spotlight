@@ -70,12 +70,13 @@ const laterCompletedVisitOf = (run: HistoryRun): HistoryRun | null =>
 const firstActOpening = (run: HistoryRun): Opening | null => {
   const labelFrom = firstActLabelOf(run);
   const actedAt = actedAtOf(run);
+  const actor = actorOf(run);
 
-  return labelFrom && actedAt !== null
+  return labelFrom && actedAt !== null && actor !== null
     ? {
         run,
         labelFrom,
-        askedOf: actorOf(run),
+        askedOf: actor,
         openedAt: isoOf(actedAt + OPENS_AFTER_LABEL_MS),
       }
     : null;
@@ -105,48 +106,36 @@ export const openingOfRun = (runId: string): Opening | null => {
 
 const newest = <Found extends Opening>(
   found: readonly (Found | null)[],
-  skip = 0,
 ): Found | null =>
   found
     .filter((each): each is Found => each !== null)
-    .toSorted((one, other) => other.run.at - one.run.at)[skip] ?? null;
+    .toSorted((one, other) => other.run.at - one.run.at)[0] ?? null;
 
 const onCurrentClaims = judgedUnder(RUBRIC);
 
-const sentBackOpenings = (): (Opening | null)[] =>
-  judgedRuns()
-    .filter(
-      (run) =>
-        onCurrentClaims(run) &&
-        judgePasses(run) &&
-        firstActLabelOf(run) === 'sent-back' &&
-        actorOf(run) === SAM.id,
-    )
-    .map(firstActOpening);
-
-export const sentBackRun = (): Opening | null => newest(sentBackOpenings());
-
-export const passedRun = (): Opening | null => newest(sentBackOpenings(), 1);
-
-const acceptedRuns = (): HistoryRun[] =>
-  judgedRuns().filter(
-    (run) =>
-      onCurrentClaims(run) &&
-      !judgePasses(run) &&
-      firstActLabelOf(run) === 'accepted',
+export const sentBackRun = (): Opening | null =>
+  newest(
+    judgedRuns()
+      .filter(
+        (run) =>
+          onCurrentClaims(run) &&
+          judgePasses(run) &&
+          firstActLabelOf(run) === 'sent-back' &&
+          actorOf(run) === SAM.id,
+      )
+      .map(firstActOpening),
   );
 
 export const acceptedRun = (): Opening | null =>
   newest(
-    acceptedRuns()
-      .filter((run) => actorOf(run) === SAM.id)
-      .map(firstActOpening),
-  );
-
-export const askedOfOtherRun = (): Opening | null =>
-  newest(
-    acceptedRuns()
-      .filter((run) => actorOf(run) !== SAM.id)
+    judgedRuns()
+      .filter(
+        (run) =>
+          onCurrentClaims(run) &&
+          !judgePasses(run) &&
+          firstActLabelOf(run) === 'accepted' &&
+          actorOf(run) === SAM.id,
+      )
       .map(firstActOpening),
   );
 
@@ -181,15 +170,14 @@ export const labelGoneRun = (): Withdrawal | null =>
 
 const verdictsAgreeOf = (run: HistoryRun): Withdrawal | null => {
   const opening = mergeOpening(run);
-  const label = firstActLabelOf(run);
   const later = laterCompletedVisitOf(run);
 
   return opening &&
     run.firstHumanAction &&
-    (label === 'sent-back' || label === 'held') &&
+    firstActLabelOf(run) === 'sent-back' &&
     run.ending === 'completed' &&
     run.firstHumanAction.at > opening.openedAt &&
-    (!later?.endedAt || later.endedAt > opening.openedAt)
+    (!later?.endedAt || later.endedAt > run.firstHumanAction.at)
     ? { ...opening, withdrawnAt: run.firstHumanAction.at }
     : null;
 };
@@ -213,7 +201,8 @@ export const claimsChangedRun = (): Withdrawal | null =>
         (run) =>
           judgedUnder(EARLIER_RUBRIC)(run) &&
           !judgePasses(run) &&
-          firstActLabelOf(run) === 'accepted',
+          firstActLabelOf(run) === 'accepted' &&
+          actorOf(run) === SAM.id,
       )
       .map(claimsChangedOf),
   );

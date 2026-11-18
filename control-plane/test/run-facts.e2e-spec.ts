@@ -276,7 +276,7 @@ describe('run facts', () => {
     const recorded = await records.of(RunId.of('run_1'));
     await records.save(
       withUsageRecorded(recorded as RunRecord).recordAction(
-        HumanAction.of('accepted', at(0.5)),
+        HumanAction.of('accepted', at(0.5), UserId.of('user_actor')),
       ),
     );
 
@@ -287,7 +287,11 @@ describe('run facts', () => {
       ms: 900_000,
       firstHumanAction: 'accepted',
       firstHumanActionAt: at(0.5),
+      firstHumanActionBy: 'user_actor',
     });
+    expect((await records.of(RunId.of('run_1')))?.firstHumanAction?.by).toEqual(
+      UserId.of('user_actor'),
+    );
   });
 
   it('stores the memories a run was briefed with before it ended in its fact, and those it recalled after', async () => {
@@ -615,7 +619,7 @@ describe('run facts', () => {
     );
     await records.save(
       ((await records.of(RunId.of('run_3'))) as RunRecord).recordAction(
-        HumanAction.of('sent-back', at(0.4)),
+        HumanAction.of('sent-back', at(0.4), UserId.of('user_actor')),
       ),
     );
 

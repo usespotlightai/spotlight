@@ -6957,7 +6957,7 @@
           "pairs": {
             "type": "number",
             "example": 12,
-            "description": "How many runs have both a verdict of the judge and a verdict of a person"
+            "description": "How many runs have both a verdict from the judge and from people"
           },
           "minPairs": {
             "type": "number",

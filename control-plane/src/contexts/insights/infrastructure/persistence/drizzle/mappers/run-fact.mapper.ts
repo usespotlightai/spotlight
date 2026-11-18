@@ -30,7 +30,7 @@ const required = <T>(value: T | null): T => {
 };
 
 export const rowOfFact = (fact: RunFact): RunFactRow => {
-  const parts = partColumnsOf(fact);
+  const parts = partColumnsOf(fact, 'run fact');
 
   return {
     ...parts,
@@ -68,15 +68,15 @@ export const factOfRow = (row: RunFactRow): RunFact => {
   return RunFact.of({
     runId: RunId.of(row.runId),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    end: required(endOf(parts)),
+    end: required(endOf(parts, 'run fact')),
     supersededAt: row.supersededAt,
     followedAt: row.followedAt,
     checks: row.checks,
     checkedAt: row.checkedAt,
-    firstHumanAction: firstHumanActionOf(parts),
+    firstHumanAction: firstHumanActionOf(parts, 'run fact'),
     approvalAnsweredAt: row.approvalAnsweredAt,
-    usage: usageOf(parts),
-    passed: passOf(parts),
+    usage: usageOf(parts, 'run fact'),
+    passed: passOf(parts, 'run fact'),
     tools: toolsOf(parts),
     dismissals: dismissalsOf(parts),
     memories: memoriesOf(parts),

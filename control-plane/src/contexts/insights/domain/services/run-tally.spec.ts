@@ -12,7 +12,10 @@ import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import { taskPullRequestOf } from '@insights/insights.fake-spec';
 import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const ACTOR = UserId.of('user_actor');
 
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
@@ -32,15 +35,17 @@ describe('runTally', () => {
       [
         endedRecord('run_1', { ending: 'failed', failure: 'exited' })
           .recordCheck('failed', RECEIVED_AT)
-          .recordAction(HumanAction.of('sent-back', AT)),
+          .recordAction(HumanAction.of('sent-back', AT, ACTOR)),
         endedRecord('run_2', { ending: 'stopped' }),
         endedRecord('run_3')
           .recordCheck('passed', RECEIVED_AT)
-          .recordAction(HumanAction.of('approved', AT)),
+          .recordAction(HumanAction.of('approved', AT, ACTOR)),
         endedRecord('run_4')
           .recordCheck('skipped', RECEIVED_AT)
-          .recordAction(HumanAction.of('accepted', AT)),
-        endedRecord('run_5').recordAction(HumanAction.of('dismissed', AT)),
+          .recordAction(HumanAction.of('accepted', AT, ACTOR)),
+        endedRecord('run_5').recordAction(
+          HumanAction.of('dismissed', AT, ACTOR),
+        ),
       ],
       [],
     );
@@ -73,18 +78,18 @@ describe('runTally', () => {
           StationPass.of(StationId.of('station_2'), AT),
         ),
         endedRecord('run_3', { taskId: 'task_3' }).recordAction(
-          HumanAction.of('started', AT),
+          HumanAction.of('started', AT, ACTOR),
         ),
         endedRecord('run_4', { taskId: 'task_4', ending: 'stopped' }),
         endedRecord('run_5', { taskId: 'task_5' }).recordAction(
-          HumanAction.of('sent-back', AT),
+          HumanAction.of('sent-back', AT, ACTOR),
         ),
         endedRecord('run_6', { taskId: 'task_6', ending: 'failed' }),
         endedRecord('run_7', { taskId: 'task_7' }),
         endedRecord('run_8', {
           taskId: 'task_8',
           ending: 'failed',
-        }).recordAction(HumanAction.of('accepted', AT)),
+        }).recordAction(HumanAction.of('accepted', AT, ACTOR)),
       ],
       [merged('task_1'), merged('task_2'), merged('task_4'), merged('task_5')],
     );
@@ -135,7 +140,7 @@ describe('runTally', () => {
       [
         costedRecord('run_1', { ending: 'cancelled', ms: 1, amount: 9 })
           .supersededByItsTask(RECEIVED_AT)
-          .recordAction(HumanAction.of('accepted', AT)),
+          .recordAction(HumanAction.of('accepted', AT, ACTOR)),
         costedRecord('run_2', { ending: 'failed', ms: 40_000, amount: 0.5 }),
       ],
       [],
@@ -297,11 +302,19 @@ describe('tallyDeltasOf', () => {
 describe('tallySeenOf', () => {
   it('sees a count above zero in either period, and none that stayed at zero in both', () => {
     const now = tallyWith(
-      [endedRecord('run_1').recordAction(HumanAction.of('accepted', AT))],
+      [
+        endedRecord('run_1').recordAction(
+          HumanAction.of('accepted', AT, ACTOR),
+        ),
+      ],
       [],
     );
     const before = tallyWith(
-      [endedRecord('run_2').recordAction(HumanAction.of('sent-back', AT))],
+      [
+        endedRecord('run_2').recordAction(
+          HumanAction.of('sent-back', AT, ACTOR),
+        ),
+      ],
       [],
     );
 
@@ -319,7 +332,7 @@ describe('tallyRatesOf', () => {
       [
         endedRecord('run_1', { taskId: 'task_1' })
           .recordCheck('passed', AT)
-          .recordAction(HumanAction.of('accepted', AT)),
+          .recordAction(HumanAction.of('accepted', AT, ACTOR)),
         endedRecord('run_2', { taskId: 'task_2' }).recordCheck('failed', AT),
         endedRecord('run_3', { taskId: 'task_3' }),
         endedRecord('run_4', { taskId: 'task_4' }),
@@ -348,7 +361,9 @@ describe('tallyCountedOf', () => {
         tallyWith(
           [
             endedRecord('run_1', { ending: 'failed' }),
-            endedRecord('run_2').recordAction(HumanAction.of('sent-back', AT)),
+            endedRecord('run_2').recordAction(
+              HumanAction.of('sent-back', AT, ACTOR),
+            ),
           ],
           [],
         ),

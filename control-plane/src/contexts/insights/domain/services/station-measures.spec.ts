@@ -15,6 +15,7 @@ import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
 import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 type Records = readonly RunRecord[];
@@ -59,13 +60,17 @@ const sentBack = (runId: string, hour: number) =>
   endedRecord(runId, {
     taskId: `task_${runId}`,
     endedAt: at(hour),
-  }).recordAction(HumanAction.of('sent-back', at(hour)));
+  }).recordAction(
+    HumanAction.of('sent-back', at(hour), UserId.of('user_actor')),
+  );
 
 const accepted = (runId: string, hour: number) =>
   endedRecord(runId, {
     taskId: `task_${runId}`,
     endedAt: at(hour),
-  }).recordAction(HumanAction.of('accepted', at(hour)));
+  }).recordAction(
+    HumanAction.of('accepted', at(hour), UserId.of('user_actor')),
+  );
 
 describe('measureOf', () => {
   it('measures the share of runs sent back, accepted and failed', () => {

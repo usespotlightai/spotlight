@@ -52,7 +52,7 @@ export const formatJudgeVerdict = (passes: boolean): string =>
 export const DISAGREES_LABEL = 'The judge disagrees with people';
 
 export const DISAGREES_NOTE =
-  'The judge and people give different verdicts on this run. Spotlight asks the person why, to improve the claims.';
+  'The judge and people give different verdicts on this run. Spotlight asks people why, to improve the claims.';
 
 export const VERDICTS_TITLE = 'Verdicts';
 

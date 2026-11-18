@@ -5,27 +5,23 @@ import type {
 import type { RunScores } from '@/lib/judge';
 import {
   acceptedRun,
-  askedOfOtherRun,
   claimsChangedRun,
   labelGoneRun,
   mergedRun,
   type Opening,
   openingOfRun,
-  passedRun,
   sentBackRun,
   verdictsAgreeRun,
   type Withdrawal,
 } from '@/mocks/world/disagreement-runs';
 import {
   ACCEPTED_DISAGREEMENT_ID,
-  ASKED_OF_OTHER_DISAGREEMENT_ID,
   CLAIMS_CHANGED_DISAGREEMENT_ID,
-  FAILED_DISAGREEMENT_ID,
   LABEL_GONE_DISAGREEMENT_ID,
   MERGED_DISAGREEMENT_ID,
-  PASSED_DISAGREEMENT_ID,
+  SEARCH_DISAGREEMENT_ID,
   SENT_BACK_DISAGREEMENT_ID,
-  WITHDRAWN_DISAGREEMENT_ID,
+  VERDICTS_AGREE_DISAGREEMENT_ID,
 } from '@/mocks/world/inbox';
 import { lineOfStation, minutesAfter } from '@/mocks/world/inbox-places';
 import { judgedScoresOf, seedRunScores } from '@/mocks/world/inbox-scores';
@@ -133,14 +129,12 @@ export const seedJudgeDisagreements = (): Record<
 > =>
   Object.fromEntries(
     [
-      seededDisagreement(FAILED_DISAGREEMENT_ID, 'run_search_2'),
-      pastDisagreement(PASSED_DISAGREEMENT_ID, passedRun()),
+      seededDisagreement(SEARCH_DISAGREEMENT_ID, 'run_search_2'),
       pastDisagreement(SENT_BACK_DISAGREEMENT_ID, sentBackRun()),
       pastDisagreement(ACCEPTED_DISAGREEMENT_ID, acceptedRun()),
       pastDisagreement(MERGED_DISAGREEMENT_ID, mergedRun()),
-      pastDisagreement(ASKED_OF_OTHER_DISAGREEMENT_ID, askedOfOtherRun()),
       withdrawnDisagreement(
-        WITHDRAWN_DISAGREEMENT_ID,
+        VERDICTS_AGREE_DISAGREEMENT_ID,
         verdictsAgreeRun(),
         'verdicts-agree',
       ),
@@ -176,6 +170,10 @@ export const answerDisputedClaims = (
   disagreement: JudgeDisagreementResponseDto,
   answered: ClaimsAnswered,
 ): void => {
+  if (disagreement.state !== 'open') {
+    return;
+  }
+
   const claims =
     answered === 'all'
       ? disagreement.disputedClaims
@@ -192,9 +190,8 @@ export const answerDisputedClaims = (
     };
   });
   if (
-    answered === 'all' &&
     claims.length > 0 &&
-    disagreement.state === 'open'
+    claims.length === disagreement.disputedClaims.length
   ) {
     disagreement.state = 'answered';
   }

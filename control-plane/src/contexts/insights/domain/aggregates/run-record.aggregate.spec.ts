@@ -21,7 +21,10 @@ import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-hi
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const ACTOR = UserId.of('user_actor');
 
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
@@ -42,7 +45,7 @@ describe('RunRecord', () => {
     const ended = RunRecord.empty(RUN, WORKSPACE)
       .recordEnd(endOf())
       .recordEnd(endOf({ stationId: 'station_2' }))
-      .recordAction(HumanAction.of('accepted', AT));
+      .recordAction(HumanAction.of('accepted', AT, ACTOR));
 
     const events = ended.pullEvents();
     expect(events.map((each) => each.kind)).toEqual([
@@ -58,15 +61,15 @@ describe('RunRecord', () => {
 
   it('records that it is enriched once for each outcome it learns after it ended, and not for one it already knew', () => {
     const record = RunRecord.empty(RUN, WORKSPACE).recordAction(
-      HumanAction.of('accepted', AT),
+      HumanAction.of('accepted', AT, ACTOR),
     );
     expect(record.pullEvents()).toEqual([]);
 
     const learned = record
       .recordEnd(endOf())
-      .recordAction(HumanAction.of('sent-back', LATER))
-      .recordAction(HumanAction.of('approved', LATER))
-      .recordAction(HumanAction.of('dismissed', LATER))
+      .recordAction(HumanAction.of('sent-back', LATER, ACTOR))
+      .recordAction(HumanAction.of('approved', LATER, ACTOR))
+      .recordAction(HumanAction.of('dismissed', LATER, ACTOR))
       .recordCheck('skipped', RECEIVED_AT)
       .recordCheck('passed', RECEIVED_AT)
       .recordCheck('failed', RECEIVED_AT)
@@ -147,20 +150,22 @@ describe('RunRecord', () => {
 
   it('counts only the first thing a person did after it', () => {
     const acted = endedRecord('run_1').recordAction(
-      HumanAction.of('sent-back', AT),
+      HumanAction.of('sent-back', AT, ACTOR),
     );
 
-    expect(acted.recordAction(HumanAction.of('accepted', LATER))).toBe(acted);
+    expect(acted.recordAction(HumanAction.of('accepted', LATER, ACTOR))).toBe(
+      acted,
+    );
     expect(acted.firstHumanAction?.kind).toBe('sent-back');
     expect(acted.firstHumanAction?.at).toEqual(AT);
   });
 
   it('counts the first thing a person did after it, in whatever order it receives what they did', () => {
     const actions = [
-      HumanAction.of('approved', EARLIER),
-      HumanAction.of('sent-back', AT),
-      HumanAction.of('dismissed', AT),
-      HumanAction.of('accepted', LATER),
+      HumanAction.of('approved', EARLIER, ACTOR),
+      HumanAction.of('sent-back', AT, ACTOR),
+      HumanAction.of('dismissed', AT, ACTOR),
+      HumanAction.of('accepted', LATER, ACTOR),
     ];
     const receivedIn = (order: readonly HumanAction[]) =>
       order.reduce(
@@ -182,8 +187,8 @@ describe('RunRecord', () => {
   });
 
   it('decides between actions at the same moment the same way whichever it receives first', () => {
-    const closed = HumanAction.of('accepted', AT);
-    const sentBack = HumanAction.of('sent-back', AT);
+    const closed = HumanAction.of('accepted', AT, ACTOR);
+    const sentBack = HumanAction.of('sent-back', AT, ACTOR);
 
     expect(
       endedRecord('run_1').recordAction(closed).recordAction(sentBack)
@@ -196,14 +201,14 @@ describe('RunRecord', () => {
 
   it('never lets answering an approval decide what a person did next', () => {
     const approved = endedRecord('run_1').recordAction(
-      HumanAction.of('approved', AT),
+      HumanAction.of('approved', AT, ACTOR),
     );
 
     expect(approved.firstHumanAction).toBeNull();
     expect(approved.approvalAnsweredAt).toEqual(AT);
-    expect(approved.recordAction(HumanAction.of('dismissed', LATER))).toBe(
-      approved,
-    );
+    expect(
+      approved.recordAction(HumanAction.of('dismissed', LATER, ACTOR)),
+    ).toBe(approved);
   });
 
   it('is not read back as decided by an approval answer', () => {
@@ -216,7 +221,7 @@ describe('RunRecord', () => {
         supersededAt: null,
         checks: null,
         checkedAt: null,
-        firstHumanAction: HumanAction.of('approved', AT),
+        firstHumanAction: HumanAction.of('approved', AT, ACTOR),
         approvalAnsweredAt: null,
         usage: null,
         passed: null,
@@ -250,7 +255,7 @@ describe('RunRecord', () => {
     expect(
       record
         .recordCheck('passed', RECEIVED_AT)
-        .recordAction(HumanAction.of('accepted', AT)).version,
+        .recordAction(HumanAction.of('accepted', AT, ACTOR)).version,
     ).toBe(3);
   });
 
@@ -400,12 +405,12 @@ describe('RunRecord', () => {
 
     expect(
       ended
-        .recordAction(HumanAction.of('accepted', AT))
+        .recordAction(HumanAction.of('accepted', AT, ACTOR))
         .factWith(null, null, null)?.disposition,
     ).toBe('accepted');
     expect(
       ended
-        .recordAction(HumanAction.of('sent-back', AT))
+        .recordAction(HumanAction.of('sent-back', AT, ACTOR))
         .factWith(null, null, null)?.disposition,
     ).toBe('sent-back');
   });
@@ -413,8 +418,8 @@ describe('RunRecord', () => {
   it('turned out accepted when a person closed its task after approving a tool it asked for', () => {
     const accepted = RunRecord.empty(RUN, WORKSPACE)
       .recordEnd(endOf())
-      .recordAction(HumanAction.of('approved', AT))
-      .recordAction(HumanAction.of('accepted', LATER));
+      .recordAction(HumanAction.of('approved', AT, ACTOR))
+      .recordAction(HumanAction.of('accepted', LATER, ACTOR));
 
     expect(accepted.firstHumanAction?.accepts).toBe(true);
     expect(accepted.factWith(null, null, null)?.disposition).toBe('accepted');
@@ -423,8 +428,8 @@ describe('RunRecord', () => {
   it('turned out sent back when a person sent it back after approving a tool it asked for', () => {
     const sentBack = RunRecord.empty(RUN, WORKSPACE)
       .recordEnd(endOf())
-      .recordAction(HumanAction.of('approved', AT))
-      .recordAction(HumanAction.of('sent-back', LATER));
+      .recordAction(HumanAction.of('approved', AT, ACTOR))
+      .recordAction(HumanAction.of('sent-back', LATER, ACTOR));
 
     expect(sentBack.firstHumanAction?.rejectsRun).toBe(true);
     expect(sentBack.factWith(null, null, null)?.disposition).toBe('sent-back');
@@ -433,8 +438,8 @@ describe('RunRecord', () => {
   it('turned out accepted when a person closed its task after dismissing a tool it asked for', () => {
     const accepted = RunRecord.empty(RUN, WORKSPACE)
       .recordEnd(endOf())
-      .recordAction(HumanAction.of('dismissed', AT))
-      .recordAction(HumanAction.of('accepted', LATER));
+      .recordAction(HumanAction.of('dismissed', AT, ACTOR))
+      .recordAction(HumanAction.of('accepted', LATER, ACTOR));
 
     expect(accepted.firstHumanAction?.accepts).toBe(true);
     expect(accepted.factWith(null, null, null)?.disposition).toBe('accepted');
@@ -444,7 +449,7 @@ describe('RunRecord', () => {
     expect(
       RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf({ ending: 'failed' }))
-        .recordAction(HumanAction.of('answered', AT))
+        .recordAction(HumanAction.of('answered', AT, ACTOR))
         .factWith(null, null, null)?.disposition,
     ).toBe('failed');
   });
@@ -453,7 +458,7 @@ describe('RunRecord', () => {
     expect(
       RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf())
-        .recordAction(HumanAction.of('answered', AT))
+        .recordAction(HumanAction.of('answered', AT, ACTOR))
         .factWith(null, null, null)?.disposition,
     ).toBe('asked');
   });
@@ -462,7 +467,7 @@ describe('RunRecord', () => {
     const ended = RunRecord.empty(RUN, WORKSPACE).recordEnd(endOf());
 
     for (const act of ['approved', 'dismissed'] as const) {
-      const decided = ended.recordAction(HumanAction.of(act, AT));
+      const decided = ended.recordAction(HumanAction.of(act, AT, ACTOR));
 
       expect(decided.factWith(null, null, null)?.disposition).toBe('asked');
       expect(decided.firstHumanAction).toBeNull();
@@ -473,7 +478,7 @@ describe('RunRecord', () => {
     expect(
       RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf({ ending: 'failed' }))
-        .recordAction(HumanAction.of('approved', AT))
+        .recordAction(HumanAction.of('approved', AT, ACTOR))
         .factWith(null, null, null)?.disposition,
     ).toBe('failed');
   });
@@ -482,8 +487,8 @@ describe('RunRecord', () => {
     expect(
       RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf())
-        .recordAction(HumanAction.of('approved', AT))
-        .recordAction(HumanAction.of('parked', LATER))
+        .recordAction(HumanAction.of('approved', AT, ACTOR))
+        .recordAction(HumanAction.of('parked', LATER, ACTOR))
         .factWith(null, null, null)?.disposition,
     ).toBe('asked');
   });
@@ -505,7 +510,7 @@ describe('RunRecord', () => {
     expect(
       RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf())
-        .recordAction(HumanAction.of('parked', AT))
+        .recordAction(HumanAction.of('parked', AT, ACTOR))
         .factWith(null, null, null)?.disposition,
     ).toBe('other');
   });
