@@ -6,7 +6,10 @@ import {
 } from '@work/application/dto/task-run.dto';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
-import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
+import {
+  FoldedVisitResponseDto,
+  NoteResponseDto,
+} from '@work/presentation/http/dto/inbox.response.dto';
 import { pageResponseOf } from '@work/presentation/http/paging';
 
 export class RunStationResponseDto {
@@ -188,6 +191,14 @@ export class RunNotesResponseDto {
   readonly notes: readonly NoteResponseDto[];
 
   @ApiProperty({
+    type: FoldedVisitResponseDto,
+    isArray: true,
+    description:
+      'The station visits of the task outside this thread, oldest first',
+  })
+  readonly folded: readonly FoldedVisitResponseDto[];
+
+  @ApiProperty({
     type: RunSpendResponseDto,
     nullable: true,
     description:
@@ -207,6 +218,7 @@ export class RunNotesResponseDto {
     progress: string | null,
     latestRun: LatestRunResponseDto,
     notes: readonly NoteResponseDto[],
+    folded: readonly FoldedVisitResponseDto[],
     spend: RunSpendResponseDto | null,
   ) {
     this.runId = runId;
@@ -220,6 +232,7 @@ export class RunNotesResponseDto {
     this.progress = progress;
     this.latestRun = latestRun;
     this.notes = notes;
+    this.folded = folded;
     this.spend = spend;
   }
 }

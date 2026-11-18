@@ -231,6 +231,7 @@ export class InboxController {
     return new InboxItemViewResponseDto(
       taskItemFields(found),
       found.notes.map(NoteHttpMapper.toResponse),
+      found.folded.map(NoteHttpMapper.foldedToResponse),
     );
   }
 

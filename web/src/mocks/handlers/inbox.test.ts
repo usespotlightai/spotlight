@@ -11,6 +11,7 @@ import {
   editReviewComment,
   listInbox,
   listTaskJournalRuns,
+  listTaskNotes,
   listTasks,
   markInboxItemRead,
   markInboxRequestRead,
@@ -73,8 +74,32 @@ const RETRIES = {
 const POSTGRES_RUN = { teamId: PLATFORM_ID, runId: 'run_postgres_2' };
 const POSTGRES_TASK = { teamId: PLATFORM_ID, taskId: 'task_postgres' };
 
-const approvalIn = async (itemId: string) =>
-  (await itemIn(itemId))?.notes.findLast((note) => note.approval)?.approval;
+const foldedNotesOf = async (
+  item: NonNullable<Awaited<ReturnType<typeof itemIn>>>,
+) =>
+  (
+    await Promise.all(
+      item.folded.map(
+        async (visit) =>
+          (
+            await listTaskNotes({
+              path: { teamId: item.teamId, taskId: item.taskId },
+              query: { from: visit.first.position, to: visit.to },
+              throwOnError: true,
+            })
+          ).data,
+      ),
+    )
+  ).flat();
+
+const approvalIn = async (itemId: string) => {
+  const item = await itemIn(itemId);
+
+  return [
+    ...(item ? await foldedNotesOf(item) : []),
+    ...(item?.notes ?? []),
+  ].findLast((note) => note.approval)?.approval;
+};
 
 describe('the mock inbox', () => {
   serveMockApi();
@@ -215,6 +240,8 @@ describe('the mock inbox', () => {
     expect(runs.map((run) => run.runId)).toEqual([
       'run_postgres_1',
       'run_postgres_2',
+      'run_postgres_review',
+      'run_postgres_fix',
       'run_postgres_3',
     ]);
     expect(data.map((journal) => journal.runId)).toEqual(['run_postgres_2']);

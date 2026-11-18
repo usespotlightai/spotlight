@@ -104,6 +104,13 @@ const resolveInboxRequests = (
   }
 };
 
+const nextPositionIn = (item: InboxConversation): number =>
+  Math.max(
+    -1,
+    ...item.notes.map((note) => note.position),
+    ...item.folded.map((visit) => visit.to),
+  ) + 1;
+
 const answerReviewOf = (item: InboxConversation) => {
   const task = taskOf(item.taskId);
 
@@ -130,7 +137,7 @@ const answer = (item: InboxConversation, reply: AnswerInboxItemRequestDto) => {
   }
 
   item.notes.push({
-    position: item.notes.length,
+    position: nextPositionIn(item),
     kind: 'answered',
     form: deciding ? 'approval' : 'words',
     voice: 'person',
@@ -163,7 +170,7 @@ const notedBySam = (
   body: string,
 ) =>
   item.notes.push({
-    position: item.notes.length,
+    position: nextPositionIn(item),
     kind,
     form: kind === 'passed' ? 'resolved' : 'words',
     voice: 'person',

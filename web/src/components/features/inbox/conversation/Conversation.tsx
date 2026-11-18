@@ -1,33 +1,32 @@
 import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
 
-import { HoldMarker } from '@/components/features/inbox/conversation/HoldMarker';
+import { FoldedVisits } from '@/components/features/inbox/conversation/FoldedVisits';
 import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
-import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
+import { ThreadMessage } from '@/components/features/inbox/conversation/ThreadMessage';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
-import { WorldMessage } from '@/components/features/inbox/conversation/WorldMessage';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { Turn } from '@/components/shared/Turn';
-import { useMessageSources } from '@/hooks/api/useMessageSources';
 import { useArrivals } from '@/hooks/useArrivals';
 import type { ApprovalAnswer } from '@/lib/approval';
 import { changesInPlace } from '@/lib/disclosure';
-import { marksHold } from '@/lib/hold';
+import { placeVisits } from '@/lib/folded-visit';
 import {
   ARRIVING,
-  authorsOf,
   type ConversationItem,
   type Note,
   openedAt,
   type RunJournal,
+  type RunPrompt,
   STICKY_AT_TOP,
   showsInThread,
   workedOn,
 } from '@/lib/inbox';
 import { lastNoteOf } from '@/lib/run-notes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
+import { showsMessage } from '@/lib/thread-message';
 import { cn } from '@/lib/utils';
 
 interface NoteTurn {
@@ -167,9 +166,6 @@ const put = (
   return box.scrollTop !== was;
 };
 
-const said = (note: Note): boolean =>
-  note.body.trim() !== '' || note.attachments.length > 0;
-
 export type Deciding = {
   readonly pending: boolean;
   readonly onDecide: (answer: ApprovalAnswer) => void;
@@ -185,6 +181,7 @@ type ConversationProps = {
   footer: ReactNode;
   deciding?: Deciding;
   afterRun?: AfterRun;
+  prompt?: RunPrompt | null;
   suggestion?: ReactNode;
 };
 
@@ -198,11 +195,23 @@ export function Conversation({
   footer,
   deciding,
   afterRun,
+  prompt,
   suggestion,
 }: ConversationProps) {
   const marked = marksIn(item);
   const turns = turnsOf(item);
-  const sourceOf = useMessageSources(item.teamId);
+  const shownNotes = item.notes.filter(showsInThread);
+  const placed = placeVisits(item.folded, shownNotes);
+  const promptAt = prompt
+    ? shownNotes.find((note) => note.runId === prompt.runId)?.position
+    : undefined;
+  const foldedBefore = (position: number) => {
+    const visits = placed.before.get(position);
+
+    return visits ? (
+      <FoldedVisits visits={visits} item={item} worked={worked} />
+    ) : null;
+  };
   const workedBy: WorkedBy = new Map(
     item.notes.map((note) => [
       note.position,
@@ -303,22 +312,8 @@ export function Conversation({
 
         {turns.map((turn, at, all) => {
           const head =
-            turn.prompt?.voice === 'world' ? (
-              <WorldMessage
-                body={turn.prompt.body}
-                attachments={turn.prompt.attachments}
-                authors={authorsOf(turn.prompt)}
-                source={sourceOf(turn.prompt.source)}
-                deferredTo={turn.prompt.deferredTo}
-              />
-            ) : turn.prompt && marksHold(turn.prompt) ? (
-              <HoldMarker note={turn.prompt} />
-            ) : turn.prompt && said(turn.prompt) ? (
-              <PersonMessage
-                body={turn.prompt.body}
-                attachments={turn.prompt.attachments}
-                authors={authorsOf(turn.prompt)}
-              />
+            turn.prompt && showsMessage(turn.prompt) ? (
+              <ThreadMessage note={turn.prompt} teamId={item.teamId} />
             ) : at === 0 ? (
               briefing
             ) : null;
@@ -328,97 +323,118 @@ export function Conversation({
           }
 
           const afterAnother = at > firstShown;
+          const earlier = turn.prompt && foldedBefore(turn.prompt.position);
 
           return (
-            <Turn
-              // oxlint-disable-next-line react/no-array-index-key -- the turns come in order and their order does not change
-              key={at}
-              className={cn(afterAnother && 'mt-6')}
-              head={
-                <>
-                  {head && turn.prompt && marked.has(turn.prompt.position) && (
-                    <div className={cn('mb-3', !afterAnother && 'mt-6')}>
-                      <TimeMarker at={turn.prompt.at} />
-                    </div>
-                  )}
+            // oxlint-disable-next-line react/no-array-index-key -- the turns come in order and their order does not change
+            <Fragment key={at}>
+              {earlier && <div className="mt-6">{earlier}</div>}
 
-                  {head && (
-                    <div
-                      data-head
-                      data-note={turn.prompt?.position}
-                      className={cn(
-                        STICKY_AT_TOP,
-                        turn.prompt &&
-                          arrived(turn.prompt.position) &&
-                          ARRIVING,
+              <Turn
+                className={cn(afterAnother && 'mt-6')}
+                head={
+                  <>
+                    {head &&
+                      turn.prompt &&
+                      marked.has(turn.prompt.position) && (
+                        <div className={cn('mb-3', !afterAnother && 'mt-6')}>
+                          <TimeMarker at={turn.prompt.at} />
+                        </div>
                       )}
-                    >
-                      {head}
-                    </div>
-                  )}
-                </>
-              }
-            >
-              <ol className="mt-6 flex flex-col gap-6">
-                {runClosing?.turn === at && runClosing.after === null && (
-                  <li>{afterRun?.content}</li>
-                )}
 
-                {turn.notes.map((note, place) => {
-                  const before = turn.notes[place - 1];
-                  const closesRun =
-                    runClosing?.turn === at &&
-                    runClosing.after === note.position
-                      ? afterRun?.content
-                      : null;
-
-                  return (
-                    <Fragment key={`${item.id}-${note.position}`}>
-                      {(!before || before.station !== note.station) &&
-                        marked.has(note.position) && (
-                          <li>
-                            <TimeMarker at={note.at} />
-                          </li>
+                    {head && (
+                      <div
+                        data-head
+                        data-note={turn.prompt?.position}
+                        className={cn(
+                          STICKY_AT_TOP,
+                          turn.prompt &&
+                            arrived(turn.prompt.position) &&
+                            ARRIVING,
                         )}
+                      >
+                        {head}
+                      </div>
+                    )}
+                  </>
+                }
+              >
+                <ol className="mt-6 flex flex-col gap-6">
+                  {runClosing?.turn === at && runClosing.after === null && (
+                    <li>{afterRun?.content}</li>
+                  )}
 
-                      <InboxNote
-                        note={note}
-                        stationCount={item.station.count}
-                        teamId={item.teamId}
-                        about={item.about}
-                        resolved={item.resolved}
-                        deciding={deciding}
-                        suggestion={
-                          note.position === latest ? suggestion : undefined
-                        }
-                        arrived={arrived(note.position)}
-                        worked={workedBy.get(note.position) ?? []}
-                      />
+                  {turn.notes.map((note, place) => {
+                    const before = turn.notes[place - 1];
+                    const closesRun =
+                      runClosing?.turn === at &&
+                      runClosing.after === note.position
+                        ? afterRun?.content
+                        : null;
 
-                      {closesRun && <li>{closesRun}</li>}
-                    </Fragment>
-                  );
-                })}
+                    const earlierHere = foldedBefore(note.position);
 
-                {at === all.length - 1 &&
-                  (live ? (
-                    <li className="empty:hidden">{live}</li>
-                  ) : (
-                    item.progress && (
-                      <InboxWorking
-                        progress={item.progress}
-                        station={item.station.name}
-                        stationColor={item.station.color}
-                        stationPosition={item.station.position}
-                        stationCount={item.station.count}
-                        session={worked.at(-1)}
-                      />
-                    )
-                  ))}
-              </ol>
-            </Turn>
+                    return (
+                      <Fragment key={`${item.id}-${note.position}`}>
+                        {earlierHere && <li>{earlierHere}</li>}
+
+                        {(!before || before.station !== note.station) &&
+                          marked.has(note.position) && (
+                            <li>
+                              <TimeMarker at={note.at} />
+                            </li>
+                          )}
+
+                        <InboxNote
+                          note={note}
+                          stationCount={item.station.count}
+                          teamId={item.teamId}
+                          about={item.about}
+                          resolved={item.resolved}
+                          deciding={deciding}
+                          suggestion={
+                            note.position === latest ? suggestion : undefined
+                          }
+                          arrived={arrived(note.position)}
+                          worked={workedBy.get(note.position) ?? []}
+                          prompt={
+                            note.position === promptAt
+                              ? prompt?.text
+                              : undefined
+                          }
+                        />
+
+                        {closesRun && <li>{closesRun}</li>}
+                      </Fragment>
+                    );
+                  })}
+
+                  {at === all.length - 1 &&
+                    (live ? (
+                      <li className="empty:hidden">{live}</li>
+                    ) : (
+                      item.progress && (
+                        <InboxWorking
+                          progress={item.progress}
+                          station={item.station.name}
+                          stationColor={item.station.color}
+                          stationPosition={item.station.position}
+                          stationCount={item.station.count}
+                          session={worked.at(-1)}
+                        />
+                      )
+                    ))}
+                </ol>
+              </Turn>
+            </Fragment>
           );
         })}
+
+        {placed.after.length > 0 && (
+          <div className="mt-6">
+            <FoldedVisits visits={placed.after} item={item} worked={worked} />
+          </div>
+        )}
 
         {closing && <div className="mt-3">{closing}</div>}
       </div>

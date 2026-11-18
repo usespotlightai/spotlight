@@ -115,11 +115,13 @@ const render =
     <Conversation
       item={{
         id: 'task_background',
+        taskId: 'task_background',
         teamId: 'team_platform',
         createdAt: at(0),
         station: STATION,
         progress,
         notes: [said],
+        folded: [],
       }}
       worked={worked}
       footer={null}

@@ -3,7 +3,10 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
-import type { InboxNote } from '@work/application/ports/inbox-reader.port';
+import type {
+  InboxFoldedVisit,
+  InboxNote,
+} from '@work/application/ports/inbox-reader.port';
 import type { RunsInWorkspace } from '@work/application/ports/viewed-runs';
 import type { ReviewState } from '@work/domain/services/conversations';
 import type { RunDriver } from '@work/domain/value-objects/dispatch-subject';
@@ -58,6 +61,7 @@ export interface RunNotesSummary {
   readonly progress: Progress | null;
   readonly latestRun: LatestRunSummary;
   readonly notes: readonly InboxNote[];
+  readonly folded: readonly InboxFoldedVisit[];
 }
 
 interface LatestRunSummary {
@@ -94,6 +98,12 @@ export interface RunReaderPort {
   findForTeam(teamId: TeamId, runId: RunId): Promise<TeamRunSummary | null>;
 
   notesFor(runId: RunId): Promise<RunsInWorkspace<RunNotesSummary> | null>;
+
+  taskNotesBetween(
+    taskId: TaskId,
+    from: number,
+    to: number,
+  ): Promise<RunsInWorkspace<InboxNote[]> | null>;
 
   configFor(runId: RunId): Promise<RunsInWorkspace<RunConfigSummary> | null>;
 }

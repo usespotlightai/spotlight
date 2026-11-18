@@ -29,6 +29,7 @@ const notes: RunNotesSummary = {
     progress: null,
   },
   notes: [],
+  folded: [],
 };
 
 const usage: RunUsageFacts = {
@@ -52,6 +53,7 @@ const reading = (
       listForTeam: vi.fn(),
       findForTeam: vi.fn(),
       notesFor: vi.fn().mockResolvedValue(found && inWorkspace(found)),
+      taskNotesBetween: vi.fn(),
       configFor: vi.fn(),
     } satisfies RunReaderPort,
     { forRuns: async () => new Map(usages) },

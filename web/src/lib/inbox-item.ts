@@ -1,4 +1,9 @@
-import type { ConversationItem, InboxItem, InboxItemView } from '@/lib/inbox';
+import type {
+  ConversationItem,
+  InboxItem,
+  InboxItemView,
+  RunPrompt,
+} from '@/lib/inbox';
 
 export const stationOf = (item: InboxItem): ConversationItem['station'] => ({
   name: item.station,
@@ -12,3 +17,9 @@ export const suggestsClosing = (item: InboxItemView): boolean =>
 
 export const carriesItsOwn = (item: InboxItemView): boolean =>
   item.notes[0]?.form === 'setup';
+
+export const promptOf = (item: InboxItemView): RunPrompt | null => {
+  const runId = item.notes[0]?.runId;
+
+  return runId && item.briefing ? { runId, text: item.briefing } : null;
+};

@@ -1,5 +1,5 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
-import type { NoteDto } from '@work/application/dto/inbox.dto';
+import type { FoldedVisitDto, NoteDto } from '@work/application/dto/inbox.dto';
 import type { RunStationDto } from '@work/application/dto/task-run.dto';
 import type { Progress } from '@work/domain/value-objects/progress';
 
@@ -30,5 +30,6 @@ export interface RunNotesDto {
   readonly progress: Progress | null;
   readonly latestRun: LatestRunDto;
   readonly notes: readonly NoteDto[];
+  readonly folded: readonly FoldedVisitDto[];
   readonly spend: RunSpendDto | null;
 }

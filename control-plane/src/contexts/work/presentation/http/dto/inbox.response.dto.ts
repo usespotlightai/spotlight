@@ -429,6 +429,63 @@ export class NoteResponseDto {
   }
 }
 
+export class FoldedVisitResponseDto {
+  @ApiProperty({
+    type: NoteResponseDto,
+    description:
+      'The first note of one station visit that the page does not show',
+  })
+  readonly first: NoteResponseDto;
+
+  @ApiProperty({
+    example: 4,
+    description: 'The position of the last note of this visit',
+  })
+  readonly to: number;
+
+  @ApiProperty({
+    example: '2026-11-18T09:30:00.000Z',
+    description: 'When the last note of this visit was written',
+  })
+  readonly endedAt: string;
+
+  @ApiProperty({
+    type: NoteResponseDto,
+    nullable: true,
+    description: 'The note that moved the task on from this visit',
+  })
+  readonly closing: NoteResponseDto | null;
+
+  @ApiProperty({
+    type: NoteResponseDto,
+    nullable: true,
+    description: 'The last answer a person gave in this visit',
+  })
+  readonly answer: NoteResponseDto | null;
+
+  @ApiProperty({
+    example: false,
+    description: 'Whether this visit sent the task back to an earlier station',
+  })
+  readonly sentBack: boolean;
+
+  constructor(
+    first: NoteResponseDto,
+    to: number,
+    endedAt: string,
+    closing: NoteResponseDto | null,
+    answer: NoteResponseDto | null,
+    sentBack: boolean,
+  ) {
+    this.first = first;
+    this.to = to;
+    this.endedAt = endedAt;
+    this.closing = closing;
+    this.answer = answer;
+    this.sentBack = sentBack;
+  }
+}
+
 export class InboxStationResponseDto {
   @ApiProperty({ example: 'Triage' })
   readonly name: string;
@@ -652,12 +709,22 @@ export class InboxItemViewResponseDto extends InboxItemResponseDto {
   })
   readonly notes: readonly NoteResponseDto[];
 
+  @ApiProperty({
+    type: FoldedVisitResponseDto,
+    isArray: true,
+    description:
+      'The station visits of the task outside this conversation, oldest first',
+  })
+  readonly folded: readonly FoldedVisitResponseDto[];
+
   constructor(
     item: Omit<InboxItemResponseDto, 'kind'>,
     notes: readonly NoteResponseDto[],
+    folded: readonly FoldedVisitResponseDto[],
   ) {
     super(item);
     this.notes = notes;
+    this.folded = folded;
   }
 }
 

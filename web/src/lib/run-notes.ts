@@ -133,6 +133,7 @@ export const conversationItemOf = (
   progress: ShownProgress | null,
 ): ConversationItem => ({
   id: conversation.runId,
+  taskId: conversation.taskId,
   teamId,
   createdAt: conversation.createdAt,
   station: {
@@ -143,6 +144,7 @@ export const conversationItemOf = (
   },
   progress,
   notes: conversation.notes,
+  folded: conversation.folded,
 });
 
 export const followedOnAfter = (

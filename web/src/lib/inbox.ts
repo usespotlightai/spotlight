@@ -1,4 +1,5 @@
 import type {
+  FoldedVisitResponseDto,
   InboxChatResponseDto,
   InboxItemResponseDto,
   InboxItemViewResponseDto,
@@ -29,11 +30,19 @@ export type ResolvableEntry = InboxItem | InboxNotice | InboxChat;
 
 export type Note = NoteResponseDto;
 
+export type FoldedVisit = FoldedVisitResponseDto;
+
+export type RunPrompt = {
+  readonly runId: string;
+  readonly text: string;
+};
+
 export const authorsOf = (note: Note): Person[] =>
   note.author ? [note.author, ...note.coAuthors] : note.coAuthors;
 
 export type ConversationItem = {
   readonly id: string;
+  readonly taskId: string;
   readonly teamId: string | undefined;
   readonly about?: {
     readonly title: string;
@@ -49,6 +58,7 @@ export type ConversationItem = {
   readonly progress: ShownProgress | null;
   readonly resolved?: boolean;
   readonly notes: readonly Note[];
+  readonly folded: readonly FoldedVisit[];
 };
 
 export type RunJournal = RunJournalResponseDto;

@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router';
 
+import { TaskPullRequests } from '@/components/features/board/task/TaskPullRequests';
 import { CloseTaskSuggestion } from '@/components/features/inbox/conversation/CloseTaskSuggestion';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxItemBriefing } from '@/components/features/inbox/conversation/InboxItemBriefing';
@@ -20,7 +21,12 @@ import {
   shownAt,
   workedOn,
 } from '@/lib/inbox';
-import { carriesItsOwn, stationOf, suggestsClosing } from '@/lib/inbox-item';
+import {
+  carriesItsOwn,
+  promptOf,
+  stationOf,
+  suggestsClosing,
+} from '@/lib/inbox-item';
 import { shownProgress } from '@/lib/run';
 
 type InboxItemConversationProps = {
@@ -47,12 +53,14 @@ export function InboxItemConversation({
       <PageHeader
         title={<Breadcrumbs segments={trail} />}
         trailing={<FailureCount failure={item.failure} />}
+        actions={<TaskPullRequests teamId={item.teamId} taskId={item.taskId} />}
       />
 
       <RunSidePanel>
         <Conversation
           item={{
             id: item.id,
+            taskId: item.taskId,
             teamId: item.teamId,
             about: ownsItsBriefing
               ? { title: item.title, description: item.description }
@@ -62,6 +70,7 @@ export function InboxItemConversation({
             progress,
             resolved: item.resolved,
             notes: item.notes,
+            folded: item.folded,
           }}
           worked={worked}
           deciding={{
@@ -87,6 +96,7 @@ export function InboxItemConversation({
             ) : undefined
           }
           openAt={shownAt(item.notes, params.get('run'))}
+          prompt={promptOf(item)}
           live={
             item.runId && progress ? (
               <RunActivity

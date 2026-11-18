@@ -35,7 +35,7 @@ export function InboxComposer({
     <ChatInput
       slug={slug}
       label={`Answer ${station}`}
-      placeholder="Reply…"
+      placeholder={`${station} reads your answer and decides the next step…`}
       pending={answer.isPending}
       running={running}
       shared={shared}

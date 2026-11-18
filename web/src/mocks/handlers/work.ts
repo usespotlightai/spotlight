@@ -16,6 +16,7 @@ import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
 import { perWorld, world } from '@/mocks/world';
+import { notesBetween } from '@/mocks/world/folded-visits';
 import { inboxStore } from '@/mocks/world/inbox-store';
 import { SAM } from '@/mocks/world/people';
 import { runNetworkOf } from '@/mocks/world/run-network';
@@ -293,6 +294,18 @@ export const workHandlers: RequestHandler[] = [
       (each) => each.id === String(params.runId),
     );
     return run ? json(run) : notFound();
+  }),
+
+  api.get('/teams/:teamId/tasks/:taskId/notes', ({ params, request }) => {
+    const query = new URL(request.url).searchParams;
+
+    return json(
+      notesBetween(
+        String(params.taskId),
+        Number(query.get('from')),
+        Number(query.get('to')),
+      ),
+    );
   }),
 
   api.get('/teams/:teamId/runs/:runId/notes', ({ params }) => {

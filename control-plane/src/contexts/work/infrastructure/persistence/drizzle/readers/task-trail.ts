@@ -9,6 +9,7 @@ import type {
   InboxApproval,
   InboxConnection,
   InboxFailure,
+  InboxFoldedVisit,
   InboxNote,
 } from '@work/application/ports/inbox-reader.port';
 import type { RunReview } from '@work/application/ports/run-reader.port';
@@ -22,6 +23,7 @@ import {
   TURNING_NOTE_KINDS,
 } from '@work/domain/services/conversations';
 import { deferralWaitingIn } from '@work/domain/services/deferred-moves';
+import { foldedVisits } from '@work/domain/services/folded-visits';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import {
@@ -41,6 +43,7 @@ import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/wo
 import {
   and,
   asc,
+  between,
   count,
   desc,
   eq,
@@ -290,7 +293,7 @@ const inboxNotesOf = async (
       station: row.station,
       stationId: row.stationId,
       stationColor: row.stationColor ?? PLAIN_STATION_COLOR,
-      stationPosition: row.stationPosition ?? 0,
+      stationPosition: row.stationPosition,
       runId: row.runId,
       kind: row.kind,
       form: row.form,
@@ -357,6 +360,31 @@ export const trailsFor = async (
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
 
   return byTask(await inboxNotesOf(db, people, rows));
+};
+
+export const notesBetween = async (
+  db: DrizzleDatabase,
+  people: PersonReaderPort,
+  taskId: string,
+  from: number,
+  to: number,
+): Promise<InboxNote[]> => {
+  const rows = await db
+    .select(NOTE_COLUMNS)
+    .from(taskNote)
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
+    .leftJoin(
+      deferredStation,
+      eq(deferredStation.stationId, sql`${taskNote.deferredMove} ->> 'to'`),
+    )
+    .where(
+      and(eq(taskNote.taskId, taskId), between(taskNote.position, from, to)),
+    )
+    .orderBy(asc(taskNote.position));
+
+  return (await inboxNotesOf(db, people, rows)).map(
+    ({ taskId: _task, ...note }) => note,
+  );
 };
 
 export const newestNotesFor = async (
@@ -521,6 +549,30 @@ export const conversationsAmong = <T extends { kind: TaskNoteKind }>(
         ]
       : [];
   });
+
+export const foldedAround = (
+  trail: readonly InboxNote[],
+  shown: readonly InboxNote[],
+): InboxFoldedVisit[] =>
+  foldedVisits(trail, new Set(shown.map((note) => note.position))).flatMap(
+    ({ notes, closing, answer, sentBack }) => {
+      const [first] = notes;
+      const last = notes[notes.length - 1];
+
+      return first && last
+        ? [
+            {
+              first,
+              to: last.position,
+              endedAt: last.at,
+              closing,
+              answer,
+              sentBack,
+            },
+          ]
+        : [];
+    },
+  );
 
 export const stationsPerLine = async (
   db: DrizzleDatabase,

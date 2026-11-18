@@ -8,8 +8,11 @@ type StepsWorkProps = {
 };
 
 const stepsLabel = (verb: string, count: number) => (
-  <span>
-    {verb} · {count} {count === 1 ? 'step' : 'steps'}
+  <span className="flex flex-wrap items-center gap-x-3">
+    <span>{verb}</span>{' '}
+    <span>
+      {count} {count === 1 ? 'step' : 'steps'}
+    </span>
   </span>
 );
 

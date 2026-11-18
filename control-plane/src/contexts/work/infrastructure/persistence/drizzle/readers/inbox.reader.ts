@@ -77,6 +77,7 @@ import {
   type ConversationMark,
   conversationsAmong,
   failureIn,
+  foldedAround,
   latestRunsAtCurrentStation,
   type MarkedConversation,
   marksFor,
@@ -490,12 +491,12 @@ const conversationItem = (
     attachments: context.attached.get(row.taskId)?.own ?? [],
     station: opening.station,
     stationColor: opening.stationColor,
-    stationPosition: opening.stationPosition,
+    stationPosition: opening.stationPosition ?? 0,
     stationCount: context.stationCounts.get(row.lineId) ?? 1,
     originStation: {
       name: row.originStationName ?? opening.station,
       color: row.originColor ?? opening.stationColor,
-      position: row.originPosition ?? opening.stationPosition,
+      position: row.originPosition ?? opening.stationPosition ?? 0,
     },
     currentStation: {
       name: row.currentStationName,
@@ -1014,6 +1015,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         context,
       ),
       notes,
+      folded: foldedAround(trail, notes),
     };
   }
 
@@ -1031,7 +1033,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
     const [found] = await this.requestItems(scope, rows);
 
     return found && found.entry.kind === 'task'
-      ? { ...found.entry, notes: [] }
+      ? { ...found.entry, notes: [], folded: [] }
       : null;
   }
 

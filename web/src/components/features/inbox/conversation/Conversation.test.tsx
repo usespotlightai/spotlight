@@ -9,7 +9,7 @@ import {
   Conversation,
   type Deciding,
 } from '@/components/features/inbox/conversation/Conversation';
-import { type Note, openedAt } from '@/lib/inbox';
+import { type FoldedVisit, type Note, openedAt } from '@/lib/inbox';
 import type { ShownProgress } from '@/lib/run';
 
 vi.mock('@/hooks/api/useSession', () => ({
@@ -91,6 +91,7 @@ const showing = (
   deciding?: Deciding,
   afterRun?: AfterRun,
   progress: ShownProgress | null = null,
+  folded: readonly FoldedVisit[] = [],
 ) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -100,6 +101,7 @@ const showing = (
           afterRun={afterRun}
           item={{
             id: 'item_1',
+            taskId: 'task_1',
             teamId: 'team_1',
             createdAt: AT,
             station: {
@@ -110,6 +112,7 @@ const showing = (
             },
             progress,
             notes,
+            folded,
           }}
           worked={[]}
           footer={null}
@@ -313,6 +316,7 @@ describe('Conversation', () => {
           <Conversation
             item={{
               id: 'item_1',
+              taskId: 'task_1',
               teamId: 'team_1',
               createdAt: AT,
               station: {
@@ -323,6 +327,7 @@ describe('Conversation', () => {
               },
               progress: null,
               notes,
+              folded: [],
             }}
             worked={[]}
             footer={null}

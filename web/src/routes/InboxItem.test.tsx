@@ -58,6 +58,15 @@ vi.mock('@/hooks/api/useTaskJournal', () => ({
 
 vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 
+const visitNotesBetween = vi.fn<(options: unknown) => Promise<unknown>>();
+
+vi.mock('@/lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api')>()),
+  listTaskNotes: async (options: unknown) => ({
+    data: await visitNotesBetween(options),
+  }),
+}));
+
 vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
 }));
@@ -113,7 +122,11 @@ const note = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const item = (notes: unknown[], description: string | null = null) => [
+const item = (
+  notes: unknown[],
+  description: string | null = null,
+  folded: unknown[] = [],
+) => [
   {
     kind: 'task',
     id: 'task_1:0',
@@ -140,6 +153,7 @@ const item = (notes: unknown[], description: string | null = null) => [
     unread: false,
     briefing: null,
     notes,
+    folded,
   },
 ];
 
@@ -435,7 +449,7 @@ describe('InboxItem', () => {
     expect(screen.queryByText('Maya')).not.toBeInTheDocument();
   });
 
-  it('opens on the prompt the station was given', () => {
+  it('keeps the prompt the station was given behind a disclosure', async () => {
     const [only] = item([note()]);
     waiting.mockReturnValue([
       { ...only, briefing: '## Code review\n\nReview the change.' },
@@ -443,7 +457,113 @@ describe('InboxItem', () => {
 
     renderItem();
 
+    expect(
+      screen.getByRole('heading', { name: 'Fix the queue' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Review the change\./)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Prompt' }));
+
     expect(screen.getByText(/Review the change\./)).toBeInTheDocument();
+  });
+
+  describe('with the visits of other stations', () => {
+    const visitNotes = [
+      note({ position: 0, body: 'Per workspace or per token?' }),
+      note({
+        position: 1,
+        kind: 'answered',
+        voice: 'person',
+        runId: null,
+        author: { id: 'user_3', name: 'Sam', image: null },
+        body: 'Per token.',
+      }),
+      note({
+        position: 2,
+        kind: 'passed',
+        body: 'Limit per token.\nReturn 429.',
+      }),
+    ];
+    const handedOver = {
+      first: visitNotes[0],
+      to: 2,
+      endedAt: '2026-08-29T12:00:00.000Z',
+      closing: visitNotes[2],
+      answer: visitNotes[1],
+      sentBack: false,
+    };
+    const asked = note({
+      position: 3,
+      station: 'Code Review',
+      stationPosition: 3,
+      runId: 'run_2',
+      body: 'Merge anyway?',
+    });
+
+    it('folds each visit to its station, its handover and the answer', () => {
+      waiting.mockReturnValue(item([asked], null, [handedOver]));
+
+      renderItem();
+
+      const visit = screen.getByRole('button', { name: /Triage/ });
+      expect(visit).toHaveAttribute('aria-expanded', 'false');
+      expect(visit).toHaveTextContent('Limit per token.');
+      expect(visit).not.toHaveTextContent('Return 429.');
+      expect(screen.getByText('Per token.')).toBeInTheDocument();
+      expect(screen.getByLabelText('Sam wrote this')).toBeInTheDocument();
+      expect(
+        screen.queryByText('Per workspace or per token?'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('loads every note of a visit once it is opened', async () => {
+      waiting.mockReturnValue(item([asked], null, [handedOver]));
+      visitNotesBetween.mockResolvedValue(visitNotes);
+
+      renderItem();
+
+      expect(visitNotesBetween).not.toHaveBeenCalled();
+
+      await userEvent.click(screen.getByRole('button', { name: /Triage/ }));
+
+      expect(
+        await screen.findByText('Per workspace or per token?'),
+      ).toBeInTheDocument();
+      expect(visitNotesBetween).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { teamId: 'team_1', taskId: 'task_1' },
+          query: { from: 0, to: 2 },
+        }),
+      );
+      expect(screen.getAllByText('Per token.')).toHaveLength(1);
+      expect(screen.getByLabelText('Sam wrote this')).toBeInTheDocument();
+    });
+
+    it('says when a visit sent the task back', () => {
+      waiting.mockReturnValue(
+        item([asked], null, [{ ...handedOver, sentBack: true }]),
+      );
+
+      renderItem();
+
+      const sentBack = within(
+        screen.getByRole('button', { name: /Triage/ }),
+      ).getByText('Sent it back.');
+      expect(sentBack.closest('.hidden')).toBeNull();
+    });
+
+    it('puts the earlier visits before the conversation', () => {
+      waiting.mockReturnValue(item([asked], null, [handedOver]));
+
+      renderItem();
+
+      expect(
+        screen
+          .getByRole('button', { name: /Triage/ })
+          .compareDocumentPosition(screen.getByText('Merge anyway?')) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
   });
 
   it('shows the task itself as the person’s own input', () => {

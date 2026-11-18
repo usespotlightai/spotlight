@@ -476,6 +476,7 @@ import { ReadRunnerHistoryHandler } from '@work/application/queries/handlers/rea
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
 import { ReadTaskDraftHandler } from '@work/application/queries/handlers/read-task-draft.handler';
 import { ReadTaskJournalHandler } from '@work/application/queries/handlers/read-task-journal.handler';
+import { ReadTaskNotesHandler } from '@work/application/queries/handlers/read-task-notes.handler';
 import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-task-trace.handler';
 import {
   ListInboxQuery,
@@ -503,6 +504,7 @@ import {
   ListTaskJournalRunsQuery,
   ReadTaskJournalQuery,
 } from '@work/application/queries/read-task-journal.query';
+import { ReadTaskNotesQuery } from '@work/application/queries/read-task-notes.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import {
   JoinTaskDraftQuery,
@@ -1962,6 +1964,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadRunNotesQuery, ReadRunNotesHandler, [
     RUN_READER,
     RUN_USAGES,
+    RunAccess,
+  ]),
+
+  ...bindQueryHandler(ReadTaskNotesQuery, ReadTaskNotesHandler, [
+    RUN_READER,
     RunAccess,
   ]),
 

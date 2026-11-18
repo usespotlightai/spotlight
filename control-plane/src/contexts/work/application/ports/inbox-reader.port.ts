@@ -73,7 +73,7 @@ export interface InboxNote {
   readonly station: string | null;
   readonly stationId: string;
   readonly stationColor: string;
-  readonly stationPosition: number;
+  readonly stationPosition: number | null;
   readonly runId: string | null;
   readonly body: string;
   readonly attachments: readonly AttachmentSummary[];
@@ -134,8 +134,18 @@ export interface InboxItemSummary {
   readonly lastNote: InboxNote | null;
 }
 
+export interface InboxFoldedVisit {
+  readonly first: InboxNote;
+  readonly to: number;
+  readonly endedAt: Date;
+  readonly closing: InboxNote | null;
+  readonly answer: InboxNote | null;
+  readonly sentBack: boolean;
+}
+
 export interface InboxItemView extends InboxItemSummary {
   readonly notes: readonly InboxNote[];
+  readonly folded: readonly InboxFoldedVisit[];
 }
 
 export interface InboxNoticeSummary {

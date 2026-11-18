@@ -3064,6 +3064,33 @@ export type InboxRunResponseDto = {
   reopenable: false;
 };
 
+export type FoldedVisitResponseDto = {
+  /**
+   * The first note of one station visit that the page does not show
+   */
+  first: NoteResponseDto;
+  /**
+   * The position of the last note of this visit
+   */
+  to: number;
+  /**
+   * When the last note of this visit was written
+   */
+  endedAt: string;
+  /**
+   * The note that moved the task on from this visit
+   */
+  closing: NoteResponseDto | null;
+  /**
+   * The last answer a person gave in this visit
+   */
+  answer: NoteResponseDto | null;
+  /**
+   * Whether this visit sent the task back to an earlier station
+   */
+  sentBack: boolean;
+};
+
 export type InboxItemViewResponseDto = {
   /**
    * A task’s conversation or an inbox request on the task
@@ -3149,6 +3176,10 @@ export type InboxItemViewResponseDto = {
    * Every note of the conversation, oldest first
    */
   notes: Array<NoteResponseDto>;
+  /**
+   * The station visits of the task outside this conversation, oldest first
+   */
+  folded: Array<FoldedVisitResponseDto>;
 };
 
 export type AnswerInboxItemInputRequestDto = {
@@ -3494,6 +3525,10 @@ export type RunNotesResponseDto = {
    */
   latestRun: LatestRunResponseDto;
   notes: Array<NoteResponseDto>;
+  /**
+   * The station visits of the task outside this thread, oldest first
+   */
+  folded: Array<FoldedVisitResponseDto>;
   /**
    * What the run spent, once it has ended and its usage is recorded
    */
@@ -16255,6 +16290,36 @@ export type ListTaskRunsResponses = {
 };
 
 export type ListTaskRunsResponse = ListTaskRunsResponses[keyof ListTaskRunsResponses];
+
+export type ListTaskNotesData = {
+  body?: never;
+  path: {
+    taskId: string;
+    teamId: string;
+  };
+  query: {
+    from: number;
+    to: number;
+  };
+  url: '/teams/{teamId}/tasks/{taskId}/notes';
+};
+
+export type ListTaskNotesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task, or not the viewer's
+   */
+  404: unknown;
+};
+
+export type ListTaskNotesResponses = {
+  200: Array<NoteResponseDto>;
+};
+
+export type ListTaskNotesResponse = ListTaskNotesResponses[keyof ListTaskNotesResponses];
 
 export type ReadTaskTraceData = {
   body?: never;

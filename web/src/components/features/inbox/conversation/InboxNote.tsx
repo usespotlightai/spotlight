@@ -5,6 +5,7 @@ import { ApprovalCard } from '@/components/features/inbox/conversation/approval/
 import { ConnectionCard } from '@/components/features/inbox/conversation/connection/ConnectionCard';
 import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
 import { InboxWork } from '@/components/features/inbox/conversation/InboxWork';
+import { PromptDisclosure } from '@/components/features/inbox/conversation/PromptDisclosure';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
@@ -30,6 +31,7 @@ type InboxNoteProps = {
   deciding?: Deciding;
   suggestion?: ReactNode;
   arrived?: boolean;
+  prompt?: string;
 };
 
 export function InboxNote({
@@ -42,6 +44,7 @@ export function InboxNote({
   deciding,
   suggestion,
   arrived = false,
+  prompt,
 }: InboxNoteProps) {
   const { data: session } = useSession();
   const sight = useJournalSight();
@@ -68,6 +71,8 @@ export function InboxNote({
           {note.station}
         </span>
       )}
+
+      {prompt && <PromptDisclosure prompt={prompt} />}
 
       {worked.length > 0 && <InboxWork journals={worked} />}
 

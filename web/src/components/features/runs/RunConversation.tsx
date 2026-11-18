@@ -43,6 +43,11 @@ export function RunConversation({
       item={conversationItemOf(conversation, teamId, progress)}
       worked={worked}
       openAt={openAt}
+      prompt={
+        conversation.briefing
+          ? { runId: conversation.runId, text: conversation.briefing }
+          : null
+      }
       briefing={
         <InboxAsked
           station={conversation.station}

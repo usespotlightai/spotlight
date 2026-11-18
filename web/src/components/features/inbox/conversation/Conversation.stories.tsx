@@ -120,11 +120,13 @@ const worked: RunJournal[] = Array.from({ length: TURNS }, (_, turn) => ({
 
 const item: ConversationItem = {
   id: 'task_long',
+  taskId: 'task_long',
   teamId: 'team_platform',
   createdAt: at(0),
   station: STATION,
   progress: null,
   notes,
+  folded: [],
 };
 
 const client = new QueryClient({
