@@ -23,6 +23,7 @@ const MAX_SCALE = 2;
 const PEEK_SCALE = 0.6;
 const PEEK_VISIBLE = 24;
 const CLOSER_ROOM = 44;
+const PEEK_MARGIN_X = PEEK_VISIBLE + CLOSER_ROOM;
 
 const sampled = (
   progress: (ms: number) => number,
@@ -64,9 +65,13 @@ const SWAP = {
 
 type Size = { width: number; height: number };
 
-const fitted = (image: HTMLImageElement | null, factor = 1): Size => {
+const fitted = (
+  image: HTMLImageElement | null,
+  factor = 1,
+  marginX = MARGIN_X,
+): Size => {
   const room = {
-    width: window.innerWidth - MARGIN_X * 2,
+    width: window.innerWidth - marginX * 2,
     height: window.innerHeight - MARGIN_Y * 2,
   };
 
@@ -97,7 +102,7 @@ function Peek({
   side: 'previous' | 'next';
   onClick: () => void;
 }) {
-  const { width, height } = fitted(thumbOf(entry), PEEK_SCALE);
+  const { width, height } = fitted(thumbOf(entry), PEEK_SCALE, PEEK_MARGIN_X);
 
   return (
     <img
@@ -196,7 +201,9 @@ export function ImageGallery({ children }: { children: ReactNode }) {
   const show = (entry: GalleryEntry, opening: boolean) => {
     closing.current = false;
     stage.current = { button: entry.button, opening };
-    setSize(fitted(thumbOf(entry)));
+    setSize(
+      fitted(thumbOf(entry), 1, sorted.length > 1 ? PEEK_MARGIN_X : MARGIN_X),
+    );
     setOpenId(entry.id);
   };
 
@@ -270,8 +277,7 @@ export function ImageGallery({ children }: { children: ReactNode }) {
   };
 
   const peeking =
-    size !== null &&
-    (window.innerWidth - size.width) / 2 >= PEEK_VISIBLE + CLOSER_ROOM;
+    size !== null && (window.innerWidth - size.width) / 2 >= PEEK_MARGIN_X;
 
   const value = { openId, register, unregister, open };
 

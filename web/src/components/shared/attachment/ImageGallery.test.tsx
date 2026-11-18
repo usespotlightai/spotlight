@@ -67,6 +67,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('ImageGallery', () => {
@@ -232,19 +233,22 @@ describe('ImageGallery', () => {
     expect(peek('next')).toBeNull();
   });
 
-  it('shows no peeks when the image fills the width', async () => {
+  it('keeps room for peeks beside a wide image', async () => {
     vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(
-      4000,
+      640,
     );
     vi.spyOn(
       HTMLImageElement.prototype,
       'naturalHeight',
       'get',
-    ).mockReturnValue(100);
+    ).mockReturnValue(400);
+    vi.stubGlobal('innerWidth', 1280);
+    vi.stubGlobal('innerHeight', 1600);
     tiles(three);
     await openAt('b.png');
 
-    expect(peek('next')).toBeNull();
+    expect(peek('previous')).not.toBeNull();
+    expect(peek('next')).not.toBeNull();
   });
 
   it('gives focus back to the last viewed tile on close', async () => {
