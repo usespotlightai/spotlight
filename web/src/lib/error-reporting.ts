@@ -14,12 +14,79 @@ export class GatewayError extends Error {
   override readonly name = 'GatewayError';
 }
 
+const STORED_REPORTING_KEY = 'spotlight:error-reporting';
+
 export async function startErrorReporting(): Promise<void> {
+  const stored = storedReporting();
+
+  if (stored) {
+    start(stored);
+    void fetchReporting().catch(() => undefined);
+    return;
+  }
+
+  const fetched = await fetchReporting();
+  if (fetched) {
+    start(fetched);
+  }
+}
+
+function start(reporting: ErrorReportingResponseDto): void {
+  if (reporting.dsn) {
+    init(errorReportingOptions(reporting));
+  }
+}
+
+async function fetchReporting(): Promise<
+  ErrorReportingResponseDto | undefined
+> {
   const { data } = await getErrorReporting();
 
-  if (data?.dsn) {
-    init(errorReportingOptions(data));
+  if (data) {
+    storeReporting(data);
   }
+
+  return data;
+}
+
+function storedReporting(): ErrorReportingResponseDto | undefined {
+  try {
+    const stored: unknown = JSON.parse(
+      localStorage.getItem(STORED_REPORTING_KEY) ?? 'null',
+    );
+    return isReporting(stored) ? stored : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function storeReporting(reporting: ErrorReportingResponseDto): void {
+  try {
+    localStorage.setItem(
+      STORED_REPORTING_KEY,
+      JSON.stringify({
+        dsn: reporting.dsn,
+        environment: reporting.environment,
+        release: reporting.release,
+      }),
+    );
+  } catch {
+    return;
+  }
+}
+
+const isTextOrNull = (value: unknown): value is string | null =>
+  value === null || typeof value === 'string';
+
+function isReporting(value: unknown): value is ErrorReportingResponseDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const { dsn, environment, release } = value as Record<string, unknown>;
+  return (
+    isTextOrNull(dsn) && isTextOrNull(environment) && isTextOrNull(release)
+  );
 }
 
 export function errorReportingOptions(

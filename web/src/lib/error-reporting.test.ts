@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sentry = vi.hoisted(() => ({
   init: vi.fn<
@@ -31,8 +31,15 @@ const REPORTING = {
   release: 'v1.4.0',
 };
 
+const STORED_REPORTING_KEY = 'spotlight:error-reporting';
+
+beforeEach(() => {
+  localStorage.clear();
+});
+
 afterEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe('startErrorReporting', () => {
@@ -59,6 +66,81 @@ describe('startErrorReporting', () => {
     expect(options.tracesSampleRate).toBeUndefined();
     expect(options.integrations).toBeUndefined();
     expect(options.dataCollection.userInfo).toBe(false);
+  });
+
+  it('waits for the control plane and stores its answer when nothing is stored', async () => {
+    api.getErrorReporting.mockResolvedValue({ data: REPORTING });
+
+    await startErrorReporting();
+
+    expect(api.getErrorReporting).toHaveBeenCalledOnce();
+    expect(sentry.init).toHaveBeenCalledOnce();
+    expect(
+      JSON.parse(localStorage.getItem(STORED_REPORTING_KEY) ?? 'null'),
+    ).toEqual(REPORTING);
+  });
+
+  it('starts from the stored answer without waiting for the control plane, and stores the new one for the next load', async () => {
+    localStorage.setItem(STORED_REPORTING_KEY, JSON.stringify(REPORTING));
+    const next = { ...REPORTING, release: 'v1.5.0' };
+    let answer: (value: { data: typeof next }) => void = () => undefined;
+    api.getErrorReporting.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+
+    await startErrorReporting();
+
+    expect(sentry.init).toHaveBeenCalledOnce();
+    expect(sentry.init.mock.calls[0]?.[0]).toMatchObject(REPORTING);
+    expect(api.getErrorReporting).toHaveBeenCalledOnce();
+
+    answer({ data: next });
+    await vi.waitFor(() =>
+      expect(
+        JSON.parse(localStorage.getItem(STORED_REPORTING_KEY) ?? 'null'),
+      ).toEqual(next),
+    );
+    expect(sentry.init).toHaveBeenCalledOnce();
+  });
+
+  it('starts nothing from a stored answer without a DSN, and survives a failed refresh', async () => {
+    localStorage.setItem(
+      STORED_REPORTING_KEY,
+      JSON.stringify({ dsn: null, environment: null, release: null }),
+    );
+    api.getErrorReporting.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await startErrorReporting();
+
+    expect(sentry.init).not.toHaveBeenCalled();
+    expect(api.getErrorReporting).toHaveBeenCalledOnce();
+  });
+
+  it('waits for the control plane when the stored answer has the wrong shape', async () => {
+    localStorage.setItem(STORED_REPORTING_KEY, JSON.stringify({ dsn: 4 }));
+    api.getErrorReporting.mockResolvedValue({ data: REPORTING });
+
+    await startErrorReporting();
+
+    expect(sentry.init).toHaveBeenCalledOnce();
+    expect(sentry.init.mock.calls[0]?.[0]).toMatchObject(REPORTING);
+  });
+
+  it('waits for the control plane when storage is unavailable', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    api.getErrorReporting.mockResolvedValue({ data: REPORTING });
+
+    await startErrorReporting();
+
+    expect(sentry.init).toHaveBeenCalledOnce();
+    expect(sentry.init.mock.calls[0]?.[0]).toMatchObject(REPORTING);
   });
 });
 
