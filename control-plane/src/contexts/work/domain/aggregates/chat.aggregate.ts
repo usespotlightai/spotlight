@@ -580,13 +580,27 @@ export class Chat extends EventRecorder {
 
     const recorded = this.endRun(runId)
       .recordSession(ending.session, ending.claimedBy)
-      .with({ resolvedAt: null });
+      .with({ resolvedAt: this.settledBy(runId) ? this.resolvedAt : null });
 
     recorded.record(
       new ChatRunEnded(this.id, this.workspaceId, this.startedBy, runId, true),
     );
 
     return { chat: recorded, followsUp: recorded.wantsFollowUp };
+  }
+
+  private settledBy(runId: RunId): boolean {
+    const proposals = this.messages.flatMap((message) =>
+      message.runId?.equals(runId) && message.proposal
+        ? [message.proposal]
+        : [],
+    );
+
+    return (
+      proposals.length > 0 &&
+      proposals.every((proposal) => proposal.becameTask) &&
+      this.openProposals.length === 0
+    );
   }
 
   private endRun(runId: RunId): Chat {

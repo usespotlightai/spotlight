@@ -957,6 +957,25 @@ describe('Chat', () => {
       expect(ended(working().resolve(LEON, NOW)).resolvedAt).toBeNull();
     });
 
+    it('stays resolved when its run ends after every task it proposed was created', () => {
+      expect(ended(accepted(proposing())).resolvedAt).toEqual(LATER);
+    });
+
+    it('opens again when its run ends while a proposal of the run waits', () => {
+      const twice = proposing().propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Cap the delay'),
+        description: null,
+        at: LATER,
+      });
+
+      expect(ended(accepted(twice).resolve(LEON, LATER)).resolvedAt).toBeNull();
+    });
+
     it('keeps its resolution when a run ends without a session', () => {
       const failed = working()
         .resolve(LEON, NOW)
