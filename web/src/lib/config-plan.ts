@@ -222,8 +222,8 @@ export const configPlan = (changes: readonly ConfigChange[]): PlanEntry[] => {
   return out;
 };
 
-export const hasTextDiff = (changes: readonly ConfigChange[]): boolean =>
-  configPlan(changes).some((entry) => entry.kind === 'text');
+export const hasTextDiff = (entries: readonly PlanEntry[]): boolean =>
+  entries.some((entry) => entry.kind === 'text');
 
 const assigned = (leaf: PlanLeaf): boolean =>
   leaf.name !== null && (leaf.was !== null || leaf.now !== null);

@@ -18,7 +18,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { hasTextDiff } from '@/lib/config-plan';
+import { configPlan, hasTextDiff } from '@/lib/config-plan';
 import { formatCount } from '@/lib/insights';
 import {
   changeLinkOf,
@@ -43,7 +43,8 @@ export function CandidateComparisonRow({
 }: CandidateComparisonRowProps) {
   const { shown } = candidate;
   const changes = configChangesOf(candidate.changes);
-  const wide = hasTextDiff(changes);
+  const entries = configPlan(changes);
+  const wide = hasTextDiff(entries);
   const link = changeLinkOf(candidate);
   const cost = formatCostPerRun(shown.costPerRun, candidate.currency);
   const costNote = costBasisNote(candidate);
@@ -73,7 +74,7 @@ export function CandidateComparisonRow({
           </div>
 
           <ClampedCell expansion={expansion} pinned={wide}>
-            {changes.length > 0 && <ConfigPlan changes={changes} />}
+            {changes.length > 0 && <ConfigPlan entries={entries} />}
           </ClampedCell>
 
           <NestedCell heading="Source" numeric={false}>
@@ -131,7 +132,7 @@ export function CandidateComparisonRow({
 
           {wide && (
             <RowDetail className="col-[2/-1]">
-              <ConfigPlan changes={changes} />
+              <ConfigPlan entries={entries} />
             </RowDetail>
           )}
         </>

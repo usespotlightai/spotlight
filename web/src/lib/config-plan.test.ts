@@ -92,20 +92,24 @@ describe('planTextLines', () => {
 describe('hasTextDiff', () => {
   it('finds a change that runs over more than one line', () => {
     expect(
-      hasTextDiff([
-        change({ was: 'sonnet', now: 'opus' }),
-        change({ part: 'prompt', was: 'One.\nTwo.', now: 'One.\nThree.' }),
-      ]),
+      hasTextDiff(
+        configPlan([
+          change({ was: 'sonnet', now: 'opus' }),
+          change({ part: 'prompt', was: 'One.\nTwo.', now: 'One.\nThree.' }),
+        ]),
+      ),
     ).toBe(true);
   });
 
   it('leaves out changes that fit on one line or show no text', () => {
     expect(
-      hasTextDiff([
-        change({ was: 'sonnet', now: 'opus' }),
-        change({ part: 'prompt' }),
-        change({ part: 'skill', name: 'grafana', kind: 'added' }),
-      ]),
+      hasTextDiff(
+        configPlan([
+          change({ was: 'sonnet', now: 'opus' }),
+          change({ part: 'prompt' }),
+          change({ part: 'skill', name: 'grafana', kind: 'added' }),
+        ]),
+      ),
     ).toBe(false);
   });
 });

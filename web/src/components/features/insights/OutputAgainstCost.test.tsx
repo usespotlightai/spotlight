@@ -8,7 +8,7 @@ import {
   TipContent,
 } from '@/components/features/insights/OutputAgainstCost';
 import type { LineResponseDto } from '@/lib/api';
-import { BeforeAfterPanelContext } from '@/lib/before-after-panel';
+import { BeforeAfterActionsContext } from '@/lib/before-after-panel';
 import { type DayOutput, stationNamesOf } from '@/lib/insights';
 
 const NAMES = stationNamesOf([
@@ -103,7 +103,7 @@ describe('OutputAgainstCost', () => {
   it('opens the impact of a station’s change from a marker', async () => {
     const show = vi.fn();
     render(
-      <BeforeAfterPanelContext value={{ shown: null, show, close: vi.fn() }}>
+      <BeforeAfterActionsContext value={{ show, close: vi.fn() }}>
         <MemoryRouter initialEntries={['/w/acme/team/team_1/insights']}>
           <Routes>
             <Route
@@ -121,7 +121,7 @@ describe('OutputAgainstCost', () => {
             />
           </Routes>
         </MemoryRouter>
-      </BeforeAfterPanelContext>,
+      </BeforeAfterActionsContext>,
     );
 
     await userEvent.click(
