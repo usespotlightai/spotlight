@@ -43,7 +43,7 @@ export function VirtualRows({
     }
   }, [list]);
 
-  // oxlint-disable-next-line react/incompatible-library -- the virtualizer is not passed to a memoized child
+  // oxlint-disable-next-line react-hooks-js/incompatible-library
   const virtualizer = useVirtualizer({
     count,
     overscan,
