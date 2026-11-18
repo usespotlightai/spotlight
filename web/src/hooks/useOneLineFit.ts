@@ -69,5 +69,7 @@ export function useOneLineFit(written: Written, opened: boolean) {
 
   useLayoutEffect(() => measure(), [written]);
 
-  return { inner, writing, height, expanded };
+  const snaps = !written.text && written.references.length === 0;
+
+  return { inner, writing, height, expanded, snaps };
 }

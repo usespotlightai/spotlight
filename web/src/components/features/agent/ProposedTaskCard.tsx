@@ -50,7 +50,6 @@ export function ProposedTaskCard({
 }: ProposedTaskCardProps) {
   const titleId = useId();
   const [unfolded, setUnfolded] = useState(false);
-  const open = proposal.state === 'open';
   const dismissed =
     proposal.state === 'dismissed' || proposal.state === 'replaced';
   const folded = dismissed && !unfolded;
@@ -120,45 +119,75 @@ export function ProposedTaskCard({
             />
           </OverflowFade>
 
-          {open && (
-            <DecisionControls>
-              <DecisionButton
-                disabled={pending}
-                onClick={onDismiss}
-                aria-describedby={titleId}
-              >
-                Dismiss
-              </DecisionButton>
-              <DecisionButton
-                variant="default"
-                data-focus-next
-                disabled={pending || !proposal.stationName}
-                onClick={onCreate}
-                aria-describedby={titleId}
-              >
-                Create task
-              </DecisionButton>
-            </DecisionControls>
-          )}
-
-          {(proposal.state === 'accepted' ||
-            (proposal.state === 'created' && !proposal.taskId)) && (
-            <div aria-hidden className={OUTCOME} />
-          )}
-
-          {proposal.state === 'created' && proposal.taskId && (
-            <div className={OUTCOME}>
-              <TrailLink
-                data-focus-next
-                to={taskPath(slug, teamId, proposal.taskId)}
-                className="rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                Open task
-              </TrailLink>
-            </div>
-          )}
+          <ProposalOutcome
+            slug={slug}
+            teamId={teamId}
+            proposal={proposal}
+            pending={pending}
+            titleId={titleId}
+            onCreate={onCreate}
+            onDismiss={onDismiss}
+          />
         </div>
       </Collapsible>
     </DecisionCard>
   );
+}
+
+type ProposalOutcomeProps = Pick<
+  ProposedTaskCardProps,
+  'slug' | 'teamId' | 'proposal' | 'pending' | 'onCreate' | 'onDismiss'
+> & { titleId: string };
+
+function ProposalOutcome({
+  slug,
+  teamId,
+  proposal,
+  pending,
+  titleId,
+  onCreate,
+  onDismiss,
+}: ProposalOutcomeProps) {
+  if (proposal.state === 'open') {
+    return (
+      <DecisionControls>
+        <DecisionButton
+          disabled={pending}
+          onClick={onDismiss}
+          aria-describedby={titleId}
+        >
+          Dismiss
+        </DecisionButton>
+        <DecisionButton
+          variant="default"
+          data-focus-next
+          disabled={pending || !proposal.stationName}
+          onClick={onCreate}
+          aria-describedby={titleId}
+        >
+          Create task
+        </DecisionButton>
+      </DecisionControls>
+    );
+  }
+
+  if (proposal.state === 'created' && proposal.taskId) {
+    return (
+      <div className={OUTCOME}>
+        <TrailLink
+          data-focus-next
+          to={taskPath(slug, teamId, proposal.taskId)}
+          className="rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Open task
+        </TrailLink>
+      </div>
+    );
+  }
+
+  if (proposal.state === 'accepted' || proposal.state === 'created') {
+    return <div aria-hidden className={OUTCOME} />;
+  }
+
+  return null;
 }
