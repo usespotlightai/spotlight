@@ -6,7 +6,7 @@ export interface VisitedNote {
   readonly kind: TaskNoteKind;
   readonly voice: VoiceKind;
   readonly stationId: string;
-  readonly stationPosition: number;
+  readonly stationPosition: number | null;
 }
 
 export interface FoldedVisit<T extends VisitedNote> {
@@ -56,6 +56,16 @@ const answerIn = <T extends VisitedNote>(notes: readonly T[]): T | null =>
     notes.filter((note) => note.voice === 'person' && note.kind === 'answered'),
   ) ?? null;
 
+const wentBack = (
+  closing: VisitedNote | null,
+  next: VisitedNote | undefined,
+): boolean => {
+  const from = closing?.stationPosition ?? null;
+  const to = next?.stationPosition ?? null;
+
+  return from !== null && to !== null && to < from;
+};
+
 export const foldedVisits = <T extends VisitedNote>(
   trail: readonly T[],
   shown: ReadonlySet<number>,
@@ -74,9 +84,7 @@ export const foldedVisits = <T extends VisitedNote>(
         notes,
         closing,
         answer: answerIn(notes),
-        sentBack: Boolean(
-          closing && next && next.stationPosition < closing.stationPosition,
-        ),
+        sentBack: wentBack(closing, next),
       };
     });
   });

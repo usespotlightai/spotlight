@@ -14,7 +14,7 @@ const noteAt = (visit: FoldedVisit, position: number | null): Note | null =>
     ? null
     : (visit.notes.find((note) => note.position === position) ?? null);
 
-export const closingOf = (visit: FoldedVisit): Note | null =>
+const closingOf = (visit: FoldedVisit): Note | null =>
   noteAt(visit, visit.closingAt);
 
 export const answerOf = (visit: FoldedVisit): Note | null =>

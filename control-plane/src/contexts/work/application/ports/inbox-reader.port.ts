@@ -73,7 +73,7 @@ export interface InboxNote {
   readonly station: string | null;
   readonly stationId: string;
   readonly stationColor: string;
-  readonly stationPosition: number;
+  readonly stationPosition: number | null;
   readonly runId: string | null;
   readonly body: string;
   readonly attachments: readonly AttachmentSummary[];

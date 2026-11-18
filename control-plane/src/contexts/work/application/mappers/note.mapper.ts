@@ -7,6 +7,7 @@ import type {
 export const NoteMapper = {
   toDto: (note: InboxNote): NoteDto => ({
     ...note,
+    stationPosition: note.stationPosition ?? 0,
     at: note.at.toISOString(),
   }),
 

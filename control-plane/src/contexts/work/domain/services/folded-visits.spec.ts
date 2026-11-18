@@ -18,7 +18,7 @@ const trailOf = (
   kind: TaskNoteKind;
   voice: VoiceKind;
   stationId: string;
-  stationPosition: number;
+  stationPosition: number | null;
 }[] =>
   notes.map(([station, kind, voice], position) => ({
     position,
@@ -78,6 +78,19 @@ describe('foldedVisits', () => {
     expect(
       foldedVisits(reworked, new Set([4])).map((each) => each.sentBack),
     ).toEqual([false, true]);
+  });
+
+  it('does not mark a send-back when a station position is unknown', () => {
+    const removed = trailOf(
+      ['review', 'passed'],
+      ['implementation', 'message'],
+    ).map((note) =>
+      note.stationId === 'review' ? { ...note, stationPosition: null } : note,
+    );
+
+    expect(
+      foldedVisits(removed, new Set([1])).map((each) => each.sentBack),
+    ).toEqual([false]);
   });
 
   it('folds the stretches around shown notes inside one visit apart', () => {

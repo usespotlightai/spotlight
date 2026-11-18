@@ -491,12 +491,12 @@ const conversationItem = (
     attachments: context.attached.get(row.taskId)?.own ?? [],
     station: opening.station,
     stationColor: opening.stationColor,
-    stationPosition: opening.stationPosition,
+    stationPosition: opening.stationPosition ?? 0,
     stationCount: context.stationCounts.get(row.lineId) ?? 1,
     originStation: {
       name: row.originStationName ?? opening.station,
       color: row.originColor ?? opening.stationColor,
-      position: row.originPosition ?? opening.stationPosition,
+      position: row.originPosition ?? opening.stationPosition ?? 0,
     },
     currentStation: {
       name: row.currentStationName,

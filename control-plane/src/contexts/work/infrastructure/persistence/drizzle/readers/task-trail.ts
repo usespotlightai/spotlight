@@ -292,7 +292,7 @@ const inboxNotesOf = async (
       station: row.station,
       stationId: row.stationId,
       stationColor: row.stationColor ?? PLAIN_STATION_COLOR,
-      stationPosition: row.stationPosition ?? 0,
+      stationPosition: row.stationPosition,
       runId: row.runId,
       kind: row.kind,
       form: row.form,
