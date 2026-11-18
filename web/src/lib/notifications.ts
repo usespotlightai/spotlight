@@ -1,3 +1,4 @@
+import { registeredWorker, WORKER_URL } from '@/lib/service-worker';
 import { settingsPath } from '@/lib/settings';
 
 export interface InboxNotification {
@@ -11,8 +12,6 @@ export interface InboxNotification {
 
 export const notificationsPath = (slug: string): string =>
   `${settingsPath(slug)}/account/notifications`;
-
-const WORKER_URL = '/sw.js';
 
 export const pushSupported = (): boolean =>
   typeof window !== 'undefined' &&
@@ -38,9 +37,6 @@ const keyBytesOf = (base64url: string): Uint8Array<ArrayBuffer> => {
   return bytes;
 };
 
-const worker = (): Promise<ServiceWorkerRegistration> =>
-  navigator.serviceWorker.register(WORKER_URL);
-
 export const currentPushSubscription =
   async (): Promise<PushSubscription | null> => {
     if (!pushSupported()) {
@@ -56,7 +52,7 @@ export const currentPushSubscription =
 export const subscribedPush = async (
   publicKey: string,
 ): Promise<PushSubscription> => {
-  const registration = await worker();
+  const registration = await registeredWorker();
   const existing = await registration.pushManager.getSubscription();
 
   return (

@@ -25,9 +25,11 @@ import {
 } from '@/lib/query-cache';
 import { retryQuery } from '@/lib/query-retry';
 import { withSentRequest } from '@/lib/request-failure';
+import { keepAppShell } from '@/lib/service-worker';
 import { reloadOnStaleBuild } from '@/lib/stale-build';
 
 import App from './App.tsx';
+import { preloadVisiblePages } from './visible-pages.ts';
 
 import './index.css';
 
@@ -80,11 +82,21 @@ const render = () =>
   );
 
 const REPORTING_WAIT_MS = 1000;
+const PAGE_WAIT_MS = 300;
 
-void Promise.race([
-  startErrorReporting().catch(() => undefined),
-  new Promise((resolve) => setTimeout(resolve, REPORTING_WAIT_MS)),
+const atMost = (work: Promise<unknown>, ms: number) =>
+  Promise.race([work, new Promise((resolve) => setTimeout(resolve, ms))]);
+
+void Promise.all([
+  atMost(
+    startErrorReporting().catch(() => undefined),
+    REPORTING_WAIT_MS,
+  ),
+  atMost(preloadVisiblePages(window.location.pathname), PAGE_WAIT_MS),
 ]).finally(() => {
   render();
   void storedJournals.prune();
+  if (import.meta.env.PROD) {
+    keepAppShell();
+  }
 });

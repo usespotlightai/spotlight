@@ -1,4 +1,4 @@
-import { dehydrate, QueryClient } from '@tanstack/react-query';
+import { dehydrate, hydrate, QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -6,6 +6,7 @@ import {
   ownQueryCache,
   persistOptions,
   queryCacheOwner,
+  withJournals,
 } from '@/lib/query-cache';
 
 const persisted = (queryClient: QueryClient) =>
@@ -74,5 +75,36 @@ describe('forgetQueryCache', () => {
     await forgetQueryCache();
 
     expect(queryCacheOwner()).toBeNull();
+  });
+});
+
+describe('withJournals', () => {
+  const journal = () => {
+    const stored = new QueryClient();
+    stored.setQueryData(['journal', 'run_1'], ['step'], { updatedAt: 1_000 });
+    const [query] = dehydrate(stored).queries;
+    return { ...query, buster: 'api' };
+  };
+
+  it('restores stored journals with the cache, and keeps them out of the next save', () => {
+    const cached = new QueryClient();
+    cached.setQueryData(['inbox'], ['item']);
+    const client = withJournals(
+      { buster: 'api', timestamp: 1, clientState: dehydrate(cached) },
+      [journal()],
+    );
+
+    const restored = new QueryClient();
+    hydrate(restored, client?.clientState ?? {});
+
+    expect(restored.getQueryData(['journal', 'run_1'])).toEqual(['step']);
+    expect(restored.getQueryState(['journal', 'run_1'])?.dataUpdatedAt).toBe(
+      1_000,
+    );
+    expect(persisted(restored)).toEqual([['inbox']]);
+  });
+
+  it('restores no journals when there is no saved cache', () => {
+    expect(withJournals(undefined, [journal()])).toBeUndefined();
   });
 });
