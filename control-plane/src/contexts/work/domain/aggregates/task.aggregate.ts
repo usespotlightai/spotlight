@@ -1304,6 +1304,10 @@ export class Task extends EventRecorder {
     return this.finished && !line.completed.id.equals(this.stationId);
   }
 
+  keepsNoLiveWorkingCopyOn(line: LineMap | null): boolean {
+    return this.finished && (line === null || !this.reopenableOn(line));
+  }
+
   reopensAt(line: LineMap, happening: Happening): StationId {
     const rule = line.reactionTo(happening, this.stationId);
 

@@ -76,6 +76,10 @@ import {
   type RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
 import {
+  SANDBOX_RETIREMENT,
+  type SandboxRetirementPort,
+} from '@runners/application/ports/sandbox-retirement.port';
+import {
   ARCHIVE_HOLDERS,
   type ArchiveHoldersPort,
 } from '@runs/application/ports/archive-holders.port';
@@ -230,6 +234,7 @@ import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.h
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
 import { WelcomeTeam } from '@work/application/events/handlers/welcome-team.handler';
@@ -1812,6 +1817,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       NOTICE_REPOSITORY,
       TEAM_NOTICES,
       ResumeTaskRun,
+      SANDBOX_RETIREMENT,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1845,6 +1851,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       noticeRepository: NoticeRepository,
       raisedNotices: TeamNoticesPort,
       resuming: ResumeTaskRun,
+      retirement: SandboxRetirementPort,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -1902,6 +1909,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           deletingChats: new DeleteTeamChats(chats),
           taskInboxRequests: new DeleteTaskInboxRequests(inboxRequests),
           taskDraft: new DeleteTaskDraft(draftStates),
+          taskSandbox: new RetireTaskSandbox(tasks, lines, retirement),
           toolUsedHooks,
           notices,
           takenMarks: new ReleaseTakenMarks(tasks, transaction),

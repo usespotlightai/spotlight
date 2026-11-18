@@ -36,6 +36,8 @@ export interface SandboxRepository {
 
   idleSince(cutoff: Date): Promise<readonly Sandbox[]>;
 
+  retiring(): Promise<readonly Sandbox[]>;
+
   withArchiveLeaseRenewedBefore(cutoff: Date): Promise<readonly Sandbox[]>;
 
   goneBefore(cutoff: Date): Promise<readonly Sandbox[]>;

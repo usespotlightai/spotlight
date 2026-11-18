@@ -109,6 +109,7 @@ const toSandbox = (row: Row): Sandbox =>
     startedAt: row.startedAt,
     goneAt: row.goneAt,
     warm: warmOf(row.warm),
+    retiring: row.retiring,
     version: row.version,
   });
 
@@ -131,6 +132,7 @@ const columnsOf = (saved: Sandbox) => ({
   idleSince: saved.idleSince,
   goneAt: saved.goneAt,
   warm: warmRecordOf(saved.warm),
+  retiring: saved.isRetiring,
 });
 
 @Injectable()
@@ -345,6 +347,15 @@ export class DrizzleSandboxRepository implements SandboxRepository {
           lte(sandbox.idleSince, cutoff),
         ),
       );
+
+    return rows.map(toSandbox);
+  }
+
+  async retiring(): Promise<readonly Sandbox[]> {
+    const rows = await this.context.db
+      .select()
+      .from(sandbox)
+      .where(and(eq(sandbox.state, 'open'), eq(sandbox.retiring, true)));
 
     return rows.map(toSandbox);
   }

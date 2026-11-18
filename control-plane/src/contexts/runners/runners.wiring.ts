@@ -109,6 +109,7 @@ import {
   type RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
+import { SANDBOX_RETIREMENT } from '@runners/application/ports/sandbox-retirement.port';
 import {
   SANDBOX_TUNNELS,
   type SandboxTunnelsPort,
@@ -411,6 +412,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   { provide: SANDBOXES, useExisting: Sandboxes },
   { provide: EDITOR_SANDBOXES, useExisting: Sandboxes },
   { provide: SANDBOX_UPKEEP, useExisting: Sandboxes },
+  { provide: SANDBOX_RETIREMENT, useExisting: Sandboxes },
   {
     provide: WARM_SANDBOXES,
     inject: [DrizzleSandboxRepository, ID_GENERATOR, LOGGER],

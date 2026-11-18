@@ -78,6 +78,7 @@ const withLeases = (leases: SandboxLease[], idleSince: Date | null) => {
     startedAt: sandbox.startedAt,
     goneAt: null,
     warm: null,
+    retiring: false,
     version: 0,
   });
 };
@@ -356,6 +357,138 @@ describe('Sandbox', () => {
     ).toThrow(InconsistentStateError);
     expect(() => withLeases([], null)).toThrow(InconsistentStateError);
   });
+  describe('retired when its work is finished', () => {
+    const RUN = RunId.of('run_1');
+
+    const idle = () => started().releaseRun(RUN, later(1_000));
+
+    it('drains at once when no run or editor holds it', () => {
+      const retired = idle().retire(later(2_000));
+
+      expect(retired.current).toBe('draining');
+      expect(retired.isRetiring).toBe(false);
+      expect(retired.keptBy(reporting, NOW)).toBe(false);
+    });
+
+    it('waits for the run that holds it, then drains when the run lets go', () => {
+      const retiring = started().retire(later(500));
+
+      expect(retiring.current).toBe('open');
+      expect(retiring.isRetiring).toBe(true);
+      expect(retiring.retire(later(600))).toBe(retiring);
+
+      const released = retiring.releaseRun(RUN, later(1_000));
+
+      expect(released.current).toBe('draining');
+      expect(released.leases).toEqual([]);
+    });
+
+    it('drains while it keeps the archive of the run that let go', () => {
+      const released = started()
+        .holdArchiveOf(RUN, 1, later(500))
+        .retire(later(600))
+        .releaseRun(RUN, later(1_000));
+
+      expect(released.current).toBe('draining');
+      expect(released.keptBy(reporting, later(1_000))).toBe(true);
+    });
+
+    it('waits for its editors, and drains when the last one leaves or its lease expires', () => {
+      const edited = idle()
+        .holdEditor(editor('conn_1'), later(1_500))
+        .holdEditor(editor('conn_2'), later(1_500))
+        .retire(later(2_000));
+
+      expect(edited.current).toBe('open');
+
+      const oneLeft = edited.releaseEditor(editor('conn_1'), later(3_000));
+
+      expect(oneLeft.current).toBe('open');
+      expect(
+        oneLeft.releaseEditor(editor('conn_2'), later(4_000)).current,
+      ).toBe('draining');
+      expect(
+        edited.withoutExpiredLeases(later(1_500 + EDITOR_LEASE_MS)).current,
+      ).toBe('draining');
+    });
+
+    it('stops retiring when a new run takes it', () => {
+      const reopened = idle()
+        .holdEditor(editor('conn_1'), later(1_500))
+        .retire(later(2_000))
+        .holdRun(RunId.of('run_2'), later(3_000));
+
+      expect(reopened.isRetiring).toBe(false);
+
+      const released = reopened
+        .releaseEditor(editor('conn_1'), later(4_000))
+        .releaseRun(RunId.of('run_2'), later(5_000));
+
+      expect(released.current).toBe('open');
+      expect(released.idleSince).toEqual(later(5_000));
+    });
+
+    it('is lost when it waits for a host and nothing holds it', () => {
+      const requested = Sandbox.request({
+        id: SandboxId.of('sandbox_r'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        key: SandboxKey.of('task-task_1'),
+        at: STARTED_AT,
+      });
+
+      const retired = requested.retire(later(1_000));
+
+      expect(retired.current).toBe('gone');
+      expect(retired.goneAt).toEqual(later(1_000));
+    });
+
+    it('leaves a sandbox with no key, a draining or a gone one as it is', () => {
+      const keyless = aSandbox({
+        workspaceId: WorkspaceId.of('ws_1'),
+        hostId: HOST,
+        key: null,
+        at: STARTED_AT,
+      });
+      const draining = idle().drain();
+      const gone = idle().lost(later(2_000));
+
+      expect(keyless.retire(later(2_000))).toBe(keyless);
+      expect(draining.retire(later(2_000))).toBe(draining);
+      expect(gone.retire(later(2_000))).toBe(gone);
+    });
+
+    it('cannot retire while it drains, is gone or has no key', () => {
+      const sandbox = idle();
+      const state = {
+        id: sandbox.id,
+        workspaceId: sandbox.workspaceId,
+        key: sandbox.key,
+        hostId: sandbox.hostId,
+        source: sandbox.source,
+        tokenHash: sandbox.tokenHash,
+        state: sandbox.current,
+        leases: sandbox.leases,
+        idleSince: sandbox.idleSince,
+        startedAt: sandbox.startedAt,
+        goneAt: null,
+        warm: null,
+        retiring: true,
+        version: 0,
+      };
+
+      expect(Sandbox.rehydrate(state).isRetiring).toBe(true);
+      expect(() => Sandbox.rehydrate({ ...state, key: null })).toThrow(
+        InconsistentStateError,
+      );
+      expect(() => Sandbox.rehydrate({ ...state, state: 'draining' })).toThrow(
+        InconsistentStateError,
+      );
+      expect(() =>
+        Sandbox.rehydrate({ ...state, state: 'gone', goneAt: later(2_000) }),
+      ).toThrow(InconsistentStateError);
+    });
+  });
+
   describe('requested with no run', () => {
     const requested = () =>
       Sandbox.request({
@@ -458,6 +591,7 @@ describe('Sandbox', () => {
           startedAt: sandbox.startedAt,
           goneAt: null,
           warm: null,
+          retiring: false,
           version: 0,
         }),
       ).toThrow(InconsistentStateError);
@@ -475,6 +609,7 @@ describe('Sandbox', () => {
           startedAt: sandbox.startedAt,
           goneAt: null,
           warm: null,
+          retiring: false,
           version: 0,
         }),
       ).toThrow(InconsistentStateError);
@@ -591,6 +726,7 @@ describe('Sandbox', () => {
           startedAt: requested.startedAt,
           goneAt: null,
           warm: null,
+          retiring: false,
           version: 0,
         }).holdsEditor(editor('conn_1')),
       ).toBe(true);
@@ -973,6 +1109,7 @@ describe('Sandbox', () => {
         startedAt: sandbox.startedAt,
         goneAt: null,
         warm: warmPart,
+        retiring: false,
         version: 0,
       };
 

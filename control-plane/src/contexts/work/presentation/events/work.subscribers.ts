@@ -57,6 +57,7 @@ import type { NotifyOutsideTools } from '@work/application/events/handlers/notif
 import type { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import type { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import type { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import type { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
 import {
@@ -83,6 +84,7 @@ import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.e
 import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import type { TaskFinished } from '@work/domain/events/task-finished.event';
 import type { TaskMarked } from '@work/domain/events/task-marked.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
@@ -132,6 +134,7 @@ export const workSubscribers = (reactions: {
   deletingChats: DeleteTeamChats;
   taskInboxRequests: DeleteTaskInboxRequests;
   taskDraft: DeleteTaskDraft;
+  taskSandbox: RetireTaskSandbox;
   toolUsedHooks: ToolUsedHooks;
   notices: Notices;
   takenMarks: ReleaseTakenMarks;
@@ -332,6 +335,16 @@ export const workSubscribers = (reactions: {
     'work.delete-draft-of-deleted-task',
     ['task.deleted'],
     (event) => reactions.taskDraft.on(event),
+  ),
+  subscribing<TaskFinished>(
+    'work.retire-sandbox-of-finished-task',
+    ['task.finished'],
+    (event) => reactions.taskSandbox.onFinished(event),
+  ),
+  subscribing<TaskDeleted>(
+    'work.retire-sandbox-of-deleted-task',
+    ['task.deleted'],
+    (event) => reactions.taskSandbox.onDeleted(event),
   ),
   subscribing<ChatDeleted>(
     'work.cancel-run-of-deleted-chat',

@@ -15,6 +15,13 @@
       "when": 1794953998402,
       "tag": "20261117221958_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794994672139,
+      "tag": "20261118093752_sandbox_retiring",
+      "breakpoints": true
     }
   ]
 }
