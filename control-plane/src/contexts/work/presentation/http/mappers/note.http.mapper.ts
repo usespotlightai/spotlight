@@ -46,9 +46,11 @@ export const NoteHttpMapper = {
 
   foldedToResponse: (visit: FoldedVisitDto): FoldedVisitResponseDto =>
     new FoldedVisitResponseDto(
-      visit.notes.map(NoteHttpMapper.toResponse),
-      visit.closingAt,
-      visit.answerAt,
+      NoteHttpMapper.toResponse(visit.first),
+      visit.to,
+      visit.endedAt,
+      visit.closing && NoteHttpMapper.toResponse(visit.closing),
+      visit.answer && NoteHttpMapper.toResponse(visit.answer),
       visit.sentBack,
     ),
 };

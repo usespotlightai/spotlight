@@ -99,5 +99,11 @@ export interface RunReaderPort {
 
   notesFor(runId: RunId): Promise<RunsInWorkspace<RunNotesSummary> | null>;
 
+  taskNotesBetween(
+    taskId: TaskId,
+    from: number,
+    to: number,
+  ): Promise<RunsInWorkspace<InboxNote[]> | null>;
+
   configFor(runId: RunId): Promise<RunsInWorkspace<RunConfigSummary> | null>;
 }

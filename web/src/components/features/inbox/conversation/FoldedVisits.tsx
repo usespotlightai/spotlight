@@ -16,11 +16,9 @@ export function FoldedVisits({ visits, item, worked }: FoldedVisitsProps) {
     >
       {visits.map((visit) => (
         <FoldedVisitRow
-          key={visit.notes[0]?.position}
+          key={visit.first.position}
           visit={visit}
-          stationCount={item.station.count}
-          teamId={item.teamId}
-          about={item.about}
+          item={item}
           worked={worked}
         />
       ))}

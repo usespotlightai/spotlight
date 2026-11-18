@@ -202,7 +202,7 @@ const conversation = ({
     failure: null,
     inboxRequest: null,
     notes: numberedNotes,
-    folded: foldedAround(trail, numberedNotes),
+    folded: foldedAround(taskId, trail, numberedNotes),
     standing: 'assignee',
     ...over,
   };

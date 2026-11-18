@@ -44,6 +44,7 @@ const reading = (found: RunConfigSummary | null) =>
       listForTeam: vi.fn(),
       findForTeam: vi.fn(),
       notesFor: vi.fn(),
+      taskNotesBetween: vi.fn(),
       configFor: vi.fn().mockResolvedValue(found && inWorkspace(found)),
     } satisfies RunReaderPort,
     runAccessWhere(true),

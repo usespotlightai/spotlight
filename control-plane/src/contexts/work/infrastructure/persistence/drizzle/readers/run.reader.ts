@@ -26,6 +26,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
+import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type {
   RunConfigSummary,
   RunConfigView,
@@ -51,6 +52,7 @@ import {
   awaitedReviewsFor,
   foldedAround,
   LATEST_RUN_FIRST,
+  notesBetween,
   reviewsBy,
   stationsPerLine,
   taskRuns,
@@ -371,6 +373,25 @@ export class DrizzleRunReader implements RunReaderPort {
         folded: foldedAround(notes, shown),
       },
     };
+  }
+
+  async taskNotesBetween(
+    taskId: TaskId,
+    from: number,
+    to: number,
+  ): Promise<RunsInWorkspace<InboxNote[]> | null> {
+    const [owner] = await this.db
+      .select({ workspaceId: task.workspaceId })
+      .from(task)
+      .where(eq(task.id, taskId.value))
+      .limit(1);
+
+    return owner
+      ? {
+          workspaceId: WorkspaceId.of(owner.workspaceId),
+          found: await notesBetween(this.db, this.people, taskId.value, from, to),
+        }
+      : null;
   }
 
   async configFor(

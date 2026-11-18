@@ -218,7 +218,7 @@ export const conversationOf = (located: Located): RunNotesResponseDto => {
       progress: located.run.progress,
     },
     notes: [...scripted, ...added],
-    folded: foldedAround(earlierElsewhere(located), []),
+    folded: foldedAround(located.task.id, earlierElsewhere(located), []),
     spend: finished(located.run) ? story.spend : null,
   };
 };

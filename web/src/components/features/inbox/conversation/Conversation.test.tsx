@@ -101,6 +101,7 @@ const showing = (
           afterRun={afterRun}
           item={{
             id: 'item_1',
+            taskId: 'task_1',
             teamId: 'team_1',
             createdAt: AT,
             station: {
@@ -315,6 +316,7 @@ describe('Conversation', () => {
           <Conversation
             item={{
               id: 'item_1',
+              taskId: 'task_1',
               teamId: 'team_1',
               createdAt: AT,
               station: {

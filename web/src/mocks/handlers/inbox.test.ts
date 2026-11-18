@@ -11,6 +11,7 @@ import {
   editReviewComment,
   listInbox,
   listTaskJournalRuns,
+  listTaskNotes,
   listTasks,
   markInboxItemRead,
   markInboxRequestRead,
@@ -73,11 +74,29 @@ const RETRIES = {
 const POSTGRES_RUN = { teamId: PLATFORM_ID, runId: 'run_postgres_2' };
 const POSTGRES_TASK = { teamId: PLATFORM_ID, taskId: 'task_postgres' };
 
+const foldedNotesOf = async (
+  item: NonNullable<Awaited<ReturnType<typeof itemIn>>>,
+) =>
+  (
+    await Promise.all(
+      item.folded.map(
+        async (visit) =>
+          (
+            await listTaskNotes({
+              path: { teamId: item.teamId, taskId: item.taskId },
+              query: { from: visit.first.position, to: visit.to },
+              throwOnError: true,
+            })
+          ).data,
+      ),
+    )
+  ).flat();
+
 const approvalIn = async (itemId: string) => {
   const item = await itemIn(itemId);
 
   return [
-    ...(item?.folded.flatMap((visit) => visit.notes) ?? []),
+    ...(item ? await foldedNotesOf(item) : []),
     ...(item?.notes ?? []),
   ].findLast((note) => note.approval)?.approval;
 };

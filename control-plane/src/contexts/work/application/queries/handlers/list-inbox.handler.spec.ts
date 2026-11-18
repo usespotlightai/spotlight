@@ -218,9 +218,11 @@ describe('ReadInboxItemHandler', () => {
       notes: [note(null)],
       folded: [
         {
-          notes: [note(null)],
-          closingAt: null,
-          answerAt: null,
+          first: note(null),
+          to: 0,
+          endedAt: new Date('2026-09-26T09:20:00.000Z'),
+          closing: null,
+          answer: note(null),
           sentBack: false,
         },
       ],
@@ -233,9 +235,11 @@ describe('ReadInboxItemHandler', () => {
     expect(found?.notes.map((each) => each.at)).toEqual([
       '2026-09-26T09:15:00.000Z',
     ]);
-    expect(
-      found?.folded.flatMap((visit) => visit.notes.map((each) => each.at)),
-    ).toEqual(['2026-09-26T09:15:00.000Z']);
+    const [visit] = found?.folded ?? [];
+
+    expect(visit?.first.at).toBe('2026-09-26T09:15:00.000Z');
+    expect(visit?.endedAt).toBe('2026-09-26T09:20:00.000Z');
+    expect(visit?.answer?.at).toBe('2026-09-26T09:15:00.000Z');
   });
 
   it('hands back nothing for an item the caller cannot see', async () => {

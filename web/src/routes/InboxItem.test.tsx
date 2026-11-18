@@ -58,6 +58,15 @@ vi.mock('@/hooks/api/useTaskJournal', () => ({
 
 vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 
+const visitNotesBetween = vi.fn<(options: unknown) => Promise<unknown>>();
+
+vi.mock('@/lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api')>()),
+  listTaskNotes: async (options: unknown) => ({
+    data: await visitNotesBetween(options),
+  }),
+}));
+
 vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
 }));
@@ -459,25 +468,28 @@ describe('InboxItem', () => {
   });
 
   describe('with the visits of other stations', () => {
+    const visitNotes = [
+      note({ position: 0, body: 'Per workspace or per token?' }),
+      note({
+        position: 1,
+        kind: 'answered',
+        voice: 'person',
+        runId: null,
+        author: { id: 'user_3', name: 'Sam', image: null },
+        body: 'Per token.',
+      }),
+      note({
+        position: 2,
+        kind: 'passed',
+        body: 'Limit per token.\nReturn 429.',
+      }),
+    ];
     const handedOver = {
-      notes: [
-        note({ position: 0, body: 'Per workspace or per token?' }),
-        note({
-          position: 1,
-          kind: 'answered',
-          voice: 'person',
-          runId: null,
-          author: { id: 'user_3', name: 'Sam', image: null },
-          body: 'Per token.',
-        }),
-        note({
-          position: 2,
-          kind: 'passed',
-          body: 'Limit per token.\nReturn 429.',
-        }),
-      ],
-      closingAt: 2,
-      answerAt: 1,
+      first: visitNotes[0],
+      to: 2,
+      endedAt: '2026-08-29T12:00:00.000Z',
+      closing: visitNotes[2],
+      answer: visitNotes[1],
       sentBack: false,
     };
     const asked = note({
@@ -504,15 +516,25 @@ describe('InboxItem', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('shows every note of a visit once it is opened', async () => {
+    it('loads every note of a visit once it is opened', async () => {
       waiting.mockReturnValue(item([asked], null, [handedOver]));
+      visitNotesBetween.mockResolvedValue(visitNotes);
 
       renderItem();
+
+      expect(visitNotesBetween).not.toHaveBeenCalled();
+
       await userEvent.click(screen.getByRole('button', { name: /Triage/ }));
 
       expect(
-        screen.getByText('Per workspace or per token?'),
+        await screen.findByText('Per workspace or per token?'),
       ).toBeInTheDocument();
+      expect(visitNotesBetween).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { teamId: 'team_1', taskId: 'task_1' },
+          query: { from: 0, to: 2 },
+        }),
+      );
       expect(screen.getAllByText('Per token.')).toHaveLength(1);
       expect(screen.getByLabelText('Sam wrote this')).toBeInTheDocument();
     });

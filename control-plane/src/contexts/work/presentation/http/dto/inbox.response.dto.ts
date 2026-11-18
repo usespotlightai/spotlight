@@ -432,28 +432,36 @@ export class NoteResponseDto {
 export class FoldedVisitResponseDto {
   @ApiProperty({
     type: NoteResponseDto,
-    isArray: true,
     description:
-      'The notes of one station visit that the page does not show, oldest first',
+      'The first note of one station visit that the page does not show',
   })
-  readonly notes: readonly NoteResponseDto[];
+  readonly first: NoteResponseDto;
 
   @ApiProperty({
-    nullable: true,
-    type: Number,
     example: 4,
-    description:
-      'The position of the note that moved the task on from this visit',
+    description: 'The position of the last note of this visit',
   })
-  readonly closingAt: number | null;
+  readonly to: number;
 
   @ApiProperty({
-    nullable: true,
-    type: Number,
-    example: 2,
-    description: 'The position of the last answer a person gave in this visit',
+    example: '2026-11-18T09:30:00.000Z',
+    description: 'When the last note of this visit was written',
   })
-  readonly answerAt: number | null;
+  readonly endedAt: string;
+
+  @ApiProperty({
+    type: NoteResponseDto,
+    nullable: true,
+    description: 'The note that moved the task on from this visit',
+  })
+  readonly closing: NoteResponseDto | null;
+
+  @ApiProperty({
+    type: NoteResponseDto,
+    nullable: true,
+    description: 'The last answer a person gave in this visit',
+  })
+  readonly answer: NoteResponseDto | null;
 
   @ApiProperty({
     example: false,
@@ -462,14 +470,18 @@ export class FoldedVisitResponseDto {
   readonly sentBack: boolean;
 
   constructor(
-    notes: readonly NoteResponseDto[],
-    closingAt: number | null,
-    answerAt: number | null,
+    first: NoteResponseDto,
+    to: number,
+    endedAt: string,
+    closing: NoteResponseDto | null,
+    answer: NoteResponseDto | null,
     sentBack: boolean,
   ) {
-    this.notes = notes;
-    this.closingAt = closingAt;
-    this.answerAt = answerAt;
+    this.first = first;
+    this.to = to;
+    this.endedAt = endedAt;
+    this.closing = closing;
+    this.answer = answer;
     this.sentBack = sentBack;
   }
 }

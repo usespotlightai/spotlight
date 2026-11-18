@@ -135,9 +135,11 @@ export interface InboxItemSummary {
 }
 
 export interface InboxFoldedVisit {
-  readonly notes: readonly InboxNote[];
-  readonly closingAt: number | null;
-  readonly answerAt: number | null;
+  readonly first: InboxNote;
+  readonly to: number;
+  readonly endedAt: Date;
+  readonly closing: InboxNote | null;
+  readonly answer: InboxNote | null;
   readonly sentBack: boolean;
 }
 

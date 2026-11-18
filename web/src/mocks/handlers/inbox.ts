@@ -108,7 +108,7 @@ const nextPositionIn = (item: InboxConversation): number =>
   Math.max(
     -1,
     ...item.notes.map((note) => note.position),
-    ...item.folded.flatMap((visit) => visit.notes.map((note) => note.position)),
+    ...item.folded.map((visit) => visit.to),
   ) + 1;
 
 const answerReviewOf = (item: InboxConversation) => {

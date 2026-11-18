@@ -60,6 +60,7 @@ export function InboxItemConversation({
         <Conversation
           item={{
             id: item.id,
+            taskId: item.taskId,
             teamId: item.teamId,
             about: ownsItsBriefing
               ? { title: item.title, description: item.description }

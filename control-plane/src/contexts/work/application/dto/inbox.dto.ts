@@ -150,9 +150,11 @@ export interface InboxItemDto {
 }
 
 export interface FoldedVisitDto {
-  readonly notes: readonly NoteDto[];
-  readonly closingAt: number | null;
-  readonly answerAt: number | null;
+  readonly first: NoteDto;
+  readonly to: number;
+  readonly endedAt: string;
+  readonly closing: NoteDto | null;
+  readonly answer: NoteDto | null;
   readonly sentBack: boolean;
 }
 

@@ -43,6 +43,7 @@ import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/wo
 import {
   and,
   asc,
+  between,
   count,
   desc,
   eq,
@@ -361,6 +362,31 @@ export const trailsFor = async (
   return byTask(await inboxNotesOf(db, people, rows));
 };
 
+export const notesBetween = async (
+  db: DrizzleDatabase,
+  people: PersonReaderPort,
+  taskId: string,
+  from: number,
+  to: number,
+): Promise<InboxNote[]> => {
+  const rows = await db
+    .select(NOTE_COLUMNS)
+    .from(taskNote)
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
+    .leftJoin(
+      deferredStation,
+      eq(deferredStation.stationId, sql`${taskNote.deferredMove} ->> 'to'`),
+    )
+    .where(
+      and(eq(taskNote.taskId, taskId), between(taskNote.position, from, to)),
+    )
+    .orderBy(asc(taskNote.position));
+
+  return (await inboxNotesOf(db, people, rows)).map(
+    ({ taskId: _task, ...note }) => note,
+  );
+};
+
 export const newestNotesFor = async (
   db: DrizzleDatabase,
   people: PersonReaderPort,
@@ -528,13 +554,24 @@ export const foldedAround = (
   trail: readonly InboxNote[],
   shown: readonly InboxNote[],
 ): InboxFoldedVisit[] =>
-  foldedVisits(trail, new Set(shown.map((note) => note.position))).map(
-    (visit) => ({
-      notes: visit.notes,
-      closingAt: visit.closing?.position ?? null,
-      answerAt: visit.answer?.position ?? null,
-      sentBack: visit.sentBack,
-    }),
+  foldedVisits(trail, new Set(shown.map((note) => note.position))).flatMap(
+    ({ notes, closing, answer, sentBack }) => {
+      const [first] = notes;
+      const last = notes[notes.length - 1];
+
+      return first && last
+        ? [
+            {
+              first,
+              to: last.position,
+              endedAt: last.at,
+              closing,
+              answer,
+              sentBack,
+            },
+          ]
+        : [];
+    },
   );
 
 export const stationsPerLine = async (

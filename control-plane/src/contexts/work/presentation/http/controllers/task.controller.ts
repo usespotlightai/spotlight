@@ -8,6 +8,7 @@ import {
   NotFoundException,
   Param,
   ParseEnumPipe,
+  ParseIntPipe,
   Post,
   Put,
   Query,
@@ -36,6 +37,7 @@ import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
+import type { NoteDto } from '@work/application/dto/inbox.dto';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
@@ -58,9 +60,11 @@ import {
 } from '@work/application/queries/list-team-runs.query';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
 import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
+import { ReadTaskNotesQuery } from '@work/application/queries/read-task-notes.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.dto';
 import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.request.dto';
+import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { ResumeLineRequestDto } from '@work/presentation/http/dto/resume-line.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
@@ -390,6 +394,34 @@ export class TaskController {
     );
 
     return runs.map((each) => TaskRunHttpMapper.toResponse(each));
+  }
+
+  @Get('tasks/:taskId/notes')
+  @ApiOperation({
+    operationId: 'listTaskNotes',
+    summary: 'The notes of a task from one position to another, oldest first',
+  })
+  @ApiParam({ name: 'taskId' })
+  @ApiQuery({ name: 'from', type: Number })
+  @ApiQuery({ name: 'to', type: Number })
+  @ApiOkResponse({ type: NoteResponseDto, isArray: true })
+  @ApiNotFoundResponse({ description: "No such task, or not the viewer's" })
+  async taskNotes(
+    @Param('taskId') taskId: string,
+    @Query('from', ParseIntPipe) from: number,
+    @Query('to', ParseIntPipe) to: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<NoteResponseDto[]> {
+    const notes = await this.queryBus.execute<
+      ReadTaskNotesQuery,
+      NoteDto[] | null
+    >(new ReadTaskNotesQuery(taskId, from, to, user.id));
+
+    if (!notes) {
+      throw new NotFoundException(`Task ${taskId} not found.`);
+    }
+
+    return notes.map(NoteHttpMapper.toResponse);
   }
 
   @Get('tasks/:taskId/trace')

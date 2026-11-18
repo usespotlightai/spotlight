@@ -2980,6 +2980,71 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/notes": {
+      "get": {
+        "operationId": "listTaskNotes",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoteResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task, or not the viewer's"
+          }
+        },
+        "summary": "The notes of a task from one position to another, oldest first",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks/{taskId}/trace": {
       "get": {
         "operationId": "readTaskTrace",
@@ -9981,24 +10046,43 @@
       "FoldedVisitResponseDto": {
         "type": "object",
         "properties": {
-          "notes": {
-            "description": "The notes of one station visit that the page does not show, oldest first",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/NoteResponseDto"
-            }
+          "first": {
+            "description": "The first note of one station visit that the page does not show",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NoteResponseDto"
+              }
+            ]
           },
-          "closingAt": {
+          "to": {
             "type": "number",
-            "nullable": true,
             "example": 4,
-            "description": "The position of the note that moved the task on from this visit"
+            "description": "The position of the last note of this visit"
           },
-          "answerAt": {
-            "type": "number",
+          "endedAt": {
+            "type": "string",
+            "example": "2026-11-18T09:30:00.000Z",
+            "description": "When the last note of this visit was written"
+          },
+          "closing": {
             "nullable": true,
-            "example": 2,
-            "description": "The position of the last answer a person gave in this visit"
+            "description": "The note that moved the task on from this visit",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NoteResponseDto"
+              }
+            ]
+          },
+          "answer": {
+            "nullable": true,
+            "description": "The last answer a person gave in this visit",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NoteResponseDto"
+              }
+            ]
           },
           "sentBack": {
             "type": "boolean",
@@ -10007,9 +10091,11 @@
           }
         },
         "required": [
-          "notes",
-          "closingAt",
-          "answerAt",
+          "first",
+          "to",
+          "endedAt",
+          "closing",
+          "answer",
           "sentBack"
         ]
       },

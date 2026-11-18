@@ -196,7 +196,8 @@ describe('the notes of a run', () => {
   });
 
   it('folds the notes of the other stations into their visits', async () => {
-    const { triage, implementation, note, run } = await taskAtImplementation();
+    const { taskId, triage, implementation, note, run } =
+      await taskAtImplementation();
     const triaged = await run(triage, 'completed', '2026-10-20T08:00:00.000Z');
     const working = await run(
       implementation,
@@ -216,14 +217,19 @@ describe('the notes of a run', () => {
     const found = (await reader.notesFor(RunId.of(working)))?.found;
 
     expect(found?.notes.map((each) => each.body)).toEqual(['Drained it.']);
-    expect(found?.folded).toEqual([
-      expect.objectContaining({
-        closingAt: 2,
-        answerAt: 1,
-        sentBack: false,
-      }),
-    ]);
-    expect(found?.folded[0]?.notes.map((each) => each.body)).toEqual([
+    const [visit, ...others] = found?.folded ?? [];
+
+    expect(others).toEqual([]);
+    expect(visit?.first.body).toBe('Which queue?');
+    expect(visit?.to).toBe(2);
+    expect(visit?.closing?.body).toBe('Drain the billing queue.');
+    expect(visit?.answer?.body).toBe('The billing queue.');
+    expect(visit?.sentBack).toBe(false);
+    expect(
+      (await reader.taskNotesBetween(TaskId.of(taskId), 0, 2))?.found.map(
+        (each) => each.body,
+      ),
+    ).toEqual([
       'Which queue?',
       'The billing queue.',
       'Drain the billing queue.',

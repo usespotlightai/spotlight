@@ -42,6 +42,7 @@ export const authorsOf = (note: Note): Person[] =>
 
 export type ConversationItem = {
   readonly id: string;
+  readonly taskId: string;
   readonly teamId: string | undefined;
   readonly about?: {
     readonly title: string;

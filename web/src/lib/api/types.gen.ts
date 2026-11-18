@@ -3066,17 +3066,25 @@ export type InboxRunResponseDto = {
 
 export type FoldedVisitResponseDto = {
   /**
-   * The notes of one station visit that the page does not show, oldest first
+   * The first note of one station visit that the page does not show
    */
-  notes: Array<NoteResponseDto>;
+  first: NoteResponseDto;
   /**
-   * The position of the note that moved the task on from this visit
+   * The position of the last note of this visit
    */
-  closingAt: number | null;
+  to: number;
   /**
-   * The position of the last answer a person gave in this visit
+   * When the last note of this visit was written
    */
-  answerAt: number | null;
+  endedAt: string;
+  /**
+   * The note that moved the task on from this visit
+   */
+  closing: NoteResponseDto | null;
+  /**
+   * The last answer a person gave in this visit
+   */
+  answer: NoteResponseDto | null;
   /**
    * Whether this visit sent the task back to an earlier station
    */
@@ -16282,6 +16290,36 @@ export type ListTaskRunsResponses = {
 };
 
 export type ListTaskRunsResponse = ListTaskRunsResponses[keyof ListTaskRunsResponses];
+
+export type ListTaskNotesData = {
+  body?: never;
+  path: {
+    taskId: string;
+    teamId: string;
+  };
+  query: {
+    from: number;
+    to: number;
+  };
+  url: '/teams/{teamId}/tasks/{taskId}/notes';
+};
+
+export type ListTaskNotesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task, or not the viewer's
+   */
+  404: unknown;
+};
+
+export type ListTaskNotesResponses = {
+  200: Array<NoteResponseDto>;
+};
+
+export type ListTaskNotesResponse = ListTaskNotesResponses[keyof ListTaskNotesResponses];
 
 export type ReadTaskTraceData = {
   body?: never;

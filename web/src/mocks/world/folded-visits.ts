@@ -1,4 +1,16 @@
 import type { FoldedVisitResponseDto, NoteResponseDto } from '@/lib/api';
+import { perWorld } from '@/mocks/world';
+
+const visitNotes = perWorld(() => new Map<string, NoteResponseDto[]>());
+
+const visitKey = (taskId: string, from: number, to: number) =>
+  `${taskId}:${from}:${to}`;
+
+export const notesBetween = (
+  taskId: string,
+  from: number,
+  to: number,
+): NoteResponseDto[] => visitNotes().get(visitKey(taskId, from, to)) ?? [];
 
 const visitsIn = (trail: readonly NoteResponseDto[]): NoteResponseDto[][] =>
   trail.reduce<NoteResponseDto[][]>((visits, note) => {
@@ -34,6 +46,7 @@ const stretchesOf = (
   }, []);
 
 export const foldedAround = (
+  taskId: string,
   trail: readonly NoteResponseDto[],
   shown: readonly NoteResponseDto[],
 ): FoldedVisitResponseDto[] => {
@@ -43,22 +56,33 @@ export const foldedAround = (
   return visits.flatMap((visit, at) => {
     const next = visits[at + 1]?.[0];
 
-    return stretchesOf(visit, visible).map((notes) => {
+    return stretchesOf(visit, visible).flatMap((notes) => {
+      const first = notes[0];
       const end = notes.at(-1);
-      const closing =
-        end && end === visit.at(-1) && end.kind === 'passed' ? end : null;
 
-      return {
-        notes,
-        closingAt: closing?.position ?? null,
-        answerAt:
-          notes.findLast(
-            (note) => note.voice === 'person' && note.kind === 'answered',
-          )?.position ?? null,
-        sentBack: Boolean(
-          closing && next && next.stationPosition < closing.stationPosition,
-        ),
-      };
+      if (!first || !end) {
+        return [];
+      }
+
+      const closing =
+        end === visit.at(-1) && end.kind === 'passed' ? end : null;
+      visitNotes().set(visitKey(taskId, first.position, end.position), notes);
+
+      return [
+        {
+          first,
+          to: end.position,
+          endedAt: end.at,
+          closing,
+          answer:
+            notes.findLast(
+              (note) => note.voice === 'person' && note.kind === 'answered',
+            ) ?? null,
+          sentBack: Boolean(
+            closing && next && next.stationPosition < closing.stationPosition,
+          ),
+        },
+      ];
     });
   });
 };
