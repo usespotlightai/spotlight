@@ -29,6 +29,7 @@ import {
   type SetCandidate,
 } from '@/lib/insights-candidates';
 import { formatPercent } from '@/lib/judge';
+import { SKIP_OFF_SCREEN } from '@/lib/off-screen';
 import { configChangesOf } from '@/lib/station-config';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +51,12 @@ export function CandidateComparisonRow({
   return (
     <ExpandingRow
       slot="replayed-candidate"
-      className={cn(OUTER_GUIDE, OUTER_DIVIDER)}
+      className={cn(
+        OUTER_GUIDE,
+        OUTER_DIVIDER,
+        SKIP_OFF_SCREEN,
+        '[contain-intrinsic-size:auto_2.25rem]',
+      )}
     >
       {(expansion) => (
         <>

@@ -8,6 +8,7 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatShortDuration } from '@/lib/inbox';
 import { formatSpend, type InsightsTrace } from '@/lib/insights';
+import { SKIP_OFF_SCREEN } from '@/lib/off-screen';
 import { startedOn } from '@/lib/trace-list';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +31,8 @@ export function TraceRow({
     <div
       className={cn(
         TABLE_ROW,
-        'group/trace transition-colors [contain-intrinsic-size:auto_2.25rem] [content-visibility:auto]',
+        'group/trace transition-colors [contain-intrinsic-size:auto_2.25rem]',
+        SKIP_OFF_SCREEN,
         selected ? 'bg-selected' : 'hover:bg-accent',
         'has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset',
         TRACE_COLUMNS,
