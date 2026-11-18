@@ -1,5 +1,6 @@
 import { CandidateStationRows } from '@/components/features/insights/candidates/CandidateStationRows';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
+import { VirtualRows } from '@/components/shared/nested-table/VirtualRows';
 import { useCollapsibles } from '@/hooks/useCollapsibles';
 import type { StationNames } from '@/lib/insights';
 import {
@@ -8,6 +9,8 @@ import {
   GainScale,
   gainExtentOf,
 } from '@/lib/insights-candidates';
+
+const STATION_ESTIMATE = 320;
 
 type CandidatesTableProps = {
   stations: readonly CandidatesStation[];
@@ -38,16 +41,23 @@ export function CandidatesTable({
         compact
         headed={!chartStatus}
       >
-        {stations.map((station) => (
-          <CandidateStationRows
-            key={station.stationId}
-            station={station}
-            names={names}
-            heldOut={heldOut}
-            chartStatus={chartStatus}
-            collapsibles={collapsibles}
-          />
-        ))}
+        <VirtualRows count={stations.length} estimate={STATION_ESTIMATE}>
+          {(index) => {
+            const station = stations[index];
+
+            return (
+              station && (
+                <CandidateStationRows
+                  station={station}
+                  names={names}
+                  heldOut={heldOut}
+                  chartStatus={chartStatus}
+                  collapsibles={collapsibles}
+                />
+              )
+            );
+          }}
+        </VirtualRows>
       </NestedTable>
     </GainScale>
   );
