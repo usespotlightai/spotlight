@@ -9,8 +9,10 @@ const FRAME_MS = 80;
 
 const STOPPED = '⠿';
 
+export type Stopped = 'waiting' | 'filled' | 'faded';
+
 type TerminalSpinnerProps = {
-  stopped?: 'filled' | 'faded' | null;
+  stopped?: Stopped | null;
   className?: string;
   'aria-hidden'?: boolean;
 };
@@ -47,6 +49,7 @@ export function TerminalSpinner({
         'inline-flex h-4 shrink-0 select-none items-start overflow-hidden text-base leading-4',
         className,
         'w-auto',
+        stopped === 'waiting' && 'text-primary',
         stopped === 'faded' && 'text-faint',
       )}
     >

@@ -10,6 +10,14 @@ import { taskPath } from '@/lib/task';
 import { toast } from '@/lib/toast';
 import { useForwardTrail } from '@/lib/trail';
 
+const inView = (element: HTMLElement | null): boolean => {
+  const box = element?.getBoundingClientRect();
+
+  return Boolean(
+    box && box.height > 0 && box.bottom > 0 && box.top < window.innerHeight,
+  );
+};
+
 type ChatProposalProps = {
   slug: string;
   teamId: string;
@@ -32,6 +40,7 @@ export function ChatProposal({
   const navigate = useNavigate();
   const trail = useForwardTrail();
   const awaiting = useRef(false);
+  const card = useRef<HTMLElement>(null);
   const seen = useRef(proposal.state);
 
   useEffect(() => {
@@ -44,6 +53,9 @@ export function ChatProposal({
 
     if (proposal.state === 'created' && proposal.taskId) {
       awaiting.current = false;
+      if (inView(card.current)) {
+        return;
+      }
       const to = taskPath(slug, teamId, proposal.taskId);
 
       toast.add({
@@ -70,6 +82,7 @@ export function ChatProposal({
 
   return (
     <ProposedTaskCard
+      ref={card}
       slug={slug}
       teamId={teamId}
       proposal={proposal}

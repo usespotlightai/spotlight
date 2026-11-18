@@ -59,6 +59,25 @@ describe('useStickToBottom', () => {
     expect(box.scrollTop).toBe(900);
   });
 
+  it('shows the top of a big new block instead of jumping past it', () => {
+    render(<Log />);
+    const box = screen.getByTestId('scroller');
+    Object.defineProperty(box, 'clientHeight', {
+      configurable: true,
+      value: 500,
+    });
+    const scrolled = vi.fn();
+    box.scrollTo = scrolled as typeof box.scrollTo;
+    grown(box, 900);
+    box.scrollTop = 400;
+
+    grown(box, 1300);
+
+    expect(scrolled).toHaveBeenCalledWith(
+      expect.objectContaining({ top: 700 }),
+    );
+  });
+
   it('keeps following when its own scroll lands after the log grew again', () => {
     render(<Log />);
     const box = screen.getByTestId('scroller');

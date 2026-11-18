@@ -64,4 +64,14 @@ describe('TerminalSpinner', () => {
     expect(container.textContent).toBe('⠿');
     expect(container.firstElementChild).toHaveClass('text-faint');
   });
+
+  it('stands still in the primary colour while it waits for someone', () => {
+    preferringStill(false);
+    const animate = animating();
+    const { container } = render(<TerminalSpinner stopped="waiting" />);
+
+    expect(container.textContent).toBe('⠿');
+    expect(container.firstElementChild).toHaveClass('text-primary');
+    expect(animate).not.toHaveBeenCalled();
+  });
 });

@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 
 import { ProposedMemoryControls } from '@/components/features/inbox/memories/ProposedMemoryControls';
 import { ProposedMemoryFacts } from '@/components/features/inbox/memories/ProposedMemoryFacts';
+import { Collapsible } from '@/components/shared/Collapsible';
 import { DecisionActions } from '@/components/shared/DecisionActions';
 import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
@@ -13,6 +14,7 @@ import {
   proposalTitleOf,
   undecided,
 } from '@/lib/memory';
+import { cn } from '@/lib/utils';
 
 type ProposedMemoryCardProps = {
   memory: ProposedMemory;
@@ -39,7 +41,14 @@ export function ProposedMemoryCard({
     !editing || (written.length > 0 && written.length <= MAX_MEMORY_BODY);
 
   return (
-    <DecisionCard as="li" data-slot="proposed-memory">
+    <DecisionCard
+      as="li"
+      data-slot="proposed-memory"
+      className={cn(
+        'gap-0 transition-opacity duration-200',
+        memory.state === 'rejected' && 'opacity-70',
+      )}
+    >
       <DecisionHeader
         title={
           <DecisionTitle status={proposalStatusOf(memory)}>
@@ -58,35 +67,41 @@ export function ProposedMemoryCard({
         }
       />
 
-      <ProposedMemoryFacts
-        memory={memory}
-        editing={editing}
-        pending={pending}
-        body={body}
-        bodyId={bodyId}
-        onBody={setBody}
-      />
+      <div className="pt-1.5">
+        <ProposedMemoryFacts
+          memory={memory}
+          editing={editing}
+          pending={pending}
+          body={body}
+          bodyId={bodyId}
+          onBody={setBody}
+        />
+      </div>
 
-      <ProposedMemoryControls
-        position={position}
-        pending={pending}
-        editing={editing}
-        ready={ready}
-        bodyId={bodyId}
-        onApprove={
-          open
-            ? () =>
-                onApprove(
-                  editing && written !== memory.body ? written : undefined,
-                )
-            : undefined
-        }
-        onReject={open ? onReject : undefined}
-        onCancel={() => {
-          setBody(memory.body);
-          setEditing(false);
-        }}
-      />
+      <Collapsible open={open} appear={false}>
+        <div className="pt-3">
+          <ProposedMemoryControls
+            position={position}
+            pending={pending}
+            editing={editing}
+            ready={ready}
+            bodyId={bodyId}
+            onApprove={
+              open
+                ? () =>
+                    onApprove(
+                      editing && written !== memory.body ? written : undefined,
+                    )
+                : undefined
+            }
+            onReject={open ? onReject : undefined}
+            onCancel={() => {
+              setBody(memory.body);
+              setEditing(false);
+            }}
+          />
+        </div>
+      </Collapsible>
     </DecisionCard>
   );
 }

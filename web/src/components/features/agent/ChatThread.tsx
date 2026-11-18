@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 
+import { AgentText } from '@/components/features/agent/AgentText';
 import { AgentWorking } from '@/components/features/agent/AgentWorking';
 import { ChatEmpty } from '@/components/features/agent/ChatEmpty';
 import { ChatPersonMessage } from '@/components/features/agent/ChatPersonMessage';
@@ -9,16 +10,18 @@ import {
   StepsWorkPending,
 } from '@/components/features/inbox/conversation/StepsWork';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
-import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { Collapsible, COLLAPSE_MS } from '@/components/shared/Collapsible';
 import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { Turn } from '@/components/shared/Turn';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import { useJournalSight } from '@/hooks/useJournalSight';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import {
   type Chat,
   type ChatMoment,
   momentsOf,
+  phaseOf,
   runsOfTurn,
   turnsOf,
 } from '@/lib/chat';
@@ -28,6 +31,9 @@ import {
   STICKY_AT_TOP,
 } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
+
+const ARRIVING =
+  'motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:animate-in motion-safe:duration-200';
 
 type ChatThreadProps = {
   slug: string;
@@ -55,10 +61,24 @@ export function ChatThread({
     turns.filter((turn) => turn.message).length,
   );
   const sight = useJournalSight(scroller);
-  const lastWorked = moments.reduce<ChatMoment | null>(
-    (found, moment) => (moment.kind === 'worked' ? moment : found),
-    null,
-  );
+  const lingering = useDelayedValue(chat.progress, COLLAPSE_MS);
+  const [opened, setOpened] = useState(() => ({
+    chatId: chat.id,
+    keys: new Set(moments.map((moment) => moment.key)),
+  }));
+  if (opened.chatId !== chat.id) {
+    setOpened({
+      chatId: chat.id,
+      keys: new Set(moments.map((moment) => moment.key)),
+    });
+  }
+  const lastWorked =
+    turns
+      .at(-1)
+      ?.moments.reduce<ChatMoment | null>(
+        (found, moment) => (moment.kind === 'worked' ? moment : found),
+        null,
+      ) ?? null;
 
   return (
     <ScrollArea
@@ -75,11 +95,13 @@ export function ChatThread({
           {turns.map((turn, at) => {
             const last = at === turns.length - 1;
             const progress = last ? chat.progress : null;
+            const working = last ? lingering : null;
 
             return (
               <Turn
-                // oxlint-disable-next-line react/no-array-index-key -- the turns come in order and their order does not change
-                key={at}
+                key={
+                  turn.message ? `message:${turn.message.position}` : 'opening'
+                }
                 ref={sight(runsOfTurn(turn))}
                 className={cn(at > 0 && 'mt-6')}
                 head={
@@ -95,13 +117,13 @@ export function ChatThread({
                   )
                 }
               >
-                {(turn.moments.length > 0 || progress) && (
+                {(turn.moments.length > 0 || working) && (
                   <ol className="mt-6 flex flex-col gap-6">
                     {turn.moments.map((moment, place) => (
                       <li
-                        // oxlint-disable-next-line react/no-array-index-key -- the position of a moment identifies it, because new moments go only at the end
-                        key={place}
+                        key={moment.key}
                         className={cn(
+                          !opened.keys.has(moment.key) && ARRIVING,
                           moment.kind === 'proposed' &&
                             turn.moments[place - 1]?.kind === 'proposed' &&
                             '-mt-3',
@@ -119,14 +141,7 @@ export function ChatThread({
                         )}
 
                         {moment.kind === 'answered' && (
-                          <MarkdownEditor
-                            key={moment.text.length}
-                            readOnly
-                            initialValue={moment.text}
-                            placeholder=""
-                            ariaLabel="Agent message"
-                            className="border-none bg-transparent p-0"
-                          />
+                          <AgentText text={moment.text} />
                         )}
 
                         {moment.kind === 'pending' && (
@@ -137,6 +152,7 @@ export function ChatThread({
                           <StepsWork
                             steps={moment.steps}
                             live={
+                              last &&
                               chat.progress === 'in-progress' &&
                               moment === lastWorked
                             }
@@ -145,11 +161,18 @@ export function ChatThread({
                       </li>
                     ))}
 
-                    {progress && (
-                      <AgentWorking
-                        harness={chat.harness}
-                        progress={progress}
-                      />
+                    {working && (
+                      <li className="-mt-6">
+                        <Collapsible open={Boolean(progress)} appear={false}>
+                          <div className="pt-6">
+                            <AgentWorking
+                              harness={chat.harness}
+                              progress={working}
+                              phase={phaseOf(journals, chat.runId)}
+                            />
+                          </div>
+                        </Collapsible>
+                      </li>
                     )}
                   </ol>
                 )}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { JournalStep } from '@/lib/inbox';
-import { shownStep, stretchesOf } from '@/lib/journal-step';
+import { doingOf, shownStep, stretchesOf } from '@/lib/journal-step';
 
 const step = (over: Partial<JournalStep>): JournalStep => ({
   kind: 'message',
@@ -107,5 +107,24 @@ describe('stretchesOf', () => {
       { kind: 'said', at: 2, step: message },
       { kind: 'worked', at: 3, steps: [three] },
     ]);
+  });
+});
+
+describe('doingOf', () => {
+  it('says what a running step does, on one line', () => {
+    expect(
+      doingOf(step({ kind: 'tool', tool: 'execute', text: 'Terminal' })),
+    ).toBe('Running a command');
+    expect(
+      doingOf(
+        step({ kind: 'tool', tool: 'execute', text: 'npm test\nnpm run lint' }),
+      ),
+    ).toBe('Running npm test');
+    expect(
+      doingOf(step({ kind: 'tool', tool: 'read', text: 'src/queue.ts' })),
+    ).toBe('Reading src/queue.ts');
+    expect(
+      doingOf(step({ kind: 'thought', text: 'Retries first.\nThen limits.' })),
+    ).toBe('Thinking');
   });
 });

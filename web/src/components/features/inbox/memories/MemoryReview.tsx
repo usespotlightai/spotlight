@@ -21,7 +21,14 @@ export function MemoryReview({
   const approve = useApproveMemories();
   const reject = useRejectMemory();
   const about = { slug, teamId, taskId, runId };
-  const pending = approve.isPending || reject.isPending;
+  const deciding = new Set([
+    ...(approve.isPending
+      ? (approve.variables?.memories ?? []).map((each) => each.id)
+      : []),
+    ...(reject.isPending && reject.variables
+      ? [reject.variables.memoryId]
+      : []),
+  ]);
 
   return (
     <ul className="flex flex-col gap-3">
@@ -30,7 +37,7 @@ export function MemoryReview({
           key={memory.id}
           memory={memory}
           position={at + 1}
-          pending={pending}
+          pending={deciding.has(memory.id)}
           onApprove={(body) =>
             approve.mutate({
               ...about,

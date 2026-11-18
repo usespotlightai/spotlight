@@ -31,6 +31,27 @@ const PROSE_KINDS = new Set<JournalStep['kind']>([
   'reminded',
 ]);
 
+const TOOL_DOING = new Map<string | null, string>([
+  ['read', 'Reading'],
+  ['edit', 'Editing'],
+  ['write', 'Writing'],
+  ['create', 'Creating'],
+  ['execute', 'Running'],
+  ['search', 'Searching'],
+  ['grep', 'Searching'],
+  ['web', 'Fetching'],
+  ['fetch', 'Fetching'],
+  ['mcp', 'Calling'],
+]);
+
+const KIND_DOING = new Map<JournalStep['kind'], string>([
+  ['planned', 'Planning'],
+  ['hook', 'Running'],
+  ['subagent', 'Delegating'],
+  ['waited', 'Waiting for'],
+  ['reminded', 'Reminding'],
+]);
+
 const verbFor = (step: JournalStep): string =>
   KIND_VERBS.get(step.kind) ?? TOOL_VERBS.get(step.tool) ?? 'Used';
 
@@ -76,6 +97,22 @@ export const shownStep = (step: JournalStep): ShownStep => {
     prose,
     terminal: step.kind === 'hook' || step.tool === 'execute',
   };
+};
+
+const UNNAMED = new Set(['Terminal']);
+
+export const doingOf = (step: JournalStep): string => {
+  if (step.kind === 'thought') {
+    return 'Thinking';
+  }
+  const verb =
+    KIND_DOING.get(step.kind) ?? TOOL_DOING.get(step.tool) ?? 'Using';
+  const detail = shownStep(step).detail.split('\n')[0]?.trim() ?? '';
+  if (!detail || UNNAMED.has(detail)) {
+    return step.tool === 'execute' ? 'Running a command' : verb;
+  }
+
+  return `${verb} ${detail}`;
 };
 
 export const stillRunning = (step: JournalStep, live: boolean): boolean =>

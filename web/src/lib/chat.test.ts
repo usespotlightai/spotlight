@@ -3,8 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   type ChatMessage,
   chatPath,
+  type Chat,
+  decidedIn,
   momentsOf,
+  phaseOf,
   promptHandedOver,
+  proposalStatusOf,
+  type Proposal,
+  sentTo,
+  withoutMessage,
   runsOfTurn,
   targetStationHandedOver,
   tracesHandedOver,
@@ -100,6 +107,75 @@ describe('momentsOf', () => {
     );
 
     expect(moments.map((each) => each.kind)).toEqual(['message', 'worked']);
+  });
+
+  it('keeps a running step before a proposal made while it runs', () => {
+    const proposal = message({
+      position: 1,
+      kind: 'proposed',
+      at: '2026-09-14T09:00:08.000Z',
+      proposal: {
+        lineId: 'line_1',
+        lineName: 'Default',
+        stationId: 'station_1',
+        stationName: 'Backlog',
+        stationColor: '#a3a8b0',
+        stationPosition: 1,
+        stationCount: 3,
+        title: 'Back off exponentially',
+        description: null,
+        state: 'open',
+        taskId: null,
+      },
+    });
+    const running = (ms: number) =>
+      momentsOf(
+        [message({}), proposal],
+        [
+          journal([
+            step({
+              tool: 'execute',
+              status: 'pending',
+              startedAt: '2026-09-14T09:00:02.000Z',
+              ms,
+            }),
+          ]),
+        ],
+        [],
+      ).map((each) => each.key);
+
+    expect(running(1_000)).toEqual(running(9_000));
+    expect(running(9_000)).toEqual([
+      'message:0',
+      'worked:run_1:1:0',
+      'message:1',
+    ]);
+  });
+
+  it('keys each moment by what it is, so later moments keep their key', () => {
+    const steps = [
+      step({ startedAt: '2026-09-14T09:00:01.000Z' }),
+      step({
+        kind: 'message',
+        text: 'Found it.',
+        startedAt: '2026-09-14T09:00:03.000Z',
+      }),
+    ];
+    const before = momentsOf([message({})], [journal(steps)], []);
+    const after = momentsOf(
+      [message({})],
+      [
+        journal([
+          ...steps,
+          step({ tool: 'grep', startedAt: '2026-09-14T09:00:04.000Z' }),
+        ]),
+      ],
+      [],
+    );
+
+    expect(after.map((each) => each.key).slice(0, before.length)).toEqual(
+      before.map((each) => each.key),
+    );
   });
 
   it('gathers the agent’s work between its messages into one group', () => {
@@ -289,7 +365,12 @@ describe('a run whose journal has not loaded', () => {
 
     expect(moments).toEqual([
       expect.objectContaining({ kind: 'message' }),
-      { kind: 'pending', at: '2026-09-14T09:00:00.500Z', count: 3 },
+      {
+        kind: 'pending',
+        key: 'pending:run_1',
+        at: '2026-09-14T09:00:00.500Z',
+        count: 3,
+      },
     ]);
   });
 
@@ -311,5 +392,114 @@ describe('a run whose journal has not loaded', () => {
     );
 
     expect(moments.map((each) => each.kind)).toEqual(['message']);
+  });
+});
+
+describe('sentTo', () => {
+  const chat = (over: Partial<Chat> = {}): Chat =>
+    ({ progress: null, messages: [message({})], ...over }) as unknown as Chat;
+  const sent = {
+    body: 'Split it up.',
+    author: { id: 'user_1', name: 'Sam Rivera', image: null },
+    attachments: [],
+  };
+
+  it('adds the message at the end and queues the agent', () => {
+    const after = sentTo(chat(), sent, '2026-09-14T09:01:00.000Z');
+
+    expect(after.progress).toBe('queued');
+    expect(after.messages.at(-1)).toMatchObject({
+      position: 1,
+      kind: 'message',
+      body: 'Split it up.',
+      at: '2026-09-14T09:01:00.000Z',
+      takenUpBy: null,
+    });
+  });
+
+  it('keeps a run that is already working', () => {
+    expect(
+      sentTo(
+        chat({ progress: 'in-progress' }),
+        sent,
+        '2026-09-14T09:01:00.000Z',
+      ).progress,
+    ).toBe('in-progress');
+  });
+
+  it('takes the message back out by its position', () => {
+    const after = sentTo(chat(), sent, '2026-09-14T09:01:00.000Z');
+
+    expect(withoutMessage(after, 1).messages).toEqual(chat().messages);
+  });
+});
+
+describe('decidedIn', () => {
+  it('changes only the proposal at that position', () => {
+    const proposed = message({
+      position: 1,
+      kind: 'proposed',
+      proposal: { state: 'open' } as ChatMessage['proposal'],
+    });
+    const chat = { messages: [message({}), proposed] } as unknown as Chat;
+
+    const after = decidedIn(chat, 1, 'dismissed');
+
+    expect(after.messages[0]).toBe(chat.messages[0]);
+    expect(after.messages[1]?.proposal?.state).toBe('dismissed');
+  });
+});
+
+describe('proposalStatusOf', () => {
+  it('waits while the proposal is open and works while the task is created', () => {
+    const of = (state: Proposal['state']) =>
+      proposalStatusOf({ state } as Proposal);
+
+    expect(of('open')).toBe('pending');
+    expect(of('accepted')).toBe('working');
+    expect(of('created')).toBe('approved');
+    expect(of('dismissed')).toBe('dismissed');
+  });
+});
+
+describe('phaseOf', () => {
+  it('prepares the workspace until the agent takes its first step', () => {
+    const phase = phaseOf(
+      [journal([step({ kind: 'hook', tool: null, text: 'restore' })])],
+      'run_1',
+    );
+
+    expect(phase).toEqual({ kind: 'preparing', key: 'run_1:preparing' });
+    expect(phaseOf([], 'run_1')).toEqual({
+      kind: 'preparing',
+      key: 'run_1:preparing',
+    });
+  });
+
+  it('names the step that runs now', () => {
+    const running = step({
+      tool: 'execute',
+      text: 'npm test',
+      status: 'pending',
+      startedAt: '2026-09-14T09:00:05.000Z',
+    });
+
+    expect(phaseOf([journal([step({}), running])], 'run_1')).toEqual({
+      kind: 'step',
+      step: running,
+      key: 'run_1:step:2026-09-14T09:00:05.000Z:npm test',
+    });
+  });
+
+  it('works on, with a new phase after each step, when none runs', () => {
+    const steps = [step({}), step({ kind: 'message', status: 'pending' })];
+
+    expect(phaseOf([journal(steps)], 'run_1')).toEqual({
+      kind: 'working',
+      key: 'run_1:working:2',
+    });
+    expect(phaseOf([journal([...steps, step({})])], 'run_1').key).toBe(
+      'run_1:working:3',
+    );
   });
 });

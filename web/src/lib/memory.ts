@@ -343,3 +343,18 @@ export const repositoriesOf = (
     ),
   ),
 ];
+
+export const decidedMemories = <Review extends { memories: ProposedMemory[] }>(
+  review: Review,
+  decided: readonly { id: string; body?: string }[],
+  state: 'approved' | 'rejected',
+): Review => ({
+  ...review,
+  memories: review.memories.map((memory) => {
+    const decision = decided.find((each) => each.id === memory.id);
+
+    return decision
+      ? { ...memory, state, body: decision.body ?? memory.body }
+      : memory;
+  }),
+});

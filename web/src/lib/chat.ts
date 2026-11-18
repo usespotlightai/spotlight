@@ -106,22 +106,35 @@ export const repositoriesHandedOver = (state: unknown): string[] => {
 export type ChatMoment =
   | {
       readonly kind: 'message';
+      readonly key: string;
       readonly at: string;
       readonly message: ChatMessage;
     }
   | {
       readonly kind: 'proposed';
+      readonly key: string;
       readonly at: string;
       readonly message: ChatMessage;
       readonly proposal: Proposal;
     }
-  | { readonly kind: 'answered'; readonly at: string; readonly text: string }
+  | {
+      readonly kind: 'answered';
+      readonly key: string;
+      readonly at: string;
+      readonly text: string;
+    }
   | {
       readonly kind: 'worked';
+      readonly key: string;
       readonly at: string;
       readonly steps: readonly JournalStep[];
     }
-  | { readonly kind: 'pending'; readonly at: string; readonly count: number };
+  | {
+      readonly kind: 'pending';
+      readonly key: string;
+      readonly at: string;
+      readonly count: number;
+    };
 
 export const CHAT_KEEPS_REPOSITORIES =
   'A chat keeps the repositories it started with. To use other repositories, start a new chat.';
@@ -132,33 +145,74 @@ export const chatPath = (
   chatId: string,
 ): string => `${teamSectionPath(slug, teamId, 'agent')}/${chatId}`;
 
+const QUEUED_AFTER_MESSAGE_MS = 1_000;
+
 const momentOf = (message: ChatMessage): ChatMoment =>
   message.proposal
     ? {
         kind: 'proposed',
+        key: `message:${message.position}`,
         at: message.at,
         message,
         proposal: message.proposal,
       }
-    : { kind: 'message', at: message.at, message };
+    : {
+        kind: 'message',
+        key: `message:${message.position}`,
+        at: message.at,
+        message,
+      };
 
-const finishedAt = (step: JournalStep): string =>
-  new Date(Date.parse(step.startedAt) + step.ms).toISOString();
+const later = (at: string, floor: string | null): string =>
+  floor && Date.parse(floor) > Date.parse(at) ? floor : at;
 
-const worked = (journal: RunJournal): ChatMoment[] =>
-  stretchesOf(journal.steps).map((stretch) =>
+const starterOf = (
+  journal: RunJournal,
+  messages: readonly ChatMessage[],
+): string | null => {
+  const first = journal.steps[0];
+  if (!first) {
+    return null;
+  }
+  const queued = Date.parse(first.startedAt) + QUEUED_AFTER_MESSAGE_MS;
+
+  return messages
+    .filter(
+      (message) =>
+        message.kind === 'message' && Date.parse(message.at) <= queued,
+    )
+    .reduce<string | null>(
+      (found, message) =>
+        found && Date.parse(found) >= Date.parse(message.at)
+          ? found
+          : message.at,
+      null,
+    );
+};
+
+const worked = (
+  journal: RunJournal,
+  messages: readonly ChatMessage[],
+): ChatMoment[] => {
+  const floor = starterOf(journal, messages);
+  const run = `${journal.runId}:${journal.attempt}`;
+
+  return stretchesOf(journal.steps).map((stretch) =>
     stretch.kind === 'said'
       ? {
           kind: 'answered',
-          at: stretch.step.startedAt,
+          key: `said:${run}:${stretch.at}`,
+          at: later(stretch.step.startedAt, floor),
           text: stretch.step.text,
         }
       : {
           kind: 'worked',
-          at: finishedAt(stretch.steps[0]),
+          key: `worked:${run}:${stretch.at}`,
+          at: later(stretch.steps[0].startedAt, floor),
           steps: stretch.steps,
         },
   );
+};
 
 const pendingOf = (
   runs: readonly JournalledRun[],
@@ -172,6 +226,7 @@ const pendingOf = (
     )
     .map((run) => ({
       kind: 'pending',
+      key: `pending:${run.runId}`,
       at: run.createdAt,
       count: run.stepCount,
     }));
@@ -183,7 +238,7 @@ export const momentsOf = (
 ): ChatMoment[] =>
   [
     ...messages.map(momentOf),
-    ...journals.flatMap(worked),
+    ...journals.flatMap((journal) => worked(journal, messages)),
     ...pendingOf(runs, journals),
   ].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 
@@ -213,7 +268,7 @@ export const runsOfTurn = (turn: ChatTurn | undefined): string[] =>
 
 const PROPOSAL_STATUSES: Record<Proposal['state'], ApprovalStatus> = {
   open: 'pending',
-  accepted: 'approved',
+  accepted: 'working',
   created: 'approved',
   dismissed: 'dismissed',
 };
@@ -240,3 +295,71 @@ export const proposalText = (proposal: Proposal): string =>
   proposal.description
     ? `${proposal.title}\n\n${proposal.description}`
     : proposal.title;
+
+export type SentMessage = Pick<ChatMessage, 'body' | 'author' | 'attachments'>;
+
+export const sentTo = (chat: Chat, sent: SentMessage, at: string): Chat => ({
+  ...chat,
+  progress: chat.progress ?? 'queued',
+  messages: [
+    ...chat.messages,
+    {
+      ...sent,
+      position: (chat.messages.at(-1)?.position ?? -1) + 1,
+      kind: 'message',
+      at,
+      runId: null,
+      takenUpBy: null,
+      traces: [],
+      proposal: null,
+    },
+  ],
+});
+
+export const withoutMessage = (chat: Chat, position: number): Chat => ({
+  ...chat,
+  messages: chat.messages.filter((message) => message.position !== position),
+});
+
+export const decidedIn = (
+  chat: Chat,
+  position: number,
+  state: Proposal['state'],
+): Chat => ({
+  ...chat,
+  messages: chat.messages.map((message) =>
+    message.position === position && message.proposal
+      ? { ...message, proposal: { ...message.proposal, state } }
+      : message,
+  ),
+});
+
+export type AgentPhase =
+  | { readonly kind: 'preparing'; readonly key: string }
+  | { readonly kind: 'step'; readonly step: JournalStep; readonly key: string }
+  | { readonly kind: 'working'; readonly key: string };
+
+export const phaseOf = (
+  journals: readonly RunJournal[],
+  runId: string | null,
+): AgentPhase => {
+  const steps =
+    journals.findLast((journal) => journal.runId === runId)?.steps ?? [];
+  const running = steps.findLast(
+    (step) =>
+      step.kind !== 'message' &&
+      (step.status === 'running' || step.status === 'pending'),
+  );
+  if (running) {
+    return {
+      kind: 'step',
+      step: running,
+      key: `${runId}:step:${running.startedAt}:${running.text}`,
+    };
+  }
+  if (!steps.some((step) => step.kind !== 'hook')) {
+    return { kind: 'preparing', key: `${runId}:preparing` };
+  }
+
+  return { kind: 'working', key: `${runId}:working:${steps.length}` };
+};

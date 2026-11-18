@@ -155,6 +155,8 @@ export function ChatInput({
   useFileDropTarget(message.attach, { disabled });
   useReplyKey(message.editor, focusOnReply && !disabled);
   const lifted = message.images.length > 0;
+  const cleared =
+    !message.written.text && message.written.references.length === 0;
   const { inner, writing, height, expanded } = useOneLineFit(
     message.written,
     lifted,
@@ -178,7 +180,10 @@ export function ChatInput({
         onSubmit={send}
         {...(!disabled && message.handlers)}
         style={height === null ? undefined : { height }}
-        className="box-content overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-[height] duration-200 ease-out-quad motion-reduce:transition-none"
+        className={cn(
+          'box-content overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-[height] duration-200 ease-out-quad motion-reduce:transition-none',
+          cleared && 'transition-none',
+        )}
       >
         <div
           ref={inner}

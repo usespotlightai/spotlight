@@ -18,8 +18,6 @@ export function DecisionActions({
 }: DecisionActionsProps) {
   return (
     <div className="flex items-center gap-0.5">
-      <CopyIconAction text={copy.text} label={copy.label} />
-
       {onEdit && (
         <IconAction
           label={editLabel}
@@ -30,6 +28,8 @@ export function DecisionActions({
           <Pencil />
         </IconAction>
       )}
+
+      <CopyIconAction text={copy.text} label={copy.label} />
     </div>
   );
 }
