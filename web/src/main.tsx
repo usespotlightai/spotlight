@@ -25,9 +25,11 @@ import {
 } from '@/lib/query-cache';
 import { retryQuery } from '@/lib/query-retry';
 import { withSentRequest } from '@/lib/request-failure';
+import { keepAppShell } from '@/lib/service-worker';
 import { reloadOnStaleBuild } from '@/lib/stale-build';
 
 import App from './App.tsx';
+import { preloadVisiblePages } from './visible-pages.ts';
 
 import './index.css';
 
@@ -79,12 +81,18 @@ const render = () =>
     </StrictMode>,
   );
 
-const REPORTING_WAIT_MS = 1000;
+const FIRST_RENDER_WAIT_MS = 1000;
 
 void Promise.race([
-  startErrorReporting().catch(() => undefined),
-  new Promise((resolve) => setTimeout(resolve, REPORTING_WAIT_MS)),
+  Promise.all([
+    startErrorReporting().catch(() => undefined),
+    preloadVisiblePages(window.location.pathname),
+  ]),
+  new Promise((resolve) => setTimeout(resolve, FIRST_RENDER_WAIT_MS)),
 ]).finally(() => {
   render();
   void storedJournals.prune();
+  if (import.meta.env.PROD) {
+    keepAppShell();
+  }
 });

@@ -24,6 +24,11 @@ const memoryStorage = (now: () => number) => {
     },
     savedBefore: async (time) =>
       [...savedAt].filter(([, at]) => at < time).map(([key]) => key),
+    newest: async (count) =>
+      [...savedAt]
+        .toSorted(([, a], [, b]) => b - a)
+        .slice(0, count)
+        .flatMap(([key]) => items.get(key) ?? []),
     clear: async () => {
       items.clear();
       savedAt.clear();
@@ -40,6 +45,7 @@ const brokenStorage: JournalStorage = {
   setItem: () => Promise.reject(new Error('quota')),
   removeItem: () => Promise.reject(new Error('quota')),
   savedBefore: () => Promise.reject(new Error('closed')),
+  newest: () => Promise.reject(new Error('closed')),
   clear: () => Promise.reject(new Error('closed')),
 };
 
@@ -49,11 +55,12 @@ const readJournal = (
   queryClient: QueryClient,
   persister: ReturnType<typeof createStoredJournals>['persister'],
   journal: () => Promise<string[]>,
+  runId = 'run_1',
 ) => {
   queryClient.setQueryDefaults(['journal'], { persister });
 
   return queryClient.query({
-    queryKey: ['journal', 'run_1'],
+    queryKey: ['journal', runId],
     queryFn: journal,
     staleTime: Number.POSITIVE_INFINITY,
   });
@@ -166,5 +173,63 @@ describe('stored journals', () => {
     expect(data).toEqual(['step']);
     await expect(stored.prune()).resolves.toBeUndefined();
     await expect(stored.forget()).resolves.toBeUndefined();
+    await expect(stored.recent(8)).resolves.toEqual([]);
+  });
+
+  it('gives the most recently saved journals first, up to the count asked for', async () => {
+    let time = 0;
+    const now = () => time;
+    const { storage } = memoryStorage(now);
+    const stored = createStoredJournals(storage, {
+      buster: 'api_1',
+      maxAge: 24 * HOUR,
+      now,
+    });
+
+    for (const runId of ['run_1', 'run_2', 'run_3']) {
+      time += HOUR;
+      await readJournal(
+        new QueryClient(),
+        stored.persister,
+        async () => [runId],
+        runId,
+      );
+      await settle();
+    }
+
+    const recent = await stored.recent(2);
+
+    expect(recent.map(({ queryKey }) => queryKey)).toEqual([
+      ['journal', 'run_3'],
+      ['journal', 'run_2'],
+    ]);
+  });
+
+  it('leaves out recent journals stored for another API or too long ago', async () => {
+    let shift = 0;
+    const now = () => Date.now() + shift;
+    const { storage } = memoryStorage(now);
+    const before = createStoredJournals(storage, {
+      buster: 'api_1',
+      maxAge: 24 * HOUR,
+      now,
+    });
+    await readJournal(new QueryClient(), before.persister, async () => [
+      'step',
+    ]);
+    await settle();
+
+    const otherApi = createStoredJournals(storage, {
+      buster: 'api_2',
+      maxAge: 24 * HOUR,
+      now,
+    });
+
+    await expect(otherApi.recent(8)).resolves.toEqual([]);
+    await expect(before.recent(8)).resolves.toHaveLength(1);
+
+    shift = 25 * HOUR;
+
+    await expect(before.recent(8)).resolves.toEqual([]);
   });
 });
