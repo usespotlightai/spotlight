@@ -3120,6 +3120,11 @@
             "example": "Reproduced on restart. Needs a spec for draining the queue.",
             "description": "What whoever takes the hand-over should know"
           },
+          "suggest": {
+            "type": "string",
+            "example": "done",
+            "description": "What the run suggests the person who takes the hand-over does. The requester of the run reads it."
+          },
           "attachments": {
             "maxItems": 10,
             "example": [

@@ -16,7 +16,7 @@ import {
   type StationSpec,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
-import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
+import { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -158,6 +158,22 @@ describe('HandoverFor.resolve', () => {
 
     expect(handover.kind).toBe('review');
     expect(handover.body.value).toBe('Needs a decision on the retry cap.');
+    expect(ResolvedHandover.suggestsClosing(handover)).toBe(false);
+  });
+
+  it('asks a person with the suggestion to close the task, where the run made one', () => {
+    const handover = HandoverFor.resolve(
+      Handover.of({
+        next: 'review',
+        note: 'The retry already exists.',
+        suggest: 'done',
+      }),
+      LINE,
+      StationId.of('station_1'),
+    );
+
+    expect(handover.kind).toBe('review');
+    expect(ResolvedHandover.suggestsClosing(handover)).toBe(true);
   });
 
   it('ends the line where the run hands over the task as done and the line ends there', () => {
@@ -173,6 +189,7 @@ describe('HandoverFor.resolve', () => {
 
     expect(handover.kind).toBe('review');
     expect(handover.body.value).toContain('is not at the end of its line');
+    expect(ResolvedHandover.suggestsClosing(handover)).toBe(false);
   });
 
   it('asks a person when the run names nowhere at all', () => {

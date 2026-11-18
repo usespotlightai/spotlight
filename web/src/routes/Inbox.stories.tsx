@@ -118,6 +118,7 @@ const meta = {
       opened: choice('Open item', {
         none: 'None',
         'task_rate_limits:0': 'Waiting for review',
+        'task_retry_after:0': 'Suggests closing the task',
         'task_latency:0': 'Awaiting approval',
         'task_signup_survey:0': 'A comment to post',
         'task_checkout:0': 'A command to run',

@@ -377,6 +377,13 @@ export class NoteResponseDto {
   })
   readonly resumption: NoteResumptionResponseDto | null;
 
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether the station suggests closing the task, on the question it put to a person',
+  })
+  readonly suggestsClosing: boolean;
+
   constructor(
     position: number,
     kind: string,
@@ -397,6 +404,7 @@ export class NoteResponseDto {
     failure: InboxFailureResponseDto | null,
     connection: InboxConnectionResponseDto | null,
     resumption: NoteResumptionResponseDto | null,
+    suggestsClosing: boolean,
   ) {
     this.position = position;
     this.kind = kind;
@@ -417,6 +425,7 @@ export class NoteResponseDto {
     this.failure = failure;
     this.connection = connection;
     this.resumption = resumption;
+    this.suggestsClosing = suggestsClosing;
   }
 }
 

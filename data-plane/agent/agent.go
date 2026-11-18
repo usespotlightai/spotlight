@@ -80,6 +80,7 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 
 	next := flags.String("next", "", "where the task goes now")
 	note := flags.String("note", "", "what the next hands need to know")
+	suggest := flags.String("suggest", "", "what the person may do next")
 	var attached paths
 	flags.Var(&attached, "attach", "a file to attach to the note")
 
@@ -107,12 +108,14 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("no run to hand over: spotlight runs inside a Spotlight workspace")
 	}
 
-	handedTo, err := postHandover(endpoint, token, protocol.Handover{Next: *next, Note: *note, Files: files})
+	handedTo, err := postHandover(endpoint, token, protocol.Handover{Next: *next, Note: *note, Suggest: *suggest, Files: files})
 	if err != nil {
 		return err
 	}
 
 	switch {
+	case strings.EqualFold(handedTo, protocol.HandoverReview) && strings.TrimSpace(*suggest) != "":
+		fmt.Fprintln(out, "Put to a person, with the choice to close the task. The task waits here until someone answers.")
 	case strings.EqualFold(handedTo, protocol.HandoverReview):
 		fmt.Fprintln(out, "Put to a person. The task waits here until someone answers.")
 	case strings.EqualFold(handedTo, protocol.HandoverDone):

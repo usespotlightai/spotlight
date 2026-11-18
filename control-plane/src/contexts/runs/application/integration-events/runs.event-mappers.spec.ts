@@ -95,6 +95,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
         report: {
           next: 'review',
           note: 'done',
+          suggest: null,
           files: [
             {
               id: 'file_1',
@@ -239,7 +240,12 @@ describe('RUNS_EVENT_MAPPERS', () => {
         askedAPerson: true,
         handsOver: true,
         reported: true,
-        report: { next: 'review', note: 'Over to you.', files: [] },
+        report: {
+          next: 'review',
+          note: 'Over to you.',
+          suggest: null,
+          files: [],
+        },
         session: null,
         claimedBy: null,
         expiredLeases: 0,

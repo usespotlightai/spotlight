@@ -353,6 +353,45 @@ describe('files a run attaches to its handover', () => {
     expect(inbox.some((each) => each.taskId === taskId)).toBe(true);
   });
 
+  it('carries the run’s suggestion to close the task to the question in the inbox', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const token = await claimed(runId);
+
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, {
+        exitCode: 0,
+        failed: false,
+        sessionId: 'session_1',
+        handover: {
+          next: 'review',
+          note: 'The retry already exists.',
+          suggest: 'done',
+        },
+      })
+      .expect(204);
+
+    const asked = await eventually(async () => {
+      const { items } = (
+        await http()
+          .get(`/api/workspaces/${team.slug}/inbox`)
+          .set(TEST_USER_HEADER, team.owner.value)
+          .expect(200)
+      ).body as {
+        readonly items: {
+          readonly taskId: string;
+          readonly lastNote: {
+            readonly kind: string;
+            readonly suggestsClosing: boolean;
+          } | null;
+        }[];
+      };
+
+      return items.find((each) => each.taskId === taskId)?.lastNote ?? null;
+    });
+
+    expect(asked).toMatchObject({ kind: 'asked', suggestsClosing: true });
+  });
+
   it('puts the files on the note that passes the task to the next station', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);

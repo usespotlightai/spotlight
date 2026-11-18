@@ -113,6 +113,7 @@ interface Reported {
   readonly next?: string;
   readonly note?: string;
   readonly session?: string;
+  readonly suggest?: string;
 }
 
 const run = (failed: boolean, reported: Reported = {}) =>
@@ -125,6 +126,7 @@ const run = (failed: boolean, reported: Reported = {}) =>
         : {
             next: reported.next || null,
             note: reported.note || null,
+            suggest: reported.suggest ?? null,
             files: [],
           },
   });
@@ -324,6 +326,23 @@ describe('HandOver', () => {
     expect(saved?.awaitingReview).toBe(false);
     expect(saved?.currentRunId).toBeNull();
     expect(saved?.notes[0]?.body.value).toBe('Pull request opened.');
+  });
+
+  it('puts to a person a run that suggests closing the task', async () => {
+    await handOver(
+      run(false, {
+        next: 'review',
+        note: 'The queue already retries.',
+        suggest: 'done',
+      }),
+    );
+
+    expect(saved?.awaitingReview).toBe(true);
+    expect(saved?.finished).toBe(false);
+    expect(saved?.notes[0]).toMatchObject({
+      kind: 'asked',
+      suggestsClosing: true,
+    });
   });
 
   it('names the station the note came from', async () => {

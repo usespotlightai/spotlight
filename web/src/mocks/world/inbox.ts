@@ -310,6 +310,14 @@ const OPEN_CONVERSATIONS = (): InboxConversation[] => [
     unread: true,
   }),
   conversation({
+    taskId: 'task_retry_after',
+    teamId: PLATFORM_ID,
+    askedIn: 'station_spec',
+    originIn: 'station_triage',
+    runId: 'run_retry_after_1',
+    unread: true,
+  }),
+  conversation({
     taskId: 'task_checkout',
     teamId: PLATFORM_ID,
     askedIn: 'station_triage',
@@ -553,6 +561,7 @@ const setupItem = (createdAt: string, resolved: boolean): InboxConversation => {
         failure: null,
         connection: null,
         resumption: null,
+        suggestsClosing: false,
       },
     ],
   };

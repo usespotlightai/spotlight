@@ -2012,6 +2012,23 @@ describe('Task, what it is doing', () => {
       expect(moved(HERE, COMPLETED).finished).toBe(true);
     });
 
+    it('closes the question a station put to a person, when the person closes the task', () => {
+      const closed = at(HERE)
+        .askedAbout(
+          {
+            ...newNote,
+            voice: Voice.station(RUN),
+            suggestsClosing: true,
+          },
+          null,
+        )
+        .moveTo(LINE, COMPLETED, TaskRank.of('m'), newNote, hand);
+
+      expect(closed.finished).toBe(true);
+      expect(closed.awaitingReview).toBe(false);
+      expect(closed.openConversation).toBeNull();
+    });
+
     it('parks from a work station back in the backlog, detaching its run', () => {
       const parked = at(HERE)
         .assignRun(RUN, LINE)

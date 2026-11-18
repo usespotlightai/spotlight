@@ -22,6 +22,7 @@ interface TurnFileFacts {
 interface TurnHandoverFacts {
   readonly next: string;
   readonly note: string;
+  readonly suggest: string;
   readonly files: readonly TurnFileFacts[];
 }
 

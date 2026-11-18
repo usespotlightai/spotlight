@@ -24,7 +24,10 @@ export function ConnectionCard({
   const who = connection.personName || 'the person who started this task';
 
   return (
-    <DecisionCard aria-label={`Connect ${connection.integrationName}`}>
+    <DecisionCard
+      aria-label={`Connect ${connection.integrationName}`}
+      className="mt-4.5"
+    >
       <DecisionHeader
         title={
           <DecisionTitle status={connection.met ? 'approved' : 'pending'}>

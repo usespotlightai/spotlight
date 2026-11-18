@@ -143,6 +143,7 @@ const turnFactsOf = (run: Run): TurnFacts | null => {
         handover: turn.report.handover && {
           next: turn.report.handover.next,
           note: turn.report.handover.note,
+          suggest: turn.report.handover.suggest,
           files: turn.report.handover.attachments.map((each) => ({
             id: each.id,
             name: each.name,

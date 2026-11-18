@@ -49,6 +49,7 @@ export type RunEndedIntegrationEvent = {
   readonly report: {
     readonly next: string | null;
     readonly note: string | null;
+    readonly suggest: string | null;
     readonly files: readonly HandedOverFilePublished[];
   } | null;
   readonly session: string | null;

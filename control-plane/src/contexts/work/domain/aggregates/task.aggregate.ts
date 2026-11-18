@@ -160,6 +160,7 @@ export interface NewNote {
   readonly failure?: TaskFailure | null;
   readonly connectionAsk?: ConnectionAsk | null;
   readonly resumption?: Resumption | null;
+  readonly suggestsClosing?: boolean;
 }
 
 export interface CurrentApproval {

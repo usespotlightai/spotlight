@@ -336,6 +336,7 @@ type ReviewCommentReply struct {
 type Handover struct {
 	Next        string       `json:"next"`
 	Note        string       `json:"note,omitempty"`
+	Suggest     string       `json:"suggest,omitempty"`
 	Files       []HandedFile `json:"files,omitempty"`
 	Attachments []string     `json:"attachments,omitempty"`
 }

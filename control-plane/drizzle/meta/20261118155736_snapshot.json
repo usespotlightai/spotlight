@@ -1,5 +1,5 @@
 {
-  "id": "f57cdecf-522d-4872-b6f3-5851c544fe7e",
+  "id": "575d842f-5e59-4baa-a449-1da0bd8b30b4",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -20000,6 +20000,13 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
+        },
+        "suggests_closing": {
+          "name": "suggests_closing",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "answered_at": {
           "name": "answered_at",

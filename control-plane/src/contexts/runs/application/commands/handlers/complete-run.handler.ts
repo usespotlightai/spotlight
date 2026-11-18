@@ -59,7 +59,9 @@ export class CompleteRunHandler implements CommandHandlerPort<
       const report = HandoverReport.of({
         handover: command.handover
           ? Handover.of({
-              ...command.handover,
+              next: command.handover.next,
+              note: command.handover.note,
+              suggest: command.handover.suggest,
               attachments: files.map((each) => HandedOverFile.of(each)),
             })
           : null,

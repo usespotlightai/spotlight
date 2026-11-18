@@ -407,6 +407,12 @@ describe('TaskBriefing', () => {
     expect(brief(finishing)).toContain('--next "done"');
   });
 
+  it('says how to suggest closing the task to a person', () => {
+    expect(brief(triage())).toContain(
+      'add `--suggest "done"` to `--next "review"`. The person gets a button to close the task.',
+    );
+  });
+
   it('does not offer an ending among the stations', () => {
     expect(brief(triage())).not.toContain('(Spec), "done"');
   });

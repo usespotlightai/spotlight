@@ -50,6 +50,13 @@ export class HandoverDto {
   readonly note?: string;
 
   @ApiPropertyOptional({
+    example: 'done',
+    description:
+      'What the run suggests the person who takes the hand-over does. The requester of the run reads it.',
+  })
+  readonly suggest?: string;
+
+  @ApiPropertyOptional({
     type: [String],
     maxItems: MAX_HANDOVER_ATTACHMENTS,
     example: ['5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47'],

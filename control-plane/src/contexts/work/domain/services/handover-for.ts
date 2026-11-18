@@ -56,6 +56,7 @@ export const HandoverFor = {
         bodyOf(handover, 'The run asked for someone to look at this.'),
         ownWords(handover),
         handover.attachments,
+        handover.suggestsClosing(),
       );
     }
 

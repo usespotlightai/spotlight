@@ -7,12 +7,14 @@ export class Handover {
   private constructor(
     readonly next: string,
     readonly note: string,
+    readonly suggest: string,
     readonly attachments: readonly HandedOverFile[],
   ) {}
 
   static of(input: {
     next?: string;
     note?: string;
+    suggest?: string;
     attachments?: readonly HandedOverFile[];
   }): Handover {
     const attachments = input.attachments ?? [];
@@ -26,6 +28,7 @@ export class Handover {
     return new Handover(
       (input.next ?? '').trim(),
       (input.note ?? '').trim(),
+      (input.suggest ?? '').trim(),
       attachments,
     );
   }
@@ -34,6 +37,7 @@ export class Handover {
     return (
       this.next === other.next &&
       this.note === other.note &&
+      this.suggest === other.suggest &&
       this.attachments.length === other.attachments.length &&
       this.attachments.every((each, at) => each.equals(other.attachments[at]))
     );

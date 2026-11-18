@@ -24,6 +24,7 @@ const note = (over: Partial<Note>): Note => ({
   failure: null,
   connection: null,
   resumption: null,
+  suggestsClosing: false,
   ...over,
 });
 

@@ -87,6 +87,7 @@ export interface InboxNote {
   readonly failure: InboxFailure | null;
   readonly connection: InboxConnection | null;
   readonly resumption: InboxResumption | null;
+  readonly suggestsClosing: boolean;
 }
 
 interface InboxRequestView {

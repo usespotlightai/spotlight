@@ -148,6 +148,39 @@ func TestKeepsNoIDsTheAgentNamedItself(t *testing.T) {
 	}
 }
 
+func TestCarriesASuggestionToCloseTheTask(t *testing.T) {
+	server := serve(t)
+
+	status, body := post(t, server, server.Token(), `{"next":"review","suggest":"Done"}`)
+	if status != http.StatusNoContent {
+		t.Fatalf("status %d: %s", status, body)
+	}
+	if handover := server.TakeHandover(); handover.Next != "review" || handover.Suggest != "done" {
+		t.Fatalf("got %+v", handover)
+	}
+}
+
+func TestRejectsASuggestionOtherThanClosing(t *testing.T) {
+	server := serve(t)
+
+	status, body := post(t, server, server.Token(), `{"next":"review","suggest":"code-review"}`)
+	if status != http.StatusUnprocessableEntity || !strings.Contains(body, `--suggest takes only "done"`) {
+		t.Fatalf("status %d: %s", status, body)
+	}
+	if handover := server.TakeHandover(); handover != nil {
+		t.Fatalf("got %+v", handover)
+	}
+}
+
+func TestRejectsASuggestionWithoutAPerson(t *testing.T) {
+	server := serve(t)
+
+	status, body := post(t, server, server.Token(), `{"next":"code-review","suggest":"done"}`)
+	if status != http.StatusUnprocessableEntity || !strings.Contains(body, `together with --next "review"`) {
+		t.Fatalf("status %d: %s", status, body)
+	}
+}
+
 func TestRejectsAHandoverLargerThanItsFilesMayBe(t *testing.T) {
 	server := serve(t)
 	attached := 0

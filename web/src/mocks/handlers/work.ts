@@ -16,6 +16,7 @@ import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
 import { perWorld, world } from '@/mocks/world';
+import { inboxStore } from '@/mocks/world/inbox-store';
 import { SAM } from '@/mocks/world/people';
 import { runNetworkOf } from '@/mocks/world/run-network';
 import {
@@ -187,6 +188,14 @@ export const workHandlers: RequestHandler[] = [
 
       if (task.stationId !== body.stationId) {
         queueRunAt(teamId, task.id, body.stationId);
+      }
+
+      if (placeStation(teamId, body.stationId)?.station.kind === 'completed') {
+        for (const entry of inboxStore().entries) {
+          if (entry.kind === 'task' && entry.taskId === task.id) {
+            entry.resolved = true;
+          }
+        }
       }
 
       return json(findTask(teamId, task.id));

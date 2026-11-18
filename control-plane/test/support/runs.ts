@@ -102,7 +102,12 @@ export const aTurn = (
   turn,
   suspendedAt,
   turnReport: {
-    handover: { next: 'review', note: 'Which queue?', attachments: [] },
+    handover: {
+      next: 'review',
+      note: 'Which queue?',
+      suggest: '',
+      attachments: [],
+    },
     session: null,
     heads: [],
     reportedBy: 'runner_1',

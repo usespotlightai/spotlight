@@ -126,6 +126,16 @@ describe('TaskNote', () => {
     expect(aNote({ kind: 'answered', form: 'decision' }).form).toBe('decision');
   });
 
+  it('suggests closing the task only on a question', () => {
+    expect(() => aNote({ kind: 'passed', suggestsClosing: true })).toThrow(
+      InconsistentStateError,
+    );
+    expect(
+      aNote({ kind: 'asked', suggestsClosing: true }).suggestsClosing,
+    ).toBe(true);
+    expect(aNote({ kind: 'asked' }).suggestsClosing).toBe(false);
+  });
+
   it('defers a move only on a message', () => {
     expect(() =>
       aNote({

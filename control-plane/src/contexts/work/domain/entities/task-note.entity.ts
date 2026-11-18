@@ -67,6 +67,7 @@ export class TaskNote {
     readonly deferredMove: DeferredMove | null,
     readonly connectionAsk: ConnectionAsk | null,
     readonly resumption: Resumption | null,
+    readonly suggestsClosing: boolean,
   ) {}
 
   static of(input: {
@@ -88,6 +89,7 @@ export class TaskNote {
     deferredMove?: DeferredMove | null;
     connectionAsk?: ConnectionAsk | null;
     resumption?: Resumption | null;
+    suggestsClosing?: boolean;
   }): TaskNote {
     const form = input.form ?? 'words';
     const carried = {
@@ -141,6 +143,13 @@ export class TaskNote {
       );
     }
 
+    if (input.suggestsClosing && input.kind !== 'asked') {
+      throw new InconsistentStateError(
+        'task note',
+        `suggests closing the task on a ${input.kind} note`,
+      );
+    }
+
     if (input.deferredMove && input.kind !== 'message') {
       throw new InconsistentStateError(
         'task note',
@@ -167,6 +176,7 @@ export class TaskNote {
       input.deferredMove ?? null,
       input.connectionAsk ?? null,
       input.resumption ?? null,
+      input.suggestsClosing ?? false,
     );
   }
 
@@ -253,6 +263,7 @@ export class TaskNote {
           this.deferredMove,
           this.connectionAsk,
           this.resumption,
+          this.suggestsClosing,
         )
       : this;
   }
@@ -305,6 +316,7 @@ export class TaskNote {
       this.deferredMove,
       part.connectionAsk ?? this.connectionAsk,
       this.resumption,
+      this.suggestsClosing,
     );
   }
 }

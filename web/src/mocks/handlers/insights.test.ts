@@ -130,7 +130,7 @@ describe('the mock insights', () => {
       IMPLEMENTATION,
     );
     expect(flow.data.flow.delivery.merged).toBeGreaterThan(0);
-    expect(people.data.load.unanswered).toBe(2);
+    expect(people.data.load.unanswered).toBe(3);
     expect(
       people.data.adoption.people
         .map((each) => each.name)

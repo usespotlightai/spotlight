@@ -14,6 +14,8 @@ const viewer = vi.fn<(...args: unknown[]) => unknown>();
 const journal = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const journalFailing = vi.fn();
+const closeTask = vi.fn();
+const taskStation = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: viewer() }),
@@ -58,6 +60,14 @@ vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 
 vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
+}));
+
+vi.mock('@/hooks/api/useTaskStation', () => ({
+  useTaskStation: () => taskStation(),
+}));
+
+vi.mock('@/hooks/api/useCloseTask', () => ({
+  useCloseTask: () => ({ mutate: closeTask, isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useMarkInboxItemRead', () => ({
@@ -162,6 +172,8 @@ describe('InboxItem', () => {
     journal.mockReturnValue([]);
     failing.mockReturnValue(false);
     journalFailing.mockReturnValue(false);
+    closeTask.mockClear();
+    taskStation.mockReturnValue({});
   });
 
   describe('when it could not be loaded', () => {
@@ -573,6 +585,93 @@ describe('InboxItem', () => {
     expect(
       screen.getByRole('textbox', { name: 'Answer Implementation' }),
     ).toBeInTheDocument();
+  });
+
+  describe('when the station suggests closing the task', () => {
+    const line = {
+      id: 'line_1',
+      repositories: [],
+      stations: [
+        { id: 'station_impl', kind: 'work', name: 'Implementation' },
+        { id: 'station_done', kind: 'completed', name: 'Completed' },
+      ],
+    };
+    const task = { id: 'task_1', stationId: 'station_impl', revision: 7 };
+
+    beforeEach(() => {
+      taskStation.mockReturnValue({ line, station: line.stations[0], task });
+      waiting.mockReturnValue(
+        item([note({ body: 'The retry exists.', suggestsClosing: true })]),
+      );
+    });
+
+    it('closes the task at the line’s Completed station', async () => {
+      renderItem();
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Close the task' }),
+      );
+
+      expect(closeTask).toHaveBeenCalledWith({
+        slug: 'acme',
+        teamId: 'team_1',
+        lineId: 'line_1',
+        taskId: 'task_1',
+        revision: 7,
+        completedStationId: 'station_done',
+      });
+    });
+
+    it('still takes an answer instead', () => {
+      renderItem();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Answer Implementation' }),
+      ).toBeInTheDocument();
+    });
+
+    it('offers no close once a person has answered', () => {
+      waiting.mockReturnValue(
+        item([
+          note({ suggestsClosing: true }),
+          note({
+            position: 1,
+            kind: 'answered',
+            body: 'Check the cap too.',
+            voice: 'person',
+            author: { id: 'user_2', name: 'Leon', image: null },
+          }),
+        ]),
+      );
+
+      renderItem();
+
+      expect(
+        screen.queryByRole('button', { name: 'Close the task' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('offers no close while another person holds the task', () => {
+      taskStation.mockReturnValue({
+        line,
+        station: line.stations[0],
+        task: { ...task, hold: { by: { id: 'user_9' } } },
+      });
+
+      renderItem();
+
+      expect(
+        screen.queryByRole('button', { name: 'Close the task' }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('offers no close where the station suggests nothing', () => {
+    renderItem();
+
+    expect(
+      screen.queryByRole('button', { name: 'Close the task' }),
+    ).not.toBeInTheDocument();
   });
 
   describe('waiting for the team', () => {

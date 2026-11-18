@@ -44,6 +44,7 @@ const closing = (line: LineMap, stationId: StationId): string => {
     `\`\`\`\n${HANDOVER_COMMAND} --next "…" --note "…"\n\`\`\``,
     `\`--next\` names a station to pass the task to, by its key: ${named}. Name somewhere else and the command rejects it and tells you what would have worked, so read what it says and run it again.`,
     `To put the task in front of a person instead of a station, use \`--next "${HANDOVER_TO_A_PERSON}"\`. That is not a station — it is a person, whatever any station is called — and it is what to use whenever you are unsure.`,
+    `Where you find that nothing needs to change, but closing the task is a person's decision, add \`--suggest "${HANDOVER_TO_FINISH}"\` to \`--next "${HANDOVER_TO_A_PERSON}"\`. The person gets a button to close the task. Say in the note what you checked.`,
     offered.some((each) => each.kind === 'done')
       ? `Where the work is finished and nothing follows it, use \`--next "${HANDOVER_TO_FINISH}"\`. That closes the task at its current station: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`
       : null,

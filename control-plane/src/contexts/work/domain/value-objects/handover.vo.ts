@@ -13,12 +13,14 @@ export class Handover {
   private constructor(
     readonly next: string,
     readonly note: string,
+    readonly suggest: string,
     readonly attachments: readonly Attachment[],
   ) {}
 
   static of(input: {
     next?: string;
     note?: string;
+    suggest?: string;
     attachments?: readonly Attachment[];
   }): Handover {
     const attachments = input.attachments ?? [];
@@ -32,6 +34,7 @@ export class Handover {
     return new Handover(
       (input.next ?? '').trim(),
       (input.note ?? '').trim(),
+      (input.suggest ?? '').trim(),
       attachments,
     );
   }
@@ -42,6 +45,7 @@ export class Handover {
       [reason.trim(), this.note === '' ? '' : `Note from the run: ${this.note}`]
         .filter(Boolean)
         .join('\n\n'),
+      '',
       this.attachments,
     );
   }
@@ -54,6 +58,12 @@ export class Handover {
     return requestsAPerson(this.next);
   }
 
+  suggestsClosing(): boolean {
+    return (
+      this.requestsReview() && this.suggest.toLowerCase() === HANDOVER_TO_FINISH
+    );
+  }
+
   names(key: StationKey): boolean {
     return key.value.toLowerCase() === this.next.toLowerCase();
   }
@@ -62,6 +72,7 @@ export class Handover {
     return (
       this.next === other.next &&
       this.note === other.note &&
+      this.suggest === other.suggest &&
       this.attachments.length === other.attachments.length &&
       this.attachments.every((each, at) => each.equals(other.attachments[at]))
     );

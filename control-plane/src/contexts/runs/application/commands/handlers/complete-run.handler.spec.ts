@@ -141,6 +141,28 @@ describe('CompleteRunHandler', () => {
     );
   });
 
+  it('keeps the run’s suggestion to close the task with its turn', async () => {
+    const saved: Run[] = [];
+
+    await completing(async (run) => void saved.push(run)).execute(
+      new CompleteRunCommand('run_1', 'runner_1', 0, false, undefined, {
+        next: 'review',
+        note: 'The retry already exists.',
+        suggest: 'done',
+      }),
+    );
+
+    expect(saved[0]?.turnAt(FIRST)?.report.handover?.suggest).toBe('done');
+  });
+
+  it('suggests nothing where the run named no suggestion', async () => {
+    const saved: Run[] = [];
+
+    await completing(async (run) => void saved.push(run)).execute(reviewing);
+
+    expect(saved[0]?.turnAt(FIRST)?.report.handover?.suggest).toBe('');
+  });
+
   it('takes the files of a run that ends its turn at once, such as a chat’s', async () => {
     const files = attaching();
 

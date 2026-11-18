@@ -33,6 +33,7 @@ interface ReportedOutcome {
 interface ReportedHandover {
   readonly next: string | null;
   readonly note: string | null;
+  readonly suggest: string | null;
   readonly files: readonly ReportedFile[];
 }
 
@@ -65,6 +66,7 @@ export const RunsTranslation = {
     return Handover.of({
       next: handover.next ?? '',
       note: handover.note ?? '',
+      suggest: handover.suggest ?? '',
       attachments: handover.files.map((each) => Attachment.rehydrate(each)),
     });
   },

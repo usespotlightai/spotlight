@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { type ReactNode, useRef } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ApprovalCard } from '@/components/features/inbox/conversation/approval/ApprovalCard';
@@ -28,6 +28,7 @@ type InboxNoteProps = {
   about: ConversationItem['about'];
   resolved: ConversationItem['resolved'];
   deciding?: Deciding;
+  suggestion?: ReactNode;
   arrived?: boolean;
 };
 
@@ -39,6 +40,7 @@ export function InboxNote({
   about,
   resolved,
   deciding,
+  suggestion,
   arrived = false,
 }: InboxNoteProps) {
   const { data: session } = useSession();
@@ -105,6 +107,8 @@ export function InboxNote({
       )}
 
       <AttachmentTiles attachments={note.attachments} />
+
+      {suggestion}
     </li>
   );
 }

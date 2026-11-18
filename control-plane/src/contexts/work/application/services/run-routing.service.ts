@@ -8,7 +8,7 @@ import type { NewNote, Task } from '@work/domain/aggregates/task.aggregate';
 import { Placement } from '@work/domain/services/placement';
 import { routeAfterRun } from '@work/domain/services/route-after-run';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
+import { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 const lineOf = (task: Task, line: LineMap | null): LineMap => {
@@ -29,7 +29,7 @@ export class RunRouting {
     private readonly clock: ClockPort,
   ) {}
 
-  newNoteOf(
+  private newNoteOf(
     handover: ResolvedHandover,
     line: LineMap | null,
     run: RunId,
@@ -40,6 +40,17 @@ export class RunRouting {
       at: this.clock.now(),
       voice: Voice.station(run),
       attachments: handover.attachments,
+    };
+  }
+
+  questionOf(
+    handover: ResolvedHandover,
+    line: LineMap | null,
+    run: RunId,
+  ): NewNote {
+    return {
+      ...this.newNoteOf(handover, line, run),
+      suggestsClosing: ResolvedHandover.suggestsClosing(handover),
     };
   }
 
@@ -67,7 +78,7 @@ export class RunRouting {
     if (routing.kind === 'ask') {
       return routing.failure
         ? task.failed(routing.failure, newNote, run, lineOf(task, line))
-        : task.askedAbout(newNote, run);
+        : task.askedAbout(this.questionOf(handover, line, run), run);
     }
 
     const ranks = (await this.placements.placementsAt(routing.to.id)).map(
