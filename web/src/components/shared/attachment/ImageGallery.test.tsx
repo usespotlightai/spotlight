@@ -116,6 +116,53 @@ describe('ImageGallery', () => {
     expect(view_('a.png')).toBeInTheDocument();
   });
 
+  it('shows the position among several images', async () => {
+    tiles(three);
+    const user = await openAt('a.png');
+    expect(screen.getByText('1 of 3')).toBeInTheDocument();
+
+    await user.keyboard('{ArrowRight}');
+    expect(await screen.findByText('2 of 3')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next image' }));
+    expect(await screen.findByText('3 of 3')).toBeInTheDocument();
+  });
+
+  it('disables the pager buttons at both ends', async () => {
+    tiles(three);
+    const user = await openAt('a.png');
+    expect(
+      screen.getByRole('button', { name: 'Previous image' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next image' })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: 'Next image' }));
+    await user.click(await screen.findByRole('button', { name: 'Next image' }));
+    await screen.findByText('3 of 3');
+    expect(screen.getByRole('button', { name: 'Next image' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Previous image' }),
+    ).toBeEnabled();
+  });
+
+  it('stays open when a pager button is clicked', async () => {
+    tiles(three);
+    const user = await openAt('a.png');
+
+    await user.click(screen.getByRole('button', { name: 'Next image' }));
+    await screen.findByText('2 of 3');
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('shows no pager for a single image', async () => {
+    tiles([image('a', 'a.png')]);
+    await openAt('a.png');
+
+    expect(screen.queryByRole('button', { name: 'Next image' })).toBeNull();
+    expect(screen.queryByText('1 of 1')).toBeNull();
+  });
+
   it('gives focus back to the last viewed tile on close', async () => {
     tiles(three);
     const user = await openAt('a.png');
@@ -158,6 +205,13 @@ describe('ImageThumbs gallery', () => {
     await user.keyboard('{ArrowRight}');
 
     expect(await view('b.png')).toHaveAttribute('src', '/b.png');
+  });
+
+  it('shows the pager for several composer images', async () => {
+    render(<Composer initial={[thumb('a'), thumb('b')]} />);
+    await openAt('a.png');
+
+    expect(screen.getByText('1 of 2')).toBeInTheDocument();
   });
 
   it('skips an image that does not load', async () => {

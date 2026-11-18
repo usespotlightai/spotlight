@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
-import { XIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -49,6 +49,9 @@ const SHRINK = {
   duration: 70,
   easing: 'cubic-bezier(0.5, 0, 0.75, 0)',
 };
+
+const OVERLAY_BUTTON =
+  'text-white/80 hover:bg-white/10 hover:text-white dark:hover:bg-white/10';
 
 const SWAP = {
   duration: 120,
@@ -128,6 +131,7 @@ export function ImageGallery({ children }: { children: ReactNode }) {
   const view = useRef<HTMLImageElement | null>(null);
   const backdrop = useRef<HTMLDivElement>(null);
   const closer = useRef<HTMLButtonElement>(null);
+  const pager = useRef<HTMLDivElement>(null);
   const closing = useRef(false);
   const stage = useRef<{ button: HTMLButtonElement | null; opening: boolean }>({
     button: null,
@@ -182,6 +186,7 @@ export function ImageGallery({ children }: { children: ReactNode }) {
     if (opening && button) {
       void play(node, [atThumb(button, node), atView(node)], GROW);
       void play(backdrop.current, [{ opacity: 0 }, { opacity: 1 }], DIM);
+      void play(pager.current, [{ opacity: 0 }, { opacity: 1 }], DIM);
     } else {
       void play(node, [{ opacity: 0 }, { opacity: 1 }], SWAP);
     }
@@ -205,6 +210,7 @@ export function ImageGallery({ children }: { children: ReactNode }) {
         : play(view.current, [{ opacity: 1 }, { opacity: 0 }], SHRINK),
       play(backdrop.current, [{ opacity: 1 }, { opacity: 0 }], SHRINK),
       play(closer.current, [{ opacity: 1 }, { opacity: 0 }], SHRINK),
+      play(pager.current, [{ opacity: 1 }, { opacity: 0 }], SHRINK),
     ]);
 
     setOpenId(null);
@@ -252,30 +258,71 @@ export function ImageGallery({ children }: { children: ReactNode }) {
             className="fixed inset-0 z-50 flex items-center justify-center outline-none"
           >
             {current && size && (
-              <div className="relative">
-                <img
-                  key={current.id}
-                  ref={enter}
-                  src={current.src}
-                  alt={current.name}
-                  width={size.width}
-                  height={size.height}
-                  className="block rounded-xl object-contain shadow-overlay ring-1 ring-foreground/10"
-                />
-                <Button
-                  ref={closer}
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void close();
-                  }}
-                  aria-label="Close"
-                  className="absolute top-0 left-full ml-2 text-white/80 hover:bg-white/10 hover:text-white dark:hover:bg-white/10"
-                >
-                  <XIcon aria-hidden />
-                </Button>
-              </div>
+              <>
+                <div className="relative">
+                  <img
+                    key={current.id}
+                    ref={enter}
+                    src={current.src}
+                    alt={current.name}
+                    width={size.width}
+                    height={size.height}
+                    className="block rounded-xl object-contain shadow-overlay ring-1 ring-foreground/10"
+                  />
+                  <Button
+                    ref={closer}
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void close();
+                    }}
+                    aria-label="Close"
+                    className={`absolute top-0 left-full ml-2 ${OVERLAY_BUTTON}`}
+                  >
+                    <XIcon aria-hidden />
+                  </Button>
+                </div>
+                {sorted.length > 1 && (
+                  <div
+                    ref={pager}
+                    className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-1"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={!previous}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        go(previous);
+                      }}
+                      aria-label="Previous image"
+                      className={OVERLAY_BUTTON}
+                    >
+                      <ChevronLeftIcon aria-hidden />
+                    </Button>
+                    <span
+                      aria-live="polite"
+                      className="text-sm text-white/80 tabular-nums"
+                    >
+                      {index + 1} of {sorted.length}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={!next}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        go(next);
+                      }}
+                      aria-label="Next image"
+                      className={OVERLAY_BUTTON}
+                    >
+                      <ChevronRightIcon aria-hidden />
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
