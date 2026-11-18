@@ -26,6 +26,8 @@ export function VirtualRows({
   overscan = 2,
   children,
 }: VirtualRowsProps) {
+  'use no memo';
+
   const [list, setList] = useState<HTMLLIElement | null>(null);
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
   const [margin, setMargin] = useState(0);
