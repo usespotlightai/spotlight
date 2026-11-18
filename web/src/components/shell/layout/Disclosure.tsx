@@ -42,6 +42,7 @@ export function Disclosure({
     if (distance < 1) return;
 
     motion.current = element.animate(
+      // react-doctor-disable-next-line react-doctor/no-layout-property-animation
       [{ height: `${from}px` }, { height: `${to}px` }],
       {
         duration: Math.min(
