@@ -2432,6 +2432,7 @@ CREATE TABLE "task_note" (
 	"deferred_move" jsonb,
 	"connection_ask" jsonb,
 	"resumption" jsonb,
+	"suggests_closing" boolean DEFAULT false NOT NULL,
 	"answered_at" timestamp (3) with time zone,
 	"read_at" timestamp (3) with time zone,
 	"acknowledged_at" timestamp (3) with time zone,
