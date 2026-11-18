@@ -18,7 +18,11 @@ import { failuresToasted } from '@/lib/failure-toasts';
 import { refuseStrayFileDrops } from '@/lib/file-drops';
 import { setFresh, STALE_MS } from '@/lib/live';
 import { LIVE_SEQUENCES_KEY } from '@/lib/live-sequences';
-import { CACHE_MAX_AGE_MS, persistOptions } from '@/lib/query-cache';
+import {
+  CACHE_MAX_AGE_MS,
+  persistOptions,
+  storedJournals,
+} from '@/lib/query-cache';
 import { retryQuery } from '@/lib/query-retry';
 import { withSentRequest } from '@/lib/request-failure';
 import { reloadOnStaleBuild } from '@/lib/stale-build';
@@ -80,4 +84,7 @@ const REPORTING_WAIT_MS = 1000;
 void Promise.race([
   startErrorReporting().catch(() => undefined),
   new Promise((resolve) => setTimeout(resolve, REPORTING_WAIT_MS)),
-]).finally(render);
+]).finally(() => {
+  render();
+  void storedJournals.prune();
+});

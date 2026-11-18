@@ -8,6 +8,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import type { JournalledRun, RunJournal } from '@/lib/inbox';
 import type { JournalDemand } from '@/lib/journal-demand';
+import { storedJournals } from '@/lib/query-cache';
 
 export const journalKeys = {
   runsOfTask: (taskId?: string) =>
@@ -82,6 +83,7 @@ export function useRunJournals(
       queryFn: () => source.journal(runId),
       gcTime: JOURNAL_GC_MS,
       meta: { persist: false },
+      persister: storedJournals.persister,
       ...(first ? {} : { staleTime: Number.POSITIVE_INFINITY }),
     })),
   });
