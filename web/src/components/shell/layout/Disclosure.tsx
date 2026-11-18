@@ -3,7 +3,7 @@ import { type ReactNode, useLayoutEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 const SHORTEST_MS = 180;
-export const DISCLOSURE_MS = 400;
+export const LONGEST_DISCLOSURE_MS = 400;
 const MS_PER_PIXEL = 0.4;
 const EASING = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
@@ -46,7 +46,7 @@ export function Disclosure({
       [{ height: `${from}px` }, { height: `${to}px` }],
       {
         duration: Math.min(
-          DISCLOSURE_MS,
+          LONGEST_DISCLOSURE_MS,
           SHORTEST_MS + distance * MS_PER_PIXEL,
         ),
         easing: EASING,

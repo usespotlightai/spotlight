@@ -11,7 +11,7 @@ import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
 import { ShowMore } from '@/components/shared/ShowMore';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
-import { DISCLOSURE_MS } from '@/components/shell/layout/Disclosure';
+import { LONGEST_DISCLOSURE_MS } from '@/components/shell/layout/Disclosure';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
@@ -67,7 +67,7 @@ export function Inbox() {
     FOLLOWING,
     RESOLVED,
   ]);
-  const animating = useTimedFlag(DISCLOSURE_MS);
+  const animating = useTimedFlag(LONGEST_DISCLOSURE_MS);
   const toggle = (section: string) => {
     animating.raise();
     sections.toggle(section);
