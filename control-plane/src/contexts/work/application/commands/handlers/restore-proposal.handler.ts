@@ -1,4 +1,5 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RestoreProposalCommand } from '@work/application/commands/chat.commands';
@@ -13,6 +14,7 @@ export class RestoreProposalHandler implements CommandHandlerPort<
   constructor(
     private readonly loader: ChatLoader,
     private readonly chats: ChatRepository,
+    private readonly clock: ClockPort,
   ) {}
 
   async execute(command: RestoreProposalCommand): Promise<void> {
@@ -27,6 +29,7 @@ export class RestoreProposalHandler implements CommandHandlerPort<
         chat.restoreProposal(
           MessagePosition.of(command.position),
           UserId.of(command.restoredBy),
+          this.clock.now(),
         ),
       );
     } catch (error) {

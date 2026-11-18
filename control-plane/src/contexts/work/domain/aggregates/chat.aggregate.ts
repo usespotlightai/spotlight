@@ -820,20 +820,15 @@ export class Chat extends EventRecorder {
     return next;
   }
 
-  restoreProposal(position: MessagePosition, by: UserId): Chat {
+  restoreProposal(position: MessagePosition, by: UserId, at: Date): Chat {
     this.assertStarter(by);
 
     const restored = this.replaceProposal(
       this.proposalAt(position).restore(),
-    ).with({ resolvedAt: null });
+    ).with(this.resolvedAt ? { resolvedAt: null, reopenedAt: at } : {});
 
     restored.record(
-      new ProposalRestored(
-        this.id,
-        this.workspaceId,
-        this.startedBy,
-        position,
-      ),
+      new ProposalRestored(this.id, this.workspaceId, this.startedBy, position),
     );
 
     return restored;

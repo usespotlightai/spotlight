@@ -28,8 +28,8 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
+import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { describe, expect, it } from 'vitest';

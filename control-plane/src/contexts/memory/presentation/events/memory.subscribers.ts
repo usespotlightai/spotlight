@@ -5,8 +5,8 @@ import type { RecordRunMemoryUses } from '@memory/application/services/record-ru
 import type { RequestMemories } from '@memory/application/services/request-memories.service';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
-import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
+import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import {
   DISPATCH_BRIEFED,

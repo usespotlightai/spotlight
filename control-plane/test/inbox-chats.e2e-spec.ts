@@ -287,7 +287,7 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
     const viewer = `user_${randomUUID()}`;
     const chat = ended(proposedBy(startedBy(viewer)))
       .dismiss(FIRST, UserId.of(viewer), START)
-      .restoreProposal(FIRST, UserId.of(viewer));
+      .restoreProposal(FIRST, UserId.of(viewer), START);
     await chats.add(chat);
 
     expect(chatEntry(await open(viewer), chat)).toMatchObject({

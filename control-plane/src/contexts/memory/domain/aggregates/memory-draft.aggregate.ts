@@ -3,8 +3,8 @@ import type {
   ProposedMemory,
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
-import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
+import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';

@@ -59,6 +59,7 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-14T09:00:00.000Z');
 const LATER = new Date('2026-09-14T09:05:00.000Z');
+const LATEST = new Date('2026-09-14T09:10:00.000Z');
 
 const LEON = UserId.of('user_1');
 const STRANGER = UserId.of('user_2');
@@ -827,37 +828,39 @@ describe('Chat', () => {
     const restored = proposing()
       .dismiss(SECOND, LEON, LATER)
       .resolve(LEON, LATER)
-      .restoreProposal(SECOND, LEON);
+      .restoreProposal(SECOND, LEON, LATEST);
 
     expect(restored.proposalAt(SECOND).isOpen).toBe(true);
     expect(restored.proposalAt(SECOND).decidedAt).toBeNull();
     expect(restored.resolvedAt).toBeNull();
+    expect(restored.reopenedAt).toEqual(LATEST);
     expect(restored.pullEvents()).toContainEqual(expect.any(ProposalRestored));
     expect(() =>
-      proposing().dismiss(SECOND, LEON, LATER).restoreProposal(SECOND, STRANGER),
+      proposing()
+        .dismiss(SECOND, LEON, LATER)
+        .restoreProposal(SECOND, STRANGER, LATER),
     ).toThrow(NotTheChatStarterError);
   });
 
   it('opens again only a dismissed or replaced proposal', () => {
-    expect(() => proposing().restoreProposal(SECOND, LEON)).toThrow(
+    expect(() => proposing().restoreProposal(SECOND, LEON, LATER)).toThrow(
       InvalidChatTransitionError,
     );
   });
 
   it('replaces the open proposals a newer proposal names, by number', () => {
     const third = MessagePosition.of(2);
-    const replacing = proposing()
-      .propose({
-        runId: RunId.of('run_1'),
-        placement: ProposalPlacement.of({
-          lineId: LineId.of('line_1'),
-          stationId: StationId.of('station_1'),
-        }),
-        title: TaskTitle.of('Back off with jitter'),
-        description: null,
-        replaces: [1],
-        at: LATER,
-      });
+    const replacing = proposing().propose({
+      runId: RunId.of('run_1'),
+      placement: ProposalPlacement.of({
+        lineId: LineId.of('line_1'),
+        stationId: StationId.of('station_1'),
+      }),
+      title: TaskTitle.of('Back off with jitter'),
+      description: null,
+      replaces: [1],
+      at: LATER,
+    });
 
     expect(replacing.proposalAt(SECOND).state).toBe('replaced');
     expect(replacing.proposalAt(third).isOpen).toBe(true);
@@ -872,7 +875,7 @@ describe('Chat', () => {
       expect.anything(),
     ]);
     expect(
-      replacing.restoreProposal(SECOND, LEON).proposalAt(SECOND).isOpen,
+      replacing.restoreProposal(SECOND, LEON, LATER).proposalAt(SECOND).isOpen,
     ).toBe(true);
   });
 

@@ -149,7 +149,7 @@ describe('ProposeTaskToolUse', () => {
   });
 
   it('proposes again on the chat as it now is when a message changed it meanwhile', async () => {
-    const { tool, context, save } = using();
+    const { tool, context, save, copy } = using();
     save.mockRejectedValueOnce(new ChatVersionConflictError('chat_1'));
 
     const answer = await tool.call(
@@ -158,11 +158,17 @@ describe('ProposeTaskToolUse', () => {
         line: 'delivery',
         station: 'backlog',
         title: 'Back off exponentially',
+        attach: ['att_mockup'],
       }),
     );
 
     expect(save).toHaveBeenCalledTimes(2);
-    expect(answer).toMatchObject({ proposed: 'Back off exponentially' });
+    expect(copy).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[1]?.[0].messages[1]?.attachments).toHaveLength(1);
+    expect(answer).toMatchObject({
+      proposed: 'Back off exponentially',
+      number: 1,
+    });
   });
 
   it('replaces the earlier proposals it names by number, and says so', async () => {

@@ -180,7 +180,6 @@ import { CarryGitCallHandler } from '@work/application/commands/handlers/carry-g
 import { ConnectEditorHandler } from '@work/application/commands/handlers/connect-editor.handler';
 import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-task.handler';
 import { DismissProposalHandler } from '@work/application/commands/handlers/dismiss-proposal.handler';
-import { RestoreProposalHandler } from '@work/application/commands/handlers/restore-proposal.handler';
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantRunAttachmentUploadHandler } from '@work/application/commands/handlers/grant-run-attachment-upload.handler';
 import { KeepTaskDraftHandler } from '@work/application/commands/handlers/keep-task-draft.handler';
@@ -197,6 +196,7 @@ import { ResolveChatHandler } from '@work/application/commands/handlers/resolve-
 import { ResolveConversationHandler } from '@work/application/commands/handlers/resolve-conversation.handler';
 import { ResolveInboxRequestHandler } from '@work/application/commands/handlers/resolve-inbox-request.handler';
 import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
+import { RestoreProposalHandler } from '@work/application/commands/handlers/restore-proposal.handler';
 import { ResumeLineHandler } from '@work/application/commands/handlers/resume-line.handler';
 import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
 import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
@@ -2371,6 +2371,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(RestoreProposalCommand, RestoreProposalHandler, [
     ChatLoader,
     CHAT_REPOSITORY,
+    CLOCK,
   ]),
 
   ...bindCommandHandler(ResolveChatCommand, ResolveChatHandler, [

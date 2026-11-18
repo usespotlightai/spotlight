@@ -139,7 +139,8 @@ export class MemoryReviewController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'restoreMemory',
-    summary: 'Take back the rejection of a proposed memory, so it waits for a decision again',
+    summary:
+      'Take back the rejection of a proposed memory, so it waits for a decision again',
   })
   @ApiParam({ name: 'memoryId', type: String })
   @ApiOkResponse({ type: MemoryReviewResponseDto })

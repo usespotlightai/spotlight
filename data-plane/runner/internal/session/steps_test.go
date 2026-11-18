@@ -83,7 +83,10 @@ func TestAStepIsSentWhenItStartsAndAgainWhenItEnds(t *testing.T) {
 func TestEachStepHasItsOwnID(t *testing.T) {
 	journal := &journalWriter{runID: "run", journal: &watchedSink{}}
 
-	if journal.begin(context.Background(), "setup").id == journal.begin(context.Background(), "setup").id {
+	first := journal.begin(context.Background(), "setup")
+	second := journal.begin(context.Background(), "setup")
+
+	if first.id == second.id {
 		t.Error("two setups started under one id")
 	}
 }
