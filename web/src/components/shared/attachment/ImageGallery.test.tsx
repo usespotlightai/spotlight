@@ -128,6 +128,20 @@ describe('ImageGallery', () => {
     expect(await screen.findByText('3 of 3')).toBeInTheDocument();
   });
 
+  it('fades the pager in when the view opens', async () => {
+    const animate = vi.fn(() => ({ finished: Promise.resolve() }));
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      value: animate,
+    });
+    tiles(three);
+    await openAt('a.png');
+
+    const pager = screen.getByText('1 of 3').parentElement;
+    expect(animate.mock.contexts).toContain(pager);
+    Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+  });
+
   it('disables the pager buttons at both ends', async () => {
     tiles(three);
     const user = await openAt('a.png');

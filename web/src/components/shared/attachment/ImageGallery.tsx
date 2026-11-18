@@ -259,30 +259,6 @@ export function ImageGallery({ children }: { children: ReactNode }) {
           >
             {current && size && (
               <>
-                <div className="relative">
-                  <img
-                    key={current.id}
-                    ref={enter}
-                    src={current.src}
-                    alt={current.name}
-                    width={size.width}
-                    height={size.height}
-                    className="block rounded-xl object-contain shadow-overlay ring-1 ring-foreground/10"
-                  />
-                  <Button
-                    ref={closer}
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void close();
-                    }}
-                    aria-label="Close"
-                    className={`absolute top-0 left-full ml-2 ${OVERLAY_BUTTON}`}
-                  >
-                    <XIcon aria-hidden />
-                  </Button>
-                </div>
                 {sorted.length > 1 && (
                   <div
                     ref={pager}
@@ -322,6 +298,30 @@ export function ImageGallery({ children }: { children: ReactNode }) {
                     </Button>
                   </div>
                 )}
+                <div className="relative">
+                  <img
+                    key={current.id}
+                    ref={enter}
+                    src={current.src}
+                    alt={current.name}
+                    width={size.width}
+                    height={size.height}
+                    className="block rounded-xl object-contain shadow-overlay ring-1 ring-foreground/10"
+                  />
+                  <Button
+                    ref={closer}
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void close();
+                    }}
+                    aria-label="Close"
+                    className={`absolute top-0 left-full ml-2 ${OVERLAY_BUTTON}`}
+                  >
+                    <XIcon aria-hidden />
+                  </Button>
+                </div>
               </>
             )}
           </DialogPrimitive.Popup>
