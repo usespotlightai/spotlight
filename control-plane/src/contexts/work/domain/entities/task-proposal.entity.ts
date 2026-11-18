@@ -74,6 +74,10 @@ export class TaskProposal {
     return this.state === 'open';
   }
 
+  get becameTask(): boolean {
+    return this.state === 'created';
+  }
+
   accept(at: Date): TaskProposal {
     this.require('open', 'accepted');
 

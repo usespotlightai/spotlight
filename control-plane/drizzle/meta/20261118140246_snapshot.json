@@ -1,5 +1,5 @@
 {
-  "id": "af20d746-f506-4b88-84a7-1f1bea653025",
+  "id": "f57cdecf-522d-4872-b6f3-5851c544fe7e",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -15570,6 +15570,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "retiring": {
+          "name": "retiring",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -15645,6 +15652,22 @@
           ],
           "isUnique": false,
           "where": "\"sandbox\".\"state\" <> 'gone' and \"sandbox\".\"idle_since\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sandbox_retiring_idx": {
+          "name": "sandbox_retiring_idx",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"sandbox\".\"retiring\" and \"sandbox\".\"state\" = 'open'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -16954,6 +16977,13 @@
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         },
         "message": {
           "name": "message",

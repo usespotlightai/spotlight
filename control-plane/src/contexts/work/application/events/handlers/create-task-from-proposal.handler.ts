@@ -37,7 +37,9 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
       const chat = await this.chats.find(event.chatId);
 
       if (chat) {
-        await this.chats.save(chat.recordAcceptanceFailure(event.position));
+        await this.chats.save(
+          chat.recordAcceptanceFailure(event.position, this.clock.now()),
+        );
       }
 
       return;

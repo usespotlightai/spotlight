@@ -412,6 +412,8 @@ describe('Chat', () => {
       .runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       })
       .chat.addMessage({
         by: LEON,
@@ -440,6 +442,8 @@ describe('Chat', () => {
       .runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       })
       .chat.addMessage({
         by: LEON,
@@ -477,6 +481,8 @@ describe('Chat', () => {
       .runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       })
       .chat.addMessage({
         by: LEON,
@@ -506,6 +512,8 @@ describe('Chat', () => {
       acknowledged.runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       }).chat.wantsFollowUp,
     ).toBe(false);
   });
@@ -575,12 +583,16 @@ describe('Chat', () => {
       withMessage.runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       }).chat.wantsFollowUp,
     ).toBe(true);
     expect(
       working().runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       }).chat.wantsFollowUp,
     ).toBe(false);
   });
@@ -599,6 +611,8 @@ describe('Chat', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
         claimedBy: RUNNER,
+        lastWordsAt: null,
+        endedAt: LATER,
       });
 
       expect(ended.chat.running).toBe(false);
@@ -610,6 +624,8 @@ describe('Chat', () => {
       const ended = working().runEnded(RunId.of('run_1'), {
         session: SESSION,
         claimedBy: RUNNER,
+        lastWordsAt: null,
+        endedAt: LATER,
       });
 
       expect(ended.chat.running).toBe(false);
@@ -620,6 +636,8 @@ describe('Chat', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: null,
         claimedBy: RUNNER,
+        lastWordsAt: null,
+        endedAt: LATER,
       });
 
       expect(ended.chat.running).toBe(false);
@@ -634,6 +652,8 @@ describe('Chat', () => {
       const ended = chat.runEnded(RunId.of('run_2'), {
         session: SESSION,
         claimedBy: RUNNER,
+        lastWordsAt: null,
+        endedAt: LATER,
       });
 
       expect(ended.chat).toBe(chat);
@@ -648,12 +668,16 @@ describe('Chat', () => {
       chat.runEnded(RunId.of('run_2'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       }).chat.running,
     ).toBe(true);
     expect(
       chat.runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       }).chat.running,
     ).toBe(false);
   });
@@ -674,6 +698,8 @@ describe('Chat', () => {
       .runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: RunnerId.of('runner_1'),
+        lastWordsAt: null,
+        endedAt: LATER,
       })
       .chat.resume();
 
@@ -806,7 +832,7 @@ describe('Chat', () => {
   it('opens a proposal again where its task could not be created', () => {
     const reopened = proposing()
       .accept(SECOND, LEON, LATER)
-      .recordAcceptanceFailure(SECOND);
+      .recordAcceptanceFailure(SECOND, LATER);
 
     expect(reopened.proposalAt(SECOND).isOpen).toBe(true);
   });
@@ -835,9 +861,13 @@ describe('Chat', () => {
 
   describe('in the inbox', () => {
     const SESSION = HarnessSession.of('session_1');
-    const ended = (chat: Chat) =>
-      chat.runEnded(RunId.of('run_1'), { session: SESSION, claimedBy: null })
-        .chat;
+    const ended = (chat: Chat, lastWordsAt: Date | null = null) =>
+      chat.runEnded(RunId.of('run_1'), {
+        session: SESSION,
+        claimedBy: null,
+        lastWordsAt,
+        endedAt: LATER,
+      }).chat;
     const accepted = (chat: Chat) =>
       chat
         .accept(SECOND, LEON, LATER)
@@ -953,14 +983,131 @@ describe('Chat', () => {
       ).toBeNull();
     });
 
-    it('opens again when a run ends after it was resolved', () => {
-      expect(ended(working().resolve(LEON, NOW)).resolvedAt).toBeNull();
+    it('opens again as of the run end when a run ends after it was resolved', () => {
+      const reopened = ended(working().resolve(LEON, NOW));
+
+      expect(reopened.resolvedAt).toBeNull();
+      expect(reopened.reopenedAt).toEqual(LATER);
+    });
+
+    it('keeps no reopening time when its run ends while it was open', () => {
+      expect(ended(working()).reopenedAt).toBeNull();
+    });
+
+    const THIRD = MessagePosition.of(2);
+    const proposingTwice = () =>
+      proposing().propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Cap the delay'),
+        description: null,
+        at: LATER,
+      });
+
+    it('stays resolved when its run ends with nothing waiting after its proposed task was created', () => {
+      const chat = ended(accepted(proposing()));
+
+      expect(chat.resolvedAt).toEqual(LATER);
+      expect(chat.pullEvents()).toContainEqual(
+        new ChatRunEnded(
+          chat.id,
+          chat.workspaceId,
+          LEON,
+          RunId.of('run_1'),
+          true,
+        ),
+      );
+    });
+
+    it('stays resolved when the agent last wrote before the person resolved it', () => {
+      expect(ended(accepted(proposing()), NOW).resolvedAt).toEqual(LATER);
+      expect(ended(accepted(proposing()), LATER).resolvedAt).toEqual(LATER);
+    });
+
+    it('opens again when its run ends with words the agent wrote after it was resolved', () => {
+      const wroteAfter = new Date('2026-09-15T09:06:00.000Z');
+
+      const reopened = ended(accepted(proposing()), wroteAfter);
+
+      expect(reopened.resolvedAt).toBeNull();
+      expect(reopened.reopenedAt).toEqual(LATER);
+    });
+
+    it('stays resolved when its run ends after one proposal was dismissed and the other became a task', () => {
+      const chat = accepted(proposingTwice().dismiss(THIRD, LEON, LATER));
+
+      expect(chat.resolvedAt).toEqual(LATER);
+      expect(ended(chat).resolvedAt).toEqual(LATER);
+    });
+
+    it('resolves when the last open proposal is dismissed after another became a task, and stays resolved when the run ends', () => {
+      const created = accepted(proposingTwice());
+
+      expect(created.resolvedAt).toBeNull();
+      const dismissed = created.dismiss(THIRD, LEON, LATER);
+
+      expect(dismissed.resolvedAt).toEqual(LATER);
+      expect(ended(dismissed).resolvedAt).toEqual(LATER);
+    });
+
+    it('does not resolve while a message waits for the agent, even when the proposed task was created', () => {
+      const asked = accepted(
+        proposing().addMessage({
+          by: LEON,
+          body: ChatMessageBody.of('Why that delay?'),
+          at: LATER,
+        }),
+      );
+
+      expect(asked.resolvedAt).toBeNull();
+      expect(ended(asked).resolvedAt).toBeNull();
+    });
+
+    it('resolves when a proposal accepted before its run ended became a task after', () => {
+      const endedFirst = ended(proposing().accept(SECOND, LEON, LATER));
+
+      expect(endedFirst.resolvedAt).toBeNull();
+      expect(
+        endedFirst.proposalBecame(SECOND, TaskId.of('task_1'), LATER)
+          .resolvedAt,
+      ).toEqual(LATER);
+    });
+
+    it('opens again when the person writes after it was resolved, and stays open when the run ends', () => {
+      const written = accepted(proposing()).addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('Why that delay?'),
+        at: LATER,
+      });
+
+      expect(written.resolvedAt).toBeNull();
+      expect(ended(written).resolvedAt).toBeNull();
+    });
+
+    it('opens again when a task could not be made for a proposal after it was resolved', () => {
+      const resolved = proposingTwice()
+        .accept(THIRD, LEON, LATER)
+        .accept(SECOND, LEON, LATER)
+        .proposalBecame(SECOND, TaskId.of('task_1'), LATER);
+
+      expect(resolved.resolvedAt).toEqual(LATER);
+      const failedAt = new Date('2026-09-15T12:00:00.000Z');
+      const failed = resolved.recordAcceptanceFailure(THIRD, failedAt);
+
+      expect(failed.resolvedAt).toBeNull();
+      expect(failed.reopenedAt).toEqual(failedAt);
     });
 
     it('keeps its resolution when a run ends without a session', () => {
-      const failed = working()
-        .resolve(LEON, NOW)
-        .runEnded(RunId.of('run_1'), { session: null, claimedBy: null }).chat;
+      const failed = working().resolve(LEON, NOW).runEnded(RunId.of('run_1'), {
+        session: null,
+        claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
+      }).chat;
 
       expect(failed.resolvedAt).toEqual(NOW);
     });
@@ -1080,6 +1227,8 @@ describe('Chat', () => {
           .runEnded(RUN, {
             session: HarnessSession.of('session_1'),
             claimedBy: null,
+            lastWordsAt: null,
+            endedAt: LATER,
           })
           .chat.pullEvents(),
       ).toEqual([new ChatRunEnded(working().id, WORKSPACE, LEON, RUN, true)]);
@@ -1140,7 +1289,9 @@ describe('Chat', () => {
           TaskId.of('task_1'),
         ),
       ]);
-      expect(accepted.recordAcceptanceFailure(SECOND).pullEvents()).toEqual([
+      expect(
+        accepted.recordAcceptanceFailure(SECOND, LATER).pullEvents(),
+      ).toEqual([
         new ProposalAcceptanceFailed(accepted.id, WORKSPACE, LEON, SECOND),
       ]);
     });

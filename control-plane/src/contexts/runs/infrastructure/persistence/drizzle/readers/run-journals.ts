@@ -12,7 +12,12 @@ import {
   CHANGED_PATHS_TYPES,
   ChangedPaths,
 } from '@runs/infrastructure/journal/changed-paths';
-import { HARNESS_FRAME } from '@runs/infrastructure/journal/harness-events';
+import { HARNESS_CONNECTED } from '@runs/domain/value-objects/journal-entry-type';
+import {
+  HARNESS_FRAME,
+  harnessConnectedOf,
+  harnessEventOf,
+} from '@runs/infrastructure/journal/harness-events';
 import { JournalBuilder } from '@runs/infrastructure/journal/journal-builder';
 import { Reported } from '@runs/infrastructure/otel/reported';
 import { RunSpecPersistence } from '@runs/infrastructure/persistence/drizzle/run-spec.persistence';
@@ -129,6 +134,73 @@ export class DrizzleRunJournals implements RunJournalsPort {
         ? [{ runId, paths: taken, checkouts: checkouts.get(runId) ?? [] }]
         : [];
     });
+  }
+
+  async lastWordsReceivedAt(runId: RunId): Promise<Date | null> {
+    const rows = await this.db
+      .select({
+        attempt: runJournalEntry.attempt,
+        type: runJournalEntry.type,
+        data: runJournalEntry.data,
+        receivedAt: runJournalEntry.receivedAt,
+        runAttempt: run.attempt,
+        suspendedAttempts: run.suspendedAttempts,
+      })
+      .from(runJournalEntry)
+      .innerJoin(run, eq(run.id, runJournalEntry.runId))
+      .where(
+        and(
+          eq(runJournalEntry.runId, runId.value),
+          inArray(runJournalEntry.type, [
+            HARNESS_CONNECTED,
+            'message',
+            'child.changed',
+          ]),
+        ),
+      )
+      .orderBy(asc(runJournalEntry.attempt), asc(runJournalEntry.seq));
+    const reading = new Set<number>();
+    const children = new Set<string>();
+    let latest: Date | null = null;
+
+    for (const row of rows) {
+      const journalled = isJournalledAttempt(row.attempt, {
+        attempt: row.runAttempt,
+        suspendedAttempts: row.suspendedAttempts,
+      });
+
+      if (!journalled) {
+        continue;
+      }
+
+      if (row.type === HARNESS_CONNECTED) {
+        if (harnessConnectedOf(row)) {
+          reading.add(row.attempt);
+        } else {
+          reading.delete(row.attempt);
+        }
+        continue;
+      }
+
+      const event = reading.has(row.attempt) ? harnessEventOf(row) : null;
+
+      if (event?.type === 'child.changed') {
+        children.add(event.data.child);
+        continue;
+      }
+
+      const toThePerson =
+        event?.type === 'message' &&
+        event.data.role === 'agent' &&
+        event.data.text.length > 0 &&
+        !(event.data.session && children.has(event.data.session));
+
+      if (toThePerson && (!latest || row.receivedAt > latest)) {
+        latest = row.receivedAt;
+      }
+    }
+
+    return latest;
   }
 
   private async readings(ids: string[]) {

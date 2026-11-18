@@ -13,4 +13,6 @@ export interface RunJournalsPort {
   countsOf(runIds: readonly RunId[]): Promise<Map<string, RunStepCounts>>;
 
   changesOf(runIds: readonly RunId[]): Promise<RunChanges[]>;
+
+  lastWordsReceivedAt(runId: RunId): Promise<Date | null>;
 }

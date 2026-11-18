@@ -22,6 +22,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { SystemClock } from '@platform/time/system-clock';
 import { DeleteChangeJudgings } from '@replays/application/services/delete-change-judgings.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
@@ -280,7 +281,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
     grantedAt: at,
     completedAt: at,
   });
-  await new DrizzleRunJournal(new DrizzleContext(db)).append(
+  await new DrizzleRunJournal(new DrizzleContext(db), new SystemClock()).append(
     RunAttempt.of(RunId.of(runId), 1),
     changing('Drained it.', 'drainInOrder()').map((each): JournalEntry => ({
       ...each,

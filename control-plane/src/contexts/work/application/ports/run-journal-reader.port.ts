@@ -26,6 +26,8 @@ export interface RunJournalReaderPort {
 
   ofRun(runId: RunId): Promise<RunJournal | null>;
 
+  lastWordsReceivedAt(runId: RunId): Promise<Date | null>;
+
   attemptsOfRun(runId: RunId): Promise<RunJournal[]>;
 
   changesOfTask(taskId: TaskId): Promise<RunChanges[]>;

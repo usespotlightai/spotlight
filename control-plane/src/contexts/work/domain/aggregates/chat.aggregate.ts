@@ -64,6 +64,13 @@ export interface NumberedProposal {
   readonly proposal: TaskProposal;
 }
 
+export interface ChatRunEnding {
+  readonly session: HarnessSession | null;
+  readonly claimedBy: RunnerId | null;
+  readonly lastWordsAt: Date | null;
+  readonly endedAt: Date;
+}
+
 export interface ChatAfterRun {
   readonly chat: Chat;
   readonly followsUp: boolean;
@@ -423,6 +430,7 @@ export class Chat extends EventRecorder {
       messages: [...this.messages, ChatMessage.sent({ ...input, position })],
       model: input.model,
       effort: input.effort,
+      resolvedAt: null,
     });
 
     sent.record(
@@ -563,13 +571,7 @@ export class Chat extends EventRecorder {
     });
   }
 
-  runEnded(
-    runId: RunId,
-    ending: {
-      readonly session: HarnessSession | null;
-      readonly claimedBy: RunnerId | null;
-    },
-  ): ChatAfterRun {
+  runEnded(runId: RunId, ending: ChatRunEnding): ChatAfterRun {
     if (!this.hasCurrentRun(runId)) {
       return { chat: this, followsUp: false };
     }
@@ -580,13 +582,48 @@ export class Chat extends EventRecorder {
 
     const recorded = this.endRun(runId)
       .recordSession(ending.session, ending.claimedBy)
-      .with({ resolvedAt: null });
+      .resolutionAfter(runId, ending);
 
     recorded.record(
       new ChatRunEnded(this.id, this.workspaceId, this.startedBy, runId, true),
     );
 
     return { chat: recorded, followsUp: recorded.wantsFollowUp };
+  }
+
+  private resolutionAfter(runId: RunId, ending: ChatRunEnding): Chat {
+    const proposed = this.messages.some((message) => message.proposedIn(runId));
+
+    if (
+      proposed &&
+      this.nothingWaits &&
+      this.resolvedSince(ending.lastWordsAt)
+    ) {
+      return this;
+    }
+
+    return this.resolvedAt
+      ? this.with({ resolvedAt: null, reopenedAt: ending.endedAt })
+      : this;
+  }
+
+  private resolvedSince(lastWordsAt: Date | null): boolean {
+    return (
+      this.resolvedAt !== null &&
+      (lastWordsAt === null || this.resolvedAt >= lastWordsAt)
+    );
+  }
+
+  private get nothingWaits(): boolean {
+    return this.openProposals.length === 0 && this.unacknowledged.length === 0;
+  }
+
+  private resolvedOnceAnswered(at: Date): Chat {
+    const answered =
+      this.nothingWaits &&
+      this.proposals.some(({ proposal }) => proposal.becameTask);
+
+    return answered ? this.with({ resolvedAt: at, readAt: at }) : this;
   }
 
   private endRun(runId: RunId): Chat {
@@ -728,12 +765,9 @@ export class Chat extends EventRecorder {
     const became = this.replaceProposal(
       this.proposalAt(position).createdAs(taskId, at),
     );
-    const settled =
-      became.openProposals.length === 0
-        ? became.with({ resolvedAt: at, readAt: at })
-        : became;
+    const resolved = became.resolvedOnceAnswered(at);
 
-    settled.record(
+    resolved.record(
       new ProposalBecameTask(
         this.id,
         this.workspaceId,
@@ -743,11 +777,14 @@ export class Chat extends EventRecorder {
       ),
     );
 
-    return settled;
+    return resolved;
   }
 
-  recordAcceptanceFailure(position: MessagePosition): Chat {
-    const reopened = this.replaceProposal(this.proposalAt(position).reopen());
+  recordAcceptanceFailure(position: MessagePosition, at: Date): Chat {
+    const proposal = this.replaceProposal(this.proposalAt(position).reopen());
+    const reopened = proposal.resolvedAt
+      ? proposal.with({ resolvedAt: null, reopenedAt: at })
+      : proposal;
 
     reopened.record(
       new ProposalAcceptanceFailed(
@@ -764,7 +801,9 @@ export class Chat extends EventRecorder {
   dismiss(position: MessagePosition, by: UserId, at: Date): Chat {
     this.assertStarter(by);
 
-    const next = this.replaceProposal(this.proposalAt(position).dismiss(at));
+    const next = this.replaceProposal(
+      this.proposalAt(position).dismiss(at),
+    ).resolvedOnceAnswered(at);
 
     next.record(
       new ProposalDismissed(

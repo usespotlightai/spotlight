@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type {
   ControlPlaneEntry,
@@ -9,13 +9,20 @@ import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { encodedFacts } from '@runs/infrastructure/journal/control-plane-facts';
 import { runJournalEntry } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
+import {
+  CLOCK,
+  type ClockPort,
+} from '@shared-kernel/application/ports/clock.port';
 import { and, eq, lte, min } from 'drizzle-orm';
 
 const CONTROL_PLANE_ENTRY_TRIES = 5;
 
 @Injectable()
 export class DrizzleRunJournal implements RunJournalPort {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(CLOCK) private readonly clock: ClockPort,
+  ) {}
 
   async append(
     attempt: RunAttempt,
@@ -24,6 +31,8 @@ export class DrizzleRunJournal implements RunJournalPort {
     if (entries.length === 0) {
       return;
     }
+
+    const receivedAt = this.clock.now();
 
     await this.context.db
       .insert(runJournalEntry)
@@ -34,6 +43,7 @@ export class DrizzleRunJournal implements RunJournalPort {
           seq: entry.seq,
           type: entry.type,
           at: entry.at,
+          receivedAt,
           message: entry.message ?? null,
           data: entry.data ?? null,
         })),
@@ -74,6 +84,7 @@ export class DrizzleRunJournal implements RunJournalPort {
           seq,
           type: entry.type,
           at: entry.at,
+          receivedAt: this.clock.now(),
           message: null,
           data,
         })

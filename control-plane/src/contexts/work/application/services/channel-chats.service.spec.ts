@@ -91,6 +91,8 @@ const proposingChat = () =>
     .runEnded(RunId.of('run_1'), {
       session: HarnessSession.of('session_1'),
       claimedBy: null,
+      lastWordsAt: null,
+      endedAt: NOW,
     }).chat;
 
 const channels = ({

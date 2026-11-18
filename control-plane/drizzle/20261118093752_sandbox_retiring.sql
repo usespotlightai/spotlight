@@ -1,2 +1,0 @@
-ALTER TABLE "sandbox" ADD COLUMN "retiring" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-CREATE INDEX "sandbox_retiring_idx" ON "sandbox" USING btree ("id") WHERE "sandbox"."retiring" and "sandbox"."state" = 'open';
