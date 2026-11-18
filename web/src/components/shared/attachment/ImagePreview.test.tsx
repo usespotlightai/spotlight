@@ -82,13 +82,13 @@ describe('ImagePreview', () => {
     expect(screen.getByRole('img', { name: 'shot.png' })).toBeInTheDocument();
   });
 
-  it('shows the image large when clicked, and closes on Escape', async () => {
+  it('scales a small image up to twice its size when clicked, and closes on Escape', async () => {
     sized(400, 300);
     render(<ImagePreview source={{ blob: shot() }} name="shot.png" />);
 
     const { user, view } = await opened();
-    expect(view).toHaveAttribute('width', '400');
-    expect(view).toHaveAttribute('height', '300');
+    expect(view).toHaveAttribute('width', '800');
+    expect(view).toHaveAttribute('height', '600');
 
     await user.keyboard('{Escape}');
 

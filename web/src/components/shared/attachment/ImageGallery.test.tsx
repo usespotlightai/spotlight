@@ -40,6 +40,9 @@ const view = (name: string) => screen.findByRole('img', { name });
 
 const view_ = (name: string) => screen.getByRole('img', { name });
 
+const peek = (side: string) =>
+  document.querySelector<HTMLImageElement>(`[data-peek="${side}"]`);
+
 const openAt = async (name: string) => {
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: `View ${name}` }));
@@ -175,6 +178,73 @@ describe('ImageGallery', () => {
 
     expect(screen.queryByRole('button', { name: 'Next image' })).toBeNull();
     expect(screen.queryByText('1 of 1')).toBeNull();
+  });
+
+  it('peeks at both neighbours of a middle image', async () => {
+    tiles(three);
+    const user = await openAt('a.png');
+    expect(peek('previous')).toBeNull();
+    expect(peek('next')).toHaveAttribute(
+      'src',
+      '/api/workspaces/acme/attachments/b',
+    );
+
+    await user.keyboard('{ArrowRight}');
+    await view('b.png');
+    expect(peek('previous')).toHaveAttribute(
+      'src',
+      '/api/workspaces/acme/attachments/a',
+    );
+    expect(peek('next')).toHaveAttribute(
+      'src',
+      '/api/workspaces/acme/attachments/c',
+    );
+
+    await user.keyboard('{ArrowRight}');
+    await view('c.png');
+    expect(peek('previous')).not.toBeNull();
+    expect(peek('next')).toBeNull();
+  });
+
+  it('hides the peeks from assistive technology', async () => {
+    tiles(three);
+    await openAt('b.png');
+
+    expect(peek('next')).toHaveAttribute('aria-hidden', 'true');
+    expect(peek('next')).toHaveAttribute('alt', '');
+  });
+
+  it('moves to a neighbour when its peek is clicked', async () => {
+    tiles(three);
+    const user = await openAt('b.png');
+
+    await user.click(peek('next') as HTMLElement);
+
+    expect(await view('c.png')).toBeInTheDocument();
+    expect(screen.getByText('3 of 3')).toBeInTheDocument();
+  });
+
+  it('shows no peeks for a single image', async () => {
+    tiles([image('a', 'a.png')]);
+    await openAt('a.png');
+
+    expect(peek('previous')).toBeNull();
+    expect(peek('next')).toBeNull();
+  });
+
+  it('shows no peeks when the image fills the width', async () => {
+    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(
+      4000,
+    );
+    vi.spyOn(
+      HTMLImageElement.prototype,
+      'naturalHeight',
+      'get',
+    ).mockReturnValue(100);
+    tiles(three);
+    await openAt('b.png');
+
+    expect(peek('next')).toBeNull();
   });
 
   it('gives focus back to the last viewed tile on close', async () => {

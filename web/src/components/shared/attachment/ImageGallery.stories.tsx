@@ -4,9 +4,9 @@ import { within } from 'storybook/test';
 import { ImageGallery } from '@/components/shared/attachment/ImageGallery';
 import { ZoomableImage } from '@/components/shared/attachment/ZoomableImage';
 
-const picture = (fill: string, label: string) =>
+const picture = (fill: string, label: string, width = 640, height = 400) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="640" height="400" fill="${fill}"/><text x="320" y="210" font-size="48" text-anchor="middle" fill="white">${label}</text></svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="${fill}"/><text x="${width / 2}" y="${height / 2}" font-size="48" text-anchor="middle" fill="white">${label}</text></svg>`,
   )}`;
 
 const images = [
@@ -56,6 +56,21 @@ export const SingleImage: StoryObj<typeof meta> = {
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(
       canvas.getByRole('button', { name: 'View login.png' }),
+    );
+  },
+};
+
+const mixed = [
+  { name: 'wide.png', src: picture('#2563eb', 'Wide', 900, 360) },
+  { name: 'square.png', src: picture('#16a34a', 'Square', 480, 480) },
+  { name: 'tall.png', src: picture('#dc2626', 'Tall', 360, 640) },
+];
+
+export const MixedSizes: StoryObj<typeof meta> = {
+  render: () => gallery(mixed),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'View square.png' }),
     );
   },
 };
