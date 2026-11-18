@@ -35,19 +35,19 @@ describe('AgentWorking', () => {
       <AgentWorking
         harness="claude-code"
         progress="in-progress"
-        phase={{ kind: 'preparing', key: 'run_1:preparing' }}
+        phase={{ kind: 'preparing', key: 'run_1:preparing', since: null }}
       />,
     );
 
     expect(screen.getByText('Preparing the workspace…')).toBeInTheDocument();
   });
 
-  it('names the running step and counts the time seen on it once it runs long', () => {
+  it('names the running step and counts its time once it runs long', () => {
     render(
       <AgentWorking
         harness="claude-code"
         progress="in-progress"
-        phase={{ kind: 'step', step: running, key: 'run_1:step' }}
+        phase={{ kind: 'step', step: running, key: 'run_1:step', since: START }}
       />,
     );
 
@@ -70,7 +70,7 @@ describe('AgentWorking', () => {
       <AgentWorking
         harness="claude-code"
         progress="in-progress"
-        phase={{ kind: 'step', step: running, key: 'run_1:step' }}
+        phase={{ kind: 'step', step: running, key: 'run_1:step', since: START }}
       />,
     );
     act(() => {
@@ -82,7 +82,7 @@ describe('AgentWorking', () => {
       <AgentWorking
         harness="claude-code"
         progress="in-progress"
-        phase={{ kind: 'working', key: 'run_1:working:2' }}
+        phase={{ kind: 'working', key: 'run_1:working:2', since: null }}
       />,
     );
 
@@ -90,12 +90,45 @@ describe('AgentWorking', () => {
     expect(screen.queryByText(/^\d+s$/)).not.toBeInTheDocument();
   });
 
+  it('counts from when the step started, so a reload keeps the count', () => {
+    vi.setSystemTime(START + 75_000);
+    render(
+      <AgentWorking
+        harness="claude-code"
+        progress="in-progress"
+        phase={{ kind: 'step', step: running, key: 'run_1:step', since: START }}
+      />,
+    );
+
+    expect(screen.getByText('1m 15s')).toBeInTheDocument();
+  });
+
+  it('counts from now when the step seems to start later than now', () => {
+    render(
+      <AgentWorking
+        harness="claude-code"
+        progress="in-progress"
+        phase={{
+          kind: 'step',
+          step: running,
+          key: 'run_1:step',
+          since: START + 60_000,
+        }}
+      />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(6_000);
+    });
+
+    expect(screen.getByText('6s')).toBeInTheDocument();
+  });
+
   it('keeps the queued words while the run waits for a runner', () => {
     render(
       <AgentWorking
         harness="claude-code"
         progress="queued"
-        phase={{ kind: 'step', step: running, key: 'run_1:step' }}
+        phase={{ kind: 'step', step: running, key: 'run_1:step', since: START }}
       />,
     );
 

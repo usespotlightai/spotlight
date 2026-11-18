@@ -65,7 +65,13 @@ const entryAt = (seq: number, each: Notification): JournalEntry => {
   const at = new Date(Date.UTC(2026, 8, 27, 9, 0, seq));
 
   if ('hook' in each) {
-    return { seq, type: 'output', at, message: each.hook, data: 'aGk=' };
+    return {
+      seq,
+      type: 'step.ended',
+      at,
+      message: each.hook,
+      data: Buffer.from(JSON.stringify({ output: 'hi' })).toString('base64'),
+    };
   }
   if ('call' in each) {
     return entryOf(

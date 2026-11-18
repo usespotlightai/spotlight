@@ -13,7 +13,7 @@ import { Turn } from '@/components/shared/Turn';
 import { useMessageSources } from '@/hooks/api/useMessageSources';
 import { useArrivals } from '@/hooks/useArrivals';
 import type { ApprovalAnswer } from '@/lib/approval';
-import { togglesDisclosure } from '@/lib/disclosure';
+import { changesInPlace } from '@/lib/disclosure';
 import { marksHold } from '@/lib/hold';
 import {
   ARRIVING,
@@ -249,7 +249,7 @@ export function Conversation({
     grew.observe(inside);
 
     const toggled = (event: Event) => {
-      if (togglesDisclosure(event.target)) {
+      if (changesInPlace(event.target)) {
         pinnedAt.current = null;
         following.current = false;
       }

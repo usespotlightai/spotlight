@@ -25,6 +25,8 @@ import { ProposalAcceptanceFailed } from '@work/domain/events/proposal-acceptanc
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalBecameTask } from '@work/domain/events/proposal-became-task.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
+import { ProposalRestored } from '@work/domain/events/proposal-restored.event';
+import { ProposalsReplaced } from '@work/domain/events/proposals-replaced.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
@@ -656,16 +658,30 @@ export class Chat extends EventRecorder {
     title: TaskTitle;
     description: TaskDescription | null;
     attachments?: readonly Attachment[];
+    replaces?: readonly number[];
     at: Date;
   }): Chat {
     const message = ChatMessage.propose({
       ...input,
       position: this.proposalPositionFor(input.runId),
     });
-    const proposed = this.with({
-      messages: [...this.messages, message],
+    const replaced = this.replacedBy(input.replaces ?? [], input.at);
+    const proposed = replaced.chat.with({
+      messages: [...replaced.chat.messages, message],
       resolvedAt: null,
     });
+
+    if (replaced.positions.length > 0) {
+      proposed.record(
+        new ProposalsReplaced(
+          this.id,
+          this.workspaceId,
+          this.startedBy,
+          replaced.positions,
+          message.position,
+        ),
+      );
+    }
 
     proposed.record(
       new TaskProposed(
@@ -678,6 +694,32 @@ export class Chat extends EventRecorder {
     );
 
     return proposed;
+  }
+
+  private replacedBy(
+    numbers: readonly number[],
+    at: Date,
+  ): { chat: Chat; positions: MessagePosition[] } {
+    const named = numbers.map((number) => {
+      const found = this.proposals.find((each) => each.number === number);
+
+      if (!found) {
+        throw new InvalidChatTransitionError(
+          `Chat ${this.id.value} has no proposal ${number} to replace.`,
+        );
+      }
+
+      return found.proposal;
+    });
+    const open = named.filter((proposal) => proposal.isOpen);
+
+    return {
+      chat: open.reduce<Chat>(
+        (chat, proposal) => chat.replaceProposal(proposal.replace(at)),
+        this,
+      ),
+      positions: open.map((proposal) => proposal.position),
+    };
   }
 
   proposalPositionFor(runId: RunId): MessagePosition {
@@ -776,6 +818,25 @@ export class Chat extends EventRecorder {
     );
 
     return next;
+  }
+
+  restoreProposal(position: MessagePosition, by: UserId): Chat {
+    this.assertStarter(by);
+
+    const restored = this.replaceProposal(
+      this.proposalAt(position).restore(),
+    ).with({ resolvedAt: null });
+
+    restored.record(
+      new ProposalRestored(
+        this.id,
+        this.workspaceId,
+        this.startedBy,
+        position,
+      ),
+    );
+
+    return restored;
   }
 
   private get nextPosition(): MessagePosition {

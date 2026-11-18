@@ -28,6 +28,8 @@ import type { ProposalAcceptanceFailed } from '@work/domain/events/proposal-acce
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import type { ProposalBecameTask } from '@work/domain/events/proposal-became-task.event';
 import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
+import type { ProposalRestored } from '@work/domain/events/proposal-restored.event';
+import type { ProposalsReplaced } from '@work/domain/events/proposals-replaced.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
@@ -67,6 +69,8 @@ type ChatEvent =
   | ProposalAcceptanceFailed
   | ProposalBecameTask
   | ProposalDismissed
+  | ProposalRestored
+  | ProposalsReplaced
   | ChatRunAssigned
   | ChatRunEnded
   | ChatRunNotStarted
@@ -125,6 +129,8 @@ const CHAT_KINDS = [
   'chat.proposal-acceptance-failed',
   'chat.proposal-became-task',
   'chat.proposal-dismissed',
+  'chat.proposal-restored',
+  'chat.proposals-replaced',
   'chat.run-assigned',
   'chat.run-ended',
   'chat.run-not-started',

@@ -78,6 +78,7 @@ type InboxArgs = {
   readonly admin: boolean;
   readonly editingMemory: boolean;
   readonly approvingMemory: boolean;
+  readonly restoringMemory: boolean;
   readonly answeringYes: boolean;
   readonly answeringDisagreement: boolean;
   readonly standing: Standing;
@@ -104,6 +105,7 @@ const meta = {
       admin: true,
       editingMemory: false,
       approvingMemory: false,
+      restoringMemory: false,
       answeringYes: false,
       answeringDisagreement: false,
       standing: 'seeded',
@@ -156,6 +158,7 @@ const meta = {
       admin: { ...toggle('Workspace owner or admin'), if: SETTING_UP },
       editingMemory: toggle('Edit the first memory'),
       approvingMemory: toggle('Approve the open memory'),
+      restoringMemory: toggle('Restore the rejected memory'),
       answeringYes: toggle('Answer Yes'),
       answeringDisagreement: {
         ...toggle('Answer the disagreement'),
@@ -262,6 +265,7 @@ const meta = {
       opened,
       editingMemory,
       approvingMemory,
+      restoringMemory,
       answeringYes,
       answeringDisagreement,
     }) => {
@@ -269,6 +273,13 @@ const meta = {
         return async (screen, user) => {
           await user.click(
             (await screen.findAllByRole('button', { name: /^Edit/ }))[0],
+          );
+        };
+      }
+      if (opened === DECIDED_MEMORIES_REQUEST_ID && restoringMemory) {
+        return async (screen, user) => {
+          await user.click(
+            await screen.findByRole('button', { name: /^Restore memory / }),
           );
         };
       }

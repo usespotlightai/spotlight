@@ -27,6 +27,9 @@ function Log({ sent = 0 }: { sent?: number }) {
           Thought
         </button>
         <button type="button">Copy</button>
+        <section data-decision>
+          <button type="button">Dismiss</button>
+        </section>
       </div>
     </div>
   );
@@ -119,6 +122,17 @@ describe('useStickToBottom', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Thought' }));
     grown(box, 1400);
+
+    expect(box.scrollTop).toBe(900);
+  });
+
+  it('keeps the decided card in place when the person decides', () => {
+    render(<Log />);
+    const box = screen.getByTestId('scroller');
+    grown(box, 900);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    grown(box, 800);
 
     expect(box.scrollTop).toBe(900);
   });

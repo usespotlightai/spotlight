@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { Undo2 } from 'lucide-react';
 import { type Ref, useId, useState } from 'react';
 
 import { ProposedTaskFacts } from '@/components/features/agent/ProposedTaskFacts';
@@ -9,6 +9,8 @@ import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionControls } from '@/components/shared/DecisionControls';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
+import { FoldToggle } from '@/components/shared/FoldToggle';
+import { IconAction } from '@/components/shared/IconAction';
 import { OverflowFade } from '@/components/shared/OverflowFade';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { Attachment } from '@/lib/attachment';
@@ -29,6 +31,7 @@ type ProposedTaskCardProps = {
   pending: boolean;
   onCreate: () => void;
   onDismiss: () => void;
+  onRestore: () => void;
   ref?: Ref<HTMLElement>;
 };
 
@@ -42,12 +45,14 @@ export function ProposedTaskCard({
   pending,
   onCreate,
   onDismiss,
+  onRestore,
   ref,
 }: ProposedTaskCardProps) {
   const titleId = useId();
   const [unfolded, setUnfolded] = useState(false);
   const open = proposal.state === 'open';
-  const dismissed = proposal.state === 'dismissed';
+  const dismissed =
+    proposal.state === 'dismissed' || proposal.state === 'replaced';
   const folded = dismissed && !unfolded;
 
   return (
@@ -75,26 +80,30 @@ export function ProposedTaskCard({
         trailing={
           <span className="flex shrink-0 items-center gap-1">
             {dismissed && (
-              <button
-                type="button"
-                aria-expanded={!folded}
-                aria-label={folded ? 'Show the proposal' : 'Hide the proposal'}
-                onClick={() => setUnfolded((was) => !was)}
-                className="flex size-6 items-center justify-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              <IconAction
+                label={`Restore ${proposal.title}`}
+                tip="Restore"
+                disabled={pending}
+                focusNext
+                onClick={() => {
+                  setUnfolded(false);
+                  onRestore();
+                }}
               >
-                <ChevronRight
-                  aria-hidden
-                  className={cn(
-                    'size-3.5 transition-transform duration-200',
-                    !folded && 'rotate-90',
-                  )}
-                />
-              </button>
+                <Undo2 />
+              </IconAction>
             )}
             <CopyIconAction
               text={proposalText(proposal)}
               label={`Copy ${proposal.title}`}
             />
+            {dismissed && (
+              <FoldToggle
+                folded={folded}
+                what="the proposal"
+                onToggle={() => setUnfolded((was) => !was)}
+              />
+            )}
           </span>
         }
       />
@@ -122,6 +131,7 @@ export function ProposedTaskCard({
               </DecisionButton>
               <DecisionButton
                 variant="default"
+                data-focus-next
                 disabled={pending || !proposal.stationName}
                 onClick={onCreate}
                 aria-describedby={titleId}
@@ -133,14 +143,13 @@ export function ProposedTaskCard({
 
           {(proposal.state === 'accepted' ||
             (proposal.state === 'created' && !proposal.taskId)) && (
-            <p className={cn(OUTCOME, 'text-muted-foreground')}>
-              Creating the task…
-            </p>
+            <div aria-hidden className={OUTCOME} />
           )}
 
           {proposal.state === 'created' && proposal.taskId && (
             <div className={OUTCOME}>
               <TrailLink
+                data-focus-next
                 to={taskPath(slug, teamId, proposal.taskId)}
                 className="rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
               >

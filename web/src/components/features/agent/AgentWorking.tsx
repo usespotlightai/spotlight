@@ -30,7 +30,7 @@ const doing = (phase: AgentPhase): string => {
 };
 
 function AgentDoing({ phase }: { phase: AgentPhase }) {
-  const elapsed = useElapsed(phase.key);
+  const elapsed = useElapsed(phase.key, phase.since);
 
   return (
     <>

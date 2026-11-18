@@ -20,7 +20,7 @@ func (a *archiver) started(ctx context.Context) {
 	}
 
 	if err := recordStart(ctx, a.control, a.run, a.space.Dir, a.restoredFrom); err != nil {
-		a.report(startStep, "Where the run started was not recorded: %v", err)
+		a.noted(startStep, true, "Where the run started was not recorded: %v", err)
 	}
 }
 

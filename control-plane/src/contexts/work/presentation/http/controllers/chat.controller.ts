@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -30,6 +31,7 @@ import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
+  RestoreProposalCommand,
   SendChatMessageCommand,
   StartChatCommand,
   StopChatCommand,
@@ -325,6 +327,30 @@ export class ChatController {
   ): Promise<void> {
     await this.commandBus.execute(
       new DismissProposalCommand(teamId, chatId, position, user.id),
+    );
+  }
+
+  @Delete(':chatId/proposals/:position/dismissal')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'restoreProposal',
+    summary: 'Open again a task proposal that was dismissed or replaced',
+  })
+  @ApiParam({ name: 'chatId', type: String })
+  @ApiParam({ name: 'position', type: Number })
+  @ApiNoContentResponse({ description: 'The proposal is open again' })
+  @ApiNotFoundResponse({ description: 'No such chat for this caller' })
+  @ApiConflictResponse({
+    description: 'The proposal is not dismissed or replaced',
+  })
+  async restore(
+    @Param('teamId') teamId: string,
+    @Param('chatId') chatId: string,
+    @Param('position', ParseIntPipe) position: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new RestoreProposalCommand(teamId, chatId, position, user.id),
     );
   }
 }

@@ -50,7 +50,7 @@ func TestASandboxSkipsASetupWhoseInputsDidNotChange(t *testing.T) {
 	if count() != 1 {
 		t.Fatalf("setup ran %d times for unchanged inputs, want 1", count())
 	}
-	if last := journal.pending[len(journal.pending)-1]; !strings.HasPrefix(string(last.Data), "Skipped setup for web:") {
+	if last := journal.pending[len(journal.pending)-1]; !strings.HasPrefix(endedOf(t, last).Output, "Skipped setup for web:") {
 		t.Errorf("the journal says %q for the skipped setup", last.Data)
 	}
 

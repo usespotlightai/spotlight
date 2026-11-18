@@ -52,6 +52,25 @@ const KIND_DOING = new Map<JournalStep['kind'], string>([
   ['reminded', 'Reminding'],
 ]);
 
+const TOOL_TITLES = new Map<string | null, readonly string[]>([
+  ['read', ['Read']],
+  ['edit', ['Edit']],
+  ['write', ['Write']],
+  ['create', ['Create']],
+  ['search', ['Search', 'Find', 'Glob']],
+  ['grep', ['Grep', 'grep']],
+  ['fetch', ['Fetch']],
+  ['web', ['Fetch']],
+]);
+
+const withoutToolName = (step: JournalStep): string => {
+  const named = TOOL_TITLES.get(step.tool)?.find(
+    (name) => step.text === name || step.text.startsWith(`${name} `),
+  );
+
+  return named ? step.text.slice(named.length).trimStart() : step.text;
+};
+
 const verbFor = (step: JournalStep): string =>
   KIND_VERBS.get(step.kind) ?? TOOL_VERBS.get(step.tool) ?? 'Used';
 
@@ -86,7 +105,9 @@ const bodyOf = (step: JournalStep, detail: string): string | null => {
 
 export const shownStep = (step: JournalStep): ShownStep => {
   const prose = PROSE_KINDS.has(step.kind);
-  const detail = prose ? (step.text.split('\n')[0] ?? '') : step.text;
+  const detail = prose
+    ? (step.text.split('\n')[0] ?? '')
+    : withoutToolName(step);
   const keyword = verbFor(step);
 
   return {
@@ -101,9 +122,20 @@ export const shownStep = (step: JournalStep): ShownStep => {
 
 const UNNAMED = new Set(['Terminal']);
 
+const HOOK_DOING = new Map([
+  ['restore', 'Restoring the workspace'],
+  ['prepare', 'Preparing the workspace'],
+  ['setup', 'Running setup'],
+  ['archive', 'Saving the workspace'],
+]);
+
 export const doingOf = (step: JournalStep): string => {
   if (step.kind === 'thought') {
     return 'Thinking';
+  }
+  const hook = step.kind === 'hook' ? HOOK_DOING.get(step.text) : undefined;
+  if (hook) {
+    return hook;
   }
   const verb =
     KIND_DOING.get(step.kind) ?? TOOL_DOING.get(step.tool) ?? 'Using';

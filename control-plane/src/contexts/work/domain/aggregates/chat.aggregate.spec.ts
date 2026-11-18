@@ -27,6 +27,8 @@ import { ProposalAcceptanceFailed } from '@work/domain/events/proposal-acceptanc
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalBecameTask } from '@work/domain/events/proposal-became-task.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
+import { ProposalRestored } from '@work/domain/events/proposal-restored.event';
+import { ProposalsReplaced } from '@work/domain/events/proposals-replaced.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
@@ -819,6 +821,96 @@ describe('Chat', () => {
     expect(() => dismissed.accept(SECOND, LEON, LATER)).toThrow(
       InvalidChatTransitionError,
     );
+  });
+
+  it('opens a dismissed proposal again for the person who started the chat', () => {
+    const restored = proposing()
+      .dismiss(SECOND, LEON, LATER)
+      .resolve(LEON, LATER)
+      .restoreProposal(SECOND, LEON);
+
+    expect(restored.proposalAt(SECOND).isOpen).toBe(true);
+    expect(restored.proposalAt(SECOND).decidedAt).toBeNull();
+    expect(restored.resolvedAt).toBeNull();
+    expect(restored.pullEvents()).toContainEqual(expect.any(ProposalRestored));
+    expect(() =>
+      proposing().dismiss(SECOND, LEON, LATER).restoreProposal(SECOND, STRANGER),
+    ).toThrow(NotTheChatStarterError);
+  });
+
+  it('opens again only a dismissed or replaced proposal', () => {
+    expect(() => proposing().restoreProposal(SECOND, LEON)).toThrow(
+      InvalidChatTransitionError,
+    );
+  });
+
+  it('replaces the open proposals a newer proposal names, by number', () => {
+    const third = MessagePosition.of(2);
+    const replacing = proposing()
+      .propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Back off with jitter'),
+        description: null,
+        replaces: [1],
+        at: LATER,
+      });
+
+    expect(replacing.proposalAt(SECOND).state).toBe('replaced');
+    expect(replacing.proposalAt(third).isOpen).toBe(true);
+    expect(replacing.pullEvents()).toEqual([
+      new ProposalsReplaced(
+        replacing.id,
+        replacing.workspaceId,
+        LEON,
+        [SECOND],
+        third,
+      ),
+      expect.anything(),
+    ]);
+    expect(
+      replacing.restoreProposal(SECOND, LEON).proposalAt(SECOND).isOpen,
+    ).toBe(true);
+  });
+
+  it('leaves a decided proposal as it is when a newer one names it', () => {
+    const replacing = proposing()
+      .dismiss(SECOND, LEON, LATER)
+      .propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Back off with jitter'),
+        description: null,
+        replaces: [1],
+        at: LATER,
+      });
+
+    expect(replacing.proposalAt(SECOND).state).toBe('dismissed');
+    expect(replacing.pullEvents()).not.toContainEqual(
+      expect.any(ProposalsReplaced),
+    );
+  });
+
+  it('refuses to replace a proposal it does not have', () => {
+    expect(() =>
+      proposing().propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Back off with jitter'),
+        description: null,
+        replaces: [4],
+        at: LATER,
+      }),
+    ).toThrow(InvalidChatTransitionError);
   });
 
   it('never creates a task from a proposal nobody accepted', () => {

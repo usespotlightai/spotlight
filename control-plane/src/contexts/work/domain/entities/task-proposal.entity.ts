@@ -11,6 +11,7 @@ export const PROPOSAL_STATES = [
   'accepted',
   'created',
   'dismissed',
+  'replaced',
 ] as const;
 
 export type ProposalState = (typeof PROPOSAL_STATES)[number];
@@ -96,6 +97,22 @@ export class TaskProposal {
     this.require('open', 'dismissed');
 
     return this.with({ state: 'dismissed', decidedAt: at });
+  }
+
+  replace(at: Date): TaskProposal {
+    this.require('open', 'replaced');
+
+    return this.with({ state: 'replaced', decidedAt: at });
+  }
+
+  restore(): TaskProposal {
+    if (this.state !== 'dismissed' && this.state !== 'replaced') {
+      throw new InvalidChatTransitionError(
+        `Proposal is ${this.state}. It cannot be restored.`,
+      );
+    }
+
+    return this.with({ state: 'open', decidedAt: null });
   }
 
   equals(other: TaskProposal): boolean {

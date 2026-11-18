@@ -359,10 +359,14 @@ describe('sandboxes (e2e)', () => {
           events: [
             {
               seq,
-              type: 'output',
+              type: 'step.ended',
               at: new Date().toISOString(),
               message: 'archive',
-              data: 'Captured the workspace for the next run (2.0 KB)',
+              data: Buffer.from(
+                JSON.stringify({
+                  output: 'Captured the workspace for the next run (2.0 KB)',
+                }),
+              ).toString('base64'),
             },
           ],
         });

@@ -3728,7 +3728,7 @@ export type ChatProposalResponseDto = {
   stationCount: number | null;
   title: string;
   description: string | null;
-  state: 'open' | 'accepted' | 'created' | 'dismissed';
+  state: 'open' | 'accepted' | 'created' | 'dismissed' | 'replaced';
   /**
    * The task it became, once created
    */
@@ -16683,6 +16683,41 @@ export type AcceptProposalResponses = {
 
 export type AcceptProposalResponse = AcceptProposalResponses[keyof AcceptProposalResponses];
 
+export type RestoreProposalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+    position: number;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/dismissal';
+};
+
+export type RestoreProposalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * The proposal is not dismissed or replaced
+   */
+  409: unknown;
+};
+
+export type RestoreProposalResponses = {
+  /**
+   * The proposal is open again
+   */
+  204: void;
+};
+
+export type RestoreProposalResponse = RestoreProposalResponses[keyof RestoreProposalResponses];
+
 export type DismissProposalData = {
   body?: never;
   path: {
@@ -19782,6 +19817,39 @@ export type ApproveMemoriesResponses = {
 };
 
 export type ApproveMemoriesResponse = ApproveMemoriesResponses[keyof ApproveMemoriesResponses];
+
+export type RestoreMemoryData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+    runId: string;
+    memoryId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/runs/{runId}/memories/{memoryId}/reject';
+};
+
+export type RestoreMemoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such memory for this caller
+   */
+  404: unknown;
+  /**
+   * The memory is not rejected
+   */
+  409: unknown;
+};
+
+export type RestoreMemoryResponses = {
+  200: MemoryReviewResponseDto;
+};
+
+export type RestoreMemoryResponse = RestoreMemoryResponses[keyof RestoreMemoryResponses];
 
 export type RejectMemoryData = {
   body?: never;

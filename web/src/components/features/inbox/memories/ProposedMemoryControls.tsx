@@ -40,6 +40,7 @@ export function ProposedMemoryControls({
       )}
       <DecisionButton
         variant="default"
+        data-focus-next
         disabled={pending || !ready || !onApprove}
         onClick={onApprove}
         aria-label={

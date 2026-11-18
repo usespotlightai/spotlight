@@ -29,6 +29,7 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
+import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { describe, expect, it } from 'vitest';
@@ -489,5 +490,36 @@ describe('ChatBriefing', () => {
         'acme/infra',
       ]);
     });
+  });
+
+  it('numbers the proposals so far, so a new proposal can name the ones it replaces', () => {
+    const proposing = started().assignRun(RunId.of('run_1'), NOW);
+    const placement = ProposalPlacement.of({
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of('station_0'),
+    });
+    const twice = proposing
+      .propose({
+        runId: RunId.of('run_1'),
+        placement,
+        title: TaskTitle.of('Keep the draft'),
+        description: null,
+        at: NOW,
+      })
+      .propose({
+        runId: RunId.of('run_1'),
+        placement,
+        title: TaskTitle.of('Keep the draft and its files'),
+        description: null,
+        replaces: [1],
+        at: NOW,
+      });
+
+    const text = brief(twice, [], null, [DELIVERY]);
+
+    expect(text).toContain(
+      '1. Keep the draft (Backlog, replaced)\n2. Keep the draft and its files (Backlog, open)',
+    );
+    expect(text).toContain('--replaces <number>');
   });
 });

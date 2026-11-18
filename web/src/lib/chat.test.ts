@@ -48,8 +48,16 @@ const step = (over: Partial<JournalStep>): JournalStep => ({
   ...over,
 });
 
-const journal = (steps: JournalStep[]): RunJournal =>
-  ({ runId: 'run_1', attempt: 1, steps }) as unknown as RunJournal;
+const journal = (
+  steps: JournalStep[],
+  startedAt: string | null = null,
+): RunJournal =>
+  ({
+    runId: 'run_1',
+    attempt: 1,
+    steps,
+    marks: { startedAt },
+  }) as unknown as RunJournal;
 
 describe('momentsOf', () => {
   it('tells the chat in the order it happened', () => {
@@ -458,6 +466,7 @@ describe('proposalStatusOf', () => {
     expect(of('open')).toBe('pending');
     expect(of('accepted')).toBe('working');
     expect(of('created')).toBe('approved');
+    expect(of('replaced')).toBe('dismissed');
     expect(of('dismissed')).toBe('dismissed');
   });
 });
@@ -469,11 +478,52 @@ describe('phaseOf', () => {
       'run_1',
     );
 
-    expect(phase).toEqual({ kind: 'preparing', key: 'run_1:preparing' });
+    expect(phase).toEqual({
+      kind: 'preparing',
+      key: 'run_1:preparing',
+      since: Date.parse('2026-09-14T09:00:01.000Z'),
+    });
     expect(phaseOf([], 'run_1')).toEqual({
       kind: 'preparing',
       key: 'run_1:preparing',
+      since: null,
     });
+  });
+
+  it('counts the preparation from when the run started', () => {
+    expect(
+      phaseOf([journal([], '2026-09-14T08:59:58.000Z')], 'run_1').since,
+    ).toBe(Date.parse('2026-09-14T08:59:58.000Z'));
+  });
+
+  it('names the hook that runs before the agent', () => {
+    const setup = step({
+      kind: 'hook',
+      tool: null,
+      text: 'setup',
+      status: 'running',
+      startedAt: '2026-09-14T09:00:04.000Z',
+    });
+    const phase = phaseOf(
+      [journal([step({ kind: 'hook', tool: null, text: 'restore' }), setup])],
+      'run_1',
+    );
+
+    expect(phase.kind === 'step' && phase.step).toBe(setup);
+  });
+
+  it('counts the hooks before the agent from when the run started, so the time only goes up', () => {
+    const setup = step({
+      kind: 'hook',
+      tool: null,
+      text: 'setup',
+      status: 'running',
+      startedAt: '2026-09-14T09:00:04.000Z',
+    });
+
+    expect(
+      phaseOf([journal([setup], '2026-09-14T08:59:58.000Z')], 'run_1').since,
+    ).toBe(Date.parse('2026-09-14T08:59:58.000Z'));
   });
 
   it('names the step that runs now', () => {
@@ -488,15 +538,25 @@ describe('phaseOf', () => {
       kind: 'step',
       step: running,
       key: 'run_1:step:2026-09-14T09:00:05.000Z:npm test',
+      since: Date.parse('2026-09-14T09:00:05.000Z'),
     });
   });
 
   it('works on, with a new phase after each step, when none runs', () => {
-    const steps = [step({}), step({ kind: 'message', status: 'pending' })];
+    const steps = [
+      step({}),
+      step({
+        kind: 'message',
+        status: 'pending',
+        startedAt: '2026-09-14T09:00:03.000Z',
+        ms: 500,
+      }),
+    ];
 
     expect(phaseOf([journal(steps)], 'run_1')).toEqual({
       kind: 'working',
       key: 'run_1:working:2',
+      since: Date.parse('2026-09-14T09:00:03.500Z'),
     });
     expect(phaseOf([journal([...steps, step({})])], 'run_1').key).toBe(
       'run_1:working:3',

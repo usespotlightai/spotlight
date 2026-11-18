@@ -349,10 +349,12 @@ describe('database round trips a hot route makes, one after another', () => {
             events: [
               {
                 seq: 1,
-                type: 'output',
+                type: 'step.ended',
                 at: new Date().toISOString(),
-                message: 'stdout',
-                data: Buffer.from('hello').toString('base64'),
+                message: 'setup',
+                data: Buffer.from(JSON.stringify({ output: 'hello' })).toString(
+                  'base64',
+                ),
               },
             ],
           })

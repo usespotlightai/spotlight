@@ -23,6 +23,8 @@ import { ProposalAcceptanceFailed } from '@work/domain/events/proposal-acceptanc
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalBecameTask } from '@work/domain/events/proposal-became-task.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
+import { ProposalRestored } from '@work/domain/events/proposal-restored.event';
+import { ProposalsReplaced } from '@work/domain/events/proposals-replaced.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
@@ -246,6 +248,8 @@ export const WORK_PAYLOAD_TYPES = [
   ProposalAccepted,
   SetupPullRequestOpened,
   ProposalDismissed,
+  ProposalRestored,
+  ProposalsReplaced,
   PullRequestOpened,
   PullRequestReviewTaken,
   DispatchBriefed,

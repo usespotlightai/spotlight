@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import { ProposedMemoryControls } from '@/components/features/inbox/memories/ProposedMemoryControls';
 import { ProposedMemoryFacts } from '@/components/features/inbox/memories/ProposedMemoryFacts';
@@ -7,6 +7,8 @@ import { DecisionActions } from '@/components/shared/DecisionActions';
 import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
+import { FoldToggle } from '@/components/shared/FoldToggle';
+import { useFocusAfterDecision } from '@/hooks/useFocusAfterDecision';
 import {
   MAX_MEMORY_BODY,
   type ProposedMemory,
@@ -22,6 +24,7 @@ type ProposedMemoryCardProps = {
   pending: boolean;
   onApprove: (body?: string) => void;
   onReject: () => void;
+  onRestore: () => void;
 };
 
 export function ProposedMemoryCard({
@@ -30,8 +33,14 @@ export function ProposedMemoryCard({
   pending,
   onApprove,
   onReject,
+  onRestore,
 }: ProposedMemoryCardProps) {
+  const card = useRef<HTMLElement>(null);
+  const decided = useFocusAfterDecision(card, `${memory.state}:${pending}`);
   const [editingOpen, setEditing] = useState(false);
+  const [unfolded, setUnfolded] = useState(false);
+  const rejected = memory.state === 'rejected';
+  const folded = rejected && !unfolded;
   const [body, setBody] = useState(memory.body);
   const open = undecided(memory);
   const editing = editingOpen && open;
@@ -43,40 +52,69 @@ export function ProposedMemoryCard({
   return (
     <DecisionCard
       as="li"
+      ref={card}
       data-slot="proposed-memory"
       className={cn(
-        'gap-0 transition-opacity duration-200',
-        memory.state === 'rejected' && 'opacity-70',
+        'gap-0 transition-[opacity,padding] duration-200 ease-out-quad motion-reduce:transition-none',
+        rejected && 'opacity-70',
+        folded && 'pb-2',
       )}
     >
       <DecisionHeader
+        className={cn(folded && 'mb-0')}
         title={
           <DecisionTitle status={proposalStatusOf(memory)}>
             {proposalTitleOf(memory)}
+            {folded && (
+              <span className="ml-2 font-normal text-muted-foreground">
+                {memory.body}
+              </span>
+            )}
           </DecisionTitle>
         }
         trailing={
           !editing && (
-            <DecisionActions
-              copy={{ text: memory.body, label: `Copy memory ${position}` }}
-              editLabel={`Edit memory ${position}`}
-              pending={pending}
-              onEdit={open ? () => setEditing(true) : undefined}
-            />
+            <span className="flex shrink-0 items-center gap-1">
+              <DecisionActions
+                copy={{ text: memory.body, label: `Copy memory ${position}` }}
+                editLabel={`Edit memory ${position}`}
+                pending={pending}
+                onEdit={open ? () => setEditing(true) : undefined}
+                restoreLabel={`Restore memory ${position}`}
+                onRestore={
+                  rejected
+                    ? () => {
+                        decided();
+                        setUnfolded(false);
+                        onRestore();
+                      }
+                    : undefined
+                }
+              />
+              {rejected && (
+                <FoldToggle
+                  folded={folded}
+                  what={`memory ${position}`}
+                  onToggle={() => setUnfolded((was) => !was)}
+                />
+              )}
+            </span>
           )
         }
       />
 
-      <div className="pt-1.5">
-        <ProposedMemoryFacts
-          memory={memory}
-          editing={editing}
-          pending={pending}
-          body={body}
-          bodyId={bodyId}
-          onBody={setBody}
-        />
-      </div>
+      <Collapsible open={!folded} appear={false}>
+        <div className="pt-1.5">
+          <ProposedMemoryFacts
+            memory={memory}
+            editing={editing}
+            pending={pending}
+            body={body}
+            bodyId={bodyId}
+            onBody={setBody}
+          />
+        </div>
+      </Collapsible>
 
       <Collapsible open={open} appear={false}>
         <div className="pt-3">
@@ -88,13 +126,22 @@ export function ProposedMemoryCard({
             bodyId={bodyId}
             onApprove={
               open
-                ? () =>
+                ? () => {
+                    decided();
                     onApprove(
                       editing && written !== memory.body ? written : undefined,
-                    )
+                    );
+                  }
                 : undefined
             }
-            onReject={open ? onReject : undefined}
+            onReject={
+              open
+                ? () => {
+                    decided();
+                    onReject();
+                  }
+                : undefined
+            }
             onCancel={() => {
               setBody(memory.body);
               setEditing(false);

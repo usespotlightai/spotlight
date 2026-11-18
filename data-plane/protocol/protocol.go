@@ -262,7 +262,8 @@ type EventType string
 
 const (
 	EventWorkingCopyReady EventType = "working-copy.ready"
-	EventOutput           EventType = "output"
+	EventStepStarted      EventType = "step.started"
+	EventStepEnded        EventType = "step.ended"
 	EventFailed           EventType = "failed"
 	EventSpan             EventType = "span"
 	EventToolRefused      EventType = "tool.refused"
@@ -274,6 +275,16 @@ const (
 	EventBackgroundDone   EventType = "background.settled"
 	EventBackgroundLost   EventType = "background.lost"
 )
+
+type StepStart struct {
+	ID string `json:"id"`
+}
+
+type StepEnd struct {
+	ID     string `json:"id,omitempty"`
+	Failed bool   `json:"failed,omitempty"`
+	Output string `json:"output,omitempty"`
+}
 
 type BackgroundKind string
 

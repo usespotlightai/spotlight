@@ -283,6 +283,48 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
     });
   });
 
+  it('counts a restored proposal as open again', async () => {
+    const viewer = `user_${randomUUID()}`;
+    const chat = ended(proposedBy(startedBy(viewer)))
+      .dismiss(FIRST, UserId.of(viewer), START)
+      .restoreProposal(FIRST, UserId.of(viewer));
+    await chats.add(chat);
+
+    expect(chatEntry(await open(viewer), chat)).toMatchObject({
+      section: 'open',
+      openProposals: 1,
+    });
+  });
+
+  it('keeps a replaced proposal replaced, counting only its replacement', async () => {
+    const viewer = `user_${randomUUID()}`;
+    const first = ended(proposedBy(startedBy(viewer)));
+    const run = RunId.of(randomUUID());
+    const chat = ended(
+      first.assignRun(run, AFTER).propose({
+        runId: run,
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Back off with jitter'),
+        description: null,
+        replaces: [1],
+        at: AFTER,
+      }),
+    );
+    await chats.add(chat);
+
+    const stored = (await chats.find(chat.id)) as Chat;
+    expect(stored.proposals.map((each) => each.proposal.state)).toEqual([
+      'replaced',
+      'open',
+    ]);
+    expect(chatEntry(await open(viewer), chat)).toMatchObject({
+      openProposals: 1,
+    });
+  });
+
   it('resolves a chat once its accepted proposal became a task', async () => {
     const viewer = `user_${randomUUID()}`;
     const chat = ended(proposedBy(startedBy(viewer)))

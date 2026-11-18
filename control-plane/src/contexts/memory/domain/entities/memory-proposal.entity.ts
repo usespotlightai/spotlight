@@ -146,6 +146,26 @@ export class MemoryProposal {
     return this.decided('rejected', decision, this.body);
   }
 
+  restore(): MemoryProposal {
+    if (this.state !== 'rejected') {
+      throw new MemoryAlreadyDecidedError(this.id.value, this.state);
+    }
+
+    return new MemoryProposal(
+      this.id,
+      this.kind,
+      this.body,
+      this.scope,
+      this.provenance,
+      this.source,
+      this.proposedBy,
+      this.supersedes,
+      this.recordedAt,
+      'proposed',
+      null,
+    );
+  }
+
   private decided(
     state: MemoryProposalState,
     decision: MemoryDecision,

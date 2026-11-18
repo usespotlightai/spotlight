@@ -14,6 +14,7 @@ import {
   proposalStateOf,
   proposalTitleOf,
   proposedSummary,
+  restoredMemory,
   type RunProposal,
   suppliedMemories,
   type TeamMemory,
@@ -83,6 +84,23 @@ describe('proposalTitleOf', () => {
         }),
       ),
     ).toBe('Memory approved');
+  });
+});
+
+describe('restoredMemory', () => {
+  it('puts one rejected memory back to wait, leaving the others as they are', () => {
+    const decision = { by: 'user_1', name: 'Maya Chen', at: '2026-09-27' };
+    const review = {
+      memories: [
+        memory({ id: 'one', state: 'rejected', decision }),
+        memory({ id: 'two', state: 'rejected', decision }),
+      ],
+    };
+
+    expect(restoredMemory(review, 'one').memories).toEqual([
+      memory({ id: 'one' }),
+      memory({ id: 'two', state: 'rejected', decision }),
+    ]);
   });
 });
 

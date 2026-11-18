@@ -88,7 +88,7 @@ func TestASandboxHoldsItselfForTheArchiveOfARun(t *testing.T) {
 	if err := sandbox.HoldArchiveLease(ctx, "run_1", 2); err != nil {
 		t.Fatal(err)
 	}
-	if err := sandbox.AppendEvents(ctx, "run_1", []protocol.Event{{Seq: 9, Type: protocol.EventOutput, Message: "archive"}}); err != nil {
+	if err := sandbox.AppendEvents(ctx, "run_1", []protocol.Event{{Seq: 9, Type: protocol.EventStepEnded, Message: "archive"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := sandbox.AppendEvents(ctx, "run_1", nil); err != nil {
@@ -100,7 +100,7 @@ func TestASandboxHoldsItselfForTheArchiveOfARun(t *testing.T) {
 
 	want := []string{
 		`PUT /api/sandboxes/sandbox_1/archive-leases/run_1 Bearer sandbox-token {"attempt":2}`,
-		`POST /api/sandboxes/sandbox_1/archive-leases/run_1/events Bearer sandbox-token {"events":[{"seq":9,"type":"output","at":"0001-01-01T00:00:00Z","message":"archive"}]}`,
+		`POST /api/sandboxes/sandbox_1/archive-leases/run_1/events Bearer sandbox-token {"events":[{"seq":9,"type":"step.ended","at":"0001-01-01T00:00:00Z","message":"archive"}]}`,
 		"DELETE /api/sandboxes/sandbox_1/archive-leases/run_1?attempt=2 Bearer sandbox-token",
 	}
 	if len(seen) != len(want) {

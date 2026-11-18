@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { togglesDisclosure } from '@/lib/disclosure';
+import { changesInPlace } from '@/lib/disclosure';
 import { prefersReducedMotion } from '@/lib/motion';
 
 const NEAR = 80;
@@ -37,7 +37,7 @@ export function useStickToBottom<T extends HTMLElement>(jump?: unknown) {
     };
 
     const onClick = (event: MouseEvent) => {
-      if (togglesDisclosure(event.target)) {
+      if (changesInPlace(event.target)) {
         unfollow();
       }
     };

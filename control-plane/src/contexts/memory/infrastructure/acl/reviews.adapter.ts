@@ -24,6 +24,14 @@ export class Reviews implements ReviewsPort {
     });
   }
 
+  reopen(taskId: TaskId, runId: RunId): Promise<void> {
+    return this.inboxRequests.reopen({
+      taskId,
+      form: FORM,
+      about: runId.value,
+    });
+  }
+
   reviewItemOf(taskId: TaskId, runId: RunId): Promise<string | null> {
     return this.inboxRequests.idOf({ taskId, form: FORM, about: runId.value });
   }

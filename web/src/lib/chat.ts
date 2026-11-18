@@ -271,6 +271,7 @@ const PROPOSAL_STATUSES: Record<Proposal['state'], ApprovalStatus> = {
   accepted: 'working',
   created: 'approved',
   dismissed: 'dismissed',
+  replaced: 'dismissed',
 };
 
 export const proposalStatusOf = (proposal: Proposal): ApprovalStatus =>
@@ -281,6 +282,7 @@ const PROPOSAL_TITLES: Record<Proposal['state'], string> = {
   accepted: 'Creating the task',
   created: 'Task created',
   dismissed: 'Dismissed',
+  replaced: 'Replaced by a newer proposal',
 };
 
 export const proposalTitleOf = (proposal: Proposal): string =>
@@ -334,17 +336,23 @@ export const decidedIn = (
   ),
 });
 
+type PhaseClock = { readonly key: string; readonly since: number | null };
+
 export type AgentPhase =
-  | { readonly kind: 'preparing'; readonly key: string }
-  | { readonly kind: 'step'; readonly step: JournalStep; readonly key: string }
-  | { readonly kind: 'working'; readonly key: string };
+  | ({ readonly kind: 'preparing' } & PhaseClock)
+  | ({ readonly kind: 'step'; readonly step: JournalStep } & PhaseClock)
+  | ({ readonly kind: 'working' } & PhaseClock);
+
+const startOf = (step: JournalStep): number => Date.parse(step.startedAt);
 
 export const phaseOf = (
   journals: readonly RunJournal[],
   runId: string | null,
 ): AgentPhase => {
-  const steps =
-    journals.findLast((journal) => journal.runId === runId)?.steps ?? [];
+  const journal = journals.findLast((each) => each.runId === runId);
+  const steps = journal?.steps ?? [];
+  const started = journal?.marks.startedAt ?? steps[0]?.startedAt;
+  const preparing = !steps.some((step) => step.kind !== 'hook');
   const running = steps.findLast(
     (step) =>
       step.kind !== 'message' &&
@@ -355,11 +363,21 @@ export const phaseOf = (
       kind: 'step',
       step: running,
       key: `${runId}:step:${running.startedAt}:${running.text}`,
+      since: preparing && started ? Date.parse(started) : startOf(running),
     };
   }
-  if (!steps.some((step) => step.kind !== 'hook')) {
-    return { kind: 'preparing', key: `${runId}:preparing` };
+  if (preparing) {
+    return {
+      kind: 'preparing',
+      key: `${runId}:preparing`,
+      since: started ? Date.parse(started) : null,
+    };
   }
+  const last = steps.at(-1);
 
-  return { kind: 'working', key: `${runId}:working:${steps.length}` };
+  return {
+    kind: 'working',
+    key: `${runId}:working:${steps.length}`,
+    since: last ? startOf(last) + last.ms : null,
+  };
 };

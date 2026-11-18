@@ -5,6 +5,7 @@ import {
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
+import { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
@@ -509,6 +510,40 @@ describe('MemoryDraft', () => {
       expect(rejected.proposals[2]?.state).toBe('rejected');
       expect(rejected.proposals).toHaveLength(3);
       expect(rejected.pullEvents()).toEqual([]);
+    });
+
+    it('takes a rejection back, so the memory waits for a decision and its review opens again', () => {
+      const draft = three();
+      const rejected = draft.reject({
+        runId: FIRST,
+        id: idOf(draft, 2),
+        decision: ADA,
+      });
+      rejected.pullEvents();
+
+      const restored = rejected.restore({ runId: FIRST, id: idOf(draft, 2) });
+
+      expect(restored.proposals[2]?.state).toBe('proposed');
+      expect(restored.proposals[2]?.decision).toBeNull();
+      expect(restored.pullEvents()).toEqual([
+        new MemoryReviewReopened(draft.id, draft.taskId, FIRST),
+      ]);
+    });
+
+    it('takes back only a rejection', () => {
+      const draft = three();
+      const approved = draft.approve({
+        runId: FIRST,
+        approving: [{ id: idOf(draft, 0) }],
+        decision: ADA,
+      });
+
+      expect(() => draft.restore({ runId: FIRST, id: idOf(draft, 1) })).toThrow(
+        MemoryAlreadyDecidedError,
+      );
+      expect(() =>
+        approved.restore({ runId: FIRST, id: idOf(draft, 0) }),
+      ).toThrow(MemoryAlreadyDecidedError);
     });
 
     it('decides a memory only once', () => {

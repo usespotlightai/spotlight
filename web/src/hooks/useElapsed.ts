@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react';
 
 const TICK_MS = 1_000;
 
-const startedOn = (key: string) => {
-  const start = Date.now();
-  return { key, start, now: start };
+const startedOn = (key: string, since: number | null) => {
+  const now = Date.now();
+  const start =
+    since === null || Number.isNaN(since) ? now : Math.min(since, now);
+  return { key, start, now };
 };
 
-export function useElapsed(key: string): number {
-  const [clock, setClock] = useState(() => startedOn(key));
+export function useElapsed(key: string, since: number | null = null): number {
+  const [clock, setClock] = useState(() => startedOn(key, since));
   if (clock.key !== key) {
-    setClock(startedOn(key));
+    setClock(startedOn(key, since));
   }
 
   useEffect(() => {

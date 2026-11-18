@@ -1,6 +1,7 @@
 import { ProposedMemoryCard } from '@/components/features/inbox/memories/ProposedMemoryCard';
 import { useApproveMemories } from '@/hooks/api/useApproveMemories';
 import { useRejectMemory } from '@/hooks/api/useRejectMemory';
+import { useRestoreMemory } from '@/hooks/api/useRestoreMemory';
 import type { ProposedMemory } from '@/lib/memory';
 
 type MemoryReviewProps = {
@@ -20,6 +21,7 @@ export function MemoryReview({
 }: MemoryReviewProps) {
   const approve = useApproveMemories();
   const reject = useRejectMemory();
+  const restore = useRestoreMemory();
   const about = { slug, teamId, taskId, runId };
   const deciding = new Set([
     ...(approve.isPending
@@ -27,6 +29,9 @@ export function MemoryReview({
       : []),
     ...(reject.isPending && reject.variables
       ? [reject.variables.memoryId]
+      : []),
+    ...(restore.isPending && restore.variables
+      ? [restore.variables.memoryId]
       : []),
   ]);
 
@@ -45,6 +50,7 @@ export function MemoryReview({
             })
           }
           onReject={() => reject.mutate({ ...about, memoryId: memory.id })}
+          onRestore={() => restore.mutate({ ...about, memoryId: memory.id })}
         />
       ))}
     </ul>

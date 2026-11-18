@@ -1,5 +1,6 @@
 import { ApproveMemoriesCommand } from '@memory/application/commands/approve-memories.command';
 import { RejectMemoryCommand } from '@memory/application/commands/reject-memory.command';
+import { RestoreMemoryCommand } from '@memory/application/commands/restore-memory.command';
 import type { MemoryReviewDto } from '@memory/application/dto/memory-review.dto';
 import { ReadMemoryReviewQuery } from '@memory/application/queries/read-memory-review.query';
 import {
@@ -10,6 +11,7 @@ import {
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -128,6 +130,30 @@ export class MemoryReviewController {
   ): Promise<MemoryReviewResponseDto> {
     await this.commandBus.execute<RejectMemoryCommand, void>(
       new RejectMemoryCommand(teamId, taskId, runId, memoryId, user.id),
+    );
+
+    return this.reviewOf(teamId, taskId, runId, user.id);
+  }
+
+  @Delete(':memoryId/reject')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'restoreMemory',
+    summary: 'Take back the rejection of a proposed memory, so it waits for a decision again',
+  })
+  @ApiParam({ name: 'memoryId', type: String })
+  @ApiOkResponse({ type: MemoryReviewResponseDto })
+  @ApiNotFoundResponse({ description: 'No such memory for this caller' })
+  @ApiConflictResponse({ description: 'The memory is not rejected' })
+  async restore(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @Param('runId') runId: string,
+    @Param('memoryId') memoryId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<MemoryReviewResponseDto> {
+    await this.commandBus.execute<RestoreMemoryCommand, void>(
+      new RestoreMemoryCommand(teamId, taskId, runId, memoryId, user.id),
     );
 
     return this.reviewOf(teamId, taskId, runId, user.id);
