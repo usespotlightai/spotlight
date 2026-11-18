@@ -260,6 +260,16 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
       'Partners hit the public API in bursts. Limit each token to a fair share without breaking the dashboard.',
   }),
   task({
+    id: 'task_retry_after',
+    title: 'Send Retry-After with 503 responses',
+    stationId: 'station_spec',
+    awaitingReview: { conversationId: 'task_retry_after:0' },
+    assignee: SAM,
+    createdAt: hoursAgo(8),
+    description:
+      'Partners retry at once when the public API sheds load. Tell them when to come back.',
+  }),
+  task({
     id: 'task_retries',
     title: 'Drain the stuck retry queues',
     stationId: 'station_implementation',
@@ -358,6 +368,15 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       exitCode: null,
       startedHoursAgo: 0.3,
       durationHours: 0.1,
+    }),
+  ],
+  task_retry_after: [
+    run(DELIVERY, {
+      id: 'run_retry_after_1',
+      stationId: 'station_spec',
+      startedHoursAgo: 1,
+      durationHours: 0.1,
+      review: { state: 'pending', conversationId: 'task_retry_after:0' },
     }),
   ],
   task_rate_limits: [

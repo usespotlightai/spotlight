@@ -1238,6 +1238,10 @@ export type HandoverDto = {
    */
   note?: string;
   /**
+   * What the run suggests the person who takes the hand-over does. The requester of the run reads it.
+   */
+  suggest?: string;
+  /**
    * Files the run uploaded for the note, by the ids its uploads were granted
    */
   attachments?: Array<string>;
@@ -2864,6 +2868,10 @@ export type NoteResponseDto = {
    * How a person handed the task back to the line, where the note says so
    */
   resumption: NoteResumptionResponseDto | null;
+  /**
+   * Whether the station suggests closing the task, on the question it put to a person
+   */
+  suggestsClosing: boolean;
 };
 
 export type InboxItemResponseDto = {

@@ -72,6 +72,7 @@ export class CompleteRunCommand {
     readonly handover?: {
       next?: string;
       note?: string;
+      suggest?: string;
       attachments?: readonly string[];
     } | null,
     readonly sessionId?: string | null,

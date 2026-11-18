@@ -577,6 +577,7 @@ const turnOf = (saved: Run) => {
       handover: handover && {
         next: handover.next,
         note: handover.note,
+        suggest: handover.suggest,
         attachments: handover.attachments.map((each) => ({
           id: each.id,
           name: each.name,
@@ -612,6 +613,7 @@ const turnFrom = (row: Row): RunTurn | null => {
         ? Handover.of({
             next: handover.next,
             note: handover.note,
+            suggest: handover.suggest,
             attachments: handover.attachments.map((each) =>
               HandedOverFile.of(each),
             ),

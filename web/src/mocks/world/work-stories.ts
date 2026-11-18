@@ -31,6 +31,7 @@ export type NoteScript = {
   readonly deferredTo?: string;
   readonly minutesAfterEnd?: number;
   readonly minutesIn?: number;
+  readonly suggestsClosing?: boolean;
 };
 
 export type RunStory = {
@@ -304,6 +305,30 @@ export const RUN_STORIES: Record<string, RunStory> = {
         6,
       ),
     ],
+  },
+  run_retry_after_1: {
+    spend: spend(0.21, 1_140, 2_960, 148_000, 9_800),
+    before:
+      'Triage asked for a Retry-After header on every 503 that the public API sends while it sheds load.',
+    steps: [
+      execute(
+        'rg -n "Retry-After" src/http',
+        "src/http/errors.ts:41:    headers.set('Retry-After', String(seconds));",
+        1,
+      ),
+      read('src/http/errors.ts'),
+      read('src/http/errors.test.ts'),
+      messageStep(
+        'The public API already sends Retry-After with every 503. Nothing needs to change.',
+      ),
+    ],
+    notes: [
+      asked(
+        'Nothing needs to change. `serviceUnavailable` in `src/http/errors.ts` already sets `Retry-After` on every 503, and `errors.test.ts` checks it.\n\nI suggest closing the task.',
+        { suggestsClosing: true },
+      ),
+    ],
+    output: 'The public API already sends Retry-After with every 503.',
   },
   run_rate_limits_1: {
     spend: spend(0.04, 1_820, 2_310, 84_200, 12_400),

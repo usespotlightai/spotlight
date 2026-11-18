@@ -275,7 +275,11 @@ describe('TakeTurn', () => {
     next: string,
     note = 'Ready for review.',
     files: NonNullable<TurnFacts['handover']>['files'] = [],
-  ) => turnFacts({ handover: { next, note, files }, session: 'session_1' });
+  ) =>
+    turnFacts({
+      handover: { next, note, suggest: '', files },
+      session: 'session_1',
+    });
 
   const reviewing = handingOver('review', 'Which queue should I drain?');
 
@@ -292,6 +296,27 @@ describe('TakeTurn', () => {
       expect(task?.session?.value).toBe('session_1');
       expect(task?.awaitedTurn?.attempt).toBe(1);
       expect(task?.notes[0]?.body.value).toBe('Which queue should I drain?');
+      expect(task?.notes[0]?.suggestsClosing).toBe(false);
+    });
+
+    it('puts the task to the person with the suggestion to close it, where the run made one', async () => {
+      const turn = turning({ task: claimedByTheRun() });
+
+      await turn.take(
+        turnFacts({
+          handover: {
+            next: 'review',
+            note: 'The retry already exists.',
+            suggest: 'done',
+            files: [],
+          },
+          session: 'session_1',
+        }),
+      );
+
+      const note = turn.tasks[0]?.notes[0];
+      expect(note?.kind).toBe('asked');
+      expect(note?.suggestsClosing).toBe(true);
     });
 
     it('takes the files the run handed over only now, and attaches them to the note', async () => {

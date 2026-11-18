@@ -194,6 +194,7 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
           summary: row.resumption.summary,
         })
       : null,
+    suggestsClosing: row.suggestsClosing,
   });
 
 type HoldRow = typeof taskHold.$inferSelect;
@@ -961,6 +962,7 @@ export class DrizzleTaskRepository implements TaskRepository {
                 summary: note.resumption.summary,
               }
             : null,
+          suggestsClosing: note.suggestsClosing,
         })),
       )
       .onConflictDoUpdate({

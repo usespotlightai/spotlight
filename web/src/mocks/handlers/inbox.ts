@@ -149,6 +149,7 @@ const answer = (item: InboxConversation, reply: AnswerInboxItemRequestDto) => {
     failure: null,
     connection: null,
     resumption: null,
+    suggestsClosing: false,
   });
   item.askedAt = now();
   item.resolved = true;
@@ -181,6 +182,7 @@ const notedBySam = (
     failure: null,
     connection: null,
     resumption: null,
+    suggestsClosing: false,
   });
 
 const rowOf = (entry: InboxEntry) => {

@@ -1,0 +1,1 @@
+ALTER TABLE "task_note" ADD COLUMN "suggests_closing" boolean DEFAULT false NOT NULL;

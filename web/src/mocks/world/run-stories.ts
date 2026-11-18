@@ -882,6 +882,7 @@ export const storyNoteOf = (
     failure: script.failure ?? null,
     connection: null,
     resumption: null,
+    suggestsClosing: script.suggestsClosing ?? false,
   };
 };
 

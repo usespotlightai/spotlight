@@ -107,6 +107,7 @@ export interface NoteDto {
   readonly failure: InboxFailureDto | null;
   readonly connection: InboxConnectionDto | null;
   readonly resumption: NoteResumptionDto | null;
+  readonly suggestsClosing: boolean;
 }
 
 interface InboxStationDto {

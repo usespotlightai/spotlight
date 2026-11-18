@@ -187,6 +187,7 @@ export const taskNote = pgTable(
     deferredMove: jsonb('deferred_move').$type<DeferredMoveRow>(),
     connectionAsk: jsonb('connection_ask').$type<ConnectionAskRow>(),
     resumption: jsonb('resumption').$type<ResumptionRow>(),
+    suggestsClosing: boolean('suggests_closing').notNull().default(false),
     answeredAt: timestamptz('answered_at'),
     readAt: timestamptz('read_at'),
     acknowledgedAt: timestamptz('acknowledged_at'),

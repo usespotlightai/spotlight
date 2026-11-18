@@ -53,6 +53,7 @@ const note = (position: number, at: string, station = 'Backlog'): Note => ({
   failure: null,
   connection: null,
   resumption: null,
+  suggestsClosing: false,
 });
 
 const APPROVAL = {

@@ -257,6 +257,16 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	suggest, suggestible := suggestion(handover.Suggest, next)
+	if !suggestible {
+		fail(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
+			"--suggest takes only %q, together with --next %q",
+			protocol.HandoverDone, protocol.HandoverReview,
+		))
+
+		return
+	}
+
 	if written := noteLength(handover.Note); s.noteLimit > 0 && written > s.noteLimit {
 		fail(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
 			"your note is %d characters and the limit is %d: say it shorter and hand over again",
@@ -278,7 +288,7 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	s.mu.Lock()
-	s.handover = &protocol.Handover{Next: next, Note: handover.Note, Attachments: attachments}
+	s.handover = &protocol.Handover{Next: next, Note: handover.Note, Suggest: suggest, Attachments: attachments}
 	s.mu.Unlock()
 
 	s.once.Do(func() { close(s.handedOver) })
@@ -596,6 +606,18 @@ func (s *Server) option(next string) (string, bool) {
 	}
 
 	return "", false
+}
+
+func suggestion(suggest, next string) (string, bool) {
+	if strings.TrimSpace(suggest) == "" {
+		return "", true
+	}
+
+	if !strings.EqualFold(strings.TrimSpace(suggest), protocol.HandoverDone) || !strings.EqualFold(next, protocol.HandoverReview) {
+		return "", false
+	}
+
+	return protocol.HandoverDone, true
 }
 
 func noteLength(note string) int {

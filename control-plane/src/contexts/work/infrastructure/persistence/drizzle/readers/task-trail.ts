@@ -193,6 +193,7 @@ const NOTE_COLUMNS = {
   failure: taskNote.failure,
   connectionAsk: taskNote.connectionAsk,
   resumption: taskNote.resumption,
+  suggestsClosing: taskNote.suggestsClosing,
 };
 
 type NoteRow = Pick<
@@ -215,6 +216,7 @@ type NoteRow = Pick<
   | 'failure'
   | 'connectionAsk'
   | 'resumption'
+  | 'suggestsClosing'
 > & {
   readonly stationColor: string | null;
   readonly stationPosition: number | null;
@@ -317,6 +319,7 @@ const inboxNotesOf = async (
       failure: failed(row.failure),
       connection: connecting(row.connectionAsk, authors),
       resumption: row.resumption,
+      suggestsClosing: row.suggestsClosing,
     };
   });
 };

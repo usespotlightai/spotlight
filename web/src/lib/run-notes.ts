@@ -113,6 +113,7 @@ export const withMessagesInFlight = (
         failure: null,
         connection: null,
         resumption: null,
+        suggestsClosing: false,
       })),
     ],
   };

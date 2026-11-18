@@ -43,6 +43,7 @@ const note = (
   connection: null,
   ...over,
   resumption: over.resumption ?? null,
+  suggestsClosing: over.suggestsClosing ?? false,
 });
 
 const notes: Note[] = Array.from({ length: TURNS }, (_, turn) => [

@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router';
 
+import { CloseTaskSuggestion } from '@/components/features/inbox/conversation/CloseTaskSuggestion';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxItemBriefing } from '@/components/features/inbox/conversation/InboxItemBriefing';
 import { InboxItemFooter } from '@/components/features/inbox/conversation/InboxItemFooter';
@@ -19,7 +20,7 @@ import {
   shownAt,
   workedOn,
 } from '@/lib/inbox';
-import { carriesItsOwn, stationOf } from '@/lib/inbox-item';
+import { carriesItsOwn, stationOf, suggestsClosing } from '@/lib/inbox-item';
 import { shownProgress } from '@/lib/run';
 
 type InboxItemConversationProps = {
@@ -75,6 +76,16 @@ export function InboxItemConversation({
                 inputs,
               }),
           }}
+          suggestion={
+            suggestsClosing(item) ? (
+              <CloseTaskSuggestion
+                slug={slug}
+                teamId={item.teamId}
+                taskId={item.taskId}
+                station={item.station}
+              />
+            ) : undefined
+          }
           openAt={shownAt(item.notes, params.get('run'))}
           live={
             item.runId && progress ? (

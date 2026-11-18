@@ -88,6 +88,7 @@ export const RUNS_EVENT_MAPPERS = [
         ? {
             next: event.handover.next || null,
             note: event.handover.note || null,
+            suggest: event.handover.suggest || null,
             files: event.handover.attachments.map((each) => ({
               id: each.id,
               name: each.name,

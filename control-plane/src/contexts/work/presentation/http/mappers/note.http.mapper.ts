@@ -40,5 +40,6 @@ export const NoteHttpMapper = {
       note.failure ? new InboxFailureResponseDto(note.failure) : null,
       note.connection ? new InboxConnectionResponseDto(note.connection) : null,
       note.resumption ? new NoteResumptionResponseDto(note.resumption) : null,
+      note.suggestsClosing,
     ),
 };

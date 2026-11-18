@@ -6,3 +6,5 @@ description: How to write the note you pass a task on with, using `spotlight han
 `--note` is what the next station, or the person, needs to know. Write it in Markdown. Keep it short: it is read as instructions, not as a log. A long one is easier piped in, as `spotlight handover --next "…" < note.md`.
 
 Some tools cannot run until a person approves them; their listing says so. Using one asks the person and sends nothing. Do not try it again with the same inputs, and do not work around it: hand over with `--next review`, saying what you were about to do and why. You will be taken up again with their answer, and the tool will run then.
+
+If you find that nothing needs to change, do not close the task yourself. Hand over with `--next review --suggest done`, and say in the note what you checked and what shows that the work is already done. The person gets a button to close the task.

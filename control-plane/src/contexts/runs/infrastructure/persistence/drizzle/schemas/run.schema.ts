@@ -44,6 +44,7 @@ export interface RunTurnReportParts {
   readonly handover: {
     readonly next: string;
     readonly note: string;
+    readonly suggest: string;
     readonly attachments: readonly {
       readonly id: string;
       readonly name: string;

@@ -185,6 +185,7 @@ type ConversationProps = {
   footer: ReactNode;
   deciding?: Deciding;
   afterRun?: AfterRun;
+  suggestion?: ReactNode;
 };
 
 export function Conversation({
@@ -197,6 +198,7 @@ export function Conversation({
   footer,
   deciding,
   afterRun,
+  suggestion,
 }: ConversationProps) {
   const marked = marksIn(item);
   const turns = turnsOf(item);
@@ -218,6 +220,7 @@ export function Conversation({
   const pinnedAt = useRef<number | null>(null);
   const ours = useRef(false);
   const setup = item.notes.filter(showsInThread).at(-1)?.form === 'setup';
+  const latest = item.notes.at(-1)?.position;
 
   useLayoutEffect(() => {
     const box = scroller.current;
@@ -385,6 +388,9 @@ export function Conversation({
                         about={item.about}
                         resolved={item.resolved}
                         deciding={deciding}
+                        suggestion={
+                          note.position === latest ? suggestion : undefined
+                        }
                         arrived={arrived(note.position)}
                         worked={workedBy.get(note.position) ?? []}
                       />
