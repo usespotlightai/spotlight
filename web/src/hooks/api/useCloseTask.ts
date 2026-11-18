@@ -38,5 +38,7 @@ export function useCloseTask() {
         runNotesKeys.all,
       ]);
     },
+    onError: (_error, { teamId }) =>
+      queryClient.invalidateQueries({ queryKey: taskKeys.forTeam(teamId) }),
   });
 }
