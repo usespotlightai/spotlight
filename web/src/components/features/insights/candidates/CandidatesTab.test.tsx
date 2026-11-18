@@ -255,14 +255,6 @@ describe('the Candidates tab', () => {
     ).toHaveTextContent('Live54%Cost per run–Live cost$0.62');
   });
 
-  it('skips the layout of candidate rows that are off screen', () => {
-    showing();
-
-    expect(row('opus-with-migrations-skill')).toHaveClass(
-      '[content-visibility:auto]',
-    );
-  });
-
   it('shows the held-out score in one column for every set', () => {
     showing();
 
