@@ -3,6 +3,11 @@ import { defaultShouldDehydrateQuery, type Query } from '@tanstack/react-query';
 import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
 import { del, get, set } from 'idb-keyval';
 
+import {
+  createStoredJournals,
+  indexedJournalStorage,
+} from '@/lib/stored-journals';
+
 declare module '@tanstack/react-query' {
   interface Register {
     queryMeta: { persist?: boolean };
@@ -15,6 +20,14 @@ const OWNER_KEY = 'spotlight:query-cache-owner';
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const QUERY_RESULT_SHAPE_VERSION = 1;
+
+const bustedBy = (apiShape: string) =>
+  `${QUERY_RESULT_SHAPE_VERSION}-${apiShape}`;
+
+export const storedJournals = createStoredJournals(indexedJournalStorage(), {
+  buster: bustedBy(import.meta.env.VITE_API_SHAPE),
+  maxAge: CACHE_MAX_AGE_MS,
+});
 
 const persister = createAsyncStoragePersister({
   key: CACHE_KEY,
@@ -34,7 +47,7 @@ export const persistOptions = (
   apiShape: string,
 ): Omit<PersistQueryClientOptions, 'queryClient'> => ({
   persister,
-  buster: `${QUERY_RESULT_SHAPE_VERSION}-${apiShape}`,
+  buster: bustedBy(apiShape),
   maxAge: CACHE_MAX_AGE_MS,
   dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
 });
@@ -72,6 +85,7 @@ const ownerChanged = () => {
 };
 
 export const ownQueryCache = (userId: string): void => {
+  void storedJournals.forget();
   rememberedOwner = userId;
   storeOwner(userId);
   ownerChanged();
@@ -90,6 +104,7 @@ const forgetOwner = () => {
 
 export const forgetQueryCache = async (): Promise<void> => {
   forgetOwner();
+  await storedJournals.forget();
   try {
     await persister.removeClient();
   } catch {
