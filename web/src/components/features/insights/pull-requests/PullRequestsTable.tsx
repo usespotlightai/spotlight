@@ -16,8 +16,10 @@ import {
   formatType,
   type InsightsPullRequest,
 } from '@/lib/insights-pull-requests';
+import { SKIP_OFF_SCREEN } from '@/lib/off-screen';
 import { since } from '@/lib/since';
 import { taskPath } from '@/lib/task';
+import { cn } from '@/lib/utils';
 
 const ROOMY_WIDTH = 1312;
 
@@ -183,7 +185,7 @@ export function PullRequestsTable({
   return (
     <div
       ref={frame}
-      className="[contain-intrinsic-size:auto_40rem] [content-visibility:auto]"
+      className={cn('[contain-intrinsic-size:auto_40rem]', SKIP_OFF_SCREEN)}
     >
       <InsightsTable
         key={roomy ? 'roomy' : 'narrow'}
