@@ -117,6 +117,8 @@ const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
     .runEnded(RunId.of('run_1'), {
       session: HarnessSession.of('session_1'),
       claimedBy: null,
+      lastWordsAt: null,
+      endedAt: NOW,
     })
     .chat.addMessage({
       by: LEON,

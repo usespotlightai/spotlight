@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { SystemClock } from '@platform/time/system-clock';
 import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import type { JournalEntry } from '@runs/application/ports/run-journal.port';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
@@ -38,7 +39,7 @@ let reader: DrizzleRunJournalReader;
 beforeAll(async () => {
   database = await openDatabase('run_journal_changes');
   db = database.db;
-  journal = new DrizzleRunJournal(new DrizzleContext(db));
+  journal = new DrizzleRunJournal(new DrizzleContext(db), new SystemClock());
   reader = new DrizzleRunJournalReader(
     db,
     new DrizzleRunJournals(db),

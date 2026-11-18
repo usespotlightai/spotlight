@@ -1866,7 +1866,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             resuming,
           ),
           turns,
-          chatOutcomes: new ChatOutcomes(chats, chatDispatch),
+          chatOutcomes: new ChatOutcomes(chats, chatDispatch, journals),
           channel: new NotifyChannel(
             chats,
             lines,

@@ -240,6 +240,8 @@ describe('DispatchChat', () => {
       .runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: NOW,
       })
       .chat.addMessage({
         by: UserId.of('user_1'),

@@ -1,4 +1,5 @@
 import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import {
   RunEndedFacts,
@@ -13,6 +14,7 @@ export class ChatOutcomes implements RunEndingReactions {
   constructor(
     private readonly chats: ChatRepository,
     private readonly dispatch: ChatDispatching,
+    private readonly journals: RunJournalReaderPort,
   ) {}
 
   private readonly reactions: Record<
@@ -39,6 +41,10 @@ export class ChatOutcomes implements RunEndingReactions {
     const ended = chat.runEnded(runId, {
       session: RunEndedFacts.session(event),
       claimedBy: RunEndedFacts.claimedBy(event),
+      lastWordsAt: chat.resolvedAt
+        ? await this.journals.lastWordsReceivedAt(runId)
+        : null,
+      endedAt: RunEndedFacts.ending(event).endedAt,
     });
 
     await this.chats.save(

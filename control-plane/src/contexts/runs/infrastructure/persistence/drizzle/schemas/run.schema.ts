@@ -202,6 +202,7 @@ export const runJournalEntry = pgTable(
     seq: integer('seq').notNull(),
     type: text('type').notNull(),
     at: timestamptz('at').notNull(),
+    receivedAt: timestamptz('received_at').defaultNow().notNull(),
     message: text('message'),
     data: text('data'),
   },

@@ -68,6 +68,10 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     return journal ?? null;
   }
 
+  lastWordsReceivedAt(runId: RunId): Promise<Date | null> {
+    return this.journals.lastWordsReceivedAt(runId);
+  }
+
   attemptsOfRun(runId: RunId): Promise<RunJournal[]> {
     return this.journals.ofRuns([runId]);
   }

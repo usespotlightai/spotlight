@@ -412,6 +412,8 @@ describe('Chat', () => {
       .runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       })
       .chat.addMessage({
         by: LEON,
@@ -440,6 +442,8 @@ describe('Chat', () => {
       .runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       })
       .chat.addMessage({
         by: LEON,
@@ -477,6 +481,8 @@ describe('Chat', () => {
       .runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       })
       .chat.addMessage({
         by: LEON,
@@ -506,6 +512,8 @@ describe('Chat', () => {
       acknowledged.runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       }).chat.wantsFollowUp,
     ).toBe(false);
   });
@@ -575,12 +583,16 @@ describe('Chat', () => {
       withMessage.runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       }).chat.wantsFollowUp,
     ).toBe(true);
     expect(
       working().runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       }).chat.wantsFollowUp,
     ).toBe(false);
   });
@@ -599,6 +611,8 @@ describe('Chat', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
         claimedBy: RUNNER,
+        lastWordsAt: null,
+        endedAt: LATER,
       });
 
       expect(ended.chat.running).toBe(false);
@@ -610,6 +624,8 @@ describe('Chat', () => {
       const ended = working().runEnded(RunId.of('run_1'), {
         session: SESSION,
         claimedBy: RUNNER,
+        lastWordsAt: null,
+        endedAt: LATER,
       });
 
       expect(ended.chat.running).toBe(false);
@@ -620,6 +636,8 @@ describe('Chat', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: null,
         claimedBy: RUNNER,
+        lastWordsAt: null,
+        endedAt: LATER,
       });
 
       expect(ended.chat.running).toBe(false);
@@ -634,6 +652,8 @@ describe('Chat', () => {
       const ended = chat.runEnded(RunId.of('run_2'), {
         session: SESSION,
         claimedBy: RUNNER,
+        lastWordsAt: null,
+        endedAt: LATER,
       });
 
       expect(ended.chat).toBe(chat);
@@ -648,12 +668,16 @@ describe('Chat', () => {
       chat.runEnded(RunId.of('run_2'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       }).chat.running,
     ).toBe(true);
     expect(
       chat.runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
       }).chat.running,
     ).toBe(false);
   });
@@ -674,6 +698,8 @@ describe('Chat', () => {
       .runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: RunnerId.of('runner_1'),
+        lastWordsAt: null,
+        endedAt: LATER,
       })
       .chat.resume();
 
@@ -835,9 +861,13 @@ describe('Chat', () => {
 
   describe('in the inbox', () => {
     const SESSION = HarnessSession.of('session_1');
-    const ended = (chat: Chat) =>
-      chat.runEnded(RunId.of('run_1'), { session: SESSION, claimedBy: null })
-        .chat;
+    const ended = (chat: Chat, lastWordsAt: Date | null = null) =>
+      chat.runEnded(RunId.of('run_1'), {
+        session: SESSION,
+        claimedBy: null,
+        lastWordsAt,
+        endedAt: LATER,
+      }).chat;
     const accepted = (chat: Chat) =>
       chat
         .accept(SECOND, LEON, LATER)
@@ -953,8 +983,15 @@ describe('Chat', () => {
       ).toBeNull();
     });
 
-    it('opens again when a run ends after it was resolved', () => {
-      expect(ended(working().resolve(LEON, NOW)).resolvedAt).toBeNull();
+    it('opens again as of the run end when a run ends after it was resolved', () => {
+      const reopened = ended(working().resolve(LEON, NOW));
+
+      expect(reopened.resolvedAt).toBeNull();
+      expect(reopened.reopenedAt).toEqual(LATER);
+    });
+
+    it('keeps no reopening time when its run ends while it was open', () => {
+      expect(ended(working()).reopenedAt).toBeNull();
     });
 
     const THIRD = MessagePosition.of(2);
@@ -983,6 +1020,20 @@ describe('Chat', () => {
           true,
         ),
       );
+    });
+
+    it('stays resolved when the agent last wrote before the person resolved it', () => {
+      expect(ended(accepted(proposing()), NOW).resolvedAt).toEqual(LATER);
+      expect(ended(accepted(proposing()), LATER).resolvedAt).toEqual(LATER);
+    });
+
+    it('opens again when its run ends with words the agent wrote after it was resolved', () => {
+      const wroteAfter = new Date('2026-09-15T09:06:00.000Z');
+
+      const reopened = ended(accepted(proposing()), wroteAfter);
+
+      expect(reopened.resolvedAt).toBeNull();
+      expect(reopened.reopenedAt).toEqual(LATER);
     });
 
     it('stays resolved when its run ends after one proposal was dismissed and the other became a task', () => {
@@ -1051,9 +1102,12 @@ describe('Chat', () => {
     });
 
     it('keeps its resolution when a run ends without a session', () => {
-      const failed = working()
-        .resolve(LEON, NOW)
-        .runEnded(RunId.of('run_1'), { session: null, claimedBy: null }).chat;
+      const failed = working().resolve(LEON, NOW).runEnded(RunId.of('run_1'), {
+        session: null,
+        claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
+      }).chat;
 
       expect(failed.resolvedAt).toEqual(NOW);
     });
@@ -1173,6 +1227,8 @@ describe('Chat', () => {
           .runEnded(RUN, {
             session: HarnessSession.of('session_1'),
             claimedBy: null,
+            lastWordsAt: null,
+            endedAt: LATER,
           })
           .chat.pullEvents(),
       ).toEqual([new ChatRunEnded(working().id, WORKSPACE, LEON, RUN, true)]);

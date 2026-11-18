@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { SystemClock } from '@platform/time/system-clock';
 import { RecordedRunUsage } from '@runs/domain/entities/recorded-run-usage.entity';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
@@ -10,6 +11,7 @@ import { DrizzleRunUsages } from '@runs/infrastructure/persistence/drizzle/ledge
 import { DrizzleRunJournalEntryReader } from '@runs/infrastructure/persistence/drizzle/readers/run-journal-entry.reader';
 import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
 import { DrizzleRunUsagesReader } from '@runs/infrastructure/persistence/drizzle/readers/run-usages.reader';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -60,7 +62,7 @@ const recordUsage = async (runId: RunId) => {
 beforeAll(async () => {
   database = await openDatabase('run_journal_attempts');
   db = database.db;
-  journal = new DrizzleRunJournal(new DrizzleContext(db));
+  journal = new DrizzleRunJournal(new DrizzleContext(db), new SystemClock());
   events = new DrizzleRunJournalEntryReader(db);
   runUsages = new DrizzleRunUsages(new DrizzleContext(db), {
     dispatch: async (events) => {
@@ -438,5 +440,121 @@ describe('counting the steps of runs', () => {
       messageCount: 1,
     });
     expect(counts.has(empty.runId.value)).toBe(false);
+  });
+});
+
+describe('telling when the agent last wrote', () => {
+  const runnerAhead = new Date('2030-01-01T00:00:00.000Z');
+  const minute = (at: number) => new Date(Date.UTC(2026, 10, 18, 9, at));
+  const message = (
+    id: string,
+    role: string,
+    text: string,
+    session?: string,
+  ) => ({
+    type: 'message' as const,
+    data: { id, role, text, ...(session ? { session } : {}) },
+  });
+
+  const received = () => {
+    let now = minute(0);
+    const clock = {
+      now: () => now,
+      sleep: async () => undefined,
+    } satisfies ClockPort;
+    const receiving = new DrizzleRunJournal(new DrizzleContext(db), clock);
+
+    return {
+      at: (at: number) => {
+        now = minute(at);
+        return receiving;
+      },
+      lastWords: (runId: RunId) =>
+        new DrizzleRunJournals(db).lastWordsReceivedAt(runId),
+    };
+  };
+
+  it('is when the server got the agent’s newest words, by its own clock, not the runner’s', async () => {
+    const { runId } = await chatRun();
+    const journal = received();
+
+    await journal
+      .at(1)
+      .append(RunAttempt.of(runId, 1), [
+        entryOf(1, runnerAhead, connected()),
+        entryOf(2, runnerAhead, said('Looking.', 'm1')),
+      ]);
+    await journal
+      .at(2)
+      .append(RunAttempt.of(runId, 1), [
+        entryOf(3, runnerAhead, said('Which queue?', 'm2')),
+      ]);
+
+    expect(await journal.lastWords(runId)).toEqual(minute(2));
+  });
+
+  it('skips the person’s words, thoughts, what a subagent said and an emptied message', async () => {
+    const { runId } = await chatRun();
+    const journal = received();
+
+    await journal
+      .at(1)
+      .append(RunAttempt.of(runId, 1), [
+        entryOf(1, runnerAhead, connected()),
+        entryOf(2, runnerAhead, said('Which queue?')),
+      ]);
+    await journal.at(2).append(RunAttempt.of(runId, 1), [
+      entryOf(3, runnerAhead, message('u1', 'user', 'The slow one.')),
+      entryOf(4, runnerAhead, message('t1', 'thought', 'Checking.')),
+      entryOf(5, runnerAhead, {
+        type: 'child.changed',
+        data: { child: 'child_session', title: 'Search the queues' },
+      }),
+      entryOf(6, runnerAhead, {
+        type: 'message',
+        data: { id: 'e1', role: 'agent', text: '', replace: true },
+      }),
+      entryOf(
+        7,
+        runnerAhead,
+        message('s1', 'agent', 'Found three.', 'child_session'),
+      ),
+    ]);
+
+    expect(await journal.lastWords(runId)).toEqual(minute(1));
+  });
+
+  it('leaves out an attempt the run no longer keeps', async () => {
+    const { runId } = await chatRun();
+    const journal = received();
+
+    await journal
+      .at(1)
+      .append(RunAttempt.of(runId, 1), [
+        entryOf(1, runnerAhead, connected()),
+        entryOf(2, runnerAhead, said('First try.')),
+      ]);
+    await requeued(runId, 2);
+    await journal
+      .at(2)
+      .append(RunAttempt.of(runId, 2), [
+        entryOf(1, runnerAhead, connected()),
+        entryOf(2, runnerAhead, said('Second try.')),
+      ]);
+    await journal
+      .at(3)
+      .append(RunAttempt.of(runId, 1), [
+        entryOf(3, runnerAhead, said('Late from the first try.', 'm9')),
+      ]);
+
+    expect(await journal.lastWords(runId)).toEqual(minute(2));
+  });
+
+  it('knows no time when the agent wrote nothing', async () => {
+    const { runId } = await chatRun();
+
+    await received().at(1).append(RunAttempt.of(runId, 1), hooks('started'));
+
+    expect(await received().lastWords(runId)).toBeNull();
   });
 });

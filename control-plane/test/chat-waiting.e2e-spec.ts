@@ -59,6 +59,8 @@ const ended = (chat: Chat) =>
   chat.runEnded(chat.currentRunId as RunId, {
     session: HarnessSession.of('session_1'),
     claimedBy: null,
+    lastWordsAt: null,
+    endedAt: START,
   }).chat;
 
 const repliedTo = (chat: Chat) =>

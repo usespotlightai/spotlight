@@ -64,6 +64,13 @@ export interface NumberedProposal {
   readonly proposal: TaskProposal;
 }
 
+export interface ChatRunEnding {
+  readonly session: HarnessSession | null;
+  readonly claimedBy: RunnerId | null;
+  readonly lastWordsAt: Date | null;
+  readonly endedAt: Date;
+}
+
 export interface ChatAfterRun {
   readonly chat: Chat;
   readonly followsUp: boolean;
@@ -564,13 +571,7 @@ export class Chat extends EventRecorder {
     });
   }
 
-  runEnded(
-    runId: RunId,
-    ending: {
-      readonly session: HarnessSession | null;
-      readonly claimedBy: RunnerId | null;
-    },
-  ): ChatAfterRun {
+  runEnded(runId: RunId, ending: ChatRunEnding): ChatAfterRun {
     if (!this.hasCurrentRun(runId)) {
       return { chat: this, followsUp: false };
     }
@@ -581,7 +582,7 @@ export class Chat extends EventRecorder {
 
     const recorded = this.endRun(runId)
       .recordSession(ending.session, ending.claimedBy)
-      .reopenedAfter(runId);
+      .resolutionAfter(runId, ending);
 
     recorded.record(
       new ChatRunEnded(this.id, this.workspaceId, this.startedBy, runId, true),
@@ -590,12 +591,27 @@ export class Chat extends EventRecorder {
     return { chat: recorded, followsUp: recorded.wantsFollowUp };
   }
 
-  private reopenedAfter(runId: RunId): Chat {
+  private resolutionAfter(runId: RunId, ending: ChatRunEnding): Chat {
     const proposed = this.messages.some((message) => message.proposedIn(runId));
 
-    return proposed && this.nothingWaits
-      ? this
-      : this.with({ resolvedAt: null });
+    if (
+      proposed &&
+      this.nothingWaits &&
+      this.resolvedSince(ending.lastWordsAt)
+    ) {
+      return this;
+    }
+
+    return this.resolvedAt
+      ? this.with({ resolvedAt: null, reopenedAt: ending.endedAt })
+      : this;
+  }
+
+  private resolvedSince(lastWordsAt: Date | null): boolean {
+    return (
+      this.resolvedAt !== null &&
+      (lastWordsAt === null || this.resolvedAt >= lastWordsAt)
+    );
   }
 
   private get nothingWaits(): boolean {
