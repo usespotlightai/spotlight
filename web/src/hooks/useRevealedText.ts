@@ -25,7 +25,8 @@ export function useRevealedText(text: string): string {
     };
     const growing = text.startsWith(from) && !prefersReducedMotion();
     const start = performance.now();
-    let frame = requestAnimationFrame(function reveal(now) {
+    let frame = 0;
+    const reveal = (now: number) => {
       const done = growing ? Math.min(1, (now - start) / REVEAL_MS) : 1;
       const end =
         done === 1
@@ -38,7 +39,8 @@ export function useRevealedText(text: string): string {
       if (done < 1) {
         frame = requestAnimationFrame(reveal);
       }
-    });
+    };
+    frame = requestAnimationFrame(reveal);
 
     return () => cancelAnimationFrame(frame);
   }, [text]);
