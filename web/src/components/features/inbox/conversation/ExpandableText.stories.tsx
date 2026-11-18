@@ -1,13 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { WorldMessage } from '@/components/features/inbox/conversation/WorldMessage';
-import { BriefingCard } from '@/components/features/runs/BriefingCard';
-
-const BRIEFING = Array.from(
-  { length: 12 },
-  (_, line) =>
-    `Line ${line + 1} of the prompt. Hand the task over with spotlight handover when you finish, and put any question in the note.`,
-).join('\n\n');
 
 const FAILURE = [
   'Failed: generate.',
@@ -23,7 +16,6 @@ const FAILURE = [
 function Messages() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
-      <BriefingCard briefing={BRIEFING} attachments={[]} />
       <WorldMessage
         body={FAILURE}
         attachments={[]}

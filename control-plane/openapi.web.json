@@ -9978,6 +9978,41 @@
           "reopenable"
         ]
       },
+      "FoldedVisitResponseDto": {
+        "type": "object",
+        "properties": {
+          "notes": {
+            "description": "The notes of one station visit that the page does not show, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteResponseDto"
+            }
+          },
+          "closingAt": {
+            "type": "number",
+            "nullable": true,
+            "example": 4,
+            "description": "The position of the note that moved the task on from this visit"
+          },
+          "answerAt": {
+            "type": "number",
+            "nullable": true,
+            "example": 2,
+            "description": "The position of the last answer a person gave in this visit"
+          },
+          "sentBack": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether this visit sent the task back to an earlier station"
+          }
+        },
+        "required": [
+          "notes",
+          "closingAt",
+          "answerAt",
+          "sentBack"
+        ]
+      },
       "InboxItemViewResponseDto": {
         "type": "object",
         "properties": {
@@ -10154,6 +10189,13 @@
             "items": {
               "$ref": "#/components/schemas/NoteResponseDto"
             }
+          },
+          "folded": {
+            "description": "The station visits of the task outside this conversation, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoldedVisitResponseDto"
+            }
           }
         },
         "required": [
@@ -10183,7 +10225,8 @@
           "failure",
           "inboxRequest",
           "lastNote",
-          "notes"
+          "notes",
+          "folded"
         ]
       },
       "AnswerInboxItemInputRequestDto": {
@@ -11165,6 +11208,13 @@
               "$ref": "#/components/schemas/NoteResponseDto"
             }
           },
+          "folded": {
+            "description": "The station visits of the task outside this thread, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoldedVisitResponseDto"
+            }
+          },
           "spend": {
             "nullable": true,
             "description": "What the run spent, once it has ended and its usage is recorded",
@@ -11188,6 +11238,7 @@
           "progress",
           "latestRun",
           "notes",
+          "folded",
           "spend"
         ]
       },

@@ -302,6 +302,7 @@ export class TaskController {
         found.latestRun.progress,
       ),
       found.notes.map(NoteHttpMapper.toResponse),
+      found.folded.map(NoteHttpMapper.foldedToResponse),
       found.spend
         ? new RunSpendResponseDto(
             found.spend.cost,

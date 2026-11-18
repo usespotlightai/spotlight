@@ -4,6 +4,7 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
+import { NoteMapper } from '@work/application/mappers/note.mapper';
 import { RunSpendMapper } from '@work/application/mappers/run-spend.mapper';
 import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
@@ -36,10 +37,8 @@ export class ReadRunNotesHandler implements QueryHandlerPort<
       return {
         ...found,
         createdAt: found.createdAt.toISOString(),
-        notes: found.notes.map((note) => ({
-          ...note,
-          at: note.at.toISOString(),
-        })),
+        notes: found.notes.map(NoteMapper.toDto),
+        folded: found.folded.map(NoteMapper.foldedToDto),
         spend: usage ? RunSpendMapper.toDto(usage) : null,
       };
     } catch (error) {

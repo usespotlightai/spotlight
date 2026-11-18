@@ -429,6 +429,51 @@ export class NoteResponseDto {
   }
 }
 
+export class FoldedVisitResponseDto {
+  @ApiProperty({
+    type: NoteResponseDto,
+    isArray: true,
+    description:
+      'The notes of one station visit that the page does not show, oldest first',
+  })
+  readonly notes: readonly NoteResponseDto[];
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 4,
+    description:
+      'The position of the note that moved the task on from this visit',
+  })
+  readonly closingAt: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 2,
+    description: 'The position of the last answer a person gave in this visit',
+  })
+  readonly answerAt: number | null;
+
+  @ApiProperty({
+    example: false,
+    description: 'Whether this visit sent the task back to an earlier station',
+  })
+  readonly sentBack: boolean;
+
+  constructor(
+    notes: readonly NoteResponseDto[],
+    closingAt: number | null,
+    answerAt: number | null,
+    sentBack: boolean,
+  ) {
+    this.notes = notes;
+    this.closingAt = closingAt;
+    this.answerAt = answerAt;
+    this.sentBack = sentBack;
+  }
+}
+
 export class InboxStationResponseDto {
   @ApiProperty({ example: 'Triage' })
   readonly name: string;
@@ -652,12 +697,22 @@ export class InboxItemViewResponseDto extends InboxItemResponseDto {
   })
   readonly notes: readonly NoteResponseDto[];
 
+  @ApiProperty({
+    type: FoldedVisitResponseDto,
+    isArray: true,
+    description:
+      'The station visits of the task outside this conversation, oldest first',
+  })
+  readonly folded: readonly FoldedVisitResponseDto[];
+
   constructor(
     item: Omit<InboxItemResponseDto, 'kind'>,
     notes: readonly NoteResponseDto[],
+    folded: readonly FoldedVisitResponseDto[],
   ) {
     super(item);
     this.notes = notes;
+    this.folded = folded;
   }
 }
 

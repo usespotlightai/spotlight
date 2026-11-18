@@ -576,6 +576,47 @@ export const RUN_STORIES: Record<string, RunStory> = {
     ],
     output: 'Opened acme/api#431: pg 8.13.1 without pg-native.',
   },
+  run_postgres_review: {
+    spend: spend(0.29, 1_980, 3_940, 168_300, 14_100),
+    steps: [
+      execute('gh pr diff 431 --repo acme/api --stat', '', 1),
+      read('src/exports/csv.ts'),
+      thought(
+        'The CSV export still formats paid_at with toISOString, which cuts microseconds. The exports test passes only because its fixture rounds to seconds.',
+      ),
+      messageStep('Sent acme/api#431 back: the CSV export drops microseconds.'),
+    ],
+    notes: [
+      asked(
+        'The CSV export in `src/exports/csv.ts` cuts `paid_at` to milliseconds. Should I fix it here in review, or send it back to Implementation?',
+      ),
+      answered(
+        SAM,
+        'Send it back. Implementation owns the export, and it needs a test.',
+        4,
+      ),
+      {
+        kind: 'passed',
+        minutesAfterEnd: 6,
+        body: `The CSV export in \`src/exports/csv.ts\` still cuts \`paid_at\` to milliseconds, and \`exports › csv dates\` passes only because its fixture rounds to seconds. Keep microseconds in the export and add a fixture that has them.`,
+      },
+    ],
+    output: 'Sent back: the CSV export drops microseconds.',
+  },
+  run_postgres_fix: {
+    spend: spend(0.92, 4_120, 8_760, 512_000, 36_400),
+    steps: [
+      read('src/exports/csv.ts'),
+      execute('npm test -- exports', '18 passing', 2),
+      messageStep('The CSV export keeps microseconds now, with a new fixture.'),
+    ],
+    notes: [
+      passed(
+        `Fixed the CSV export to keep microseconds and added a fixture with them. Passed [acme/api#431](${PULL_431}) back to Code Review. All 413 tests pass.`,
+      ),
+    ],
+    output: 'The CSV export keeps microseconds.',
+  },
   run_postgres_3: {
     spend: spend(0.38, 2_420, 4_880, 210_400, 18_200),
     steps: [

@@ -437,6 +437,19 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       review: { state: 'pending', conversationId: 'task_postgres:0' },
     }),
     run(DELIVERY, {
+      id: 'run_postgres_fix',
+      stationId: 'station_implementation',
+      startedHoursAgo: 18,
+      durationHours: 0.5,
+    }),
+    run(DELIVERY, {
+      id: 'run_postgres_review',
+      stationId: 'station_review',
+      harness: 'codex',
+      startedHoursAgo: 24,
+      durationHours: 0.2,
+    }),
+    run(DELIVERY, {
       id: 'run_postgres_2',
       stationId: 'station_implementation',
       startedHoursAgo: 30,

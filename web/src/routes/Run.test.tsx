@@ -154,6 +154,7 @@ const conversationOf = (over: Record<string, unknown> = {}) => ({
   createdAt: '2026-08-29T09:02:00.000Z',
   briefing: null,
   progress: null,
+  folded: [],
   notes: [
     {
       position: 0,
@@ -436,7 +437,7 @@ describe('Run', () => {
 
       renderRun();
       for (const worked of screen.getAllByRole('button', {
-        name: 'Worked · 1 step',
+        name: 'Worked 1 step',
       })) {
         await userEvent.click(worked);
       }
@@ -679,7 +680,7 @@ describe('Run', () => {
 
       renderRun();
       await userEvent.click(
-        screen.getByRole('button', { name: /^Work(ed|ing) · 1 step/ }),
+        screen.getByRole('button', { name: /^Work(ed|ing) 1 step/ }),
       );
 
       expect(screen.getByText('queue-stats --all')).toBeInTheDocument();
@@ -1164,7 +1165,7 @@ describe('Run', () => {
       );
       expect(screen.getAllByText('queue-stats --all')).toHaveLength(1);
       expect(
-        screen.getByRole('button', { name: 'Worked · 1 step' }),
+        screen.getByRole('button', { name: 'Worked 1 step' }),
       ).toBeInTheDocument();
       expect(
         screen.getByText('Implementation is working…'),

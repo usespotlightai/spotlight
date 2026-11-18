@@ -13,6 +13,7 @@ import type {
   TraceStationResponseDto,
 } from '@/lib/api';
 import { perWorld, world } from '@/mocks/world';
+import { foldedAround } from '@/mocks/world/folded-visits';
 import {
   pastTaskOf,
   pastTeamRuns,
@@ -25,6 +26,8 @@ import {
   changeStacksOf,
   endOf,
   finished,
+  notesOfRun,
+  type StoryNote,
   PREPARE_MS,
   PUBLISH_MS,
   runsOfAnyTask,
@@ -162,6 +165,36 @@ const briefingOf = (located: Located, story: RunStory): string => {
   ].join('\n\n');
 };
 
+const storyNotes = perWorld(() => new Map<string, StoryNote[]>());
+
+const storyNotesOf = (run: TaskRunResponseDto): StoryNote[] => {
+  const known = storyNotes().get(run.id);
+
+  if (known) {
+    return known;
+  }
+
+  const notes = notesOfRun(run);
+  storyNotes().set(run.id, notes);
+  return notes;
+};
+
+const earlierElsewhere = (located: Located): NoteResponseDto[] => {
+  const earlier = runsOfAnyTask(located.task.id)
+    .filter(
+      (run) =>
+        run.startedAt < located.run.startedAt &&
+        run.station?.id !== located.run.station?.id,
+    )
+    .sort((one, other) => one.startedAt.localeCompare(other.startedAt))
+    .flatMap(storyNotesOf);
+
+  return earlier.map((note, at) => ({
+    ...note,
+    position: at - earlier.length,
+  }));
+};
+
 export const conversationOf = (located: Located): RunNotesResponseDto => {
   const story = storyOf(located.run.id);
   const scripted = story.notes.map((script, position) =>
@@ -185,6 +218,7 @@ export const conversationOf = (located: Located): RunNotesResponseDto => {
       progress: located.run.progress,
     },
     notes: [...scripted, ...added],
+    folded: foldedAround(earlierElsewhere(located), []),
     spend: finished(located.run) ? story.spend : null,
   };
 };

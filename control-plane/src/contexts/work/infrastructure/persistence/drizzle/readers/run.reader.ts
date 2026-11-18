@@ -49,6 +49,7 @@ import {
   attachmentsFor,
   attachmentsOf,
   awaitedReviewsFor,
+  foldedAround,
   LATEST_RUN_FIRST,
   reviewsBy,
   stationsPerLine,
@@ -333,6 +334,16 @@ export class DrizzleRunReader implements RunReaderPort {
       stationsPerLine(this.db, [found.stationLineId ?? '']),
     ]);
     const notes = trails.get(found.taskId) ?? [];
+    const shown = notes.filter((note) =>
+      inThreadAt(
+        {
+          runId: note.runId ? RunId.of(note.runId) : null,
+          stationId: StationId.of(note.stationId),
+        },
+        found.stationId ? StationId.of(found.stationId) : null,
+        runId,
+      ),
+    );
 
     return {
       workspaceId: WorkspaceId.of(found.workspaceId),
@@ -356,16 +367,8 @@ export class DrizzleRunReader implements RunReaderPort {
           ),
           progress: RunReadingMapper.progress(latestRun.progress),
         },
-        notes: notes.filter((note) =>
-          inThreadAt(
-            {
-              runId: note.runId ? RunId.of(note.runId) : null,
-              stationId: StationId.of(note.stationId),
-            },
-            found.stationId ? StationId.of(found.stationId) : null,
-            runId,
-          ),
-        ),
+        notes: shown,
+        folded: foldedAround(notes, shown),
       },
     };
   }

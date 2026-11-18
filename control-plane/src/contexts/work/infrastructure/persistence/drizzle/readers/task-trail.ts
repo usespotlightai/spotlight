@@ -9,6 +9,7 @@ import type {
   InboxApproval,
   InboxConnection,
   InboxFailure,
+  InboxFoldedVisit,
   InboxNote,
 } from '@work/application/ports/inbox-reader.port';
 import type { RunReview } from '@work/application/ports/run-reader.port';
@@ -22,6 +23,7 @@ import {
   TURNING_NOTE_KINDS,
 } from '@work/domain/services/conversations';
 import { deferralWaitingIn } from '@work/domain/services/deferred-moves';
+import { foldedVisits } from '@work/domain/services/folded-visits';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import {
@@ -521,6 +523,19 @@ export const conversationsAmong = <T extends { kind: TaskNoteKind }>(
         ]
       : [];
   });
+
+export const foldedAround = (
+  trail: readonly InboxNote[],
+  shown: readonly InboxNote[],
+): InboxFoldedVisit[] =>
+  foldedVisits(trail, new Set(shown.map((note) => note.position))).map(
+    (visit) => ({
+      notes: visit.notes,
+      closingAt: visit.closing?.position ?? null,
+      answerAt: visit.answer?.position ?? null,
+      sentBack: visit.sentBack,
+    }),
+  );
 
 export const stationsPerLine = async (
   db: DrizzleDatabase,

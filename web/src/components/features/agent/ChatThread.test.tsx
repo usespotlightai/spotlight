@@ -88,7 +88,7 @@ describe('ChatThread', () => {
   it('reserves a loading row for a run whose journal has not loaded', () => {
     render(thread([], [run({})]));
 
-    const toggle = screen.getByRole('button', { name: 'Loading · 4 steps' });
+    const toggle = screen.getByRole('button', { name: 'Loading 4 steps' });
 
     expect(toggle).toBeDisabled();
     expect(toggle.parentElement).toHaveAttribute('aria-busy', 'true');
@@ -104,7 +104,7 @@ describe('ChatThread', () => {
       screen.queryByRole('button', { name: /Loading/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Worked · 4 steps' }),
+      screen.getByRole('button', { name: 'Worked 4 steps' }),
     ).toBeEnabled();
   });
 

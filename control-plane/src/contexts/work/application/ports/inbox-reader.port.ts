@@ -134,8 +134,16 @@ export interface InboxItemSummary {
   readonly lastNote: InboxNote | null;
 }
 
+export interface InboxFoldedVisit {
+  readonly notes: readonly InboxNote[];
+  readonly closingAt: number | null;
+  readonly answerAt: number | null;
+  readonly sentBack: boolean;
+}
+
 export interface InboxItemView extends InboxItemSummary {
   readonly notes: readonly InboxNote[];
+  readonly folded: readonly InboxFoldedVisit[];
 }
 
 export interface InboxNoticeSummary {

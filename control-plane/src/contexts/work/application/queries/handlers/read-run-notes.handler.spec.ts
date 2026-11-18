@@ -29,6 +29,7 @@ const notes: RunNotesSummary = {
     progress: null,
   },
   notes: [],
+  folded: [],
 };
 
 const usage: RunUsageFacts = {

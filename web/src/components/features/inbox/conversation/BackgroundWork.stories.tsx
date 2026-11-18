@@ -120,6 +120,7 @@ const render =
         station: STATION,
         progress,
         notes: [said],
+        folded: [],
       }}
       worked={worked}
       footer={null}

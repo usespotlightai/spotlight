@@ -1,5 +1,6 @@
-import type { NoteDto } from '@work/application/dto/inbox.dto';
+import type { FoldedVisitDto, NoteDto } from '@work/application/dto/inbox.dto';
 import {
+  FoldedVisitResponseDto,
   InboxApprovalResponseDto,
   InboxAuthorResponseDto,
   InboxConnectionResponseDto,
@@ -41,5 +42,13 @@ export const NoteHttpMapper = {
       note.connection ? new InboxConnectionResponseDto(note.connection) : null,
       note.resumption ? new NoteResumptionResponseDto(note.resumption) : null,
       note.suggestsClosing,
+    ),
+
+  foldedToResponse: (visit: FoldedVisitDto): FoldedVisitResponseDto =>
+    new FoldedVisitResponseDto(
+      visit.notes.map(NoteHttpMapper.toResponse),
+      visit.closingAt,
+      visit.answerAt,
+      visit.sentBack,
     ),
 };

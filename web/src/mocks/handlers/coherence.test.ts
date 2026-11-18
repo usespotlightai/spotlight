@@ -301,7 +301,10 @@ describe('the task journal and the run conversations tell one story', () => {
     const journal = (await journalOf('task_retries')).find(
       (each) => each.runId === 'run_retries_2',
     );
-    const inboxNotes = item.notes;
+    const inboxNotes = [
+      ...item.folded.flatMap((visit) => visit.notes),
+      ...item.notes,
+    ];
     const answer = run.notes.find((note) => note.kind === 'answered');
 
     expect(

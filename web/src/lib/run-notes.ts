@@ -143,6 +143,7 @@ export const conversationItemOf = (
   },
   progress,
   notes: conversation.notes,
+  folded: conversation.folded,
 });
 
 export const followedOnAfter = (

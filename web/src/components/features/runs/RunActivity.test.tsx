@@ -68,10 +68,10 @@ describe('RunActivity', () => {
     renderActivity('in-progress');
 
     expect(
-      screen.getByRole('button', { name: 'Worked · 2 steps' }),
+      screen.getByRole('button', { name: 'Worked 2 steps' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Working · 1 step' }),
+      screen.getByRole('button', { name: 'Working 1 step' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Next, the tests.')).toBeInTheDocument();
   });
@@ -83,6 +83,6 @@ describe('RunActivity', () => {
       screen
         .getAllByRole('button', { name: /^Worked/ })
         .map((each) => each.textContent),
-    ).toEqual(['Worked · 2 steps', 'Worked · 1 step']);
+    ).toEqual(['Worked 2 steps', 'Worked 1 step']);
   });
 });

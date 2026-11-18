@@ -149,8 +149,16 @@ export interface InboxItemDto {
   readonly lastNote: NoteDto | null;
 }
 
+export interface FoldedVisitDto {
+  readonly notes: readonly NoteDto[];
+  readonly closingAt: number | null;
+  readonly answerAt: number | null;
+  readonly sentBack: boolean;
+}
+
 export interface InboxItemViewDto extends InboxItemDto {
   readonly notes: readonly NoteDto[];
+  readonly folded: readonly FoldedVisitDto[];
 }
 
 export interface NoticeExternalLinkDto {

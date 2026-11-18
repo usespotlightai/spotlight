@@ -1,3 +1,4 @@
+import { TaskPullRequests } from '@/components/features/board/task/TaskPullRequests';
 import { OpenInEditor } from '@/components/features/editor/OpenInEditor';
 import { RunHold } from '@/components/features/hold/RunHold';
 import {
@@ -21,6 +22,7 @@ export function RunHeader({ slug, teamId, run, trail }: RunHeaderProps) {
       actions={
         run.taskId && (
           <>
+            <TaskPullRequests teamId={teamId} taskId={run.taskId} />
             <RunHold
               slug={slug}
               teamId={teamId}

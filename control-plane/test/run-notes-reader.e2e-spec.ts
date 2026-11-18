@@ -84,7 +84,7 @@ const taskOnLine = async (...names: string[]) => {
     at: { stationId: string; station: string },
     runId: string | null,
     body: string,
-    kind: 'message' | 'asked' | 'answered' = 'message',
+    kind: 'message' | 'asked' | 'answered' | 'passed' = 'message',
   ) =>
     db.insert(schema.taskNote).values({
       taskId,
@@ -192,6 +192,41 @@ describe('the notes of a run', () => {
       'it failed',
       'try again',
       'it failed again',
+    ]);
+  });
+
+  it('folds the notes of the other stations into their visits', async () => {
+    const { triage, implementation, note, run } = await taskAtImplementation();
+    const triaged = await run(triage, 'completed', '2026-10-20T08:00:00.000Z');
+    const working = await run(
+      implementation,
+      'completed',
+      '2026-10-20T09:00:00.000Z',
+    );
+    const atTriage = { stationId: triage, station: 'Triage' };
+    await note(atTriage, triaged, 'Which queue?', 'asked');
+    await note(atTriage, null, 'The billing queue.', 'answered');
+    await note(atTriage, triaged, 'Drain the billing queue.', 'passed');
+    await note(
+      { stationId: implementation, station: 'Implementation' },
+      working,
+      'Drained it.',
+    );
+
+    const found = (await reader.notesFor(RunId.of(working)))?.found;
+
+    expect(found?.notes.map((each) => each.body)).toEqual(['Drained it.']);
+    expect(found?.folded).toEqual([
+      expect.objectContaining({
+        closingAt: 2,
+        answerAt: 1,
+        sentBack: false,
+      }),
+    ]);
+    expect(found?.folded[0]?.notes.map((each) => each.body)).toEqual([
+      'Which queue?',
+      'The billing queue.',
+      'Drain the billing queue.',
     ]);
   });
 

@@ -16,6 +16,7 @@ import {
   sentBackRun,
   verdictsAgreeRun,
 } from '@/mocks/world/disagreement-runs';
+import { foldedAround, lastConversationIn } from '@/mocks/world/folded-visits';
 import { GROWTH_ID } from '@/mocks/world/growth';
 import {
   type AlertFiring,
@@ -132,6 +133,26 @@ const notesOfTask = (taskId: string): StoryNote[] =>
     .sort((one, other) => one.startedAt.localeCompare(other.startedAt))
     .flatMap(notesOfRun);
 
+const promptFor = (
+  station: string,
+  task: { readonly title: string; readonly description: string | null },
+  trail: readonly NoteResponseDto[],
+): string =>
+  [
+    `You are the ${station} station of the Delivery line. Work on the task below. Hand it over with spotlight handover when you finish. Ask a person when a decision is not yours to make.`,
+    `## ${task.title}`,
+    task.description,
+    trail.length > 0
+      ? [
+          '## Already done',
+          ...trail.map((note) => `### ${note.station}\n\n${note.body}`),
+        ].join('\n\n')
+      : null,
+    '## The Spotlight CLI\n\nRun spotlight --help to see every command.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
 type Conversation = Omit<Partial<InboxConversation>, 'notes'> & {
   readonly taskId: string;
   readonly teamId: string;
@@ -149,7 +170,8 @@ const conversation = ({
   const task = seededTask(taskId);
   const at = placeOf(askedIn);
   const currentStation = placeOf(task.stationId);
-  const numberedNotes = numbered(notesOfTask(taskId));
+  const trail = numbered(notesOfTask(taskId));
+  const numberedNotes = lastConversationIn(trail);
 
   return {
     kind: 'task',
@@ -176,10 +198,11 @@ const conversation = ({
     progress: null,
     runId: null,
     unread: false,
-    briefing: [task.title, task.description].filter(Boolean).join('\n\n'),
+    briefing: promptFor(at.name, task, trail),
     failure: null,
     inboxRequest: null,
     notes: numberedNotes,
+    folded: foldedAround(trail, numberedNotes),
     standing: 'assignee',
     ...over,
   };
@@ -236,6 +259,7 @@ const inboxRequestOf = ({
     failure: null,
     inboxRequest,
     notes: [],
+    folded: [],
     standing: 'team',
     ...over,
   };
@@ -540,6 +564,7 @@ const setupItem = (createdAt: string, resolved: boolean): InboxConversation => {
     failure: null,
     inboxRequest: null,
     standing: 'assignee',
+    folded: [],
     notes: [
       {
         position: 0,

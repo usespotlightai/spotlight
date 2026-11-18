@@ -125,6 +125,7 @@ const item: ConversationItem = {
   station: STATION,
   progress: null,
   notes,
+  folded: [],
 };
 
 const client = new QueryClient({

@@ -6,13 +6,12 @@ import type {
   InboxItemDto,
   InboxItemViewDto,
   InboxNoticeDto,
-  NoteDto,
 } from '@work/application/dto/inbox.dto';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
+import { NoteMapper } from '@work/application/mappers/note.mapper';
 import type {
   InboxEntrySummary,
   InboxItemSummary,
-  InboxNote,
   InboxNoticeSummary,
   InboxReaderPort,
 } from '@work/application/ports/inbox-reader.port';
@@ -23,16 +22,11 @@ import type {
 } from '@work/application/queries/list-inbox.query';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 
-const noteDtoOf = (note: InboxNote): NoteDto => ({
-  ...note,
-  at: note.at.toISOString(),
-});
-
 const itemDtoOf = (item: InboxItemSummary): InboxItemDto => ({
   ...item,
   createdAt: item.createdAt.toISOString(),
   askedAt: item.askedAt.toISOString(),
-  lastNote: item.lastNote && noteDtoOf(item.lastNote),
+  lastNote: item.lastNote && NoteMapper.toDto(item.lastNote),
 });
 
 const noticeDtoOf = (notice: InboxNoticeSummary): InboxNoticeDto => ({
@@ -104,7 +98,11 @@ export class ReadInboxItemHandler implements QueryHandlerPort<
       const found = scope && (await this.inbox.item(scope, query.itemId));
 
       return (
-        found && { ...itemDtoOf(found), notes: found.notes.map(noteDtoOf) }
+        found && {
+          ...itemDtoOf(found),
+          notes: found.notes.map(NoteMapper.toDto),
+          folded: found.folded.map(NoteMapper.foldedToDto),
+        }
       );
     } catch (error) {
       rethrowAsApplicationError(error);

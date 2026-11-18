@@ -18,21 +18,14 @@ export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
     <StepsDisclosure
       steps={steps}
       label={
-        <span className="flex flex-wrap items-center gap-x-1.5">
+        <span className="flex flex-wrap items-center gap-x-3">
           <span className="whitespace-nowrap">
-            {ms > 0 ? `Worked for ${formatShortDuration(ms)}` : 'Worked'} ·
+            {ms > 0 ? `Worked for ${formatShortDuration(ms)}` : 'Worked'}
           </span>{' '}
           <span className="whitespace-nowrap">
             {steps.length} {steps.length === 1 ? 'step' : 'steps'}
-            {attempts === 1 && spent && ' ·'}
+            {attempts > 1 && ` over ${attempts} attempts`}
           </span>{' '}
-          {attempts > 1 && (
-            <>
-              <span className="whitespace-nowrap">
-                over {attempts} attempts{spent && ' ·'}
-              </span>{' '}
-            </>
-          )}
           {spent && (
             <span
               className="flex items-center gap-1"

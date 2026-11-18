@@ -77,6 +77,7 @@ import {
   type ConversationMark,
   conversationsAmong,
   failureIn,
+  foldedAround,
   latestRunsAtCurrentStation,
   type MarkedConversation,
   marksFor,
@@ -1014,6 +1015,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         context,
       ),
       notes,
+      folded: foldedAround(trail, notes),
     };
   }
 
@@ -1031,7 +1033,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
     const [found] = await this.requestItems(scope, rows);
 
     return found && found.entry.kind === 'task'
-      ? { ...found.entry, notes: [] }
+      ? { ...found.entry, notes: [], folded: [] }
       : null;
   }
 

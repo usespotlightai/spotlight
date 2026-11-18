@@ -3064,6 +3064,25 @@ export type InboxRunResponseDto = {
   reopenable: false;
 };
 
+export type FoldedVisitResponseDto = {
+  /**
+   * The notes of one station visit that the page does not show, oldest first
+   */
+  notes: Array<NoteResponseDto>;
+  /**
+   * The position of the note that moved the task on from this visit
+   */
+  closingAt: number | null;
+  /**
+   * The position of the last answer a person gave in this visit
+   */
+  answerAt: number | null;
+  /**
+   * Whether this visit sent the task back to an earlier station
+   */
+  sentBack: boolean;
+};
+
 export type InboxItemViewResponseDto = {
   /**
    * A task’s conversation or an inbox request on the task
@@ -3149,6 +3168,10 @@ export type InboxItemViewResponseDto = {
    * Every note of the conversation, oldest first
    */
   notes: Array<NoteResponseDto>;
+  /**
+   * The station visits of the task outside this conversation, oldest first
+   */
+  folded: Array<FoldedVisitResponseDto>;
 };
 
 export type AnswerInboxItemInputRequestDto = {
@@ -3494,6 +3517,10 @@ export type RunNotesResponseDto = {
    */
   latestRun: LatestRunResponseDto;
   notes: Array<NoteResponseDto>;
+  /**
+   * The station visits of the task outside this thread, oldest first
+   */
+  folded: Array<FoldedVisitResponseDto>;
   /**
    * What the run spent, once it has ended and its usage is recorded
    */
