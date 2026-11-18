@@ -107,7 +107,11 @@ function Peek({
       aria-hidden
       width={width}
       height={height}
-      style={{ [side === 'previous' ? 'left' : 'right']: PEEK_VISIBLE - width }}
+      style={
+        side === 'previous'
+          ? { left: PEEK_VISIBLE - width }
+          : { right: PEEK_VISIBLE - width }
+      }
       onClick={(event) => {
         event.stopPropagation();
         onClick();
