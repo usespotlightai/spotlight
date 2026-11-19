@@ -1,6 +1,7 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
+import type { ChatPullRequestState } from '@work/application/read-models/chat-pull-request-state';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { Progress } from '@work/domain/value-objects/progress';
 
@@ -68,6 +69,17 @@ interface ChatProposalView {
   readonly taskId: string | null;
 }
 
+interface ChatPullRequestView {
+  readonly taskId: string;
+  readonly url: string;
+  readonly state: ChatPullRequestState;
+  readonly lineName: string | null;
+  readonly stationName: string | null;
+  readonly stationColor: string | null;
+  readonly stationPosition: number | null;
+  readonly stationCount: number | null;
+}
+
 interface ChatMessageView {
   readonly position: number;
   readonly kind: string;
@@ -79,6 +91,7 @@ interface ChatMessageView {
   readonly attachments: readonly ChatAttachmentView[];
   readonly traces: readonly ChatTraceView[];
   readonly proposal: ChatProposalView | null;
+  readonly pullRequest: ChatPullRequestView | null;
 }
 
 export interface ChatView extends ChatSummary {

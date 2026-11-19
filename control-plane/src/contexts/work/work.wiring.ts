@@ -236,8 +236,10 @@ import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.h
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import { ReleaseTasksOfDeletedChat } from '@work/application/events/handlers/release-tasks-of-deleted-chat.handler';
 import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
+import { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
 import { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
 import { WelcomeTeam } from '@work/application/events/handlers/welcome-team.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
@@ -516,6 +518,7 @@ import { CandidateLines } from '@work/application/services/candidate-lines.servi
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
 import { ChannelChats } from '@work/application/services/channel-chats.service';
 import { ChatLoader } from '@work/application/services/chat-loader.service';
+import { ChatPullRequestToolUse } from '@work/application/services/chat-pull-request.tool-use';
 import { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
 import { ChecksToolUse } from '@work/application/services/checks.tool-use';
 import { CiSetups } from '@work/application/services/ci-setups.service';
@@ -542,6 +545,7 @@ import { OpenPullRequest } from '@work/application/services/open-pull-request.se
 import { OpenTasksToolUse } from '@work/application/services/open-tasks.tool-use';
 import { OutsideTaskNotices } from '@work/application/services/outside-task-notices.service';
 import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool-use';
+import { PullRequestOpeningHook } from '@work/application/services/pull-request-opening-hook';
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
 import { PurgeProcessedEvents } from '@work/application/services/purge-processed-events.service';
 import { PurgeToolUses } from '@work/application/services/purge-tool-uses.service';
@@ -1925,6 +1929,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             transaction,
             clock,
           ),
+          chatsOfTasks: new TellChatOfTask(chats, chatDispatch, transaction),
+          tasksOfDeletedChats: new ReleaseTasksOfDeletedChat(
+            tasks,
+            lines,
+            transaction,
+            clock,
+          ),
         }),
       ]);
       return true;
@@ -2197,14 +2208,23 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   {
+    provide: PullRequestOpeningHook,
+    inject: [TASK_VIEWS, LIFECYCLE_HOOKS, PULL_REQUESTS],
+    useFactory: (
+      taskViews: TaskViewsPort,
+      hooks: LifecycleHooksPort,
+      pullRequests: PullRequestPort,
+    ) => new PullRequestOpeningHook(taskViews, hooks, pullRequests),
+  },
+
+  {
     provide: OpenPullRequest,
     inject: [
       TASK_REPOSITORY,
       LINE_MAPS,
       PULL_REQUESTS,
       TRANSACTION,
-      TASK_VIEWS,
-      LIFECYCLE_HOOKS,
+      PullRequestOpeningHook,
       CLOCK,
     ],
     useFactory: (
@@ -2212,8 +2232,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       lines: LineMapsPort,
       pullRequests: PullRequestPort,
       transaction: TransactionPort,
-      taskViews: TaskViewsPort,
-      hooks: LifecycleHooksPort,
+      openingHook: PullRequestOpeningHook,
       clock: ClockPort,
     ) =>
       new OpenPullRequest(
@@ -2221,8 +2240,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         lines,
         pullRequests,
         transaction,
-        taskViews,
-        hooks,
+        openingHook,
         clock,
       ),
   },
@@ -2241,6 +2259,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       CHECK_RUNS,
       AttachmentCopies,
       OPEN_TASK_READER,
+      TASK_PLACEMENTS,
+      WorkAccess,
+      CreateTask,
+      ID_GENERATOR,
+      TASK_REPOSITORY,
+      PullRequestOpeningHook,
     ],
     useFactory: (
       opening: OpenPullRequest,
@@ -2254,12 +2278,31 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       checkRuns: CheckRunsPort,
       copies: AttachmentCopies,
       openTasks: OpenTaskReaderPort,
+      placements: TaskPlacementsPort,
+      access: WorkAccess,
+      createTask: CreateTask,
+      ids: IdGeneratorPort,
+      taskRepository: TaskRepository,
+      openingHook: PullRequestOpeningHook,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ChecksToolUse(tasks, checkRuns),
       new OpenTasksToolUse(lines, openTasks),
       new ProposeTaskToolUse(chats, lines, copies, clock),
       new SetupPullRequestToolUse(chats, pullRequests, transaction, clock),
+      new ChatPullRequestToolUse(
+        chats,
+        taskRepository,
+        lines,
+        placements,
+        access,
+        createTask,
+        pullRequests,
+        openingHook,
+        transaction,
+        ids,
+        clock,
+      ),
       new ReviewCommentToolUse(reviewing),
       new ReviewToolUse(reviewing),
     ],

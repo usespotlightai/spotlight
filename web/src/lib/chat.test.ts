@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   type ChatMessage,
+  type ChatPullRequest,
   chatPath,
   type Chat,
   decidedIn,
   momentsOf,
+  pullRequestNameOf,
+  pullRequestStationOf,
+  pullRequestTitleOf,
   phaseOf,
   promptHandedOver,
   proposalStatusOf,
@@ -30,6 +34,7 @@ const message = (over: Partial<ChatMessage>): ChatMessage => ({
   attachments: [],
   traces: [],
   proposal: null,
+  pullRequest: null,
   ...over,
 });
 
@@ -235,6 +240,73 @@ describe('momentsOf', () => {
     );
 
     expect(moment?.kind).toBe('proposed');
+  });
+});
+
+describe('a pull request the agent opened', () => {
+  const PULL_REQUEST: ChatPullRequest = {
+    taskId: 'task_1',
+    url: 'https://github.com/acme/web/pull/7',
+    state: 'held',
+    lineName: 'Default',
+    stationName: 'Code review',
+    stationColor: '#edc12b',
+    stationPosition: 3,
+    stationCount: 5,
+  };
+
+  it('is a moment of the turn it was opened in, and what happened to it starts a turn', () => {
+    const turns = turnsOf(
+      momentsOf(
+        [
+          message({}),
+          message({
+            position: 1,
+            kind: 'opened',
+            body: 'Show video icons',
+            at: '2026-09-14T09:00:05.000Z',
+            runId: 'run_1',
+            pullRequest: PULL_REQUEST,
+          }),
+          message({
+            position: 2,
+            kind: 'happened',
+            body: 'Checks failed on web.',
+            at: '2026-09-14T09:00:09.000Z',
+          }),
+        ],
+        [],
+        [],
+      ),
+    );
+
+    expect(
+      turns.map((turn) => [
+        turn.message?.kind,
+        turn.moments.map((each) => each.kind),
+      ]),
+    ).toEqual([
+      ['message', ['opened']],
+      ['happened', []],
+    ]);
+  });
+
+  it('says where its task stands', () => {
+    expect(pullRequestTitleOf(PULL_REQUEST)).toBe('On hold for this chat');
+    expect(pullRequestTitleOf({ ...PULL_REQUEST, state: 'line' })).toBe(
+      'Handed to the line',
+    );
+    expect(pullRequestStationOf(PULL_REQUEST)).toBe('Default › Code review');
+    expect(pullRequestStationOf({ ...PULL_REQUEST, stationName: null })).toBe(
+      null,
+    );
+  });
+
+  it('is named by its repository and number', () => {
+    expect(pullRequestNameOf(PULL_REQUEST.url)).toBe('acme/web#7');
+    expect(pullRequestNameOf('https://example.com/7')).toBe(
+      'https://example.com/7',
+    );
   });
 });
 
@@ -448,6 +520,7 @@ describe('decidedIn', () => {
       position: 1,
       kind: 'proposed',
       proposal: { state: 'open' } as ChatMessage['proposal'],
+      pullRequest: null,
     });
     const chat = { messages: [message({}), proposed] } as unknown as Chat;
 

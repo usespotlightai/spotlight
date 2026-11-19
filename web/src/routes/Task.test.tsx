@@ -179,6 +179,7 @@ describe('Task', () => {
         startedAt: new Date().toISOString(),
         runId: 'run_turn',
         heldMoveTo: null,
+        chatId: null,
       },
     };
 

@@ -278,11 +278,29 @@ describe('CarryGitCall', () => {
     );
   });
 
-  it('carries no push from a chat that sets nothing up', async () => {
+  it('carries a push from a chat to a repository of the chat', async () => {
+    const { service, git } = carrying(claimedBy('runner_1', 'chat'), null);
+
+    await service.carry(
+      'run_1',
+      'runner_1',
+      'planning',
+      'git-receive-pack',
+      call,
+    );
+
+    expect(git.call).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      Repository.of('acme/planning'),
+      call,
+    );
+  });
+
+  it('carries no push from a chat to a repository it did not check out', async () => {
     const { service, git } = carrying(claimedBy('runner_1', 'chat'), null);
 
     await expect(
-      service.carry('run_1', 'runner_1', 'planning', 'git-receive-pack', call),
+      service.carry('run_1', 'runner_1', 'billing', 'git-receive-pack', call),
     ).resolves.toBeNull();
     expect(git.call).not.toHaveBeenCalled();
   });

@@ -5,11 +5,13 @@ import { AgentWorking } from '@/components/features/agent/AgentWorking';
 import { ChatEmpty } from '@/components/features/agent/ChatEmpty';
 import { ChatPersonMessage } from '@/components/features/agent/ChatPersonMessage';
 import { ChatProposal } from '@/components/features/agent/ChatProposal';
+import { ChatPullRequest } from '@/components/features/agent/ChatPullRequest';
 import {
   StepsWork,
   StepsWorkPending,
 } from '@/components/features/inbox/conversation/StepsWork';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
+import { WorldMessage } from '@/components/features/inbox/conversation/WorldMessage';
 import { Collapsible, COLLAPSE_MS } from '@/components/shared/Collapsible';
 import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { Turn } from '@/components/shared/Turn';
@@ -105,7 +107,16 @@ export function ChatThread({
                 ref={sight(runsOfTurn(turn))}
                 className={cn(at > 0 && 'mt-6')}
                 head={
-                  turn.message && (
+                  turn.message &&
+                  (turn.message.kind === 'happened' ? (
+                    <WorldMessage
+                      body={turn.message.body}
+                      attachments={[]}
+                      authors={[]}
+                      source={null}
+                      deferredTo={null}
+                    />
+                  ) : (
                     <div className={STICKY_AT_TOP}>
                       <ChatPersonMessage
                         slug={slug}
@@ -114,7 +125,7 @@ export function ChatThread({
                         targetStation={at === 0 ? chat.targetStation : null}
                       />
                     </div>
-                  )
+                  ))
                 }
               >
                 {(turn.moments.length > 0 || working) && (
@@ -137,6 +148,16 @@ export function ChatThread({
                             position={moment.message.position}
                             proposal={moment.proposal}
                             attachments={moment.message.attachments}
+                          />
+                        )}
+
+                        {moment.kind === 'opened' && (
+                          <ChatPullRequest
+                            slug={slug}
+                            teamId={teamId}
+                            chatId={chat.id}
+                            title={moment.message.body}
+                            pullRequest={moment.pullRequest}
                           />
                         )}
 

@@ -83,6 +83,7 @@ import {
   gt,
   inArray,
   isNotNull,
+  isNull,
   lt,
   not,
   or,
@@ -203,6 +204,7 @@ const toHold = (row: HoldRow): Hold =>
   Hold.rehydrate({
     id: HoldId.of(row.id),
     by: UserId.of(row.heldBy),
+    chat: row.chatId ? ChatId.of(row.chatId) : null,
     stationId: StationId.of(row.stationId),
     from: row.fromRunId ? RunId.of(row.fromRunId) : null,
     verdict: row.verdict,
@@ -572,6 +574,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           taskId: written.id.value,
           stationId: each.stationId.value,
           heldBy: each.by.value,
+          chatId: each.chat?.value ?? null,
           fromRunId: each.from?.value ?? null,
           verdict: each.verdict,
           turnRunIds: each.turns.map((turn) => turn.value),
@@ -674,6 +677,42 @@ export class DrizzleTaskRepository implements TaskRepository {
       .for('update');
 
     return this.whole(found);
+  }
+
+  async heldForChat(chat: ChatId): Promise<readonly Task[]> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        inArray(
+          task.id,
+          this.context.db
+            .select({ taskId: taskHold.taskId })
+            .from(taskHold)
+            .where(and(eq(taskHold.chatId, chat.value), isNull(taskHold.endedAt))),
+        ),
+      )
+      .orderBy(asc(task.id));
+
+    return this.whole(found);
+  }
+
+  async onBranch(
+    workspaceId: WorkspaceId,
+    branch: Branch,
+  ): Promise<Task | null> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        and(
+          eq(task.workspaceId, workspaceId.value),
+          eq(task.branch, branch.value),
+        ),
+      )
+      .limit(1);
+
+    return (await this.whole(found))[0] ?? null;
   }
 
   async owningPullRequest(

@@ -118,6 +118,7 @@ const holdOnMessage = ({
       startedAt: new Date().toISOString(),
       runId: world().runs[task.id]?.[0]?.id ?? null,
       heldMoveTo: null,
+      chatId: null,
     },
   });
 };

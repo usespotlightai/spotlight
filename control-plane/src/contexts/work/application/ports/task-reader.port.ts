@@ -25,6 +25,7 @@ export interface TaskHoldSummary {
   readonly startedAt: Date;
   readonly runId: string | null;
   readonly heldMoveTo: string | null;
+  readonly chatId: string | null;
 }
 
 export interface TaskSummary {

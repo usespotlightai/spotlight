@@ -15,8 +15,10 @@ import { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import type { TaskProposal } from '@work/domain/entities/task-proposal.entity';
 import { ChatCiSetUp } from '@work/domain/events/chat-ci-set-up.event';
 import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
+import { ChatHeardFromTask } from '@work/domain/events/chat-heard-from-task.event';
 import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
 import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
+import { ChatPullRequestOpened } from '@work/domain/events/chat-pull-request-opened.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
@@ -44,6 +46,7 @@ import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import type { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
 import type { ChatRefusal } from '@work/domain/value-objects/chat-refusal';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import type { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
@@ -316,14 +319,14 @@ export class Chat extends EventRecorder {
   }
 
   get unread(): boolean {
-    const proposedAt = this.messages
-      .filter((message) => message.kind === 'proposed')
+    const noticedAt = this.messages
+      .filter((message) => message.kind !== 'message')
       .map((message) => message.at.getTime());
 
     return chatUnread({
       readAt: this.readAt,
-      lastProposedAt:
-        proposedAt.length === 0 ? null : new Date(Math.max(...proposedAt)),
+      lastNoticeAt:
+        noticedAt.length === 0 ? null : new Date(Math.max(...noticedAt)),
     });
   }
 
@@ -398,7 +401,11 @@ export class Chat extends EventRecorder {
   pushableNamed(name: string): Repository | null {
     const named = this.repositoryNamed(name);
 
-    return named && this.setup?.repository.equals(named) ? named : null;
+    if (!named) {
+      return null;
+    }
+
+    return !this.setup || this.setup.repository.equals(named) ? named : null;
   }
 
   get fromChannel(): boolean {
@@ -440,6 +447,115 @@ export class Chat extends EventRecorder {
     );
 
     return sent;
+  }
+
+  mayOpenPullRequestFrom(runId: RunId, named: string | null): Repository {
+    if (this.setup) {
+      throw new InvalidChatTransitionError(
+        `Chat ${this.id.value} sets up the team. It opens its pull request with setup-pull-request.`,
+      );
+    }
+
+    if (!this.hasCurrentRun(runId)) {
+      throw new InvalidChatTransitionError(
+        `Run ${runId.value} no longer works chat ${this.id.value}.`,
+      );
+    }
+
+    const chosen = named?.trim() || null;
+    const repository = chosen
+      ? this.repositoryNamed(chosen)
+      : this.repositories.length === 1
+        ? (this.repositories[0] ?? null)
+        : null;
+
+    if (!repository) {
+      throw new InvalidChatTransitionError(
+        chosen
+          ? `Chat ${this.id.value} has no checkout of ${chosen}. Its repositories are: ${this.repositories.map((each) => each.value).join(', ') || 'none'}.`
+          : `Chat ${this.id.value} has ${this.repositories.length === 0 ? 'no repository' : 'more than one repository'}. Name the repository of the change with --repository.`,
+      );
+    }
+
+    return repository;
+  }
+
+  get pullRequests(): readonly ChatPullRequest[] {
+    return this.messages.flatMap((message) =>
+      message.pullRequest ? [message.pullRequest] : [],
+    );
+  }
+
+  openedPullRequest(input: {
+    runId: RunId;
+    title: string;
+    pullRequest: ChatPullRequest;
+    at: Date;
+  }): Chat {
+    const repository = input.pullRequest.url.repository;
+
+    if (this.setup) {
+      throw new InvalidChatTransitionError(
+        `Chat ${this.id.value} sets up the team. It opens its pull request with setup-pull-request.`,
+      );
+    }
+
+    if (
+      !repository ||
+      !this.repositories.some((each) => each.equals(repository))
+    ) {
+      throw new InvalidChatTransitionError(
+        `${input.pullRequest.url.value} is not in a repository of chat ${this.id.value}.`,
+      );
+    }
+
+    if (
+      this.pullRequests.some((each) => each.url.equals(input.pullRequest.url))
+    ) {
+      return this;
+    }
+
+    const opened = this.with({
+      messages: [
+        ...this.messages,
+        ChatMessage.opened({ ...input, position: this.nextPosition }),
+      ],
+    });
+    opened.record(
+      new ChatPullRequestOpened(
+        this.id,
+        this.workspaceId,
+        this.startedBy,
+        input.pullRequest.task,
+      ),
+    );
+
+    return opened;
+  }
+
+  heard(input: {
+    task: TaskId;
+    body: ChatMessageBody;
+    wakes: boolean;
+    at: Date;
+  }): Chat {
+    const told = this.with({
+      messages: [
+        ...this.messages,
+        ChatMessage.happened({ ...input, position: this.nextPosition }),
+      ],
+      ...(input.wakes ? { resolvedAt: null } : {}),
+    });
+    told.record(
+      new ChatHeardFromTask(
+        this.id,
+        this.workspaceId,
+        this.startedBy,
+        input.task,
+      ),
+    );
+
+    return told;
   }
 
   get setupPullRequestStep(): PullRequestStep {

@@ -249,6 +249,7 @@ type Resume struct {
 	Key           string `json:"key,omitempty"`
 	SessionID     string `json:"sessionId,omitempty"`
 	ResumeSession bool   `json:"resumeSession,omitempty"`
+	FollowUp      string `json:"followUp,omitempty"`
 }
 
 type Run struct {
