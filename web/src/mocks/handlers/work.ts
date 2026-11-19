@@ -48,7 +48,7 @@ const publicStackOf = ({
   removed,
 }: ChangeStackResponseDto): PublicChangeStackResponseDto => ({
   id,
-  repository: `acme/${repository ?? 'app'}`,
+  repository: repository ?? 'acme/app',
   state,
   files,
   removed,
